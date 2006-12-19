@@ -15,12 +15,10 @@ from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.variable import newvar
 from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var, \
-     W_CVar, W_AbstractDomain, W_AbstractDistributor
+     W_CVar, W_AbstractDomain, W_AbstractDistributor, Pool
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 from pypy.objspace.cclp.constraint.distributor import distribute
 from pypy.objspace.cclp.scheduler import W_ThreadGroupScheduler
-
-from pypy.rlib.rgc import gc_swap_pool, gc_clone
 
 def newspace(space, w_callable, __args__):
     "application level creation of a new computation space"
@@ -39,81 +37,66 @@ app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
 
 
 def choose(space, w_n):
-    assert isinstance(w_n, W_IntObject)
+    if not isinstance(w_n, W_IntObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap('Choose only accepts an integer.'))
     n = space.int_w(w_n)
+    # XXX sanity check for 1 <= n <= last_choice
     cspace = get_current_cspace(space)
-    if cspace is not None:
-        assert isinstance(cspace, W_CSpace)
-        try:
-            return cspace.choose(w_n.intval)
-        except ConsistencyError:
-            raise OperationError(space.w_ConsistencyError,
-                                 space.wrap("the space is failed"))
-    raise OperationError(space.w_RuntimeError,
-                         space.wrap("choose is forbidden from the top-level space"))
+    if not isinstance(cspace, W_CSpace):
+        raise OperationError(space.w_TypeError,
+                             space.wrap('Choose does not work from within '
+                                        'the top-level computatoin space.'))
+    try:
+        return cspace.choose(n)
+    except ConsistencyError:
+        raise OperationError(space.w_ConsistencyError,
+                             space.wrap("the space is failed"))
 app_choose = gateway.interp2app(choose)
-
 
 from pypy.objspace.cclp.constraint import constraint
 
 def tell(space, w_constraint):
-    assert isinstance(w_constraint, constraint.W_AbstractConstraint)
+    if not isinstance(w_constraint, constraint.W_AbstractConstraint):
+        raise OperationError(space.w_TypeError,
+                             space.wrap('Tell only accepts object of '
+                                        '(sub-)types Constraint.'))
     get_current_cspace(space).tell(w_constraint)
 app_tell = gateway.interp2app(tell)
 
-if not we_are_translated():
-    def fresh_distributor(space, w_dist):
-        cspace = w_dist._cspace
-        while w_dist.distributable():
-            choice = cspace.choose(w_dist.fanout())
-            w_dist.w_distribute(choice)
-    app_fresh_distributor = gateway.interp2app(fresh_distributor)
-
 
 class W_CSpace(W_ThreadGroupScheduler):
-    local_pool = None
 
     def __init__(self, space, dist_thread):
         W_ThreadGroupScheduler.__init__(self, space)
         dist_thread._cspace = self
         self._init_head(dist_thread)
         self._next = self._prev = self
+        self._pool = Pool(self)
         sched.uler.add_new_group(self)
-
         self.distributor = None # dist instance != thread
-        self._container = None # thread that 'contains' us
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
         # status, merging
         self._solution = newvar(space)
-        self._finished = newvar(space)
         self._failed = False
+        self._merged = False
+        self._finished = newvar(space)
         # constraint store ...
         self._store = {} # name -> var
-        if not we_are_translated():
-            self._constraints = []
         
     def register_var(self, cvar):
         self._store[cvar.name] = cvar
 
     def w_clone(self):
-        if we_are_translated():
-            w("<> cloning the space")
-            if self.local_pool is None:
-                self.local_pool = gc_swap_pool(gc_swap_pool(None))
-            new_cspace, new_cspace.local_pool = gc_clone(self, self.local_pool)
-            w("<> add cloned cspace to new group")
-            assert isinstance(new_cspace, W_CSpace)
-            new_cspace._next = new_cspace._prev = new_cspace
-            sched.uler.add_new_group(new_cspace)
-            w("<> returning clone ")
-            return new_cspace
-        else:
-            raise NotImplementedError
-
+        clone = self._pool.clone()
+        return self.space.wrap(clone.cspace)
 
     def w_ask(self):
+        if not interp_free(self._finished):
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("space is finished"))
         self.wait_stable()
         self.space.wait(self._choice)
         choice = self._choice.w_bound_to
@@ -123,6 +106,9 @@ class W_CSpace(W_ThreadGroupScheduler):
         return choice
 
     def choose(self, n):
+        if not interp_free(self._finished):
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("space is finished"))
         # solver probably asks
         assert n > 1
         self.wait_stable()
@@ -138,6 +124,9 @@ class W_CSpace(W_ThreadGroupScheduler):
         return committed
 
     def w_commit(self, w_n):
+        if not interp_free(self._finished):
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("space is finished"))
         assert isinstance(w_n, W_IntObject)
         n = w_n.intval
         assert interp_free(self._committed)
@@ -152,9 +141,6 @@ class W_CSpace(W_ThreadGroupScheduler):
         w_coro._cspace = self
         thunk = PropagatorThunk(space, w_constraint, w_coro)
         w_coro.bind(thunk)
-        if not we_are_translated():
-            w("PROPAGATOR in thread", str(id(w_coro)))
-            self._constraints.append(w_constraint)
         self.add_new_thread(w_coro)
 
     def fail(self):
@@ -167,6 +153,10 @@ class W_CSpace(W_ThreadGroupScheduler):
 
     def w_merge(self):
         # let's bind the solution variables
+        if self._merged:
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("space is already merged"))
+        self._merged = True
         sol = self._solution.w_bound_to
         if isinstance(sol, W_ListObject):
             self._bind_solution_variables(sol.wrappeditems)
@@ -191,10 +181,7 @@ class W_CSpace(W_ThreadGroupScheduler):
 
 
 def contains_cvar(lst):
-    for elt in lst:
-        if isinstance(elt, W_CVar):
-            return True
-    return False
+    return isinstance(lst[0], W_CVar)
 
 
 W_CSpace.typedef = typedef.TypeDef("W_CSpace",

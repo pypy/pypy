@@ -2,6 +2,10 @@ from pypy.interpreter import baseobjspace, gateway, typedef
 from pypy.interpreter.error import OperationError
 
 from pypy.objspace.cclp.misc import w, AppCoroutine, get_current_cspace
+from pypy.objspace.cclp.global_state import sched
+
+from pypy.rlib.rgc import gc_swap_pool, gc_clone
+from pypy.rlib.objectmodel import we_are_translated
 
 W_Root = baseobjspace.W_Root
 
@@ -42,11 +46,7 @@ class W_CVar(W_Var):
         self.w_dom = w_dom
         self.name = space.str_w(w_name)
         self.w_nam = w_name
-        cspace = get_current_cspace(space)
-        if cspace is None:
-            w("-- WARNING : you are instanciating a constraint var in the top-level space")
-        else:
-            cspace.register_var(self)
+        get_current_cspace(space).register_var(self)
 
     def copy(self, space):
         return W_CVar(space, self.w_dom.copy(), self.w_nam)
@@ -123,6 +123,49 @@ class W_AbstractDistributor(baseobjspace.Wrappable):
         self._cspace = get_current_cspace(space)
 
 W_AbstractDistributor.typedef = typedef.TypeDef("W_AbstractDistributor")
+
+#-- Pool --------------------------------------------------
+
+class Pool:
+    local_pool = None
+
+    def __init__(self, cspace=None):
+        self.cspace = cspace
+
+    def hello_local_pool(self):
+        if we_are_translated():
+            w('hello_local_pool')
+            self.saved_pool = gc_swap_pool(self.local_pool)
+
+    def goodbye_local_pool(self):
+        if we_are_translated():
+            w('goodbye_local_pool')
+            self.local_pool = gc_swap_pool(self.saved_pool)
+            self.saved_pool = None
+
+    def clone(self):
+        copy = Pool()
+        self.clone_into(copy)
+        return copy
+
+    def clone_into(self, copy, extradata=None):
+        # blindly copied from interp_clonable
+        # all we need is love, after all ...
+        if not we_are_translated():
+            raise NotImplementedError
+        # cannot gc_clone() directly self, because it is not in its own
+        # local_pool.  Moreover, it has a __del__, which cloning doesn't
+        # support properly at the moment.
+        # the hello/goodbye pair has two purposes: it forces
+        # self.local_pool to be computed even if it was None up to now,
+        # and it puts the 'data' tuple in the correct pool to be cloned.
+        self.hello_local_pool()
+        data = (self.cspace, extradata)
+        self.goodbye_local_pool()
+        # clone!
+        data, copy.local_pool = gc_clone(data, self.local_pool)
+        copy.cspace, extradata = data
+        return extradata
 
 
 #-- Misc ---------------------------------------------------

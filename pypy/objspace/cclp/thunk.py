@@ -108,7 +108,7 @@ class CSpaceThunk(_AppThunk):
                 outcome = sol.w_bound_to
                 if not (isinstance(outcome, W_ListObject) or \
                         isinstance(outcome, W_TupleObject)):
-                    w("WARNING: return value type of the script was not a list or tuple, we fail ...")
+                    w("WARNING: return value type of the script was not a list or tuple, we fail the space.")
                     cspace.fail()
                     return
                 assert interp_free(cspace._choice)

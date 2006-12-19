@@ -764,6 +764,7 @@ class AppTest_CompSpace(object):
                     break
             if status:
                 unify(Sol, spc.merge())
+                raises(AssertionError, spc.merge)
             else:
                 unify(Sol, False)
 

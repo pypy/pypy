@@ -138,8 +138,6 @@ app_make_fd = gateway.interp2app(make_fd)
 
 
 def intersection(space, w_fd1, w_fd2):
-    assert isinstance(w_fd1, W_FiniteDomain)
-    assert isinstance(w_fd2, W_FiniteDomain)
     return space.intersection(w_fd1, w_fd2)
 app_intersection = gateway.interp2app(intersection)
 

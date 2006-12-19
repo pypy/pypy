@@ -41,11 +41,18 @@ class TopLevelScheduler(object):
         group._prev = l
         group._next = r
 
+
     def schedule(self):
+        running = self._head
         to_be_run = self._select_next()
         assert isinstance(to_be_run, W_ThreadGroupScheduler), "type error"
         #w(".. SWITCHING (spaces)", str(id(get_current_cspace(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
+        if to_be_run != running:
+            if running._pool is not None:
+                running.goodbye()
+            if to_be_run._pool is not None:
+                to_be_run.hello()
         to_be_run.schedule() 
 
     def _select_next(self):
@@ -230,10 +237,12 @@ class TopLevelScheduler(object):
 
 #-- Thread Group scheduler --------------------------------------
 
+
 class W_ThreadGroupScheduler(baseobjspace.Wrappable):
 
     def __init__(self, space):
         self.space = space
+        self._pool = None
         self._switch_count = 0
         self._traced = {} # thread -> vars
         self.thread_count = 1
@@ -258,6 +267,18 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         r._prev = thread
         thread._prev = l
         thread._next = r
+
+    def hello(self):
+        self._pool.hello_local_pool()
+
+    def goodbye(self):
+        self._pool.goodbye_local_pool()
+
+    def register_var(self, var):
+        space = self.space
+        raise OperationError(space.w_AssertionError,
+                             space.wrap('You cannot create a constraint variable '
+                                        'in the top-level computation space.'))
 
     def is_blocked(self):
         return self.thread_count == self.blocked_count
