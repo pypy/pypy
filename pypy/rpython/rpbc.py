@@ -14,6 +14,15 @@ from pypy.rpython import robject
 
 from pypy.rpython import callparse
 
+def small_cand(rtyper, s_pbc):
+    if 1 < len(s_pbc.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
+           hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
+        callfamily = s_pbc.descriptions.iterkeys().next().getcallfamily()
+        concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
+        if len(uniquerows) == 1 and (not s_pbc.subset_of or small_cand(rtyper, s_pbc.subset_of)):
+            return True
+    return False
+
 class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         if self.isNone():
@@ -27,12 +36,8 @@ class __extend__(annmodel.SomePBC):
                     getRepr = OverriddenFunctionPBCRepr
                 else:
                     getRepr = rtyper.type_system.rpbc.FunctionsPBCRepr
-                    if 1 < len(self.descriptions) < rtyper.getconfig().translation.withsmallfuncsets and \
-                           hasattr(rtyper.type_system.rpbc, 'SmallFunctionSetPBCRepr'):
-                        callfamily = self.descriptions.iterkeys().next().getcallfamily()
-                        concretetable, uniquerows = get_concrete_calltable(rtyper, callfamily)
-                        if len(uniquerows) == 1:
-                            getRepr = rtyper.type_system.rpbc.SmallFunctionSetPBCRepr
+                    if small_cand(rtyper, self):
+                        getRepr = rtyper.type_system.rpbc.SmallFunctionSetPBCRepr
             else:
                 getRepr = getFrozenPBCRepr
         elif issubclass(kind, description.ClassDesc):
@@ -61,7 +66,11 @@ class __extend__(annmodel.SomePBC):
     def rtyper_makekey(self):
         lst = list(self.descriptions)
         lst.sort()
-        return tuple([self.__class__, self.can_be_None]+lst)
+        if self.subset_of:
+            t = self.subset_of.rtyper_makekey()
+        else:
+            t = ()
+        return tuple([self.__class__, self.can_be_None]+lst)+t
 
 ##builtin_descriptor_type = (
 ##    type(len),                            # type 'builtin_function_or_method'

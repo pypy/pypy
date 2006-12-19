@@ -322,11 +322,12 @@ class SomePBC(SomeObject):
     or a set of such instances."""
     immutable = True
 
-    def __init__(self, descriptions, can_be_None=False):
+    def __init__(self, descriptions, can_be_None=False, subset_of=None):
         # descriptions is a set of Desc instances.
         descriptions = dict.fromkeys(descriptions)
         self.descriptions = descriptions
         self.can_be_None = can_be_None
+        self.subset_of = subset_of
         self.simplify()
         if self.isNone():
             self.knowntype = type(None)

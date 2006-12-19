@@ -131,13 +131,21 @@ class SmallFunctionSetPBCRepr(Repr):
         assert len(uniquerows) == 1
         self.lowleveltype = Char
         self.pointer_repr = FunctionsPBCRepr(rtyper, s_pbc)
-        self.descriptions = list(s_pbc.descriptions)
-        if self.s_pbc.can_be_None:
-            self.descriptions.insert(0, None)
         self._conversion_tables = {}
         self._dispatch_cache = {}
 
     def _setup_repr(self):
+        if self.s_pbc.subset_of:
+            assert self.s_pbc.can_be_None == self.s_pbc.subset_of.can_be_None
+            r = self.rtyper.getrepr(self.s_pbc.subset_of)
+            if r is not self:
+                r.setup()
+                self.descriptions = r.descriptions
+                self.c_pointer_table = r.c_pointer_table
+                return
+        self.descriptions = list(self.s_pbc.descriptions)
+        if self.s_pbc.can_be_None:
+            self.descriptions.insert(0, None)
         POINTER_TABLE = Array(self.pointer_repr.lowleveltype)
         pointer_table = malloc(POINTER_TABLE, len(self.descriptions),
                                immortal=True)
@@ -147,7 +155,6 @@ class SmallFunctionSetPBCRepr(Repr):
             else:
                 pointer_table[i] = self.pointer_repr.convert_const(None)
         self.c_pointer_table = inputconst(Ptr(POINTER_TABLE), pointer_table)
-        from pypy.objspace.flow import model
 
     def get_s_callable(self):
         return self.s_pbc
@@ -192,7 +199,10 @@ class SmallFunctionSetPBCRepr(Repr):
         graph = FunctionGraph("dispatcher", startblock, varoftype(resulttype))
         row_of_graphs = self.callfamily.calltables[shape][index]
         links = []
-        for i, desc in enumerate(self.descriptions):
+        descs = list(self.s_pbc.descriptions)
+        if self.s_pbc.can_be_None:
+            descs.insert(0, None)
+        for desc in descs:
             if desc is None:
                 continue
             args_v = [varoftype(t) for t in argtypes]
@@ -203,6 +213,7 @@ class SmallFunctionSetPBCRepr(Repr):
             b.operations.append(
                 SpaceOperation("direct_call", [v_fn] + args_v, v_result))
             b.closeblock(Link([v_result], graph.returnblock))
+            i = self.descriptions.index(desc)
             links.append(Link(inputargs[1:], b, chr(i)))
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
@@ -285,11 +296,22 @@ def conversion_table(r_from, r_to):
         r_from._conversion_tables[r_to] = r
         return r
 
+## myf = open('convlog.txt', 'w')
+
 class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         c_table = conversion_table(r_from, r_to)
         if c_table:
             assert v.concretetype is Char
+##             from pypy.rpython.lltypesystem.rstr import string_repr
+##             s = repr(llops.rtyper.annotator.annotated.get(llops.originalblock))
+##             if 'LOAD_GLOBAL' in s:
+##                 import pdb; pdb.set_trace()
+##             print >> myf, 'static small conv', s
+##             print 'static small conv', s
+##             llops.genop('debug_print',
+##                         [Constant(string_repr.convert_const("dynamic small conv" + s),
+##                                   string_repr.lowleveltype)])
             v_int = llops.genop('cast_char_to_int', [v],
                                 resulttype=Signed)
             return llops.genop('getarrayitem', [c_table, v_int],
@@ -317,7 +339,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         # s_func = r_func.s_pbc -- not precise enough, see
         # test_precise_method_call_1.  Build a more precise one...
         funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
-        s_func = annmodel.SomePBC(funcdescs)
+        s_func = annmodel.SomePBC(funcdescs, subset_of=r_func.s_pbc)
         v_im_self = hop.inputarg(self, arg=0)
         v_cls = self.r_im_self.getfield(v_im_self, '__class__', hop.llops)
         v_func = r_class.getclsfield(v_cls, self.methodname, hop.llops)
