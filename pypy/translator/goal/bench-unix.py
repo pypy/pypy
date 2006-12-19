@@ -151,7 +151,7 @@ def main():
             try:
                 exesize = os.path.getsize(os.path.join(dirname, 'main.exe'))
             except OSError:
-                exesize = 'XXX''
+                exesize = 'XXX'
         else:
             codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
             exesize = os.path.getsize(exe)
