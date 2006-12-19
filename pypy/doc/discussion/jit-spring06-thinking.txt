@@ -6,11 +6,6 @@ PyPy - Just-In-Time Specialization
 Warning: These are just a few notes quickly thrown together, to be
 clarified and expanded.
 
-For now we are working on the parallel document `draft-jit-outline`_.
-
-.. _`draft-jit-outline`: draft-jit-outline.html
-
-
 Draft
 =========================
 
@@ -244,4 +239,4 @@ Backends
 ----------------
 
 
-.. include:: _ref.txt
+.. include:: ../_ref.txt
