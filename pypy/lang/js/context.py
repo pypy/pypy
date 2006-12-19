@@ -11,6 +11,14 @@ class ExecutionContext(object):
         self.variable = None
         self.property = Property('',w_Undefined) #Attribute flags for new vars
     
+    def assign(self, name, value):
+        """
+        assign to property name, creating it if it doesn't exist
+        """
+        pass
+        #ref = self.resolve_identifier(name)
+        #if ref.
+        
     def push_object(self, obj):
         """push object into scope stack"""
         self.scope.insert(0, obj)
@@ -22,9 +30,9 @@ class ExecutionContext(object):
     def resolve_identifier(self, identifier):
         for obj in self.scope:
             if obj.HasProperty(identifier):
-                return Reference(property_name, obj)
+                return Reference(identifier, obj)
         
-        return Reference(property_name)
+        return Reference(identifier)
     
 
 def global_context(w_global):

@@ -22,9 +22,9 @@ class Array(Node):
         self.items = items
 
 class Assign(Node):
-    def __init__(self, identifier, expr):
-        self.identifier = identifier
-        self.expr = expr
+    def __init__(self, LHSExp, AssignmentExp):
+        self.LHSExp = LHSExp
+        self.AssignmentExp = AssignmentExp
 
 class Block(Node):
     def __init__(self, nodes):

@@ -24,13 +24,10 @@ class W_Root(object):
         return self
 
     def ToBoolean(self):
-        return bool(self)
+        return False
 
     def ToPrimitive(self, hint=""):
         return self
-
-    #def ToNumber(self):
-    #    return int(self.ToPrimitive(hint="number"))
 
     def ToString(self):
         return str(self)
@@ -38,12 +35,18 @@ class W_Root(object):
     def ToObject(self):
         return self
 
+    def ToNumber(self):
+        return NaN
+    
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, str(self))
 
 class W_Primitive(W_Root):
     """unifying parent for primitives"""
-    pass    
+    def ToPrimitive(self, PreferredType):
+        return self
+
+    
 
 class W_Object(W_Root):
     def __init__(self, function=None):
@@ -116,6 +119,8 @@ class W_Object(W_Root):
         else: #suppose hint is "Number" dunno what to do otherwise
             internal_def_value("valueOf", "toString")
     
+    ToPrimitive = DefaultValue
+
     def __str__(self):
         return "[object %s]"%(self.Class,)
     
@@ -147,30 +152,23 @@ class W_Null(W_Root):
     def ToBoolean(self):
         return False
 
-class W_Boolean(W_Root):
+class W_Boolean(W_Primitive):
     def __init__(self, boolval):
         self.boolval = bool(boolval)
 
-    def __str__(self):
+    def ToString(self):
         if self.boolval:
             return "true"
         return "false"
     
     def ToNumber(self):
         if self.boolval:
-            return 1
-        return 0
-
-    def ToBoolean(self):
-        return self.boolval
-
+            return 1.0
+        return 0.0
     
-class W_String(W_Root):
+class W_String(W_Primitive):
     def __init__(self, strval):
         self.strval = strval
-
-#    def ToString(self):
-#        return self.strval
 
     def __str__(self):
         return self.strval
@@ -179,13 +177,11 @@ class W_String(W_Root):
         return bool(self.strval)
 
 
-class W_Number(W_Root):
+class W_Number(W_Primitive):
     def __init__(self, floatval):
         self.floatval = floatval
 
-    def __str__(self):
-        # XXX: more attention
-        # cough, cough
+    def ToString(self):
         if str(self.floatval) == str(NaN):
             return 'NaN'
         if float(int(self.floatval)) == self.floatval:
@@ -193,21 +189,22 @@ class W_Number(W_Root):
         return str(self.floatval)
     
     def ToBoolean(self):
-        return bool(self.floatval)
-
-    def Get(self, name):
-        return w_Undefined
+        return W_Boolean(bool(self.floatval))
 
     def ToNumber(self):
         return self.floatval
+    
+    def Get(self, name):
+        return w_Undefined
+
 
 class W_Reference(W_Root):
     def GetValue(self):
         raise NotImplementedError("W_Reference.GetValue")
 
-class W_Builtin(W_Object):
+class W_Builtin(W_Root):
     def __init__(self, builtinfunction):
-        W_Object.__init__()
+        #W_Object.__init__(self)
         self.builtinfunction = builtinfunction
     
     def Call(self, context, args=[], this = None):
@@ -225,12 +222,5 @@ class W_List(W_Root):
 
 w_Undefined = W_Undefined()
 w_Null = W_Null()
-
-def to_primitive(Value, PreferredType):
-    assert isinstance(Value, W_Root)
-    if isinstance(Value, W_Object):
-        return Value.DefaultValue(PreferredType)
-    return Value
-
 
         

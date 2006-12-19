@@ -6,17 +6,13 @@ class Reference(object):
         self.baseobject = baseobject
         self.propertyname = propertyname
         
-def get_value(v):
-    if not type(v, Reference):
-        return v
-    if v.baseobject is None:
-        raise ReferenceError
-    return v.baseobject.get(v.propertyname)
+    def GetValue(self):
+        if self.baseobject is None:
+            raise ReferenceError
+        return self.baseobject.Get(self.propertyname)
 
-def put_value(v, w, context):
-    if not type(v, Reference):
-        raise ReferenceError
-    base = v.baseobject
-    if v.baseobject is None:
-        base = context.scope[-1]
-    base.put(v.propertyname, w)
+    def PutValue(self, w, ctx):
+        base = self.baseobject
+        if self.baseobject is None:
+            base = ctx.scope[-1]
+        base.Put(self.propertyname, w)

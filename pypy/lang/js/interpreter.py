@@ -1,7 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.jsparser import parse
-from pypy.lang.js.context import ExecutionContext
+from pypy.lang.js.context import *
 from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
 from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean, NaN
 
@@ -22,11 +22,11 @@ class Interpreter(object):
     def __init__(self, script_source=None):
         self.w_Object = W_Object() #creating Object
         self.w_Global = W_Object()
-        w_Global.Prototype = w_Object
-        w_Global.Set('prototype', 'Object')
-        w_Global.Set('Object', w_Object)
-        self.global_context = GlobalContext(w_global)
-        if script_source is not none:
+        self.w_Global.Prototype = self.w_Object
+        self.w_Global.Put('prototype', 'Object')
+        self.w_Global.Put('Object', self.w_Object)
+        self.global_context = global_context(self.w_Global)
+        if script_source is not None:
             self.load_source(script_source)
     
     def load_source(self, script_source):
@@ -36,7 +36,7 @@ class Interpreter(object):
     
     def run(self):
         """run the interpreter"""
-        self.script.Call(self.global_context)
+        self.script.call(self.global_context)
 
         
 
@@ -46,9 +46,11 @@ class __extend__(Array):
         return W_Array(d)
 
 class __extend__(Assign):
-    def call(self, context):
-        val = self.expr.call(context)
-        self.identifier.put(context,val)
+    def call(self, ctx):
+        v1 = self.LHSExp.call(ctx)
+        v3 = self.AssignmentExp.call(ctx).GetValue()
+        v1.PutValue(v3, ctx)
+        return v3
 
 class __extend__(Block):
     def call(self, context):
@@ -64,7 +66,7 @@ class __extend__(Call):
     def call(self, context):
         name = self.identifier.get_literal()
         if name == 'print':
-            writer(",".join([i.ToString() for i in self.arglist.call(context)]))
+            writer(",".join([i.GetValue().ToString() for i in self.arglist.call(context)]))
         else:
             backup_scope = scope_manager.current_scope
             
@@ -108,14 +110,11 @@ class __extend__(Function):
        return w_obj
 
 class __extend__(Identifier):
-    def call(self, context):
-        if self.initialiser is not None:
-            context.assign(self.name, self.initialiser.call(context))
-        try:
-            value = context.access(self.name)
-            return value
-        except NameError:
-            return scope_manager.get_variable(self.name)
+    def call(self, ctx):
+        # if self.initialiser is not None:
+        #     context.assign(self.name, self.initialiser.call(context))
+        value = ctx.resolve_identifier(self.name)
+        return value
 
     def put(self, context, val, obj=None):            
         context.assign(self.name, val)
@@ -222,8 +221,8 @@ class __extend__(Plus):
     def call(self, context=None):
         left = self.left.call(context).GetValue()
         right = self.right.call(context).GetValue()
-        prim_left = left.ToPrimitive()
-        prim_right = right.ToPrimitive()
+        prim_left = left.ToPrimitive('Number')
+        prim_right = right.ToPrimitive('Number')
         # INSANE
         if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
             str_left = prim_left.ToString()
@@ -305,16 +304,16 @@ class __extend__(Try):
         return tryresult
 
 class __extend__(Undefined):
-    def call(self, context=None):
+    def call(self, ctx):
         return None
 
 class __extend__(Vars):
-    def call(self, context=None):
+    def call(self, ctx):
         for var in self.nodes:
-            var.call(context)
+            var.call(ctx)
 
 class __extend__(While):
-    def call(self, context=None):
-        while self.condition.call(context).ToBoolean():
-            self.body.call(context)
+    def call(self, ctx):
+        while self.condition.call(ctx).ToBoolean():
+            self.body.call(ctx)
 
