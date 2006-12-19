@@ -146,6 +146,7 @@ colors that we use when displaying the control flow graphs:
 * *Red* variables contain values that are not known until run-time -
   e.g. ``y``.
 
+.. _`hint annotator`:
 
 Binding-time analysis
 =========================================
