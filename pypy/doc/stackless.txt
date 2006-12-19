@@ -6,9 +6,9 @@ Introduction
 ================
 
 PyPy can expose to its user language features similar to the ones
-present in `Stackless Python`_: the ability to write code in a massively
-concurrent style.  It actually exposes three different paradigms to
-choose from:
+present in `Stackless Python`_: **no recursion depth limit**, and the
+ability to write code in a **massively concurrent style**.  It actually
+exposes three different paradigms to choose from:
 
 * `Tasklets and channels`_;
 
@@ -64,6 +64,17 @@ these concurrency concepts in a "composable" way.  In other words, it
 is possible to naturally mix in a single application multiple
 concurrency paradigms, and multiple unrelated usages of the same
 paradigm.  This is discussed in the Composability_ section below.
+
+
+Infinite recursion
+++++++++++++++++++
+
+Any stackless PyPy executable natively supports recursion that is only
+limited by the available memory.  As in normal Python, though, there is
+an initial recursion limit (which is 5000 in all pypy-c's, and 1000 in
+CPython).  It can be changed with ``sys.setrecursionlimit()``.  With a
+stackless PyPy, any value is acceptable - use ``sys.maxint`` for
+unlimited.
 
 
 Coroutines
