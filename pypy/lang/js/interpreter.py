@@ -1,5 +1,6 @@
 
 from pypy.lang.js.astgen import *
+from pypy.lang.js.jsparser import parse
 from pypy.lang.js.context import ExecutionContext
 from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
 from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean, NaN
@@ -30,11 +31,12 @@ class Interpreter(object):
     
     def load_source(self, script_source):
         """load a source script text to the interpreter"""
-        pass
+        temp_dict = parse(script_source)
+        self.script = from_dict(temp_dict)
     
     def run(self):
         """run the interpreter"""
-        pass
+        self.script.Call(self.global_context)
 
         
 

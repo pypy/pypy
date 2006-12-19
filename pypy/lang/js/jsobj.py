@@ -5,8 +5,7 @@ class SeePage(NotImplementedError):
 INFDEF = 1e300 * 1e300
 NaN    = INFDEF/INFDEF
 
-# TODO: Use an integer for attributes
-class Properfty(object):
+class Property(object):
     def __init__(self, name, value, DontDelete=False, 
                  ReadOnly=False, DontEnum=False, Internal=False):
         self.name = name
@@ -122,6 +121,13 @@ class W_Object(W_Root):
     
 class W_Arguments(W_Object):
     pass
+
+class ActivationObject(W_Object):
+    """The object used on function calls to hold arguments and this"""
+    def __init__(self):
+        W_Object.__init__()
+        self.propdict.pop(P)
+
 
 class W_Undefined(W_Root):
     def __str__(self):
