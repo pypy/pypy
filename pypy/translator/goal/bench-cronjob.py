@@ -166,10 +166,12 @@ def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
             llvm--_objspace-std-withstrdict
+            llvm--_objspace-opcodes-CALL_LIKELY_BUILTIN
             c
             c--gc=framework
             c--thread--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--stackless
+            c--stackless--profopt='-c "from richards import *;main(iterations=1)"'--_objspace-opcodes-CALL_LIKELY_BUILTIN
             c--stackless--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--profopt='-c "from richards import *;main(iterations=1)"'
             c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
