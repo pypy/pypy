@@ -118,7 +118,9 @@ class __extend__(Identifier):
 
 class __extend__(If):
     def call(self, ctx=None):
-        if self.condition.call(ctx).ToBoolean():
+        temp = self.condition.call(ctx)
+        print "if condition = ", temp 
+        if temp.ToBoolean():
             return self.thenPart.call(ctx)
         else:
             return self.elsePart.call(ctx)
@@ -135,6 +137,7 @@ def ARC(x, y):
     # TODO complete the funcion with strings comparison
     s1 = x.ToPrimitive('Number')
     s2 = y.ToPrimitive('Number')
+    print "ARC x = %s, y = %s"%(str(s1),str(s2))
     if not (isinstance(s1, W_String) and isinstance(s2, W_String)):
         s4 = s1.ToNumber()
         s5 = s2.ToNumber()
@@ -162,6 +165,7 @@ class __extend__(Lt):
         s2 = self.left.call(ctx).GetValue()
         s4 = self.right.call(ctx).GetValue()
         s5 = ARC(s2, s4)
+        print "< ARC result = ", s5
         if s5 is None:
             return W_Boolean(False)
         else:

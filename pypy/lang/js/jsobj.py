@@ -210,6 +210,9 @@ class W_Boolean(W_Primitive):
             return 1.0
         return 0.0
     
+    def ToBoolean(self):
+        return self.boolval
+    
 class W_String(W_Primitive):
     def __init__(self, strval):
         self.strval = strval
@@ -237,7 +240,9 @@ class W_Number(W_Primitive):
         return str(self.floatval)
     
     def ToBoolean(self):
-        return W_Boolean(bool(self.floatval))
+        if self.floatval == 0.0 or self.floatval == NaN:
+            return False
+        return bool(self.floatval)
 
     def ToNumber(self):
         return self.floatval

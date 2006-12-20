@@ -233,9 +233,16 @@ class TestInterp(object):
         print(o);
         """, ["[object Object]"])
 
+    def test_function_name(self):
+        py.test.skip("not ready yet")
+        self.assert_prints("""
+        function x() {
+            print("my name is x");
+        }
+        x();
+        """, ["my name is x"])
+            
     def test_new_with_function(self):
-        
-        
         c= """
         x = function() {this.info = 'hello';};
         o = new x();
