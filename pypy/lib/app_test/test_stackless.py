@@ -11,15 +11,12 @@ try:
     if 'coroutine' in dir(stackless):
         stackless_c = False
         raise ImportError("We are running pypy-c")
-    withinit = False
 except ImportError:
     stackless_c = False
     try:
         from pypy.lib import stackless_new as stackless
     except ImportError, e:
         skip('cannot import stackless: %s' % (e,))
-    #from pypy.lib import stackless
-    withinit = True
 
 def pypy_skip(txt):
     "don't skip, if we are running with CStackless"
@@ -27,13 +24,6 @@ def pypy_skip(txt):
         skip(txt)
 
 class Test_Stackless:
-
-    def setup_method(self, method):
-        # there is still a bug in stackless_new
-        # that requires to reinitialize the module
-        # for every test
-        if withinit:
-            stackless._init()
 
     def test_simple(self):
         rlist = []
@@ -79,6 +69,7 @@ class Test_Stackless:
         stackless.run()
 
         assert len(rlist) == 20
+        print rlist
         for i in range(10):
             (s,r), rlist = rlist[:2], rlist[2:]
             assert s == 's%s' % i
@@ -457,6 +448,79 @@ class Test_Stackless:
         t2 = stackless.tasklet(f)()
         r = stackless.schedule('test')
         assert r == 'test'
+
+    def test_simple_pipe(self):
+        pypy_skip('should not fail, but does')
+        def pipe(X_in, X_out):
+            foo = X_in.receive()
+            X_out.send(foo)
+
+        X, Y = stackless.channel(), stackless.channel()
+        stackless.tasklet(pipe)(X, Y)
+        stackless.run()
+        X.send(42)
+        assert Y.receive() == 42
+
+    def test_nested_pipe(self):
+        pypy_skip('should not fail, but does')
+        from stackless import run, tasklet, channel
+
+        def pipe(X, Y):
+            foo = X.receive()
+            Y.send(foo)
+
+        def nest(X, Y):
+            X2, Y2 = stackless.channel(), stackless.channel()
+            stackless.tasklet(pipe)(X2, Y2)
+            X2.send(X.receive())
+            Y.send(Y2.receive())
+
+        X, Y = stackless.channel(), stackless.channel()
+        stackless.tasklet(nest)(X, Y)
+        X.send(42)
+        assert Y.receive() == 42
+
+    def test_wait_two(self):
+        """
+        A tasklets/channels adaptation of the test_wait_two from the
+        logic object space
+        """
+        pypy_skip('should not fail, but does')
+        
+        def sleep(X, Barrier):
+            Barrier.send((X, X.receive()))
+
+        def wait_two(X, Y, Ret_chan):
+            Barrier = stackless.channel()
+            stackless.tasklet(sleep)(X, Barrier)
+            stackless.tasklet(sleep)(Y, Barrier)
+            ret = Barrier.receive()
+            if ret[0] == X:
+                Ret_chan.send((1, ret[1]))
+            return Ret_chan.send((2, ret[1]))
+
+        X, Y, Ret_chan = stackless.channel(), stackless.channel(), stackless.channel()
+        stackless.tasklet(wait_two)(X, Y, Ret_chan)
+        Y.send(42)
+        X.send(42)
+        assert Ret_chan.receive() == (2, 42)
+        
+    def test_noop(self):
+        """
+        this test is from pypy/lib/test2.
+        Left it in for documentation purposes.
+        "switch" is not officially in the tasklet interface. It it just
+        an implementation detail, that tasklets are descendents from
+        coroutines, which do have a 'switch' method
+        """
+        skip("this test does not make sense at the moment")
+        main = stackless.getcurrent()
+
+        def switch_to_main():
+            main.switch()
+        
+        t = stackless.tasklet(switch_to_main)()
+        stackless.run()
 
 
 

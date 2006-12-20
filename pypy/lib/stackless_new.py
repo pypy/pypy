@@ -18,6 +18,11 @@ except ImportError: # we are running from CPython
 
 from collections import deque
 
+import operator
+def deque_remove(dq, value):
+    "deque.remove is only in python2.5"
+    del dq[operator.indexOf(dq, value)]
+
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
                 TaskletExit greenlet'.split()
 
@@ -81,11 +86,13 @@ class channel(object):
             #receiver.tempval = sender.tempval
             receiver.tempval = sender.tempval
             squeue.append(sender)
+            #schedule()
         else: # nobody is waiting
             self.balance -= 1
-            squeue.pop()
+            #squeue.pop()
+            #deque_remove(receiver)
             self.queue.append(receiver)
-        schedule()
+            schedule_remove()
         msg = receiver.tempval
         return msg
 
@@ -218,6 +225,8 @@ def run():
     Please note that the 'timeout' feature is not yet implemented
     """
     schedule_remove()
+    while squeue:
+        schedule()
     
 scall = 0
 
@@ -228,14 +237,9 @@ def schedule_remove(retval=None):
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    global first_run
-    if first_run:
-        squeue.rotate(-1)
-        first_run = False
-    t = squeue.pop()
-    if t is not getcurrent():
-        squeue.appendleft(t)
-
+    try:
+        deque_remove(squeue, getcurrent())
+    except:pass
     schedule()
 
 def schedule(retval=None):
@@ -247,16 +251,12 @@ def schedule(retval=None):
     """
 
     mtask = getmain()
-    global first_run
-    if first_run:
-        squeue.rotate(-1)
-        first_run = False
-
     if squeue:
         task = squeue[0]
         squeue.rotate(-1)
-        if task is not getcurrent() and task.is_alive:
-            task.switch()
+        curr = getcurrent()
+        if task is not curr and task.is_alive:
+            r = task.switch()
             curr = getcurrent()
             if not task.is_alive:
                 if squeue:
@@ -269,13 +269,20 @@ def schedule(retval=None):
                     if curr is not mtask:
                         mtask.switch()
                 schedule()
+        elif task is curr:
+            if len(squeue) > 1:
+                schedule()
+        elif not task.is_alive:
+            try:
+                deque_remove(squeue, task)
+            except:pass
+            if not squeue:
+                squeue.append(mtask)
 
 def _init():
     global main_tasklet
     global global_task_id
-    global first_run
     global squeue
-    first_run = True
     global_task_id = 0
     main_tasklet = coroutine.getcurrent()
     try:

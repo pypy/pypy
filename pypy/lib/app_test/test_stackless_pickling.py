@@ -1,15 +1,30 @@
-from pypy.conftest import gettestobjspace, option
+"""
+this test should probably not run from CPython or py.py.
+I'm not entirely sure, how to do that.
+"""
 from py.test import skip
+try:
+    import stackless
+    stackless_c = True
+    if 'coroutine' in dir(stackless):
+        stackless_c = False
+        raise ImportError("We are running pypy-c")
+except ImportError:
+    stackless_c = False
+    try:
+        from pypy.lib import stackless_new as stackless
+    except ImportError, e:
+        skip('cannot import stackless: %s' % (e,))
 
-class AppTest_StacklessPickling:
 
-    def setup_class(cls):
-        if not option.runappdirect:
-            skip('pure appdirect test (run with -A)')
-        cls.space = gettestobjspace(usemodules=('_stackless',))
+
+class Test_StacklessPickling:
 
     def test_basic_tasklet_pickling(self):
-        import stackless
+        try:
+            import stackless
+        except ImportError:
+            skip("can't load stackless and don't know why!!!")
         from stackless import run, schedule, tasklet
         import pickle
 
