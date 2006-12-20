@@ -1,3 +1,6 @@
+# encoding: utf-8
+
+from pypy.lang.js.reference import Reference
 
 class SeePage(NotImplementedError):
     pass
@@ -30,7 +33,7 @@ class W_Root(object):
         return self
 
     def ToString(self):
-        return str(self)
+        return ''
     
     def ToObject(self):
         return self
@@ -39,40 +42,31 @@ class W_Root(object):
         return NaN
     
     def __repr__(self):
-        return "<%s(%s)>" % (self.__class__.__name__, str(self))
+        return "<%s(%s)>" % (self.__class__.__name__, self.ToString())
 
 class W_Primitive(W_Root):
     """unifying parent for primitives"""
     def ToPrimitive(self, PreferredType):
         return self
 
-    
-
 class W_Object(W_Root):
-    def __init__(self, function=None):
+    def __init__(self):
         self.propdict = {}
         self.propdict['toString'] = Property('toString', 
-                                             W_Builtin(self.__str__)) # FIXME: Not working
+                                             W_Builtin(self.__str__))
         self.propdict['prototype'] = Property('prototype', w_Undefined,
                                               DontDelete=True)
         self.Prototype = None
         self.Class = "Object"
-        self.function = function
         self.scope = []
     
-    def Call(self, context, args=[], this = None): # FIXME: Context-ng
-        if self.function is not none:
-            return self.function.body.call(context=context, args=args,
-                                           params=self.function.params,
-                                           this=this)
-        else:
-            print "returning common object"
-            return W_Object()
+    def Call(self, ctx, args=[], this = None):
+        return W_Object()
     
     def Get(self, P):
         if P in self.propdict: return self.propdict[P].value
-        if self.prototype is None: return w_Undefined
-        return self.prototype.Get(P) # go down the prototype chain
+        if self.Prototype is None: return w_Undefined
+        return self.Prototype.Get(P) # go down the prototype chain
     
     def CanPut(self, P):
         if P in self.propdict:
@@ -121,18 +115,49 @@ class W_Object(W_Root):
     
     ToPrimitive = DefaultValue
 
-    def __str__(self):
+    def ToString(self):
         return "[object %s]"%(self.Class,)
     
 class W_Arguments(W_Object):
-    pass
+    def __init__(self, callee, args):
+        W_Object.__init__(self)
+        self.Put('callee', callee)
+        self.Put('length', len(args))
+        for i, arg in enumerate(args):
+            self.Put(str(i), arg)
 
 class ActivationObject(W_Object):
     """The object used on function calls to hold arguments and this"""
     def __init__(self):
-        W_Object.__init__()
-        self.propdict.pop(P)
+        W_Object.__init__(self)
+        self.propdict.pop("toString")
+        self.propdict.pop("prototype")
 
+class W_FunctionObject(W_Object):
+    def __init__(self, function, ctx):
+        # TODO: See page 80
+        W_Object.__init__(self)
+        self.function = function
+        self.Class = "Function"
+        self.Prototype = None # TODO: See page 95 section 15.3.3.1
+        self.scope = ctx.scope[:]
+    
+    def Call(self, ctx, args=[], this=None):
+        print args
+        act = ActivationObject()
+        for i, arg in enumerate(args):
+            try:
+                value = args[i]
+            except IndexError:
+                value = w_Undefined
+            act.Put(self.function.params[i], value)
+        act.Put('this', this)
+        print act.propdict
+        w_Arguments = W_Arguments(self, args)
+        act.Put('arguments', w_Arguments)
+        newctx = function_context(self.scope, act, this)
+        val = self.function.body.call(ctx=newctx)
+        return val
 
 class W_Undefined(W_Root):
     def __str__(self):
@@ -173,12 +198,16 @@ class W_String(W_Primitive):
     def __str__(self):
         return self.strval
 
+    def ToString(self):
+        return self.strval
+    
     def ToBoolean(self):
         return bool(self.strval)
 
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
+        print "novo numero"
         self.floatval = floatval
 
     def ToString(self):
@@ -222,5 +251,67 @@ class W_List(W_Root):
 
 w_Undefined = W_Undefined()
 w_Null = W_Null()
+
+class ExecutionContext(object):
+    def __init__(self):
+        self.scope = []
+        self.this = None
+        self.variable = None
+        self.property = Property('',w_Undefined) #Attribute flags for new vars
+    
+    def assign(self, name, value):
+        """
+        assign to property name, creating it if it doesn't exist
+        """
+        pass
+        #ref = self.resolve_identifier(name)
+        #if ref.
+    
+    def get_global(self):
+        return self.scope[-1]
+            
+    def push_object(self, obj):
+        """push object into scope stack"""
+        self.scope.insert(0, obj)
+        self.variable = obj
+    
+    def pop_object(self):
+        """docstring for pop_object"""
+        return self.scope.pop(0)
+        
+    def resolve_identifier(self, identifier):
+        for obj in self.scope:
+            if obj.HasProperty(identifier):
+                return Reference(identifier, obj)
+        
+        return Reference(identifier)
+    
+
+def global_context(w_global):
+    ctx = ExecutionContext()
+    ctx.push_object(w_global)
+    ctx.this = w_global
+    ctx.property = Property('', w_Undefined, DontDelete=True)
+    return ctx
+
+def function_context(scope, activation, this=None):
+    ctx = ExecutionContext()
+    ctx.scope = scope
+    ctx.push_object(activation)
+    if this is None:
+        ctx.this = ctx.get_global()
+    else:
+        ctx.this = this
+    
+    ctx.property = Property('', w_Undefined, DontDelete=True)
+    return ctx
+    
+def eval_context(calling_context):
+    ctx = ExecutionContext()
+    ctx.scope = calling_context.scope[:]
+    ctx.this = calling_context.this
+    ctx.variable = calling_context.variable
+    ctx.property = Property('', w_Undefined)
+    return ctx
 
         

@@ -1,9 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.jsparser import parse
-from pypy.lang.js.context import *
-from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
-from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean, NaN
+from pypy.lang.js.jsobj import *
 
 def writer(x):
     print x
@@ -41,7 +39,7 @@ class Interpreter(object):
         
 
 class __extend__(Array):
-    def call(self, context):
+    def call(self, ctx):
         d = dict(enumerate(self.items))
         return W_Array(d)
 
@@ -53,85 +51,80 @@ class __extend__(Assign):
         return v3
 
 class __extend__(Block):
-    def call(self, context):
+    def call(self, ctx):
         try:
             last = w_Undefined
             for node in self.nodes:
-                last = node.call(context)
+                last = node.call(ctx)
             return last
         except ExecutionReturned, e:
             return e.value
 
 class __extend__(Call):
-    def call(self, context):
+    def call(self, ctx):
         name = self.identifier.get_literal()
         if name == 'print':
-            writer(",".join([i.GetValue().ToString() for i in self.arglist.call(context)]))
-        else:
-            backup_scope = scope_manager.current_scope
-            
-            w_obj = context.access(name)
-            scope_manager.current_scope = w_obj.function.scope
-            
-            retval = w_obj.Call(context=context, args=[i for i in self.arglist.call(context)])
-            scope_manager.current_scope = backup_scope
+            writer(",".join([i.GetValue().ToString() for i in self.arglist.call(ctx)]))
+        else:    
+            w_obj = ctx.resolve_identifier(name).GetValue()
+            retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.call(ctx)])
             return retval
 
 class __extend__(Comma):
-    def call(self, context):
-        self.left.call(context)
-        return self.right.call(context)
+    def call(self, ctx):
+        self.left.call(ctx)
+        return self.right.call(ctx)
 
 class __extend__(Dot):
-    def call(self, context=None):
-        w_obj = self.left.call(context).GetValue().ToObject()
+    def call(self, ctx=None):
+        w_obj = self.left.call(ctx).GetValue().ToObject()
         name = self.right.get_literal()
         return w_obj.Get(name)
         
-    def put(self, context, val):
+    def put(self, ctx, val):
         print self.left.name, self.right.name, val
         if isinstance(self.left,Identifier):
-            obj = context.access(self.left.name)
+            obj = ctx.access(self.left.name)
             print obj.Class
             obj.dict_w[self.right.name] = val
         elif isinstance(self.left,Dot):
-            obj = self.left.put(context, val)
+            obj = self.left.put(ctx, val)
 
         return obj
 
-        #w_obj = self.left.put(context).GetValue().ToObject()
+        #w_obj = self.left.put(ctx).GetValue().ToObject()
         #name = self.right.get_literal()
         #w_obj.dict_w[self.name] = val
         
 
 class __extend__(Function):
-    def call(self, context):
-       w_obj = W_Object({}, function=self)
+    def call(self, ctx):
+       w_obj = W_FunctionObject(self, ctx)
        return w_obj
 
 class __extend__(Identifier):
     def call(self, ctx):
-        # if self.initialiser is not None:
-        #     context.assign(self.name, self.initialiser.call(context))
-        value = ctx.resolve_identifier(self.name)
-        return value
+        if self.initialiser is not None:
+            ref = ctx.resolve_identifier(self.name)
+            ref.PutValue(self.initialiser.call(ctx), ctx)
+        return ctx.resolve_identifier(self.name)
 
-    def put(self, context, val, obj=None):            
-        context.assign(self.name, val)
+    def put(self, ctx, val, obj=None):            
+        ctx.assign(self.name, val)
     
     def get_literal(self):
         return self.name
 
 class __extend__(If):
-    def call(self, context=None):
-        if self.condition.call(context).ToBoolean():
-            return self.thenPart.call(context)
+    def call(self, ctx=None):
+        if self.condition.call(ctx).ToBoolean():
+            return self.thenPart.call(ctx)
         else:
-            return self.elsePart.call(context)
+            return self.elsePart.call(ctx)
 
 class __extend__(Group):
-    def call(self, context = None):
-        return self.expr.call(context)
+    def call(self, ctx = None):
+        return self.expr.call(ctx)
 
 def ARC(x, y):
     """
@@ -154,9 +147,9 @@ def ARC(x, y):
         pass 
 
 class __extend__(Gt):
-    def call(self, context = None):
-        s2 = self.left.call(context).GetValue()
-        s4 = self.right.call(context).GetValue()
+    def call(self, ctx = None):
+        s2 = self.left.call(ctx).GetValue()
+        s4 = self.right.call(ctx).GetValue()
         s5 = ARC(s4, s2)
         if s5 is None:
             return W_Boolean(False)
@@ -164,9 +157,9 @@ class __extend__(Gt):
             return W_Boolean(s5)
 
 class __extend__(Lt):
-    def call(self, context = None):
-        s2 = self.left.call(context).GetValue()
-        s4 = self.right.call(context).GetValue()
+    def call(self, ctx = None):
+        s2 = self.left.call(ctx).GetValue()
+        s4 = self.right.call(ctx).GetValue()
         s5 = ARC(s2, s4)
         if s5 is None:
             return W_Boolean(False)
@@ -174,34 +167,30 @@ class __extend__(Lt):
             return W_Boolean(s5)
 
 class __extend__(Index):
-    def call(self, context=None):
-        w_obj = self.left.call(context).GetValue()
-        w_member = self.expr.call(context).GetValue()
+    def call(self, ctx=None):
+        w_obj = self.left.call(ctx).GetValue()
+        w_member = self.expr.call(ctx).GetValue()
         w_obj = w_obj.ToObject()
         name = w_member.ToString()
         return w_obj.Get(name)
 
 class __extend__(List):
-    def call(self, context=None):
-        return [node.call(context) for node in self.nodes]
+    def call(self, ctx):
+        return [node.call(ctx) for node in self.nodes]
 
 class __extend__(New):
-    def call(self, context=None):
-        try:
-            constructor = context.access(self.identifier)
-        except NameError:
-            constructor = scope_manager.get_variable(self.identifier)
-        obj = W_Object({})
-        obj.Class = 'Object'
+    def call(self, ctx=None):
+        obj = W_Object()
         #it should be undefined... to be completed
-        obj.dict_w['prototype'] = constructor.dict_w['prototype']
-        constructor.Call(context, this = obj)
+        constructor = ctx.resolve_identifier(self.identifier).GetValue()
+        obj.Put('prototype', constructor.Get('prototype'))
+        constructor.Call(ctx, this = obj)
         
         return obj
 
 
 class __extend__(Number):
-    def call(self, context):
+    def call(self, ctx):
         return W_Number(self.num)
     
     def get_literal(self):
@@ -209,18 +198,19 @@ class __extend__(Number):
         return str(W_Number(self.num))
 
 class __extend__(ObjectInit):
-    def call(self, context=None):
-        w_obj = W_Object({})
+    def call(self, ctx):
+        w_obj = W_Object()
         for property in self.properties:
             name = property.name.get_literal()
-            w_expr = property.value.call(context).GetValue()
+            w_expr = property.value.call(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
 
 class __extend__(Plus):
-    def call(self, context=None):
-        left = self.left.call(context).GetValue()
-        right = self.right.call(context).GetValue()
+    def call(self, ctx):
+        print "left", self.left.call(ctx)
+        left = self.left.call(ctx).GetValue()
+        right = self.right.call(ctx).GetValue()
         prim_left = left.ToPrimitive('Number')
         prim_right = right.ToPrimitive('Number')
         # INSANE
@@ -236,25 +226,9 @@ class __extend__(Plus):
 
 class __extend__(Script):
     def call(self, ctx):
-        # ncontext = ExecutionContext(context)
-        # for i, item in enumerate(params):
-        #     try:
-        #         temp = args[i]
-        #     except IndexError:
-        #         temp = w_Undefined
-        #     ncontext.assign(item, temp)
-        # 
-        # for var in self.var_decl:
-        #     if first:
-        #         ncontext.globals[var.name] = w_Undefined
-        #     else:
-        #         ncontext.locals[var.name] = w_Undefined
-        
-        # w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
-        # ncontext.assign('arguments', w_Arguments)
-        # 
-        # ncontext.assign('this', this)
-        
+        for var in self.var_decl:
+            ctx.variable.Put(var.name, w_Undefined)
+                
         try:
             last = w_Undefined
             for node in self.nodes:
@@ -264,38 +238,38 @@ class __extend__(Script):
             return e.value
 
 class __extend__(Semicolon):
-    def call(self, context=None):
-        return self.expr.call(context)
+    def call(self, ctx=None):
+        return self.expr.call(ctx)
 
 class __extend__(String):
-    def call(self, context=None):
+    def call(self, ctx=None):
         return W_String(self.strval)
     
     def get_literal(self):
         return self.strval
 
 class __extend__(Return):
-    def call(self, context=None):
-        raise ExecutionReturned(self.expr.call(context))
+    def call(self, ctx):
+        raise ExecutionReturned(self.expr.call(ctx))
 
 class __extend__(Throw):
-    def call(self, context=None):
-        raise ThrowException(self.exception.call(context))
+    def call(self, ctx):
+        raise ThrowException(self.exception.call(ctx))
 
 class __extend__(Try):
-    def call(self, context=None):
+    def call(self, ctx):
         e = None
         try:
-            tryresult = self.tryblock.call(context)
+            tryresult = self.tryblock.call(ctx)
         except ThrowException, excpt:
             e = excpt
-            ncontext = ExecutionContext(context)
-            ncontext.assign(self.catchparam, e.exception)
+            nctx = ExecutionContext(ctx)
+            nctx.assign(self.catchparam, e.exception)
             if self.catchblock is not None:
-                tryresult = self.catchblock.call(ncontext)
+                tryresult = self.catchblock.call(nctx)
         
         if self.finallyblock is not None:
-            tryresult = self.finallyblock.call(context)
+            tryresult = self.finallyblock.call(ctx)
         
         #if there is no catchblock reraise the exception
         if (e is not None) and (self.catchblock is None):
@@ -309,7 +283,9 @@ class __extend__(Undefined):
 
 class __extend__(Vars):
     def call(self, ctx):
+        print self.nodes
         for var in self.nodes:
+            print var.name
             var.call(ctx)
 
 class __extend__(While):

@@ -16,3 +16,6 @@ class Reference(object):
         if self.baseobject is None:
             base = ctx.scope[-1]
         base.Put(self.propertyname, w)
+        
+    def __str__(self):
+        return str(self.baseobject) + " : " + str(self.propertyname)

@@ -1,8 +1,6 @@
 
 from pypy.annotation.pairtype import extendabletype
-from pypy.lang.js.context import ExecutionContext
-from pypy.lang.js.jsobj import W_Object, w_Undefined
-from pypy.lang.js.scope import scope_manager
+from pypy.lang.js.jsobj import W_Object, w_Undefined, ExecutionContext
 
 class Node(object):
     __metaclass__ = extendabletype
@@ -47,11 +45,10 @@ class Dot(Node):
         self.right = right
 
 class Function(Node):
-    def __init__(self, name, params, body, scope):
+    def __init__(self, name, params, body):
         self.name = name
         self.params = params
         self.body = body
-        self.scope = scope
 
 class Group(Node):
     def __init__(self, expr):
@@ -107,8 +104,6 @@ class Return(Node):
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
-        [scope_manager.add_variable(id.name, w_Undefined) for id in var_decl]
-        [scope_manager.add_variable(id.name, id) for id in func_decl]
         self.var_decl = var_decl
         self.func_decl = func_decl
 
@@ -190,14 +185,12 @@ def from_dict(d):
         return Dot(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'FUNCTION':        
         name = d.get('name', '')
-        scope = scope_manager.enter_scope()
         body = from_dict(d['body'])
         if d['params'] == '':
             params = []
         else:
             params = d['params'].split(',')
-        f = Function(name, params, body, scope)
-        scope_manager.leave_scope()
+        f = Function(name, params, body)
         return f
     elif tp == 'GROUP':
         return Group(from_dict(d['0']))

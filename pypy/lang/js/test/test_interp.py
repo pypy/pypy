@@ -1,14 +1,14 @@
+
+import sys
+from StringIO import StringIO
+
 import py.test
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import ThrowException
-from pypy.lang.js.jsobj import W_Number, W_Object
-from pypy.lang.js.context import ExecutionContext
-
-import sys
-from StringIO import StringIO
+from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
 
 def js_is_on_path():
@@ -21,7 +21,7 @@ def js_is_on_path():
 
 class TestInterp(object):
     def test_simple(self):
-        assert Plus(Number(3), Number(4)).call().floatval == 7
+        assert Plus(Number(3), Number(4)).call(ExecutionContext()).floatval == 7
         #    s = Script([Semicolon(Plus(Number(3), Number(4)))], [], [])
         #    s.call()
         l = []
@@ -79,8 +79,10 @@ class TestInterp(object):
     def test_function_returns(self):
         self.assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
     
-    def test_var_declartion(self):
+    def test_var_declaration(self):
+        self.assert_prints('var x = 3; print(x);', ["3"])
         self.assert_prints('var x = 3; print(x+x);', ["6"])
+
     
     def test_var_scoping(self):
         self.assert_prints("""
