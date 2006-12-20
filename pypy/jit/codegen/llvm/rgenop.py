@@ -380,8 +380,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     op_char_lt = op_uint_lt = op_float_lt = op_int_lt
     op_char_le = op_uint_le = op_float_le = op_int_le
-    op_char_eq = op_uint_eq = op_float_eq = op_unichar_eq = op_int_eq
-    op_char_ne = op_uint_ne = op_float_ne = op_unichar_ne = op_int_ne
+    op_char_eq = op_uint_eq = op_float_eq = op_unichar_eq = op_ptr_eq = op_int_eq
+    op_char_ne = op_uint_ne = op_float_ne = op_unichar_ne = op_ptr_ne = op_int_ne
     op_char_gt = op_uint_gt = op_float_gt = op_int_gt
     op_char_ge = op_uint_ge = op_float_ge = op_int_ge
 
@@ -538,6 +538,13 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_condition.operand(), targetbuilder.nextlabel, self.nextlabel))
         return targetbuilder
 
+    def _is_false(self, gv_x, nullstr='0'):
+        log('%s Builder._is_false %s' % (self.block.label, gv_x.operand()))
+        gv_result = Var('bool')
+        self.asm.append(' %s=seteq %s,%s' % (
+            gv_result.operand2(), gv_x.operand(), nullstr))
+        return gv_result
+
     def _is_true(self, gv_x, nullstr='0'):
         log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
@@ -546,7 +553,9 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     op_bool_is_true = op_char_is_true = op_unichar_is_true = op_int_is_true =\
-    op_uint_is_true = _is_true
+    op_uint_is_true = op_ptr_nonzero = _is_true
+
+    op_ptr_iszero  = _is_false
 
     def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
 
@@ -561,9 +570,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             else:
                 assert fieldsize == 2
                 t = 'short'
+        gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(t + '*')
         self.asm.append(' %s=getelementptr %s,int %s' % (
-            gv_p.operand2(), gv_ptr.operand(), offset / fieldsize))
+            gv_p.operand2(), gv_ptr_var.operand(), offset / fieldsize))
         gv_result = Var(t)
         self.asm.append(' %s=load %s' % (
             gv_result.operand2(), gv_p.operand()))
@@ -580,17 +590,27 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         #    else:
         #       assert fieldsize == 2
         #        gv_result = Var('short')
+        gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(gv_value.type+'*')
         self.asm.append(' %s=getelementptr %s,int %s' % (
-            gv_p.operand2(), gv_ptr.operand(), offset / fieldsize))
+            gv_p.operand2(), gv_ptr_var.operand(), offset / fieldsize))
         self.asm.append(' store %s,%s' % (
             gv_value.operand2(), gv_p.operand()))
+
+    def XXXgenop_getsubstruct(self, (offset, fieldsize), gv_ptr):
+        log('%s Builder.genop_getsubstruct [%d]%d,%s' % (
+            self.block.label, offset, fieldsize, gv_ptr.operand()))
+        gv_ptr_var = self._as_var(gv_ptr)
+        gv_sub = Var(gv_ptr.type)
+        self.asm.append(' %s=getelementptr %s,%d' % (
+            gv_sub.operand2(), gv_ptr_var.operand(), offset))
+        return gv_sub
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         array_length_offset, array_items_offset, itemsize = arraytoken
         log('%s Builder.genop_getarrayitem %s,%s,%s' % (
             self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
-            
+
         gv_i = Var(gv_index.type)
         try:
             offset = array_items_offset / itemsize
@@ -599,10 +619,12 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         self.asm.append(' %s=add %s,%d' % (
             gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
 
-        gv_p = Var(gv_ptr.type)
+        gv_ptr_var = self._as_var(gv_ptr)
+        gv_p = Var(gv_ptr_var.type)
         self.asm.append(' %s=getelementptr %s,%s' % (
-            gv_p.operand2(), gv_ptr.operand(), gv_i.operand()))
-        gv_result = Var(gv_ptr.type[:-1])
+            gv_p.operand2(), gv_ptr_var.operand(), gv_i.operand()))
+
+        gv_result = Var(gv_ptr_var.type[:-1])
         self.asm.append(' %s=load %s' % (
             gv_result.operand2(), gv_p.operand()))
         return gv_result
@@ -638,6 +660,15 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_result.operand2(), self.block.label, arraytoken, gv_ptr))
         return gv_result
 
+    def _as_var(self, gv):
+        if gv.is_const:
+            gv_var = Var(gv.type)
+            #XXX provide correct cast here
+            self.asm.append(' %s=inttoptr int %s to %s' % (
+                gv_var.operand2(), gv.operand2(), gv_var.type))
+            return gv_var
+        return gv
+        
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
         array_length_offset, array_items_offset, itemsize = arraytoken
         log('%s Builder.genop_setarrayitem %s,%s,%s,%s' % (
@@ -651,9 +682,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         self.asm.append(' %s=add %s,%d' % (
             gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
 
-        gv_p = Var(gv_ptr.type)
+        gv_ptr_var = self._as_var(gv_ptr)
+        gv_p = Var(gv_ptr_var.type)
         self.asm.append(' %s=getelementptr %s,%s' % (
-            gv_p.operand2(), gv_ptr.operand(), gv_i.operand()))
+            gv_p.operand2(), gv_ptr_var.operand(), gv_i.operand()))
         self.asm.append(' store %s,%s' % (
             gv_value.operand(), gv_p.operand()))
 
