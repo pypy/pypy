@@ -160,6 +160,9 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
     def tell(self):
         return self._base + 2 * self._pos
 
+    def seekback(self, count):
+        self._pos -= count
+
     def done(self):
         pass
 
