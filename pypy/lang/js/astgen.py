@@ -60,6 +60,8 @@ class Identifier(Node):
     def __init__(self, name, initialiser=None):
         self.name = name
         self.initialiser = initialiser
+    def __str__(self):
+        return "<id %s init: %s>"%(str(self.name), str(self.initialiser))
 
 class If(Node):
     def __init__(self, condition, thenPart=None, elsePart=None):
@@ -96,6 +98,9 @@ class PropertyInit(Node):
     def __init__(self, name, value):
         self.name = name
         self.value = value
+    
+    def __repr__(self):
+        return "<%s : %s>"%(str(self.name), str(self.value))
 
 class Return(Node):
     def __init__(self, expr):

@@ -41,7 +41,8 @@ class TestInterp(object):
         assert l == assval
     
     def assert_result(self, code, result):
-        r = code.call(ExecutionContext())
+        inter = interpreter.Interpreter(code)
+        r = inter.run()
         assert r.ToString() == result.ToString()
         
     def test_interp_parse(self):

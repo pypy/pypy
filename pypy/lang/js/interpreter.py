@@ -34,7 +34,7 @@ class Interpreter(object):
     
     def run(self):
         """run the interpreter"""
-        self.script.call(self.global_context)
+        return self.script.call(self.global_context)
 
         
 
@@ -67,6 +67,7 @@ class __extend__(Call):
             writer(",".join([i.GetValue().ToString() for i in self.arglist.call(ctx)]))
         else:    
             w_obj = ctx.resolve_identifier(name).GetValue()
+            print "arglist = ", self.arglist
             retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.call(ctx)])
             return retval
 
@@ -176,6 +177,7 @@ class __extend__(Index):
 
 class __extend__(List):
     def call(self, ctx):
+        print "nodes = ", self.nodes
         return [node.call(ctx) for node in self.nodes]
 
 class __extend__(New):
@@ -194,14 +196,15 @@ class __extend__(Number):
         return W_Number(self.num)
     
     def get_literal(self):
-        # XXX Think about a shortcut later
-        return str(W_Number(self.num))
+        return W_Number(self.num).ToString()
 
 class __extend__(ObjectInit):
     def call(self, ctx):
         w_obj = W_Object()
+        print "properties = ", self.properties
         for property in self.properties:
             name = property.name.get_literal()
+            print "prop name = ", name
             w_expr = property.value.call(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
@@ -246,7 +249,7 @@ class __extend__(String):
         return W_String(self.strval)
     
     def get_literal(self):
-        return self.strval
+        return W_String(self.strval).ToString()
 
 class __extend__(Return):
     def call(self, ctx):
@@ -263,10 +266,12 @@ class __extend__(Try):
             tryresult = self.tryblock.call(ctx)
         except ThrowException, excpt:
             e = excpt
-            nctx = ExecutionContext(ctx)
-            nctx.assign(self.catchparam, e.exception)
             if self.catchblock is not None:
-                tryresult = self.catchblock.call(nctx)
+                obj = W_Object()
+                obj.Put(self.catchparam, e.exception)
+                ctx.push_object(obj)
+                tryresult = self.catchblock.call(ctx)
+                ctx.pop_object()
         
         if self.finallyblock is not None:
             tryresult = self.finallyblock.call(ctx)

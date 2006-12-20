@@ -2,20 +2,26 @@
 
 class Reference(object):
     """Reference Type"""
-    def __init__(self, propertyname, baseobject=None):
-        self.baseobject = baseobject
-        self.propertyname = propertyname
+    def __init__(self, property_name, base=None):
+        self.base = base
+        self.property_name = property_name
         
     def GetValue(self):
-        if self.baseobject is None:
+        if self.base is None:
             raise ReferenceError
-        return self.baseobject.Get(self.propertyname)
+        return self.base.Get(self.property_name)
 
     def PutValue(self, w, ctx):
-        base = self.baseobject
-        if self.baseobject is None:
+        base = self.base
+        if self.base is None:
             base = ctx.scope[-1]
-        base.Put(self.propertyname, w)
+        base.Put(self.property_name, w)
+    
+    def GetBase(self):
+        return self.base
+    
+    def GetPropertyName(self):
+        return self.property_name
         
     def __str__(self):
-        return str(self.baseobject) + " : " + str(self.propertyname)
+        return "< " + str(self.base) + " -> " + str(self.property_name) + " >"

@@ -41,6 +41,11 @@ class W_Root(object):
     def ToNumber(self):
         return NaN
     
+    def get_literal(self):
+        return self.ToString()
+    
+    __str__ = get_literal
+    
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, self.ToString())
 
@@ -64,6 +69,8 @@ class W_Object(W_Root):
         return W_Object()
     
     def Get(self, P):
+        if not isinstance(P, str):
+            P = P.ToString()
         if P in self.propdict: return self.propdict[P].value
         if self.Prototype is None: return w_Undefined
         return self.Prototype.Get(P) # go down the prototype chain
@@ -76,6 +83,8 @@ class W_Object(W_Root):
         return self.Prototype.CanPut(P)
     
     def Put(self, P, V):
+        if not isinstance(P, str):
+            P = P.ToString()
         if not self.CanPut(P): return
         if P in self.propdict:
             self.propdict[P].value = V
@@ -118,9 +127,16 @@ class W_Object(W_Root):
     def ToString(self):
         return "[object %s]"%(self.Class,)
     
+    def __str__(self):
+        return "<Object class: %s\nproperties: %s\nPrototype: %s>"%(self.Class,
+         self.propdict, self.Prototype)
+    
 class W_Arguments(W_Object):
     def __init__(self, callee, args):
         W_Object.__init__(self)
+        self.Class = "arguments"
+        self.propdict.pop("toString")
+        self.propdict.pop("prototype")
         self.Put('callee', callee)
         self.Put('length', len(args))
         for i, arg in enumerate(args):
@@ -130,6 +146,7 @@ class ActivationObject(W_Object):
     """The object used on function calls to hold arguments and this"""
     def __init__(self):
         W_Object.__init__(self)
+        self.Class = "Activation"
         self.propdict.pop("toString")
         self.propdict.pop("prototype")
 
@@ -143,20 +160,22 @@ class W_FunctionObject(W_Object):
         self.scope = ctx.scope[:]
     
     def Call(self, ctx, args=[], this=None):
-        print args
+        print "* start of function call"
+        print " args = ", args
         act = ActivationObject()
-        for i, arg in enumerate(args):
+        for i, arg in enumerate(self.function.params):
             try:
                 value = args[i]
             except IndexError:
                 value = w_Undefined
             act.Put(self.function.params[i], value)
         act.Put('this', this)
-        print act.propdict
+        print " act.propdict = ", act.propdict
         w_Arguments = W_Arguments(self, args)
         act.Put('arguments', w_Arguments)
         newctx = function_context(self.scope, act, this)
         val = self.function.body.call(ctx=newctx)
+        print "* end of function call return = ", val
         return val
 
 class W_Undefined(W_Root):
@@ -207,7 +226,7 @@ class W_String(W_Primitive):
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
-        print "novo numero"
+        print "w_number = ", floatval
         self.floatval = floatval
 
     def ToString(self):
@@ -248,6 +267,9 @@ class W_List(W_Root):
 
     def ToBoolean(self):
         return bool(self.list_w)
+    
+    def __str__(self):
+        return str(self.list_w)
 
 w_Undefined = W_Undefined()
 w_Null = W_Null()
