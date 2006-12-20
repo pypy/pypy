@@ -21,18 +21,16 @@ def compress_char_set(chars):
     return real_result
 
 class LexerError(Exception):
-    def __init__(self, input, state, index, lineno=-1, columnno=-1):
+    def __init__(self, input, state, source_pos):
         self.input = input
         self.state = state
-        self.index = index
-        self.lineno = lineno
-        self.columnno = columnno
-        self.args = (input, state, index, lineno, columnno)
+        self.source_pos = source_pos
+        self.args = (input, state, source_pos)
 
     def nice_error_message(self, filename="<unknown>"):
-        result = ["  File %s, line %s" % (filename, self.lineno)]
-        result.append(self.input.split("\n")[self.lineno])
-        result.append(" " * self.columnno + "^")
+        result = ["  File %s, line %s" % (filename, self.source_pos.lineno)]
+        result.append(self.input.split("\n")[self.source_pos.lineno])
+        result.append(" " * self.source_pos.columnno + "^")
         result.append("LexerError")
         return "\n".join(result)
 

@@ -2,6 +2,40 @@ import py
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.parsing import deterministic, regex
 
+class Token(object):
+    def __init__(self, name, source, source_pos):
+        self.name = name
+        self.source = source
+        self.source_pos = source_pos
+
+    def __eq__(self, other):
+        # for testing only
+        return self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        # for testing only
+        return not self == other
+
+    def __repr__(self):
+        return "Token(%r, %r, %r)" % (self.name, self.source, self.source_pos)
+
+class SourcePos(object):
+    def __init__(self, i, lineno, columnno):
+        self.i = i
+        self.lineno = lineno
+        self.columnno = columnno
+
+    def __eq__(self, other):
+        # for testing only
+        return self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        # for testing only
+        return not self == other
+
+    def __repr__(self):
+        return "SourcePos(%r, %r, %r)" % (self.i, self.lineno, self.columnno)
+
 class Lexer(object):
     def __init__(self, token_regexs, names, ignore=None):
         self.token_regexs = token_regexs
@@ -78,7 +112,8 @@ class LexingDFARunner(deterministic.DFARunner):
             if i == len(self.text):
                 if self.eof:
                     self.last_matched_index += 1
-                    return ("EOF", "EOF", i, self.lineno, self.columnno)
+                    return Token("EOF", "EOF",
+                                 SourcePos(i, self.lineno, self.columnno))
                 else:
                     raise StopIteration
             if i >= len(self.text) + 1:
@@ -87,30 +122,33 @@ class LexingDFARunner(deterministic.DFARunner):
             if i < 0:
                 i = ~i
                 if start == self.last_matched_index + 1:
-                    raise deterministic.LexerError(self.text, self.state, i - 1,
-                                                   lineno=self.lineno,
-                                                   columnno=self.columnno)
+                    source_pos = SourcePos(i - 1, self.lineno, self.columnno)
+                    raise deterministic.LexerError(self.text, self.state,
+                                                   source_pos)
                 stop = self.last_matched_index + 1
                 assert stop >= 0
-                token = self.text[start: stop]
-                lineno, columnno = self.adjust_position(token)
+                source = self.text[start: stop]
+                lineno, columnno = self.adjust_position(source)
                 if self.automaton.names[self.last_matched_state] in self.ignore:
                     continue
-                return (self.automaton.names[self.last_matched_state],
-                        token, start, lineno, columnno)
+                source_pos = SourcePos(start, lineno, columnno)
+                return Token(self.automaton.names[self.last_matched_state],
+                             source, source_pos)
             if self.last_matched_index == i - 1:
                 token = self.text[start: ]
                 lineno, columnno = self.adjust_position(token)
                 if self.automaton.names[self.last_matched_state] in self.ignore:
                     if self.eof:
                         self.last_matched_index += 1
-                        return ("EOF", "EOF", i, self.lineno, self.columnno)
+                        return Token("EOF", "EOF",
+                                     SourcePos(i, self.lineno, self.columnno))
                     else:
                         raise StopIteration
-                return (self.automaton.names[self.last_matched_state],
-                        self.text[start:], start, lineno, columnno)
-            raise deterministic.LexerError(self.text, self.state, i - 1,
-                                           self.lineno, self.columnno)
+                return Token(self.automaton.names[self.last_matched_state],
+                             self.text[start:],
+                             SourcePos(start, lineno, columnno))
+            source_pos = SourcePos(i - 1, self.lineno, self.columnno)
+            raise deterministic.LexerError(self.text, self.state, source_pos)
 
     def adjust_position(self, token):
         lineno = self.lineno

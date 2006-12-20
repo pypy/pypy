@@ -151,9 +151,9 @@ def add_necessary_regexs(regexs, names, operations=None):
 
 class PrologParseTable(LazyParseTable):
     def terminal_equality(self, symbol, input):
-        if input[0] == "ATOM":
-            return symbol == "ATOM" or symbol == input[1]
-        return symbol == input[0]
+        if input.name == "ATOM":
+            return symbol == "ATOM" or symbol == input.source
+        return symbol == input.name
 
 class PrologPackratParser(PackratParser):
     def __init__(self, rules, startsymbol):
@@ -191,7 +191,7 @@ def parse_file(s, parser=None, callback=_dummyfunc, arg=None):
     line = []
     for tok in tokens:
         line.append(tok)
-        if tok[0] == ".":
+        if tok.name == ".":
             lines.append(line)
             line = []
     if parser is None:

@@ -1,7 +1,7 @@
 """ test file to experiment with a an adapted CPython grammar """
 
 import py
-from pypy.rlib.parsing.lexer import Lexer
+from pypy.rlib.parsing.lexer import Lexer, SourcePos, Token
 from pypy.rlib.parsing.deterministic import LexerError
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
 from pypy.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
@@ -103,12 +103,11 @@ class TestParser(object):
             try:
                 tokens = self.lexer.tokenize(s, eof=False)
                 if len(tokens) == 1:
-                    typ, s, _, _, _ = tokens[0]
-                    yield typ, s, pos, row, col
+                    yield tokens[0]
                     continue
             except LexerError:
                 pass
-            yield (typ, s, pos, row, col)
+            yield Token(typ, s, SourcePos(pos, row, col))
 
 
     def test_simple(self):
@@ -208,6 +207,13 @@ f(a)(b)(c)
 f() ** 2
 f(x) * 2
 f(x, y, z, *args) + 2
+f(x, y, abc=34, *arg, **kwargs)
+""")
+        t = self.ToAST.transform(t)
+
+    def test_trailers(self):
+        t = self.parse("""
+(a + b).foo[1 + i - j:](32, *args)
 """)
         t = self.ToAST.transform(t)
 

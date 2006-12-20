@@ -1,4 +1,5 @@
 import py
+from pypy.rlib.parsing.lexer import SourcePos
 from pypy.rlib.parsing.tree import Node, Symbol, Nonterminal
 
 class Rule(object):
@@ -132,7 +133,7 @@ class LazyParseTable(object):
             try:
                 input = self.input[i]
                 if self.terminal_equality(symbol, input):
-                    result = (Symbol(symbol, input[1], input), i + 1, error)
+                    result = (Symbol(symbol, input.source, input), i + 1, error)
                     self.matched[i, symbol] = result
                     return result
                 else:
@@ -149,19 +150,8 @@ class LazyParseTable(object):
         return None, 0, error
     
     def terminal_equality(self, symbol, input):
-        return symbol == input[0]
+        return symbol == input.name
 
-
-class SourcePos(object):
-    def __init__(self, i, lineno, columnno):
-        self.i = i
-        self.lineno = lineno
-        self.columnno = columnno
-
-    def from_token(token):
-        _, _, i, lineno, columnno = token
-        return SourcePos(i, lineno, columnno)
-    from_token = staticmethod(from_token)
 
 class PackratParser(object):
     def __init__(self, rules, startsymbol, parsetablefactory=LazyParseTable,
@@ -190,7 +180,7 @@ class PackratParser(object):
         result = table.match_symbol(0, self.startsymbol)
         if result[0] is None:
             error = result[2]
-            raise ParseError(SourcePos.from_token(input[error.pos]), error)
+            raise ParseError(input[error.pos].source_pos, error)
         return result[0]
 
     def has_left_recursion(self):
@@ -273,7 +263,7 @@ class ParserCompiler(object):
         try:
             input = self.input[i]
             if self.terminal_equality(%(symbol)r, input):
-                symbol = Symbol(%(symbol)r, input[1], input)
+                symbol = Symbol(%(symbol)r, input.name, input)
                 result = (symbol, i + 1)
                 self.matched_terminals%(number)s[i] = result
                 return result

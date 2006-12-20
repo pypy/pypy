@@ -27,7 +27,7 @@ class TestTranslateLexer(object):
                 tokens = l2.tokenize(s)
             else:
                 tokens = l1.tokenize(s)
-            return "-%-".join([t[0] for t in tokens])
+            return "-%-".join([t.name for t in tokens])
         res = lex("if A a 12341 0 else").split("-%-")
         assert res == ("KEYWORD WHITE VAR WHITE ATOM WHITE INT WHITE "
                        "INT WHITE KEYWORD").split()
@@ -50,8 +50,10 @@ def test_translate_parser():
     r3 = Rule("primary", [["(", "additive", ")"], ["decimal"]])
     r4 = Rule("decimal", [[symb] for symb in "0123456789"])
     p = PackratParser([r0, r1, r2, r3, r4], "expression")
-    tree = p.parse([(c, i) for i, c in enumerate(list("2*(3+4)") + ["EOF"])])
-    data = [(c, i) for i, c in enumerate(list("2*(3+4)") + ["EOF"])]
+    tree = p.parse([Token(c, i, SourcePos(i, 0, i))
+                        for i, c in enumerate(list("2*(3+4)") + ["EOF"])])
+    data = [Token(c, i, SourcePos(i, 0, i))
+                for i, c in enumerate(list("2*(3+4)") + ["EOF"])]
     print tree
     def parse(choose):
         tree = p.parse(data, lazy=False)
@@ -76,8 +78,10 @@ def test_translate_compiled_parser():
     compiler = ParserCompiler(p)
     kls = compiler.compile()
     p = kls()
-    tree = p.parse([(c, i) for i, c in enumerate(list("2*(3+4)") + ["EOF"])])
-    data = [(c, i) for i, c in enumerate(list("2*(3+4)") + ["EOF"])]
+    tree = p.parse([Token(c, i, SourcePos(i, 0, i))
+                        for i, c in enumerate(list("2*(3+4)") + ["EOF"])])
+    data = [Token(c, i, SourcePos(i, 0, i))
+               for i, c in enumerate(list("2*(3+4)") + ["EOF"])]
     print tree
     p = kls()
     def parse(choose):
