@@ -96,8 +96,8 @@ class Var(GenVar):
 class GenericConst(GenConst):
     #type = 'generic'
 
-    def __init__(self, value):
-        self.value = value
+    #def __init__(self, value):
+    #    self.value = value
 
     def operand(self):
         return '%s %s' % (self.type, self.value)
@@ -118,6 +118,9 @@ class GenericConst(GenConst):
 class BoolConst(GenericConst):
     type = 'bool'
 
+    def __init__(self, value):
+        self.value = bool(value)
+
 
 class CharConst(GenericConst):
     type = 'ubyte'
@@ -126,23 +129,43 @@ class CharConst(GenericConst):
         if type(value) is str:
             self.value = ord(value)
         else:
+            assert type(value) is int
             self.value = value
 
 
 class UniCharConst(GenericConst):
     type = 'int'
 
+    def __init__(self, value):
+        self.value = unicode(value)
+
 
 class IntConst(GenericConst):
     type = 'int'
+
+    def __init__(self, value):
+        self.value = int(value)
+
+    #XXX why does typeof value change in test_genc_ts.py -k test_degenerated_before_return(_2)?
+    def operand(self):
+        return '%s %d' % (self.type, int(self.value))
+
+    def operand2(self):
+        return str(int(self.value))
 
 
 class UIntConst(GenericConst):
     type = 'uint'
 
+    def __init__(self, value):
+        self.value = int(value)
+
 
 class FloatConst(GenericConst):
     type = 'float'
+
+    def __init__(self, value):
+        self.value = float(value)
 
 
 class AddrConst(GenConst):
@@ -166,7 +189,9 @@ class AddrConst(GenConst):
         elif T is lltype.Signed:
             return llmemory.cast_adr_to_int(self.addr)
         else:
-            assert 0, "XXX not implemented"
+            msg = 'XXX not implemented'
+            logger.dump(msg)
+            assert 0, msg
 
 
 class Block(GenLabel):
@@ -195,7 +220,10 @@ class BasicBlock(Block):
         # check the types for debugging
         sourcevartypes = [var.type for var in sourcevars]
         targetvartypes = [var.type for var in self.inputargs]
-        assert sourcevartypes == targetvartypes
+        if sourcevartypes != targetvartypes:
+            logger.dump('sourcevartypes(%s) != targetvartypes(%s)' % (
+                sourcevartypes, targetvartypes))
+            assert sourcevartypes == targetvartypes
 
         # Check if the source block jumps to 'self' from multiple
         # positions: in this case we need an intermediate block...
@@ -560,7 +588,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
 
     def genop_getfield(self, (offset, fieldsize), gv_ptr):
-        log('%s Builder.genop_getfield ([%d]%d) %s' % (
+        log('%s Builder.genop_getfield (%d,%d) %s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand()))
         if fieldsize == WORD:
             t = 'int'
@@ -568,7 +596,9 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             if fieldsize == 1:
                 t = 'ubyte'
             else:
-                assert fieldsize == 2
+                if fieldsize != 2:
+                    logger.dump('fieldsize != [124]')
+                    assert fieldsize == 2
                 t = 'short'
         gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(t + '*')
@@ -580,7 +610,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
-        log('%s Builder.senop_setfield %s,([%d]%d) %s=%s' % (
+        log('%s Builder.senop_setfield (%d,%d) %s=%s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand(), gv_value.operand()))
         #if fieldsize == WORD:
         #    gv_result = Var('int')
@@ -589,7 +619,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         #       gv_result = Var('ubyte')
         #    else:
         #       assert fieldsize == 2
-        #        gv_result = Var('short')
+        #       gv_result = Var('short')
         gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(gv_value.type+'*')
         self.asm.append(' %s=getelementptr %s,int %s' % (
@@ -597,8 +627,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         self.asm.append(' store %s,%s' % (
             gv_value.operand2(), gv_p.operand()))
 
-    def XXXgenop_getsubstruct(self, (offset, fieldsize), gv_ptr):
-        log('%s Builder.genop_getsubstruct [%d]%d,%s' % (
+    def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
+        log('%s Builder.genop_getsubstruct (%d,%d) %s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand()))
         gv_ptr_var = self._as_var(gv_ptr)
         gv_sub = Var(gv_ptr.type)
@@ -834,7 +864,9 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             #    self.keepalive_gc_refs.append(lltype.cast_opaque_ptr(llmemory.GCREF, llvalue))
             return AddrConst(lladdr)
         else:
-            assert 0, "XXX not implemented"
+            msg = 'XXX not implemented'
+            logger.dump(msg)
+            assert 0, msg
 
     # attached later constPrebuiltGlobal = global_rgenop.genconst
 
@@ -914,10 +946,11 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         elif isinstance(T, lltype.Ptr):
             return llmemory.GCREF
         else:
-            assert 0, "XXX not implemented"
+            msg = 'XXX not implemented'
+            logger.dump(msg)
+            assert 0, msg
 
 
 global_rgenop = RLLVMGenOp()
 RLLVMGenOp.constPrebuiltGlobal = global_rgenop.genconst
-
 

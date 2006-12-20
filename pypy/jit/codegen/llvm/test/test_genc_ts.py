@@ -51,27 +51,27 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_simple_struct = skip
         test_simple_array = skip
         test_setarrayitem  = skip
-
-    #failing...
-    if skip_failing:
         test_degenerated_before_return = skip
         test_degenerated_before_return_2 = skip
-        test_degenerated_at_return = skip
         test_degenerated_via_substructure = skip
-        test_degenerate_with_voids = skip
         test_red_virtual_container = skip
-        test_red_array = skip
-        test_red_struct_array = skip
-        test_red_varsized_struct = skip
-        test_array_of_voids = skip
         test_red_propagate = skip
         test_red_subcontainer = skip
         test_red_subcontainer_cast = skip
         test_merge_structures = skip
-        test_green_with_side_effects = skip
-        test_recursive_with_red_termination_condition = skip
         test_simple_meth = skip
         test_simple_red_meth = skip
+
+    #failing...
+    if skip_failing:
+        test_degenerated_at_return = skip
+        test_degenerate_with_voids = skip
+        test_red_array = skip
+        test_red_struct_array = skip
+        test_red_varsized_struct = skip
+        test_array_of_voids = skip
+        test_green_with_side_effects = skip
+        test_recursive_with_red_termination_condition = skip
         test_compile_time_const_tuple = skip
         test_residual_red_call = skip
         test_residual_red_call_with_exc = skip
