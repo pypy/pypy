@@ -132,6 +132,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                              ("objspace.std.withstrjoin", True),
                              ("objspace.std.withstrslice", True),
                              ("objspace.std.withsmallint", True),
+                             ("objspace.std.withrangelist", True),
                              ],
                    cmdline="--faassen")
      ]),
