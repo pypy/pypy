@@ -199,7 +199,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def newfloat(self, floatval):
         return PyFloat_FromDouble(floatval)
 
-    def newdict(self):
+    def newdict(self, track_builtin_shadowing=False):
         return PyDict_New()
 
     def newlist(self, items_w):
