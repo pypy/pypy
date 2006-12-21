@@ -134,7 +134,15 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                              ("objspace.std.withsmallint", True),
                              ("objspace.std.withrangelist", True),
                              ],
-                   cmdline="--faassen")
+                   cmdline="--faassen"),
+
+        BoolOption("llvmallopts",
+                   "enable all optimizations, and use llvm compiled via C",
+                   default=False,
+                   requires=[("objspace.std.allopts", True),
+                             ("translation.llvm_via_c", True),
+                             ("translation.backend", "llvm")],
+                   cmdline="--llvm-faassen"),
      ]),
     BoolOption("lowmem", "Try to use little memory during translation",
                default=False, cmdline="--lowmem",
