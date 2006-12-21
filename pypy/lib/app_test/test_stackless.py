@@ -450,7 +450,6 @@ class Test_Stackless:
         assert r == 'test'
 
     def test_simple_pipe(self):
-        pypy_skip('should not fail, but does')
         def pipe(X_in, X_out):
             foo = X_in.receive()
             X_out.send(foo)
@@ -462,21 +461,18 @@ class Test_Stackless:
         assert Y.receive() == 42
 
     def test_nested_pipe(self):
-        pypy_skip('should not fail, but does')
-        from stackless import run, tasklet, channel
-
         def pipe(X, Y):
             foo = X.receive()
             Y.send(foo)
 
         def nest(X, Y):
             X2, Y2 = stackless.channel(), stackless.channel()
-            stackless.tasklet(pipe)(X2, Y2)
+            t = stackless.tasklet(pipe)(X2, Y2)
             X2.send(X.receive())
             Y.send(Y2.receive())
 
         X, Y = stackless.channel(), stackless.channel()
-        stackless.tasklet(nest)(X, Y)
+        t1 = stackless.tasklet(nest)(X, Y)
         X.send(42)
         assert Y.receive() == 42
 
@@ -485,8 +481,11 @@ class Test_Stackless:
         A tasklets/channels adaptation of the test_wait_two from the
         logic object space
         """
-        pypy_skip('should not fail, but does')
-        
+        # there are still problems with scheduling. Apparently,
+        # some leftover tasklets in the queue are messing
+        # things up. This test runs fine, when being alone
+        # in a test file
+        pypy_skip("still problems with scheduling")
         def sleep(X, Barrier):
             Barrier.send((X, X.receive()))
 
@@ -497,13 +496,15 @@ class Test_Stackless:
             ret = Barrier.receive()
             if ret[0] == X:
                 Ret_chan.send((1, ret[1]))
-            return Ret_chan.send((2, ret[1]))
+            else:
+                Ret_chan.send((2, ret[1]))
 
         X, Y, Ret_chan = stackless.channel(), stackless.channel(), stackless.channel()
         stackless.tasklet(wait_two)(X, Y, Ret_chan)
         Y.send(42)
         X.send(42)
-        assert Ret_chan.receive() == (2, 42)
+        value = Ret_chan.receive() 
+        assert value == (2, 42)
         
     def test_noop(self):
         """

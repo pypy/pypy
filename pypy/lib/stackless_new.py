@@ -19,9 +19,24 @@ except ImportError: # we are running from CPython
 from collections import deque
 
 import operator
-def deque_remove(dq, value):
-    "deque.remove is only in python2.5"
-    del dq[operator.indexOf(dq, value)]
+def _scheduler_remove(value):
+    try:
+        del squeue[operator.indexOf(squeue, value)]
+    except ValueError:pass
+
+def _scheduler_append(value, normal=True):
+    if normal:
+        squeue.append(value)
+    else:
+        squeue.appendleft(value)
+
+def _scheduler_contains(value):
+    try:
+        operator.indexOf(squeue, value)
+        return True
+    except ValueError:
+        return False
+
 
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
                 TaskletExit greenlet'.split()
@@ -83,15 +98,13 @@ class channel(object):
         if self.balance > 0: # somebody is already sending
             self.balance -= 1
             sender = self.queue.popleft()
-            #receiver.tempval = sender.tempval
+            sender.blocked = False
             receiver.tempval = sender.tempval
-            squeue.append(sender)
-            #schedule()
+            _scheduler_append(sender)
         else: # nobody is waiting
             self.balance -= 1
-            #squeue.pop()
-            #deque_remove(receiver)
             self.queue.append(receiver)
+            receiver.blocked = True
             schedule_remove()
         msg = receiver.tempval
         return msg
@@ -108,12 +121,14 @@ class channel(object):
         sender.tempval = msg
         if self.balance < 0: # somebody is already waiting
             receiver = self.queue.popleft()
+            receiver.blocked = False
             self.balance += 1
             receiver.tempval = msg
-            squeue.appendleft(receiver)
+            _scheduler_append(receiver, False)
             schedule()
         else: # nobody is waiting
-            self.queue.append(squeue[-1])
+            self.queue.append(sender)
+            sender.blocked = True
             self.balance += 1
             schedule_remove()
 
@@ -135,6 +150,7 @@ class tasklet(coroutine):
         global global_task_id
         self.tempval = func
         self.alive = False
+        self.blocked = False
         self.task_id = global_task_id
         global_task_id += 1
 
@@ -180,7 +196,7 @@ class tasklet(coroutine):
         coroutine.bind(self,self.tempval,*argl,**argd)
         self.tempval = None
         self.alive = True
-        squeue.append(self)
+        _scheduler_append(self)
         return self
 
     def __reduce__(self):
@@ -228,8 +244,6 @@ def run():
     while squeue:
         schedule()
     
-scall = 0
-
 def schedule_remove(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -237,9 +251,7 @@ def schedule_remove(retval=None):
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    try:
-        deque_remove(squeue, getcurrent())
-    except:pass
+    _scheduler_remove(getcurrent())
     schedule()
 
 def schedule(retval=None):
@@ -262,7 +274,7 @@ def schedule(retval=None):
                 if squeue:
                     pt = squeue.pop()
                     if pt.is_alive:
-                        squeue.append(pt)
+                        _scheduler_append(pt)
                     else:
                         coroutine.kill(task)
                 else:
@@ -271,13 +283,13 @@ def schedule(retval=None):
                 schedule()
         elif task is curr:
             if len(squeue) > 1:
+                if squeue[0] is squeue[-1]:
+                    squeue.pop()
                 schedule()
         elif not task.is_alive:
-            try:
-                deque_remove(squeue, task)
-            except:pass
+            _scheduler_remove(task)
             if not squeue:
-                squeue.append(mtask)
+                _scheduler_append(mtask)
 
 def _init():
     global main_tasklet
@@ -312,6 +324,6 @@ def _init():
         assert main_tasklet.is_alive and not main_tasklet.is_zombie
     tasklet._init(main_tasklet)
     squeue = deque()
-    squeue.append(main_tasklet)
+    _scheduler_append(main_tasklet)
 
 _init()
