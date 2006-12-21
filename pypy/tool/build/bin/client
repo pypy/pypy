@@ -5,7 +5,7 @@ from py.execnet import PopenGateway
 from pypy.tool.build import outputbuffer
 
 def compile(wc, compileinfo):
-    code = py.code.Source(outputbuffer, """\
+    code = """\
         import sys
         import os
         import traceback
@@ -59,9 +59,10 @@ def compile(wc, compileinfo):
             log.close()
         channel.send(outbuffer.getvalue())
         channel.close()
-    """)
+    """
     gw = PopenGateway()
-    interpolated = code % (str(wc), buffercode, compileinfo)
+    interpolated = py.code.Source(outputbuffer,
+                                  code % (str(wc), compileinfo))
     channel = gw.remote_exec(interpolated)
     try:
         upath = channel.receive()
