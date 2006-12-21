@@ -22,36 +22,39 @@ import operator
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
                 TaskletExit greenlet'.split()
 
-global_task_id = 0
-squeue = None
-main_tasklet = None
-main_coroutine = None
-first_run = False
+_global_task_id = 0
+_squeue = None
+_main_tasklet = None
+_main_coroutine = None
+_last_task = None
 _channel_callback = None
 _schedule_callback = None
 
 def _scheduler_remove(value):
     try:
-        del squeue[operator.indexOf(squeue, value)]
+        del _squeue[operator.indexOf(_squeue, value)]
     except ValueError:pass
 
 def _scheduler_append(value, normal=True):
     if normal:
-        squeue.append(value)
+        _squeue.append(value)
     else:
-        squeue.appendleft(value)
+        _squeue.appendleft(value)
 
 def _scheduler_contains(value):
     try:
-        operator.indexOf(squeue, value)
+        operator.indexOf(_squeue, value)
         return True
     except ValueError:
         return False
 
 def _scheduler_switch(current, next):
+    global _last_task
+    _last_task = next
     if _schedule_callback is not None:
         _schedule_callback(current, next)
-    return next.switch()
+    next.switch()
+    return current
 
 
 class TaskletExit(Exception):pass
@@ -63,6 +66,18 @@ def set_schedule_callback(callback):
 def set_channel_callback(callback):
     global _channel_callback
     _channel_callback = callback
+
+def getruncount():
+    return len(_squeue)
+
+class bomb(object):
+    def __init__(self, exp_type=None, exp_value=None, exp_traceback=None):
+        self.type = exp_type
+        self.value = exp_value
+        self.traceback = exp_traceback
+
+    def raise_(self):
+        raise self.type(self.value)
 
 class channel(object):
     """
@@ -125,7 +140,16 @@ class channel(object):
             receiver.blocked = True
             schedule_remove()
         msg = receiver.tempval
+        if isinstance(msg, bomb):
+            msg.raise_()
         return msg
+
+    def send_exception(self, exp_type, msg):
+        self.send(bomb(exp_type, exp_type(msg)))
+
+    def send_sequence(self, iterable):
+        for item in iterable:
+            self.send(item)
 
     def send(self, msg):
         """
@@ -168,16 +192,15 @@ class tasklet(coroutine):
         self._init(func)
 
     def _init(self, func=None):
-        global global_task_id
+        global _global_task_id
         self.tempval = func
         self.alive = False
         self.blocked = False
-        self.task_id = global_task_id
-        global_task_id += 1
+        self.task_id = _global_task_id
+        _global_task_id += 1
 
     def __str__(self):
-        return '<tasklet %s a:%s z:%s>' % \
-                (self.task_id, self.is_alive, self.is_zombie)
+        return '<tasklet %s:%s>' % (self.task_id, self.is_alive)
 
     __repr__ = __str__
 
@@ -235,7 +258,7 @@ def getmain():
     """
     getmain() -- return the main tasklet.
     """
-    return main_tasklet
+    return _main_tasklet
 
 def getcurrent():
     """
@@ -243,8 +266,8 @@ def getcurrent():
     """
 
     curr = coroutine.getcurrent()
-    if curr is main_coroutine:
-        return main_tasklet
+    if curr is _main_coroutine:
+        return _main_tasklet
     else:
         return curr
 
@@ -261,9 +284,12 @@ def run():
 
     Please note that the 'timeout' feature is not yet implemented
     """
-    schedule_remove()
-    while squeue:
-        schedule()
+    r = schedule_remove()
+    if _last_task and _schedule_callback is not None:
+        _schedule_callback(_last_task, getcurrent())
+    while _squeue:
+        r = schedule()
+    _scheduler_append(getcurrent())
     
 def schedule_remove(retval=None):
     """
@@ -273,28 +299,28 @@ def schedule_remove(retval=None):
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
     _scheduler_remove(getcurrent())
-    schedule()
+    r = schedule(retval)
+    return r
 
-def schedule(retval=None):
+def schedule(retval=None, prev=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
     The return value for this call is retval, with the current
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-
     mtask = getmain()
-    if squeue:
-        task = squeue[0]
-        squeue.rotate(-1)
-        curr = getcurrent()
+    curr = getcurrent()
+    if _squeue:
+        task = _squeue[0]
+        _squeue.rotate(-1)
         if task is not curr and task.is_alive:
-            #r = task.switch()
-            r = _scheduler_switch(curr, task)
+            c = prev or curr
+            r = _scheduler_switch(c, task)
             curr = getcurrent()
             if not task.is_alive:
-                if squeue:
-                    pt = squeue.pop()
+                if _squeue:
+                    pt = _squeue.pop()
                     if pt.is_alive:
                         _scheduler_append(pt)
                     else:
@@ -302,29 +328,36 @@ def schedule(retval=None):
                 else:
                     if curr is not mtask:
                         r = _scheduler_switch(curr, mtask)
-                        #mtask.switch()
-                schedule()
+                        return retval or r
+                r = schedule(prev=task)
+                return retval or r
+            return r
         elif task is curr:
-            if len(squeue) > 1:
-                if squeue[0] is squeue[-1]:
-                    squeue.pop()
-                schedule()
+            if len(_squeue) > 1:
+                if _squeue[0] is _squeue[-1]:
+                    _squeue.pop()
+                r = schedule()
+                return retval or r
+            return retval or curr
         elif not task.is_alive:
             _scheduler_remove(task)
-            if not squeue:
+            if not _squeue:
                 _scheduler_append(mtask)
+            return retval or curr
+    return retval or curr
 
 def _init():
-    global main_tasklet
-    global global_task_id
-    global squeue
-    global_task_id = 0
-    main_tasklet = coroutine.getcurrent()
+    global _main_tasklet
+    global _global_task_id
+    global _squeue
+    global _last_task
+    _global_task_id = 0
+    _main_tasklet = coroutine.getcurrent()
     try:
-        main_tasklet.__class__ = tasklet
+        _main_tasklet.__class__ = tasklet
     except TypeError: # we are running pypy-c
         class TaskletProxy(object):
-            """TaskletProxy is needed to give the main_coroutine tasklet behaviour"""
+            """TaskletProxy is needed to give the _main_coroutine tasklet behaviour"""
             def __init__(self, coro):
                 self._coro = coro
 
@@ -341,12 +374,12 @@ def _init():
             __repr__ = __str__
 
 
-        global main_coroutine
-        main_coroutine = main_tasklet
-        main_tasklet = TaskletProxy(main_tasklet)
-        assert main_tasklet.is_alive and not main_tasklet.is_zombie
-    tasklet._init(main_tasklet)
-    squeue = deque()
-    _scheduler_append(main_tasklet)
+        global _main_coroutine
+        _main_coroutine = _main_tasklet
+        _main_tasklet = TaskletProxy(_main_tasklet)
+        assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
+    tasklet._init(_main_tasklet)
+    _squeue = deque()
+    _scheduler_append(_main_tasklet)
 
 _init()

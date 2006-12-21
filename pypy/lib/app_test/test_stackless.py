@@ -69,7 +69,6 @@ class Test_Stackless:
         stackless.run()
 
         assert len(rlist) == 20
-        print rlist
         for i in range(10):
             (s,r), rlist = rlist[:2], rlist[2:]
             assert s == 's%s' % i
@@ -225,7 +224,6 @@ class Test_Stackless:
 
     def test_simple_channel(self):
         output = []
-        #skip('')
         def print_(*args):
             output.append(args)
             
@@ -353,12 +351,6 @@ class Test_Stackless:
         ]
 
     def test_schedule_callback(self):
-        pypy_skip('not running correctly')
-        # in stackless_new, a dead tasklet will be removed
-        # and is not known anymore when scheduling happens.
-        # Due to the applevel nature of stackless_new, 
-        # the schedule callback is done only on explicit schedule,
-        # but not on implicit ones
         res = []
         cb = []
         def schedule_cb(prev, next):
@@ -382,19 +374,17 @@ class Test_Stackless:
         assert cb[4] == (t2, maintask)
 
     def test_bomb(self):
-        pypy_skip('not yet implemented in pypy')
         try:
             1/0
         except:
             import sys
             b = stackless.bomb(*sys.exc_info())
         assert b.type is ZeroDivisionError
-        print type(b.value)
-        assert str(b.value) == 'integer division or modulo by zero'
+        print str(b.value)
+        assert str(b.value).startswith('integer division')
         assert b.traceback is not None
 
     def test_send_exception(self):
-        pypy_skip('not yet implemented in pypy')
         def exp_sender(chan):
             chan.send_exception(Exception, 'test')
 
@@ -411,7 +401,6 @@ class Test_Stackless:
         stackless.run()
 
     def test_send_sequence(self):
-        pypy_skip('not yet implemented in pypy')
         res = []
         lst = [1,2,3,4,5,6,None]
         iterable = iter(lst)
@@ -427,7 +416,6 @@ class Test_Stackless:
         assert res == [1,2,3,4,5,6]
 
     def test_getruncount(self):
-        pypy_skip('not yet implemented in pypy')
         assert stackless.getruncount() == 1
         def with_schedule():
             assert stackless.getruncount() == 2
@@ -442,7 +430,6 @@ class Test_Stackless:
         stackless.run()
 
     def test_schedule_return(self):
-        pypy_skip('not yet implemented in pypy')
         def f():pass
         t1= stackless.tasklet(f)()
         r = stackless.schedule()
