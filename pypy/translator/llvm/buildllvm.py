@@ -104,15 +104,28 @@ def make_module_from_llvm(genllvm, llvmfile,
     else:
         cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
         if exe_name:
-            cmd = "gcc %s.c -c -O3 -pipe" % b
-            if profile:
-                cmd += ' -pg'
+            if genllvm.config.translation.profopt is not None:
+                cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (b, b)
+                cmds.append(cmd)
+                cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \
+                      (b, gc_libs_path, gc_libs, exe_name)
+                cmds.append(cmd)
+                cmds.append("./%s_gen %s"%(exe_name, genllvm.config.translation.profopt))
+                cmds.append(cmd)
+                cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
+                cmds.append(cmd)
+                cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
+                      (b, gc_libs_path, gc_libs, exe_name)
             else:
-                cmd += ' -fomit-frame-pointer'
-            cmds.append(cmd)
-            cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
-            if profile:
-                cmd += ' -pg'
+                cmd = "gcc %s.c -c -O3 -pipe" % b
+                if profile:
+                    cmd += ' -pg'
+                else:
+                    cmd += ' -fomit-frame-pointer'
+                cmds.append(cmd)
+                cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+                if profile:
+                    cmd += ' -pg'
             cmds.append(cmd)
         source_files.append("%s.c" % b)
 
