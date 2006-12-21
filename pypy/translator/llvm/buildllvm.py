@@ -61,7 +61,7 @@ def make_module_from_llvm(genllvm, llvmfile,
                           profile=False, cleanup=False, use_gcc=True):
 
     if exe_name:
-        use_gcc = False #XXX trying to get of gcc (at least for standalones)
+        use_gcc = genllvm.config.translation.llvm_via_c
 
     # where we are building
     dirpath = llvmfile.dirpath()
