@@ -94,17 +94,7 @@ class FuncNode(ConstantLLVMNode):
         if self.bad_switch_block:
             codewriter.label('badswitch')
             codewriter._indent('call void %abort()')
-            rettype = self.graph.getreturnvar().concretetype
-            if rettype is lltype.Void:
-                codewriter._indent('ret void')
-            elif rettype is lltype.Bool:
-                codewriter._indent('ret bool false')
-            elif rettype is lltype.Float:
-                codewriter._indent('ret double 0.0')
-            elif isinstance(rettype, lltype.Ptr):
-                codewriter._indent('ret %s null'%(self.db.repr_type(rettype)))
-            else:
-                codewriter._indent('ret %s 0'%(self.db.repr_type(rettype)))
+            codewriter._indent('unreachable')
         codewriter.closefunc()
 
     def writeglobalconstants(self, codewriter):
