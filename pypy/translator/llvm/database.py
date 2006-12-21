@@ -150,6 +150,9 @@ class Database(object):
                 if value.ob is not None:
                     self.prepare_constant(lltype.typeOf(value.ob), value.ob)
             return
+
+        if isinstance(type_, lltype.Ptr) and isinstance(value._obj, int):
+            return
         
         if isinstance(type_, lltype.Ptr):
             type_ = type_.TO
@@ -193,6 +196,9 @@ class Database(object):
                 
             value = ptrvalue._obj
 
+            if isinstance(value, int):
+                return
+
             # Only prepare root values at this point 
             if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
                 p, c = lltype.parentlink(value)
@@ -234,7 +240,11 @@ class Database(object):
                 return self.primitives.repr(arg.concretetype, arg.value)
             else:
                 assert isinstance(arg.value, lltype._ptr)
-                if not arg.value:
+                if isinstance(arg.value._obj, int):
+                    rt = self.repr_type(arg.concretetype)
+                    v = repr(arg.value._obj)
+                    return 'cast (int %s to %s)'%(v, rt)
+                elif not arg.value:
                     return 'null'
                 else:
                     node = self.obj2node[arg.value._obj]
@@ -282,6 +292,9 @@ class Database(object):
             # special case, null pointer
             if value is None:
                 return None, "%s null" % toptr
+
+            if isinstance(value, int):
+                return None, 'cast (int %s to %s)'%(value, toptr)
 
             node = self.obj2node[value]
             ref = node.get_pbcref(toptr)

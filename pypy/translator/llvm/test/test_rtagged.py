@@ -1,10 +1,6 @@
 import sys, os
 from pypy.rlib.objectmodel import UnboxedValue
 
-import py
-
-py.test.skip("not working at present")
-
 class A(object):
     __slots__ = ()
     def meth(self, x):
