@@ -294,7 +294,7 @@ class Database(object):
                 return None, "%s null" % toptr
 
             if isinstance(value, int):
-                return None, 'cast (int %s to %s)'%(value, toptr)
+                return None, '%s cast (int %s to %s)'%(toptr, value, toptr)
 
             node = self.obj2node[value]
             ref = node.get_pbcref(toptr)
