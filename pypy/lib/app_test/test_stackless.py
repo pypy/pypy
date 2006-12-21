@@ -328,7 +328,6 @@ class Test_Stackless:
                           ('schedule', 1), ('schedule', 2),]
 
     def test_channel_callback(self):
-        pypy_skip('not yet implemented in pypy')
         res = []
         cb = []
         def callback_function(chan, task, sending, willblock):
@@ -354,7 +353,12 @@ class Test_Stackless:
         ]
 
     def test_schedule_callback(self):
-        pypy_skip('not yet implemented in pypy')
+        pypy_skip('not running correctly')
+        # in stackless_new, a dead tasklet will be removed
+        # and is not known anymore when scheduling happens.
+        # Due to the applevel nature of stackless_new, 
+        # the schedule callback is done only on explicit schedule,
+        # but not on implicit ones
         res = []
         cb = []
         def schedule_cb(prev, next):
@@ -371,13 +375,11 @@ class Test_Stackless:
         maintask = stackless.getmain()
         stackless.run()
         assert res == ['A_1', 'A_2', 'B_1', 'B_2']
-        assert cb == [
-            (maintask, t1),
-            (t1, t2),
-            (t2, t1),
-            (t1, t2),
-            (t2, maintask)
-        ]
+        assert cb[0] == (maintask, t1)
+        assert cb[1] == (t1, t2)
+        assert cb[2] == (t2, t1)
+        assert cb[3] == (t1, t2)
+        assert cb[4] == (t2, maintask)
 
     def test_bomb(self):
         pypy_skip('not yet implemented in pypy')

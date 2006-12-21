@@ -19,6 +19,17 @@ except ImportError: # we are running from CPython
 from collections import deque
 
 import operator
+__all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
+                TaskletExit greenlet'.split()
+
+global_task_id = 0
+squeue = None
+main_tasklet = None
+main_coroutine = None
+first_run = False
+_channel_callback = None
+_schedule_callback = None
+
 def _scheduler_remove(value):
     try:
         del squeue[operator.indexOf(squeue, value)]
@@ -37,17 +48,21 @@ def _scheduler_contains(value):
     except ValueError:
         return False
 
+def _scheduler_switch(current, next):
+    if _schedule_callback is not None:
+        _schedule_callback(current, next)
+    return next.switch()
 
-__all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
-                TaskletExit greenlet'.split()
-
-global_task_id = 0
-squeue = None
-main_tasklet = None
-main_coroutine = None
-first_run = False
 
 class TaskletExit(Exception):pass
+
+def set_schedule_callback(callback):
+    global _schedule_callback
+    _schedule_callback = callback
+
+def set_channel_callback(callback):
+    global _channel_callback
+    _channel_callback = callback
 
 class channel(object):
     """
@@ -95,6 +110,9 @@ class channel(object):
         The above policy can be changed by setting channel flags.
         """
         receiver = getcurrent()
+        willblock = not self.balance > 0
+        if _channel_callback is not None:
+            _channel_callback(self, receiver, 0, willblock)
         if self.balance > 0: # somebody is already sending
             self.balance -= 1
             sender = self.queue.popleft()
@@ -119,6 +137,9 @@ class channel(object):
         """
         sender = getcurrent()
         sender.tempval = msg
+        willblock = not self.balance < 0
+        if _channel_callback is not None:
+            _channel_callback(self, sender, 1, willblock)
         if self.balance < 0: # somebody is already waiting
             receiver = self.queue.popleft()
             receiver.blocked = False
@@ -268,7 +289,8 @@ def schedule(retval=None):
         squeue.rotate(-1)
         curr = getcurrent()
         if task is not curr and task.is_alive:
-            r = task.switch()
+            #r = task.switch()
+            r = _scheduler_switch(curr, task)
             curr = getcurrent()
             if not task.is_alive:
                 if squeue:
@@ -279,7 +301,8 @@ def schedule(retval=None):
                         coroutine.kill(task)
                 else:
                     if curr is not mtask:
-                        mtask.switch()
+                        r = _scheduler_switch(curr, mtask)
+                        #mtask.switch()
                 schedule()
         elif task is curr:
             if len(squeue) > 1:
