@@ -18,6 +18,12 @@ except ImportError:
     except ImportError, e:
         skip('cannot import stackless: %s' % (e,))
 
+SHOW_STRANGE = False
+
+def dprint(txt):
+    if SHOW_STRANGE:
+        print txt
+
 def pypy_skip(txt):
     "don't skip, if we are running with CStackless"
     if not stackless_c:
@@ -380,7 +386,6 @@ class Test_Stackless:
             import sys
             b = stackless.bomb(*sys.exc_info())
         assert b.type is ZeroDivisionError
-        print str(b.value)
         assert str(b.value).startswith('integer division')
         assert b.traceback is not None
 
@@ -444,26 +449,42 @@ class Test_Stackless:
             X_out.send(foo)
 
         X, Y = stackless.channel(), stackless.channel()
-        stackless.tasklet(pipe)(X, Y)
+        t = stackless.tasklet(pipe)(X, Y)
         stackless.run()
         X.send(42)
         assert Y.receive() == 42
 
     def test_nested_pipe(self):
+        dprint('tnp ==== 1')
         def pipe(X, Y):
+            dprint('tnp_P ==== 1')
             foo = X.receive()
+            dprint('tnp_P ==== 2')
             Y.send(foo)
+            dprint('tnp_P ==== 3')
 
         def nest(X, Y):
             X2, Y2 = stackless.channel(), stackless.channel()
             t = stackless.tasklet(pipe)(X2, Y2)
-            X2.send(X.receive())
-            Y.send(Y2.receive())
+            dprint('tnp_N ==== 1')
+            X_Val = X.receive()
+            dprint('tnp_N ==== 2')
+            X2.send(X_Val)
+            dprint('tnp_N ==== 3')
+            Y2_Val = Y2.receive() 
+            dprint('tnp_N ==== 4')
+            Y.send(Y2_Val)
+            dprint('tnp_N ==== 5')
 
         X, Y = stackless.channel(), stackless.channel()
         t1 = stackless.tasklet(nest)(X, Y)
-        X.send(42)
-        assert Y.receive() == 42
+        X.send(13)
+        dprint('tnp ==== 2')
+        res = Y.receive() 
+        dprint('tnp ==== 3')
+        assert res == 13
+        if SHOW_STRANGE:
+            raise Exception('force prints')
 
     def test_wait_two(self):
         """
@@ -474,25 +495,43 @@ class Test_Stackless:
         # some leftover tasklets in the queue are messing
         # things up. This test runs fine, when being alone
         # in a test file
-        pypy_skip("still problems with scheduling")
-        def sleep(X, Barrier):
-            Barrier.send((X, X.receive()))
+        if not SHOW_STRANGE:
+            pypy_skip("still problems with scheduling")
+
+        def sleep(X, Y):
+            dprint('twt_S ==== 1')
+            value = X.receive()
+            dprint('twt_S ==== 2')
+            Y.send((X, value))
+            dprint('twt_S ==== 3')
 
         def wait_two(X, Y, Ret_chan):
             Barrier = stackless.channel()
             stackless.tasklet(sleep)(X, Barrier)
             stackless.tasklet(sleep)(Y, Barrier)
+            dprint('twt_W ==== 1')
             ret = Barrier.receive()
+            dprint('twt_W ==== 2')
             if ret[0] == X:
                 Ret_chan.send((1, ret[1]))
             else:
                 Ret_chan.send((2, ret[1]))
+            dprint('twt_W ==== 3')
 
-        X, Y, Ret_chan = stackless.channel(), stackless.channel(), stackless.channel()
+        X = stackless.channel()
+        Y = stackless.channel()
+        Ret_chan = stackless.channel()
+
         stackless.tasklet(wait_two)(X, Y, Ret_chan)
+
+        dprint('twt ==== 1')
         Y.send(42)
+
+        dprint('twt ==== 2')
         X.send(42)
+        dprint('twt ==== 3')
         value = Ret_chan.receive() 
+        dprint('twt ==== 4')
         assert value == (2, 42)
         
     def test_noop(self):

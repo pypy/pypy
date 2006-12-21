@@ -53,6 +53,7 @@ def _scheduler_switch(current, next):
     _last_task = next
     if _schedule_callback is not None:
         _schedule_callback(current, next)
+    assert not next.blocked
     next.switch()
     return current
 
@@ -88,13 +89,14 @@ class channel(object):
     is resumed. If there is no waiting sender, the receiver is suspended.
     """
 
-    def __init__(self):
+    def __init__(self, label=''):
         self.balance = 0
         self.closing = False
         self.queue = deque()
+        self.label = label
 
     def __str__(self):
-        return 'channel(%s,%s)' % (self.balance, self.queue)
+        return 'channel[%s](%s,%s)' % (self.label, self.balance, self.queue)
 
     def close(self):
         """
@@ -184,23 +186,24 @@ class tasklet(coroutine):
     New tasklets can be created with methods from the stackless
     module.
     """
-    def __new__(cls, func=None):
+    def __new__(cls, func=None, label=''):
         return super(tasklet,cls).__new__(cls)
 
-    def __init__(self, func=None):
+    def __init__(self, func=None, label=''):
         super(tasklet, self).__init__()
-        self._init(func)
+        self._init(func, label)
 
-    def _init(self, func=None):
+    def _init(self, func=None, label=''):
         global _global_task_id
         self.tempval = func
         self.alive = False
         self.blocked = False
-        self.task_id = _global_task_id
+        self._task_id = _global_task_id
+        self.label = label
         _global_task_id += 1
 
     def __str__(self):
-        return '<tasklet %s:%s>' % (self.task_id, self.is_alive)
+        return '<tasklet[%s, %s]>' % (self.label,self._task_id)
 
     __repr__ = __str__
 
@@ -365,8 +368,7 @@ def _init():
                 return getattr(self._coro,attr)
 
             def __str__(self):
-                return '<tasklet %s a:%s z:%s>' % \
-                        (self.task_id, self.is_alive, self.is_zombie)
+                return '<tasklet %s a:%s>' % (self._task_id, self.is_alive)
 
             def __reduce__(self):
                 return getmain, ()
@@ -378,7 +380,7 @@ def _init():
         _main_coroutine = _main_tasklet
         _main_tasklet = TaskletProxy(_main_tasklet)
         assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
-    tasklet._init(_main_tasklet)
+    tasklet._init(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
 
