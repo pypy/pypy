@@ -23,6 +23,20 @@ def normalize_revision(svnurl, rev, highest_if_error=True):
         return int(u.info().created_rev)
 
 class BuildPath(LocalPath):
+    """ a subclass from py.path.local that has some additional properties
+
+        * BuildPath.request holds the request object
+    
+        * BuildPath.zipfile returns a zip file (path object) with the build 
+          results (if available)
+
+        * BuildPath.log has the log of the build (if available)
+
+        * BuildPath.done indicates whether the build is done or still in
+          progress
+        
+    """
+    
     def _request(self):
         req = self.join('request')
         if not req.check():
@@ -62,12 +76,6 @@ class BuildPath(LocalPath):
     def _done(self):
         return not not self.log
     done = property(_done)
-
-class Build(object):
-    """ build data """
-    def __init__(self, buildrequest, buildpath):
-        self.request = buildrequest
-        self.path = buildpath
 
 class BuildRequest(object):
     """ build request data

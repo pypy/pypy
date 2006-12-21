@@ -82,19 +82,13 @@ def test_failed_checker():
     assert br in c1.refused
     assert c1.busy_on == None
 
-def test_zip_result():
-    channel = FakeChannel()
-    tempdir = py.test.ensuretemp('zip_result')
+def test_zip_dir():
+    tempdir = py.test.ensuretemp('zip_dir')
     tempdir.mkdir('foo')
     tempdir.join('foo/bar.txt').write('bar')
 
-    client.zip_result(tempdir, channel)
     zip = StringIO()
-    while 1:
-        chunk = channel.receive()
-        if chunk is None:
-            break
-        zip.write(chunk)
+    client.zip_dir(tempdir, zip)
 
     zip.seek(0)
     zf = ZipFile(zip)

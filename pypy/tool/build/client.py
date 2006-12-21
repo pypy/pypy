@@ -57,9 +57,7 @@ class PPBClient(object):
             buildpath.log = self.channel.receive()
         else:
             # pretend we're compiling by sleeping a bit...
-            open('/tmp/test_client_functional_crap', 'a').write('CLIENT - starting compile, sleeping %r secs\n' % (self.testing_sleeptime,))
             py.std.time.sleep(self.testing_sleeptime)
-            open('/tmp/test_client_functional_crap', 'a').write('CLIENT - done with compile\n')
 
         self.server.compilation_done(buildpath)
         self.busy_on = None
@@ -123,11 +121,8 @@ class ChannelWrapper(object):
     def flush(self):
         pass
 
-def zip_result(res_dir, channel):
-    channelwrapper = ChannelWrapper(channel)
-    zip = ZipFile(channelwrapper, 'w')
-    # might not be C pypy...
-    # zip.writestr('pypy-c', res_dir.join('testing_1/testing_1').read())
+def zip_dir(res_dir, tofile):
+    zip = ZipFile(tofile, 'w')
     for fpath in res_dir.visit():
         try:
             zip.writestr(fpath.relto(res_dir), fpath.read())
@@ -135,7 +130,6 @@ def zip_result(res_dir, channel):
             print exc
             continue
     zip.close()
-    channelwrapper.close()
 
 def tempdir(parent=None):
     i = 0
@@ -148,6 +142,7 @@ def tempdir(parent=None):
         i += 1
 
 def main(config, path, compilefunc):
+    """ client bootstrapping and main loop """
     from py.execnet import SshGateway, PopenGateway
 
     if config.server in ['localhost', '127.0.0.1']:
@@ -166,21 +161,20 @@ def main(config, path, compilefunc):
             while 1:
                 # receive compile requests
                 request = channel.receive()
-                if isinstance(request, str):
-                    try:
-                        request = build.BuildRequest.fromstring(request)
-                    except (KeyError, SyntaxError), e:
-                        print ('exception occurred when trying to '
-                               'interpret the following request:')
-                        print request
-                        print
-                        print 'going to continue'
-                        continue
-                else:
+                if not isinstance(request, str):
                     raise ValueError(
                         'received wrong unexpected data of type %s' % (
                                 type(request),)
                     )
+                try:
+                    request = build.BuildRequest.fromstring(request)
+                except (KeyError, SyntaxError), e:
+                    print ('exception occurred when trying to '
+                           'interpret the following request:')
+                    print request
+                    print
+                    print 'going to continue'
+                    continue
                 accepting = True
                 for checker in config.client_checkers:
                     if not checker(request):
@@ -196,7 +190,7 @@ def main(config, path, compilefunc):
                 if not accepting:
                     print 'refusing compilation'
                     continue
-                # XXX we should compile here, using data dict for info
+
                 print 'compilation requested for %s' % (request,)
 
                 # subversion checkout
@@ -217,7 +211,9 @@ def main(config, path, compilefunc):
                 if upath:
                     # send over zip data, end with a None
                     print 'compilation successful, sending to server'
-                    zip_result(py.path.local(upath), channel)
+                    wrapper = ChannelWrapper(channel)
+                    zip_dir(py.path.local(upath), wrapper)
+                    wrapper.close()
                 else:
                     print 'compilation failed, notifying server'
                     # just send the None

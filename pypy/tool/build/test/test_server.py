@@ -53,6 +53,8 @@ def test_compile():
     assert ret[1].find('found a suitable client') > -1
     ret = svr._channel.receive()
     assert ret.find('going to send compile job') > -1
+    acceptedmsg = svr._channel.receive()
+    assert acceptedmsg == 'compile job accepted'
     ret = c1.channel.receive()
     assert ret == br.serialize()
     none = c1.channel.receive()
@@ -70,6 +72,8 @@ def test_compile():
     svr.compile(br3)
     ret = svr._channel.receive()
     assert ret.find('going to send') > -1
+    acceptedmsg = svr._channel.receive()
+    assert acceptedmsg == 'compile job accepted'
     assert c2.channel.receive() == br3.serialize()
     assert c2.channel.receive() is None
     py.test.raises(IndexError, "c1.channel.receive()")
