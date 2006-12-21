@@ -111,7 +111,6 @@ def make_module_from_llvm(genllvm, llvmfile,
                       (b, gc_libs_path, gc_libs, exe_name)
                 cmds.append(cmd)
                 cmds.append("./%s_gen %s"%(exe_name, genllvm.config.translation.profopt))
-                cmds.append(cmd)
                 cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
                 cmds.append(cmd)
                 cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
