@@ -13,8 +13,8 @@ class W_StringJoinObject(W_Object):
             until = len(joined_strs)
         w_self.until = until
 
-    def force(w_self):
-        if w_self.until == 1:
+    def force(w_self, always=False):
+        if w_self.until == 1 and not always:
             return w_self.joined_strs[0]
         res = "".join(w_self.joined_strs[:w_self.until])
         w_self.joined_strs = [res]
@@ -49,13 +49,13 @@ def str_w__StringJoin(space, w_str):
 
 def add__StringJoin_StringJoin(space, w_self, w_other):
     if len(w_self.joined_strs) > w_self.until:
-        w_self.force()
+        w_self.force(True)
     w_self.joined_strs.extend(w_other.joined_strs)
     return W_StringJoinObject(w_self.joined_strs)
 
 def add__StringJoin_String(space, w_self, w_other):
     if len(w_self.joined_strs) > w_self.until:
-        w_self.force()
+        w_self.force(True)
     other = space.str_w(w_other)
     w_self.joined_strs.append(other)
     return W_StringJoinObject(w_self.joined_strs)

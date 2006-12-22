@@ -55,3 +55,10 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
 
         # check that insanity hasn't resulted.
         assert len(v) == len(w) == 4
+
+    def test_more_adding_fun(self):
+        s = 'a' + 'b' # s is a strjoin now
+        t = s + 'c'   # this calls s.force() which sets s.until to 1
+        u = s + 'd'
+        v = s + 'e'
+        assert v == 'abe' # meaning u is abcd
