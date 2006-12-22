@@ -20,7 +20,7 @@ class TestFrameState:
         code = func.func_code
         code = PyCode._from_code(self.space, code)
         w_globals = Constant({}) # space.newdict()
-        frame = code.create_frame(space, w_globals)
+        frame = self.space.createframe(code, w_globals)
 
         formalargcount = code.getformalargcount()
         dummy = Constant(None)

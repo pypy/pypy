@@ -1,5 +1,6 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import pyframe
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 
@@ -218,8 +219,8 @@ class FlowExecutionContext(ExecutionContext):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
-        frame = self.code.create_frame(self.space, self.w_globals,
-                                       self.closure)
+        frame = pyframe.PyFrame(self.space, self.code,
+                                self.w_globals, self.closure)
         frame.last_instr = 0
         return frame
 
