@@ -134,8 +134,6 @@ class CPythonFakeCode(eval.Code):
         eval.Code.__init__(self, getattr(cpy_callable, '__name__', '?'))
         self.cpy_callable = cpy_callable
         assert callable(cpy_callable), cpy_callable
-    def create_frame(self, space, w_globals, closure=None):
-        return CPythonFakeFrame(space, self, w_globals)
     def signature(self):
         return [], 'args', 'kwds'
 

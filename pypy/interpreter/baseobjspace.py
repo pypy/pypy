@@ -404,6 +404,11 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
+    def createframe(self, code, w_globals, closure=None):
+        "Create an empty PyFrame suitable for this code object."
+        from pypy.interpreter import pyframe
+        return pyframe.PyFrame(self, code, w_globals, closure)
+
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses
     # may also override specific functions for performance.

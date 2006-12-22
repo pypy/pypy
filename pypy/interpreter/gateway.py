@@ -438,9 +438,6 @@ class BuiltinCode(eval.Code):
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
 
-    def create_frame(self, space, w_globals, closure=None):
-        raise NotImplementedError
-
     def signature(self):
         return self.sig
 

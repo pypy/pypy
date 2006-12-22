@@ -15,13 +15,10 @@ class Code(Wrappable):
     def __init__(self, co_name):
         self.co_name = co_name
 
-    def create_frame(self, space, w_globals, closure=None):
-        "Create an empty frame object suitable for evaluation of this code."
-        raise TypeError, "abstract"
-
     def exec_code(self, space, w_globals, w_locals):
         "Implements the 'exec' statement."
-        frame = self.create_frame(space, w_globals, None)
+        # this should be on PyCode?
+        frame = space.createframe(self, w_globals, None)
         frame.setdictscope(w_locals)
         return frame.run()
 
@@ -52,8 +49,8 @@ class Code(Wrappable):
         return None
 
     def funcrun(self, func, args):
-        frame = self.create_frame(func.space, func.w_func_globals,
-                                  func.closure)
+        frame = func.space.createframe(self, func.w_func_globals,
+                                        func.closure)
         sig = self.signature()
         scope_w = args.parse(func.name, sig, func.defs_w)
         frame.setfastscope(scope_w)

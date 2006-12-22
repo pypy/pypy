@@ -12,6 +12,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
+from pypy.rlib.objectmodel import we_are_translated
 import sys
 import os
 import __builtin__
@@ -226,6 +227,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = self.newdict()
         return ec
+
+    def createframe(self, code, w_globals, closure=None):
+        from pypy.objspace.std.fake import CPythonFakeCode, CPythonFakeFrame
+        if not we_are_translated() and isinstance(code, CPythonFakeCode):
+            return CPythonFakeFrame(self, code, w_globals)
+        else:
+            return ObjSpace.createframe(self, code, w_globals, closure)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
