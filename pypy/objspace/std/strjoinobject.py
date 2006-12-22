@@ -48,6 +48,8 @@ def str_w__StringJoin(space, w_str):
     return w_str.force()
 
 def add__StringJoin_StringJoin(space, w_self, w_other):
+    if len(w_self.joined_strs) > w_self.until:
+        w_self.force()
     w_self.joined_strs.extend(w_other.joined_strs)
     return W_StringJoinObject(w_self.joined_strs)
 

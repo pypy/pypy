@@ -42,3 +42,16 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         r = "c" + "d"
         t = s + r
         assert len(s) == 2
+
+    def test_add_strjoin_strjoin(self):
+        # make three strjoin objects
+        s = 'a' + 'b'
+        t = 'c' + 'd'
+        u = 'e' + 'f'
+
+        # add two different strjoins to the same string
+        v = s + t
+        w = s + u
+
+        # check that insanity hasn't resulted.
+        assert len(v) == len(w) == 4
