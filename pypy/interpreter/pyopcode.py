@@ -602,18 +602,20 @@ class __extend__(pyframe.PyFrame):
                 return
         f.LOAD_GLOBAL(nameindex)    # fall-back
 
-    def LOAD_GLOBAL(f, nameindex, *ignored):
-        w_varname = f.getname_w(nameindex)
+    def _load_global(f, w_varname):
         w_value = f.space.finditem(f.w_globals, w_varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
             w_value = f.builtin.getdictvalue(f.space, w_varname)
             if w_value is None:
-                varname = f.getname_u(nameindex)
+                varname = f.space.str_w(w_varname)
                 message = "global name '%s' is not defined" % varname
                 raise OperationError(f.space.w_NameError,
                                      f.space.wrap(message))
-        f.valuestack.push(w_value)
+        return w_value
+
+    def LOAD_GLOBAL(f, nameindex, *ignored):
+        f.valuestack.push(f._load_global(f.getname_w(nameindex)))
 
     def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
@@ -875,31 +877,13 @@ class __extend__(pyframe.PyFrame):
         pass
 
     def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
-        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-        w_globals = f.w_globals
-        num = oparg >> 8
-        assert isinstance(w_globals, W_DictMultiObject)
-        w_value = w_globals.implementation.get_builtin_indexed(num)
-        if w_value is None:
-            w_builtins = f.builtin
-            assert isinstance(w_builtins, Module)
-            w_builtin_dict = w_builtins.w_dict
-            assert isinstance(w_builtin_dict, W_DictMultiObject)
-            w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
-##                 if w_value is not None:
-##                     print "CALL_LIKELY_BUILTIN fast"
-        if w_value is None:
-            varname = OPTIMIZED_BUILTINS[num]
-            message = "global name '%s' is not defined" % varname
-            raise OperationError(f.space.w_NameError,
-                                 f.space.wrap(message))
-        nargs = oparg & 0xff
-        w_function = w_value
+        # overridden by faster version in the standard object space.
+        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS
+        w_varname = f.space.wrap(OPTIMIZED_BUILTINS[oparg >> 8])
+        w_function = f._load_global(w_varname)
+        nargs = oparg&0xFF
         try:
             w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
-            # XXX XXX fix the problem of resume points!
-            #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
         finally:
             f.valuestack.drop(nargs)
         f.valuestack.push(w_result)
