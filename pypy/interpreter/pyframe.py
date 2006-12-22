@@ -47,6 +47,7 @@ class PyFrame(eval.Frame):
     instr_prev               = -1
 
     def __init__(self, space, code, w_globals, closure):
+        assert isinstance(code, pycode.PyCode)
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
         # XXX hack: FlowSpace directly manipulates stack
