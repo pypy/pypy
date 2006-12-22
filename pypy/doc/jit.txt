@@ -615,17 +615,209 @@ of the red splits.)
 Calls and inlining
 ---------------------
 
-...
+...green call... red call and inlining effect... gray call, yellow call...
 
-Virtual Containers
+
+Virtual structures
 --------------------
 
-...vstructs, vlist, vdict...
+The support code introduced by the timeshifter contains an optimization
+for all memory allocations that would normally have to occur at
+run-time: it makes these allocations lazy.  A *virtual structure* is
+such a lazily-allocated run-time data structure.
+
+The hint-annotator gives the color red to the result of a malloc
+operation.  However, the timeshifter turns the malloc into a pure
+compile-time operation that returns a special PtrRedBox object.  The
+PtrRedBox contains neither a compile-time value (because its value as a
+pointer is not a compile-time constant) nor a run-time value (because no
+residual code was generated to perform the malloc yet, so no run-time
+machine code register contains the pointer's value).  Instead, the
+PtrRedBox references a *virtual structure* object that describes what
+shape and what values the structure would contain at run-time; the
+values are themselves further RedBoxes.
+
+For example, in the following code::
+
+    obj = MyClass()
+    obj.x = somevalue
+    ...
+    print obj.x
+
+all the variables are red.  At compile-time, the malloc corresponding to
+the instantiation of ``MyClass`` returns a PtrRedBox with a virtual
+structure.  In the next line, the attribute assignment stores the RedBox
+corresponding to ``somevalue`` into the virtual structure.  Later on,
+reading ``obj.x`` reads out the same RedBox out of the virtual
+structure.  This is all done without generating any residual code; the
+machine code register that holds ``somevalue`` at run-time simply stays
+around and is used directly in the ``print`` statement.
+
+The above example is of course too simple to reflect the complex control
+flow patterns of real-life programs.  In some cases, merge points
+prevent us from following virtual structures.  Indeed, consider::
+
+    if condition:
+        obj = MyFirstClass()
+    else:
+        obj = MySecondClass()
+
+Following the ``if`` statement, the control flow graph contains such a
+merge point.  Assume first that the ``condition`` is a compile-time
+constant.  In this case, only one path is considered anyway, so ``obj``
+is propagated into the rest of the code as a PtrRedBox with a specific
+virtual structure.  But assume now that ``condition`` is not a
+compile-time constant.  In this case, in each incoming path the variable
+``obj`` contains a PtrRedBox with a different type of virtual structure.
+To avoid an explosion of the number of cases to consider, the
+compile-time logic *forces* the virtual structures at this point,
+i.e. it generates code that actually allocates them at run-time.  For
+the rest of the code, the PtrRedBox changes its status and becomes a
+regular run-time PtrRedBox.
+
+Another case in which a virtual structure must be forced is when the
+pointer escapes to some uncontrolled place, e.g. when it is stored into
+a (non-virtual) run-time structure.
+
+Note that the virtual structure object itself stores enough information
+to know exactly the run-time type it was allocated with.  This is
+necessary because the PtrRedBox itself might be cast up to a less
+precise pointer type, without necessarily forcing the virtual structure.
+This is the case in the previous example: the inferred type for ``obj``
+in the rest of the code is the less precise common base class of
+``MyFirstClass`` and ``MySecondClass``, whereas if ``condition`` is a
+compile-time constant then the virtual structure can carry the precise
+class of the instance even in the rest of the code.
+
+Virtual lists and dicts
+-------------------------
+
+The examples of `virtual structures`_ seen so far are about virtualizing
+objects like instances of RPython classes, which have a ``GcStruct``
+low-level type, i.e. a kind of C ``struct``.  The same idea can be
+generalized to objects with other kinds of low-level representations; we
+call the result *virtual containers*.  Beside structures, there are two
+further kinds of virtual containers: *virtual lists* and *virtual
+dicts*.  The idea is the optimize the following kind of code::
+
+    lst = []
+    lst.append(somevalue)
+    ...
+    print lst.pop()
+
+As in the examples of `virtual structures`_, the list manipulations here
+produce no residual code whatsoever.  At compile-time the ``lst``
+variable is a PtrRedBox referencing a *virtual list* object.  A virtual
+list is implemented as a list of red boxes: operations like
+``append(x)`` just append the red box of ``x`` to the virtual list.  The
+virtual list must be forced in situations where the shape of the list
+can no longer be known at compile-time, e.g. when inserting an element
+at an index which is not a compile-time constant.
+
+Virtual dicts are similar, but only support compile-time constants as
+keys (otherwise, we would not know at compile-time whether two run-time
+keys are equal or not).  They are useful in situations where we build
+small dicts with fixed keys; in the PyPy interpreter for example we
+foresee that they will be useful to implement the dictionary of
+application-level objects, which typically have a few well-known string
+keys (the instance's attributes).
+
+Note that some care is required when timeshifting low-level code that
+handles lists and dicts: operations like ``lst.append(x)`` have already
+been turned into calls to low-level helpers that manipulate low-level
+structures and arrays.  If no care is taken, the timeshifter will
+consider this as code that handles structures and arrays, and try to
+make them virtual structures and (yet unsupported) virtual arrays.
+However, this is a bit too low-level: e.g. lists that should be similar
+may have accidentally different structures, because of the details of
+the over-allocation logic in the low-level helpers.  The situation is
+even worse for dictionaries, where the details of the key placement in
+the hash table is irrelevant at the RPython level but is likely to
+confuse the merge logic when trying to compare two virtual dicts.  The
+timeshifter avoids these issues by special-casing the helpers for lists
+and dicts and mapping them to compile-time operations on virtual lists
+and virtual dicts.  (This is the purpose of the ``oopspec`` annotation
+found in the source code of these helpers; as e.g. in
+`rpython/rlist.py`_.)
+
 
 Exceptions
 ------------
 
-...
+The graphs that the timeshifter inputs are RPython code.  As such, they
+typically use exceptions.  They must be handled in a specific way - the
+timeshifted graph itself cannot simply raise and catch the same
+exceptions at the same places, because most of these exceptions will
+only occur at run-time under some conditions.
+
+The solution we picked is to *exception-transform* the input graphs
+before they are timeshifted.  The `exception transformer`_ is a module
+that is normally used to prepare a graph for being turned into C code,
+by removing the exception handling implicit at the graph level and
+turning it into a form suitable for C.  This transformation introduces a
+*global exception state* structure that stores the current exception
+object, if any; it turns exception raising into writing into the global
+exception state, and it adds checks in each graph after each operation
+that could potentially raise.
+
+Now, as the timeshifter takes exception-transformed graphs as input, it
+would do the right thing without special support.  Indeed, loads from
+and stores to the global exception state are regular red operations, so
+they are simply generated into the residual code.  In this model, the
+generated residual code would simply check for exception as often as
+the original, non-timeshifted graphs did.
+
+The result is not efficient, however, because many original operations
+were removed - for example, green operations are no longer present, and
+calls are inlined.  This means that the residual graph contains
+unnecessary repeated checks.  To solve this, we made the global
+exception state structure virtual in some sense.  The compile-time state
+contains two red boxes that correspond to the current exception type and
+instance; the intent is that they describe run-time values which
+together are considered as the current exception by the residual code.
+In other words, when the residual code is itself running, the global
+exception state structure is not really containing the current
+exception; instead, it is in regular local variables (if the red boxes
+are run-time) or simply known as constants at this point (if the red
+boxes are compile-time).
+
+To implement this, the timeshifter needs to special-case the following
+places:
+
+* Operations in the input graphs that directly read from or store to the
+  global exception state structure become compile-time copies from or to
+  the compile-time exception red boxes.  For example, when the input,
+  exception-transformed graph wants to clear the current exception, it
+  stores zeroes in the global exception state; the timeshifter
+  transforms these into putting red boxes with compile-time zeroes as
+  the compile-time exception red boxes.  Afterwards, any compile-time
+  code that checks if an exception is set would find the compile-time
+  zeroes and know that there isn't any.
+
+* Residual operations that can indirectly raise, like residual calls,
+  would store an exception into the global exception state; so at
+  compile-time, just after we generate such a residual operation, we
+  also generate a pair of ``getfield`` operations that load the run-time
+  exception back into local run-time variables.  This produces
+  non-constant red boxes which are used as the compile-time exception
+  boxes.
+
+* At the end of a residual function, just before returning to the
+  run-time caller, we generate code that copies the exception boxes back
+  into the global exception state.
+
+With the above rules, we can match direct raises with their
+corresponding exception handlers purely at compile-time.  Indeed,
+consider a graph that explicit raises some exception.  The exception
+transformer first turns it into setting a constant type pointer into the
+global exception state.  Then the timeshifter turns that code into
+storing a constant red box into the compile-time exception state.  The
+exception remains a compile-time constant until it is either used
+(allowing the matching code inserted by the exception transformer to
+give compile-time constant answers) or it escapes out of the residual
+code (and only in the latter case will residual code store it into the
+global exception state for the benefit of the run-time caller).
+
 
 .. _promotion:
 
@@ -634,15 +826,18 @@ Promotion and global merges
 
 ...global merge point...
 
+
 Partial data
 -------------
 
 ...
 
+
 Portals
 ----------------------
 
 ...
+
 
 Scaling to PyPy
 ----------------------
@@ -674,5 +869,6 @@ The interface (which is not yet completely stable) is documented in
 .. _`specialization of functions`: dynamic-language-translation.html#specialization
 .. _Psyco: http://psyco.sourceforge.net
 .. _`PyPy Standard Interpreter`: architecture.html#standard-interpreter
+.. _`exception transformer`: translation.html#making-exception-handling-explicit
 
 .. include:: _ref.txt
