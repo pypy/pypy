@@ -486,13 +486,12 @@ class BaseTestInline:
         assert round(res, 5) == round(32.333333333, 5)
 
     def test_indirect_call_with_exception(self):
-        self._skip_oo('exception rewiring')
         class Dummy:
             pass
         def x1():
             return Dummy()   # can raise MemoryError
         def x2():
-            return 2
+            return None
         def x3(x):
             if x:
                 f = x1
@@ -508,6 +507,25 @@ class BaseTestInline:
             return 1
         assert x4() == 1
         py.test.raises(CannotInline, self.check_inline, x3, x4, [])
+
+
+class TestInlineLLType(LLRtypeMixin, BaseTestInline):
+
+    def test_correct_keepalive_placement(self):
+        def h(x):
+            if not x:
+                raise ValueError
+            return 1
+        def f(x):
+            s = "a %s" % (x, )
+            try:
+                h(len(s))
+            except ValueError:
+                pass
+            return -42
+        eval_func, t = self.check_auto_inlining(f, [int])
+        res = eval_func([42])
+        assert res == -42
 
     def test_keepalive_hard_case(self):
         from pypy.rpython.lltypesystem import lltype
@@ -529,25 +547,40 @@ class BaseTestInline:
         res = eval_func([])
         assert res == 5
 
-    def test_correct_keepalive_placement(self):
-        def h(x):
-            if not x:
-                raise ValueError
-            return 1
-        def f(x):
-            s = "a %s" % (x, )
-            try:
-                h(len(s))
-            except ValueError:
-                pass
-            return -42
-        eval_func, t = self.check_auto_inlining(f, [int])
-        res = eval_func([42])
-        assert res == -42
-
-
-class TestInlineLLType(LLRtypeMixin, BaseTestInline):
-    pass
-
 class TestInlineOOType(OORtypeMixin, BaseTestInline):
-    pass
+
+    def test_invalid_iterator(self):
+        py.test.skip('Fixme!')
+        def f():
+            try:
+                d = {'a': 1, 'b': 2}
+                for key in d:
+                    d[key] = 0
+                return True
+            except RuntimeError:
+                return False
+        eval_func, t = self.check_auto_inlining(f, [])
+        res = eval_func([])
+        assert res == False
+
+    def test_rtype_r_dict_exceptions(self):
+        py.test.skip('Fixme!')
+        from pypy.rlib.objectmodel import r_dict
+        def raising_hash(obj):
+            if obj.startswith("bla"):
+                raise TypeError
+            return 1
+        def eq(obj1, obj2):
+            return obj1 is obj2
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                x = d1["blabla"]
+            except Exception:
+                return 42
+            return x
+
+        eval_func, t = self.check_auto_inlining(f, [])
+        res = eval_func([])
+        assert res == 42
