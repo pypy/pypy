@@ -9,6 +9,11 @@ from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
 
 
+#note: To use this code you'll need llvm 2.0 . At the time of writing that
+#      version is still somewhere in the future so use cvs head that gets
+#      closest! Version 2.0 introduces fileformat changes as described here:
+#      http://nondot.org/sabre/LLVMNotes/TypeSystemChanges.txt
+
 LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
 PRINT_DEBUG  = option.print_debug
@@ -92,6 +97,7 @@ class Var(GenVar):
     def __init__(self, type):
         self.n = count.n_vars
         self.type = type
+        self.signed = type is 'int' or type is 'float'
         count.n_vars += 1
 
     def operand(self):
@@ -125,6 +131,7 @@ class GenericConst(GenConst):
 
 class BoolConst(GenericConst):
     type = 'bool'
+    signed = False
 
     def __init__(self, value):
         self.value = bool(value)
@@ -132,6 +139,7 @@ class BoolConst(GenericConst):
 
 class CharConst(GenericConst):
     type = 'ubyte'
+    signed = False
 
     def __init__(self, value):
         if type(value) is str:
@@ -143,6 +151,7 @@ class CharConst(GenericConst):
 
 class UniCharConst(GenericConst):
     type = 'int'
+    signed = True
 
     def __init__(self, value):
         self.value = unicode(value)
@@ -150,6 +159,7 @@ class UniCharConst(GenericConst):
 
 class IntConst(GenericConst):
     type = 'int'
+    signed = True
 
     def __init__(self, value):
         self.value = int(value)
@@ -164,6 +174,7 @@ class IntConst(GenericConst):
 
 class UIntConst(GenericConst):
     type = 'uint'
+    signed = False
 
     def __init__(self, value):
         self.value = int(value)
@@ -171,6 +182,7 @@ class UIntConst(GenericConst):
 
 class FloatConst(GenericConst):
     type = 'float'
+    signed = True
 
     def __init__(self, value):
         self.value = float(value)
@@ -178,6 +190,7 @@ class FloatConst(GenericConst):
 
 class AddrConst(GenConst):
     type = 'int*'
+    signed = False
 
     def __init__(self, addr):
         self.addr = addr
@@ -229,8 +242,9 @@ class BasicBlock(Block):
         sourcevartypes = [var.type for var in sourcevars]
         targetvartypes = [var.type for var in self.inputargs]
         if sourcevartypes != targetvartypes:
-            logger.dump('sourcevartypes(%s) != targetvartypes(%s)' % (
+            logger.dump('assert fails on: sourcevartypes(%s) != targetvartypes(%s)' % (
                 sourcevartypes, targetvartypes))
+            self.rgenop._dump_partial_lines()
             assert sourcevartypes == targetvartypes
 
         # Check if the source block jumps to 'self' from multiple
@@ -370,8 +384,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_int_add(self, gv_x, gv_y):       return self._rgenop2_generic('add' , gv_x, gv_y)
     def op_int_sub(self, gv_x, gv_y):       return self._rgenop2_generic('sub' , gv_x, gv_y)
     def op_int_mul(self, gv_x, gv_y):       return self._rgenop2_generic('mul' , gv_x, gv_y)
-    def op_int_floordiv(self, gv_x, gv_y):  return self._rgenop2_generic('sdiv', gv_x, gv_y)
-    def op_int_mod(self, gv_x, gv_y):       return self._rgenop2_generic('srem' , gv_x, gv_y)
+    def op_int_floordiv(self, gv_x, gv_y):
+        return self._rgenop2_generic('us'[gv_x.signed] + 'div', gv_x, gv_y)
+    def op_int_mod(self, gv_x, gv_y):
+        return self._rgenop2_generic('us'[gv_x.signed] + 'rem' , gv_x, gv_y)
     def op_int_and(self, gv_x, gv_y):       return self._rgenop2_generic('and' , gv_x, gv_y)
     def op_int_or(self, gv_x, gv_y):        return self._rgenop2_generic('or'  , gv_x, gv_y)
     def op_int_xor(self, gv_x, gv_y):       return self._rgenop2_generic('xor' , gv_x, gv_y)
@@ -388,9 +404,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_y_ubyte = Var('ubyte')
         self.asm.append(' %s=trunc %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
         gv_result = Var(gv_x.type)
-        #XXX lshr/ashr
-        self.asm.append(' %s=lshr %s,%s' % (
-            gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
+        self.asm.append(' %s=%sshr %s,%s' % (
+            gv_result.operand2(), 'la'[gv_x.signed], gv_x.operand(), gv_y_ubyte.operand()))
         return gv_result
 
     op_uint_add = op_float_add = op_int_add
@@ -407,19 +422,34 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_float_truediv(self, gv_x, gv_y):  return self._rgenop2_generic('fdiv', gv_x, gv_y)
     def op_float_neg(self, gv_x): return self._rgenop2_generic('sub', FloatConst(0.0), gv_x)
 
-    def op_int_lt(self, gv_x, gv_y): return self._rgenop2_generic('setlt', gv_x, gv_y, 'bool')
-    def op_int_le(self, gv_x, gv_y): return self._rgenop2_generic('setle', gv_x, gv_y, 'bool')
-    def op_int_eq(self, gv_x, gv_y): return self._rgenop2_generic('seteq', gv_x, gv_y, 'bool')
-    def op_int_ne(self, gv_x, gv_y): return self._rgenop2_generic('setne', gv_x, gv_y, 'bool')
-    def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('setgt', gv_x, gv_y, 'bool')
-    def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('setge', gv_x, gv_y, 'bool')
+    def op_int_lt(self, gv_x, gv_y): return self._rgenop2_generic('icmp slt', gv_x, gv_y, 'bool')
+    def op_int_le(self, gv_x, gv_y): return self._rgenop2_generic('icmp sle', gv_x, gv_y, 'bool')
+    def op_int_eq(self, gv_x, gv_y): return self._rgenop2_generic('icmp eq' , gv_x, gv_y, 'bool')
+    def op_int_ne(self, gv_x, gv_y): return self._rgenop2_generic('icmp ne' , gv_x, gv_y, 'bool')
+    def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('icmp sgt', gv_x, gv_y, 'bool')
+    def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('icmp sge', gv_x, gv_y, 'bool')
 
-    op_char_lt = op_uint_lt = op_float_lt = op_int_lt
-    op_char_le = op_uint_le = op_float_le = op_int_le
-    op_char_eq = op_uint_eq = op_float_eq = op_unichar_eq = op_ptr_eq = op_int_eq
-    op_char_ne = op_uint_ne = op_float_ne = op_unichar_ne = op_ptr_ne = op_int_ne
-    op_char_gt = op_uint_gt = op_float_gt = op_int_gt
-    op_char_ge = op_uint_ge = op_float_ge = op_int_ge
+    def op_uint_lt(self, gv_x, gv_y): return self._rgenop2_generic('icmp ult', gv_x, gv_y, 'bool')
+    def op_uint_le(self, gv_x, gv_y): return self._rgenop2_generic('icmp ule', gv_x, gv_y, 'bool')
+    def op_uint_gt(self, gv_x, gv_y): return self._rgenop2_generic('icmp ugt', gv_x, gv_y, 'bool')
+    def op_uint_ge(self, gv_x, gv_y): return self._rgenop2_generic('icmp uge', gv_x, gv_y, 'bool')
+
+    def op_float_lt(self, gv_x, gv_y): return self._rgenop2_generic('fcmp olt', gv_x, gv_y, 'bool')
+    def op_float_le(self, gv_x, gv_y): return self._rgenop2_generic('fcmp ole', gv_x, gv_y, 'bool')
+    def op_float_eq(self, gv_x, gv_y): return self._rgenop2_generic('fcmp oeq', gv_x, gv_y, 'bool')
+    def op_float_ne(self, gv_x, gv_y): return self._rgenop2_generic('fcmp one', gv_x, gv_y, 'bool')
+    def op_float_gt(self, gv_x, gv_y): return self._rgenop2_generic('fcmp ogt', gv_x, gv_y, 'bool')
+    def op_float_ge(self, gv_x, gv_y): return self._rgenop2_generic('fcmp oge', gv_x, gv_y, 'bool')
+
+    op_unichar_eq = op_ptr_eq = op_uint_eq = op_int_eq
+    op_unichar_ne = op_ptr_ne = op_uint_ne = op_int_ne
+
+    op_char_lt = op_uint_lt
+    op_char_le = op_uint_le
+    op_char_eq = op_uint_eq
+    op_char_ne = op_uint_ne
+    op_char_gt = op_uint_gt
+    op_char_ge = op_uint_ge
 
     def _rgenop1_generic(self, llvm_opcode, gv_x, restype=None):
         log('%s Builder._rgenop1_generic %s %s' % (
@@ -438,8 +468,11 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_comp    = Var('bool')
         gv_abs_pos = Var(gv_x.type)
         gv_result  = Var(gv_x.type)
-        self.asm.append(' %s=setge %s,%s' % (
-            gv_comp.operand2(), gv_x.operand(), nullstr))
+        if nullstr is '0':
+            l = ' %s=icmp sge %s,%s'
+        else:
+            l = ' %s=fcmp oge %s,%s'
+        self.asm.append(l % (gv_comp.operand2(), gv_x.operand(), nullstr))
         self.asm.append(' %s=sub %s %s,%s' % (
             gv_abs_pos.operand2(), gv_x.type, nullstr, gv_x.operand2()))
         self.asm.append(' %s=select %s,%s,%s' % (
@@ -577,15 +610,21 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def _is_false(self, gv_x, nullstr='0'):
         log('%s Builder._is_false %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
-        self.asm.append(' %s=seteq %s,%s' % (
-            gv_result.operand2(), gv_x.operand(), nullstr))
+        if nullstr is '0':
+            l = ' %s=icmp eq %s,%s'
+        else:
+            l = ' %s=fcmp oeq %s,%s'
+        self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
         return gv_result
 
     def _is_true(self, gv_x, nullstr='0'):
         log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
-        self.asm.append(' %s=setne %s,%s' % (
-            gv_result.operand2(), gv_x.operand(), nullstr))
+        if nullstr is '0':
+            l = ' %s=icmp ne %s,%s'
+        else:
+            l = ' %s=fcmp one %s,%s'
+        self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
         return gv_result
 
     op_bool_is_true = op_char_is_true = op_unichar_is_true = op_int_is_true =\
@@ -605,7 +644,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
                 t = 'ubyte'
             else:
                 if fieldsize != 2:
-                    logger.dump('fieldsize != [124]')
+                    logger.dump('assert fails on: fieldsize != [124]')
+                    self.rgenop._dump_partial_lines()
                     assert fieldsize == 2
                 t = 'short'
         gv_ptr_var = self._as_var(gv_ptr)
@@ -618,7 +658,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
-        log('%s Builder.senop_setfield (%d,%d) %s=%s' % (
+        log('%s Builder.genop_setfield (%d,%d) %s=%s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand(), gv_value.operand()))
         #if fieldsize == WORD:
         #    gv_result = Var('int')
@@ -633,7 +673,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         self.asm.append(' %s=getelementptr %s,int %s' % (
             gv_p.operand2(), gv_ptr_var.operand(), offset / fieldsize))
         self.asm.append(' store %s,%s' % (
-            gv_value.operand2(), gv_p.operand()))
+            gv_value.operand(), gv_p.operand()))
 
     def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
         log('%s Builder.genop_getsubstruct (%d,%d) %s' % (
@@ -730,8 +770,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def genop_malloc_fixedsize(self, size):
         log('%s Builder.genop_malloc_fixedsize %s' % (
             self.block.label, str(size)))
-        gv_result = Var('ubyte*')
-        gv_gc_malloc_fnaddr = Var('ubyte* (int)*')
+        gv_result = Var('ubyte*') #XXX or opaque* ???
+        gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
@@ -742,8 +782,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
         log('%s Builder.genop_malloc_varsize %s,%s' % (
             self.block.label, varsizealloctoken, gv_size.operand()))
-        gv_result = Var('ubyte*')
-        gv_gc_malloc_fnaddr = Var('ubyte* (int)*')
+        gv_result = Var('ubyte*') #XXX or opaque* ???
+        gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
@@ -801,6 +841,14 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
 
     def check_no_open_mc(self):
         return True
+
+    def _dump_partial_lines(self):  #what we've generated so far
+        asmlines = []
+        for block in self.blocklist:
+            block.writecode(asmlines)
+        asmlines = ['%s ;%d' % (asmlines[i], i+1) for i in range(len(asmlines))]
+        asm_string = '\n'.join(asmlines)
+        logger.dump(asm_string)
 
     def end(self):
         log('   RLLVMGenOp.end')

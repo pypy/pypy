@@ -28,7 +28,7 @@ llmul2 = '''int %mul2(int %n) {
 #
 lldeadcode = '''int %deadcode(int %n) {
 Test:
-    %cond = seteq int %n, %n
+    %cond = icmp eq int %n, %n
     br bool %cond, label %IfEqual, label %IfUnequal
 
 IfEqual:
