@@ -385,6 +385,8 @@ FakeSpace.config.objspace = Config()
 FakeSpace.config.objspace.std = Config()
 FakeSpace.config.objspace.std.withdictmeasurement = False
 FakeSpace.config.objspace.std.withsharingdict = False
+FakeSpace.config.objspace.opcodes = Config()
+FakeSpace.config.objspace.opcodes.CALL_LIKELY_BUILTIN = False
 
 from pypy.objspace.std.dictobject import getitem__Dict_ANY, setitem__Dict_ANY_ANY
 
