@@ -1,0 +1,89 @@
+======================================
+Developing web applications with PyPy
+======================================
+
+What is this (and why)?
+------------------------
+
+PyPy is a platform that is very versatile, and provides almost endless
+possibilities. One of the features that is currently already available is
+that of translating RPython (the 'restricted Python' subset) to JavaScript.
+This specific feature can make the life of a developer of web applications that
+use client-side logic a lot easier, although there are certain hurdles to take.
+
+Currently the state of the JavaScript backend support for PyPy is usable, but
+somewhat complex to use out-of-the-box and not very well documented. I'm 
+writing this document while investigating the possibilities myself, and hope
+that it can serve others to relatively quickly dive in, without having to know
+too much of anything in the (rather daunting) PyPy codebase besides the useful
+bits for web application development.
+
+PyPy features for web developers
+---------------------------------
+
+Of course the 'killer feature' of PyPy for web application developers is the
+ability to convert somewhat restricted Python code (aka RPython) into
+JavaScript code. Unlike other libraries that perform similar functionality,
+PyPy really interprets the code, and produces 'lower level' JavaScript code,
+so it implements Python core language features like list comprehensions, and
+really behaves like Python (it's not Python syntax with JS semantics). 
+
+However, mostly for demonstration purposes, some other interesting code is
+available in the PyPy code package that may help developing web apps. The most
+interesting of these I think is a library that transparently makes server-side
+functionality available to client-side code, using XMLHttpRequest. This code 
+lives in a module in pypy/translator/js/examples that's called 'server.py', and
+uses a library in pypy/translator/js called 'commproxy.py'.
+
+Note that the 'server.py' library currently is usable, but not complete: I
+assume there will be quite some development and refinement later. This may mean
+that certain things in this document are outdated.
+
+Layers
+-------
+
+As seems to be common in PyPy, web applications will be relatively 'layered': 
+there are a large number of different 'levels' of code execution. This makes
+that writing and debugging web applications written in this manner can be
+relatively complicated; however, the gains (such as having client-side code
+written in Python, and being able to test it on a normal Python interpreter)
+hopefully outweigh those complications.
+
+A quick overview of the (main) layers of code in the application we're going
+to write:
+
+  * HTTP server implementation - 'normal' (C-)Python code
+  
+    the web server code, the code that handles dealing with the HTTP API and
+    dispatching to application code is written in 'normal' Python code, and is
+    executed on the server in a 'normal' Python interpreter (note that this
+    does _not_ mean that you can not execute this in a PyPy interpreter, as
+    long as that interpreter has support for the functionality we need (things
+    like sockets) that should work)
+
+  * Server-side application code - 'normal' and 'described' Python code
+
+    the application code on the server consists of 'internal' code, code that
+    is called directly from other server-side code ('normal' Python functions),
+    and 'exposed' code, code that is made available to the client (and has to
+    be described)
+
+    exposed functions only support common datatypes (ints, strings, lists
+    of ints, etc.) for arguments and return values, and have to have those
+    arguments and return values 'described' so that the rtyper system can
+    discover how they should be exposed, and so that the (transparently used)
+    XMLHttpRequest handler and JSON serializer know how they should be treated
+
+  * Client-side application code - RPython code
+
+    the application code on the client lives in a seperate module, and must be
+    RPython code
+
+    this code can call the 'described' Python code from the server, and also
+    use the normal client-side (browser) APIs
+
+Writing a simple application
+-----------------------------
+
+XXX hands-on guide to writing guestbook or something
+
