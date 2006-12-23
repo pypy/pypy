@@ -6,15 +6,23 @@ from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llvm import llvmjit
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
-
-
 from pypy.jit.codegen.llvm.conftest import option
+
 
 LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
 PRINT_DEBUG  = option.print_debug
 
 WORD = 4
+
+
+MINIMAL_VERSION = 2.0
+
+def llvm_version():
+    v = os.popen('llvm-as -version 2>&1').read()
+    v = ''.join([c for c in v if c.isdigit()])
+    v = int(v) / 10.0
+    return v
 
 
 class Logger:

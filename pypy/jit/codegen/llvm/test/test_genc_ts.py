@@ -1,7 +1,7 @@
 import py
 from pypy.jit.codegen.i386.test.test_genc_ts import I386TimeshiftingTestMixin
 from pypy.jit.timeshifter.test import test_timeshift
-from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
+from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp, llvm_version, MINIMAL_VERSION
 
 
 skip_passing = False
@@ -20,6 +20,22 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
 
     def skip(self):
         py.test.skip("WIP")
+
+    def skip_too_minimal(self):
+        py.test.skip('found llvm %.1f, requires at least llvm %.1f(cvs)' % (
+            llvm_version(), MINIMAL_VERSION))
+
+    if llvm_version() < MINIMAL_VERSION:
+        test_loop_merging = skip_too_minimal
+        test_two_loops_merging = skip_too_minimal
+        test_merge_3_redconsts_before_return = skip_too_minimal
+        test_degenerated_before_return = skip_too_minimal
+        test_degenerated_before_return_2 = skip_too_minimal
+        test_setarrayitem = skip_too_minimal
+        test_degenerated_via_substructure = skip_too_minimal
+        test_merge_structures = skip_too_minimal
+        test_split_on_green_return = skip_too_minimal
+        test_normalize_indirect_call_more = skip_too_minimal
 
     if skip_passing:
         test_very_simple = skip

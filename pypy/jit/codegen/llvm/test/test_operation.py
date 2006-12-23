@@ -1,10 +1,7 @@
 import py
 from pypy.jit.codegen.llvm.test.test_llvmjit import skip_unsupported_platform
 from pypy.jit.codegen.i386.test.test_operation import BasicTests
-from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
-
-
-#skip_unsupported_platform()
+from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp, llvm_version, MINIMAL_VERSION
 
 
 class LLVMTestBasicMixin(object):
@@ -19,6 +16,20 @@ class TestBasic(LLVMTestBasicMixin,
 
     def skip(self):
         py.test.skip('WIP')
+
+    def skip_too_minimal(self):
+        py.test.skip('found llvm %.1f, requires at least llvm %.1f(cvs)' % (
+            llvm_version(), MINIMAL_VERSION))
+
+    if llvm_version() < MINIMAL_VERSION:
+        test_arithmetic = skip_too_minimal
+        test_comparison = skip_too_minimal
+        test_char_comparison = skip_too_minimal
+        test_unichar_comparison = skip_too_minimal
+        test_char_array = skip_too_minimal
+        test_char_varsize_array = skip_too_minimal
+        test_unsigned = skip_too_minimal
+        test_float_arithmetic = skip_too_minimal
 
     test_float_pow = skip
     test_unichar_array = skip
