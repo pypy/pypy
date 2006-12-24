@@ -15,7 +15,7 @@ def _not(op):
     return [PushAllArgs, op]+Not
 
 def _abs(type_):
-    return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
+    return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_), StoreResult]
 
 def _check_ovf(op):
     mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError')]
@@ -166,6 +166,7 @@ opcodes = {
     'llong_neg':                'neg',
     'llong_neg_ovf':            _check_ovf(['ldc.i8 0', PushAllArgs, 'sub.ovf', StoreResult]),
     'llong_abs':                _abs('int64'),
+    'llong_abs_ovf':            _check_ovf(_abs('int64')),
     'llong_invert':             'not',
 
     'llong_add':                'add',
