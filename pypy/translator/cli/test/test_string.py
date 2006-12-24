@@ -33,6 +33,9 @@ class TestCliString(CliTest, BaseTestRstr):
     def test_replace_TyperError(self):
         pass # it doesn't make sense here
 
+    def test_hlstr(self):
+        py.test.skip("CLI tests can't have string as input arguments")
+
     def test_hash_value(self):
         # make that hash are computed by value and not by reference
         def fn(x, y):
