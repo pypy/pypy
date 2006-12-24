@@ -549,22 +549,7 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
 
 class TestInlineOOType(OORtypeMixin, BaseTestInline):
 
-    def test_invalid_iterator(self):
-        py.test.skip('Fixme!')
-        def f():
-            try:
-                d = {'a': 1, 'b': 2}
-                for key in d:
-                    d[key] = 0
-                return True
-            except RuntimeError:
-                return False
-        eval_func, t = self.check_auto_inlining(f, [])
-        res = eval_func([])
-        assert res == False
-
     def test_rtype_r_dict_exceptions(self):
-        py.test.skip('Fixme!')
         from pypy.rlib.objectmodel import r_dict
         def raising_hash(obj):
             if obj.startswith("bla"):
@@ -584,3 +569,4 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         eval_func, t = self.check_auto_inlining(f, [])
         res = eval_func([])
         assert res == 42
+

@@ -39,6 +39,8 @@ def collect_called_graphs(graph, translator):
                 else:
                     for graph in graphs:
                         graphs_or_something[graph] = True
+            if op.opname == 'oosend':
+                graphs_or_something[op.args[0]] = True # XXX?
     return graphs_or_something
 
 def iter_callsites(graph, calling_what):
