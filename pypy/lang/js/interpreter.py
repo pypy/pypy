@@ -209,6 +209,9 @@ class __extend__(Script):
     def call(self, ctx):
         for var in self.var_decl:
             ctx.variable.Put(var.name, w_Undefined)
+        for fun in self.func_decl:
+            ctx.variable.Put(fun.name, fun.call(ctx))
+    
                 
         try:
             last = w_Undefined

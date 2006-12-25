@@ -232,7 +232,6 @@ def from_dict(d):
     elif tp == 'RETURN':
         return Return(from_dict(d['value']))
     elif tp == 'SCRIPT':
-        # TODO: get function names
         if isinstance(d['funDecls'], dict):
             func_decl = [from_dict(d['funDecls']),]
         else:
