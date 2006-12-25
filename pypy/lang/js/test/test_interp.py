@@ -22,8 +22,6 @@ def js_is_on_path():
 class TestInterp(object):
     def test_simple(self):
         assert Plus(Number(3), Number(4)).call(ExecutionContext()).floatval == 7
-        #    s = Script([Semicolon(Plus(Number(3), Number(4)))], [], [])
-        #    s.call()
         l = []
         interpreter.writer = l.append
         Script([Semicolon(Call(Identifier('print', None), 
@@ -68,7 +66,7 @@ class TestInterp(object):
 
     def test_object_access(self):
         self.assert_prints("x={d:3}; print(x.d);", ["3"])
-        self.assert_prints("x={d:3}; print(x.d.d);", [""])
+        self.assert_prints("x={d:3}; print(x.d.d);", ["undefined"])
         self.assert_prints("x={d:3, z:4}; print(x.d+x.z);", ["7"])
 
     def test_object_access_index(self):
@@ -233,8 +231,18 @@ class TestInterp(object):
         print(o);
         """, ["[object Object]"])
 
+    def test_var_decl(self):
+        self.assert_prints("print(x); var x;", ["undefined"])
+        self.assert_prints("""
+        try {
+            print(z);
+        }
+        catch (e) {
+            print(e)
+        }
+        """, ["ReferenceError: z is not defined"])
+
     def test_function_name(self):
-        py.test.skip("not ready yet")
         self.assert_prints("""
         function x() {
             print("my name is x");

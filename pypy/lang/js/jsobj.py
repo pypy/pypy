@@ -1,9 +1,18 @@
 # encoding: utf-8
 
-from pypy.lang.js.reference import Reference
 
 class SeePage(NotImplementedError):
     pass
+
+class ExecutionReturned(Exception):
+    def __init__(self, value):
+        self.value = value
+
+class ThrowException(Exception):
+    def __init__(self, exception):
+        self.exception = exception
+        self.args = self.exception
+
 
 INFDEF = 1e300 * 1e300
 NaN    = INFDEF/INFDEF
@@ -183,7 +192,7 @@ class W_FunctionObject(W_Object):
 
 class W_Undefined(W_Root):
     def __str__(self):
-        return ""
+        return "w_undefined"
     
     def ToNumber(self):
         # XXX make NaN
@@ -191,6 +200,9 @@ class W_Undefined(W_Root):
 
     def ToBoolean(self):
         return False
+    
+    def ToString(self):
+        return "undefined"
 
 class W_Null(W_Root):
     def __str__(self):
@@ -340,4 +352,30 @@ def eval_context(calling_context):
     ctx.property = Property('', w_Undefined)
     return ctx
 
-        
+class Reference(object):
+    """Reference Type"""
+    def __init__(self, property_name, base=None):
+        self.base = base
+        self.property_name = property_name
+
+    def GetValue(self):
+        if self.base is None:
+            exception = "ReferenceError: %s is not defined"%(self.property_name,)
+            raise ThrowException(W_String(exception))
+        return self.base.Get(self.property_name)
+
+    def PutValue(self, w, ctx):
+        base = self.base
+        if self.base is None:
+            base = ctx.scope[-1]
+        base.Put(self.property_name, w)
+
+    def GetBase(self):
+        return self.base
+
+    def GetPropertyName(self):
+        return self.property_name
+
+    def __str__(self):
+        return "< " + str(self.base) + " -> " + str(self.property_name) + " >"
+    

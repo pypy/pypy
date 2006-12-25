@@ -2,19 +2,9 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.jsobj import *
-from pypy.lang.js.reference import Reference
 
 def writer(x):
     print x
-
-class ExecutionReturned(Exception):
-    def __init__(self, value):
-        self.value = value
-
-class ThrowException(Exception):
-    def __init__(self, exception):
-        self.exception = exception
-        self.args = self.exception
 
 class Interpreter(object):
     """Creates a js interpreter"""
@@ -84,22 +74,6 @@ class __extend__(Dot):
         w_obj = self.left.call(ctx).GetValue().ToObject()
         name = self.right.get_literal()
         return Reference(name, w_obj)
-        
-    # def put(self, ctx, val):
-    #     print self.left.name, self.right.name, val
-    #     if isinstance(self.left,Identifier):
-    #         obj = ctx.access(self.left.name)
-    #         print obj.Class
-    #         obj.dict_w[self.right.name] = val
-    #     elif isinstance(self.left,Dot):
-    #         obj = self.left.put(ctx, val)
-    # 
-    #     return obj
-
-        #w_obj = self.left.put(ctx).GetValue().ToObject()
-        #name = self.right.get_literal()
-        #w_obj.dict_w[self.name] = val
-        
 
 class __extend__(Function):
     def call(self, ctx):
@@ -112,9 +86,6 @@ class __extend__(Identifier):
             ref = ctx.resolve_identifier(self.name)
             ref.PutValue(self.initialiser.call(ctx), ctx)
         return ctx.resolve_identifier(self.name)
-
-    # def put(self, ctx, val, obj=None):            
-    #     ctx.assign(self.name, val)
     
     def get_literal(self):
         return self.name

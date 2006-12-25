@@ -140,7 +140,6 @@ class Undefined(Node):
 class Vars(Node):
     def __init__(self, nodes):
         self.nodes = nodes
-        #[scope_manager.add_variable(id.name, w_Undefined) for id in nodes]
 
 class While(Node):
     def __init__(self, condition, body):
