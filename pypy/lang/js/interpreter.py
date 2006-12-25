@@ -2,6 +2,7 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.jsobj import *
+from pypy.lang.js.reference import Reference
 
 def writer(x):
     print x
@@ -45,7 +46,9 @@ class __extend__(Array):
 
 class __extend__(Assign):
     def call(self, ctx):
+        print "Assign LHS = ", self.LHSExp
         v1 = self.LHSExp.call(ctx)
+        print "Assign Exp = ", self.AssignmentExp
         v3 = self.AssignmentExp.call(ctx).GetValue()
         v1.PutValue(v3, ctx)
         return v3
@@ -77,21 +80,21 @@ class __extend__(Comma):
         return self.right.call(ctx)
 
 class __extend__(Dot):
-    def call(self, ctx=None):
+    def call(self, ctx):
         w_obj = self.left.call(ctx).GetValue().ToObject()
         name = self.right.get_literal()
-        return w_obj.Get(name)
+        return Reference(name, w_obj)
         
-    def put(self, ctx, val):
-        print self.left.name, self.right.name, val
-        if isinstance(self.left,Identifier):
-            obj = ctx.access(self.left.name)
-            print obj.Class
-            obj.dict_w[self.right.name] = val
-        elif isinstance(self.left,Dot):
-            obj = self.left.put(ctx, val)
-
-        return obj
+    # def put(self, ctx, val):
+    #     print self.left.name, self.right.name, val
+    #     if isinstance(self.left,Identifier):
+    #         obj = ctx.access(self.left.name)
+    #         print obj.Class
+    #         obj.dict_w[self.right.name] = val
+    #     elif isinstance(self.left,Dot):
+    #         obj = self.left.put(ctx, val)
+    # 
+    #     return obj
 
         #w_obj = self.left.put(ctx).GetValue().ToObject()
         #name = self.right.get_literal()
@@ -110,8 +113,8 @@ class __extend__(Identifier):
             ref.PutValue(self.initialiser.call(ctx), ctx)
         return ctx.resolve_identifier(self.name)
 
-    def put(self, ctx, val, obj=None):            
-        ctx.assign(self.name, val)
+    # def put(self, ctx, val, obj=None):            
+    #     ctx.assign(self.name, val)
     
     def get_literal(self):
         return self.name

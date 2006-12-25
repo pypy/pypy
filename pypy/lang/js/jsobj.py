@@ -17,6 +17,9 @@ class Property(object):
         self.ReadOnly = ReadOnly
         self.DontEnum = DontEnum
         self.Internal = Internal
+    
+    def __repr__(self):
+        return "|%s %d%d%d|"%(self.value, self.DontDelete, self.ReadOnly, self.DontEnum)
 
 def internal_property(name, value):
     """return a internal property with the right attributes"""
@@ -250,10 +253,6 @@ class W_Number(W_Primitive):
     def Get(self, name):
         return w_Undefined
 
-
-class W_Reference(W_Root):
-    def GetValue(self):
-        raise NotImplementedError("W_Reference.GetValue")
 
 class W_Builtin(W_Root):
     def __init__(self, builtinfunction):
