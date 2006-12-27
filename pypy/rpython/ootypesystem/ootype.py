@@ -984,8 +984,9 @@ class _string(_builtin_type):
 
     def ll_stritem_nonneg(self, i):
         # NOT_RPYTHON
-        assert i >= 0
-        return self._str[i]
+        s = self._str
+        assert 0 <= i < len(s)
+        return s[i]
 
     def ll_strlen(self):
         # NOT_RPYTHON

@@ -213,8 +213,8 @@ class __extend__(pairtype(AbstractBaseListRepr, Repr)):
 
 class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
 
-    def rtype_getitem((r_lst, r_int), hop):
-        if hop.has_implicit_exception(IndexError):
+    def rtype_getitem((r_lst, r_int), hop, checkidx=False):
+        if checkidx:
             spec = dum_checkidx
         else:
             spec = dum_nocheck
@@ -224,10 +224,20 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
             llfn = ll_getitem_nonneg
         else:
             llfn = ll_getitem
-        hop.exception_is_here()
+        if checkidx:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
         v_res = hop.gendirectcall(llfn, v_func, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
+    rtype_getitem_key = rtype_getitem
+
+    def rtype_getitem_idx((r_lst, r_int), hop):
+        return pair(r_lst, r_int).rtype_getitem(hop, checkidx=True)
+
+    rtype_getitem_idx_key = rtype_getitem_idx
+    
     def rtype_setitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx

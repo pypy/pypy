@@ -1,5 +1,5 @@
 from pypy.tool.staticmethods import StaticMethods
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import IntegerRepr, IteratorRepr
@@ -243,10 +243,10 @@ class __extend__(pairtype(AbstractStringRepr, Repr)):
 
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
-    def rtype_getitem((r_str, r_int), hop):
+    def rtype_getitem((r_str, r_int), hop, checkidx=False):
         string_repr = hop.rtyper.type_system.rstr.string_repr
         v_str, v_index = hop.inputargs(string_repr, Signed)
-        if hop.has_implicit_exception(IndexError):
+        if checkidx:
             if hop.args_s[1].nonneg:
                 llfn = r_str.ll.ll_stritem_nonneg_checked
             else:
@@ -256,8 +256,18 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
                 llfn = r_str.ll.ll_stritem_nonneg
             else:
                 llfn = r_str.ll.ll_stritem
-        hop.exception_is_here()
+        if checkidx:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_index)
+
+    rtype_getitem_key = rtype_getitem
+
+    def rtype_getitem_idx((r_str, r_int), hop):
+        return pair(r_str, r_int).rtype_getitem(hop, checkidx=True)
+
+    rtype_getitem_idx_key = rtype_getitem_idx
 
 
 class __extend__(pairtype(AbstractStringRepr, AbstractSliceRepr)):

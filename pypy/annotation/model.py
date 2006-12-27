@@ -718,6 +718,13 @@ class HarmlesslyBlocked(Exception):
     BlockedInference: the current block is blocked, but not in a way
     that gives 'Blocked block' errors at the end of annotation."""
 
+
+def read_can_only_throw(opimpl, *args):
+    can_only_throw = getattr(opimpl, "can_only_throw", None)
+    if can_only_throw is None or isinstance(can_only_throw, list):
+        return can_only_throw
+    return can_only_throw(*args)
+
 #
 # safety check that no-one is trying to make annotation and translation
 # faster by providing the -O option to Python.

@@ -711,6 +711,90 @@ class TestFlowObjSpace(Base):
             return x[s]
         graph = self.codetest(myfunc)
 
+    def test_getitem(self):
+        def f(c, x):
+            try:
+                return c[x]
+            except Exception:
+                raise
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_idx_key': 1}
+
+        g = lambda: None
+        def f(c, x):
+            try:
+                return c[x]
+            finally:
+                g()
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_idx_key': 1,
+                                              'simple_call': 2}
+
+        def f(c, x):
+            try:
+                return c[x]
+            except IndexError:
+                raise
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_idx': 1}        
+
+        def f(c, x):
+            try:
+                return c[x]
+            except KeyError:
+                raise
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_key': 1}
+        
+        def f(c, x):
+            try:
+                return c[x]
+            except ValueError:
+                raise
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem': 1}
+
+        def f(c, x):
+            try:
+                return c[x]
+            except Exception:
+                return -1
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        self.show(graph)
+        assert self.all_operations(graph) == {'getitem_idx_key': 1}
+        
+        def f(c, x):
+            try:
+                return c[x]
+            except IndexError:
+                return -1
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_idx': 1}
+
+        def f(c, x):
+            try:
+                return c[x]
+            except KeyError:
+                return -1
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem_key': 1}
+  
+        def f(c, x):
+            try:
+                return c[x]
+            except ValueError:
+                return -1
+        graph = self.codetest(f)
+        simplify_graph(graph)
+        assert self.all_operations(graph) == {'getitem': 1}
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):

@@ -160,7 +160,10 @@ class LLHelpers(AbstractLLHelpers):
         return len(s.chars)
 
     def ll_stritem_nonneg(s, i):
-        return s.chars[i]
+        chars = s.chars
+        debug_assert(i>=0, "negative str getitem index")
+        debug_assert(i<len(chars), "str getitem index out of bound")
+        return chars[i]
 
     def ll_chr2str(ch):
         s = mallocstr(1)

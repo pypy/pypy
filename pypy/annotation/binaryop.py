@@ -16,6 +16,7 @@ from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeWeakGcAddress
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
+from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -34,6 +35,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'and_', 'or_', 'xor',
                          'lshift', 'rshift',
                          'getitem', 'setitem', 'delitem',
+                         'getitem_idx', 'getitem_key', 'getitem_idx_key',
                          'inplace_add', 'inplace_sub', 'inplace_mul',
                          'inplace_truediv', 'inplace_floordiv', 'inplace_div',
                          'inplace_mod', 'inplace_pow',
@@ -214,6 +216,20 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         else:
             return obj
 
+    # checked getitems
+
+    def _getitem_can_only_throw(s_c1, s_o2):
+        impl = pair(s_c1, s_o2).getitem
+        return read_can_only_throw(impl, s_c1, s_o2)
+
+    def getitem_idx_key((s_c1, s_o2)):
+        impl = pair(s_c1, s_o2).getitem
+        return impl()
+    getitem_idx_key.can_only_throw = _getitem_can_only_throw
+
+    getitem_idx = getitem_idx_key
+    getitem_key = getitem_idx_key
+        
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
@@ -512,7 +528,16 @@ class __extend__(pairtype(SomeList, SomeInteger)):
     def getitem((lst1, int2)):
         getbookkeeper().count("list_getitem", int2)
         return lst1.listdef.read_item()
-    getitem.can_only_throw = [IndexError]
+    getitem.can_only_throw = []
+
+    getitem_key = getitem
+
+    def getitem_idx((lst1, int2)):
+        getbookkeeper().count("list_getitem", int2)
+        return lst1.listdef.read_item()
+    getitem_idx.can_only_throw = [IndexError]
+
+    getitem_idx_key = getitem_idx
 
     def setitem((lst1, int2), s_value):
         getbookkeeper().count("list_setitem", int2)        
@@ -552,7 +577,16 @@ class __extend__(pairtype(SomeString, SomeInteger)):
     def getitem((str1, int2)):
         getbookkeeper().count("str_getitem", int2)        
         return SomeChar()
-    getitem.can_only_throw = [IndexError]
+    getitem.can_only_throw = []
+
+    getitem_key = getitem
+
+    def getitem_idx((str1, int2)):
+        getbookkeeper().count("str_getitem", int2)        
+        return SomeChar()        
+    getitem_idx.can_only_throw = [IndexError]
+
+    getitem_idx_key = getitem_idx
 
     def mul((str1, int2)): # xxx do we want to support this
         getbookkeeper().count("str_mul", str1, int2)

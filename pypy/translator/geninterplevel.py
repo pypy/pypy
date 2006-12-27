@@ -284,8 +284,11 @@ class GenRpy:
         else:
             fmt = "%s = %s(%s)"
         # special case is_true
-        wrapped = op.opname != "is_true"
-        oper = "space.%s" % op.opname
+        opname = op.opname
+        if opname.startswith('getitem_'):
+            opname = 'getitem'
+        wrapped = opname != "is_true"
+        oper = "space.%s" % opname
         return fmt % (self.expr(op.result, localscope, wrapped), oper,
                       self.arglist(op.args, localscope))
 

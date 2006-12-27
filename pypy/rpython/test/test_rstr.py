@@ -651,7 +651,62 @@ class BaseTestRstr(BaseRtypingTest):
 
         res = self.interpret(f, [self.string_to_ll("abba")])
         assert res
+       
+    def test_getitem_exc(self):
+        def f(x):
+            s = "z"
+            return s[x]
 
+        res = self.interpret(f, [0])
+        assert res == 'z'
+        try:
+            self.interpret_raises(IndexError, f, [1])
+        except (AssertionError,), e:
+            pass
+        else:
+            assert False
+    
+        def f(x):
+            s = "z"
+            try:
+                return s[x]
+            except IndexError:
+                return 'X'
+            except Exception:
+                return ' '
+
+        res = self.interpret(f, [0])
+        assert res == 'z'
+        res = self.interpret(f, [1])
+        assert res == 'X'        
+
+        def f(x):
+            s = "z"
+            try:
+                return s[x]
+            except Exception:
+                return ' '
+
+        res = self.interpret(f, [0])
+        assert res == 'z'
+        res = self.interpret(f, [1])
+        assert res == ' '
+
+        def f(x):
+            s = "z"
+            try:
+                return s[x]
+            except ValueError:
+                return ' '
+
+        res = self.interpret(f, [0])
+        assert res == 'z'
+        try:
+            self.interpret_raises(IndexError, f, [1])
+        except (AssertionError,), e:
+            pass
+        else:
+            assert False
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

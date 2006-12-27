@@ -591,11 +591,11 @@ class RPythonAnnotator(object):
                 arg1 = self.binding(op.args[0])
                 arg2 = self.binding(op.args[1])
                 binop = getattr(pair(arg1, arg2), op.opname, None)
-                can_only_throw = read_can_only_throw(binop, arg1, arg2)
+                can_only_throw = annmodel.read_can_only_throw(binop, arg1, arg2)
             elif op.opname in annmodel.UNARY_OPERATIONS:
                 arg1 = self.binding(op.args[0])
                 unop = getattr(arg1, op.opname, None)
-                can_only_throw = read_can_only_throw(unop, arg1)
+                can_only_throw = annmodel.read_can_only_throw(unop, arg1)
             else:
                 can_only_throw = None
 
@@ -814,9 +814,3 @@ class BlockedInference(Exception):
         return "<BlockedInference break_at %s [%s]>" %(break_at, self.op)
 
     __str__ = __repr__
-
-def read_can_only_throw(opimpl, *args):
-    can_only_throw = getattr(opimpl, "can_only_throw", None)
-    if can_only_throw is None or isinstance(can_only_throw, list):
-        return can_only_throw
-    return can_only_throw(*args)
