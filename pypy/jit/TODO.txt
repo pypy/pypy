@@ -1,6 +1,6 @@
 - fix the XXXs in codegen
 
-- [] (getitem) used inside complex try/except ends up using the bound
+- IN-PROGRESS: [] (getitem) used inside complex try/except ends up using the bound
   checking version: transformation after flowgraphing that marks op
   with implicit exceptions only if they are inside a precise
   try:except:
