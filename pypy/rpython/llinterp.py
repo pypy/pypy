@@ -902,6 +902,12 @@ class LLFrame(object):
         except ValueError:
             self.make_llexception()
 
+    def op_ooparse_float(self, s):
+        try:
+            return ootype.ooparse_float(s)
+        except ValueError:
+            self.make_llexception()
+
     def op_oohash(self, s):
         return ootype.oohash(s)
 
