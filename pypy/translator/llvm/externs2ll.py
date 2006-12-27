@@ -36,7 +36,7 @@ def get_ll(ccode, function_names):
 
     plain = filename[:-2]
     includes = get_incdirs()
-    cmd = "llvm-gcc %s -S %s.c -o %s.ll 2>&1" % (includes,
+    cmd = "llvm-gcc %s -emit-llvm -S %s.c -o %s.ll 2>&1" % (includes,
                                                  plain,
                                                  plain)
     os.system(cmd)
@@ -64,7 +64,7 @@ def get_ll(ccode, function_names):
         line = line.rstrip()
 
         # find function names, declare them with the default calling convertion
-        if line[-1:] == '{':
+        if line[-3:] == ') {':
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
