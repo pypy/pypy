@@ -149,3 +149,4 @@ def register_function_impl(builtinfn, controllingfn,
 import pypy.rlib.rctypes.rprimitive
 import pypy.rlib.rctypes.rarray
 import pypy.rlib.rctypes.rpointer
+import pypy.rlib.rctypes.rstruct
