@@ -6,7 +6,6 @@ from pypy.translator.llvm.log import log
 log = log.gc
 
 def have_boehm():
-    return True
     import distutils.sysconfig
     from os.path import exists
     libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"  
