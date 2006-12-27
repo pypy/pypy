@@ -426,6 +426,7 @@ LL_OPERATIONS = {
     'ooidentityhash':       LLOp(oo=True, sideeffects=False),
     'oostring':             LLOp(oo=True, sideeffects=False),
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
+    'ooparse_float':          LLOp(oo=True, canraise=(ValueError,)),
     'oohash':               LLOp(oo=True, sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
