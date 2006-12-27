@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.controllerentry import Controller, ControllerEntry
 from pypy.rpython.controllerentry import ControllerEntryForPrebuilt
 
@@ -60,6 +61,19 @@ c2._bar = 51
 
 c3 = C()
 c3._bar = 7654
+
+def fun1():
+    return c2.foo
+
+def test_C1_annotate():
+    a = RPythonAnnotator()
+    s = a.build_types(fun1, [])
+    assert s.const == "512"
+
+def test_C1_specialize():
+    py.test.skip("argh! what can we do about it?")
+    res = interpret(fun1, [])
+    assert ''.join(res.chars) == "512"
 
 def fun2(flag):
     if flag:
