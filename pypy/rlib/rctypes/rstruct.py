@@ -50,5 +50,11 @@ class StructCTypeController(CTypeController):
         return controller.return_value(itemobj)
     getattr._annspecialcase_ = 'specialize:arg(2)'
 
+    def setattr(self, obj, attr, value):
+        controller = self.fieldcontrollers[attr]
+        itemobj = getattr(obj, 'ref_' + attr)()
+        controller.set_value(itemobj, value)
+    setattr._annspecialcase_ = 'specialize:arg(2)'
+
 
 StructCTypeController.register_for_metatype(StructType)

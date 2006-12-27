@@ -216,7 +216,6 @@ class Test_annotation:
             t.view()
 
     def test_annotate_set_primitive_structfield(self):
-        py.test.skip("in-progress")
         class S(Structure):
             _fields_ = [('cs', c_short)]
         def func(x):
