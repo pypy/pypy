@@ -26,6 +26,10 @@ class ControlledInstanceRepr(Repr):
         for index in revealargs:
             s_new, r_new = self.reveal(hop2.args_r[index])
             hop2.args_s[index], hop2.args_r[index] = s_new, r_new
+            v = hop2.args_v[index]
+            if isinstance(v, Constant):
+                real_value = self.controller.convert(v.value)
+                hop2.args_v[index] = Constant(real_value)
         if revealresult:
             hop2.s_result, hop2.r_result = self.reveal(hop2.r_result)
         hop2.v_s_insertfirstarg(c_meth, s_meth)

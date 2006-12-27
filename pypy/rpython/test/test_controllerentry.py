@@ -71,7 +71,6 @@ def test_C1_annotate():
     assert s.const == "512"
 
 def test_C1_specialize():
-    py.test.skip("argh! what can we do about it?")
     res = interpret(fun1, [])
     assert ''.join(res.chars) == "512"
 
