@@ -30,6 +30,13 @@ class PointerCTypeController(CTypeController):
         return self.contentscontroller.return_value(contentsobj)
     getitem._annspecialcase_ = 'specialize:arg(0)'
 
+    def setitem(self, obj, index, value):
+        if index != 0:
+            raise ValueError("assignment to pointer[x] with x != 0")
+            # not supported by ctypes either
+        contentsobj = obj.get_contents()
+        self.contentscontroller.set_value(contentsobj, value)
+
 PointerCTypeController.register_for_metatype(PointerType)
 
 register_function_impl(pointer, rctypesobject.pointer,

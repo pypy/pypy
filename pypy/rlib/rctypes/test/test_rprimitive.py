@@ -202,7 +202,6 @@ class Test_annotation:
             t.view()
             
     def test_annotate_set_primitive_ptritem(self):
-        py.test.skip("in-progress")
         def func(x):
             cs = pointer(c_short())
             cs[0] = x
