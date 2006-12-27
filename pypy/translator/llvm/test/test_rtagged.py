@@ -62,10 +62,12 @@ def entry_point(argv):
 # ____________________________________________________________
 # only with Boehm so far
 
+from pypy.translator.llvm.test import runtest
 from pypy.translator.interactive import Translation
 from pypy import conftest
 
 def test_tagged_boehm():
+    runtest.llvm_test()
     t = Translation(entry_point, standalone=True, gc='boehm')
     try:
         exename = t.compile_llvm()
