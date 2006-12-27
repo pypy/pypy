@@ -434,13 +434,17 @@ def gen_cast(llops, TGT, v_value):
         return v_value
     if (isinstance(TGT, lltype.Primitive) and
         isinstance(ORIG, lltype.Primitive)):
-        op = _cast_to_Signed[ORIG]
-        if op:
-            v_value = llops.genop(op, [v_value], resulttype = lltype.Signed)
-        op = _cast_from_Signed[TGT]
-        if op:
-            v_value = llops.genop(op, [v_value], resulttype = TGT)
-        return v_value
+        if ORIG in _cast_to_Signed and TGT in _cast_from_Signed:
+            op = _cast_to_Signed[ORIG]
+            if op:
+                v_value = llops.genop(op, [v_value], resulttype=lltype.Signed)
+            op = _cast_from_Signed[TGT]
+            if op:
+                v_value = llops.genop(op, [v_value], resulttype=TGT)
+            return v_value
+        else:
+            # use the generic operation if there is no alternative
+            return llops.genop('cast_primitive', [v_value], resulttype=TGT)
     elif isinstance(TGT, lltype.Ptr):
         if isinstance(ORIG, lltype.Ptr):
             if (isinstance(TGT.TO, lltype.OpaqueType) or

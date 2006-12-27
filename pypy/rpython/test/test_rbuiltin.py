@@ -6,6 +6,7 @@ from pypy.tool import udir
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rpython.rctypes.rcarithmetic import CShort
 import py
 
 
@@ -386,6 +387,10 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
             return lltype.cast_primitive(lltype.UniChar, v)
         res = self.interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
         assert res == u'x'
+        def llf(v):
+            return lltype.cast_primitive(CShort, v)
+        res = self.interpret(llf, [123], policy=LowLevelAnnotatorPolicy())
+        assert res == 123
 
 
     
