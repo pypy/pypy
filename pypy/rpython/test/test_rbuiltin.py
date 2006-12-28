@@ -359,7 +359,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
             if i==1: return int(hasattr(A, 'y'))
             if i==2: return int(hasattr(42, 'x'))
         for x, y in zip(range(3), (1, 0, 0)):
-            res = self.interpret(f, [x])
+            res = self.interpret(f, [x], someobjects=True)
             assert res._obj.value == y
         # hmm, would like to test against PyObj, is this the wrong place/way?
 

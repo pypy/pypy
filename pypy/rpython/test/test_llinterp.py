@@ -76,6 +76,11 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
             else:
                 return lltype_to_annotation(T)
 
+        if policy is None and not someobjects:
+            from pypy.annotation.policy import AnnotatorPolicy
+            policy = AnnotatorPolicy()
+            policy.allow_someobjects = False
+
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
                                    viewbefore, policy, type_system=type_system,
                                    backendopt=backendopt, config=config)
@@ -242,7 +247,7 @@ def test_list_multiply():
 def test_unicode():
     def f():
         return u'Hello world'
-    res = interpret(f,[])
+    res = interpret(f, [], someobjects=True)
     
     assert res._obj.value == u'Hello world'
     

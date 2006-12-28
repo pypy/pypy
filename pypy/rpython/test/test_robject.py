@@ -17,9 +17,9 @@ def test_obj_obj_dict():
         d['ab'] = c
         d[i] = c
         return len(d)
-    res = interpret(f, [2, 'c'])
+    res = interpret(f, [2, 'c'], someobjects=True)
     assert res == 4
-    res = interpret(f, [3, 'c'])
+    res = interpret(f, [3, 'c'], someobjects=True)
     assert res == 4
 
 def test_obj_list():
@@ -28,9 +28,9 @@ def test_obj_list():
         lis[i] = c
         lis.append(i)
         return len(lis)
-    res = interpret(f, [2, 'c'])
+    res = interpret(f, [2, 'c'], someobjects=True)
     assert res == 5
-    res = interpret(f, [3, 'c'])
+    res = interpret(f, [3, 'c'], someobjects=True)
     assert res == 5
 
 def test_obj_iter():
@@ -41,9 +41,9 @@ def test_obj_iter():
             x = '34'
         lst = [u for u in x]
         return lst[flag]
-    res = interpret(f, [1])
+    res = interpret(f, [1], someobjects=True)
     assert res._obj.value == 2
-    res = interpret(f, [0])
+    res = interpret(f, [0], someobjects=True)
     assert res._obj.value == '3'
 
 def test_listofobj_iter():
@@ -53,7 +53,7 @@ def test_listofobj_iter():
             if u == look:
                 return True
         return False
-    res = interpret(f, [1])
+    res = interpret(f, [1], someobjects=True)
     assert res is False
-    res = interpret(f, [2])
+    res = interpret(f, [2], someobjects=True)
     assert res is True
