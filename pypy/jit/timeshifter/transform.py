@@ -3,13 +3,28 @@ from pypy.objspace.flow.model import SpaceOperation, mkentrymap
 from pypy.annotation        import model as annmodel
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.model import originalconcretetype
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.unsimplify import split_block, split_block_at_start
-from pypy.translator.simplify import rec_op_has_side_effects
+#from pypy.translator.simplify import rec_op_has_side_effects
+from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.translator.unsimplify import split_block
+
+
+class HasSideeffects(graphanalyze.GraphAnalyzer):
+
+    EXCEPTIONS = ('debug_assert',)
+
+    def analyze_exceptblock(self, block, seen=None):
+        # graphs explicitly raising have side-effects
+        return True
+
+    def operation_is_true(self, op):
+        opname = op.opname
+        return (lloperation.LL_OPERATIONS[opname].sideeffects and
+                opname not in self.EXCEPTIONS)
 
 
 class MergePointFamily(object):
@@ -47,6 +62,12 @@ class HintGraphTransformer(object):
         self.mergepointfamily = MergePointFamily(graph)
         self.c_mpfamily = inputconst(lltype.Void, self.mergepointfamily)
         self.tsgraphs_seen = []
+
+        t = self.hannotator.base_translator
+        self.sideeffects_analyzer = HasSideeffects(t)
+
+    def has_sideeffects(self, op):
+        return self.sideeffects_analyzer.analyze(op)
 
     def transform(self):
         self.compute_merge_points()
@@ -475,8 +496,7 @@ class HintGraphTransformer(object):
             if hs_res.is_green():
                 # all-green arguments and result.
                 # Does the function have side-effects?
-                t = self.hannotator.base_translator
-                if not rec_op_has_side_effects(t, spaceop):
+                if not self.has_sideeffects(spaceop):
                     return 'green'
         colors = {}
         for graph, tsgraph in self.graphs_from(spaceop):
