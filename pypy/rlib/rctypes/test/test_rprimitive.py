@@ -6,12 +6,12 @@ import py.test
 import pypy.rlib.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import policy
-from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype
+
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
 from ctypes import c_double, c_wchar, c_char_p, pointer, sizeof
@@ -20,7 +20,7 @@ from ctypes import Structure
 test_c_compile = True
 test_llvm_compile = False
 
-class Test_annotation:
+class BaseTestAnnotation:
     def build_types(self, func, argtypes):
         P = policy.AnnotatorPolicy()
         P.allow_someobjects = False
@@ -30,6 +30,7 @@ class Test_annotation:
             a.translator.view()
         return s
 
+class Test_annotation(BaseTestAnnotation):
     def test_simple(self):
         res = c_int(42)
         assert res.value == 42 

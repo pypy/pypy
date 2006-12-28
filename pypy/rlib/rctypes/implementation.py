@@ -1,3 +1,4 @@
+import py
 from pypy.annotation import model as annmodel
 from pypy.rlib.rctypes import rctypesobject
 from pypy.rpython import extregistry, controllerentry
@@ -8,10 +9,13 @@ from pypy.rpython.controllerentry import SomeControlledInstance
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes import rcarithmetic as rcarith
 
-import ctypes
-if ctypes.__version__ < '0.9.9.6':  # string comparison... good enough?
-    raise ImportError("requires ctypes >= 0.9.9.6, got %s" % (
-        ctypes.__version__,))
+try:
+    import ctypes
+    if ctypes.__version__ < '0.9.9.6':  # string comparison... good enough?
+        raise ImportError("requires ctypes >= 0.9.9.6, got %s" % (
+            ctypes.__version__,))
+except ImportError, e:
+    py.test.skip(str(e))
 
 
 class CTypeController(Controller):
@@ -49,9 +53,7 @@ class CTypeController(Controller):
             self.initialize_prebuilt(obj, x)
             return obj
 
-    def return_value(self, obj):
-        return obj
-    return_value._annspecialcase_ = 'specialize:arg(0)'
+    return_value = Controller.box
 
     # extension to the setattr/setitem support: if the new value is actually
     # a CTypeControlled instance as well, reveal it automatically (i.e. turn

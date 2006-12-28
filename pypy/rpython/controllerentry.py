@@ -42,6 +42,14 @@ class Controller(object):
     def _freeze_(self):
         return True
 
+    def box(self, obj):
+        return controlled_instance_box(self, obj)
+    box._annspecialcase_ = 'specialize:arg(0)'
+
+    def unbox(self, obj):
+        return controlled_instance_unbox(self, obj)
+    unbox._annspecialcase_ = 'specialize:arg(0)'
+
     def ctrl_new(self, *args_s):
         s_real_obj = delegate(self.new, *args_s)
         if s_real_obj == annmodel.s_ImpossibleValue:
@@ -102,6 +110,41 @@ def delegate(boundmethod, *args_s):
     s_meth = bk.immutablevalue(boundmethod)
     return bk.emulate_pbc_call(bk.position_key, s_meth, args_s,
                                callback = bk.position_key)
+
+def controlled_instance_box(controller, obj):
+    XXX
+
+def controlled_instance_unbox(controller, obj):
+    XXX
+
+class BoxEntry(ExtRegistryEntry):
+    _about_ = controlled_instance_box
+
+    def compute_result_annotation(self, s_controller, s_real_obj):
+        if s_real_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            assert s_controller.is_constant()
+            controller = s_controller.const
+            return SomeControlledInstance(s_real_obj, controller=controller)
+
+    def specialize_call(self, hop):
+        [v] = hop.inputargs(hop.r_result)
+        return v
+
+class UnboxEntry(ExtRegistryEntry):
+    _about_ = controlled_instance_unbox
+
+    def compute_result_annotation(self, s_controller, s_obj):
+        if s_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            assert isinstance(s_obj, SomeControlledInstance)
+            return s_obj.s_real_obj
+
+    def specialize_call(self, hop):
+        [v] = hop.inputargs(hop.r_result)
+        return v
 
 # ____________________________________________________________
 
