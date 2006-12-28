@@ -36,7 +36,7 @@ class BuildPath(LocalPath):
           progress
         
     """
-    
+
     def _request(self):
         req = self.join('request')
         if not req.check():
@@ -76,6 +76,25 @@ class BuildPath(LocalPath):
     def _done(self):
         return not not self.log
     done = property(_done)
+
+    _reg_error = py.std.re.compile(r'uring compilation:\n([^:]+): (.*)')
+    def _error(self):
+        if self.done and not self.zipfile.size():
+            log = self.log
+            match = self._reg_error.search(log)
+            if not match:
+                return Exception
+            exc = match.group(1)
+            msg = match.group(2)
+            try:
+                exc = eval('%s(%r)' % (exc, msg))
+            except Exception, e:
+                print e
+                exc = Exception('%s: %s' % (exc, msg))
+            return exc
+        return None
+
+    error = property(_error)
 
 class BuildRequest(object):
     """ build request data

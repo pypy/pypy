@@ -44,7 +44,8 @@ class PPBClient(object):
                     try:
                         chunk = self.channel.receive()
                     except EOFError:
-                        # stop compilation, client has disconnected
+                        # stop compilation, client has disconnected (server
+                        # will check the connection after a while and clean up)
                         return
                     # end of data is marked by sending a None
                     if chunk is None:

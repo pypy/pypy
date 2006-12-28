@@ -28,10 +28,10 @@ projectname = 'pypy'
 buildpath = packageparent.ensure('/pypy/tool/build/builds', dir=True)
 mailhost = 'localhost'
 mailport = 25
-mailfrom = 'pypybuilds@codespeak.net'
+mailfrom = 'guido@codespeak.net'
 
 # settings for the tests
-testpath = [str(py.magic.autopath().dirpath().dirpath())]
+testpath = [str(py.magic.autopath().dirpath().dirpath().dirpath().dirpath())]
 
 # this var is only used below
 svnroot = 'http://codespeak.net/svn/pypy'
