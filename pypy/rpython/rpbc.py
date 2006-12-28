@@ -401,6 +401,13 @@ class SingleFrozenPBCRepr(Repr):
         assert frozendesc is self.frozendesc
         return object()  # lowleveltype is Void
 
+    def getstr(self):
+        return str(self.frozendesc)
+    getstr._annspecialcase_ = 'specialize:memo'
+
+    def ll_str(self, x):
+        return self.getstr()
+
 
 class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
     """For a SomePBC of frozen PBCs that have no common access set.
