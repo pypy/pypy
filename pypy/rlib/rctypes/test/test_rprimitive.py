@@ -255,7 +255,6 @@ class Test_specialization:
         interpret(func, [])
 
     def test_convert_from_llvalue(self):
-        py.test.skip("in-progress")
         def func():
             x = c_ushort(5)
             pointer(x)[0] += 1

@@ -36,6 +36,7 @@ class PointerCTypeController(CTypeController):
             # not supported by ctypes either
         contentsobj = obj.get_contents()
         self.contentscontroller.set_value(contentsobj, value)
+    setitem._annspecialcase_ = 'specialize:arg(0)'
 
 PointerCTypeController.register_for_metatype(PointerType)
 
