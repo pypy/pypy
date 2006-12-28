@@ -18,9 +18,9 @@ class StructCTypeController(CTypeController):
         fields = []
         for name, field_ctype in ctype._fields_:
             controller = getcontroller(field_ctype)
+            setattr(self, 'fieldcontroller_' + name, controller)
             controllers.append((name, controller))
             fields.append((name, controller.knowntype))
-        self.fieldcontrollers = dict(controllers)
         external = getattr(ctype, '_external_', False)
         self.knowntype = rctypesobject.RStruct(ctype.__name__, fields,
                                                c_external = external)
@@ -29,7 +29,7 @@ class StructCTypeController(CTypeController):
         # is unrolled
         unrolled_controllers = unrolling_iterable(controllers)
 
-        def new(*args):
+        def structnew(*args):
             obj = self.knowntype.allocate()
             if len(args) > len(fields):
                 raise ValueError("too many arguments for this structure")
@@ -41,20 +41,23 @@ class StructCTypeController(CTypeController):
                     controller.set_value(itemobj, value)
             return obj
 
-        self.new = new
+        self.new = structnew
 
+        # Build custom getter and setter methods
+        def structgetattr(obj, attr):
+            controller = getattr(self, 'fieldcontroller_' + attr)
+            itemobj = getattr(obj, 'ref_' + attr)()
+            return controller.return_value(itemobj)
+        structgetattr._annspecialcase_ = 'specialize:arg(1)'
 
-    def getattr(self, obj, attr):
-        controller = self.fieldcontrollers[attr]
-        itemobj = getattr(obj, 'ref_' + attr)()
-        return controller.return_value(itemobj)
-    getattr._annspecialcase_ = 'specialize:arg(2)'
+        def structsetattr(obj, attr, value):
+            controller = getattr(self, 'fieldcontroller_' + attr)
+            itemobj = getattr(obj, 'ref_' + attr)()
+            controller.set_value(itemobj, value)
+        structsetattr._annspecialcase_ = 'specialize:arg(1)'
 
-    def setattr(self, obj, attr, value):
-        controller = self.fieldcontrollers[attr]
-        itemobj = getattr(obj, 'ref_' + attr)()
-        controller.set_value(itemobj, value)
-    setattr._annspecialcase_ = 'specialize:arg(2)'
+        self.getattr = structgetattr
+        self.setattr = structsetattr
 
 
 StructCTypeController.register_for_metatype(StructType)

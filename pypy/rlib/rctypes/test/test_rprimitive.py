@@ -232,7 +232,7 @@ class Test_annotation:
             t.view()
             
         
-class INPROGRESS_Test_specialization:
+class Test_specialization:
     def test_specialize_c_int(self):
         def create_c_int():
             x = c_int(42)
@@ -300,6 +300,7 @@ class INPROGRESS_Test_specialization:
         assert ("%.2f" % res) == ("%.2f" % 4.3)
 
     def test_value_for_various_types(self):
+        py.test.skip("in-progress")
         def func():
             x = c_ushort(5)
             x.value += 1
@@ -329,6 +330,7 @@ class INPROGRESS_Test_specialization:
         interpret(func, [])
 
     def test_convert_from_llvalue(self):
+        py.test.skip("in-progress")
         def func():
             x = c_ushort(5)
             pointer(x)[0] += 1
@@ -358,6 +360,7 @@ class INPROGRESS_Test_specialization:
         interpret(func, [])
 
     def test_truth_value(self):
+        py.test.skip("in-progress")
         bigzero = r_ulonglong(0)
         big = r_ulonglong(2L**42)
         def func(n, z):

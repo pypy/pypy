@@ -43,10 +43,8 @@ class Controller(object):
         return SomeControlledInstance(s_real_obj, controller=self)
 
     def rtype_new(self, hop):
-        r_controlled_instance = hop.r_result
-        return r_controlled_instance.rtypedelegate(self.new, hop,
-                                                   revealargs=[],
-                                                   revealresult=True)
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.new, hop, revealargs=[], revealresult=True)
 
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
@@ -56,8 +54,8 @@ class Controller(object):
         return delegate(self.getattr, s_obj, s_attr)
 
     def rtype_getattr(self, hop):
-        r_controlled_instance = hop.args_r[0]
-        return r_controlled_instance.rtypedelegate(self.getattr, hop)
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.getattr, hop)
 
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
@@ -67,22 +65,22 @@ class Controller(object):
         return delegate(self.setattr, s_obj, s_attr, s_value)
 
     def rtype_setattr(self, hop):
-        r_controlled_instance = hop.args_r[0]
-        return r_controlled_instance.rtypedelegate(self.setattr, hop)
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.setattr, hop)
 
     def ctrl_getitem(self, s_obj, s_key):
         return delegate(self.getitem, s_obj, s_key)
 
     def rtype_getitem(self, hop):
-        r_controlled_instance = hop.args_r[0]
-        return r_controlled_instance.rtypedelegate(self.getitem, hop)
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.getitem, hop)
 
     def ctrl_setitem(self, s_obj, s_key, s_value):
         return delegate(self.setitem, s_obj, s_key, s_value)
 
     def rtype_setitem(self, hop):
-        r_controlled_instance = hop.args_r[0]
-        return r_controlled_instance.rtypedelegate(self.setitem, hop)
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.setitem, hop)
 
 
 def delegate(boundmethod, *args_s):

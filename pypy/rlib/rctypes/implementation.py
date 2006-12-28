@@ -1,6 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.rlib.rctypes import rctypesobject
 from pypy.rpython import extregistry, controllerentry
+from pypy.rpython.error import TyperError
 from pypy.rpython.controllerentry import Controller, ControllerEntry
 from pypy.rpython.controllerentry import ControllerEntryForPrebuilt
 from pypy.rpython.controllerentry import SomeControlledInstance
@@ -69,12 +70,12 @@ class CTypeController(Controller):
                                             s_obj, s_attr, s_value)
 
     def rtype_setattr(self, hop):
-        r_controlled_instance = hop.args_r[0]
+        from pypy.rpython.rcontrollerentry import rtypedelegate
         if s_is_box(hop.args_s[2]):
             hop2 = revealbox(hop, 2)
-            return r_controlled_instance.rtypedelegate(self.setboxattr, hop2)
+            return rtypedelegate(self.setboxattr, hop2)
         else:
-            return r_controlled_instance.rtypedelegate(self.setattr, hop)
+            return rtypedelegate(self.setattr, hop)
 
     def ctrl_setitem(self, s_obj, s_key, s_value):
         if s_is_box(s_value):
@@ -85,12 +86,12 @@ class CTypeController(Controller):
                                             s_obj, s_key, s_value)
 
     def rtype_setitem(self, hop):
-        r_controlled_instance = hop.args_r[0]
+        from pypy.rpython.rcontrollerentry import rtypedelegate
         if s_is_box(hop.args_s[2]):
             hop2 = revealbox(hop, 2)
-            return r_controlled_instance.rtypedelegate(self.setboxitem, hop2)
+            return rtypedelegate(self.setboxitem, hop2)
         else:
-            return r_controlled_instance.rtypedelegate(self.setitem, hop)
+            return rtypedelegate(self.setitem, hop)
 
 
 class CTypesCallEntry(ControllerEntry):
@@ -140,7 +141,8 @@ def register_function_impl(builtinfn, controllingfn,
             return s_result
 
         def specialize_call(self, hop):
-            import pdb; pdb.set_trace()
+            from pypy.rpython.rcontrollerentry import rtypedelegate
+            return rtypedelegate(controllingfn, hop, revealargs, revealresult)
 
 # ____________________________________________________________
 #
