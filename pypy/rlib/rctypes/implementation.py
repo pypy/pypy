@@ -122,17 +122,24 @@ def revealbox(hop, argindex):
     return hop2
 
 def register_function_impl(builtinfn, controllingfn,
-                           revealargs=[], revealresult=None):
+                           revealargs=[], revealresult=None,
+                           register=True):
 
     class Entry(extregistry.ExtRegistryEntry):
-        _about_ = builtinfn
+        if register:
+            _about_ = builtinfn
 
         def compute_result_annotation(self, *args_s):
             real_args_s = list(args_s)
-            for index in revealargs:
-                real_args_s[index] = args_s[index].s_real_obj
             if annmodel.s_ImpossibleValue in real_args_s:
                 return annmodel.s_ImpossibleValue   # temporarily hopefully
+            for index in revealargs:
+                s_controlled = args_s[index]
+                if not isinstance(s_controlled, SomeControlledInstance):
+                    raise TypeError("in call to %s:\nargs_s[%d] should be a "
+                                    "ControlledInstance,\ngot instead %s" % (
+                        builtinfn, index, s_controlled))
+                real_args_s[index] = s_controlled.s_real_obj
             s_result = controllerentry.delegate(controllingfn, *real_args_s)
             if revealresult:
                 result_ctype = revealresult(*args_s)
@@ -145,6 +152,8 @@ def register_function_impl(builtinfn, controllingfn,
             from pypy.rpython.rcontrollerentry import rtypedelegate
             return rtypedelegate(controllingfn, hop, revealargs, revealresult)
 
+    return Entry
+
 # ____________________________________________________________
 #
 # Imports for side-effects
@@ -153,3 +162,4 @@ import pypy.rlib.rctypes.rprimitive
 import pypy.rlib.rctypes.rarray
 import pypy.rlib.rctypes.rpointer
 import pypy.rlib.rctypes.rstruct
+import pypy.rlib.rctypes.rbuiltin

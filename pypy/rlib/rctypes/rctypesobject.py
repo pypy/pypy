@@ -99,6 +99,9 @@ class RCTypesObject(object):
     def sameaddr(self, otherbox):
         return self.addr == otherbox.addr
 
+    def sizeof(self):
+        return self.rawsize
+
     def _keepalivememblock(self, index, memblock):
         self.memblock.setkeepalive(index, memblock)
 
@@ -266,6 +269,9 @@ def pointer(x):
     return p
 pointer._annspecialcase_ = 'specialize:argtype(0)'
 
+def sizeof(x):
+    return x.sizeof()
+
 # ____________________________________________________________
 
 def RStruct(c_name, fields, c_external=False):
@@ -374,6 +380,10 @@ def RVarArray(itemcls):
                 self.addr = addr
                 self.memblock = memblock
                 self.length = length
+
+            def sizeof(self):
+                rawsize = FIRSTITEMOFS + ITEMOFS * self.length
+                return rawsize
 
             def allocate(length):
                 rawsize = FIRSTITEMOFS + ITEMOFS * length

@@ -379,7 +379,7 @@ class Test_specialization:
         assert res == 19
 
         
-class INPROGRESS_Test_compilation:
+class Test_compilation:
     def setup_class(self):
         if not test_c_compile:
             py.test.skip("c compilation disabled")
@@ -527,7 +527,7 @@ class INPROGRESS_Test_compilation:
         fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
-class INPROGRESS_Test_compilation_llvm(INPROGRESS_Test_compilation):
+class Test_compilation_llvm(Test_compilation):
     def setup_class(self):
         if not test_llvm_compile:
             py.test.skip("llvm compilation disabled")

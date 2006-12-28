@@ -1,6 +1,5 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rlib.rctypes.implementation import CTypeController, getcontroller
-from pypy.rlib.rctypes.implementation import register_function_impl
 from pypy.rlib.rctypes import rctypesobject
 from pypy.rpython.lltypesystem import lltype
 
@@ -39,8 +38,3 @@ class PointerCTypeController(CTypeController):
     setitem._annspecialcase_ = 'specialize:arg(0)'
 
 PointerCTypeController.register_for_metatype(PointerType)
-
-register_function_impl(pointer, rctypesobject.pointer,
-                       revealargs   = [0],
-                       revealresult = lambda s_obj: POINTER(s_obj.controller
-                                                            .ctype))

@@ -50,7 +50,14 @@ class PrimitiveCTypeController(CTypeController):
     new._annspecialcase_ = 'specialize:arg(0)'
 
     def initialize_prebuilt(self, obj, x):
-        self.set_value(obj, x.value)
+        value = x.value
+        # convert 'value' to anything that cast_primitive will be happy with
+        if type(value) is long:
+            if value >= 0:
+                value = rcarith.rculonglong(value)
+            else:
+                value = rcarith.rclonglong(value)
+        self.set_value(obj, value)
 
     def get_value(self, obj):
         llvalue = obj.get_value()
