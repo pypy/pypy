@@ -3,6 +3,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.annlowlevel import cachedtype
+from pypy.rpython.error import TyperError
 
 
 class ControllerEntry(ExtRegistryEntry):
@@ -16,6 +17,9 @@ class ControllerEntry(ExtRegistryEntry):
         return self._controller_()
 
     def specialize_call(self, hop):
+        if hop.s_result == annmodel.s_ImpossibleValue:
+            raise TyperError("object creation always raises: %s" % (
+                hop.spaceop,))
         controller = hop.s_result.controller
         return controller.rtype_new(hop)
 
@@ -40,7 +44,10 @@ class Controller(object):
 
     def ctrl_new(self, *args_s):
         s_real_obj = delegate(self.new, *args_s)
-        return SomeControlledInstance(s_real_obj, controller=self)
+        if s_real_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            return SomeControlledInstance(s_real_obj, controller=self)
 
     def rtype_new(self, hop):
         from pypy.rpython.rcontrollerentry import rtypedelegate
@@ -48,7 +55,7 @@ class Controller(object):
 
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
-    getattr._annspecialcase_ = 'specialize:arg(2)'
+    getattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
     def ctrl_getattr(self, s_obj, s_attr):
         return delegate(self.getattr, s_obj, s_attr)
@@ -59,7 +66,7 @@ class Controller(object):
 
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
-    setattr._annspecialcase_ = 'specialize:arg(2)'
+    setattr._annspecialcase_ = 'specialize:arg(0, 2)'
 
     def ctrl_setattr(self, s_obj, s_attr, s_value):
         return delegate(self.setattr, s_obj, s_attr, s_value)

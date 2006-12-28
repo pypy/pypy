@@ -37,6 +37,7 @@ class PrimitiveCTypeController(CTypeController):
         CTypeController.__init__(self, ctype)
         self.VALUETYPE = ctypes_annotation_list[ctype]
         self.RETTYPE   = return_lltype(self.VALUETYPE)
+        self.is_integer_type = isinstance(self.VALUETYPE, lltype.Number)
         self.knowntype = rctypesobject.Primitive(self.VALUETYPE)
 
     def new(self, *initialvalue):
@@ -50,7 +51,6 @@ class PrimitiveCTypeController(CTypeController):
 
     def initialize_prebuilt(self, obj, x):
         self.set_value(obj, x.value)
-    initialize_prebuilt._annspecialcase_ = 'specialize:arg(0)'
 
     def get_value(self, obj):
         llvalue = obj.get_value()
@@ -58,8 +58,12 @@ class PrimitiveCTypeController(CTypeController):
     get_value._annspecialcase_ = 'specialize:arg(0)'
 
     def set_value(self, obj, value):
-        if lltype.typeOf(value) != self.RETTYPE:
-            raise TypeError("'value' must be set to a %s" % (self.RETTYPE,))
+        # for integer types, any integer is accepted and silently cast
+        if not self.is_integer_type:
+            # otherwise, check that we got the correct type of 'value'
+            if lltype.typeOf(value) != self.RETTYPE:
+                raise TypeError("'value' must be set to a %s" % (
+                    self.RETTYPE,))
         llvalue = lltype.cast_primitive(self.VALUETYPE, value)
         obj.set_value(llvalue)
     set_value._annspecialcase_ = 'specialize:arg(0)'

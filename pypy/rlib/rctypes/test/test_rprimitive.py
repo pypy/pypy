@@ -5,7 +5,7 @@ Test the primitive c_* implementation.
 import py.test
 import pypy.rlib.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
-from pypy.translator.translator import TranslationContext
+from pypy.annotation import policy
 from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
@@ -21,6 +21,15 @@ test_c_compile = True
 test_llvm_compile = False
 
 class Test_annotation:
+    def build_types(self, func, argtypes):
+        P = policy.AnnotatorPolicy()
+        P.allow_someobjects = False
+        a = RPythonAnnotator(policy=P)
+        s = a.build_types(func, argtypes)
+        if conftest.option.view:
+            a.translator.view()
+        return s
+
     def test_simple(self):
         res = c_int(42)
         assert res.value == 42 
@@ -31,14 +40,9 @@ class Test_annotation:
 
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == int
 
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_prebuilt_c_int(self):
         res = c_int(42)
@@ -46,14 +50,8 @@ class Test_annotation:
         def func():
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_set_c_int_value(self):
         def func():
@@ -62,14 +60,8 @@ class Test_annotation:
 
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
     
     def test_annotate_c_double(self):
         def func():
@@ -77,14 +69,8 @@ class Test_annotation:
 
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == float
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_prebuilt_c_double(self):
         res = c_double(4.2)
@@ -92,14 +78,8 @@ class Test_annotation:
         def func():
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == float
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_set_c_double_value(self):
         def func():
@@ -108,54 +88,30 @@ class Test_annotation:
 
             return res.value
 
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [])
-
+        s = self.build_types(func, [])
         assert s.knowntype == float
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_primitive_value(self):
         def func(x):
             cs = c_short(x)
             return cs.value
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
             
     def test_annotate_primitive_arrayitem(self):
         CSA = c_short * 1
         def func(x):
             csa = CSA(x)
             return csa[0]
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
             
     def test_annotate_primitive_ptritem(self):
         def func(x):
             cs = pointer(c_short(x))
             return cs[0]
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_primitive_structfield(self):
         class S(Structure):
@@ -163,28 +119,16 @@ class Test_annotation:
         def func(x):
             s = S(x)
             return s.cs
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
             
     def test_annotate_set_primitive_value(self):
         def func(x):
             cs = c_short()
             cs.value = x
             return cs.value
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_set_primitive_arrayitem(self):
         CSA = c_short * 1
@@ -192,28 +136,16 @@ class Test_annotation:
             csa = CSA()
             csa[0] = x
             return csa[0]
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
             
     def test_annotate_set_primitive_ptritem(self):
         def func(x):
             cs = pointer(c_short())
             cs[0] = x
             return cs[0]
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
 
     def test_annotate_set_primitive_structfield(self):
         class S(Structure):
@@ -222,14 +154,8 @@ class Test_annotation:
             s = S()
             s.cs = x
             return s.cs
-        t = TranslationContext()
-        a = t.buildannotator()
-        s = a.build_types(func, [int])
-
+        s = self.build_types(func, [int])
         assert s.knowntype == int
-
-        if conftest.option.view:
-            t.view()
             
         
 class Test_specialization:
@@ -300,7 +226,6 @@ class Test_specialization:
         assert ("%.2f" % res) == ("%.2f" % 4.3)
 
     def test_value_for_various_types(self):
-        py.test.skip("in-progress")
         def func():
             x = c_ushort(5)
             x.value += 1

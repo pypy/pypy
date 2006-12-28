@@ -137,7 +137,8 @@ def register_function_impl(builtinfn, controllingfn,
             if revealresult:
                 result_ctype = revealresult(*args_s)
                 controller = getcontroller(result_ctype)
-                s_result = SomeControlledInstance(s_result, controller)
+                if s_result != annmodel.s_ImpossibleValue:
+                    s_result = SomeControlledInstance(s_result, controller)
             return s_result
 
         def specialize_call(self, hop):
