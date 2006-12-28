@@ -23,24 +23,27 @@ Components
 
 The application consists of 3 main components: a server component, a client 
 component that handles compilations (let's call this a 'participating client')
-and a small client component to start compile jobs (which we'll call 'compiling
-client' for now).
+and a small client component to start compile jobs (which we'll call
+'requesting clients' for now).
 
 The server waits for participating clients to register, and for compile job
 requests. When participating clients register, they pass the server information
-about what compilations they can handle (system info). Then when a compiling
-client requests a compilation job, the server checks whether a binary is
-already available, and if so returns that. 
+about what compilations the system can handle (system info).
 
-If there isn't one, the server walks through a list of connected participating
+When now a requesting client requests a compilation job, the server checks
+whether a suitable binary is already available, and if so returns that. If
+there isn't one, the server walks through a list of connected participating
 clients to see if one of them can handle the job, and if so dispatches the
 compilation. If there's no participating client to handle the job, it gets
-queued until there is. Also, if a client crashes during compilation, the job
-gets re-queued. This process will continue until a suitable build is available.
+queued until there is. If a client crashes during compilation, the build is
+restarted, or error information is sent to the logs and requesting client,
+depending on the type of error. As long as no compilation error occurs (read:
+on disconnects, system errors, etc.) compilation will be retried until a
+build is available.
 
-Once a build is available, the server will send an email to all email addresses
-(it could be that more than one person asked for some build at the same time!)
-passed to it by the compiling clients.
+Once a build is available, the server will send an email to all clients waiting
+for the build (it could be that more than one person asked for some build at
+the same time!).
 
 Configuration
 =============
@@ -48,47 +51,55 @@ Configuration
 There are several aspects to configuration on this system. Of course, for the
 server, client and startcompile components there is configuration for the host
 and port to connect to, and there is some additional configuration for things
-like which mailhost to use (only applies to the server), but also there are
-configurations passed around to determine what client is picked, and what the
-client needs to compile exactly.
+like which mailhost to use (only applies to the server), but also there is
+configuration data passed around to determine what client is picked, and what
+the client needs to compile exactly.
 
-Application configuration
--------------------------
+Config file
+-----------
 
-The 'host and port configuration' as dicussed in the previous paragraph, for
-all components this can be found in 'pypy/tool/build/config.py'. Unless you are
-using a test version of the build tool, participate in a project that is not
-PyPy, or want to do testing yourself, this should generally be left alone.
+The host/port configuration etc. can be found in the file 'config.py' in the
+build tool dir. There are several things that can be configured here, mostly
+related to what application to build, and where to build it. Please read the
+file carefully when setting up a new build network, or when participating for
+compilation, because certain items (e.g. the svnpath_to_url function, or the
+client_checkers) can make the system a lot less secure when not configured
+properly.
+
+Note that all client-related configuration is done from command-line switches,
+so the configuration file is supposed to be changed on a per-project basis:
+unless you have specific needs, use a test version of the build tool, or are
+working on another project than PyPy, you will not want to modify the it.
 
 System configuration
 --------------------
 
 This information is used by the client and startcompile components. On the
 participating clients this information is retrieved by querying the system, on
-the compiling clients the system values are used by default, but may be
-overridden (so a compiling client running an x86 can still request PPC builds,
-for instance). The server finds a matching participant client for a certain
-compilation request by determining if the provided compilation system
-configuration is a subset of that provided by participating clients. Note that
-the version of the source code (either the release number or SVN revision)
-is a special part of this configuration, the participating clients tell what
-PyPy versions they can provide, the compiling clients give a range of versions
-that it doesn't mind getting (XXX not sure if I agree here, I think having the
-participating clients 'svn switch' for each compilation makes more sense...)
+the requesting clients the system values are used by default, but may be
+overridden (so a requesting client running an x86 can still request PPC builds,
+for instance). The clients compare their own system config to that of a build
+request, and will (should) refuse a build if it can not be executed because
+of incompatibilities.
 
 Compilation configuration
 -------------------------
 
 The third form of configuration is that of the to-be-built application itself,
 its compilation arguments. This configuration is only provided by the
-compiling clients, assumed is that participating clients can deal with any
-application configuration. (XXX oops, this is not by default true, is it?
-For instance, not all modules can be built on all systems, depending on which
-libraries are installed, right? Or can we deal with that through system 
-config somehow?)
+requesting clients, participating clients can examine the information and
+refuse a compilation based on this configuration (just like with the system
+config, see 'client_checkers' in 'config.py'). Compilation configuration can be
+controlled using command-line arguments (use 'bin/startcompile --help' for an
+overview).
 
-Compilation configuration can be controlled using command-line arguments (use 
-'--help' for an overview).
+Build tool options
+------------------
+
+Yet another part of the configuration are the options that can be passed to
+the 'request a build' script, the requesting client can specify what SVN path
+(relative to a certain base path) and what Subversion revision is desired.
+The revision can either be specified exactly, or as a range of versions.
 
 Installation
 ============
@@ -105,16 +116,64 @@ Server
 Also for the server there's no real setup required, and again there's a 
 dependency on the `py lib`_. Starting it is done by running './bin/server'.
 
-.. _`py lib`: http://codespeak.net/py
-
 Running a compile job
 ---------------------
 
 Again installation is not required, just run './bin/startcompile [options]
-<email>' (see --help for the options) to start.
+<email>' (see --help for the options) to start. Again, you need to have the
+`py lib`_ installed.
+
+.. _`py lib`: http://codespeak.net/py
+
+Using the build tool for other projects
+=======================================
+
+The code for the build tool is meant to be generic. Using it for other projects
+than PyPy (for which it was originally written) is relatively straight-forward:
+just change the configuration, and implement a build client script (probably
+highly resembling bin/client).
+
+Prerequisities
+--------------
+
+Your project can use the build tool if:
+
+  * it can be built from Python
+
+    Of course this is a rather vague requirement: theoretically _anything_ can
+    be built from Python; it's just a matter of integrating it into the tool
+    properly... A project that can entirely be built from Python code (like
+    PyPy) is easier to integrate than something that is built from the command
+    line, though (although implementing that won't be very hard either).
+
+  * it is located in Subversion
+
+    The build tool makes very little hard-coded assumptions, but having code
+    in Subversion is one of them. There are several locations in the code where
+    SVN is assumed: the command line options (see `build tool options`_),
+    the server (which checks SVN urls for validity, and converts HEAD revision
+    requests to actual revision ids) and and build client (which checks out the
+    data) all make this assumption, changing to a different revision control
+    system is currently not easy and unsupported (but who knows what the future
+    will bring).
+
+  * it uses PyPy's config mechanism
+
+    PyPy has a very nice, generic configuration mechanism (essentially wrapper
+    OptionParser stuff) that makes dealing with fragmented configuration
+    and command-line options a lot easier. This mechanism is used by the build
+    tool: it assumes configuration is provided in this format. If your project
+    uses this configuration mechanism already, you can provide the root Config
+    object from config.compile_config; if not it should be fairly straight-
+    forward to wrap your existing configuration with the PyPy stuff.
+
+Basically that's it: if your project is stored in SVN, and you don't mind using
+Python a bit, it shouldn't be too hard to get things going (note that more
+documentation about this subject will follow in the future).
 
 More info
 =========
 
 For more information, bug reports, patches, etc., please send an email to 
 guido@merlinux.de.
+
