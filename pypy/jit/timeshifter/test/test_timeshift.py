@@ -375,7 +375,7 @@ class TestTimeshift(TimeshiftingTests):
     def test_loop_folding(self):
         def ll_function(x, y):
             tot = 0
-            x = hint(x, concrete=True)        
+            x = hint(x, concrete=True)    
             while x:
                 tot += y
                 x -= 1
@@ -1210,3 +1210,20 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [4, 212], [], policy=P_NOVIRTUAL)
         assert res == 212
+
+    def test_green_char_at_merge(self):
+        def f(c, x):
+            c = chr(c)
+            c = hint(c, concrete=True)
+            if x:
+                x = 3
+            else:
+                x = 1
+            c = hint(c, variable=True)
+            return len(c*x)
+
+        res = self.timeshift(f, [ord('a'), 1], [], policy=P_NOVIRTUAL)
+        assert res == 3
+
+        res = self.timeshift(f, [ord('b'), 0], [], policy=P_NOVIRTUAL)
+        assert res == 1

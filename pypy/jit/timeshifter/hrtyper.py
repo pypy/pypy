@@ -1084,8 +1084,13 @@ class HintRTyper(RPythonTyper):
             s_erased_type  = r.erased_annotation()
             r_precise_type = self.rtyper.getrepr(s_precise_type)
             r_erased_type  = self.rtyper.getrepr(s_erased_type)
-            greens_v.append(hop.llops.convertvar(v, r_precise_type,
-                                                    r_erased_type))
+            if r_precise_type.lowleveltype == lltype.Char:
+                v_green = hop.llops.genop('cast_char_to_int', [v],
+                                          resulttype = lltype.Signed)
+            else:
+                v_green = hop.llops.convertvar(v, r_precise_type, r_erased_type)
+
+            greens_v.append(v_green)
             greens_s.append(s_erased_type)
 
         v_jitstate = hop.llops.getjitstate()
