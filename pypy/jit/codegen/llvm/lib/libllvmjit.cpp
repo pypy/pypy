@@ -74,7 +74,7 @@ int     transform(int optLevel) { //optlevel [0123]
 
     PassManager passes;
     passes.add(new TargetData(gp_module));           // some passes need this as a first pass
-    passes.add(createVerifierPass());                // Make sure we start with a good graph
+    passes.add(createVerifierPass(PrintMessageAction)); // Make sure we start with a good graph
     //passes.add(new PrintModulePass());               // Visual feedback
 
     if (optLevel >= 1) {
@@ -143,7 +143,7 @@ int     transform(int optLevel) { //optlevel [0123]
     // Compile silly sequences
     passes.add(createInstructionCombiningPass());
     // Make sure everything is still good.
-    passes.add(createVerifierPass());
+    passes.add(createVerifierPass(PrintMessageAction));
     //passes.add(new PrintModulePass());               // Visual feedback
 
     return passes.run(*gp_module);

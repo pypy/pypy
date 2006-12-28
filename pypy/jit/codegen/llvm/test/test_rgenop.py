@@ -1,5 +1,6 @@
 import py
-from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp, llvm_version, MINIMAL_VERSION
+from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
+from pypy.jit.codegen.llvm.llvmjit import llvm_version, MINIMAL_VERSION
 from pypy.jit.codegen.test.rgenop_tests import AbstractRGenOpTests
 from sys import platform
 

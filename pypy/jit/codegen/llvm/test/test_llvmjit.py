@@ -26,18 +26,19 @@ llmul2 = '''int %mul2(int %n) {
 }'''
 
 #
-lldeadcode = '''int %deadcode(int %n) {
+llvm2 = llvmjit.llvm_version() >= 2.0
+lldeadcode = '''int %%deadcode(int %%n) {
 Test:
-    %cond = icmp eq int %n, %n
-    br bool %cond, label %IfEqual, label %IfUnequal
+    %%cond = %s int %%n, %%n
+    br bool %%cond, label %%IfEqual, label %%IfUnequal
 
 IfEqual:
-    %n2 = mul int %n, 2
-    ret int %n2
+    %%n2 = mul int %%n, 2
+    ret int %%n2
 
 IfUnequal:
     ret int -1
-}'''
+}''' % ('seteq', 'icmp eq')[llvm2]
 
 #
 llfuncA = '''int %func(int %n) {

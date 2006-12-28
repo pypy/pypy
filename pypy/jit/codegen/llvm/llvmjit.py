@@ -44,6 +44,14 @@ class _FuncPtr(_CFuncPtr):
     libraries = (os.path.join(os.path.dirname(path), 'llvmjit'),)
 llvmjit._FuncPtr = _FuncPtr
 
+MINIMAL_VERSION = 2.0
+
+def llvm_version():
+    v = os.popen('llvm-as -version 2>&1').read()
+    v = ''.join([c for c in v if c.isdigit()])
+    v = int(v) / 10.0
+    return v
+
 #ensure stable state (XXX this doesn't seem to get called when translated! We do it in parse!)
 llvmjit.restart()
 

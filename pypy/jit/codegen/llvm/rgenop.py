@@ -20,14 +20,19 @@ PRINT_DEBUG  = option.print_debug
 
 WORD = 4
 
+llvm2 = llvmjit.llvm_version() >= 2.0
 
-MINIMAL_VERSION = 2.0
+if llvm2:
+    icmp = 'icmp '
+    scmp = 'icmp s'
+    ucmp = 'icmp u'
+    fcmp = 'fcmp o'
+else:
+    icmp = scmp = ucmp = fcmp = 'set'
 
-def llvm_version():
-    v = os.popen('llvm-as -version 2>&1').read()
-    v = ''.join([c for c in v if c.isdigit()])
-    v = int(v) / 10.0
-    return v
+
+class ParseException(Exception):
+    pass
 
 
 class Logger:
@@ -422,25 +427,54 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_float_truediv(self, gv_x, gv_y):  return self._rgenop2_generic('fdiv', gv_x, gv_y)
     def op_float_neg(self, gv_x): return self._rgenop2_generic('sub', FloatConst(0.0), gv_x)
 
-    def op_int_lt(self, gv_x, gv_y): return self._rgenop2_generic('icmp slt', gv_x, gv_y, 'bool')
-    def op_int_le(self, gv_x, gv_y): return self._rgenop2_generic('icmp sle', gv_x, gv_y, 'bool')
-    def op_int_eq(self, gv_x, gv_y): return self._rgenop2_generic('icmp eq' , gv_x, gv_y, 'bool')
-    def op_int_ne(self, gv_x, gv_y): return self._rgenop2_generic('icmp ne' , gv_x, gv_y, 'bool')
-    def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('icmp sgt', gv_x, gv_y, 'bool')
-    def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('icmp sge', gv_x, gv_y, 'bool')
+    def op_int_lt(self, gv_x, gv_y):
+        return self._rgenop2_generic(scmp + 'lt', gv_x, gv_y, 'bool')
 
-    def op_uint_lt(self, gv_x, gv_y): return self._rgenop2_generic('icmp ult', gv_x, gv_y, 'bool')
-    def op_uint_le(self, gv_x, gv_y): return self._rgenop2_generic('icmp ule', gv_x, gv_y, 'bool')
-    def op_uint_gt(self, gv_x, gv_y): return self._rgenop2_generic('icmp ugt', gv_x, gv_y, 'bool')
-    def op_uint_ge(self, gv_x, gv_y): return self._rgenop2_generic('icmp uge', gv_x, gv_y, 'bool')
+    def op_int_le(self, gv_x, gv_y):
+        return self._rgenop2_generic(scmp + 'le', gv_x, gv_y, 'bool')
 
-    def op_float_lt(self, gv_x, gv_y): return self._rgenop2_generic('fcmp olt', gv_x, gv_y, 'bool')
-    def op_float_le(self, gv_x, gv_y): return self._rgenop2_generic('fcmp ole', gv_x, gv_y, 'bool')
-    def op_float_eq(self, gv_x, gv_y): return self._rgenop2_generic('fcmp oeq', gv_x, gv_y, 'bool')
-    def op_float_ne(self, gv_x, gv_y): return self._rgenop2_generic('fcmp one', gv_x, gv_y, 'bool')
-    def op_float_gt(self, gv_x, gv_y): return self._rgenop2_generic('fcmp ogt', gv_x, gv_y, 'bool')
-    def op_float_ge(self, gv_x, gv_y): return self._rgenop2_generic('fcmp oge', gv_x, gv_y, 'bool')
+    def op_int_eq(self, gv_x, gv_y):
+        return self._rgenop2_generic(icmp + 'eq' , gv_x, gv_y, 'bool')
 
+    def op_int_ne(self, gv_x, gv_y):
+        return self._rgenop2_generic(icmp + 'ne' , gv_x, gv_y, 'bool')
+
+    def op_int_gt(self, gv_x, gv_y):
+        return self._rgenop2_generic(scmp + 'gt', gv_x, gv_y, 'bool')
+
+    def op_int_ge(self, gv_x, gv_y):
+        return self._rgenop2_generic(scmp + 'ge', gv_x, gv_y, 'bool')
+
+    def op_uint_lt(self, gv_x, gv_y):
+        return self._rgenop2_generic(ucmp + 'lt', gv_x, gv_y, 'bool')
+
+    def op_uint_le(self, gv_x, gv_y):
+        return self._rgenop2_generic(ucmp + 'le', gv_x, gv_y, 'bool')
+
+    def op_uint_gt(self, gv_x, gv_y):
+        return self._rgenop2_generic(ucmp + 'gt', gv_x, gv_y, 'bool')
+
+    def op_uint_ge(self, gv_x, gv_y):
+        return self._rgenop2_generic(ucmp + 'ge', gv_x, gv_y, 'bool')
+
+    def op_float_lt(self, gv_x, gv_y):
+        return self._rgenop2_generic(fcmp + 'lt', gv_x, gv_y, 'bool')
+
+    def op_float_le(self, gv_x, gv_y): 
+        return self._rgenop2_generic(fcmp + 'le', gv_x, gv_y, 'bool')
+    
+    def op_float_eq(self, gv_x, gv_y): 
+        return self._rgenop2_generic(fcmp + 'eq', gv_x, gv_y, 'bool')
+    
+    def op_float_ne(self, gv_x, gv_y): 
+        return self._rgenop2_generic(fcmp + 'ne', gv_x, gv_y, 'bool')
+
+    def op_float_gt(self, gv_x, gv_y): 
+        return self._rgenop2_generic(fcmp + 'gt', gv_x, gv_y, 'bool')
+
+    def op_float_ge(self, gv_x, gv_y): 
+        return self._rgenop2_generic(fcmp + 'ge', gv_x, gv_y, 'bool')
+    
     op_unichar_eq = op_ptr_eq = op_uint_eq = op_int_eq
     op_unichar_ne = op_ptr_ne = op_uint_ne = op_int_ne
 
@@ -469,9 +503,9 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_abs_pos = Var(gv_x.type)
         gv_result  = Var(gv_x.type)
         if nullstr is '0':
-            l = ' %s=icmp sge %s,%s'
+            l = ' %s=' + scmp + 'ge %s,%s'
         else:
-            l = ' %s=fcmp oge %s,%s'
+            l = ' %s=' + fcmp + 'ge %s,%s'
         self.asm.append(l % (gv_comp.operand2(), gv_x.operand(), nullstr))
         self.asm.append(' %s=sub %s %s,%s' % (
             gv_abs_pos.operand2(), gv_x.type, nullstr, gv_x.operand2()))
@@ -611,9 +645,9 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         log('%s Builder._is_false %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
         if nullstr is '0':
-            l = ' %s=icmp eq %s,%s'
+            l = ' %s=' + icmp + 'eq %s,%s'
         else:
-            l = ' %s=fcmp oeq %s,%s'
+            l = ' %s=' + fcmp + 'eq %s,%s'
         self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
         return gv_result
 
@@ -621,9 +655,9 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
         if nullstr is '0':
-            l = ' %s=icmp ne %s,%s'
+            l = ' %s=' + icmp + 'ne %s,%s'
         else:
-            l = ' %s=fcmp one %s,%s'
+            l = ' %s=' + fcmp + 'ne %s,%s'
         self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
         return gv_result
 
@@ -864,7 +898,9 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         if PRINT_SOURCE:
             print asm_string
         logger.dump(asm_string)
-        llvmjit.parse(asm_string)
+        parse_ok = llvmjit.parse(asm_string)
+        if not parse_ok:
+            raise ParseException()
         llvmjit.transform(3) #optimize module (should be on functions actually)
         function   = llvmjit.getNamedFunction(self.name)
         entrypoint = llvmjit.getPointerToFunctionAsInt(function)

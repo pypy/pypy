@@ -1,7 +1,8 @@
 import py
 from pypy.jit.codegen.i386.test.test_genc_ts import I386TimeshiftingTestMixin
 from pypy.jit.timeshifter.test import test_timeshift
-from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp, llvm_version, MINIMAL_VERSION
+from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
+from pypy.jit.codegen.llvm.llvmjit import llvm_version, MINIMAL_VERSION
 
 
 skip_passing = False
