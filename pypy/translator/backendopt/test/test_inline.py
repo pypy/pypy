@@ -547,6 +547,7 @@ class TestInlineLLType(LLRtypeMixin, BaseTestInline):
         res = eval_func([])
         assert res == 5
 
+
 class TestInlineOOType(OORtypeMixin, BaseTestInline):
 
     def test_rtype_r_dict_exceptions(self):
@@ -570,3 +571,17 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         res = eval_func([])
         assert res == 42
 
+    def test_float(self):
+        py.test.skip('fixme!')
+        ex = ['', '    ']
+        def fn(i):
+            s = ex[i]
+            try:
+                return float(s)
+            except ValueError:
+                return -999.0
+
+        eval_func, t = self.check_auto_inlining(fn, [int])
+        expected = fn(0)
+        res = eval_func([0])
+        assert res == expected
