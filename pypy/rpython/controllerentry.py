@@ -89,6 +89,13 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.setitem, hop)
 
+    def ctrl_is_true(self, s_obj):
+        return delegate(self.is_true, s_obj)
+
+    def rtype_is_true(self, hop):
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.is_true, hop)
+
 
 def delegate(boundmethod, *args_s):
     bk = getbookkeeper()
@@ -123,6 +130,9 @@ class __extend__(SomeControlledInstance):
     def setattr(s_cin, s_attr, s_value):
         assert s_attr.is_constant()
         s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
+
+    def is_true(s_cin):
+        return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
 
 
 class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):

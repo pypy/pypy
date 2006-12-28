@@ -284,7 +284,6 @@ class Test_specialization:
         interpret(func, [])
 
     def test_truth_value(self):
-        py.test.skip("in-progress")
         bigzero = r_ulonglong(0)
         big = r_ulonglong(2L**42)
         def func(n, z):
