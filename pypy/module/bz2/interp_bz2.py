@@ -228,6 +228,8 @@ class ReadBZ2Filter(Stream):
 
     def read(self, n):
         # XXX not nice
+        if n <= 0:
+            return ''
         while not self.buffer:
             if self.finished:
                 return ""
@@ -237,6 +239,7 @@ class ReadBZ2Filter(Stream):
                 if e.match(self.space, self.space.w_EOFError):
                     self.finished = True
                     return ""
+		raise
             self.buffer = self.space.str_w(w_read)
         if len(self.buffer) >= n:
             result = self.buffer[:n]
@@ -259,8 +262,6 @@ class WriteBZ2Filter(Stream):
     """Standard I/O stream filter that compresses the stream with bz2."""
 
     def __init__(self, space, stream, compresslevel):
-        """NOT_RPYTHON"""
-        import bz2
         self.stream = stream
         self.space = space
         self.compressor = W_BZ2Compressor(space, compresslevel)
