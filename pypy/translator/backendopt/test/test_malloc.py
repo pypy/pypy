@@ -1,6 +1,5 @@
 import py
-from pypy.translator.backendopt.malloc import remove_mallocs_once
-from pypy.translator.backendopt.malloc import union_wrapper
+from pypy.translator.backendopt.malloc import LLTypeMallocRemover
 from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
@@ -13,6 +12,7 @@ from pypy.conftest import option
 
 
 def check_malloc_removed(graph):
+    remover = LLTypeMallocRemover()
     checkgraph(graph)
     count1 = count2 = 0
     for node in flatten(graph):
@@ -20,7 +20,7 @@ def check_malloc_removed(graph):
             for op in node.operations:
                 if op.opname == 'malloc':
                     S = op.args[0].value
-                    if not union_wrapper(S):   # union wrappers are fine
+                    if not remover.union_wrapper(S):   # union wrappers are fine
                         count1 += 1
                 if op.opname in ('direct_call', 'indirect_call'):
                     count2 += 1
@@ -28,6 +28,7 @@ def check_malloc_removed(graph):
     assert count2 == 0   # number of calls left
 
 def check(fn, signature, args, expected_result, must_be_removed=True):
+    remover = LLTypeMallocRemover()
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
@@ -37,7 +38,7 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
     # to detect missing keepalives and broken intermediate graphs,
     # we do the loop ourselves instead of calling remove_simple_mallocs()
     while True:
-        progress = remove_mallocs_once(graph)
+        progress = remover.remove_mallocs_once(graph)
         simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
         if progress and option.view:
             t.view()
