@@ -133,6 +133,10 @@ def compile(backend):
         compile_llvm_variants(revision, features)
     elif os.path.exists(basename):                   #copy executable
         run("mv %s %s" % (basename, realname))
+        if backend == 'cli':
+            basename_dir = basename + '-data'
+            realname_dir = realname + '-data'
+            run("mv %s %s" % (basename_dir, realname_dir))
         #pypy = open(basename, 'rb').read()
         #if len(pypy) > 0:
         #    open(realname, 'wb').write(pypy)
