@@ -7,28 +7,15 @@ from pypy.jit.codegen.llvm import llvmjit
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
+from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
+    trunc, zext, bitcast, shr_prefix
 
-
-#note: To use this code you'll need llvm 2.0 . At the time of writing that
-#      version is still somewhere in the future so use cvs head that gets
-#      closest! Version 2.0 introduces fileformat changes as described here:
-#      http://nondot.org/sabre/LLVMNotes/TypeSystemChanges.txt
 
 LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
 PRINT_DEBUG  = option.print_debug
 
 WORD = 4
-
-llvm2 = llvmjit.llvm_version() >= 2.0
-
-if llvm2:
-    icmp = 'icmp '
-    scmp = 'icmp s'
-    ucmp = 'icmp u'
-    fcmp = 'fcmp o'
-else:
-    icmp = scmp = ucmp = fcmp = 'set'
 
 
 class ParseException(Exception):
@@ -399,7 +386,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_int_lshift(self, gv_x, gv_y):
         gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=trunc %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        self.asm.append(' %s=%s %s to ubyte' % (
+            gv_y_ubyte.operand2(), trunc, gv_y.operand()))
         gv_result = Var(gv_x.type)
         self.asm.append(' %s=shl %s,%s' % (
             gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
@@ -407,10 +395,11 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_int_rshift(self, gv_x, gv_y):
         gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=trunc %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        self.asm.append(' %s=%s %s to ubyte' % (
+            gv_y_ubyte.operand2(), trunc, gv_y.operand()))
         gv_result = Var(gv_x.type)
         self.asm.append(' %s=%sshr %s,%s' % (
-            gv_result.operand2(), 'la'[gv_x.signed], gv_x.operand(), gv_y_ubyte.operand()))
+            gv_result.operand2(), shr_prefix[gv_x.signed], gv_x.operand(), gv_y_ubyte.operand()))
         return gv_result
 
     op_uint_add = op_float_add = op_int_add
@@ -523,8 +512,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def genop_same_as(self, kind, gv_x):
         if gv_x.is_const:    # must always return a var
             gv_result = Var(gv_x.type)
-            self.asm.append(' %s=bitcast %s to %s' % (
-                gv_result.operand2(), gv_x.operand(), gv_x.type))
+            self.asm.append(' %s=%s %s to %s' % (
+                gv_result.operand2(), bitcast, gv_x.operand(), gv_x.type))
             return gv_result
         else:
             return gv_x
@@ -534,8 +523,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         if restype is gv_x.type:
             return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
-        self.asm.append(' %s=zext %s to %s' % (
-            gv_result.operand2(), gv_x.operand(), restype))
+        self.asm.append(' %s=%s %s to %s' % (
+            gv_result.operand2(), zext, gv_x.operand(), restype))
         return gv_result
 
     def _trunc_to(self, gv_x, restype=None):
@@ -543,8 +532,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         if restype is gv_x.type:
             return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
-        self.asm.append(' %s=trunc %s to %s' % (
-            gv_result.operand2(), gv_x.operand(), restype))
+        self.asm.append(' %s=%s %s to %s' % (
+            gv_result.operand2(), trunc, gv_x.operand(), restype))
         return gv_result
 
     def _cast_to_bool(self, gv_x):      return self._cast_to(gv_x, 'bool')
@@ -776,8 +765,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         if gv.is_const:
             gv_var = Var(gv.type)
             #XXX provide correct cast here
-            self.asm.append(' %s=inttoptr int %s to %s' % (
-                gv_var.operand2(), gv.operand2(), gv_var.type))
+            self.asm.append(' %s=%s int %s to %s' % (
+                gv_var.operand2(), inttoptr, gv.operand2(), gv_var.type))
             return gv_var
         return gv
         
@@ -807,8 +796,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_result = Var('ubyte*') #XXX or opaque* ???
         gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
-            gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
+        self.asm.append(' %s=%s int %d to %s ;gc_malloc_fnaddr' % (
+            gv_gc_malloc_fnaddr.operand2(), inttoptr, gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
         self.asm.append(' %s=call %s(int %d)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), size))
         return gv_result
@@ -819,8 +808,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_result = Var('ubyte*') #XXX or opaque* ???
         gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
-            gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
+        self.asm.append(' %s=%s int %d to %s ;gc_malloc_fnaddr' % (
+            gv_gc_malloc_fnaddr.operand2(), inttoptr, gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
         self.asm.append(' %s=call %s(%s)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size.operand()))
         #XXX TODO set length field
@@ -836,8 +825,8 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_returnvar = Var(restype)
         if isinstance(gv_fnptr, AddrConst):
             gv_fn = Var(self._funcsig_type(args_gv, restype))
-            self.asm.append(' %s=bitcast %s to %s' % (
-                gv_fnptr.operand2(), gv_fnptr.operand(), gv_fn.type))
+            self.asm.append(' %s=%s %s to %s' % (
+                gv_fnptr.operand2(), bitcast, gv_fnptr.operand(), gv_fn.type))
             funcsig = gv_fn.operand()
         else:
             #XXX we probably need to call an address directly if we can't resolve the funcsig

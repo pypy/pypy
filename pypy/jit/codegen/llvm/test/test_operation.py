@@ -23,14 +23,7 @@ class TestBasic(LLVMTestBasicMixin,
             llvm_version(), MINIMAL_VERSION))
 
     if llvm_version() < 2.0:
-        test_arithmetic = skip_too_minimal
-        test_comparison = skip_too_minimal
-        test_char_comparison = skip_too_minimal
-        test_unichar_comparison = skip_too_minimal
-        test_char_array = skip_too_minimal
-        test_char_varsize_array = skip_too_minimal
-        test_unsigned = skip_too_minimal
-        test_float_arithmetic = skip_too_minimal
+        test_float_arithmetic = skip_too_minimal #segfault
 
     test_float_pow = skip
     test_unichar_array = skip

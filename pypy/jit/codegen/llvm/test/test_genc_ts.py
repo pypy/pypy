@@ -26,17 +26,9 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         py.test.skip('found llvm %.1f, requires at least llvm %.1f(cvs)' % (
             llvm_version(), MINIMAL_VERSION))
 
-    if llvm_version() < MINIMAL_VERSION:
-        test_loop_merging = skip_too_minimal
-        test_two_loops_merging = skip_too_minimal
-        test_merge_3_redconsts_before_return = skip_too_minimal
-        test_degenerated_before_return = skip_too_minimal
-        test_degenerated_before_return_2 = skip_too_minimal
-        test_setarrayitem = skip_too_minimal
-        test_degenerated_via_substructure = skip_too_minimal
-        test_merge_structures = skip_too_minimal
-        test_split_on_green_return = skip_too_minimal
-        test_normalize_indirect_call_more = skip_too_minimal
+    if llvm_version() < 2.0:
+        test_loop_merging = skip_too_minimal #segfault
+        test_two_loops_merging = skip_too_minimal #segfault
 
     if skip_passing:
         test_very_simple = skip
@@ -92,4 +84,6 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_compile_time_const_tuple = skip
         test_residual_red_call = skip
         test_residual_red_call_with_exc = skip
+
+    test_green_char_at_merge = skip #->SomeObject() (CharRepr @rgenop.py:141 ?)
 

@@ -19,9 +19,9 @@ class TestRLLVMGenop(AbstractRGenOpTests):
         py.test.skip('found llvm %.1f, requires at least llvm %.1f(cvs)' % (
             llvm_version(), MINIMAL_VERSION))
 
-    if llvm_version() < MINIMAL_VERSION:
-        test_goto_direct = skip_too_minimal
-        test_goto_compile = skip_too_minimal
-        test_fact_direct = skip_too_minimal
+    if llvm_version() < 2.0:
+        test_goto_direct = skip_too_minimal #segfault
+        test_goto_compile = skip_too_minimal #segfault
+        test_fact_direct = skip_too_minimal #segfault
 
     test_fact_compile = skip #XXX Blocked block, introducted by this checkin (I don't understand)
