@@ -30,10 +30,10 @@ class BaseMallocRemover(object):
     def get_STRUCT(self, TYPE):
         raise NotImplementedError
 
-    def do_substruct_access(self, op):
+    def visit_substruct_op(self, node, union, op):
         raise NotImplementedError
 
-    def equivalent_substruct(self, S, fieldname):
+    def do_substruct_access(self, op):
         raise NotImplementedError
 
     def union_wrapper(self, S):
@@ -91,10 +91,7 @@ class BaseMallocRemover(object):
                         union(node, op.args[0], node, op.result)
                         continue
                     if op.opname in self.SUBSTRUCT_OPS:
-                        S = op.args[0].concretetype.TO
-                        if self.equivalent_substruct(S, op.args[1].value):
-                            # assumed to be similar to a cast_pointer
-                            union(node, op.args[0], node, op.result)
+                        if self.visit_substruct_op(node, union, op):
                             continue
                     for i in range(len(op.args)):
                         if isinstance(op.args[i], Variable):
@@ -275,6 +272,14 @@ class LLTypeMallocRemover(BaseMallocRemover):
         STRUCT = TYPE.TO
         assert isinstance(STRUCT, lltype.GcStruct)
         return STRUCT
+
+    def visit_substruct_op(self, node, union, op):
+        S = op.args[0].concretetype.TO
+        if self.equivalent_substruct(S, op.args[1].value):
+            # assumed to be similar to a cast_pointer
+            union(node, op.args[0], node, op.result)
+            return True
+        return False
 
     def do_substruct_access(self, op):
         S = op.args[0].concretetype.TO
