@@ -2,6 +2,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, traverse
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.simplify import remove_identical_vars
 from pypy.translator.backendopt.support import log
 
@@ -49,7 +50,58 @@ class BaseMallocRemover(object):
         raise NotImplementedError
 
     def flowin(self, block, count, var, newvarsmap):
-        raise NotImplementedError
+        # in this 'block', follow where the 'var' goes to and replace
+        # it by a flattened-out family of variables.  This family is given
+        # by newvarsmap, whose keys are the 'flatnames'.
+        vars = {var: True}
+        self.last_removed_access = None
+
+        def list_newvars():
+            return [newvarsmap[key] for key in self.flatnames]
+
+        assert block.operations != ()
+        self.newops = []
+        for op in block.operations:
+            for arg in op.args[1:]:   # should be the first arg only
+                assert arg not in vars
+            if op.args and op.args[0] in vars:
+                self.flowin_op(op, vars, newvarsmap)
+            elif op.result in vars:
+                assert op.opname == self.MALLOC_OP
+                assert vars == {var: True}
+                progress = True
+                # drop the "malloc" operation
+                newvarsmap = self.flatconstants.copy()   # zero initial values
+                # if there are substructures, they are now individually
+                # malloc'ed in an exploded way.  (They will typically be
+                # removed again by the next malloc removal pass.)
+                for key in self.needsubmallocs:
+                    v = Variable()
+                    v.concretetype = self.newvarstype[key]
+                    c = Constant(v.concretetype.TO, lltype.Void)
+                    if c.value == op.args[0].value:
+                        progress = False   # replacing a malloc with
+                                           # the same malloc!
+                    newop = SpaceOperation(self.MALLOC_OP, [c], v)
+                    self.newops.append(newop)
+                    newvarsmap[key] = v
+                count[0] += progress
+            else:
+                self.newops.append(op)
+
+        assert block.exitswitch not in vars
+
+        for link in block.exits:
+            newargs = []
+            for arg in link.args:
+                if arg in vars:
+                    newargs += list_newvars()
+                else:
+                    newargs.append(arg)
+            link.args[:] = newargs
+
+        self.insert_keepalives(list_newvars())
+        block.operations[:] = self.newops
 
     def compute_lifetimes(self, graph):
         """Compute the static data flow of the graph: returns a list of LifeTime
@@ -367,141 +419,170 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 pass
         return S, fldname
 
-    def flowin(self, block, count, var, newvarsmap):
-        # in this 'block', follow where the 'var' goes to and replace
-        # it by a flattened-out family of variables.  This family is given
-        # by newvarsmap, whose keys are the 'flatnames'.
-        vars = {var: True}
-        last_removed_access = None
-
-        def list_newvars():
-            return [newvarsmap[key] for key in self.flatnames]
-
-        assert block.operations != ()
-        newops = []
-        for op in block.operations:
-            for arg in op.args[1:]:   # should be the first arg only
-                assert arg not in vars
-            if op.args and op.args[0] in vars:
-                if op.opname in ("getfield", "getarrayitem"):
-                    S = op.args[0].concretetype.TO
-                    fldname = op.args[1].value
-                    key = self.key_for_field_access(S, fldname)
-                    if key in self.accessed_substructs:
-                        c_name = Constant('data', lltype.Void)
-                        newop = SpaceOperation("getfield",
-                                               [newvarsmap[key], c_name],
-                                               op.result)
-                    else:
-                        newop = SpaceOperation("same_as",
-                                               [newvarsmap[key]],
-                                               op.result)
-                    newops.append(newop)
-                    last_removed_access = len(newops)
-                elif op.opname in ("setfield", "setarrayitem"):
-                    S = op.args[0].concretetype.TO
-                    fldname = op.args[1].value
-                    key = self.key_for_field_access(S, fldname)
-                    assert key in newvarsmap
-                    if key in self.accessed_substructs:
-                        c_name = Constant('data', lltype.Void)
-                        newop = SpaceOperation("setfield",
-                                     [newvarsmap[key], c_name, op.args[2]],
-                                               op.result)
-                        newops.append(newop)
-                    else:
-                        newvarsmap[key] = op.args[2]
-                    last_removed_access = len(newops)
-                elif op.opname in ("same_as", "cast_pointer"):
-                    assert op.result not in vars
-                    vars[op.result] = True
-                    # Consider the two pointers (input and result) as
-                    # equivalent.  We can, and indeed must, use the same
-                    # flattened list of variables for both, as a "setfield"
-                    # via one pointer must be reflected in the other.
-                elif op.opname == 'keepalive':
-                    last_removed_access = len(newops)
-                elif op.opname in ("getsubstruct", "getarraysubstruct",
-                                   "direct_fieldptr"):
-                    S = op.args[0].concretetype.TO
-                    fldname = op.args[1].value
-                    if op.opname == "getarraysubstruct":
-                        fldname = 'item%d' % fldname
-                    equiv = self.equivalent_substruct(S, fldname)
-                    if equiv:
-                        # exactly like a cast_pointer
-                        assert op.result not in vars
-                        vars[op.result] = True
-                    else:
-                        # do it with a getsubstruct on the independently
-                        # malloc'ed GcStruct
-                        if op.opname == "direct_fieldptr":
-                            opname = "direct_fieldptr"
-                        else:
-                            opname = "getsubstruct"
-                        v = newvarsmap[S, fldname]
-                        cname = Constant('data', lltype.Void)
-                        newop = SpaceOperation(opname,
-                                               [v, cname],
-                                               op.result)
-                        newops.append(newop)
-                elif op.opname in ("ptr_iszero", "ptr_nonzero"):
-                    # we know the pointer is not NULL if it comes from
-                    # a successful malloc
-                    c = Constant(op.opname == "ptr_nonzero", lltype.Bool)
-                    newop = SpaceOperation('same_as', [c], op.result)
-                    newops.append(newop)
-                else:
-                    raise AssertionError, op.opname
-            elif op.result in vars:
-                assert op.opname == self.MALLOC_OP
-                assert vars == {var: True}
-                progress = True
-                # drop the "malloc" operation
-                newvarsmap = self.flatconstants.copy()   # zero initial values
-                # if there are substructures, they are now individually
-                # malloc'ed in an exploded way.  (They will typically be
-                # removed again by the next malloc removal pass.)
-                for key in self.needsubmallocs:
-                    v = Variable()
-                    v.concretetype = self.newvarstype[key]
-                    c = Constant(v.concretetype.TO, lltype.Void)
-                    if c.value == op.args[0].value:
-                        progress = False   # replacing a malloc with
-                                           # the same malloc!
-                    newop = SpaceOperation(self.MALLOC_OP, [c], v)
-                    newops.append(newop)
-                    newvarsmap[key] = v
-                count[0] += progress
+    def flowin_op(self, op, vars, newvarsmap):
+        if op.opname in ("getfield", "getarrayitem"):
+            S = op.args[0].concretetype.TO
+            fldname = op.args[1].value
+            key = self.key_for_field_access(S, fldname)
+            if key in self.accessed_substructs:
+                c_name = Constant('data', lltype.Void)
+                newop = SpaceOperation("getfield",
+                                       [newvarsmap[key], c_name],
+                                       op.result)
             else:
-                newops.append(op)
-
-        assert block.exitswitch not in vars
-
-        for link in block.exits:
-            newargs = []
-            for arg in link.args:
-                if arg in vars:
-                    newargs += list_newvars()
+                newop = SpaceOperation("same_as",
+                                       [newvarsmap[key]],
+                                       op.result)
+            self.newops.append(newop)
+            self.last_removed_access = len(self.newops)
+        elif op.opname in ("setfield", "setarrayitem"):
+            S = op.args[0].concretetype.TO
+            fldname = op.args[1].value
+            key = self.key_for_field_access(S, fldname)
+            assert key in newvarsmap
+            if key in self.accessed_substructs:
+                c_name = Constant('data', lltype.Void)
+                newop = SpaceOperation("setfield",
+                                 [newvarsmap[key], c_name, op.args[2]],
+                                           op.result)
+                self.newops.append(newop)
+            else:
+                newvarsmap[key] = op.args[2]
+                self.last_removed_access = len(self.newops)
+        elif op.opname in ("same_as", "cast_pointer"):
+            assert op.result not in vars
+            vars[op.result] = True
+            # Consider the two pointers (input and result) as
+            # equivalent.  We can, and indeed must, use the same
+            # flattened list of variables for both, as a "setfield"
+            # via one pointer must be reflected in the other.
+        elif op.opname == 'keepalive':
+            self.last_removed_access = len(self.newops)
+        elif op.opname in ("getsubstruct", "getarraysubstruct",
+                           "direct_fieldptr"):
+            S = op.args[0].concretetype.TO
+            fldname = op.args[1].value
+            if op.opname == "getarraysubstruct":
+                fldname = 'item%d' % fldname
+            equiv = self.equivalent_substruct(S, fldname)
+            if equiv:
+                # exactly like a cast_pointer
+                assert op.result not in vars
+                vars[op.result] = True
+            else:
+                # do it with a getsubstruct on the independently
+                # malloc'ed GcStruct
+                if op.opname == "direct_fieldptr":
+                    opname = "direct_fieldptr"
                 else:
-                    newargs.append(arg)
-            link.args[:] = newargs
+                    opname = "getsubstruct"
+                v = newvarsmap[S, fldname]
+                cname = Constant('data', lltype.Void)
+                newop = SpaceOperation(opname,
+                                       [v, cname],
+                                       op.result)
+                self.newops.append(newop)
+        elif op.opname in ("ptr_iszero", "ptr_nonzero"):
+            # we know the pointer is not NULL if it comes from
+            # a successful malloc
+            c = Constant(op.opname == "ptr_nonzero", lltype.Bool)
+            newop = SpaceOperation('same_as', [c], op.result)
+            self.newops.append(newop)
+        else:
+            raise AssertionError, op.opname
 
-        if last_removed_access is not None:
+        
+    def insert_keepalives(self, newvars):
+        if self.last_removed_access is not None:
             keepalives = []
-            for v in list_newvars():
+            for v in newvars:
                 T = v.concretetype
                 if isinstance(T, lltype.Ptr) and T._needsgc():
                     v0 = Variable()
                     v0.concretetype = lltype.Void
                     newop = SpaceOperation('keepalive', [v], v0)
                     keepalives.append(newop)
-            newops[last_removed_access:last_removed_access] = keepalives
-
-        block.operations[:] = newops
+            self.newops[self.last_removed_access:self.last_removed_access] = keepalives
 
 class OOTypeMallocRemover(BaseMallocRemover):
-    pass # TODO
+
+    IDENTITY_OPS = ('same_as', 'ooupcast', 'oodowncast')
+    SUBSTRUCT_OPS = ()
+    MALLOC_OP = 'new'
+    FIELD_ACCESS = dict.fromkeys(["oogetfield",
+                                  "oosetfield",
+                                  "oononnull",
+                                  #"oois",  # ???
+                                  #"instanceof", # ???
+                                  ])
+    SUBSTRUCT_ACCESS = {}
+    CHECK_ARRAY_INDEX = {}
+
+    def get_STRUCT(self, TYPE):
+        return TYPE
+
+    def union_wrapper(self, S):
+        return False
+
+    def RTTI_dtor(self, STRUCT):
+        return False
+
+    def _get_fields(self, TYPE):
+        if isinstance(TYPE, ootype.Record):
+            return TYPE._fields
+        elif isinstance(TYPE, ootype.Instance):
+            return TYPE._allfields()
+        else:
+            assert False
+
+    def flatten(self, TYPE):
+        for name, (FIELDTYPE, default) in self._get_fields(TYPE).iteritems():
+            key = TYPE, name
+            example = FIELDTYPE._defl()
+            constant = Constant(example)
+            constant.concretetype = FIELDTYPE
+            self.flatconstants[key] = constant
+            self.flatnames.append(key)
+            self.newvarstype[key] = FIELDTYPE
+
+    def key_for_field_access(self, S, fldname):
+        return S, fldname
+
+    def flowin_op(self, op, vars, newvarsmap):
+        if op.opname == "oogetfield":
+            S = op.args[0].concretetype
+            fldname = op.args[1].value
+            key = self.key_for_field_access(S, fldname)
+            newop = SpaceOperation("same_as",
+                                   [newvarsmap[key]],
+                                   op.result)
+            self.newops.append(newop)
+            last_removed_access = len(self.newops)
+        elif op.opname == "oosetfield":
+            S = op.args[0].concretetype
+            fldname = op.args[1].value
+            key = self.key_for_field_access(S, fldname)
+            assert key in newvarsmap
+            newvarsmap[key] = op.args[2]
+            last_removed_access = len(self.newops)
+        elif op.opname in ("same_as", "oodowncast", "ooupcast"):
+            assert op.result not in vars
+            vars[op.result] = True
+            # Consider the two pointers (input and result) as
+            # equivalent.  We can, and indeed must, use the same
+            # flattened list of variables for both, as a "setfield"
+            # via one pointer must be reflected in the other.
+        elif op.opname == "oononnull":
+            # we know the pointer is not NULL if it comes from
+            # a successful malloc
+            c = Constant(True, lltype.Bool)
+            newop = SpaceOperation('same_as', [c], op.result)
+            self.newops.append(newop)
+        else:
+            raise AssertionError, op.opname
+
+    def insert_keepalives(self, newvars):
+        pass
 
 def remove_simple_mallocs(graph, type_system='lltype'):
     if type_system == 'lltype':
