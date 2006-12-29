@@ -239,7 +239,7 @@ class ReadBZ2Filter(Stream):
                 if e.match(self.space, self.space.w_EOFError):
                     self.finished = True
                     return ""
-		raise
+                raise
             self.buffer = self.space.str_w(w_read)
         if len(self.buffer) >= n:
             result = self.buffer[:n]
