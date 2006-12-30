@@ -83,6 +83,9 @@ RPython.
 `JavaScript backend`_ describes how to use the JavaScript backend to create
 AJAX-based web pages.
 
+`JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
+from our Python interpreter.
+
 `EU reports`_ is a page that contains links to the
 preliminary reports that we submitted to the European Union.
 
@@ -315,6 +318,7 @@ Directory                      explanation/links
 .. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
 .. _`translatorshell.py`: getting-started.html#try-out-the-translator
+.. _`JIT Generation in PyPy`: jit.html
 .. _`just-in-time compiler generator`: jit.html
 .. _`jit backends`: jit.html#backends
 .. _`hint-annotator`: jit.html#hint-annotator
