@@ -413,6 +413,10 @@ class FixedSizeArray(Struct):
                              self.OF._short_name(),)
     _short_name = saferecursive(_short_name, '...')
 
+    def _first_struct(self):
+        # don't consider item0 as an inlined first substructure
+        return None, None
+
 
 class FuncType(ContainerType):
     _gckind = 'raw'

@@ -73,6 +73,26 @@ def test_cast_ptr_to_adr():
     res = interpret(f, [0])
     assert not res
 
+def test_confusion_with_fixedarray_item_0():
+    A = lltype.FixedSizeArray(lltype.Signed, 5)
+    B = lltype.FixedSizeArray(A, 3)
+    myoffset = itemoffsetof(A, 4)
+    global_b = lltype.malloc(B, immortal=True)
+    global_b[0][4] = 1000
+    global_b[1][4] = 1010
+    global_b[2][4] = 1200
+    def f(n):
+        a = global_b[n]    # bug: with n=0, this was considered as the
+                           # first inlined substructure, confusing
+                           # normalizeptr(a) into returning global_b
+        adr_a = cast_ptr_to_adr(a)
+        return (adr_a + myoffset).signed[0]
+    assert f(2) == 1200
+    assert f(1) == 1010
+    assert f(0) == 1000
+    res = interpret(f, [0])
+    assert res == 1000
+
 def test_cast_adr_to_ptr():
     from pypy.rpython.memory.test.test_llinterpsim import interpret
     S = lltype.GcStruct("S", ("x", lltype.Signed))
