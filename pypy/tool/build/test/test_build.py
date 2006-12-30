@@ -153,6 +153,7 @@ def test_buildrequest_has_satisfying_data():
 
 def test_buildrequest_error():
     tempdir = py.test.ensuretemp('pypybuilder-buildpath')
+
     bp = build.BuildPath(str(tempdir / 'test_error'))
     assert bp.error is None
     bp.log = """
@@ -167,6 +168,7 @@ traceback here
     e = bp.error
     assert e.__class__ == SyntaxError
     assert str(e) == 'foo'
+
     bp.log = """
 ==============================================================================
 Exception during compilation:

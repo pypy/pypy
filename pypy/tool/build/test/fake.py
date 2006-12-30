@@ -52,3 +52,7 @@ class FakeServer(object):
         bp.ensure(dir=1)
         return bp
 
+class Container(object):
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+

@@ -53,3 +53,8 @@ def svnpath_to_url(p):
         root = root[:-1]
     return '%s/%s' % (root, p)
 
+# create an URL from a path, the URL is used in emails
+def path_to_url(p):
+    return 'http://codespeak.net/pypy/%s' % (
+                p.relto(py.magic.autopath().dirpath()),)
+

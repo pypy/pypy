@@ -1,14 +1,16 @@
 import path
 from pypy.tool.build import server
 import py
-from fake import FakeChannel, FakeClient
+from fake import FakeChannel, FakeClient, Container
 from pypy.tool.build import build
 import time
 from repo import create_temp_repo
 
 def setup_module(mod):
     mod.temppath = temppath = py.test.ensuretemp('pypybuilder-server')
-    mod.svr = server.PPBServer('pypytest', FakeChannel(), str(temppath))
+    config = Container(projectname='pypytest', buildpath=temppath,
+                       mailhost=None)
+    mod.svr = server.PPBServer(config, FakeChannel())
     
     mod.c1 = FakeClient({'foo': 1, 'bar': [1,2]})
     mod.svr.register(mod.c1)
@@ -148,7 +150,8 @@ def test_cleanup_old_builds():
     bp2 = build.BuildPath(temppath.join('bp2'))
     bp2.ensure(dir=True)
     bp2.log = 'log'
-    svr = server.PPBServer('test', FakeChannel(), str(temppath))
+    config = Container(projectname='test', buildpath=temppath)
+    svr = server.PPBServer(config, FakeChannel())
     assert not bp1.check()
     assert bp2.check()
 

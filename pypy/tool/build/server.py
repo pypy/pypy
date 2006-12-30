@@ -33,19 +33,15 @@ class PPBServer(object):
     """
     retry_interval = 10
     
-    def __init__(self, projname, channel, builddir, mailhost=None,
-                    mailport=None, mailfrom=None):
-        self._projname = projname
+    def __init__(self, config, channel):
+        self.config = config
         self._channel = channel
-        self._buildroot = py.path.local(builddir)
-        self._mailhost = mailhost
-        self._mailport = mailport
-        self._mailfrom = mailfrom
+        self._buildroot = buildpath = py.path.local(config.buildpath)
         
         self._clients = []
 
         done = []
-        for bp in self._get_buildpaths(builddir):
+        for bp in self._get_buildpaths(buildpath):
             if bp.done:
                 done.append(bp)
             else:
@@ -217,7 +213,7 @@ class PPBServer(object):
             self._queuelock.release()
 
     def _get_buildpaths(self, dirpath):
-        for p in py.path.local(dirpath).listdir():
+        for p in dirpath.listdir():
             yield BuildPath(str(p))
 
     _i = 0
@@ -228,7 +224,7 @@ class PPBServer(object):
             buildnames = [p.basename for p in 
                             py.path.local(self._buildroot).listdir()]
             while True:
-                name = '%s-%s-%s' % (self._projname, today, self._i)
+                name = '%s-%s-%s' % (self.config.projectname, today, self._i)
                 self._i += 1
                 if name not in buildnames:
                     return name
@@ -237,21 +233,39 @@ class PPBServer(object):
 
     def _send_email(self, addr, buildpath):
         self._channel.send('going to send email to %s' % (addr,))
-        if self._mailhost is not None:
-            msg = '\r\n'.join([
-                'From: %s' % (self._mailfrom,),
-                'To: %s' % (addr,),
-                'Subject: %s compilation done' % (self._projname,),
-                '',
-                'The compilation you requested is done. You can find it at',
-                str(build.path),
-                '',
-                buildpath.log,
-            ])
-            server = smtplib.SMTP(self._mailhost, self._mailport)
-            server.set_debuglevel(0)
-            server.sendmail(self._mailfrom, addr, msg)
-            server.quit()
+        if self.config.mailhost is not None:
+            try:
+                if buildpath.error:
+                    subject = '%s - %s during compilation' % (
+                                self.config.projectname,
+                                buildpath.error.__class__.__name__)
+                    body = ('There was an error during the compilation you '
+                            'requested. The log can be found below.')
+                else:
+                    subject = '%s - compilation done' % (
+                               self.config.projectname,)
+                    body = ('The compilation you requested is done. You can '
+                            'find it at:\n%s\n' % (
+                             self.config.path_to_url(buildpath,)))
+                msg = '\r\n'.join([
+                    'From: %s' % (self.config.mailfrom,),
+                    'To: %s' % (addr,),
+                    'Subject: %s' % (subject,),
+                    '',
+                    body,
+                    '',
+                    buildpath.log,
+                ])
+                server = smtplib.SMTP(self.config.mailhost,
+                                      self.config.mailport)
+                server.set_debuglevel(0)
+                server.sendmail(self.config.mailfrom, addr, msg)
+                server.quit()
+            except:
+                exc, e, tb = py.std.sys.exc_info()
+                self._channel.send(
+                    'exception sending mail: %s - %s' % (exc, e))
+                del tb
 
 initcode = """
     import sys
@@ -260,7 +274,8 @@ initcode = """
     try:
         try:
             from pypy.tool.build.server import PPBServer
-            server = PPBServer(%r, channel, %r, %r, %r, %r)
+            from pypy.tool.build import config
+            server = PPBServer(config, channel)
 
             # make the server available to clients as pypy.tool.build.ppbserver
             from pypy.tool import build
@@ -283,12 +298,10 @@ initcode = """
     finally:
         channel.close()
 """
-def init(gw, port=12321, path=[], projectname='pypy', buildpath=None,
-            mailhost=None, mailport=25, mailfrom=None):
+def init(gw, config):
     from pypy.tool.build import execnetconference
-    conference = execnetconference.conference(gw, port, True)
-    channel = conference.remote_exec(initcode % (path, projectname, buildpath,
-                                                    mailhost, mailport,
-                                                    mailfrom))
+    
+    conference = execnetconference.conference(gw, config.port, True)
+    channel = conference.remote_exec(initcode % (config.path,))
     return channel
 

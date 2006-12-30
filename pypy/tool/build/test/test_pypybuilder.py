@@ -1,3 +1,7 @@
+""" some functional tests (although some of the rest aren't strictly
+    unit tests either), to run use --functional as an arg to py.test
+"""
+
 import py
 import time
 import path
@@ -9,10 +13,7 @@ from pypy.tool.build.conftest import option
 from pypy.config import config as pypyconfig
 
 from repo import create_temp_repo
-
-""" some functional tests (although some of the rest aren't strictly
-    unit tests either), to run use --functional as an arg to py.test
-"""
+from fake import Container
 
 # XXX this one is a bit messy, it's a quick functional test for the whole
 # system, but for instance contains time.sleep()s to make sure all threads
@@ -38,11 +39,15 @@ def setup_module(mod):
     mod.foourl = str(repo.join('foo'))
     config.checkers = []
 
-    mod.sgw = sgw = py.execnet.PopenGateway()
     mod.temppath = temppath = py.test.ensuretemp('pypybuilder-functional')
 
-    mod.sc = sc = server.init(sgw, port=config.testport, path=config.testpath,
-                     buildpath=str(temppath))
+    mod.sgw = sgw = py.execnet.PopenGateway()
+    cfg = Container(projectname='pypytest', server='localhost',
+                    port=config.testport,
+                    path=config.testpath, buildpath=temppath,
+                    mailhost=None)
+    
+    mod.sc = sc = server.init(sgw, cfg)
 
     def read():
         while 1:
@@ -64,7 +69,7 @@ def create_client_channel(**conf):
     sysconfig = _get_sysconfig()
     sysconfig.__dict__.update(conf)
     channel = client.init(cgw, sysconfig, port=config.testport,
-                          testing_sleeptime=SLEEP_INTERVAL * 4)
+                          testing_sleeptime=SLEEP_INTERVAL * 5)
     channel.send(True)
     return cgw, channel
 
@@ -161,7 +166,7 @@ def test_functional():
 
         # this sleep, along with that in the previous compile call, should be
         # enough to reach the end of fake compilation
-        time.sleep(SLEEP_INTERVAL * 3)
+        time.sleep(SLEEP_INTERVAL * 4)
 
         # both the jobs should have been done now...
         queued = get_info('_queued')
