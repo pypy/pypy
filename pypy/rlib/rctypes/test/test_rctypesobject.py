@@ -66,6 +66,18 @@ class TestBasic:
         res = self.do(func)
         assert res == 303
 
+    def test_copyfrom_2(self):
+        def func():
+            x1 = rc_int.allocate()
+            x1.set_value(11)
+            x2 = rc_int.allocate()
+            x2.set_value(7)
+            p1 = pointer(x1)
+            p1.get_contents().copyfrom(x2)
+            return x1.get_value()
+        res = self.do(func)
+        assert res == 7
+
     def test_fixedarray(self):
         def func():
             a = RFixedArray(rc_int, 10).allocate()
@@ -99,10 +111,26 @@ class TestBasic:
             a1 = RVarArray(rc_int).fromitem(p.get_contents(), 8)
             del p
             for i in range(8):
-                a1.ref(i).get_value() == 100 + 5 * i
+                assert a1.ref(i).get_value() == 100 + 5 * i
             return a1.length
         res = self.do(func)
         assert res == 8
+
+    def test_varstructarray_cast(self):
+        S1 = RStruct('S1', [('x', rc_int),
+                            ('y', rc_int)])
+        def func():
+            a = RVarArray(S1).allocate(10)
+            for i in range(10):
+                a.ref(i).ref_x().set_value(100 + 5 * i)
+                a.ref(i).ref_y().set_value(200 + 2 * i)
+            p = pointer(a.ref(0))
+            del a
+            a1 = RVarArray(S1).fromitem(p.get_contents(), 8)
+            del p
+            return a1.ref(4).ref_y().get_value()
+        res = self.do(func)
+        assert res == 208
 
     def test_char_p(self):
         def func():
@@ -186,6 +214,31 @@ class TestBasic:
         res = self.do(func)
         assert res == 7
 
+    def test_pointer_indexing(self):
+        def func():
+            a = RFixedArray(rc_int, 10).allocate()
+            for i in range(10):
+                a.ref(i).set_value(100 + 5 * i)
+            p = pointer(a.ref(0))
+            del a
+            return p.get_contents_at_index(7).get_value()
+        res = self.do(func)
+        assert res == 135
+
+    def test_structpointer_indexing(self):
+        S1 = RStruct('S1', [('x', rc_int),
+                            ('y', rc_int)])
+        def func():
+            a = RFixedArray(S1, 10).allocate()
+            for i in range(10):
+                a.ref(i).ref_x().set_value(100 + 5 * i)
+                a.ref(i).ref_y().set_value(200 + 2 * i)
+            p = pointer(a.ref(0))
+            del a
+            s1 = p.get_contents_at_index(3)
+            return s1.ref_x().get_value() + s1.ref_y().get_value()
+        res = self.do(func)
+        assert res == 115 + 206
 
 POLICY = AnnotatorPolicy()
 POLICY.allow_someobjects = False

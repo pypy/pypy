@@ -249,6 +249,15 @@ def RPointer(contentscls):
                 targetmemblock = self._getmemblock(0, targetkeepalives)
                 return contentscls(targetaddr, targetmemblock)
 
+            def get_contents_at_index(self, index):
+                ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
+                targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
+                targetaddr += ofs_item * index
+                keepalive_until_here(self)
+                targetkeepalives = contentscls.num_keepalives
+                targetmemblock = self._getmemblock(0, targetkeepalives)
+                return contentscls(targetaddr, targetmemblock)
+
             def set_contents(self, newcontentsbox):
                 targetaddr = newcontentsbox.addr
                 targetmemblock = newcontentsbox.memblock
@@ -258,6 +267,7 @@ def RPointer(contentscls):
                 keepalive_until_here(self)
                 self._keepalivememblock(0, targetmemblock)
 
+        ofs_item = llmemory.sizeof(contentscls.LLTYPE)
         contentscls._ptrcls = RCTypesPtr
         return RCTypesPtr
 RPointer._annspecialcase_ = 'specialize:memo'
