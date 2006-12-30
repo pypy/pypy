@@ -54,6 +54,9 @@ class ItemOffset(AddressOffset):
                                 " of an array")
             A = lltype.typeOf(parent)
             assert isinstance(A, (lltype.Array, lltype.FixedSizeArray))
+            if isinstance(index, str):
+                assert index.startswith("item")
+                index = int(index[4:])     # "itemN" => N
             firstitemref = _arrayitemref(parent._as_ptr(), index)
         assert isinstance(firstitemref, _arrayitemref)
         array = firstitemref.array

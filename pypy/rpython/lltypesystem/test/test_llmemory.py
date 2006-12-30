@@ -95,13 +95,13 @@ def test_confusion_with_fixedarray_item_0():
 
 def test_structarray_add():
     S = lltype.Struct("S", ("x", lltype.Signed))
-    A = lltype.GcArray(S)
-    a = lltype.malloc(A, 5)
-    a[3].x = 42
-    adr_s = cast_ptr_to_adr(a[0])
-    adr_s += sizeof(S) * 3
-    s = cast_adr_to_ptr(adr_s, lltype.Ptr(S))
-    assert s.x == 42
+    for a in [lltype.malloc(lltype.GcArray(S), 5),
+              lltype.malloc(lltype.FixedSizeArray(S, 5), immortal=True)]:
+        a[3].x = 42
+        adr_s = cast_ptr_to_adr(a[0])
+        adr_s += sizeof(S) * 3
+        s = cast_adr_to_ptr(adr_s, lltype.Ptr(S))
+        assert s.x == 42
 
 def test_cast_adr_to_ptr():
     from pypy.rpython.memory.test.test_llinterpsim import interpret
