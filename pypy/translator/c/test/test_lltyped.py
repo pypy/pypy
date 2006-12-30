@@ -160,6 +160,23 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             res = fn(4)
             assert res == 0 + 10 + 30 + 1000
 
+    def test_structarray_add(self):
+        from pypy.rpython.lltypesystem import llmemory
+        S = Struct("S", ("x", Signed))
+        PS = Ptr(S)
+        size = llmemory.sizeof(S)
+        A = GcArray(S)
+        def llf(n):
+            a = malloc(A, 5)
+            a[3].x = 42
+            adr_s = llmemory.cast_ptr_to_adr(a[0])
+            adr_s += size * n
+            s = llmemory.cast_adr_to_ptr(adr_s, PS)
+            return s.x
+        fn = self.getcompiled(llf, [int])
+        res = fn(3)
+        assert res == 42
+
     def test_direct_fieldptr(self):
         S = GcStruct('S', ('x', Signed), ('y', Signed))
         def llf(n):

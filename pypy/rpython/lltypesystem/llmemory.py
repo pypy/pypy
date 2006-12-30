@@ -47,6 +47,14 @@ class ItemOffset(AddressOffset):
         return ItemOffset(self.TYPE, -self.repeat)
 
     def ref(self, firstitemref):
+        if isinstance(firstitemref, _obref):
+            parent, index = lltype.parentlink(firstitemref.ob._obj)
+            if parent is None:
+                raise TypeError("address + itemoffset: not the address"
+                                " of an array")
+            A = lltype.typeOf(parent)
+            assert isinstance(A, (lltype.Array, lltype.FixedSizeArray))
+            firstitemref = _arrayitemref(parent._as_ptr(), index)
         assert isinstance(firstitemref, _arrayitemref)
         array = firstitemref.array
         assert lltype.typeOf(array).TO.OF == self.TYPE
