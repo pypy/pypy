@@ -574,7 +574,7 @@ class SharedDictImplementation(DictImplementation):
                         if item >= 0]
 
     def values(self):
-        return self.entries
+        return self.entries[:]
 
     def items(self):
         space = self.space

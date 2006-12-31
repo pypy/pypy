@@ -22,6 +22,16 @@ class AppTest_DictSharing(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
 
+    def test_values_does_not_share(self):
+        class A(object):
+            pass
+        a = A()
+        a.abc = 12
+        l = a.__dict__.values()
+        assert l == [12]
+        l[0] = 24
+        assert a.abc == 12
+
 
 class FakeSpace(test_dictobject.FakeSpace):
     def str_w(self, string):
