@@ -267,6 +267,18 @@ def RPointer(contentscls):
                 keepalive_until_here(self)
                 self._keepalivememblock(0, targetmemblock)
 
+            def is_null(self):
+                ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
+                res = not ptr[0]
+                keepalive_until_here(self)
+                return res
+
+            def set_null(self):
+                ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
+                ptr[0] = lltype.nullptr(RCTypesPtr.LLTYPE.TO)
+                keepalive_until_here(self)
+                self._keepalivememblock(0, None)
+
         ofs_item = llmemory.sizeof(contentscls.LLTYPE)
         contentscls._ptrcls = RCTypesPtr
         return RCTypesPtr

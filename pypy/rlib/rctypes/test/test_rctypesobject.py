@@ -240,6 +240,20 @@ class TestBasic:
         res = self.do(func)
         assert res == 115 + 206
 
+    def test_null_pointer(self):
+        P = RPointer(rc_int)
+        def func():
+            x = rc_int.allocate()
+            p = P.allocate()
+            res1 = p.is_null()
+            p.set_contents(x)
+            res2 = p.is_null()
+            p.set_null()
+            res3 = p.is_null()
+            return res1 * 100 + res2 * 10 + res3
+        res = self.do(func)
+        assert res == 101
+
 POLICY = AnnotatorPolicy()
 POLICY.allow_someobjects = False
 
