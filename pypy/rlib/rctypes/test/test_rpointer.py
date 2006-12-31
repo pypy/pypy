@@ -263,7 +263,7 @@ class Test_specialization:
         res = interpret(fn, [-12])
         assert res == 55
 
-class INPROGRESS_Test_compilation:
+class Test_compilation:
     def test_compile_getitem_nonzero_index(self):
         A = c_int * 10
         class S(Structure):
