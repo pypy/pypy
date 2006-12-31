@@ -6,22 +6,21 @@ from pypy.objspace.std.dictmultiobject import \
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject
 
-class TestW_DictObject(test_dictobject.TestW_DictObject):
+class TestW_DictMultiObject(test_dictobject.TestW_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
 
-class AppTest_DictObject(test_dictobject.AppTest_DictObject):
+class AppTest_DictMultiObject(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
 
-class TestW_DictObject(test_dictobject.TestW_DictObject):
+class TestW_DictSharing(test_dictobject.TestW_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
 
-class AppTest_DictObject(test_dictobject.AppTest_DictObject):
+class AppTest_DictSharing(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
-
 
 
 class FakeSpace(test_dictobject.FakeSpace):
