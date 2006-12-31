@@ -221,7 +221,7 @@ class TestBasic:
                 a.ref(i).set_value(100 + 5 * i)
             p = pointer(a.ref(0))
             del a
-            return p.get_contents_at_index(7).get_value()
+            return p.ref(7).get_value()
         res = self.do(func)
         assert res == 135
 
@@ -235,7 +235,7 @@ class TestBasic:
                 a.ref(i).ref_y().set_value(200 + 2 * i)
             p = pointer(a.ref(0))
             del a
-            s1 = p.get_contents_at_index(3)
+            s1 = p.ref(3)
             return s1.ref_x().get_value() + s1.ref_y().get_value()
         res = self.do(func)
         assert res == 115 + 206

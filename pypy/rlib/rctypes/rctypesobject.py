@@ -249,10 +249,11 @@ def RPointer(contentscls):
                 targetmemblock = self._getmemblock(0, targetkeepalives)
                 return contentscls(targetaddr, targetmemblock)
 
-            def get_contents_at_index(self, index):
+            def ref(self, index):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
-                targetaddr += ofs_item * index
+                if index:
+                    targetaddr += ofs_item * index
                 keepalive_until_here(self)
                 targetkeepalives = contentscls.num_keepalives
                 targetmemblock = self._getmemblock(0, targetkeepalives)
