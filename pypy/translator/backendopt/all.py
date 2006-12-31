@@ -92,7 +92,6 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
 def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 call_count_pred=None):
 
-    type_system = translator.rtyper.type_system.name
     log.inlining("phase with threshold factor: %s" % inline_threshold)
 
     # inline functions in each other
@@ -114,7 +113,7 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
     if config.mallocs:
         tot = 0
         for graph in graphs:
-            count = remove_simple_mallocs(graph, type_system)
+            count = remove_simple_mallocs(graph)
             if count:
                 # remove typical leftovers from malloc removal
                 removenoops.remove_same_as(graph)
