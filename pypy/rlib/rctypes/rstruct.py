@@ -37,8 +37,10 @@ class StructCTypeController(CTypeController):
                 if args:
                     value = args[0]
                     args = args[1:]
-                    itemobj = getattr(obj, 'ref_' + name)()
-                    controller.set_value(itemobj, value)
+                    if controller.is_box(value):
+                        structsetboxattr(obj, name, value)
+                    else:
+                        structsetattr(obj, name, value)
             return obj
 
         self.new = structnew
@@ -53,11 +55,18 @@ class StructCTypeController(CTypeController):
         def structsetattr(obj, attr, value):
             controller = getattr(self, 'fieldcontroller_' + attr)
             itemobj = getattr(obj, 'ref_' + attr)()
-            controller.set_value(itemobj, value)
+            controller.store_value(itemobj, value)
         structsetattr._annspecialcase_ = 'specialize:arg(1)'
+
+        def structsetboxattr(obj, attr, valuebox):
+            controller = getattr(self, 'fieldcontroller_' + attr)
+            itemobj = getattr(obj, 'ref_' + attr)()
+            controller.store_box(itemobj, valuebox)
+        structsetboxattr._annspecialcase_ = 'specialize:arg(1)'
 
         self.getattr = structgetattr
         self.setattr = structsetattr
+        self.setboxattr = structsetboxattr
 
 
 StructCTypeController.register_for_metatype(StructType)

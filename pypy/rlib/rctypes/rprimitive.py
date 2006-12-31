@@ -40,14 +40,14 @@ class PrimitiveCTypeController(CTypeController):
         self.is_char_type = self.VALUETYPE in (lltype.Char, lltype.UniChar)
         self.knowntype = rctypesobject.Primitive(self.VALUETYPE)
 
-    def new(self, *initialvalue):
-        obj = self.knowntype.allocate()
-        if len(initialvalue) > 0:
-            if len(initialvalue) > 1:
-                raise TypeError("at most 1 argument expected")
-            self.set_value(obj, initialvalue[0])
-        return obj
-    new._annspecialcase_ = 'specialize:arg(0)'
+        def primitivenew(*initialvalue):
+            obj = self.knowntype.allocate()
+            if len(initialvalue) > 0:
+                if len(initialvalue) > 1:
+                    raise TypeError("at most 1 argument expected")
+                self.set_value(obj, initialvalue[0])
+            return obj
+        self.new = primitivenew
 
     def initialize_prebuilt(self, obj, x):
         value = x.value
@@ -78,6 +78,7 @@ class PrimitiveCTypeController(CTypeController):
     # ctypes automatically unwraps the c_xxx() of primitive types when
     # they are returned by most operations
     return_value = get_value
+    store_value = set_value
 
     def is_true(self, obj):
         llvalue = self.get_value(obj)

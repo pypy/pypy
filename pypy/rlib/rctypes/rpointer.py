@@ -22,15 +22,14 @@ class PointerCTypeController(CTypeController):
         if ptrto is not None:
             obj.set_contents(self.contentscontroller.unbox(ptrto))
         return obj
+    new._annspecialcase_ = 'specialize:arg(0)'
 
     def initialize_prebuilt(self, obj, x):
         contentsbox = self.contentscontroller.convert(x.contents)
         self.setbox_contents(obj, contentsbox)
 
     def getitem(self, obj, index):
-        if index != 0:
-            raise ValueError("can only access item 0 of pointers")
-        contentsobj = obj.get_contents()
+        contentsobj = obj.ref(index)
         return self.contentscontroller.return_value(contentsobj)
     getitem._annspecialcase_ = 'specialize:arg(0)'
 
@@ -57,5 +56,12 @@ class PointerCTypeController(CTypeController):
     def setbox_contents(self, obj, contentsbox):
         obj.set_contents(contentsbox)
     setbox_contents._annspecialcase_ = 'specialize:arg(0)'
+
+    def is_true(self, obj):
+        return not obj.is_null()
+    is_true._annspecialcase_ = 'specialize:arg(0)'
+
+    def store_box(self, obj, valuebox):
+        obj.set_contents(valuebox.ref(0))
 
 PointerCTypeController.register_for_metatype(PointerType)

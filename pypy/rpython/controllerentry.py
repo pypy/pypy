@@ -24,6 +24,17 @@ class ControllerEntry(ExtRegistryEntry):
         return controller.rtype_new(hop)
 
 
+
+def controlled_instance_box(controller, obj):
+    XXX  # only for special-casing by ExtRegistryEntry below
+
+def controlled_instance_unbox(controller, obj):
+    XXX  # only for special-casing by ExtRegistryEntry below
+
+def controlled_instance_is_box(controller, obj):
+    XXX  # only for special-casing by ExtRegistryEntry below
+
+
 class ControllerEntryForPrebuilt(ExtRegistryEntry):
 
     def compute_annotation(self):
@@ -49,6 +60,10 @@ class Controller(object):
     def unbox(self, obj):
         return controlled_instance_unbox(self, obj)
     unbox._annspecialcase_ = 'specialize:arg(0)'
+
+    def is_box(self, obj):
+        return controlled_instance_is_box(self, obj)
+    is_box._annspecialcase_ = 'specialize:arg(0)'
 
     def ctrl_new(self, *args_s):
         s_real_obj = delegate(self.new, *args_s)
@@ -111,12 +126,6 @@ def delegate(boundmethod, *args_s):
     return bk.emulate_pbc_call(bk.position_key, s_meth, args_s,
                                callback = bk.position_key)
 
-def controlled_instance_box(controller, obj):
-    XXX
-
-def controlled_instance_unbox(controller, obj):
-    XXX
-
 class BoxEntry(ExtRegistryEntry):
     _about_ = controlled_instance_box
 
@@ -129,8 +138,12 @@ class BoxEntry(ExtRegistryEntry):
             return SomeControlledInstance(s_real_obj, controller=controller)
 
     def specialize_call(self, hop):
-        [v] = hop.inputargs(hop.r_result)
-        return v
+        from pypy.rpython.rcontrollerentry import ControlledInstanceRepr
+        if not isinstance(hop.r_result, ControlledInstanceRepr):
+            raise TyperError("box() should return ControlledInstanceRepr,\n"
+                             "got %r" % (hop.r_result,))
+        hop.exception_cannot_occur()
+        return hop.inputarg(hop.r_result.r_real_obj, arg=1)
 
 class UnboxEntry(ExtRegistryEntry):
     _about_ = controlled_instance_unbox
@@ -143,8 +156,31 @@ class UnboxEntry(ExtRegistryEntry):
             return s_obj.s_real_obj
 
     def specialize_call(self, hop):
-        [v] = hop.inputargs(hop.r_result)
-        return v
+        from pypy.rpython.rcontrollerentry import ControlledInstanceRepr
+        if not isinstance(hop.args_r[1], ControlledInstanceRepr):
+            raise TyperError("unbox() should take a ControlledInstanceRepr,\n"
+                             "got %r" % (hop.args_r[1],))
+        hop.exception_cannot_occur()
+        v = hop.inputarg(hop.args_r[1], arg=1)
+        return hop.llops.convertvar(v, hop.args_r[1].r_real_obj, hop.r_result)
+
+class IsBoxEntry(ExtRegistryEntry):
+    _about_ = controlled_instance_is_box
+
+    def compute_result_annotation(self, s_controller, s_obj):
+        if s_obj == annmodel.s_ImpossibleValue:
+            return annmodel.s_ImpossibleValue
+        else:
+            assert s_controller.is_constant()
+            controller = s_controller.const
+            result = (isinstance(s_obj, SomeControlledInstance) and
+                      s_obj.controller == controller)
+            return self.bookkeeper.immutablevalue(result)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        assert hop.s_result.is_constant()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 

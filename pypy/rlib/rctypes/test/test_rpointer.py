@@ -104,7 +104,7 @@ class Test_annotation(BaseTestAnnotation):
 ##        assert not s.ownsmemory
 
 
-class INPROGRESS_Test_specialization:
+class Test_specialization:
     def test_specialize_c_int_ptr(self):
         ptrtype = POINTER(c_int)
         def func():
@@ -221,11 +221,10 @@ class INPROGRESS_Test_specialization:
         def fn():
             p = POINTER(c_double)()
             p.contents = c_double(6.25)
-            return p
+            return p.contents.value
 
         res = interpret(fn, [])
-        float_c_data = res.c_data[0]
-        assert float_c_data[0] == 6.25
+        assert res == 6.25
 
     def test_specialize_getitem_nonzero_index(self):
         A = c_int * 10

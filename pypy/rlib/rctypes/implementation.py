@@ -55,6 +55,13 @@ class CTypeController(Controller):
 
     return_value = Controller.box
 
+    def store_box(self, obj, valuebox):
+        obj.copyfrom(valuebox)
+
+    def store_value(self, obj, value):
+        raise TypeError("cannot store a value into a non-primitive ctype")
+    store_value._annspecialcase_ = 'specialize:arg(0)'
+
     # extension to the setattr/setitem support: if the new value is actually
     # a CTypeControlled instance as well, reveal it automatically (i.e. turn
     # it into an rctypesobject) and call a method with a different name.

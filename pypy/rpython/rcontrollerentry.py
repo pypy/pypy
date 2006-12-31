@@ -17,6 +17,11 @@ class ControlledInstanceRepr(Repr):
         real_value = self.controller.convert(value)
         return self.r_real_obj.convert_const(real_value)
 
+    def reveal(self, r):
+        if r is not self:
+            raise TyperError("expected %r, got %r" % (self, r))
+        return self.s_real_obj, self.r_real_obj
+
     def rtype_getattr(self, hop):
         return self.controller.rtype_getattr(hop)
 

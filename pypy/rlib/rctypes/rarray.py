@@ -18,17 +18,17 @@ class ArrayCTypeController(CTypeController):
             self.itemcontroller.knowntype,
             self.length)
 
-    def new(self, *args):
-        obj = self.knowntype.allocate()
-        if args:
-            if len(args) > self.length:
-                raise ValueError("too many arguments for an array of "
-                                 "length %d" % (self.length,))
-            lst = list(args)
-            for i in range(len(args)):
-                self.setitem(obj, i, lst[i])
-        return obj
-    new._annspecialcase_ = 'specialize:arg(0)'
+        def arraynew(*args):
+            obj = self.knowntype.allocate()
+            if args:
+                if len(args) > self.length:
+                    raise ValueError("too many arguments for an array of "
+                                     "length %d" % (self.length,))
+                lst = list(args)
+                for i in range(len(args)):
+                    self.setitem(obj, i, lst[i])
+            return obj
+        self.new = arraynew
 
     def getitem(self, obj, i):
         itemobj = obj.ref(i)
