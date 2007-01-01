@@ -15,6 +15,8 @@ from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.translator.transformer.debug import DebugTransformer
 from pypy.rlib.nonconst import NonConstant
 
+from pypy.rpython.llinterp import LLException
+
 log = log.runtest
 use_browsertest = conftest.option.browser
 use_tg = conftest.option.tg
@@ -119,6 +121,8 @@ class compile_function(object):
             res = 1e300 * 1e300
         elif s == 'NaN':
             res = (1e300 * 1e300) / (1e300 * 1e300)
+        elif s.startswith("uncaught exception:"):
+            raise LLException(str(s))
         else:
             log('javascript result:', s)
             try:
@@ -169,9 +173,14 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #import exceptions # needed by eval
         #try:
         #import pdb; pdb.set_trace()
-        res = self.interpret(fn, args)
-        assert res.startswith('uncaught exception:')
-        assert re.search(str(exception), res)
+        try:
+            res = self.interpret(fn, args)
+        except LLException, e:
+            s = e.args[0]
+            assert s.startswith('uncaught exception:')
+            assert re.search(str(exception), s)
+        else:
+            raise AssertionError("Did not raise, returned %s" % res)
         #except ExceptionWrapper, ex:
         #    assert issubclass(eval(ex.class_name), exception)
         #else:

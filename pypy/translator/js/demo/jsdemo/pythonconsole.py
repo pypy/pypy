@@ -177,7 +177,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
-def build_http_server(server_address=('', 8000)):
+def build_http_server(server_address=('', 8001)):
     global httpd
     httpd = Server(server_address, RequestHandler)
     print 'http://127.0.0.1:%d' % (server_address[1],)

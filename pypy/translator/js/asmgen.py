@@ -213,8 +213,11 @@ class AsmGen(object):
         self.right_hand.append("%s.%s"%(self.right_hand.pop(), name))
     
     def new(self, obj):
-        log("New: %r"%obj)
+        #log("New: %r"%obj)
         self.right_hand.append("new %s()"%obj)
+    
+    def runtimenew(self):
+        self.right_hand.append("new %s()" % self.right_hand.pop())
     
     def load_self(self):
         self.right_hand.append("this")

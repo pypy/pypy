@@ -10,7 +10,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
-from pypy.translator.cli.metavm import Generator,InstructionList
+from pypy.translator.oosupport.metavm import Generator,InstructionList
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
 
@@ -411,6 +411,12 @@ class Function(Node, Generator):
     
     def call_external_method(self, name, arg_len):
         self.ilasm.call_method(None, name, [0]*arg_len)
+        
+    def instantiate(self):
+        self.ilasm.runtimenew()
+    
+    def downcast(self, TYPE):
+        pass
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):

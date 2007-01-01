@@ -44,6 +44,8 @@ class Class(Node):
         self.ilasm = ilasm
         
         ilasm.begin_function(self.name, [])
+        # we need to copy here all the arguments
+        self.copy_class_attributes(ilasm)
         ilasm.end_function()
         
         # begin to_String method
@@ -66,8 +68,13 @@ class Class(Node):
             f = self.db.genoo.Function(self.db, m_meth.graph, m_name, is_method = True, _class = self.name)
             f.render(ilasm)
         
-        
         self.db.record_class(self.classdef, self.name)
+    
+    def copy_class_attributes(self, ilasm):
+        for field_name, (field_type, field_value) in self.classdef._fields.items():
+            ilasm.load_str("this")
+            self.db.load_const(field_type, field_value, ilasm)
+            ilasm.set_field(None, field_name)
     
     def basename(self, name):
         return name.replace('.', '_')#[-1]

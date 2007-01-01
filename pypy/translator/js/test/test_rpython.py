@@ -7,15 +7,10 @@ from pypy.rpython.test.test_rpbc import BaseTestRPBC
 from pypy.rpython.test.test_rtuple import BaseTestRtuple
 from pypy.rpython.test.test_rstr import BaseTestRstr
 
-py.test.skip("Those tests are totally broken, need deeper look")
-
 class TestJsException(JsTest, BaseTestException):
     pass
 
 class TestJsClass(JsTest, BaseTestRclass):
-    def test_classattr_as_defaults(self):
-        py.test.skip("WIP")
-    
     def test_recursive_prebuilt_instance(self):
         py.test.skip("WIP")
     
@@ -27,19 +22,13 @@ class TestJsClass(JsTest, BaseTestRclass):
     
     def test_mixin(self):
         py.test.skip("WIP")
-    
-    def test_type(self):
+        
+    def test_getattr_on_classes(self):
         py.test.skip("WIP")
-    
+        
     def test_hash_preservation(self):
         py.test.skip("WIP")
-    
-    def test_ne(self):
-        py.test.skip("WIP")
-    
-    def test_eq(self):
-        py.test.skip("WIP")
-    
+
     def test_issubclass_type(self):
         py.test.skip("WIP")
     
@@ -49,14 +38,14 @@ class TestJsClass(JsTest, BaseTestRclass):
     def test_recursive_prebuilt_instance_classattr(self):
         py.test.skip("WIP")
 
-##class TestJsList(JsTest, BaseTestRlist):
-##    pass
+#class TestJsList(JsTest, BaseTestRlist):
+#    pass
 ##    
-##class TestJsPBC(JsTest, BaseTestRPBC):
-##    pass
+#class TestJsPBC(JsTest, BaseTestRPBC):
+#    pass
 ##
-##class TestJsRtuple(JsTest, BaseTestRtuple):
-##    pass
+#class TestJsRtuple(JsTest, BaseTestRtuple):
+#    pass
 ##
-##class TestJsStr(JsTest, BaseTestRstr):
-##    pass
+#class TestJsStr(JsTest, BaseTestRstr):
+#    pass

@@ -110,6 +110,8 @@ class LowLevelDatabase(object):
         if self.is_primitive(type_):
             return None
         const = AbstractConst.make(self, value)
+        if not const:
+            return None
         try:
             if retval == 'name':
                 return self.consts[const]
@@ -229,6 +231,11 @@ class AbstractConst(object):
             return DictConst(db, const)
         elif isinstance(const, bltregistry._external_type):
             return ExtObject(db, const)
+        elif isinstance(const, ootype._class):
+            if const._INSTANCE:
+                return ClassConst(db, const)
+            else:
+                return None
         else:
             assert False, 'Unknown constant: %s %r' % (const, typeOf(const))
     make = staticmethod(make)
@@ -285,32 +292,28 @@ class InstanceConst(AbstractConst):
     def record_fields(self):
         if not self.obj:
             return
-        # we support only primitives, tuples, strings and lists
-        
+            import pdb;pdb.set_trace()
         INSTANCE = self.obj._TYPE
-        while INSTANCE:
-            for i, (_type, val) in INSTANCE._fields.iteritems():
-                if _type is not ootype.Void and i.startswith('o'):
-                    name = self.db.record_const(getattr(self.obj, i), _type, 'const')
-                    if name is not None:
-                        self.depends.add(name)
-                        name.depends_on.add(self)
-            INSTANCE = INSTANCE._superclass
+        #while INSTANCE:
+        for i, (_type, val) in INSTANCE._allfields().items():
+            if _type is not ootype.Void:
+                name = self.db.record_const(getattr(self.obj, i), _type, 'const')
+                if name is not None:
+                    self.depends.add(name)
+                    name.depends_on.add(self)
         
     def init_fields(self, ilasm, const_var, name):
         if not self.obj:
             return
         
         INSTANCE = self.obj._TYPE
-        while INSTANCE:
-            for i, (_type, el) in INSTANCE._fields.iteritems():
-                if _type is not ootype.Void and i.startswith('o'):
-                    ilasm.load_local(const_var)
-                    self.db.load_const(_type, getattr(self.obj, i), ilasm)
-                    ilasm.set_field(None, "%s.%s"%(name, i))
-                    ilasm.store_void()
-            INSTANCE = INSTANCE._superclass
-            #raise NotImplementedError("Default fields of instances")
+        #while INSTANCE:
+        for i, (_type, el) in INSTANCE._allfields().items():
+            if _type is not ootype.Void:
+                ilasm.load_local(const_var)
+                self.db.load_const(_type, getattr(self.obj, i), ilasm)
+                ilasm.set_field(None, "%s.%s"%(name, i))
+                ilasm.store_void()
 
 class RecordConst(AbstractConst):
     def get_name(self):
@@ -399,6 +402,26 @@ class StringConst(AbstractConst):
     
     def init_fields(self, ilasm, const_var, name):
         pass
+
+class ClassConst(AbstractConst):
+    def __init__(self, db, const):
+        super(ClassConst, self).__init__(db, const)
+        self.cts.lltype_to_cts(const._INSTANCE) # force scheduling of class
+    
+    def get_name(self):
+        return "const_class"
+    
+    def get_key(self):
+        return self.get_name()
+    
+    def get_name(self):
+        return self.const._INSTANCE._name.replace(".", "_")
+    
+    def init(self, ilasm):
+        ilasm.load_const("%s" % self.get_name())
+    
+    #def init_fields(self, ilasm, const_var, name):
+    #    pass
 
 class BuiltinConst(AbstractConst):
     def __init__(self, name):
