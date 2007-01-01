@@ -303,9 +303,6 @@ def setTimeout(func, delay):
         func()
     #pass
 
-def alert(msg):
-    pass
-
 # some helper functions (XXX imo these can go, but the code seems to use them
 # a lot... isn't it possible to just use dom.window and dom.document instead?)
 
