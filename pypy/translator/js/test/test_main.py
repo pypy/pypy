@@ -21,6 +21,12 @@ a = A()
 def fun(x='3'):
     return a.method({'a':x})['a']
 
+def fff():
+    pass
+
 def test_bookkeeper_cleanup():
-    rpython2javascript(sys.modules[__name__], ["fun"])
-    rpython2javascript(sys.modules[__name__], ["fun"])
+    assert rpython2javascript(sys.modules[__name__], ["fun"])
+    assert rpython2javascript(sys.modules[__name__], ["fun"])
+
+def test_module_none():
+    assert rpython2javascript(None, "fff")

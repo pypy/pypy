@@ -113,6 +113,15 @@ def get_source_ssf(mod, module_name, function_names, use_debug=True):
     return retval
 
 def rpython2javascript(mod, function_names, jsconfig=None, use_pdb=True):
+    if isinstance(function_names, str):
+        function_names = [function_names]
+        # avoid confusion
+    if mod is None:
+        # this means actual module, which is quite hairy to get in python,
+        # so we cheat
+        import sys
+        mod = sys.modules[sys._getframe(1).f_globals['__name__']]
+    
     if jsconfig is None:
         jsconfig = Config(js_optiondescr)
     if use_pdb:
