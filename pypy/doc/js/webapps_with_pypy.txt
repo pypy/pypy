@@ -7,7 +7,7 @@ What is this (and why)?
 
 PyPy is a platform that is very versatile, and provides almost endless
 possibilities. One of the features that is currently already available is
-that of translating RPython (the 'restricted Python' subset) to JavaScript.
+that of translating `RPython`_ (the 'restricted Python' subset) to JavaScript.
 This specific feature can make the life of a developer of web applications that
 use client-side logic a lot easier, although there are certain hurdles to take.
 
@@ -89,3 +89,4 @@ Writing a simple application
 
 XXX hands-on guide to writing guestbook or something
 
+.. _`RPython`: ../coding-guide.html#restricted-python
