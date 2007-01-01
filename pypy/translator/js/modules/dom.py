@@ -694,7 +694,6 @@ KeyEvent._fields.update({
 get_window.suggested_primitive = True
 get_document.suggested_primitive = True
 setTimeout.suggested_primitive = True
-alert.suggested_primitive = True
 
 # the following code wraps minidom nodes with Node classes, and makes
 # sure all methods on the nodes return wrapped nodes
