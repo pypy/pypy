@@ -98,10 +98,10 @@ class TestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-def start_server(server_address = ('', 8000), handler=TestHandler, start_new=True):
+def start_server(server_address = ('', 8000), handler=TestHandler, fork=False):
     httpd = HTTPServer(server_address, handler)
 
-    if start_new:
+    if fork:
         import thread
         thread.start_new_thread(httpd.serve_forever, ())
         print "Server started, listening on %s" % (server_address,)
