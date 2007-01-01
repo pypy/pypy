@@ -26,7 +26,9 @@ ability to convert somewhat restricted Python code (aka RPython) into
 JavaScript code. Unlike other libraries that perform similar functionality,
 PyPy really interprets the code, and produces 'lower level' JavaScript code,
 so it implements Python core language features like list comprehensions, and
-really behaves like Python (it's not Python syntax with JS semantics). 
+really behaves like Python (it's not Python syntax with JS semantics).
+This particulary means that when a program is in RPython, you can run it
+on top of Python interpreter with the same results as translated to JS version.
 
 However, mostly for demonstration purposes, some other interesting code is
 available in the PyPy code package that may help developing web apps. The most
@@ -52,7 +54,7 @@ hopefully outweigh those complications.
 A quick overview of the (main) layers of code in the application we're going
 to write:
 
-  * HTTP server implementation - 'normal' (C-)Python code
+  * HTTP server implementation - 'normal' Python code
   
     the web server code, the code that handles dealing with the HTTP API and
     dispatching to application code is written in 'normal' Python code, and is
