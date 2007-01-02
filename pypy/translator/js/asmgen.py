@@ -44,7 +44,6 @@ class Queue(object):
         self.subst_table = subst_table
     
     def pop(self):
-        #if len(self.l) == 0:
         el = self.l.pop()
         return self.subst_table.get(el, el)
     
@@ -193,11 +192,6 @@ class AsmGen(object):
     def set_static_field(self, _type, namespace, _class, varname):
         self.codegenerator.writeline("%s.prototype.%s = %s;"%(_class, varname, self.right_hand.pop()))
     
-    #def load_set_field(self, _type, name):
-    #    #self.right_hand.append("")
-    #    #self.codegenerator.writeline("set field %r %r"%(_type, name))
-    #    pass
-    
     def set_field(self, useless_parameter, name):
         v = self.right_hand.pop()
         self.codegenerator.writeline("%s.%s = %s;"%(self.right_hand.pop(), name, v))
@@ -226,10 +220,8 @@ class AsmGen(object):
         if len(self.right_hand) == 0:
             return
         v = self.right_hand.pop()
-        # if v is not calling anything, drop it
         if v is not None and v.find('('):
             self.codegenerator.writeline(v+";")
-        #self.right_hand.pop()
     
     def begin_consts(self, name):
         # load consts, maybe more try to use stack-based features?
@@ -293,6 +285,3 @@ class AsmGen(object):
     
     def throw_real(self, s):
         self.codegenerator.writeline("throw(%s);"%s)
-    
-    #def finish ( self ):
-    #    self . outfile . write ( "%r" % self . right_hand )

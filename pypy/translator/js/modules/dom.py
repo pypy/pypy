@@ -6,7 +6,7 @@
 
     note that the API is not and will not be complete: more exotic features 
     will most probably not behave as expected, or are not implemented at all
-    
+
     http://www.w3.org/DOM/ - main standard
     http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
     http://developer.mozilla.org/en/docs/Gecko_DOM_Reference - Gecko reference
@@ -763,6 +763,9 @@ def _serialize_html(node):
     else:
         raise ValueError('unsupported node type %s' % (node.nodeType,))
     return ''.join(ret)
+
+def alert(msg):
+    window.alert(msg)
 
 # initialization
 

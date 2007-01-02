@@ -20,7 +20,7 @@ class _Builtins(object):
             'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
             'll_strconcat' : InstructionList([PushAllArgs, '+']),
             'll_int' : CallBuiltin('parseInt'),
-            'alert' : CallBuiltin('alert'),
+            #'alert' : CallBuiltin('alert'),
             'seval' : CallBuiltin('seval'),
             'date': NewBuiltin('Date'),
             'll_math_fmod' : InstructionList([PushAllArgs, '%']),

@@ -23,13 +23,13 @@ HTML = """
 from pypy.translator.js.main import rpython2javascript
 # here we import rpython -> javascript conversion utility
 
-from pypy.translator.js.modules import browser
+from pypy.translator.js.modules import dom
 # and here we import functions from modules that we want to use
 
 # this is function which will be translated into javascript,
 # we can put it in a different module if we like so
 def show():
-    browser.alert("Alert")
+    dom.alert("Alert")
 
 class Handler(server.TestHandler):
 

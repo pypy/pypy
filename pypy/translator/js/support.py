@@ -17,7 +17,7 @@ class JavascriptNameManager(NameManager):
             namespace native new null package private protected
             public return short static super switch synchronized
             this throw throws transient true try typeof
-            use var void volatile while with
+            use var void volatile while with alert
             '''
         for name in reserved_words.split():
             self.reserved[name] = True
