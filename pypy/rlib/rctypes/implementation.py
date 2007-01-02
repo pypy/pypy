@@ -43,13 +43,16 @@ class CTypeController(Controller):
     register_for_metatype = classmethod(register_for_metatype)
 
     def convert(self, x):
-        assert isinstance(x, self.ctype)
-        key = id(x)
+        if isinstance(x, self.ctype):
+            key = "by_id", id(x)
+        else:
+            key = "by_value", x
+            x = self.ctype(x)
         try:
-            return self.instance_cache[key]
+            return self.instance_cache[key][0]
         except KeyError:
             obj = self.new()
-            self.instance_cache[key] = obj
+            self.instance_cache[key] = obj, x     # keep 'x' alive
             self.initialize_prebuilt(obj, x)
             return obj
 
@@ -172,3 +175,4 @@ import pypy.rlib.rctypes.rarray
 import pypy.rlib.rctypes.rpointer
 import pypy.rlib.rctypes.rstruct
 import pypy.rlib.rctypes.rbuiltin
+import pypy.rlib.rctypes.rchar_p
