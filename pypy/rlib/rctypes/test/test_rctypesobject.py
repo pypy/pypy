@@ -158,6 +158,18 @@ class TestBasic:
         res = self.do(func)
         assert res == 1
 
+    def test_char_p_None(self):
+        def func():
+            p = rc_char_p.allocate()
+            assert p.get_value() is None
+            p.set_value("")
+            assert p.get_value() == ""
+            p.set_value("abc")
+            assert p.get_value() == "abc"
+            p.set_value(None)
+            assert p.get_value() is None
+        self.do(func)
+
     def test_char_array(self):
         def func():
             a = RFixedArray(rc_char, 10).allocate()

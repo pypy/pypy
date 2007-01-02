@@ -75,12 +75,6 @@ class RCTypesObject(object):
                 return cls(memblock.addr, memblock)
             cls.allocate = staticmethod(allocate1)
 
-            def copyfrom1(self, srcbox):
-                assert isinstance(srcbox, cls)
-                llmemory.raw_memcopy(srcbox.addr, self.addr, cls.rawsize)
-                self._copykeepalives(0, srcbox)
-            cls.copyfrom = copyfrom1
-
             if hasattr(cls, 'llvalue2value') and not hasattr(cls, 'get_value'):
                 def get_value(self):
                     ptr = self.ll_ref(cls.CDATATYPE)
@@ -95,6 +89,18 @@ class RCTypesObject(object):
                     ptr[0] = cls.value2llvalue(value)
                     keepalive_until_here(self)
                 cls.set_value = set_value
+
+            if hasattr(cls, 'get_value') and hasattr(cls, 'set_value'):
+                def copyfrom1(self, srcbox):
+                    assert isinstance(srcbox, cls)
+                    self.set_value(srcbox.get_value())
+                    self._copykeepalives(0, srcbox)
+            else:
+                def copyfrom1(self, srcbox):
+                    assert isinstance(srcbox, cls)
+                    llmemory.raw_memcopy(srcbox.addr, self.addr, cls.rawsize)
+                    self._copykeepalives(0, srcbox)
+            cls.copyfrom = copyfrom1
 
     def sameaddr(self, otherbox):
         return self.addr == otherbox.addr
@@ -199,22 +205,29 @@ class RCTypesCharP(RCTypesObject):
     num_keepalives = 1
 
     def llvalue2value(p):
-        length = strlen(p)
-        return charp2string(p, length)
+        if p:
+            length = strlen(p)
+            return charp2string(p, length)
+        else:
+            return None
     llvalue2value = staticmethod(llvalue2value)
 
     #def get_value(self): added by __initclass__() above
 
     def set_value(self, string):
-        n = len(string)
-        rawsize = RCTypesCharP.ITEMOFS * (n + 1)
-        targetmemblock = AllocatedRawMemBlock(0, rawsize, zero=False)
-        targetaddr = targetmemblock.addr
-        a = targetaddr
-        for i in range(n):
-            a.char[0] = string[i]
-            a += RCTypesCharP.ITEMOFS
-        a.char[0] = '\x00'
+        if string is not None:
+            n = len(string)
+            rawsize = RCTypesCharP.ITEMOFS * (n + 1)
+            targetmemblock = AllocatedRawMemBlock(0, rawsize, zero=False)
+            targetaddr = targetmemblock.addr
+            a = targetaddr
+            for i in range(n):
+                a.char[0] = string[i]
+                a += RCTypesCharP.ITEMOFS
+            a.char[0] = '\x00'
+        else:
+            targetmemblock = None
+            targetaddr = llmemory.NULL
         ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
         ptr[0] = llmemory.cast_adr_to_ptr(targetaddr, RCTypesCharP.LLTYPE)
         keepalive_until_here(self)
