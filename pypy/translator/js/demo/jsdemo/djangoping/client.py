@@ -22,7 +22,7 @@ def jsping():
 
 def callback(data):
     mochikit.logDebug("Got response: " + data["response"])
-    log = dom.get_document().getElementById("log")
+    log = dom.document.getElementById("log")
     mochikit.logDebug("got log element")
     try:
         s = "<p>" + data["response"] + "</p>"
@@ -39,7 +39,7 @@ def doping_onclick(event):
 
 def ping_init():
     mochikit.createLoggingPane(True)
-    button = dom.get_document().getElementById("doping")
+    button = dom.document.getElementById("doping")
     button.onclick = doping_onclick
     mochikit.logDebug("Ping button setup")
 

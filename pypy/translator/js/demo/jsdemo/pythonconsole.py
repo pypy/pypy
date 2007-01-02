@@ -12,7 +12,7 @@ import autopath
 
 import sys, os, cStringIO
 from cgi import parse_qs
-from pypy.translator.js.modules.dom import setTimeout, get_document
+from pypy.translator.js.modules.dom import setTimeout, document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.translator.js.modules.mochikit import escapeHTML
@@ -46,14 +46,14 @@ HTML_PAGE = """
 httpd = None
 
 def callback(data):
-    inp_elem = get_document().getElementById("inp")
+    inp_elem = document.getElementById("inp")
     inp_elem.disabled = False
     answer = data.get('answer', '')
     add_text(answer)
     inp_elem.focus()
 
 def add_text(text):
-    data_elem = get_document().getElementById("data")
+    data_elem = document.getElementById("data")
     data_elem.innerHTML += escapeHTML(text)
 
 class Storage(object):
@@ -66,7 +66,7 @@ storage = Storage()
 def keypressed(key):
     kc = key.keyCode
     if kc == ord("\r"):
-        inp_elem = get_document().getElementById("inp")
+        inp_elem = document.getElementById("inp")
         cmd = inp_elem.value
         if storage.level == 0:
             add_text(">>> %s\n" % (cmd,))
@@ -85,8 +85,8 @@ def keypressed(key):
                 storage.level = 0
 
 def setup_page():
-    get_document().onkeypress = keypressed
-    get_document().getElementById("inp").focus()
+    document.onkeypress = keypressed
+    document.getElementById("inp").focus()
 
 class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS

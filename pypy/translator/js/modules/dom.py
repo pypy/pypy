@@ -87,7 +87,7 @@ class Node(EventTarget):
 
     def __setattr__(self, name, value):
         """set an attribute on the wrapped node"""
-        if name in dir(self):
+        if name in dir(self) or name.startswith('_'):
             return super(Node, self).__setattr__(name, value)
         if name not in self._fields:
             raise NameError, name
@@ -303,18 +303,10 @@ def setTimeout(func, delay):
         func()
     #pass
 
-# some helper functions (XXX imo these can go, but the code seems to use them
-# a lot... isn't it possible to just use dom.window and dom.document instead?)
-
 window = Window()
-
-def get_document():
-    return window.document
-get_document.suggested_primitive = True
-
-def get_window():
-    return window
-get_window.suggested_primitive = True
+document = window.document
+window._render_name = 'window'
+document._render_name = 'document'
 
 # rtyper stuff
 
@@ -691,8 +683,6 @@ KeyEvent._fields.update({
     'charCode' : 12,
 })
 
-get_window.suggested_primitive = True
-get_document.suggested_primitive = True
 setTimeout.suggested_primitive = True
 
 # the following code wraps minidom nodes with Node classes, and makes

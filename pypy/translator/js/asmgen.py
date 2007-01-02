@@ -226,7 +226,8 @@ class AsmGen(object):
         if len(self.right_hand) == 0:
             return
         v = self.right_hand.pop()
-        if v is not None:
+        # if v is not calling anything, drop it
+        if v is not None and v.find('('):
             self.codegenerator.writeline(v+";")
         #self.right_hand.pop()
     

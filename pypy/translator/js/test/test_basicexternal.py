@@ -14,6 +14,7 @@ class A(BasicExternal):
         pass
 
 a = A()
+a._render_name = 'a'
 
 class B(object):
     pass
@@ -23,7 +24,7 @@ def test_decorator():
         a.some_code("aa")
     
     fun = compile_function(dec_fun, [])
-    check_source_contains(fun, "\.some_code")
+    assert check_source_contains(fun, "\.some_code")
 
 def test_basicexternal_element():
     def be_fun():
@@ -32,7 +33,7 @@ def test_basicexternal_element():
         b.a.some_code("aa")
     
     fun = compile_function(be_fun, [])
-    check_source_contains(fun, "\.some_code")
+    assert check_source_contains(fun, "\.some_code")
 
 ##def test_basicexternal_raise():
 ##    #py.test.skip("Constant BasicExternals not implemented")
@@ -53,13 +54,14 @@ class EE(BasicExternal):
         pass
 
 ee = EE()
+ee._render_name = 'ee'
 
 def test_prebuild_basicexternal():
     def tt_fun():
         ee.bb()
     
     fun = compile_function(tt_fun, [])
-    check_source_contains(fun, "ee.bb\(")
+    assert check_source_contains(fun, "EE = ee")
 
 class C(BasicExternal):
     @described(retval=3)
@@ -67,6 +69,7 @@ class C(BasicExternal):
         pass
 
 c = C()
+c._render_name = 'c'
 
 def test_basicexternal_raise_method_call():
     def raising_method_call():
@@ -88,6 +91,7 @@ class D(BasicExternal):
 D._fields['c'] = [D(),D()]
 
 d = D()
+d._render_name = 'd'
 
 def test_basicexternal_list():
     def getaa(item):

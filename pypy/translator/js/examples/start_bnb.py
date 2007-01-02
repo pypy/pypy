@@ -12,7 +12,7 @@ conftest.option.tg = True
 conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules.dom import get_document
+from pypy.translator.js.modules.dom import document
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane, logDebug
 from pypy.translator.js.modules.bltns import date
@@ -74,10 +74,10 @@ class SpriteManager(object):
         #    img = self.sprite_queues[icon_code].pop()
         #except IndexError:
         stats.n_sprites += 1
-        img = get_document().createElement("img")
+        img = document.createElement("img")
         img.setAttribute("src", self.filenames[icon_code])
         img.setAttribute("style", 'position:absolute; left:'+x+'px; top:'+y+'px; visibility:visible')
-        get_document().getElementById("playfield").appendChild(img)
+        document.getElementById("playfield").appendChild(img)
         try:
             self.sprites[s].style.visibility = "hidden"
             # FIXME: We should delete it
@@ -144,23 +144,23 @@ km = KeyManager()
 
 def appendPlayfield(msg):
     bgcolor = '#000000'
-    get_document().body.setAttribute('bgcolor', bgcolor)
-    div = get_document().createElement("div")
+    document.body.setAttribute('bgcolor', bgcolor)
+    div = document.createElement("div")
     div.setAttribute("id", "playfield")
     div.setAttribute('width', msg['width'])
     div.setAttribute('height', msg['height'])
     div.setAttribute('style', 'position:absolute; top:0px; left:0px')
-    get_document().body.appendChild(div)
+    document.body.appendChild(div)
 
 def appendPlayfieldXXX():
     bgcolor = '#000000'
-    get_document().body.setAttribute('bgcolor', bgcolor)
-    div = get_document().createElement("div")
+    document.body.setAttribute('bgcolor', bgcolor)
+    div = document.createElement("div")
     div.setAttribute("id", "playfield")
     div.setAttribute('width', 500)
     div.setAttribute('height', 250)
     div.setAttribute('style', 'position:absolute; top:0px; left:0px')
-    get_document().body.appendChild(div)
+    document.body.appendChild(div)
 
 def process_message(msg):
     if msg['type'] == 'def_playfield':
@@ -247,8 +247,8 @@ def bnb_dispatcher(msgs):
     #    stats.__init__()
     #    sm.__init__()
     #    sm.begin_clean_sprites()
-    #    playfield = get_document().getElementById("playfield")
-    #    get_document().body.removeChild(playfield)
+    #    playfield = document.getElementById("playfield")
+    #    document.body.removeChild(playfield)
     #    appendPlayfieldXXX()
 
 ##    count = int(msgs['add_data'][0]['n'])
@@ -266,20 +266,20 @@ def render_frame(msgs):
     for msg in msgs['messages']:
         process_message(msg)
     stats.register_frame()
-    get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
+    document.title = str(stats.n_sprites) + " sprites " + str(stats.fps)
 
 def session_dispatcher(msgs):
     BnbRootInstance.get_message(player.id, "", bnb_dispatcher)
 
 def run_bnb():
     def bnb():
-        genjsinfo = get_document().getElementById("genjsinfo")
-        get_document().body.removeChild(genjsinfo)
+        genjsinfo = document.getElementById("genjsinfo")
+        document.body.removeChild(genjsinfo)
         createLoggingPane(True)
         log("keys: [0-9] to select player, [wsad] to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
-        get_document().onkeydown = keydown
-        get_document().onkeyup   = keyup
+        document.onkeydown = keydown
+        document.onkeyup   = keyup
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
     fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)

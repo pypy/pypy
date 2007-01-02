@@ -12,7 +12,7 @@ which will be way easier to manipulate.
 
 from pypy.translator.js.examples import server
 from pypy.translator.js.main import rpython2javascript
-from pypy.translator.js.modules import dom
+from pypy.translator.js.modules.dom import document
 # dom manipulating module
 
 HTML = """
@@ -33,17 +33,15 @@ HTML = """
 
 # these are exposed functions
 def addrow():
-    doc = dom.get_document()
-    
     # we need to call a helper, similiar to document in JS
-    tr = doc.createElement("tr")
-    td = doc.createElement("td")
-    td.appendChild(doc.createTextNode("A row"))
+    tr = document.createElement("tr")
+    td = document.createElement("td")
+    td.appendChild(document.createTextNode("A row"))
     tr.appendChild(td)
-    dom.get_document().getElementById("atable").appendChild(tr)
+    document.getElementById("atable").appendChild(tr)
 
 def delrow():
-    table = dom.get_document().getElementById("atable")
+    table = document.getElementById("atable")
     # note -1 working here like in python, this is last element in list
     table.removeChild(table.childNodes[-1])
 

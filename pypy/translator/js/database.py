@@ -42,18 +42,8 @@ class LowLevelDatabase(object):
         self.name_manager = JavascriptNameManager(self)
         self.pending_consts = []
         self.cts = self.genoo.TypeSystem(self)
-        self.prepare_builtins()
         self.proxies = []
     
-    def prepare_builtins(self):
-        # Document Object Model elements
-        #for module in [dom]:
-        #    for i in dir(module):
-        #        if not i.startswith('__'):
-        #            # FIXME: shit, strange way of doing it
-        #            self.consts[BuiltinConst(module[i])] = i
-        return
-
     def is_primitive(self, type_):
         if type_ in [Void, Bool, Float, Signed, Unsigned, SignedLongLong, UnsignedLongLong, Char, UniChar, ootype.StringBuilder] or \
             isinstance(type_,ootype.StaticMethod):
@@ -491,4 +481,7 @@ class ExtObject(AbstractConst):
             ilasm.new(self.get_name())
         else:
             # Otherwise they just exist, or it's not implemented
-            ilasm.load_str("undefined")
+            if not hasattr(self.const.value, '_render_name'):
+                raise ValueError("Prebuilt constant %s has no attribute _render_name,"
+                                  "don't know how to render" % self.const.value)
+            ilasm.load_str(self.const.value._render_name)

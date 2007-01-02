@@ -12,7 +12,7 @@ conftest.option.tg = True
 conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules.dom import Node, get_document, setTimeout, \
+from pypy.translator.js.modules.dom import Node, document, setTimeout, \
                                            alert
 #from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane, log
@@ -27,7 +27,7 @@ class Console(object):
         self.indent_level = 0
     
     def initialise(self):
-        self.elem = get_document().getElementById("data")
+        self.elem = document.getElementById("data")
     
     def add_data(self, data):
         if self.indent_level == 0 and data == "":
@@ -51,18 +51,17 @@ def comeback(msg):
 def onchange(key):
     kc = key.keyCode
     if kc == ord("\r"):
-        inp_elem = get_document().getElementById("inp")
+        inp_elem = document.getElementById("inp")
         inp_elem.value = console.add_data(inp_elem.value)
 
 def test_run_console():
     def some_fun():
-        #cons = get_document().getElementById("data")
         #write_start(cons)
         createLoggingPane(True)
         console.initialise()
         #data_field = get_document().getElementById("data")
         #console.onload(data_field)
-        get_document().onkeypress = onchange
+        document.onkeypress = onchange
         #get_document().onkeyup = onchangedown
 
     print "It's not working"

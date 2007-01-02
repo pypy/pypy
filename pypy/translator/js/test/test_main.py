@@ -17,6 +17,7 @@ class A(BasicExternal):
     method = described(retval={'a':'a'})(method)
 
 a = A()
+a._render_name = 'a'
 
 def fun(x='3'):
     return a.method({'a':x})['a']

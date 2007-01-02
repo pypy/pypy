@@ -6,7 +6,7 @@ import autopath
 
 from pypy.translator.js.demo.jsdemo import support
 
-from pypy.translator.js.modules.dom import setTimeout, get_document
+from pypy.translator.js.modules.dom import setTimeout, document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 
@@ -31,7 +31,7 @@ This is a test!<br/>
 httpd = None
 
 def callback(data):
-    get_document().getElementById("counter").innerHTML = data['counter']
+    document.getElementById("counter").innerHTML = data['counter']
     runjs()
 
 def runjs():

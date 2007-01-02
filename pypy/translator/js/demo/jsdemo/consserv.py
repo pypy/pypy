@@ -13,7 +13,7 @@ import re, time, sys, os, urllib, socket, copy
 from pypy.translator.js.test.runtest import compile_function
 
 
-from pypy.translator.js.modules.dom import Node, get_document, setTimeout,\
+from pypy.translator.js.modules.dom import Node, setTimeout,\
                                            alert
 #from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane, log

@@ -19,7 +19,7 @@ class handler:
 
 def get_window():
     if TRANSLATING:
-        return dom.get_window()
+        return dom.window
     else:
         return dom.Window()
 
