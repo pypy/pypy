@@ -3,12 +3,11 @@
 
 import py
 
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc,\
-    rebuild_basic_external
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
 
-def setup_function(fun):
-    rebuild_basic_external()
+#def setup_function(fun):
+#    rebuild_basic_external()
 
 # check rendering dom.get_document()
 def test_simple_builtin():

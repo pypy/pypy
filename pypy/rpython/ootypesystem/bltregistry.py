@@ -1,7 +1,5 @@
 
-""" External objects registry, defining two types of object:
-1. Those who need to be flown normally, but needs different representation in the backend
-2. Those who does not need to be flown
+""" External objects registry,
 """
 
 from pypy.annotation import model as annmodel
@@ -11,33 +9,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from types import MethodType
 from pypy.rpython.extregistry import ExtRegistryEntry
-
-class ArgDesc(object):
-    def __init__(self, name, ex_value):
-        self.name = name
-        self.example = ex_value
-    
-    def __repr__(self):
-        return "<ArgDesc %s: %s>" % (self.name, self.example)
-
-class MethodDesc(object):
-    def __init__(self, args, retval = None):
-        self.num = 0
-        self.args = [self.convert_val(arg) for arg in args]
-        self.retval = self.convert_val(retval)
-        self.example = self
-    
-    def convert_val(self, val):
-        if isinstance(val, ArgDesc) or isinstance(val, MethodDesc):
-            return val
-        elif isinstance(val, tuple):
-            return ArgDesc(*val)
-        else:
-            self.num += 1
-            return ArgDesc('v%d' % (self.num-1), val)
-    
-    def __repr__(self):
-        return "<MethodDesc (%r)>" % (self.args,)
+from pypy.rpython.ootypesystem.extdesc import MethodDesc, ArgDesc
 
 class CallableEntry(ExtRegistryEntry):
     _type_ = MethodDesc
@@ -46,17 +18,15 @@ class CallableEntry(ExtRegistryEntry):
         # because we have no good annotation
         # let's cheat a little bit for a while...
         bookkeeper = getbookkeeper()
-        # hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack
+        # hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack,
         values = ["v%d"%i for i in xrange(len(self.instance.args))]
         lb = eval("lambda %s: None" % ",".join(values))
-        s = annmodel.SomePBC([bookkeeper.getdesc(lb)])
-        #bookkeeper.pbc_call(s, bookkeeper.build_args("simple_call", [bookkeeper.annotation_from_example(arg.example) for arg in self.instance.args]))
-        return s
+        return annmodel.SomePBC([bookkeeper.getdesc(lb)])
 
 class BasicMetaExternal(type):
     def _is_compatible(type2):
         return type(type2) is BasicMetaExternal
-        
+    
     def __new__(self, _name, _type, _vars):
         retval = type.__new__(self, _name, _type, _vars)
         if not retval._methods:
@@ -108,12 +78,6 @@ described = BasicExternal.described
 class Analyzer(object):
     def __init__(self, name, value, s_retval, s_args):
         self.name = name
-        # dirty hack
-        # FIXME: to replace in future
-        #if value.args[-1].name == 'callback':
-        #    itervalues = value.args[:-1]
-        #else:
-        #    itervalues = value.args
         self.args, self.retval = value.args, value.retval
         self.s_retval = s_retval
         self.s_args = s_args
@@ -131,17 +95,12 @@ class ExternalType(ootype.OOType):
     __name__ = "ExternalType"
 
     def __init__(self, _class):
-        # FIXME: We want to support inheritance at some point, or maybe not
         self._class_ = _class
         self._name = str(_class)
         self._superclass = None
         self._root = True
         self.updated = False
         self._data = frozendict(_class._fields), frozendict(_class._methods)
-        #self._methods = _class._methods
-        #_methods = dict([(i,ootype._meth(ootype.Meth(*val))) for i,val in _class._methods.iteritems()])
-        #ootype.Instance.__init__(self, str(_class), None, _class._fields, _methods, True)
-        #self.attr = {}
     
     def update_fields(self, _fields):
         for i, val in _fields.iteritems():
@@ -195,14 +154,6 @@ class ExternalType(ootype.OOType):
     def _defl(self):
         return _external_type(self)
         
-##    def _defl(self):
-##        raise AttributeError()
-##        return self._null
-##
-##    def _example(self):
-##        raise AttributeError()return new(self)
-##    
-    
 class _external_type(object):
     
     def __init__(self, et):
@@ -230,20 +181,13 @@ class Entry_basicexternalmeta(ExtRegistryEntry):
 class Entry_basicexternal(ExtRegistryEntry):
     _type_ = BasicExternal.__metaclass__
     
-    #def compute_annotation(self, *args):
-    #    return annmodel.SomeOOInstance(ootype=BasicExternal)
-    
     def compute_result_annotation(self):
-        #return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance))
         return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc(self.instance))
-        #Ereturn annmodel.SomeOOInstance(ExternalType.get(self.instance))
     
     def specialize_call(self, hop):
-        #assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)\
-        #       and hop.args_s[0].ootype is Externaltype
         value = hop.r_result.lowleveltype
         return hop.genop('new', [Constant(value, concretetype=ootype.Void)], \
             resulttype = value)
 
-def rebuild_basic_external():
-    ExternalType.class_dict = {}
+#def rebuild_basic_external():
+#    ExternalType.class_dict = {}
