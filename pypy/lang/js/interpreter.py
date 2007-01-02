@@ -124,29 +124,88 @@ def ARC(x, y):
     else:
         pass 
 
-class __extend__(Gt):
-    def call(self, ctx = None):
+class __extend__(Or):
+    def call(self, ctx):
+        s2 = self.left.call(ctx).GetValue()
+        if s2.ToBoolean():
+            return s2
+        s4 = self.right.call(ctx).GetValue()
+        return s4
+
+class __extend__(And):
+    def call(self, ctx):
+        s2 = self.left.call(ctx).GetValue()
+        if not s2.ToBoolean():
+            return s2
+        s4 = self.right.call(ctx).GetValue()
+        return s4
+
+
+class __extend__(BinaryOperator):
+    def call(self, ctx):
         s2 = self.left.call(ctx).GetValue()
         s4 = self.right.call(ctx).GetValue()
-        s5 = ARC(s4, s2)
+        return self.decision(s2, s4)
+
+class __extend__(Ge):
+    def decision(self, op1, op2):
+        s5 = ARC(op1, op2)
+        if s5 is None or s5:
+            return W_Boolean(False)
+        else:
+            return W_Boolean(True)
+
+class __extend__(Gt):
+    def decision(self, op1, op2):
+        s5 = ARC(op2, op1)
         if s5 is None:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
+
+class __extend__(Le):
+    def decision(self, op1, op2):
+        s5 = ARC(op2, op1)
+        if s5 is None or s5:
+            return W_Boolean(False)
+        else:
+            return W_Boolean(True)
 
 class __extend__(Lt):
-    def call(self, ctx = None):
-        s2 = self.left.call(ctx).GetValue()
-        s4 = self.right.call(ctx).GetValue()
-        s5 = ARC(s2, s4)
-        print "< ARC result = ", s5
+    def decision(self, op1, op2):
+        s5 = ARC(op1, op2)
         if s5 is None:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
 
+def AEC(x, y):
+    """
+    Implements the Abstract Equality Comparison x == y
+    not following the specs yet
+    """
+    r = x.ToNumber() == y.ToNumber()
+    return r
+
+class __extend__(Eq):
+    def decision(self, op1, op2):
+        return W_Boolean(AEC(op1, op2))
+
+class __extend__(Ne):
+    def decision(self, op1, op2):
+        return W_Boolean(not AEC(op1, op2))
+
+
+class __extend__(In):
+    def decision(self, op1, op2):
+        if not isinstance(op2, W_Object):
+            raise ThrowException("TypeError")
+        name = op1.ToString()
+        return W_Boolean(op2.HasProperty(name))
+
+
 class __extend__(Index):
-    def call(self, ctx=None):
+    def call(self, ctx):
         w_obj = self.left.call(ctx).GetValue()
         w_member = self.expr.call(ctx).GetValue()
         w_obj = w_obj.ToObject()
@@ -158,6 +217,12 @@ class __extend__(List):
         print "nodes = ", self.nodes
         return [node.call(ctx) for node in self.nodes]
 
+class __extend__(Minus):
+    def decision(self, op1, op2):
+        x = op1.ToNumber()
+        y = op2.ToNumber()
+        return W_Number(x - y)
+
 class __extend__(New):
     def call(self, ctx=None):
         obj = W_Object()
@@ -165,9 +230,7 @@ class __extend__(New):
         constructor = ctx.resolve_identifier(self.identifier).GetValue()
         obj.Put('prototype', constructor.Get('prototype'))
         constructor.Call(ctx, this = obj)
-        
         return obj
-
 
 class __extend__(Number):
     def call(self, ctx):
@@ -188,13 +251,9 @@ class __extend__(ObjectInit):
         return w_obj
 
 class __extend__(Plus):
-    def call(self, ctx):
-        print "left", self.left.call(ctx)
-        left = self.left.call(ctx).GetValue()
-        right = self.right.call(ctx).GetValue()
-        prim_left = left.ToPrimitive('Number')
-        prim_right = right.ToPrimitive('Number')
-        # INSANE
+    def decision(self, op1, op2):
+        prim_left = op1.ToPrimitive('Number')
+        prim_right = op2.ToPrimitive('Number')
         if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
             str_left = prim_left.ToString()
             str_right = prim_right.ToString()
@@ -202,7 +261,6 @@ class __extend__(Plus):
         else:
             num_left = prim_left.ToNumber()
             num_right = prim_right.ToNumber()
-            # XXX: obey all the rules
             return W_Number(num_left + num_right)
 
 class __extend__(Script):

@@ -14,6 +14,16 @@ class BinaryOperator(Node):
         self.left = left
         self.right = right
 
+class BinaryLogicOperator(Node):
+    """super class for binary operators"""
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+class Or(BinaryLogicOperator): pass
+
+class And(BinaryLogicOperator): pass
+
 
 class Array(Node):
     def __init__(self, items=()):
@@ -44,6 +54,8 @@ class Dot(Node):
         self.left = left
         self.right = right
 
+class Eq(BinaryOperator): pass
+
 class Function(Node):
     def __init__(self, name, params, body):
         self.name = name
@@ -53,6 +65,8 @@ class Function(Node):
 class Group(Node):
     def __init__(self, expr):
         self.expr = expr
+
+class Ge(BinaryOperator): pass
 
 class Gt(BinaryOperator): pass
 
@@ -69,6 +83,8 @@ class If(Node):
         self.thenPart = thenPart
         self.elsePart = elsePart
 
+class In(BinaryOperator): pass
+
 class Index(Node):
     def __init__(self, left, expr):
         self.left = left
@@ -78,7 +94,13 @@ class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
 
+class Le(BinaryOperator): pass
+
 class Lt(BinaryOperator): pass
+
+class Minus(BinaryOperator):pass
+
+class Ne(BinaryOperator):pass
 
 class New(Node):
     def __init__(self, identifier):
@@ -187,6 +209,12 @@ def from_dict(d):
         return Comma(from_dict(d['0']),from_dict(d['1']))
     elif tp == 'DOT':
         return Dot(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'EQ':
+        return Eq(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'OR':
+        return Or(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'AND':
+        return And(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'FUNCTION':        
         name = d.get('name', '')
         body = from_dict(d['body'])
@@ -198,6 +226,8 @@ def from_dict(d):
         return f
     elif tp == 'GROUP':
         return Group(from_dict(d['0']))
+    elif tp == 'GE':
+        return Ge(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'GT':
         return Gt(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'IDENTIFIER':
@@ -213,12 +243,20 @@ def from_dict(d):
         else:
             elsePart = from_dict(d['elsePart'])
         return If(condition,thenPart,elsePart)
+    elif tp == 'IN':
+        return In(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'INDEX':
         return Index(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'LIST':
         return List(getlist(d))
+    elif tp == 'LE':
+        return Le(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'LT':
         return Lt(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'MINUS':
+        return Minus(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'NE':
+        return Ne(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'NEW':
         return New(d['0']['value'])
     elif tp == 'NUMBER':

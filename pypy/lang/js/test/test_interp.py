@@ -52,6 +52,9 @@ class TestInterp(object):
         self.assert_prints("x=3;print(x);", ["3"])
         self.assert_prints("x=3;y=4;print(x+y);", ["7"])
 
+    def test_minus(self):
+        self.assert_prints("print(2-1)", ["1"])
+    
     def test_string_var(self):
         self.assert_prints('print(\"sss\");', ["sss"])
     
@@ -82,7 +85,6 @@ class TestInterp(object):
         self.assert_prints('var x = 3; print(x);', ["3"])
         self.assert_prints('var x = 3; print(x+x);', ["6"])
 
-    
     def test_var_scoping(self):
         self.assert_prints("""
         var y;
@@ -213,8 +215,22 @@ class TestInterp(object):
         self.assert_prints("print(1<0)",["false"])
         self.assert_prints("print(0<1)",["true"])
         self.assert_prints("print(0<0)",["false"])
+        self.assert_prints("print(1>=0)",["true"])
+        self.assert_prints("print(1>=1)",["true"])
+        self.assert_prints("print(1>=2)",["false"])
+        self.assert_prints("print(0<=1)",["true"])
+        self.assert_prints("print(1<=1)",["true"])
+        self.assert_prints("print(1<=0)",["false"])
+        self.assert_prints("print(0==0)",["true"])
+        self.assert_prints("print(1==1)",["true"])
+        self.assert_prints("print(0==1)",["false"])
+        self.assert_prints("print(0!=1)",["true"])
+        self.assert_prints("print(1!=1)",["false"])
 
-
+    def test_binary_op(self):
+        self.assert_prints("print(0||0); print(1||0)",["0", "1"])
+        self.assert_prints("print(0&&1); print(1&&1)",["0", "1"])
+    
     def test_while(self):
         self.assert_prints("""
         i = 0;
@@ -262,13 +278,13 @@ class TestInterp(object):
     def test_vars(self):
         self.assert_prints("""
         var x;x=3; print(x)""", ["3"])
-        
-    def test_fun_decl(self):
-        py.test.skip("still not ready")
+
+    def test_minus(self):
         self.assert_prints("""
-        function x () { print('i work')}
-        x()
-        """, ["i work"])
+        x = {y:3};
+        print("y" in x);
+        print("z" in x);
+        """, ["true", "false"])
     
-        
+
 
