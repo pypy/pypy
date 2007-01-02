@@ -152,12 +152,13 @@ class ExternalType(ootype.OOType):
         return "%s %s" % (self.__name__, self._name)
     
     def _defl(self):
-        return _external_type(self)
-        
+        return _external_type(self, None)
+
 class _external_type(object):
     
-    def __init__(self, et):
+    def __init__(self, et, value):
         self._TYPE = et
+        self.value = value
 
 class Entry_basicexternalmeta(ExtRegistryEntry):
     _metatype_ = BasicMetaExternal
