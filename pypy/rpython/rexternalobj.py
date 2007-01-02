@@ -36,9 +36,7 @@ class ExternalBuiltinRepr(Repr):
     
     def convert_const(self, value):
         from pypy.rpython.ootypesystem.bltregistry import ExternalType,_external_type
-        #if value is None:
-        #    return lltype.Void
-        return _external_type(self.knowntype)
+        return _external_type(self.knowntype, value)
     
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
