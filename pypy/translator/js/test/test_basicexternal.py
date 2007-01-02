@@ -34,18 +34,32 @@ def test_basicexternal_element():
     fun = compile_function(be_fun, [])
     check_source_contains(fun, "\.some_code")
 
-def test_basicexternal_raise():
-    py.test.skip("Constant BasicExternals not implemented")
-    def raising_fun():
-        try:
-            b = B()
-        except:
-            pass
-        else:
-            return 3
+##def test_basicexternal_raise():
+##    #py.test.skip("Constant BasicExternals not implemented")
+##    def raising_fun():
+##        try:
+##            b = B()
+##        except:
+##            pass
+##        else:
+##            return 3
+##
+##    fun = compile_function(raising_fun, [])
+##    assert fun() == 3
 
-    fun = compile_function(raising_fun, [])
-    assert fun() == 3
+class EE(BasicExternal):
+    @described(retval=3)
+    def bb(self):
+        pass
+
+ee = EE()
+
+def test_prebuild_basicexternal():
+    def tt_fun():
+        ee.bb()
+    
+    fun = compile_function(tt_fun, [])
+    check_source_contains(fun, "ee.bb\(")
 
 class C(BasicExternal):
     @described(retval=3)
