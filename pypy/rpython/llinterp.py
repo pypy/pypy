@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
-from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
+from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -786,6 +787,22 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
+    def op_int_lshift_ovf(self, x, y):
+        assert isinstance(x, int)
+        assert isinstance(y, int)
+        try:
+            return ovfcheck_lshift(x, y)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_lshift_ovf_val(self, x, y):
+        assert isinstance(x, int)
+        assert isinstance(y, int)
+        try:
+            return ovfcheck_lshift(x, y)
+        except (OverflowError, ValueError):
+            self.make_llexception()
+
     def _makefunc2(fn, operator, xtype, ytype=None):
         import sys
         d = sys._getframe(1).f_locals
@@ -816,9 +833,7 @@ class LLFrame(object):
     _makefunc2('op_int_mod_ovf',          '%',  'int')
     _makefunc2('op_int_mod_zer',          '%',  'int')
     _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
-    _makefunc2('op_int_lshift_ovf',       '<<', 'int')
     _makefunc2('op_int_lshift_val',       '<<', 'int')
-    _makefunc2('op_int_lshift_ovf_val',   '<<', 'int')
     _makefunc2('op_int_rshift_val',       '>>', 'int')
 
     _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
