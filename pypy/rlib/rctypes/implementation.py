@@ -1,5 +1,6 @@
 import py
 from pypy.annotation import model as annmodel
+from pypy.tool.tls import tlsobject
 from pypy.rlib.rctypes import rctypesobject
 from pypy.rpython import extregistry, controllerentry
 from pypy.rpython.error import TyperError
@@ -23,6 +24,9 @@ class CTypeController(Controller):
     def __init__(self, ctype):
         self.ctype = ctype
         self.instance_cache = {}
+
+    def setup(self):
+        pass
 
     def register_for_type(cls, ctype):
         class Entry(CTypesCallEntry):
@@ -109,12 +113,29 @@ class CTypeController(Controller):
 class CTypesCallEntry(ControllerEntry):
     def getcontroller(self, *args_s):
         ctype = self.instance
-        return self._controller_(ctype)
+        return _build_controller(self._controller_, ctype)
 
 class CTypesObjEntry(ControllerEntryForPrebuilt):
     def getcontroller(self):
         ctype = self.type
-        return self._controller_(ctype)
+        return _build_controller(self._controller_, ctype)
+
+TLS = tlsobject()
+def _build_controller(cls, ctype):
+    if hasattr(TLS, 'pending'):
+        # recursive case
+        controller = cls(ctype)
+        TLS.pending.append(controller)
+    else:
+        # non-recursive case
+        TLS.pending = []
+        controller = cls(ctype)
+        pending = TLS.pending
+        del TLS.pending
+        pending.append(controller)
+        for c1 in pending:
+            c1.setup()
+    return controller
 
 def getcontroller(ctype):
     """Return the CTypeController instance corresponding to the given ctype."""

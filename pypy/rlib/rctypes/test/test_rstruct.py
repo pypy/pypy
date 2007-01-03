@@ -144,7 +144,6 @@ class Test_specialization:
         assert res == 121
 
     def test_struct_with_pointer_to_self(self):
-        py.test.skip("in-progress")
         PS = POINTER('S')
         class S(Structure):
             _fields_ = [('l', PS), ('r', PS)]
