@@ -118,6 +118,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    "list is mutaged",
                    default=False),
 
+        BoolOption("optimized_int_add",
+                   "special case the addition of two integers in BINARY_ADD",
+                   default=False),
+
         BoolOption("oldstyle",
                    "specify whether the default metaclass should be classobj",
                    default=False, cmdline="--oldstyle"),
@@ -133,6 +137,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                              ("objspace.std.withstrslice", True),
                              ("objspace.std.withsmallint", True),
                              ("objspace.std.withrangelist", True),
+                             ("objspace.std.optimized_int_add", True),
                              ],
                    cmdline="--faassen"),
 

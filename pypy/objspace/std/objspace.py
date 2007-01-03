@@ -2,6 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
+from pypy.interpreter import pyframe
 from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
@@ -36,39 +37,6 @@ def registerimplementation(implcls):
     assert issubclass(implcls, W_Object)
     _registered_implementations[implcls] = True
 
-from pypy.interpreter import pyframe
-
-class StdObjSpaceFrame(pyframe.PyFrame):
-    def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
-        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-        w_globals = f.w_globals
-        num = oparg >> 8
-        assert isinstance(w_globals, W_DictMultiObject)
-        w_value = w_globals.implementation.get_builtin_indexed(num)
-        if w_value is None:
-            w_builtins = f.builtin
-            assert isinstance(w_builtins, Module)
-            w_builtin_dict = w_builtins.w_dict
-            assert isinstance(w_builtin_dict, W_DictMultiObject)
-            w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
-##                 if w_value is not None:
-##                     print "CALL_LIKELY_BUILTIN fast"
-        if w_value is None:
-            varname = OPTIMIZED_BUILTINS[num]
-            message = "global name '%s' is not defined" % varname
-            raise OperationError(f.space.w_NameError,
-                                 f.space.wrap(message))
-        nargs = oparg & 0xff
-        w_function = w_value
-        try:
-            w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
-            # XXX XXX fix the problem of resume points!
-            #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-        finally:
-            f.valuestack.drop(nargs)
-        f.valuestack.push(w_result)
-
 ##################################################################
 
 class StdObjSpace(ObjSpace, DescrOperation):
@@ -87,6 +55,55 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
+
+        class StdObjSpaceFrame(pyframe.PyFrame):
+            if self.config.objspace.std.optimized_int_add:
+                def BINARY_ADD(f, oparg, *ignored):
+                    from pypy.objspace.std.intobject import \
+                         W_IntObject, add__Int_Int
+                    w_2 = f.valuestack.pop()
+                    w_1 = f.valuestack.pop()
+                    if isinstance(w_1, W_IntObject) and \
+                           isinstance(w_2, W_IntObject):
+                        try:
+                            w_result = add__Int_Int(f.space, w_1, w_2)
+                        except FailedToImplement:
+                            w_result = f.space.add(w_1, w_2)
+                    else:
+                        w_result = f.space.add(w_1, w_2)
+                    f.valuestack.push(w_result)
+
+            def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
+                from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
+                from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+                w_globals = f.w_globals
+                num = oparg >> 8
+                assert isinstance(w_globals, W_DictMultiObject)
+                w_value = w_globals.implementation.get_builtin_indexed(num)
+                if w_value is None:
+                    w_builtins = f.builtin
+                    assert isinstance(w_builtins, Module)
+                    w_builtin_dict = w_builtins.w_dict
+                    assert isinstance(w_builtin_dict, W_DictMultiObject)
+                    w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
+        ##                 if w_value is not None:
+        ##                     print "CALL_LIKELY_BUILTIN fast"
+                if w_value is None:
+                    varname = OPTIMIZED_BUILTINS[num]
+                    message = "global name '%s' is not defined" % varname
+                    raise OperationError(f.space.w_NameError,
+                                         f.space.wrap(message))
+                nargs = oparg & 0xff
+                w_function = w_value
+                try:
+                    w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
+                    # XXX XXX fix the problem of resume points!
+                    #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
+                finally:
+                    f.valuestack.drop(nargs)
+                f.valuestack.push(w_result)
+
+        self.FrameClass = StdObjSpaceFrame
 
         # XXX store the dict class on the space to access it in various places
         if self.config.objspace.std.withstrdict:
@@ -265,7 +282,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if not we_are_translated() and isinstance(code, CPythonFakeCode):
             return CPythonFakeFrame(self, code, w_globals)
         else:
-            return StdObjSpaceFrame(self, code, w_globals, closure)
+            return self.FrameClass(self, code, w_globals, closure)
 
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)

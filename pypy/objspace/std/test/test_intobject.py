@@ -375,3 +375,8 @@ class AppTestInt:
 
     def test_getnewargs(self):
         assert  0 .__getnewargs__() == (0,)
+
+class AppTestIntOptimizedAdd(AppTestInt):
+    def setup_class(cls):
+        from pypy.conftest import gettestobjspace
+        cls.space = gettestobjspace(**{"objspace.std.optimized_int_add": True})
