@@ -1,4 +1,5 @@
 import autopath
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
@@ -13,6 +14,20 @@ class TestW_DictMultiObject(test_dictobject.TestW_DictObject):
 class AppTest_DictMultiObject(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
+
+    def test_len_iter(self):
+        d = {1: 2, 3: 4}
+        i = iter(d)
+        assert len(i) == 2
+        x = i.next()
+        assert len(i) == 1
+        y = i.next()
+        assert len(i) == 0
+        l = [x, y]
+        l.sort()
+        assert l == [1, 3]
+        raises(StopIteration, i.next)
+        raises(StopIteration, i.next)
 
 class TestW_DictSharing(test_dictobject.TestW_DictObject):
     def setup_class(cls):
@@ -43,6 +58,12 @@ class FakeSpace(test_dictobject.FakeSpace):
 
     def isinstance(self, obj, klass):
         return isinstance(obj, klass)
+
+    def newtuple(self, l):
+        return tuple(l)
+
+    w_StopIteration = StopIteration
+    w_None = None
 
 class TestDictImplementation:
     def setup_method(self,method):
@@ -124,21 +145,39 @@ class TestRDictImplementation:
     def test_iterkeys(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
-        keys = list(self.impl.iterkeys())
+        iteratorimplementation = self.impl.iterkeys()
+        keys = []
+        while 1:
+            key = iteratorimplementation.next()
+            if key is None:
+                break
+            keys.append(key)
         keys.sort()
         assert keys == [self.string, self.string2]
 
     def test_itervalues(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
-        values = list(self.impl.itervalues())
+        iteratorimplementation = self.impl.itervalues()
+        values = []
+        while 1:
+            value = iteratorimplementation.next()
+            if value is None:
+                break
+            values.append(value)
         values.sort()
         assert values == [1000, 2000]
 
     def test_iteritems(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
-        items = list(self.impl.iteritems())
+        iteratorimplementation = self.impl.iteritems()
+        items = []
+        while 1:
+            item = iteratorimplementation.next()
+            if item is None:
+                break
+            items.append(item)
         items.sort()
         assert items == zip([self.string, self.string2], [1000, 2000])
 
