@@ -571,8 +571,7 @@ class LLFrame(object):
 
     def op_unsafe_call(self, TGT, f):
         checkadr(f)
-        assert f.offset is None
-        obj = self.llinterpreter.typer.type_system.deref(f.ob)
+        obj = self.llinterpreter.typer.type_system.deref(f.ref())
         assert hasattr(obj, 'graph') # don't want to think about that
         graph = obj.graph
         args = []
@@ -670,8 +669,8 @@ class LLFrame(object):
     def op_gc_call_rtti_destructor(self, rtti, addr):
         if hasattr(rtti._obj, 'destructor_funcptr'):
             d = rtti._obj.destructor_funcptr
-            ob = addr.get()
-            return self.op_direct_call(d, ob)
+            obptr = addr.ref()
+            return self.op_direct_call(d, obptr)
 
     def op_gc_deallocate(self, TYPE, addr):
         raise NotImplementedError("gc_deallocate")

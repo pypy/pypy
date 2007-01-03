@@ -17,8 +17,9 @@ class GCHeaderBuilder(object):
     def header_of_object(self, gcptr):
         return self.obj2header[gcptr._as_obj()]
 
-    def object_from_header(self, headerptr):
+    def object_from_header(headerptr):
         return header2obj[headerptr._as_obj()]
+    object_from_header = staticmethod(object_from_header)
 
     def get_header(self, gcptr):
         return self.obj2header.get(gcptr._as_obj(), None)

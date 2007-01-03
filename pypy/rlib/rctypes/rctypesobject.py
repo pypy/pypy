@@ -242,35 +242,29 @@ def RPointer(contentscls):
     try:
         return contentscls._ptrcls
     except AttributeError:
-        assert issubclass(contentscls, RCTypesObject)
-        if contentscls in _abstract_classes:
-            raise Exception("cannot call RPointer(%s) or "
-                            "pointer(x) if x degenerated to the base "
-                            "%s class" % (contentscls.__name__,
-                                          contentscls.__name__,))
 
         class RCTypesPtr(RCTypesObject):
-            CONTENTS  = contentscls.CDATATYPE
-            LLTYPE    = lltype.Ptr(CONTENTS)
+            LLTYPE = lltype.Ptr(lltype.ForwardReference())
             num_keepalives = 1
+            setpointertype = classmethod(_rpointer_set_pointer_type)
 
             def get_contents(self):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
                 keepalive_until_here(self)
-                targetkeepalives = contentscls.num_keepalives
+                targetkeepalives = RCTypesPtr.CONTENTSCLS.num_keepalives
                 targetmemblock = self._getmemblock(0, targetkeepalives)
-                return contentscls(targetaddr, targetmemblock)
+                return RCTypesPtr.CONTENTSCLS(targetaddr, targetmemblock)
 
             def ref(self, index):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
                 if index:
-                    targetaddr += ofs_item * index
+                    targetaddr += self._OFS_ITEM * index
                 keepalive_until_here(self)
-                targetkeepalives = contentscls.num_keepalives
+                targetkeepalives = RCTypesPtr.CONTENTSCLS.num_keepalives
                 targetmemblock = self._getmemblock(0, targetkeepalives)
-                return contentscls(targetaddr, targetmemblock)
+                return RCTypesPtr.CONTENTSCLS(targetaddr, targetmemblock)
 
             def set_contents(self, newcontentsbox):
                 targetaddr = newcontentsbox.addr
@@ -293,10 +287,29 @@ def RPointer(contentscls):
                 keepalive_until_here(self)
                 self._keepalivememblock(0, None)
 
-        ofs_item = llmemory.sizeof(contentscls.LLTYPE)
-        contentscls._ptrcls = RCTypesPtr
+        if contentscls is None:
+            pass   # forward pointer
+        else:
+            RCTypesPtr.setpointertype(contentscls)
         return RCTypesPtr
 RPointer._annspecialcase_ = 'specialize:memo'
+
+def _rpointer_set_pointer_type(RCTypesPtr, contentscls):
+    assert issubclass(contentscls, RCTypesObject)
+    if contentscls in _abstract_classes:
+        raise Exception("cannot call RPointer(%s) or "
+                        "pointer(x) if x degenerated to the base "
+                        "%s class" % (contentscls.__name__,
+                                      contentscls.__name__,))
+    RCTypesPtr.CONTENTSCLS = contentscls
+    RCTypesPtr.CONTENTS = contentscls.CDATATYPE
+    RCTypesPtr.LLTYPE.TO.become(RCTypesPtr.CONTENTS)
+    RCTypesPtr._OFS_ITEM = llmemory.sizeof(contentscls.LLTYPE)
+    RCTypesPtr.__name__ = 'RCTypes_%s' % (RCTypesPtr.LLTYPE,)
+    assert not hasattr(contentscls, '_ptrcls'), (
+        "the RPointer class corresponding to %r exists already" %
+        (contentscls,))
+    contentscls._ptrcls = RCTypesPtr
 
 def pointer(x):
     PTR = RPointer(x.__class__)

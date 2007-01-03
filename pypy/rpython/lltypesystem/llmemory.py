@@ -4,6 +4,7 @@
 
 # sizeof, offsetof
 
+import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 
@@ -21,11 +22,12 @@ class AddressOffset(Symbolic):
             return NotImplemented
         return CompositeOffset(self, other)
 
-    def raw_malloc(self, rest):
+    def raw_malloc(self, rest, zero):
         raise NotImplementedError("raw_malloc(%r, %r)" % (self, rest))
 
-    def raw_memclear(self, adr):
-        raise NotImplementedError("raw_memclear(%r, %r)" % (self, adr))
+    def raw_memcopy(self, srcadr, dstsrc):
+        raise NotImplementedError("raw_memcopy(%r)" % (self,))
+
 
 class ItemOffset(AddressOffset):
 
@@ -46,56 +48,57 @@ class ItemOffset(AddressOffset):
     def __neg__(self):
         return ItemOffset(self.TYPE, -self.repeat)
 
-    def ref(self, firstitemref):
-        if isinstance(firstitemref, _obref):
-            parent, index = lltype.parentlink(firstitemref.ob._obj)
-            if parent is None:
-                raise TypeError("address + itemoffset: not the address"
-                                " of an array")
-            A = lltype.typeOf(parent)
-            assert isinstance(A, (lltype.Array, lltype.FixedSizeArray))
+    def ref(self, firstitemptr):
+        A = lltype.typeOf(firstitemptr).TO
+        if A == self.TYPE:
+            # for array of containers
+            parent, index = lltype.parentlink(firstitemptr._obj)
+            assert parent, "%r is not within a container" % (firstitemptr,)
+            assert isinstance(lltype.typeOf(parent),
+                              (lltype.Array, lltype.FixedSizeArray)), (
+                "%r is not within an array" % (firstitemptr,))
             if isinstance(index, str):
-                assert index.startswith("item")
-                index = int(index[4:])     # "itemN" => N
-            firstitemref = _arrayitemref(parent._as_ptr(), index)
-        assert isinstance(firstitemref, _arrayitemref)
-        array = firstitemref.array
-        assert lltype.typeOf(array).TO.OF == self.TYPE
-        index = firstitemref.index + self.repeat
-        return _arrayitemref(array, index)
+                assert index.startswith('item')    # itemN => N
+                index = int(index[4:])
+            return parent.getitem(index + self.repeat)._as_ptr()
+        elif isinstance(A, lltype.FixedSizeArray) and A.OF == self.TYPE:
+            # for array of primitives or pointers
+            return lltype.direct_ptradd(firstitemptr, self.repeat)
+        else:
+            raise TypeError('got %r, expected %r' % (A, self.TYPE))
 
-    def raw_malloc(self, rest):
+    def raw_malloc(self, rest, zero):
         assert not rest
         if (isinstance(self.TYPE, lltype.ContainerType)
             and self.TYPE._gckind == 'gc'):
             assert self.repeat == 1
-            p = lltype.malloc(self.TYPE, flavor='raw')
+            p = lltype.malloc(self.TYPE, flavor='raw', zero=zero)
             return cast_ptr_to_adr(p)
         else:
             T = lltype.FixedSizeArray(self.TYPE, self.repeat)
-            p = lltype.malloc(T, flavor='raw')
+            p = lltype.malloc(T, flavor='raw', zero=zero)
             array_adr = cast_ptr_to_adr(p)
             return array_adr + ArrayItemsOffset(T)
 
-    def raw_memclear(self, adr):
-        if (isinstance(self.TYPE, lltype.ContainerType) and self.repeat == 1):
-            from pypy.rpython.rctypes.rmodel import reccopy
-            fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
-            reccopy(fresh, adr.get())
+    def raw_memcopy(self, srcadr, dstadr):
+        repeat = self.repeat
+        if repeat == 0:
+            return
+        from pypy.rpython.rctypes.rmodel import reccopy
+        if isinstance(self.TYPE, lltype.ContainerType):
+            PTR = lltype.Ptr(self.TYPE)
         else:
-            assert adr.offset is not None
-            if isinstance(adr.offset, ArrayItemsOffset):
-                array = adr.ob
-            elif isinstance(adr.offset, CompositeOffset):
-                array = (adr + -adr.offset.offsets[-1]).get()
-            if isinstance(self.TYPE, lltype.ContainerType):
-                fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
-                for i in range(self.repeat):
-                    reccopy(fresh, array[i])
-            else:
-                for i in range(self.repeat):
-                    array[i] = self.TYPE._defl()
-        
+            PTR = lltype.Ptr(lltype.FixedSizeArray(self.TYPE, 1))
+        while True:
+            src = cast_adr_to_ptr(srcadr, PTR)
+            dst = cast_adr_to_ptr(dstadr, PTR)
+            reccopy(src, dst)
+            repeat -= 1
+            if repeat <= 0:
+                break
+            srcadr += ItemOffset(self.TYPE)
+            dstadr += ItemOffset(self.TYPE)
+
 
 class FieldOffset(AddressOffset):
 
@@ -106,33 +109,31 @@ class FieldOffset(AddressOffset):
     def __repr__(self):
         return "<FieldOffset %r %r>" % (self.TYPE, self.fldname)
 
-    def ref(self, containerref):
-        struct = containerref.get()
+    def ref(self, struct):
         if lltype.typeOf(struct).TO != self.TYPE:
             struct = lltype.cast_pointer(lltype.Ptr(self.TYPE), struct)
-        return _structfieldref(struct, self.fldname)
+        FIELD = getattr(self.TYPE, self.fldname)
+        if isinstance(FIELD, lltype.ContainerType):
+            return getattr(struct, self.fldname)
+        else:
+            return lltype.direct_fieldptr(struct, self.fldname)
 
-    def raw_malloc(self, rest, parenttype=None):
+    def raw_malloc(self, rest, parenttype=None, zero=False):
         if self.fldname != self.TYPE._arrayfld:
-            return AddressOffset.raw_malloc(self, rest)   # for the error msg
+            # for the error msg
+            return AddressOffset.raw_malloc(self, rest, zero=zero)
         assert rest
-        return rest[0].raw_malloc(rest[1:], parenttype=parenttype or self.TYPE)
+        return rest[0].raw_malloc(rest[1:], parenttype=parenttype or self.TYPE,
+                                            zero=zero)
 
-    def raw_memclear(self, adr):
+    def raw_memcopy(self, srcadr, dstadr):
         if self.fldname != self.TYPE._arrayfld:
-            return AddressOffset.raw_memclear(adr)   # for the error msg
-        structptr = adr.get()
-        for name in self.TYPE._names[:-1]:
-            FIELDTYPE = getattr(self.TYPE, name) 
-            if isinstance(FIELDTYPE, lltype.ContainerType):
-                fresh = lltype.malloc(FIELDTYPE, raw=True, zero=True)
-                from pypy.rpython.rctypes.rmodel import reccopy
-                fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
-                reccopy(fresh, getattr(structptr, name)._obj)
-            else:
-                setattr(structptr, name, FIELDTYPE._defl())
-
-    
+            return AddressOffset.raw_memcopy(srcadr, dstadr) #for the error msg
+        PTR = lltype.Ptr(self.TYPE)
+        src = cast_adr_to_ptr(srcadr, PTR)
+        dst = cast_adr_to_ptr(dstadr, PTR)
+        from pypy.rpython.rctypes.rmodel import reccopy
+        reccopy(src, dst)
 
 
 class CompositeOffset(AddressOffset):
@@ -165,19 +166,21 @@ class CompositeOffset(AddressOffset):
         ofs.reverse()
         return CompositeOffset(*ofs)
 
-    def ref(self, ref):
+    def ref(self, ptr):
         for item in self.offsets:
-            ref = item.ref(ref)
-        return ref
+            ptr = item.ref(ptr)
+        return ptr
 
-    def raw_malloc(self, rest):
-        return self.offsets[0].raw_malloc(self.offsets[1:] + rest)
+    def raw_malloc(self, rest, zero):
+        return self.offsets[0].raw_malloc(self.offsets[1:] + rest, zero=zero)
 
-    def raw_memclear(self, adr):
+    def raw_memcopy(self, srcadr, dstadr):
         for o in self.offsets[:-1]:
-            o.raw_memclear(adr)
-            adr += o
-        o.raw_memclear(adr)
+            o.raw_memcopy(srcadr, dstadr)
+            srcadr += o
+            dstadr += o
+        o = self.offsets[-1]
+        o.raw_memcopy(srcadr, dstadr)
 
 
 class ArrayItemsOffset(AddressOffset):
@@ -188,12 +191,14 @@ class ArrayItemsOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayItemsOffset %r >' % (self.TYPE,)
 
-    def ref(self, arrayref):
-        array = arrayref.get()
-        assert lltype.typeOf(array).TO == self.TYPE
-        return _arrayitemref(array, index=0)
+    def ref(self, arrayptr):
+        assert lltype.typeOf(arrayptr).TO == self.TYPE
+        if isinstance(self.TYPE.OF, lltype.ContainerType):
+            return arrayptr[0]
+        else:
+            return lltype.direct_arrayitems(arrayptr)
 
-    def raw_malloc(self, rest, parenttype=None):
+    def raw_malloc(self, rest, parenttype=None, zero=False):
         if rest:
             assert len(rest) == 1
             assert isinstance(rest[0], ItemOffset)
@@ -204,11 +209,12 @@ class ArrayItemsOffset(AddressOffset):
         if self.TYPE._hints.get('isrpystring'):
             count -= 1  # because malloc() will give us the extra char for free
         p = lltype.malloc(parenttype or self.TYPE, count,
-                          immortal = self.TYPE._gckind == 'raw')
+                          immortal = self.TYPE._gckind == 'raw',
+                          zero = zero)
         return cast_ptr_to_adr(p)
 
-    def raw_memclear(self, adr):
-        # should really zero out the length field, but we can't
+    def raw_memcopy(self, srcadr, dstadr):
+        # should really copy the length field, but we can't
         pass
 
 
@@ -220,10 +226,9 @@ class ArrayLengthOffset(AddressOffset):
     def __repr__(self):
         return '< ArrayLengthOffset %r >' % (self.TYPE,)
 
-    def ref(self, arrayref):
-        array = arrayref.get()
-        assert lltype.typeOf(array).TO == self.TYPE
-        return _arraylenref(array)
+    def ref(self, arrayptr):
+        assert lltype.typeOf(arrayptr).TO == self.TYPE
+        return lltype._arraylenref._makeptr(arrayptr._obj, arrayptr._solid)
 
 
 class GCHeaderOffset(AddressOffset):
@@ -236,22 +241,21 @@ class GCHeaderOffset(AddressOffset):
     def __neg__(self):
         return GCHeaderAntiOffset(self.gcheaderbuilder)
 
-    def ref(self, headerref):
-        header = headerref.get()
-        gcptr = self.gcheaderbuilder.object_from_header(header)
-        return _obref(gcptr)
+    def ref(self, headerptr):
+        gcptr = self.gcheaderbuilder.object_from_header(headerptr)
+        return gcptr
 
-    def raw_malloc(self, rest):
+    def raw_malloc(self, rest, zero):
         assert rest
         if isinstance(rest[0], GCHeaderAntiOffset):
-            return rest[1].raw_malloc(rest[2:])    # just for fun
-        gcobjadr = rest[0].raw_malloc(rest[1:])
-        headerptr = self.gcheaderbuilder.new_header(gcobjadr.get())
+            return rest[1].raw_malloc(rest[2:], zero=zero)    # just for fun
+        gcobjadr = rest[0].raw_malloc(rest[1:], zero=zero)
+        headerptr = self.gcheaderbuilder.new_header(gcobjadr.ptr)
         return cast_ptr_to_adr(headerptr)
 
-    def raw_memclear(self, adr):
-        headerptr = adr.get()
-        sizeof(lltype.typeOf(headerptr).TO).raw_memclear(cast_ptr_to_adr(headerptr))
+    def raw_memcopy(self, srcadr, dstadr):
+        from pypy.rpython.rctypes.rmodel import reccopy
+        reccopy(srcadr.ptr, dstadr.ptr)
 
 class GCHeaderAntiOffset(AddressOffset):
     def __init__(self, gcheaderbuilder):
@@ -263,85 +267,14 @@ class GCHeaderAntiOffset(AddressOffset):
     def __neg__(self):
         return GCHeaderOffset(self.gcheaderbuilder)
 
-    def ref(self, gcptrref):
-        gcptr = gcptrref.get()
+    def ref(self, gcptr):
         headerptr = self.gcheaderbuilder.header_of_object(gcptr)
-        return _obref(headerptr)
+        return headerptr
 
-    def raw_malloc(self, rest):
+    def raw_malloc(self, rest, zero):
         assert len(rest) >= 2
         assert isinstance(rest[0], GCHeaderOffset)
-        return rest[1].raw_malloc(rest[2:])
-
-
-class _arrayitemref(object):
-    def __init__(self, array, index):
-        self.array = array
-        self.index = index
-    def get(self):
-        return self.array[self.index]
-    def set(self, value):
-        self.array[self.index] = value
-    def __eq__(self, other):
-        if self.__class__ is not other.__class__:
-            return False
-        return self.array._same_obj(other.array) and \
-               self.index == other.index
-    def __ne__(self, other):
-        return not (self == other)
-    def type(self):
-        return lltype.typeOf(self.array).TO.OF
-
-class _arraylenref(object):
-    def __init__(self, array):
-        self.array = array
-    def get(self):
-        return len(self.array)
-    def set(self, value):
-        if value != len(self.array):
-            raise Exception("can't change the length of an array")
-    def __eq__(self, other):
-        if self.__class__ is not other.__class__:
-            return False
-        return self.array._same_obj(other.array)
-    def __ne__(self, other):
-        return not (self == other)
-    def type(self):
-        return lltype.Signed
-
-class _structfieldref(object):
-    def __init__(self, struct, fieldname):
-        self.struct = struct
-        self.fieldname = fieldname
-    def get(self):
-        return getattr(self.struct, self.fieldname)
-    def set(self, value):
-        setattr(self.struct, self.fieldname, value)
-    def __eq__(self, other):
-        if self.__class__ is not other.__class__:
-            return False
-        return self.struct._same_obj(other.struct) and \
-               self.fieldname == other.fieldname
-    def __ne__(self, other):
-        return not (self == other)
-    def type(self):
-        return getattr(lltype.typeOf(self.struct).TO, self.fieldname)
-
-class _obref(object):
-    def __init__(self, ob):
-        self.ob = ob
-    def get(self):
-        return self.ob
-    def set(self, value):
-        raise Exception("can't assign to whole object")
-    def __eq__(self, other):
-        if self.__class__ is not other.__class__:
-            return False
-        return self.ob._same_obj(other.ob)
-    def __ne__(self, other):
-        return not (self == other)
-    def type(self):
-        return lltype.typeOf(self.ob)
+        return rest[1].raw_malloc(rest[2:], zero=zero)
 
 # ____________________________________________________________
 
@@ -367,30 +300,23 @@ def itemoffsetof(TYPE, n=0):
 # -------------------------------------------------------------
 
 class fakeaddress(object):
-    # NOTE: the 'ob' in the addresses must be normalized.
+    # NOTE: the 'ptr' in the addresses must be normalized.
     # Use cast_ptr_to_adr() instead of directly fakeaddress() if unsure.
-    def __init__(self, ob, offset=None):
-        self.ob = ob
-        self.offset = offset
+    def __init__(self, ptr):
+        self.ptr = ptr or None   # null ptr => None
 
     def __repr__(self):
-        if self.ob is None:
+        if self.ptr is None:
             s = 'NULL'
         else:
-            s = str(self.ob)
-        if self.offset is not None:
-            s = '%s + %r' % (s, self.offset)
+            s = str(self.ptr)
         return '<fakeaddr %s>' % (s,)
 
     def __add__(self, other):
         if isinstance(other, AddressOffset):
-            if self.offset is None:
-                offset = other
-            else:
-                offset = self.offset + other
-            res = fakeaddress(self.ob, offset)
-            res.ref() # sanity check
-            return res
+            if self.ptr is None:
+                raise NullAddressError("offset from NULL address")
+            return fakeaddress(other.ref(self.ptr))
         if other == 0:
             return self
         return NotImplemented
@@ -403,62 +329,71 @@ class fakeaddress(object):
         return NotImplemented
 
     def __nonzero__(self):
-        return self.ob is not None
+        return self.ptr is not None
 
     def __eq__(self, other):
-        if not isinstance(other, fakeaddress):
-            return False
-        if self.ob is None:
-            return other.ob is None
-        if other.ob is None:
-            return False
-        return self.ref() == other.ref()
+        if isinstance(other, fakeaddress):
+            obj1 = self.ptr
+            obj2 = other.ptr
+            if obj1 is not None: obj1 = obj1._obj
+            if obj2 is not None: obj2 = obj2._obj
+            return obj1 == obj2
+        else:
+            return NotImplemented
 
     def __ne__(self, other):
-        return not (self == other)
+        if isinstance(other, fakeaddress):
+            return not (self == other)
+        else:
+            return NotImplemented
 
     def ref(self):
         if not self:
             raise NullAddressError
-        ref = _obref(self.ob)
-        if self.offset is not None:
-            ref = self.offset.ref(ref)
-        return ref
+        return self.ptr
 
-    def get(self):
-        return self.ref().get()
+##    def get(self):
+##        return self.ref().get()
 
-    def set(self, value):
-        self.ref().set(value)
+##    def set(self, value):
+##        self.ref().set(value)
 
     def _cast_to_ptr(self, EXPECTED_TYPE):
-        if not self:
-            return lltype.nullptr(EXPECTED_TYPE.TO)
-        ref = self.ref()
-        if (isinstance(ref, _arrayitemref) and
-            isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-            ref.type() == EXPECTED_TYPE.TO.OF):
-            # special case that requires direct_arrayitems
-            p_items = lltype.direct_arrayitems(ref.array)
-            return lltype.direct_ptradd(p_items, ref.index)
-        elif (isinstance(ref, _structfieldref) and
-              isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-              ref.type() == EXPECTED_TYPE.TO.OF):
-            # special case that requires direct_fieldptr
-            return lltype.direct_fieldptr(ref.struct,
-                                          ref.fieldname)
-        else:
-            result = ref.get()
+        if self:
+            PTRTYPE = lltype.typeOf(self.ptr)
             if (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
-                isinstance(lltype.typeOf(result).TO, lltype.OpaqueType)):
-                return lltype.cast_opaque_ptr(EXPECTED_TYPE, result)
+                isinstance(PTRTYPE.TO, lltype.OpaqueType)):
+                return lltype.cast_opaque_ptr(EXPECTED_TYPE, self.ptr)
             else:
                 # regular case
-                return lltype.cast_pointer(EXPECTED_TYPE, result)
+                return lltype.cast_pointer(EXPECTED_TYPE, self.ptr)
+        else:
+            return lltype.nullptr(EXPECTED_TYPE.TO)
+
+##        if (isinstance(ref, _arrayitemref) and
+##            isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
+##            ref.type() == EXPECTED_TYPE.TO.OF):
+##            # special case that requires direct_arrayitems
+##            p_items = lltype.direct_arrayitems(ref.array)
+##            return lltype.direct_ptradd(p_items, ref.index)
+##        elif (isinstance(ref, _structfieldref) and
+##              isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
+##              ref.type() == EXPECTED_TYPE.TO.OF):
+##            # special case that requires direct_fieldptr
+##            return lltype.direct_fieldptr(ref.struct,
+##                                          ref.fieldname)
+##        else:
+##            result = ref.get()
+##            if (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
+##                isinstance(lltype.typeOf(result).TO, lltype.OpaqueType)):
+##                return lltype.cast_opaque_ptr(EXPECTED_TYPE, result)
+##            else:
+##                # regular case
+##                return lltype.cast_pointer(EXPECTED_TYPE, result)
 
     def _cast_to_int(self):
         if self:
-            return self.get()._cast_to_int()
+            return self.ptr._cast_to_int()
         else:
             return 0
 
@@ -482,25 +417,25 @@ class _fakeaccessor(object):
     def __init__(self, addr):
         self.addr = addr
     def __getitem__(self, index):
-        addr = self.addr
+        ptr = self.addr.ref()
         if index != 0:
-            addr += ItemOffset(addr.ref().type(), index)
-        return self.erase_type(addr.get())
+            ptr = lltype.direct_ptradd(ptr, index)
+        return self.read_from_ptr(ptr)
 
     def __setitem__(self, index, value):
         assert lltype.typeOf(value) == self.TYPE
-        addr = self.addr
+        ptr = self.addr.ref()
         if index != 0:
-            addr += ItemOffset(addr.ref().type(), index)
-        addr.set(self.unerase_type(addr.ref().type(), value))
+            ptr = lltype.direct_ptradd(ptr, index)
+        self.write_into_ptr(ptr, value)
 
-    def erase_type(self, value):
+    def read_from_ptr(self, ptr):
+        value = ptr[0]
         assert lltype.typeOf(value) == self.TYPE
         return value
 
-    def unerase_type(self, TARGETTYPE, value):
-        assert lltype.typeOf(value) == TARGETTYPE
-        return value
+    def write_into_ptr(self, ptr, value):
+        ptr[0] = value
 
 
 class _signed_fakeaccessor(_fakeaccessor):
@@ -512,7 +447,8 @@ class _char_fakeaccessor(_fakeaccessor):
 class _address_fakeaccessor(_fakeaccessor):
     TYPE = Address
 
-    def erase_type(self, value):
+    def read_from_ptr(self, ptr):
+        value = ptr[0]
         if isinstance(value, lltype._ptr):
             return value._cast_to_adr()
         elif lltype.typeOf(value) == Address:
@@ -520,13 +456,15 @@ class _address_fakeaccessor(_fakeaccessor):
         else:
             raise TypeError(value)
 
-    def unerase_type(self, TARGETTYPE, value):
+    def write_into_ptr(self, ptr, value):
+        TARGETTYPE = lltype.typeOf(ptr).TO.OF
         if TARGETTYPE == Address:
-            return value
+            pass
         elif isinstance(TARGETTYPE, lltype.Ptr):
-            return cast_adr_to_ptr(value, TARGETTYPE)
+            value = cast_adr_to_ptr(value, TARGETTYPE)
         else:
-            raise TypeError(TARGETTYPE, value)
+            raise TypeError(TARGETTYPE)
+        ptr[0] = value
 
 
 fakeaddress.signed = property(_signed_fakeaccessor)
@@ -551,8 +489,6 @@ def cast_int_to_adr(int):
 
 
 # ____________________________________________________________
-
-import weakref
 
 class fakeweakaddress(object):
     def __init__(self, ob):
@@ -607,12 +543,19 @@ WEAKNULL = fakeweakaddress(None)
 def raw_malloc(size):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
-    return size.raw_malloc([])
+    return size.raw_malloc([], zero=False)
 
 def raw_free(adr):
-    # xxx crash if you get only the header of a gc object
-    assert isinstance(adr.ob._obj, lltype._parentable)
-    adr.ob._as_obj()._free()
+    # try to free the whole object if 'adr' is the address of the header
+    from pypy.rpython.memory.gcheader import GCHeaderBuilder
+    try:
+        objectptr = GCHeaderBuilder.object_from_header(adr.ptr)
+    except KeyError:
+        pass
+    else:
+        raw_free(cast_ptr_to_adr(objectptr))
+    assert isinstance(adr.ref()._obj, lltype._parentable)
+    adr.ptr._as_obj()._free()
 
 def raw_malloc_usage(size):
     if isinstance(size, AddressOffset):
@@ -625,58 +568,64 @@ def raw_memclear(adr, size):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
     assert lltype.typeOf(adr) == Address
-    size.raw_memclear(adr)
+    zeroadr = size.raw_malloc([], zero=True)
+    size.raw_memcopy(zeroadr, adr)
 
 def raw_memcopy(source, dest, size):
-    source = source.get()
-    dest = dest.get()
-    # this check would be nice...
-    #assert sizeof(lltype.typeOf(source)) == sizeof(lltype.typeOf(dest)) == size
-    from pypy.rpython.rctypes.rmodel import reccopy
-    reccopy(source, dest)
+    assert lltype.typeOf(source) == Address
+    assert lltype.typeOf(dest)   == Address
+    size.raw_memcopy(source, dest)
 
 # ____________________________________________________________
 
-class _arena(object):
+ARENA_ITEM = lltype.OpaqueType('ArenaItem')
 
-    def __init__(self, rng):
+class _arena(object):
+    #_cache = weakref.WeakKeyDictionary()    # {obj: _arenaitem}
+
+    def __init__(self, rng, zero):
         self.rng = rng
+        self.zero = zero
         self.items = []
 
-class ArenaItem(AddressOffset):
-    
-    def __init__(self, nr):
-        self.nr = nr
+    def getitemaddr(self, n):
+        while len(self.items) <= n:
+            self.items.append(_arenaitem(self, len(self.items)))
+        return fakeaddress(self.items[n]._as_ptr())
 
-    def ref(self, ref):
-        assert isinstance(ref, _obref)
-        assert isinstance(ref.ob, _arena)
-        arena = ref.ob
-        itemadr = arena.items[self.nr]
-        return itemadr.ref()
-        
+class _arenaitem(lltype._container):
+    _TYPE = ARENA_ITEM
+
+    def __init__(self, arena, nr):
+        self.arena = arena
+        self.nr = nr
+        self.reserved_size = None
+
+    def reserve(self, size):
+        if self.reserved_size is None:
+            # xxx check that we are not larger than unitsize*n
+            itemadr = raw_malloc(size)
+            self.container = itemadr.ptr._obj
+            #_arena._cache[itemadr.ptr._obj] = self
+        else:
+            assert size == self.reserved_size
+
 class ArenaRange(AddressOffset):
     def __init__(self, unitsize, n):
         self.unitsize = unitsize
         self.n = n
 
-    def raw_malloc(self, rest):
+    def raw_malloc(self, rest, zero=False):
         assert not rest
-        return fakeaddress(_arena(self), ArenaItem(0))
+        arena = _arena(self, zero=zero)
+        return arena.getitemaddr(0)
         
 def arena(TYPE, n):
     return ArenaRange(sizeof(TYPE), n)
 
 def bump(adr, size):
-    assert isinstance(adr.ob, _arena)
-    assert isinstance(adr.offset, ArenaItem)
-    arena = adr.ob
-    nr = adr.offset.nr
-    if len(arena.items) == nr: # reserve
-        # xxx check that we are not larger than unitsize*n
-        itemadr = raw_malloc(size)
-        arena.items.append(itemadr)
-    else:
-        assert nr < len(arena.items)
-        # xxx check that size matches
-    return fakeaddress(arena, ArenaItem(nr+1))
+    baseptr = cast_adr_to_ptr(adr, lltype.Ptr(ARENA_ITEM))
+    baseptr._obj.reserve(size)
+    arena = baseptr._obj.arena
+    nr = baseptr._obj.nr
+    return arena.getitemaddr(nr + 1)

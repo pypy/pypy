@@ -8,7 +8,8 @@ from pypy import conftest
 import py
 
 class FrameworkGcPolicy2(FrameworkGcPolicy):
-    transformerclass = FrameworkGCTransformer
+    class transformerclass(FrameworkGCTransformer):
+        root_stack_depth = 100
 
 def test_framework_simple():
     def g(x):

@@ -266,6 +266,18 @@ class TestBasic:
         res = self.do(func)
         assert res == 101
 
+    def test_recursive_structure(self):
+        P1 = RPointer(None)
+        S1 = RStruct('S1', [('next', P1)])
+        P1.setpointertype(S1)
+        def func():
+            s1 = S1.allocate()
+            s2 = S1.allocate()
+            s2.ref_next().set_contents(s1)
+            return s2.ref_next().get_contents().sameaddr(s1)
+        res = self.do(func)
+        assert res == True
+
 POLICY = AnnotatorPolicy()
 POLICY.allow_someobjects = False
 

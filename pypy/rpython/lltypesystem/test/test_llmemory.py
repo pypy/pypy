@@ -9,10 +9,10 @@ def test_simple():
     s.x = 123
     s.y = 456
     a = fakeaddress(s)
-    assert a.get() == s
+    assert a.ref() == s
     b = a + FieldOffset(S, 'x')
-    assert b.get() == 123
-    b.set(234)
+    assert b.signed[0] == 123
+    b.signed[0] = 234
     assert s.x == 234
 
 def test_composite():
@@ -22,10 +22,10 @@ def test_composite():
     s2.s.x = 123
     s2.s.y = 456
     a = fakeaddress(s2)
-    assert a.get() == s2
+    assert a.ref() == s2
     b = a + FieldOffset(S2, 's') + FieldOffset(S1, 'x')
-    assert b.get() == 123
-    b.set(234)
+    assert b.signed[0] == 123
+    b.signed[0] = 234
     assert s2.s.x == 234
     
 def test_array():
@@ -36,8 +36,8 @@ def test_array():
     b = a + ArrayItemsOffset(A)
     b += ItemOffset(lltype.Signed)*2
     b += ItemOffset(lltype.Signed)
-    assert b.get() == 123
-    b.set(14)
+    assert b.signed[0] == 123
+    b.signed[0] = 14
     assert x[3] == 14
     
 def test_dont_mix_offsets_and_ints():

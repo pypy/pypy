@@ -2,11 +2,10 @@ import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
+from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress, \
      GCHeaderOffset
-from pypy.rpython.memory.lladdress import NULL
 from pypy.translator.c.support import cdecl
 
 # ____________________________________________________________
@@ -99,24 +98,10 @@ def name_unichar(value, db):
     return '%d' % ord(value)
 
 def name_address(value, db):
-    if value is NULL:
-        return 'NULL'
-    assert isinstance(value, fakeaddress)
-    if value.offset is None:
-        if value.ob is None:
-            return 'NULL'
-        else:
-            if isinstance(typeOf(value.ob), ContainerType):
-                return db.getcontainernode(value.ob).ptrname
-            else:
-                return db.get(value.ob)
+    if value:
+        return db.get(value.ref())
     else:
-        if isinstance(typeOf(value.ob), ContainerType):
-            base = db.getcontainernode(value.ob).ptrname
-        else:
-            base = db.get(value.ob)
-        
-        return '(void*)(((char*)(%s)) + (%s))'%(base, db.get(value.offset))
+        return 'NULL'
 
 def name_weakgcaddress(value, db):
     assert isinstance(value, fakeweakaddress)

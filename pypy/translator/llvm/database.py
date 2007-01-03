@@ -147,8 +147,8 @@ class Database(object):
             if type_ is llmemory.Address:
                 # prepare the constant data which this address references
                 assert isinstance(value, llmemory.fakeaddress)
-                if value.ob is not None:
-                    self.prepare_constant(lltype.typeOf(value.ob), value.ob)
+                if value:
+                    self.prepare_constant(lltype.typeOf(value.ptr), value.ptr)
             return
 
         if isinstance(type_, lltype.Ptr) and isinstance(value._obj, int):
@@ -181,8 +181,8 @@ class Database(object):
                 # special cases for address
                 if ct is llmemory.Address:
                     fakedaddress = const_or_var.value
-                    if fakedaddress is not None and fakedaddress.ob is not None:
-                        ptrvalue = fakedaddress.ob
+                    if fakedaddress:
+                        ptrvalue = fakedaddress.ptr
                         ct = lltype.typeOf(ptrvalue)
                     else:
                         return                        
@@ -465,41 +465,14 @@ class Primitives(object):
         return repr
 
     def repr_address(self, type_, value):
-        if value is NULL:
+        if not value:
             return 'null'
-
-        assert isinstance(value, llmemory.fakeaddress)
-
-        if value.offset is None:
-            if value.ob is None:
-                return 'null'
-            else:
-                obj = value.ob._obj
-                typename = self.database.repr_type(lltype.typeOf(obj))
-                ref = self.database.repr_name(obj)
-        else:
-            from_, indices, to = self.get_offset(value.offset)
-            indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
-
-            #original_typename = self.database.repr_type(from_)
-            #orignal_ref = self.database.repr_name(value.ob._obj)
-            #
-            #typename = self.database.repr_type(to)
-            #ref = "getelementptr(%s* %s, %s)" % (original_typename,
-            #                                     orignal_ref,
-            #                                     indices_as_str)
-
-            ptrtype = self.database.repr_type(lltype.Ptr(from_))
-            node = self.database.obj2node[value.ob._obj]
-            parentref = node.get_pbcref(ptrtype)
-
-            typename = self.database.repr_type(to)
-            ref = "getelementptr(%s %s, %s)" % (ptrtype, parentref,
-                                                indices_as_str)
-
+        obj = value.ptr._obj
+        typename = self.database.repr_type(lltype.typeOf(obj))
+        ref = self.database.repr_name(obj)
         res = "cast(%s* %s to sbyte*)" % (typename, ref)
-        return res    
-    
+        return res
+
     def repr_weakgcaddress(self, type_, value):
         assert isinstance(value, llmemory.fakeweakaddress)
         log.WARNING("XXX weakgcaddress completely ignored...")

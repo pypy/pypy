@@ -759,6 +759,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
     CURTYPE = typeOf(ptr)
     if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
+    if CURTYPE == PTRTYPE:
+        return ptr
     if CURTYPE.TO._gckind != PTRTYPE.TO._gckind:
         raise TypeError("cast_opaque_ptr() cannot change the gc status: "
                         "%s to %s" % (CURTYPE, PTRTYPE))
@@ -1151,12 +1153,13 @@ class _ptr(object):
         if isinstance(self._T, FuncType):
             return llmemory.fakeaddress(self)
         elif isinstance(self._obj, _subarray):
-            # return an address built as an offset in the whole array
-            parent, parentindex = parentlink(self._obj)
-            T = typeOf(parent)
-            addr = llmemory.fakeaddress(normalizeptr(_ptr(Ptr(T), parent)))
-            addr += llmemory.itemoffsetof(T, parentindex)
-            return addr
+            return llmemory.fakeaddress(self)
+##            # return an address built as an offset in the whole array
+##            parent, parentindex = parentlink(self._obj)
+##            T = typeOf(parent)
+##            addr = llmemory.fakeaddress(normalizeptr(_ptr(Ptr(T), parent)))
+##            addr += llmemory.itemoffsetof(T, parentindex)
+##            return addr
         else:
             # normal case
             return llmemory.fakeaddress(normalizeptr(self))
@@ -1417,7 +1420,16 @@ class _array(_parentable):
             raise
 
     def setitem(self, index, value):
-        self.items[index] = value
+        try:
+            self.items[index] = value
+        except IndexError:
+            if (self._TYPE._hints.get('isrpystring', False) and
+                index == len(self.items)):
+                # special hack for the null terminator: can overwrite it
+                # with another null
+                assert value == '\x00'
+                return
+            raise
 
 assert not '__dict__' in dir(_array)
 assert not '__dict__' in dir(_struct)
@@ -1431,6 +1443,11 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
         self._setparentstructure(parent, baseoffset_or_fieldname)
+
+    def __repr__(self):
+        
+        return '<_subarray at %r in %r>' % (self._parent_index,
+                                            self._parentstructure())
 
     def getlength(self):
         assert isinstance(self._TYPE, FixedSizeArray)
@@ -1482,6 +1499,46 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
 
     def _getid(self):
         raise NotImplementedError('_subarray._getid()')
+
+
+class _arraylenref(_parentable):
+    """Pseudo-reference to the length field of an array.
+    Only used internally by llmemory to implement ArrayLengthOffset.
+    """
+    _kind = "arraylenptr"
+    _cache = weakref.WeakKeyDictionary()  # array -> _arraylenref
+
+    def __init__(self, array):
+        TYPE = FixedSizeArray(Signed, 1)
+        _parentable.__init__(self, TYPE)
+        self.array = array
+
+    def getlength(self):
+        return 1
+
+    def getbounds(self):
+        return 0, 1
+
+    def getitem(self, index, uninitialized_ok=False):
+        assert index == 0
+        return self.array.getlength()
+
+    def setitem(self, index, value):
+        assert index == 0
+        if value != self.array.getlength():
+            raise Exception("can't change the length of an array")
+
+    def _makeptr(array, solid=False):
+        try:
+            lenref = _arraylenref._cache[array]
+        except KeyError:
+            lenref = _arraylenref(array)
+            _arraylenref._cache[array] = lenref
+        return _ptr(Ptr(lenref._TYPE), lenref, solid)
+    _makeptr = staticmethod(_makeptr)
+
+    def _getid(self):
+        raise NotImplementedError('_arraylenref._getid()')
 
 
 class _func(_container):

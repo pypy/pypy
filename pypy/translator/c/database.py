@@ -4,7 +4,6 @@ from pypy.rpython.lltypesystem.lltype import \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
-from pypy.rpython.memory.lladdress import NULL
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
@@ -139,7 +138,6 @@ class LowLevelDatabase(object):
         try:
             node = self.containernodes[container]
         except KeyError:
-            assert not self.completed
             T = typeOf(container)
             if isinstance(T, (lltype.Array, lltype.Struct)):
                 if hasattr(self.gctransformer, 'consider_constant'):
@@ -150,6 +148,10 @@ class LowLevelDatabase(object):
             self.containerlist.append(node)
             kind = getattr(node, 'nodekind', '?')
             self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
+            if self.completed:
+                assert not node.globalcontainer
+                # non-global containers are found very late, e.g. _subarrays
+                # via addresses introduced by the GC transformer
         return node
 
     def get(self, obj):

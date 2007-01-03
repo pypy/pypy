@@ -24,10 +24,10 @@ class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
     extra_static_slots = 0
     finished_tables = False
+    root_stack_depth = 163840
 
     from pypy.rpython.memory.gc import MarkSweepGC as GCClass
-    GC_PARAMS = {'start_heap_size': 8*1024*1024 # XXX adjust
-                 }
+    GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
@@ -228,7 +228,7 @@ class FrameworkGCTransformer(GCTransformer):
     def build_stack_root_iterator(self):
         gcdata = self.gcdata
         sizeofaddr = llmemory.sizeof(llmemory.Address)
-        rootstacksize = sizeofaddr * 163840    # XXX adjust
+        rootstacksize = sizeofaddr * self.root_stack_depth
 
         class StackRootIterator:
             _alloc_flavor_ = 'raw'
