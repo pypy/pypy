@@ -530,7 +530,8 @@ class MarkSweepGC(GCBase):
                 item = obj + itemlength * i
                 j = 0
                 while j < len(offsets):
-                    objects.append((item + offsets[j]).address[0])
+                    pointer = item + offsets[j]
+                    objects.append(pointer.address[0])
                     j += 1
                 i += 1
 
@@ -733,13 +734,13 @@ class MarkSweepGC(GCBase):
         i = 0
         while i < len(offsets):
             pointer = obj + offsets[i]
-            objects.append(pointer.address[0])
             # -------------------------------------------------
             # begin difference from collect
             if pointer.address[0] == target_addr:
                 pointer.address[0] = source_addr
             # end difference from collect
             # -------------------------------------------------
+            objects.append(pointer.address[0])
             i += 1
         if self.is_varsize(typeid):
             offset = self.varsize_offset_to_variable_part(
@@ -753,14 +754,14 @@ class MarkSweepGC(GCBase):
                 item = obj + itemlength * i
                 j = 0
                 while j < len(offsets):
-                    objects.append((item + offsets[j]).address[0])
+                    pointer = item + offsets[j]
                     # -------------------------------------------------
                     # begin difference from collect
-                    pointer = item + offsets[j]
                     if pointer.address[0] == target_addr:
                         pointer.address[0] = source_addr
                     ## end difference from collect
                     # -------------------------------------------------
+                    objects.append(pointer.address[0])
                     j += 1
                 i += 1
 
