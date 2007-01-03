@@ -17,7 +17,7 @@ def js_is_on_path():
     except py.error.ENOENT: 
         py.test.skip("js binary not found")
 
-
+js_is_on_path()
 
 class TestInterp(object):
     def test_simple(self):
