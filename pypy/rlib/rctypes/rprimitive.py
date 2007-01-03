@@ -80,6 +80,9 @@ class PrimitiveCTypeController(CTypeController):
     return_value = get_value
     store_value = set_value
 
+    def default_ctype_value(self):
+        return self.ctype().value
+
     def is_true(self, obj):
         llvalue = self.get_value(obj)
         if self.is_char_type:

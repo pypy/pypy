@@ -27,6 +27,9 @@ class CCharPCTypeController(CTypeController):
     return_value = get_value
     store_value = set_value
 
+    def default_ctype_value(self):
+        return None
+
     def is_true(self, obj):
         return obj.get_value() is not None
 

@@ -8,20 +8,19 @@ from pypy.rpython.error import TyperError
 
 class ControllerEntry(ExtRegistryEntry):
 
-    def compute_result_annotation(self, *args_s):
-        cls = self.instance
-        controller = self.getcontroller(*args_s)
-        return controller.ctrl_new(*args_s)
+    def compute_result_annotation(self, *args_s, **kwds_s):
+        controller = self.getcontroller(*args_s, **kwds_s)
+        return controller.ctrl_new_ex(self.bookkeeper, *args_s, **kwds_s)
 
-    def getcontroller(self, *args_s):
+    def getcontroller(self, *args_s, **kwds_s):
         return self._controller_()
 
-    def specialize_call(self, hop):
+    def specialize_call(self, hop, **kwds_i):
         if hop.s_result == annmodel.s_ImpossibleValue:
             raise TyperError("object creation always raises: %s" % (
                 hop.spaceop,))
         controller = hop.s_result.controller
-        return controller.rtype_new(hop)
+        return controller.rtype_new(hop, **kwds_i)
 
 
 
@@ -65,12 +64,18 @@ class Controller(object):
         return controlled_instance_is_box(self, obj)
     is_box._annspecialcase_ = 'specialize:arg(0)'
 
-    def ctrl_new(self, *args_s):
+    def ctrl_new(self, *args_s, **kwds_s):
+        if kwds_s:
+            raise TypeError("cannot handle keyword arguments in %s" % (
+                self.new,))
         s_real_obj = delegate(self.new, *args_s)
         if s_real_obj == annmodel.s_ImpossibleValue:
             return annmodel.s_ImpossibleValue
         else:
             return SomeControlledInstance(s_real_obj, controller=self)
+
+    def ctrl_new_ex(self, bookkeeper, *args_s, **kwds_s):
+        return self.ctrl_new(*args_s, **kwds_s)
 
     def rtype_new(self, hop):
         from pypy.rpython.rcontrollerentry import rtypedelegate

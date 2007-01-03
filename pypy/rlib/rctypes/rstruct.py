@@ -75,6 +75,61 @@ class StructCTypeController(CTypeController):
             fieldbox = controller.convert(getattr(x, name))
             self.setboxattr(obj, name, fieldbox)
 
+    def insert_constructor_keywords(self, lst, prefix, kwds):
+        lst = list(lst)
+        kwds = kwds.copy()
+        for index, (name, field_ctype) in enumerate(self.ctype._fields_):
+            if prefix+name in kwds:
+                value = kwds.pop(prefix+name)
+                while len(lst) <= index:
+                    lst.append(None)
+                if lst[index] is not None:
+                    raise TypeError("duplicate value for argument %r" % name)
+                lst[index] = value
+        if kwds:
+            raise TypeError("unknown keyword(s): %r" % (kwds.keys(),))
+        return lst
+
+    def ctrl_new_ex(self, bookkeeper, *args_s, **kwds_s):
+        if kwds_s:
+            args_s = self.insert_constructor_keywords(args_s, 's_', kwds_s)
+            for i in range(len(args_s)):
+                if args_s[i] is None:
+                    name, controller = self.fieldcontrollers[i]
+                    x = controller.default_ctype_value()
+                    args_s[i] = bookkeeper.immutablevalue(x)
+        return CTypeController.ctrl_new(self, *args_s)
+
+    def rtype_new(self, hop, **kwds_i):
+        if kwds_i:
+            lst = range(hop.nb_args)
+            for key, index in kwds_i.items():
+                lst[index] = None
+            lst = self.insert_constructor_keywords(lst, 'i_', kwds_i)
+            hop2 = hop.copy()
+            hop2.nb_args = len(lst)
+            hop2.args_v = []
+            hop2.args_s = []
+            hop2.args_r = []
+            for i, index in enumerate(lst):
+                if index is not None:
+                    v = hop.args_v[index]
+                    s = hop.args_s[index]
+                    r = hop.args_r[index]
+                else:
+                    # must insert a default value
+                    from pypy.objspace.flow.model import Constant
+                    name, controller = self.fieldcontrollers[i]
+                    x = controller.default_ctype_value()
+                    v = Constant(x)
+                    s = hop.rtyper.annotator.bookkeeper.immutablevalue(x)
+                    r = hop.rtyper.getrepr(s)
+                hop2.args_v.append(v)
+                hop2.args_s.append(s)
+                hop2.args_r.append(r)
+            hop = hop2
+        return CTypeController.rtype_new(self, hop)
+
 
 StructCTypeController.register_for_metatype(StructType)
 

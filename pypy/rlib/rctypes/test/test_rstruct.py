@@ -179,26 +179,26 @@ class Test_specialization:
         assert res == 289
 
     def test_specialize_constructor_args(self):
-        py.test.skip("in-progress")
+        #py.test.skip("in-progress")
         class S(Structure):
             _fields_ = [('x', c_int),
                         ('y', c_char)]
-        def func(x, y):
+        def func(x, y, n):
             s0 = S(x)
             s1 = S(x, y)
             s2 = S(y=y)
             s3 = S(x, y=y)
-            return (s0, s1, s2, s3)
+            s = [s0, s1, s2, s3][n]
+            return s.x * 100 + ord(s.y)
 
-        res = interpret(func, [4, '?'])
-        assert res.item0.c_data.c_x == 4
-        assert res.item0.c_data.c_y == '\x00'
-        assert res.item1.c_data.c_x == 4
-        assert res.item1.c_data.c_y == '?'
-        assert res.item2.c_data.c_x == 0
-        assert res.item2.c_data.c_y == '?'
-        assert res.item3.c_data.c_x == 4
-        assert res.item3.c_data.c_y == '?'
+        res = interpret(func, [4, '?', 0])
+        assert res == 400
+        res = interpret(func, [4, '?', 1])
+        assert res == 463
+        res = interpret(func, [4, '?', 2])
+        assert res ==  63
+        res = interpret(func, [4, '?', 3])
+        assert res == 463
 
     def test_specialize_bad_constructor_args(self):
         py.test.skip("in-progress")

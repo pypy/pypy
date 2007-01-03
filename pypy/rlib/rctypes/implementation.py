@@ -69,6 +69,9 @@ class CTypeController(Controller):
         raise TypeError("cannot store a value into a non-primitive ctype")
     store_value._annspecialcase_ = 'specialize:arg(0)'
 
+    def default_ctype_value(self):
+        return self.ctype()
+
     # extension to the setattr/setitem support: if the new value is actually
     # a CTypeControlled instance as well, reveal it automatically (i.e. turn
     # it into an rctypesobject) and call a method with a different name.
@@ -111,7 +114,7 @@ class CTypeController(Controller):
 
 
 class CTypesCallEntry(ControllerEntry):
-    def getcontroller(self, *args_s):
+    def getcontroller(self, *args_s, **kwds_s):
         ctype = self.instance
         return _build_controller(self._controller_, ctype)
 
