@@ -1,7 +1,29 @@
 
-from pypy.lang.js.astgen import *
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.jsobj import *
+
+class Node(object):
+    # TODO Add line info for debug
+#    def __init__(self, lineno = 1):
+#        self.lineno = lineno
+    pass
+
+class BinaryOp(Node):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+    
+class BinaryComparisonOp(BinaryOp):
+    """super class for binary operators"""
+    def call(self, ctx):
+        s2 = self.left.call(ctx).GetValue()
+        s4 = self.right.call(ctx).GetValue()
+        return self.decision(s2, s4)
+
+
+class BinaryLogicOp(BinaryOp):
+    """super class for binary operators"""
+    pass
 
 def writer(x):
     print x
@@ -27,14 +49,34 @@ class Interpreter(object):
         """run the interpreter"""
         return self.script.call(self.global_context)
 
-        
+class PropertyInit(Node):
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+    
+    def __repr__(self):
+        return "<%s : %s>"%(str(self.name), str(self.value))
 
-class __extend__(Array):
+
+
+class Undefined(Node):
+    def __init__(self):
+        pass
+
+        
+class Array(Node):
+    def __init__(self, items=()):
+        self.items = items
+
     def call(self, ctx):
         d = dict(enumerate(self.items))
         return W_Array(d)
 
-class __extend__(Assign):
+class Assign(Node):
+    def __init__(self, LHSExp, AssignmentExp):
+        self.LHSExp = LHSExp
+        self.AssignmentExp = AssignmentExp
+    
     def call(self, ctx):
         print "Assign LHS = ", self.LHSExp
         v1 = self.LHSExp.call(ctx)
@@ -43,7 +85,10 @@ class __extend__(Assign):
         v1.PutValue(v3, ctx)
         return v3
 
-class __extend__(Block):
+class Block(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
     def call(self, ctx):
         try:
             last = w_Undefined
@@ -53,7 +98,11 @@ class __extend__(Block):
         except ExecutionReturned, e:
             return e.value
 
-class __extend__(Call):
+class Call(Node):
+    def __init__(self, identifier, arglist):
+        self.identifier = identifier
+        self.arglist = arglist
+
     def call(self, ctx):
         name = self.identifier.get_literal()
         if name == 'print':
@@ -64,23 +113,33 @@ class __extend__(Call):
             retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.call(ctx)])
             return retval
 
-class __extend__(Comma):
+class Comma(BinaryOp):
     def call(self, ctx):
         self.left.call(ctx)
         return self.right.call(ctx)
 
-class __extend__(Dot):
+class Dot(BinaryOp):
     def call(self, ctx):
         w_obj = self.left.call(ctx).GetValue().ToObject()
         name = self.right.get_literal()
         return Reference(name, w_obj)
 
-class __extend__(Function):
+class Function(Node):
+    def __init__(self, name, params, body):
+        self.name = name
+        self.params = params
+        self.body = body
+
     def call(self, ctx):
        w_obj = W_FunctionObject(self, ctx)
        return w_obj
 
-class __extend__(Identifier):
+class Identifier(Node):
+    def __init__(self, name, initialiser=None):
+        self.name = name
+        self.initialiser = initialiser
+    def __str__(self):
+        return "<id %s init: %s>"%(str(self.name), str(self.initialiser))
     def call(self, ctx):
         if self.initialiser is not None:
             ref = ctx.resolve_identifier(self.name)
@@ -90,7 +149,12 @@ class __extend__(Identifier):
     def get_literal(self):
         return self.name
 
-class __extend__(If):
+class If(Node):
+    def __init__(self, condition, thenPart=None, elsePart=None):
+        self.condition = condition
+        self.thenPart = thenPart
+        self.elsePart = elsePart
+
     def call(self, ctx=None):
         temp = self.condition.call(ctx)
         print "if condition = ", temp 
@@ -99,8 +163,11 @@ class __extend__(If):
         else:
             return self.elsePart.call(ctx)
 
-class __extend__(Group):
-    def call(self, ctx = None):
+class Group(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
+    def call(self, ctx):
         return self.expr.call(ctx)
 
 def ARC(x, y):
@@ -124,7 +191,7 @@ def ARC(x, y):
     else:
         pass 
 
-class __extend__(Or):
+class Or(BinaryLogicOp):
     def call(self, ctx):
         s2 = self.left.call(ctx).GetValue()
         if s2.ToBoolean():
@@ -132,7 +199,7 @@ class __extend__(Or):
         s4 = self.right.call(ctx).GetValue()
         return s4
 
-class __extend__(And):
+class And(BinaryLogicOp):
     def call(self, ctx):
         s2 = self.left.call(ctx).GetValue()
         if not s2.ToBoolean():
@@ -140,14 +207,7 @@ class __extend__(And):
         s4 = self.right.call(ctx).GetValue()
         return s4
 
-
-class __extend__(BinaryOperator):
-    def call(self, ctx):
-        s2 = self.left.call(ctx).GetValue()
-        s4 = self.right.call(ctx).GetValue()
-        return self.decision(s2, s4)
-
-class __extend__(Ge):
+class Ge(BinaryComparisonOp):
     def decision(self, op1, op2):
         s5 = ARC(op1, op2)
         if s5 is None or s5:
@@ -155,7 +215,7 @@ class __extend__(Ge):
         else:
             return W_Boolean(True)
 
-class __extend__(Gt):
+class Gt(BinaryComparisonOp):
     def decision(self, op1, op2):
         s5 = ARC(op2, op1)
         if s5 is None:
@@ -163,7 +223,7 @@ class __extend__(Gt):
         else:
             return W_Boolean(s5)
 
-class __extend__(Le):
+class Le(BinaryComparisonOp):
     def decision(self, op1, op2):
         s5 = ARC(op2, op1)
         if s5 is None or s5:
@@ -171,7 +231,7 @@ class __extend__(Le):
         else:
             return W_Boolean(True)
 
-class __extend__(Lt):
+class Lt(BinaryComparisonOp):
     def decision(self, op1, op2):
         s5 = ARC(op1, op2)
         if s5 is None:
@@ -187,16 +247,16 @@ def AEC(x, y):
     r = x.ToNumber() == y.ToNumber()
     return r
 
-class __extend__(Eq):
+class Eq(BinaryComparisonOp):
     def decision(self, op1, op2):
         return W_Boolean(AEC(op1, op2))
 
-class __extend__(Ne):
+class Ne(BinaryComparisonOp):
     def decision(self, op1, op2):
         return W_Boolean(not AEC(op1, op2))
 
 
-class __extend__(In):
+class In(BinaryComparisonOp):
     def decision(self, op1, op2):
         if not isinstance(op2, W_Object):
             raise ThrowException("TypeError")
@@ -204,7 +264,11 @@ class __extend__(In):
         return W_Boolean(op2.HasProperty(name))
 
 
-class __extend__(Index):
+class Index(Node):
+    def __init__(self, left, expr):
+        self.left = left
+        self.expr = expr
+
     def call(self, ctx):
         w_obj = self.left.call(ctx).GetValue()
         w_member = self.expr.call(ctx).GetValue()
@@ -212,19 +276,24 @@ class __extend__(Index):
         name = w_member.ToString()
         return w_obj.Get(name)
 
-class __extend__(List):
+class List(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
     def call(self, ctx):
         print "nodes = ", self.nodes
         return [node.call(ctx) for node in self.nodes]
 
-class __extend__(Minus):
+class Minus(BinaryComparisonOp):
     def decision(self, op1, op2):
         x = op1.ToNumber()
         y = op2.ToNumber()
         return W_Number(x - y)
 
-class __extend__(New):
-    def call(self, ctx=None):
+class New(Node):
+    def __init__(self, identifier):
+        self.identifier = identifier
+
+    def call(self, ctx):
         obj = W_Object()
         #it should be undefined... to be completed
         constructor = ctx.resolve_identifier(self.identifier).GetValue()
@@ -232,14 +301,20 @@ class __extend__(New):
         constructor.Call(ctx, this = obj)
         return obj
 
-class __extend__(Number):
+class Number(Node):
+    def __init__(self, num):
+        self.num = num
+
     def call(self, ctx):
         return W_Number(self.num)
     
     def get_literal(self):
         return W_Number(self.num).ToString()
 
-class __extend__(ObjectInit):
+class ObjectInit(Node):
+    def __init__(self, properties):
+        self.properties = properties
+
     def call(self, ctx):
         w_obj = W_Object()
         print "properties = ", self.properties
@@ -250,7 +325,7 @@ class __extend__(ObjectInit):
             w_obj.Put(name, w_expr)
         return w_obj
 
-class __extend__(Plus):
+class Plus(BinaryComparisonOp):
     def decision(self, op1, op2):
         prim_left = op1.ToPrimitive('Number')
         prim_right = op2.ToPrimitive('Number')
@@ -263,7 +338,12 @@ class __extend__(Plus):
             num_right = prim_right.ToNumber()
             return W_Number(num_left + num_right)
 
-class __extend__(Script):
+class Script(Node):
+    def __init__(self, nodes, var_decl, func_decl):
+        self.nodes = nodes
+        self.var_decl = var_decl
+        self.func_decl = func_decl
+
     def call(self, ctx):
         for var in self.var_decl:
             ctx.variable.Put(var.name, w_Undefined)
@@ -279,26 +359,45 @@ class __extend__(Script):
         except ExecutionReturned, e:
             return e.value
 
-class __extend__(Semicolon):
+class Semicolon(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
     def call(self, ctx=None):
         return self.expr.call(ctx)
 
-class __extend__(String):
+class String(Node):
+    def __init__(self, strval):
+        self.strval = strval
+
     def call(self, ctx=None):
         return W_String(self.strval)
     
     def get_literal(self):
         return W_String(self.strval).ToString()
 
-class __extend__(Return):
+class Return(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
     def call(self, ctx):
         raise ExecutionReturned(self.expr.call(ctx))
 
-class __extend__(Throw):
+class Throw(Node):
+    def __init__(self, exception):
+        self.exception = exception
+
     def call(self, ctx):
         raise ThrowException(self.exception.call(ctx))
 
-class __extend__(Try):
+class Try(Node):
+    # TODO: rewrite to use 'Undefined'
+    def __init__(self, tryblock, catchblock, finallyblock, catchparam):
+        self.tryblock = tryblock
+        self.catchblock = catchblock
+        self.finallyblock = finallyblock
+        self.catchparam = catchparam
+
     def call(self, ctx):
         e = None
         try:
@@ -321,19 +420,165 @@ class __extend__(Try):
         
         return tryresult
 
-class __extend__(Undefined):
+class Undefined(Node):
     def call(self, ctx):
         return None
 
-class __extend__(Vars):
+class Vars(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
     def call(self, ctx):
         print self.nodes
         for var in self.nodes:
             print var.name
             var.call(ctx)
 
-class __extend__(While):
+class While(Node):
+    def __init__(self, condition, body):
+        self.condition = condition
+        self.body = body
+
     def call(self, ctx):
         while self.condition.call(ctx).ToBoolean():
             self.body.call(ctx)
 
+def getlist(d):
+    if 'length' not in d:
+        return []
+    lgt = int(d['length'])
+    output = [from_dict(d[str(i)]) for i in range(lgt)]
+    return output
+
+def build_interpreter(d):
+    return from_dict(d)
+
+# FIXME: Continue the translation from if/elif to this dict map
+build_map = {'ARRAY_INIT':Array,
+             'ASSIGN': Assign,
+             'BLOCK': Block}
+
+def from_dict_map(d):
+    if d is None:
+        return d
+    try:
+        build_map[d['type']](d)
+    except KeyError,e:
+        raise NotImplementedError("Don't know how to handle %s" %(d['type'],))
+    
+    
+    
+def from_dict(d):
+    if d is None:
+        return d
+    tp = d['type']
+    if tp == 'ARRAY_INIT':
+        return Array(getlist(d))
+    elif tp == 'ASSIGN':
+        return Assign(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'BLOCK':
+        return Block(getlist(d))
+    elif tp == 'CALL':
+        return Call(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'COMMA':
+        return Comma(from_dict(d['0']),from_dict(d['1']))
+    elif tp == 'DOT':
+        return Dot(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'EQ':
+        return Eq(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'OR':
+        return Or(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'AND':
+        return And(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'FUNCTION':        
+        name = d.get('name', '')
+        body = from_dict(d['body'])
+        if d['params'] == '':
+            params = []
+        else:
+            params = d['params'].split(',')
+        f = Function(name, params, body)
+        return f
+    elif tp == 'GROUP':
+        return Group(from_dict(d['0']))
+    elif tp == 'GE':
+        return Ge(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'GT':
+        return Gt(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'IDENTIFIER':
+        return Identifier(d['value'], from_dict(d.get('initializer', None)))
+    elif tp == 'IF':
+        condition = from_dict(d['condition'])
+        if d['thenPart'] == 'null':
+            thenPart = Undefined()
+        else:
+            thenPart = from_dict(d['thenPart'])
+        if d['elsePart'] == 'null':
+            elsePart = Undefined()
+        else:
+            elsePart = from_dict(d['elsePart'])
+        return If(condition,thenPart,elsePart)
+    elif tp == 'IN':
+        return In(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'INDEX':
+        return Index(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'LIST':
+        return List(getlist(d))
+    elif tp == 'LE':
+        return Le(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'LT':
+        return Lt(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'MINUS':
+        return Minus(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'NE':
+        return Ne(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'NEW':
+        return New(d['0']['value'])
+    elif tp == 'NUMBER':
+        return Number(float(d['value']))
+    elif tp == 'OBJECT_INIT':
+        return ObjectInit(getlist(d))
+    elif tp == 'PLUS':
+        return Plus(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'PROPERTY_INIT':
+        return PropertyInit(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'RETURN':
+        return Return(from_dict(d['value']))
+    elif tp == 'SCRIPT':
+        if isinstance(d['funDecls'], dict):
+            func_decl = [from_dict(d['funDecls']),]
+        else:
+            func_decl = [from_dict(x) for x in d['funDecls']]
+        
+        if isinstance(d['varDecls'], dict):
+            var_decl = [from_dict(d['varDecls']),]
+        else:
+            var_decl = [from_dict(x) for x in d['varDecls']]
+        return Script(getlist(d), var_decl, func_decl)
+    elif tp == 'SEMICOLON':
+        return Semicolon(from_dict(d['expression']))
+    elif tp == 'STRING':
+        return String(d['value'])
+    elif tp == 'THIS':
+        return Identifier(d['value'])
+    elif tp == 'THROW':
+        return Throw(from_dict(d['exception']))
+    elif tp == 'TRY':
+        finallyblock = None
+        catchblock = None
+        catchparam = ''
+        if 'finallyBlock' in d:
+            finallyblock = from_dict(d['finallyBlock'])
+        if 'catchClauses' in d:
+            #multiple catch clauses is a spidermonkey extension
+            catchblock = from_dict(d['catchClauses']['block'])
+            catchparam = d['catchClauses']['varName']
+        return Try(from_dict(d['tryBlock']), catchblock, finallyblock, catchparam)
+    elif tp == 'VAR':
+        return Vars(getlist(d))
+    elif tp == 'WHILE':
+        body = from_dict(d['body'])
+        condition = from_dict(d['condition'])
+        return While(condition, body)
+    else:
+        raise NotImplementedError("Dont know how to handler %s" % tp)

@@ -190,12 +190,30 @@ class W_FunctionObject(W_Object):
         print "* end of function call return = ", val
         return val
 
+class W_Array(W_Object):
+    def __init__(self, items):
+        W_Object.__init__(self)
+        self.Put('length', W_Number(0))
+    
+    def Put(self, P, V):
+        if not isinstance(P, str):
+            P = P.ToString()
+        if not self.CanPut(P): return
+        if P in self.propdict:
+            self.propdict[P].value = V
+        else:
+            try:
+                x = int(P)
+            except: # FIXME: forgot the name of the exception
+                x = -1
+            if self.Get('length') < 0: pass
+            self.propdict[P] = Property(P, V)
+    
 class W_Undefined(W_Root):
     def __str__(self):
         return "w_undefined"
     
     def ToNumber(self):
-        # XXX make NaN
         return NaN
 
     def ToBoolean(self):

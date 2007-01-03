@@ -4,10 +4,9 @@ from StringIO import StringIO
 
 import py.test
 
-from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.jsparser import parse
-from pypy.lang.js.interpreter import ThrowException
+from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
 
@@ -150,7 +149,7 @@ class TestInterp(object):
         """, ["test"])
 
     def test_array_initializer(self):
-        py.test.skip('not ready yet')
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = [];
         print(x);
