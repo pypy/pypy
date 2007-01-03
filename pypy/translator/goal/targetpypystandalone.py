@@ -146,7 +146,7 @@ class PyPyTarget(object):
     def get_entry_point(self, config):
         space = make_objspace(config)
 
-        if not self.config.objspace.std.oldstyle:
+        if not config.objspace.std.oldstyle:
             # disable translation of the whole of classobjinterp.py
             StdObjSpace.setup_old_style_classes = lambda self: None
 
