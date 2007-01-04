@@ -132,12 +132,14 @@ def _build_controller(cls, ctype):
     else:
         # non-recursive case
         TLS.pending = []
-        controller = cls(ctype)
-        pending = TLS.pending
-        del TLS.pending
-        pending.append(controller)
-        for c1 in pending:
-            c1.setup()
+        try:
+            controller = cls(ctype)
+            TLS.pending.append(controller)
+        finally:
+            pending = TLS.pending
+            del TLS.pending
+            for c1 in pending:
+                c1.setup()
     return controller
 
 def getcontroller(ctype):

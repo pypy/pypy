@@ -10,15 +10,19 @@ PointerType = type(POINTER(c_int))
 
 
 class PointerCTypeController(CTypeController):
+    ready = 0
 
     def __init__(self, ctype):
         CTypeController.__init__(self, ctype)
         self.knowntype = rctypesobject.RPointer(None)
 
     def setup(self):
-        if not hasattr(self, 'contentscontroller'):
+        if self.ready == 0:
+            self.ready = 1
             self.contentscontroller = getcontroller(self.ctype._type_)
-            self.knowntype.setpointertype(self.contentscontroller.knowntype)
+            self.knowntype.setpointertype(self.contentscontroller.knowntype,
+                                          force=True)
+            self.ready = 2
 
     def new(self, ptrto=None):
         obj = self.knowntype.allocate()

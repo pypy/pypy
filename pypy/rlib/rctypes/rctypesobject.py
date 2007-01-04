@@ -294,7 +294,7 @@ def RPointer(contentscls):
         return RCTypesPtr
 RPointer._annspecialcase_ = 'specialize:memo'
 
-def _rpointer_set_pointer_type(RCTypesPtr, contentscls):
+def _rpointer_set_pointer_type(RCTypesPtr, contentscls, force=False):
     assert issubclass(contentscls, RCTypesObject)
     if contentscls in _abstract_classes:
         raise Exception("cannot call RPointer(%s) or "
@@ -306,9 +306,10 @@ def _rpointer_set_pointer_type(RCTypesPtr, contentscls):
     RCTypesPtr.LLTYPE.TO.become(RCTypesPtr.CONTENTS)
     RCTypesPtr._OFS_ITEM = llmemory.sizeof(contentscls.LLTYPE)
     RCTypesPtr.__name__ = 'RCTypes_%s' % (RCTypesPtr.LLTYPE,)
-    assert not hasattr(contentscls, '_ptrcls'), (
-        "the RPointer class corresponding to %r exists already" %
-        (contentscls,))
+    if not force:
+        assert not hasattr(contentscls, '_ptrcls'), (
+            "the RPointer class corresponding to %r exists already" %
+            (contentscls,))
     contentscls._ptrcls = RCTypesPtr
 
 def pointer(x):
