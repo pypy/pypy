@@ -550,15 +550,17 @@ class ObjSpace(object):
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
+	if self.is_w(w_exc_type, w_check_class):
+	    return True
+	if self.is_true(self.abstract_issubclass(w_exc_type, w_check_class)):
+	    return True
+
         if self.is_true(self.isinstance(w_check_class, self.w_tuple)):
             exclst_w = self.unpacktuple(w_check_class)
             for w_e in exclst_w:
                 if self.exception_match(w_exc_type, w_e):
                     return True
-            return False
-        if self.is_true(self.abstract_issubclass(w_exc_type, w_check_class)):
-            return True
-        return self.is_w(w_exc_type, w_check_class)
+        return False
 
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
