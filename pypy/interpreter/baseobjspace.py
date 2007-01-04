@@ -550,27 +550,15 @@ class ObjSpace(object):
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
-        check_list = [w_check_class]
-        while check_list:
-            w_item = check_list.pop()
-            # Match identical items.
-            if self.is_w(w_exc_type, w_item):
-                return True
-            try:
-                # Match subclasses.
-                if self.is_true(self.abstract_issubclass(w_exc_type, w_item, failhard=True)):
+        if self.is_true(self.isinstance(w_check_class, self.w_tuple)):
+            exclst_w = self.unpacktuple(w_check_class)
+            for w_e in exclst_w:
+                if self.exception_match(w_exc_type, w_e):
                     return True
-            except OperationError:
-                # Assume that this is a TypeError: w_item not a type,
-                # and assume that w_item is then actually a tuple.
-                try:
-                    exclst = self.unpackiterable(w_item)
-                except OperationError:
-                    # hum, maybe it is not a tuple after all, and w_exc_type
-                    # was not a type at all (string exceptions).  Give up.
-                    continue
-                check_list.extend(exclst)
-        return False
+            return False
+        if self.is_true(self.abstract_issubclass(w_exc_type, w_check_class)):
+            return True
+        return self.is_w(w_exc_type, w_check_class)
 
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
