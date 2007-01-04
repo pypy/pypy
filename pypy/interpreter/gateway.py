@@ -853,7 +853,7 @@ class PyPyCacheDir:
             initfunc, newsrc = translate_as_module(
                 self.code, self.filename, self.modname)
             fname = cls.cache_path.join(name+".py").strpath
-            f = file(fname, "w")
+            f = file(get_tmp_file_name(fname), "w")
             print >> f, """\
 # self-destruct on double-click:
 if __name__ == "__main__":
@@ -870,6 +870,7 @@ if __name__ == "__main__":
             print >> f, "from pypy._cache import known_code"
             print >> f, "known_code[%r] = %s" % (key, initfunc.__name__)
             f.close()
+            rename_tmp_to_eventual_file_name(fname)
         w_glob = initfunc(space)
         return w_glob
     build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
@@ -897,7 +898,7 @@ if __name__ == "__main__":
                 try:
                     pth.remove()
                 except: pass
-            f = file(str(ini), "w")
+            f = file(get_tmp_file_name(str(ini)), "w")
             f.write("""\
 # This folder acts as a cache for code snippets which have been
 # compiled by compile_as_module().
@@ -931,10 +932,36 @@ if __name__ == "__main__":
 del harakiri
 """ % GI_VERSION)
             f.close()
+            rename_tmp_to_eventual_file_name(str(ini))
         import pypy._cache
         cls.known_code = pypy._cache.known_code
         cls._setup_done = True
     _setup = classmethod(_setup)
+
+
+def gethostname(_cache=[]):
+    if not _cache:
+        try:
+            import socket
+            hostname = socket.gethostname()
+        except:
+            hostname = ''
+        _cache.append(hostname)
+    return _cache[0]
+
+def get_tmp_file_name(fname):
+    return '%s~%s~%d' % (fname, gethostname(), os.getpid())
+
+def rename_tmp_to_eventual_file_name(fname):
+    # generated files are first written to the host- and process-specific
+    # file 'tmpname', and then atomically moved to their final 'fname'
+    # to avoid problems if py.py is started several times in parallel
+    tmpname = get_tmp_file_name(fname)
+    try:
+        os.rename(tmpname, fname)
+    except (OSError, IOError):
+        os.unlink(fname)    # necessary on Windows
+        os.rename(tmpname, fname)
 
 # ____________________________________________________________
 
