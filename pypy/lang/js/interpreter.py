@@ -43,8 +43,15 @@ class Interpreter(object):
     def load_source(self, script_source):
         """load a source script text to the interpreter"""
         temp_dict = parse(script_source)
+        #import pprint
+        #pprint.pprint(temp_dict)
         self.script = from_dict(temp_dict)
     
+    def append_source(self, script_source):
+        temp_dict = parse(script_source)
+        newscript = from_dict(temp_dict)
+        self.script.append_script(newscript)
+
     def run(self):
         """run the interpreter"""
         return self.script.call(self.global_context)
@@ -359,18 +366,26 @@ class Script(Node):
         except ExecutionReturned, e:
             return e.value
 
+    def append_script(self, newscript):
+        """copy everything from the newscript to this one"""
+        self.var_decl.extend(newscript.var_decl)
+        self.nodes.extend(newscript.nodes)
+        self.func_decl.extend(newscript.func_decl)
+
 class Semicolon(Node):
-    def __init__(self, expr):
+    def __init__(self, expr = None):
         self.expr = expr
 
-    def call(self, ctx=None):
+    def call(self, ctx):
+        if self.expr is None:
+            return
         return self.expr.call(ctx)
 
 class String(Node):
     def __init__(self, strval):
         self.strval = strval
 
-    def call(self, ctx=None):
+    def call(self, ctx):
         return W_String(self.strval)
     
     def get_literal(self):
@@ -556,6 +571,8 @@ def from_dict(d):
             var_decl = [from_dict(x) for x in d['varDecls']]
         return Script(getlist(d), var_decl, func_decl)
     elif tp == 'SEMICOLON':
+        if d['expression'] == 'null':
+            return Semicolon()
         return Semicolon(from_dict(d['expression']))
     elif tp == 'STRING':
         return String(d['value'])
