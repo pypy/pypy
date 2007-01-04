@@ -467,10 +467,9 @@ class Primitives(object):
     def repr_address(self, type_, value):
         if not value:
             return 'null'
-        obj = value.ptr._obj
-        typename = self.database.repr_type(lltype.typeOf(obj))
-        ref = self.database.repr_name(obj)
-        res = "cast(%s* %s to sbyte*)" % (typename, ref)
+        ptr = value.ptr
+        node, ref = self.database.repr_constant(ptr)
+        res = "cast(%s to sbyte*)" % (ref,)
         return res
 
     def repr_weakgcaddress(self, type_, value):
