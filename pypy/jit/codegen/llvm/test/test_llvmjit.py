@@ -2,6 +2,7 @@ import py
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.llvm import llvmjit
+from pypy.jit.codegen.llvm.compatibility import define, icmp, i32
 
 try:
     from pypy.jit.codegen.llvm import llvmjit
@@ -15,95 +16,94 @@ def skip_unsupported_platform():
         py.test.skip('dynamic vs. static library issue on Darwin. see: http://www.cocoadev.com/index.pl?ApplicationLinkingIssues for more information (FIXME)')
 
 #
-llsquare = '''int %square(int %n) {
-    %n2 = mul int %n, %n
-    ret int %n2
-}'''
+llsquare = '''%(define)s %(i32)s %%square(%(i32)s %%n) {
+    %%n2 = mul %(i32)s %%n, %%n
+    ret %(i32)s %%n2
+}''' % vars()
 
-llmul2 = '''int %mul2(int %n) {
-    %n2 = mul int %n, 2
-    ret int %n2
-}'''
+llmul2 = '''%(define)s %(i32)s %%mul2(%(i32)s %%n) {
+    %%n2 = mul %(i32)s %%n, 2
+    ret %(i32)s %%n2
+}''' % vars()
 
 #
-llvm2 = llvmjit.llvm_version() >= 2.0
-lldeadcode = '''int %%deadcode(int %%n) {
+lldeadcode = '''%(define)s %(i32)s %%deadcode(%(i32)s %%n) {
 Test:
-    %%cond = %s int %%n, %%n
+    %%cond = %(icmp)seq %(i32)s %%n, %%n
     br bool %%cond, label %%IfEqual, label %%IfUnequal
 
 IfEqual:
-    %%n2 = mul int %%n, 2
-    ret int %%n2
+    %%n2 = mul %(i32)s %%n, 2
+    ret %(i32)s %%n2
 
 IfUnequal:
-    ret int -1
-}''' % ('seteq', 'icmp eq')[llvm2]
+    ret %(i32)s -1
+}''' % vars()
 
 #
-llfuncA = '''int %func(int %n) {
-    %n2 = add int %n, %n
-    ret int %n2
-}'''
+llfuncA = '''%(define)s %(i32)s %%func(%(i32)s %%n) {
+    %%n2 = add %(i32)s %%n, %%n
+    ret %(i32)s %%n2
+}''' % vars()
 
-llfuncB = '''int %func(int %n) {
-    %n2 = mul int %n, %n
-    ret int %n2
-}'''
+llfuncB = '''%(define)s %(i32)s %%func(%(i32)s %%n) {
+    %%n2 = mul %(i32)s %%n, %%n
+    ret %(i32)s %%n2
+}''' % vars()
 
 #
-llacross1 = '''declare int %across2(int)
+llacross1 = '''declare %(i32)s %%across2(%(i32)s)
 
 implementation
 
-int %across1(int %n) {
-    %n2 = mul int %n, 3
-    ret int %n2
+%(define)s %(i32)s %%across1(%(i32)s %%n) {
+    %%n2 = mul %(i32)s %%n, 3
+    ret %(i32)s %%n2
 }
 
-int %across1to2(int %n) {
-    %n2 = add int %n, 5
-    %n3 = call int %across2(int %n2)
-    ret int %n3
-}'''
+%(define)s %(i32)s %%across1to2(%(i32)s %%n) {
+    %%n2 = add %(i32)s %%n, 5
+    %%n3 = call %(i32)s %%across2(%(i32)s %%n2)
+    ret %(i32)s %%n3
+}''' % vars()
 
-llacross2 = '''declare int %across1(int %dsf)
+llacross2 = '''declare %(i32)s %%across1(%(i32)s %%dsf)
 
 implementation
 
-int %across2(int %n) {
-    %n2 = mul int %n, 7
-    ret int %n2
+%(define)s %(i32)s %%across2(%(i32)s %%n) {
+    %%n2 = mul %(i32)s %%n, 7
+    ret %(i32)s %%n2
 }
 
-int %across2to1(int %n) {
-    %n2 = add int %n, 9
-    %n3 = call int %across1(int %n2)
-    ret int %n3
-}'''
+%(define)s %(i32)s %%across2to1(%(i32)s %%n) {
+    %%n2 = add %(i32)s %%n, 9
+    %%n3 = call %(i32)s %%across1(%(i32)s %%n2)
+    ret %(i32)s %%n3
+}''' % vars()
 
 #
-llglobalmul4 = '''%my_global_data = external global int
+llglobalmul4 = '''%%my_global_data = external global %(i32)s
 
 implementation
 
-int %globalmul4(int %a) {
-    %v0 = load int* %my_global_data
-    %v1 = mul int %v0, 4
-    %v2 = add int %v1, %a
-    store int %v2, int* %my_global_data
-    ret int %v2
-}'''
+%(define)s %(i32)s %%globalmul4(%(i32)s %%a) {
+    %%v0 = load %(i32)s* %%my_global_data
+    %%v1 = mul %(i32)s %%v0, 4
+    %%v2 = add %(i32)s %%v1, %%a
+    store %(i32)s %%v2, %(i32)s* %%my_global_data
+    ret %(i32)s %%v2
+}''' % vars()
 
 #
-llcall_global_function = '''declare int %my_global_function(int, int, int)
+llcall_global_function = '''declare %(i32)s %%my_global_function(%(i32)s, %(i32)s, %(i32)s)
 
 implementation
 
-int %call_global_function(int %n) {
-    %v = call int %my_global_function(int 3, int %n, int 7) ;note: maybe tail call?
-    ret int %v
-}'''
+%(define)s %(i32)s %%call_global_function(%(i32)s %%n) {
+    %%v = call %(i32)s %%my_global_function(%(i32)s 3, %(i32)s %%n, %(i32)s 7) ;note: maybe tail call?
+    ret %(i32)s %%v
+}''' % vars()
 
 #helpers
 def execute(llsource, function_name, param):

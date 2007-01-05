@@ -211,7 +211,9 @@ int     execute(const void* function, int param) { //XXX allow different functio
     args.push_back((void*)param);
 
     GenericValue gv = gp_execution_engine->runFunction((Function*)function, args);
-    return gv.IntVal;
+    //return gv.IntVal;   //llvm 1.x
+    //return gv.Int32Val; //llvm 2.x
+    return *(int*)&gv;  //XXX todo: figure out if there is a C define for the llvm version
 }
 
 
