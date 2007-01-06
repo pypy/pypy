@@ -8,7 +8,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
 from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
-    trunc, zext, bitcast, shr_prefix
+    trunc, zext, bitcast, shr_prefix, define, i8, i16, i32
 
 
 LINENO       = option.lineno
@@ -89,7 +89,7 @@ class Var(GenVar):
     def __init__(self, type):
         self.n = count.n_vars
         self.type = type
-        self.signed = type is 'int' or type is 'float'
+        self.signed = type is i32 or type is 'float'
         count.n_vars += 1
 
     def operand(self):
@@ -130,7 +130,7 @@ class BoolConst(GenericConst):
 
 
 class CharConst(GenericConst):
-    type = 'ubyte'
+    type = i8
     signed = False
 
     def __init__(self, value):
@@ -142,7 +142,7 @@ class CharConst(GenericConst):
 
 
 class UniCharConst(GenericConst):
-    type = 'int'
+    type = i32
     signed = True
 
     def __init__(self, value):
@@ -150,7 +150,7 @@ class UniCharConst(GenericConst):
 
 
 class IntConst(GenericConst):
-    type = 'int'
+    type = i32
     signed = True
 
     def __init__(self, value):
@@ -165,7 +165,7 @@ class IntConst(GenericConst):
 
 
 class UIntConst(GenericConst):
-    type = 'uint'
+    type = i32  #'uint'
     signed = False
 
     def __init__(self, value):
@@ -181,7 +181,7 @@ class FloatConst(GenericConst):
 
 
 class AddrConst(GenConst):
-    type = 'int*'
+    type = i32 + '*'
     signed = False
 
     def __init__(self, addr):
@@ -277,7 +277,8 @@ class PrologueBlock(Block):
 
     def writecode(self, lines):
         argtypes, restype = self.sigtoken
-        lines.append('%s %%%s(%s){' % (
+        lines.append('%s %s %%%s(%s){' % (
+            define,
             restype,
             self.name,
             ','.join([v.operand() for v in self.inputargs])))
@@ -385,21 +386,21 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_int_xor(self, gv_x, gv_y):       return self._rgenop2_generic('xor' , gv_x, gv_y)
 
     def op_int_lshift(self, gv_x, gv_y):
-        gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=%s %s to ubyte' % (
-            gv_y_ubyte.operand2(), trunc, gv_y.operand()))
+        gv_y_i8 = Var(i8)
+        self.asm.append(' %s=%s %s to %s' % (
+            gv_y_i8.operand2(), trunc, gv_y.operand(), i8))
         gv_result = Var(gv_x.type)
         self.asm.append(' %s=shl %s,%s' % (
-            gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
+            gv_result.operand2(), gv_x.operand(), gv_y_i8.operand()))
         return gv_result
 
     def op_int_rshift(self, gv_x, gv_y):
-        gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=%s %s to ubyte' % (
-            gv_y_ubyte.operand2(), trunc, gv_y.operand()))
+        gv_y_i8 = Var(i8)
+        self.asm.append(' %s=%s %s to %s' % (
+            gv_y_i8.operand2(), trunc, gv_y.operand(), i8))
         gv_result = Var(gv_x.type)
         self.asm.append(' %s=%sshr %s,%s' % (
-            gv_result.operand2(), shr_prefix[gv_x.signed], gv_x.operand(), gv_y_ubyte.operand()))
+            gv_result.operand2(), shr_prefix[gv_x.signed], gv_x.operand(), gv_y_i8.operand()))
         return gv_result
 
     op_uint_add = op_float_add = op_int_add
@@ -537,17 +538,17 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     def _cast_to_bool(self, gv_x):      return self._cast_to(gv_x, 'bool')
-    def _cast_to_char(self, gv_x):      return self._cast_to(gv_x, 'ubyte')
-    def _cast_to_unichar(self, gv_x):   return self._cast_to(gv_x, 'int')
-    def _cast_to_int(self, gv_x):       return self._cast_to(gv_x, 'int')
-    def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, 'uint')
+    def _cast_to_char(self, gv_x):      return self._cast_to(gv_x, i8)
+    def _cast_to_unichar(self, gv_x):   return self._cast_to(gv_x, i32)
+    def _cast_to_int(self, gv_x):       return self._cast_to(gv_x, i32)
+    def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, i32) #'uint')
     def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, 'float')
 
     def _trunc_to_bool(self, gv_x):      return self._trunc_to(gv_x, 'bool')
-    def _trunc_to_char(self, gv_x):      return self._trunc_to(gv_x, 'ubyte')
-    def _trunc_to_unichar(self, gv_x):   return self._trunc_to(gv_x, 'int')
-    def _trunc_to_int(self, gv_x):       return self._trunc_to(gv_x, 'int')
-    def _trunc_to_uint(self, gv_x):      return self._trunc_to(gv_x, 'uint')
+    def _trunc_to_char(self, gv_x):      return self._trunc_to(gv_x, i8)
+    def _trunc_to_unichar(self, gv_x):   return self._trunc_to(gv_x, i32)
+    def _trunc_to_int(self, gv_x):       return self._trunc_to(gv_x, i32)
+    def _trunc_to_uint(self, gv_x):      return self._trunc_to(gv_x, i32) #'uint')
     def _trunc_to_float(self, gv_x):     return self._trunc_to(gv_x, 'float')
 
     op_cast_char_to_bool    = _trunc_to_bool
@@ -661,20 +662,20 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         log('%s Builder.genop_getfield (%d,%d) %s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand()))
         if fieldsize == WORD:
-            t = 'int'
+            t = i32
         else:
             if fieldsize == 1:
-                t = 'ubyte'
+                t = i8
             else:
                 if fieldsize != 2:
                     logger.dump('assert fails on: fieldsize != [124]')
                     self.rgenop._dump_partial_lines()
                     assert fieldsize == 2
-                t = 'short'
+                t = i16
         gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(t + '*')
-        self.asm.append(' %s=getelementptr %s,int %s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), offset / fieldsize))
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_ptr_var.operand(), i32, offset / fieldsize))
         gv_result = Var(t)
         self.asm.append(' %s=load %s' % (
             gv_result.operand2(), gv_p.operand()))
@@ -684,17 +685,17 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         log('%s Builder.genop_setfield (%d,%d) %s=%s' % (
             self.block.label, offset, fieldsize, gv_ptr.operand(), gv_value.operand()))
         #if fieldsize == WORD:
-        #    gv_result = Var('int')
+        #    gv_result = Var(i32)
         #else:
         #    if fieldsize == 1:
-        #       gv_result = Var('ubyte')
+        #       gv_result = Var(i8)
         #    else:
         #       assert fieldsize == 2
-        #       gv_result = Var('short')
+        #       gv_result = Var(i16)
         gv_ptr_var = self._as_var(gv_ptr)
         gv_p = Var(gv_value.type+'*')
-        self.asm.append(' %s=getelementptr %s,int %s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), offset / fieldsize))
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_ptr_var.operand(), i32, offset / fieldsize))
         self.asm.append(' store %s,%s' % (
             gv_value.operand(), gv_p.operand()))
 
@@ -739,11 +740,11 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         '''
         #XXX TODO
         array_length_offset, array_items_offset, itemsize = arraytoken
-        gv_result = Var('int')
+        gv_result = Var(i32)
         log('%s Builder.genop_getarraysubstruct %s,%s,%s' % (
             self.block.label, arraytoken, gv_ptr, gv_index))
-        self.asm.append(' %s=int 0 ;%s Builder.genop_getarraysubstruct %s,%s,%s' % (
-            gv_result.operand2(), self.block.label, arraytoken, gv_ptr, gv_index))
+        self.asm.append(' %s=%s 0 ;%s Builder.genop_getarraysubstruct %s,%s,%s' % (
+            gv_result.operand2(), gv_result.type, self.block.label, arraytoken, gv_ptr, gv_index))
         return gv_result
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
@@ -754,19 +755,19 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         '''
         #XXX TODO
         array_length_offset, array_items_offset, itemsize = arraytoken
-        gv_result = Var('int')
+        gv_result = Var(i32)
         log('%s Builder.genop_getarraysize %s,%s' % (
             self.block.label, arraytoken, gv_ptr))
-        self.asm.append(' %s=int 0 ;%s Builder.genop_getarraysize %s,%s' % (
-            gv_result.operand2(), self.block.label, arraytoken, gv_ptr))
+        self.asm.append(' %s=%s 0 ;%s Builder.genop_getarraysize %s,%s' % (
+            gv_result.operand2(), gv_result.type, self.block.label, arraytoken, gv_ptr))
         return gv_result
 
     def _as_var(self, gv):
         if gv.is_const:
             gv_var = Var(gv.type)
             #XXX provide correct cast here
-            self.asm.append(' %s=%s int %s to %s' % (
-                gv_var.operand2(), inttoptr, gv.operand2(), gv_var.type))
+            self.asm.append(' %s=%s %s %s to %s' % (
+                gv_var.operand2(), inttoptr, i32, gv.operand2(), gv_var.type))
             return gv_var
         return gv
         
@@ -780,7 +781,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         except TypeError:
             offset = 4 #XXX (get inspired by ppc backend)
         gv_i = Var(gv_index.type)
-        self.asm.append(' %s=add %s,%d' % (
+        self.asm.append(' %s=add %s,%d ;;;;' % (
             gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
 
         gv_ptr_var = self._as_var(gv_ptr)
@@ -793,23 +794,27 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def genop_malloc_fixedsize(self, size):
         log('%s Builder.genop_malloc_fixedsize %s' % (
             self.block.label, str(size)))
-        gv_result = Var('ubyte*') #XXX or opaque* ???
-        gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
+        t = i8 + '*'    #XXX or opaque* ?
+        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
+        gv_result = Var(t)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=%s int %d to %s ;gc_malloc_fnaddr' % (
-            gv_gc_malloc_fnaddr.operand2(), inttoptr, gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
-        self.asm.append(' %s=call %s(int %d)' % (
-            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), size))
+        self.asm.append(' %s=%s %s %d to %s ;gc_malloc_fnaddr' % (
+            gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
+            gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
+        self.asm.append(' %s=call %s(%s %d)' % (
+            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), i32, size))
         return gv_result
 
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
         log('%s Builder.genop_malloc_varsize %s,%s' % (
             self.block.label, varsizealloctoken, gv_size.operand()))
-        gv_result = Var('ubyte*') #XXX or opaque* ???
-        gv_gc_malloc_fnaddr = Var('%s (int)*' % gv_result.type)
+        t = i8 + '*'    #XXX or opaque* ?
+        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
+        gv_result = Var(t)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=%s int %d to %s ;gc_malloc_fnaddr' % (
-            gv_gc_malloc_fnaddr.operand2(), inttoptr, gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
+        self.asm.append(' %s=%s %s %d to %s ;gc_malloc_fnaddr (varsize)' % (
+            gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
+            gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
         self.asm.append(' %s=call %s(%s)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size.operand()))
         #XXX TODO set length field
@@ -957,19 +962,19 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         # turn the type T into the llvm approximation that we'll use here
         # XXX incomplete
         if isinstance(T, lltype.Ptr):
-            return 'int*'
+            return i32 + '*'    #or opaque* ?
         elif T is llmemory.Address:
-            return 'int*'
+            return i32 + '*'    #or apaque* ?
         if T is lltype.Bool:
             return 'bool'
         elif T is lltype.Char:
-            return 'ubyte'
+            return i8
         elif T is lltype.Unsigned:
-            return 'uint'
+            return i32  #'uint'
         elif T is lltype.Float:
             return 'float'
         else:
-            return 'int'    #Signed/UniChar/Void
+            return i32  #Signed/UniChar/Void
 
     @staticmethod
     @specialize.memo()
