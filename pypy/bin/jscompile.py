@@ -15,7 +15,7 @@ from pypy.config.config import Config, to_optparse
 
 def process_options(argv):
     jsconfig = Config(js_optiondescr)
-    parser, to_optparse(jsconfig)
+    parser = to_optparse(jsconfig)
     parser.disable_interspersed_args()
     options, args = parser.parse_args(argv)
     return args, jsconfig
@@ -25,4 +25,5 @@ if __name__ == '__main__':
     curdir = os.getcwd()
     if curdir not in sys.path:
         sys.path.insert(0, curdir)
-    rpython2javascript_main(args, jsconfig)
+    print args
+    rpython2javascript_main(args[1:], jsconfig)

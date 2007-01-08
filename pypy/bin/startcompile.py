@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import autopath
-import path
+from pypy.tool.build.bin import path
 import sys
 import random
 from pypy.tool.build import config
