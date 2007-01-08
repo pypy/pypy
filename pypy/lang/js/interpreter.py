@@ -203,13 +203,13 @@ def ARC(ctx, x, y):
         s4 = s1.ToNumber()
         s5 = s2.ToNumber()
         if s4 == NaN or s5 == NaN:
-            return None
+            return -1
         if s4 < s5:
-            return True
+            return 1
         else:
-            return False
+            return 0
     else:
-        pass 
+        return -1
 
 class Or(BinaryLogicOp):
     def eval(self, ctx):
@@ -230,7 +230,7 @@ class And(BinaryLogicOp):
 class Ge(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
-        if s5 is None or s5:
+        if s5 in (-1, 1):
             return W_Boolean(False)
         else:
             return W_Boolean(True)
@@ -238,7 +238,7 @@ class Ge(BinaryComparisonOp):
 class Gt(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
-        if s5 is None:
+        if s5 == -1:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
@@ -246,7 +246,7 @@ class Gt(BinaryComparisonOp):
 class Le(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
-        if s5 is None or s5:
+        if s5 in (-1, 1):
             return W_Boolean(False)
         else:
             return W_Boolean(True)
@@ -254,7 +254,7 @@ class Le(BinaryComparisonOp):
 class Lt(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
-        if s5 is None:
+        if s5 == -1:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
@@ -279,7 +279,7 @@ class Ne(BinaryComparisonOp):
 class In(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         if not isinstance(op2, W_Object):
-            raise ThrowException("TypeError")
+            raise ThrowException(W_String("TypeError"))
         name = op1.ToString()
         return W_Boolean(op2.HasProperty(name))
 
