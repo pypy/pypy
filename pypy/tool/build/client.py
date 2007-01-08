@@ -149,6 +149,9 @@ def main(config, path, compilefunc):
     if config.server in ['localhost', '127.0.0.1']:
         gw = PopenGateway()
     else:
+        print "It may be that you have to enter your ssh-password for %s" % (
+                config.server, )
+        print "if you don't have your keys configured properly"
         gw = SshGateway(config.server)
         
     channel = init(gw,
