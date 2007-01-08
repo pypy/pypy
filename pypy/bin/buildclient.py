@@ -79,7 +79,7 @@ def compile(wc, compileinfo, buildpath):
 
 if __name__ == '__main__':
     # main bit
-    import path
+    from pypy.tool.build.bin import path
     from pypy.tool.build import config
     from pypy.tool.build.client import main
 
