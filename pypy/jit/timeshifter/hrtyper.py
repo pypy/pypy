@@ -208,18 +208,18 @@ class HintRTyper(RPythonTyper):
         annhelper = self.annhelper
         rgenop = self.RGenOp()
 
-        argcolors = []
+        args_specification = []
         portal_args_s = []
         for v in portalgraph.getargs()[1:]:
             r = self.bindingrepr(v)
             if isinstance(r, GreenRepr):
-                color = "green"
+                arg_spec = "green", None, None
                 portal_args_s.append(annmodel.lltype_to_annotation(
                     r.lowleveltype))
             else:
-                color = "red"
+                arg_spec = "red", r.residual_args_collector(), r.arg_redbox_maker()
                 portal_args_s.append(self.s_RedBox)
-            argcolors.append(color)
+            args_specification.append(arg_spec)
 
         tsportalgraph = portalgraph
         # patch the shared portal pointer
@@ -235,7 +235,7 @@ class HintRTyper(RPythonTyper):
         RESTYPE = FUNC.RESULT
         reskind = rgenop.kindToken(RESTYPE)
         boxbuilder = rvalue.ll_redboxbuilder(RESTYPE)
-        argcolors = unrolling_iterable(argcolors)
+        args_specification = unrolling_iterable(args_specification)
         fresh_jitstate = self.ll_fresh_jitstate
         finish_jitstate = self.ll_finish_jitstate
 
@@ -249,7 +249,7 @@ class HintRTyper(RPythonTyper):
         def readportal(*args):
             i = 0
             key = ()
-            for color in argcolors:
+            for color, _, _ in args_specification:
                 if color == "green":
                     x = args[i]
                     if isinstance(lltype.typeOf(x), lltype.Ptr): 
@@ -272,14 +272,14 @@ class HintRTyper(RPythonTyper):
             i = 0
             key = ()
             residualargs = ()
-            for color in argcolors:
+            for color, collect_residual_args, _ in args_specification:
                 if color == "green":
                     x = args[i]
                     if isinstance(lltype.typeOf(x), lltype.Ptr): 
                         x = llmemory.cast_ptr_to_adr(x)
                     key = key + (x,)
                 else:
-                    residualargs = residualargs + (args[i],)
+                    residualargs = residualargs + collect_residual_args(args[i])
                 i = i + 1
             cache = state.cache
             try:
@@ -291,7 +291,7 @@ class HintRTyper(RPythonTyper):
                                                              "generated")
                 cache[key] = gv_generated
                 i = 0
-                for color in argcolors:
+                for color, _, make_arg_redbox in args_specification:
                     if color == "green":
                         llvalue = args[0]
                         args = args[1:]
@@ -299,12 +299,8 @@ class HintRTyper(RPythonTyper):
                     else:
                         llvalue = args[0]
                         args = args[1:]
-                        TYPE = lltype.typeOf(llvalue)
-                        kind = rgenop.kindToken(TYPE)
-                        boxcls = rvalue.ll_redboxcls(TYPE)
-                        gv_arg = inputargs_gv[i]
-                        box = boxcls(kind, gv_arg)
-                        i += 1
+                        box = make_arg_redbox(inputargs_gv, i)
+                        i += make_arg_redbox.consumes                        
                         portal_ts_args += (box,)
 
                 top_jitstate = fresh_jitstate(builder)
@@ -335,16 +331,16 @@ class HintRTyper(RPythonTyper):
                                                       s_funcptrlist)
 
         TYPES = [v.concretetype for v in origportalgraph.getargs()]
-        argcolorandtypes = unrolling_iterable(zip(argcolors,
+        argspecandtypes = unrolling_iterable(zip(args_specification,
                                                   TYPES))
         fetch_global_excdata = self.fetch_global_excdata
 
-        def portalreentry(jitstate, *args):
+        def portalreentry(jitstate, *args): # xxx
             i = 0
             key = ()
             curbuilder = jitstate.curbuilder
             args_gv = []
-            for color in argcolors:
+            for color, _, _ in args_specification:
                 if color == "green":
                     x = args[i]
                     if isinstance(lltype.typeOf(x), lltype.Ptr): 
@@ -364,7 +360,7 @@ class HintRTyper(RPythonTyper):
                                                                 "generated")
                 cache[key] = gv_generated
                 i = 0
-                for color, T in argcolorandtypes:
+                for (color, _, _), T in argspecandtypes:
                     if color == "green":
                         llvalue = args[0]
                         args = args[1:]
@@ -451,8 +447,11 @@ class HintRTyper(RPythonTyper):
         ha = self.annotator
         args_hs, hs_res = self.get_sig_hs(ha.translator.graphs[0])
         RESTYPE = originalconcretetype(hs_res)
-        ARGS = [originalconcretetype(hs_arg) for hs_arg in args_hs
-                                             if not hs_arg.is_green()]
+        args_r = [self.getrepr(hs_arg) for hs_arg in args_hs
+                                       if not hs_arg.is_green()]
+        ARGS = []
+        for r_arg in args_r:
+            ARGS += r_arg.residual_argtypes()
         return lltype.FuncType(ARGS, RESTYPE)
 
     def make_new_lloplist(self, block):
@@ -671,8 +670,16 @@ class HintRTyper(RPythonTyper):
                                                    [ts.s_JITState],
                                                    [v_jitstate   ],
                                                    ts.s_RedBox)
-        # non virtual case        
+        # virtualizable access read
         PTRTYPE = originalconcretetype(hop.args_s[0])
+        if PTRTYPE.TO._hints.get('virtualizable', False):
+            # xxx optimisation: do this folding already at hint-annotation time!
+            if hop.args_v[1].value == 'access':
+                ACCESSPTR = PTRTYPE.TO.access
+                access_repr = self.getredrepr(ACCESSPTR)
+                return hop.inputconst(access_repr, lltype.nullptr(ACCESSPTR.TO))
+
+        # non virtual case                
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
         v_argbox = hop.llops.as_ptrredbox(v_argbox)
@@ -1441,6 +1448,23 @@ class RedRepr(Repr):
         self.original_concretetype = original_concretetype
         self.lowleveltype = hrtyper.r_RedBox.lowleveltype
         self.hrtyper = hrtyper
+        self.build_portal_arg_helpers()
+
+    def build_portal_arg_helpers(self):
+        def collect_residual_args(v):
+            return (v,)
+        self.collect_residual_args = collect_residual_args
+
+        TYPE = self.original_concretetype
+        kind = self.hrtyper.RGenOp.kindToken(TYPE)
+        boxcls = rvalue.ll_redboxcls(TYPE)
+        
+        def make_arg_redbox(inputargs_gv, i):
+            gv_arg = inputargs_gv[i]
+            box = boxcls(kind, gv_arg)
+            return box
+        self.make_arg_redbox = make_arg_redbox
+        make_arg_redbox.consumes = 1
 
 ##    def get_genop_var(self, v, llops):
 ##        ts = self.hrtyper
@@ -1459,19 +1483,78 @@ class RedRepr(Repr):
     def residual_values(self, ll_value):
         return [ll_value]
 
+    def residual_argtypes(self):
+        return [self.original_concretetype]
+
+    def residual_args_collector(self):
+        return self.collect_residual_args
+
+    def arg_redbox_maker(self):
+        return self.make_arg_redbox
 
 class RedStructRepr(RedRepr):
     typedesc = None
 
-    def create(self, hop):
-        ts = self.hrtyper
+    def build_portal_arg_helpers(self):
+        T = self.original_concretetype.TO
+        if not T._hints.get('virtualizable', False):
+            RedRepr.build_portal_arg_helpers(self)
+            return
+        
+        names = unrolling_iterable([name for name in T._names if name != 'access'])
+        def collect_residual_args(v): 
+            t = ()
+            for name in names:
+                t = t + (getattr(v, name),) # xxx need to use access ?
+            return t
+        self.collect_residual_args = collect_residual_args
+
+        TYPE = self.original_concretetype
+        kind = self.hrtyper.RGenOp.kindToken(TYPE)
+        boxcls = rvalue.ll_redboxcls(TYPE)
+
+        typedesc = self.gettypedesc()
+        
+        def make_arg_redbox(inputargs_gv, i):
+            box = typedesc.factory()
+            j = 1
+            content = box.content
+            assert isinstance(content, rcontainer.VirtualStruct)
+            content_boxes = content.content_boxes
+            for name in names:
+                content_boxes[j].genvar = inputargs_gv[i]
+                j = j + 1
+                i += 1
+            return box
+        self.make_arg_redbox = make_arg_redbox
+        make_arg_redbox.consumes = len(T._names)-1
+
+    def gettypedesc(self):
         if self.typedesc is None:
+            ts = self.hrtyper
             T = self.original_concretetype.TO
             self.typedesc = rcontainer.StructTypeDesc(ts.RGenOp, T)
-        v_ptrbox = hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
+        return self.typedesc
+
+    def create(self, hop):
+        ts = self.hrtyper
+        typedesc = self.gettypedesc()
+        v_ptrbox = hop.llops.genmixlevelhelpercall(typedesc.ll_factory,
             [], [], ts.s_PtrRedBox)
         return hop.llops.as_redbox(v_ptrbox)
 
+    def residual_argtypes(self):
+        T = self.original_concretetype.TO
+        if T._hints.get('virtualizable', False):
+            argtypes = []
+            getredrepr = self.hrtyper.getredrepr
+            for name in T._names:
+                if name == 'access':
+                    continue
+                FIELDTYPE = getattr(T, name)
+                argtypes += getredrepr(FIELDTYPE).residual_argtypes()
+            return argtypes
+        return [self.original_concretetype]
 
 ##class VoidRedRepr(Repr):
 ##    def __init__(self, hrtyper):

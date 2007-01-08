@@ -6,7 +6,6 @@ import py
 class TestVirtualizable(PortalTest):
 
     def test_simple_explicit(self):
-        py.test.skip("WIP")
         XY = lltype.GcForwardReference()
         GETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XY)], lltype.Signed))
         SETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XY), lltype.Signed],
