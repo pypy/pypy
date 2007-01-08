@@ -47,4 +47,8 @@ class TestVirtualizable(PortalTest):
 
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
         assert res == 42
-        self.check_insns(getfield=0) # maybe?
+        self.check_insns(getfield=0)
+        residual_graph = self.get_residual_graph()
+        assert len(residual_graph.startblock.inputargs) == 3
+        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
+                [lltype.Ptr(XY), lltype.Signed, lltype.Signed])

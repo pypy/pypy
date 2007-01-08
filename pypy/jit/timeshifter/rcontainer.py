@@ -82,6 +82,9 @@ class StructTypeDesc(object):
         self.immutable = TYPE._hints.get('immutable', False)
         self.noidentity = TYPE._hints.get('noidentity', False)
 
+        if TYPE._hints.get('virtualizable', False):
+            self.__class__ = VirtualizableStructTypeDesc
+            
         if self.immutable and self.noidentity:
             descs = unrolling_iterable(fielddescs)
             def materialize(rgenop, boxes):
@@ -117,6 +120,20 @@ class StructTypeDesc(object):
     def compact_repr(self): # goes in ll helper names
         return "Desc_%s" % (self.TYPE._short_name(),)
 
+class VirtualizableStructTypeDesc(StructTypeDesc):
+    
+    def factory(self):
+        vstruct = VirtualizableStruct(self)
+        vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
+                                 for desc in self.fielddescs]
+        outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
+        # xxx set outsidebox.genvar
+        vstruct.content_boxes.append(outsidebox)
+        box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
+        box.content = vstruct
+        vstruct.ownbox = box
+        return box
+    
 # XXX basic field descs for now
 class FieldDesc(object):
     __metaclass__ = cachedtype
@@ -305,6 +322,12 @@ class VirtualStruct(VirtualContainer):
 
     def op_getsubstruct(self, jitstate, fielddesc):
         return self.ownbox
+
+class VirtualizableStruct(VirtualStruct):
+
+    def force_runtime_container(self, builder):
+        assert 0, "not implemented for now"
+
 
 # ____________________________________________________________
 

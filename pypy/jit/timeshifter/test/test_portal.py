@@ -88,8 +88,7 @@ class PortalTest(object):
         res = llinterp.eval_graph(self.maingraph, main_args)
         return res
 
-    def check_insns(self, expected=None, **counts):
-        # XXX only works if the portal is the same as the main
+    def get_residual_graph(self):
         llinterp = LLInterpreter(self.rtyper)
         if self.main_is_portal:
             residual_graph = llinterp.eval_graph(self.readportalgraph,
@@ -98,7 +97,11 @@ class PortalTest(object):
             residual_graphs = llinterp.eval_graph(self.readallportalsgraph, [])
             assert residual_graphs.ll_length() == 1
             residual_graph = residual_graphs.ll_getitem_fast(0)._obj.graph
+        return residual_graph
             
+    def check_insns(self, expected=None, **counts):
+        # XXX only works if the portal is the same as the main
+        residual_graph = self.get_residual_graph()
         self.insns = summary(residual_graph)
         if expected is not None:
             assert self.insns == expected

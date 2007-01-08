@@ -1503,7 +1503,7 @@ class RedStructRepr(RedRepr):
         
         names = unrolling_iterable([name for name in T._names if name != 'access'])
         def collect_residual_args(v): 
-            t = ()
+            t = (v,)
             for name in names:
                 t = t + (getattr(v, name),) # xxx need to use access ?
             return t
@@ -1521,13 +1521,16 @@ class RedStructRepr(RedRepr):
             content = box.content
             assert isinstance(content, rcontainer.VirtualStruct)
             content_boxes = content.content_boxes
+            gv_outside = inputargs_gv[i]
+            i += 1
             for name in names:
                 content_boxes[j].genvar = inputargs_gv[i]
                 j = j + 1
                 i += 1
+            content_boxes[j].genvar = gv_outside
             return box
         self.make_arg_redbox = make_arg_redbox
-        make_arg_redbox.consumes = len(T._names)-1
+        make_arg_redbox.consumes = len(T._names)
 
     def gettypedesc(self):
         if self.typedesc is None:
@@ -1544,17 +1547,16 @@ class RedStructRepr(RedRepr):
         return hop.llops.as_redbox(v_ptrbox)
 
     def residual_argtypes(self):
+        argtypes = [self.original_concretetype]
         T = self.original_concretetype.TO
         if T._hints.get('virtualizable', False):
-            argtypes = []
             getredrepr = self.hrtyper.getredrepr
             for name in T._names:
                 if name == 'access':
                     continue
                 FIELDTYPE = getattr(T, name)
                 argtypes += getredrepr(FIELDTYPE).residual_argtypes()
-            return argtypes
-        return [self.original_concretetype]
+        return argtypes
 
 ##class VoidRedRepr(Repr):
 ##    def __init__(self, hrtyper):
