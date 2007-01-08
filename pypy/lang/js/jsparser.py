@@ -8,6 +8,8 @@ import os
 import py
 import re
 from subprocess import Popen, PIPE, STDOUT
+from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
+from pypy.rlib.parsing.ebnfparse import Symbol
 
 class JsSyntaxError(Exception):
     pass
@@ -27,15 +29,35 @@ def read_js_output(code_string):
         raise JsSyntaxError(retval)
     return retval
 
+def unquote(t):
+    if isinstance(t, Symbol):
+        if t.symbol == "QUOTED_STRING":
+            t.additional_info = t.additional_info.strip("'")
+    else:
+        for i in t.children:
+            unquote(i)
+
 def parse(code_string):
     read_code = read_js_output(code_string)
     output = read_code.split(os.linesep)
     #print '\n'.join(output)
-    try:
-        code = eval("\n".join(output))
-    except (SyntaxError, NameError):
-        for num, line in enumerate(output):
-            print "%d: %s" % (num + 1, line)
-        open("/tmp/out", "w").write("\n".join(output))
-        raise
-    return code
+    t = parse_bytecode(output)
+    unquote(t)
+    #print "-----------------\n",t
+    #print "-----------------\n",t.children[0].children[0].additional_info
+    return t
+    
+def parse_bytecode(bytecode):
+    regexs, rules, ToAST = parse_ebnf("""
+    QUOTED_STRING: "'[^\\']*'";
+    IGNORE: " |\n";
+    data: <dict> | <QUOTED_STRING> | <list>;
+    dict: ["{"] (dictentry [","])* dictentry ["}"];
+    dictentry: QUOTED_STRING [":"] data;
+    list: ["["] (data [","])* data ["]"];
+""")
+    parse = make_parse_function(regexs, rules, eof=True)
+    t = parse("\n".join(bytecode))
+    #print "0000000",t
+    return ToAST().transform(t)
+

@@ -1,6 +1,7 @@
 
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.jsobj import *
+from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 
 class Node(object):
     # TODO Add line info for debug
@@ -42,14 +43,12 @@ class Interpreter(object):
     
     def load_source(self, script_source):
         """load a source script text to the interpreter"""
-        temp_dict = parse(script_source)
-        #import pprint
-        #pprint.pprint(temp_dict)
-        self.script = from_dict(temp_dict)
+        temp_tree = parse(script_source)
+        self.script = from_tree(temp_tree)
     
     def append_source(self, script_source):
-        temp_dict = parse(script_source)
-        newscript = from_dict(temp_dict)
+        temp_tree = parse(script_source)
+        newscript = from_tree(temp_tree)
         self.script.append_script(newscript)
 
     def run(self):
@@ -458,144 +457,150 @@ class While(Node):
         while self.condition.call(ctx).ToBoolean():
             self.body.call(ctx)
 
-def getlist(d):
-    if 'length' not in d:
+def getlist(t):
+    item = gettreeitem(t, 'length')
+    if item is None:
         return []
-    lgt = int(d['length'])
-    output = [from_dict(d[str(i)]) for i in range(lgt)]
+    lgt = int(item.additional_info)
+    output = [from_tree(gettreeitem(t, str(i))) for i in range(lgt)]
     return output
-
-def build_interpreter(d):
-    return from_dict(d)
-
-# FIXME: Continue the translation from if/elif to this dict map
-build_map = {'ARRAY_INIT':Array,
-             'ASSIGN': Assign,
-             'BLOCK': Block}
-
-def from_dict_map(d):
-    if d is None:
-        return d
-    try:
-        build_map[d['type']](d)
-    except KeyError,e:
-        raise NotImplementedError("Don't know how to handle %s" %(d['type'],))
     
-    
-    
-def from_dict(d):
-    if d is None:
-        return d
-    tp = d['type']
+def gettreeitem(t, name):
+    for x in t.children:
+        if x.children[0].additional_info == name:
+            return x.children[1]
+    return
+        
+def from_tree(t):
+    if t is None:
+        return
+    tp = gettreeitem(t, 'type').additional_info
     if tp == 'ARRAY_INIT':
         return Array(getlist(d))
     elif tp == 'ASSIGN':
-        return Assign(from_dict(d['0']), from_dict(d['1']))
+        return Assign(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'BLOCK':
-        return Block(getlist(d))
+        return Block(getlist(t))
     elif tp == 'CALL':
-        return Call(from_dict(d['0']), from_dict(d['1']))
+        return Call(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'COMMA':
-        return Comma(from_dict(d['0']),from_dict(d['1']))
+        return Comma(from_tree(gettreeitem(t, '0')),from_tree(gettreeitem(t, '1')))
     elif tp == 'DOT':
-        return Dot(from_dict(d['0']), from_dict(d['1']))
+        return Dot(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'EQ':
-        return Eq(from_dict(d['0']), from_dict(d['1']))
+        return Eq(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'OR':
-        return Or(from_dict(d['0']), from_dict(d['1']))
+        return Or(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'AND':
-        return And(from_dict(d['0']), from_dict(d['1']))
+        return And(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'FUNCTION':        
-        name = d.get('name', '')
-        body = from_dict(d['body'])
-        if d['params'] == '':
+        name = gettreeitem(t, 'name')
+        if name is not None:
+            name = name.additional_info
+        body = from_tree(gettreeitem(t, 'body'))
+        if gettreeitem(t, 'params').additional_info == '':
             params = []
         else:
-            params = d['params'].split(',')
+            params = gettreeitem(t, 'params').additional_info.split(',')
         f = Function(name, params, body)
         return f
     elif tp == 'GROUP':
-        return Group(from_dict(d['0']))
+        return Group(from_tree(gettreeitem(t, '0')))
     elif tp == 'GE':
-        return Ge(from_dict(d['0']), from_dict(d['1']))
+        return Ge(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'GT':
-        return Gt(from_dict(d['0']), from_dict(d['1']))
+        return Gt(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'IDENTIFIER':
-        return Identifier(d['value'], from_dict(d.get('initializer', None)))
+        return Identifier(gettreeitem(t, 'value').additional_info, from_tree(gettreeitem(t, 'initializer')))
     elif tp == 'IF':
-        condition = from_dict(d['condition'])
-        if d['thenPart'] == 'null':
+        condition = from_tree(gettreeitem(t, 'condition'))
+        thenPart = gettreeitem(t, 'thenPart')
+        if isinstance(thenPart, Nonterminal):
+            thenPart = from_tree(thenPart)
+        else:
             thenPart = Undefined()
+
+        elsePart = gettreeitem(t, 'elsePart')
+        if isinstance(elsePart, Nonterminal):
+            elsePart = from_tree(elsePart)
         else:
-            thenPart = from_dict(d['thenPart'])
-        if d['elsePart'] == 'null':
             elsePart = Undefined()
-        else:
-            elsePart = from_dict(d['elsePart'])
         return If(condition,thenPart,elsePart)
     elif tp == 'IN':
-        return In(from_dict(d['0']), from_dict(d['1']))
+        return In(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'INDEX':
-        return Index(from_dict(d['0']), from_dict(d['1']))
+        return Index(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'LIST':
-        return List(getlist(d))
+        return List(getlist(t))
     elif tp == 'LE':
-        return Le(from_dict(d['0']), from_dict(d['1']))
+        return Le(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'LT':
-        return Lt(from_dict(d['0']), from_dict(d['1']))
+        return Lt(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'MINUS':
-        return Minus(from_dict(d['0']), from_dict(d['1']))
+        return Minus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'NE':
-        return Ne(from_dict(d['0']), from_dict(d['1']))
+        return Ne(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'NEW':
-        return New(d['0']['value'])
+        return New(gettreeitem(gettreeitem(t, '0'),'value').additional_info)
     elif tp == 'NUMBER':
-        return Number(float(d['value']))
+        return Number(float(gettreeitem(t, 'value').additional_info))
     elif tp == 'OBJECT_INIT':
-        return ObjectInit(getlist(d))
+        return ObjectInit(getlist(t))
     elif tp == 'PLUS':
-        return Plus(from_dict(d['0']), from_dict(d['1']))
+        return Plus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'PROPERTY_INIT':
-        return PropertyInit(from_dict(d['0']), from_dict(d['1']))
+        return PropertyInit(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'RETURN':
-        return Return(from_dict(d['value']))
+        return Return(from_tree(gettreeitem(t, 'value')))
     elif tp == 'SCRIPT':
-        if isinstance(d['funDecls'], dict):
-            func_decl = [from_dict(d['funDecls']),]
+        print "*funDecls:'' ", gettreeitem(t, 'funDecls') == ''
+        f = gettreeitem(t, 'funDecls')
+        print f.symbol
+        if f.symbol == "dict":
+            func_decl = [from_tree(f),]
+        elif f.symbol == "list":
+            func_decl = [from_tree(x) for x in f.children]
         else:
-            func_decl = [from_dict(x) for x in d['funDecls']]
+            func_decl = []
         
-        if isinstance(d['varDecls'], dict):
-            var_decl = [from_dict(d['varDecls']),]
+        v = gettreeitem(t, 'varDecls')
+        print v.symbol
+        if v.symbol == "dict":
+            var_decl = [from_tree(v),]
+        elif v.symbol == "list":
+            var_decl = [from_tree(x) for x in v.children]
         else:
-            var_decl = [from_dict(x) for x in d['varDecls']]
-        return Script(getlist(d), var_decl, func_decl)
+            var_decl = []
+
+        return Script(getlist(t), var_decl, func_decl)
     elif tp == 'SEMICOLON':
-        if d['expression'] == 'null':
+        if gettreeitem(t, 'expression') == 'null':
             return Semicolon()
-        return Semicolon(from_dict(d['expression']))
+        return Semicolon(from_tree(gettreeitem(t, 'expression')))
     elif tp == 'STRING':
-        return String(d['value'])
+        return String(gettreeitem(t, 'value').additional_info)
     elif tp == 'THIS':
-        return Identifier(d['value'])
+        return Identifier(gettreeitem(t, 'value').additional_info)
     elif tp == 'THROW':
-        return Throw(from_dict(d['exception']))
+        return Throw(from_tree(gettreeitem(t, 'exception')))
     elif tp == 'TRY':
         finallyblock = None
         catchblock = None
         catchparam = ''
-        if 'finallyBlock' in d:
-            finallyblock = from_dict(d['finallyBlock'])
-        if 'catchClauses' in d:
+        final = gettreeitem(t, 'finallyBlock')
+        if final is not None:
+            finallyblock = from_tree(final)
+        catch = gettreeitem(t, 'catchClauses')
+        if catch is not None:
             #multiple catch clauses is a spidermonkey extension
-            catchblock = from_dict(d['catchClauses']['block'])
-            catchparam = d['catchClauses']['varName']
-        return Try(from_dict(d['tryBlock']), catchblock, finallyblock, catchparam)
+            catchblock = from_tree(gettreeitem(catch, 'block'))
+            catchparam = gettreeitem(catch, 'varName').additional_info
+        return Try(from_tree(gettreeitem(t, 'tryBlock')), catchblock, finallyblock, catchparam)
     elif tp == 'VAR':
-        return Vars(getlist(d))
+        return Vars(getlist(t))
     elif tp == 'WHILE':
-        body = from_dict(d['body'])
-        condition = from_dict(d['condition'])
+        body = from_tree(gettreeitem(t, 'body'))
+        condition = from_tree(gettreeitem(t, 'condition'))
         return While(condition, body)
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)
