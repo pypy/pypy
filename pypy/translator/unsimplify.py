@@ -51,11 +51,6 @@ def starts_with_empty_block(graph):
             and graph.startblock.exitswitch is None
             and graph.startblock.exits[0].args == graph.getargs())
 
-def remove_empty_startblock(graph):
-    graph.startblock.isstartblock = False
-    graph.startblock = graph.startblock.exits[0].target
-    graph.startblock.isstartblock = True
-
 def split_block(annotator, block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 

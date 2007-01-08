@@ -5,7 +5,6 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import starts_with_empty_block
-from pypy.translator.unsimplify import remove_empty_startblock
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.backendopt import inline
 from pypy.translator.backendopt import graphanalyze
@@ -193,8 +192,10 @@ class GCTransformer(object):
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
         # for sanity, we need an empty block at the start of the graph
+        inserted_empty_startblock = False
         if not starts_with_empty_block(graph):
             insert_empty_startblock(self.translator.annotator, graph)
+            inserted_empty_startblock = True
         is_borrowed = self.compute_borrowed_vars(graph)
 
         for block in graph.iterblocks():
@@ -215,8 +216,11 @@ class GCTransformer(object):
 
         # remove the empty block at the start of the graph, which should
         # still be empty (but let's check)
-        if starts_with_empty_block(graph):
-            remove_empty_startblock(graph)
+        if starts_with_empty_block(graph) and inserted_empty_startblock:
+            old_startblock = graph.startblock
+            graph.startblock.isstartblock = False
+            graph.startblock = graph.startblock.exits[0].target
+            graph.startblock.isstartblock = True
 
         checkgraph(graph)
 
