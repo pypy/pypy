@@ -1,5 +1,5 @@
 import path
-from pypy.tool.build import server
+from pypy.tool.build import metaserver
 import py
 from fake import FakeChannel, FakeClient, Container
 from pypy.tool.build import build
@@ -10,7 +10,7 @@ def setup_module(mod):
     mod.temppath = temppath = py.test.ensuretemp('pypybuilder-server')
     config = Container(projectname='pypytest', buildpath=temppath,
                        mailhost=None)
-    mod.svr = server.PPBServer(config, FakeChannel())
+    mod.svr = metaserver.MetaServer(config, FakeChannel())
     
     mod.c1 = FakeClient({'foo': 1, 'bar': [1,2]})
     mod.svr.register(mod.c1)
@@ -19,7 +19,7 @@ def setup_module(mod):
     mod.svr.register(mod.c2)
 
 def test_server_issubdict():
-    from pypy.tool.build.server import issubdict
+    issubdict = metaserver.issubdict
     assert issubdict({'foo': 1, 'bar': 2}, {'foo': 1, 'bar': 2, 'baz': 3})
     assert not issubdict({'foo': 1, 'bar': 2}, {'foo': 1, 'baz': 3})
     assert not issubdict({'foo': 1, 'bar': 3}, {'foo': 1, 'bar': 2, 'baz': 3})
@@ -34,9 +34,9 @@ def test_server_issubdict():
 # the rest assumes this information is already read...
     
 def test_register():
-    assert len(svr._clients) == 2
-    assert svr._clients[0] == c1
-    assert svr._clients[1] == c2
+    assert len(svr._builders) == 2
+    assert svr._builders[0] == c1
+    assert svr._builders[1] == c2
 
     py.test.raises(IndexError, "c1.channel.receive()")
 
@@ -52,7 +52,7 @@ def test_compile():
                             str(repodir), 'HEAD', 0)
     ret = svr.compile(br)
     assert not ret[0]
-    assert ret[1].find('found a suitable client') > -1
+    assert ret[1].find('found a suitable build server') > -1
     ret = svr._channel.receive()
     assert ret.find('going to send compile job') > -1
     acceptedmsg = svr._channel.receive()
@@ -67,7 +67,7 @@ def test_compile():
                              str(repodir), 'HEAD', 0)
     svr.compile(br2)
     ret = svr._channel.receive()
-    assert ret.find('no suitable client available') > -1
+    assert ret.find('no suitable build server available') > -1
 
     br3 = build.BuildRequest('foo@qux.com', {'bar': [3]}, {},
                              str(repodir), 'HEAD', 0)
@@ -151,7 +151,7 @@ def test_cleanup_old_builds():
     bp2.ensure(dir=True)
     bp2.log = 'log'
     config = Container(projectname='test', buildpath=temppath)
-    svr = server.PPBServer(config, FakeChannel())
+    svr = metaserver.MetaServer(config, FakeChannel())
     assert not bp1.check()
     assert bp2.check()
 

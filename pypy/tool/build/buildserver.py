@@ -4,7 +4,7 @@ from zipfile import ZipFile
 from cStringIO import StringIO
 from pypy.tool.build import build
 
-class PPBClient(object):
+class BuildServer(object):
     def __init__(self, channel, sysinfo, testing_sleeptime=False):
         self.channel = channel
         self.sysinfo = sysinfo
@@ -12,9 +12,9 @@ class PPBClient(object):
         self.refused = []
         self.testing_sleeptime = testing_sleeptime
 
-        from pypy.tool.build import ppbserver
-        self.server = ppbserver
-        self.server.register(self)
+        from pypy.tool.build import metaserver_instance
+        self.metaserver = metaserver_instance
+        self.metaserver.register(self)
         
     def sit_and_wait(self):
         """connect to the host and wait for commands"""
@@ -33,7 +33,7 @@ class PPBClient(object):
         return accepted
 
     def wait_until_done(self, request):
-        buildpath = self.server.get_new_buildpath(request)
+        buildpath = self.metaserver.get_new_buildpath(request)
         
         if not self.testing_sleeptime:
             fp = buildpath.zipfile.open('w')
@@ -44,8 +44,9 @@ class PPBClient(object):
                     try:
                         chunk = self.channel.receive()
                     except EOFError:
-                        # stop compilation, client has disconnected (server
-                        # will check the connection after a while and clean up)
+                        # stop compilation, build server has disconnected 
+                        # (metaserver will check the connection after a while 
+                        # and clean up)
                         return
                     # end of data is marked by sending a None
                     if chunk is None:
@@ -60,19 +61,19 @@ class PPBClient(object):
             # pretend we're compiling by sleeping a bit...
             py.std.time.sleep(self.testing_sleeptime)
 
-        self.server.compilation_done(buildpath)
+        self.metaserver.compilation_done(buildpath)
         self.busy_on = None
 
 initcode = """
     import sys
     sys.path += %r
     
-    from pypy.tool.build.client import PPBClient
+    from pypy.tool.build.buildserver import BuildServer
 
     try:
         try:
-            client = PPBClient(channel, %r, %r)
-            client.sit_and_wait()
+            bs = BuildServer(channel, %r, %r)
+            bs.sit_and_wait()
         except:
             try:
                 import sys, traceback
@@ -145,7 +146,7 @@ def tempdir(parent=None):
         i += 1
 
 def main(config, path, compilefunc):
-    """ client bootstrapping and main loop """
+    """ build server bootstrapping and main loop """
     from py.execnet import SshGateway, PopenGateway
 
     if config.server in ['localhost', '127.0.0.1']:

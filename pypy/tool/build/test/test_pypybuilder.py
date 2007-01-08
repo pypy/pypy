@@ -6,9 +6,8 @@ import py
 import time
 import path
 
-from pypy.tool.build import client, server, execnetconference
-from pypy.tool.build import config
-from pypy.tool.build import build
+from pypy.tool.build import metaserver, buildserver, execnetconference
+from pypy.tool.build import config, build
 from pypy.tool.build.conftest import option
 from pypy.config import config as pypyconfig
 
@@ -47,7 +46,7 @@ def setup_module(mod):
                     path=config.testpath, buildpath=temppath,
                     mailhost=None)
     
-    mod.sc = sc = server.init(sgw, cfg)
+    mod.sc = sc = metaserver.init(sgw, cfg)
 
     def read():
         while 1:
@@ -57,18 +56,18 @@ def setup_module(mod):
                 break
     py.std.thread.start_new_thread(read, ())
 
-    # give the server some time to wake up
+    # give the metaserver some time to wake up
     time.sleep(SLEEP_INTERVAL)
 
 def teardown_module(mod):
     mod.sc.close()
     mod.sgw.exit()
 
-def create_client_channel(**conf):
+def create_buildserver_channel(**conf):
     cgw = py.execnet.PopenGateway()
     sysconfig = _get_sysconfig()
     sysconfig.__dict__.update(conf)
-    channel = client.init(cgw, sysconfig, port=config.testport,
+    channel = buildserver.init(cgw, sysconfig, port=config.testport,
                           testing_sleeptime=SLEEP_INTERVAL * 5)
     channel.send(True)
     return cgw, channel
@@ -78,9 +77,9 @@ def compile(**sysconfig):
         import sys
         sys.path += %r
         
-        from pypy.tool.build import ppbserver
+        from pypy.tool.build import metaserver_instance
         from pypy.tool.build import build
-        channel.send(ppbserver.compile(%r))
+        channel.send(metaserver_instance.compile(%r))
         channel.close()
     """
     gw = py.execnet.PopenGateway()
@@ -105,15 +104,15 @@ def get_info(attr):
         import sys, time
         sys.path += %r
         
-        from pypy.tool.build import ppbserver
-        ppbserver._cleanup_clients()
-        ppbserver._test_waiting()
-        ppbserver._try_queued()
+        from pypy.tool.build import metaserver_instance
+        metaserver_instance._cleanup_builders()
+        metaserver_instance._test_waiting()
+        metaserver_instance._try_queued()
 
         # take some time to update all the lists
         time.sleep(%s)
 
-        data = [str(x) for x in ppbserver.%s]
+        data = [str(x) for x in metaserver_instance.%s]
         channel.send(data)
         channel.close()
     """ % (config.testpath, SLEEP_INTERVAL, attr))
@@ -135,25 +134,26 @@ def test_functional():
     assert len(queued) == 0
     waiting = get_info('_waiting')
     assert len(waiting) == 0
-    clients = get_info('_clients')
-    assert len(clients) == 0
+    buildservers = get_info('_builders')
+    assert len(buildservers) == 0
 
     # then we request a compilation for sysinfo foo=1, obviously this can not
     # be fulfilled yet
     ispath, data = compile(foo=1)
     assert not ispath
-    assert 'no suitable client' in data
+    assert 'no suitable build server' in data
     queued = get_info('_queued')
     assert len(queued) == 1
 
-    # now we register a client with the same sysinfo, note that we don't tell
-    # the server yet that the client actually accepts to handle the request
-    gw, cchannel = create_client_channel(foo=1)
+    # now we register a buildserver with the same sysinfo, note that we don't 
+    # tell the metaserver yet that the buildserver actually accepts to handle 
+    # the request
+    gw, cchannel = create_buildserver_channel(foo=1)
     try:
-        clients = get_info('_clients')
-        assert len(clients) == 1
+        buildservers = get_info('_builders')
+        assert len(buildservers) == 1
 
-        # XXX quite a bit scary here, the client will take exactly
+        # XXX quite a bit scary here, the buildserver will take exactly
         # 4 * SLEEP_INTERVAL seconds to fake the compilation... here we should
         # (if all is well) still be compiling
         
@@ -189,6 +189,6 @@ def test_functional():
         cchannel.close()
         gw.exit()
 
-    clients = get_info('_clients')
-    assert len(clients) == 0
+    buildservers = get_info('_builders')
+    assert len(buildservers) == 0
 

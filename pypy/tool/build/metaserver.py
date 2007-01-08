@@ -25,7 +25,7 @@ def issubdict(d1, d2):
             return False
     return True
 
-class PPBServer(object):
+class MetaServer(object):
     """ the build server
 
         this delegates or queues build requests, and stores results and sends
@@ -38,7 +38,7 @@ class PPBServer(object):
         self._channel = channel
         self._buildroot = buildpath = py.path.local(config.buildpath)
         
-        self._clients = []
+        self._builders = []
 
         done = []
         for bp in self._get_buildpaths(buildpath):
@@ -50,17 +50,17 @@ class PPBServer(object):
 
         self._done = done
 
-        self._queued = [] # no compile client available
+        self._queued = [] # no builders available
         self._waiting = [] # compilation already in progress for someone else
 
         self._queuelock = thread.allocate_lock()
         self._namelock = thread.allocate_lock()
         
-    def register(self, client):
-        """ register a client (instance) """
-        self._clients.append(client)
+    def register(self, builder):
+        """ register a builder (instance) """
+        self._builders.append(builder)
         self._channel.send('registered %s with info %r' % (
-                            client, client.sysinfo))
+                            builder, builder.sysinfo))
 
     def compile(self, request):
         """start a compilation
@@ -74,7 +74,7 @@ class PPBServer(object):
             if there's already a build available for info, this will return
             a tuple (True, path), if not, this will return (False, message),
             where message describes what is happening with the request (is
-            a build made rightaway, or is there no client available?)
+            a build made rightaway, or is there no builder available?)
 
             in any case, if the first item of the tuple returned is False,
             an email will be sent once the build is available
@@ -86,48 +86,48 @@ class PPBServer(object):
                 path = str(bp)
                 self._channel.send('already a build for this info available')
                 return (True, path)
-        for client in self._clients:
-            if client.busy_on and request.has_satisfying_data(client.busy_on):
+        for builder in self._builders:
+            if builder.busy_on and request.has_satisfying_data(builder.busy_on):
                 self._channel.send('build for %s currently in progress' %
                                    (request,))
                 self._waiting.append(request)
                 return (False, 'this build is already in progress')
-        # we don't have a build for this yet, find a client to compile it
+        # we don't have a build for this yet, find a builder to compile it
         if self.run(request):
-            return (False, 'found a suitable client, going to build')
+            return (False, 'found a suitable build server, going to build')
         self._queuelock.acquire()
         try:
             self._queued.append(request)
         finally:
             self._queuelock.release()
-        return (False, 'no suitable client found; your request is queued')
+        return (False, 'no suitable build server found; your request is queued')
     
     def run(self, request):
-        """find a suitable client and run the job if possible"""
-        clients = self._clients[:]
+        """find a suitable build server and run the job if possible"""
+        builders = self._builders[:]
         # XXX shuffle should be replaced by something smarter obviously ;)
-        random.shuffle(clients)
-        for client in clients:
-            # if client is busy, or sysinfos don't match, refuse rightaway,
-            # else ask client to build it
-            if (client.busy_on or
-                    not issubdict(request.sysinfo, client.sysinfo) or
-                    request in client.refused):
+        random.shuffle(builders)
+        for builder in builders:
+            # if builder is busy, or sysinfos don't match, refuse rightaway,
+            # else ask builder to build it
+            if (builder.busy_on or
+                    not issubdict(request.sysinfo, builder.sysinfo) or
+                    request in builder.refused):
                 continue
             else:
                 self._channel.send(
                     'going to send compile job for request %s to %s' % (
-                        request, client
+                        request, builder
                     )
                 )
-                accepted = client.compile(request)
+                accepted = builder.compile(request)
                 if accepted:
                     self._channel.send('compile job accepted')
                     return True
                 else:
                     self._channel.send('compile job denied')
         self._channel.send(
-            'no suitable client available for compilation of %s' % (
+            'no suitable build server available for compilation of %s' % (
                 request,
             )
         )
@@ -137,7 +137,7 @@ class PPBServer(object):
         self._channel.send('going to serve')
         while 1:
             time.sleep(self.retry_interval)
-            self._cleanup_clients()
+            self._cleanup_builders()
             self._test_waiting()
             self._try_queued()
 
@@ -147,7 +147,7 @@ class PPBServer(object):
         return path
 
     def compilation_done(self, buildpath):
-        """client is done with compiling and sends data"""
+        """builder is done with compiling and sends data"""
         self._queuelock.acquire()
         try:
             self._channel.send('compilation done for %s, written to %s' % (
@@ -165,16 +165,17 @@ class PPBServer(object):
         finally:
             self._queuelock.release()
 
-    def _cleanup_clients(self):
+    def _cleanup_builders(self):
         self._queuelock.acquire()
         try:
-            clients = self._clients[:]
-            for client in clients:
-                if client.channel.isclosed():
-                    self._channel.send('client %s disconnected' % (client,))
-                    if client.busy_on:
-                        self._queued.append(client.busy_on)
-                    self._clients.remove(client)
+            builders = self._builders[:]
+            for builder in builders:
+                if builder.channel.isclosed():
+                    self._channel.send('build server %s disconnected' % (
+                        builder,))
+                    if builder.busy_on:
+                        self._queued.append(builder.busy_on)
+                    self._builders.remove(builder)
         finally:
             self._queuelock.release()
 
@@ -187,13 +188,13 @@ class PPBServer(object):
         try:
             waiting = self._waiting[:]
             for request in waiting:
-                for client in self._clients:
-                    if request.has_satisfying_data(client.busy_on):
+                for builder in self._builders:
+                    if request.has_satisfying_data(builder.busy_on):
                         break
                 else:
                     # move request from 'waiting' (waiting for a compilation
                     # that is currently in progress) to 'queued' (waiting for
-                    # a suitable build client to connect)
+                    # a suitable build builder to connect)
                     self._waiting.remove(request)
                     self._queued.append(request)
                     continue
@@ -273,13 +274,14 @@ initcode = """
 
     try:
         try:
-            from pypy.tool.build.server import PPBServer
+            from pypy.tool.build.metaserver import MetaServer
             from pypy.tool.build import config
-            server = PPBServer(config, channel)
+            server = MetaServer(config, channel)
 
-            # make the server available to clients as pypy.tool.build.ppbserver
+            # make the metaserver available to build servers as
+            # pypy.tool.build.metaserver_instance
             from pypy.tool import build
-            build.ppbserver = server
+            build.metaserver_instance = server
 
             server.serve_forever()
         except:

@@ -29,7 +29,7 @@ class FakeClient(object):
         self.busy_on = request
         return True
 
-class FakeServer(object):
+class FakeMetaServer(object):
     def __init__(self, builddirpath):
         builddirpath.ensure(dir=True)
         self._channel = FakeChannel()

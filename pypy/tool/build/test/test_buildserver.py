@@ -1,34 +1,34 @@
 import path
-from pypy.tool.build import client
+from pypy.tool.build import buildserver
 from pypy.tool.build import build
 import py
 import time
 import sys
 from zipfile import ZipFile
 from StringIO import StringIO
-from fake import FakeChannel, FakeServer
+from fake import FakeChannel, FakeMetaServer
 
-class ClientForTests(client.PPBClient):
+class BuildServerForTests(buildserver.BuildServer):
     def __init__(self, *args, **kwargs):
-        super(ClientForTests, self).__init__(*args, **kwargs)
+        super(BuildServerForTests, self).__init__(*args, **kwargs)
         self._done = []
 
 class BuildRequestForTests(build.BuildRequest):
     normalized_rev = 1
 
 def setup_module(mod):
-    mod.temp = temp = py.test.ensuretemp('pypybuilder-client')
-    mod.svr = svr = FakeServer(temp)
+    mod.temp = temp = py.test.ensuretemp('pypybuilder-buildserver')
+    mod.svr = svr = FakeMetaServer(temp)
 
     import pypy.tool.build
-    pypy.tool.build.ppbserver = svr
+    pypy.tool.build.metaserver_instance = svr
 
     mod.c1c = c1c = FakeChannel()
-    mod.c1 = c1 = ClientForTests(c1c, {'foo': 1, 'bar': [1,2]})
+    mod.c1 = c1 = BuildServerForTests(c1c, {'foo': 1, 'bar': [1,2]})
     svr.register(c1)
 
     mod.c2c = c2c = FakeChannel()
-    mod.c2 = c2 = ClientForTests(c2c, {'foo': 2, 'bar': [2,3]})
+    mod.c2 = c2 = BuildServerForTests(c2c, {'foo': 2, 'bar': [2,3]})
     svr.register(c2)
 
 def test_compile():
@@ -45,7 +45,7 @@ def test_compile():
     c1.channel.send(None)
     c1.channel.send('log')
 
-    # meanwhile the client starts a thread that waits until there's data 
+    # meanwhile the build server starts a thread that waits until there's data 
     # available on its own channel, with our FakeChannel it has data rightaway,
     # though (the channel out and in are the same, and we just sent 'ret'
     # over the out one)
@@ -63,7 +63,7 @@ def test_channelwrapper():
         def send(self, data):
             self.buffer.append(data)
     c = FakeChannel()
-    cw = client.ChannelWrapper(c)
+    cw = buildserver.ChannelWrapper(c)
     assert cw.tell() == 0
     cw.write('foo')
     cw.write('bar')
@@ -89,7 +89,7 @@ def test_zip_dir():
     tempdir.join('foo/bar.o').write('this should not be in the zip (.o file)')
 
     zip = StringIO()
-    client.zip_dir(tempdir, zip)
+    buildserver.zip_dir(tempdir, zip)
 
     zip.seek(0)
     zf = ZipFile(zip)
@@ -101,6 +101,6 @@ def test_zip_dir():
 def test_tempdir():
     parent = py.test.ensuretemp('tempdir')
     for i in range(10):
-        t = client.tempdir(parent)
+        t = buildserver.tempdir(parent)
         assert t.basename == 'buildtemp-%s' % (i,)
 

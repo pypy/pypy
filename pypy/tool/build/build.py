@@ -79,6 +79,7 @@ class BuildPath(LocalPath):
 
     _reg_error = py.std.re.compile(r'uring compilation:\n([^:]+): (.*)')
     def _error(self):
+        import exceptions
         if self.done and not self.zipfile.size():
             log = self.log
             match = self._reg_error.search(log)
