@@ -71,12 +71,20 @@ def name_signedlonglong(value, db):
 def isinf(x):
     return x != 0.0 and x / 2 == x
 
+# To get isnan, working x-platform and both on 2.3 and 2.4, is a
+# horror.  I think this works (for reasons I don't really want to talk
+# about), and probably when implemented on top of pypy, too.
+def isnan(v):
+    return v != v*1.0 or (v == 1.0 and v == 2.0)
+
 def name_float(value, db):
     if isinf(value):
         if value > 0:
             return '(Py_HUGE_VAL)'
         else:
             return '(-Py_HUGE_VAL)'
+    elif isnan(value):
+        return '(Py_HUGE_VAL/Py_HUGE_VAL)'
     else:
         return repr(value)
 

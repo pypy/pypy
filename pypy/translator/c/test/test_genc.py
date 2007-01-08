@@ -248,6 +248,26 @@ def test_infinite_float():
     res = f1(3)
     assert res == 1.5
 
+def test_nan():
+    from pypy.translator.c.primitive import isnan, isinf
+    inf = 1e300 * 1e300
+    assert isinf(inf)
+    nan = inf/inf
+    assert isnan(nan)
+
+    l = [nan]
+    def f():
+        return nan
+    f1 = compile(f, [])
+    res = f1()
+    assert isnan(res)
+
+    def g(x):
+        return l[x]
+    g2 = compile(g, [int])
+    res = g2(0)
+    assert isnan(res)
+
 def test_x():
     class A:
         pass
@@ -343,4 +363,3 @@ def test_oswrite():
     s = t.buildannotator().build_types(f, [])
     rtyper = t.buildrtyper(type_system="lltype")
     rtyper.specialize()
-
