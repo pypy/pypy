@@ -5,7 +5,7 @@ import py
 from py.execnet import PopenGateway
 from pypy.tool.build import outputbuffer
 
-def compile(wc, compileinfo):
+def compile(wc, compileinfo, buildpath):
     code = """\
         import sys
         import os
@@ -21,7 +21,7 @@ def compile(wc, compileinfo):
         compileinfo = %r
 
         # log locally too
-        log = open('/tmp/buildclient.log', 'a')
+        log = open('%s/compile.log', 'a')
         outbuffer = OutputBuffer(log)
         sys.stdout = outbuffer
         sys.stderr = outbuffer
@@ -63,7 +63,8 @@ def compile(wc, compileinfo):
     """
     gw = PopenGateway()
     interpolated = py.code.Source(outputbuffer,
-                                  code % (str(wc), compileinfo))
+                                  code % (str(wc), compileinfo,
+                                  str(buildpath)))
     channel = gw.remote_exec(interpolated)
     try:
         upath = channel.receive()

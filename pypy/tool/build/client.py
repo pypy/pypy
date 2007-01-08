@@ -207,7 +207,8 @@ def main(config, path, compilefunc):
 
                 try:
                     print 'starting compilation'
-                    upath, log = compilefunc(svnwc, request.compileinfo)
+                    upath, log = compilefunc(svnwc, request.compileinfo,
+                                             temp)
                 except (SystemExit, KeyboardInterrupt):
                     print 'quitting...'
                     break
