@@ -24,9 +24,7 @@ use_tg = conftest.option.tg
 port = 8080
 
 def _CLI_is_on_path():
-    try:
-        py.path.local.sysfind('js') #we recommend Spidermonkey
-    except py.error.ENOENT:
+    if py.path.local.sysfind('js') is None:  #we recommend Spidermonkey
         return False
     return True
 

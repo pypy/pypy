@@ -11,9 +11,7 @@ from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
 
 def js_is_on_path():
-    try:
-        py.path.local.sysfind("js")
-    except py.error.ENOENT: 
+    if py.path.local.sysfind("js") is None:
         py.test.skip("js binary not found")
 
 js_is_on_path()

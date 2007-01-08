@@ -3,11 +3,10 @@ import py
 
 class AbstractSDK(object):
     def _check_helper(cls, helper):
-        try:
-            py.path.local.sysfind(helper)
-            return helper
-        except py.error.ENOENT:
+        if py.path.local.sysfind(helper) is None:
             py.test.skip("%s is not on your path." % helper)
+        else:
+            return helper
     _check_helper = classmethod(_check_helper)
 
     def runtime(cls):

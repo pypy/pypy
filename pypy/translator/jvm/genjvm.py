@@ -160,9 +160,7 @@ def generate_source_for_function(func, annotation):
 
 def detect_missing_support_programs():
     def check(exechelper):
-        try:
-            py.path.local.sysfind(exechelper)
-        except py.error.ENOENT:
+        if py.path.local.sysfind(exechelper) is None:
             py.test.skip("%s is not on your path" % exechelper)
     check(getoption('jasmin'))
     check(getoption('javac'))

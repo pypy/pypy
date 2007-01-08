@@ -14,9 +14,7 @@ def squeak_checks():
         import posix
     except ImportError:
         py.test.skip("Squeak tests only work on Unix right now.")
-    try:
-        py.path.local.sysfind("squeak")
-    except py.error.ENOENT:
+    if py.path.local.sysfind("squeak") is None:
         py.test.skip("Squeak is not on your path.")
     if os.getenv("SQUEAK_IMAGE") is None:
         py.test.skip("Squeak tests expect the SQUEAK_IMAGE environment "

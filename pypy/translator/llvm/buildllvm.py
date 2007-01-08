@@ -10,10 +10,8 @@ from pypy.translator.tool.cbuild import make_c_from_pyxfile
 import distutils.sysconfig
 
 def llvm_is_on_path():
-    try:
-        py.path.local.sysfind("llvm-as")
-        py.path.local.sysfind("llvm-gcc")
-    except py.error.ENOENT: 
+    if py.path.local.sysfind("llvm-as") is None or \
+       py.path.local.sysfind("llvm-gcc") is None:
         return False 
     return True
 
