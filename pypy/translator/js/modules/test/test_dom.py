@@ -1,7 +1,6 @@
 import py
 from pypy.translator.js.modules import dom
 from pypy.translator.js.main import rpython2javascript
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, described
 from xml.dom.minidom import parseString
 import sys
 

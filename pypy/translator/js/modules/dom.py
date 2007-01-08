@@ -3,6 +3,9 @@
 
     this provides a mock browser API, both the standard DOM level 2 stuff as
     the browser-specific additions
+    
+    in addition this provides the necessary descriptions that allow rpython
+    code that calls the browser DOM API to be translated
 
     note that the API is not and will not be complete: more exotic features 
     will most probably not behave as expected, or are not implemented at all
