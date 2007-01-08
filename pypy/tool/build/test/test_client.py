@@ -86,6 +86,7 @@ def test_zip_dir():
     tempdir = py.test.ensuretemp('zip_dir')
     tempdir.mkdir('foo')
     tempdir.join('foo/bar.txt').write('bar')
+    tempdir.join('foo/bar.o').write('this should not be in the zip (.o file)')
 
     zip = StringIO()
     client.zip_dir(tempdir, zip)
@@ -94,6 +95,8 @@ def test_zip_dir():
     zf = ZipFile(zip)
     data = zf.read('foo/bar.txt')
     assert data == 'bar'
+
+    py.test.raises(KeyError, 'zf.read("foo/bar.o")')
 
 def test_tempdir():
     parent = py.test.ensuretemp('tempdir')

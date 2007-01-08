@@ -125,6 +125,8 @@ class ChannelWrapper(object):
 def zip_dir(res_dir, tofile):
     zip = ZipFile(tofile, 'w')
     for fpath in res_dir.visit():
+        if fpath.ext in ['.o']:
+            continue
         try:
             zip.writestr(fpath.relto(res_dir), fpath.read())
         except (py.error.ENOENT, py.error.EISDIR), exc:
