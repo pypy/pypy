@@ -6,7 +6,7 @@ that can be used to produce any other kind of graph.
 
 from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype
 from pypy.objspace.flow import model as flowmodel
-from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
+from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
@@ -350,6 +350,31 @@ def closereturnlink(link, returnvar, gv_func):
     graph = _getgraph(gv_func)
     _closelink(link, [returnvar], graph.prereturnblock)
 
+def closelinktofreshblock(link, inputargs=None, otherlink=None):
+    link = from_opaque_object(link)
+    prevblockvars = link.prevblock.getvariables()
+    # the next block's inputargs come from 'inputargs' if specified
+    if inputargs is None:
+        inputvars = prevblockvars
+    else:
+        inputvars = _inputvars(inputargs)
+    # the link's arguments are the same as the inputvars, except
+    # if otherlink is specified, in which case they are copied from otherlink
+    if otherlink is None:
+        linkvars = list(inputvars)
+    else:
+        otherlink = from_opaque_object(otherlink)
+        linkvars = list(otherlink.args)
+    # check linkvars for consistency
+    existing_vars = dict.fromkeys(prevblockvars)
+    for v in linkvars:
+        assert v in existing_vars
+
+    nextblock = flowmodel.Block(inputvars)
+    link.args = linkvars
+    link.target = nextblock
+    return to_opaque_object(nextblock)
+
 def casting_link(source, sourcevars, target):
     assert len(sourcevars) == len(target.inputargs)
     linkargs = []
@@ -372,10 +397,30 @@ class PseudoRTyper(object):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
+def fixduplicatevars(graph):
+    # just rename all vars in all blocks
+    try:
+        done = graph._llimpl_blocks_already_renamed
+    except AttributeError:
+        done = graph._llimpl_blocks_already_renamed = {}
+
+    for block in graph.iterblocks():
+        if block not in done:
+            mapping = {}
+            for a in block.inputargs:
+                mapping[a] = a1 = flowmodel.Variable(a)
+                a1.concretetype = a.concretetype
+            block.renamevariables(mapping)
+            done[block] = True
+
 def _buildgraph(graph):
+    # rgenop makes graphs that use the same variable in several blocks,
+    fixduplicatevars(graph)                             # fix this now
     flowmodel.checkgraph(graph)
     eliminate_empty_blocks(graph)
-    join_blocks(graph)
+    # we cannot call join_blocks(graph) here!  It has a subtle problem:
+    # it copies operations between blocks without renaming op.result.
+    # See test_promotion.test_many_promotions for a failure.
     graph.rgenop = True
     return graph
 
@@ -396,8 +441,10 @@ def runblock(graph, FUNCTYPE, args,
 
 def show_incremental_progress(gv_func):
     from pypy import conftest
+    graph = _getgraph(gv_func)
+    fixduplicatevars(graph)
+    flowmodel.checkgraph(graph)
     if conftest.option.view:
-        graph = _getgraph(gv_func)
         eliminate_empty_blocks(graph)
         graph.show()
 
@@ -486,6 +533,7 @@ setannotation(add_case, s_Link)
 setannotation(add_default, s_Link)
 setannotation(closelink, None)
 setannotation(closereturnlink, None)
+setannotation(closelinktofreshblock, s_Block)
 
 setannotation(isptrtype, annmodel.SomeBool())
 

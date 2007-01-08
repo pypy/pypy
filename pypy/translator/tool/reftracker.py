@@ -117,8 +117,13 @@ class RefTrackerPage(BaseRefTrackerPage):
                 for key, value in basetype.__dict__.items():
                     if (type(value) is MemberDescriptorType or
                         type(value) is AttributeType):
-                        if value.__get__(o1) is o2:
-                            slst.append(str(key))
+                        try:
+                            o1value = value.__get__(o1)
+                        except:
+                            pass
+                        else:
+                            if o1value is o2:
+                                slst.append(str(key))
         return ', '.join(slst)
 
 

@@ -67,8 +67,9 @@ def build_if():
  
     const0 = rgenop.genconst(0)
     gv1 = builder.genop2('int_lt', gv0, const0)
-    false_builder = builder.jump_if_false(gv1)
+    false_builder = builder.jump_if_false(gv1, [gv0])
     builder.finish_and_return(f1_token, const0)
+    false_builder.start_writing()
     false_builder.finish_and_return(f1_token, gv0)
     builder.end()
     if_ptr = gv_if.revealconst(lltype.Ptr(F1))
@@ -110,8 +111,9 @@ def build_loop():
     gv_result1 = builder.genop2('int_mul', gv_result0, gv_i0)
     gv_i1 = builder.genop2('int_add', gv_i0, const1)
     gv2 = builder.genop2('int_le', gv_i1, gv1)
-    loop_builder = builder.jump_if_true(gv2)
+    loop_builder = builder.jump_if_true(gv2, [gv_result1, gv_i1, gv1])
     builder.finish_and_return(f1_token, gv_result1)
+    loop_builder.start_writing()
     loop_builder.finish_and_goto([gv_result1, gv_i1, gv1], loopblock)
 
     builder.end()
@@ -167,31 +169,21 @@ def build_switch():
     """
     builder, gv_switch, (gv0, gv1) = rgenop.newgraph(f2_token, "switch")
 
-    flexswitch = builder.flexswitch(gv0)
+    flexswitch, default_builder = builder.flexswitch(gv0, [gv1])
     const21 = rgenop.genconst(21)
 
     # case == 0
     const0 = rgenop.genconst(0)
     case_builder = flexswitch.add_case(const0)
-    case_args_gv = [gv1]
-    case_builder.enter_next_block([signed_tok], case_args_gv)
-    [gv1_case0] = case_args_gv
-    gv_res_case0 = case_builder.genop2('int_mul', const21, gv1_case0)
+    gv_res_case0 = case_builder.genop2('int_mul', const21, gv1)
     case_builder.finish_and_return(f2_token, gv_res_case0)
     # case == 1
     const1 = rgenop.genconst(1)
     case_builder = flexswitch.add_case(const1)
-    case_args_gv = [gv1]
-    case_builder.enter_next_block([signed_tok], case_args_gv)
-    [gv1_case1] = case_args_gv
-    gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
+    gv_res_case1 = case_builder.genop2('int_add', const21, gv1)
     case_builder.finish_and_return(f2_token, gv_res_case1)
     # default
-    default_builder = flexswitch.add_default()
-    default_args_gv = [gv1]
-    default_builder.enter_next_block([signed_tok], default_args_gv)
-    [gv1_default] = default_args_gv
-    default_builder.finish_and_return(f2_token, gv1_default)
+    default_builder.finish_and_return(f2_token, gv1)
 
     builder.end()
     switch_ptr = gv_switch.revealconst(lltype.Ptr(F2))

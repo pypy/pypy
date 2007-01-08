@@ -308,17 +308,11 @@ def merge_generalized(jitstate):
             resuming.mergesleft -= 1
 
 def guard_global_merge(jitstate, resumepoint):
-    jitstate.curbuilder.pause()
+    jitstate.pause()
     dispatchqueue = jitstate.frame.dispatchqueue
     jitstate.next = dispatchqueue.global_merge_chain
     dispatchqueue.global_merge_chain = jitstate
     jitstate.resumepoint = resumepoint
-
-def enter_block(jitstate):
-    incoming = []
-    memo = rvalue.enter_block_memo()
-    jitstate.enter_block(incoming, memo)
-    enter_next_block(jitstate, incoming)
 
 def split(jitstate, switchredbox, resumepoint, *greens_gv):
     exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
@@ -330,7 +324,8 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
             node = resuming.path.pop()
             assert isinstance(node, PromotionPathSplit)
             return node.answer
-        later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
+        locals_gv = jitstate.get_locals_gv()
+        later_builder = jitstate.curbuilder.jump_if_false(exitgvar, locals_gv)
         jitstate2 = jitstate.split(later_builder, resumepoint, list(greens_gv))
         if resuming is None:
             node = jitstate.promotion_path
@@ -339,6 +334,8 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
         return True
 
 def collect_split(jitstate_chain, resumepoint, *greens_gv):
+    # assumes that the head of the jitstate_chain is ready for writing,
+    # and all the other jitstates in the chain are paused
     greens_gv = list(greens_gv)
     pending = jitstate_chain
     resuming = jitstate_chain.resuming
@@ -388,12 +385,12 @@ def dispatch_next(oldjitstate, dispatchqueue):
     if dispatchqueue.split_chain is not None:
         jitstate = dispatchqueue.split_chain
         dispatchqueue.split_chain = jitstate.next
-        enter_block(jitstate)
+        jitstate.curbuilder.start_writing()
         return jitstate
     elif dispatchqueue.global_merge_chain is not None:
         jitstate = dispatchqueue.global_merge_chain
         dispatchqueue.global_merge_chain = jitstate.next
-        jitstate.curbuilder.resume()
+        jitstate.curbuilder.start_writing()
         return jitstate
     else:
         oldjitstate.resumepoint = -1
@@ -441,7 +438,7 @@ def setexcvaluebox(jitstate, box):
 
 def save_return(jitstate):
     # add 'jitstate' to the chain of return-jitstates
-    jitstate.curbuilder.pause()
+    jitstate.pause()
     dispatchqueue = jitstate.frame.dispatchqueue
     jitstate.next = dispatchqueue.return_chain
     dispatchqueue.return_chain = jitstate
@@ -631,14 +628,12 @@ def ll_promote(jitstate, promotebox, promotiondesc):
         jitstate.enter_block(incoming, memo)
         switchblock = enter_next_block(jitstate, incoming)
         gv_switchvar = promotebox.genvar
-        flexswitch = builder.flexswitch(gv_switchvar)
-        
+        incoming_gv = [box.genvar for box in incoming]
+        flexswitch, default_builder = builder.flexswitch(gv_switchvar,
+                                                         incoming_gv)
         if jitstate.resuming is None:
-            incoming_gv = [box.genvar for box in incoming]
-            default_builder = flexswitch.add_default()
             jitstate.curbuilder = default_builder
             # default case of the switch:
-            enter_block(jitstate)
             pm = PromotionPoint(flexswitch, incoming_gv,
                                 jitstate.promotion_path)
             #debug_print(lltype.Void, "PROMOTE")
@@ -686,8 +681,6 @@ def ll_promote(jitstate, promotebox, promotiondesc):
                 
             newbuilder = flexswitch.add_case(promotenode.gv_value)
             jitstate.curbuilder = newbuilder
-
-            enter_block(jitstate)
             return False
 
 # ____________________________________________________________
@@ -864,6 +857,19 @@ class JITState(object):
         self.exc_type_box  = self.exc_type_box .replace(memo)
         self.exc_value_box = self.exc_value_box.replace(memo)
 
+    def get_locals_gv(self):
+        # get all the genvars that are "alive", i.e. stored in the JITState
+        # or the VirtualFrames
+        incoming = []
+        memo = rvalue.enter_block_memo()
+        self.enter_block(incoming, memo)
+        locals_gv = [redbox.genvar for redbox in incoming]
+        return locals_gv
+
+    def pause(self):
+        locals_gv = self.get_locals_gv()
+        self.curbuilder = self.curbuilder.pause_writing(locals_gv)
+
 
     def residual_ll_exception(self, ll_evalue):
         ll_etype  = ll_evalue.typeptr
@@ -916,13 +922,13 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
-        jitstate.curbuilder.resume()
+        jitstate.curbuilder.start_writing()
         res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                           return_marker,
                                           force_merge=force_merge)
         if res is False:    # not finished
             if still_pending:
-                still_pending.curbuilder.pause()
+                still_pending.pause()
             jitstate.next = still_pending
             still_pending = jitstate
     
@@ -932,16 +938,19 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     if return_chain is not None:
         return_cache = {}
         still_pending = None
+        was_paused = False
         while return_chain is not None:
             jitstate = return_chain
             return_chain = return_chain.next
-            jitstate.curbuilder.resume()
+            if was_paused:
+                jitstate.curbuilder.start_writing()
+            was_paused = True   # only the head of the list was *not* paused
             res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                               return_marker,
                                               force_merge=force_merge)
             if res is False:    # not finished
                 if still_pending:
-                    still_pending.curbuilder.pause()
+                    still_pending.pause()
                 jitstate.next = still_pending
                 still_pending = jitstate
     return still_pending
@@ -1000,4 +1009,7 @@ def leave_graph_yellow(jitstate, mydispatchqueue):
     while jitstate is not None:
         leave_frame(jitstate)
         jitstate = jitstate.next
-    return return_chain    # a jitstate, which is the head of the chain
+    # return the jitstate which is the head of the chain,
+    # ready for further writing
+    return_chain.curbuilder.start_writing()
+    return return_chain
