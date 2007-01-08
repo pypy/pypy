@@ -21,7 +21,8 @@ system_config = Config(system_optiondescription)
 # cmdline args, defaults are taken from the optiondescription
 from pypy.config.pypyoption import get_pypy_config
 compile_config = get_pypy_config()
-compile_config.override({'translation.backend': 'c'})
+compile_config.override({'translation.backend': 'c',
+                         'translation.gc': 'boehm'})
 
 # settings for the server
 projectname = 'pypy'
