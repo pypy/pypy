@@ -47,7 +47,7 @@ def make_ebnf_parser():
 def parse_ebnf(s):
     visitor = ParserBuilder()
     tokens = lexer.tokenize(s, True)
-    print tokens
+    #print tokens
     s = parser.parse(tokens)
     s = s.visit(EBNFToAST())
     assert len(s) == 1
