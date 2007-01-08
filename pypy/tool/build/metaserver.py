@@ -241,7 +241,8 @@ class MetaServer(object):
                                 self.config.projectname,
                                 buildpath.error.__class__.__name__)
                     body = ('There was an error during the compilation you '
-                            'requested. The log can be found below.')
+                            'requested. The log can be found below.'
+                            '\n\n%s' % (buildpath.log,))
                 else:
                     subject = '%s - compilation done' % (
                                self.config.projectname,)
@@ -254,8 +255,6 @@ class MetaServer(object):
                     'Subject: %s' % (subject,),
                     '',
                     body,
-                    '',
-                    buildpath.log,
                 ])
                 server = smtplib.SMTP(self.config.mailhost,
                                       self.config.mailport)
