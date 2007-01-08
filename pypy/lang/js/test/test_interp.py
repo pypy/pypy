@@ -18,11 +18,11 @@ js_is_on_path()
 
 class TestInterp(object):
     def test_simple(self):
-        assert Plus(Number(3), Number(4)).call(ExecutionContext()).floatval == 7
+        assert Plus(Number(3), Number(4)).eval(ExecutionContext()).floatval == 7
         l = []
         interpreter.writer = l.append
         Script([Semicolon(Call(Identifier('print', None), 
-                List([Number(1), Number(2)])))],[],[]).call(ExecutionContext())
+                List([Number(1), Number(2)])))],[],[]).execute(ExecutionContext())
         assert l == ['1,2']
 
     def assert_prints(self, code, assval):

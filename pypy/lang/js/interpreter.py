@@ -9,17 +9,28 @@ class Node(object):
 #        self.lineno = lineno
     pass
 
-class BinaryOp(Node):
+class Statement(Node):
+    def execute(self, ctx):
+        raise NotImplementedError
+
+class Expression(Statement):
+    def eval(self, ctx):
+        return W_Root()
+
+    def execute(self, ctx):
+        return self.eval(ctx)
+
+class BinaryOp(Expression):
     def __init__(self, left, right):
         self.left = left
         self.right = right
     
 class BinaryComparisonOp(BinaryOp):
     """super class for binary operators"""
-    def call(self, ctx):
-        s2 = self.left.call(ctx).GetValue()
-        s4 = self.right.call(ctx).GetValue()
-        return self.decision(s2, s4)
+    def eval(self, ctx):
+        s2 = self.left.eval(ctx).GetValue()
+        s4 = self.right.eval(ctx).GetValue()
+        return self.decision(ctx, s2, s4)
 
 
 class BinaryLogicOp(BinaryOp):
@@ -35,7 +46,7 @@ class Interpreter(object):
         self.w_Object = W_Object() #creating Object
         self.w_Global = W_Object()
         self.w_Global.Prototype = self.w_Object
-        self.w_Global.Put('prototype', 'Object')
+        self.w_Global.Put('prototype', W_String('Object'))
         self.w_Global.Put('Object', self.w_Object)
         self.global_context = global_context(self.w_Global)
         if script_source is not None:
@@ -53,7 +64,7 @@ class Interpreter(object):
 
     def run(self):
         """run the interpreter"""
-        return self.script.call(self.global_context)
+        return self.script.execute(self.global_context)
 
 class PropertyInit(Node):
     def __init__(self, name, value):
@@ -64,127 +75,126 @@ class PropertyInit(Node):
         return "<%s : %s>"%(str(self.name), str(self.value))
 
 
-
-class Undefined(Node):
-    def __init__(self):
-        pass
-
-        
-class Array(Node):
+class Array(Expression):
     def __init__(self, items=()):
         self.items = items
 
-    def call(self, ctx):
-        d = dict(enumerate(self.items))
+    def eval(self, ctx):
+        #d = dict(enumerate(self.items))
+        d = {}
+        for i in range(len(self.items)):
+            d[i] = self.items[i]
         return W_Array(d)
 
-class Assign(Node):
+class Assign(Expression):
     def __init__(self, LHSExp, AssignmentExp):
         self.LHSExp = LHSExp
         self.AssignmentExp = AssignmentExp
     
-    def call(self, ctx):
-        print "Assign LHS = ", self.LHSExp
-        v1 = self.LHSExp.call(ctx)
-        print "Assign Exp = ", self.AssignmentExp
-        v3 = self.AssignmentExp.call(ctx).GetValue()
+    def eval(self, ctx):
+        #print "Assign LHS = ", self.LHSExp
+        v1 = self.LHSExp.eval(ctx)
+        #print "Assign Exp = ", self.AssignmentExp
+        v3 = self.AssignmentExp.eval(ctx).GetValue()
         v1.PutValue(v3, ctx)
         return v3
 
-class Block(Node):
+class Block(Statement):
     def __init__(self, nodes):
         self.nodes = nodes
 
-    def call(self, ctx):
+    def execute(self, ctx):
         try:
             last = w_Undefined
             for node in self.nodes:
-                last = node.call(ctx)
+                last = node.execute(ctx)
             return last
         except ExecutionReturned, e:
             return e.value
 
-class Call(Node):
+class Call(Expression):
     def __init__(self, identifier, arglist):
         self.identifier = identifier
         self.arglist = arglist
 
-    def call(self, ctx):
+    def eval(self, ctx):
         name = self.identifier.get_literal()
         if name == 'print':
-            writer(",".join([i.GetValue().ToString() for i in self.arglist.call(ctx)]))
+            writer(",".join([i.GetValue().ToString() for i in self.arglist.get_args(ctx)]))
         else:    
             w_obj = ctx.resolve_identifier(name).GetValue()
-            print "arglist = ", self.arglist
-            retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.call(ctx)])
+            #print "arglist = ", self.arglist
+            retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
             return retval
 
 class Comma(BinaryOp):
-    def call(self, ctx):
-        self.left.call(ctx)
-        return self.right.call(ctx)
+    def eval(self, ctx):
+        self.left.eval(ctx)
+        return self.right.eval(ctx)
 
 class Dot(BinaryOp):
-    def call(self, ctx):
-        w_obj = self.left.call(ctx).GetValue().ToObject()
+    def eval(self, ctx):
+        w_obj = self.left.eval(ctx).GetValue().ToObject()
         name = self.right.get_literal()
-        return Reference(name, w_obj)
+        return W_Reference(name, w_obj)
 
-class Function(Node):
+class Function(Expression):
     def __init__(self, name, params, body):
         self.name = name
         self.params = params
         self.body = body
 
-    def call(self, ctx):
+    def eval(self, ctx):
        w_obj = W_FunctionObject(self, ctx)
        return w_obj
 
-class Identifier(Node):
+class Identifier(Expression):
     def __init__(self, name, initialiser=None):
         self.name = name
         self.initialiser = initialiser
+        
     def __str__(self):
         return "<id %s init: %s>"%(str(self.name), str(self.initialiser))
-    def call(self, ctx):
+    
+    def eval(self, ctx):
         if self.initialiser is not None:
             ref = ctx.resolve_identifier(self.name)
-            ref.PutValue(self.initialiser.call(ctx), ctx)
+            ref.PutValue(self.initialiser.eval(ctx), ctx)
         return ctx.resolve_identifier(self.name)
     
     def get_literal(self):
         return self.name
 
-class If(Node):
+class If(Statement):
     def __init__(self, condition, thenPart=None, elsePart=None):
         self.condition = condition
         self.thenPart = thenPart
         self.elsePart = elsePart
 
-    def call(self, ctx=None):
-        temp = self.condition.call(ctx)
-        print "if condition = ", temp 
+    def execute(self, ctx=None):
+        temp = self.condition.eval(ctx)
+        #print "if condition = ", temp 
         if temp.ToBoolean():
-            return self.thenPart.call(ctx)
+            return self.thenPart.execute(ctx)
         else:
-            return self.elsePart.call(ctx)
+            return self.elsePart.execute(ctx)
 
-class Group(Node):
+class Group(Expression):
     def __init__(self, expr):
         self.expr = expr
 
-    def call(self, ctx):
-        return self.expr.call(ctx)
+    def eval(self, ctx):
+        return self.expr.eval(ctx)
 
-def ARC(x, y):
+def ARC(ctx, x, y):
     """
     Implements the Abstract Relational Comparison x < y
     Still not 100% to the spec
     """
     # TODO complete the funcion with strings comparison
-    s1 = x.ToPrimitive('Number')
-    s2 = y.ToPrimitive('Number')
-    print "ARC x = %s, y = %s"%(str(s1),str(s2))
+    s1 = x.ToPrimitive(ctx, 'Number')
+    s2 = y.ToPrimitive(ctx, 'Number')
+    #print "ARC x = %s, y = %s"%(str(s1),str(s2))
     if not (isinstance(s1, W_String) and isinstance(s2, W_String)):
         s4 = s1.ToNumber()
         s5 = s2.ToNumber()
@@ -198,48 +208,48 @@ def ARC(x, y):
         pass 
 
 class Or(BinaryLogicOp):
-    def call(self, ctx):
-        s2 = self.left.call(ctx).GetValue()
+    def eval(self, ctx):
+        s2 = self.left.eval(ctx).GetValue()
         if s2.ToBoolean():
             return s2
-        s4 = self.right.call(ctx).GetValue()
+        s4 = self.right.eval(ctx).GetValue()
         return s4
 
 class And(BinaryLogicOp):
-    def call(self, ctx):
-        s2 = self.left.call(ctx).GetValue()
+    def eval(self, ctx):
+        s2 = self.left.eval(ctx).GetValue()
         if not s2.ToBoolean():
             return s2
-        s4 = self.right.call(ctx).GetValue()
+        s4 = self.right.eval(ctx).GetValue()
         return s4
 
 class Ge(BinaryComparisonOp):
-    def decision(self, op1, op2):
-        s5 = ARC(op1, op2)
+    def decision(self, ctx, op1, op2):
+        s5 = ARC(ctx, op1, op2)
         if s5 is None or s5:
             return W_Boolean(False)
         else:
             return W_Boolean(True)
 
 class Gt(BinaryComparisonOp):
-    def decision(self, op1, op2):
-        s5 = ARC(op2, op1)
+    def decision(self, ctx, op1, op2):
+        s5 = ARC(ctx, op2, op1)
         if s5 is None:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
 
 class Le(BinaryComparisonOp):
-    def decision(self, op1, op2):
-        s5 = ARC(op2, op1)
+    def decision(self, ctx, op1, op2):
+        s5 = ARC(ctx, op2, op1)
         if s5 is None or s5:
             return W_Boolean(False)
         else:
             return W_Boolean(True)
 
 class Lt(BinaryComparisonOp):
-    def decision(self, op1, op2):
-        s5 = ARC(op1, op2)
+    def decision(self, ctx, op1, op2):
+        s5 = ARC(ctx, op1, op2)
         if s5 is None:
             return W_Boolean(False)
         else:
@@ -254,30 +264,30 @@ def AEC(x, y):
     return r
 
 class Eq(BinaryComparisonOp):
-    def decision(self, op1, op2):
+    def decision(self, ctx, op1, op2):
         return W_Boolean(AEC(op1, op2))
 
 class Ne(BinaryComparisonOp):
-    def decision(self, op1, op2):
+    def decision(self, ctx, op1, op2):
         return W_Boolean(not AEC(op1, op2))
 
 
 class In(BinaryComparisonOp):
-    def decision(self, op1, op2):
+    def decision(self, ctx, op1, op2):
         if not isinstance(op2, W_Object):
             raise ThrowException("TypeError")
         name = op1.ToString()
         return W_Boolean(op2.HasProperty(name))
 
 
-class Index(Node):
+class Index(Expression):
     def __init__(self, left, expr):
         self.left = left
         self.expr = expr
 
-    def call(self, ctx):
-        w_obj = self.left.call(ctx).GetValue()
-        w_member = self.expr.call(ctx).GetValue()
+    def eval(self, ctx):
+        w_obj = self.left.eval(ctx).GetValue()
+        w_member = self.expr.eval(ctx).GetValue()
         w_obj = w_obj.ToObject()
         name = w_member.ToString()
         return w_obj.Get(name)
@@ -285,21 +295,22 @@ class Index(Node):
 class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
-    def call(self, ctx):
-        print "nodes = ", self.nodes
-        return [node.call(ctx) for node in self.nodes]
+        
+    def get_args(self, ctx):
+        #print "nodes = ", self.nodes
+        return [node.eval(ctx) for node in self.nodes]
 
 class Minus(BinaryComparisonOp):
-    def decision(self, op1, op2):
+    def decision(self, ctx, op1, op2):
         x = op1.ToNumber()
         y = op2.ToNumber()
         return W_Number(x - y)
 
-class New(Node):
+class New(Expression):
     def __init__(self, identifier):
         self.identifier = identifier
 
-    def call(self, ctx):
+    def eval(self, ctx):
         obj = W_Object()
         #it should be undefined... to be completed
         constructor = ctx.resolve_identifier(self.identifier).GetValue()
@@ -307,34 +318,34 @@ class New(Node):
         constructor.Call(ctx, this = obj)
         return obj
 
-class Number(Node):
+class Number(Expression):
     def __init__(self, num):
         self.num = num
 
-    def call(self, ctx):
+    def eval(self, ctx):
         return W_Number(self.num)
     
     def get_literal(self):
         return W_Number(self.num).ToString()
 
-class ObjectInit(Node):
+class ObjectInit(Expression):
     def __init__(self, properties):
         self.properties = properties
 
-    def call(self, ctx):
+    def eval(self, ctx):
         w_obj = W_Object()
-        print "properties = ", self.properties
+        ##print "properties = ", self.properties
         for property in self.properties:
             name = property.name.get_literal()
-            print "prop name = ", name
-            w_expr = property.value.call(ctx).GetValue()
+            #print "prop name = ", name
+            w_expr = property.value.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
 
 class Plus(BinaryComparisonOp):
-    def decision(self, op1, op2):
-        prim_left = op1.ToPrimitive('Number')
-        prim_right = op2.ToPrimitive('Number')
+    def decision(self, ctx, op1, op2):
+        prim_left = op1.ToPrimitive(ctx, 'Number')
+        prim_right = op2.ToPrimitive(ctx, 'Number')
         if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
             str_left = prim_left.ToString()
             str_right = prim_right.ToString()
@@ -344,23 +355,22 @@ class Plus(BinaryComparisonOp):
             num_right = prim_right.ToNumber()
             return W_Number(num_left + num_right)
 
-class Script(Node):
+class Script(Statement):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
         self.var_decl = var_decl
         self.func_decl = func_decl
 
-    def call(self, ctx):
+    def execute(self, ctx):
         for var in self.var_decl:
             ctx.variable.Put(var.name, w_Undefined)
         for fun in self.func_decl:
-            ctx.variable.Put(fun.name, fun.call(ctx))
-    
-                
+            ctx.variable.Put(fun.name, fun.eval(ctx))
+
         try:
             last = w_Undefined
             for node in self.nodes:
-                last = node.call(ctx)
+                last = node.execute(ctx)
             return last
         except ExecutionReturned, e:
             return e.value
@@ -371,40 +381,40 @@ class Script(Node):
         self.nodes.extend(newscript.nodes)
         self.func_decl.extend(newscript.func_decl)
 
-class Semicolon(Node):
+class Semicolon(Statement):
     def __init__(self, expr = None):
         self.expr = expr
 
-    def call(self, ctx):
+    def execute(self, ctx):
         if self.expr is None:
             return
-        return self.expr.call(ctx)
+        return self.expr.execute(ctx)
 
-class String(Node):
+class String(Expression):
     def __init__(self, strval):
         self.strval = strval
 
-    def call(self, ctx):
+    def eval(self, ctx):
         return W_String(self.strval)
     
     def get_literal(self):
         return W_String(self.strval).ToString()
 
-class Return(Node):
+class Return(Statement):
     def __init__(self, expr):
         self.expr = expr
 
-    def call(self, ctx):
-        raise ExecutionReturned(self.expr.call(ctx))
+    def execute(self, ctx):
+        raise ExecutionReturned(self.expr.eval(ctx))
 
-class Throw(Node):
+class Throw(Statement):
     def __init__(self, exception):
         self.exception = exception
 
-    def call(self, ctx):
-        raise ThrowException(self.exception.call(ctx))
+    def execute(self, ctx):
+        raise ThrowException(self.exception.eval(ctx))
 
-class Try(Node):
+class Try(Statement):
     # TODO: rewrite to use 'Undefined'
     def __init__(self, tryblock, catchblock, finallyblock, catchparam):
         self.tryblock = tryblock
@@ -412,21 +422,21 @@ class Try(Node):
         self.finallyblock = finallyblock
         self.catchparam = catchparam
 
-    def call(self, ctx):
+    def execute(self, ctx):
         e = None
         try:
-            tryresult = self.tryblock.call(ctx)
+            tryresult = self.tryblock.execute(ctx)
         except ThrowException, excpt:
             e = excpt
             if self.catchblock is not None:
                 obj = W_Object()
                 obj.Put(self.catchparam, e.exception)
                 ctx.push_object(obj)
-                tryresult = self.catchblock.call(ctx)
+                tryresult = self.catchblock.execute(ctx)
                 ctx.pop_object()
         
         if self.finallyblock is not None:
-            tryresult = self.finallyblock.call(ctx)
+            tryresult = self.finallyblock.execute(ctx)
         
         #if there is no catchblock reraise the exception
         if (e is not None) and (self.catchblock is None):
@@ -434,28 +444,28 @@ class Try(Node):
         
         return tryresult
 
-class Undefined(Node):
-    def call(self, ctx):
+class Undefined(Statement):
+    def execute(self, ctx):
         return None
 
-class Vars(Node):
+class Vars(Statement):
     def __init__(self, nodes):
         self.nodes = nodes
 
-    def call(self, ctx):
-        print self.nodes
+    def execute(self, ctx):
+        #print self.nodes
         for var in self.nodes:
-            print var.name
-            var.call(ctx)
+            #print var.name
+            var.execute(ctx)
 
-class While(Node):
+class While(Statement):
     def __init__(self, condition, body):
         self.condition = condition
         self.body = body
 
-    def call(self, ctx):
-        while self.condition.call(ctx).ToBoolean():
-            self.body.call(ctx)
+    def execute(self, ctx):
+        while self.condition.eval(ctx).ToBoolean():
+            self.body.execute(ctx)
 
 def getlist(t):
     item = gettreeitem(t, 'length')
@@ -470,7 +480,7 @@ def gettreeitem(t, name):
         if x.children[0].additional_info == name:
             return x.children[1]
     return
-        
+
 def from_tree(t):
     if t is None:
         return
