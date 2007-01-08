@@ -1,6 +1,6 @@
 #!/sbin/runscript
 
-CMD=/opt/pypy-dist/pypy/tool/build/bin/server
+CMD=/opt/pypy-dist/pypy/tool/build/bin/metaserver
 PIDFILE=/var/run/build_metaserver.pid
 LOGFILE=/var/log/build_metaserver.log
 

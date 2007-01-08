@@ -6,7 +6,7 @@ from pypy.tool.build import config
 
 if __name__ == '__main__':
     from py.execnet import SshGateway, PopenGateway
-    from pypy.tool.build.server import init
+    from pypy.tool.build.metaserver import init
 
     if config.server in ['localhost', '127.0.0.1']:
         gw = PopenGateway()
