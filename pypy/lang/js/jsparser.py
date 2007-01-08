@@ -41,14 +41,19 @@ def parse(code_string):
     read_code = read_js_output(code_string)
     output = read_code.split(os.linesep)
     #print '\n'.join(output)
-    t = parse_bytecode(output)
-    unquote(t)
+    t = parse_bytecode("\n".join(output))
     #print "-----------------\n",t
     #print "-----------------\n",t.children[0].children[0].additional_info
     return t
-    
+
 def parse_bytecode(bytecode):
-    regexs, rules, ToAST = parse_ebnf("""
+    t = parse_tree(bytecode)
+    #print "0000000",t
+    tree = ToAST().transform(t)
+    unquote(tree)
+    return tree
+
+regexs, rules, ToAST = parse_ebnf("""
     QUOTED_STRING: "'[^\\']*'";
     IGNORE: " |\n";
     data: <dict> | <QUOTED_STRING> | <list>;
@@ -56,8 +61,4 @@ def parse_bytecode(bytecode):
     dictentry: QUOTED_STRING [":"] data;
     list: ["["] (data [","])* data ["]"];
 """)
-    parse = make_parse_function(regexs, rules, eof=True)
-    t = parse("\n".join(bytecode))
-    #print "0000000",t
-    return ToAST().transform(t)
-
+parse_tree = make_parse_function(regexs, rules, eof=True)

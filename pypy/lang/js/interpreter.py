@@ -1,5 +1,5 @@
 
-from pypy.lang.js.jsparser import parse
+from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 
@@ -61,6 +61,10 @@ class Interpreter(object):
         temp_tree = parse(script_source)
         newscript = from_tree(temp_tree)
         self.script.append_script(newscript)
+
+    def load_bytecode(self, bytecode):
+        temp_tree = parse_bytecode(bytecode)
+        self.script = from_tree(temp_tree)
 
     def run(self):
         """run the interpreter"""
@@ -486,7 +490,7 @@ def from_tree(t):
         return
     tp = gettreeitem(t, 'type').additional_info
     if tp == 'ARRAY_INIT':
-        return Array(getlist(d))
+        return Array(getlist(t))
     elif tp == 'ASSIGN':
         return Assign(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'BLOCK':
