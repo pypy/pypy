@@ -55,11 +55,12 @@ class W_Root(object):
     def ToNumber(self):
         return NaN
     
-    def get_literal(self):
+    # def get_literal(self):
+    #     return self.ToString()
+    # 
+    def __str__(self):
         return self.ToString()
-    
-    __str__ = get_literal
-    
+        
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, self.ToString())
 
@@ -199,8 +200,6 @@ class W_Array(W_Object):
         self.Put('length', W_Number(0))
     
     def Put(self, P, V):
-        if not isinstance(P, str):
-            P = P.ToString()
         if not self.CanPut(P): return
         if P in self.propdict:
             self.propdict[P].value = V

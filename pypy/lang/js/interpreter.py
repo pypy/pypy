@@ -72,11 +72,11 @@ class Interpreter(object):
 
 class PropertyInit(Node):
     def __init__(self, name, value):
-        self.name = name
+        self.namein = name
         self.value = value
     
     def __repr__(self):
-        return "<%s : %s>"%(str(self.name), str(self.value))
+        return "<%s : %s>"%(str(self.namein), str(self.value))
 
 
 class Array(Expression):
@@ -340,7 +340,7 @@ class ObjectInit(Expression):
         w_obj = W_Object()
         ##print "properties = ", self.properties
         for property in self.properties:
-            name = property.name.get_literal()
+            name = property.namein.get_literal()
             #print "prop name = ", name
             w_expr = property.value.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
@@ -428,6 +428,7 @@ class Try(Statement):
 
     def execute(self, ctx):
         e = None
+        tryresult = w_Undefined
         try:
             tryresult = self.tryblock.execute(ctx)
         except ThrowException, excpt:
@@ -508,8 +509,9 @@ def from_tree(t):
     elif tp == 'AND':
         return And(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'FUNCTION':        
-        name = gettreeitem(t, 'name')
-        if name is not None:
+        namesimb = gettreeitem(t, 'name')
+        name = None
+        if namesimb is not None:
             name = name.additional_info
         body = from_tree(gettreeitem(t, 'body'))
         if gettreeitem(t, 'params').additional_info == '':
