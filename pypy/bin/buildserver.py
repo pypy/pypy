@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # main bit
     from pypy.tool.build.bin import path
     from pypy.tool.build import config
-    from pypy.tool.build.client import main
+    from pypy.tool.build.buildserver import main
 
     main(config, path, compile)
 

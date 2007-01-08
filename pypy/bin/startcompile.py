@@ -29,9 +29,9 @@ initcode = """
     sys.path += %r
     
     try:
-        from pypy.tool.build import ppbserver
+        from pypy.tool.build import metaserver_instance
         from pypy.tool.build import build
-        ret = ppbserver.compile(%r)
+        ret = metaserver_instance.compile(%r)
         channel.send(ret)
         channel.close()
     except:
