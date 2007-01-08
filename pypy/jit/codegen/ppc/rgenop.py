@@ -760,6 +760,9 @@ class RPPCGenOp(AbstractRGenOp):
     def sigToken(FUNCTYPE):
         return len(FUNCTYPE.ARGS)     # for now
 
+    def check_no_open_mc(self):
+        pass
+
     # ----------------------------------------------------------------
     # ppc-specific interface:
 
