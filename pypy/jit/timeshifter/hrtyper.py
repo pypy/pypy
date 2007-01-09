@@ -290,6 +290,7 @@ class HintRTyper(RPythonTyper):
                 builder, gv_generated, inputargs_gv = rgenop.newgraph(sigtoken,
                                                              "generated")
                 cache[key] = gv_generated
+                top_jitstate = fresh_jitstate(builder)
                 i = 0
                 for color, _, make_arg_redbox in args_specification:
                     if color == "green":
@@ -299,15 +300,14 @@ class HintRTyper(RPythonTyper):
                     else:
                         llvalue = args[0]
                         args = args[1:]
-                        box = make_arg_redbox(inputargs_gv, i)
+                        box = make_arg_redbox(top_jitstate, inputargs_gv, i)
                         i += make_arg_redbox.consumes                        
                         portal_ts_args += (box,)
 
-                top_jitstate = fresh_jitstate(builder)
                 top_jitstate = portal_fn(top_jitstate, *portal_ts_args)
                 if top_jitstate is not None:
                     finish_jitstate(top_jitstate, sigtoken)
-
+                    
                 builder.end()
                 builder.show_incremental_progress()
             fn = gv_generated.revealconst(lltype.Ptr(FUNC))
@@ -1459,7 +1459,7 @@ class RedRepr(Repr):
         kind = self.hrtyper.RGenOp.kindToken(TYPE)
         boxcls = rvalue.ll_redboxcls(TYPE)
         
-        def make_arg_redbox(inputargs_gv, i):
+        def make_arg_redbox(jitstate, inputargs_gv, i):
             gv_arg = inputargs_gv[i]
             box = boxcls(kind, gv_arg)
             return box
@@ -1515,8 +1515,9 @@ class RedStructRepr(RedRepr):
 
         typedesc = self.gettypedesc()
         
-        def make_arg_redbox(inputargs_gv, i):
+        def make_arg_redbox(jitstate, inputargs_gv, i):
             box = typedesc.factory()
+            jitstate.add_virtualizable(box)
             j = 1
             content = box.content
             assert isinstance(content, rcontainer.VirtualStruct)

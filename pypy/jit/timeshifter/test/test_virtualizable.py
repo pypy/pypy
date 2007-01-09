@@ -83,7 +83,43 @@ class TestVirtualizable(PortalTest):
 
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
         assert res == 21
-        self.check_insns(getfield=0, setfield=0)
+        self.check_insns(getfield=0)
+        residual_graph = self.get_residual_graph()
+        assert len(residual_graph.startblock.inputargs) == 3
+        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
+                [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
+
+    def test_explicit_set_effect(self):
+   
+        def f(xy):
+            xy_access = xy.access
+            if xy_access:
+                x = xy_access.get_x(xy)
+            else:
+                x = xy.x
+            xy_access = xy.access
+            if xy_access:
+                xy_access.set_y(xy, 1)
+            else:
+                xy.y = 3
+            xy_access = xy.access
+            if xy_access:
+                y = xy_access.get_y(xy)
+            else:
+                y = xy.y
+            return x+y
+
+        def main(x, y):
+            xy = lltype.malloc(XY)
+            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            v = f(xy)
+            return v + xy.y
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        assert res == 26
+        self.check_insns(getfield=0)
         residual_graph = self.get_residual_graph()
         assert len(residual_graph.startblock.inputargs) == 3
         assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==

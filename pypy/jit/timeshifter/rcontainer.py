@@ -328,6 +328,14 @@ class VirtualizableStruct(VirtualStruct):
     def force_runtime_container(self, builder):
         assert 0, "not implemented for now"
 
+    def store_back(self, builder):
+        fielddescs = self.typedesc.fielddescs
+        boxes = self.content_boxes
+        gv_outside = boxes[-1].genvar
+        for i in range(1, len(fielddescs)):
+            fielddesc = fielddescs[i]
+            box = boxes[i]
+            fielddesc.generate_set(builder, gv_outside, box)
 
 # ____________________________________________________________
 
