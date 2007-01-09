@@ -45,6 +45,10 @@ class SymbolMapper(object):
         """NOT RPYTHON"""
         assert type(sym)==str
         return self.sym_values[ sym ]
+
+    def __contains__(self, sym):
+        """NOT RPYTHON"""
+        return sym in self.sym_values
     
 
 _cpython_symbols = SymbolMapper( symbol.sym_name )

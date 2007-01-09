@@ -778,13 +778,18 @@ def build_not_test(builder, nb):
 
 def build_test(builder, nb):
     atoms = get_atoms(builder, nb)
-    if len(atoms) == 1:
+    l = len(atoms)
+    if l == 1:
         builder.push(atoms[0])
-    elif len(atoms) == 5:
+    elif l == 5 and atoms[1].get_value() == 'if':
         builder.push(
             ast.CondExpr(atoms[2], atoms[0], atoms[4], atoms[1].lineno))
     else:
-        assert False, "invalid number of atoms for rule 'test'"
+        lineno = atoms[1].lineno
+        items = []
+        for i in range(0,l,2): # this is atoms not 1
+            items.append(atoms[i])
+        builder.push(ast.Or(items, lineno))
 
 # Note: we do not include a build_old_test() because it does not need to do
 # anything.
@@ -1542,7 +1547,7 @@ ASTRULES_Template = {
 
 # Build two almost identical ASTRULES dictionaries
 ASTRULES      = dict([(sym[key], value) for (key, value) in
-                      ASTRULES_Template.iteritems()])
+                      ASTRULES_Template.iteritems() if key in sym])
 del ASTRULES_Template
 
 ## Stack elements definitions ###################################

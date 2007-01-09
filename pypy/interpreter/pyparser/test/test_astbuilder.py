@@ -210,8 +210,8 @@ expressions = [
 # We do not export the following tests because we would have to implement 2.5
 # features in the stable compiler (other than just building the AST).
 expressions_inbetweenversions = expressions + [
-    "1 if True else 2",
-    "1 if False else 2",
+    #"1 if True else 2",    # Disabled 2.5 syntax
+    #"1 if False else 2",
     ]
 
 EXPECTED["k[v,]"] = ("Module(None, Stmt([Discard(Subscript(Name('k'), 2, "
@@ -794,7 +794,7 @@ LIBSTUFF = [
     ]
 
 def test_snippets():
-    for snippet_name in SNIPPETS + NEW_GRAMMAR_SNIPPETS:
+    for snippet_name in SNIPPETS: # + NEW_GRAMMAR_SNIPPETS: # Disabled 2.5 syntax
         filepath = os.path.join(os.path.dirname(__file__), 'samples', snippet_name)
         source = file(filepath).read()
         # To avoid using the stable compiler we pull an explicit AST out of the snippet

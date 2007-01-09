@@ -132,7 +132,7 @@ def get_grammar_file( version ):
 
 # unfortunately the command line options are not parsed yet, so it cannot
 # be made configurable yet
-PYTHON_GRAMMAR, PYPY_VERSION = get_grammar_file("2.5a")
+PYTHON_GRAMMAR, PYPY_VERSION = get_grammar_file("2.4")
 
 def python_grammar(fname):
     """returns a PythonParser build from the specified grammar file"""

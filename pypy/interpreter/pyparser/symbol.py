@@ -82,10 +82,6 @@ gen_for = 330
 gen_if = 331
 testlist1 = 332
 encoding_decl = 333
-old_test = 334
-or_test = 335
-old_lambdef = 336
-with_stmt = 337
 
 
 # Generate sym_name
