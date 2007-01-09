@@ -1,9 +1,9 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
-     IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict,\
+     IndirectCall, GetField, SetField, OOString, DownCast, NewCustomDict,\
      CastWeakAdrToPtr, MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
-    New, RuntimeNew
+    New, RuntimeNew, CastTo
 from pypy.translator.cli.cts import WEAKREF
 
 # some useful instruction patterns

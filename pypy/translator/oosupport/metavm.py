@@ -405,6 +405,12 @@ class _OOString(MicroInstruction):
         generator.load(op.args[1])
         generator.call_oostring(ARGTYPE)
 
+class _CastTo(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        INSTANCE = op.args[1].value
+        class_name = generator.db.pending_class(INSTANCE)
+        generator.isinstance(class_name)
 
 New = _New()
 
@@ -418,3 +424,4 @@ Call = _Call()
 CallMethod = _CallMethod()
 RuntimeNew = _RuntimeNew()
 OOString = _OOString()
+CastTo = _CastTo()

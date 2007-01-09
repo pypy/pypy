@@ -31,6 +31,9 @@ class Database(OODatabase):
                            # and JvmType objects as well
         self._functions = {}      # graph -> jvmgen.Method
 
+        # (jargtypes, jrettype) -> node.StaticMethodInterface
+        self._delegates = {} 
+
         self._function_names = {} # graph --> function_name
 
         self._constants = {}      # flowmodel.Variable --> jvmgen.Const
@@ -72,6 +75,14 @@ class Database(OODatabase):
     # Node Creation
     #
     # Creates nodes that represents classes, functions, simple constants.
+
+    def _types_for_graph(self, graph):
+        argtypes = [arg.concretetype for arg in graph.getargs()
+                    if arg.concretetype is not ootype.Void]
+        jargtypes = tuple([self.lltype_to_cts(argty) for argty in argtypes])
+        rettype = graph.getreturnvar().concretetype
+        jrettype = self.lltype_to_cts(rettype)
+        return jargtypes, jrettype        
     
     def _function_for_graph(self, classobj, funcnm, is_static, graph):
         
@@ -79,14 +90,33 @@ class Database(OODatabase):
         Creates a node.Function object for a particular graph.  Adds
         the method to 'classobj', which should be a node.Class object.
         """
-        argtypes = [arg.concretetype for arg in graph.getargs()
-                    if arg.concretetype is not ootype.Void]
-        jargtypes = [self.lltype_to_cts(argty) for argty in argtypes]
-        rettype = graph.getreturnvar().concretetype
-        jrettype = self.lltype_to_cts(rettype)
+        jargtypes, jrettype = self._types_for_graph(graph)
         funcobj = node.Function(
             self, classobj, funcnm, jargtypes, jrettype, graph, is_static)
         return funcobj
+    
+    def _translate_record(self, OOTYPE):
+        assert OOTYPE is not ootype.ROOT
+
+        # Create class object if it does not already exist:
+        if OOTYPE in self._classes:
+            return self._classes[OOTYPE]
+
+        # Create the class object first
+        clsnm = self._pkg(self._uniq('Record'))
+        clsobj = node.Class(clsnm, jObject)
+        self._classes[OOTYPE] = clsobj
+
+        # Add fields:
+        self._translate_class_fields(clsobj, OOTYPE)
+
+        # TODO --- generate equals/hash methods here
+        
+        dump_method = node.RecordDumpMethod(self, OOTYPE, clsobj)
+        clsobj.add_dump_method(dump_method)
+
+        self.pending_node(clsobj)
+        return clsobj
     
     def _translate_instance(self, OOTYPE):
         assert isinstance(OOTYPE, ootype.Instance)
@@ -111,12 +141,8 @@ class Database(OODatabase):
         # classes?
         
         # Add fields:
-        for fieldnm, (FIELDOOTY, fielddef) in OOTYPE._fields.iteritems():
-            if FIELDOOTY is ootype.Void: continue
-            fieldty = self.lltype_to_cts(FIELDOOTY)
-            clsobj.add_field(
-                jvmgen.Field(clsnm, fieldnm, fieldty, False, FIELDOOTY),
-                fielddef)
+        # Add fields:
+        self._translate_class_fields(clsobj, OOTYPE)
             
         # Add methods:
         for mname, mimpl in OOTYPE._methods.iteritems():
@@ -142,11 +168,19 @@ class Database(OODatabase):
 
         # currently, we always include a special "dump" method for debugging
         # purposes
-        dump_method = node.TestDumpMethod(self, OOTYPE, clsobj)
+        dump_method = node.InstanceDumpMethod(self, OOTYPE, clsobj)
         clsobj.add_dump_method(dump_method)
 
         self.pending_node(clsobj)
         return clsobj
+
+    def _translate_class_fields(self, clsobj, OOTYPE):
+        for fieldnm, (FIELDOOTY, fielddef) in OOTYPE._fields.iteritems():
+            if FIELDOOTY is ootype.Void: continue
+            fieldty = self.lltype_to_cts(FIELDOOTY)
+            clsobj.add_field(
+                jvmgen.Field(clsobj.name, fieldnm, fieldty, False, FIELDOOTY),
+                fielddef)
 
     def pending_class(self, OOTYPE):
         return self.lltype_to_cts(OOTYPE)
@@ -169,6 +203,38 @@ class Database(OODatabase):
         res = self._functions[graph] = funcobj.method()
         return res
 
+    def record_delegate(self, TYPE):
+        """ TYPE is a StaticMethod """
+
+        # Translate argument/return types into java types, check if
+        # we already have such a delegate:
+        jargs = tuple([self.lltype_to_cts(ARG) for ARG in TYPE.ARGS])
+        jret = self.lltype_to_cts(TYPE.RESULT)
+        key = (jargs, jret)
+        if key in self._delegates:
+            return self._delegates[key]
+
+        # TODO: Make an intelligent name for this interface by
+        # mangling the list of parameters
+        name = self._pkg(self._uniq('Delegate'))
+
+        # Create a new one if we do not:
+        interface = node.StaticMethodInterface(name, TYPE, jargs, jret)
+        self._delegates[key] = interface
+        self.pending_node(interface)
+        return interface
+    
+    def record_delegate_impl(self, graph):
+        """ TYPE is a StaticMethod """
+        jargtypes, jrettype = self._types_for_graph(graph)
+        key = (jargtypes, jrettype)
+        assert key in self._delegates
+        pfunc = self.pending_function(graph)
+        implnm = self._pkg(self._uniq(graph.name+'_delegate'))
+        n = node.StaticMethodImplementation(implnm, self._delegates[key], pfunc)
+        self.pending_node(n)
+        return n
+
     # _________________________________________________________________
     # Type printing functions
     #
@@ -185,6 +251,7 @@ class Database(OODatabase):
         ootype.String:jvmgen.PYPYDUMPSTRING,
         ootype.StringBuilder:jvmgen.PYPYDUMPOBJECT,
         ootype.Void:jvmgen.PYPYDUMPVOID,
+        ootype.Char:jvmgen.PYPYDUMPCHAR
         }
 
     def generate_dump_method_for_ootype(self, OOTYPE):
@@ -264,7 +331,7 @@ class Database(OODatabase):
         if isinstance(OOT, ootype.Record):
             return self._translate_record(OOT)
         if isinstance(OOT, ootype.StaticMethod):
-            return XXX
+            return self.record_delegate(OOT)
         
         assert False, "Untranslatable type %s!" % OOT
 
@@ -273,7 +340,7 @@ class Database(OODatabase):
     #
     # These functions are invoked by the code in oosupport, but I
     # don't think we need them or use them otherwise.
-    
+
     def record_function(self, graph, name):
         self._function_names[graph] = name
 

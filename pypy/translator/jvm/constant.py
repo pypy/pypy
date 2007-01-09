@@ -1,7 +1,9 @@
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.generator import \
      Field, Method
 from pypy.translator.oosupport.constant import \
-     BaseConstantGenerator, RecordConst, InstanceConst, ClassConst
+     BaseConstantGenerator, RecordConst, InstanceConst, ClassConst, \
+     StaticMethodConst
 from pypy.translator.jvm.typesystem import \
      jPyPyConst, jObject, jVoid
 
@@ -53,4 +55,22 @@ class JVMConstantGenerator(BaseConstantGenerator):
         gen.end_function()
         
         gen.end_class()
+    
+class JVMStaticMethodConst(StaticMethodConst):
+
+    def record_dependencies(self):
+        if self.value is ootype.null(self.value._TYPE):
+            self.delegate_impl = None
+            return
+        StaticMethodConst.record_dependencies(self)
+        self.delegate_impl = self.db.record_delegate_impl(self.value.graph)
+
+    def create_pointer(self, gen):
+        if self.delegate_impl:
+            gen.new_with_jtype(self.delegate_impl)
+        else:
+            gen.push_null(jObject)
+
+    def initialize_data(self, ilasm):
+        return
     

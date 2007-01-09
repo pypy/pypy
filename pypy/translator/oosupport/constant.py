@@ -367,8 +367,7 @@ class AbstractConst(object):
         If you overload this, overload is_inline() too.
         """
         assert self.is_inline() and self.is_null()
-        return gen.push_null(EXPECTED_TYPE)
-        
+        return gen.push_null(EXPECTED_TYPE)        
 
     # ____________________________________________________________
     # Initializing the constant

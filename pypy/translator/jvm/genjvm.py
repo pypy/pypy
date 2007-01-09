@@ -15,7 +15,8 @@ from pypy.translator.jvm.database import Database
 from pypy.translator.jvm.log import log
 from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
-from pypy.translator.jvm.constant import JVMConstantGenerator
+from pypy.translator.jvm.constant import \
+     JVMConstantGenerator, JVMStaticMethodConst
 
 class JvmError(Exception):
     """ Indicates an error occurred in JVM backend """
@@ -180,6 +181,7 @@ class GenJvm(GenOO):
     log = log
 
     ConstantGenerator = JVMConstantGenerator
+    StaticMethodConst = JVMStaticMethodConst
     
     def __init__(self, tmpdir, translator, entrypoint):
         """

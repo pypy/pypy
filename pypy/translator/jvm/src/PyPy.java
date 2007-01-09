@@ -201,6 +201,10 @@ public class PyPy {
         dump_indented(indent, Integer.toString(i));
     }
 
+    public static void dump_char(char c, int indent) {
+        dump_indented(indent, "'"+c+"'");
+    }
+
     public static void dump_uint(int i, int indent) {
         if (i >= 0)
             dump_indented(indent, Integer.toString(i));

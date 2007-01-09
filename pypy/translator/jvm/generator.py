@@ -325,12 +325,14 @@ class Method(object):
                             self.method_name,
                             self.descriptor)
 
+OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
 MATHIABS =              Method.s(jMath, 'abs', (jInt,), jInt)
 MATHLABS =              Method.s(jMath, 'abs', (jLong,), jLong)
 MATHDABS =              Method.s(jMath, 'abs', (jDouble,), jDouble)
 MATHFLOOR =             Method.s(jMath, 'floor', (jDouble,), jDouble)
 PRINTSTREAMPRINTSTR =   Method.v(jPrintStream, 'print', (jString,), jVoid)
 CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
+CLASSISASSIGNABLEFROM = Method.v(jClass, 'isAssignableFrom', (jClass,), jBool)
 PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
@@ -345,6 +347,7 @@ PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
 PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
 PYPYDUMPINDENTED  =     Method.s(jPyPy, 'dump_indented', (jInt,jString,), jVoid)
 PYPYDUMPINT  =          Method.s(jPyPy, 'dump_int', (jInt,jInt), jVoid)
+PYPYDUMPCHAR  =         Method.s(jPyPy, 'dump_char', (jChar,jInt), jVoid)
 PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,jInt), jVoid)
 PYPYDUMPLONG  =         Method.s(jPyPy, 'dump_long', (jLong,jInt), jVoid)
 PYPYDUMPDOUBLE  =       Method.s(jPyPy, 'dump_double', (jDouble,jInt), jVoid)
@@ -414,6 +417,7 @@ class FunctionState(object):
     def __init__(self):
         self.next_offset = 0
         self.local_vars = {}
+        self.function_arguments = []
         self.instr_counter = 0
     def add_var(self, jvar, jtype):
         """ Adds new entry for variable 'jvar', of java type 'jtype' """
@@ -422,6 +426,7 @@ class FunctionState(object):
         if jvar:
             assert jvar not in self.local_vars # never been added before
             self.local_vars[jvar] = idx
+        self.function_arguments.append((jtype, idx))
         return idx
     def var_offset(self, jvar, jtype):
         """ Returns offset for variable 'jvar', of java type 'jtype' """
@@ -479,6 +484,11 @@ class JVMGenerator(Generator):
         self.curclass = None
         self.curfunc = None
 
+    def current_type(self):
+        """ Returns the jvm type we are currently defining.  If
+        begin_class() has not been called, returns None. """
+        return self.curclass.class_type
+
     def _begin_class(self, abstract):
         """ Main implementation of begin_class """
         raise NotImplementedError
@@ -500,8 +510,8 @@ class JVMGenerator(Generator):
         
         superclsnm --- same Java name of super class as from begin_class
         """
-        self.begin_function("<init>", [], [self.curclass.class_type], jVoid)
-        self.load_jvm_var(self.curclass.class_type, 0)
+        self.begin_function("<init>", [], [self.current_type()], jVoid)
+        self.load_jvm_var(self.current_type(), 0)
         jmethod = Method(self.curclass.superclass_type.name, "<init>",
                          (), jVoid, opcode=INVOKESPECIAL)
         jmethod.invoke(self)
@@ -637,6 +647,12 @@ class JVMGenerator(Generator):
         virtual method, not static methods. """
         self.load_jvm_var(jObject, 0)
 
+    def load_function_argument(self, index):
+        """ Convenience method.  Loads function argument #index; note that
+        the this pointer is index #0. """
+        jtype, jidx = self.curfunc.function_arguments[index]
+        self.load_jvm_var(jtype, jidx)
+
     # __________________________________________________________________
     # Exception Handling
 
@@ -764,6 +780,9 @@ class JVMGenerator(Generator):
         jtype = self.db.lltype_to_cts(TYPE)
         self._instr(INSTANCEOF, jtype)
 
+    def isinstance(self, jtype):
+        self._instr(INSTANCEOF, jtype)
+
     def branch_unconditionally(self, target_label):
         self.goto(target_label)
 
@@ -798,6 +817,9 @@ class JVMGenerator(Generator):
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
+        self.new_with_jtype(jtype)
+
+    def new_with_jtype(self, jtype):
         ctor = Method(jtype.name, "<init>", (), jVoid, opcode=INVOKESPECIAL)
         self.emit(NEW, jtype)
         self.emit(DUP)
@@ -921,7 +943,10 @@ class JVMGenerator(Generator):
         self.mark(endlbl)
 
     is_null = lambda self: self._compare_op(IFNULL)
-    is_not_null = lambda self: self._compare_op(IFNOTNULL)
+    is_not_null = lambda self: self._compare_op(IFNONNULL)
+
+    ref_is_eq = lambda self: self._compare_op(IF_ACMPEQ)
+    ref_is_neq = lambda self: self._compare_op(IF_ACMPNEQ)
 
     logical_not = lambda self: self._compare_op(IFEQ)
     equals_zero = logical_not
@@ -989,7 +1014,7 @@ class JasminGenerator(JVMGenerator):
         classnm --- full Java name of the class (i.e., "java.lang.String")
         """
 
-        iclassnm = self.curclass.class_type.descriptor.int_class_name()
+        iclassnm = self.current_type().descriptor.int_class_name()
         isuper = self.curclass.superclass_type.descriptor.int_class_name()
         
         jfile = "%s/%s.j" % (self.outdir, iclassnm)
@@ -1055,8 +1080,9 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        self.curclass.out('    %-60s ; %d\n' % (
-            instr_text, self.curfunc.instr_counter))
+        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        self.curclass.out('    %-60s\n' % (
+            instr_text,))
         self.curfunc.instr_counter+=1
 
     def _try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):

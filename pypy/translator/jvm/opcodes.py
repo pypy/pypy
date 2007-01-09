@@ -7,7 +7,9 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField, CallMethod, DownCast, RuntimeNew, OOString
+     SetField, GetField, CallMethod, DownCast, RuntimeNew, OOString, CastTo
+from pypy.translator.jvm.metavm import \
+     IndirectCall
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -29,12 +31,12 @@ opcodes = {
     'oosend':                   [CallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
-    'oois':                     'is_null',
+    'oois':                     'ref_is_eq',
     'oononnull':                'is_not_null',
-    #'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
-    #'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
-    #'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
-    #'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
+    'instanceof':               CastTo,
+    'subclassof':               [PushAllArgs, jvmgen.SWAP, jvmgen.CLASSISASSIGNABLEFROM, StoreResult],
+    'ooidentityhash':           [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
+    'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     #'oonewcustomdict':          [NewCustomDict],
@@ -42,7 +44,7 @@ opcodes = {
     'same_as':                  DoNothing,
     #'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call, StoreResult],
-    #'indirect_call':            [IndirectCall],
+    'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
     #
     #'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     #'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],

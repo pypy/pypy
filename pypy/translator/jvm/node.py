@@ -18,7 +18,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
-     jObject
+     jObject, JvmType
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.translator.jvm.option import getoption
 from pypy.translator.oosupport.function import Function as OOFunction
@@ -175,6 +175,7 @@ class Function(OOFunction):
 
         # Determine return type
         jrettype = lltype_to_cts(self.graph.getreturnvar().concretetype)
+
         self.ilasm.begin_function(
             self.name, jargvars, jargtypes, jrettype, static=not self.is_method)
 
@@ -232,6 +233,92 @@ class Function(OOFunction):
             jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
             
         OOFunction._render_op(self, op)
+
+class StaticMethodInterface(Node, JvmClassType):
+    """
+    We generate an abstract base class when we need function pointers,
+    which correspond to constants of StaticMethod ootype.  We need a
+    different interface for each different set of argument/return
+    types. These abstract base classes look like:
+
+    abstract class Foo {
+      public abstract ReturnType invoke(Arg1, Arg2, ...);
+    }
+    
+    """
+    def __init__(self, name, STATIC_METHOD, jargtypes, jrettype):
+        """
+        argtypes: list of JvmTypes
+        rettype: JvmType
+        """
+        JvmClassType.__init__(self, name)
+        self.STATIC_METHOD = STATIC_METHOD
+        assert isinstance(jrettype, JvmType)
+        self.java_argument_types = [self] + list(jargtypes)
+        self.java_return_type = jrettype
+        self.dump_method = ConstantStringDumpMethod(
+            self, "StaticMethodInterface")
+        
+    def lookup_field(self, fieldnm):
+        """ Given a field name, returns a jvmgen.Field object """
+        raise KeyError(fieldnm) # no fields
+    def lookup_method(self, methodnm):
+        """ Given the method name, returns a jvmgen.Method object """
+        assert isinstance(self.java_return_type, JvmType)
+        if methodnm == 'invoke':
+            return jvmgen.Method.v(
+                self, 'invoke',
+                self.java_argument_types[1:], self.java_return_type)
+        raise KeyError(methodnm) # only one method
+    def render(self, gen):
+        assert isinstance(self.java_return_type, JvmType)
+        gen.begin_class(self, jObject, abstract=True)
+        gen.begin_constructor()
+        gen.end_constructor()
+        gen.begin_function('invoke', [], self.java_argument_types,
+                           self.java_return_type, abstract=True)
+        gen.end_function()
+        gen.end_class()
+
+class StaticMethodImplementation(Node, JvmClassType):
+    """
+    In addition to the StaticMethodInterface, we must generate an
+    implementation for each specific method that is called.  These
+    implementation objects look like:
+
+    class Bar extends Foo {
+        public ReturnType invoke(Arg1, Arg2) {
+          return SomeStaticClass.StaticMethod(Arg1, Arg2);
+        }
+    }
+    """
+    def __init__(self, name, interface, impl_method):
+        JvmClassType.__init__(self, name)        
+        self.super_class = interface
+        self.impl_method = impl_method
+        self.dump_method = ConstantStringDumpMethod(
+            self, "StaticMethodImplementation")
+    def lookup_field(self, fieldnm):
+        """ Given a field name, returns a jvmgen.Field object """
+        return self.super_class.lookup_field(fieldnm)
+    def lookup_method(self, methodnm):
+        """ Given the method name, returns a jvmgen.Method object """
+        return self.super_class.lookup_method(methodnm)
+    def render(self, gen):
+        gen.begin_class(self, self.super_class)
+        gen.begin_constructor()
+        gen.end_constructor()
+        gen.begin_function('invoke', [],
+                           self.super_class.java_argument_types,
+                           self.super_class.java_return_type)
+        for i in range(len(self.super_class.java_argument_types)):
+            if not i: continue # skip the this ptr
+            gen.load_function_argument(i)
+        gen.emit(self.impl_method)
+        if self.super_class.java_return_type is not jVoid:
+            gen.return_val(self.super_class.java_return_type)
+        gen.end_function()
+        gen.end_class()
 
 class Class(Node, JvmClassType):
 
@@ -321,7 +408,7 @@ class Class(Node, JvmClassType):
         
         gen.end_class()
 
-class TestDumpMethod(object):
+class BaseDumpMethod(object):
 
     def __init__(self, db, OOCLASS, clsobj):
         self.db = db
@@ -336,9 +423,21 @@ class TestDumpMethod(object):
         return jvmgen.Method.v(
             self.clsobj, self.name, self.jargtypes[1:], self.jrettype)
 
-    def render(self, gen):
-        clsobj = self.clsobj
+    def _increase_indent(self, gen):
+        gen.load_jvm_var(jInt, 1)
+        gen.emit(jvmgen.ICONST, 2)
+        gen.emit(jvmgen.IADD)
+        gen.store_jvm_var(jInt, 1)
 
+    def _print_field_value(self, gen, fieldnm, FIELDOOTY):
+        gen.load_this_ptr()
+        fieldobj = self.clsobj.lookup_field(fieldnm)
+        fieldobj.load(gen)
+        gen.load_jvm_var(jInt, 1)
+        dumpmethod = self.db.generate_dump_method_for_ootype(FIELDOOTY)
+        gen.emit(dumpmethod)        
+
+    def render(self, gen):
         gen.begin_function(
             self.name, (), self.jargtypes, self.jrettype, static=False)
 
@@ -350,39 +449,70 @@ class TestDumpMethod(object):
             gen.load_string(str)
             jvmgen.PYPYDUMPINDENTED.invoke(gen)
 
+        self._render_guts(gen, genprint)
+
+        gen.emit(jvmgen.RETURN.for_type(jVoid))
+        gen.end_function()
+
+class InstanceDumpMethod(BaseDumpMethod):
+
+    def _render_guts(self, gen, genprint):
+        clsobj = self.clsobj
+
         # Start the dump
         genprint("InstanceWrapper([")
 
         # Increment the indent
-        gen.load_jvm_var(jInt, 1)
-        gen.emit(jvmgen.ICONST, 2)
-        gen.emit(jvmgen.IADD)
-        gen.store_jvm_var(jInt, 1)
+        self._increase_indent(gen)
 
         for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
 
             if FIELDOOTY is ootype.Void: continue
 
             genprint("(")
-            genprint(fieldnm+",")
+            genprint('"'+fieldnm+'",')
 
             print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
 
             # Print the value of the field:
-            gen.load_this_ptr()
-            fieldobj = clsobj.lookup_field(fieldnm)
-            fieldobj.load(gen)
-            gen.load_jvm_var(jInt, 1)
-            dumpmethod = self.db.generate_dump_method_for_ootype(FIELDOOTY)
-            gen.emit(dumpmethod)
+            self._print_field_value(gen, fieldnm, FIELDOOTY)
 
             genprint(")")
 
         # Decrement indent and dump close
         genprint("])", 2)
-
-        gen.emit(jvmgen.RETURN.for_type(jVoid))
-
-        gen.end_function()
         
-        
+class RecordDumpMethod(BaseDumpMethod):
+
+    def _render_guts(self, gen, genprint):
+        clsobj = self.clsobj
+
+        # Start the dump
+        genprint("StructTuple((")
+
+        # Increment the indent
+        self._increase_indent(gen)
+
+        numfields = len(self.OOCLASS._fields)
+        for i in range(numfields):
+            f_name = 'item%d' % i
+            FIELD_TYPE, f_default = self.OOCLASS._fields[f_name]
+            if FIELD_TYPE is ootype.Void:
+                continue
+
+            # Print the value of the field:
+            self._print_field_value(gen, f_name, FIELD_TYPE)
+            genprint(',')
+
+        # Decrement indent and dump close
+        genprint("))", 2)
+
+class ConstantStringDumpMethod(BaseDumpMethod):
+    """ Just prints out a string """
+
+    def __init__(self, clsobj, str):
+        BaseDumpMethod.__init__(self, None, None, clsobj)
+        self.constant_string = str
+
+    def _render_guts(self, gen, genprint):
+        genprint("'" + self.constant_string + "'")

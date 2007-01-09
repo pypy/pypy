@@ -103,13 +103,6 @@ class _RuntimeNew(MicroInstruction):
         generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
         generator.cast_to(op.result.concretetype)
 
-class _CastTo(MicroInstruction):
-    def render(self, generator, op):
-        generator.load(op.args[0])
-        INSTANCE = op.args[1].value
-        class_name = generator.db.pending_class(INSTANCE)
-        generator.isinstance(class_name)
-
 class _OOString(MicroInstruction):
     def render(self, generator, op):
         ARGTYPE = op.args[0].concretetype
@@ -250,7 +243,6 @@ Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
-CastTo = _CastTo()
 OOString = _OOString()
 NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()
