@@ -187,9 +187,12 @@ class FlexSwitch(CodeGenSwitch):
         except CodeBlockOverflow:
             self._reserve_more()
             self._add_case(gv_case, targetbuilder)
+        targetbuilder._open()
         return targetbuilder
     
     def _add_case(self, gv_case, targetbuilder):
+        # XXX this code needs to be simplified, now that we always
+        # have a default case
         start = self.nextfreepos
         end   = self.endfreepos
         mc = self.rgenop.InMemoryCodeBuilder(start, end)
@@ -210,7 +213,7 @@ class FlexSwitch(CodeGenSwitch):
         self._je_key = 0
         self.nextfreepos = pos
 
-    def add_default(self):
+    def _add_default(self):
         rgenop = self.rgenop
         targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
         self.default_case_builder = targetbuilder
@@ -218,6 +221,7 @@ class FlexSwitch(CodeGenSwitch):
         end   = self.endfreepos
         mc = self.rgenop.InMemoryCodeBuilder(start, end)
         self.default_case_key = targetbuilder.come_from(mc, 'JMP')
+        targetbuilder._open()
         return targetbuilder
 
 class Builder(GenBuilder):
@@ -268,18 +272,18 @@ class Builder(GenBuilder):
                     mc.JMP(rel32(curpos))
                     mc.done()
 
-    def pause(self):
-        if self.mc is None:
-            return
-        start = self.mc.tell()
-        self.mc.JMP(rel32(0))
-        end = self.mc.tell()
-        self.tail = (start, end)
-        self.mc.done()
-        self.rgenop.close_mc(self.mc)
-        self.mc = None
+    def pause_writing(self, alive_vars_gv):
+        if self.mc is not None:
+            start = self.mc.tell()
+            self.mc.JMP(rel32(0))
+            end = self.mc.tell()
+            self.tail = (start, end)
+            self.mc.done()
+            self.rgenop.close_mc(self.mc)
+            self.mc = None
+        return self
         
-    def resume(self):
+    def start_writing(self):
         self._open()
         
     def _emit_come_from(self, mc, insn, addr):
@@ -322,14 +326,14 @@ class Builder(GenBuilder):
         self.mc = None
 
     def _fork(self):
-        return self.rgenop.openbuilder(self.stackdepth)
+        return self.rgenop.newbuilder(self.stackdepth)
 
     def _save_state(self):
         return self.stackdepth
 
     @staticmethod
     def _new_from_state(rgenop, stackdepth):
-        return rgenop.openbuilder(stackdepth)
+        return rgenop.newbuilder(stackdepth)
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -493,13 +497,13 @@ class Builder(GenBuilder):
             seen[gv.stackpos] = None
         return Label(self.mc.tell(), arg_positions, self.stackdepth)
 
-    def jump_if_false(self, gv_condition):
+    def jump_if_false(self, gv_condition, args_gv):
         targetbuilder = self._fork()
         self.mc.CMP(gv_condition.operand(self), imm8(0))
         targetbuilder.come_from(self.mc, 'JE')
         return targetbuilder
 
-    def jump_if_true(self, gv_condition):
+    def jump_if_true(self, gv_condition, args_gv):
         targetbuilder = self._fork()
         self.mc.CMP(gv_condition.operand(self), imm8(0))
         targetbuilder.come_from(self.mc, 'JNE')
@@ -519,11 +523,11 @@ class Builder(GenBuilder):
         self.mc.JMP(rel32(target.startaddr))
         self._close()
 
-    def flexswitch(self, gv_exitswitch):
+    def flexswitch(self, gv_exitswitch, args_gv):
         result = FlexSwitch(self.rgenop)
         result.initialize(self, gv_exitswitch)
         self._close()
-        return result
+        return result, result._add_default()
 
     def show_incremental_progress(self):
         pass
@@ -1006,11 +1010,11 @@ class RI386GenOp(AbstractRGenOp):
     def check_no_open_mc(self):
         assert len(self.mcs) == self.total_code_blocks
 
-    def openbuilder(self, stackdepth):
+    def newbuilder(self, stackdepth):
         return Builder(self, stackdepth)
 
     def newgraph(self, sigtoken, name):
-        builder = self.openbuilder(self._initial_stack_depth(sigtoken))
+        builder = self.newbuilder(self._initial_stack_depth(sigtoken))
         builder._open() # Force builder to have an mc
         entrypoint = builder.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
