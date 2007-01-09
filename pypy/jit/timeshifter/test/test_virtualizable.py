@@ -214,3 +214,31 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns(getfield=0)
+
+    def test_simple_explicit_construct_escape(self):
+        py.test.skip("in-progress")
+   
+        def f(x, y):
+            xy = lltype.malloc(XY)
+            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            xy_access = xy.access
+            if xy_access:
+                x = xy_access.get_x(xy)
+            else:
+                x = xy.x
+            xy_access = xy.access
+            if xy_access:
+                y = xy_access.get_y(xy)
+            else:
+                y = xy.y
+            return xy
+
+        def main(x, y):
+            xy = f(x, y)
+            return xy.x+xy.y
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=0)

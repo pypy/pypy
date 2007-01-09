@@ -275,7 +275,7 @@ class PtrRedBox(RedBox):
             content = self.content
             from pypy.jit.timeshifter import rcontainer
             if isinstance(content, rcontainer.VirtualizableStruct):
-                return content.getgenvar()
+                return content.getgenvar(builder)
             assert isinstance(content, rcontainer.VirtualContainer)
             content.force_runtime_container(builder)
             assert self.genvar

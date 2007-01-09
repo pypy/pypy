@@ -340,9 +340,15 @@ class VirtualizableStruct(VirtualStruct):
     def force_runtime_container(self, builder):
         assert 0
 
-    def getgenvar(self):
-        assert self.typedesc is not None        
-        return self.content_boxes[-1].genvar
+    def getgenvar(self, builder):
+        typedesc = self.typedesc
+        assert typedesc is not None
+        gv_outside = self.content_boxes[-1].genvar
+        if gv_outside is typedesc.gv_defl_outside:
+            gv_outside = builder.genop_malloc_fixedsize(typedesc.alloctoken)
+            self.content_boxes[-1].genvar = gv_outside
+            # xxx jitstate please
+        return gv_outside
 
     def store_back(self, builder):
         fielddescs = self.typedesc.fielddescs
