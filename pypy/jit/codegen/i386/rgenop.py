@@ -905,9 +905,6 @@ class ReplayFlexSwitch(CodeGenSwitch):
     def add_case(self, gv_case):
         return self.replay_builder
 
-    def add_default(self):
-        return self.replay_builder
-
 class ReplayBuilder(GenBuilder):
 
     def __init__(self, rgenop):
@@ -963,10 +960,10 @@ class ReplayBuilder(GenBuilder):
     def enter_next_block(self, kinds, args_gv):
         return None
 
-    def jump_if_false(self, gv_condition):
+    def jump_if_false(self, gv_condition, args_gv):
         return self
 
-    def jump_if_true(self, gv_condition):
+    def jump_if_true(self, gv_condition, args_gv):
         return self
 
     def finish_and_return(self, sigtoken, gv_returnvar):
@@ -975,8 +972,9 @@ class ReplayBuilder(GenBuilder):
     def finish_and_goto(self, outputargs_gv, target):
         pass
 
-    def flexswitch(self, gv_exitswitch):
-        return ReplayFlexSwitch(self)
+    def flexswitch(self, gv_exitswitch, args_gv):
+        flexswitch = ReplayFlexSwitch(self)
+        return flexswitch, self
 
     def show_incremental_progress(self):
         pass

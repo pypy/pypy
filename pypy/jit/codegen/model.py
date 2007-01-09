@@ -95,6 +95,7 @@ class GenBuilder(object):
 
         Returns an instance of GenLabel that can later be jumped to.
         '''
+        raise NotImplementedError
 
     def jump_if_false(self, gv_condition, args_for_jump_gv):
         '''Make a fresh builder, insert in the current block a
@@ -106,13 +107,16 @@ class GenBuilder(object):
         easier it must be closed before the fresh builder is used at
         all, and the first thing to call on the latter is
         start_writing().'''
+        raise NotImplementedError
 
     def jump_if_true(self, gv_condition, args_for_jump_gv):
         '''See above, with the obvious difference :)'''
+        raise NotImplementedError
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         '''Emit the epilogue code for the function, and the code to
         return gv_returnvar.  This "closes" the current builder.'''
+        raise NotImplementedError
 
     def finish_and_goto(self, outputargs_gv, target):
         '''Insert an unconditional jump to target.
@@ -125,6 +129,7 @@ class GenBuilder(object):
 
         This "closes" the current builder.
         '''
+        raise NotImplementedError
 
     def flexswitch(self, gv_exitswitch, args_gv):
         '''The Fun Stuff.
@@ -143,6 +148,7 @@ class GenBuilder(object):
 
         This "closes" the current builder.
         '''
+        raise NotImplementedError
 
     def show_incremental_progress(self):
         '''Give some indication of the code that this instance has generated.
@@ -187,6 +193,7 @@ class AbstractRGenOp(object):
         entrypoint is the address of the new function as GenConst and
         inputargs_gv is the location of each argument on entry to the
         function.  name is for debugging purposes"""
+        raise NotImplementedError
 
     # all staticmethods commented out for the sake of the annotator
 
@@ -215,6 +222,7 @@ class AbstractRGenOp(object):
         The purpose of this is to reconstruct the knowledge of the
         locations of the GenVars at some later point in the code, any
         code actually generated during replaying is thrown away.'''
+        raise NotImplementedError
 
     #@staticmethod
     #def erasedType(T):
@@ -273,3 +281,4 @@ class CodeGenSwitch(object):
     def add_case(self, gv_case):
         '''Make a new builder that will be jumped to when the
         switched-on GenVar takes the value of the GenConst gv_case.'''
+        raise NotImplementedError
