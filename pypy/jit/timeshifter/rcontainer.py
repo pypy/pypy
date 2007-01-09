@@ -85,6 +85,8 @@ class StructTypeDesc(object):
         if TYPE._hints.get('virtualizable', False):
             self.__class__ = VirtualizableStructTypeDesc
             self.VStructCls = VirtualizableStruct
+            outside_null = self.PTRTYPE._defl()
+            self.gv_defl_outside = RGenOp.constPrebuiltGlobal(outside_null)
         else:
             self.VStructCls = VirtualStruct
             
@@ -129,8 +131,8 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         vstruct = VirtualizableStruct(self)
         vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
                                  for desc in self.fielddescs]
-        outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
-        # xxx set outsidebox.genvar
+        outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind,
+                                      self.gv_defl_outside)
         vstruct.content_boxes.append(outsidebox)
         box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
         box.content = vstruct
