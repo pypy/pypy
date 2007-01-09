@@ -301,15 +301,15 @@ class RegrTest:
         self.core = core
 
     def oldstyle(self): 
-        return self._oldstyle or pypy_option.oldstyle 
+        return self._oldstyle #or pypy_option.oldstyle 
     oldstyle = property(oldstyle)
 
     def usemodules(self):
-        return self._usemodules + pypy_option.usemodules
+        return self._usemodules #+ pypy_option.usemodules
     usemodules = property(usemodules)
 
     def compiler(self): 
-        return self._compiler or pypy_option.compiler 
+        return self._compiler #or pypy_option.compiler 
     compiler = property(compiler)
 
     def getoptions(self): 
