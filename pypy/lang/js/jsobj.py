@@ -305,7 +305,7 @@ class W_Builtin(W_Root):
     def Call(self, ctx, args=[], this = None):
         assert len(args) == 0
         return W_String(self.builtinfunction()) # ???
-
+    
 class W_List(W_Root):
     def __init__(self, list_w):
         self.list_w = list_w
