@@ -182,16 +182,20 @@ class Label(GenLabel):
 
 class Builder(GenBuilder):
 
-    def __init__(self, rgenop, mc):
+    def __init__(self, rgenop):
         self.rgenop = rgenop
         self.asm = RPPCAssembler()
-        self.asm.mc = mc
+        self.asm.mc = None
         self.insns = []
         self.stack_adj_addr = 0
         self.initial_spill_offset = 0
         self.initial_var2loc = None
-        self.fresh_from_jump = False
         self.max_param_space = -1
+        self.final_jump_addr = 0
+
+        self.start = 0
+        self.closed = True
+        self.patch_start_here = 0
 
     # ----------------------------------------------------------------
     # the public Builder interface:
@@ -318,11 +322,8 @@ class Builder(GenBuilder):
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def enter_next_block(self, kinds, args_gv):
-        if self.fresh_from_jump:
-            var2loc = self.initial_var2loc
-            self.fresh_from_jump = False
-        else:
-            var2loc = self.allocate_and_emit().var2loc
+        vars_gv = [v for v in args_gv if isinstance(v, Var)]
+        var2loc = self.allocate_and_emit(vars_gv).var2loc
 
         #print "enter_next_block:", args_gv, var2loc
 
@@ -366,15 +367,15 @@ class Builder(GenBuilder):
         self.emit_stack_adjustment()
         return Label(target_addr, arg_locations, min_stack_offset)
 
-    def jump_if_false(self, gv_condition):
-        return self._jump(gv_condition, False)
+    def jump_if_false(self, gv_condition, args_gv):
+        return self._jump(gv_condition, False, args_gv)
 
-    def jump_if_true(self, gv_condition):
-        return self._jump(gv_condition, True)
+    def jump_if_true(self, gv_condition, args_gv):
+        return self._jump(gv_condition, True, args_gv)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         self.insns.append(insn.Return(gv_returnvar))
-        self.allocate_and_emit()
+        self.allocate_and_emit([])
 
         # standard epilogue:
 
@@ -393,7 +394,7 @@ class Builder(GenBuilder):
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
-        allocator = self.allocate_and_emit()
+        allocator = self.allocate_and_emit(outputargs_gv)
         min_offset = min(allocator.spill_offset, target.min_stack_offset)
         min_offset = prepare_for_jump(
             self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
@@ -403,17 +404,54 @@ class Builder(GenBuilder):
         self.asm.bctr()
         self._close()
 
-    def flexswitch(self, gv_exitswitch):
+    def flexswitch(self, gv_exitswitch, args_gv):
         # make sure the exitswitch ends the block in a register:
         crresult = Var()
         self.insns.append(insn.FakeUse(crresult, gv_exitswitch))
-        allocator = self.allocate_and_emit()
+        allocator = self.allocate_and_emit(args_gv)
         switch_mc = self.asm.mc.reserve(7 * 5 + 4)
         self._close()
-        return FlexSwitch(self.rgenop, switch_mc,
-                          allocator.loc_of(gv_exitswitch),
-                          allocator.loc_of(crresult),
-                          allocator.var2loc)
+        result = FlexSwitch(self.rgenop, switch_mc,
+                            allocator.loc_of(gv_exitswitch),
+                            allocator.loc_of(crresult),
+                            allocator.var2loc)
+        return result, result.add_default()
+
+    def start_writing(self):
+        if not self.closed:
+            return self
+        assert self.asm.mc is None
+        if self.final_jump_addr != 0:
+            mc = self.rgenop.open_mc()
+            target = mc.tell()
+            self.asm.mc = codebuf.ExistingCodeBlock(self.final_jump_addr, self.final_jump_addr+8)
+            self.asm.load_word(rSCRATCH, target)
+            self.asm.mc = mc
+            self.emit_stack_adjustment()
+            return self
+        else:
+            self._open()
+            self.maybe_patch_start_here()
+            self.emit_stack_adjustment()
+            return self
+
+    def maybe_patch_start_here(self):
+        if self.patch_start_here:
+            mc = self.asm.mc
+            self.asm.mc = codebuf.ExistingCodeBlock(self.patch_start_here, self.patch_start_here+8)
+            self.asm.load_word(rSCRATCH, mc.tell())
+            self.asm.mc = mc
+            self.patch_start_here = 0
+
+    def pause_writing(self, args_gv):
+        self.allocate_and_emit(args_gv)
+        self.final_jump_addr = self.asm.mc.tell()
+        self.asm.nop()
+        self.asm.nop()
+        self.asm.mtctr(rSCRATCH)
+        self.asm.bctr()
+        self._close()
+        return self 
 
     # ----------------------------------------------------------------
     # ppc-specific interface:
@@ -431,11 +469,6 @@ class Builder(GenBuilder):
             insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
                                gv_itemoffset, [gv_offset, IntConst(startoffset)]))
         return gv_itemoffset
-
-    def make_fresh_from_jump(self, initial_var2loc):
-        self.fresh_from_jump = True
-        self.initial_var2loc = initial_var2loc
-        self.max_param_space = -1
 
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
@@ -494,11 +527,14 @@ class Builder(GenBuilder):
             param = 0
         return ((4 + param - lv + 15) & ~15)
 
+    def _open(self):
+        self.asm.mc = self.rgenop.open_mc()
+
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
         self.asm.mc = None
 
-    def allocate_and_emit(self):
+    def allocate_and_emit(self, live_vars_gv):
         assert self.initial_var2loc is not None
         allocator = RegisterAllocation(
             self.rgenop.freeregs, self.initial_var2loc, self.initial_spill_offset)
@@ -523,6 +559,7 @@ class Builder(GenBuilder):
         # note that this stomps on both rSCRATCH (not a problem) and
         # crf0 (a very small chance of being a problem)
         self.stack_adj_addr = self.asm.mc.tell()
+        #print "emit_stack_adjustment at: ", self.stack_adj_addr
         self.asm.addi(rSCRATCH, rFP, 0) # this is the immediate that later gets patched
         self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
         self.asm.beq(3) # if rSCRATCH == 0, there is no actual adjustment, so
@@ -534,6 +571,7 @@ class Builder(GenBuilder):
     def patch_stack_adjustment(self, newsize):
         if self.stack_adj_addr == 0:
             return
+        #print "patch_stack_adjustment at:", self.stack_adj_addr, newsize
         # we build an addi instruction by hand here
         opcode = 14 << 26
         rD = rSCRATCH << 21
@@ -633,17 +671,11 @@ class Builder(GenBuilder):
     def op_int_ne(self, gv_x, gv_y):
         return self._compare('ne', gv_x, gv_y)
 
-    def _jump(self, gv_condition, if_true):
-        targetbuilder = self.rgenop.openbuilder()
-
-        targetaddr = targetbuilder.asm.mc.tell()
+    def _jump(self, gv_condition, if_true, args_gv):
+        targetbuilder = self.rgenop.newbuilder()
 
         self.insns.append(
-            insn.Jump(gv_condition, self.rgenop.genconst(targetaddr), if_true))
-
-        allocator = self.allocate_and_emit()
-        self.make_fresh_from_jump(allocator.var2loc)
-        targetbuilder.make_fresh_from_jump(allocator.var2loc)
+            insn.Jump(gv_condition, targetbuilder, if_true, args_gv))
 
         return targetbuilder
 
@@ -688,7 +720,8 @@ class RPPCGenOp(AbstractRGenOp):
 
     def newgraph(self, sigtoken, name):
         numargs = sigtoken          # for now
-        builder = self.openbuilder()
+        builder = self.newbuilder()
+        builder._open()
         entrypoint = builder.asm.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, IntConst(entrypoint), inputargs_gv
@@ -780,8 +813,8 @@ class RPPCGenOp(AbstractRGenOp):
 ##                             mc._size*4)
         self.mcs.append(mc)
 
-    def openbuilder(self):
-        return Builder(self, self.open_mc())
+    def newbuilder(self):
+        return Builder(self)
 
 # a switch can take 7 instructions:
 
@@ -808,8 +841,9 @@ class FlexSwitch(CodeGenSwitch):
         self.default_target_addr = 0
 
     def add_case(self, gv_case):
-        targetbuilder = self.rgenop.openbuilder()
-        targetbuilder.make_fresh_from_jump(self.var2loc)
+        targetbuilder = self.rgenop.newbuilder()
+        targetbuilder._open()
+        targetbuilder.initial_var2loc = self.var2loc
         target_addr = targetbuilder.asm.mc.tell()
         p = self.asm.mc.getpos()
         # that this works depends a bit on the fixed length of the
@@ -843,8 +877,9 @@ class FlexSwitch(CodeGenSwitch):
             self._write_default()
 
     def add_default(self):
-        targetbuilder = self.rgenop.openbuilder()
-        targetbuilder.make_fresh_from_jump(self.var2loc)
+        targetbuilder = self.rgenop.newbuilder()
+        targetbuilder._open()
+        targetbuilder.initial_var2loc = self.var2loc
         self.default_target_addr = targetbuilder.asm.mc.tell()
         self._write_default()
         return targetbuilder

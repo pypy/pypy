@@ -55,11 +55,11 @@ class MachineCodeBlock:
         self._pos = _pos
 
     def write(self, data):
-         p = self._pos
-         if p >= self._size:
-             raise CodeBlockOverflow
-         self._data.contents[p] = data
-         self._pos = p + 1
+        p = self._pos
+        if p >= self._size:
+            raise CodeBlockOverflow
+        self._data.contents[p] = data
+        self._pos = p + 1
 
     def getpos(self):
         return self._pos
@@ -76,6 +76,13 @@ class MachineCodeBlock:
         for i in range(_size):
             self.write(0)
         return r
+
+class ExistingCodeBlock(MachineCodeBlock):
+    def __init__(self, start, end):
+        self._size = (end-start)/4
+        p = c_void_p(start)
+        self._data = cast(p, POINTER(c_int * self._size))
+        self._pos = 0
 
 class OwningMachineCodeBlock(MachineCodeBlock):
     def __del__(self):

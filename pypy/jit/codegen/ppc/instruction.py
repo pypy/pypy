@@ -78,10 +78,10 @@ class Insn(object):
     reg_arg_regclasses is the type of register that needs to be allocated
     '''
     def __init__(self):
-        self.__magic_index = _insn_index[0]
+        self._magic_index = _insn_index[0]
         _insn_index[0] += 1
     def __repr__(self):
-        return "<%s %d>" % (self.__class__.__name__, self.__magic_index)
+        return "<%s %d>" % (self.__class__.__name__, self._magic_index)
 
 class Insn_GPR__GPR_GPR(Insn):
     def __init__(self, methptr, result, args):
@@ -97,6 +97,9 @@ class Insn_GPR__GPR_GPR(Insn):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg1 = allocator.loc_of(self.reg_args[0])
         self.arg_reg2 = allocator.loc_of(self.reg_args[1])
+
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
 
     def emit(self, asm):
         self.methptr(asm,
@@ -117,6 +120,9 @@ class Insn_GPR__GPR_IMM(Insn):
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -135,6 +141,9 @@ class Insn_GPR__GPR(Insn):
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -152,6 +161,9 @@ class Insn_GPR__IMM(Insn):
         self.reg_arg_regclasses = []
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -170,6 +182,9 @@ class Insn_None__GPR_GPR_IMM(Insn):
     def allocate(self, allocator):
         self.reg1 = allocator.loc_of(self.reg_args[0])
         self.reg2 = allocator.loc_of(self.reg_args[1])
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+
     def emit(self, asm):
         self.methptr(asm,
                      self.reg1.number,
@@ -189,6 +204,9 @@ class Insn_None__GPR_GPR_GPR(Insn):
         self.reg1 = allocator.loc_of(self.reg_args[0])
         self.reg2 = allocator.loc_of(self.reg_args[1])
         self.reg3 = allocator.loc_of(self.reg_args[2])
+    def __repr__(self):
+        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+
     def emit(self, asm):
         self.methptr(asm,
                      self.reg1.number,
@@ -253,21 +271,33 @@ class CMPWI(CMPInsn):
 ##         asm.mtctr(self.arg_reg.number)
 
 class Jump(Insn):
-    def __init__(self, gv_cond, gv_target, jump_if_true):
+    def __init__(self, gv_cond, targetbuilder, jump_if_true, jump_args_gv):
         Insn.__init__(self)
         self.gv_cond = gv_cond
-        self.gv_target = gv_target
         self.jump_if_true = jump_if_true
 
         self.result = None
         self.result_regclass = NO_REGISTER
-        self.reg_args = [gv_cond, gv_target]
-        self.reg_arg_regclasses = [CR_FIELD, CT_REGISTER]
+        self.reg_args = [gv_cond]
+        self.reg_arg_regclasses = [CR_FIELD]
+
+        self.jump_args_gv = jump_args_gv
+        self.targetbuilder = targetbuilder
     def allocate(self, allocator):
-        assert allocator.loc_of(self.reg_args[1]) is ctr
         self.crf = allocator.loc_of(self.reg_args[0])
         self.bit, self.negated = allocator.crfinfo[self.crf.number]
+
+        self.targetbuilder.initial_var2loc = {}
+        for gv_arg in self.jump_args_gv:
+            self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
+        self.targetbuilder.initial_spill_offset = allocator.spill_offset
     def emit(self, asm):
+        if self.targetbuilder.start:
+            asm.load_word(rSCRATCH, self.targetbuilder.start)
+        else:
+            self.targetbuilder.patch_start_here = asm.mc.tell()
+            asm.load_word(rSCRATCH, 0)
+        asm.mtctr(rSCRATCH)
         if self.negated ^ self.jump_if_true:
             BO = 12 # jump if relavent bit is set in the CR
         else:
