@@ -55,9 +55,18 @@ class W_Root(object):
     def ToNumber(self):
         return NaN
     
-    # def get_literal(self):
-    #     return self.ToString()
-    # 
+    def Get(self, P):
+        raise NotImplementedError
+    
+    def Put(self, P, V, DontDelete=False, ReadOnly=False, DontEnum=False, Internal=False):
+        raise NotImplementedError
+    
+    def PutValue(self, w, ctx):
+        raise NotImplementedError
+    
+    def Call(self, ctx, args=[], this=None):
+        raise NotImplementedError
+
     def __str__(self):
         return self.ToString()
         

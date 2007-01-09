@@ -7,11 +7,21 @@ class Node(object):
     # TODO Add line info for debug
 #    def __init__(self, lineno = 1):
 #        self.lineno = lineno
-    pass
+    def eval(self, ctx):
+        raise NotImplementedError
 
-class Statement(Node):
     def execute(self, ctx):
         raise NotImplementedError
+    
+    def get_literal(self):
+        raise NotImplementedError
+    
+    def get_args(self, ctx):
+        raise NotImplementedError
+        
+
+class Statement(Node):
+    pass
 
 class Expression(Statement):
     def eval(self, ctx):
@@ -31,6 +41,9 @@ class BinaryComparisonOp(BinaryOp):
         s2 = self.left.eval(ctx).GetValue()
         s4 = self.right.eval(ctx).GetValue()
         return self.decision(ctx, s2, s4)
+    
+    def decision(self, ctx, op1, op2):
+        raise NotImplementedError
 
 
 class BinaryLogicOp(BinaryOp):
@@ -40,35 +53,27 @@ class BinaryLogicOp(BinaryOp):
 def writer(x):
     print x
 
+def load_source(script_source):
+    temp_tree = parse(script_source)
+    return from_tree(temp_tree)
+
+def load_bytecode(bytecode):
+    temp_tree = parse_bytecode(bytecode)
+    return from_tree(temp_tree)
+
 class Interpreter(object):
     """Creates a js interpreter"""
-    def __init__(self, script_source=None):
+    def __init__(self):
         self.w_Object = W_Object() #creating Object
         self.w_Global = W_Object()
         self.w_Global.Prototype = self.w_Object
         self.w_Global.Put('prototype', W_String('Object'))
         self.w_Global.Put('Object', self.w_Object)
         self.global_context = global_context(self.w_Global)
-        if script_source is not None:
-            self.load_source(script_source)
-    
-    def load_source(self, script_source):
-        """load a source script text to the interpreter"""
-        temp_tree = parse(script_source)
-        self.script = from_tree(temp_tree)
-    
-    def append_source(self, script_source):
-        temp_tree = parse(script_source)
-        newscript = from_tree(temp_tree)
-        self.script.append_script(newscript)
 
-    def load_bytecode(self, bytecode):
-        temp_tree = parse_bytecode(bytecode)
-        self.script = from_tree(temp_tree)
-
-    def run(self):
+    def run(self, script):
         """run the interpreter"""
-        return self.script.execute(self.global_context)
+        return script.execute(self.global_context)
 
 class PropertyInit(Node):
     def __init__(self, name, value):

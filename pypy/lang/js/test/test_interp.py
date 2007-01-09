@@ -28,16 +28,20 @@ class TestInterp(object):
     def assert_prints(self, code, assval):
         l = []
         interpreter.writer = l.append
-        js_int = interpreter.Interpreter(code)
+        js_int = interpreter.Interpreter()
         try:
-            js_int.run()
+            if isinstance(code, str):
+                js_int.run(load_source(code))
+            else:
+                for codepiece in code:
+                    js_int.run(load_source(codepiece))
         except ThrowException, excpt:
             l.append("uncaught exception: "+str(excpt.exception))
         assert l == assval
     
     def assert_result(self, code, result):
-        inter = interpreter.Interpreter(code)
-        r = inter.run()
+        inter = interpreter.Interpreter()
+        r = inter.run(load_source(code))
         assert r.ToString() == result.ToString()
         
     def test_interp_parse(self):
@@ -283,5 +287,15 @@ class TestInterp(object):
         print("z" in x);
         """, ["true", "false"])
     
+    def test_append_code(self):
+        self.assert_prints(["""
+        var x; x=3;
+        """, """
+        print(x);
+        z = 2;
+        ""","""
+        print(z)
+        """]
+        ,["3", "2"])
 
 
