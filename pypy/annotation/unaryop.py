@@ -641,7 +641,8 @@ class __extend__(SomePtr):
         args_s, kwds_s = args.unpack()
         if kwds_s:
             raise Exception("keyword arguments to call to a low-level fn ptr")
-        llargs = [annotation_to_lltype(s_arg)._defl() for s_arg in args_s]
+        info = 'argument to ll function pointer call'
+        llargs = [annotation_to_lltype(s_arg,info)._defl() for s_arg in args_s]
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 
