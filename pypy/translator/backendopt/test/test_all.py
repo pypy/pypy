@@ -1,13 +1,15 @@
 import py
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.backendopt.support import md5digest
-from pypy.translator.backendopt.test.test_malloc import check_malloc_removed
+from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval as LLTypeMallocRemovalTest
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.rarithmetic import intmask
 from pypy import conftest
+
+check_malloc_removed = LLTypeMallocRemovalTest.check_malloc_removed
 
 def translateopt(func, sig, **optflags):
     t = TranslationContext()
