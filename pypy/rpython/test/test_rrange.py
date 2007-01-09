@@ -124,6 +124,17 @@ class BaseTestRrange(BaseRtypingTest):
             res = self.interpret(fn, args)
             assert res == intmask(fn(*args))
 
+    def test_empty_range(self):
+        def g(lst):
+            total = 0
+            for i in range(len(lst)):
+                total += lst[i]
+            return total
+        def fn():
+            return g([])
+        res = self.interpret(fn, [])
+        assert res == 0
+
 
 class TestLLtype(BaseTestRrange, LLRtypeMixin):
     from pypy.rpython.lltypesystem import rrange 

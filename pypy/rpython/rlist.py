@@ -31,7 +31,8 @@ class __extend__(annmodel.SomeList):
     def rtyper_makerepr(self, rtyper):
         listitem = self.listdef.listitem
         s_value = listitem.s_value
-        if listitem.range_step is not None and not listitem.mutated:
+        if (listitem.range_step is not None and not listitem.mutated and
+            not isinstance(s_value, annmodel.SomeImpossibleValue)):
             return rtyper.type_system.rrange.RangeRepr(listitem.range_step)
         elif (s_value.__class__ is annmodel.SomeObject and s_value.knowntype == object):
             return robject.pyobj_repr

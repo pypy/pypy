@@ -118,11 +118,12 @@ def ll_range2list(LIST, start, stop, step):
         raise ValueError
     length = _ll_rangelen(start, stop, step)
     l = LIST.ll_newlist(length)
-    idx = 0
-    while idx < length:
-        l.ll_setitem_fast(idx, start)
-        start += step
-        idx += 1
+    if LIST.ITEM is not Void:
+        idx = 0
+        while idx < length:
+            l.ll_setitem_fast(idx, start)
+            start += step
+            idx += 1
     return l
 
 # ____________________________________________________________

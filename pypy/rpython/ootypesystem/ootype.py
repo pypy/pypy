@@ -379,6 +379,10 @@ class List(BuiltinADTType):
         # 'ITEMTYPE_T' is used as a placeholder for indicating
         # arguments that should have ITEMTYPE type. 'SELFTYPE_T' indicates 'self'
 
+        # XXX clean-up later! Rename _ITEMTYPE to ITEM.  For now they are
+        # just synonyms, please use ITEM in new code.
+        self.ITEM = self._ITEMTYPE
+
         generic_types = {
             self.SELFTYPE_T: self,
             self.ITEMTYPE_T: self._ITEMTYPE,
@@ -463,6 +467,11 @@ class Dict(BuiltinADTType):
         return self._KEYTYPE is not None and self._VALUETYPE is not None
 
     def _init_methods(self):
+        # XXX clean-up later! Rename _KEYTYPE and _VALUETYPE to KEY and VALUE.
+        # For now they are just synonyms, please use KEY/VALUE in new code.
+        self.KEY = self._KEYTYPE
+        self.VALUE = self._VALUETYPE
+
         self._generic_types = frozendict({
             self.SELFTYPE_T: self,
             self.KEYTYPE_T: self._KEYTYPE,
