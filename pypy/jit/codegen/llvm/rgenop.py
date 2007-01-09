@@ -309,13 +309,15 @@ class FlexSwitch(Block):
         self.cases.append('%s,label %%%s' % (gv_case.operand(), targetbuilder.nextlabel))
         log('%s FlexSwitch.add_case %s => %s' % (
             self.builder.block.label, gv_case.operand(), targetbuilder.nextlabel))
+        targetbuilder.start_writing()
         return targetbuilder
 
-    def add_default(self):
+    def _add_default(self):
         targetbuilder = self.builder._fork()
         self.default_label = targetbuilder.nextlabel
         log('%s FlexSwitch.add_default => %s' % (
             self.builder.block.label, targetbuilder.nextlabel))
+        targetbuilder.start_writing()
         return targetbuilder
 
     def writecode(self, lines):
@@ -324,7 +326,7 @@ class FlexSwitch(Block):
                 self.gv_exitswitch.operand(), self.default_label, ' '.join(self.cases)))
 
 
-class Builder(object):  #changed baseclass from (GenBuilder) for better error messages
+class Builder(GenBuilder):
 
     def __init__(self, rgenop, coming_from):
         self.rgenop = rgenop
@@ -342,11 +344,24 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def end(self):
         self.rgenop.end()      # XXX Hack to be removed!
 
-    def pause(self):
-        log('%s Builder.pause' % self.block.label)
+    def pause_writing(self, args_gv):
+        log('%s Builder.pause_writing' % self.block.label)
+        assert self.asm is not None
+        self.nextlabel = count.newlabel()   # for the next block
+        self.asm.append(' br label %%%s' % (self.nextlabel,))
+        self.asm = None
+        return self
 
-    def resume(self):
-        log('%s Builder.resume' % self.block.label)
+    def start_writing(self):
+        log('%s Builder.start_writing' % self.nextlabel)
+        assert self.nextlabel is not None
+        coming_from = self.block
+        # prepare the next block
+        nextblock = BasicBlock(self.rgenop, self.nextlabel, [])
+        self.block     = nextblock
+        self.asm       = nextblock.asm
+        self.nextlabel = None
+        nextblock.add_incoming_link(coming_from, [])
 
     # ----------------------------------------------------------------
     # The public Builder interface
@@ -589,24 +604,19 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     #/XXX
 
     def enter_next_block(self, kinds, args_gv):
-        # if nextlabel is None, it means that we still need to
-        # properly terminate the current block (with a br to go
-        # to the next block)
-        # see: http://llvm.org/docs/LangRef.html#terminators
-        if self.nextlabel is None:
-            self.nextlabel = count.newlabel()
-            self.asm.append(' br label %%%s' % (self.nextlabel,))
+        assert self.nextlabel is None
         coming_from = self.block
-        log('%s Builder leave block %s' % (
-            coming_from.label, [v.operand() for v in args_gv]))
-
+        newlabel = count.newlabel()
+        # we still need to properly terminate the current block
+        # (with a br to go to the next block)
+        # see: http://llvm.org/docs/LangRef.html#terminators
+        self.asm.append(' br label %%%s' % (newlabel,))
         # prepare the next block
-        nextblock = BasicBlock(self.rgenop, self.nextlabel, kinds)
+        nextblock = BasicBlock(self.rgenop, newlabel, kinds)
         log('%s Builder enter block %s' % (
             nextblock.label, [v.operand() for v in nextblock.inputargs]))
-        self.block     = nextblock
-        self.asm       = nextblock.asm
-        self.nextlabel = None
+        self.block = nextblock
+        self.asm   = nextblock.asm
 
         # link the two blocks together and update args_gv
         nextblock.add_incoming_link(coming_from, args_gv)
@@ -615,20 +625,22 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
         return self.block
 
-    def jump_if_false(self, gv_condition):
+    def jump_if_false(self, gv_condition, args_for_jump_gv):
         log('%s Builder.jump_if_false %s' % (self.block.label, gv_condition.operand()))
         targetbuilder = self._fork()
         self.nextlabel = count.newlabel()
         self.asm.append(' br %s,label %%%s,label %%%s' % (
             gv_condition.operand(), self.nextlabel, targetbuilder.nextlabel))
+        self.start_writing()
         return targetbuilder
 
-    def jump_if_true(self, gv_condition):
+    def jump_if_true(self, gv_condition, args_for_jump_gv):
         log('%s Builder.jump_if_true %s' % (self.block.label, gv_condition.operand()))
         targetbuilder = self._fork()
         self.nextlabel = count.newlabel()
         self.asm.append(' br %s,label %%%s,label %%%s' % (
             gv_condition.operand(), targetbuilder.nextlabel, self.nextlabel))
+        self.start_writing()
         return targetbuilder
 
     def _is_false(self, gv_x, nullstr='0'):
@@ -857,9 +869,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         target.add_incoming_link(self.block, outputargs_gv)
         self._close()
 
-    def flexswitch(self, gv_exitswitch):
+    def flexswitch(self, gv_exitswitch, args_gv):
         log('%s Builder.flexswitch %s' % (self.block.label, gv_exitswitch.operand()))
-        return FlexSwitch(self.rgenop, self, gv_exitswitch)
+        flexswitch = FlexSwitch(self.rgenop, self, gv_exitswitch)
+        return flexswitch, flexswitch._add_default()
 
 
 class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better error messages
@@ -926,7 +939,7 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         self.funcsig[n] = '%s %%%s' % (restype, name)
         self.gv_entrypoint = IntConst(n)    #note: updated by Builder.end() (i.e after compilation)
         args = list(prologueblock.inputargs)
-        builder.enter_next_block(argtypes, args)
+        builder.start_writing()
         return builder, self.gv_entrypoint, args
 
     @specialize.genconst(1)
