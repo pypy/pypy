@@ -34,7 +34,7 @@ class W_TaintBomb(baseobjspace.W_Root):
 
     def explode(self, space):
         msg = self.operr.errorstr(space)
-        raise OperationError(space.w_TaintError, space.wrap(msg))
+        raise OperationError(space.w_TaintError, space.w_None)  # space.wrap(msg))
 
 
 def taint(w_obj):
