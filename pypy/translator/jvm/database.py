@@ -95,20 +95,16 @@ class Database(OODatabase):
         # Create class object if it does not already exist:
         if OOTYPE in self._classes:
             return self._classes[OOTYPE]
-        
-        # Resolve super class first
+
+        # Create the class object first
+        clsnm = self._pkg(self._uniq(OOTYPE._name))
+        clsobj = node.Class(clsnm)
+        self._classes[OOTYPE] = clsobj
+
+        # Resolve super class 
         assert OOTYPE._superclass
         supercls = self.pending_class(OOTYPE._superclass)
-
-        # Create the class object
-        clsnm = self._pkg(self._uniq(OOTYPE._name))
-        clsobj = node.Class(clsnm, supercls)
-
-        print "Class %s has super %s" % (
-            clsnm, supercls.name)
-
-        # Store the class object for future calls
-        self._classes[OOTYPE] = clsobj
+        clsobj.set_super_class(supercls)
 
         # TODO --- mangle field and method names?  Must be
         # deterministic, or use hashtable to avoid conflicts between
@@ -116,17 +112,22 @@ class Database(OODatabase):
         
         # Add fields:
         for fieldnm, (FIELDOOTY, fielddef) in OOTYPE._fields.iteritems():
-            print "Class %s has field %s of type %s" % (
-                clsobj.name, fieldnm, FIELDOOTY)
             if FIELDOOTY is ootype.Void: continue
             fieldty = self.lltype_to_cts(FIELDOOTY)
-            clsobj.add_field(jvmgen.Field(clsnm, fieldnm, fieldty, False))
+            clsobj.add_field(
+                jvmgen.Field(clsnm, fieldnm, fieldty, False, FIELDOOTY),
+                fielddef)
             
         # Add methods:
         for mname, mimpl in OOTYPE._methods.iteritems():
             if not hasattr(mimpl, 'graph'):
                 # Abstract method
-                TODO
+                METH = mimpl._TYPE
+                arglist = [self.lltype_to_cts(ARG) for ARG in METH.ARGS
+                           if ARG is not ootype.Void]
+                returntype = self.lltype_to_cts(METH.RESULT)
+                clsobj.add_abstract_method(jvmgen.Method.v(
+                    clsobj, mname, arglist, returntype))
             else:
                 # if the first argument's type is not a supertype of
                 # this class it means that this method this method is

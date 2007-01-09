@@ -22,6 +22,7 @@ from pypy.translator.jvm.typesystem import \
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.translator.jvm.option import getoption
 from pypy.translator.oosupport.function import Function as OOFunction
+from pypy.translator.oosupport.constant import push_constant
 import pypy.translator.jvm.generator as jvmgen
 
 class Node(object):
@@ -237,33 +238,40 @@ class Class(Node, JvmClassType):
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
 
-    def __init__(self, name, supercls):
+    def __init__(self, name, supercls=None):
         """
         'name' should be a fully qualified Java class name like
         "java.lang.String", supercls is a Class object
         """
         JvmClassType.__init__(self, name)
-        self.super_class = supercls
+        self.super_class = supercls # can also be set later with set_super_class
         self.fields = {}
         self.rendered = False
+        self.abstract = False
         self.methods = {}
+        self.abstract_methods = {}
 
-    def add_field(self, fieldobj):
+    def set_super_class(self, supercls):
+        self.super_class = supercls
+
+    def add_field(self, fieldobj, fielddef):
         """ Creates a new field accessed via the jvmgen.Field
         descriptor 'fieldobj'.  Must be called before render()."""
         assert not self.rendered and isinstance(fieldobj, jvmgen.Field)
-        self.fields[fieldobj.field_name] = fieldobj
+        self.fields[fieldobj.field_name] = (fieldobj, fielddef)
 
     def lookup_field(self, fieldnm):
         """ Given a field name, returns a jvmgen.Field object """
         if fieldnm in self.fields:
-            return self.fields[fieldnm]
+            return self.fields[fieldnm][0]
         return self.super_class.lookup_field(fieldnm)
 
     def lookup_method(self, methodnm):
         """ Given the method name, returns a jvmgen.Method object """
         if methodnm in self.methods:
             return self.methods[methodnm].method()
+        if methodnm in self.abstract_methods:
+            return self.abstract_methods[methodnm]
         return self.super_class.lookup_method(methodnm)
 
     def add_method(self, func):
@@ -273,21 +281,43 @@ class Class(Node, JvmClassType):
         'methods' may actually represent static functions. """
         self.methods[func.name] = func
 
+    def add_abstract_method(self, jmethod):
+        """ Adds an abstract method to our list of methods; jmethod should
+        be a jvmgen.Method object """
+        assert jmethod.method_name not in self.methods
+        self.abstract = True
+        self.abstract_methods[jmethod.method_name] = jmethod
+
     def add_dump_method(self, dm):
         self.dump_method = dm # public attribute for reading
         self.add_method(dm)
         
     def render(self, gen):
         self.rendered = True
-        gen.begin_class(self, self.super_class)
+        gen.begin_class(self, self.super_class, abstract=self.abstract)
 
-        for field in self.fields.values():
+        for field, fielddef in self.fields.values():
             gen.add_field(field)
 
-        gen.emit_constructor()
+        # Emit the constructor:
+        gen.begin_constructor()
+        # set default values for fields
+        for field, f_default in self.fields.values():
+            if field.jtype is not jVoid:
+                gen.load_jvm_var(self, 0) # load this ptr
+                # load default value of field
+                push_constant(gen.db, field.OOTYPE, f_default, gen)
+                field.store(gen)           # store value into field
+        gen.end_constructor()
 
         for method in self.methods.values():
             method.render(gen)
+
+        for method in self.abstract_methods.values():
+            gen.begin_function(
+                method.method_name, None, method.argument_types,
+                method.return_type, abstract=True)
+            gen.end_function()
         
         gen.end_class()
 

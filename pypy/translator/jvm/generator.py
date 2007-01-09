@@ -276,7 +276,8 @@ class Label(object):
 # methobj is its Method instance.
 
 class Method(object):
-    
+
+    # Create a virtual method:
     def v(classty, methnm, argtypes, rettype):
         """
         Shorthand to create a virtual method.
@@ -288,12 +289,10 @@ class Method(object):
         """
         assert isinstance(classty, JvmType)
         classnm = classty.name
-        argtypes = [a.descriptor for a in argtypes]
-        rettype = rettype.descriptor
-        return Method(classnm, methnm, desc_for_method(argtypes, rettype),
-                      opcode=INVOKEVIRTUAL)
+        return Method(classnm, methnm, argtypes, rettype, opcode=INVOKEVIRTUAL)
     v = staticmethod(v)
     
+    # Create a static method:
     def s(classty, methnm, argtypes, rettype):
         """
         Shorthand to create a static method.
@@ -305,16 +304,20 @@ class Method(object):
         """
         assert isinstance(classty, JvmType)
         classnm = classty.name
-        argtypes = [a.descriptor for a in argtypes]
-        rettype = rettype.descriptor
-        return Method(classnm, methnm, desc_for_method(argtypes, rettype))
+        return Method(classnm, methnm, argtypes, rettype)
     s = staticmethod(s)
     
-    def __init__(self, classnm, methnm, desc, opcode=INVOKESTATIC):
+    def __init__(self, classnm, methnm, argtypes, rettype, opcode=INVOKESTATIC):
         self.opcode = opcode
         self.class_name = classnm  # String, ie. "java.lang.Math"
         self.method_name = methnm  # String "abs"
-        self.descriptor = desc     # String, (I)I
+        self.argument_types = argtypes # List of jvmtypes
+        self.return_type = rettype     # jvmtype
+
+        # Compute the method descriptior, which is a string like "()I":
+        argtypesdesc = [a.descriptor for a in argtypes]
+        rettypedesc = rettype.descriptor
+        self.descriptor = desc_for_method(argtypesdesc, rettypedesc)  
     def invoke(self, gen):
         gen._instr(self.opcode, self)
     def jasmin_syntax(self):
@@ -362,10 +365,11 @@ EXCWRAPWRAP =           Method.s(jPyPyExcWrap, 'wrap', (jObject,), jPyPyExcWrap)
 # Field objects encode information about fields.
 
 class Field(object):
-    def __init__(self, classnm, fieldnm, jtype, static):
+    def __init__(self, classnm, fieldnm, jtype, static, OOTYPE=None):
         # All fields are public
         self.class_name = classnm  # String, ie. "java.lang.Math"
         self.field_name = fieldnm  # String "someField"
+        self.OOTYPE = OOTYPE       # OOTYPE equivalent of JvmType, may be None
         self.jtype = jtype         # JvmType
         self.is_static = static    # True or False
     def load(self, gen):
@@ -450,14 +454,14 @@ class JVMGenerator(Generator):
     # If the name does not begin with '_', it will be called from
     # outside the generator.
 
-    def begin_class(self, classty, superclsty):
+    def begin_class(self, classty, superclsty, abstract=False):
         """
         Begins a class declaration.  Overall flow of class declaration
         looks like:
 
         begin_class()
         [add_field()]
-        emit_constructor()
+        begin_constructor()...end_constructor()
         [begin_function()...end_function()]
         end_class()
 
@@ -468,14 +472,14 @@ class JVMGenerator(Generator):
         """
         assert not self.curclass
         self.curclass = ClassState(classty, superclsty)
-        self._begin_class()
+        self._begin_class(abstract)
 
     def end_class(self):
         self._end_class()
         self.curclass = None
         self.curfunc = None
 
-    def _begin_class(self):
+    def _begin_class(self, abstract):
         """ Main implementation of begin_class """
         raise NotImplementedError
 
@@ -489,7 +493,7 @@ class JVMGenerator(Generator):
         """
         unimplemented
 
-    def emit_constructor(self):
+    def begin_constructor(self):
         """
         Emits the constructor for this class, which merely invokes the
         parent constructor.
@@ -498,14 +502,16 @@ class JVMGenerator(Generator):
         """
         self.begin_function("<init>", [], [self.curclass.class_type], jVoid)
         self.load_jvm_var(self.curclass.class_type, 0)
-        jmethod = Method(self.curclass.superclass_type.name, "<init>", "()V",
-                         opcode=INVOKESPECIAL)
+        jmethod = Method(self.curclass.superclass_type.name, "<init>",
+                         (), jVoid, opcode=INVOKESPECIAL)
         jmethod.invoke(self)
+
+    def end_constructor(self):
         self.return_val(jVoid)
         self.end_function()
 
     def begin_function(self, funcname, argvars, argtypes, rettype,
-                       static=False):
+                       static=False, abstract=False):
         """
         funcname --- name of the function
         argvars --- list of objects passed to load() that represent arguments;
@@ -529,9 +535,9 @@ class JVMGenerator(Generator):
         # Prepare a map for the local variable indices we will add
         # Let the subclass do the rest of the work; note that it does
         # not need to know the argvars parameter, so don't pass it
-        self._begin_function(funcname, argtypes, rettype, static)
+        self._begin_function(funcname, argtypes, rettype, static, abstract)
 
-    def _begin_function(self, funcname, argtypes, rettype, static):
+    def _begin_function(self, funcname, argtypes, rettype, static, abstract):
         """
         Main implementation of begin_function.  The begin_function()
         does some generic handling of args.
@@ -792,7 +798,7 @@ class JVMGenerator(Generator):
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
-        ctor = Method(jtype.name, "<init>", "()V", opcode=INVOKESPECIAL)
+        ctor = Method(jtype.name, "<init>", (), jVoid, opcode=INVOKESPECIAL)
         self.emit(NEW, jtype)
         self.emit(DUP)
         self.emit(ctor)
@@ -978,7 +984,7 @@ class JasminGenerator(JVMGenerator):
         JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
-    def _begin_class(self):
+    def _begin_class(self, abstract):
         """
         classnm --- full Java name of the class (i.e., "java.lang.String")
         """
@@ -996,7 +1002,9 @@ class JasminGenerator(JVMGenerator):
         self.db.add_jasmin_file(jfile)
 
         # Write the JasminXT header
-        self.curclass.out(".class public %s\n" % iclassnm)
+        fields = ["public"]
+        if abstract: fields.append('abstract')
+        self.curclass.out(".class %s %s\n" % (" ".join(fields), iclassnm))
         self.curclass.out(".super %s\n" % isuper)
         
     def _end_class(self):
@@ -1014,22 +1022,25 @@ class JasminGenerator(JVMGenerator):
         self.curclass.out('.field %s %s %s\n' % (
             " ".join(kw), fobj.field_name, fobj.jtype.descriptor))
 
-    def _begin_function(self, funcname, argtypes, rettype, static):
+    def _begin_function(self, funcname, argtypes, rettype, static, abstract):
 
         if not static: argtypes = argtypes[1:]
 
         # Throws clause?  Only use RuntimeExceptions?
         kw = ['public']
         if static: kw.append('static')
+        if abstract: kw.append('abstract')
         self.curclass.out('.method %s %s(%s)%s\n' % (
             " ".join(kw),
             funcname,
             "".join([a.descriptor for a in argtypes]),
             rettype.descriptor))
+        self._abstract_method = abstract
 
     def _end_function(self):
-        self.curclass.out('.limit stack 100\n') # HACK, track max offset
-        self.curclass.out('.limit locals %d\n' % self.curfunc.next_offset)
+        if not self._abstract_method:
+            self.curclass.out('.limit stack 100\n') # HACK, track max offset
+            self.curclass.out('.limit locals %d\n' % self.curfunc.next_offset)
         self.curclass.out('.end method\n')
 
     def mark(self, lbl):
