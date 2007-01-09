@@ -15,8 +15,7 @@ interp = Interpreter()
 def entry_point(argv):
     if len(argv) == 2:
         f = open_file_as_stream(argv[1])
-        interp.load_bytecode(f.readall())
-        interp.run()
+        interp.run(load_bytecode(f.readall()))
         return 0
     elif argv[0] == 'foo':
         raise ExecutionReturned(None)
