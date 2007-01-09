@@ -46,8 +46,11 @@ class CTypeController(Controller):
             _controller_ = cls
     register_for_metatype = classmethod(register_for_metatype)
 
+    def ctypecheck(self, x):
+        return isinstance(x, self.ctype)
+
     def convert(self, x):
-        if isinstance(x, self.ctype):
+        if self.ctypecheck(x):
             key = "by_id", id(x)
         else:
             key = "by_value", x
@@ -120,7 +123,10 @@ class CTypesCallEntry(ControllerEntry):
 
 class CTypesObjEntry(ControllerEntryForPrebuilt):
     def getcontroller(self):
-        ctype = self.type
+        if hasattr(self._controller_, 'real_ctype_of'):
+            ctype = self._controller_.real_ctype_of(self.instance)
+        else:
+            ctype = self.type
         return _build_controller(self._controller_, ctype)
 
 TLS = tlsobject()
@@ -202,3 +208,4 @@ import pypy.rlib.rctypes.rpointer
 import pypy.rlib.rctypes.rstruct
 import pypy.rlib.rctypes.rbuiltin
 import pypy.rlib.rctypes.rchar_p
+import pypy.rlib.rctypes.rfunc

@@ -5,6 +5,7 @@ Test the Structure implementation.
 import py.test
 import pypy.rlib.rctypes.implementation
 from pypy.rlib.rctypes.test.test_rprimitive import BaseTestAnnotation
+from pypy.rpython.error import TyperError
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.rctypes.rstruct import offsetof
@@ -179,7 +180,6 @@ class Test_specialization:
         assert res == 289
 
     def test_specialize_constructor_args(self):
-        #py.test.skip("in-progress")
         class S(Structure):
             _fields_ = [('x', c_int),
                         ('y', c_char)]
@@ -201,7 +201,6 @@ class Test_specialization:
         assert res == 463
 
     def test_specialize_bad_constructor_args(self):
-        py.test.skip("in-progress")
         class S(Structure):
             _fields_ = [('x', c_int),
                         ('y', c_char)]
@@ -214,7 +213,6 @@ class Test_specialization:
         py.test.raises(TyperError, "interpret(f2, [4])")
 
     def test_specialize_offsetof(self):
-        py.test.skip("in-progress")
         def f1():
             return offsetof(tagpoint, 'y')
         res = interpret(f1, [])

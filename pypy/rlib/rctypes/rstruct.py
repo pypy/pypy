@@ -1,3 +1,4 @@
+from pypy.annotation import model as annmodel
 from pypy.rlib.rctypes.implementation import CTypeController, getcontroller
 from pypy.rlib.rctypes import rctypesobject
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -84,10 +85,12 @@ class StructCTypeController(CTypeController):
                 while len(lst) <= index:
                     lst.append(None)
                 if lst[index] is not None:
-                    raise TypeError("duplicate value for argument %r" % name)
+                    from pypy.rpython.error import TyperError
+                    raise TyperError("duplicate value for argument %r" % name)
                 lst[index] = value
         if kwds:
-            raise TypeError("unknown keyword(s): %r" % (kwds.keys(),))
+            from pypy.rpython.error import TyperError
+            raise TyperError("unknown keyword(s): %r" % (kwds.keys(),))
         return lst
 
     def ctrl_new_ex(self, bookkeeper, *args_s, **kwds_s):
@@ -148,7 +151,7 @@ class OffsetOfFnEntry(ExtRegistryEntry):
         assert s_fieldname.is_constant()
         ofs = offsetof(s_Struct.const, s_fieldname.const)
         assert ofs >= 0
-        s_result = SomeInteger(nonneg=True)
+        s_result = annmodel.SomeInteger(nonneg=True)
         s_result.const = ofs
         return s_result
 

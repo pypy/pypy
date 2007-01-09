@@ -124,6 +124,13 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.is_true, hop)
 
+    def ctrl_call(self, s_obj, *args_s):
+        return delegate(self.call, s_obj, *args_s)
+
+    def rtype_call(self, hop):
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.call, hop)
+
 
 def delegate(boundmethod, *args_s):
     bk = getbookkeeper()
@@ -217,6 +224,9 @@ class __extend__(SomeControlledInstance):
 
     def is_true(s_cin):
         return s_cin.controller.ctrl_is_true(s_cin.s_real_obj)
+
+    def simple_call(s_cin, *args_s):
+        return s_cin.controller.ctrl_call(s_cin.s_real_obj, *args_s)
 
 
 class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
