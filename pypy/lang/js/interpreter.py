@@ -484,11 +484,11 @@ def gettreeitem(t, name):
     for x in t.children:
         if x.children[0].additional_info == name:
             return x.children[1]
-    return
+    return None
 
 def from_tree(t):
     if t is None:
-        return
+        return None
     tp = gettreeitem(t, 'type').additional_info
     if tp == 'ARRAY_INIT':
         return Array(getlist(t))
@@ -512,7 +512,7 @@ def from_tree(t):
         namesimb = gettreeitem(t, 'name')
         name = None
         if namesimb is not None:
-            name = name.additional_info
+            name = namesimb.additional_info
         body = from_tree(gettreeitem(t, 'body'))
         if gettreeitem(t, 'params').additional_info == '':
             params = []
@@ -569,9 +569,8 @@ def from_tree(t):
     elif tp == 'RETURN':
         return Return(from_tree(gettreeitem(t, 'value')))
     elif tp == 'SCRIPT':
-        print "*funDecls:'' ", gettreeitem(t, 'funDecls') == ''
         f = gettreeitem(t, 'funDecls')
-        print f.symbol
+        # print f.symbol
         if f.symbol == "dict":
             func_decl = [from_tree(f),]
         elif f.symbol == "list":
@@ -580,7 +579,7 @@ def from_tree(t):
             func_decl = []
         
         v = gettreeitem(t, 'varDecls')
-        print v.symbol
+        # print v.symbol
         if v.symbol == "dict":
             var_decl = [from_tree(v),]
         elif v.symbol == "list":
@@ -590,7 +589,7 @@ def from_tree(t):
 
         return Script(getlist(t), var_decl, func_decl)
     elif tp == 'SEMICOLON':
-        if gettreeitem(t, 'expression') == 'null':
+        if gettreeitem(t, 'expression').additional_info == 'null':
             return Semicolon()
         return Semicolon(from_tree(gettreeitem(t, 'expression')))
     elif tp == 'STRING':

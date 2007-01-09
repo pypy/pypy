@@ -40,15 +40,11 @@ def unquote(t):
 def parse(code_string):
     read_code = read_js_output(code_string)
     output = read_code.split(os.linesep)
-    #print '\n'.join(output)
     t = parse_bytecode("\n".join(output))
-    #print "-----------------\n",t
-    #print "-----------------\n",t.children[0].children[0].additional_info
     return t
 
 def parse_bytecode(bytecode):
     t = parse_tree(bytecode)
-    #print "0000000",t
     tree = ToAST().transform(t)
     unquote(tree)
     return tree

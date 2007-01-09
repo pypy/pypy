@@ -206,9 +206,11 @@ class W_Array(W_Object):
         else:
             try:
                 x = int(P)
-            except: # FIXME: forgot the name of the exception
+            except ValueError:
                 x = -1
-            if self.Get('length') < 0: pass
+            # FIXME: Get this working
+            # if x > self.Get('length'):
+            #     self.propdict['length'].value = W_Number(x)
             self.propdict[P] = Property(P, V)
     
 class W_Undefined(W_Root):
