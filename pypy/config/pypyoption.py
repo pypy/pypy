@@ -7,11 +7,24 @@ modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
                    if p.check(dir=True, dotfile=False)]
 
-default_modules = dict.fromkeys(
-    [#"unicodedata",
-     "_codecs", "gc", "_weakref", "array", "marshal", "errno",
-     "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
-     "recparser", "symbol", "_random", "_file", "pypymagic"])
+essential_modules = dict.fromkeys(
+    ["exceptions", "_file", "sys", "__builtin__", "posix"]
+)
+
+default_modules = essential_modules.copy()
+default_modules.update(dict.fromkeys(
+    ["_codecs", "gc", "_weakref", "array", "marshal", "errno",
+     "math", "_sre", "_pickle_support", "signal",
+     "recparser", "symbol", "_random", "pypymagic"]))
+
+
+working_modules = default_modules.copy()
+working_modules.update(dict.fromkeys(
+    ["rsocket", "unicodedata", "mmap", "fcntl", "rctime", "select", "bz2",
+     "crypt",
+    ]
+))
+
 
 module_dependencies = { }
 if os.name == "posix":
@@ -56,8 +69,17 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
         BoolOption(modname, "use module %s" % (modname, ),
                    default=modname in default_modules,
                    cmdline="--withmod-%s" % (modname, ),
-                   requires= module_dependencies.get(modname, []))
+                   requires=module_dependencies.get(modname, []),
+                   negation=modname not in essential_modules)
         for modname in all_modules]),
+
+    BoolOption("allworkingmodules", "use as many working modules as possible",
+               default=False,
+               cmdline="--allworkingmodules",
+               requires=[("objspace.usemodules.%s" % (modname, ), True)
+                             for modname in working_modules
+                             if modname in all_modules],
+               negation=False),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
                default=True),
@@ -139,7 +161,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                              ("objspace.std.withrangelist", True),
                              ("objspace.std.optimized_int_add", True),
                              ],
-                   cmdline="--faassen"),
+                   cmdline="--faassen", negation=False),
 
         BoolOption("llvmallopts",
                    "enable all optimizations, and use llvm compiled via C",
@@ -147,7 +169,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    requires=[("objspace.std.allopts", True),
                              ("translation.llvm_via_c", True),
                              ("translation.backend", "llvm")],
-                   cmdline="--llvm-faassen"),
+                   cmdline="--llvm-faassen", negation=False),
      ]),
     BoolOption("lowmem", "Try to use little memory during translation",
                default=False, cmdline="--lowmem",
