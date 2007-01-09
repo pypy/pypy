@@ -2437,6 +2437,19 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [float, float])
         assert [s_item.knowntype for s_item in s.items] == [bool] * 6
 
+    def test_empty_range(self):
+        def g(lst):
+            total = 0
+            for i in range(len(lst)):
+                total += lst[i]
+            return total
+        def fun():
+            return g([])
+
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        s = a.build_types(fun, [])
+        assert s.const == 0
+
 
 def g(n):
     return [0,1,2,n]

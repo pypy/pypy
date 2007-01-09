@@ -57,18 +57,27 @@ def builtin_range(*args):
         s_step = args[2]
     else:
         raise Exception, "range() takes 1 to 3 arguments"
+    empty = False  # so far
     if not s_step.is_constant():
         step = 0 # this case signals a variable step
     else:
         step = s_step.const
         if step == 0:
             raise Exception, "range() with step zero"
-    nonneg = False # so far
-    if step > 0:
-        nonneg = s_start.nonneg
-    elif step < 0:
-        nonneg = s_stop.nonneg or (s_stop.is_constant() and s_stop.const >= -1)
-    return getbookkeeper().newlist(SomeInteger(nonneg=nonneg), range_step=step)
+        if s_start.is_constant() and s_stop.is_constant():
+            if len(range(s_start.const, s_stop.const, step)) == 0:
+                empty = True
+    if empty:
+        s_item = s_ImpossibleValue
+    else:
+        nonneg = False # so far
+        if step > 0:
+            nonneg = s_start.nonneg
+        elif step < 0:
+            nonneg = s_stop.nonneg or (s_stop.is_constant() and
+                                       s_stop.const >= -1)
+        s_item = SomeInteger(nonneg=nonneg)
+    return getbookkeeper().newlist(s_item, range_step=step)
 
 builtin_xrange = builtin_range # xxx for now allow it
 
