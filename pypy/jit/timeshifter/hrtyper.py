@@ -141,6 +141,12 @@ class HintRTyper(RPythonTyper):
             assert jitstate.resuming is None
             returnbox = rtimeshift.getreturnbox(jitstate)
             gv_ret = returnbox.getgenvar(jitstate.curbuilder)
+            builder = jitstate.curbuilder
+            for virtualizable_box in jitstate.virtualizables:
+                assert isinstance(virtualizable_box, rvalue.PtrRedBox)
+                content = virtualizable_box.content
+                assert isinstance(content, rcontainer.VirtualizableStruct)
+                content.store_back(builder)        
             store_global_excdata(jitstate)
             jitstate.curbuilder.finish_and_return(graphsigtoken, gv_ret)
         self.ll_finish_jitstate = ll_finish_jitstate

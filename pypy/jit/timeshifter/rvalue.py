@@ -274,16 +274,18 @@ class PtrRedBox(RedBox):
         if not self.genvar:
             content = self.content
             from pypy.jit.timeshifter import rcontainer
+            if isinstance(content, rcontainer.VirtualizableStruct):
+                return content.getgenvar()
             assert isinstance(content, rcontainer.VirtualContainer)
             content.force_runtime_container(builder)
             assert self.genvar
         return self.genvar
 
-##    def forcevar(self, builder, memo):
-##        RedBox.forcevar(self, builder, memo)
-##        # if self.content is still there, it's a PartialDataStruct
-##        # - for now, we always remove it in this situation
-##        self.content = None
+    def forcevar(self, builder, memo):
+        from pypy.jit.timeshifter import rcontainer
+        # xxx
+        assert not isinstance(self.content, rcontainer.VirtualizableStruct)
+        return RedBox.forcevar(self, builder, memo)
 
     def enter_block(self, incoming, memo):
         if self.genvar:

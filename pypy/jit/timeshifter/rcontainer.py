@@ -43,7 +43,7 @@ class StructTypeDesc(object):
     arrayfielddesc = None
     alloctoken = None
     varsizealloctoken = None
-    materialize = None
+    materialize = None        
     
     def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
@@ -84,6 +84,9 @@ class StructTypeDesc(object):
 
         if TYPE._hints.get('virtualizable', False):
             self.__class__ = VirtualizableStructTypeDesc
+            self.VStructCls = VirtualizableStruct
+        else:
+            self.VStructCls = VirtualStruct
             
         if self.immutable and self.noidentity:
             descs = unrolling_iterable(fielddescs)
@@ -250,6 +253,7 @@ class FrozenVirtualStruct(FrozenContainer):
 
 
 class VirtualStruct(VirtualContainer):
+    typedesc = None
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -257,6 +261,7 @@ class VirtualStruct(VirtualContainer):
         #self.ownbox = ... set in factory()
 
     def enter_block(self, incoming, memo):
+        assert self.typedesc is not None
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
@@ -265,6 +270,7 @@ class VirtualStruct(VirtualContainer):
 
     def force_runtime_container(self, builder):
         typedesc = self.typedesc
+        assert typedesc is not None
         boxes = self.content_boxes
         self.content_boxes = None
         if typedesc.materialize is not None:
@@ -291,21 +297,25 @@ class VirtualStruct(VirtualContainer):
     def freeze(self, memo):
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
+        assert self.typedesc is not None
         result = contmemo[self] = FrozenVirtualStruct(self.typedesc)
         frozens = [box.freeze(memo) for box in self.content_boxes]
         result.fz_content_boxes = frozens
         return result
-        
+
     def copy(self, memo):
+        typedesc = self.typedesc
+        assert typedesc is not None
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
-        result = contmemo[self] = VirtualStruct(self.typedesc)
+        result = contmemo[self] = typedesc.VStructCls(typedesc)
         result.content_boxes = [box.copy(memo)
                                 for box in self.content_boxes]
         result.ownbox = self.ownbox.copy(memo)
         return result
 
     def replace(self, memo):
+        assert self.typedesc is not None        
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
         contmemo[self] = None
@@ -326,7 +336,11 @@ class VirtualStruct(VirtualContainer):
 class VirtualizableStruct(VirtualStruct):
 
     def force_runtime_container(self, builder):
-        assert 0, "not implemented for now"
+        assert 0
+
+    def getgenvar(self):
+        assert self.typedesc is not None        
+        return self.content_boxes[-1].genvar
 
     def store_back(self, builder):
         fielddescs = self.typedesc.fielddescs
