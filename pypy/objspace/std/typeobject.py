@@ -213,7 +213,7 @@ class W_TypeObject(W_Object):
                 return
         w_self.mro_w = w_self.compute_mro()
         if space.config.objspace.std.withtypeversion:
-            if overridetypedef is not None and w_self.hasdict:
+            if w_self.instancetypedef.hasdict:
                 w_self.version_tag = None
             else:
                 w_self.version_tag = VersionTag()
