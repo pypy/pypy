@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.lisp.buildcl import make_cl_func
 
 def test_call():
     def add_one(n):

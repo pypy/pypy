@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.clrepr import clrepr
+from pypy.translator.lisp.clrepr import clrepr
 
 def test_const():
     assert clrepr(True) == 't'

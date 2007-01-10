@@ -1,4 +1,4 @@
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.lisp.buildcl import make_cl_func
 from py.test import skip
 
 def test_tuple_get():

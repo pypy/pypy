@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.buildcl import make_cl_func, generate_cl_code
+from pypy.translator.lisp.buildcl import make_cl_func, generate_cl_code
 
 def test_simple():
     class C:

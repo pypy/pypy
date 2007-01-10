@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.lisp.buildcl import make_cl_func
 
 def test_dict_length():
     def dict_length_one(key, val):

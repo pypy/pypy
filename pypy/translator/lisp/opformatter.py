@@ -1,6 +1,6 @@
 from pypy.rpython.ootypesystem.ootype import List, Dict, Record, Instance
 from pypy.rpython.ootypesystem.ootype import DictItemsIterator
-from pypy.translator.cl.clrepr import clrepr
+from pypy.translator.lisp.clrepr import clrepr
 
 class OpFormatter:
 

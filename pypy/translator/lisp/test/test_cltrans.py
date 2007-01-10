@@ -3,7 +3,7 @@ import py
 import os
 
 from pypy.annotation.model import SomeChar
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.lisp.buildcl import make_cl_func
 
 from pypy.translator.test import snippet as t
 

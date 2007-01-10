@@ -5,8 +5,8 @@ from pypy.objspace.flow.model import Constant, c_last_exception, FunctionGraph
 from pypy.translator.translator import graphof
 from pypy.rpython.ootypesystem.ootype import dynamicType, oodowncast, null, Record, Instance, _class, _static_meth, _meth, ROOT
 from pypy.rpython.ootypesystem.rclass import OBJECT
-from pypy.translator.cl.clrepr import clrepr
-from pypy.translator.cl.opformatter import OpFormatter
+from pypy.translator.lisp.clrepr import clrepr
+from pypy.translator.lisp.opformatter import OpFormatter
 
 class InsertionOrderedDict(dict):
     def __init__(self):

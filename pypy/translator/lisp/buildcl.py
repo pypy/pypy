@@ -3,10 +3,10 @@ import py
 
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
-from pypy.translator.cl.gencl import GenCL
-from pypy.translator.cl.clrepr import clrepr
+from pypy.translator.lisp.gencl import GenCL
+from pypy.translator.lisp.clrepr import clrepr
 from pypy import conftest
-from pypy.translator.cl import conftest as clconftest
+from pypy.translator.lisp import conftest as clconftest
 
 global_cl = None
 

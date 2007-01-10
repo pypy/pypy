@@ -1,5 +1,5 @@
 import py
-from pypy.translator.cl.buildcl import make_cl_func
+from pypy.translator.lisp.buildcl import make_cl_func
 
 def test_handle_exception():
     py.test.skip("We support exceptions, but not really it seems")
