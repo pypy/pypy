@@ -196,6 +196,14 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                 else:
                     self.w__dict__ = space.newdict()
                 self.user_setup_slots(w_subtype.nslots)
+
+            def setclass(self, space, w_subtype):
+                # only used by descr_set___class__
+                self.w__class__ = w_subtype
+                if space.config.objspace.std.withshadowtracking:
+                    self.w__dict__.implementation.shadows_anything = True
+
+            
     else:
         supercls = cls
         
