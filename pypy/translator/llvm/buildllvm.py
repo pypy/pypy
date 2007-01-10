@@ -21,6 +21,13 @@ def llvm_version():
     v = int(v) / 10.0
     return v
 
+def llvm_gcc_version():
+    v = os.popen('llvm-gcc --version 2>&1').read()
+    i = v.index(')')
+    v = v[i+2:].split()[0].split('.')
+    v = float(v[0]) + float(v[1]) / 10.0
+    return v
+
 def optimizations(simple, use_gcc):
 
     if simple:

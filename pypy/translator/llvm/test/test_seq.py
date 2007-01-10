@@ -7,6 +7,21 @@ from pypy.translator.llvm.test import llvmsnippet
 from pypy.translator.llvm.test.runtest import *
 
 class TestLLVMArray(object):
+    def test_char_array(self):
+        from pypy.rpython.lltypesystem import lltype
+        A = lltype.GcArray(lltype.Char)
+        def fn(n):
+            a = lltype.malloc(A, 5)
+            a[4] = 'H'
+            a[3] = 'e'
+            a[2] = 'l'
+            a[1] = 'l'
+            a[0] = 'o'
+            return ord(a[n]) 
+        fp = compile_function(fn, [int])
+        for i in range(5):
+            assert fp(i) == fn(i)
+
     def test_array(self):
         f = compile_function(llvmsnippet.array_simple, [])
         assert f() == 42

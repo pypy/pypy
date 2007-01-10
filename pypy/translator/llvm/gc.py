@@ -158,7 +158,7 @@ class RawGcPolicy(GcPolicy):
 
 class BoehmGcPolicy(GcPolicy):
 
-    def __init__(self, db, exc_useringbuf=True):
+    def __init__(self, db, exc_useringbuf=False):
         self.db = db
         # XXX a config option...
         self.exc_useringbuf = exc_useringbuf
