@@ -148,9 +148,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
         BoolOption("withshadowtracking",
                    "track whether an instance attribute shadows a type"
                    " attribute",
-                   cmdline=None,
                    default=False,
-                   requires=[("objspace.std.withmultidict", True)]),
+                   requires=[("objspace.std.withmultidict", True),
+                             ("objspace.std.withtypeversion", True)]),
 
 
         BoolOption("optimized_int_add",

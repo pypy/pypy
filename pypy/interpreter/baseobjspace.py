@@ -27,6 +27,9 @@ class W_Root(object):
             return space.finditem(w_dict, w_attr)
         return None
 
+    def getdictvalue_attr_is_in_class(self, space, w_attr):
+        return self.getdictvalue(space, w_attr)
+
     def setdictvalue(self, space, w_attr, w_value, shadows_type=True):
         w_dict = self.getdict()
         if w_dict is not None:

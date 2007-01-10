@@ -75,3 +75,12 @@ class TestShadowTracking(object):
         """)
         assert w_inst.w__dict__.implementation.shadows_anything
 
+class AppTestShadowTracking(object):
+    def test_shadowtracking_does_not_blow_up(self):
+        class A(object):
+            def f(self):
+                return 42
+        a = A()
+        assert a.f() == 42
+        a.f = lambda : 43
+        assert a.f() == 43
