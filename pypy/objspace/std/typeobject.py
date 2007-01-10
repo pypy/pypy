@@ -38,6 +38,9 @@ def _mangle(name, klass):
 
     return "_%s%s" % (klass, name)
 
+class VersionTag(object):
+    pass
+
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
@@ -200,6 +203,8 @@ class W_TypeObject(W_Object):
                 w_self.weakrefable = True
             w_type = space.type(w_self)
             if not space.is_w(w_type, space.w_type):
+                if space.config.objspace.std.withtypeversion:
+                    w_self.version_tag = None
                 w_self.mro_w = []
                 mro_func = w_type.lookup('mro')
                 mro_func_args = Arguments(space, [w_self])
@@ -207,6 +212,17 @@ class W_TypeObject(W_Object):
                 w_self.mro_w = space.unpackiterable(w_mro)
                 return
         w_self.mro_w = w_self.compute_mro()
+        if space.config.objspace.std.withtypeversion:
+            w_self.version_tag = VersionTag()
+
+    def mutated(w_self):
+        space = w_self.space
+        assert space.config.objspace.std.withtypeversion
+        if w_self.version_tag is not None:
+            w_self.version_tag = VersionTag()
+            subclasses_w = w_self.get_subclasses()
+            for w_subclass in subclasses_w:
+                w_subclass.mutated()
 
     def ready(w_self):
         for w_base in w_self.bases_w:
@@ -352,6 +368,16 @@ class W_TypeObject(W_Object):
                 del w_self.weak_subclasses_w[i]
                 return
 
+    def get_subclasses(w_self):
+        space = w_self.space
+        subclasses_w = []
+        for w_ref in w_self.weak_subclasses_w:
+            w_ob = space.call_function(w_ref)
+            if not space.is_w(w_ob, space.w_None):
+                subclasses_w.append(w_ob)
+        return subclasses_w
+
+
     # for now, weakref support for W_TypeObject is hard to get automatically
     _lifeline_ = None
     def getweakref(self):
@@ -418,6 +444,8 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     # Note. This is exactly the same thing as descroperation.descr__setattr__,
     # but it is needed at bootstrap to avoid a call to w_type.getdict() which
     # would un-lazify the whole type.
+    if space.config.objspace.std.withtypeversion:
+        w_type.mutated()
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
@@ -427,6 +455,8 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     w_type.dict_w[name] = w_value
 
 def delattr__Type_ANY(space, w_type, w_name):
+    if space.config.objspace.std.withtypeversion:
+        w_type.mutated()
     if w_type.lazyloaders:
         w_type._freeze_()    # force un-lazification
     name = space.str_w(w_name)
@@ -440,6 +470,7 @@ def delattr__Type_ANY(space, w_type, w_name):
         return
     except KeyError:
         raise OperationError(space.w_AttributeError, w_name)
+
 
 # ____________________________________________________________
 

@@ -140,6 +140,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    "list is mutaged",
                    default=False),
 
+        BoolOption("withtypeversion",
+                   "version type objects when changing them",
+                   cmdline=None,
+                   default=False),
+
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),

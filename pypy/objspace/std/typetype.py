@@ -248,12 +248,7 @@ def descr_set__module(space, w_type, w_value):
 def descr___subclasses__(space, w_type):
     """Return the list of immediate subclasses."""
     w_type = _check(space, w_type)
-    subclasses_w = []
-    for w_ref in w_type.weak_subclasses_w:
-        w_ob = space.call_function(w_ref)
-        if not space.is_w(w_ob, space.w_None):
-            subclasses_w.append(w_ob)
-    return space.newlist(subclasses_w)
+    return space.newlist(w_type.get_subclasses())
 
 # ____________________________________________________________
 
