@@ -445,6 +445,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     # but it is needed at bootstrap to avoid a call to w_type.getdict() which
     # would un-lazify the whole type.
     if space.config.objspace.std.withtypeversion:
+        # also takes care of assignments to __bases__
         w_type.mutated()
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)

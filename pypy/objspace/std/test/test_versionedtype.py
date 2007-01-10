@@ -5,7 +5,7 @@ class TestVersionedType(test_typeobject.TestTypeObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtypeversion": True})
 
-    def test_tag_changes(self):
+    def get_three_classes(self):
         space = self.space
         w_types = space.appexec([], """():
             class A(object):
@@ -18,7 +18,11 @@ class TestVersionedType(test_typeobject.TestTypeObject):
                 __metaclass__ = metatype
             return A, B, C
         """)
-        w_A, w_B, w_C = space.unpackiterable(w_types)
+        return space.unpackiterable(w_types)
+
+    def test_tag_changes(self):
+        space = self.space
+        w_A, w_B, w_C = self.get_three_classes()
         atag = w_A.version_tag
         btag = w_B.version_tag
         assert atag is not None
@@ -47,6 +51,18 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         atag = w_A.version_tag
         btag = w_B.version_tag
         assert atag is not btag
+
+    def test_tag_changes_when_bases_change(self):
+        space = self.space
+        w_A, w_B, w_C = self.get_three_classes()
+        atag = w_A.version_tag
+        btag = w_B.version_tag
+        w_types = space.appexec([w_A, w_B, w_C], """(A, B, C):
+            class D(object):
+                pass
+            B.__bases__ = (D, )
+        """)
+        assert w_B.version_tag is not btag
 
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
