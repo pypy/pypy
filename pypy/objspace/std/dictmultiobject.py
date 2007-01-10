@@ -94,6 +94,9 @@ class DictImplementation(object):
         w_key = self.space.wrap(OPTIMIZED_BUILTINS[i])
         return self.get(w_key)
 
+# this attribute will only be seen whan a certain config option is used
+    shadows_anything = True
+
 
 # Iterator Implementation base classes
 
@@ -490,6 +493,30 @@ class StrItemIteratorImplementation(IteratorImplementation):
         else:
             return None
 
+
+class ShadowDetectingDictImplementation(StrDictImplementation):
+    def __init__(self, space, w_type):
+        StrDictImplementation.__init__(self, space)
+        self.w_type = w_type
+        self.shadows_anything = False
+
+    def setitem_str(self, w_key, w_value, shadows_type=True):
+        if shadows_type:
+            self.shadows_anything = True
+        return StrDictImplementation.setitem_str(
+            self, w_key, w_value, shadows_type)
+
+    def setitem(self, w_key, w_value):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            if not self.shadows_anything:
+                w_obj = self.w_type.lookup(space.str_w(w_key))
+                if w_obj is not None:
+                    self.shadows_anything = True
+            return StrDictImplementation.setitem_str(
+                self, w_key, w_value, False)
+        else:
+            return self._as_rdict().setitem(w_key, w_value)
 
 class WaryDictImplementation(StrDictImplementation):
     def __init__(self, space):

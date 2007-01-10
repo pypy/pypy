@@ -187,6 +187,12 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                     from pypy.objspace.std import dictmultiobject
                     self.w__dict__ = dictmultiobject.W_DictMultiObject(space,
                             sharing=True)
+                elif space.config.objspace.std.withshadowtracking:
+                    from pypy.objspace.std import dictmultiobject
+                    self.w__dict__ = dictmultiobject.W_DictMultiObject(space)
+                    self.w__dict__.implementation = \
+                        dictmultiobject.ShadowDetectingDictImplementation(
+                                space, w_subtype)
                 else:
                     self.w__dict__ = space.newdict()
                 self.user_setup_slots(w_subtype.nslots)
