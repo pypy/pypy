@@ -222,7 +222,8 @@ def entry_point(executable, argv):
         pass
     else:
         signal.signal(signal.SIGINT, signal.default_int_handler)
-        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+        if hasattr(signal, "SIGPIPE"):
+            signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
     try:
         if sys.argv:
