@@ -60,7 +60,7 @@ class Display(object):
 
 class GraphDisplay(Display):
     STATUSBARFONT = FIXEDFONT
-    ANIM_STEP = 0.07
+    ANIM_STEP = 0.03
     KEY_REPEAT = (500, 30)
     STATUSBAR_ALPHA = 0.75
     STATUSBAR_FGCOLOR = (255, 255, 80)
