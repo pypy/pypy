@@ -14,14 +14,14 @@ essential_modules = dict.fromkeys(
 default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "gc", "_weakref", "array", "marshal", "errno",
-     "math", "_sre", "_pickle_support", "signal",
+     "math", "_sre", "_pickle_support",
      "recparser", "symbol", "_random", "pypymagic"]))
 
 
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
     ["rsocket", "unicodedata", "mmap", "fcntl", "rctime", "select", "bz2",
-     "crypt",
+     "crypt", "signal",
     ]
 ))
 
