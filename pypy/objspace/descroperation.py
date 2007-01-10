@@ -31,11 +31,13 @@ class Object:
     def descr__setattr__(space, w_obj, w_name, w_value):
         name = space.str_w(w_name)
         w_descr = space.lookup(w_obj, name)
+        shadows_type = False
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 space.set(w_descr, w_obj, w_value)
                 return
-        if w_obj.setdictvalue(space, w_name, w_value):
+            shadows_type = True
+        if w_obj.setdictvalue(space, w_name, w_value, shadows_type):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 

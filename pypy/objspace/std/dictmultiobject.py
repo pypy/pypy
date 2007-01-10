@@ -41,7 +41,7 @@ class DictImplementation(object):
     
 ##     def get(self, w_lookup):
 ##         return w_value or None
-##     def setitem_str(self,  w_key, w_value):
+##     def setitem_str(self,  w_key, w_value, shadows_type=True):
 ##         return implementation
 ##     def setitem(self,  w_key, w_value):
 ##         return implementation
@@ -142,7 +142,7 @@ class EmptyDictImplementation(DictImplementation):
         else:
             return RDictImplementation(self.space).setitem(w_key, w_value)
         #return SmallDictImplementation(self.space, w_key, w_value)
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         return StrDictImplementation(self.space).setitem_str(w_key, w_value)
         #return SmallStrDictImplementation(self.space, w_key, w_value)
     def delitem(self, w_key):
@@ -221,7 +221,8 @@ class SmallDictImplementation(DictImplementation):
         entry.w_value = w_value
         return self
 
-    setitem_str = setitem
+    def setitem_str(self, w_key, w_value, shadows_type=True):
+        return self.setitem(w_key, w_value)
 
     def delitem(self, w_key):
         entry = self._lookup(w_key)
@@ -321,7 +322,7 @@ class SmallStrDictImplementation(DictImplementation):
             return self._convert_to_rdict().setitem(w_key, w_value)
         return self.setitem_str(w_key, w_value)
     
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         entry = self._lookup(self.space.str_w(w_key))
         if entry.w_value is None:
             if self.valid == 4:
@@ -392,7 +393,7 @@ class StrDictImplementation(DictImplementation):
         else:
             return self._as_rdict().setitem(w_key, w_value)
 
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         self.content[self.space.str_w(w_key)] = w_value
         return self
 
@@ -451,7 +452,6 @@ class StrDictImplementation(DictImplementation):
             newimpl.setitem(self.space.wrap(k), w_v)
         return newimpl
 
-
 # the following are very close copies of the base classes above
 
 class StrKeyIteratorImplementation(IteratorImplementation):
@@ -496,7 +496,7 @@ class WaryDictImplementation(StrDictImplementation):
         StrDictImplementation.__init__(self, space)
         self.shadowed = [None] * len(BUILTIN_TO_INDEX)
 
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         key = self.space.str_w(w_key)
         i = BUILTIN_TO_INDEX.get(key, -1)
         if i != -1:
@@ -533,7 +533,10 @@ class RDictImplementation(DictImplementation):
     def setitem(self, w_key, w_value):
         self.content[w_key] = w_value
         return self
-    setitem_str = setitem
+
+    def setitem_str(self, w_key, w_value, shadows_type=True):
+        return self.setitem(w_key, w_value)
+
     def delitem(self, w_key):
         del self.content[w_key]
         if self.content:
@@ -665,7 +668,7 @@ class SharedDictImplementation(DictImplementation):
         else:
             return self._as_rdict().setitem(w_key, w_value)
 
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         m = ~len(self.structure.other_structs)
         key = self.space.str_w(w_key)
         i = self.structure.keys.get(key, m)
@@ -874,7 +877,7 @@ class MeasuringDictImplementation(DictImplementation):
         self.content[w_key] = w_value
         self.info.maxcontents = max(self.info.maxcontents, len(self.content))
         return self
-    def setitem_str(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value, shadows_type=True):
         self.info.setitem_strs += 1
         return self.setitem(w_key, w_value)
     def delitem(self, w_key):
@@ -990,8 +993,9 @@ class W_DictMultiObject(W_Object):
         else:
             return w_default
 
-    def set_str_keyed_item(w_dict, w_key, w_value):
-        w_dict.implementation = w_dict.implementation.setitem_str(w_key, w_value)
+    def set_str_keyed_item(w_dict, w_key, w_value, shadows_type=True):
+        w_dict.implementation = w_dict.implementation.setitem_str(
+            w_key, w_value, shadows_type)
 
 registerimplementation(W_DictMultiObject)
 

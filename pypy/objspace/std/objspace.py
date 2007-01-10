@@ -511,10 +511,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_obj.get(w_key, None)
         return ObjSpace.finditem(self, w_obj, w_key)
 
-    def set_str_keyed_item(self, w_obj, w_key, w_value):
+    def set_str_keyed_item(self, w_obj, w_key, w_value, shadows_type=True):
         # performance shortcut to avoid creating the OperationError(KeyError)
         if type(w_obj) is self.DictObjectCls:
-            w_obj.set_str_keyed_item(w_key, w_value)
+            w_obj.set_str_keyed_item(w_key, w_value, shadows_type)
         else:
             self.setitem(w_obj, w_key, w_value)
 

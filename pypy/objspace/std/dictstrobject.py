@@ -53,7 +53,8 @@ class W_DictStrObject(W_Object):
                 w_self.str2object()
                 w_self.content[w_k] = w_v
 
-    set_str_keyed_item = setitem
+    def set_str_keyed_item(w_self, w_k, w_v, shadows_type=True):
+        return w_self.setitem(w_k, w_v)
 
     def str2object(w_self):
         """ Moves all items in the content_str dict to content. """
