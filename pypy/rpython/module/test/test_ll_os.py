@@ -3,6 +3,17 @@ from pypy.tool.udir import udir
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 
 
+def test_access():
+    filename = str(udir.join('test_access.txt'))
+    rsfilename = impl.to_rstr(filename)
+
+    fd = file(filename, 'w')
+    fd.close()
+
+    for mode in os.R_OK, os.W_OK, os.X_OK, os.R_OK | os.W_OK | os.X_OK:
+        assert os.access(filename, mode) == impl.ll_os_access(rsfilename, mode)
+
+
 def test_open_read_write_close():
     filename = str(udir.join('test_open_read_write_close.txt'))
     rsfilename = impl.to_rstr(filename)

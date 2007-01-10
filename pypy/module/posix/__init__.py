@@ -33,6 +33,7 @@ corresponding Unix manual entries for more information on calls."""
     'lstat'     : 'interp_posix.lstat',
     'dup'       : 'interp_posix.dup',
     'dup2'      : 'interp_posix.dup2',
+    'access'    : 'interp_posix.access',
     'system'    : 'interp_posix.system',
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',

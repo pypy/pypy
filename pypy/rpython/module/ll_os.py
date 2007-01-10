@@ -56,6 +56,10 @@ class BaseOS:
         os.dup2(old_fd, new_fd)
     ll_os_dup2.suggested_primitive = True
 
+    def ll_os_access(cls, path, mode):
+        return os.access(cls.from_rstr(path), mode)
+    ll_os_access.suggested_primitive = True
+
     def ll_os_lseek(cls, fd,pos,how):
         return r_longlong(os.lseek(fd,pos,how))
     ll_os_lseek.suggested_primitive = True

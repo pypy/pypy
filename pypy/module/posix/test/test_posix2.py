@@ -9,6 +9,7 @@ def setup_module(mod):
     mod.path.write("this is a test")
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
+    os.chmod(str(pdir.join('file1')), 0600)
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
@@ -86,6 +87,16 @@ class AppTestPosix:
         assert result == ['another_longer_file_name',
                           'file1',
                           'file2']
+
+
+    def test_access(self):
+        pdir = self.pdir + '/file1'
+        posix = self.posix
+
+        assert posix.access(pdir, posix.R_OK)
+        assert posix.access(pdir, posix.W_OK)
+        assert not posix.access(pdir, posix.X_OK)
+
 
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)

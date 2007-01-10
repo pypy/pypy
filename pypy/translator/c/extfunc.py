@@ -31,6 +31,7 @@ EXTERNALS = {
     impl.ll_os_close.im_func:   'LL_os_close',
     impl.ll_os_dup.im_func:     'LL_os_dup',
     impl.ll_os_dup2.im_func:    'LL_os_dup2',
+    impl.ll_os_access.im_func:  'LL_os_access',
     impl.ll_os_stat.im_func:    'LL_os_stat',
     impl.ll_os_fstat.im_func:   'LL_os_fstat',
     impl.ll_os_lstat.im_func:   'LL_os_lstat',

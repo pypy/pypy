@@ -162,6 +162,19 @@ def dup2(space, old_fd, new_fd):
         raise wrap_oserror(space, e) 
 dup2.unwrap_spec = [ObjSpace, int, int]
 
+def access(space, path, mode):
+    """
+    access(path, mode) -> 1 if granted, 0 otherwise
+
+    Use the real uid/gid to test for access to a path.  Note that most
+    operations will use the effective uid/gid, therefore this routine can
+    be used in a suid/sgid environment to test if the invoking user has the
+    specified access to the path.  The mode argument can be F_OK to test
+    existence, or the inclusive-OR of R_OK, W_OK, and X_OK.
+    """
+    return space.wrap(os.access(path, mode))
+access.unwrap_spec = [ObjSpace, str, int]
+
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:

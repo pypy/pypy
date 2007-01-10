@@ -57,6 +57,7 @@ long LL_os_write(int fd, RPyString *buffer);
 void LL_os_close(int fd);
 int LL_os_dup(int fd);
 void LL_os_dup2(int old_fd, int new_fd);
+int LL_os_access(RPyString *filename, int mode);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
 RPySTAT_RESULT* LL_os_lstat(RPyString * fname);
@@ -151,6 +152,11 @@ void LL_os_dup2(int old_fd, int new_fd)
 	new_fd = dup2(old_fd, new_fd);
 	if (new_fd < 0)
 		RPYTHON_RAISE_OSERROR(errno);
+}
+
+int LL_os_access(RPyString *filename, int mode) {
+	int n = access(RPyString_AsString(filename), mode);
+	return (n == 0);
 }
 
 #ifdef LL_NEED_OS_STAT

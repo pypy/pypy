@@ -120,6 +120,16 @@ def test_ftruncate():
     f1()
     os.unlink(filename)
 
+
+def test_os_access():
+    filename = str(py.magic.autopath())
+    def call_access(path, mode):
+        return os.access(path, mode)
+    f = compile(call_access, [str, int])
+    for mode in os.R_OK, os.W_OK, os.X_OK, (os.R_OK | os.W_OK | os.X_OK):
+        assert f(filename, mode) == os.access(filename, mode)
+
+
 def test_os_stat():
     filename = str(py.magic.autopath())
     def call_stat():
