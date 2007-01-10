@@ -50,8 +50,8 @@ class CodeBlockOverflow(Exception):
 class MachineCodeBlock:
 
     def __init__(self, _data, _size, _pos):
-        self._data = _data
         self._size = _size
+        self._data = _data
         self._pos = _pos
 
     def write(self, data):
@@ -79,19 +79,47 @@ class MachineCodeBlock:
 
 class ExistingCodeBlock(MachineCodeBlock):
     def __init__(self, start, end):
-        self._size = (end-start)/4
-        p = c_void_p(start)
-        self._data = cast(p, POINTER(c_int * self._size))
-        self._pos = 0
+        _size = (end-start)/4
+        _data = cast(c_void_p(start), POINTER(c_int * _size))
+        MachineCodeBlock.__init__(self, _data, _size, 0)
 
 class OwningMachineCodeBlock(MachineCodeBlock):
+    def __init__(self, size_in_bytes):
+        assert size_in_bytes % 4 == 0
+        res = alloc(size_in_bytes)
+        _size = size_in_bytes/4
+        _data = cast(res, POINTER(c_int * _size))
+        MachineCodeBlock.__init__(self, _data, _size, 0)
+
     def __del__(self):
         free(cast(self._data, PTR), self._size * 4)
 
-def new_block(size_in_bytes):
-    assert size_in_bytes % 4 == 0
-    res = alloc(size_in_bytes)
-    return OwningMachineCodeBlock(
-        cast(res, POINTER(c_int * (size_in_bytes / 4))),
-        size_in_bytes/4,
-        0)
+# ------------------------------------------------------------
+
+class LLTypeMachineCodeBlock(MachineCodeBlock):
+    class State:
+        pass
+    state = State()
+    state.base = 1
+
+    def __init__(self, map_size):
+        self._size = map_size/4
+        self._pos = 0
+        self._base = LLTypeMachineCodeBlock.state.base
+        LLTypeMachineCodeBlock.state.base += 2 * map_size
+
+    def write(self, data):
+        if self._pos + 1 > self._size:
+            raise CodeBlockOverflow
+        self._pos += 1
+
+    def tell(self):
+        return self._base + 4 * self._pos
+
+    def reserve(self, _size):
+        return LLTypeMachineCodeBlock(_size)
+
+class LLTypeExistingCodeBlock(LLTypeMachineCodeBlock):
+    def __init__(self, start, end):
+        _size = (end-start)
+        LLTypeMachineCodeBlock.__init__(self, _size)

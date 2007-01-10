@@ -424,7 +424,7 @@ class Builder(GenBuilder):
         if self.final_jump_addr != 0:
             mc = self.rgenop.open_mc()
             target = mc.tell()
-            self.asm.mc = codebuf.ExistingCodeBlock(self.final_jump_addr, self.final_jump_addr+8)
+            self.asm.mc = self.rgenop.ExistingCodeBlock(self.final_jump_addr, self.final_jump_addr+8)
             self.asm.load_word(rSCRATCH, target)
             self.asm.mc = mc
             self.emit_stack_adjustment()
@@ -438,7 +438,7 @@ class Builder(GenBuilder):
     def maybe_patch_start_here(self):
         if self.patch_start_here:
             mc = self.asm.mc
-            self.asm.mc = codebuf.ExistingCodeBlock(self.patch_start_here, self.patch_start_here+8)
+            self.asm.mc = self.rgenop.ExistingCodeBlock(self.patch_start_here, self.patch_start_here+8)
             self.asm.load_word(rSCRATCH, mc.tell())
             self.asm.mc = mc
             self.patch_start_here = 0
@@ -573,16 +573,10 @@ class Builder(GenBuilder):
             return
         #print "patch_stack_adjustment at:", self.stack_adj_addr, newsize
         # we build an addi instruction by hand here
-        opcode = 14 << 26
-        rD = rSCRATCH << 21
-        rA = rFP << 16
-        # if we decided to use r0 as the frame pointer, this would
-        # emit addi rFOO, r0, SIMM which would just load SIMM into
-        # rFOO and be "unlikely" to work
-        assert rA != 0
-        SIMM = (-newsize) & 0xFFFF
-        p_instruction = cast(c_void_p(self.stack_adj_addr), POINTER(c_int*1))
-        p_instruction.contents[0] = opcode | rD | rA | SIMM
+        mc = self.asm.mc
+        self.asm.mc = self.rgenop.ExistingCodeBlock(self.stack_adj_addr, self.stack_adj_addr+4)
+        self.asm.addi(rSCRATCH, rFP, -newsize)
+        self.asm.mc = mc
 
     def op_int_mul(self, gv_x, gv_y):
         gv_result = Var()
@@ -799,11 +793,14 @@ class RPPCGenOp(AbstractRGenOp):
     # ----------------------------------------------------------------
     # ppc-specific interface:
 
+    MachineCodeBlock = codebuf.OwningMachineCodeBlock
+    ExistingCodeBlock = codebuf.ExistingCodeBlock
+
     def open_mc(self):
         if self.mcs:
             return self.mcs.pop()
         else:
-            return codebuf.new_block(65536)   # XXX supposed infinite for now
+            return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
 ##         from pypy.translator.asm.ppcgen.asmfunc import get_ppcgen
