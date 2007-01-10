@@ -15,7 +15,7 @@ from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.modules.dom import document
 # dom manipulating module
 
-HTML = """
+HTML = '''
 <html>
 <head>
   <script src="source.js"/>
@@ -29,7 +29,7 @@ HTML = """
 <a href="#" onclick="delrow()">Del row</a>
 </body>
 </html>
-"""
+'''
 
 # these are exposed functions
 def addrow():
