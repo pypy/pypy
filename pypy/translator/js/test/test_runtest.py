@@ -51,6 +51,11 @@ def test_combined_params():
     assert f(False, 13, 12.5) == combined_params(False, 13, 12.5)
     assert f(True , 13, 12.5) == combined_params(True , 13, 12.5)
 
+def test_return_function():
+    rp = compile_function.reinterpret
+    assert rp('[a,b]') == ["a", "b"]
+    #assert rp('(true,[a,b])') == [True, ["a", "b"]]
+
 ##def test_multiple_function():
 ##    def one():
 ##        return 1

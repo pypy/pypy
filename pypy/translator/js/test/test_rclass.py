@@ -11,17 +11,14 @@ class TestJsException(JsTest, BaseTestException):
     pass
 
 class TestJsClass(JsTest, BaseTestRclass):
-    def test_recursive_prebuilt_instance(self):
-        py.test.skip("WIP")
-    
     def test_common_class_attribute(self):
         py.test.skip("WIP")
     
     def test___class___attribute(self):
-        py.test.skip("WIP")
+        py.test.skip("unsuitable")
     
     def test_mixin(self):
-        py.test.skip("WIP")
+        py.test.skip("unsuitable")
         
     def test_getattr_on_classes(self):
         py.test.skip("WIP")
@@ -39,7 +36,8 @@ class TestJsClass(JsTest, BaseTestRclass):
         py.test.skip("WIP")
 
 #class TestJsList(JsTest, BaseTestRlist):
-#    pass
+#    def test_insert_bug(self):
+#        py.test.skip("in progress")
 ##    
 #class TestJsPBC(JsTest, BaseTestRPBC):
 #    pass

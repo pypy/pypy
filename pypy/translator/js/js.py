@@ -99,7 +99,7 @@ class JS(GenOO):
         self.gen_entrypoint()
         while self.db._pending_nodes:
             self.gen_pendings()
-            self.db.gen_constants(self.ilasm)
+            self.db.gen_constants(self.ilasm, self.db._pending_nodes)
         self.ilasm.close()
         return self.tmpfile.strpath
         

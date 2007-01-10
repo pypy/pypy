@@ -172,7 +172,7 @@ def test_str_join():
             assert res == testfn(i, j)
 
 def test_unichr_eq():
-    py.test.skip("Unicode support")
+    #py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == l[j]
@@ -183,7 +183,7 @@ def test_unichr_eq():
             assert res == f(i,j) 
 
 def test_unichr_ne():
-    py.test.skip("Unicode support")
+    #py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] != l[j]
@@ -195,7 +195,7 @@ def test_unichr_ne():
 
 def test_unichr_ord():
     #py.test.skip("ord semantics")
-    py.test.skip("Unicode support")
+    #py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i):
         return ord(l[i]) 
@@ -205,7 +205,7 @@ def test_unichr_ord():
         assert res == f(i)
 
 def test_unichr_unichr():
-    py.test.skip("Unicode support")
+    #py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == unichr(j)

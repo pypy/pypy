@@ -1,5 +1,4 @@
 '''
-    Skipped tests should still be fixed. (or only run with py.test --browser)
     Sests with DONT in front of them will probably not be fixed for the time being.
 '''
 
@@ -109,6 +108,11 @@ class compile_function(object):
         for s in output.split('\n'):
             log(s)
 
+        return self.reinterpret(s)
+
+    def reinterpret(cls, s):
+        while s.startswith(" "):
+            s = s[1:] # :-) quite inneficient, but who cares
         if s == 'false':
             res = False
         elif s == 'true':
@@ -121,13 +125,16 @@ class compile_function(object):
             res = (1e300 * 1e300) / (1e300 * 1e300)
         elif s.startswith("uncaught exception:"):
             raise LLException(str(s))
+        elif s.startswith('[') or s.startswith('('):
+            l = s[1:-1].split(',')
+            res = [cls.reinterpret(i) for i in l]
         else:
-            log('javascript result:', s)
             try:
-                res = eval(s)
-            except:
+                res = float(s)
+            except ValueError:
                 res = str(s)
         return res
+    reinterpret = classmethod(reinterpret)
 
 class JsTest(BaseRtypingTest, OORtypeMixin):
     #def __init__(self):
@@ -143,7 +150,7 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    self._func = fn
         #    self._ann = ann
         #    self._cli_func = compile_function(fn, ann)
-        #    return self._cli_func
+        #   return self._cli_func
         source = py.code.Source("""
         def %s():
             from pypy.rlib.nonconst import NonConstant

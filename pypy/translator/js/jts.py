@@ -67,13 +67,11 @@ class JTS(object):
         # TODO: use callvirt only when strictly necessary
         if isinstance(obj, ootype.Instance):
             owner, meth = obj._lookup(name)
-            class_name = obj._name
-            return self.graph_to_signature(meth.graph, True, class_name)
-
+            METH = meth._TYPE
+            return obj._name, METH.ARGS
         elif isinstance(obj, ootype.BuiltinType):
             meth = oopspec.get_method(obj, name)
             class_name = self.lltype_to_cts(obj)
-            #arg_list = ', '.join(arg_types)
             return class_name,meth.ARGS
         else:
             assert False
@@ -105,6 +103,8 @@ class JTS(object):
         elif _type is UniChar or _type is Char:
             #log("Constant %r"%v)
             s = repr(v)
+            if s.startswith('u'):
+                s = s[1:]
             if s != "'\''":
                 s.replace("'", '"')
             val = s

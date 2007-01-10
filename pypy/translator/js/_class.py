@@ -65,7 +65,8 @@ class Class(Node):
                 ilasm.inherits(self.name, basename)
         
         for m_name, m_meth in self.classdef._methods.iteritems():
-            f = self.db.genoo.Function(self.db, m_meth.graph, m_name, is_method = True, _class = self.name)
+            graph = getattr(m_meth, 'graph', None)
+            f = self.db.genoo.Function(self.db, graph, m_name, is_method = True, _class = self.name)
             f.render(ilasm)
         
         self.db.record_class(self.classdef, self.name)

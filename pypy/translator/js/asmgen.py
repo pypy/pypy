@@ -226,7 +226,7 @@ class AsmGen(object):
     def begin_consts(self, name):
         # load consts, maybe more try to use stack-based features?
         self.codegenerator.writeline("%s = {};"%name)
-    
+
     def new_obj(self):
         self.right_hand.append("{}")
     
@@ -249,6 +249,9 @@ class AsmGen(object):
     
     def load_void(self):
         self.right_hand.append("undefined")
+
+    def load_void_obj(self):
+        self.right_hand.append("{}")
     
     def begin_try(self):
         self.codegenerator.write("try ")

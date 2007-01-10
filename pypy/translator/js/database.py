@@ -6,7 +6,6 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.js.opcodes import opcodes
 from pypy.translator.js.function import Function
 from pypy.translator.js.log import log
-from pypy.translator.js.jts import JTS
 from pypy.translator.js._class import Class
 from pypy.translator.js.support import JavascriptNameManager
 
@@ -124,18 +123,20 @@ class LowLevelDatabase(object):
         else:
             return const
 
-    def gen_constants(self, ilasm):
-        if not self.rendered:
-            ilasm.begin_consts(self.const_var.name)
-        
+    def gen_constants(self, ilasm, pending):
         try:
             while True:
                 const,name = self.pending_consts.pop()
                 const.record_fields()
         except IndexError:
             pass
-        
 
+        if pending:
+            return
+
+        if not self.rendered:
+            ilasm.begin_consts(self.const_var.name)
+        
         def generate_constants(consts):
             all_c = [const for const,name in consts.iteritems()]
             dep_ok = set()
@@ -162,15 +163,18 @@ class LowLevelDatabase(object):
         log("Consts: %r"%self.consts)
         # We need to keep track of fields to make sure
         # our items appear earlier than us
-        for const,name in generate_constants(self.consts):
+        to_init = []
+        for const, name in generate_constants(self.consts):
             log("Recording %r %r"%(const,name))
             ilasm.load_local(self.const_var)
             const.init(ilasm)
             ilasm.set_field(None, name)
             ilasm.store_void()
-            const.init_fields(ilasm, self.const_var, name)
+            to_init.append((const, name))
             #ilasm.field(name, const.get_type(), static=True)
-    
+        for const, name in to_init:
+            const.init_fields(ilasm, self.const_var, name)
+
     def load_const(self, type_, value, ilasm):
         if self.is_primitive(type_):
             ilasm.load_const(self.cts.primitive_repr(type_, value))
