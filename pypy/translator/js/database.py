@@ -52,6 +52,10 @@ class LowLevelDatabase(object):
     def pending_function(self, graph):
         self.pending_node(self.genoo.Function(self, graph))
 
+    def pending_abstract_function(self, name):
+        pass
+        # XXX we want to implement it at some point (maybe...)
+
     def pending_class(self, classdef):
         c = Class(self, classdef)
         self.pending_node(c)

@@ -66,8 +66,13 @@ class Class(Node):
         
         for m_name, m_meth in self.classdef._methods.iteritems():
             graph = getattr(m_meth, 'graph', None)
-            f = self.db.genoo.Function(self.db, graph, m_name, is_method = True, _class = self.name)
-            f.render(ilasm)
+            if graph:
+                f = self.db.genoo.Function(self.db, graph, m_name, is_method = True, _class = self.name)
+                f.render(ilasm)
+            else:
+                pass
+                # XXX: We want to implement an abstract method here
+                self.db.pending_abstract_function(m_name)
         
         self.db.record_class(self.classdef, self.name)
     

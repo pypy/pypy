@@ -98,8 +98,14 @@ class JTS(object):
             # FIXME: It's not ok to use always empty list
             val = "[]"
         elif isinstance(_type,StaticMethod):
-            self.db.pending_function(v.graph)
+            if hasattr(v, 'graph'):
+                self.db.pending_function(v.graph)
+            else:
+                self.db.pending_abstract_function(v)
             val = v._name
+            val = val.replace('.', '_')
+            if val == '?':
+                val = 'undefined'
         elif _type is UniChar or _type is Char:
             #log("Constant %r"%v)
             s = repr(v)

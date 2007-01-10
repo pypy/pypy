@@ -11,18 +11,61 @@ class TestJsException(JsTest, BaseTestException):
     pass
 
 class TestJsClass(JsTest, BaseTestRclass):
-    def test_common_class_attribute(self):
-        py.test.skip("WIP")
-    
     def test___class___attribute(self):
-        py.test.skip("unsuitable")
-    
+        class Base(object): pass
+        class A(Base): pass
+        class B(Base): pass
+        class C(A): pass
+        def seelater():
+            C()
+        def f(n):
+            if n == 1:
+                x = A()
+            else:
+                x = B()
+            y = B()
+            result = x.__class__, y.__class__
+            seelater()
+            return result
+        def g():
+            cls1, cls2 = f(1)
+            return cls1 is A, cls2 is B
+
+        res = self.interpret(g, [])
+        assert res[0]
+        assert res[1]
+
     def test_mixin(self):
-        py.test.skip("unsuitable")
-        
-    def test_getattr_on_classes(self):
-        py.test.skip("WIP")
-        
+        class Mixin(object):
+            _mixin_ = True
+
+            def m(self, v):
+                return v
+
+        class Base(object):
+            pass
+
+        class A(Base, Mixin):
+            pass
+
+        class B(Base, Mixin):
+            pass
+
+        class C(B):
+            pass
+
+        def f():
+            a = A()
+            v0 = a.m(2)
+            b = B()
+            v1 = b.m('x')
+            c = C()
+            v2 = c.m('y')
+            return v0, v1, v2
+
+        res = self.interpret(f, [])
+        assert isinstance(res[0], float)
+
     def test_hash_preservation(self):
         py.test.skip("WIP")
 
@@ -30,9 +73,6 @@ class TestJsClass(JsTest, BaseTestRclass):
         py.test.skip("WIP")
     
     def test_isinstance(self):
-        py.test.skip("WIP")
-    
-    def test_recursive_prebuilt_instance_classattr(self):
         py.test.skip("WIP")
 
 #class TestJsList(JsTest, BaseTestRlist):
