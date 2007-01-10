@@ -163,7 +163,6 @@ def test_function_call():
     assert f() == 4
 
 def test_recursive_call():
-    py.test.skip("Recursion support is very limited")
     def call_ackermann(n, m):
         return ackermann(n, m)
     def ackermann(n, m):
@@ -358,7 +357,6 @@ def test_method_call():
     assert f() == 4
 
 def test_dict_creation():
-    #py.test.skip("Dict support not implemented")
     d = {'hello' : 23,
          'world' : 21}
     l = ["hello", "world"]
@@ -369,8 +367,6 @@ def test_dict_creation():
     assert f(0,1) == createdict(0,1)
 
 def test_closure():
-    #py.test.skip("issue 'null' for Ptr's? or recurse into Ptr.TO?) see: opwriter.py")
-    py.test.skip("closure support")
     class A:
         def set(self, x):
             self.x = x

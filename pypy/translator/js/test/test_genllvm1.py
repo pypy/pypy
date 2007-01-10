@@ -26,7 +26,6 @@ class TestGenLLVM(object):
         assert f(0) == 13
 
     def test_ackermann(self):
-        py.test.skip("Too much recursion")
         f = compile_function(llvmsnippet.ackermann, [int, int])
         for i in range(4):  # (otherwise too much recursion) max 4 in Safari, max 7 in Firefox, IE allows more recursion
             assert f(0, i) == i + 1
