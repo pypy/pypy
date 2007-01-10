@@ -82,11 +82,12 @@ class StructTypeDesc(object):
         self.immutable = TYPE._hints.get('immutable', False)
         self.noidentity = TYPE._hints.get('noidentity', False)
 
+        self.null = self.PTRTYPE._defl()
+        self.gv_null = RGenOp.constPrebuiltGlobal(self.null)
+
         if TYPE._hints.get('virtualizable', False):
             self.__class__ = VirtualizableStructTypeDesc
             self.VStructCls = VirtualizableStruct
-            outside_null = self.PTRTYPE._defl()
-            self.gv_defl_outside = RGenOp.constPrebuiltGlobal(outside_null)
         else:
             self.VStructCls = VirtualStruct
             
@@ -132,7 +133,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
                                  for desc in self.fielddescs]
         outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind,
-                                      self.gv_defl_outside)
+                                      self.gv_null)
         vstruct.content_boxes.append(outsidebox)
         box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
         box.content = vstruct
@@ -344,7 +345,7 @@ class VirtualizableStruct(VirtualStruct):
         typedesc = self.typedesc
         assert typedesc is not None
         gv_outside = self.content_boxes[-1].genvar
-        if gv_outside is typedesc.gv_defl_outside:
+        if gv_outside is typedesc.gv_null:
             gv_outside = builder.genop_malloc_fixedsize(typedesc.alloctoken)
             self.content_boxes[-1].genvar = gv_outside
             # xxx jitstate please
