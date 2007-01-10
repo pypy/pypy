@@ -332,6 +332,42 @@ def get_fact_runner(RGenOp):
         return res
     return fact_runner
 
+def make_func_calling_pause(rgenop):
+    # def f(x):
+    #     if x > 0:
+    #          return x
+    #     else:
+    #          return -x
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "abs")
+
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
+
+    targetbuilder = builder.jump_if_false(gv_cond, [gv_x])
+
+    builder = builder.pause_writing([gv_x])
+
+    targetbuilder.start_writing()
+    gv_negated = targetbuilder.genop1("int_neg", gv_x)
+    targetbuilder.finish_and_return(sigtoken, gv_negated)
+
+    builder.start_writing()
+    builder.finish_and_return(sigtoken, gv_x)
+
+    return gv_f
+
+def get_func_calling_pause_runner(RGenOp):
+    def runner(x):
+        rgenop = RGenOp()
+        gv_abs = make_func_calling_pause(rgenop)
+        myabs = gv_abs.revealconst(lltype.Ptr(FUNC))
+        res = myabs(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return runner
+    
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -515,3 +551,18 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fn(11)
         assert res == 39916800
 
+    def test_calling_pause_direct(self):
+        rgenop = self.RGenOp()
+        gv_abs = make_func_calling_pause(rgenop)
+        fnptr = self.cast(gv_abs, 1)
+        res = fnptr(2)
+        assert res == 2
+        res = fnptr(-42)
+        assert res == 42
+
+    def test_calling_pause_compile(self):
+        fn = self.compile(get_func_calling_pause_runner(self.RGenOp), [int])
+        res = fn(2)
+        assert res == 2
+        res = fn(-72)
+        assert res == 72

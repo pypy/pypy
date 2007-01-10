@@ -287,6 +287,7 @@ class Jump(Insn):
         self.crf = allocator.loc_of(self.reg_args[0])
         self.bit, self.negated = allocator.crfinfo[self.crf.number]
 
+        assert self.targetbuilder.initial_var2loc is None
         self.targetbuilder.initial_var2loc = {}
         for gv_arg in self.jump_args_gv:
             self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]

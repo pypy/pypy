@@ -1,6 +1,7 @@
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lloperation
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.ppc.conftest import option
 from ctypes import POINTER, cast, c_void_p, c_int
@@ -205,13 +206,19 @@ class Builder(GenBuilder):
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
+        #print opname, 'on', id(self)
         genmethod = getattr(self, 'op_' + opname)
-        return genmethod(gv_arg)
+        r = genmethod(gv_arg)
+        #print '->', id(r)
+        return r
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
+        #print opname, 'on', id(self)
         genmethod = getattr(self, 'op_' + opname)
-        return genmethod(gv_arg1, gv_arg2)
+        r = genmethod(gv_arg1, gv_arg2)
+        #print '->', id(r)
+        return r
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         self.insns.append(insn.SpillCalleeSaves())
@@ -322,8 +329,14 @@ class Builder(GenBuilder):
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def enter_next_block(self, kinds, args_gv):
+        #print 'enter_next_block of', id(self)
         vars_gv = [v for v in args_gv if isinstance(v, Var)]
+        #print 'initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
+        #print 'initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
         var2loc = self.allocate_and_emit(vars_gv).var2loc
+        #print 'var2loc.keys():', [id(v) for v in var2loc.keys()]
+        #print 'var2loc.values():', [id(v) for v in var2loc.values()]
+        #print 'args_gv', [id(v) for v in args_gv]
 
         #print "enter_next_block:", args_gv, var2loc
 
@@ -333,6 +346,11 @@ class Builder(GenBuilder):
         for gv in args_gv:
             if isinstance(gv, Var):
                 assert gv in var2loc
+##                 if gv not in var2loc:
+##                     lloperation.llop.debug_print(lltype.Void, gv)
+##                     lloperation.llop.debug_print(lltype.Void, var2loc)
+##                     lloperation.llop.debug_print(lltype.Void, args_gv)
+##                     lloperation.llop.debug_pdb(lltype.Void)
                 loc = var2loc[gv]
                 livevar2loc[gv] = loc
                 if not loc.is_register:
@@ -362,13 +380,19 @@ class Builder(GenBuilder):
 
         self.insns = []
         self.initial_var2loc = livevar2loc
+        #print 'final initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
+        #print 'final initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
         self.initial_spill_offset = min_stack_offset
         target_addr = self.asm.mc.tell()
         self.emit_stack_adjustment()
         return Label(target_addr, arg_locations, min_stack_offset)
 
     def jump_if_false(self, gv_condition, args_gv):
-        return self._jump(gv_condition, False, args_gv)
+        #print 'jump_if_false', [id(v) for v in args_gv]
+        #print id(self)
+        t = self._jump(gv_condition, False, args_gv)
+        #print '->', id(t)
+        return t
 
     def jump_if_true(self, gv_condition, args_gv):
         return self._jump(gv_condition, True, args_gv)
@@ -444,14 +468,15 @@ class Builder(GenBuilder):
             self.patch_start_here = 0
 
     def pause_writing(self, args_gv):
-        self.allocate_and_emit(args_gv)
+        self.initial_var2loc = self.allocate_and_emit(args_gv).var2loc
+        self.insns = []
         self.final_jump_addr = self.asm.mc.tell()
         self.asm.nop()
         self.asm.nop()
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
         self._close()
-        return self 
+        return self
 
     # ----------------------------------------------------------------
     # ppc-specific interface:
