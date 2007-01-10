@@ -299,12 +299,10 @@ def some_fun():
     pass
     
 def setTimeout(func, delay):
-    # scheduler call, but we don't want to mess with threads right now
     if one():
         setTimeout(some_fun, delay)
     else:
         func()
-    #pass
 
 window = Window()
 document = window.document
