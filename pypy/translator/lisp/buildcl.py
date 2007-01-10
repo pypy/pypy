@@ -11,9 +11,12 @@ from pypy.translator.cl import conftest as clconftest
 global_cl = None
 
 def is_on_path(name):
-    if py.path.local.sysfind(name) is None:
+    try:
+        py.path.local.sysfind(name)
+    except py.error.ENOENT:
         return False
-    return True
+    else:
+        return True
 
 def cl_detect():
     cl = os.getenv("PYPY_CL")
