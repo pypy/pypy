@@ -66,30 +66,60 @@ class ReportSignal(Action):
             w_frame = space.w_None
         space.call_function(w_handler, space.wrap(self.signum), w_frame)
 
+
+def getsignal(space, signum):
+    """
+    getsignal(sig) -> action
+
+    Return the current action for the given signal.  The return value can be:
+    SIG_IGN -- if the signal is being ignored
+    SIG_DFL -- if the default action for the signal is in effect
+    None -- if an unknown handler is in effect (XXX UNIMPLEMENTED)
+    anything else -- the callable Python object used as a handler
+    """
+    action = CheckSignalAction.get(space)
+    if signum in action.handlers_w:
+        return action.handlers_w[signum]
+    return space.wrap(SIG_DFL)
+getsignal.unwrap_spec = [ObjSpace, int]
+
+
 def signal(space, signum, w_handler):
+    """
+    signal(sig, action) -> action
+
+    Set the action for the given signal.  The action can be SIG_DFL,
+    SIG_IGN, or a callable Python object.  The previous action is
+    returned.  See getsignal() for possible return values.
+
+    *** IMPORTANT NOTICE ***
+    A signal handler function is called with two arguments:
+    the first is the signal number, the second is the interrupted stack frame.
+    """
     ec      = space.getexecutioncontext()
     main_ec = space.threadlocals.getmainthreadvalue()
+
+    old_handler = getsignal(space, signum)
+
     if ec is not main_ec:
         raise OperationError(space.w_ValueError,
                              space.wrap("signal() must be called from the "
                                         "main thread"))
     action = CheckSignalAction.get(space)
     if space.eq_w(w_handler, space.wrap(SIG_DFL)):
-        if signum in action.handlers_w:
-            del action.handlers_w[signum]
         pypysig_default(signum)
+        action.handlers_w[signum] = w_handler
     elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
-        if signum in action.handlers_w:
-            del action.handlers_w[signum]
         pypysig_ignore(signum)
+        action.handlers_w[signum] = w_handler
     else:
         if not space.is_true(space.callable(w_handler)):
             raise OperationError(space.w_TypeError,
                                  space.wrap("'handler' must be a callable "
                                             "or SIG_DFL or SIG_IGN"))
-        action.handlers_w[signum] = w_handler
         pypysig_setflag(signum)
-    # XXX return value missing
+        action.handlers_w[signum] = w_handler
+    return old_handler
 signal.unwrap_spec = [ObjSpace, int, W_Root]
 
 # ____________________________________________________________

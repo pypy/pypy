@@ -221,9 +221,7 @@ def entry_point(executable, argv):
     except ImportError:
         pass
     else:
-        def keyboard_interrupt_handler(*args):
-            raise KeyboardInterrupt
-        signal.signal(signal.SIGINT, keyboard_interrupt_handler)
+        signal.signal(signal.SIGINT, signal.default_int_handler)
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
     try:

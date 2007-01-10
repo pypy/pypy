@@ -3,13 +3,15 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     interpleveldefs = {
-        'signal':  'interp_signal.signal',
-        'NSIG':    'space.wrap(interp_signal.NSIG)',
-        'SIG_DFL': 'space.wrap(interp_signal.SIG_DFL)',
-        'SIG_IGN': 'space.wrap(interp_signal.SIG_IGN)',
+        'signal':              'interp_signal.signal',
+        'getsignal':           'interp_signal.getsignal',
+        'NSIG':                'space.wrap(interp_signal.NSIG)',
+        'SIG_DFL':             'space.wrap(interp_signal.SIG_DFL)',
+        'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
     }
 
     appleveldefs = {
+        'default_int_handler': 'app_signal.default_int_handler',
     }
 
     def buildloaders(cls):
