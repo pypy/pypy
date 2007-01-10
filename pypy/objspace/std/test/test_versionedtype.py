@@ -64,6 +64,19 @@ class TestVersionedType(test_typeobject.TestTypeObject):
         """)
         assert w_B.version_tag is None
 
+    def test_version_tag_of_builtin_types(self):
+        space = self.space
+        assert space.w_list.version_tag is not None
+        assert space.w_dict.version_tag is not None
+        assert space.type(space.sys).version_tag is None
+        assert space.w_type.version_tag is None
+        w_function = space.appexec([], """():
+            def f():
+                pass
+            return type(f)
+        """)
+        assert w_function.version_tag is None
+
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
     def setup_class(cls):

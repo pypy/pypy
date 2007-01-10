@@ -213,7 +213,10 @@ class W_TypeObject(W_Object):
                 return
         w_self.mro_w = w_self.compute_mro()
         if space.config.objspace.std.withtypeversion:
-            w_self.version_tag = VersionTag()
+            if overridetypedef is not None and w_self.hasdict:
+                w_self.version_tag = None
+            else:
+                w_self.version_tag = VersionTag()
 
     def mutated(w_self):
         space = w_self.space
