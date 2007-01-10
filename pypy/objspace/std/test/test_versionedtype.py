@@ -62,7 +62,7 @@ class TestVersionedType(test_typeobject.TestTypeObject):
                 pass
             B.__bases__ = (D, )
         """)
-        assert w_B.version_tag is not btag
+        assert w_B.version_tag is None
 
 
 class AppTestVersionedType(test_typeobject.AppTestTypeObject):
