@@ -14,3 +14,5 @@ Some todo list
   - empty/trivial blocks
 
   - unnecessary jumps
+
+* Provide some high level widgets-like functionality
