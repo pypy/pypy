@@ -508,7 +508,7 @@ class TranslationDriver(SimpleTaskEngine):
                             idemp=True)
 
     def task_source_cl(self):
-        from pypy.translator.cl.gencl import GenCL
+        from pypy.translator.lisp.gencl import GenCL
         self.gen = GenCL(self.translator, self.entry_point)
         filename = self.gen.emitfile()
         self.log.info("Wrote %s" % (filename,))
