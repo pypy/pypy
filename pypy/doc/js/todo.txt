@@ -1,0 +1,16 @@
+Some todo list
+--------------
+
+* Complete the test coverage (rclass, rlist and friends)
+
+* Make a tutorial somewhat usable
+
+* External function interface should be refined
+
+* Optimizations
+
+  - names usage
+
+  - empty/trivial blocks
+
+  - unnecessary jumps
