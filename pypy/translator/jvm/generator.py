@@ -7,7 +7,7 @@ from pypy.translator.jvm.typesystem import \
      JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
-     jDoubleClass, jCharClass, jStringBuilder
+     jDoubleClass, jCharClass, jStringBuilder, JvmScalarType
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -359,6 +359,7 @@ PYPYDUMP          =     Method.s(jPyPy, 'dump', (jString,), jVoid)
 PYPYDUMPBOOLEAN   =     Method.s(jPyPy, 'dump_boolean', (jBool,), jString)
 PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,), jString)
 PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (), jString)
+PYPYESCAPEDCHAR =       Method.s(jPyPy, 'escaped_char', (jChar,), jString)
 PYPYESCAPEDSTRING =     Method.s(jPyPy, 'escaped_string', (jString,), jString)
 PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
@@ -658,6 +659,11 @@ class JVMGenerator(Generator):
         jtype, jidx = self.curfunc.function_arguments[index]
         self.load_jvm_var(jtype, jidx)
 
+    def prepare_generic_argument(self, ITEMTYPE):
+        jty = self.db.lltype_to_cts(ITEMTYPE)
+        if isinstance(jty, JvmScalarType):
+            self.box_value(jty)
+
     def box_value(self, jscalartype):
         """ Assuming that an value of type jscalartype is on the stack,
         boxes it into an Object. """
@@ -715,6 +721,7 @@ class JVMGenerator(Generator):
         # wrapped Python object 
         self.mark(catch)
         EXCWRAPOBJ.load(self)
+        self.emit(CHECKCAST, excclsty)
 
     def end_catch(self):
         """

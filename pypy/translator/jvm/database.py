@@ -248,7 +248,7 @@ class Database(OODatabase):
         ootype.Float:jvmgen.DOUBLETOSTRINGD,
         ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
         ootype.Void:jvmgen.PYPYDUMPVOID,
-        ootype.Char:jvmgen.CHARTOSTRINGC,
+        ootype.Char:jvmgen.PYPYESCAPEDCHAR,
         ootype.String:jvmgen.PYPYESCAPEDSTRING,
         }
 

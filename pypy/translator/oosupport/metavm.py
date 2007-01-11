@@ -156,6 +156,14 @@ class Generator(object):
         Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
         raise NotImplementedError
 
+    def prepare_generic_argument(self, ITEMTYPE):
+        """
+        Invoked after a generic argument has been pushed onto the stack.
+        May not need to do anything, but some backends, *cough*Java*cough*,
+        require boxing etc.
+        """
+        return # by default do nothing
+
     def call_method(self, OOCLASS, method_name):
         """ Invokes the given method on the object on the stack.  The
         this ptr and all arguments have already been pushed.

@@ -146,7 +146,9 @@ class JvmClassType(JvmType):
 jIntegerClass = JvmClassType('java.lang.Integer')
 jLongClass = JvmClassType('java.lang.Long')
 jDoubleClass = JvmClassType('java.lang.Double')
-jCharClass = JvmClassType('java.lang.Char')
+jByteClass = JvmClassType('java.lang.Byte')
+jCharClass = JvmClassType('java.lang.Character')
+jBoolClass = JvmClassType('java.lang.Boolean')
 jThrowable = JvmClassType('java.lang.Throwable')
 jObject = JvmClassType('java.lang.Object')
 jString = JvmClassType('java.lang.String')
@@ -179,10 +181,10 @@ class JvmScalarType(JvmType):
 jVoid = JvmScalarType('V', None, None)
 jInt = JvmScalarType('I', jIntegerClass, 'intValue')
 jLong = JvmScalarType('J', jLongClass, 'longValue')
-jBool = JvmScalarType('Z', jIntegerClass, 'intValue')
+jBool = JvmScalarType('Z', jBoolClass, 'booleanValue')
 jDouble = JvmScalarType('D', jDoubleClass, 'doubleValue')
-jByte = JvmScalarType('B', jIntegerClass, 'intValue')
-jChar = JvmScalarType('C', jIntegerClass, 'intValue')
+jByte = JvmScalarType('B', jByteClass, 'byteValue')
+jChar = JvmScalarType('C', jCharClass, 'charValue')
 
 class JvmArrayType(JvmType):
     """

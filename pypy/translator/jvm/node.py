@@ -223,12 +223,12 @@ class Function(OOFunction):
         else:
             # the exception value is on the stack, store it in the proper place
             if isinstance(link.last_exception, flowmodel.Variable):
-                self.ilasm.dup(jObject)
+                self.ilasm.emit(jvmgen.DUP)
                 self.ilasm.store(link.last_exc_value)
                 fld = jvmgen.Field(
-                    self.db.lltype_to_cts(rclass.CLASSTYPE).name,
+                    self.db.lltype_to_cts(rclass.OBJECT).name,
                     'meta',
-                    self.db.lltype_to_cts(rclass.OBJECT),
+                    self.db.lltype_to_cts(rclass.CLASSTYPE),
                     False,
                     rclass.OBJECT)
                 self.ilasm.emit(fld)
@@ -476,7 +476,9 @@ class InstanceDumpMethod(BaseDumpMethod):
         genprint = self._print
 
         # Start the dump
-        genprint("InstanceWrapper([")
+        genprint("InstanceWrapper(")
+        genprint("'" + self.OOCLASS._name + "', ")
+        genprint("[")
 
         for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
 

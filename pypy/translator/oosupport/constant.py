@@ -590,6 +590,7 @@ class ListConst(AbstractConst):
             gen.dup(SELFTYPE)
             push_constant(self.db, ootype.Signed, idx, gen)
             push_constant(self.db, ITEMTYPE, item, gen)
+            gen.prepare_generic_argument(ITEMTYPE)
             gen.call_method(SELFTYPE, 'll_setitem_fast')
 
 # ______________________________________________________________________

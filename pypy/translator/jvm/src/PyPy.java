@@ -221,6 +221,14 @@ public class PyPy {
             sb.append(c);
     }
 
+    public static String escaped_char(char c) {
+        StringBuffer sb = new StringBuffer();
+        sb.append('"');
+        _append_char(sb, c);
+        sb.append('"');
+        return sb.toString();
+    }
+
     public static String escaped_string(String b) {
         StringBuffer sb = new StringBuffer();
         sb.append('"');
