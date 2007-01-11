@@ -431,3 +431,34 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
         assert res == 63
         self.check_insns(getfield=3)
+
+    def test_simple_explicit_escape_through_vstruct(self):
+   
+        def f(x, y):
+            xy = lltype.malloc(XY)
+            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            e = lltype.malloc(E)
+            e.xy = xy
+            xy_access = xy.access
+            if xy_access:
+                y = xy_access.get_y(xy)
+            else:
+                y = xy.y
+            xy_access = xy.access
+            newy = 2*y
+            if xy_access:
+                xy_access.set_y(xy, newy)
+            else:
+                xy.y = newy
+            return e
+
+        def main(x, y):
+            e = f(x, y)
+            return e.xy.x+e.xy.y
+
+        res = self.timeshift_from_portal(main, f, [20, 11], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=0, malloc=2)
+
