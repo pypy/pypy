@@ -11,9 +11,7 @@ from pypy.translator.lisp import conftest as clconftest
 global_cl = None
 
 def is_on_path(name):
-    try:
-        py.path.local.sysfind(name)
-    except py.error.ENOENT:
+    if py.path.local.sysfind(name) is None:
         return False
     else:
         return True
