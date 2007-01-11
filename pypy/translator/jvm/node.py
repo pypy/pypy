@@ -473,8 +473,6 @@ class Class(Node, JvmClassType):
             if field.jtype is not jVoid:
                 gen.load_jvm_var(self, 0) # load this ptr
                 # load default value of field
-                print "%s f_name=%s f_default=%s" % (
-                    self.name, field.field_name, f_default)
                 push_constant(gen.db, field.OOTYPE, f_default, gen)
                 field.store(gen)           # store value into field
         gen.end_constructor()
