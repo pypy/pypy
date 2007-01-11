@@ -95,7 +95,7 @@ stages.
 .. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
-.. _`Common Lisp`: http://codespeak.net/pypy/dist/pypy/translator/cl/
+.. _`Common Lisp`: http://codespeak.net/pypy/dist/pypy/translator/lisp/
 .. _Pyrex: http://codespeak.net/pypy/dist/pypy/translator/pyrex/
 .. _JavaScript: http://codespeak.net/pypy/dist/pypy/translator/js/
 .. _Squeak: http://codespeak.net/pypy/dist/pypy/translator/squeak/

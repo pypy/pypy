@@ -263,7 +263,7 @@ Directory                      explanation/links
 `translator/c/`_               the `GenC backend`_, producing C code from an
                                RPython program (generally via the RTyper)
 
-`translator/cl/`_              the `Common Lisp backend`_ (incomplete)
+`translator/lisp/`_            the `Common Lisp backend`_ (incomplete)
 
 `translator/cli/`_             the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
 
