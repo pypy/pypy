@@ -74,6 +74,7 @@ void LL_os_mkdir(RPyString * path, int mode);
 void LL_os_rmdir(RPyString * path);
 void LL_os_chmod(RPyString * path, int mode);
 void LL_os_rename(RPyString * path1, RPyString * path2);
+int LL_os_umask(int mode);
 long LL_os_getpid(void);
 void LL_os_kill(int pid, int sig);
 void LL_os_link(RPyString * path1, RPyString * path2);
@@ -348,6 +349,10 @@ void LL_os_rename(RPyString * path1, RPyString * path2) {
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
+}
+
+int LL_os_umask(int mode) {
+	return umask(mode);
 }
 
 long LL_os_getpid(void) {

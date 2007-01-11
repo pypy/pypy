@@ -533,6 +533,15 @@ def test_os_rename():
     assert os.path.exists(tmpfile2)
     assert not os.path.exists(tmpfile1)
 
+def test_os_umask():
+    def does_stuff():
+        mask1 = os.umask(0660)
+        mask2 = os.umask(mask1)
+        return mask2
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == 0660
+
 if hasattr(os, 'getpid'):
     def test_os_getpid():
         def does_stuff():

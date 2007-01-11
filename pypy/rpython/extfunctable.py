@@ -217,6 +217,7 @@ if hasattr(posix, 'unsetenv'):   # note: faked in os
 declare(os.pipe     , pipeannotation, 'll_os/pipe')
 declare(os.chmod    , noneannotation, 'll_os/chmod')
 declare(os.rename   , noneannotation, 'll_os/rename')
+declare(os.umask    , int           , 'll_os/umask')
 declare(os._exit    , noneannotation, 'll_os/_exit')
 if hasattr(os, 'kill'):
     declare(os.kill     , noneannotation, 'll_os/kill')

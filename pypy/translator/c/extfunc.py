@@ -54,6 +54,7 @@ EXTERNALS = {
     impl.ll_os_pipe.im_func:    'LL_os_pipe',
     impl.ll_os_chmod.im_func:   'LL_os_chmod',
     impl.ll_os_rename.im_func:  'LL_os_rename',
+    impl.ll_os_umask.im_func:   'LL_os_umask',
     impl.ll_os_getpid.im_func:  'LL_os_getpid',
     impl.ll_os_kill.im_func:    'LL_os_kill',
     impl.ll_os_link.im_func:    'LL_os_link',

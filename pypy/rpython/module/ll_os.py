@@ -152,6 +152,10 @@ class BaseOS:
         os.rename(cls.from_rstr(path1), cls.from_rstr(path2))
     ll_os_rename.suggested_primitive = True
 
+    def ll_os_umask(cls, mask):
+        return os.umask(mask)
+    ll_os_umask.suggested_primitive = True
+
     def ll_os_getpid(cls):
         return os.getpid()
     ll_os_getpid.suggested_primitive = True

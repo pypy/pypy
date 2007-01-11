@@ -348,6 +348,12 @@ def rename(space, old, new):
         raise wrap_oserror(space, e) 
 rename.unwrap_spec = [ObjSpace, str, str]
 
+def umask(space, mask):
+    "Set the current numeric umask and return the previous umask."
+    prevmask = os.umask(mask)
+    return space.wrap(prevmask)
+umask.unwrap_spec = [ObjSpace, int]
+
 def getpid(space):
     "Return the current process id."
     try: 
