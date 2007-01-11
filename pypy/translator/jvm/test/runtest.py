@@ -16,8 +16,6 @@ from pypy.translator.jvm.option import getoption
 FLOAT_PRECISION = 8
 
 class StructTuple(tuple):
-    def __init__(self, class_name, value):
-        tuple.__init__(self, value)
     def __getattr__(self, name):
         if name.startswith('item'):
             i = int(name[len('item'):])

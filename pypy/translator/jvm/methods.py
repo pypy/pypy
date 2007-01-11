@@ -88,9 +88,7 @@ class RecordDumpMethod(BaseDumpMethod):
                 return
 
         # Start the dump
-        genprint("StructTuple(")
-        genprint("'" + self.clsobj.name + "', ")
-        genprint("(")
+        genprint("StructTuple((")
 
         numfields = len(self.OOCLASS._fields)
         for i in range(numfields):
