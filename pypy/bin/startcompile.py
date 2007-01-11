@@ -27,7 +27,7 @@ def parse_options(config, tool_config):
 initcode = """
     import sys
     sys.path += %r
-    
+
     try:
         from pypy.tool.build import metaserver_instance
         from pypy.tool.build import build
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     sysinfo = make_dict(config.system_config)
     compileinfo = make_dict(config.compile_config)
-    
+
     buildrequest = build.BuildRequest(args[0], sysinfo, compileinfo,
                                       config.svnpath_to_url(
                                                     tool_config.svnpath),
@@ -68,9 +68,7 @@ if __name__ == '__main__':
     for k, v in sysinfo.items():
         print '%s: %r' % (k, v)
     print
-    for k, v in compileinfo.items():
-        print '%s: %r' % (k, v)
-    print
+    print config.compile_config
 
     if config.server in ['localhost', '127.0.0.1']:
         gw = PopenGateway()
