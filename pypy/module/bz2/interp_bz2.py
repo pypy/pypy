@@ -12,7 +12,7 @@ import sys
 
 from bzlib import bz_stream, BZFILE, FILE
 
-libbz2 = cdll.LoadLibrary(ctypes.util.find_library("bz2"))
+#libbz2 = cdll.LoadLibrary(ctypes.util.find_library("bz2"))
 
 c_void = None
 
@@ -22,9 +22,9 @@ class CConfig:
     #include <sys/types.h>
     #include <bzlib.h>
     """
-    # XXX: with this it should compile fine but on my machine pypy doesn't
-    # inject this header so it's pretty useless. Kept as a remind.
-    # _includes_ = ["bzlib.h"]
+
+    _includes_ = ["bzlib.h"]
+    libbz2 = ctypes_platform.Library('bz2')
     off_t = ctypes_platform.SimpleType("off_t", c_longlong)
     size_t = ctypes_platform.SimpleType("size_t", c_ulong)
     BUFSIZ = ctypes_platform.ConstantInteger("BUFSIZ")
@@ -49,6 +49,7 @@ for name in constant_names:
         constants[name] = value
 locals().update(constants)
 
+libbz2 = cConfig.libbz2
 off_t = cConfig.off_t
 BUFSIZ = cConfig.BUFSIZ
 SEEK_SET = cConfig.SEEK_SET
