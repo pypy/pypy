@@ -2,6 +2,7 @@ package pypy;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Class with a number of utility routines.
@@ -395,6 +396,17 @@ public class PyPy {
         return excObject.get();
     }
 */
+
+    // ----------------------------------------------------------------------
+    // Dicts
+
+    public static boolean ll_remove(HashMap map, Object key) {
+        return map.remove(key) != null;
+    }
+
+    public static DictItemsIterator ll_get_items_iterator(HashMap map) {
+        return new DictItemsIterator(map);
+    }
 
     // ----------------------------------------------------------------------
     // Lists

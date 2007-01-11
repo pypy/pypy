@@ -13,6 +13,7 @@ class GenOO(object):
     # _create_complex_const:
     
     ConstantGenerator = None
+    NullConst = ooconst.NullConst
     InstanceConst = ooconst.InstanceConst
     RecordConst = ooconst.RecordConst
     ClassConst = ooconst.ClassConst

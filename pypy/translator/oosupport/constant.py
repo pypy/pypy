@@ -212,6 +212,11 @@ class BaseConstantGenerator(object):
             return genoo.DictConst(self.db, value, uniq)
         elif isinstance(value, llmemory.fakeweakaddress):
             return genoo.WeakRefConst(self.db, value, uniq)
+        elif value is ootype.null(value._TYPE):
+            # for NULL values, we can just use "NULL" const.  This is
+            # a fallback since we sometimes have constants of
+            # unhandled types which are equal to NULL.
+            return genoo.NullConst(self.db, value, uniq)
         else:
             assert False, 'Unknown constant: %s' % value        
 
@@ -406,6 +411,21 @@ class AbstractConst(object):
             self.db.constant_generator.record_const(value)
 
 
+# ______________________________________________________________________
+# Null Values
+#
+# NULL constants of types for which we have no better class use this
+# class.  For example, dict item iterators and the like.
+    
+class NullConst(AbstractConst):
+    def __init__(self, db, value, count):
+        AbstractConst.__init__(self, db, value, count)
+        self.name = 'NULL__%d' % count
+        assert self.is_null() and self.is_inline()
+
+    def record_dependencies(self):
+        return
+    
 # ______________________________________________________________________
 # Records
     
@@ -627,11 +647,13 @@ class DictConst(AbstractConst):
             gen.dup(SELFTYPE)
             gen.add_comment('  key=%r value=%r' % (key,value))
             push_constant(self.db, KEYTYPE, key, gen)
+            gen.prepare_generic_argument(KEYTYPE)
             if VALUETYPE is ootype.Void:
                 # special case dict of Void; for now store the key as value?
                 gen.dup(KEYTYPE)
             else:
                 push_constant(self.db, VALUETYPE, value, gen)
+            gen.prepare_generic_argument(VALUETYPE)
             gen.call_method(SELFTYPE, 'll_set')
 
 class CustomDictConst(DictConst):

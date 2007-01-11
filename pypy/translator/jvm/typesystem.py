@@ -165,6 +165,7 @@ jPyPy = JvmClassType('pypy.PyPy')
 jPyPyExcWrap = JvmClassType('pypy.ExceptionWrapper')
 jPyPyConst = JvmClassType('pypy.Constant')
 jPyPyMain = JvmClassType('pypy.Main')
+jPyPyDictItemsIterator = JvmClassType('pypy.DictItemsIterator')
 
 class JvmScalarType(JvmType):
     """
@@ -202,4 +203,60 @@ jByteArray = JvmArrayType(jByte)
 jObjectArray = JvmArrayType(jObject)
 jStringArray = JvmArrayType(jString)
 
+class Generifier(object):
 
+    """
+
+    A utility class for working with generic methods in the OOTYPE
+    system.  You instantiate it with a given type, and you can ask it
+    for the actual or erased types of any method of that type.
+    
+    """
+
+    def __init__(self, OOTYPE):
+        self.OOTYPE = OOTYPE
+
+        # Make a hashtable mapping the generic parameter to a tuple:
+        #    (actual type, erased type)
+        
+        self.generics = {}
+        
+        if hasattr(self.OOTYPE, 'SELFTYPE_T'):
+            self.generics[self.OOTYPE.SELFTYPE_T] = (self.OOTYPE,self.OOTYPE)
+            
+        for pname,pval in (('ITEMTYPE_T', '_ITEMTYPE'),
+                           ('KEYTYPE_T', '_KEYTYPE'),
+                           ('VALUETYPE_T', '_VALUETYPE')):
+            if hasattr(self.OOTYPE, pname):
+                placeholder = getattr(self.OOTYPE, pname)
+                placeholder_val = getattr(self.OOTYPE, pval)
+                self.generics[placeholder] = (placeholder_val, ootype.ROOT)
+
+    def full_types(self, method_name):
+        """
+        Returns a tuple of argument and return types for the method
+        named 'method_name'.  These are the actual generic types.  The set method for
+        a list of strings, for example, might return:
+          ( [INT, STRING], VOID )
+        """
+        GENMETH = self.OOTYPE._GENERIC_METHODS[method_name]
+        ARGS, RESULT = (GENMETH.ARGS, GENMETH.RESULT)
+        ARGS = [self.generics.get(X,(X,))[0] for X in ARGS]
+        RESULT = self.generics.get(RESULT, (RESULT,))[0]
+        return (ARGS, RESULT)
+
+    def erased_types(self, method_name):
+        """
+        Returns a tuple of argument and return types for the method
+        named 'method_name'.  These are the erased generic types.  The set method for
+        a list of strings, for example, might return:
+          ( [INT, OBJECT], VOID )
+        """
+        GENMETH = self.OOTYPE._GENERIC_METHODS[method_name]
+        ARGS, RESULT = (GENMETH.ARGS, GENMETH.RESULT)
+        ARGS = [self.generics.get(X,(None,X))[1] for X in ARGS]
+        RESULT = self.generics.get(RESULT, (None,RESULT))[1]
+        return (ARGS, RESULT)
+
+    
+    

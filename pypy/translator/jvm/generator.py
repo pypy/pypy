@@ -851,6 +851,16 @@ class JVMGenerator(Generator):
         mthd = clsobj.lookup_method(method_name)
         mthd.invoke(self)
 
+        # Check if we have to convert the result type at all:
+        gener = jvmtype.Generifier(OOCLASS)
+        RETTYPE = gener.full_types(method_name)[1]
+        jrettype = self.db.lltype_to_cts(RETTYPE)
+        if jrettype != mthd.return_type:
+            # if the intended return type is not the same as the
+            # actual return type in the JVM (mthd.return_type),
+            # we have to "deal with it"
+            self.prepare_generic_result(RETTYPE)
+
     def call_primitive(self, graph):
         raise NotImplementedError
 

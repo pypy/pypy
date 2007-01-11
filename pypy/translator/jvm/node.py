@@ -367,7 +367,7 @@ class Class(Node, JvmClassType):
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
 
-    def __init__(self, name, supercls=None):
+    def __init__(self, name, supercls=None, initialize_fields=True):
         """
         'name' should be a fully qualified Java class name like
         "java.lang.String", supercls is a Class object
@@ -435,6 +435,8 @@ class Class(Node, JvmClassType):
             if field.jtype is not jVoid:
                 gen.load_jvm_var(self, 0) # load this ptr
                 # load default value of field
+                print "%s f_name=%s f_default=%s" % (
+                    self.name, field.field_name, f_default)
                 push_constant(gen.db, field.OOTYPE, f_default, gen)
                 field.store(gen)           # store value into field
         gen.end_constructor()
@@ -495,24 +497,21 @@ class InstanceDumpMethod(BaseDumpMethod):
         # Start the dump
         genprint("InstanceWrapper(")
         genprint("'" + self.OOCLASS._name + "', ")
-        genprint("[")
+        genprint("{")
 
         for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
 
             if FIELDOOTY is ootype.Void: continue
 
-            genprint("(")
-            genprint('"'+fieldnm+'",')
+            genprint('"'+fieldnm+'":')
 
             print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
 
             # Print the value of the field:
             self._print_field_value(fieldnm, FIELDOOTY)
 
-            genprint(")")
-
         # Dump close
-        genprint("])")
+        genprint("})")
         
 class RecordDumpMethod(BaseDumpMethod):
 

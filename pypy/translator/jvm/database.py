@@ -293,7 +293,7 @@ class Database(OODatabase):
         ootype.UnsignedLongLong: jvmtype.jLong,
         ootype.Bool:             jvmtype.jBool,
         ootype.Float:            jvmtype.jDouble,
-        ootype.Char:             jvmtype.jByte,
+        ootype.Char:             jvmtype.jChar,    # byte would be sufficient, but harder
         ootype.UniChar:          jvmtype.jChar,
         ootype.Class:            jvmtype.jClass,
         ootype.ROOT:             jvmtype.jObject,  # count this as a scalar...
@@ -304,7 +304,9 @@ class Database(OODatabase):
     ootype_to_builtin = {
         ootype.String:           jvmtype.jString,
         ootype.StringBuilder:    jvmtype.jStringBuilder,
-        ootype.List:             jvmtype.jArrayList
+        ootype.List:             jvmtype.jArrayList,
+        ootype.Dict:             jvmtype.jHashMap,
+        ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,
         }
 
     def lltype_to_cts(self, OOT):

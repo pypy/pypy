@@ -95,17 +95,22 @@ class JvmGeneratedSource(object):
             raise JvmSubprogramError(res, args, stdout, stderr)
         return stdout, stderr
 
-    def _compile_helper(self, clsnm):
+    def _compile_helper(self, clsnms):
         # HACK: compile the Java helper class.  Should eventually
         # use rte.py
-        pypycls = self.classdir.join(clsnm + '.class')
-        if not os.path.exists(str(pypycls)):
+        tocompile = []
+        for clsnm in clsnms:
+            pypycls = self.classdir.join(clsnm + '.class')
+            if not os.path.exists(str(pypycls)):
+                tocompile.append(clsnm)
+        if tocompile:
             sl = __file__.rindex('/')
-            javasrc = __file__[:sl]+("/src/%s.java" % clsnm)
+            javasrcs = [__file__[:sl]+("/src/pypy/%s.java" % clsnm) for
+                        clsnm in tocompile]
             self._invoke([getoption('javac'),
                           '-nowarn',
-                          '-d', str(self.classdir),
-                          javasrc],
+                          '-d', str(self.classdir)]+
+                         javasrcs,
                          True)
         
 
@@ -119,8 +124,9 @@ class JvmGeneratedSource(object):
         self._invoke(jascmd+list(self.jasmin_files), False)
                            
         self.compiled = True
-        self._compile_helper('PyPy')
-        self._compile_helper('ExceptionWrapper')
+        self._compile_helper(('DictItemsIterator',
+                              'PyPy',
+                              'ExceptionWrapper'))
 
     def execute(self, args):
         """

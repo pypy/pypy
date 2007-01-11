@@ -3,7 +3,7 @@ from pypy.translator.jvm import generator as jvmgen
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
      jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject, \
-     jBool
+     jBool, jHashMap, jPyPyDictItemsIterator, Generifier
 
 # ______________________________________________________________________
 # Mapping of built-in OOTypes to JVM types
@@ -19,20 +19,9 @@ class JvmBuiltInType(jvmtype.JvmClassType):
     def __init__(self, db, classty, OOTYPE):
         jvmtype.JvmClassType.__init__(self, classty.name)
         self.db = db
-        self.OOTYPE = OOTYPE           # might be None
+        self.OOTYPE = OOTYPE
+        self.gen = Generifier(OOTYPE)
     
-        # We need to create a mapping for any generic parameters this
-        # OOTYPE may have. Other than SELFTYPE_T, we map each generic
-        # argument to ootype.ROOT.  We use a hack here where we assume
-        # that the only generic parameters are named SELFTYPE_T,
-        # ITEMTYPE_T, KEYTYPE_T, or VALUETYPE_T.
-        self.generics = {}
-        if hasattr(self.OOTYPE, 'SELFTYPE_T'):
-            self.generics[self.OOTYPE.SELFTYPE_T] = self.OOTYPE
-        for param in ('ITEMTYPE_T', 'KEYTYPE_T', 'VALUETYPE_T'):
-            if hasattr(self.OOTYPE, param):
-                self.generics[getattr(self.OOTYPE, param)] = ootype.ROOT
-
     def __eq__(self, other):
         return isinstance(other, JvmBuiltInType) and other.name == self.name
 
@@ -46,16 +35,10 @@ class JvmBuiltInType(jvmtype.JvmClassType):
         return jvmgen.Field(
             self.descriptor.class_name(), fieldnm, jfieldty, False)
 
-    def _map(self, ARG):
-        """ Maps ootype ARG to a java type.  If arg is one of our
-        generic arguments, substitutes the appropriate type before
-        performing the mapping. """
-        return self.db.lltype_to_cts(self.generics.get(ARG,ARG))
-
     def lookup_method(self, methodnm):
         """ Given the method name, returns a jvmgen.Method object """
 
-        # Look for a shortcut method
+        # Look for a shortcut method in our table of remappings:
         try:
             key = (self.OOTYPE.__class__, methodnm)
             print "key=%r" % (key,)
@@ -63,20 +46,33 @@ class JvmBuiltInType(jvmtype.JvmClassType):
             return built_in_methods[key]
         except KeyError: pass
 
-        # Lookup the generic method by name.
-        GENMETH = self.OOTYPE._GENERIC_METHODS[methodnm]
+        # Otherwise, determine the Method object automagically
+        #   First, map the OOTYPE arguments and results to
+        #   the java types they will be at runtime.  Note that
+        #   we must use the erased types for this.
+        ARGS, RESULT = self.gen.erased_types(methodnm)
+        jargtypes = [self.db.lltype_to_cts(P) for P in ARGS]
+        jrettype = self.db.lltype_to_cts(RESULT)
 
-        # By default, we assume it is a static method on the PyPy
-        # object, that takes an instance of this object as the first
-        # argument.  The other arguments we just convert to java versions,
-        # except for generics.
-        jargtypes = [self] + [self._map(P) for P in GENMETH.ARGS]
-        jrettype = self._map(GENMETH.RESULT)
-        return jvmgen.Method.s(jPyPy, methodnm, jargtypes, jrettype)
+        if self.OOTYPE.__class__ in bridged_objects:
+            # Bridged objects are ones where we have written a java class
+            # that has methods with the correct names and types already
+            return jvmgen.Method.v(self, methodnm, jargtypes, jrettype)
+        else:
+            # By default, we assume it is a static method on the PyPy
+            # object, that takes an instance of this object as the first
+            # argument.  The other arguments we just convert to java versions,
+            # except for generics.
+            jargtypes = [self] + jargtypes
+            return jvmgen.Method.s(jPyPy, methodnm, jargtypes, jrettype)
 
-# When we lookup a method on a  BuiltInClassNode, we first check
-# the 'built_in_methods' table.  This allows us to redirect to other
-# methods if we like.
+# When we lookup a method on a BuiltInClassNode, we first check the
+# 'built_in_methods' and 'bridged_objects' tables.  This allows us to
+# redirect to other methods if we like.
+
+bridged_objects = (
+    ootype.DictItemsIterator,
+    )
 
 built_in_methods = {
 
@@ -94,6 +90,24 @@ built_in_methods = {
 
     (ootype.String.__class__, "ll_strlen"):
     jvmgen.Method.v(jString, "length", (), jInt),
+    
+    (ootype.String.__class__, "ll_stritem_nonneg"):
+    jvmgen.Method.v(jString, "charAt", (jInt,), jChar),
+
+    (ootype.Dict, "ll_set"):
+    jvmgen.Method.v(jHashMap, "put", (jObject, jObject), jObject),
+    
+    (ootype.Dict, "ll_get"):
+    jvmgen.Method.v(jHashMap, "get", (jObject,), jObject),
+
+    (ootype.Dict, "ll_contains"):
+    jvmgen.Method.v(jHashMap, "containsKey", (jObject,), jBool),
+
+    (ootype.Dict, "ll_length"):
+    jvmgen.Method.v(jHashMap, "size", (), jInt),
+    
+    (ootype.Dict, "ll_clear"):
+    jvmgen.Method.v(jHashMap, "clear", (), jVoid),
 
     (ootype.List, "ll_length"):
     jvmgen.Method.v(jArrayList, "size", (), jInt),

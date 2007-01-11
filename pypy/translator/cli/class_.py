@@ -132,6 +132,7 @@ class Class(Node):
             f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
                 self.ilasm.opcode('ldarg.0')
+                print "%s f_default=%s" % (self.name, f_default)
                 push_constant(self.db, F_TYPE, f_default, self.gen)
                 class_name = self.db.class_name(self.INSTANCE)
                 self.ilasm.set_field((cts_type, class_name, f_name))

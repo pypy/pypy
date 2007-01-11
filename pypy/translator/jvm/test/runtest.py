@@ -138,4 +138,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
         return isinstance(val, InstanceWrapper)
 
     def read_attr(self, obj, name):
-        py.test.skip('read_attr not supported on genjvm tests')
+        py.test.skip("read_attr not supported on JVM")
+        # TODO --- this "almost works": I think the problem is that our
+        # dump methods don't dump fields of the super class??
+        #return obj.fields["o"+name]
