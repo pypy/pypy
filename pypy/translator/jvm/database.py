@@ -241,39 +241,32 @@ class Database(OODatabase):
     # Returns a method that prints details about the value out to
     # stdout.  Should generalize to make it allow for stderr as well.
     
-    _type_printing_methods = {
-        ootype.Signed:jvmgen.PYPYDUMPINT,
+    _toString_methods = {
+        ootype.Signed:jvmgen.INTTOSTRINGI,
         ootype.Unsigned:jvmgen.PYPYDUMPUINT,
-        ootype.SignedLongLong:jvmgen.PYPYDUMPLONG,
-        ootype.Float:jvmgen.PYPYDUMPDOUBLE,
+        ootype.SignedLongLong:jvmgen.LONGTOSTRINGL,
+        ootype.Float:jvmgen.DOUBLETOSTRINGD,
         ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
-        ootype.Class:jvmgen.PYPYDUMPOBJECT,
-        ootype.String:jvmgen.PYPYDUMPSTRING,
-        ootype.StringBuilder:jvmgen.PYPYDUMPOBJECT,
         ootype.Void:jvmgen.PYPYDUMPVOID,
-        ootype.Char:jvmgen.PYPYDUMPCHAR
+        ootype.Char:jvmgen.CHARTOSTRINGC,
+        ootype.String:jvmgen.PYPYESCAPEDSTRING,
         }
 
-    def generate_dump_method_for_ootype(self, OOTYPE):
+    def generate_toString_method_for_ootype(self, OOTYPE):
         """
         Assuming than an instance of type OOTYPE is pushed on the
-        stack, returns a Method object that you can invoke.  This
-        method will require that you also push an integer (usually 0)
-        that represents the indentation, and then invoke it.  i.e., you
-        can do something like:
+        stack, returns a Method object that you can invoke.  This method
+        will return a string representing the contents of that type.
 
+        Do something like:
+        
         > gen.load(var)
-        > mthd = db.generate_dump_method_for_ootype(var.concretetype)
-        > gen.emit(jvmgen.ICONST, 0)
+        > mthd = db.generate_toString_method_for_ootype(var.concretetype)
         > mthd.invoke(gen)
 
         to print the value of 'var'.
         """
-        if OOTYPE in self._type_printing_methods:
-            return self._type_printing_methods[OOTYPE]
-        pclass = self.pending_class(OOTYPE)
-        assert hasattr(pclass, 'dump_method'), "No dump_method for %r" % (OOTYPE, )
-        return pclass.dump_method.method()
+        return self._toString_methods.get(OOTYPE, jvmgen.OBJTOSTRING)
 
     # _________________________________________________________________
     # Type translation functions
@@ -310,7 +303,8 @@ class Database(OODatabase):
     # will return a JvmBuiltInType based on the value
     ootype_to_builtin = {
         ootype.String:           jvmtype.jString,
-        ootype.StringBuilder:    jvmtype.jStringBuilder
+        ootype.StringBuilder:    jvmtype.jStringBuilder,
+        ootype.List:             jvmtype.jArrayList
         }
 
     def lltype_to_cts(self, OOT):
@@ -324,6 +318,9 @@ class Database(OODatabase):
             return jObject
         if OOT in self.ootype_to_builtin:
             return JvmBuiltInType(self, self.ootype_to_builtin[OOT], OOT)
+        if OOT.__class__ in self.ootype_to_builtin:
+            return JvmBuiltInType(
+                self, self.ootype_to_builtin[OOT.__class__], OOT)
 
         # Handle non-built-in-types:
         if isinstance(OOT, ootype.Instance):

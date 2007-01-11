@@ -14,11 +14,12 @@ interface defined by database.JvmType.
 """
 
 
+from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem import ootype, rclass
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
-     jObject, JvmType
+     jObject, JvmType, jStringBuilder
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.translator.jvm.option import getoption
 from pypy.translator.oosupport.function import Function as OOFunction
@@ -112,15 +113,15 @@ class EntryPoint(Node):
         #
         if self.print_result:
             done_printing = gen.unique_label('done_printing')
-            gen.emit(jvmgen.ICONST, 0)
             RESOOTYPE = self.graph.getreturnvar().concretetype
-            dumpmethod = self.db.generate_dump_method_for_ootype(RESOOTYPE)
-            dumpmethod.invoke(gen)
+            dumpmethod = self.db.generate_toString_method_for_ootype(RESOOTYPE)
+            gen.emit(dumpmethod)      # generate the string
+            gen.emit(jvmgen.PYPYDUMP) # dump to stdout
             gen.goto(done_printing)
             gen.end_try()
 
             gen.begin_catch(jObject)
-            gen.emit(jvmgen.PYPYDUMPEXCWRAPPER)
+            gen.emit(jvmgen.PYPYDUMPEXCWRAPPER) # dumps to stdout
             gen.end_catch()
 
             gen.mark(done_printing)
@@ -204,13 +205,37 @@ class Function(OOFunction):
         self.ilasm.end_try()
 
     def begin_catch(self, llexitcase):
-        unimplemented
+        ll_meta_exc = llexitcase
+        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        cts_exc = self.cts.lltype_to_cts(ll_exc)
+        self.ilasm.begin_catch(cts_exc)
 
-    def end_catch(self, llexitcase):
-        unimplemented
+    def end_catch(self, exit_lbl):
+        self.ilasm.goto(exit_lbl)
+        self.ilasm.end_catch()
 
     def store_exception_and_link(self, link):
-        unimplemented
+        if self._is_raise_block(link.target):
+            # the exception value is on the stack, use it as the 2nd target arg
+            assert len(link.args) == 2
+            assert len(link.target.inputargs) == 2
+            self.ilasm.store(link.target.inputargs[1])
+        else:
+            # the exception value is on the stack, store it in the proper place
+            if isinstance(link.last_exception, flowmodel.Variable):
+                self.ilasm.dup(jObject)
+                self.ilasm.store(link.last_exc_value)
+                fld = jvmgen.Field(
+                    self.db.lltype_to_cts(rclass.CLASSTYPE).name,
+                    'meta',
+                    self.db.lltype_to_cts(rclass.OBJECT),
+                    False,
+                    rclass.OBJECT)
+                self.ilasm.emit(fld)
+                self.ilasm.store(link.last_exception)
+            else:
+                self.ilasm.store(link.last_exc_value)
+            self._setup_link(link)
 
     def render_return_block(self, block):
         return_var = block.inputargs[0]
@@ -414,56 +439,44 @@ class BaseDumpMethod(object):
         self.db = db
         self.OOCLASS = OOCLASS
         self.clsobj = clsobj
-        self.name = "_pypy_dump"
-        self.jargtypes = [clsobj, jInt]
-        self.jrettype = jVoid
+        self.name = "toString"
+        self.jargtypes = [clsobj]
+        self.jrettype = jString
 
-    def method(self):
-        """ Returns a jvmgen.Method that can invoke this function """
-        return jvmgen.Method.v(
-            self.clsobj, self.name, self.jargtypes[1:], self.jrettype)
-
-    def _increase_indent(self, gen):
-        gen.load_jvm_var(jInt, 1)
-        gen.emit(jvmgen.ICONST, 2)
-        gen.emit(jvmgen.IADD)
-        gen.store_jvm_var(jInt, 1)
-
-    def _print_field_value(self, gen, fieldnm, FIELDOOTY):
-        gen.load_this_ptr()
+    def _print_field_value(self, fieldnm, FIELDOOTY):
+        self.gen.emit(jvmgen.DUP)
+        self.gen.load_this_ptr()
         fieldobj = self.clsobj.lookup_field(fieldnm)
-        fieldobj.load(gen)
-        gen.load_jvm_var(jInt, 1)
-        dumpmethod = self.db.generate_dump_method_for_ootype(FIELDOOTY)
-        gen.emit(dumpmethod)        
+        fieldobj.load(self.gen)
+        dumpmethod = self.db.generate_toString_method_for_ootype(FIELDOOTY)
+        self.gen.emit(dumpmethod)
+        self.gen.emit(jvmgen.PYPYAPPEND)
+
+    def _print(self, str):
+        self.gen.emit(jvmgen.DUP)
+        self.gen.load_string(str)
+        self.gen.emit(jvmgen.PYPYAPPEND)
 
     def render(self, gen):
+        self.gen = gen
         gen.begin_function(
             self.name, (), self.jargtypes, self.jrettype, static=False)
 
-        def genprint(str, unoffset=0):
-            gen.load_jvm_var(jInt, 1)
-            if unoffset:
-                gen.emit(jvmgen.ICONST, unoffset)
-                gen.emit(jvmgen.ISUB)
-            gen.load_string(str)
-            jvmgen.PYPYDUMPINDENTED.invoke(gen)
-
-        self._render_guts(gen, genprint)
-
-        gen.emit(jvmgen.RETURN.for_type(jVoid))
+        gen.new_with_jtype(jStringBuilder)
+        self._render_guts(gen)
+        gen.emit(jvmgen.OBJTOSTRING)
+        gen.emit(jvmgen.RETURN.for_type(jString))
         gen.end_function()
+        self.gen = None
 
 class InstanceDumpMethod(BaseDumpMethod):
 
-    def _render_guts(self, gen, genprint):
+    def _render_guts(self, gen):
         clsobj = self.clsobj
+        genprint = self._print
 
         # Start the dump
         genprint("InstanceWrapper([")
-
-        # Increment the indent
-        self._increase_indent(gen)
 
         for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
 
@@ -475,23 +488,30 @@ class InstanceDumpMethod(BaseDumpMethod):
             print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
 
             # Print the value of the field:
-            self._print_field_value(gen, fieldnm, FIELDOOTY)
+            self._print_field_value(fieldnm, FIELDOOTY)
 
             genprint(")")
 
-        # Decrement indent and dump close
-        genprint("])", 2)
+        # Dump close
+        genprint("])")
         
 class RecordDumpMethod(BaseDumpMethod):
 
-    def _render_guts(self, gen, genprint):
+    def _render_guts(self, gen):
         clsobj = self.clsobj
+        genprint = self._print
+
+        # We only render records that represent tuples:
+        # In that case, the field names look like item0, item1, etc
+        # Otherwise, we just do nothing... this is because we
+        # never return records that do not represent tuples from
+        # a testing function
+        for f_name in self.OOCLASS._fields:
+            if not f_name.startswith('item'):
+                return
 
         # Start the dump
         genprint("StructTuple((")
-
-        # Increment the indent
-        self._increase_indent(gen)
 
         numfields = len(self.OOCLASS._fields)
         for i in range(numfields):
@@ -501,11 +521,11 @@ class RecordDumpMethod(BaseDumpMethod):
                 continue
 
             # Print the value of the field:
-            self._print_field_value(gen, f_name, FIELD_TYPE)
+            self._print_field_value(f_name, FIELD_TYPE)
             genprint(',')
 
         # Decrement indent and dump close
-        genprint("))", 2)
+        genprint("))")
 
 class ConstantStringDumpMethod(BaseDumpMethod):
     """ Just prints out a string """
@@ -514,5 +534,6 @@ class ConstantStringDumpMethod(BaseDumpMethod):
         BaseDumpMethod.__init__(self, None, None, clsobj)
         self.constant_string = str
 
-    def _render_guts(self, gen, genprint):
+    def _render_guts(self, gen):
+        genprint = self._print
         genprint("'" + self.constant_string + "'")

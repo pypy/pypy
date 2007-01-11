@@ -7,9 +7,9 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField, CallMethod, DownCast, RuntimeNew, OOString, CastTo
+     SetField, GetField, DownCast, RuntimeNew, OOString, CastTo
 from pypy.translator.jvm.metavm import \
-     IndirectCall
+     IndirectCall, JvmCallMethod
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -28,7 +28,7 @@ opcodes = {
     'runtimenew':               [RuntimeNew, StoreResult],
     'oosetfield':               [SetField],
     'oogetfield':               [GetField, StoreResult],
-    'oosend':                   [CallMethod, StoreResult],
+    'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
     'oois':                     'ref_is_eq',
@@ -50,6 +50,8 @@ opcodes = {
     #'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
     #'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     #'resume_point':             Ignore,
+
+    'debug_assert':              [], # TODO: implement?
 
     # __________ numeric operations __________
 

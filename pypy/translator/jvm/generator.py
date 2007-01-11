@@ -6,7 +6,8 @@ from pypy.translator.oosupport.constant import push_constant
 from pypy.translator.jvm.typesystem import \
      JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
-     jObject, jByteArray, jPyPyExcWrap
+     jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
+     jDoubleClass, jCharClass, jStringBuilder
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -320,12 +321,19 @@ class Method(object):
         self.descriptor = desc_for_method(argtypesdesc, rettypedesc)  
     def invoke(self, gen):
         gen._instr(self.opcode, self)
+    def is_static(self):
+        return self.opcode == INVOKESTATIC
     def jasmin_syntax(self):
         return "%s/%s%s" % (self.class_name.replace('.','/'),
                             self.method_name,
                             self.descriptor)
 
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
+OBJTOSTRING =           Method.v(jObject, 'toString', (), jString)
+INTTOSTRINGI =          Method.s(jIntegerClass, 'toString', (jInt,), jString)
+LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
+DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
+CHARTOSTRINGC =         Method.s(jCharClass, 'toString', (jChar,), jString)
 MATHIABS =              Method.s(jMath, 'abs', (jInt,), jInt)
 MATHLABS =              Method.s(jMath, 'abs', (jLong,), jLong)
 MATHDABS =              Method.s(jMath, 'abs', (jDouble,), jDouble)
@@ -333,6 +341,8 @@ MATHFLOOR =             Method.s(jMath, 'floor', (jDouble,), jDouble)
 PRINTSTREAMPRINTSTR =   Method.v(jPrintStream, 'print', (jString,), jVoid)
 CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
 CLASSISASSIGNABLEFROM = Method.v(jClass, 'isAssignableFrom', (jClass,), jBool)
+PYPYAPPEND =            Method.s(jPyPy, 'append',
+                                 (jStringBuilder, jString), jVoid)
 PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
@@ -345,16 +355,11 @@ PYPYSTRTOULONG =        Method.s(jPyPy, 'str_to_ulong', (jString,), jLong)
 PYPYSTRTOBOOL =         Method.s(jPyPy, 'str_to_bool', (jString,), jBool)
 PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
 PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
-PYPYDUMPINDENTED  =     Method.s(jPyPy, 'dump_indented', (jInt,jString,), jVoid)
-PYPYDUMPINT  =          Method.s(jPyPy, 'dump_int', (jInt,jInt), jVoid)
-PYPYDUMPCHAR  =         Method.s(jPyPy, 'dump_char', (jChar,jInt), jVoid)
-PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,jInt), jVoid)
-PYPYDUMPLONG  =         Method.s(jPyPy, 'dump_long', (jLong,jInt), jVoid)
-PYPYDUMPDOUBLE  =       Method.s(jPyPy, 'dump_double', (jDouble,jInt), jVoid)
-PYPYDUMPSTRING  =       Method.s(jPyPy, 'dump_string', (jString,jInt), jVoid)
-PYPYDUMPBOOLEAN =       Method.s(jPyPy, 'dump_boolean', (jBool,jInt), jVoid)
-PYPYDUMPOBJECT =        Method.s(jPyPy, 'dump_object', (jObject,jInt,), jVoid)
-PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (jInt,), jVoid)
+PYPYDUMP          =     Method.s(jPyPy, 'dump', (jString,), jVoid)
+PYPYDUMPBOOLEAN   =     Method.s(jPyPy, 'dump_boolean', (jBool,), jString)
+PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,), jString)
+PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (), jString)
+PYPYESCAPEDSTRING =     Method.s(jPyPy, 'escaped_string', (jString,), jString)
 PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
@@ -653,6 +658,21 @@ class JVMGenerator(Generator):
         jtype, jidx = self.curfunc.function_arguments[index]
         self.load_jvm_var(jtype, jidx)
 
+    def box_value(self, jscalartype):
+        """ Assuming that an value of type jscalartype is on the stack,
+        boxes it into an Object. """
+        jclasstype = jscalartype.box_type
+        jmethod = Method.s(jclasstype, 'valueOf', (jscalartype,), jclasstype)
+        self.emit(jmethod)
+
+    def unbox_value(self, jscalartype):
+        """ Assuming that a boxed value of type jscalartype is on the stack,
+        unboxes it.  """        
+        jclasstype = jscalartype.box_type
+        jmethod = Method.v(
+            jclasstype, jscalartype.unbox_method, (), jscalartype)
+        self.emit(jmethod)
+
     # __________________________________________________________________
     # Exception Handling
 
@@ -732,6 +752,9 @@ class JVMGenerator(Generator):
         if isinstance(instr, Method):
             return instr.invoke(self)
 
+        if isinstance(instr, Field):
+            return instr.load(self)
+
         raise Exception("Unknown object in call to emit(): "+repr(instr))
 
     def _var_data(self, v):
@@ -774,6 +797,9 @@ class JVMGenerator(Generator):
 
     def downcast(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
+        self.downcast_jtype(jtype)
+
+    def downcast_jtype(self, jtype):
         self._instr(CHECKCAST, jtype)
         
     def instanceof(self, TYPE):

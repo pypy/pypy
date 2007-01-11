@@ -128,24 +128,6 @@ class JvmType(object):
     def __repr__(self):
         return "%s<%s>" % (self.__class__.__name__, self.descriptor)
 
-class JvmScalarType(JvmType):
-    """
-    Subclass used for all scalar type instances.
-    """
-    def __init__(self, descrstr):
-        JvmType.__init__(self, JvmTypeDescriptor(descrstr))
-    def lookup_field(self, fieldnm):
-        raise KeyError(fieldnm)        # Scalar objects have no fields
-    def lookup_method(self, methodnm): 
-        raise KeyError(methodnm)       # Scalar objects have no methods
-
-jVoid = JvmScalarType('V')
-jInt = JvmScalarType('I')
-jLong = JvmScalarType('J')
-jBool = JvmScalarType('Z')
-jDouble = JvmScalarType('D')
-jByte = JvmScalarType('B')
-jChar = JvmScalarType('C')
 class JvmClassType(JvmType):
     """
     Base class used for all class instances.  Kind of an abstract class;
@@ -161,6 +143,10 @@ class JvmClassType(JvmType):
     def lookup_method(self, methodnm):
         raise KeyError(fieldnm) # we treat as opaque type
 
+jIntegerClass = JvmClassType('java.lang.Integer')
+jLongClass = JvmClassType('java.lang.Long')
+jDoubleClass = JvmClassType('java.lang.Double')
+jCharClass = JvmClassType('java.lang.Char')
 jThrowable = JvmClassType('java.lang.Throwable')
 jObject = JvmClassType('java.lang.Object')
 jString = JvmClassType('java.lang.String')
@@ -172,10 +158,31 @@ jStringBuilder = JvmClassType('java.lang.StringBuilder')
 jPrintStream = JvmClassType('java.io.PrintStream')
 jMath = JvmClassType('java.lang.Math')
 jList = JvmClassType('java.util.List')
+jArrayList = JvmClassType('java.util.ArrayList')
 jPyPy = JvmClassType('pypy.PyPy')
 jPyPyExcWrap = JvmClassType('pypy.ExceptionWrapper')
 jPyPyConst = JvmClassType('pypy.Constant')
 jPyPyMain = JvmClassType('pypy.Main')
+
+class JvmScalarType(JvmType):
+    """
+    Subclass used for all scalar type instances.
+    """
+    def __init__(self, descrstr, boxtype, unboxmethod):
+        JvmType.__init__(self, JvmTypeDescriptor(descrstr))
+        self.box_type = boxtype
+        self.unbox_method = unboxmethod
+    def lookup_field(self, fieldnm):
+        raise KeyError(fieldnm)        # Scalar objects have no fields
+    def lookup_method(self, methodnm): 
+        raise KeyError(methodnm)       # Scalar objects have no methods
+jVoid = JvmScalarType('V', None, None)
+jInt = JvmScalarType('I', jIntegerClass, 'intValue')
+jLong = JvmScalarType('J', jLongClass, 'longValue')
+jBool = JvmScalarType('Z', jIntegerClass, 'intValue')
+jDouble = JvmScalarType('D', jDoubleClass, 'doubleValue')
+jByte = JvmScalarType('B', jIntegerClass, 'intValue')
+jChar = JvmScalarType('C', jIntegerClass, 'intValue')
 
 class JvmArrayType(JvmType):
     """

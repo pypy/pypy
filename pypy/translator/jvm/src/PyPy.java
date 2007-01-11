@@ -188,47 +188,30 @@ public class PyPy {
 
     // Used in testing:
 
-    public static void dump_indented(int indent, String text) {
-        for (int i = 0; i < indent; i++)
-            System.out.print(" ");
+    public static void dump(String text) {
         System.out.println(text);
     }
 
-    public static void dump_void(int indent) {
+    public static String dump_void() {
+        return "None";
     }
 
-    public static void dump_int(int i, int indent) {
-        dump_indented(indent, Integer.toString(i));
-    }
-
-    public static void dump_char(char c, int indent) {
-        dump_indented(indent, "'"+c+"'");
-    }
-
-    public static void dump_uint(int i, int indent) {
+    public static String dump_uint(int i) {
         if (i >= 0)
-            dump_indented(indent, Integer.toString(i));
+            return Integer.toString(i);
         else {
             int loword = i & 0xFFFF;
             int hiword = i >>> 16;
             long res = loword + (hiword*0xFFFF);
-            dump_indented(indent, Long.toString(res));
+            return Long.toString(res);
         }
     }
 
-    public static void dump_boolean(boolean l, int indent) {
+    public static String dump_boolean(boolean l) {
         if (l)
-            dump_indented(indent, "True");
+            return "True";
         else
-            dump_indented(indent, "False");
-    }
-
-    public static void dump_long(long l, int indent) {
-        dump_indented(indent, Long.toString(l));
-    }
-
-    public static void dump_double(double d, int indent) {
-        dump_indented(indent, Double.toString(d));
+            return "False";
     }
 
     public static void _append_char(StringBuffer sb, char c) {
@@ -236,17 +219,6 @@ public class PyPy {
             sb.append("\\\"");
         else
             sb.append(c);
-    }
-
-    public static void dump_string(byte[] b, int indent) {
-        StringBuffer sb = new StringBuffer();
-        sb.append('"');
-        for (byte _c : b) {
-            char c = (char)_c;
-            _append_char(sb, c);
-        }
-        sb.append('"');
-        dump_indented(indent, sb.toString());
     }
 
     public static String escaped_string(String b) {
@@ -260,14 +232,6 @@ public class PyPy {
         return sb.toString();
     }
 
-    public static void dump_string(String b, int indent) {
-        dump_indented(indent, escaped_string(b));
-    }
-
-    public static void dump_object(Object o, int indent) {
-        dump_indented(indent, o.toString());
-    }
-
     // used in running unit tests
     // not really part of the dump_XXX set of objects, hence the lack
     // of an indent parameter
@@ -277,7 +241,7 @@ public class PyPy {
         sb.append("ExceptionWrapper(");
         sb.append(escaped_string(clnm));
         sb.append(")");
-        dump_indented(0, sb.toString());
+        dump(sb.toString());
     }
 
     // ----------------------------------------------------------------------
@@ -328,6 +292,11 @@ public class PyPy {
     
     public static byte[] string2bytes(String s) {
     	return s.getBytes();
+    }
+
+    public static void append(StringBuilder sb, String s) {
+        // avoid the annoying return value of StringBuilder.append
+        sb.append(s);
     }
 
     // ----------------------------------------------------------------------
@@ -393,6 +362,34 @@ public class PyPy {
         return excObject.get();
     }
 */
+
+    // ----------------------------------------------------------------------
+    // Lists
+
+    public static void ll_setitem_fast(ArrayList self, int index, Object val)
+    {
+        // need a wrapper because set returns the old value
+        self.set(index, val);
+    }
+
+    public static void _ll_resize_ge(ArrayList self, int length) {
+        while (self.size() < length) {
+            self.add(null);
+        }
+    }
+
+    public static void _ll_resize_le(ArrayList self, int length) {
+        while (self.size() > length) {
+            self.remove(self.size()-1);
+        }
+    }
+
+    public static void _ll_resize(ArrayList self, int length) {
+        if (length > self.size())
+            _ll_resize_ge(self, length);
+        else if (length < self.size())
+            _ll_resize_le(self, length);
+    }
 
     // ----------------------------------------------------------------------
     // Self Test

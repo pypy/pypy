@@ -2,9 +2,7 @@ from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import generator as jvmgen
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
-     jInt, jVoid, jStringBuilder, jString, jPyPy, jChar
-
-jStringBuilder = jvmtype.jStringBuilder
+     jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject
 
 # ______________________________________________________________________
 # Mapping of built-in OOTypes to JVM types
@@ -81,6 +79,10 @@ def _ll_build_method():
         jvmgen.PYPYJAVA, "ll_build", (jStringBuilder,), jOOString)
 
 built_in_methods = {
+
+    # Note: String and StringBuilder are rebound in ootype, and thus
+    # .__class__ is required
+    
     (ootype.StringBuilder.__class__, "ll_allocate"):
     jvmgen.Method.v(jStringBuilder, "ensureCapacity", (jInt,), jVoid),
     
@@ -91,6 +93,25 @@ built_in_methods = {
     jvmgen.Method.s(jPyPy, "ll_append", (jStringBuilder, jString), jVoid),
 
     (ootype.StringBuilder.__class__, "ll_build"):
-    _ll_build_method()
-    
+     _ll_build_method(),
+
+    (ootype.List, "ll_length"):
+    jvmgen.Method.v(jArrayList, "size", (), jInt),
+
+    (ootype.List, "ll_getitem_fast"):
+    jvmgen.Method.v(jArrayList, "get", (jInt,), jObject),
+
+    (ootype.List, "ll_setitem_fast"):
+    jvmgen.Method.s(jPyPy, "ll_setitem_fast",
+                    (jArrayList, jInt, jObject), jVoid),
+
+    (ootype.List, "_ll_resize_ge"):
+    jvmgen.Method.s(jPyPy, "_ll_resize_ge", (jArrayList, jInt), jVoid),
+
+    (ootype.List, "_ll_resize_le"):
+    jvmgen.Method.s(jPyPy, "_ll_resize_le", (jArrayList, jInt), jVoid),
+
+    (ootype.List, "_ll_resize"):
+    jvmgen.Method.s(jPyPy, "_ll_resize", (jArrayList, jInt), jVoid),
+
     }
