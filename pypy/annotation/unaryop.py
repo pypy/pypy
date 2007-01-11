@@ -8,7 +8,8 @@ from pypy.annotation.model import \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      SomeCTypesObject, s_ImpossibleValue, s_Bool, \
-     unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked
+     unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
+     SomeGenericCallable
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
@@ -599,6 +600,12 @@ class __extend__(SomePBC):
         elif not pbc.can_be_None:
             s.const = True
 
+class __extend__(SomeGenericCallable):
+    def call(self, args):
+        bookkeeper = getbookkeeper()
+        for arg, expected in zip(args.unpack()[0], self.args_s):
+            assert expected.contains(arg)
+        return self.retval_s
 
 class __extend__(SomeExternalObject):
     def find_method(obj, name):

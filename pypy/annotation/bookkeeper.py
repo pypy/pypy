@@ -409,6 +409,8 @@ class Bookkeeper:
             result = SomeOOClass(x._INSTANCE)   # NB. can be None
         elif isinstance(x, ootype.instance_impl): # XXX
             result = SomeOOInstance(ootype.typeOf(x))
+        elif hasattr(x, '_known_annotation_'):
+            result = x._known_annotation_
         elif callable(x):
             if hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
