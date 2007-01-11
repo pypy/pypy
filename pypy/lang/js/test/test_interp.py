@@ -300,7 +300,7 @@ class TestInterp(object):
     
     def test_for(self):
         self.assert_prints("""
-        for (i=0; i<3; i=i+1) {
+        for (i=0; i<3; i++) {
             print(i);
         }
         print(i);
