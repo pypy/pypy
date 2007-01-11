@@ -122,7 +122,8 @@ class StdTypeModel:
                     else:
                         imported_but_not_registered[implcls] = True
 
-        if config.objspace.std.withstrdict:
+        if (config.objspace.std.withstrdict or
+            config.objspace.std.withmultidict):
             del self.typeorder[dictobject.W_DictObject]
             del self.typeorder[dictobject.W_DictIterObject]
 
