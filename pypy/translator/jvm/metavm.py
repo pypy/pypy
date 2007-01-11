@@ -1,5 +1,7 @@
 from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
+import pypy.translator.jvm.generator as jvmgen
+import pypy.translator.jvm.typesystem as jvmtype
 
 class _IndirectCall(MicroInstruction):
     def render(self, gen, op):
@@ -12,28 +14,20 @@ class _JvmCallMethod(MicroInstruction):
 
     def _invoke_method(self, gen, db, jmethod, jactargs, args, jactres, res):
         for arg, jmthdty in zip(args, jactargs):
-            jargty = db.lltype_to_cts(arg.concretetype)
-
             # Load the argument on the stack:
             gen.load(arg)
             
             # Perform any boxing required:
-            if (isinstance(jargty, JvmScalarType) and
-                not isinstance(jmthdty, JvmScalarType)):
-                gen.box_value(jargty)
+            jargty = db.lltype_to_cts(arg.concretetype)
+            if jargty != jmthdty:
+                gen.prepare_generic_argument(arg.concretetype)
                 
         gen.emit(jmethod)
-        
-        jresty = db.lltype_to_cts(res.concretetype)
 
-        if (isinstance(jresty, JvmScalarType) and
-            not isinstance(jactres, JvmScalarType)):
-            # Perform any un-boxing required:
-            gen.downcast_jtype(jresty.box_type)
-            gen.unbox_value(jresty)
-        elif jresty != jactres:
-            # Perform any casting required:
-            gen.downcast(res.concretetype)
+        # Perform any unboxing required:
+        jresty = db.lltype_to_cts(res.concretetype)
+        if jresty != jactres:
+            gen.prepare_generic_result(res.concretetype)
     
     def render(self, gen, op):
 

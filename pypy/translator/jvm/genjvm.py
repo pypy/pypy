@@ -114,9 +114,9 @@ class JvmGeneratedSource(object):
         Compiles the .java sources into .class files, ready for execution.
         """
         jascmd = [getoption('jasmin'), '-d', str(self.javadir)]
-        for jasfile in self.jasmin_files:
-            print "Invoking jasmin on %s" % jasfile
-            self._invoke(jascmd+[jasfile], False)
+
+        print "Invoking jasmin on %s" % self.jasmin_files
+        self._invoke(jascmd+list(self.jasmin_files), False)
                            
         self.compiled = True
         self._compile_helper('PyPy')

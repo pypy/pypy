@@ -2,7 +2,9 @@ import os #
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.rpython.ootypesystem import ootype
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.oosupport.constant import push_constant
+import pypy.translator.jvm.typesystem as jvmtype
 from pypy.translator.jvm.typesystem import \
      JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
@@ -320,7 +322,7 @@ class Method(object):
         rettypedesc = rettype.descriptor
         self.descriptor = desc_for_method(argtypesdesc, rettypedesc)  
     def invoke(self, gen):
-        gen._instr(self.opcode, self)
+        gen._instr(self.opcode, self)        
     def is_static(self):
         return self.opcode == INVOKESTATIC
     def jasmin_syntax(self):
@@ -661,8 +663,22 @@ class JVMGenerator(Generator):
 
     def prepare_generic_argument(self, ITEMTYPE):
         jty = self.db.lltype_to_cts(ITEMTYPE)
-        if isinstance(jty, JvmScalarType):
+        if jty is jvmtype.jVoid:
+            self.emit(ACONST_NULL)
+        elif isinstance(jty, JvmScalarType):
             self.box_value(jty)
+
+    def prepare_generic_result(self, ITEMTYPE):
+        jresty = self.db.lltype_to_cts(ITEMTYPE)
+        if jresty is jvmtype.jVoid:
+            self.emit(POP)
+        elif isinstance(jresty, JvmScalarType):
+            # Perform any un-boxing required:
+            self.downcast_jtype(jresty.box_type)
+            self.unbox_value(jresty)
+        elif jresty != jactres:
+            # Perform any casting required:
+            self.downcast(ITEMTYPE)
 
     def box_value(self, jscalartype):
         """ Assuming that an value of type jscalartype is on the stack,
@@ -839,14 +855,15 @@ class JVMGenerator(Generator):
 
     def call_oostring(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
-        if cts_type != jByteArray:
-            mthd = Method.s(jPyPy, 'oostring', [cts_type, jInt], jString)
-            self.emit(mthd)
-            if self.db.using_byte_array:
-                self.emit(PYPYSTRING2BYTES)
-        else:
-            mthd = Method.s(jPyPy, 'oostring',
-                            [jByteArray, jInt], jByteArray)
+
+        # treat all objects the same:
+        if isinstance(cts_type, jvmtype.JvmClassType):
+            cts_type = jObject
+            
+        mthd = Method.s(jPyPy, 'oostring', [cts_type, jInt], jString)
+        self.emit(mthd)
+        if self.db.using_byte_array:
+            self.emit(PYPYSTRING2BYTES)
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
@@ -883,9 +900,13 @@ class JVMGenerator(Generator):
     def push_null(self, OOTYPE):
         self.emit(ACONST_NULL)
 
+    DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
+                            
     def push_primitive_constant(self, TYPE, value):
         if TYPE is ootype.Void:
             return
+        elif isinstance(value, CDefinedIntSymbolic):
+            self.emit(ICONST, self.DEFINED_INT_SYMBOLICS[value.expr])
         elif TYPE in (ootype.Bool, ootype.Signed):
             self.emit(ICONST, int(value))
         elif TYPE is ootype.Unsigned:
@@ -901,7 +922,7 @@ class JVMGenerator(Generator):
         elif TYPE is ootype.Float:
             self._push_double_constant(float(value))
         elif TYPE is ootype.String:
-            self.load_string(str(value))
+            self.load_string(str(value._str))
 
     def _push_long_constant(self, value):
         if value == 0:

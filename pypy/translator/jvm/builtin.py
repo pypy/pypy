@@ -2,7 +2,8 @@ from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import generator as jvmgen
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
-     jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject
+     jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject, \
+     jBool
 
 # ______________________________________________________________________
 # Mapping of built-in OOTypes to JVM types
@@ -59,24 +60,17 @@ class JvmBuiltInType(jvmtype.JvmClassType):
         # Lookup the generic method by name.
         GENMETH = self.OOTYPE._GENERIC_METHODS[methodnm]
 
-        # Create an array with the Java version of each type in the
-        # argument list and return type.
-        jargtypes = [self._map(P) for P in GENMETH.ARGS]
+        # By default, we assume it is a static method on the PyPy
+        # object, that takes an instance of this object as the first
+        # argument.  The other arguments we just convert to java versions,
+        # except for generics.
+        jargtypes = [self] + [self._map(P) for P in GENMETH.ARGS]
         jrettype = self._map(GENMETH.RESULT)
-        return jvmgen.Method.v(self, methodnm, jargtypes, jrettype)
+        return jvmgen.Method.s(jPyPy, methodnm, jargtypes, jrettype)
 
 # When we lookup a method on a  BuiltInClassNode, we first check
 # the 'built_in_methods' table.  This allows us to redirect to other
 # methods if we like.
-
-def _ll_build_method():
-    # Choose an appropriate ll_build depending on what representation
-    # we are using for ootype.String:
-    if True: # XXX db.using_byte_array...
-        return jvmgen.Method.v(
-            jStringBuilder, "toString", (),jString)
-    return jvmgen.Method.s(
-        jvmgen.PYPYJAVA, "ll_build", (jStringBuilder,), jOOString)
 
 built_in_methods = {
 
@@ -86,32 +80,16 @@ built_in_methods = {
     (ootype.StringBuilder.__class__, "ll_allocate"):
     jvmgen.Method.v(jStringBuilder, "ensureCapacity", (jInt,), jVoid),
     
-    (ootype.StringBuilder.__class__, "ll_append_char"):
-    jvmgen.Method.s(jPyPy, "ll_append_char", (jStringBuilder, jChar), jVoid),
-    
-    (ootype.StringBuilder.__class__, "ll_append"):
-    jvmgen.Method.s(jPyPy, "ll_append", (jStringBuilder, jString), jVoid),
-
     (ootype.StringBuilder.__class__, "ll_build"):
-     _ll_build_method(),
+    jvmgen.Method.v(jStringBuilder, "toString", (), jString),
+
+    (ootype.String.__class__, "ll_streq"):
+    jvmgen.Method.v(jString, "equals", (jObject,), jBool),
 
     (ootype.List, "ll_length"):
     jvmgen.Method.v(jArrayList, "size", (), jInt),
 
     (ootype.List, "ll_getitem_fast"):
     jvmgen.Method.v(jArrayList, "get", (jInt,), jObject),
-
-    (ootype.List, "ll_setitem_fast"):
-    jvmgen.Method.s(jPyPy, "ll_setitem_fast",
-                    (jArrayList, jInt, jObject), jVoid),
-
-    (ootype.List, "_ll_resize_ge"):
-    jvmgen.Method.s(jPyPy, "_ll_resize_ge", (jArrayList, jInt), jVoid),
-
-    (ootype.List, "_ll_resize_le"):
-    jvmgen.Method.s(jPyPy, "_ll_resize_le", (jArrayList, jInt), jVoid),
-
-    (ootype.List, "_ll_resize"):
-    jvmgen.Method.s(jPyPy, "_ll_resize", (jArrayList, jInt), jVoid),
 
     }

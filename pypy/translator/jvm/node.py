@@ -249,15 +249,31 @@ class Function(OOFunction):
         self.ilasm.load(exc)
         self.ilasm.throw()
 
+    def _trace(self, str):
+        jvmgen.SYSTEMERR.load(self.generator)
+        self.generator.load_string(str)
+        jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
+
     def _render_op(self, op):
         self.generator.add_comment(str(op))
         
         if getoption('trace'):
-            jvmgen.SYSTEMERR.load(self.generator)
-            self.generator.load_string(str(op) + "\n")
-            jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
-            
+            self._trace(str(op)+"\n")
+
         OOFunction._render_op(self, op)
+
+        if (getoption('trace')
+            and op.result
+            and op.result.concretetype is not ootype.Void):
+            self._trace("  Result: ")
+            res = op.result
+            jmethod = self.db.generate_toString_method_for_ootype(
+                res.concretetype)
+            jvmgen.SYSTEMERR.load(self.generator)
+            self.generator.load(res)
+            self.generator.emit(jmethod)
+            jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
+            self._trace("\n")
 
 class StaticMethodInterface(Node, JvmClassType):
     """

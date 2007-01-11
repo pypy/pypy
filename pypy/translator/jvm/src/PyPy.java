@@ -253,6 +253,13 @@ public class PyPy {
     }
 
     // ----------------------------------------------------------------------
+    // String
+
+    public static String ll_strconcat(String str1, String str2) {
+        return str1 + str2;
+    }
+
+    // ----------------------------------------------------------------------
     // StringBuffer
 
     public static void ll_append_char(StringBuilder sb, char c) {
@@ -326,7 +333,11 @@ public class PyPy {
 
     public static String oostring(Object obj, int base_)
     {
-        return String.format("<%s object>", new Object[] { obj.getClass().getName() });
+        String clnm = obj.getClass().getName();
+        int underscore = clnm.lastIndexOf('_');
+        // strip "pypy." from the start, and _NN from the end
+        clnm = clnm.substring(5, underscore);
+        return String.format("<%s object>", new Object[] { clnm });
     }
 
     public static String oostring(char ch, int base_)
