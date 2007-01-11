@@ -7,7 +7,7 @@ from cStringIO import StringIO
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm import typesystem as jvmtype
-from pypy.translator.jvm import node
+from pypy.translator.jvm import node, methods
 from pypy.translator.jvm.option import getoption
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.constant as jvmconst
@@ -110,10 +110,15 @@ class Database(OODatabase):
         # Add fields:
         self._translate_class_fields(clsobj, OOTYPE)
 
-        # TODO --- generate equals/hash methods here
-        
-        dump_method = node.RecordDumpMethod(self, OOTYPE, clsobj)
-        clsobj.add_dump_method(dump_method)
+        # generate toString
+        dump_method = methods.RecordDumpMethod(self, OOTYPE, clsobj)
+        clsobj.add_method(dump_method)
+
+        # generate equals and hash
+        equals_method = methods.DeepEqualsMethod(self, OOTYPE, clsobj)
+        clsobj.add_method(equals_method)
+        hash_method = methods.DeepHashMethod(self, OOTYPE, clsobj)
+        clsobj.add_method(hash_method)
 
         self.pending_node(clsobj)
         return clsobj
@@ -169,7 +174,7 @@ class Database(OODatabase):
         # currently, we always include a special "dump" method for debugging
         # purposes
         dump_method = node.InstanceDumpMethod(self, OOTYPE, clsobj)
-        clsobj.add_dump_method(dump_method)
+        clsobj.add_method(dump_method)
 
         self.pending_node(clsobj)
         return clsobj
@@ -236,10 +241,10 @@ class Database(OODatabase):
         return n
 
     # _________________________________________________________________
-    # Type printing functions
+    # toString functions
     #
-    # Returns a method that prints details about the value out to
-    # stdout.  Should generalize to make it allow for stderr as well.
+    # Obtains an appropriate method for serializing an object of
+    # any type.
     
     _toString_methods = {
         ootype.Signed:jvmgen.INTTOSTRINGI,
@@ -252,7 +257,7 @@ class Database(OODatabase):
         ootype.String:jvmgen.PYPYESCAPEDSTRING,
         }
 
-    def generate_toString_method_for_ootype(self, OOTYPE):
+    def toString_method_for_ootype(self, OOTYPE):
         """
         Assuming than an instance of type OOTYPE is pushed on the
         stack, returns a Method object that you can invoke.  This method
@@ -261,7 +266,7 @@ class Database(OODatabase):
         Do something like:
         
         > gen.load(var)
-        > mthd = db.generate_toString_method_for_ootype(var.concretetype)
+        > mthd = db.toString_method_for_ootype(var.concretetype)
         > mthd.invoke(gen)
 
         to print the value of 'var'.

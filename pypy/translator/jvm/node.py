@@ -14,16 +14,26 @@ interface defined by database.JvmType.
 """
 
 
-from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.ootypesystem import ootype, rclass
+from pypy.objspace.flow import \
+     model as flowmodel
+from pypy.rpython.lltypesystem import \
+     lltype
+from pypy.rpython.ootypesystem import \
+     ootype, rclass
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
      jObject, JvmType, jStringBuilder
-from pypy.translator.jvm.opcodes import opcodes
-from pypy.translator.jvm.option import getoption
-from pypy.translator.oosupport.function import Function as OOFunction
-from pypy.translator.oosupport.constant import push_constant
+from pypy.translator.jvm.opcodes import \
+     opcodes
+from pypy.translator.jvm.option import \
+     getoption
+from pypy.translator.jvm.methods import \
+     BaseDumpMethod, InstanceDumpMethod, RecordDumpMethod, ConstantStringDumpMethod
+from pypy.translator.oosupport.function import \
+     Function as OOFunction
+from pypy.translator.oosupport.constant import \
+     push_constant
+
 import pypy.translator.jvm.generator as jvmgen
 
 class Node(object):
@@ -114,7 +124,7 @@ class EntryPoint(Node):
         if self.print_result:
             done_printing = gen.unique_label('done_printing')
             RESOOTYPE = self.graph.getreturnvar().concretetype
-            dumpmethod = self.db.generate_toString_method_for_ootype(RESOOTYPE)
+            dumpmethod = self.db.toString_method_for_ootype(RESOOTYPE)
             gen.add_comment('Invoking dump method for result of type '
                             +str(RESOOTYPE))
             gen.emit(dumpmethod)      # generate the string
@@ -256,26 +266,58 @@ class Function(OOFunction):
         self.generator.load_string(str)
         jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
 
+    def _is_printable(self, res):
+
+        if res.concretetype in (
+            ootype.Instance,
+            ootype.Signed,
+            ootype.Unsigned,
+            ootype.SignedLongLong,
+            ootype.UnsignedLongLong,
+            ootype.Bool,
+            ootype.Float,
+            ootype.Char,
+            ootype.UniChar,
+            ootype.String,
+            ootype.StringBuilder,
+            ootype.Class):
+            return True
+
+        if isinstance(res.concretetype, (
+            ootype.Instance,
+            ootype.Record,
+            ootype.List,
+            ootype.Dict,
+            ootype.DictItemsIterator)):
+            return True
+
+        return False
+
+    def _trace_value(self, prompt, res):
+        if res and self._is_printable(res):
+            jmethod = self.db.toString_method_for_ootype(
+                res.concretetype)
+            
+            self._trace("  "+prompt+": ")
+            self.generator.emit(jvmgen.SYSTEMERR)
+            self.generator.load(res)
+            self.generator.emit(jmethod)
+            self.generator.emit(jvmgen.PRINTSTREAMPRINTSTR)
+            self._trace("\n")
+
     def _render_op(self, op):
         self.generator.add_comment(str(op))
         
         if getoption('trace'):
             self._trace(str(op)+"\n")
 
+            for i, arg in enumerate(op.args):
+                self._trace_value('Arg %02d' % i, arg)
+
         OOFunction._render_op(self, op)
 
-        if (getoption('trace')
-            and op.result
-            and op.result.concretetype is not ootype.Void):
-            self._trace("  Result: ")
-            res = op.result
-            jmethod = self.db.generate_toString_method_for_ootype(
-                res.concretetype)
-            jvmgen.SYSTEMERR.load(self.generator)
-            self.generator.load(res)
-            self.generator.emit(jmethod)
-            jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
-            self._trace("\n")
+        if getoption('trace'):
+            self._trace_value('Result', op.result)
 
 class StaticMethodInterface(Node, JvmClassType):
     """
@@ -417,10 +459,6 @@ class Class(Node, JvmClassType):
         self.abstract = True
         self.abstract_methods[jmethod.method_name] = jmethod
 
-    def add_dump_method(self, dm):
-        self.dump_method = dm # public attribute for reading
-        self.add_method(dm)
-        
     def render(self, gen):
         self.rendered = True
         gen.begin_class(self, self.super_class, abstract=self.abstract)
@@ -451,107 +489,3 @@ class Class(Node, JvmClassType):
             gen.end_function()
         
         gen.end_class()
-
-class BaseDumpMethod(object):
-
-    def __init__(self, db, OOCLASS, clsobj):
-        self.db = db
-        self.OOCLASS = OOCLASS
-        self.clsobj = clsobj
-        self.name = "toString"
-        self.jargtypes = [clsobj]
-        self.jrettype = jString
-
-    def _print_field_value(self, fieldnm, FIELDOOTY):
-        self.gen.emit(jvmgen.DUP)
-        self.gen.load_this_ptr()
-        fieldobj = self.clsobj.lookup_field(fieldnm)
-        fieldobj.load(self.gen)
-        dumpmethod = self.db.generate_toString_method_for_ootype(FIELDOOTY)
-        self.gen.emit(dumpmethod)
-        self.gen.emit(jvmgen.PYPYAPPEND)
-
-    def _print(self, str):
-        self.gen.emit(jvmgen.DUP)
-        self.gen.load_string(str)
-        self.gen.emit(jvmgen.PYPYAPPEND)
-
-    def render(self, gen):
-        self.gen = gen
-        gen.begin_function(
-            self.name, (), self.jargtypes, self.jrettype, static=False)
-
-        gen.new_with_jtype(jStringBuilder)
-        self._render_guts(gen)
-        gen.emit(jvmgen.OBJTOSTRING)
-        gen.emit(jvmgen.RETURN.for_type(jString))
-        gen.end_function()
-        self.gen = None
-
-class InstanceDumpMethod(BaseDumpMethod):
-
-    def _render_guts(self, gen):
-        clsobj = self.clsobj
-        genprint = self._print
-
-        # Start the dump
-        genprint("InstanceWrapper(")
-        genprint("'" + self.OOCLASS._name + "', ")
-        genprint("{")
-
-        for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
-
-            if FIELDOOTY is ootype.Void: continue
-
-            genprint('"'+fieldnm+'":')
-
-            print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
-
-            # Print the value of the field:
-            self._print_field_value(fieldnm, FIELDOOTY)
-
-        # Dump close
-        genprint("})")
-        
-class RecordDumpMethod(BaseDumpMethod):
-
-    def _render_guts(self, gen):
-        clsobj = self.clsobj
-        genprint = self._print
-
-        # We only render records that represent tuples:
-        # In that case, the field names look like item0, item1, etc
-        # Otherwise, we just do nothing... this is because we
-        # never return records that do not represent tuples from
-        # a testing function
-        for f_name in self.OOCLASS._fields:
-            if not f_name.startswith('item'):
-                return
-
-        # Start the dump
-        genprint("StructTuple((")
-
-        numfields = len(self.OOCLASS._fields)
-        for i in range(numfields):
-            f_name = 'item%d' % i
-            FIELD_TYPE, f_default = self.OOCLASS._fields[f_name]
-            if FIELD_TYPE is ootype.Void:
-                continue
-
-            # Print the value of the field:
-            self._print_field_value(f_name, FIELD_TYPE)
-            genprint(',')
-
-        # Decrement indent and dump close
-        genprint("))")
-
-class ConstantStringDumpMethod(BaseDumpMethod):
-    """ Just prints out a string """
-
-    def __init__(self, clsobj, str):
-        BaseDumpMethod.__init__(self, None, None, clsobj)
-        self.constant_string = str
-
-    def _render_guts(self, gen):
-        genprint = self._print
-        genprint("'" + self.constant_string + "'")

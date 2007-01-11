@@ -181,6 +181,7 @@ LDC =       Opcode('ldc')       # single-word types
 LDC2 =      Opcode('ldc2_w')    # double-word types: doubles and longs
 GOTO =      Opcode('goto')
 ICONST =    IntConstOpcode('iconst')
+ICONST_0 =  Opcode('iconst_0')  # sometimes convenient to refer to this directly
 ACONST_NULL=Opcode('aconst_null')
 DCONST_0 =  Opcode('dconst_0')
 DCONST_1 =  Opcode('dconst_0')
@@ -203,6 +204,7 @@ IOR =       Opcode('ior')
 ISHL =      Opcode('ishl')
 ISHR =      Opcode('ishr')
 IUSHR =     Opcode('iushr')
+LCMP =      Opcode('lcmp')
 DCMPG =     Opcode('dcmpg')
 DCMPL =     Opcode('dcmpl')
 NOP =       Opcode('nop')
@@ -332,6 +334,7 @@ class Method(object):
 
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
 OBJTOSTRING =           Method.v(jObject, 'toString', (), jString)
+OBJEQUALS =             Method.v(jObject, 'equals', (jObject,), jBool)
 INTTOSTRINGI =          Method.s(jIntegerClass, 'toString', (jInt,), jString)
 LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
 DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
@@ -756,7 +759,49 @@ class JVMGenerator(Generator):
         'catchlbl' --- label marking beginning of catch region
         """
         unimplemented
-        
+
+    _equals = {
+        ootype.Void:             (None,None),
+        ootype.SignedLongLong:   (LCMP,IFEQ),
+        ootype.UnsignedLongLong: (LCMP,IFEQ),
+        ootype.Float:            (DCMPG,IFEQ),
+        ootype.Signed:           (None,IF_ICMPNE),
+        ootype.Unsigned:         (None,IF_ICMPNE),
+        ootype.Bool:             (None,IF_ICMPNE),
+        ootype.Char:             (None,IF_ICMPNE),
+        ootype.UniChar:          (None,IF_ICMPNE),
+        }
+    def compare_values(self, OOTYPE, unequal_lbl):
+        """ Assumes that two instances of OOTYPE are pushed on the stack;
+        compares them and jumps to 'unequal_lbl' if they are unequal """
+        if OOTYPE in self._equals:
+            i1, i2 = self._equals[OOTYPE]
+            if i1: self.emit(i1)
+            if i2: self.emit(i2, unequal_lbl)
+            return
+        self.emit(OBJEQUALS)
+        self.emit(IFEQ, unequal_lbl)
+
+    _hash = {
+        ootype.Void:             ICONST_0,
+        ootype.SignedLongLong:   L2I,
+        ootype.UnsignedLongLong: L2I,
+        ootype.Float:            D2I,
+        ootype.Signed:           None,
+        ootype.Unsigned:         None,
+        ootype.Bool:             None,
+        ootype.Char:             None,
+        ootype.UniChar:          None,
+        }
+    def hash_value(self, OOTYPE):
+        """ Assumes that an instance of OOTYPE is pushed on the stack.
+        When finished, an int will be on the stack as a hash value. """
+        if OOTYPE in self._hash:
+            i1 = self._hash[OOTYPE]
+            if i1: self.emit(i1)
+            return
+        self.emit(OBJHASHCODE)
+
     # __________________________________________________________________
     # Generator methods and others that are invoked by MicroInstructions
     # 
@@ -990,6 +1035,10 @@ class JVMGenerator(Generator):
     def goto_if_true(self, label):
         """ Jumps if the top of stack is true """
         self._instr(IFNE, label)
+
+    def goto_if_false(self, label):
+        """ Jumps if the top of stack is false """
+        self._instr(IFEQ, label)
 
     ##### Comparison methods
     
