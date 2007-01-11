@@ -19,6 +19,7 @@ from pypy.annotation.model import unionof, UnionError, set, missing_operation, T
 from pypy.annotation.model import read_can_only_throw
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
+from pypy.annotation.model import SomeGenericCallable
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable
 from pypy.annotation.listdef import ListDef
@@ -681,6 +682,12 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                 else:
                     s.const = False    # no common desc in the two sets
         return s
+
+class __extend__(pairtype(SomeGenericCallable, SomePBC)):
+    def union((gencall, pbc)):
+        unique_key = (gencall, pbc.const)
+        getbookkeeper().emulate_pbc_call(unique_key, pbc, gencall.args_s)
+        return gencall
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):

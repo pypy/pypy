@@ -2464,12 +2464,12 @@ class TestAnnotateTestCase:
         assert not hasattr(s, 'const')
 
     def test_some_generic_function_callback(self):
-        py.test.skip("Not implemented")
         def g(a):
             pass
         g._known_annotation_ = annmodel.SomeGenericCallable(
-            args=[annmodel.SomeGenericCallable(args=[SomeInteger()],
-                                               retval=SomeInteger())])
+            args=[annmodel.SomeGenericCallable(args=[annmodel.SomeInteger()],
+                                               retval=annmodel.SomeInteger())],
+            retval=annmodel.SomeInteger())
 
         def fun2(x):
             return x
@@ -2478,8 +2478,17 @@ class TestAnnotateTestCase:
             return g(fun2)
         
         a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(func, [])
-        # assert that annotator knows about fun2 and is flown well
+        s = a.build_types(fun, [])
+        assert isinstance(s, annmodel.SomeInteger)
+        graphs = a.annotated.values()
+        found = False
+        for graph in graphs:
+            if graph.name == "fun2":
+                found = True
+                inputcells = graph.startblock.inputargs
+                assert len(inputcells) == 1
+                assert isinstance(a.bindings[inputcells[0]], annmodel.SomeInteger)
+        assert found
 
 def g(n):
     return [0,1,2,n]
