@@ -14,7 +14,7 @@ The following debian packages are required when working with pypy:
 - gcc (for the C backend)
 - libgc-dev (boehm garbage collector)
 - mono-gmcs (CLI backend) NOTE: the version 1.2 currently in debian is
-  reported not to work, and 1.1.17 is recommended
+  reported to work only partially, and 1.1.17 is recommended
 - llvm-cfe (llvm backend)
 - spidermonkey-bin (javascript backend)
 - gcl-dev (for the common LISP backend) (to be confirmed)
