@@ -141,7 +141,7 @@ def descr__new__(space, w_dicttype, __args__):
 
 dict_typedef = StdTypeDef("dict",
     __doc__ = '''dict() -> new empty dictionary.
-dict(mapping) -> new dictionary initialized from a mapping object's
+dict(mapping) -> new dictionary initialized from a mapping object\'s
     (key, value) pairs.
 dict(seq) -> new dictionary initialized as if via:
     d = {}
@@ -179,6 +179,10 @@ def descr_dictiter__reduce__(w_self, space):
     w_typeobj = space.gettypeobject(dictiter_typedef)
     
     from pypy.interpreter.mixedmodule import MixedModule
+    if space.config.objspace.std.withmultidict:
+        raise OperationError(
+            space.w_RuntimeError,
+            space.wrap("cannot pickle dictiters with multidicts"))
     if space.config.objspace.std.withstrdict:
         from pypy.objspace.std.dictstrobject import \
             W_DictStrIter_Keys as W_DictIter_Keys, \
