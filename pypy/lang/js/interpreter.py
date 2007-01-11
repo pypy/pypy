@@ -527,6 +527,13 @@ class Boolean(Expression):
     def eval(self, ctx):
         return W_Boolean(self.bool)
 
+class Not(Expression):
+    def __init__(self, op):
+        self.op = op
+    
+    def eval(self, ctx):
+        return W_Boolean(not self.op.eval(ctx).GetValue().ToBoolean())
+
 def getlist(t):
     item = gettreeitem(t, 'length')
     if item is None:
@@ -689,5 +696,7 @@ def from_tree(t):
         return Boolean(True)
     elif tp == 'FALSE':
         return Boolean(False)
+    elif tp == 'NOT':
+        return Not(from_tree(gettreeitem(t, '0')))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

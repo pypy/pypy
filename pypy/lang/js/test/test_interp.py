@@ -356,6 +356,12 @@ class TestInterp(object):
         print(y)
         print(x)""", ["true", "false"])
         
+    def test_unarynot(self):
+        self.assert_prints("""
+        var x = false;
+        print(!x)
+        print(!!x)""", ["true", "false"])
+
     def test_smallthings(self):
         py.test.skip(" TODO: needed for mozilla test suite")
         x = """
