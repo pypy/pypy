@@ -105,6 +105,8 @@ def get_ll(ccode, function_names):
             line = "declare %s %s" % (cconv, line[len(declaretag):])
         ll_lines2.append(line)
 
+    ll_lines2.append("declare ccc void %abort()")
+
     llcode = '\n'.join(ll_lines2)
     try:
         decl, impl = llcode.split('implementation')
