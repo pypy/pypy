@@ -349,6 +349,13 @@ class TestInterp(object):
         "( 1 == 0 ) ? print('yep') : print('nope');"],
         ["yep","nope"])
 
+    def test_booleanliterals(self):
+        self.assert_prints("""
+        var x = false;
+        var y = true;
+        print(y)
+        print(x)""", ["true", "false"])
+        
     def test_smallthings(self):
         py.test.skip(" TODO: needed for mozilla test suite")
         x = """

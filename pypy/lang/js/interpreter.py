@@ -520,6 +520,13 @@ class For(Statement):
             self.body.execute(ctx)
             self.update.eval(ctx)
 
+class Boolean(Expression):
+    def __init__(self, bool):
+        self.bool = bool
+    
+    def eval(self, ctx):
+        return W_Boolean(self.bool)
+
 def getlist(t):
     item = gettreeitem(t, 'length')
     if item is None:
@@ -678,5 +685,9 @@ def from_tree(t):
         body = from_tree(gettreeitem(t, 'body'))
         condition = from_tree(gettreeitem(t, 'condition'))
         return While(condition, body)
+    elif tp == 'TRUE':
+        return Boolean(True)
+    elif tp == 'FALSE':
+        return Boolean(False)
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)
