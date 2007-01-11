@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import autopath
 from pypy.tool.build.bin import path
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         ispath, data = data
         if ispath:
             print ('a suitable result is already available, you can find it '
-                   'at "%s"' % (data,))
+                   'at "%s" on %s' % (data, config.server))
         else:
             print data
             print 'you will be mailed once it\'s ready'
