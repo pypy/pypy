@@ -25,5 +25,4 @@ if __name__ == '__main__':
     curdir = os.getcwd()
     if curdir not in sys.path:
         sys.path.insert(0, curdir)
-    print args
     rpython2javascript_main(args, jsconfig)
