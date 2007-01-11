@@ -15,6 +15,11 @@
 
 - make backend opts usable on the interp+timeshifted interp graph forest
 
+Open issues
+--------------
+
+- think about aliasing issues with virtualizables
+
 Improvements
 -------------
 
