@@ -9,9 +9,12 @@ The following debian packages are required when working with pypy:
 
 - python2.4 (of course)
 - python2.4-dev (for the C backend)
+- python-ctypes
+- libbz2-dev
 - gcc (for the C backend)
 - libgc-dev (boehm garbage collector)
-- mono-gmcs (CLI backend
+- mono-gmcs (CLI backend) NOTE: the version 1.2 currently in debian is
+  reported not to work, and 1.1.17 is recommended
 - llvm-cfe (llvm backend)
 - spidermonkey-bin (javascript backend)
 - gcl-dev (for the common LISP backend) (to be confirmed)
@@ -24,7 +27,22 @@ packages are available. See the `squeak wiki` for details.
 
 Recommended packages include:
 
-- python-pygame (to display translation graphs)
+- python-pygame, graphviz (to display translation graphs)
+- ledit is nice too (to get readline in translated interpreters)
+
+
+The full apt-get line is:
+
+apt-get install python2.4-dev python-ctypes python-pygame graphviz libz2-dev libgc-dev gcc 
+
+If you want to work on specific backends: 
+
+apt-get install llvm-cfe 
+apt-get install spidermonkey-bin
+apt-get install gcl-dev
+apt-get install mono-gmcs=1.1.17.1-1 # deb http://snapshot.debian.net/archive pool mono
+
+
 
 Quirks and tips
 ---------------
