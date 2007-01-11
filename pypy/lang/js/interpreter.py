@@ -134,6 +134,7 @@ class Call(Expression):
         name = self.identifier.get_literal()
         if name == 'print':
             writer(",".join([i.GetValue().ToString() for i in self.arglist.get_args(ctx)]))
+            return w_Null
         else:    
             w_obj = ctx.resolve_identifier(name).GetValue()
             #print "arglist = ", self.arglist
@@ -144,6 +145,20 @@ class Comma(BinaryOp):
     def eval(self, ctx):
         self.left.eval(ctx)
         return self.right.eval(ctx)
+
+class Conditional(Expression):
+    def __init__(self, logicalexpr, trueop, falseop):
+        self.logicalexpr = logicalexpr
+        self.trueop = trueop
+        self.falseop = falseop
+        
+    def eval(self, ctx):
+        cond = self.logicalexpr.eval(ctx).GetValue().ToBoolean()
+        if cond == True:
+            return self.trueop.eval(ctx).GetValue()
+        else:
+            return self.falseop.eval(ctx).GetValue()
+
 
 class Dot(BinaryOp):
     def eval(self, ctx):
@@ -533,6 +548,10 @@ def from_tree(t):
         return Call(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'COMMA':
         return Comma(from_tree(gettreeitem(t, '0')),from_tree(gettreeitem(t, '1')))
+    elif tp == 'CONDITIONAL':
+        return Conditional(from_tree(gettreeitem(t, '0')),
+                        from_tree(gettreeitem(t, '1')),
+                        from_tree(gettreeitem(t, '2')))
     elif tp == 'DOT':
         return Dot(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'EQ':

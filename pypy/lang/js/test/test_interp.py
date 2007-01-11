@@ -344,8 +344,10 @@ class TestInterp(object):
         print(x)""", ["2"])
         
     def test_ternaryop(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
-        x = " ( t < 0 ) ? -1 : 1;"
+        self.assert_prints([
+        "( 1 == 1 ) ? print('yep') : print('nope');",
+        "( 1 == 0 ) ? print('yep') : print('nope');"],
+        ["yep","nope"])
 
     def test_smallthings(self):
         py.test.skip(" TODO: needed for mozilla test suite")
