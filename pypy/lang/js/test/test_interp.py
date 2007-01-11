@@ -313,6 +313,11 @@ class TestInterp(object):
         print(z);
         """, ["3","2"])
 
+    def test_load(self):
+        py.test.skip("not ready yet")
+        self.assert_prints("""
+        load("simple.js")
+        """, ["3","2"])
 
 
 

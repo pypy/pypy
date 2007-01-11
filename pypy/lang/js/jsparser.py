@@ -15,18 +15,19 @@ class JsSyntaxError(Exception):
     pass
 
 def read_js_output(code_string):
-    stripped_code = code_string.replace("\n", "")
+    stripped_code = code_string.replace("\n", "\\n")
+    stripped_code = stripped_code.replace("'",r"\'")
     jsdir = py.path.local(__file__).dirpath().join("js")
     jsdefs = jsdir.join("jsdefs.js").read()
     jsparse = jsdir.join("jsparse.js").read()
-    pipe = Popen("js", stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-    pipe.stdin.write(jsdefs + jsparse + "\n")
-    stripped_code = stripped_code.replace("'",r"\'")
-    pipe.stdin.write("print(parse('%s'));\n" % stripped_code)
-    pipe.stdin.close()
-    retval = pipe.stdout.read()
+    f = open('/tmp/jstobeparsed.js','w')
+    f.write(jsdefs)
+    f.write(jsparse)
+    f.write("print(parse('%s'));\n" % stripped_code)
+    f.close()
+    pipe = os.popen("js -f /tmp/jstobeparsed.js", 'r')
+    retval = pipe.read()
     if not retval.startswith("{"):
-        print stripped_code
         raise JsSyntaxError(retval)
     return retval
 

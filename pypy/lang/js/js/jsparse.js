@@ -272,17 +272,29 @@ function tokenstr(tt) {
     return /^\W/.test(t) ? opTypeNames[t] : t.toUpperCase();
 }
 
+function printtarget(target) {
+    return tokenstr(target.type)+","+target.lineno+","+target.start
+}
+
 Np.toString = function () {
     var a = [];
     for (var i in this) {
         if (this.hasOwnProperty(i) && i != 'type')
             a.push({id: i, value: this[i]});
     }
-    a.sort(function (a,b) { return (a.id < b.id) ? -1 : 1; });
+    // a.sort(function (a,b) { return (a.id < b.id) ? -1 : 1; });
     const INDENTATION = "    ";
     var n = ++Node.indentLevel;
     var s = "{\n" + INDENTATION.repeat(n) + "'type': '" + tokenstr(this.type) + "'";
     for (i = 0; i < a.length; i++) {
+        if(a[i].id == 'tokenizer') {
+            continue
+        } else {
+            if(a[i].id == 'target'){
+                s += ",\n" + INDENTATION.repeat(n) + "'target': '" + printtarget(a[i].value) + "' ";
+                continue                
+            }
+        }
         val = a[i].value + "";
         if ((val.search("\\},\\{") != -1 )) {
             s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': [" + val + "]";
@@ -587,7 +599,6 @@ function Statement(t, x) {
         n.end = n.expression.end;
         break;
     }
-
     if (t.lineno == t.token.lineno) {
         tt = t.peekOnSameLine();
         if (tt != END && tt != NEWLINE && tt != SEMICOLON && tt != RIGHT_CURLY)
