@@ -128,7 +128,7 @@ def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
         argbox.getgenvar(jitstate),
         indexbox.getgenvar(jitstate))
                                                     
-    return fielddesc.makebox(genvar)
+    return fielddesc.makebox(jitstate, genvar)
 
 def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
     if argbox.is_constant() and indexbox.is_constant():
@@ -140,7 +140,7 @@ def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
         argbox.getgenvar(jitstate),
         indexbox.getgenvar(jitstate))
                                                     
-    return fielddesc.makebox(genvar)
+    return fielddesc.makebox(jitstate, genvar)
 
 
 def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):

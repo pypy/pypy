@@ -135,17 +135,24 @@ class StructTypeDesc(object):
 class FieldDesc(object):
     __metaclass__ = cachedtype
     allow_void = False
+    virtualizable = False
 
     def __init__(self, RGenOp, PTRTYPE, RESTYPE):
         self.PTRTYPE = PTRTYPE
         if isinstance(RESTYPE, lltype.ContainerType):
             RESTYPE = lltype.Ptr(RESTYPE)
+        elif isinstance(RESTYPE, lltype.Ptr):
+            T = RESTYPE.TO
+            if hasattr(T, '_hints'):
+                self.virtualizable = T._hints.get('virtualizable', False)
         self.RESTYPE = RESTYPE
         self.ptrkind = RGenOp.kindToken(PTRTYPE)
         self.kind = RGenOp.kindToken(RESTYPE)
         self.gv_default = RGenOp.constPrebuiltGlobal(self.RESTYPE._defl())
         if RESTYPE is lltype.Void and self.allow_void:
             pass   # no redboxcls at all
+        elif self.virtualizable:
+            self.structdesc = StructTypeDesc(RGenOp, T)
         else:
             self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
@@ -154,9 +161,17 @@ class FieldDesc(object):
         return True
 
     def makedefaultbox(self):
+        if self.virtualizable:
+            return self.structdesc.factory()
         return self.redboxcls(self.kind, self.gv_default)
     
-    def makebox(self, gvar):
+    def makebox(self, jitstate, gvar):
+        if self.virtualizable:
+            structbox = self.structdesc.factory()
+            content = structbox.content
+            assert isinstance(content, VirtualizableStruct)
+            content.load_from(jitstate, gvar)
+            return structbox
         return self.redboxcls(self.kind, gvar)
 
 class NamedFieldDesc(FieldDesc):
@@ -170,16 +185,19 @@ class NamedFieldDesc(FieldDesc):
     def compact_repr(self): # goes in ll helper names
         return "Fld_%s_in_%s" % (self.fieldname, self.PTRTYPE._short_name())
 
-    def generate_get(self, builder, genvar):
+    def generate_get(self, jitstate, genvar):
+        builder = jitstate.curbuilder
         gv_item = builder.genop_getfield(self.fieldtoken, genvar)
-        return self.makebox(gv_item)
+        return self.makebox(jitstate, gv_item)
 
-    def generate_set(self, builder, genvar, gv_value):
+    def generate_set(self, jitstate, genvar, gv_value):
+        builder = jitstate.curbuilder
         builder.genop_setfield(self.fieldtoken, genvar, gv_value)
 
-    def generate_getsubstruct(self, builder, genvar):
+    def generate_getsubstruct(self, jitstate, genvar):
+        builder = jitstate.curbuilder
         gv_sub = builder.genop_getsubstruct(self.fieldtoken, genvar)
-        return self.makebox(gv_sub)
+        return self.makebox(jitstate, gv_sub)
 
 class StructFieldDesc(NamedFieldDesc):
 
@@ -292,7 +310,7 @@ class VirtualStruct(VirtualContainer):
         for i in range(len(fielddescs)):
             fielddesc = fielddescs[i]
             box = boxes[i]
-            fielddesc.generate_set(builder, genvar, box.getgenvar(jitstate))
+            fielddesc.generate_set(jitstate, genvar, box.getgenvar(jitstate))
 
     def freeze(self, memo):
         contmemo = memo.containers
@@ -356,8 +374,17 @@ class VirtualizableStruct(VirtualStruct):
         for i in range(1, len(fielddescs)):
             fielddesc = fielddescs[i]
             box = boxes[i]
-            fielddesc.generate_set(jitstate.curbuilder, gv_outside,
+            fielddesc.generate_set(jitstate, gv_outside,
                                    box.getgenvar(jitstate))
+
+    def load_from(self, jitstate, gv_outside):
+        fielddescs = self.typedesc.fielddescs
+        boxes = self.content_boxes
+        boxes[-1].genvar = gv_outside
+        for i in range(1, len(fielddescs)):
+            fielddesc = fielddescs[i]
+            boxes[i] = fielddesc.generate_get(jitstate, gv_outside)
+        jitstate.add_virtualizable(self.ownbox)
 
 # ____________________________________________________________
 

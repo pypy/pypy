@@ -408,7 +408,6 @@ class TestVirtualizable(PortalTest):
         self.check_insns(getfield=0, malloc=2)
 
     def test_simple_explicit_read(self):
-        py.test.skip("WIP")
    
         def f(e):
             xy = e.xy

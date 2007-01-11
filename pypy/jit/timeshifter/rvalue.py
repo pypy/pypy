@@ -190,7 +190,7 @@ class PtrRedBox(RedBox):
             if box is not None:
                 return box
         gv_ptr = self.getgenvar(jitstate)
-        box = fielddesc.generate_get(jitstate.curbuilder, gv_ptr)
+        box = fielddesc.generate_get(jitstate, gv_ptr)
         if fielddesc.immutable:
             self.remember_field(fielddesc, box)
         return box
@@ -198,7 +198,7 @@ class PtrRedBox(RedBox):
     def op_setfield(self, jitstate, fielddesc, valuebox):
         gv_ptr = self.genvar
         if gv_ptr:
-            fielddesc.generate_set(jitstate.curbuilder, gv_ptr,
+            fielddesc.generate_set(jitstate, gv_ptr,
                                    valuebox.getgenvar(jitstate))
         else:
             assert self.content is not None
@@ -207,7 +207,7 @@ class PtrRedBox(RedBox):
     def op_getsubstruct(self, jitstate, fielddesc):
         gv_ptr = self.genvar
         if gv_ptr:
-            return fielddesc.generate_getsubstruct(jitstate.curbuilder, gv_ptr)
+            return fielddesc.generate_getsubstruct(jitstate, gv_ptr)
         else:
             assert self.content is not None
             return self.content.op_getsubstruct(jitstate, fielddesc)
