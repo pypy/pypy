@@ -61,6 +61,9 @@ def load_bytecode(bytecode):
     temp_tree = parse_bytecode(bytecode)
     return from_tree(temp_tree)
 
+def evaljs(ctx, code):
+    return load_source(code.ToString()).execute(ctx)
+    
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
@@ -70,6 +73,7 @@ class Interpreter(object):
         self.w_Global.Put('prototype', W_String('Object'))
         self.w_Global.Put('Object', self.w_Object)
         self.global_context = global_context(self.w_Global)
+        self.w_Global.Put('eval', W_Builtin(evaljs, context=True, args=1))
 
     def run(self, script):
         """run the interpreter"""
@@ -288,6 +292,17 @@ class In(BinaryComparisonOp):
         name = op1.ToString()
         return W_Boolean(op2.HasProperty(name))
 
+class Increment(Expression):
+    def __init__(self, op):
+        self.op = op
+    
+    def eval(self, ctx):
+        thing = self.op.eval(ctx)
+        val = thing.GetValue()
+        x = val.ToNumber()
+        resl = Plus(W_Number(x), W_Number(1)).eval(ctx).GetValue()
+        thing.PutValue(resl)
+        return resl
 
 class Index(Expression):
     def __init__(self, left, expr):
@@ -477,6 +492,19 @@ class While(Statement):
         while self.condition.eval(ctx).ToBoolean():
             self.body.execute(ctx)
 
+class For(Statement):
+    def __init__(self, setup, condition, update, body):
+        self.setup = setup
+        self.condition = condition
+        self.update = update
+        self.body = body
+
+    def execute(self, ctx):
+        self.setup.eval(ctx)
+        while self.condition.eval(ctx).ToBoolean():
+            self.body.execute(ctx)
+            self.update.eval(ctx)
+
 def getlist(t):
     item = gettreeitem(t, 'length')
     if item is None:
@@ -513,6 +541,12 @@ def from_tree(t):
         return Or(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'AND':
         return And(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'FOR':
+        setup = from_tree(gettreeitem(t, 'setup'))
+        condition = from_tree(gettreeitem(t, 'condition'))
+        update = from_tree(gettreeitem(t, 'update'))
+        body = from_tree(gettreeitem(t, 'body'))
+        return For(setup, condition, update, body)
     elif tp == 'FUNCTION':        
         namesimb = gettreeitem(t, 'name')
         name = None
@@ -549,6 +583,8 @@ def from_tree(t):
         return If(condition,thenPart,elsePart)
     elif tp == 'IN':
         return In(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'INCREMENT':
+        return Increment(from_tree(gettreeitem(t, '0')))
     elif tp == 'INDEX':
         return Index(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'LIST':

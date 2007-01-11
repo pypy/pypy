@@ -297,5 +297,22 @@ class TestInterp(object):
         print(z)
         """]
         ,["3", "2"])
+    
+    def test_for(self):
+        self.assert_prints("""
+        for (i=0; i<3; i=i+1) {
+            print(i);
+        }
+        print(i);
+        """, ["0","1","2","3"])
+    
+    def test_eval(self):
+        self.assert_prints("""
+        var x = 2;
+        eval('x=x+1; print(x); z=2');
+        print(z);
+        """, ["3","2"])
+
+
 
 

@@ -298,13 +298,20 @@ class W_Number(W_Primitive):
 
 
 class W_Builtin(W_Root):
-    def __init__(self, builtinfunction):
+    def __init__(self, builtinfunction, context=False, args=0):
         #W_Object.__init__(self)
         self.builtinfunction = builtinfunction
+        self.context = context
+        self.args = args
     
     def Call(self, ctx, args=[], this = None):
-        assert len(args) == 0
-        return W_String(self.builtinfunction()) # ???
+        py_args = []
+        if self.context == True:
+            py_args.append(ctx)
+        for i in range(self.args):
+            py_args.append(args[i])
+        res = self.builtinfunction(*py_args)
+        return res
     
 class W_List(W_Root):
     def __init__(self, list_w):

@@ -26,6 +26,7 @@ def read_js_output(code_string):
     pipe.stdin.close()
     retval = pipe.stdout.read()
     if not retval.startswith("{"):
+        print stripped_code
         raise JsSyntaxError(retval)
     return retval
 
