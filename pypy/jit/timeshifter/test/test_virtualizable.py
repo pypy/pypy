@@ -42,6 +42,8 @@ XY.become(lltype.GcStruct('xy',
                           hints = {'virtualizable': True}
               ))
 
+E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)))
+
 XP.become(lltype.GcStruct('xp',
                           ('access', lltype.Ptr(XP_ACCESS)),
                           ('x', lltype.Signed),
@@ -154,7 +156,6 @@ class TestVirtualizable(PortalTest):
                 [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_simple_explicit_escape(self):
-        E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)))
    
         def f(e, xy):
             xy_access = xy.access
@@ -405,3 +406,29 @@ class TestVirtualizable(PortalTest):
                                          policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
+
+    def test_simple_explicit_read(self):
+        py.test.skip("WIP")
+   
+        def f(e):
+            xy = e.xy
+            xy_access = xy.access
+            if xy_access:
+                xy_access.set_y(xy, 3)
+            else:
+                xy.y = 3
+            return xy.x*2
+
+        def main(x, y):
+            xy = lltype.malloc(XY)
+            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            e = lltype.malloc(E)
+            e.xy = xy
+            v = f(e)
+            return v + e.xy.x+e.xy.y
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        assert res == 63
+        self.check_insns(getfield=3)

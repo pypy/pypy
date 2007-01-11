@@ -108,7 +108,7 @@ def ll_gengetfield(jitstate, deepfrozen, fielddesc, argbox):
     return argbox.op_getfield(jitstate, fielddesc)
 
 def ll_gensetfield(jitstate, fielddesc, destbox, valuebox):
-    return destbox.op_setfield(jitstate, fielddesc, valuebox)
+    destbox.op_setfield(jitstate, fielddesc, valuebox)
 
 def ll_gengetsubstruct(jitstate, fielddesc, argbox):
     if argbox.is_constant():
@@ -128,7 +128,7 @@ def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
         argbox.getgenvar(jitstate),
         indexbox.getgenvar(jitstate))
                                                     
-    return fielddesc.redboxcls(fielddesc.kind, genvar)
+    return fielddesc.makebox(genvar)
 
 def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
     if argbox.is_constant() and indexbox.is_constant():
@@ -140,7 +140,7 @@ def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
         argbox.getgenvar(jitstate),
         indexbox.getgenvar(jitstate))
                                                     
-    return fielddesc.redboxcls(fielddesc.kind, genvar)
+    return fielddesc.makebox(genvar)
 
 
 def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
@@ -150,8 +150,6 @@ def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
         indexbox.getgenvar(jitstate),
         valuebox.getgenvar(jitstate)
         )
-                                                    
-    return fielddesc.redboxcls(fielddesc.kind, genvar)
 
 def ll_gengetarraysize(jitstate, fielddesc, argbox):
     if argbox.is_constant():

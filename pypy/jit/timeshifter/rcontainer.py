@@ -110,7 +110,7 @@ class StructTypeDesc(object):
 
     def factory(self):
         vstruct = self.VStructCls(self)
-        vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
+        vstruct.content_boxes = [desc.makedefaultbox()
                                  for desc in self.fielddescs]
         if self.virtualizable:
             outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind,
@@ -143,6 +143,7 @@ class FieldDesc(object):
         self.RESTYPE = RESTYPE
         self.ptrkind = RGenOp.kindToken(PTRTYPE)
         self.kind = RGenOp.kindToken(RESTYPE)
+        self.gv_default = RGenOp.constPrebuiltGlobal(self.RESTYPE._defl())
         if RESTYPE is lltype.Void and self.allow_void:
             pass   # no redboxcls at all
         else:
@@ -151,6 +152,12 @@ class FieldDesc(object):
 
     def _freeze_(self):
         return True
+
+    def makedefaultbox(self):
+        return self.redboxcls(self.kind, self.gv_default)
+    
+    def makebox(self, gvar):
+        return self.redboxcls(self.kind, gvar)
 
 class NamedFieldDesc(FieldDesc):
 
@@ -165,22 +172,20 @@ class NamedFieldDesc(FieldDesc):
 
     def generate_get(self, builder, genvar):
         gv_item = builder.genop_getfield(self.fieldtoken, genvar)
-        return self.redboxcls(self.kind, gv_item)
+        return self.makebox(gv_item)
 
     def generate_set(self, builder, genvar, gv_value):
         builder.genop_setfield(self.fieldtoken, genvar, gv_value)
 
     def generate_getsubstruct(self, builder, genvar):
         gv_sub = builder.genop_getsubstruct(self.fieldtoken, genvar)
-        return self.redboxcls(self.kind, gv_sub)
+        return self.makebox(gv_sub)
 
 class StructFieldDesc(NamedFieldDesc):
 
     def __init__(self, RGenOp, PTRTYPE, name, index):
         NamedFieldDesc.__init__(self, RGenOp, PTRTYPE, name)
         self.fieldindex = index
-        self.gv_default = RGenOp.constPrebuiltGlobal(self.RESTYPE._defl())
-        self.defaultbox = self.redboxcls(self.kind, self.gv_default)
 
 class ArrayFieldDesc(FieldDesc):
     allow_void = True
