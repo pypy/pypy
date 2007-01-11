@@ -610,28 +610,39 @@ class Builder(GenBuilder):
                                    gv_result, [gv_x, gv_y]))
         return gv_result
 
-    def op_int_add(self, gv_x, gv_y):
+    def generic_int_op(self, gv_x, gv_y, commutative, opcode, opcodei):
         gv_result = Var()
         if gv_y.fits_in_immediate():
             self.insns.append(
-                insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                insn.Insn_GPR__GPR_IMM(opcodei,
                                        gv_result, [gv_x, gv_y]))
-        elif gv_x.fits_in_immediate():
+        elif gv_x.fits_in_immediate() and commutative:
             self.insns.append(
-                insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                insn.Insn_GPR__GPR_IMM(opcodei,
                                        gv_result, [gv_y, gv_x]))
         else:
             self.insns.append(
-                insn.Insn_GPR__GPR_GPR(RPPCAssembler.add,
+                insn.Insn_GPR__GPR_GPR(opcode,
                                        gv_result, [gv_x, gv_y]))
         return gv_result
+        
+    def op_int_add(self, gv_x, gv_y):
+        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.add, RPPCAssembler.addi)
+
+    op_uint_add = op_int_add
 
     def op_int_sub(self, gv_x, gv_y):
-        gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR_GPR(RPPCAssembler.sub,
-                                   gv_result, [gv_x, gv_y]))
-        return gv_result
+        return self.generic_int_op(gv_x, gv_y, False, RPPCAssembler.sub, RPPCAssembler.subi)
+
+    def op_int_xor(self, gv_x, gv_y):
+        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.xor, RPPCAssembler.xori)
+
+    op_uint_xor = op_int_xor
+
+    def op_int_and(self, gv_x, gv_y):
+        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.and_, RPPCAssembler.andix)
+    
+    op_uint_and = op_int_and
 
     def op_int_floordiv(self, gv_x, gv_y):
         gv_result = Var()
@@ -716,9 +727,16 @@ class Builder(GenBuilder):
             insn.Insn_GPR__GPR(RPPCAssembler.neg, gv_result, gv_arg))
         return gv_result
 
+    def identity(self, gv_x):
+        return gv_x
+
     op_ptr_nonzero = op_int_is_true
     op_ptr_iszero  = op_bool_not        # for now
+    op_ptr_ne      = op_int_ne
+    op_ptr_eq      = op_int_eq
 
+    op_cast_uint_to_int = identity
+    op_cast_int_to_uint = identity
 
 class RPPCGenOp(AbstractRGenOp):
 
