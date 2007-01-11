@@ -70,10 +70,10 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_merge_structures = skip
         test_simple_meth = skip
         test_simple_red_meth = skip
+        test_degenerated_at_return = skip
 
     #failing...
     if skip_failing:
-        test_degenerated_at_return = skip
         test_degenerate_with_voids = skip
         test_red_array = skip
         test_red_struct_array = skip

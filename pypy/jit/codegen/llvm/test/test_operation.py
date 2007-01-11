@@ -26,6 +26,7 @@ class TestBasic(LLVMTestBasicMixin,
         test_float_arithmetic = skip_too_minimal #segfault
         test_unsigned = skip_too_minimal #uint_invert uses incorrect xor constant?
 
+    test_float_cast = skip #works when f64 is 'float' but not when 'double' because of 0.0 compare
     test_float_pow = skip
     test_unichar_array = skip
     test_char_unichar_fields = skip

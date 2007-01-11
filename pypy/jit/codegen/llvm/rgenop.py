@@ -8,14 +8,15 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
 from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
-    trunc, zext, bitcast, shr_prefix, define, i8, i16, i32
+    trunc, zext, bitcast, shr_prefix, define, i8, i16, i32, f64
 
+
+pi8 = i8  + '*'
+u32 = i32
 
 LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
 PRINT_DEBUG  = option.print_debug
-
-WORD = 4
 
 
 class ParseException(Exception):
@@ -89,7 +90,7 @@ class Var(GenVar):
     def __init__(self, type):
         self.n = count.n_vars
         self.type = type
-        self.signed = type is i32 or type is 'float'
+        self.signed = type is i32 or type is f64
         count.n_vars += 1
 
     def operand(self):
@@ -165,7 +166,7 @@ class IntConst(GenericConst):
 
 
 class UIntConst(GenericConst):
-    type = i32  #'uint'
+    type = u32
     signed = False
 
     def __init__(self, value):
@@ -173,7 +174,7 @@ class UIntConst(GenericConst):
 
 
 class FloatConst(GenericConst):
-    type = 'float'
+    type = f64
     signed = True
 
     def __init__(self, value):
@@ -181,7 +182,7 @@ class FloatConst(GenericConst):
 
 
 class AddrConst(GenConst):
-    type = i32 + '*'
+    type = pi8
     signed = False
 
     def __init__(self, addr):
@@ -556,15 +557,15 @@ class Builder(GenBuilder):
     def _cast_to_char(self, gv_x):      return self._cast_to(gv_x, i8)
     def _cast_to_unichar(self, gv_x):   return self._cast_to(gv_x, i32)
     def _cast_to_int(self, gv_x):       return self._cast_to(gv_x, i32)
-    def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, i32) #'uint')
-    def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, 'float')
+    def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, u32)
+    def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, f64)
 
     def _trunc_to_bool(self, gv_x):      return self._trunc_to(gv_x, 'bool')
     def _trunc_to_char(self, gv_x):      return self._trunc_to(gv_x, i8)
     def _trunc_to_unichar(self, gv_x):   return self._trunc_to(gv_x, i32)
     def _trunc_to_int(self, gv_x):       return self._trunc_to(gv_x, i32)
-    def _trunc_to_uint(self, gv_x):      return self._trunc_to(gv_x, i32) #'uint')
-    def _trunc_to_float(self, gv_x):     return self._trunc_to(gv_x, 'float')
+    def _trunc_to_uint(self, gv_x):      return self._trunc_to(gv_x, u32)
+    def _trunc_to_float(self, gv_x):     return self._trunc_to(gv_x, f64)
 
     op_cast_char_to_bool    = _trunc_to_bool
     op_cast_unichar_to_bool = _trunc_to_bool
@@ -668,80 +669,43 @@ class Builder(GenBuilder):
 
     op_ptr_iszero  = _is_false
 
-    def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
+    def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0') #XXX fails for doubles
 
-    def genop_getfield(self, (offset, fieldsize), gv_ptr):
-        log('%s Builder.genop_getfield (%d,%d) %s' % (
-            self.block.label, offset, fieldsize, gv_ptr.operand()))
-        if fieldsize == WORD:
-            t = i32
-        else:
-            if fieldsize == 1:
-                t = i8
-            else:
-                if fieldsize != 2:
-                    logger.dump('assert fails on: fieldsize != [124]')
-                    self.rgenop._dump_partial_lines()
-                    assert fieldsize == 2
-                t = i16
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        offset, fieldtype = fieldtoken
+        log('%s Builder.genop_getfield (%d,%s) %s' % (
+            self.block.label, offset, fieldtype, gv_ptr.operand()))
         gv_ptr_var = self._as_var(gv_ptr)
-        gv_p = Var(t + '*')
+        gv_p = Var(gv_ptr.type)
         self.asm.append(' %s=getelementptr %s,%s %s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), i32, offset / fieldsize))
-        gv_result = Var(t)
+            gv_p.operand2(), gv_ptr_var.operand(), i32, offset))
+        gv_p2 = self._cast_to(gv_p, fieldtype + '*')
+        gv_result = Var(fieldtype)
         self.asm.append(' %s=load %s' % (
-            gv_result.operand2(), gv_p.operand()))
+            gv_result.operand2(), gv_p2.operand()))
         return gv_result
 
-    def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
-        log('%s Builder.genop_setfield (%d,%d) %s=%s' % (
-            self.block.label, offset, fieldsize, gv_ptr.operand(), gv_value.operand()))
-        #if fieldsize == WORD:
-        #    gv_result = Var(i32)
-        #else:
-        #    if fieldsize == 1:
-        #       gv_result = Var(i8)
-        #    else:
-        #       assert fieldsize == 2
-        #       gv_result = Var(i16)
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        offset, fieldtype = fieldtoken
+        log('%s Builder.genop_setfield (%d,%s) %s=%s' % (
+            self.block.label, offset, fieldtype, gv_ptr.operand(), gv_value.operand()))
         gv_ptr_var = self._as_var(gv_ptr)
-        gv_p = Var(gv_value.type+'*')
+        gv_p = Var(gv_ptr.type)
         self.asm.append(' %s=getelementptr %s,%s %s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), i32, offset / fieldsize))
+            gv_p.operand2(), gv_ptr_var.operand(), i32, offset))
+        gv_p2 = self._cast_to(gv_p, fieldtype + '*')
         self.asm.append(' store %s,%s' % (
-            gv_value.operand(), gv_p.operand()))
+            gv_value.operand(), gv_p2.operand()))
 
-    def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
-        log('%s Builder.genop_getsubstruct (%d,%d) %s' % (
-            self.block.label, offset, fieldsize, gv_ptr.operand()))
+    def genop_getsubstruct(self, fieldtoken, gv_ptr):
+        offset, fieldtype = fieldtoken
+        log('%s Builder.genop_getsubstruct (%d,%s) %s' % (
+            self.block.label, offset, fieldtype, gv_ptr.operand()))
         gv_ptr_var = self._as_var(gv_ptr)
         gv_sub = Var(gv_ptr.type)
         self.asm.append(' %s=getelementptr %s,%d' % (
             gv_sub.operand2(), gv_ptr_var.operand(), offset))
         return gv_sub
-
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        array_length_offset, array_items_offset, itemsize = arraytoken
-        log('%s Builder.genop_getarrayitem %s,%s,%s' % (
-            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
-
-        gv_i = Var(gv_index.type)
-        try:
-            offset = array_items_offset / itemsize
-        except TypeError:
-            offset = 4 #XXX (get inspired by ppc backend)
-        self.asm.append(' %s=add %s,%d' % (
-            gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
-
-        gv_ptr_var = self._as_var(gv_ptr)
-        gv_p = Var(gv_ptr_var.type)
-        self.asm.append(' %s=getelementptr %s,%s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), gv_i.operand()))
-
-        gv_result = Var(gv_ptr_var.type[:-1])
-        self.asm.append(' %s=load %s' % (
-            gv_result.operand2(), gv_p.operand()))
-        return gv_result
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
         '''
@@ -751,7 +715,7 @@ class Builder(GenBuilder):
         return self.returnvar(eax)
         '''
         #XXX TODO
-        array_length_offset, array_items_offset, itemsize = arraytoken
+        array_length_offset, array_items_offset, itemitem = arraytoken
         gv_result = Var(i32)
         log('%s Builder.genop_getarraysubstruct %s,%s,%s' % (
             self.block.label, arraytoken, gv_ptr, gv_index))
@@ -766,7 +730,7 @@ class Builder(GenBuilder):
         return self.returnvar(mem(edx, lengthoffset))
         '''
         #XXX TODO
-        array_length_offset, array_items_offset, itemsize = arraytoken
+        array_length_offset, array_items_offset, itemtype = arraytoken
         gv_result = Var(i32)
         log('%s Builder.genop_getarraysize %s,%s' % (
             self.block.label, arraytoken, gv_ptr))
@@ -782,31 +746,54 @@ class Builder(GenBuilder):
                 gv_var.operand2(), inttoptr, i32, gv.operand2(), gv_var.type))
             return gv_var
         return gv
-        
-    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        array_length_offset, array_items_offset, itemsize = arraytoken
-        log('%s Builder.genop_setarrayitem %s,%s,%s,%s' % (
-            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand(), gv_value.operand()))
-
-        try:
-            offset = array_items_offset / itemsize
-        except TypeError:
-            offset = 4 #XXX (get inspired by ppc backend)
-        gv_i = Var(gv_index.type)
-        self.asm.append(' %s=add %s,%d ;;;;' % (
-            gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
+ 
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        array_length_offset, array_items_offset, item_type = arraytoken
+        log('%s Builder.genop_getarrayitem %s,%s[%s]' % (
+            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
 
         gv_ptr_var = self._as_var(gv_ptr)
+
         gv_p = Var(gv_ptr_var.type)
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_ptr_var.operand(), i32, array_items_offset))
+
+        gv_p2 = self._cast_to(gv_p, item_type + '*')
+
+        gv_p3 = Var(gv_p2.type)
         self.asm.append(' %s=getelementptr %s,%s' % (
-            gv_p.operand2(), gv_ptr_var.operand(), gv_i.operand()))
+            gv_p3.operand2(), gv_p2.operand(), gv_index.operand()))
+
+        gv_result = Var(item_type)
+        self.asm.append(' %s=load %s' % (
+            gv_result.operand2(), gv_p3.operand()))
+
+        return gv_result
+
+    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+        array_length_offset, array_items_offset, item_type = arraytoken
+        log('%s Builder.genop_setarrayitem %s,%s[%s]=%s' % (
+            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand(), gv_value.operand()))
+
+        gv_ptr_var = self._as_var(gv_ptr)
+
+        gv_p = Var(gv_ptr_var.type)
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_ptr_var.operand(), i32, array_items_offset))
+
+        gv_p2 = self._cast_to(gv_p, item_type + '*')
+
+        gv_p3 = Var(gv_p2.type)
+        self.asm.append(' %s=getelementptr %s,%s' % (
+            gv_p3.operand2(), gv_p2.operand(), gv_index.operand()))
+
         self.asm.append(' store %s,%s' % (
-            gv_value.operand(), gv_p.operand()))
+            gv_value.operand(), gv_p3.operand()))
 
     def genop_malloc_fixedsize(self, size):
         log('%s Builder.genop_malloc_fixedsize %s' % (
             self.block.label, str(size)))
-        t = i8 + '*'    #XXX or opaque* ?
+        t = pi8
         gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
         gv_result = Var(t)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
@@ -820,7 +807,7 @@ class Builder(GenBuilder):
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
         log('%s Builder.genop_malloc_varsize %s,%s' % (
             self.block.label, varsizealloctoken, gv_size.operand()))
-        t = i8 + '*'    #XXX or opaque* ?
+        t = pi8
         gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
         gv_result = Var(t)
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
@@ -974,18 +961,16 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
     def kindToken(T):
         # turn the type T into the llvm approximation that we'll use here
         # XXX incomplete
-        if isinstance(T, lltype.Ptr):
-            return i32 + '*'    #or opaque* ?
-        elif T is llmemory.Address:
-            return i32 + '*'    #or apaque* ?
-        if T is lltype.Bool:
+        if isinstance(T, lltype.Ptr) or T is llmemory.Address:
+            return pi8
+        elif T is lltype.Bool:
             return 'bool'
         elif T is lltype.Char:
             return i8
         elif T is lltype.Unsigned:
-            return i32  #'uint'
+            return u32
         elif T is lltype.Float:
-            return 'float'
+            return f64
         else:
             return i32  #Signed/UniChar/Void
 
@@ -994,10 +979,10 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
     def fieldToken(T, name):
         FIELD = getattr(T, name)
         if isinstance(FIELD, lltype.ContainerType):
-            fieldsize = 0      # not useful for getsubstruct
+            fieldtype = pi8 # not useful for getsubstruct
         else:
-            fieldsize = llmemory.sizeof(FIELD)
-        return (llmemory.offsetof(T, name), fieldsize)
+            fieldtype = RLLVMGenOp.kindToken(FIELD)
+        return (llmemory.offsetof(T, name), fieldtype)
 
     @staticmethod
     @specialize.memo()
@@ -1015,19 +1000,18 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             arrayfield = T._arrayfld
             ARRAYFIELD = getattr(T, arrayfield)
             arraytoken = RLLVMGenOp.arrayToken(ARRAYFIELD)
-            length_offset, items_offset, item_size = arraytoken
+            length_offset, items_offset, item_type = arraytoken
             arrayfield_offset = llmemory.offsetof(T, arrayfield)
             return (arrayfield_offset+length_offset,
                     arrayfield_offset+items_offset,
-                    item_size)
+                    item_type) #XXX was item_size
 
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
-        #XXX TODO
         return (llmemory.ArrayLengthOffset(A),
                 llmemory.ArrayItemsOffset(A),
-                llmemory.ItemOffset(A.OF))
+                RLLVMGenOp.kindToken(A.OF))
 
     @staticmethod
     @specialize.memo()
