@@ -262,6 +262,12 @@ public class PyPy {
     // ----------------------------------------------------------------------
     // StringBuffer
 
+    public static void ll_append_char(StringBuilder sb, byte c) {
+        // annoyingly, the actual return code is StringBuilder, so I have
+        // to make this wrapper to ignore the return value
+        sb.append((char)c);
+    }
+
     public static void ll_append_char(StringBuilder sb, char c) {
         // annoyingly, the actual return code is StringBuilder, so I have
         // to make this wrapper to ignore the return value
