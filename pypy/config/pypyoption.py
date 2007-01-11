@@ -39,7 +39,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                  requires = {
                      "thunk": [("objspace.geninterp", False)],
                      "logic": [("objspace.geninterp", False),
-                               ("objspace.usemodules._stackless", True)],
+                               ("objspace.usemodules._stackless", True),
+                               ("translation.debug", True),
+                               ("translation.gc", 'framework'),
+                               ],
                  },
                  cmdline='--objspace -o'),
 
