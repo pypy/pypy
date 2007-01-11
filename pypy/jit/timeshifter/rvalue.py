@@ -44,7 +44,7 @@ class RedBox(object):
     def is_constant(self):
         return bool(self.genvar) and self.genvar.is_const
 
-    def getgenvar(self, builder):
+    def getgenvar(self, jitstate):
         return self.genvar
 
     def enter_block(self, incoming, memo):
@@ -53,7 +53,8 @@ class RedBox(object):
             incoming.append(self)
             memo[self] = None
 
-    def forcevar(self, builder, memo):
+    def forcevar(self, jitstate, memo):
+        builder = jitstate.curbuilder
         if self.is_constant():
             # cannot mutate constant boxes in-place
             box = self.copy(memo)
@@ -61,7 +62,7 @@ class RedBox(object):
             return box
         else:
             # force virtual containers
-            self.getgenvar(builder)
+            self.getgenvar(jitstate)
             return self
 
     def replace(self, memo):
@@ -188,7 +189,7 @@ class PtrRedBox(RedBox):
             box = self.content.op_getfield(jitstate, fielddesc)
             if box is not None:
                 return box
-        gv_ptr = self.getgenvar(jitstate.curbuilder)
+        gv_ptr = self.getgenvar(jitstate)
         box = fielddesc.generate_get(jitstate.curbuilder, gv_ptr)
         if fielddesc.immutable:
             self.remember_field(fielddesc, box)
@@ -197,7 +198,8 @@ class PtrRedBox(RedBox):
     def op_setfield(self, jitstate, fielddesc, valuebox):
         gv_ptr = self.genvar
         if gv_ptr:
-            fielddesc.generate_set(jitstate.curbuilder, gv_ptr, valuebox)
+            fielddesc.generate_set(jitstate.curbuilder, gv_ptr,
+                                   valuebox.getgenvar(jitstate))
         else:
             assert self.content is not None
             self.content.op_setfield(jitstate, fielddesc, valuebox)
@@ -270,22 +272,22 @@ class PtrRedBox(RedBox):
             boxmemo[self] = result
             return result
 
-    def getgenvar(self, builder):
+    def getgenvar(self, jitstate):
         if not self.genvar:
             content = self.content
             from pypy.jit.timeshifter import rcontainer
             if isinstance(content, rcontainer.VirtualizableStruct):
-                return content.getgenvar(builder)
+                return content.getgenvar(jitstate)
             assert isinstance(content, rcontainer.VirtualContainer)
-            content.force_runtime_container(builder)
+            content.force_runtime_container(jitstate)
             assert self.genvar
         return self.genvar
 
-    def forcevar(self, builder, memo):
+    def forcevar(self, jitstate, memo):
         from pypy.jit.timeshifter import rcontainer
         # xxx
         assert not isinstance(self.content, rcontainer.VirtualizableStruct)
-        return RedBox.forcevar(self, builder, memo)
+        return RedBox.forcevar(self, jitstate, memo)
 
     def enter_block(self, incoming, memo):
         if self.genvar:

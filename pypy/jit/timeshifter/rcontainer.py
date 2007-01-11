@@ -85,8 +85,9 @@ class StructTypeDesc(object):
         self.null = self.PTRTYPE._defl()
         self.gv_null = RGenOp.constPrebuiltGlobal(self.null)
 
-        if TYPE._hints.get('virtualizable', False):
-            self.__class__ = VirtualizableStructTypeDesc
+
+        self.virtualizable = TYPE._hints.get('virtualizable', False)
+        if self.virtualizable:
             self.VStructCls = VirtualizableStruct
         else:
             self.VStructCls = VirtualStruct
@@ -108,9 +109,13 @@ class StructTypeDesc(object):
         return self.fielddesc_by_name[name]
 
     def factory(self):
-        vstruct = VirtualStruct(self)
+        vstruct = self.VStructCls(self)
         vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
                                  for desc in self.fielddescs]
+        if self.virtualizable:
+            outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind,
+                                          self.gv_null)
+            vstruct.content_boxes.append(outsidebox)     
         box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
         box.content = vstruct
         vstruct.ownbox = box
@@ -125,20 +130,6 @@ class StructTypeDesc(object):
 
     def compact_repr(self): # goes in ll helper names
         return "Desc_%s" % (self.TYPE._short_name(),)
-
-class VirtualizableStructTypeDesc(StructTypeDesc):
-    
-    def factory(self):
-        vstruct = VirtualizableStruct(self)
-        vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
-                                 for desc in self.fielddescs]
-        outsidebox = rvalue.PtrRedBox(self.innermostdesc.ptrkind,
-                                      self.gv_null)
-        vstruct.content_boxes.append(outsidebox)
-        box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
-        box.content = vstruct
-        vstruct.ownbox = box
-        return box
     
 # XXX basic field descs for now
 class FieldDesc(object):
@@ -176,8 +167,8 @@ class NamedFieldDesc(FieldDesc):
         gv_item = builder.genop_getfield(self.fieldtoken, genvar)
         return self.redboxcls(self.kind, gv_item)
 
-    def generate_set(self, builder, genvar, box):
-        builder.genop_setfield(self.fieldtoken, genvar, box.getgenvar(builder))
+    def generate_set(self, builder, genvar, gv_value):
+        builder.genop_setfield(self.fieldtoken, genvar, gv_value)
 
     def generate_getsubstruct(self, builder, genvar):
         gv_sub = builder.genop_getsubstruct(self.fieldtoken, genvar)
@@ -271,9 +262,10 @@ class VirtualStruct(VirtualContainer):
             for box in self.content_boxes:
                 box.enter_block(incoming, memo)
 
-    def force_runtime_container(self, builder):
+    def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
         assert typedesc is not None
+        builder = jitstate.curbuilder
         boxes = self.content_boxes
         self.content_boxes = None
         if typedesc.materialize is not None:
@@ -295,7 +287,7 @@ class VirtualStruct(VirtualContainer):
         for i in range(len(fielddescs)):
             fielddesc = fielddescs[i]
             box = boxes[i]
-            fielddesc.generate_set(builder, genvar, box)
+            fielddesc.generate_set(builder, genvar, box.getgenvar(jitstate))
 
     def freeze(self, memo):
         contmemo = memo.containers
@@ -338,27 +330,29 @@ class VirtualStruct(VirtualContainer):
 
 class VirtualizableStruct(VirtualStruct):
 
-    def force_runtime_container(self, builder):
+    def force_runtime_container(self, jitstate):
         assert 0
 
-    def getgenvar(self, builder):
+    def getgenvar(self, jitstate):
         typedesc = self.typedesc
         assert typedesc is not None
+        builder = jitstate.curbuilder
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is typedesc.gv_null:
             gv_outside = builder.genop_malloc_fixedsize(typedesc.alloctoken)
             self.content_boxes[-1].genvar = gv_outside
-            # xxx jitstate please
+            jitstate.add_virtualizable(self.ownbox)
         return gv_outside
 
-    def store_back(self, builder):
+    def store_back(self, jitstate):
         fielddescs = self.typedesc.fielddescs
         boxes = self.content_boxes
         gv_outside = boxes[-1].genvar
         for i in range(1, len(fielddescs)):
             fielddesc = fielddescs[i]
             box = boxes[i]
-            fielddesc.generate_set(builder, gv_outside, box)
+            fielddesc.generate_set(jitstate.curbuilder, gv_outside,
+                                   box.getgenvar(jitstate))
 
 # ____________________________________________________________
 

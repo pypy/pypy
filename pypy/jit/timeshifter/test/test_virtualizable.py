@@ -3,15 +3,35 @@ from pypy.rpython.lltypesystem import lltype
 
 import py
 
+S = lltype.GcStruct('s', ('a', lltype.Signed), ('b', lltype.Signed))
+PS = lltype.Ptr(S)
+
 XY = lltype.GcForwardReference()
-GETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XY)], lltype.Signed))
-SETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XY), lltype.Signed],
-                                    lltype.Void))
-XY_ACCESS = lltype.Struct('xy',
-                          ('get_x', GETTER),
-                          ('set_x', SETTER),
-                          ('get_y', GETTER),
-                          ('set_y', SETTER),
+GETTER = lambda STRUC: lltype.Ptr(lltype.FuncType([lltype.Ptr(STRUC)],
+                                                  lltype.Signed))
+SETTER = lambda STRUC: lltype.Ptr(lltype.FuncType([lltype.Ptr(STRUC),
+                                                  lltype.Signed],
+                                                 lltype.Void))
+
+XP = lltype.GcForwardReference()
+PGETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XP)], PS))
+PSETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XP), PS],
+                                   lltype.Void))
+
+XY_ACCESS = lltype.Struct('xy_access',
+                          ('get_x', GETTER(XY)),
+                          ('set_x', SETTER(XY)),
+                          ('get_y', GETTER(XY)),
+                          ('set_y', SETTER(XY)),
+                          hints = {'immutable': True},
+                          )
+
+
+XP_ACCESS = lltype.Struct('xp_access',
+                          ('get_x', GETTER(XP)),
+                          ('set_x', SETTER(XP)),
+                          ('get_p', PGETTER),
+                          ('set_p', PSETTER),
                           hints = {'immutable': True},
                           )
 
@@ -21,6 +41,14 @@ XY.become(lltype.GcStruct('xy',
                           ('y', lltype.Signed),
                           hints = {'virtualizable': True}
               ))
+
+XP.become(lltype.GcStruct('xp',
+                          ('access', lltype.Ptr(XP_ACCESS)),
+                          ('x', lltype.Signed),
+                          ('p', PS),
+                          hints = {'virtualizable': True}
+              ))
+
      
 class TestVirtualizable(PortalTest):
 
@@ -216,7 +244,6 @@ class TestVirtualizable(PortalTest):
         self.check_insns(getfield=0)
 
     def test_simple_explicit_construct_escape(self):
-        py.test.skip("in-progress")
    
         def f(x, y):
             xy = lltype.malloc(XY)
@@ -242,3 +269,139 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns(getfield=0)
+
+    def test_simple_with_struct_explicit(self):
+   
+        def f(xp):
+            xp_access = xp.access
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            xp_access = xp.access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            return x+p.a+p.b
+
+        def main(x, a, b):
+            xp = lltype.malloc(XP)
+            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b
+            xp.p = s
+            return f(xp)
+
+        res = self.timeshift_from_portal(main, f, [20, 10, 12],
+                                         policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=2)    
+
+    def test_simple_with_setting_struct_explicit(self):
+   
+        def f(xp, s):
+            xp_access = xp.access
+            if xp_access:
+                xp_access.set_p(xp, s)
+            else:
+                xp.p = s
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            xp_access = xp.access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            p.b = p.b*2
+            return x+p.a+p.b
+
+        def main(x, a, b):
+            xp = lltype.malloc(XP)
+            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b
+            v = f(xp, s)
+            return v+xp.p.b
+
+        res = self.timeshift_from_portal(main, f, [20, 10, 3],
+                                         policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=3)
+
+    def test_simple_with_setting_new_struct_explicit(self):
+   
+        def f(xp, a, b):
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            xp_access = xp.access
+            if xp_access:
+                xp_access.set_p(xp, s)
+            else:
+                xp.p = s
+            xp_access = xp.access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            p.b = p.b*2
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            return x+p.a+p.b
+
+        def main(x, a, b):
+            xp = lltype.malloc(XP)
+            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            v = f(xp, a, b)
+            return v+xp.p.b
+
+        res = self.timeshift_from_portal(main, f, [20, 10, 3],
+                                         policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=2, malloc=1)
+
+
+    def test_simple_constr_with_setting_new_struct_explicit(self):
+   
+        def f(x, a, b):
+            xp = lltype.malloc(XP)
+            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            xp_access = xp.access
+            if xp_access:
+                xp_access.set_p(xp, s)
+            else:
+                xp.p = s
+            xp_access = xp.access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            p.b = p.b*2
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            return xp
+
+        def main(x, a, b):
+            xp = f(x, a, b)
+            return xp.x+xp.p.a+xp.p.b+xp.p.b
+
+        res = self.timeshift_from_portal(main, f, [20, 10, 3],
+                                         policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=0, malloc=2)

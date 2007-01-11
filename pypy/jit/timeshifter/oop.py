@@ -118,7 +118,7 @@ class OopSpecDesc:
         args_gv = []
         fold = deepfrozen
         for argsrc in self.residualargsources:
-            gv_arg = argboxes[argsrc].getgenvar(builder)
+            gv_arg = argboxes[argsrc].getgenvar(jitstate)
             args_gv.append(gv_arg)
             fold &= gv_arg.is_const
         if fold:

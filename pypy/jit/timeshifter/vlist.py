@@ -107,8 +107,9 @@ class VirtualList(VirtualContainer):
             for box in self.item_boxes:
                 box.enter_block(incoming, memo)
 
-    def force_runtime_container(self, builder):
+    def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
+        builder = jitstate.curbuilder
         boxes = self.item_boxes
         self.item_boxes = None
 
@@ -119,7 +120,7 @@ class VirtualList(VirtualContainer):
         self.ownbox.genvar = gv_list
         self.ownbox.content = None
         for i in range(len(boxes)):
-            gv_item = boxes[i].getgenvar(builder)
+            gv_item = boxes[i].getgenvar(jitstate)
             args_gv = [gv_list, builder.rgenop.genconst(i), gv_item]
             builder.genop_call(typedesc.tok_ll_setitem_fast,
                                typedesc.gv_ll_setitem_fast,

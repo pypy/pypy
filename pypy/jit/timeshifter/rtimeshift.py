@@ -74,7 +74,7 @@ def ll_gen1(opdesc, jitstate, argbox):
         arg = rvalue.ll_getvalue(argbox, ARG0)
         res = opdesc.llop(RESULT, arg)
         return rvalue.ll_fromvalue(jitstate, res)
-    gv_arg = argbox.getgenvar(jitstate.curbuilder)
+    gv_arg = argbox.getgenvar(jitstate)
     genvar = jitstate.curbuilder.genop1(opdesc.opname, gv_arg)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
@@ -89,13 +89,13 @@ def ll_gen2(opdesc, jitstate, argbox0, argbox1):
         arg1 = rvalue.ll_getvalue(argbox1, ARG1)
         res = opdesc.llop(RESULT, arg0, arg1)
         return rvalue.ll_fromvalue(jitstate, res)
-    gv_arg0 = argbox0.getgenvar(jitstate.curbuilder)
-    gv_arg1 = argbox1.getgenvar(jitstate.curbuilder)
+    gv_arg0 = argbox0.getgenvar(jitstate)
+    gv_arg1 = argbox1.getgenvar(jitstate)
     genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
 def ll_genmalloc_varsize(jitstate, contdesc, sizebox):
-    gv_size = sizebox.getgenvar(jitstate.curbuilder)
+    gv_size = sizebox.getgenvar(jitstate)
     alloctoken = contdesc.varsizealloctoken
     genvar = jitstate.curbuilder.genop_malloc_varsize(alloctoken, gv_size)
     return rvalue.PtrRedBox(contdesc.ptrkind, genvar)
@@ -125,8 +125,8 @@ def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
         return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarrayitem(
         fielddesc.arraytoken,
-        argbox.getgenvar(jitstate.curbuilder),
-        indexbox.getgenvar(jitstate.curbuilder))
+        argbox.getgenvar(jitstate),
+        indexbox.getgenvar(jitstate))
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
@@ -137,8 +137,8 @@ def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
         return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarraysubstruct(
         fielddesc.arraytoken,
-        argbox.getgenvar(jitstate.curbuilder),
-        indexbox.getgenvar(jitstate.curbuilder))
+        argbox.getgenvar(jitstate),
+        indexbox.getgenvar(jitstate))
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
@@ -146,9 +146,9 @@ def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
 def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
     genvar = jitstate.curbuilder.genop_setarrayitem(
         fielddesc.arraytoken,
-        destbox.getgenvar(jitstate.curbuilder),
-        indexbox.getgenvar(jitstate.curbuilder),
-        valuebox.getgenvar(jitstate.curbuilder)
+        destbox.getgenvar(jitstate),
+        indexbox.getgenvar(jitstate),
+        valuebox.getgenvar(jitstate)
         )
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
@@ -160,7 +160,7 @@ def ll_gengetarraysize(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarraysize(
         fielddesc.arraytoken,
-        argbox.getgenvar(jitstate.curbuilder))
+        argbox.getgenvar(jitstate))
     return rvalue.IntRedBox(fielddesc.indexkind, genvar)
 
 def ll_genptrnonzero(jitstate, argbox, reverse):
@@ -169,7 +169,7 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
         return rvalue.ll_fromvalue(jitstate, bool(addr) ^ reverse)
     builder = jitstate.curbuilder
     if argbox.content is None:
-        gv_addr = argbox.getgenvar(builder)
+        gv_addr = argbox.getgenvar(jitstate)
         if reverse:
             gv_res = builder.genop1("ptr_iszero", gv_addr)
         else:
@@ -187,8 +187,8 @@ def ll_genptreq(jitstate, argbox0, argbox1, reverse):
         addr0 = rvalue.ll_getvalue(argbox0, llmemory.Address)
         addr1 = rvalue.ll_getvalue(argbox1, llmemory.Address)
         return rvalue.ll_fromvalue(jitstate, (addr0 == addr1) ^ reverse)
-    gv_addr0 = argbox0.getgenvar(builder)
-    gv_addr1 = argbox1.getgenvar(builder)
+    gv_addr0 = argbox0.getgenvar(jitstate)
+    gv_addr1 = argbox1.getgenvar(jitstate)
     if reverse:
         gv_res = builder.genop2("ptr_ne", gv_addr0, gv_addr1)
     else:
@@ -260,7 +260,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
         if match:
             linkargs = []
             for box in outgoingvarboxes:
-                linkargs.append(box.getgenvar(jitstate.curbuilder))
+                linkargs.append(box.getgenvar(jitstate))
             jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
             return True    # finished
         # A mergable blook found
@@ -270,7 +270,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
         cleanup_partial_data(memo.partialdatamatch)
         replace_memo = rvalue.copy_memo()
         for box in outgoingvarboxes:
-            box.forcevar(jitstate.curbuilder, replace_memo)
+            box.forcevar(jitstate, replace_memo)
         if replace_memo.boxes:
             jitstate.replace(replace_memo)
         start_new_block(states_dic, jitstate, key, global_resumer, index=i)
@@ -317,7 +317,7 @@ def guard_global_merge(jitstate, resumepoint):
     jitstate.resumepoint = resumepoint
 
 def split(jitstate, switchredbox, resumepoint, *greens_gv):
-    exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
+    exitgvar = switchredbox.getgenvar(jitstate)
     if exitgvar.is_const:
         return exitgvar.revealconst(lltype.Bool)
     else:
@@ -446,7 +446,7 @@ def save_return(jitstate):
     dispatchqueue.return_chain = jitstate
 
 ##def ll_gvar_from_redbox(jitstate, redbox):
-##    return redbox.getgenvar(jitstate.curbuilder)
+##    return redbox.getgenvar(jitstate)
 
 ##def ll_gvar_from_constant(jitstate, ll_value):
 ##    return jitstate.curbuilder.rgenop.genconst(ll_value)
@@ -464,9 +464,9 @@ class CallDesc:
 
 def ll_gen_residual_call(jitstate, calldesc, funcbox):
     builder = jitstate.curbuilder
-    gv_funcbox = funcbox.getgenvar(builder)
+    gv_funcbox = funcbox.getgenvar(jitstate)
     argboxes = jitstate.frame.local_boxes
-    args_gv = [argbox.getgenvar(builder) for argbox in argboxes]
+    args_gv = [argbox.getgenvar(jitstate) for argbox in argboxes]
     gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
     return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
 
@@ -621,7 +621,7 @@ class PromotionDesc:
 
 def ll_promote(jitstate, promotebox, promotiondesc):
     builder = jitstate.curbuilder
-    gv_switchvar = promotebox.getgenvar(builder)
+    gv_switchvar = promotebox.getgenvar(jitstate)
     if gv_switchvar.is_const:
         return False
     else:
@@ -645,7 +645,7 @@ def ll_promote(jitstate, promotebox, promotiondesc):
                                [gv_pm, gv_switchvar])
             linkargs = []
             for box in incoming:
-                linkargs.append(box.getgenvar(default_builder))
+                linkargs.append(box.getgenvar(jitstate))
             default_builder.finish_and_goto(linkargs, switchblock)
             return True
         else:
@@ -774,6 +774,7 @@ class FrozenJITState(object):
         for fz_virtualizable_box in self.fz_virtualizables:
             virtualizable_box = fz_virtualizable_box.unfreeze(incomingvarboxes,
                                                               memo)
+            assert isinstance(virtualizable_box, rvalue.PtrRedBox)
             virtualizables[virtualizable_box] = None
         return JITState(None, frame, exc_type_box, exc_value_box,
                         virtualizables=virtualizables)
@@ -837,13 +838,16 @@ class JITState(object):
         self.virtualizables = virtualizables
 
     def add_virtualizable(self, virtualizable_box):
+        assert isinstance(virtualizable_box, rvalue.PtrRedBox)
         self.virtualizables[virtualizable_box] = None
 
     def split(self, newbuilder, newresumepoint, newgreens):
         memo = rvalue.copy_memo()
         virtualizables = {}
         for virtualizable_box in self.virtualizables:
-            virtualizables[virtualizable_box.copy(memo)] = None
+            new_virtualizable_box = virtualizable_box.copy(memo)
+            assert isinstance(new_virtualizable_box, rvalue.PtrRedBox)
+            virtualizables[new_virtualizable_box] = None
         later_jitstate = JITState(newbuilder,
                                   self.frame.copy(memo),
                                   self.exc_type_box .copy(memo),
@@ -872,10 +876,9 @@ class JITState(object):
         for virtualizable_box in virtualizables.keys():
             if virtualizable_box.content not in memo.containers:
                 del virtualizables[virtualizable_box]
-                assert isinstance(virtualizable_box, rvalue.PtrRedBox)
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.store_back(builder)
+                content.store_back(self)
         return incoming
 
     def freeze(self, memo):
@@ -895,7 +898,9 @@ class JITState(object):
         self.exc_value_box = self.exc_value_box.replace(memo)
         virtualizables = {}
         for virtualizable_box in self.virtualizables:
-            virtualizables[virtualizable_box.replace(memo)] = None
+            new_virtualizable_box = virtualizable_box.replace(memo)
+            assert isinstance(new_virtualizable_box, rvalue.PtrRedBox)
+            virtualizables[new_virtualizable_box] = None
         self.virtualizables = virtualizables
             
     def get_locals_gv(self): # xxx

@@ -125,8 +125,8 @@ class HintRTyper(RPythonTyper):
                 if not ll_etype:
                     return       # we known there is no exception set
             evaluebox = jitstate.exc_value_box
-            gv_etype  = etypebox .getgenvar(builder)
-            gv_evalue = evaluebox.getgenvar(builder)
+            gv_etype  = etypebox .getgenvar(jitstate)
+            gv_evalue = evaluebox.getgenvar(jitstate)
             builder.genop_call(tok_raise,
                                gv_rpyexc_raise, [gv_etype, gv_evalue])
         self.store_global_excdata = store_global_excdata
@@ -140,13 +140,13 @@ class HintRTyper(RPythonTyper):
         def ll_finish_jitstate(jitstate, graphsigtoken):
             assert jitstate.resuming is None
             returnbox = rtimeshift.getreturnbox(jitstate)
-            gv_ret = returnbox.getgenvar(jitstate.curbuilder)
+            gv_ret = returnbox.getgenvar(jitstate)
             builder = jitstate.curbuilder
             for virtualizable_box in jitstate.virtualizables:
                 assert isinstance(virtualizable_box, rvalue.PtrRedBox)
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.store_back(builder)        
+                content.store_back(jitstate)        
             store_global_excdata(jitstate)
             jitstate.curbuilder.finish_and_return(graphsigtoken, gv_ret)
         self.ll_finish_jitstate = ll_finish_jitstate
@@ -354,7 +354,7 @@ class HintRTyper(RPythonTyper):
                     key = key + (x,)
                 else:
                     box = args[i]
-                    args_gv.append(box.getgenvar(curbuilder))
+                    args_gv.append(box.getgenvar(jitstate))
                 i = i + 1
             sigtoken = rgenop.sigToken(FUNC)
             cache = state.cache

@@ -199,8 +199,9 @@ class AbstractVirtualDict(VirtualContainer):
             for box in self.getboxes():
                 box.enter_block(incoming, memo)
 
-    def force_runtime_container(self, builder):
+    def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
+        builder = jitstate.curbuilder
         items = self.getitems_and_makeempty(builder.rgenop)
 
         args_gv = []
@@ -211,7 +212,7 @@ class AbstractVirtualDict(VirtualContainer):
         self.ownbox.content = None
         for gv_key, valuebox, hash in items:
             gv_hash = builder.rgenop.genconst(hash)
-            gv_value = valuebox.getgenvar(builder)
+            gv_value = valuebox.getgenvar(jitstate)
             args_gv = [gv_dict, gv_key, gv_value, gv_hash]
             builder.genop_call(typedesc.tok_ll_insertclean,
                                typedesc.gv_ll_insertclean,
