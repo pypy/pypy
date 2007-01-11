@@ -2452,24 +2452,26 @@ class TestAnnotateTestCase:
 
     def test_some_generic_function_call(self):
         py.test.skip("Not implemented")
-        def g(a, b, c):
+        def g(a):
             pass
-        g.known_signature = FunctionSignature(args=(3, 3, 3), retval=3)
+        g._known_signature_ = annmodel.SomeGenericFunction(
+            args=(annmodel.SomeInteger(),), retval=annmodel.SomeInteger())
 
         def fun():
-            return g(1, 2, 3)
+            return g(1)
         a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
         s = a.build_types(fun, [])
         assert isinstance(s.returntype, annmodel.SomeInteger)
         assert not hasattr(s.returntype, 'const')
         # assert that a know the g
 
-    def test_some_genereic_function_callback(self):
+    def test_some_generic_function_callback(self):
         py.test.skip("Not implemented")
         def g(a):
             pass
-        g.known_signature = FunctionSignature(args=
-            [FunctionSignature(args=[1])], retval=3)
+        g._known_signature_ = annmodel.SomeGenericFunction(
+            args=[annmodel.SomeGenericFunction(args=[SomeInteger()],
+                                               retval=SomeInteger())])
 
         def fun2(x):
             return x
