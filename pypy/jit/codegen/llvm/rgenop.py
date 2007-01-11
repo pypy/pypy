@@ -11,8 +11,9 @@ from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr
     trunc, zext, bitcast, shr_prefix, define, i8, i16, i32, f64
 
 
-pi8 = i8  + '*'
-u32 = i32
+pi8  = i8  + '*'
+pi32 = i32 + '*'
+u32  = i32
 
 LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
@@ -665,9 +666,10 @@ class Builder(GenBuilder):
         return gv_result
 
     op_bool_is_true = op_char_is_true = op_unichar_is_true = op_int_is_true =\
-    op_uint_is_true = op_ptr_nonzero = _is_true
-
-    op_ptr_iszero  = _is_false
+    op_uint_is_true = _is_true
+    
+    def op_ptr_nonzero(self, gv_x):     return self._is_true(gv_x, 'null')
+    def op_ptr_iszero(self, gv_x):      return self._is_false(gv_x, 'null')
 
     def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0') #XXX fails for doubles
 
@@ -715,7 +717,7 @@ class Builder(GenBuilder):
         return self.returnvar(eax)
         '''
         #XXX TODO
-        array_length_offset, array_items_offset, itemitem = arraytoken
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         gv_result = Var(i32)
         log('%s Builder.genop_getarraysubstruct %s,%s,%s' % (
             self.block.label, arraytoken, gv_ptr, gv_index))
@@ -724,18 +726,22 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
-        '''
-        lengthoffset, startoffset, itemoffset = arraytoken
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        return self.returnvar(mem(edx, lengthoffset))
-        '''
-        #XXX TODO
-        array_length_offset, array_items_offset, itemtype = arraytoken
-        gv_result = Var(i32)
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         log('%s Builder.genop_getarraysize %s,%s' % (
-            self.block.label, arraytoken, gv_ptr))
-        self.asm.append(' %s=%s 0 ;%s Builder.genop_getarraysize %s,%s' % (
-            gv_result.operand2(), gv_result.type, self.block.label, arraytoken, gv_ptr))
+            self.block.label, arraytoken, gv_ptr.operand()))
+
+        gv_ptr_var = self._as_var(gv_ptr)
+
+        gv_p = Var(gv_ptr_var.type)
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_ptr_var.operand(), i32, array_length_offset))
+
+        gv_p2 = self._cast_to(gv_p, pi32)
+
+        gv_result = Var(i32)
+        self.asm.append(' %s=load %s' % (
+            gv_result.operand2(), gv_p2.operand()))
+
         return gv_result
 
     def _as_var(self, gv):
@@ -748,7 +754,7 @@ class Builder(GenBuilder):
         return gv
  
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        array_length_offset, array_items_offset, item_type = arraytoken
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         log('%s Builder.genop_getarrayitem %s,%s[%s]' % (
             self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
 
@@ -771,7 +777,7 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        array_length_offset, array_items_offset, item_type = arraytoken
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         log('%s Builder.genop_setarrayitem %s,%s[%s]=%s' % (
             self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand(), gv_value.operand()))
 
@@ -796,7 +802,7 @@ class Builder(GenBuilder):
         t = pi8
         gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
         gv_result = Var(t)
-        #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
+        #or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=%s %s %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
             gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
@@ -807,16 +813,34 @@ class Builder(GenBuilder):
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
         log('%s Builder.genop_malloc_varsize %s,%s' % (
             self.block.label, varsizealloctoken, gv_size.operand()))
-        t = pi8
-        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
-        gv_result = Var(t)
-        #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
+
+        length_offset, items_offset, item_size, item_type = varsizealloctoken
+
+        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (pi8, i32))
+        #or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=%s %s %d to %s ;gc_malloc_fnaddr (varsize)' % (
             gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
             gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
+
+        gv_size2 = Var(i32) #i386 uses self.itemaddr here
+        self.asm.append(' %s=mul %s,%d' % (
+            gv_size2.operand2(), gv_size.operand(), item_size))
+
+        gv_size3 = Var(i32)
+        self.asm.append(' %s=add %s,%d' % (
+            gv_size3.operand2(), gv_size2.operand(), items_offset))
+
+        gv_result = Var(pi8)
         self.asm.append(' %s=call %s(%s)' % (
-            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size.operand()))
-        #XXX TODO set length field
+            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size3.operand()))
+
+        gv_p = Var(gv_result.type)
+        self.asm.append(' %s=getelementptr %s,%s %s' % (
+            gv_p.operand2(), gv_result.operand(), i32, length_offset))
+
+        gv_p2 = self._cast_to(gv_p, pi32) #warning: length field hardcoded here
+        self.asm.append(' store %s, %s' % (gv_size.operand(), gv_p2.operand()))
+
         return gv_result
 
     def _funcsig_type(self, args_gv, restype):
@@ -1000,17 +1024,19 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             arrayfield = T._arrayfld
             ARRAYFIELD = getattr(T, arrayfield)
             arraytoken = RLLVMGenOp.arrayToken(ARRAYFIELD)
-            length_offset, items_offset, item_type = arraytoken
+            length_offset, items_offset, item_size, item_type = arraytoken
             arrayfield_offset = llmemory.offsetof(T, arrayfield)
             return (arrayfield_offset+length_offset,
                     arrayfield_offset+items_offset,
-                    item_type) #XXX was item_size
+                    item_size,
+                    item_type)
 
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
         return (llmemory.ArrayLengthOffset(A),
                 llmemory.ArrayItemsOffset(A),
+                llmemory.ItemOffset(A.OF),
                 RLLVMGenOp.kindToken(A.OF))
 
     @staticmethod
