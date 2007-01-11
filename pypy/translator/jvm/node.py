@@ -115,6 +115,8 @@ class EntryPoint(Node):
             done_printing = gen.unique_label('done_printing')
             RESOOTYPE = self.graph.getreturnvar().concretetype
             dumpmethod = self.db.generate_toString_method_for_ootype(RESOOTYPE)
+            gen.add_comment('Invoking dump method for result of type '
+                            +str(RESOOTYPE))
             gen.emit(dumpmethod)      # generate the string
             gen.emit(jvmgen.PYPYDUMP) # dump to stdout
             gen.goto(done_printing)
@@ -356,8 +358,7 @@ class StaticMethodImplementation(Node, JvmClassType):
             if not i: continue # skip the this ptr
             gen.load_function_argument(i)
         gen.emit(self.impl_method)
-        if self.super_class.java_return_type is not jVoid:
-            gen.return_val(self.super_class.java_return_type)
+        gen.return_val(self.super_class.java_return_type)
         gen.end_function()
         gen.end_class()
 

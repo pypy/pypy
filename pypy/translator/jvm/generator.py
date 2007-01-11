@@ -358,11 +358,12 @@ PYPYSTRTOBOOL =         Method.s(jPyPy, 'str_to_bool', (jString,), jBool)
 PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
 PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
 PYPYDUMP          =     Method.s(jPyPy, 'dump', (jString,), jVoid)
-PYPYDUMPBOOLEAN   =     Method.s(jPyPy, 'dump_boolean', (jBool,), jString)
-PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,), jString)
-PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (), jString)
+PYPYSERIALIZEBOOLEAN =  Method.s(jPyPy, 'serialize_boolean', (jBool,), jString)
+PYPYSERIALIZEUINT  =    Method.s(jPyPy, 'serialize_uint', (jInt,), jString)
+PYPYSERIALIZEVOID =     Method.s(jPyPy, 'serialize_void', (), jString)
 PYPYESCAPEDCHAR =       Method.s(jPyPy, 'escaped_char', (jChar,), jString)
 PYPYESCAPEDSTRING =     Method.s(jPyPy, 'escaped_string', (jString,), jString)
+PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
 PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
@@ -922,15 +923,18 @@ class JVMGenerator(Generator):
         elif TYPE is ootype.Float:
             self._push_double_constant(float(value))
         elif TYPE is ootype.String:
-            self.load_string(str(value._str))
+            if value == ootype.null(ootype.String):
+                self.emit(ACONST_NULL)
+            else:
+                self.load_string(str(value._str))
 
     def _push_long_constant(self, value):
         if value == 0:
-            gen.emit(LCONST_0)
+            self.emit(LCONST_0)
         elif value == 1:
-            gen.emit(LCONST_1)
+            self.emit(LCONST_1)
         else:
-            gen.emit(LDC2, value)
+            self.emit(LDC2, value)
 
     def _push_double_constant(self, value):
         if _isnan(value):
@@ -939,11 +943,11 @@ class JVMGenerator(Generator):
             if value > 0: DOUBLEPOSINF.load(self)
             else: DOUBLENEGINF.load(self)
         elif value == 0.0:
-            gen.emit(DCONST_0)
+            self.emit(DCONST_0)
         elif value == 1.0:
-            gen.emit(DCONST_1)
+            self.emit(DCONST_1)
         else:
-            gen.emit(LDC2, self.value)        
+            self.emit(LDC2, value)        
 
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py

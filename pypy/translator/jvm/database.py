@@ -243,11 +243,11 @@ class Database(OODatabase):
     
     _toString_methods = {
         ootype.Signed:jvmgen.INTTOSTRINGI,
-        ootype.Unsigned:jvmgen.PYPYDUMPUINT,
+        ootype.Unsigned:jvmgen.PYPYSERIALIZEUINT,
         ootype.SignedLongLong:jvmgen.LONGTOSTRINGL,
         ootype.Float:jvmgen.DOUBLETOSTRINGD,
-        ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
-        ootype.Void:jvmgen.PYPYDUMPVOID,
+        ootype.Bool:jvmgen.PYPYSERIALIZEBOOLEAN,
+        ootype.Void:jvmgen.PYPYSERIALIZEVOID,
         ootype.Char:jvmgen.PYPYESCAPEDCHAR,
         ootype.String:jvmgen.PYPYESCAPEDSTRING,
         }
@@ -266,7 +266,7 @@ class Database(OODatabase):
 
         to print the value of 'var'.
         """
-        return self._toString_methods.get(OOTYPE, jvmgen.OBJTOSTRING)
+        return self._toString_methods.get(OOTYPE, jvmgen.PYPYSERIALIZEOBJECT)
 
     # _________________________________________________________________
     # Type translation functions

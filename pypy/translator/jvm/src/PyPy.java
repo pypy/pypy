@@ -192,11 +192,11 @@ public class PyPy {
         System.out.println(text);
     }
 
-    public static String dump_void() {
+    public static String serialize_void() {
         return "None";
     }
 
-    public static String dump_uint(int i) {
+    public static String serialize_uint(int i) {
         if (i >= 0)
             return Integer.toString(i);
         else {
@@ -207,7 +207,7 @@ public class PyPy {
         }
     }
 
-    public static String dump_boolean(boolean l) {
+    public static String serialize_boolean(boolean l) {
         if (l)
             return "True";
         else
@@ -230,6 +230,8 @@ public class PyPy {
     }
 
     public static String escaped_string(String b) {
+        if (b == null)
+            return "None";
         StringBuffer sb = new StringBuffer();
         sb.append('"');
         for (int i = 0; i < b.length(); i++) {
@@ -250,6 +252,12 @@ public class PyPy {
         sb.append(escaped_string(clnm));
         sb.append(")");
         dump(sb.toString());
+    }
+
+    public static String serializeObject(Object o) {
+        if (o == null)
+            return "None";
+        return o.toString();
     }
 
     // ----------------------------------------------------------------------

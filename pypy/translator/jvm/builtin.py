@@ -33,6 +33,12 @@ class JvmBuiltInType(jvmtype.JvmClassType):
             if hasattr(self.OOTYPE, param):
                 self.generics[getattr(self.OOTYPE, param)] = ootype.ROOT
 
+    def __eq__(self, other):
+        return isinstance(other, JvmBuiltInType) and other.name == self.name
+
+    def __hash__(self):
+        return hash(self.name)
+
     def lookup_field(self, fieldnm):
         """ Given a field name, returns a jvmgen.Field object """
         _, FIELDTY = self.OOTYPE._lookup_field(fieldnm)
@@ -85,6 +91,9 @@ built_in_methods = {
 
     (ootype.String.__class__, "ll_streq"):
     jvmgen.Method.v(jString, "equals", (jObject,), jBool),
+
+    (ootype.String.__class__, "ll_strlen"):
+    jvmgen.Method.v(jString, "length", (), jInt),
 
     (ootype.List, "ll_length"):
     jvmgen.Method.v(jArrayList, "size", (), jInt),
