@@ -2450,6 +2450,36 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [])
         assert s.const == 0
 
+    def test_some_generic_function_call(self):
+        py.test.skip("Not implemented")
+        def g(a, b, c):
+            pass
+        g.known_signature = FunctionSignature(args=(3, 3, 3), retval=3)
+
+        def fun():
+            return g(1, 2, 3)
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        s = a.build_types(fun, [])
+        assert isinstance(s.returntype, annmodel.SomeInteger)
+        assert not hasattr(s.returntype, 'const')
+        # assert that a know the g
+
+    def test_some_genereic_function_callback(self):
+        py.test.skip("Not implemented")
+        def g(a):
+            pass
+        g.known_signature = FunctionSignature(args=
+            [FunctionSignature(args=[1])], retval=3)
+
+        def fun2(x):
+            return x
+
+        def fun():
+            return g(fun2)
+        
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        s = a.build_types(func, [])
+        # assert that annotator knows about fun2 and is flown well
 
 def g(n):
     return [0,1,2,n]
