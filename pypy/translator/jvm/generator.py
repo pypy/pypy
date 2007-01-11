@@ -676,7 +676,7 @@ class JVMGenerator(Generator):
             # Perform any un-boxing required:
             self.downcast_jtype(jresty.box_type)
             self.unbox_value(jresty)
-        elif jresty != jactres:
+        else:
             # Perform any casting required:
             self.downcast(ITEMTYPE)
 
