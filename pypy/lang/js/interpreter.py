@@ -300,8 +300,8 @@ class Increment(Expression):
         thing = self.op.eval(ctx)
         val = thing.GetValue()
         x = val.ToNumber()
-        resl = Plus(W_Number(x), W_Number(1)).eval(ctx).GetValue()
-        thing.PutValue(resl)
+        resl = Plus(None, None).decision(ctx, W_Number(x), W_Number(1))
+        thing.PutValue(resl, ctx)
         return resl
 
 class Index(Expression):

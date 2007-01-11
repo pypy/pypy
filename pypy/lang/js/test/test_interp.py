@@ -337,8 +337,11 @@ class TestInterp(object):
         py.test.skip(" TODO: needed for mozilla test suite")
 
     def test_increment(self):
-        x = "x++"
-        py.test.skip(" TODO: needed for mozilla test suite")
+        self.assert_prints("""
+        var x;
+        x = 1
+        x++
+        print(x)""", ["2"])
         
     def test_ternaryop(self):
         py.test.skip(" TODO: needed for mozilla test suite")
