@@ -151,7 +151,7 @@ class TestInterp(object):
         """, ["test"])
 
     def test_array_initializer(self):
-        py.test.skip("not ready yet")
+        py.test.skip(" TODO: needed for mozilla test suite")
         self.assert_prints("""
         x = [];
         print(x);
@@ -319,5 +319,45 @@ class TestInterp(object):
         load("simple.js")
         """, ["3","2"])
 
+    def test_arrayobject(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
+        x= """var testcases = new Array();
+        var tc = testcases.length;"""
+         
+    def test_break(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
 
+    def test_typeof(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
+    
+    def test_switch(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
 
+    def test_newwithargs(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
+
+    def test_increment(self):
+        x = "x++"
+        py.test.skip(" TODO: needed for mozilla test suite")
+        
+    def test_ternaryop(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
+        x = " ( t < 0 ) ? -1 : 1;"
+
+    def test_smallthings(self):
+        py.test.skip(" TODO: needed for mozilla test suite")
+        x = """
+        var x;
+        if ( gc == undefined ) {
+        print('undef');
+        }
+        """
+        x = "if ( ! x ) { "
+        x = "var x = false;"
+        
+        x = "Math.abs(actual-expect) < 0.0000001 ) {"
+        x = """if ( isNaN( t ) ){
+            return ( Number.NaN );"""
+        x = "Number.POSITIVE_INFINITY Number.NEGATIVE_INFINITY" 
+        x = "Math.floor( Math.abs( t ) ) );"
+        x = "this.orig.werror = this.werror = false;"
