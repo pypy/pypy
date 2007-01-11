@@ -5,7 +5,8 @@ from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
-                   if p.check(dir=True, dotfile=False)]
+               if p.check(dir=True, dotfile=False)
+               and p.join('__init__.py').check()]
 
 essential_modules = dict.fromkeys(
     ["exceptions", "_file", "sys", "__builtin__", "posix"]
