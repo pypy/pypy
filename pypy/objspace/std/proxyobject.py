@@ -68,7 +68,14 @@ def transparent_class(name, BaseCls):
         def setdict(self, space, w_dict):
             if not self.setdictvalue(space, space.wrap('__dict__'), w_dict):
                 baseobjspace.W_Root.setdict(self, space, w_dict)
-    
+        
+##        def __getattr__(self, attr):
+##            # NOT_RPYTHON
+##            try:
+##                return self.getdictvalue(self.space, self.space.wrap(attr))
+##            except OperationError, e:
+##                raise AttributeError(attr)
+        
     W_Transparent.__name__ = name
     return W_Transparent
 
@@ -78,13 +85,17 @@ W_TransparentObject = transparent_class('W_TransparentObject', W_Object)
 from pypy.objspace.std.objecttype import object_typedef
 W_TransparentObject.typedef = object_typedef
 
-from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, PyFrame
+from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
+    PyFrame, PyCode
 
 class W_TransparentFunction(W_Transparent):
     typedef = Function.typedef
 
 class W_TransparentTraceback(W_Transparent):
     typedef = PyTraceback.typedef
+
+class W_TransparentCode(W_Transparent):
+    typedef = PyCode.typedef
 
 class W_TransparentFrame(W_Transparent):
     typedef = PyFrame.typedef
