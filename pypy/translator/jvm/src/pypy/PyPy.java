@@ -425,7 +425,9 @@ public class PyPy {
 
     public static ArrayList array_to_list(Object[] array)
     {
-        return new ArrayList(java.util.Arrays.asList(array));
+        ArrayList list = new ArrayList(java.util.Arrays.asList(array));
+        list.add(0, "dummy_executable_name");
+        return list;
     }
 
     // ----------------------------------------------------------------------
@@ -476,6 +478,24 @@ public class PyPy {
     }
 
     // ----------------------------------------------------------------------
+    // Primitive built-in functions
+
+    public static double ll_time_clock() {
+        return System.currentTimeMillis()/1000;
+    }
+
+    public static int ll_os_write(int fd, String text) {
+        // TODO: file descriptors, etc
+        if (fd == 1)
+            System.out.print(text);
+        else if (fd == 2)
+            System.err.print(text);
+        else
+            throw new RuntimeException("Invalid FD");
+        return text.length();
+    }
+
+    // ----------------------------------------------------------------------
     // Exceptions
     //
     // If we don't use true Java exceptions, then this 
@@ -523,6 +543,7 @@ public class PyPy {
     }
 
     public static void _ll_resize_le(ArrayList self, int length) {
+        System.err.println("ll_resize_le: self.size()="+self.size()+" length="+length);
         while (self.size() > length) {
             self.remove(self.size()-1);
         }
@@ -532,8 +553,8 @@ public class PyPy {
         if (length > self.size())
             _ll_resize_ge(self, length);
         else if (length < self.size())
-            _ll_resize_le(self, length);
-    }
+            _ll_resize_le(self, length); 
+   }
 
     // ----------------------------------------------------------------------
     // Self Test

@@ -33,7 +33,7 @@ opcodes = {
     'oodowncast':               [DownCast, StoreResult],
     'oois':                     'ref_is_eq',
     'oononnull':                'is_not_null',
-    'instanceof':               CastTo,
+    'instanceof':               [CastTo, StoreResult],
     'subclassof':               [PushAllArgs, jvmgen.SWAP, jvmgen.CLASSISASSIGNABLEFROM, StoreResult],
     'ooidentityhash':           [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 

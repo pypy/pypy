@@ -911,7 +911,9 @@ class JVMGenerator(Generator):
             self.prepare_generic_result(RETTYPE)
 
     def call_primitive(self, graph):
-        raise NotImplementedError
+        argtypes, rettype = self.db.types_for_graph(graph)
+        mthd = Method.s(jPyPy, graph.func.func_name, argtypes, rettype)
+        self.emit(mthd)
 
     def call_oostring(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
@@ -1006,7 +1008,8 @@ class JVMGenerator(Generator):
         elif value == 1.0:
             self.emit(DCONST_1)
         else:
-            self.emit(LDC2, value)        
+            # Big hack to avoid exponential notation:
+            self.emit(LDC2, "%22.22f" % value)        
 
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py
@@ -1092,7 +1095,7 @@ class JVMGenerator(Generator):
 
     def _dbl_compare_op(self, cmpopcode):
         # XXX --- NaN behavior?
-        self._invoke(DCMPG)
+        self.emit(DCMPG)
         self._compare_op(cmpopcode)
 
     dbl_equals = lambda self: self._dbl_compare_op(IFEQ)
@@ -1103,7 +1106,7 @@ class JVMGenerator(Generator):
     dbl_greater_equals = lambda self: self._dbl_compare_op(IFGE)
 
     def _long_compare_op(self, cmpopcode):
-        self._invoke(LCMP)
+        self.emit(LCMP)
         self._compare_op(cmpopcode)
 
     long_equals = lambda self: self._long_compare_op(IFEQ)
@@ -1193,6 +1196,9 @@ class JasminGenerator(JVMGenerator):
         """ Marks the point that a label indicates. """
         assert isinstance(lbl, Label)
         self.curclass.out('  %s:\n' % lbl.jasmin_syntax())
+
+        # We count labels as instructions because ASM does:
+        self.curfunc.instr_counter += 1 
 
     def _instr(self, opcode, *args):
         jvmstr, args = opcode.specialize(args)

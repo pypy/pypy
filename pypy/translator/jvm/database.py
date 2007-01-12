@@ -76,7 +76,14 @@ class Database(OODatabase):
     #
     # Creates nodes that represents classes, functions, simple constants.
 
-    def _types_for_graph(self, graph):
+    def types_for_graph(self, graph):
+        """
+        Given a graph, returns a tuple like so:
+          ( (java argument types...), java return type )
+        For example, if the graph took two strings and returned a bool,
+        then the return would be:
+          ( (jString, jString), jBool )
+        """
         argtypes = [arg.concretetype for arg in graph.getargs()
                     if arg.concretetype is not ootype.Void]
         jargtypes = tuple([self.lltype_to_cts(argty) for argty in argtypes])
@@ -90,7 +97,7 @@ class Database(OODatabase):
         Creates a node.Function object for a particular graph.  Adds
         the method to 'classobj', which should be a node.Class object.
         """
-        jargtypes, jrettype = self._types_for_graph(graph)
+        jargtypes, jrettype = self.types_for_graph(graph)
         funcobj = node.Function(
             self, classobj, funcnm, jargtypes, jrettype, graph, is_static)
         return funcobj
@@ -231,7 +238,7 @@ class Database(OODatabase):
     
     def record_delegate_impl(self, graph):
         """ TYPE is a StaticMethod """
-        jargtypes, jrettype = self._types_for_graph(graph)
+        jargtypes, jrettype = self.types_for_graph(graph)
         key = (jargtypes, jrettype)
         assert key in self._delegates
         pfunc = self.pending_function(graph)

@@ -41,8 +41,6 @@ class JvmBuiltInType(jvmtype.JvmClassType):
         # Look for a shortcut method in our table of remappings:
         try:
             key = (self.OOTYPE.__class__, methodnm)
-            print "key=%r" % (key,)
-            print "hash=%r" % (built_in_methods,)
             return built_in_methods[key]
         except KeyError: pass
 
