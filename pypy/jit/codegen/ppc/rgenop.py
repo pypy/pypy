@@ -21,6 +21,8 @@ class RPPCAssembler(make_rassembler(MyPPCAssembler)):
     def emit(self, value):
         self.mc.write(value)
 
+_PPC = RPPCAssembler
+
 NSAVEDREGISTERS = 19
 
 DEBUG_TRAP = option.trap
@@ -51,7 +53,7 @@ class IntConst(GenConst):
 
     def load(self, insns, var):
         insns.append(
-            insn.Insn_GPR__IMM(RPPCAssembler.load_word,
+            insn.Insn_GPR__IMM(_PPC.load_word,
                                var, [self]))
 
     def load_now(self, asm, loc):
@@ -232,14 +234,14 @@ class Builder(GenBuilder):
     def genop_getfield(self, fieldtoken, gv_ptr):
         gv_result = Var()
         self.insns.append(
-            insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
+            insn.Insn_GPR__GPR_IMM(_PPC.lwz,
                                    gv_result, [gv_ptr, IntConst(fieldtoken)]))
         return gv_result
 
     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
         gv_result = Var()
         self.insns.append(
-            insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+            insn.Insn_None__GPR_GPR_IMM(_PPC.stw,
                                         [gv_value, gv_ptr, IntConst(fieldtoken)]))
         return gv_result
 
@@ -603,14 +605,12 @@ class Builder(GenBuilder):
         self.asm.addi(rSCRATCH, rFP, -newsize)
         self.asm.mc = mc
 
-    def op_int_mul(self, gv_x, gv_y):
+    def _arg_op(self, gv_arg, opcode):
         gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR_GPR(RPPCAssembler.mullw,
-                                   gv_result, [gv_x, gv_y]))
+        self.insns.append(insn.Insn_GPR__GPR(opcode, gv_result, gv_arg))
         return gv_result
 
-    def generic_int_op(self, gv_x, gv_y, commutative, opcode, opcodei):
+    def _arg_arg_op_with_imm(self, gv_x, gv_y, commutative, opcode, opcodei):
         gv_result = Var()
         if gv_y.fits_in_immediate():
             self.insns.append(
@@ -625,31 +625,23 @@ class Builder(GenBuilder):
                 insn.Insn_GPR__GPR_GPR(opcode,
                                        gv_result, [gv_x, gv_y]))
         return gv_result
-        
-    def op_int_add(self, gv_x, gv_y):
-        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.add, RPPCAssembler.addi)
 
-    op_uint_add = op_int_add
-
-    def op_int_sub(self, gv_x, gv_y):
-        return self.generic_int_op(gv_x, gv_y, False, RPPCAssembler.sub, RPPCAssembler.subi)
-
-    def op_int_xor(self, gv_x, gv_y):
-        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.xor, RPPCAssembler.xori)
-
-    op_uint_xor = op_int_xor
-
-    def op_int_and(self, gv_x, gv_y):
-        return self.generic_int_op(gv_x, gv_y, True, RPPCAssembler.and_, RPPCAssembler.andix)
-    
-    op_uint_and = op_int_and
-
-    def op_int_floordiv(self, gv_x, gv_y):
+    def _arg_arg_op(self, gv_x, gv_y, opcode):
         gv_result = Var()
         self.insns.append(
-            insn.Insn_GPR__GPR_GPR(RPPCAssembler.divw,
+            insn.Insn_GPR__GPR_GPR(opcode,
                                    gv_result, [gv_x, gv_y]))
         return gv_result
+
+    def _arg_imm_op(self, gv_x, gv_imm, opcode):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(opcode,
+                                   gv_result, [gv_x, gv_imm]))
+        return gv_result
+
+    def _identity(self, gv_arg):
+        return gv_arg
 
     cmp2info = {
         #      bit-in-crf  negated
@@ -660,6 +652,7 @@ class Builder(GenBuilder):
         'eq': (    2,         0   ),
         'ne': (    2,         1   ),
         }
+
     cmp2info_flipped = {
         #      bit-in-crf  negated
         'gt': (    1,         1   ),
@@ -671,6 +664,7 @@ class Builder(GenBuilder):
         }
 
     def _compare(self, op, gv_x, gv_y):
+        #print "op", op
         gv_result = Var()
         if gv_y.fits_in_immediate():
             self.insns.append(
@@ -683,14 +677,66 @@ class Builder(GenBuilder):
                 insn.CMPW(self.cmp2info[op], gv_result, [gv_x, gv_y]))
         return gv_result
 
-    def op_int_gt(self, gv_x, gv_y):
-        return self._compare('gt', gv_x, gv_y)
+    def _compare_u(self, op, gv_x, gv_y):
+        gv_result = Var()
+        if gv_y.fits_in_immediate():
+            self.insns.append(
+                insn.CMPWLI(self.cmp2info[op], gv_result, [gv_x, gv_y]))
+        elif gv_x.fits_in_immediate():
+            self.insns.append(
+                insn.CMPWLI(self.cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
+        else:
+            self.insns.append(
+                insn.CMPWL(self.cmp2info[op], gv_result, [gv_x, gv_y]))
+        return gv_result
+
+    def _jump(self, gv_condition, if_true, args_gv):
+        targetbuilder = self.rgenop.newbuilder()
+
+        self.insns.append(
+            insn.Jump(gv_condition, targetbuilder, if_true, args_gv))
+
+        return targetbuilder
+
+    def op_bool_not(self, gv_arg):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(RPPCAssembler.subfi,
+                                   gv_result, [gv_arg, rgenop.genconst(1)]))
+        return gv_result
+
+    def op_int_is_true(self, gv_arg):
+        return self._compare('ne', gv_arg, self.rgenop.genconst(0))
+
+    def op_int_neg(self, gv_arg):
+        return self._arg_op(gv_arg, _PPC.neg)
+
+    ## op_int_neg_ovf(self, gv_arg) XXX
+
+    ## op_int_abs(self, gv_arg):
+    ## op_int_abs_ovf(self, gv_arg):
+
+    def op_int_invert(self, gv_arg):
+        return self._arg_op(gv_arg, _PPC.not_)
+
+    def op_int_add(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.add, _PPC.addi)
+
+    def op_int_sub(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.sub, _PPC.subi)
+
+    def op_int_mul(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.mullw, _PPC.mulli)
+
+    def op_int_floordiv(self, gv_x, gv_y):
+        return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
+
+    ## def op_int_floordiv_zer(self, gv_x, gv_y):
+    ## def op_int_mod(self, gv_x, gv_y):
+    ## def op_int_mod_zer(self, gv_x, gv_y):
 
     def op_int_lt(self, gv_x, gv_y):
         return self._compare('lt', gv_x, gv_y)
-
-    def op_int_ge(self, gv_x, gv_y):
-        return self._compare('ge', gv_x, gv_y)
 
     def op_int_le(self, gv_x, gv_y):
         return self._compare('le', gv_x, gv_y)
@@ -701,42 +747,116 @@ class Builder(GenBuilder):
     def op_int_ne(self, gv_x, gv_y):
         return self._compare('ne', gv_x, gv_y)
 
-    def _jump(self, gv_condition, if_true, args_gv):
-        targetbuilder = self.rgenop.newbuilder()
+    def op_int_gt(self, gv_x, gv_y):
+        return self._compare('gt', gv_x, gv_y)
 
-        self.insns.append(
-            insn.Jump(gv_condition, targetbuilder, if_true, args_gv))
+    def op_int_ge(self, gv_x, gv_y):
+        return self._compare('ge', gv_x, gv_y)
 
-        return targetbuilder
+    def op_int_and(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.and_, _PPC.andi)
 
-    def op_int_is_true(self, gv_arg):
-        gv_result = Var()
-        self.insns.append(
-            insn.CMPWI(self.cmp2info['ne'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
-        return gv_result
+    def op_int_or(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.or_, _PPC.ori)
 
-    def op_bool_not(self, gv_arg):
-        gv_result = Var()
-        self.insns.append(
-            insn.CMPWI(self.cmp2info['eq'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
-        return gv_result
+    def op_int_lshift(self, gv_x, gv_y):
+        # could be messy if shift is not in 0 <= ... < 32
+        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.slw, _PPC.slwi)
+    ## def op_int_lshift_val(self, gv_x, gv_y):
+    def op_int_rshift(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.sraw, _PPC.srawi)
+    ## def op_int_rshift_val(self, gv_x, gv_y):
 
-    def op_int_neg(self, gv_arg):
-        gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR(RPPCAssembler.neg, gv_result, gv_arg))
-        return gv_result
+    def op_int_xor(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.xor, _PPC.xori)
 
-    def identity(self, gv_x):
-        return gv_x
+    ## various int_*_ovfs
+
+    op_uint_is_true = op_int_is_true
+    op_uint_invert = op_int_invert
+
+    op_uint_add = op_int_add
+    op_uint_sub = op_int_sub
+    op_uint_mul = op_int_mul
+
+    def op_uint_floordiv(self, gv_x, gv_y):
+        return self._two_arg_op(gv_x, gv_y, _PPC.divwu)
+
+    ## def op_uint_floordiv_zer(self, gv_x, gv_y):
+    ## def op_uint_mod(self, gv_x, gv_y):
+    ## def op_uint_mod_zer(self, gv_x, gv_y):
+
+    def op_uint_lt(self, gv_x, gv_y):
+        return self._compare_u('lt', gv_x, gv_y)
+
+    def op_uint_le(self, gv_x, gv_y):
+        return self._compare_u('le', gv_x, gv_y)
+
+    def op_uint_eq(self, gv_x, gv_y):
+        return self._compare_u('eq', gv_x, gv_y)
+
+    def op_uint_ne(self, gv_x, gv_y):
+        return self._compare_u('ne', gv_x, gv_y)
+
+    def op_uint_gt(self, gv_x, gv_y):
+        return self._compare_u('gt', gv_x, gv_y)
+
+    def op_uint_ge(self, gv_x, gv_y):
+        return self._compare_u('ge', gv_x, gv_y)
+
+    op_uint_and = op_int_add
+    op_uint_or = op_int_or
+
+    op_uint_lshift = op_int_lshift
+    def op_uint_rshift(self, gv_x, gv_y):
+        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.srw, _PPC.srwi)
+
+    ## def op_uint_lshift_val(self, gv_x, gv_y):
+    ## def op_uint_rshift(self, gv_x, gv_y):
+    ## def op_uint_rshift_val(self, gv_x, gv_y):
+
+    op_uint_xor = op_int_xor
+
+    # ... floats ...
+
+    # ... llongs, ullongs ...
+
+    # here we assume that booleans are always 1 or 0 and chars are
+    # always zero-padded.
+
+    op_cast_bool_to_int = _identity
+    op_cast_bool_to_uint = _identity
+    ## def op_cast_bool_to_float(self, gv_arg):
+    op_cast_char_to_int = _identity
+    op_cast_unichar_to_int = _identity
+    ## def op_cast_int_to_char(self, gv_arg):
+    ## def op_cast_int_to_unichar(self, gv_arg):
+    op_cast_int_to_uint = _identity
+    ## def op_cast_int_to_float(self, gv_arg):
+    ## def op_cast_int_to_longlong(self, gv_arg):
+    op_cast_uint_to_int = _identity
+    ## def op_cast_uint_to_float(self, gv_arg):
+    ## def op_cast_float_to_int(self, gv_arg):
+    ## def op_cast_float_to_uint(self, gv_arg):
+    ## def op_truncate_longlong_to_int(self, gv_arg):
+
+    # many pointer operations are genop_* special cases above
+
+    op_ptr_eq = op_int_eq
+    op_ptr_ne = op_int_ne
 
     op_ptr_nonzero = op_int_is_true
-    op_ptr_iszero  = op_bool_not        # for now
     op_ptr_ne      = op_int_ne
     op_ptr_eq      = op_int_eq
 
-    op_cast_uint_to_int = identity
-    op_cast_int_to_uint = identity
+    def op_ptr_iszero(self, gv_arg):
+        return self._compare('eq', gv_arg, self.rgenop.genconst(0))
+
+    op_cast_ptr_to_int     = _identity
+    op_cast_int_to_ptr     = _identity
+
+    # ... address operations ...
+
 
 class RPPCGenOp(AbstractRGenOp):
 

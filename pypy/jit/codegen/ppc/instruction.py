@@ -236,6 +236,10 @@ class CMPW(CMPInsn):
     def emit(self, asm):
         asm.cmpw(self.result_reg.number, self.arg_reg1.number, self.arg_reg2.number)
 
+class CMPWL(CMPW):
+    def emit(self, asm):
+        asm.cmpwl(self.result_reg.number, self.arg_reg1.number, self.arg_reg2.number)
+
 class CMPWI(CMPInsn):
     def __init__(self, info, result, args):
         Insn.__init__(self)
@@ -254,6 +258,11 @@ class CMPWI(CMPInsn):
 
     def emit(self, asm):
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
+
+class CMPWLI(CMPW):
+    def emit(self, asm):
+        asm.cmpwli(self.result_reg.number, self.arg_reg.number, self.imm.value)
+
 
 ## class MTCTR(Insn):
 ##     def __init__(self, result, args):
