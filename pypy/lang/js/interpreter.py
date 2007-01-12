@@ -128,8 +128,24 @@ class Block(Statement):
                 last = node.execute(ctx)
             return last
         except ExecutionReturned, e:
-            return e.value
+            if e.type == 'return':
+                return e.value
+            else:
+                raise e
 
+class Unconditional(Statement):
+    def __init__(self, targtype, targlineno, targstart):
+        self.targtype = targtype
+        self.targlineno = targlineno
+        self.targstart = targstart
+        
+class Break(Unconditional):
+    def execute(self, ctx):
+        raise ExecutionReturned('break', None, None)
+
+class Continue(Unconditional):
+    def execute(self, ctx):
+        raise ExecutionReturned('continue', None, None)
 
 class Call(Expression):
     def __init__(self, identifier, arglist):
@@ -419,7 +435,10 @@ class Script(Statement):
                 last = node.execute(ctx)
             return last
         except ExecutionReturned, e:
-            return e.value
+            if e.type == 'return':
+                return e.value
+            else:
+                raise e
 
 class Semicolon(Statement):
     def __init__(self, expr = None):
@@ -427,7 +446,7 @@ class Semicolon(Statement):
 
     def execute(self, ctx):
         if self.expr is None:
-            return
+            return w_Undefined
         return self.expr.execute(ctx)
 
 class String(Expression):
@@ -445,7 +464,7 @@ class Return(Statement):
         self.expr = expr
 
     def execute(self, ctx):
-        raise ExecutionReturned(self.expr.eval(ctx))
+        raise ExecutionReturned('return', self.expr.eval(ctx), None)
 
 class Throw(Statement):
     def __init__(self, exception):
@@ -506,7 +525,13 @@ class While(Statement):
 
     def execute(self, ctx):
         while self.condition.eval(ctx).ToBoolean():
-            self.body.execute(ctx)
+            try:
+                self.body.execute(ctx)
+            except ExecutionReturned, e:
+                if e.type == 'break':
+                    break
+                elif e.type == 'continue':
+                    continue
 
 class For(Statement):
     def __init__(self, setup, condition, update, body):
@@ -518,8 +543,14 @@ class For(Statement):
     def execute(self, ctx):
         self.setup.eval(ctx)
         while self.condition.eval(ctx).ToBoolean():
-            self.body.execute(ctx)
-            self.update.eval(ctx)
+            try:
+                self.body.execute(ctx)
+                self.update.eval(ctx)
+            except ExecutionReturned, e:
+                if e.type == 'break':
+                    break
+                elif e.type == 'continue':
+                    continue
 
 class Boolean(Expression):
     def __init__(self, bool):
@@ -560,6 +591,9 @@ def from_tree(t):
         node = Assign(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'BLOCK':
         node = Block(getlist(t))
+    elif tp == 'BREAK':
+        targtype, targlineno, targstart = gettreeitem(t, 'target').additional_info.split(',')
+        node = Break(targtype, targlineno, targstart)
     elif tp == 'CALL':
         node = Call(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'COMMA':
@@ -568,6 +602,9 @@ def from_tree(t):
         node = Conditional(from_tree(gettreeitem(t, '0')),
                         from_tree(gettreeitem(t, '1')),
                         from_tree(gettreeitem(t, '2')))
+    elif tp == 'CONTINUE':
+        targtype, targlineno, targstart = gettreeitem(t, 'target').additional_info.split(',')
+        node = Continue(targtype, targlineno, targstart)
     elif tp == 'DOT':
         node = Dot(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'EQ':
@@ -714,9 +751,8 @@ def from_tree(t):
         value = gettreeitem(t, 'type')
     else:
         value = gettreeitem(t, 'value').additional_info
-
-        
-    print tp
+    
+    
     node.init_common(gettreeitem(t, 'type').additional_info, value,
     int(gettreeitem(t, 'lineno').additional_info), start, end)
     return node

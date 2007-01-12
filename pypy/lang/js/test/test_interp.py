@@ -325,9 +325,11 @@ class TestInterp(object):
         var tc = testcases.length;"""
          
     def test_break(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
         self.assert_prints("""
         while(1){
+            break;
+        }
+        for(x=0;1==1;x++) {
             break;
         }
         print('out')""", ["out"])

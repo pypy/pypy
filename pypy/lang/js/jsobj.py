@@ -5,8 +5,10 @@ class SeePage(NotImplementedError):
     pass
 
 class ExecutionReturned(Exception):
-    def __init__(self, value):
+    def __init__(self, type='normal', value=None, identifier=None):
+        self.type = type
         self.value = value
+        self.identifier = identifier
 
 class ThrowException(Exception):
     def __init__(self, exception):
@@ -30,7 +32,8 @@ class Property(object):
         self.Internal = Internal
     
     def __repr__(self):
-        return "|%s %d%d%d|"%(self.value, self.DontDelete, self.ReadOnly, self.DontEnum)
+        return "|%s %d%d%d|"%(self.value, self.DontDelete,
+                              self.ReadOnly, self.DontEnum)
 
 def internal_property(name, value):
     """return a internal property with the right attributes"""
@@ -58,7 +61,8 @@ class W_Root(object):
     def Get(self, P):
         raise NotImplementedError
     
-    def Put(self, P, V, DontDelete=False, ReadOnly=False, DontEnum=False, Internal=False):
+    def Put(self, P, V, DontDelete=False,
+            ReadOnly=False, DontEnum=False, Internal=False):
         raise NotImplementedError
     
     def PutValue(self, w, ctx):
