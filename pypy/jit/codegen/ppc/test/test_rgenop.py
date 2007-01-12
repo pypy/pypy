@@ -102,9 +102,6 @@ class TestRPPCGenop(AbstractRGenOpTests):
         res = fnptr(2)
         assert res == 101010
 
-    def test_longwinded_and_direct(self):
-        py.test.skip("failing right now")
-
 class TestRPPCGenopNoRegs(TestRPPCGenop):
     RGenOp = FewRegisters
 

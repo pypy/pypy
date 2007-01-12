@@ -9,7 +9,8 @@ from pypy.jit.codegen.ppc.conftest import option
 DEBUG_PRINT = option.debug_print
 
 class RegisterAllocation:
-    def __init__(self, freeregs, initial_mapping, initial_spill_offset):
+    def __init__(self, freeregs, initial_mapping,
+                 initial_spill_offset, initial_crfinfo):
         if DEBUG_PRINT:
             print
             print "RegisterAllocation __init__", initial_mapping.items()
@@ -39,7 +40,7 @@ class RegisterAllocation:
 
         # crfinfo is a bit of a hack used to transmit which bit a compare
         # instruction set to the branch instruction
-        self.crfinfo = [(0, 0)] * 8
+        self.crfinfo = initial_crfinfo[:]
         self.builders_to_tell_spill_offset_to = []
 
     def set(self, var, loc):

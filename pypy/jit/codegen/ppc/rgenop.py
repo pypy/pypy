@@ -104,15 +104,21 @@ class AddrConst(GenConst):
 
 class JumpPatchupGenerator(object):
 
-    def __init__(self, insns, min_offset):
+    def __init__(self, insns, min_offset, allocator):
         self.insns = insns
         self.min_offset = min_offset
+        self.allocator = allocator
 
     def emit_move(self, tarloc, srcloc):
         if tarloc == srcloc: return
         emit = self.insns.append
         if tarloc.is_register and srcloc.is_register:
-            emit(insn.Move(tarloc, srcloc))
+            assert isinstance(tarloc, insn.GPR)
+            if isinstance(srcloc, insn.GPR):
+                emit(insn.Move(tarloc, srcloc))
+            else:
+                assert isinstance(srcloc, insn.CRF)
+                emit(srcloc.move_to_gpr(self.allocator, tarloc.number))
         elif tarloc.is_register and not srcloc.is_register:
             emit(insn.Unspill(None, tarloc, srcloc))
             #self.asm.lwz(tarloc.number, rFP, srcloc.offset)
@@ -130,7 +136,7 @@ class JumpPatchupGenerator(object):
         self.min_offset -= 4
         return insn.stack_slot(r)
 
-def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target):
+def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target, allocator):
 
     tar2src = {}     # tar var -> src var
     tar2loc = {}
@@ -147,7 +153,7 @@ def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target):
         else:
             insns.append(insn.Load(tloc, src))
 
-    gen = JumpPatchupGenerator(insns, min_offset)
+    gen = JumpPatchupGenerator(insns, min_offset, allocator)
     emit_moves(gen, tar2src, tar2loc, src2loc)
     return gen.min_offset
 
@@ -198,6 +204,7 @@ class Builder(GenBuilder):
         self.stack_adj_addr = 0
         self.initial_spill_offset = 0
         self.initial_var2loc = None
+        self.initial_crfinfo = [(-1, -1)] * 8
         self.max_param_space = -1
         self.final_jump_addr = 0
 
@@ -340,7 +347,29 @@ class Builder(GenBuilder):
         vars_gv = [v for v in args_gv if isinstance(v, Var)]
         #print 'initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
         #print 'initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
-        var2loc = self.allocate_and_emit(vars_gv).var2loc
+        allocator = self.allocate_and_emit(vars_gv)
+        self.initial_crfinfo = allocator.crfinfo
+        var2loc = allocator.var2loc
+
+        #print '!!!!', args_gv, var2loc
+
+        self.insns = []
+
+        reallocate = False
+        for i in range(len(args_gv)):
+            v = args_gv[i]
+            if isinstance(v, Var) and isinstance(var2loc[v], insn.CRF):
+                reallocate = True
+                nv = Var()
+                self.insns.append(insn.MoveCRB2GPR(nv, v))
+                args_gv[i] = nv
+        self.initial_var2loc = var2loc
+        if reallocate:
+            allocator = self.allocate_and_emit([v for v in args_gv if isinstance(v, Var)])
+            self.initial_crfinfo = allocator.crfinfo
+            var2loc = allocator.var2loc
+            self.insns = []
+
         #print 'var2loc.keys():', [id(v) for v in var2loc.keys()]
         #print 'var2loc.values():', [id(v) for v in var2loc.values()]
         #print 'args_gv', [id(v) for v in args_gv]
@@ -385,7 +414,6 @@ class Builder(GenBuilder):
 
         #print livevar2loc
 
-        self.insns = []
         self.initial_var2loc = livevar2loc
         #print 'final initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
         #print 'final initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
@@ -427,7 +455,7 @@ class Builder(GenBuilder):
         allocator = self.allocate(outputargs_gv)
         min_offset = min(allocator.spill_offset, target.min_stack_offset)
         allocator.spill_offset = prepare_for_jump(
-            self.insns, min_offset, outputargs_gv, allocator.var2loc, target)
+            self.insns, min_offset, outputargs_gv, allocator.var2loc, target, allocator)
         self.emit(allocator)
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
@@ -575,7 +603,8 @@ class Builder(GenBuilder):
         allocator = RegisterAllocation(
             self.rgenop.freeregs,
             self.initial_var2loc,
-            self.initial_spill_offset)
+            self.initial_spill_offset,
+            self.initial_crfinfo)
         self.insns = allocator.allocate_for_insns(self.insns)
         return allocator
 

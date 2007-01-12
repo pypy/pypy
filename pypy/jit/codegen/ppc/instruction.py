@@ -57,6 +57,9 @@ class CRF(Register):
     def move_to_gpr(self, allocator, gpr):
         bit, negated = allocator.crfinfo[self.number]
         return _CRF2GPR(gpr, self.number*4 + bit, negated)
+    def move_from_gpr(self, allocator, gpr):
+        allocator.crfinfo[self.number] = (2, 1) # cmp2info['ne']
+        return _GPR2CRF(self, gpr)
 
 crfs = map(CRF, range(8))
 
@@ -168,6 +171,24 @@ class Insn_GPR__IMM(Insn):
         self.methptr(asm,
                      self.result_reg.number,
                      self.imm.value)
+
+class MoveCRB2GPR(Insn):
+    def __init__(self, result, gv_condition):
+        Insn.__init__(self)
+        self.result = result
+        self.result_regclass = GP_REGISTER
+        self.reg_args = [gv_condition]
+        self.reg_arg_regclasses = [CR_FIELD]
+    def allocate(self, allocator):
+        self.targetreg = allocator.loc_of(self.result)
+        self.crf = allocator.loc_of(self.reg_args[0])
+        self.bit, self.negated = allocator.crfinfo[self.crf.number]
+        assert self.bit != -1 and self.negated != -1, "uninitialized crfinfo!"
+    def emit(self, asm):
+        asm.mfcr(self.targetreg.number)
+        asm.extrwi(self.targetreg.number, self.targetreg.number, 1, self.crf.number*4+self.bit)
+        if self.negated:
+            asm.xori(self.targetreg.number, self.targetreg.number, 1)
 
 class Insn_None__GPR_GPR_IMM(Insn):
     def __init__(self, methptr, args):
@@ -296,11 +317,13 @@ class Jump(Insn):
     def allocate(self, allocator):
         self.crf = allocator.loc_of(self.reg_args[0])
         self.bit, self.negated = allocator.crfinfo[self.crf.number]
+        assert self.bit != -1 and self.negated != -1, "uninitialized crfinfo!"
 
         assert self.targetbuilder.initial_var2loc is None
         self.targetbuilder.initial_var2loc = {}
         for gv_arg in self.jump_args_gv:
             self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
+        self.targetbuilder.initial_crfinfo = allocator.crfinfo[:]
         allocator.builders_to_tell_spill_offset_to.append(self.targetbuilder)
     def emit(self, asm):
         if self.targetbuilder.start:
@@ -456,6 +479,14 @@ class _CRF2GPR(AllocTimeInsn):
         asm.extrwi(self.targetreg, self.targetreg, 1, self.bit)
         if self.negated:
             asm.xori(self.targetreg, self.targetreg, 1)
+
+class _GPR2CRF(AllocTimeInsn):
+    def __init__(self, targetreg, fromreg):
+        AllocTimeInsn.__init__(self)
+        self.targetreg = targetreg
+        self.fromreg = fromreg
+    def emit(self, asm):
+        asm.cmpwi(self.targetreg.number, self.fromreg, 0)
 
 class _GPR2CTR(AllocTimeInsn):
     def __init__(self, fromreg):

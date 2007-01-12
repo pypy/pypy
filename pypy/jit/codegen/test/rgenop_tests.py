@@ -405,6 +405,28 @@ def make_longwinded_and(rgenop):
 
     return gv_f
 
+def make_condition_result_cross_link(rgenop):
+
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, gv_f, [gv_y] = rgenop.newgraph(sigtoken, "foo")
+
+    gv_result = builder.genop2("int_eq", gv_y, rgenop.genconst(0))
+    target1 = builder.jump_if_false(gv_result, [gv_result])
+
+    builder.finish_and_return(sigtoken, rgenop.genconst(1))
+
+    target1.start_writing()
+    target2 = target1.jump_if_false(gv_result, [])
+
+    # this return should be unreachable:
+    target1.finish_and_return(sigtoken, rgenop.genconst(2))
+
+    target2.start_writing()
+    target2.finish_and_return(sigtoken, rgenop.genconst(3))
+
+    return gv_f
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -609,6 +631,8 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         gv_fn = make_longwinded_and(rgenop)
         fnptr = self.cast(gv_fn, 1)
 
+        print map(fnptr, range(6))
+
         res = fnptr(1)
         assert res == 0
 
@@ -623,3 +647,17 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(5)
         assert res == 0
+
+    def test_condition_result_cross_link_direct(self):
+        rgenop = self.RGenOp()
+        gv_fn = make_condition_result_cross_link(rgenop)
+        fnptr = self.cast(gv_fn, 1)
+
+        res = fnptr(-1)
+        assert res == 3
+
+        res = fnptr(0)
+        assert res == 1
+
+        res = fnptr(1)
+        assert res == 3
