@@ -22,14 +22,6 @@ class BaseTestPosix(BaseRtypingTest):
         func = self.interpret(f,[])
         assert type(func) == int
 
-    def test_dup(self):
-        def ff(fi):
-            g = posix.dup(fi)
-            return g
-        fi = os.open(path,os.O_RDONLY,0755)
-        g = self.interpret(ff,[fi])
-        assert os.fstat(g) == os.fstat(fi)
-
     def test_fstat(self):
         def fo(fi):
             g = posix.fstat(fi)

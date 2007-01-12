@@ -57,32 +57,24 @@ os_dup = libc.dup
 os_dup.argtypes = [ctypes.c_int]
 os_dup.restype = ctypes.c_int
 
-class DupFuncEntry(ExtFuncEntry):
-    _about_ = os.dup
-    name = "ll_os.ll_os_dup"
-    signature_args = [SomeInteger()]
-    signature_result = SomeInteger()
-
-    def lltypeimpl(fd):
-        newfd = os_dup(fd)
-        if newfd == -1:
-            raise OSError(geterrno(), "dup failed")
-        return newfd
+def dup_lltypeimpl(fd):
+    newfd = os_dup(fd)
+    if newfd == -1:
+        raise OSError(geterrno(), "dup failed")
+    return newfd
+register_external(os.dup, [int], int, llimpl=dup_lltypeimpl,
+                  export_name="ll_os.ll_os_dup")
 
 os_dup2 = libc.dup2
 os_dup2.argtypes = [ctypes.c_int, ctypes.c_int]
 os_dup2.restype = ctypes.c_int
 
-class Dup2FuncEntry(ExtFuncEntry):
-    _about_ = os.dup2
-    name = "ll_os.ll_os_dup2"
-    signature_args = [SomeInteger(), SomeInteger()]
-    signature_result = s_None
-
-    def lltypeimpl(fd, newfd):
-        error = os_dup2(fd, newfd)
-        if error == -1:
-            raise OSError(geterrno(), "dup2 failed")
+def dup2_lltypeimpl(fd, newfd):
+    error = os_dup2(fd, newfd)
+    if error == -1:
+        raise OSError(geterrno(), "dup2 failed")
+register_external(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
+                  export_name="ll_os.ll_os_dup2")
 
 class BaseOS:
     __metaclass__ = ClassMethods

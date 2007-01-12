@@ -131,3 +131,19 @@ if hasattr(os, 'execv'):
         else:
             os.waitpid(pid, 0)
         assert open(filename).read() == "1"
+
+def test_dup():
+    from pypy.rpython.extregistry import lookup
+    os_dup = lookup(os.dup).lltypeimpl.im_func
+    testf = udir.join('test.txt')
+    testf.write("foo")
+    path = testf.strpath
+
+    def ff(fi):
+        g = os_dup(fi)
+        return g
+    fi = os.open(path,os.O_RDONLY,0755)
+    g = ff(fi)
+    assert os.fstat(g) == os.fstat(fi)
+
+
