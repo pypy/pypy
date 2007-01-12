@@ -754,7 +754,7 @@ class Builder(GenBuilder):
         return self._compare('ge', gv_x, gv_y)
 
     def op_int_and(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.and_, _PPC.andi)
+        return self._arg_arg_op(gv_x, gv_y, _PPC.and_)
 
     def op_int_or(self, gv_x, gv_y):
         return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.or_, _PPC.ori)
