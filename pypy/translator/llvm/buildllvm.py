@@ -15,14 +15,14 @@ def llvm_is_on_path():
         return False 
     return True
 
-def llvm_version():
-    v = os.popen('llvm-as -version 2>&1').read()
+def exe_version(exe):
+    v = os.popen(exe + ' -version 2>&1').read()
     v = ''.join([c for c in v if c.isdigit()])
     v = int(v) / 10.0
     return v
 
-def llvm_gcc_version():
-    v = os.popen('llvm-gcc --version 2>&1').read()
+def exe_version2(exe):
+    v = os.popen(exe + ' --version 2>&1').read()
     i = v.index(')')
     v = v[i+2:].split()[0].split('.')
     major, minor = v[0], ''.join([c for c in v[1] if c.isdigit()])

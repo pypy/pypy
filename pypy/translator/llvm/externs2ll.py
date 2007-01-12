@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.codewriter import DEFAULT_CCONV
-from pypy.translator.llvm.buildllvm import llvm_gcc_version 
+from pypy.translator.llvm.buildllvm import exe_version2
 
 from pypy.tool.udir import udir
 
@@ -42,7 +42,7 @@ def get_ll(ccode, function_names):
 
     global _llvm_gcc_version
     if not _llvm_gcc_version:
-        _llvm_gcc_version = llvm_gcc_version()
+        _llvm_gcc_version = exe_version2('llvm-gcc')
     if _llvm_gcc_version < 4.0:
         emit_llvm = ''
     else:

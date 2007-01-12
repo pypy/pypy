@@ -240,6 +240,7 @@ def test_floats():  #note: this is known to fail with llvm1.6 and llvm1.7cvs whe
     assert f() == floats_fn()
 
 def test_fixedsizearray():
+    gcc3_test()
     S = Struct("s", ('v', Signed))
     A7 = FixedSizeArray(Signed, 7)
     A3 = FixedSizeArray(S, 3)
@@ -268,6 +269,7 @@ def test_fixedsizearray():
     assert fn() == 607
 
 def test_recursivearray():
+    gcc3_test()
     A = ForwardReference()
     A.become(FixedSizeArray(Struct("S", ('a', Ptr(A))), 5))
     TREE = GcStruct("TREE", ("root", A), ("other", A))
@@ -298,6 +300,7 @@ def test_prebuilt_array():
     fn()
 
 def test_call_with_fixedsizearray():
+    gcc3_test()
     A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
     S = GcStruct('s', ('a', Ptr(A)))
     a = malloc(A, immortal=True)
@@ -313,6 +316,7 @@ def test_call_with_fixedsizearray():
     assert res == 123
 
 def test_more_prebuilt_arrays():
+    gcc3_test()
     A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
     S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
     s = malloc(S, zero=True)
@@ -332,6 +336,7 @@ def test_more_prebuilt_arrays():
     assert res == 60
 
 def test_fnptr_with_fixedsizearray():
+    gcc3_test()
     A = ForwardReference()
     F = FuncType([Ptr(A)], Signed)
     A.become(FixedSizeArray(Struct('s1', ('f', Ptr(F)), ('n', Signed)), 5))
