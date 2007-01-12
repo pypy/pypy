@@ -168,3 +168,5 @@ def graphof(translator, func):
             result.append(graph)
     assert len(result) == 1
     return result[0]
+
+TranslationContext._graphof = graphof
