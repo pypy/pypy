@@ -358,6 +358,10 @@ class TranslationDriver(SimpleTaskEngine):
             opt['merge_if_blocks'] = True
             opt['inline_threshold'] = 1
             opt['mallocs'] = True
+            
+        if self.config.translation.backend == 'jvm':
+            opt['inline_threshold'] = 1
+            opt['mallocs'] = True
         backend_optimizations(self.translator, **opt)
     #
     task_backendopt_ootype = taskdef(task_backendopt_ootype, 
