@@ -104,28 +104,33 @@ class AddrConst(GenConst):
 
 class JumpPatchupGenerator(object):
 
-    def __init__(self, asm, min_offset):
-        self.asm = asm
+    def __init__(self, insns, min_offset):
+        self.insns = insns
         self.min_offset = min_offset
 
     def emit_move(self, tarloc, srcloc):
         if tarloc == srcloc: return
+        emit = self.insns.append
         if tarloc.is_register and srcloc.is_register:
-            self.asm.mr(tarloc.number, srcloc.number)
+            emit(insn.Move(tarloc, srcloc))
         elif tarloc.is_register and not srcloc.is_register:
-            self.asm.lwz(tarloc.number, rFP, srcloc.offset)
+            emit(insn.Unspill(None, tarloc, srcloc))
+            #self.asm.lwz(tarloc.number, rFP, srcloc.offset)
         elif not tarloc.is_register and srcloc.is_register:
-            self.asm.stw(srcloc.number, rFP, tarloc.offset)
+            emit(insn.Spill(None, srcloc, tarloc))
+            #self.asm.stw(srcloc.number, rFP, tarloc.offset)
         elif not tarloc.is_register and not srcloc.is_register:
-            self.asm.lwz(rSCRATCH, rFP, srcloc.offset)
-            self.asm.stw(rSCRATCH, rFP, tarloc.offset)
+            emit(insn.Unspill(None, insn.gprs[0], srcloc))
+            emit(insn.Spill(None, insn.gprs[0], tarloc))
+            #self.asm.lwz(rSCRATCH, rFP, srcloc.offset)
+            #self.asm.stw(rSCRATCH, rFP, tarloc.offset)
 
     def create_fresh_location(self):
         r = self.min_offset
         self.min_offset -= 4
         return insn.stack_slot(r)
 
-def prepare_for_jump(asm, min_offset, sourcevars, src2loc, target):
+def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target):
 
     tar2src = {}     # tar var -> src var
     tar2loc = {}
@@ -140,9 +145,9 @@ def prepare_for_jump(asm, min_offset, sourcevars, src2loc, target):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
         else:
-            src.load_now(asm, tloc)
+            insns.append(insn.Load(tloc, src))
 
-    gen = JumpPatchupGenerator(asm, min_offset)
+    gen = JumpPatchupGenerator(insns, min_offset)
     emit_moves(gen, tar2src, tar2loc, src2loc)
     return gen.min_offset
 
@@ -386,7 +391,6 @@ class Builder(GenBuilder):
         #print 'final initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
         self.initial_spill_offset = min_stack_offset
         target_addr = self.asm.mc.tell()
-        self.emit_stack_adjustment()
         return Label(target_addr, arg_locations, min_stack_offset)
 
     def jump_if_false(self, gv_condition, args_gv):
@@ -420,11 +424,11 @@ class Builder(GenBuilder):
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
-        allocator = self.allocate_and_emit(outputargs_gv)
+        allocator = self.allocate(outputargs_gv)
         min_offset = min(allocator.spill_offset, target.min_stack_offset)
-        min_offset = prepare_for_jump(
-            self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
-        self.patch_stack_adjustment(self._stack_size(min_offset))
+        allocator.spill_offset = prepare_for_jump(
+            self.insns, min_offset, outputargs_gv, allocator.var2loc, target)
+        self.emit(allocator)
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
@@ -453,12 +457,10 @@ class Builder(GenBuilder):
             self.asm.mc = self.rgenop.ExistingCodeBlock(self.final_jump_addr, self.final_jump_addr+8)
             self.asm.load_word(rSCRATCH, target)
             self.asm.mc = mc
-            self.emit_stack_adjustment()
             return self
         else:
             self._open()
             self.maybe_patch_start_here()
-            self.emit_stack_adjustment()
             return self
 
     def maybe_patch_start_here(self):
@@ -533,8 +535,6 @@ class Builder(GenBuilder):
         # save stack pointer into linkage area and set stack pointer for us.
         self.asm.stwu(rSP, rSP, -minspace)
 
-        self.emit_stack_adjustment()
-
         return inputargs
 
     def _var_offset(self, v):
@@ -562,17 +562,28 @@ class Builder(GenBuilder):
         self.asm.mc = None
 
     def allocate_and_emit(self, live_vars_gv):
+        allocator = self.allocate(live_vars_gv)
+        return self.emit(allocator)
+
+    def allocate(self, live_vars_gv):
         assert self.initial_var2loc is not None
         allocator = RegisterAllocation(
-            self.rgenop.freeregs, self.initial_var2loc, self.initial_spill_offset)
+            self.rgenop.freeregs,
+            self.initial_var2loc,
+            self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
-        #if self.insns:
-        self.patch_stack_adjustment(self._stack_size(allocator.spill_offset))
-        for insn in self.insns:
-            insn.emit(self.asm)
         return allocator
 
-    def emit_stack_adjustment(self):
+    def emit(self, allocator):
+        if allocator.spill_offset < self.initial_spill_offset:
+            self.emit_stack_adjustment(self._stack_size(allocator.spill_offset))
+        for insn in self.insns:
+            insn.emit(self.asm)
+        for builder in allocator.builders_to_tell_spill_offset_to:
+            builder.initial_spill_offset = allocator.spill_offset
+        return allocator
+
+    def emit_stack_adjustment(self, newsize):
         # the ABI requires that at all times that r1 is valid, in the
         # sense that it must point to the bottom of the stack and that
         # executing SP <- *(SP) repeatedly walks the stack.
@@ -587,7 +598,7 @@ class Builder(GenBuilder):
         # crf0 (a very small chance of being a problem)
         self.stack_adj_addr = self.asm.mc.tell()
         #print "emit_stack_adjustment at: ", self.stack_adj_addr
-        self.asm.addi(rSCRATCH, rFP, 0) # this is the immediate that later gets patched
+        self.asm.addi(rSCRATCH, rFP, -newsize)
         self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
         self.asm.beq(3) # if rSCRATCH == 0, there is no actual adjustment, so
                         # don't end up with the situation where *(rSP) == rSP
@@ -595,15 +606,15 @@ class Builder(GenBuilder):
         self.asm.stw(rFP, rSP, 0)
         # branch to "here"
 
-    def patch_stack_adjustment(self, newsize):
-        if self.stack_adj_addr == 0:
-            return
-        #print "patch_stack_adjustment at:", self.stack_adj_addr, newsize
-        # we build an addi instruction by hand here
-        mc = self.asm.mc
-        self.asm.mc = self.rgenop.ExistingCodeBlock(self.stack_adj_addr, self.stack_adj_addr+4)
-        self.asm.addi(rSCRATCH, rFP, -newsize)
-        self.asm.mc = mc
+##     def patch_stack_adjustment(self, newsize):
+##         if self.stack_adj_addr == 0:
+##             return
+##         #print "patch_stack_adjustment at:", self.stack_adj_addr, newsize
+##         # we build an addi instruction by hand here
+##         mc = self.asm.mc
+##         self.asm.mc = self.rgenop.ExistingCodeBlock(self.stack_adj_addr, self.stack_adj_addr+4)
+##         self.asm.addi(rSCRATCH, rFP, -newsize)
+##         self.asm.mc = mc
 
     def _arg_op(self, gv_arg, opcode):
         gv_result = Var()

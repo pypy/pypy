@@ -40,6 +40,7 @@ class RegisterAllocation:
         # crfinfo is a bit of a hack used to transmit which bit a compare
         # instruction set to the branch instruction
         self.crfinfo = [(0, 0)] * 8
+        self.builders_to_tell_spill_offset_to = []
 
     def set(self, var, loc):
         assert var not in self.var2loc

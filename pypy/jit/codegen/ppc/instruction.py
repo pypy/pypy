@@ -300,7 +300,7 @@ class Jump(Insn):
         self.targetbuilder.initial_var2loc = {}
         for gv_arg in self.jump_args_gv:
             self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
-        self.targetbuilder.initial_spill_offset = allocator.spill_offset
+        allocator.builders_to_tell_spill_offset_to.append(self.targetbuilder)
     def emit(self, asm):
         if self.targetbuilder.start:
             asm.load_word(rSCRATCH, self.targetbuilder.start)
@@ -393,6 +393,20 @@ class AllocTimeInsn(Insn):
         self.reg_arg_regclasses = []
         self.result_regclass =  NO_REGISTER
         self.result = None
+
+class Move(AllocTimeInsn):
+    def __init__(self, dest, src):
+        self.dest = dest
+        self.src = src
+    def emit(self, asm):
+        asm.mr(self.dest.number, self.src.number)
+
+class Load(AllocTimeInsn):
+    def __init__(self, dest, const):
+        self.dest = dest
+        self.const = const
+    def emit(self, asm):
+        self.const.load_now(asm, self.dest)
 
 class Unspill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."  It
