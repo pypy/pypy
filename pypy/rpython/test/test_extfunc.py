@@ -49,3 +49,27 @@ def test_interp_c():
 
     res = interpret(f, [])
     assert res == 7
+
+def d(y):
+    return eval("y()")
+
+class DTestFuncEntry(ExtFuncEntry):
+    _about_ = d
+    name = 'd'
+    signature_args = [annmodel.SomeGenericCallable(args=[], result=
+                                                   annmodel.SomeFloat())]
+    signature_result = annmodel.SomeFloat()
+
+def test_callback():
+    def callback():
+        return 2.5
+
+    def f():
+        return d(callback)
+
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    a = RPythonAnnotator(policy=policy)
+    s = a.build_types(f, [])
+    assert isinstance(s, annmodel.SomeFloat)
+    assert a.translator._graphof(callback)
