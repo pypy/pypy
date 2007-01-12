@@ -60,7 +60,7 @@ Here are some debugging tips:
   this can provide hints to the translation process that can help pinpoint the 
   problem.
 
-RType'ing is tricky! 
+RPython is tricky! 
 
 Take this example::
 
@@ -87,11 +87,8 @@ As another example::
     
     sum._annspecialcase_ = "specialize:argtype(0)"
 
-Note that 
-if you use a function like this with a
-*tuple* argument, each tuple of distinct length is considered to
-be a unique type: PyPy will compile (specialize)
-a different ``sum`` function for each different length.
+Now we can sum with different kinds of lists, eg.
+``sum([1,2,3])`` and ``sum([1.0,2.0,3.0])``.
 
 Here is an example of using rctypes_::
 
