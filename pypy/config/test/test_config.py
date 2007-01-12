@@ -459,3 +459,12 @@ def test_suggests():
     # does not crash
     c.toplevel = False
     assert not c.toplevel
+
+    c = Config(descr)
+    c.toplevel = False
+    assert not c.toplevel
+    # does not crash
+    c.opt = True
+    assert c.opt
+    assert not c.toplevel
+
