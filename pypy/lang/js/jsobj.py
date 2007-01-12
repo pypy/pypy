@@ -76,6 +76,9 @@ class W_Root(object):
         
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, self.ToString())
+    
+    def type(self):
+        return NotImplementedError
 
 class W_Primitive(W_Root):
     """unifying parent for primitives"""
@@ -155,6 +158,10 @@ class W_Object(W_Root):
     def __str__(self):
         return "<Object class: %s>" % self.Class
 
+    def type(self):
+        #if implements call its function
+        return 'object'
+
     
 class W_Arguments(W_Object):
     def __init__(self, callee, args):
@@ -207,6 +214,9 @@ class W_FunctionObject(W_Object):
         #print "* end of function call return = ", val
         return val
 
+    def type(self):
+        return 'function'
+
 class W_Array(W_Object):
     def __init__(self, items):
         W_Object.__init__(self)
@@ -238,6 +248,10 @@ class W_Undefined(W_Root):
     
     def ToString(self):
         return "undefined"
+    
+    def type(self):
+        return 'undefined'
+
 
 class W_Null(W_Root):
     def __str__(self):
@@ -245,6 +259,9 @@ class W_Null(W_Root):
 
     def ToBoolean(self):
         return False
+
+    def type(self):
+        return 'object'
 
 class W_Boolean(W_Primitive):
     def __init__(self, boolval):
@@ -262,7 +279,10 @@ class W_Boolean(W_Primitive):
     
     def ToBoolean(self):
         return self.boolval
-    
+
+    def type(self):
+        return 'boolean'
+
 class W_String(W_Primitive):
     def __init__(self, strval):
         self.strval = strval
@@ -275,6 +295,9 @@ class W_String(W_Primitive):
     
     def ToBoolean(self):
         return bool(self.strval)
+
+    def type(self):
+        return 'string'
 
 
 class W_Number(W_Primitive):
@@ -300,6 +323,8 @@ class W_Number(W_Primitive):
     def Get(self, name):
         return w_Undefined
 
+    def type(self):
+        return 'number'
 
 class W_Builtin(W_Root):
     def __init__(self, builtinfunction, context=False, args=0):
@@ -316,7 +341,10 @@ class W_Builtin(W_Root):
             py_args.append(args[i])
         res = self.builtinfunction(*py_args)
         return res
-    
+
+    def type(self):
+        return 'builtin'
+
 class W_List(W_Root):
     def __init__(self, list_w):
         self.list_w = list_w

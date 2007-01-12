@@ -335,11 +335,10 @@ class TestInterp(object):
         print('out')""", ["out"])
 
     def test_typeof(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
-        self.assert_prints("""
-        var x = 3
-        typeof x ==
-        """)
+        self.assert_result("""
+        var x = 3;
+        typeof x == 'number'
+        """, W_Boolean(True))
     
     def test_switch(self):
         py.test.skip(" TODO: needed for mozilla test suite")

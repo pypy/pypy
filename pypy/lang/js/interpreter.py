@@ -109,9 +109,7 @@ class Assign(Expression):
         self.AssignmentExp = AssignmentExp
     
     def eval(self, ctx):
-        #print "Assign LHS = ", self.LHSExp
         v1 = self.LHSExp.eval(ctx)
-        #print "Assign Exp = ", self.AssignmentExp
         v3 = self.AssignmentExp.eval(ctx).GetValue()
         v1.PutValue(v3, ctx)
         return v3
@@ -159,7 +157,6 @@ class Call(Expression):
             return w_Null
         else:    
             w_obj = ctx.resolve_identifier(name).GetValue()
-            #print "arglist = ", self.arglist
             retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
             return retval
 
@@ -226,7 +223,6 @@ class If(Statement):
 
     def execute(self, ctx):
         temp = self.condition.eval(ctx)
-        #print "if condition = ", temp 
         if temp.ToBoolean():
             return self.thenPart.execute(ctx)
         else:
@@ -247,7 +243,6 @@ def ARC(ctx, x, y):
     # TODO complete the funcion with strings comparison
     s1 = x.ToPrimitive(ctx, 'Number')
     s2 = y.ToPrimitive(ctx, 'Number')
-    #print "ARC x = %s, y = %s"%(str(s1),str(s2))
     if not (isinstance(s1, W_String) and isinstance(s2, W_String)):
         s4 = s1.ToNumber()
         s5 = s2.ToNumber()
@@ -313,7 +308,10 @@ def AEC(x, y):
     Implements the Abstract Equality Comparison x == y
     not following the specs yet
     """
-    r = x.ToNumber() == y.ToNumber()
+    if isinstance(x, W_String) and isinstance(y, W_String):
+        r = x.ToString() == y.ToString()
+    else:
+        r = x.ToNumber() == y.ToNumber()
     return r
 
 class Eq(BinaryComparisonOp):
@@ -361,7 +359,6 @@ class List(Node):
         self.nodes = nodes
         
     def get_args(self, ctx):
-        #print "nodes = ", self.nodes
         return [node.eval(ctx) for node in self.nodes]
 
 class Minus(BinaryComparisonOp):
@@ -504,6 +501,13 @@ class Try(Statement):
         
         return tryresult
 
+class Typeof(Expression):
+    def __init__(self, op):
+        self.op = op
+    
+    def eval(self, ctx):
+        return W_String(self.op.eval(ctx).GetValue().type())
+        
 class Undefined(Statement):
     def execute(self, ctx):
         return None
@@ -513,9 +517,7 @@ class Vars(Statement):
         self.nodes = nodes
 
     def execute(self, ctx):
-        #print self.nodes
         for var in self.nodes:
-            #print var.name
             var.execute(ctx)
 
 class While(Statement):
@@ -683,7 +685,6 @@ def from_tree(t):
         node = Return(from_tree(gettreeitem(t, 'value')))
     elif tp == 'SCRIPT':
         f = gettreeitem(t, 'funDecls')
-        # print f.symbol
         if f.symbol == "dict":
             func_decl = [from_tree(f),]
         elif f.symbol == "list":
@@ -692,7 +693,6 @@ def from_tree(t):
             func_decl = []
         
         v = gettreeitem(t, 'varDecls')
-        # print v.symbol
         if v.symbol == "dict":
             var_decl = [from_tree(v),]
         elif v.symbol == "list":
@@ -725,6 +725,8 @@ def from_tree(t):
             catchblock = from_tree(gettreeitem(catch, 'block'))
             catchparam = gettreeitem(catch, 'varName').additional_info
         node = Try(from_tree(gettreeitem(t, 'tryBlock')), catchblock, finallyblock, catchparam)
+    elif tp == 'TYPEOF':
+        node = Typeof(from_tree(gettreeitem(t, '0')))
     elif tp == 'VAR':
         node = Vars(getlist(t))
     elif tp == 'WHILE':
