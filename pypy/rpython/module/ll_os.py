@@ -37,7 +37,7 @@ if hasattr(os, 'execv'):
 
     class ExecvFuncEntry(ExtFuncEntry):
         _about_ = os.execv
-        name = "ll_os_execv"
+        name = "ll_os.ll_os_execv"
         signature_args = [SomeString(), s_list_of_strings]
         signature_result = s_ImpossibleValue
 
@@ -62,7 +62,7 @@ os_dup.restype = ctypes.c_int
 
 class DupFuncEntry(ExtFuncEntry):
     _about_ = os.dup
-    name = "ll_os_dup"
+    name = "ll_os.ll_os_dup"
     signature_args = [SomeInteger()]
     signature_result = SomeInteger()
 
@@ -78,7 +78,7 @@ os_dup2.restype = ctypes.c_int
 
 class Dup2FuncEntry(ExtFuncEntry):
     _about_ = os.dup2
-    name = "ll_os_dup2"
+    name = "ll_os.ll_os_dup2"
     signature_args = [SomeInteger(), SomeInteger()]
     signature_result = s_None
 
