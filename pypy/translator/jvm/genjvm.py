@@ -15,6 +15,7 @@ from pypy.translator.jvm.database import Database
 from pypy.translator.jvm.log import log
 from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.constant import \
      JVMConstantGenerator, JVMStaticMethodConst
 
@@ -122,11 +123,17 @@ class JvmGeneratedSource(object):
 
         print "Invoking jasmin on %s" % self.jasmin_files
         self._invoke(jascmd+list(self.jasmin_files), False)
+        print "... completed!"
                            
         self.compiled = True
         self._compile_helper(('DictItemsIterator',
                               'PyPy',
                               'ExceptionWrapper'))
+
+    def _make_str(self, a):
+        if isinstance(a, ootype._string):
+            return a._str
+        return str(a)
 
     def execute(self, args):
         """
@@ -135,12 +142,14 @@ class JvmGeneratedSource(object):
         and will be converted to strings.
         """
         assert self.compiled
-        strargs = [str(a) for a in args]
+        strargs = [self._make_str(a) for a in args]
         cmd = [getoption('java'),
                '-cp',
                str(self.javadir),
                self.package+".Main"] + strargs
+        print "Invoking java to run the code"
         stdout, stderr = self._invoke(cmd, True)
+        print "...done!"
         sys.stderr.write(stderr)
         return stdout
         

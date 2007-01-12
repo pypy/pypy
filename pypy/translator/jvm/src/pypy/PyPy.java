@@ -268,6 +268,107 @@ public class PyPy {
         return str1 + str2;
     }
 
+    public static int ll_find(String haystack, String needle, int start, int end) {
+        // if it is impossible for the needle to occur:
+        //   this deals w/ a disparity in how java and python handle when needle=""
+        if (start > haystack.length())
+            return -1;
+
+        int res = haystack.indexOf(needle, start);
+        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+                           " end="+end+" res="+res);
+        if (res + needle.length() > end) 
+            return -1;
+        return res;
+    }
+
+    public static int ll_rfind(String haystack, String needle, int start, int end) {
+        int res = haystack.lastIndexOf(needle, end-1);
+        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+                           " end="+end+" res="+res);
+        if (res >= start) 
+            return res;
+        return -1;
+    }
+
+    public static int ll_count(String haystack, String needle, int start, int end) {
+        haystack = haystack.substring(start, end);
+
+        if (needle.length() == 0) {
+            return haystack.length()+1;
+        }
+
+        int cnt = 0;
+        int lastidx = 0, idx = -1;
+        while ((idx = haystack.indexOf(needle, lastidx)) != -1) {
+            cnt++;
+            lastidx = idx + needle.length(); // avoid overlapping occurrences
+        }
+        return cnt;
+    }
+
+    public static int ll_find_char(String haystack, char needle, int start, int end) {
+        // see ll_find
+        if (start > haystack.length())
+            return -1;
+
+        int res = haystack.indexOf(needle, start);
+        if (res >= end) 
+            return -1;
+        return res;
+    }
+
+    public static int ll_rfind_char(String haystack, char needle, int start, int end) {
+        int res = haystack.lastIndexOf(needle, end-1);
+        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+                           " end="+end+" res="+res);
+        if (res >= start) 
+            return res;
+        return -1;
+    }
+
+    public static int ll_count_char(String haystack, char needle, int start, int end) {
+        haystack = haystack.substring(start, end);
+        int cnt = 0;
+        int idx = -1;
+        while ((idx = haystack.indexOf(needle, idx+1)) != -1) {
+            cnt++;
+        }
+        return cnt;
+    }
+
+    public static String ll_strip(String str, char ch, boolean left, boolean right) {
+        int start = 0;
+        int end = str.length();
+
+        if (left) {
+            while (start <= str.length() && str.charAt(start) == ch) start++;
+        }
+
+        if (right) {
+            while (end > start && str.charAt(end-1) == ch) end--;
+        }
+
+        return str.substring(start, end);
+    }
+
+    public static ArrayList ll_split_chr(String str, char c) {
+        ArrayList list = new ArrayList();
+        int lastidx = 0, idx = 0;
+        while ((idx = str.indexOf(c, lastidx)) != -1)
+        {
+            String sub = str.substring(lastidx, idx);
+            list.add(sub);
+            lastidx = idx+1;
+        }
+        list.add(str.substring(lastidx));
+        return list;
+    }
+
+    public static String ll_substring(String str, int start, int cnt) {
+        return str.substring(start,start+cnt);
+    }
+
     // ----------------------------------------------------------------------
     // StringBuffer
 

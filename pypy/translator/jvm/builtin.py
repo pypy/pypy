@@ -3,7 +3,7 @@ from pypy.translator.jvm import generator as jvmgen
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
      jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject, \
-     jBool, jHashMap, jPyPyDictItemsIterator, Generifier
+     jBool, jHashMap, jPyPyDictItemsIterator, Generifier, jCharSequence
 
 # ______________________________________________________________________
 # Mapping of built-in OOTypes to JVM types
@@ -93,6 +93,27 @@ built_in_methods = {
     
     (ootype.String.__class__, "ll_stritem_nonneg"):
     jvmgen.Method.v(jString, "charAt", (jInt,), jChar),
+
+    (ootype.String.__class__, "ll_startswith"):
+    jvmgen.Method.v(jString, "startsWith", (jString,), jBool),
+
+    (ootype.String.__class__, "ll_endswith"):
+    jvmgen.Method.v(jString, "endsWith", (jString,), jBool),
+
+    (ootype.String.__class__, "ll_strcmp"):
+    jvmgen.Method.v(jString, "compareTo", (jString,), jInt),
+
+    (ootype.String.__class__, "ll_upper"):
+    jvmgen.Method.v(jString, "toUpperCase", (), jString),
+
+    (ootype.String.__class__, "ll_lower"):
+    jvmgen.Method.v(jString, "toLowerCase", (), jString),
+
+    (ootype.String.__class__, "ll_contains"):
+    jvmgen.Method.v(jString, "contains", (jCharSequence,), jBool),
+
+    (ootype.String.__class__, "ll_replace_chr_chr"):
+    jvmgen.Method.v(jString, "replace", (jChar, jChar), jString),
 
     (ootype.Dict, "ll_set"):
     jvmgen.Method.v(jHashMap, "put", (jObject, jObject), jObject),

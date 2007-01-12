@@ -600,6 +600,8 @@ class JVMGenerator(Generator):
         def escape(char):
             if char == '"': return r'\"'
             if char == '\n': return r'\n'
+            if char == "\\": return r'\\'
+            if ord(char) > 127: return r'\u%04x' % ord(char)
             return char
         res = ('"' + 
                "".join(escape(c) for c in str) +
@@ -1072,7 +1074,7 @@ class JVMGenerator(Generator):
     not_equals = lambda self: self._compare_op(IF_ICMPNE)
     less_than = lambda self: self._compare_op(IF_ICMPLT)
     greater_than = lambda self: self._compare_op(IF_ICMPGT)
-    less_equals = lambda self: self._compare_op(IF_ICMPLT)
+    less_equals = lambda self: self._compare_op(IF_ICMPLE)
     greater_equals = lambda self: self._compare_op(IF_ICMPGE)
 
     def _uint_compare_op(self, cmpopcode):

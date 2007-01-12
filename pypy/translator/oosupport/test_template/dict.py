@@ -21,20 +21,10 @@ class BaseTestDict(_TestOOtype):
             return total
         assert self.interpret(f, []) == 6
 
-    def test_dict_of_dict(self):
-        py.test.skip("CLI doesn't support recursive dicts")
-
-    def test_recursive(self):
-        py.test.skip("CLI doesn't support recursive dicts")
-
 class BaseTestEmptyDict(BaseTestRemptydict):
-    def test_iterate_over_empty_dict(self):
-        py.test.skip("Iteration over empty dict is not supported, yet")
+    pass
 
 class BaseTestConstantDict(BaseTestRconstantdict):
-    def test_constant_r_dict(self):
-        py.test.skip('r_dict is not supported, yet')
-
     def test_tuple_as_key(self):
         mydict = {('r',): 42}
         def fn(ch):
