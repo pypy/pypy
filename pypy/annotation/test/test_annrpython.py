@@ -2465,6 +2465,7 @@ class TestAnnotateTestCase:
                     a = h
                 else:
                     a = c
+                x = x + .01
             return a(x)
 
         #def fun(x):   
