@@ -127,6 +127,7 @@ class AppTestPosix:
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
 
         def test_execve(self):
+            skip("not implemented")
             os = self.posix
             pid = os.fork()
             if pid == 0:
