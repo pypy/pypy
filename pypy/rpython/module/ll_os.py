@@ -21,7 +21,8 @@ from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
 from pypy.rpython.extfunc import ExtFuncEntry
-from pypy.annotation.model import SomeString, s_ImpossibleValue
+from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
+    s_None
 from pypy.annotation.listdef import s_list_of_strings
 import ctypes
 import pypy.rpython.rctypes.implementation
@@ -54,6 +55,37 @@ if hasattr(os, 'execv'):
                 arrayitem[0] = args[num]
             os_execv(path, array)
             raise OSError(geterrno(), "execv failed")
+
+os_dup = libc.dup
+os_dup.argtypes = [ctypes.c_int]
+os_dup.restype = ctypes.c_int
+
+class DupFuncEntry(ExtFuncEntry):
+    _about_ = os.dup
+    name = "ll_os_dup"
+    signature_args = [SomeInteger()]
+    signature_result = SomeInteger()
+
+    def lltypeimpl(fd):
+        newfd = os_dup(fd)
+        if newfd == -1:
+            raise OSError(geterrno(), "dup failed")
+        return newfd
+
+os_dup2 = libc.dup2
+os_dup2.argtypes = [ctypes.c_int, ctypes.c_int]
+os_dup2.restype = ctypes.c_int
+
+class Dup2FuncEntry(ExtFuncEntry):
+    _about_ = os.dup2
+    name = "ll_os_dup2"
+    signature_args = [SomeInteger(), SomeInteger()]
+    signature_result = s_None
+
+    def lltypeimpl(fd, newfd):
+        error = os_dup2(fd, newfd)
+        if error == -1:
+            raise OSError(geterrno(), "dup2 failed")
 
 class BaseOS:
     __metaclass__ = ClassMethods
