@@ -341,3 +341,14 @@ class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
             s = ootype.new(FOO)
             return bool(s)
         self.check(fn, [], [], True)
+
+    def test_classattr_as_defaults(self):
+        class Bar:
+            foo = 41
+        
+        def fn():
+            x = Bar()
+            x.foo += 1
+            return x.foo
+        self.check(fn, [], [], 42)
+

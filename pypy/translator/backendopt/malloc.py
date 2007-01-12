@@ -550,8 +550,7 @@ class OOTypeMallocRemover(BaseMallocRemover):
     def flatten(self, TYPE):
         for name, (FIELDTYPE, default) in self._get_fields(TYPE).iteritems():
             key = self.key_for_field_access(TYPE, name)
-            example = FIELDTYPE._defl()
-            constant = Constant(example)
+            constant = Constant(default)
             constant.concretetype = FIELDTYPE
             self.flatconstants[key] = constant
             self.flatnames.append(key)
