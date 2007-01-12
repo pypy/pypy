@@ -336,6 +336,10 @@ class TestInterp(object):
 
     def test_typeof(self):
         py.test.skip(" TODO: needed for mozilla test suite")
+        self.assert_prints("""
+        var x = 3
+        typeof x ==
+        """)
     
     def test_switch(self):
         py.test.skip(" TODO: needed for mozilla test suite")
@@ -369,6 +373,12 @@ class TestInterp(object):
         print(!x)
         print(!!x)""", ["true", "false"])
 
+    def test_equals(self):
+        self.assert_prints("""
+        var x = 5;
+        y = z = x
+        print(y)""", ["5"])
+        
     def test_smallthings(self):
         py.test.skip(" TODO: needed for mozilla test suite")
         x = """
@@ -382,4 +392,3 @@ class TestInterp(object):
             return ( Number.NaN );"""
         x = "Number.POSITIVE_INFINITY Number.NEGATIVE_INFINITY" 
         x = "Math.floor( Math.abs( t ) ) );"
-        x = "this.orig.werror = this.werror = false;"
