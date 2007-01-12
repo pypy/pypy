@@ -290,7 +290,6 @@ class InstanceConst(AbstractConst):
     def record_fields(self):
         if not self.obj:
             return
-            import pdb;pdb.set_trace()
         INSTANCE = self.obj._TYPE
         #while INSTANCE:
         for i, (_type, val) in INSTANCE._allfields().items():
@@ -392,11 +391,14 @@ class StringConst(AbstractConst):
         return self.const._str
 
     def init(self, ilasm):
-        s = self.const._str
+        if self.const:
+            s = self.const._str
         # do some escaping
         #s = s.replace("\n", "\\n").replace('"', '\"')
         #s = repr(s).replace("\"", "\\\"")
-        ilasm.load_str("%s" % repr(s))
+            ilasm.load_str("%s" % repr(s))
+        else:
+            ilasm.load_str("undefined")
     
     def init_fields(self, ilasm, const_var, name):
         pass

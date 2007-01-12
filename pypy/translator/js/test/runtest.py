@@ -131,37 +131,28 @@ class compile_function(object):
         else:
             try:
                 res = float(s)
+                if float(int(res)) == res:
+                    return int(res)
             except ValueError:
                 res = str(s)
         return res
     reinterpret = classmethod(reinterpret)
 
 class JsTest(BaseRtypingTest, OORtypeMixin):
-    #def __init__(self):
-    #    self._func = None
-    #    self._ann = None
-    #    self._cli_func = None
-
-    def _compile(self, fn, args):
-        #ann = [lltype_to_annotation(typeOf(x)) for x in args]
-        #if self._func is fn and self._ann == ann:
-        #    return self._cli_func
-        #else:
-        #    self._func = fn
-        #    self._ann = ann
-        #    self._cli_func = compile_function(fn, ann)
-        #   return self._cli_func
+    def _compile(self, _fn, args):
+        argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
         source = py.code.Source("""
         def %s():
             from pypy.rlib.nonconst import NonConstant
-            res = fn(%s)
+            res = _fn(%s)
             if isinstance(res, type(None)):
                 return None
             else:
                 return str(res)"""
-        % (fn.func_name, ",".join(["NonConstant(%s)" % i for i in args])))
+        % (_fn.func_name, ",".join(["%s=NonConstant(%s)" % (name,i) for
+                                   name, i in zip(argnames, args)])))
         exec source.compile() in locals()
-        return compile_function(locals()[fn.func_name], [])
+        return compile_function(locals()[_fn.func_name], [])
     
     def interpret(self, fn, args):
         #def f(args):
@@ -198,15 +189,14 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         return l
 
     def class_name(self, value):
-        return value.class_name.split(".")[-1] 
+        return value[:-10].split('_')[-1]
 
     def is_of_instance_type(self, val):
         m = re.match("^<.* instance>$", val)
         return bool(m)
 
     def read_attr(self, obj, name):
-        pass
-        #py.test.skip('read_attr not supported on gencli tests')
+        py.test.skip('read_attr not supported on gencli tests')
 
 def check_source_contains(compiled_function, pattern):
     import re
