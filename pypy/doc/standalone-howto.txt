@@ -116,7 +116,7 @@ PyPy implements the `ctypes semantics`_ as the corresponding native c-code
 equivalents.
 
     
-.. _`Disclaimer`: faq.html#id10
+.. _`Disclaimer`: faq.html#why-isn-t-there-a-simpler-way-of-doing-that
 .. _`RPython`: coding-guide.html#restricted-python
 .. _`Annotator`: dynamic-language-translation.html#annotator
 .. _`RTyper`: dynamic-language-translation.html#rtyper
