@@ -518,7 +518,6 @@ class TestVirtualizable(PortalTest):
         assert res == 42
 
     def test_explicit_residual_red_call(self):
-        #py.test.skip("WIP")
         
         def g(e):
             xy = e.xy
