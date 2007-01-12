@@ -20,7 +20,7 @@ from pypy.rlib import ros
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
-from pypy.rpython.extfunc import ExtFuncEntry
+from pypy.rpython.extfunc import ExtFuncEntry, register_external
 from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
     s_None
 from pypy.annotation.listdef import s_list_of_strings
@@ -35,26 +35,23 @@ if hasattr(os, 'execv'):
     os_execv.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
     os_execv.restype = ctypes.c_int
 
-    class ExecvFuncEntry(ExtFuncEntry):
-        _about_ = os.execv
-        name = "ll_os.ll_os_execv"
-        signature_args = [SomeString(), s_list_of_strings]
-        signature_result = s_ImpossibleValue
+    def execv_lltypeimpl(path, args):
+        # XXX incredible code to work around rctypes limitations
+        length = len(args) + 1
+        num_bytes = ctypes.sizeof(ctypes.c_char_p) * length
+        buffer = ctypes.create_string_buffer(num_bytes)
+        array = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char_p))
+        buffer_addr = ctypes.cast(buffer, ctypes.c_void_p).value
+        for num in range(len(args)):
+            adr1 = buffer_addr + ctypes.sizeof(ctypes.c_char_p) * num
+            ptr = ctypes.c_void_p(adr1)
+            arrayitem = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_char_p))
+            arrayitem[0] = args[num]
+        os_execv(path, array)
+        raise OSError(geterrno(), "execv failed")
 
-        def lltypeimpl(path, args):
-            # XXX incredible code to work around rctypes limitations
-            length = len(args) + 1
-            num_bytes = ctypes.sizeof(ctypes.c_char_p) * length
-            buffer = ctypes.create_string_buffer(num_bytes)
-            array = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char_p))
-            buffer_addr = ctypes.cast(buffer, ctypes.c_void_p).value
-            for num in range(len(args)):
-                adr1 = buffer_addr + ctypes.sizeof(ctypes.c_char_p) * num
-                ptr = ctypes.c_void_p(adr1)
-                arrayitem = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_char_p))
-                arrayitem[0] = args[num]
-            os_execv(path, array)
-            raise OSError(geterrno(), "execv failed")
+    register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
+                      execv_lltypeimpl, export_name="ll_os.ll_os_execv")
 
 os_dup = libc.dup
 os_dup.argtypes = [ctypes.c_int]

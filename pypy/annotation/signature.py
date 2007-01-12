@@ -24,6 +24,17 @@ def annotationoftype(t, bookkeeper=False):
 
     """The most precise SomeValue instance that contains all
     objects of type t."""
+    if isinstance(t, list):
+        assert len(t) == 1, "We do not support type joining in list"
+        listdef = ListDef(None, annotation(t[0]))
+        listdef.listitem.dont_change_any_more = False
+        return SomeList(listdef)
+    elif isinstance(t, tuple):
+        return SomeTuple(tuple([annotation(i) for i in t]))
+    elif isinstance(t, dict):
+        assert len(t) == 1, "We do not support type joining in dict"
+        return SomeDict(DictDef(None, annotation(t.keys()[0]),
+                                annotation(t.values()[0])))
     assert isinstance(t, (type, types.ClassType))
     if t is bool:
         return SomeBool()
@@ -40,15 +51,6 @@ def annotationoftype(t, bookkeeper=False):
     # can't do tuple
     elif t is types.NoneType:
         return s_None
-    elif isinstance(t, list):
-        assert len(t) == 1, "We do not support type joining in list"
-        return SomeList(ListDef(None, annotation(t[0])))
-    elif isinstance(t, tuple):
-        return SomeTuple(tuple([annotation(i) for i in t]))
-    elif isinstance(t, dict):
-        assert len(t) == 1, "We do not support type joining in dict"
-        return SomeDict(DictDef(None, annotation(t.keys()[0]),
-                                annotation(t.values()[0])))
     elif t in EXTERNAL_TYPE_ANALYZERS:
         return SomeExternalObject(t)
     elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):

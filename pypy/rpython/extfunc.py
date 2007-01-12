@@ -3,6 +3,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import unionof
+from pypy.annotation.signature import annotation
 
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
@@ -31,3 +32,18 @@ class ExtFuncEntry(ExtRegistryEntry):
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
+
+def register_external(function, args, result, export_name=None,
+                      llimpl=None, ooimpl=None):
+    
+    class FunEntry(ExtFuncEntry):
+        _about_ = function
+        signature_args = [annotation(arg) for arg in args]
+        signature_result = annotation(result)
+        name=export_name
+        if llimpl:
+            lltypeimpl = llimpl
+        if ooimpl:
+            ootypeimpl = ooimpl
+
+    FunEntry.__name__ = export_name
