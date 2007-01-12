@@ -80,7 +80,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
     BoolOption("allworkingmodules", "use as many working modules as possible",
                default=False,
                cmdline="--allworkingmodules",
-               requires=[("objspace.usemodules.%s" % (modname, ), True)
+               suggests=[("objspace.usemodules.%s" % (modname, ), True)
                              for modname in working_modules
                              if modname in all_modules],
                negation=False),
@@ -168,7 +168,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
         BoolOption("allopts",
                    "enable all thought-to-be-working optimizations",
                    default=False,
-                   requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", True),
+                   suggests=[("objspace.opcodes.CALL_LIKELY_BUILTIN", True),
                              ("translation.withsmallfuncsets", 5),
                              ("translation.profopt",
                               "-c 'from richards import main;main(); from test import pystone; pystone.main()'"),
