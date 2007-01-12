@@ -536,11 +536,12 @@ class Builder(GenBuilder):
         gv_comp    = Var(i1)
         gv_abs_pos = Var(gv_x.type)
         gv_result  = Var(gv_x.type)
-        if nullstr == '0':
-            l = ' %s=' + scmp + 'ge %s,%s'
+        if nullstr == 'null' or nullstr == '0':
+            cmp = scmp
         else:
-            l = ' %s=' + fcmp + 'ge %s,%s'
-        self.asm.append(l % (gv_comp.operand2(), gv_x.operand(), nullstr))
+            cmp = fcmp
+        self.asm.append(' %s=%sge %s,%s' % (
+            gv_comp.operand2(), cmp, gv_x.operand(), nullstr))
         self.asm.append(' %s=sub %s %s,%s' % (
             gv_abs_pos.operand2(), gv_x.type, nullstr, gv_x.operand2()))
         self.asm.append(' %s=select %s,%s,%s' % (
@@ -679,21 +680,23 @@ class Builder(GenBuilder):
     def _is_false(self, gv_x, nullstr='0'):
         log('%s Builder._is_false %s' % (self.block.label, gv_x.operand()))
         gv_result = Var(i1)
-        if nullstr == '0':
-            l = ' %s=' + icmp + 'eq %s,%s'
+        if nullstr == 'null' or nullstr == '0':
+            cmp = icmp
         else:
-            l = ' %s=' + fcmp + 'eq %s,%s'
-        self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
+            cmp = fcmp
+        self.asm.append(' %s=%seq %s,%s' % (
+            gv_result.operand2(), cmp, gv_x.operand(), nullstr))
         return gv_result
 
     def _is_true(self, gv_x, nullstr='0'):
         log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
         gv_result = Var(i1)
-        if nullstr == '0':
-            l = ' %s=' + icmp + 'ne %s,%s'
+        if nullstr == 'null' or nullstr == '0':
+            cmp = icmp
         else:
-            l = ' %s=' + fcmp + 'ne %s,%s'
-        self.asm.append(l % (gv_result.operand2(), gv_x.operand(), nullstr))
+            cmp = fcmp
+        self.asm.append(' %s=%sne %s,%s' % (
+            gv_result.operand2(), cmp, gv_x.operand(), nullstr))
         return gv_result
 
     op_bool_is_true = op_char_is_true = op_unichar_is_true = op_int_is_true =\
