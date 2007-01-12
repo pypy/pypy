@@ -2451,45 +2451,30 @@ class TestAnnotateTestCase:
         assert s.const == 0
 
     def test_some_generic_function_call(self):
-        def g(a):
-            pass
-        g._known_annotation_ = annmodel.SomeGenericCallable(
-            args=(annmodel.SomeInteger(),), result=annmodel.SomeInteger())
+        def h(x):
+            return int(x)
 
-        def fun():
-            return g(1)
+        def c(x):
+            return int(x)
+        
+        def g(a, x):
+            if x == -1:
+                a = None
+            if x < 0:
+                if x == -1:
+                    a = h
+                else:
+                    a = c
+            return a(x)
+
+        #def fun(x):   
 
         a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(fun, [])
+        s = a.build_types(g, [annmodel.SomeGenericCallable(
+            args=[annmodel.SomeFloat()], result=annmodel.SomeInteger()),
+                              annmodel.SomeFloat()])
         assert isinstance(s, annmodel.SomeInteger)
         assert not hasattr(s, 'const')
-
-    def test_some_generic_function_callback(self):
-        def g(a):
-            pass
-        g._known_annotation_ = annmodel.SomeGenericCallable(
-            args=[annmodel.SomeGenericCallable(args=[annmodel.SomeInteger()],
-                                               result=annmodel.SomeInteger())],
-            result=annmodel.SomeInteger())
-
-        def fun2(x):
-            return x
-
-        def fun():
-            return g(fun2)
-        
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(fun, [])
-        assert isinstance(s, annmodel.SomeInteger)
-        graphs = a.annotated.values()
-        found = False
-        for graph in graphs:
-            if graph.name == "fun2":
-                found = True
-                inputcells = graph.startblock.inputargs
-                assert len(inputcells) == 1
-                assert isinstance(a.bindings[inputcells[0]], annmodel.SomeInteger)
-        assert found
 
 def g(n):
     return [0,1,2,n]

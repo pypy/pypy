@@ -685,11 +685,17 @@ class __extend__(pairtype(SomePBC, SomePBC)):
 
 class __extend__(pairtype(SomeGenericCallable, SomePBC)):
     def union((gencall, pbc)):
-        unique_key = (gencall, pbc.const)
-        s_result = getbookkeeper().emulate_pbc_call(unique_key, pbc,
-                                                    gencall.args_s)
-        assert gencall.s_result.contains(s_result)
+        unique_key = "unionof(SomeGenericCallable, SomePBC)"
+        if len(pbc.descriptions):
+            bk = pbc.descriptions.iterkeys().next().bookkeeper
+            s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
+            s_result = unionof(s_result, gencall.s_result)
+            assert gencall.s_result.contains(s_result)
         return gencall
+
+class __extend__(pairtype(SomePBC, SomeGenericCallable)):
+    def union((pbc, gencall)):
+        return pair(gencall, pbc).union()
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):

@@ -391,10 +391,6 @@ class Bookkeeper:
         elif extregistry.is_registered(x, self.policy):
             entry = extregistry.lookup(x, self.policy)
             result = entry.compute_annotation_bk(self)
-##        elif hasattr(x, "compute_result_annotation"):
-##            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
-##        elif hasattr(tp, "compute_annotation"):
-##            result = tp.compute_annotation()
         elif tp in EXTERNAL_TYPE_ANALYZERS:
             result = SomeExternalObject(tp)
         elif isinstance(x, lltype._ptr):
@@ -409,8 +405,6 @@ class Bookkeeper:
             result = SomeOOClass(x._INSTANCE)   # NB. can be None
         elif isinstance(x, ootype.instance_impl): # XXX
             result = SomeOOInstance(ootype.typeOf(x))
-        elif hasattr(x, '_known_annotation_'):
-            result = x._known_annotation_
         elif callable(x):
             if hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
