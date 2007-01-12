@@ -2,10 +2,20 @@
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
-     SomeObject, SomeInstance
+     SomeObject, SomeInstance, lltype_to_annotation
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
+
+def annotation(t, bookkeeper=None):
+    from pypy.rpython.lltypesystem import lltype
+    
+    if isinstance(t, SomeObject):
+        return t
+    elif isinstance(t, lltype.LowLevelType):
+        return lltype_to_annotation(t)
+    else:
+        return annotationoftype(t, bookkeeper)
 
 def annotationoftype(t, bookkeeper=False):
     from pypy.annotation.builtin import BUILTIN_ANALYZERS
@@ -30,6 +40,15 @@ def annotationoftype(t, bookkeeper=False):
     # can't do tuple
     elif t is types.NoneType:
         return s_None
+    elif isinstance(t, list):
+        assert len(t) == 1, "We do not support type joining in list"
+        return SomeList(ListDef(None, annotation(t[0])))
+    elif isinstance(t, tuple):
+        return SomeTuple(tuple([annotation(i) for i in t]))
+    elif isinstance(t, dict):
+        assert len(t) == 1, "We do not support type joining in dict"
+        return SomeDict(DictDef(None, annotation(t.keys()[0]),
+                                annotation(t.values()[0])))
     elif t in EXTERNAL_TYPE_ANALYZERS:
         return SomeExternalObject(t)
     elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
@@ -56,20 +75,17 @@ class Sig(object):
         for i, argtype in enumerate(self.argtypes):
             if isinstance(argtype, (types.FunctionType, types.MethodType)):
                 argtype = argtype(*inputcells)
-            if isinstance(argtype, annmodel.SomeObject):
-                args_s.append(argtype)
-            elif isinstance(argtype, lltype.LowLevelType):
-                if argtype is lltype.Void:
-                    # XXX the mapping between Void and annotation
-                    # is not quite well defined
-                    s_input = inputcells[i]
-                    assert isinstance(s_input, annmodel.SomePBC)
-                    assert s_input.is_constant()
-                    args_s.append(s_input)
-                else:
-                    args_s.append(annmodel.lltype_to_annotation(argtype))
+            if isinstance(argtype, lltype.LowLevelType) and\
+                argtype is lltype.Void:
+                # XXX the mapping between Void and annotation
+                # is not quite well defined
+                s_input = inputcells[i]
+                assert isinstance(s_input, annmodel.SomePBC)
+                assert s_input.is_constant()
+                args_s.append(s_input)
+                args_s.append(annmodel.lltype_to_annotation(argtype))
             else:
-                args_s.append(funcdesc.bookkeeper.valueoftype(argtype))
+                args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
         if len(inputcells) != len(args_s):
             raise Exception("%r: expected %d args, got %d" % (funcdesc,
                                                               len(args_s),
