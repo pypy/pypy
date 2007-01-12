@@ -9,7 +9,8 @@ from pypy.translator.jvm.typesystem import \
      JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
-     jDoubleClass, jCharClass, jStringBuilder, JvmScalarType
+     jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
+     jObjectArray
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -370,6 +371,7 @@ PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
 PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
+PYPYARRAYTOLIST =       Method.s(jPyPy, 'array_to_list', (jObjectArray,), jArrayList)
 OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
 EXCWRAPWRAP =           Method.s(jPyPyExcWrap, 'wrap', (jObject,), jPyPyExcWrap)

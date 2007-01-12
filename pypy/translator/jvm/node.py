@@ -111,8 +111,8 @@ class EntryPoint(Node):
             # python method expects
             arg0 = self.graph.getargs()[0]
             assert isinstance(arg0.concretetype, ootype.List), str(arg0.concretetype)
-            assert arg0._ITEMTYPE is ootype.String
-            gen.load_jvm_var(0)
+            assert arg0.concretetype._ITEMTYPE is ootype.String
+            gen.load_jvm_var(jStringArray, 0)
             gen.emit(jvmgen.PYPYARRAYTOLIST)
 
         # Generate a call to this method

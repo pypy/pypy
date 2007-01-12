@@ -3,6 +3,7 @@ package pypy;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Arrays;
 
 /**
  * Class with a number of utility routines.
@@ -113,14 +114,6 @@ public class PyPy {
 
     public static long long_bitwise_negate(long value) {
         return ~value;
-    }
-
-    public static List<?> array_to_list(Object[] array) {
-        List l = new ArrayList();
-        for (Object o : array) {
-            l.add(o);
-        }
-        return l;
     }
 
     public static int str_to_int(String s) {
@@ -428,6 +421,11 @@ public class PyPy {
     public static void append(StringBuilder sb, String s) {
         // avoid the annoying return value of StringBuilder.append
         sb.append(s);
+    }
+
+    public static ArrayList array_to_list(Object[] array)
+    {
+        return new ArrayList(java.util.Arrays.asList(array));
     }
 
     // ----------------------------------------------------------------------
