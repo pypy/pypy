@@ -919,6 +919,7 @@ from pypy.rpython import rslice, rrange
 from pypy.rpython import rstr, rdict, rlist
 from pypy.rpython import rclass, rbuiltin, rpbc, rspecialcase
 from pypy.rpython import rexternalobj
+from pypy.rpython import rgeneric
 from pypy.rpython import rptr
 from pypy.rpython import raddress # memory addresses
 from pypy.rpython.ootypesystem import rootype

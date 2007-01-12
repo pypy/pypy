@@ -14,13 +14,39 @@ Dummy low-level implementations for the external functions of the 'os' module.
 # and buffer preparation stuff is not useful.
 
 import os, errno
-from pypy.rpython.module.support import ll_strcpy, _ll_strfill, ll_execve, \
-    from_rdict
+from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rlib import ros
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
+from pypy.rpython.extfunc import ExtFuncEntry
+from pypy.annotation.model import SomeString, s_ImpossibleValue
+from pypy.annotation.listdef import s_list_of_strings
+import ctypes
+import pypy.rpython.rctypes.implementation
+from pypy.rpython.rctypes.tool.libc import libc
+from pypy.rpython.rctypes.aerrno import geterrno
+
+if hasattr(os, 'execv'):
+
+    os_execv = libc.execv
+    os_execv.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
+    os_execv.restype = ctypes.c_int
+
+    class ExecvFuncEntry(ExtFuncEntry):
+        _about_ = os.execv
+        name = "ll_os_execv"
+        signature_args = [SomeString(), s_list_of_strings]
+        signature_result = s_ImpossibleValue
+
+        def lltypeimpl(path, args):
+            typ = ctypes.c_char_p * (len(args) + 1)
+            array = typ()
+            for num in range(len(args)):
+                array[num] = args[num]
+            os_execv(path, array)
+            raise OSError(geterrno())
 
 class BaseOS:
     __metaclass__ = ClassMethods
@@ -101,13 +127,13 @@ class BaseOS:
         return os.system(cls.from_rstr(cmd))
     ll_os_system.suggested_primitive = True
 
-    def ll_os_execv(cls, cmd, args):
-        os.execv(cmd, args)
-    ll_os_execv.suggested_primitive = True
+    #def ll_os_execv(cls, cmd, args):
+    #    os.execv(cmd, args)
+    #ll_os_execv.suggested_primitive = True
 
-    def ll_os_execve(cls, cmd, args, env):
-        env_list = from_rdict(env)
-        ll_execve(cmd, args, env_list)
+    #def ll_os_execve(cls, cmd, args, env):
+    #    env_list = from_rdict(env)
+    #    ll_execve(cmd, args, env_list)
 
     def ll_os_unlink(cls, path):
         os.unlink(cls.from_rstr(path))

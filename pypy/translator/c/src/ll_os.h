@@ -81,11 +81,7 @@ void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
 long LL_readlink_into(RPyString *path, RPyString *buffer);
 long LL_os_fork(void);
-#ifdef HAVE_RPY_LIST_OF_STRING     /* argh */
-#ifdef HAVE_EXECV
-void LL_os_execv(RPyString *cmd, RPyListOfString *args);
-void LL_os_execve(RPyString *cmd, RPyListOfString *args, RPyListOfString *env);
-#endif
+#if defined(HAVE_SPAWNV) && defined(HAVE_RPY_LIST_OF_STRING) /* argh */
 long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args);
 #endif
 RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options);
@@ -401,39 +397,6 @@ long LL_os_fork(void) {
 	if (pid == -1)
 		RPYTHON_RAISE_OSERROR(errno);
 	return pid;
-}
-#endif
-
-#if defined(HAVE_EXECV) && defined(HAVE_RPY_LIST_OF_STRING)
-char** get_slist(RPyListOfString *args)
-{
-	int i, nargs = _RPyListOfString_Length(args);
-  char **slist = malloc((nargs+1) * sizeof(char*));
-	if (slist) {
-		for (i=0; i<nargs; i++)
-			slist[i] = RPyString_AsString(_RPyListOfString_GetItem(args, i));
-		slist[nargs] = NULL;
-    return slist;
-  } else {
-    RPYTHON_RAISE_OSERROR(errno);
-    return NULL;
-  }
-}
-
-void LL_os_execv(RPyString *cmd, RPyListOfString *args) {
-  char **slist = get_slist(args);
-  execv(RPyString_AsString(cmd), slist);
-  /* should never return */
-  RPYTHON_RAISE_OSERROR(errno);
-}
-
-void LL_os_execve(RPyString *cmd, RPyListOfString *args, RPyListOfString *env)
-{
-  char **arglist = get_slist(args);
-  char **envlist = get_slist(env);
-  execve(RPyString_AsString(cmd), arglist, envlist);
-  /* should never return */
-  RPYTHON_RAISE_OSERROR(errno);
 }
 #endif
 

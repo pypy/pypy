@@ -15,16 +15,6 @@ from pypy.annotation.dictdef import DictKey, DictValue
 from pypy.annotation.model import SomeString
 import os
 
-# This whole mess is just to make annotator happy...
-list_repr = ListRepr(None, string_repr)
-list_repr.setup()
-LIST = list_repr.lowleveltype.TO
-tuple_repr = TupleRepr(None, [string_repr, string_repr])
-tuple_repr.setup()
-tuple_list_repr = ListRepr(None, tuple_repr)
-tuple_list_repr.setup()
-LIST_TUPLE = tuple_list_repr.lowleveltype.TO
-
 # utility conversion functions
 class LLSupport:
     _mixin_ = True
@@ -45,32 +35,6 @@ class LLSupport:
         else:
             return ''.join([rs.chars[i] for i in range(len(rs.chars))])
     from_rstr = staticmethod(from_rstr)
-
-def from_rdict(rs):
-    ritems = ll_kvi(rs, LIST_TUPLE, dum_items)
-    res = ll_newlist(LIST, 0)
-    index = 0
-    while index < ritems.ll_length():
-        ritem = ll_getitem_fast(ritems, index)
-        ll_append(res, LLSupport.to_rstr("%s=%s" % (LLSupport.from_rstr(ritem.item0),
-            LLSupport.from_rstr(ritem.item1))))
-        index += 1
-    return res
-    
-def to_rdict(rs):
-    d = {}
-    index = 0
-    while index < rs.ll_length():
-        item = LLSupport.from_rstr(ll_getitem_fast(rs, index))
-        key, value = item.split("=")
-        d[key] = value
-        index += 1
-    return d
-
-def ll_execve(cmd, args, env_list):
-    env = to_rdict(env_list)
-    os.execve(cmd, args, env)
-ll_execve.suggested_primitive = True
 
 class OOSupport:
     _mixin_ = True

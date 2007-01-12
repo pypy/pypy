@@ -235,9 +235,9 @@ if hasattr(os, 'spawnv'):
     declare(os.spawnv,    int,            'll_os/spawnv')
 if hasattr(os, 'waitpid'):
     declare(os.waitpid ,  waitpidannotation, 'll_os/waitpid')
-if hasattr(os, 'execv'):
-    declare(os.execv, noneannotation, 'll_os/execv')
-    declare(os.execve, noneannotation, 'll_os/execve')
+#if hasattr(os, 'execv'):
+#    declare(os.execv, noneannotation, 'll_os/execv')
+#    declare(os.execve, noneannotation, 'll_os/execve')
 
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')

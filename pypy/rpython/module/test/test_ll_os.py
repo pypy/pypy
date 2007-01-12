@@ -1,7 +1,7 @@
 import os
 from pypy.tool.udir import udir
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
-
+import sys
 
 def test_access():
     filename = str(udir.join('test_access.txt'))
@@ -112,3 +112,22 @@ def test_opendir_readdir():
     compared_with = os.listdir(dirname)
     compared_with.sort()
     assert result == compared_with
+
+if hasattr(os, 'execv'):
+    from pypy.rpython.extregistry import lookup
+    os_execv = lookup(os.execv).lltypeimpl.im_func
+    
+    def test_execv():
+        filename = str(udir.join('test_execv_ctypes.txt'))
+
+        progname = str(sys.executable)
+        l = ['', '']
+        l[0] = progname
+        l[1] = "-c"
+        l.append('open("%s","w").write("1")' % filename)
+        pid = os.fork()
+        if pid == 0:
+            os_execv(progname, l)
+        else:
+            os.waitpid(pid, 0)
+        assert open(filename).read() == "1"

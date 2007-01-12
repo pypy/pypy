@@ -5,9 +5,8 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_math
+from pypy.rpython.module import ll_time, ll_math, ll_os
 from pypy.rpython.module import ll_stackless, ll_stack
-from pypy.rpython.module.support import ll_execve
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import WAITPID_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
@@ -64,8 +63,6 @@ EXTERNALS = {
     impl.ll_os_spawnv.im_func:  'LL_os_spawnv',
     impl.ll_os_waitpid.im_func: 'LL_os_waitpid',
     impl.ll_os__exit.im_func:   'LL_os__exit',
-    impl.ll_os_execv.im_func:   'LL_os_execv',
-    ll_execve:                  'LL_os_execve',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',

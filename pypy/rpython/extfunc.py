@@ -2,12 +2,14 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
+from pypy.annotation.model import unionof
 
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
         assert len(args_s) == len(self.signature_args),\
                "Argument number mismatch"
         for arg, expected in zip(args_s, self.signature_args):
+            arg = unionof(arg, expected)
             assert expected.contains(arg)
 
         for type_system in ['lltype', 'ootype']:
@@ -17,6 +19,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                 pbc = self.bookkeeper.immutablevalue(impl.im_func)
                 s_result = self.bookkeeper.emulate_pbc_call(key, pbc,
                        self.signature_args)
+                s_result = unionof(s_result, self.signature_result)
                 assert self.signature_result.contains(s_result)
         
         return self.signature_result
