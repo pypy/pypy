@@ -1,6 +1,7 @@
 import py, os
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rlib.rarithmetic import intmask
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llvm import llvmjit
@@ -180,13 +181,13 @@ class UIntConst(GenericConst):
     signed = False
 
     def __init__(self, value):
-        self.value = int(value)
+        self.value = value
 
     def operand2(self):
         return str(self.value)
 
     def get_integer_value(self):
-        return self.value
+        return intmask(self.value)
 
 
 class FloatConst(GenericConst):
