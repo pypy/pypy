@@ -1,5 +1,5 @@
 from pypy.rlib.objectmodel import specialize
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llgraph import llimpl
@@ -39,6 +39,8 @@ gv_Void = gv_TYPE(lltype.Void)
 gv_Signed = gv_TYPE(lltype.Signed)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
+gv_Address = gv_TYPE(llmemory.Address)
+gv_GCREF = gv_TYPE(llmemory.GCREF)
 
 class LLLabel(GenLabel):
     def __init__(self, b, g):
@@ -220,6 +222,16 @@ class LLBuilder(GenBuilder):
         llimpl.show_incremental_progress(self.gv_f)
 
 
+    # read_frame_var support
+
+    def get_frame_base(self):
+        return LLVar(llimpl.genop(self.b, 'get_frame_base', [],
+                                  gv_Address.v))
+
+    def get_frame_info(self, vars):
+        return LLVar(llimpl.genop(self.b, 'get_frame_info', vars,
+                                  gv_GCREF.v))
+
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void
 
@@ -301,6 +313,11 @@ class RGenOp(AbstractRGenOp):
 
     def _freeze_(self):
         return True    # no real point in using a full class in llgraph
+
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_var(T, base, info, index):
+        return llimpl.read_frame_var(T, base, info, index)
 
 
 rgenop = RGenOp()      # no real point in using a full class in llgraph

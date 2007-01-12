@@ -428,6 +428,10 @@ LL_OPERATIONS = {
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':          LLOp(oo=True, canraise=(ValueError,)),
     'oohash':               LLOp(oo=True, sideeffects=False),
+
+    # _____ read frame var support ___
+    'get_frame_base':       LLOp(),
+    'get_frame_info':       LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 

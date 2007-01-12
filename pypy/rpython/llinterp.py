@@ -356,24 +356,27 @@ class LLFrame(object):
             assert isinstance(operation.args[0], Constant)
         elif operation.opname == 'indirect_call':
             assert isinstance(operation.args[0], Variable)
-        vals = [self.getval(x) for x in operation.args]
-        if getattr(ophandler, 'need_result_type', False):
-            vals.insert(0, operation.result.concretetype)
-        try:
-            retval = ophandler(*vals)
-        except LLException, e:
-            # safety check check that the operation is allowed to raise that
-            # exception
-            if operation.opname in lloperation.LL_OPERATIONS:
-                canraise = lloperation.LL_OPERATIONS[operation.opname].canraise
-                if Exception not in canraise:
-                    exc = self.llinterpreter.find_exception(e)
-                    for canraiseexc in canraise:
-                        if issubclass(exc, canraiseexc):
-                            break
-                    else:
-                        raise TypeError("the operation %s is not expected to raise %s" % (operation, exc))
-            raise
+        if getattr(ophandler, 'specialform', False):
+            retval = ophandler(*operation.args)
+        else:
+            vals = [self.getval(x) for x in operation.args]
+            if getattr(ophandler, 'need_result_type', False):
+                vals.insert(0, operation.result.concretetype)
+            try:
+                retval = ophandler(*vals)
+            except LLException, e:
+                # safety check check that the operation is allowed to raise that
+                # exception
+                if operation.opname in lloperation.LL_OPERATIONS:
+                    canraise = lloperation.LL_OPERATIONS[operation.opname].canraise
+                    if Exception not in canraise:
+                        exc = self.llinterpreter.find_exception(e)
+                        for canraiseexc in canraise:
+                            if issubclass(exc, canraiseexc):
+                                break
+                        else:
+                            raise TypeError("the operation %s is not expected to raise %s" % (operation, exc))
+                raise
         self.setvar(operation.result, retval)
         if tracer:
             if retval is None:
@@ -857,6 +860,17 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
+    # read frame var support
+
+    def op_get_frame_base(self):
+        return llmemory.fakeaddress(self)
+
+    def op_get_frame_info(self, *vars):
+        return lltype.opaqueptr(llmemory.GCREF.TO,
+                                'frame_info',
+                                vars=vars)
+    op_get_frame_info.specialform = True
+ 
     #Operation of ootype
 
     def op_new(self, INST):
