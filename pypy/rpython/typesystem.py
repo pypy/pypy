@@ -21,7 +21,8 @@ class TypeSystem(object):
             except ImportError:
                 return None
         if name in ('rclass', 'rpbc', 'rbuiltin', 'rtuple', 'rlist',
-                'rslice', 'rdict', 'rrange', 'rstr', 'll_str', 'exceptiondata'):
+                    'rslice', 'rdict', 'rrange', 'rstr',
+                    'll_str', 'exceptiondata'):
             mod = load(name)
             if mod is not None:
                 setattr(self, name, mod)
@@ -59,6 +60,12 @@ class TypeSystem(object):
             return constr(FT, graph.name, graph = graph, _callable = graph.func)
         else:
             return constr(FT, graph.name, graph = graph)
+
+    def getexternalcallable(self, ll_args, ll_result, name, **kwds):
+        typ, constr = self.callable_trait
+
+        FT = typ(ll_args, ll_result)
+        return constr(FT, name, **kwds)
 
     def getconcretetype(self, v):
         """Helper called by getcallable() to get the conrete type of a variable
