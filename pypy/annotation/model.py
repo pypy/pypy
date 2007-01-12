@@ -35,7 +35,7 @@ from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
 import inspect
 from sys import maxint
-
+from pypy.annotation.description import FunctionDesc
 
 DEBUG = True    # set to False to disable recording of debugging information
 TLS = tlsobject()
@@ -396,9 +396,12 @@ class SomePBC(SomeObject):
 class SomeGenericCallable(SomeObject):
     """ Stands for external callable with known signature
     """
-    def __init__(self, args, retval):
+    def __init__(self, args, result):
         self.args_s = args
-        self.retval_s = retval
+        self.s_result = result
+
+    def can_be_None(self):
+        return True
 
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."

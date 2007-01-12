@@ -605,7 +605,8 @@ class __extend__(SomeGenericCallable):
         bookkeeper = getbookkeeper()
         for arg, expected in zip(args.unpack()[0], self.args_s):
             assert expected.contains(arg)
-        return self.retval_s
+        
+        return self.s_result
 
 class __extend__(SomeExternalObject):
     def find_method(obj, name):

@@ -2454,10 +2454,11 @@ class TestAnnotateTestCase:
         def g(a):
             pass
         g._known_annotation_ = annmodel.SomeGenericCallable(
-            args=(annmodel.SomeInteger(),), retval=annmodel.SomeInteger())
+            args=(annmodel.SomeInteger(),), result=annmodel.SomeInteger())
 
         def fun():
             return g(1)
+
         a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
         s = a.build_types(fun, [])
         assert isinstance(s, annmodel.SomeInteger)
@@ -2468,8 +2469,8 @@ class TestAnnotateTestCase:
             pass
         g._known_annotation_ = annmodel.SomeGenericCallable(
             args=[annmodel.SomeGenericCallable(args=[annmodel.SomeInteger()],
-                                               retval=annmodel.SomeInteger())],
-            retval=annmodel.SomeInteger())
+                                               result=annmodel.SomeInteger())],
+            result=annmodel.SomeInteger())
 
         def fun2(x):
             return x

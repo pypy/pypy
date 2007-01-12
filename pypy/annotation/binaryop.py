@@ -686,7 +686,9 @@ class __extend__(pairtype(SomePBC, SomePBC)):
 class __extend__(pairtype(SomeGenericCallable, SomePBC)):
     def union((gencall, pbc)):
         unique_key = (gencall, pbc.const)
-        getbookkeeper().emulate_pbc_call(unique_key, pbc, gencall.args_s)
+        s_result = getbookkeeper().emulate_pbc_call(unique_key, pbc,
+                                                    gencall.args_s)
+        assert gencall.s_result.contains(s_result)
         return gencall
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
