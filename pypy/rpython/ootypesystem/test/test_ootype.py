@@ -423,3 +423,15 @@ def test_instance_equality():
     # Instance compares by reference
     assert not A == B
     assert A != B 
+
+def test_subclasses():
+    A = Instance("A", ROOT)
+    B = Instance("B", A)
+    C = Instance("C", A)
+    D = Instance("D", C)
+
+    assert A in ROOT._subclasses
+    assert B in A._subclasses
+    assert not B._subclasses
+    assert C in A._subclasses
+    assert D in C._subclasses
