@@ -5,8 +5,9 @@ from pypy.annotation import policy
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 
 import py
+from pypy.rpython.test.tool import LLRtypeMixin, OORtypeMixin
 
-class TestRGeneric:
+class BaseRGenericTest:
     def test_some_generic_function_call(self):
         def h(x):
             return int(x)
@@ -38,3 +39,9 @@ class TestRGeneric:
         assert interpret(f, [1.]) == 1
         assert interpret(f, [10.]) == 11
         assert interpret(f, [-3.]) == 0
+
+class TestLLRgeneric(BaseRGenericTest, LLRtypeMixin):
+    pass
+
+class TestOORgeneric(BaseRGenericTest, OORtypeMixin):
+    pass
