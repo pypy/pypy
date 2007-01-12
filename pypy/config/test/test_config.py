@@ -444,3 +444,18 @@ def test_copy():
     assert c2.s1.a
     c2.int = 44 # does not crash
 
+def test_suggests():
+    descr = OptionDescription("test", '', [
+        BoolOption("toplevel", "", default=False),
+        BoolOption("opt", "", default=False,
+                   suggests=[("toplevel", True)])
+    ])
+    c = Config(descr)
+    assert not c.toplevel
+    assert not c.opt
+    c.opt = True
+    assert c.opt
+    assert c.toplevel
+    # does not crash
+    c.toplevel = False
+    assert not c.toplevel

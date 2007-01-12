@@ -79,10 +79,10 @@ class Config(object):
         child = getattr(self._cfgimpl_descr, name)
         oldowner = self._cfgimpl_value_owners[child._name]
         oldvalue = getattr(self, name)
-        if oldvalue != value and oldowner != "default":
+        if oldvalue != value and oldowner not in ("default", "suggested"):
             if who == "default":
                 return
-            raise ValueError('can not override value %s for option %s' %
+            raise ValueError('cannot override value %s for option %s' %
                                 (value, name))
         child.setoption(self, value, who)
         self._cfgimpl_value_owners[name] = who
@@ -288,9 +288,11 @@ def _getnegation(optname):
 
 class BoolOption(Option):
     def __init__(self, name, doc, default=None, requires=None,
+                 suggests=None,
                  cmdline=DEFAULT_OPTION_NAME, negation=True):
         super(BoolOption, self).__init__(name, doc, cmdline=cmdline)
         self._requires = requires
+        self._suggests = suggests
         self.default = default
         self.negation = negation
 
@@ -304,6 +306,11 @@ class BoolOption(Option):
                 toplevel = config._cfgimpl_get_toplevel()
                 homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
                 homeconfig.setoption(name, reqvalue, who)
+        if value and self._suggests is not None:
+            for path, reqvalue in self._suggests:
+                toplevel = config._cfgimpl_get_toplevel()
+                homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
+                homeconfig.setoption(name, reqvalue, "suggested")
         super(BoolOption, self).setoption(config, value, who)
 
     def add_optparse_option(self, argnames, parser, config):
