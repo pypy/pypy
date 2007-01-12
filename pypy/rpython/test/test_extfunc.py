@@ -31,4 +31,21 @@ def test_rtyping_b():
     res = interpret(f, [])
     assert res == 42
 
-    
+def c(y, x):
+    yyy
+
+class CTestFuncEntry(ExtFuncEntry):
+    _about_ = c
+    name = 'ccc'
+    signature_args = [annmodel.SomeInteger()] * 2
+    signature_result = annmodel.SomeInteger()
+
+    def lltypeimpl(y, x):
+        return y + x
+
+def test_interp_c():
+    def f():
+        return c(3, 4)
+
+    res = interpret(f, [])
+    assert res == 7
