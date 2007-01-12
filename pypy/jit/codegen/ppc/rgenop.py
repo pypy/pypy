@@ -454,12 +454,16 @@ class Builder(GenBuilder):
         if self.final_jump_addr != 0:
             mc = self.rgenop.open_mc()
             target = mc.tell()
-            self.asm.mc = self.rgenop.ExistingCodeBlock(self.final_jump_addr, self.final_jump_addr+8)
+            self.asm.mc = self.rgenop.ExistingCodeBlock(
+                self.final_jump_addr, self.final_jump_addr+8)
             self.asm.load_word(rSCRATCH, target)
             self.asm.mc = mc
+            self.final_jump_addr = 0
+            self.closed = False
             return self
         else:
             self._open()
+            self.closed = False
             self.maybe_patch_start_here()
             return self
 
@@ -475,6 +479,7 @@ class Builder(GenBuilder):
         self.initial_var2loc = self.allocate_and_emit(args_gv).var2loc
         self.insns = []
         self.final_jump_addr = self.asm.mc.tell()
+        self.closed = True
         self.asm.nop()
         self.asm.nop()
         self.asm.mtctr(rSCRATCH)
@@ -666,10 +671,10 @@ class Builder(GenBuilder):
 
     cmp2info_flipped = {
         #      bit-in-crf  negated
-        'gt': (    1,         1   ),
-        'lt': (    0,         1   ),
-        'le': (    1,         0   ),
-        'ge': (    0,         0   ),
+        'gt': (    0,         0   ),
+        'lt': (    1,         0   ),
+        'le': (    0,         1   ),
+        'ge': (    1,         1   ),
         'eq': (    2,         0   ),
         'ne': (    2,         1   ),
         }

@@ -257,6 +257,7 @@ class CMPWI(CMPInsn):
         self.arg_reg = allocator.loc_of(self.reg_args[0])
 
     def emit(self, asm):
+        #print "CMPWI", asm.mc.tell()
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
 
 class CMPWLI(CMPW):

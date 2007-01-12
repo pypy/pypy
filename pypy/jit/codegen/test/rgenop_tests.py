@@ -366,7 +366,44 @@ def get_func_calling_pause_runner(RGenOp):
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
     return runner
-    
+
+def make_longwinded_and(rgenop):
+    # def f(y): return 2 <= y <= 4
+    # but more like this:
+    # def f(y)
+    #     x = 2 <= y
+    #     if x:
+    #         x = y <= 4
+    #     if x:
+    #        return 1
+    #     else:
+    #        return 0
+
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, gv_f, [gv_y] = rgenop.newgraph(sigtoken, "abs")
+
+    gv_x = builder.genop2("int_le", rgenop.genconst(2), gv_y)
+
+    false_builder = builder.jump_if_false(gv_x, [gv_x])
+
+    gv_x2 = builder.genop2("int_le", gv_y, rgenop.genconst(4))
+
+    args_gv = [gv_x2]
+    label = builder.enter_next_block([signed_kind], args_gv)
+    [gv_x2] = args_gv
+
+    return_false_builder = builder.jump_if_false(gv_x2, [])
+
+    builder.finish_and_return(sigtoken, rgenop.genconst(1))
+
+    false_builder.start_writing()
+    false_builder.finish_and_goto([gv_x], label)
+
+    return_false_builder.start_writing()
+    return_false_builder.finish_and_return(sigtoken, rgenop.genconst(0))
+
+    return gv_f
 
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
@@ -566,3 +603,23 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 2
         res = fn(-72)
         assert res == 72
+
+    def test_longwinded_and_direct(self):
+        rgenop = self.RGenOp()
+        gv_fn = make_longwinded_and(rgenop)
+        fnptr = self.cast(gv_fn, 1)
+
+        res = fnptr(1)
+        assert res == 0
+
+        res = fnptr(2)
+        assert res == 1
+
+        res = fnptr(3)
+        assert res == 1
+
+        res = fnptr(4)
+        assert res == 1
+
+        res = fnptr(5)
+        assert res == 0
