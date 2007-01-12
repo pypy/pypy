@@ -1,6 +1,6 @@
 from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_portal import PortalTest, P_NOVIRTUAL
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 import py
 
@@ -37,7 +37,9 @@ XP_ACCESS = lltype.Struct('xp_access',
                           )
 
 XY.become(lltype.GcStruct('xy',
-                          ('access', lltype.Ptr(XY_ACCESS)),
+                          ('vable_base', llmemory.Address),
+                          ('vable_info', llmemory.GCREF),
+                          ('vable_access', lltype.Ptr(XY_ACCESS)),
                           ('x', lltype.Signed),
                           ('y', lltype.Signed),
                           hints = {'virtualizable': True}
@@ -47,7 +49,9 @@ E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)),
                          ('w',  lltype.Signed))
 
 XP.become(lltype.GcStruct('xp',
-                          ('access', lltype.Ptr(XP_ACCESS)),
+                          ('vable_base', llmemory.Address),
+                          ('vable_info', llmemory.GCREF),                     
+                          ('vable_access', lltype.Ptr(XP_ACCESS)),
                           ('x', lltype.Signed),
                           ('p', PS),
                           hints = {'virtualizable': True}
@@ -59,12 +63,12 @@ class TestVirtualizable(PortalTest):
     def test_simple_explicit(self):
    
         def f(xy):
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 x = xy_access.get_x(xy)
             else:
                 x = xy.x
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -73,7 +77,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             return f(xy)
@@ -89,17 +93,17 @@ class TestVirtualizable(PortalTest):
     def test_simple_explicit_set(self):
    
         def f(xy):
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 x = xy_access.get_x(xy)
             else:
                 x = xy.x
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 xy_access.set_y(xy, 1)
             else:
                 xy.y = 1
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -108,7 +112,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             return f(xy)
@@ -124,17 +128,17 @@ class TestVirtualizable(PortalTest):
     def test_explicit_set_effect(self):
    
         def f(xy):
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 x = xy_access.get_x(xy)
             else:
                 x = xy.x
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 xy_access.set_y(xy, 3)
             else:
                 xy.y = 3
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -143,7 +147,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             v = f(xy)
@@ -160,7 +164,7 @@ class TestVirtualizable(PortalTest):
     def test_simple_explicit_escape(self):
    
         def f(e, xy):
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 xy_access.set_y(xy, 3)
             else:
@@ -170,7 +174,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             e = lltype.malloc(E)
@@ -187,12 +191,12 @@ class TestVirtualizable(PortalTest):
 
     def test_simple_explicit_return_it(self):
         def f(which, xy1, xy2):
-            xy1_access = xy1.access
+            xy1_access = xy1.vable_access
             if xy1_access:
                 xy1_access.set_y(xy1, 3)
             else:
                 xy1.y = 3
-            xy2_access = xy2.access
+            xy2_access = xy2.vable_access
             if xy2_access:
                 xy2_access.set_y(xy2, 7)
             else:
@@ -204,9 +208,9 @@ class TestVirtualizable(PortalTest):
 
         def main(which, x, y):
             xy1 = lltype.malloc(XY)
-            xy1.access = lltype.nullptr(XY_ACCESS)
+            xy1.vable_access = lltype.nullptr(XY_ACCESS)
             xy2 = lltype.malloc(XY)
-            xy2.access = lltype.nullptr(XY_ACCESS)
+            xy2.vable_access = lltype.nullptr(XY_ACCESS)
             xy1.x = x
             xy1.y = y
             xy2.x = y
@@ -224,15 +228,15 @@ class TestVirtualizable(PortalTest):
    
         def f(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 x = xy_access.get_x(xy)
             else:
                 x = xy.x
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -250,15 +254,15 @@ class TestVirtualizable(PortalTest):
    
         def f(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 x = xy_access.get_x(xy)
             else:
                 x = xy.x
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -276,12 +280,12 @@ class TestVirtualizable(PortalTest):
     def test_simple_with_struct_explicit(self):
    
         def f(xp):
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 x = xp_access.get_x(xp)
             else:
                 x = xp.x
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 p = xp_access.get_p(xp)
             else:
@@ -290,7 +294,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, a, b):
             xp = lltype.malloc(XP)
-            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
             xp.x = x
             s = lltype.malloc(S)
             s.a = a
@@ -306,7 +310,7 @@ class TestVirtualizable(PortalTest):
     def test_simple_with_setting_struct_explicit(self):
    
         def f(xp, s):
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 xp_access.set_p(xp, s)
             else:
@@ -315,7 +319,7 @@ class TestVirtualizable(PortalTest):
                 x = xp_access.get_x(xp)
             else:
                 x = xp.x
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 p = xp_access.get_p(xp)
             else:
@@ -325,7 +329,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, a, b):
             xp = lltype.malloc(XP)
-            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
             xp.x = x
             s = lltype.malloc(S)
             s.a = a
@@ -344,12 +348,12 @@ class TestVirtualizable(PortalTest):
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 xp_access.set_p(xp, s)
             else:
                 xp.p = s
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 p = xp_access.get_p(xp)
             else:
@@ -363,7 +367,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, a, b):
             xp = lltype.malloc(XP)
-            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
             xp.x = x
             v = f(xp, a, b)
             return v+xp.p.b
@@ -378,17 +382,17 @@ class TestVirtualizable(PortalTest):
    
         def f(x, a, b):
             xp = lltype.malloc(XP)
-            xp.access = lltype.nullptr(XP_ACCESS)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
             xp.x = x
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 xp_access.set_p(xp, s)
             else:
                 xp.p = s
-            xp_access = xp.access
+            xp_access = xp.vable_access
             if xp_access:
                 p = xp_access.get_p(xp)
             else:
@@ -413,7 +417,7 @@ class TestVirtualizable(PortalTest):
    
         def f(e):
             xy = e.xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 xy_access.set_y(xy, 3)
             else:
@@ -422,7 +426,7 @@ class TestVirtualizable(PortalTest):
 
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             e = lltype.malloc(E)
@@ -438,17 +442,17 @@ class TestVirtualizable(PortalTest):
    
         def f(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             e = lltype.malloc(E)
             e.xy = xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
                 y = xy.y
-            xy_access = xy.access
+            xy_access = xy.vable_access
             newy = 2*y
             if xy_access:
                 xy_access.set_y(xy, newy)
@@ -467,7 +471,7 @@ class TestVirtualizable(PortalTest):
     def test_explicit_late_residual_red_call(self):
         def g(e):
             xy = e.xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -476,12 +480,12 @@ class TestVirtualizable(PortalTest):
 
         def f(e):
             xy = e.xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
                 y = xy.y
-            xy_access = xy.access
+            xy_access = xy.vable_access
             newy = 2*y
             if xy_access:
                 xy_access.set_y(xy, newy)
@@ -492,7 +496,7 @@ class TestVirtualizable(PortalTest):
             
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             e = lltype.malloc(E)
@@ -514,11 +518,11 @@ class TestVirtualizable(PortalTest):
         assert res == 42
 
     def test_explicit_residual_red_call(self):
-        py.test.skip("WIP")
+        #py.test.skip("WIP")
         
         def g(e):
             xy = e.xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
@@ -527,12 +531,12 @@ class TestVirtualizable(PortalTest):
 
         def f(e):
             xy = e.xy
-            xy_access = xy.access
+            xy_access = xy.vable_access
             if xy_access:
                 y = xy_access.get_y(xy)
             else:
                 y = xy.y
-            xy_access = xy.access
+            xy_access = xy.vable_access
             newy = 2*y
             if xy_access:
                 xy_access.set_y(xy, newy)
@@ -543,7 +547,7 @@ class TestVirtualizable(PortalTest):
             
         def main(x, y):
             xy = lltype.malloc(XY)
-            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
             e = lltype.malloc(E)

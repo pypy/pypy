@@ -171,6 +171,15 @@ class GenBuilder(object):
     def start_writing(self):
         '''Start a builder returned by jump_if_xxx(), or resumes a paused
         builder.'''
+
+
+    # read frame var support
+    
+    def get_frame_base(self):
+        pass
+
+    def get_frame_info(self):
+        pass
         
 class GenLabel(object):
     '''A "smart" label.  Represents an address of the start of a basic

@@ -680,8 +680,8 @@ class HintRTyper(RPythonTyper):
         PTRTYPE = originalconcretetype(hop.args_s[0])
         if PTRTYPE.TO._hints.get('virtualizable', False):
             # xxx optimisation: do this folding already at hint-annotation time!
-            if hop.args_v[1].value == 'access':
-                ACCESSPTR = PTRTYPE.TO.access
+            if hop.args_v[1].value == 'vable_access':
+                ACCESSPTR = PTRTYPE.TO.vable_access
                 access_repr = self.getredrepr(ACCESSPTR)
                 return hop.inputconst(access_repr, lltype.nullptr(ACCESSPTR.TO))
 
@@ -690,7 +690,7 @@ class HintRTyper(RPythonTyper):
                                               green_void_repr)
         v_argbox = hop.llops.as_ptrredbox(v_argbox)
         c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
-        structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
+        structdesc = rcontainer.StructTypeDesc(self, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
         if fielddesc is None:   # Void field
             return
@@ -710,7 +710,7 @@ class HintRTyper(RPythonTyper):
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
         c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
+        fielddesc = rcontainer.ArrayFieldDesc(self, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -727,7 +727,7 @@ class HintRTyper(RPythonTyper):
         ts = self
         [v_argbox] = hop.inputargs(self.getredrepr(PTRTYPE))
         
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
+        fielddesc = rcontainer.ArrayFieldDesc(self, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -768,7 +768,7 @@ class HintRTyper(RPythonTyper):
                                                            self.getredrepr(VALUETYPE)
                                                            )
         v_destbox = hop.llops.as_ptrredbox(v_destbox)
-        structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
+        structdesc = rcontainer.StructTypeDesc(self, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
         assert fielddesc is not None   # skipped above
         c_fielddesc = inputconst(lltype.Void, fielddesc)
@@ -788,7 +788,7 @@ class HintRTyper(RPythonTyper):
         v_argbox, v_index, v_valuebox= hop.inputargs(self.getredrepr(PTRTYPE),
                                                      self.getredrepr(lltype.Signed),
                                                      self.getredrepr(VALUETYPE))
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
+        fielddesc = rcontainer.ArrayFieldDesc(self, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -805,8 +805,7 @@ class HintRTyper(RPythonTyper):
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
         v_argbox = hop.llops.as_ptrredbox(v_argbox)
-        fielddesc = rcontainer.NamedFieldDesc(self.RGenOp, PTRTYPE,
-                                              c_fieldname.value)
+        fielddesc = rcontainer.NamedFieldDesc(self, PTRTYPE, c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -820,7 +819,7 @@ class HintRTyper(RPythonTyper):
         ts = self
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
+        fielddesc = rcontainer.ArrayFieldDesc(self, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -846,9 +845,9 @@ class HintRTyper(RPythonTyper):
         PTRTYPE = originalconcretetype(hop.s_result)
         TYPE = PTRTYPE.TO
         if isinstance(TYPE, lltype.Struct):
-            contdesc = rcontainer.StructTypeDesc(self.RGenOp, TYPE)
+            contdesc = rcontainer.StructTypeDesc(self, TYPE)
         else:
-            contdesc = rcontainer.ArrayFieldDesc(self.RGenOp, TYPE)
+            contdesc = rcontainer.ArrayFieldDesc(self, TYPE)
         c_contdesc = inputconst(lltype.Void, contdesc)
         s_contdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(contdesc)
         v_jitstate = hop.llops.getjitstate()
@@ -1506,8 +1505,10 @@ class RedStructRepr(RedRepr):
         if not T._hints.get('virtualizable', False):
             RedRepr.build_portal_arg_helpers(self)
             return
-        
-        names = unrolling_iterable([name for name in T._names if name != 'access'])
+
+
+        names = unrolling_iterable([name for name in T._names
+                                    if name not in rcontainer.VABLEFIELDS])
         def collect_residual_args(v): 
             t = (v,)
             for name in names:
@@ -1524,7 +1525,7 @@ class RedStructRepr(RedRepr):
         def make_arg_redbox(jitstate, inputargs_gv, i):
             box = typedesc.factory()
             jitstate.add_virtualizable(box)
-            j = 1
+            j = rcontainer.NVABLEFIELDS
             content = box.content
             assert isinstance(content, rcontainer.VirtualStruct)
             content_boxes = content.content_boxes
@@ -1537,13 +1538,13 @@ class RedStructRepr(RedRepr):
             content_boxes[j].genvar = gv_outside
             return box
         self.make_arg_redbox = make_arg_redbox
-        make_arg_redbox.consumes = len(T._names)
+        make_arg_redbox.consumes = len(T._names)-rcontainer.NVABLEFIELDS+1
 
     def gettypedesc(self):
         if self.typedesc is None:
-            ts = self.hrtyper
+            hrtyper = self.hrtyper
             T = self.original_concretetype.TO
-            self.typedesc = rcontainer.StructTypeDesc(ts.RGenOp, T)
+            self.typedesc = rcontainer.StructTypeDesc(hrtyper, T)
         return self.typedesc
 
     def create(self, hop):
@@ -1559,7 +1560,7 @@ class RedStructRepr(RedRepr):
         if T._hints.get('virtualizable', False):
             getredrepr = self.hrtyper.getredrepr
             for name in T._names:
-                if name == 'access':
+                if name in rcontainer.VABLEFIELDS:
                     continue
                 FIELDTYPE = getattr(T, name)
                 argtypes += getredrepr(FIELDTYPE).residual_argtypes()

@@ -455,6 +455,7 @@ class CallDesc:
     def __init__(self, RGenOp, FUNCTYPE):
         self.sigtoken = RGenOp.sigToken(FUNCTYPE)
         self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
+        # xxx what if the result is virtualizable?
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
 
     def _freeze_(self):
@@ -462,10 +463,12 @@ class CallDesc:
 
 def ll_gen_residual_call(jitstate, calldesc, funcbox):
     builder = jitstate.curbuilder
+    jitstate.prepare_for_residual_call()
     gv_funcbox = funcbox.getgenvar(jitstate)
     argboxes = jitstate.frame.local_boxes
     args_gv = [argbox.getgenvar(jitstate) for argbox in argboxes]
     gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
+    jitstate.after_residual_call()
     return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
 
 
@@ -878,6 +881,25 @@ class JITState(object):
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.store_back(self)
         return incoming
+
+    def prepare_for_residual_call(self):
+        virtualizables = self.virtualizables
+        if virtualizables:
+            builder = self.curbuilder            
+            gv_base = builder.get_frame_base()
+            for virtualizable_box in virtualizables.keys():
+                content = virtualizable_box.content
+                assert isinstance(content, rcontainer.VirtualizableStruct)
+                content.prepare_for_residual_call(self, gv_base)
+                
+    def after_residual_call(self):
+        virtualizables = self.virtualizables
+        if virtualizables:
+            builder = self.curbuilder            
+            for virtualizable_box in virtualizables.keys():
+                content = virtualizable_box.content
+                assert isinstance(content, rcontainer.VirtualizableStruct)
+                content.after_residual_call(self)
 
     def freeze(self, memo):
         result = FrozenJITState()

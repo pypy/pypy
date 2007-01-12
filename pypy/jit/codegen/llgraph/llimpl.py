@@ -193,7 +193,11 @@ def revealconst(T, gv_value):
     elif T == llmemory.Address:
         return llmemory.cast_ptr_to_adr(c.value)
     else:
-        return lltype.cast_primitive(T, c.value)
+        if lltype.typeOf(c.value) == llmemory.Address:
+            value = llmemory.cast_adr_to_int(c.value)
+        else:
+            value = c.value
+        return lltype.cast_primitive(T, value)
 
 def isconst(gv_value):
     c = from_opaque_object(gv_value)
