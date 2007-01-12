@@ -41,12 +41,19 @@ if hasattr(os, 'execv'):
         signature_result = s_ImpossibleValue
 
         def lltypeimpl(path, args):
-            typ = ctypes.c_char_p * (len(args) + 1)
-            array = typ()
+            # XXX incredible code to work around rctypes limitations
+            length = len(args) + 1
+            num_bytes = ctypes.sizeof(ctypes.c_char_p) * length
+            buffer = ctypes.create_string_buffer(num_bytes)
+            array = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char_p))
+            buffer_addr = ctypes.cast(buffer, ctypes.c_void_p).value
             for num in range(len(args)):
-                array[num] = args[num]
+                adr1 = buffer_addr + ctypes.sizeof(ctypes.c_char_p) * num
+                ptr = ctypes.c_void_p(adr1)
+                arrayitem = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_char_p))
+                arrayitem[0] = args[num]
             os_execv(path, array)
-            raise OSError(geterrno())
+            raise OSError(geterrno(), "execv failed")
 
 class BaseOS:
     __metaclass__ = ClassMethods

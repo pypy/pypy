@@ -731,6 +731,7 @@ if hasattr(posix, 'execv'):
         py.test.raises(OSError, "func()")
 
     def test_execve():
+        import py; py.test.skip("in-progress")
         filename = str(udir.join('test_execve.txt'))
         def does_stuff():
             progname = str(sys.executable)
