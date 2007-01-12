@@ -49,6 +49,9 @@ class BaseMallocRemover(object):
     def key_for_field_access(self, S, fldname):
         raise NotImplementedError
 
+    def inline_type(self, TYPE):
+        raise NotImplementedError
+
     def flowin(self, block, count, var, newvarsmap):
         # in this 'block', follow where the 'var' goes to and replace
         # it by a flattened-out family of variables.  This family is given
@@ -186,6 +189,9 @@ class BaseMallocRemover(object):
             op = cp[2]
             if op.opname != self.MALLOC_OP:
                 return False
+            if not self.inline_type(op.args[0].value):
+                return False
+
             lltypes[op.result.concretetype] = True
 
         # there must be a single largest malloced GcStruct;
@@ -339,6 +345,9 @@ class LLTypeMallocRemover(BaseMallocRemover):
         if not isinstance(name, str):      # access by index
             name = 'item%d' % (name,)
         self.accessed_substructs[S, name] = True
+
+    def inline_type(self, TYPE):
+        return True
 
     def equivalent_substruct(self, S, fieldname):
         # we consider a pointer to a GcStruct S as equivalent to a
@@ -527,6 +536,9 @@ class OOTypeMallocRemover(BaseMallocRemover):
     def RTTI_dtor(self, STRUCT):
         return False
 
+    def inline_type(self, TYPE):
+        return isinstance(TYPE, (ootype.Record, ootype.Instance))
+
     def _get_fields(self, TYPE):
         if isinstance(TYPE, ootype.Record):
             return TYPE._fields
@@ -537,7 +549,7 @@ class OOTypeMallocRemover(BaseMallocRemover):
 
     def flatten(self, TYPE):
         for name, (FIELDTYPE, default) in self._get_fields(TYPE).iteritems():
-            key = TYPE, name
+            key = self.key_for_field_access(TYPE, name)
             example = FIELDTYPE._defl()
             constant = Constant(example)
             constant.concretetype = FIELDTYPE
@@ -546,7 +558,8 @@ class OOTypeMallocRemover(BaseMallocRemover):
             self.newvarstype[key] = FIELDTYPE
 
     def key_for_field_access(self, S, fldname):
-        return S, fldname
+        CLS, TYPE = S._lookup_field(fldname)
+        return CLS, fldname
 
     def flowin_op(self, op, vars, newvarsmap):
         if op.opname == "oogetfield":
