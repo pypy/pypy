@@ -187,12 +187,20 @@ class RPythonTyper(object):
         ldef = listdef.ListDef(None, annmodel.SomeString())
         self.list_of_str_repr = self.getrepr(annmodel.SomeList(ldef))
 
+    def getannmixlevel(self):
+        if self.annmixlevel is not None:
+            return self.annmixlevel
+        from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        self.annmixlevel = MixLevelHelperAnnotator(self)
+        return self.annmixlevel
+
     def specialize_more_blocks(self):
         if self.already_seen:
             newtext = ' more'
         else:
             newtext = ''
         blockcount = 0
+        self.annmixlevel = None
         while True:
             # look for blocks not specialized yet
             pending = [block for block in self.annotator.annotated
@@ -234,6 +242,10 @@ class RPythonTyper(object):
             raise TyperError("there were %d error" % len(self.typererrors))
         self.log.event('-=- specialized %d%s blocks -=-' % (
             blockcount, newtext))
+        annmixlevel = self.annmixlevel
+        del self.annmixlevel
+        if annmixlevel is not None:
+            annmixlevel.finish()
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False): 
         c = 0
