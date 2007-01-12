@@ -13,13 +13,16 @@ class _Call(MicroInstruction):
         callee = op.args[0].value
         if isinstance(callee, _static_meth):
             self._render_native_function(generator, callee, op.args)
-        else:
+        elif hasattr(callee, "graph"):
             graph = callee.graph
             method_name = oopspec.get_method_name(graph, op)
             if method_name is None:
                 self._render_function(generator, graph, op.args)
             else:
                 self._render_method(generator, method_name, op.args[1:])
+        else:
+            self._render_primitive_function(generator, callee, op)
+
 
     def _load_arg_or_null(self, generator, arg):
         if arg.concretetype is ootype.Void:
@@ -85,6 +88,13 @@ class _Call(MicroInstruction):
                this.concretetype._VALUETYPE is ootype.Void and \
                method_name == 'll_current_value':
                 generator.ilasm.pop()
+
+    def _render_primitive_function(self, generator, callee, op):
+        for func_arg in op.args[1:]: # push parameters
+            self._load_arg_or_null(generator, func_arg)
+        module, name = callee._name.split(".")
+        func_name = '[pypylib]pypy.builtin.%s::%s' % (module, name)
+        generator.call_op(op, func_name)
 
 class _CallMethod(_Call):
     def render(self, generator, op):

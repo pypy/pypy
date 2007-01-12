@@ -208,6 +208,19 @@ class CTS(object):
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
 
+    def op_to_signature(self, op, func_name):
+        ret_type, ret_var = self.llvar_to_cts(op.result)
+        func_name = self.escape_name(func_name)
+
+        args = [arg for arg in op.args[1:]
+                    if arg.concretetype is not ootype.Void]
+
+        arg_types = [self.lltype_to_cts(arg.concretetype) for arg in args]
+        arg_list = ', '.join(arg_types)
+
+        return '%s %s(%s)' % (ret_type, func_name, arg_list)
+
+
     def method_signature(self, TYPE, name_or_desc):
         # TODO: use callvirt only when strictly necessary
         if isinstance(TYPE, ootype.Instance):

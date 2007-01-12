@@ -283,6 +283,9 @@ class CLIBaseGenerator(Generator):
     def function_signature(self, graph, func_name=None):
         return self.cts.graph_to_signature(graph, False, func_name)
 
+    def op_signature(self, op, func_name):
+        return self.cts.op_to_signature(op, func_name)
+
     def class_name(self, TYPE):
         if isinstance(TYPE, ootype.Instance):
             return self.db.class_name(TYPE)
@@ -296,6 +299,10 @@ class CLIBaseGenerator(Generator):
         if func_name is None: # else it is a suggested primitive
             self.db.pending_function(graph)
         func_sig = self.function_signature(graph, func_name)
+        self.ilasm.call(func_sig)
+
+    def call_op(self, op, func_name):
+        func_sig = self.op_signature(op, func_name)
         self.ilasm.call(func_sig)
 
     def call_signature(self, signature):
