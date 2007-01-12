@@ -1,6 +1,48 @@
 
 import types
-from pypy.annotation import model as annmodel
+from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
+     SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
+     SomeObject, SomeInstance
+from pypy.annotation.classdef import ClassDef, InstanceSource
+from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
+from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
+
+def annotationoftype(t, bookkeeper=False):
+    from pypy.annotation.builtin import BUILTIN_ANALYZERS
+    from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
+    from pypy.rpython import extregistry
+
+    """The most precise SomeValue instance that contains all
+    objects of type t."""
+    assert isinstance(t, (type, types.ClassType))
+    if t is bool:
+        return SomeBool()
+    elif t is int:
+        return SomeInteger()
+    elif issubclass(t, str): # py.lib uses annotated str subclasses
+        return SomeString()
+    elif t is float:
+        return SomeFloat()
+    elif t is list:
+        return SomeList(MOST_GENERAL_LISTDEF)
+    elif t is dict:
+        return SomeDict(MOST_GENERAL_DICTDEF)
+    # can't do tuple
+    elif t is types.NoneType:
+        return s_None
+    elif t in EXTERNAL_TYPE_ANALYZERS:
+        return SomeExternalObject(t)
+    elif bookkeeper and extregistry.is_registered_type(t, bookkeeper.policy):
+        entry = extregistry.lookup_type(t, bookkeeper.policy)
+        return entry.compute_annotation_bk(bookkeeper)
+    elif bookkeeper and t.__module__ != '__builtin__' and t not in bookkeeper.pbctypes:
+        classdef = bookkeeper.getuniqueclassdef(t)
+        return SomeInstance(classdef)
+    else:
+        o = SomeObject()
+        if t != object:
+            o.knowntype = t
+        return o
 
 class Sig(object):
 
@@ -10,6 +52,7 @@ class Sig(object):
     def __call__(self, funcdesc, inputcells):
         from pypy.rpython.lltypesystem import lltype
         args_s = []
+        from pypy.annotation import model as annmodel
         for i, argtype in enumerate(self.argtypes):
             if isinstance(argtype, (types.FunctionType, types.MethodType)):
                 argtype = argtype(*inputcells)

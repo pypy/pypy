@@ -16,6 +16,7 @@ from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.annotation import description
+from pypy.annotation.signature import annotationoftype
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rlib.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rlib.rarithmetic import base_int
@@ -539,39 +540,7 @@ class Bookkeeper:
             clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
 
     def valueoftype(self, t):
-        """The most precise SomeValue instance that contains all
-        objects of type t."""
-        assert isinstance(t, (type, types.ClassType))
-        if t is bool:
-            return SomeBool()
-        elif t is int:
-            return SomeInteger()
-        elif issubclass(t, str): # py.lib uses annotated str subclasses
-            return SomeString()
-        elif t is float:
-            return SomeFloat()
-        elif t is list:
-            return SomeList(MOST_GENERAL_LISTDEF)
-        elif t is dict:
-            return SomeDict(MOST_GENERAL_DICTDEF)
-        # can't do tuple
-        elif t is types.NoneType:
-            return s_None
-        elif t in EXTERNAL_TYPE_ANALYZERS:
-            return SomeExternalObject(t)
-##        elif hasattr(t, "compute_annotation"):
-##            return t.compute_annotation()
-        elif extregistry.is_registered_type(t, self.policy):
-            entry = extregistry.lookup_type(t, self.policy)
-            return entry.compute_annotation_bk(self)
-        elif t.__module__ != '__builtin__' and t not in self.pbctypes:
-            classdef = self.getuniqueclassdef(t)
-            return SomeInstance(classdef)
-        else:
-            o = SomeObject()
-            if t != object:
-                o.knowntype = t
-            return o
+        return annotationoftype(t, self)
 
     def get_classpbc_attr_families(self, attrname):
         """Return the UnionFind for the ClassAttrFamilies corresponding to
