@@ -58,10 +58,11 @@ class TestBasic(LLVMTestBasicMixin,
             llvm_version(), MINIMAL_VERSION))
 
     if llvm_version() < 2.0:
-        test_float_arithmetic = skip_too_minimal #40.0 + 2.0 = 2.0? (mmx issue?)
         test_unsigned = skip_too_minimal #uint_invert uses incorrect xor constant?
 
-    test_float_cast = skip #works when f64 is 'float' but not when 'double' because of 0.0 compare
+    test_float_arithmetic = skip #XXX llvmjit.execute() returns an int :-(
+    test_float_cast = skip       #XXX llvmjit.execute() returns an int :-(
+
     test_float_pow = skip
     test_unichar_array = skip
     test_char_unichar_fields = skip

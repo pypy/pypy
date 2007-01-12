@@ -567,8 +567,12 @@ class Builder(GenBuilder):
         if restype is gv_x.type:
             return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
+        if restype[-1] == '*':
+            t = bitcast
+        else:
+            t = zext
         self.asm.append(' %s=%s %s to %s' % (
-            gv_result.operand2(), zext, gv_x.operand(), restype))
+            gv_result.operand2(), t, gv_x.operand(), restype))
         return gv_result
 
     def _trunc_to(self, gv_x, restype=None):
@@ -877,7 +881,7 @@ class Builder(GenBuilder):
         self.asm.append(' %s=getelementptr %s,%s %s' % (
             gv_p.operand2(), gv_result.operand(), i32, length_offset))
 
-        gv_p2 = self._cast_to(gv_p, pi32) #warning: length field hardcoded here
+        gv_p2 = self._cast_to(gv_p, pi32) #warning: length field hardcoded as int here
         self.asm.append(' store %s, %s' % (gv_size.operand(), gv_p2.operand()))
 
         return gv_result
