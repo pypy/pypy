@@ -26,8 +26,7 @@ def annotationoftype(t, bookkeeper=False):
     objects of type t."""
     if isinstance(t, list):
         assert len(t) == 1, "We do not support type joining in list"
-        listdef = ListDef(None, annotation(t[0]))
-        listdef.listitem.dont_change_any_more = False
+        listdef = ListDef(None, annotation(t[0]), mutated=True, resized=True)
         return SomeList(listdef)
     elif isinstance(t, tuple):
         return SomeTuple(tuple([annotation(i) for i in t]))
