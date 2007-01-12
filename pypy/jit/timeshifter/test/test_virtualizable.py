@@ -512,3 +512,54 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [0, 21],
                                          policy=StopAtGPolicy())
         assert res == 42
+
+    def test_explicit_residual_red_call(self):
+        py.test.skip("WIP")
+        
+        def g(e):
+            xy = e.xy
+            xy_access = xy.access
+            if xy_access:
+                y = xy_access.get_y(xy)
+            else:
+                y = xy.y
+            e.w = y
+
+        def f(e):
+            xy = e.xy
+            xy_access = xy.access
+            if xy_access:
+                y = xy_access.get_y(xy)
+            else:
+                y = xy.y
+            xy_access = xy.access
+            newy = 2*y
+            if xy_access:
+                xy_access.set_y(xy, newy)
+            else:
+                xy.y = newy
+            g(e)
+            return xy.x
+            
+        def main(x, y):
+            xy = lltype.malloc(XY)
+            xy.access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            e = lltype.malloc(E)
+            e.xy = xy
+            v = f(e)
+            return v+e.w
+
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            novirtualcontainer = True
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift_from_portal(main, f, [2, 20],
+                                         policy=StopAtGPolicy())
+        assert res == 42
