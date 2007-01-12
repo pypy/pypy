@@ -326,6 +326,11 @@ class TestInterp(object):
          
     def test_break(self):
         py.test.skip(" TODO: needed for mozilla test suite")
+        self.assert_prints("""
+        while(1){
+            break;
+        }
+        print('out')""", ["out"])
 
     def test_typeof(self):
         py.test.skip(" TODO: needed for mozilla test suite")
@@ -369,10 +374,7 @@ class TestInterp(object):
         if ( gc == undefined ) {
         print('undef');
         }
-        """
-        x = "if ( ! x ) { "
-        x = "var x = false;"
-        
+        """        
         x = "Math.abs(actual-expect) < 0.0000001 ) {"
         x = """if ( isNaN( t ) ){
             return ( Number.NaN );"""
