@@ -8,7 +8,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
 from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
-    trunc, zext, bitcast, shr_prefix, define, i8, i16, i32, f64
+    trunc, zext, bitcast, shr_prefix, define, i1, i8, i16, i32, f64
 
 
 pi8  = i8  + '*'
@@ -95,40 +95,42 @@ class Var(GenVar):
         count.n_vars += 1
 
     def operand(self):
-        return '%s %%v%d' % (self.type, self.n)
+        return '%s %s' % (self.type, self.operand2())
 
     def operand2(self):
         return '%%v%d' % (self.n,)
 
 
 class GenericConst(GenConst):
-    #type = 'generic'
-
-    #def __init__(self, value):
-    #    self.value = value
 
     def operand(self):
-        return '%s %s' % (self.type, self.value)
-
-    def operand2(self):
-        return str(self.value)
+        return '%s %s' % (self.type, self.operand2())
 
     @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
-            return lltype.cast_int_to_ptr(T, self.value)
+            return lltype.cast_int_to_ptr(T, self.get_integer_value())
         elif T is llmemory.Address:
-            return llmemory.cast_int_to_adr(self.value)
+            return llmemory.cast_int_to_adr(self.get_integer_value())
         else:
-            return lltype.cast_primitive(T, self.value)
+            return lltype.cast_primitive(T, self.get_integer_value())
 
 
 class BoolConst(GenericConst):
-    type = 'bool'
+    type = i1
     signed = False
 
     def __init__(self, value):
         self.value = bool(value)
+
+    def operand2(self):
+        if self.value:
+            return 'true'
+        else:
+            return 'false'
+
+    def get_integer_value(self):
+        return int(self.value)
 
 
 class CharConst(GenericConst):
@@ -136,11 +138,13 @@ class CharConst(GenericConst):
     signed = False
 
     def __init__(self, value):
-        if type(value) is str:
-            self.value = ord(value)
-        else:
-            assert type(value) is int
-            self.value = value
+        self.value = ord(value)
+
+    def operand2(self):
+        return '%d' % self.value
+
+    def get_integer_value(self):
+        return self.value
 
 
 class UniCharConst(GenericConst):
@@ -150,6 +154,12 @@ class UniCharConst(GenericConst):
     def __init__(self, value):
         self.value = unicode(value)
 
+    def operand2(self):
+        return '%s' % self.value
+
+    def get_integer_value(self):
+        return int(self.value)
+
 
 class IntConst(GenericConst):
     type = i32
@@ -158,12 +168,11 @@ class IntConst(GenericConst):
     def __init__(self, value):
         self.value = int(value)
 
-    #XXX why does typeof value change in test_genc_ts.py -k test_degenerated_before_return(_2)?
-    def operand(self):
-        return '%s %d' % (self.type, int(self.value))
-
     def operand2(self):
-        return str(int(self.value))
+        return str(self.value)
+
+    def get_integer_value(self):
+        return self.value
 
 
 class UIntConst(GenericConst):
@@ -173,6 +182,12 @@ class UIntConst(GenericConst):
     def __init__(self, value):
         self.value = int(value)
 
+    def operand2(self):
+        return str(self.value)
+
+    def get_integer_value(self):
+        return self.value
+
 
 class FloatConst(GenericConst):
     type = f64
@@ -180,6 +195,14 @@ class FloatConst(GenericConst):
 
     def __init__(self, value):
         self.value = float(value)
+
+    def operand2(self):
+        return str(self.value)
+
+    @specialize.arg(1)
+    def revealconst(self, T):
+        assert T is lltype.Float
+        return self.value
 
 
 class AddrConst(GenConst):
@@ -190,10 +213,13 @@ class AddrConst(GenConst):
         self.addr = addr
 
     def operand(self):
-        return '%s %s' % (self.type, llmemory.cast_adr_to_int(self.addr))
+        return '%s %s' % (self.type, self.operand2())
 
     def operand2(self):
-        return str(llmemory.cast_adr_to_int(self.addr))
+        s = str(llmemory.cast_adr_to_int(self.addr))
+        if s == '0':
+            s = 'null'
+        return s
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -435,52 +461,52 @@ class Builder(GenBuilder):
     def op_float_neg(self, gv_x): return self._rgenop2_generic('sub', FloatConst(0.0), gv_x)
 
     def op_int_lt(self, gv_x, gv_y):
-        return self._rgenop2_generic(scmp + 'lt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(scmp + 'lt', gv_x, gv_y, i1)
 
     def op_int_le(self, gv_x, gv_y):
-        return self._rgenop2_generic(scmp + 'le', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(scmp + 'le', gv_x, gv_y, i1)
 
     def op_int_eq(self, gv_x, gv_y):
-        return self._rgenop2_generic(icmp + 'eq' , gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(icmp + 'eq' , gv_x, gv_y, i1)
 
     def op_int_ne(self, gv_x, gv_y):
-        return self._rgenop2_generic(icmp + 'ne' , gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(icmp + 'ne' , gv_x, gv_y, i1)
 
     def op_int_gt(self, gv_x, gv_y):
-        return self._rgenop2_generic(scmp + 'gt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(scmp + 'gt', gv_x, gv_y, i1)
 
     def op_int_ge(self, gv_x, gv_y):
-        return self._rgenop2_generic(scmp + 'ge', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(scmp + 'ge', gv_x, gv_y, i1)
 
     def op_uint_lt(self, gv_x, gv_y):
-        return self._rgenop2_generic(ucmp + 'lt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(ucmp + 'lt', gv_x, gv_y, i1)
 
     def op_uint_le(self, gv_x, gv_y):
-        return self._rgenop2_generic(ucmp + 'le', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(ucmp + 'le', gv_x, gv_y, i1)
 
     def op_uint_gt(self, gv_x, gv_y):
-        return self._rgenop2_generic(ucmp + 'gt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(ucmp + 'gt', gv_x, gv_y, i1)
 
     def op_uint_ge(self, gv_x, gv_y):
-        return self._rgenop2_generic(ucmp + 'ge', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(ucmp + 'ge', gv_x, gv_y, i1)
 
     def op_float_lt(self, gv_x, gv_y):
-        return self._rgenop2_generic(fcmp + 'lt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'lt', gv_x, gv_y, i1)
 
     def op_float_le(self, gv_x, gv_y): 
-        return self._rgenop2_generic(fcmp + 'le', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'le', gv_x, gv_y, i1)
     
     def op_float_eq(self, gv_x, gv_y): 
-        return self._rgenop2_generic(fcmp + 'eq', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'eq', gv_x, gv_y, i1)
     
     def op_float_ne(self, gv_x, gv_y): 
-        return self._rgenop2_generic(fcmp + 'ne', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'ne', gv_x, gv_y, i1)
 
     def op_float_gt(self, gv_x, gv_y): 
-        return self._rgenop2_generic(fcmp + 'gt', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'gt', gv_x, gv_y, i1)
 
     def op_float_ge(self, gv_x, gv_y): 
-        return self._rgenop2_generic(fcmp + 'ge', gv_x, gv_y, 'bool')
+        return self._rgenop2_generic(fcmp + 'ge', gv_x, gv_y, i1)
     
     op_unichar_eq = op_ptr_eq = op_uint_eq = op_int_eq
     op_unichar_ne = op_ptr_ne = op_uint_ne = op_int_ne
@@ -506,10 +532,10 @@ class Builder(GenBuilder):
     def op_uint_invert(self, gv_x): return self._rgenop2_generic('xor', gv_x, UIntConst((1<<32)-1))
 
     def _abs(self, gv_x, nullstr='0'):
-        gv_comp    = Var('bool')
+        gv_comp    = Var(i1)
         gv_abs_pos = Var(gv_x.type)
         gv_result  = Var(gv_x.type)
-        if nullstr is '0':
+        if nullstr == '0':
             l = ' %s=' + scmp + 'ge %s,%s'
         else:
             l = ' %s=' + fcmp + 'ge %s,%s'
@@ -554,14 +580,14 @@ class Builder(GenBuilder):
             gv_result.operand2(), trunc, gv_x.operand(), restype))
         return gv_result
 
-    def _cast_to_bool(self, gv_x):      return self._cast_to(gv_x, 'bool')
+    def _cast_to_bool(self, gv_x):      return self._cast_to(gv_x, i1)
     def _cast_to_char(self, gv_x):      return self._cast_to(gv_x, i8)
     def _cast_to_unichar(self, gv_x):   return self._cast_to(gv_x, i32)
     def _cast_to_int(self, gv_x):       return self._cast_to(gv_x, i32)
     def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, u32)
     def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, f64)
 
-    def _trunc_to_bool(self, gv_x):      return self._trunc_to(gv_x, 'bool')
+    def _trunc_to_bool(self, gv_x):      return self._trunc_to(gv_x, i1)
     def _trunc_to_char(self, gv_x):      return self._trunc_to(gv_x, i8)
     def _trunc_to_unichar(self, gv_x):   return self._trunc_to(gv_x, i32)
     def _trunc_to_int(self, gv_x):       return self._trunc_to(gv_x, i32)
@@ -647,8 +673,8 @@ class Builder(GenBuilder):
 
     def _is_false(self, gv_x, nullstr='0'):
         log('%s Builder._is_false %s' % (self.block.label, gv_x.operand()))
-        gv_result = Var('bool')
-        if nullstr is '0':
+        gv_result = Var(i1)
+        if nullstr == '0':
             l = ' %s=' + icmp + 'eq %s,%s'
         else:
             l = ' %s=' + fcmp + 'eq %s,%s'
@@ -657,8 +683,8 @@ class Builder(GenBuilder):
 
     def _is_true(self, gv_x, nullstr='0'):
         log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
-        gv_result = Var('bool')
-        if nullstr is '0':
+        gv_result = Var(i1)
+        if nullstr == '0':
             l = ' %s=' + icmp + 'ne %s,%s'
         else:
             l = ' %s=' + fcmp + 'ne %s,%s'
@@ -705,8 +731,8 @@ class Builder(GenBuilder):
             self.block.label, offset, fieldtype, gv_ptr.operand()))
         gv_ptr_var = self._as_var(gv_ptr)
         gv_sub = Var(gv_ptr.type)
-        self.asm.append(' %s=getelementptr %s,%d' % (
-            gv_sub.operand2(), gv_ptr_var.operand(), offset))
+        self.asm.append(' %s=getelementptr %s,%s %d' % (
+            gv_sub.operand2(), gv_ptr_var.operand(), i32, offset))
         return gv_sub
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
@@ -716,20 +742,27 @@ class Builder(GenBuilder):
         self.mc.LEA(eax, op)
         return self.returnvar(eax)
         '''
-        #XXX TODO
-        array_length_offset, array_items_offset, item_size, item_type = arraytoken
-        gv_result = Var(i32)
+        #XXX WIP
         log('%s Builder.genop_getarraysubstruct %s,%s,%s' % (
-            self.block.label, arraytoken, gv_ptr, gv_index))
-        self.asm.append(' %s=%s 0 ;%s Builder.genop_getarraysubstruct %s,%s,%s' % (
-            gv_result.operand2(), gv_result.type, self.block.label, arraytoken, gv_ptr, gv_index))
+            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
+
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
+
+        op_size = self._itemaddr(arraytoken, gv_index)
+
+        gv_ptr_var = self._as_var(gv_ptr)
+
+        gv_result = Var(pi8)
+        self.asm.append(' %s=getelementptr %s,%s' % (
+            gv_result.operand2(), gv_ptr_var.operand(), op_size.operand()))
+
         return gv_result
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
-        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         log('%s Builder.genop_getarraysize %s,%s' % (
             self.block.label, arraytoken, gv_ptr.operand()))
 
+        array_length_offset, array_items_offset, item_size, item_type = arraytoken
         gv_ptr_var = self._as_var(gv_ptr)
 
         gv_p = Var(gv_ptr_var.type)
@@ -799,9 +832,8 @@ class Builder(GenBuilder):
     def genop_malloc_fixedsize(self, size):
         log('%s Builder.genop_malloc_fixedsize %s' % (
             self.block.label, str(size)))
-        t = pi8
-        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (t, i32))
-        gv_result = Var(t)
+        gv_gc_malloc_fnaddr = Var('%s (%s)*' % (pi8, i32))
+        gv_result = Var(pi8)
         #or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=%s %s %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
@@ -809,6 +841,19 @@ class Builder(GenBuilder):
         self.asm.append(' %s=call %s(%s %d)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), i32, size))
         return gv_result
+
+    def _itemaddr(self, arraytoken, gv_index):
+        length_offset, items_offset, item_size, item_type = arraytoken
+
+        gv_size2 = Var(i32) #i386 uses self.itemaddr here
+        self.asm.append(' %s=mul %s,%d' % (
+            gv_size2.operand2(), gv_index.operand(), item_size))
+
+        gv_size3 = Var(i32)
+        self.asm.append(' %s=add %s,%d' % (
+            gv_size3.operand2(), gv_size2.operand(), items_offset))
+
+        return gv_size3
 
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
         log('%s Builder.genop_malloc_varsize %s,%s' % (
@@ -822,17 +867,11 @@ class Builder(GenBuilder):
             gv_gc_malloc_fnaddr.operand2(), inttoptr, i32,
             gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
 
-        gv_size2 = Var(i32) #i386 uses self.itemaddr here
-        self.asm.append(' %s=mul %s,%d' % (
-            gv_size2.operand2(), gv_size.operand(), item_size))
-
-        gv_size3 = Var(i32)
-        self.asm.append(' %s=add %s,%d' % (
-            gv_size3.operand2(), gv_size2.operand(), items_offset))
+        op_size = self._itemaddr(varsizealloctoken, gv_size)
 
         gv_result = Var(pi8)
         self.asm.append(' %s=call %s(%s)' % (
-            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size3.operand()))
+            gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), op_size.operand()))
 
         gv_p = Var(gv_result.type)
         self.asm.append(' %s=getelementptr %s,%s %s' % (
@@ -850,15 +889,15 @@ class Builder(GenBuilder):
         log('%s Builder.genop_call %s,%s,%s' % (
             self.block.label, sigtoken, gv_fnptr, [v.operand() for v in args_gv]))
         argtypes, restype = sigtoken
-        gv_returnvar = Var(restype)
         if isinstance(gv_fnptr, AddrConst):
-            gv_fn = Var(self._funcsig_type(args_gv, restype))
-            self.asm.append(' %s=%s %s to %s' % (
-                gv_fnptr.operand2(), bitcast, gv_fnptr.operand(), gv_fn.type))
+            gv_fn = Var(self._funcsig_type(args_gv, restype) + '*')
+            self.asm.append(' %s=%s %s %s to %s' % (
+                gv_fn.operand2(), bitcast, i32, gv_fnptr.operand2(), gv_fn.type))
             funcsig = gv_fn.operand()
         else:
             #XXX we probably need to call an address directly if we can't resolve the funcsig
             funcsig = self.rgenop.funcsig[gv_fnptr.value]
+        gv_returnvar = Var(restype)
         self.asm.append(' %s=call %s(%s)' % (
                         gv_returnvar.operand2(),
                         funcsig,
@@ -873,6 +912,7 @@ class Builder(GenBuilder):
 
     def finish_and_goto(self, outputargs_gv, target):
         # 'target' is a label, which for the llvm backend is a Block
+        log('%s Builder.finish_and_goto' % self.block.label)
         gv = [v.operand() for v in outputargs_gv]
         log('%s Builder.finish_and_goto %s,%s' % (
             self.block.label, gv, target.label))
@@ -988,7 +1028,7 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         if isinstance(T, lltype.Ptr) or T is llmemory.Address:
             return pi8
         elif T is lltype.Bool:
-            return 'bool'
+            return i1 
         elif T is lltype.Char:
             return i8
         elif T is lltype.Unsigned:

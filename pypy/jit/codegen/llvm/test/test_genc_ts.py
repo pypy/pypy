@@ -29,6 +29,8 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
     if llvm_version() < 2.0:
         test_loop_merging = skip_too_minimal #segfault
         test_two_loops_merging = skip_too_minimal #segfault
+        test_green_char_at_merge = skip #segfault
+        test_residual_red_call_with_exc = skip
 
     if skip_passing:
         test_very_simple = skip
@@ -67,23 +69,18 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_red_propagate = skip
         test_red_subcontainer = skip
         test_red_subcontainer_cast = skip
-        test_merge_structures = skip
-        test_simple_meth = skip
-        test_simple_red_meth = skip
         test_degenerated_at_return = skip
         test_degenerate_with_voids = skip
         test_red_array = skip
-
-    #failing...
-    if skip_failing:
         test_red_struct_array = skip
         test_red_varsized_struct = skip
         test_array_of_voids = skip
         test_green_with_side_effects = skip
-        test_recursive_with_red_termination_condition = skip
-        test_compile_time_const_tuple = skip
         test_residual_red_call = skip
-        test_residual_red_call_with_exc = skip
+        test_merge_structures = skip
+        test_simple_meth = skip
+        test_simple_red_meth = skip
 
-    test_green_char_at_merge = skip #->SomeObject() (CharRepr @rgenop.py:141 ?)
-
+    #failing...
+    if skip_failing:
+        test_compile_time_const_tuple = skip

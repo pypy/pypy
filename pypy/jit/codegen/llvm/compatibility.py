@@ -29,4 +29,5 @@ else:   # >= 2.0
     i32 = 'i32'
     i64 = 'i64'
 
+i1 = 'bool'
 f64 = 'double'
