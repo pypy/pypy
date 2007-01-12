@@ -227,16 +227,18 @@ class CTS(object):
             if isinstance(name_or_desc, ootype._overloaded_meth_desc):
                 name = name_or_desc.name
                 METH = name_or_desc.TYPE
+                virtual = True
             else:
                 name = name_or_desc
                 owner, meth = TYPE._lookup(name)
                 METH = meth._TYPE
+                virtual = getattr(meth, '_virtual', True)
             class_name = self.db.class_name(TYPE)
             full_name = 'class %s::%s' % (class_name, name)
             returntype = self.lltype_to_cts(METH.RESULT)
             arg_types = [self.lltype_to_cts(ARG) for ARG in METH.ARGS if ARG is not ootype.Void]
             arg_list = ', '.join(arg_types)
-            return '%s %s(%s)' % (returntype, full_name, arg_list), True
+            return '%s %s(%s)' % (returntype, full_name, arg_list), virtual
 
         elif isinstance(TYPE, (ootype.BuiltinType, ootype.StaticMethod)):
             assert isinstance(name_or_desc, str)

@@ -355,6 +355,9 @@ class TranslationDriver(SimpleTaskEngine):
             heap2stack=False,
             clever_malloc_removal=False)
         if self.config.translation.backend == 'cli':
+            from pypy.translator.backendopt.checkvirtual import check_virtual_methods
+            from pypy.rpython.ootypesystem import ootype
+            check_virtual_methods(ootype.ROOT)
             opt['merge_if_blocks'] = True
             opt['inline_threshold'] = 1
             opt['mallocs'] = True
