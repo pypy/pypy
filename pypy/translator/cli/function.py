@@ -17,7 +17,7 @@ from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.support import log
 from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
-USE_LAST = False
+USE_LAST = True
 
 class NativeExceptionHandler(object):
     def begin_try(self):
