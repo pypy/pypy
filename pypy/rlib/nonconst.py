@@ -22,14 +22,13 @@ class EntryNonConstant(ExtRegistryEntry):
     
     def compute_result_annotation(self, arg):
         if hasattr(arg, 'const'):
-            return getbookkeeper().annotation_from_example(arg.const)
+            return self.bookkeeper.annotation_from_example(arg.const)
         else:
             return arg
 
     def specialize_call(self, hop):
-        #v = Variable()
-        #v.concretetype = hop.r_result.lowleveltype
         hop.exception_cannot_occur()
         retval = Constant(hop.r_result.convert_const(hop.args_v[0].value))
         retval.concretetype = hop.r_result.lowleveltype
         return retval
+
