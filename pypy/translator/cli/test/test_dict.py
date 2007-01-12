@@ -33,8 +33,6 @@ class TestCliEmptyDict(CliTest, BaseTestRemptydict):
         py.test.skip("Iteration over empty dict is not supported, yet")
 
 class TestCliConstantDict(CliTest, BaseTestRconstantdict):
-    def test_constant_r_dict(self):
-        py.test.skip('r_dict is not supported, yet')
 
     def test_tuple_as_key(self):
         mydict = {('r',): 42}
