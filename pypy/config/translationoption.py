@@ -57,7 +57,8 @@ translation_optiondescription = OptionDescription(
 
     ArbitraryOption("instrumentctl", "internal",
                default=None),        
-
+    StrOption("output", "Output file name", cmdline="--output"),
+    
     # portability options
     BoolOption("vanilla",
                "Try to be as portable as possible, which is not much",

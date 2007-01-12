@@ -76,6 +76,7 @@ OVERRIDES = {
 
     'translation.cc': None,
     'translation.profopt': None,
+    'translation.output': None,
 
     'translation.debug_transform': False,
 }
@@ -186,7 +187,6 @@ def log_config(config, header="config used"):
 
 def main():
     targetspec_dic, translateconfig, config, args = parse_options_and_load_target()
-
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
@@ -259,7 +259,9 @@ def main():
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
-        if drv.exe_name is None and '__name__' in targetspec_dic:
+        if config.translation.output:
+            drv.exe_name = config.translation.output
+        elif drv.exe_name is None and '__name__' in targetspec_dic:
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
         goals = translateconfig.goals
