@@ -29,6 +29,7 @@ DEBUG_TRAP = option.trap
 
 _var_index = [0]
 class Var(GenVar):
+    conditional = False
     def __init__(self):
         self.__magic_index = _var_index[0]
         _var_index[0] += 1
@@ -37,11 +38,16 @@ class Var(GenVar):
     def fits_in_immediate(self):
         return False
 
+class ConditionVar(Var):
+    """ Used for vars that originated as the result of a conditional
+    operation, like a == b """
+    conditional = True
+
 class IntConst(GenConst):
 
     def __init__(self, value):
         self.value = value
-
+        
     @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
@@ -204,7 +210,6 @@ class Builder(GenBuilder):
         self.stack_adj_addr = 0
         self.initial_spill_offset = 0
         self.initial_var2loc = None
-        self.initial_crfinfo = [(-1, -1)] * 8
         self.max_param_space = -1
         self.final_jump_addr = 0
 
@@ -348,7 +353,6 @@ class Builder(GenBuilder):
         #print 'initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
         #print 'initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
         allocator = self.allocate_and_emit(vars_gv)
-        self.initial_crfinfo = allocator.crfinfo
         var2loc = allocator.var2loc
 
         #print '!!!!', args_gv, var2loc
@@ -366,7 +370,6 @@ class Builder(GenBuilder):
         self.initial_var2loc = var2loc
         if reallocate:
             allocator = self.allocate_and_emit([v for v in args_gv if isinstance(v, Var)])
-            self.initial_crfinfo = allocator.crfinfo
             var2loc = allocator.var2loc
             self.insns = []
 
@@ -603,8 +606,7 @@ class Builder(GenBuilder):
         allocator = RegisterAllocation(
             self.rgenop.freeregs,
             self.initial_var2loc,
-            self.initial_spill_offset,
-            self.initial_crfinfo)
+            self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
         return allocator
 
@@ -710,7 +712,7 @@ class Builder(GenBuilder):
 
     def _compare(self, op, gv_x, gv_y):
         #print "op", op
-        gv_result = Var()
+        gv_result = ConditionVar()
         if gv_y.fits_in_immediate():
             self.insns.append(
                 insn.CMPWI(self.cmp2info[op], gv_result, [gv_x, gv_y]))
@@ -723,7 +725,7 @@ class Builder(GenBuilder):
         return gv_result
 
     def _compare_u(self, op, gv_x, gv_y):
-        gv_result = Var()
+        gv_result = ConditionVar()
         if gv_y.fits_in_immediate():
             self.insns.append(
                 insn.CMPWLI(self.cmp2info[op], gv_result, [gv_x, gv_y]))

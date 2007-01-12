@@ -6,11 +6,24 @@ rSP = r1
 rFP = r2 # the ABI doesn't specify a frame pointer.  however, we want one
 
 class AllocationSlot(object):
-    pass
+    def __init__(self):
+        # The field alloc points to a singleton used by the register
+        # allocator to detect conflicts.  No two AllocationSlot
+        # instances with the same value in self.alloc can be used at
+        # once.
+        self.alloc = self
+        
+    def make_loc(self):
+        """ When we assign a variable to one of these registers, we
+        call make_loc() to get the actual location instance; that
+        instance will have its alloc field set to self.  For
+        everything but condition registers, this is self."""
+        return self
 
 class _StackSlot(AllocationSlot):
     is_register = False
     def __init__(self, offset):
+        AllocationSlot.__init__(self)
         self.offset = offset
     def __repr__(self):
         return "stack@%s"%(self.offset,)
@@ -34,10 +47,13 @@ CT_REGISTER = 3
 
 class Register(AllocationSlot):
     is_register = True
+    def __init__(self):
+        AllocationSlot.__init__(self)        
 
 class GPR(Register):
     regclass = GP_REGISTER
     def __init__(self, number):
+        Register.__init__(self)
         self.number = number
     def __repr__(self):
         return 'r' + str(self.number)
@@ -46,22 +62,46 @@ gprs = map(GPR, range(32))
 class FPR(Register):
     regclass = FP_REGISTER
     def __init__(self, number):
+        Register.__init__(self)
         self.number = number
 
 fprs = map(GPR, range(32))
 
-class CRF(Register):
+class BaseCRF(Register):
+    """ These represent condition registers; however, we never actually
+    use these as the location of something in the register allocator.
+    Instead, we place it in an instance of CRF which indicates which
+    bits are required to extract the value.  Note that CRF().alloc will
+    always be an instance of this. """
     regclass = CR_FIELD
     def __init__(self, number):
         self.number = number
-    def move_to_gpr(self, allocator, gpr):
-        bit, negated = allocator.crfinfo[self.number]
-        return _CRF2GPR(gpr, self.number*4 + bit, negated)
-    def move_from_gpr(self, allocator, gpr):
-        allocator.crfinfo[self.number] = (2, 1) # cmp2info['ne']
-        return _GPR2CRF(self, gpr)
+        self.alloc = self
+    def make_loc(self):
+        return CRF(self)
 
-crfs = map(CRF, range(8))
+crfs = map(BaseCRF, range(8))
+
+class CRF(Register):
+    regclass = CR_FIELD
+    def __init__(self, crf):
+        Register.__init__(self)
+        self.alloc = crf
+        self.number = crf.number
+        self.info = (-1,-1) # (bit, negated) 
+    def set_info(self, info):
+        assert len(info) == 2
+        self.info = info
+    def make_loc(self):
+        # should never call this on a CRF, only a BaseCRF
+        raise NotImplementedError
+    def move_to_gpr(self, allocator, gpr):
+        bit, negated = self.info
+        return _CRF2GPR(gpr, self.alloc.number*4 + bit, negated)
+    def move_from_gpr(self, allocator, gpr):
+        # cmp2info['ne']
+        self.set_info((2, 1))
+        return _GPR2CRF(self, gpr)
 
 class CTR(Register):
     regclass = CT_REGISTER
@@ -182,12 +222,12 @@ class MoveCRB2GPR(Insn):
     def allocate(self, allocator):
         self.targetreg = allocator.loc_of(self.result)
         self.crf = allocator.loc_of(self.reg_args[0])
-        self.bit, self.negated = allocator.crfinfo[self.crf.number]
-        assert self.bit != -1 and self.negated != -1, "uninitialized crfinfo!"
     def emit(self, asm):
+        assert isinstance(self.crf, CRF)
+        bit, negated = self.crf.info
         asm.mfcr(self.targetreg.number)
-        asm.extrwi(self.targetreg.number, self.targetreg.number, 1, self.crf.number*4+self.bit)
-        if self.negated:
+        asm.extrwi(self.targetreg.number, self.targetreg.number, 1, self.crf.number*4+bit)
+        if negated:
             asm.xori(self.targetreg.number, self.targetreg.number, 1)
 
 class Insn_None__GPR_GPR_IMM(Insn):
@@ -235,22 +275,25 @@ class Insn_None__GPR_GPR_GPR(Insn):
                      self.reg3.number)
 
 class CMPInsn(Insn):
-    info = (0,0) # please the annotator for tests that don't use CMPW/CMPWI
-    pass
+    def __init__(self, info, result):
+        Insn.__init__(self)
+        self.info = info
+        self.result = result
+
+    def allocate(self, allocator):
+        self.result_reg = allocator.loc_of(self.result)
+        assert isinstance(self.result_reg, CRF)
+        self.result_reg.set_info(self.info)
 
 class CMPW(CMPInsn):
     def __init__(self, info, result, args):
-        Insn.__init__(self)
-        self.info = info
-
-        self.result = result
+        CMPInsn.__init__(self, info, result)
         self.result_regclass = CR_FIELD
-
         self.reg_args = args
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.loc_of(self.result)
+        CMPInsn.allocate(self, allocator)
         self.arg_reg1 = allocator.loc_of(self.reg_args[0])
         self.arg_reg2 = allocator.loc_of(self.reg_args[1])
 
@@ -263,18 +306,14 @@ class CMPWL(CMPW):
 
 class CMPWI(CMPInsn):
     def __init__(self, info, result, args):
-        Insn.__init__(self)
-        self.info = info
+        CMPInsn.__init__(self, info, result)
         self.imm = args[1]
-
-        self.result = result
         self.result_regclass = CR_FIELD
-
         self.reg_args = [args[0]]
         self.reg_arg_regclasses = [GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.loc_of(self.result)
+        CMPInsn.allocate(self, allocator)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
 
     def emit(self, asm):
@@ -316,14 +355,11 @@ class Jump(Insn):
         self.targetbuilder = targetbuilder
     def allocate(self, allocator):
         self.crf = allocator.loc_of(self.reg_args[0])
-        self.bit, self.negated = allocator.crfinfo[self.crf.number]
-        assert self.bit != -1 and self.negated != -1, "uninitialized crfinfo!"
 
         assert self.targetbuilder.initial_var2loc is None
         self.targetbuilder.initial_var2loc = {}
         for gv_arg in self.jump_args_gv:
             self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
-        self.targetbuilder.initial_crfinfo = allocator.crfinfo[:]
         allocator.builders_to_tell_spill_offset_to.append(self.targetbuilder)
     def emit(self, asm):
         if self.targetbuilder.start:
@@ -332,11 +368,12 @@ class Jump(Insn):
             self.targetbuilder.patch_start_here = asm.mc.tell()
             asm.load_word(rSCRATCH, 0)
         asm.mtctr(rSCRATCH)
-        if self.negated ^ self.jump_if_true:
+        bit, negated = self.crf.info
+        if negated ^ self.jump_if_true:
             BO = 12 # jump if relavent bit is set in the CR
         else:
             BO = 4  # jump if relavent bit is NOT set in the CR
-        asm.bcctr(BO, self.crf.number*4 + self.bit)
+        asm.bcctr(BO, self.crf.number*4 + bit)
 
 class SpillCalleeSaves(Insn):
     def __init__(self):
