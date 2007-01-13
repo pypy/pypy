@@ -683,14 +683,21 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         gv_eq = builder.genop2("int_eq", gv_x, gv_y)
         gv_ne = builder.genop2("int_ne", gv_x, gv_y)
 
-        gv_gt2 = gv_gt
-        gv_lt2 = builder.genop2("int_mul", rgenop.genconst(10), gv_lt)
-        gv_ge2 = builder.genop2("int_mul", rgenop.genconst(100), gv_ge)
-        gv_le2 = builder.genop2("int_mul", rgenop.genconst(1000), gv_le)
-        gv_eq2 = builder.genop2("int_mul", rgenop.genconst(10000), gv_eq)
-        gv_ne2 = builder.genop2("int_mul", rgenop.genconst(100000), gv_ne)
+        gv_gt1 = builder.genop1("cast_bool_to_int", gv_gt)
+        gv_lt1 = builder.genop1("cast_bool_to_int", gv_lt)
+        gv_ge1 = builder.genop1("cast_bool_to_int", gv_ge)
+        gv_le1 = builder.genop1("cast_bool_to_int", gv_le)
+        gv_eq1 = builder.genop1("cast_bool_to_int", gv_eq)
+        gv_ne1 = builder.genop1("cast_bool_to_int", gv_ne)
 
-        gv_r0 = gv_gt
+        gv_gt2 = gv_gt1
+        gv_lt2 = builder.genop2("int_mul", rgenop.genconst(10), gv_lt1)
+        gv_ge2 = builder.genop2("int_mul", rgenop.genconst(100), gv_ge1)
+        gv_le2 = builder.genop2("int_mul", rgenop.genconst(1000), gv_le1)
+        gv_eq2 = builder.genop2("int_mul", rgenop.genconst(10000), gv_eq1)
+        gv_ne2 = builder.genop2("int_mul", rgenop.genconst(100000), gv_ne1)
+
+        gv_r0 = gv_gt2
         gv_r1 = builder.genop2("int_add", gv_r0, gv_lt2)
         gv_r2 = builder.genop2("int_add", gv_r1, gv_ge2)
         gv_r3 = builder.genop2("int_add", gv_r2, gv_le2)
@@ -724,14 +731,21 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         gv_eq = builder.genop2("int_eq", gv_one, gv_x)
         gv_ne = builder.genop2("int_ne", gv_one, gv_x)
 
-        gv_gt2 = gv_gt
-        gv_lt2 = builder.genop2("int_mul", rgenop.genconst(10), gv_lt)
-        gv_ge2 = builder.genop2("int_mul", rgenop.genconst(100), gv_ge)
-        gv_le2 = builder.genop2("int_mul", rgenop.genconst(1000), gv_le)
-        gv_eq2 = builder.genop2("int_mul", rgenop.genconst(10000), gv_eq)
-        gv_ne2 = builder.genop2("int_mul", rgenop.genconst(100000), gv_ne)
+        gv_gt1 = builder.genop1("cast_bool_to_int", gv_gt)
+        gv_lt1 = builder.genop1("cast_bool_to_int", gv_lt)
+        gv_ge1 = builder.genop1("cast_bool_to_int", gv_ge)
+        gv_le1 = builder.genop1("cast_bool_to_int", gv_le)
+        gv_eq1 = builder.genop1("cast_bool_to_int", gv_eq)
+        gv_ne1 = builder.genop1("cast_bool_to_int", gv_ne)
 
-        gv_r0 = gv_gt
+        gv_gt2 = gv_gt1
+        gv_lt2 = builder.genop2("int_mul", rgenop.genconst(10), gv_lt1)
+        gv_ge2 = builder.genop2("int_mul", rgenop.genconst(100), gv_ge1)
+        gv_le2 = builder.genop2("int_mul", rgenop.genconst(1000), gv_le1)
+        gv_eq2 = builder.genop2("int_mul", rgenop.genconst(10000), gv_eq1)
+        gv_ne2 = builder.genop2("int_mul", rgenop.genconst(100000), gv_ne1)
+
+        gv_r0 = gv_gt2
         gv_r1 = builder.genop2("int_add", gv_r0, gv_lt2)
         gv_r2 = builder.genop2("int_add", gv_r1, gv_ge2)
         gv_r3 = builder.genop2("int_add", gv_r2, gv_le2)

@@ -209,6 +209,7 @@ class FloatConst(GenericConst):
 class AddrConst(GenConst):
     type = pi8
     signed = False
+    addr = llmemory.NULL #have 'addr' even when not instantiated
 
     def __init__(self, addr):
         self.addr = addr
@@ -905,7 +906,7 @@ class Builder(GenBuilder):
             funcsig = gv_fn.operand()
         else:
             #XXX we probably need to call an address directly if we can't resolve the funcsig
-            funcsig = self.rgenop.funcsig[gv_fnptr.value]
+            funcsig = self.rgenop.funcsig[gv_fnptr.get_integer_value()]
         gv_returnvar = Var(restype)
         self.asm.append(' %s=call %s(%s)' % (
                         gv_returnvar.operand2(),

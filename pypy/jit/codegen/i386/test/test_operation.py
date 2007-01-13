@@ -247,14 +247,14 @@ class BasicTests(object):
             assert fp(40.0, 2.0) == fn(40.0, 2.0)
             assert fp(25.125, 1.5) == fn(25.125, 1.5)
 
-    def test_float_pow(self): #harder test  for llvm
+    def test_float_pow(self): #harder test for llvm
         for fn in [lambda x, y: x ** y,    #not supported in llvm backend
                    ]:
             fp = self.rgen(fn, [float, float], float)
             assert fp(40.0, 2.0) == fn(40.0, 2.0)
             assert fp(25.125, 1.5) == fn(25.125, 1.5)
 
-    def test_float_cast(self): #because of differnt rettype
+    def test_float_cast(self): #because of different rettype
         for fn in [lambda x: bool(x),
                    lambda x: bool(x - 2.0),
                    ]:
