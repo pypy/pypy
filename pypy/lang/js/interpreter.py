@@ -70,13 +70,34 @@ def evaljs(ctx, code):
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
-        self.w_Object = W_Object() #creating Object
-        self.w_Global = W_Object()
-        self.w_Global.Prototype = self.w_Object
-        self.w_Global.Put('prototype', W_String('Object'))
-        self.w_Global.Put('Object', self.w_Object)
-        self.global_context = global_context(self.w_Global)
-        self.w_Global.Put('eval', W_Builtin(evaljs, context=True, args=1))
+        w_Global = W_Object()
+        ctx = global_context(w_Global)
+
+        w_ObjPrototype = W_Object(Prototype=None, Class='Object')
+        
+        #Function stuff
+        w_Function = W_Object(ctx=ctx, Class='Function', 
+                              Prototype=w_ObjPrototype)
+        w_Function.Put('prototype', w_Function, dd=True, de=True, ro=True)
+        w_Function.Put('constructor', w_Function)
+        
+        #Object stuff
+        w_Object = W_Object(Prototype=w_Function)
+        w_Object.Put('length', W_Number(1), ro=True, dd=True)
+        w_Object.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
+        w_ObjPrototype.Put('constructor', w_Object)
+        #And some other stuff
+        
+        w_Array = W_Array([])
+        w_Global.Put('prototype', W_String('Object'))
+        w_Global.Put('Object', w_Object)
+        w_Global.Put('Function', w_Function)
+        w_Global.Put('Array', w_Array)
+        w_Global.Put('eval', W_Builtin(evaljs, context=True, args=1))
+        
+        self.global_context = ctx
+        self.w_Global = w_Global
+        self.w_Object = w_Object
 
     def run(self, script):
         """run the interpreter"""
@@ -194,7 +215,7 @@ class Function(Expression):
         self.body = body
 
     def eval(self, ctx):
-       w_obj = W_FunctionObject(self, ctx)
+       w_obj = W_Object(ctx=ctx, callfunc = self)
        return w_obj
 
 class Identifier(Expression):
@@ -368,16 +389,16 @@ class Minus(BinaryComparisonOp):
         return W_Number(x - y)
 
 class New(Expression):
-    def __init__(self, identifier):
-        self.identifier = identifier
+    def __init__(self, newexpr):
+        self.newexpr = newexpr
 
     def eval(self, ctx):
-        obj = W_Object()
-        #it should be undefined... to be completed
-        constructor = ctx.resolve_identifier(self.identifier).GetValue()
-        obj.Put('prototype', constructor.Get('prototype'))
-        constructor.Call(ctx, this = obj)
-        return obj
+        x = self.newexpr.eval(ctx).GetValue()
+        if not isinstance(x, W_Object):
+            raise TypeError()
+        
+        return x.Construct(ctx=ctx)
+            
 
 class Number(Expression):
     def __init__(self, num):
@@ -672,7 +693,7 @@ def from_tree(t):
     elif tp == 'NE':
         node = Ne(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'NEW':
-        node = New(gettreeitem(gettreeitem(t, '0'),'value').additional_info)
+        node = New(from_tree(gettreeitem(t, '0')))
     elif tp == 'NUMBER':
         node = Number(float(gettreeitem(t, 'value').additional_info))
     elif tp == 'OBJECT_INIT':

@@ -321,8 +321,8 @@ class TestInterp(object):
 
     def test_arrayobject(self):
         py.test.skip(" TODO: needed for mozilla test suite")
-        x= """var testcases = new Array();
-        var tc = testcases.length;"""
+        self.assert_prints("""var x = new Array();
+        print(x.length);""", ['0'])
          
     def test_break(self):
         self.assert_prints("""
