@@ -27,5 +27,3 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_two_loops_merging = skip_too_minimal #segfault
         test_green_char_at_merge = skip #segfault
         test_residual_red_call_with_exc = skip
-    else: #needs fixing for >= 2.0
-        test_array_of_voids = skip

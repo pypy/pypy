@@ -217,7 +217,8 @@ class AddrConst(GenConst):
         return '%s %s' % (self.type, self.operand2())
 
     def operand2(self):
-        s = str(llmemory.cast_adr_to_int(self.addr))
+        addr = self.addr
+        s = str(llmemory.cast_adr_to_int(addr))
         if s == '0':
             s = 'null'
         return s

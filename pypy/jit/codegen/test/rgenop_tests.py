@@ -355,6 +355,7 @@ def make_func_calling_pause(rgenop):
     builder.start_writing()
     builder.finish_and_return(sigtoken, gv_x)
 
+    builder.end()
     return gv_f
 
 def get_func_calling_pause_runner(RGenOp):
