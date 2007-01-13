@@ -750,3 +750,34 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(2)
         assert res == 101010
+
+    def test_tight_loop(self):
+        # while 1:
+        #    y = x - 7
+        #    if y < 0: break
+        #    x = y
+        # return x
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken,
+                                                       "tightloop")
+        args_gv = [gv_x]
+        loopstart = builder.enter_next_block([signed_kind], args_gv)
+        [gv_x] = args_gv
+
+        gv_y = builder.genop2("int_sub", gv_x, rgenop.genconst(7))
+        gv_cond = builder.genop2("int_lt", gv_y, rgenop.genconst(0))
+        end_builder = builder.jump_if_true(gv_cond, [gv_x])
+        builder.finish_and_goto([gv_y], loopstart)
+
+        end_builder.start_writing()
+        end_builder.finish_and_return(sigtoken, gv_x)
+        builder.end()
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(5)
+        assert res == 5
+
+        res = fnptr(44)
+        assert res ==  2
