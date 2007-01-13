@@ -9,6 +9,9 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 
 def annotation(t, bookkeeper=None):
     from pypy.rpython.lltypesystem import lltype
+    from pypy.annotation.bookkeeper import getbookkeeper
+    if bookkeeper is None:
+        bookkeeper = getbookkeeper()
     
     if isinstance(t, SomeObject):
         return t
