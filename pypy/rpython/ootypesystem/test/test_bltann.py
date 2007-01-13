@@ -2,6 +2,7 @@
 """ Builtin annotation test
 """
 
+import py
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -9,6 +10,7 @@ import exceptions
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType, MethodDesc
 from pypy.rpython.ootypesystem.ootype import Signed, _static_meth, StaticMethod, Void
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.annotation.signature import annotation
 
 class C(BasicExternal):
     pass
@@ -24,7 +26,7 @@ def test_new_bltn():
 
 class A(BasicExternal):
     _fields = {
-        'b' : 3,
+        'b' : int,
     }
 
 def test_bltn_attrs():
@@ -51,11 +53,11 @@ def test_bltn_set_attr():
 
 class B(BasicExternal):
     _fields = {
-        'a' : 32,
+        'a' : int,
     }
     
     _methods = {
-        'm' : MethodDesc([1],2),
+        'm' : MethodDesc([int], int),
     }
 
 def test_bltn_method():
@@ -79,14 +81,14 @@ def test_global():
 
 class CB(BasicExternal):
     _fields = {
-        'm': MethodDesc([], 3),    # XXX maybe
+        'm': annmodel.SomeGenericCallable(
+           args=[], result=annmodel.SomeInteger()),
         }
 
 def some_int():
     return 3
     
 def test_flowin():
-    import py; py.test.skip("Indirect call is missing")
     def set_callback():
         a = CB()
         a.m = some_int
@@ -98,7 +100,10 @@ def test_flowin():
 
 class CC(BasicExternal):
     _methods = {
-        'some_method' : MethodDesc(['some_callback', MethodDesc([('some_int', 3)], 3.0)], 3)
+        'some_method' : MethodDesc(
+        [annmodel.SomeGenericCallable(args=[
+        annmodel.SomeInteger()], result=annmodel.SomeFloat())],
+             int)
     }
 
 def test_callback_flowin():
@@ -115,7 +120,9 @@ def test_callback_flowin():
 
 class CD(BasicExternal):
     _fields = {
-        'callback_field' : MethodDesc([('some_int', 3)], 3.0)
+        'callback_field' :
+        annmodel.SomeGenericCallable([annmodel.SomeInteger()],
+                                     annmodel.SomeFloat())
     }
 
 def test_callback_field():
@@ -129,4 +136,4 @@ def test_callback_field():
     
     a = RPythonAnnotator()
     s = a.build_types(callback_field, [])
-    assert isinstance(s, annmodel.SomePBC)
+    assert isinstance(s, annmodel.SomeGenericCallable)

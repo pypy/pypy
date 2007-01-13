@@ -10,18 +10,16 @@ from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from types import MethodType
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.ootypesystem.extdesc import MethodDesc, ArgDesc
+from pypy.annotation.signature import annotation
 
 class CallableEntry(ExtRegistryEntry):
     _type_ = MethodDesc
     
     def compute_annotation(self):
-        # because we have no good annotation
-        # let's cheat a little bit for a while...
         bookkeeper = getbookkeeper()
-        # hack, hack, hack, hack, hack, hack, hack, hack, hack, hack, hack,
-        values = ["v%d"%i for i in xrange(len(self.instance.args))]
-        lb = eval("lambda %s: None" % ",".join(values))
-        return annmodel.SomePBC([bookkeeper.getdesc(lb)])
+        args_s = [annotation(i._type) for i in self.instance.args]
+        s_result = annotation(self.instance.result._type)
+        return annmodel.SomeGenericCallable(args=args_s, result=s_result)
 
 class BasicMetaExternal(type):
     def _is_compatible(type2):
@@ -47,6 +45,7 @@ class BasicExternal(object):
     _methods = {}
     
     def described(retval=None, args={}):
+        xxx # we'll fix that later
         def decorator(func):
             code = func.func_code
             if not func.func_defaults:
@@ -57,7 +56,7 @@ class BasicExternal(object):
             assert(code.co_argcount < len(defs) + len(args), "Not enough information for describing method")
             
             for arg in xrange(1, code.co_argcount - len(defs)):
-                assert code.co_varnames[arg] in args, "Don't have example for arg %s" % code.co_varnames[arg]
+                assert code.co_varnames[arg] in args, "Don't have type for arg %s" % code.co_varnames[arg]
             
             arg_pass = []
             start_pos = code.co_argcount - len(defs)
@@ -84,10 +83,10 @@ class Analyzer(object):
         self.value = value
     
     def __call__(self, *args):
-        for i in args:
-            if isinstance(i, annmodel.SomePBC):
-                bookkeeper = getbookkeeper()
-                bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (self.s_retval,)))
+        #for i in args:
+        #    if isinstance(i, annmodel.SomePBC):
+        #        bookkeeper = getbookkeeper()
+        #        bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (self.s_retval,)))
         return self.s_retval
 
 class ExternalType(ootype.OOType):
@@ -104,7 +103,7 @@ class ExternalType(ootype.OOType):
     
     def update_fields(self, _fields):
         for i, val in _fields.iteritems():
-            self._fields[i] = getbookkeeper().annotation_from_example(val)
+            self._fields[i] = annotation(val)
     
     def _is_compatible(type2):
         return type(type2) is ExternalType
@@ -115,9 +114,10 @@ class ExternalType(ootype.OOType):
         _signs = {}
         self._fields = {}
         for i, val in _methods.iteritems():
-            retval = getbookkeeper().annotation_from_example(val.retval.example)
-            values = [arg.example for arg in val.args]
-            s_args = [getbookkeeper().annotation_from_example(j) for j in values]
+            #s_retval =
+            retval = annotation(val.retval._type)
+            values = [arg._type for arg in val.args]
+            s_args = [annotation(j) for j in values]
             _signs[i] = MethodDesc(tuple(s_args), retval)
             next = annmodel.SomeBuiltin(Analyzer(i, val, retval, s_args), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
             next.const = True
@@ -166,15 +166,12 @@ class Entry_basicexternalmeta(ExtRegistryEntry):
     def compute_annotation(self):
         return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc\
             (self.instance.__class__))
-        #return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance.__class__))
     
     def get_field_annotation(self, ext_obj, attr):
         return ext_obj.get_field(attr)
     
     def get_arg_annotation(self, ext_obj, attr):
-        field = ext_obj._class_._fields[attr]
-        assert isinstance(field, MethodDesc)
-        return [getbookkeeper().annotation_from_example(arg.example) for arg in field.args]
+        return ext_obj._class_._fields[attr].args_s
     
     def set_field_annotation(self, ext_obj, attr, s_val):
         ext_obj.set_field(attr, s_val)
@@ -189,6 +186,3 @@ class Entry_basicexternal(ExtRegistryEntry):
         value = hop.r_result.lowleveltype
         return hop.genop('new', [Constant(value, concretetype=ootype.Void)], \
             resulttype = value)
-
-#def rebuild_basic_external():
-#    ExternalType.class_dict = {}

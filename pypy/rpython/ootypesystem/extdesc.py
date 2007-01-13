@@ -6,12 +6,12 @@ class ArgDesc(object):
     """ Description of argument, given as name + example value
     (used to deduce type)
     """
-    def __init__(self, name, ex_value):
+    def __init__(self, name, _type):
         self.name = name
-        self.example = ex_value
+        self._type = _type
     
     def __repr__(self):
-        return "<ArgDesc %s: %s>" % (self.name, self.example)
+        return "<ArgDesc %s: %s>" % (self.name, self._type)
 
 class MethodDesc(object):
     """ Description of method to be external,
