@@ -557,26 +557,38 @@ class Builder(GenBuilder):
 
     #XXX 'cast' has been replaced by many sext/zext/uitofp/... opcodes in the upcoming llvm 2.0.
     #The lines upto /XXX should be refactored to do the right thing
-    def genop_same_as(self, kind, gv_x):
+    def genop_same_as(self, kind, gv_x): #XXX why do we need a 'kind' here?
         if gv_x.is_const:    # must always return a var
-            gv_result = Var(gv_x.type)
-            self.asm.append(' %s=%s %s to %s' % (
-                gv_result.operand2(), bitcast, gv_x.operand(), gv_x.type))
+            restype = gv_x.type
+            gv_result = Var(restype)
+            if restype[-1] == '*':
+                cst = inttoptr
+                t   = i32
+            else:
+                cst = bitcast
+                t   = restype
+            self.asm.append(' %s=%s %s %s to %s ;1' % (
+                gv_result.operand2(), cst, t, gv_x.operand2(), restype))
             return gv_result
         else:
             return gv_x
 
     def _cast_to(self, gv_x, restype=None):
-        restype = restype or gv_x.type
-        if restype is gv_x.type:
+        t = gv_x.type
+        restype = restype or t
+        if restype is t:
             return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
         if restype[-1] == '*':
-            t = bitcast
+            if gv_x.is_const:
+                cst = inttoptr
+                t = i32
+            else:
+                cst = bitcast
         else:
-            t = zext
-        self.asm.append(' %s=%s %s to %s' % (
-            gv_result.operand2(), t, gv_x.operand(), restype))
+            cst = zext
+        self.asm.append(' %s=%s %s %s to %s ;2' % (
+            gv_result.operand2(), cst, t, gv_x.operand2(), restype))
         return gv_result
 
     def _trunc_to(self, gv_x, restype=None):
@@ -907,11 +919,19 @@ class Builder(GenBuilder):
         else:
             #XXX we probably need to call an address directly if we can't resolve the funcsig
             funcsig = self.rgenop.funcsig[gv_fnptr.get_integer_value()]
+        args_gv2 = []
+        for v in args_gv:
+            if v.is_const and v.type[-1] == '*': #or use some kind of 'inline' cast (see LangRef)
+                t = Var(v.type)
+                self.asm.append(' %s=%s %s %s to %s' % (
+                    t.operand2(), inttoptr, i32, v.operand2(), v.type))
+                v = t
+            args_gv2.append(v)
         gv_returnvar = Var(restype)
         self.asm.append(' %s=call %s(%s)' % (
                         gv_returnvar.operand2(),
                         funcsig,
-                        ','.join([v.operand() for v in args_gv])))
+                        ','.join([v.operand() for v in args_gv2])))
         return gv_returnvar
     
     def finish_and_return(self, sigtoken, gv_returnvar):

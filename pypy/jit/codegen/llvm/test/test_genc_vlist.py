@@ -8,8 +8,3 @@ class TestVList(LLVMTimeshiftingTestMixin,
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_vlist.py
-
-    def skip(self):
-        py.test.skip("WIP")
-
-    test_force = skip
