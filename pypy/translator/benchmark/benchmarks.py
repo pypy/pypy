@@ -18,6 +18,13 @@ def get_result(txt, pattern):
         return 99999.0
     return float(line.split()[len(pattern.split())])
 
+class Benchmark(object):
+    def __init__(self, name, runner, asc_good, units):
+        self.name = name
+        self.run = runner
+        self.asc_good = asc_good
+        self.units = units
+
 def run_cmd(cmd):
     #print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
@@ -50,7 +57,11 @@ def run_translate(executable='/usr/local/bin/python'):
        return 99999.0
     return 1000*(float(m.group('mins'))*60 + float(m.group('secs')))
 
-BENCHMARKS = [('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
-              ('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
-              ('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
+BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
+              Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
+              Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
              ]
+
+BENCHMARKS_BY_NAME = {}
+for _b in BENCHMARKS:
+    BENCHMARKS_BY_NAME[_b.name] = _b
