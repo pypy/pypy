@@ -5,7 +5,7 @@ import py
 
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
-from pypy.translator.js.support import _callable
+from pypy.rpython.extfunc import _callable
 
 # check rendering dom.document
 def test_simple_builtin():

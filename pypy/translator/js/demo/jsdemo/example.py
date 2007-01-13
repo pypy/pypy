@@ -11,6 +11,7 @@ from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.annotation import model as annmodel
 from pypy.annotation.signature import annotation
+from pypy.rpython.extfunc import _callable
 
 commproxy.USE_MOCHIKIT = False
 
@@ -39,12 +40,10 @@ def callback(data):
 def runjs():
     httpd.some_callback(callback)
 
-lambda_None = annmodel.SomeGenericCallable([], result=annotation(None))
-
 class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS
     _methods = {
-        'some_callback' : MethodDesc([('callback', lambda_None)], {str:str})
+        'some_callback' : MethodDesc([('callback', _callable([{str:str}]))], {str:str})
     }
     
     _render_xmlhttp = True

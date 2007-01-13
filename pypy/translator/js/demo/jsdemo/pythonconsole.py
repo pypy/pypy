@@ -16,10 +16,7 @@ from pypy.translator.js.modules.dom import setTimeout, document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.translator.js.modules.mochikit import escapeHTML
-from pypy.annotation import model as annmodel
-from pypy.annotation.signature import annotation
-
-lambda_None = annmodel.SomeGenericCallable([], result=annotation(None))
+from pypy.rpython.extfunc import _callable
 
 from pypy.translator.js.demo.jsdemo import support
 
@@ -96,7 +93,7 @@ class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS
     _methods = {
         'some_callback' : MethodDesc([('cmd', str),
-                                      ('callback', lambda_None)],
+                                      ('callback', _callable([{str:str}]))],
                                      {str:str})
     }
     

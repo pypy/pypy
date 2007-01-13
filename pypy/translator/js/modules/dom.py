@@ -26,7 +26,7 @@ from xml.dom import minidom
 
 from pypy.annotation.signature import annotation
 from pypy.annotation import model as annmodel
-from pypy.translator.js.support import _callable
+from pypy.rpython.extfunc import _callable
 
 # EventTarget is the base class for Nodes and Window
 class EventTarget(BasicExternal):
@@ -344,9 +344,9 @@ EventTarget._fields = {
 lambda_returning_true = _callable([Event])
 
 EventTarget._methods = {
-    'addEventListener' : MethodDesc([str, lambda_returning_true]),
+    'addEventListener' : MethodDesc([str, lambda_returning_true, bool]),
     'dispatchEvent' : MethodDesc([str], bool),
-    'removeEventListener' : MethodDesc([str, lambda_returning_true]),
+    'removeEventListener' : MethodDesc([str, lambda_returning_true, bool]),
 }
 
 Node._fields = EventTarget._fields.copy()
@@ -402,6 +402,7 @@ Element._fields.update({
     'scrollLeft' : int,
     'scrollTop' : int,
     'scrollWidth' : int,
+    'disabled': bool,
     # HTML specific
     'style' : Style,
     'tabIndex' : int,

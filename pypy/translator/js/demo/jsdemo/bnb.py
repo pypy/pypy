@@ -11,8 +11,7 @@ from pypy.translator.js.demo.jsdemo.servermessage import log, ServerMessage,\
     PMSG_INLINE_FRAME, PMSG_DEF_ICON
 from pypy.translator.js.demo.jsdemo.msgstruct import *
 from cherrypy import session
-from pypy.annotation import model as annmodel
-from pypy.annotation.signature import annotation
+from pypy.rpython.extfunc import _callable
 
 import re, time, sys, os, urllib, socket, copy, md5, random
 
@@ -69,7 +68,7 @@ class SpriteManager(object):
         self.seen = set()
         return to_ret
 
-lambda_None = annmodel.SomeGenericCallable([], result=annotation(None))
+lambda_None = _callable([])
 
 # Needed double inheritance for both server job
 # and semi-transparent communication proxy

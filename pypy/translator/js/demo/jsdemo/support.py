@@ -2,7 +2,7 @@
 import sys, new
 from pypy.translator.js.main import rpython2javascript
 
-def js_source(functions, use_pdb=False):
+def js_source(functions, use_pdb=True):
     mod = new.module('_js_src')
     function_names = []
     for func in functions:
