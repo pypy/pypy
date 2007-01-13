@@ -803,6 +803,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         builder, gv_verysmall_callable, [gv_x] = rgenop.newgraph(sigtoken,
                                                                  "verysmall")
         builder.finish_and_return(sigtoken, rgenop.genconst(17))
+        builder.end()
 
         builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken,
                                                        "jtbwmv")
