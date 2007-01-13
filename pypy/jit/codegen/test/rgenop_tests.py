@@ -379,7 +379,7 @@ def make_longwinded_and(rgenop):
     #     else:
     #        return 0
 
-    signed_kind = rgenop.kindToken(lltype.Signed)
+    bool_kind = rgenop.kindToken(lltype.Bool)
     sigtoken = rgenop.sigToken(FUNC)
     builder, gv_f, [gv_y] = rgenop.newgraph(sigtoken, "abs")
 
@@ -390,7 +390,7 @@ def make_longwinded_and(rgenop):
     gv_x2 = builder.genop2("int_le", gv_y, rgenop.genconst(4))
 
     args_gv = [gv_x2]
-    label = builder.enter_next_block([signed_kind], args_gv)
+    label = builder.enter_next_block([bool_kind], args_gv)
     [gv_x2] = args_gv
 
     return_false_builder = builder.jump_if_false(gv_x2, [])
@@ -630,8 +630,6 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         rgenop = self.RGenOp()
         gv_fn = make_longwinded_and(rgenop)
         fnptr = self.cast(gv_fn, 1)
-
-        print map(fnptr, range(6))
 
         res = fnptr(1)
         assert res == 0
