@@ -20,7 +20,7 @@ class JsTypeError(Exception):
 
 INF = 1e300 * 1e300
 MINF = -INF
-NaN    = INF/INF
+NaN = INF/INF
 
 
 class Property(object):
@@ -120,12 +120,10 @@ class W_Primitive(W_Root):
     def ToPrimitive(self, ctx, PreferredType):
         return self
 
-class W_Object(W_Root):
+class W_PrimitiveObject(W_Root):
     def __init__(self, ctx=None, Prototype=None, Class='Object',
                  Value=w_Undefined, callfunc=None):
         self.propdict = {}
-        self.propdict['toString'] = Property('toString', 
-                                             W_Builtin(self.__str__))
         self.propdict['prototype'] = Property('prototype', w_Undefined,
                                               dd=True)
         self.Prototype = Prototype
@@ -154,16 +152,14 @@ class W_Object(W_Root):
         return val
     
     def Construct(self, ctx, args=[]):
-        if self.callfunc is None:
-            raise TypeError()
         obj = W_Object(Class='Object')
         prot = self.Get('prototype')
-        if isinstance(prot, W_Object):
+        if isinstance(prot, W_PrimitiveObject):
             obj.Prototype = prot
         else:
             obj.Prototype = ctx.get_global().Get('Object')
         ret = self.Call(ctx, args, this=obj)
-        if isinstance(ret, W_Object):
+        if isinstance(ret, W_PrimitiveObject):
             return ret
         else:
             return obj
@@ -235,28 +231,49 @@ class W_Object(W_Root):
             return 'function'
         else:
             return 'object'
-
     
-class W_Arguments(W_Object):
+    def str_builtin(self, ctx, args, this):
+        return W_String(self.ToString())
+
+class W_Object(W_PrimitiveObject):
+    def __init__(self, ctx=None, Prototype=None, Class='Object',
+                 Value=w_Undefined, callfunc=None):
+        W_PrimitiveObject.__init__(self, ctx, Prototype,
+                                   Class, Value, callfunc)
+        toString = W_Builtin()
+        toString.set_builtin_call(self.str_builtin)
+        self.propdict['toString'] = Property('toString', toString)
+
+
+class W_Builtin(W_PrimitiveObject):
+    def set_builtin_call(self, callfuncbi):
+        self.callfuncbi = callfuncbi
+
+    def Call(self, ctx, args=[], this = None):
+        return self.callfuncbi(ctx, args, this)
+        
+    def type(self):
+        return 'builtin'
+    
+class W_Arguments(W_PrimitiveObject):
     def __init__(self, callee, args):
-        W_Object.__init__(self, Class='Arguments')
-        del self.propdict["toString"]
+        W_PrimitiveObject.__init__(self, Class='Arguments')
         del self.propdict["prototype"]
         self.Put('callee', callee)
         self.Put('length', W_Number(len(args)))
         for i in range(len(args)):
             self.Put(str(i), args[i])
 
-class ActivationObject(W_Object):
+class ActivationObject(W_PrimitiveObject):
     """The object used on function calls to hold arguments and this"""
     def __init__(self):
-        W_Object.__init__(self, Class='Activation')
-        del self.propdict["toString"]
+        W_PrimitiveObject.__init__(self, Class='Activation')
         del self.propdict["prototype"]
 
 class W_Array(W_Object):
-    def __init__(self, items):
-        W_Object.__init__(self)
+    def __init__(self, ctx=None, Prototype=None, Class='Array',
+                 Value=w_Undefined, callfunc=None):
+        W_Object.__init__(self, ctx, Prototype, Class, Value, callfunc)
         self.Put('length', W_Number(0))
     
     def Put(self, P, V):
@@ -273,6 +290,12 @@ class W_Array(W_Object):
             #     self.propdict['length'].value = W_Number(x)
             self.propdict[P] = Property(P, V)
     
+    def str_builtin(self, ctx, args, this):
+        return W_String(ToString())
+
+    def ToString(self):
+        return ''
+
 
 class W_Boolean(W_Primitive):
     def __init__(self, boolval):
@@ -336,25 +359,6 @@ class W_Number(W_Primitive):
 
     def type(self):
         return 'number'
-
-class W_Builtin(W_Root):
-    def __init__(self, builtinfunction, context=False, args=0):
-        #W_Object.__init__(self)
-        self.builtinfunction = builtinfunction
-        self.context = context
-        self.args = args
-    
-    def Call(self, ctx, args=[], this = None):
-        py_args = []
-        if self.context == True:
-            py_args.append(ctx)
-        for i in range(self.args):
-            py_args.append(args[i])
-        res = self.builtinfunction(*py_args)
-        return res
-
-    def type(self):
-        return 'builtin'
 
 class W_List(W_Root):
     def __init__(self, list_w):

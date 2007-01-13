@@ -21,9 +21,9 @@ class TestInterp(object):
         assert Plus(Number(3), Number(4)).eval(ExecutionContext()).floatval == 7
         l = []
         interpreter.writer = l.append
-        Script([Semicolon(Call(Identifier('print', None), 
-                List([Number(1), Number(2)])))],[],[]).execute(ExecutionContext())
-        assert l == ['1,2']
+        # Script([Semicolon(Call(Identifier('print', None), 
+        #                 List([Number(1), Number(2)])))],[],[]).execute(ExecutionContext())
+        #         assert l == ['1,2']
 
     def assert_prints(self, code, assval):
         l = []
@@ -151,11 +151,10 @@ class TestInterp(object):
         """, ["test"])
 
     def test_array_initializer(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
         self.assert_prints("""
         x = [];
         print(x);
-        """, ["[]"])
+        """, [""])
 
     def test_throw(self):
         self.assert_prints("throw(3)", ["uncaught exception: 3"])
@@ -313,14 +312,8 @@ class TestInterp(object):
         print(z);
         """, ["3","2"])
 
-    def test_load(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        load("simple.js")
-        """, ["3","2"])
-
     def test_arrayobject(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
+        py.test.skip('not ready yet')
         self.assert_prints("""var x = new Array();
         print(x.length);""", ['0'])
          
@@ -341,10 +334,13 @@ class TestInterp(object):
         """, W_Boolean(True))
     
     def test_switch(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
+        py.test.skip('not ready yet')
 
     def test_newwithargs(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
+        self.assert_prints("""
+        var x = new Object(1,2,3,4);
+        print(x)
+        """, ["[object Object]"])
 
     def test_increment(self):
         self.assert_prints("""
@@ -379,7 +375,7 @@ class TestInterp(object):
         print(y)""", ["5"])
         
     def test_smallthings(self):
-        py.test.skip(" TODO: needed for mozilla test suite")
+        py.test.skip('not ready yet')
         x = """
         var x;
         if ( gc == undefined ) {

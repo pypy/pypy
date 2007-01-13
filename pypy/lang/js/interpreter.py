@@ -64,8 +64,19 @@ def load_bytecode(bytecode):
     temp_tree = parse_bytecode(bytecode)
     return from_tree(temp_tree)
 
-def evaljs(ctx, code):
+def evaljs(ctx, args, this):
+    if len(args) >= 1:
+        code = args[0]
+    else:
+        code = W_String('')
     return load_source(code.ToString()).execute(ctx)
+
+def printjs(ctx, args, this):
+    writer(",".join([i.GetValue().ToString() for i in args]))
+    return w_Undefined
+
+def objectconstructor(ctx, args, this):
+    return W_Object()
     
 class Interpreter(object):
     """Creates a js interpreter"""
@@ -82,18 +93,23 @@ class Interpreter(object):
         w_Function.Put('constructor', w_Function)
         
         #Object stuff
-        w_Object = W_Object(Prototype=w_Function)
+        w_Object = W_Builtin(Prototype=w_Function)
+        w_Object.set_builtin_call(objectconstructor)
         w_Object.Put('length', W_Number(1), ro=True, dd=True)
         w_Object.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
         w_ObjPrototype.Put('constructor', w_Object)
         #And some other stuff
         
         w_Array = W_Array([])
-        w_Global.Put('prototype', W_String('Object'))
         w_Global.Put('Object', w_Object)
         w_Global.Put('Function', w_Function)
         w_Global.Put('Array', w_Array)
-        w_Global.Put('eval', W_Builtin(evaljs, context=True, args=1))
+        evalbuiltin = W_Builtin(Class='function')
+        evalbuiltin.set_builtin_call(evaljs)
+        w_Global.Put('eval', evalbuiltin)
+        printbuiltin = W_Builtin(Class='function')
+        printbuiltin.set_builtin_call(printjs)
+        w_Global.Put('print', printbuiltin)
         
         self.global_context = ctx
         self.w_Global = w_Global
@@ -173,13 +189,9 @@ class Call(Expression):
 
     def eval(self, ctx):
         name = self.identifier.get_literal()
-        if name == 'print':
-            writer(",".join([i.GetValue().ToString() for i in self.arglist.get_args(ctx)]))
-            return w_Null
-        else:    
-            w_obj = ctx.resolve_identifier(name).GetValue()
-            retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
-            return retval
+        w_obj = ctx.resolve_identifier(name).GetValue()
+        retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
+        return retval
 
 
 class Comma(BinaryOp):
@@ -393,11 +405,25 @@ class New(Expression):
         self.newexpr = newexpr
 
     def eval(self, ctx):
+        print self.newexpr
         x = self.newexpr.eval(ctx).GetValue()
-        if not isinstance(x, W_Object):
+        if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
         
         return x.Construct(ctx=ctx)
+
+class NewWithArgs(Expression):
+    def __init__(self, newexpr, arglist):
+        self.newexpr = newexpr
+        self.arglist = arglist
+
+    def eval(self, ctx):
+        print self.newexpr
+        x = self.newexpr.eval(ctx).GetValue()
+        if not isinstance(x, W_PrimitiveObject):
+            raise TypeError()
+        
+        return x.Construct(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
             
 
 class Number(Expression):
@@ -694,6 +720,8 @@ def from_tree(t):
         node = Ne(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'NEW':
         node = New(from_tree(gettreeitem(t, '0')))
+    elif tp == 'NEW_WITH_ARGS':
+        node = NewWithArgs(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'NUMBER':
         node = Number(float(gettreeitem(t, 'value').additional_info))
     elif tp == 'OBJECT_INIT':
