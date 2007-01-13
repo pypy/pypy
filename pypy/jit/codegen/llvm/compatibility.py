@@ -6,7 +6,7 @@ from pypy.jit.codegen.llvm.llvmjit import llvm_version
 
 if llvm_version() < 2.0:
     icmp = scmp = ucmp = fcmp = 'set'
-    inttoptr = trunc = zext = bitcast = 'cast'
+    inttoptr = trunc = zext = bitcast = inttoptr = 'cast'
     shr_prefix = ['', '']
     i8  = 'ubyte'
     i16 = 'short'
@@ -22,6 +22,7 @@ else:   # >= 2.0
     trunc = 'trunc'
     zext = 'zext'
     bitcast = 'bitcast'
+    inttoptr = 'inttoptr'
     shr_prefix = ['l', 'a']
     define = 'define'
     i8  = 'i8'

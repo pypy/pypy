@@ -9,7 +9,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 from pypy.jit.codegen.llvm.conftest import option
 from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
-    trunc, zext, bitcast, shr_prefix, define, i1, i8, i16, i32, f64
+    trunc, zext, bitcast, inttoptr, shr_prefix, define, i1, i8, i16, i32, f64
 
 
 pi8  = i8  + '*'
@@ -902,7 +902,7 @@ class Builder(GenBuilder):
         if isinstance(gv_fnptr, AddrConst):
             gv_fn = Var(self._funcsig_type(args_gv, restype) + '*')
             self.asm.append(' %s=%s %s %s to %s' % (
-                gv_fn.operand2(), bitcast, i32, gv_fnptr.operand2(), gv_fn.type))
+                gv_fn.operand2(), inttoptr, i32, gv_fnptr.operand2(), gv_fn.type))
             funcsig = gv_fn.operand()
         else:
             #XXX we probably need to call an address directly if we can't resolve the funcsig
