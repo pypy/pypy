@@ -5,8 +5,6 @@ Some todo list
 
 * Make a tutorial somewhat usable
 
-* External function interface should be refined
-
 * Optimizations
 
   - names usage

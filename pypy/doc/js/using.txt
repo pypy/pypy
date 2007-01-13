@@ -94,16 +94,15 @@ Then you need to set class instance's `_render_xmlhttp` to `True`, to
 tell the JS backend to render it using xmlhttp communication. Because
 the web server code does not need to be rpython, you have to supply some
 way of telling PyPy what types can be returned out of it. This is done
-using the decorator `@described(retval = <example of used type>)` from
+using the decorator `@described(retval = <used type>)` from
 `bltregistry`_. For example you may provide::
 
-  @described(retval = {'a':'a'})
+  @described(retval = {str:str})
   def some_fun(self, some_arg = 3):
     ....
 
 to tell compiler that this function will return mapping from string to
-string and will take integer as an argument (note that 'a' and 3 are not
-special values, just examples of the type). You can simply specify the
+string and will take integer as an argument. You can simply specify the
 arguments using keyword arguments with an example, or pass an args
 dictionary to the described decorator.
 
@@ -127,7 +126,7 @@ On the server side::
   class PingHandler(BasicExternal):
       _render_xmlhttp = True
 
-      @described(retval={"aa":"aa"})
+      @described(retval={str:str})
       def ping(self, ping_str="aa"):
           return dict(response="PONG: %s" % ping_str)
 
