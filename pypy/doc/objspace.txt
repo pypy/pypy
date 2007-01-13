@@ -318,6 +318,7 @@ This small object space, meant as a nice example, wraps another object space (e.
 Example usage::
 
     $ py.py -o thunk
+    >>>> from pypymagic import thunk
     >>>> def f():
     ...     print 'computing...'
     ...     return 6*7
