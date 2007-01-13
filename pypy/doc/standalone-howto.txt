@@ -2,7 +2,16 @@
 HOWTO: compile RPython code into a standalone executable
 ========================================================
 
-First, see this Disclaimer_ in the FAQ.
+(NOTE: you should first read the `FAQ entries`_ about Using the PyPy
+translation tool chain.  This document is a quick introduction to the
+interactive way to compile your own RPython code.  Keep in mind though
+that if you write a larger RPython program, the best and most flexible
+way to compile it is not as described below, but by writing a target
+file as described in the `FAQ entries`_.)
+
+========================================
+
+First, see the note above.
 Next, understand the restrictions on RPython_ code.
 Pay close attention to the description of tuples and 
 dicts. 
@@ -113,7 +122,7 @@ PyPy implements the `ctypes semantics`_ as the corresponding native c-code
 equivalents.
 
     
-.. _`Disclaimer`: faq.html#why-isn-t-there-a-simpler-way-of-doing-that
+.. _`FAQ Entries`: faq.html#using-the-pypy-translation-tool-chain
 .. _`RPython`: coding-guide.html#restricted-python
 .. _`Annotator`: dynamic-language-translation.html#annotator
 .. _`RTyper`: dynamic-language-translation.html#rtyper
