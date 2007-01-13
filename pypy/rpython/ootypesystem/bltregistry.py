@@ -37,6 +37,18 @@ class BasicMetaExternal(type):
     
     _is_compatible = staticmethod(_is_compatible)
 
+def typeof(val):
+    """ Small wrapper, which tries to resemble example -> python type
+    which can go to annotation path
+    """
+    if isinstance(val, list):
+        return [typeof(val[0])]
+    if isinstance(val, dict):
+        return {typeof(val.keys()[0]):typeof(val.values()[0])}
+    if isinstance(val, tuple):
+        return tuple([typeof(i) for i in val])
+    return type(val)
+
 class BasicExternal(object):
     __metaclass__ = BasicMetaExternal
     __self__ = None
@@ -45,7 +57,6 @@ class BasicExternal(object):
     _methods = {}
     
     def described(retval=None, args={}):
-        xxx # we'll fix that later
         def decorator(func):
             code = func.func_code
             if not func.func_defaults:
@@ -65,7 +76,7 @@ class BasicExternal(object):
                 if varname in args:
                     arg_pass.append((varname, args[varname]))
                 else:
-                    arg_pass.append((varname, defs[arg - start_pos]))
+                    arg_pass.append((varname, typeof(defs[arg - start_pos])))
             func._method = (func.__name__, MethodDesc(arg_pass, retval))
             return func
         return decorator
@@ -165,7 +176,7 @@ class Entry_basicexternalmeta(ExtRegistryEntry):
     
     def compute_annotation(self):
         return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc\
-            (self.instance.__class__))
+            (self.type))
     
     def get_field_annotation(self, ext_obj, attr):
         return ext_obj.get_field(attr)
