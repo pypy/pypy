@@ -37,6 +37,8 @@ def annotationoftype(t, bookkeeper=False):
         assert len(t) == 1, "We do not support type joining in dict"
         return SomeDict(DictDef(None, annotation(t.keys()[0]),
                                 annotation(t.values()[0])))
+    elif type(t) is types.NoneType:
+        return s_None
     assert isinstance(t, (type, types.ClassType))
     if t is bool:
         return SomeBool()
