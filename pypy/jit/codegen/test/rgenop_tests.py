@@ -795,3 +795,42 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(44)
         assert res ==  2
+
+    def test_jump_to_block_with_many_vars(self):
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_verysmall_callable, [gv_x] = rgenop.newgraph(sigtoken,
+                                                                 "verysmall")
+        builder.finish_and_return(sigtoken, rgenop.genconst(17))
+
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken,
+                                                       "jtbwmv")
+        gv_cond = builder.genop1("int_is_true", gv_x)
+        builder2 = builder.jump_if_false(gv_cond, [gv_x])
+        builder = builder.pause_writing([gv_x])
+
+        builder2.start_writing()
+        args_gv = [gv_x]
+        label = builder2.enter_next_block([signed_kind], args_gv)
+        [gv_x2] = args_gv
+
+        gvs = []
+        for i in range(50):
+            gvs.append(builder2.genop2("int_mul", gv_x2, rgenop.genconst(i)))
+
+        gvs.append(builder2.genop_call(sigtoken, gv_verysmall_callable,
+                                       [gv_x2]))
+
+        while len(gvs) > 1:
+            gvs.append(builder2.genop2("int_add", gvs.pop(), gvs.pop()))
+
+        builder2.finish_and_return(sigtoken, gvs.pop())
+
+        builder.start_writing()
+        builder.finish_and_goto([gv_x], label)
+        builder.end()
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(1291)
+        assert res == 1291 * (49*50/2) + 17
