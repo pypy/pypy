@@ -5,6 +5,7 @@ import py
 
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
+from pypy.translator.js.support import _callable
 
 # check rendering dom.document
 def test_simple_builtin():
@@ -21,12 +22,12 @@ class SomeProxy(BasicExternal):
     _render_xmlhttp = True
     
     _methods = {
-        'some_method' : MethodDesc([], 3),
+        'some_method' : MethodDesc([], int),
     }
     
 class SomeNode(BasicExternal):
     _fields = {
-        'some_callback' : MethodDesc([3], 3),
+        'some_callback' : _callable([int], int),
     }
 
 SomeProxyInstance = SomeProxy()

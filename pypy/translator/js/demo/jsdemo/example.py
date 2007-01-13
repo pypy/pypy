@@ -9,6 +9,8 @@ from pypy.translator.js.demo.jsdemo import support
 from pypy.translator.js.modules.dom import setTimeout, document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
+from pypy.annotation import model as annmodel
+from pypy.annotation.signature import annotation
 
 commproxy.USE_MOCHIKIT = False
 
@@ -37,10 +39,12 @@ def callback(data):
 def runjs():
     httpd.some_callback(callback)
 
+lambda_None = annmodel.SomeGenericCallable([], result=annotation(None))
+
 class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS
     _methods = {
-        'some_callback' : MethodDesc([('callback', lambda : None)], {'aa':'aa'})
+        'some_callback' : MethodDesc([('callback', lambda_None)], {str:str})
     }
     
     _render_xmlhttp = True

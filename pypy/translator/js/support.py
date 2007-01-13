@@ -1,6 +1,13 @@
 from pypy.translator.gensupp import NameManager
 #from pypy.translator.js.optimize import is_optimized_function
 
+from pypy.annotation.signature import annotation
+from pypy.annotation import model as annmodel
+
+def _callable(args, result=None):
+    return annmodel.SomeGenericCallable([annotation(i) for i in args],
+                                         annotation(result))
+
 class JavascriptNameManager(NameManager):
     def __init__(self, db):
         NameManager.__init__(self)

@@ -11,6 +11,8 @@ from pypy.translator.js.demo.jsdemo.servermessage import log, ServerMessage,\
     PMSG_INLINE_FRAME, PMSG_DEF_ICON
 from pypy.translator.js.demo.jsdemo.msgstruct import *
 from cherrypy import session
+from pypy.annotation import model as annmodel
+from pypy.annotation.signature import annotation
 
 import re, time, sys, os, urllib, socket, copy, md5, random
 
@@ -67,6 +69,8 @@ class SpriteManager(object):
         self.seen = set()
         return to_ret
 
+lambda_None = annmodel.SomeGenericCallable([], result=annotation(None))
+
 # Needed double inheritance for both server job
 # and semi-transparent communication proxy
 class BnbRoot(Root, BasicExternal):
@@ -87,12 +91,12 @@ class BnbRoot(Root, BasicExternal):
     _render_xmlhttp = True
     
     _methods = {
-        'get_message'  : MethodDesc( [('player_id', -1), ('keys' , "aaa"), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'remove_player': MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'player_name'  : MethodDesc( [('player_id', 0), ('name', 'PyPy player'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'get_message'  : MethodDesc( [('player_id', int), ('keys' , str), ('callback', lambda_None)] , {str:[{str:str}]}),
+        'add_player'   : MethodDesc( [('player_id', int), ('callback', lambda_None)] , {str:[{str:str}]}),
+        'remove_player': MethodDesc( [('player_id', int), ('callback', lambda_None)] , {str:[{str:str}]}),
+        'player_name'  : MethodDesc( [('player_id', int), ('name', str), ('callback', lambda_None)] , {str:[{str:str}]}),
 #        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'initialize_session' : MethodDesc( [('callback', (lambda : None))], {'aa':'bb'}),
+        'initialize_session' : MethodDesc( [('callback', lambda_None)], {str:str}),
     }
     
     def add_player(self, player_id = 0):

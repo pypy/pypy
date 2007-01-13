@@ -13,9 +13,7 @@ conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js.modules.dom import document
-from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane, logDebug
-from pypy.translator.js.modules.bltns import date
 from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 
 import time
@@ -41,7 +39,7 @@ class Stats(object):
     def register_frame(self):
         self.n_rendered_inline_frames += 1
         if self.n_rendered_inline_frames >= 10:
-            next_time = date()
+            next_time = time.time()
             self.fps = 10000/(next_time - self.starttime)
             self.n_rendered_inline_frames = 0
             self.starttime = next_time

@@ -26,6 +26,7 @@ from xml.dom import minidom
 
 from pypy.annotation.signature import annotation
 from pypy.annotation import model as annmodel
+from pypy.translator.js.support import _callable
 
 # EventTarget is the base class for Nodes and Window
 class EventTarget(BasicExternal):
@@ -313,10 +314,6 @@ window._render_name = 'window'
 document._render_name = 'document'
 
 # rtyper stuff
-
-def _callable(args, result=None):
-    return annmodel.SomeGenericCallable([annotation(i) for i in args],
-                                         annotation(result))
 
 EventTarget._fields = {
     'onabort' : _callable([Event]),
