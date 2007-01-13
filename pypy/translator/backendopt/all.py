@@ -10,6 +10,7 @@ from pypy.translator.backendopt.escape import malloc_to_stack
 from pypy.translator.backendopt.mallocprediction import clever_inlining_and_malloc_removal
 from pypy.translator.backendopt.removeassert import remove_asserts
 from pypy.translator.backendopt.support import log
+from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.objspace.flow.model import checkgraph
 
 def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
@@ -30,6 +31,9 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
 
     if config.raisingop2direct_call:
         raisingop2direct_call(translator, graphs)
+
+    if translator.rtyper.type_system.name == 'ootypesystem':
+        check_virtual_methods()
 
     # remove obvious no-ops
     for graph in graphs:

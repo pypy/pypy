@@ -9,6 +9,7 @@ from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
 from pypy.translator.backendopt.inline import instrument_inline_candidates
+from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.tool import LLRtypeMixin, OORtypeMixin
@@ -84,8 +85,11 @@ class BaseTestInline:
             return interp.eval_graph(graphof(t, entry), args)
         return eval_func
 
-    def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False):
+    def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
+                            checkvirtual=False):
         t = self.translate(func, sig)
+        if checkvirtual:
+            check_virtual_methods()
         if option.view:
             t.view()
         # inline!
@@ -585,3 +589,50 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         expected = fn(0)
         res = eval_func([0])
         assert res == expected
+
+    def test_oosend(self):
+        class A:
+            def foo(self, x):
+                return x
+        def fn(x):
+            a = A()
+            return a.foo(x)
+
+        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True)
+        expected = fn(42)
+        res = eval_func([42])
+        assert res == expected
+
+    def test_not_inline_oosend(self):
+        class A:
+            def foo(self, x):
+                return x
+        class B(A):
+            def foo(self, x):
+                return x+1
+
+        def fn(flag, x):
+            if flag:
+                obj = A()
+            else:
+                obj = B()
+            return obj.foo(x)
+
+        eval_func, t = self.check_auto_inlining(fn, [bool, int], checkvirtual=True)
+        expected = fn(True, 42)
+        res = eval_func([True, 42])
+        assert res == expected
+
+    def test_classattr(self):
+        class A:
+            attr = 666
+        class B(A):
+            attr = 42
+        def fn5():
+            b = B()
+            return b.attr
+
+        eval_func, t = self.check_auto_inlining(fn5, [], checkvirtual=True)
+        res = eval_func([])
+        assert res == 42
+

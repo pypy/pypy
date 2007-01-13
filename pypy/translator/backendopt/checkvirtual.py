@@ -7,7 +7,9 @@ switching back to a direct_call if the backend doesn't support
 non-virtual calls, such as JVM).
 """
 
-def check_virtual_methods(INSTANCE, super_methods = {}):
+from pypy.rpython.ootypesystem import ootype
+
+def check_virtual_methods(INSTANCE=ootype.ROOT, super_methods = {}):
     my_methods = super_methods.copy()
     for name, method in INSTANCE._methods.iteritems():
         method._virtual = False

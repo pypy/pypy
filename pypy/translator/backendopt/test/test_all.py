@@ -217,5 +217,3 @@ class TestOOType(BaseTester):
     type_system = 'ootype'
     check_malloc_removed = OOTypeMallocRemovalTest.check_malloc_removed
     
-    def test_big(self):
-        py.test.skip('FIXME! It should pass as long as oosend is inlined')

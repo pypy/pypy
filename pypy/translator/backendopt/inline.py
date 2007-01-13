@@ -22,6 +22,16 @@ BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 class CannotInline(Exception):
     pass
 
+def get_meth_from_oosend(op):
+    method_name = op.args[0].value
+    INSTANCE = op.args[1].concretetype
+    _, meth = INSTANCE._lookup(op.args[0].value)
+    virtual = getattr(meth, '_virtual', True)
+    if virtual:
+        return None
+    else:
+        return meth
+
 def collect_called_graphs(graph, translator):
     graphs_or_something = {}
     for block in graph.iterblocks():
@@ -40,15 +50,23 @@ def collect_called_graphs(graph, translator):
                     for graph in graphs:
                         graphs_or_something[graph] = True
             if op.opname == 'oosend':
-                graphs_or_something[op.args[0]] = True # XXX?
+                meth = get_meth_from_oosend(op)
+                key = getattr(meth, 'graph', op.args[0])
+                graphs_or_something[key] = True
     return graphs_or_something
 
 def iter_callsites(graph, calling_what):
     for block in graph.iterblocks():
         for i, op in enumerate(block.operations):
-            if not op.opname == "direct_call":
+            if op.opname == "direct_call":
+                funcobj = get_funcobj(op.args[0].value)
+            elif op.opname == "oosend":
+                funcobj = get_meth_from_oosend(op)
+                if funcobj is None:
+                    continue # cannot inline virtual methods
+            else:
                 continue
-            funcobj = get_funcobj(op.args[0].value)
+
             graph = getattr(funcobj, 'graph', None)
             # accept a function or a graph as 'inline_func'
             if (graph is calling_what or
@@ -178,11 +196,18 @@ class BaseInliner(object):
         self.cleanup()
         return count
 
+    def get_graph_from_op(self, op):
+        assert op.opname in ('direct_call', 'oosend')
+        if op.opname == 'direct_call':
+            return get_funcobj(self.op.args[0].value).graph
+        else:
+            return get_meth_from_oosend(op).graph
+
     def inline_once(self, block, index_operation):
         self.varmap = {}
         self._copied_blocks = {}
         self.op = block.operations[index_operation]
-        self.graph_to_inline = get_funcobj(self.op.args[0].value).graph
+        self.graph_to_inline = self.get_graph_from_op(self.op)
         self.exception_guarded = False
         if (block.exitswitch == c_last_exception and
             index_operation == len(block.operations) - 1):
@@ -201,9 +226,14 @@ class BaseInliner(object):
     def search_for_calls(self, block):
         d = {}
         for i, op in enumerate(block.operations):
-            if not op.opname == "direct_call":
+            if op.opname == "direct_call":
+                funcobj = get_funcobj(op.args[0].value)
+            elif op.opname == "oosend":
+                funcobj = get_meth_from_oosend(op)
+                if funcobj is None:
+                    continue
+            else:
                 continue
-            funcobj = get_funcobj(op.args[0].value)
             graph = getattr(funcobj, 'graph', None)
             # accept a function or a graph as 'inline_func'
             if (graph is self.inline_func or
@@ -565,9 +595,13 @@ def inlinable_static_callers(graphs):
                                    'dont_inline', False):
                             continue
                         result.append((parentgraph, graph))
+                if op.opname == "oosend":
+                    meth = get_meth_from_oosend(op)
+                    graph = getattr(meth, 'graph', None)
+                    if graph is not None:
+                        result.append((parentgraph, graph))
     return result
-
-
+    
 def instrument_inline_candidates(graphs, multiplier):
     threshold = BASE_INLINE_THRESHOLD * multiplier
     cache = {None: False}

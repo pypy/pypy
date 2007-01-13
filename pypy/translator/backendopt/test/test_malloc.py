@@ -104,7 +104,6 @@ class BaseMallocRemovalTest(object):
         self.check(fn4, [int], [42], 42)
 
     def test_fn5(self):
-        self._skip_oo('It will work as soon as trivial oosend are inlined')
         class A:
             attr = 666
         class B(A):
@@ -352,3 +351,9 @@ class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
             return x.foo
         self.check(fn, [], [], 42)
 
+    def test_fn5(self):
+        # don't test this in ootype because the class attribute access
+        # is turned into an oosend which prevents malloc removal to
+        # work unless we inline first. See test_classattr in
+        # test_inline.py
+        pass
