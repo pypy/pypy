@@ -1,5 +1,5 @@
 import py
-from py.__.documentation.conftest import Directory as Dir, DoctestText, \
+from py.__.doc.conftest import Directory as Dir, DoctestText, \
                                             ReSTChecker
 mypath = py.magic.autopath().dirpath()
 

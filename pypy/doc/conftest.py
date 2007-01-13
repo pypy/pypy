@@ -1,5 +1,5 @@
 import py
-from py.__.documentation.conftest import Directory, DoctestText, ReSTChecker
+from py.__.doc.conftest import Directory, DoctestText, ReSTChecker
 
 Option = py.test.Config.Option
 option = py.test.Config.addoptions("pypy-doc options", 

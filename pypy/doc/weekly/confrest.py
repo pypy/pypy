@@ -1,4 +1,4 @@
-from py.__.documentation.confrest import *
+from py.__.doc.confrest import *
 
 class PyPyPage(Page): 
     def fill(self):
