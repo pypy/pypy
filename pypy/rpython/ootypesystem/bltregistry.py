@@ -11,6 +11,7 @@ from types import MethodType
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.ootypesystem.extdesc import MethodDesc, ArgDesc
 from pypy.annotation.signature import annotation
+from pypy.annotation.model import unionof
 
 class CallableEntry(ExtRegistryEntry):
     _type_ = MethodDesc
@@ -94,10 +95,11 @@ class Analyzer(object):
         self.value = value
     
     def __call__(self, *args):
-        #for i in args:
-        #    if isinstance(i, annmodel.SomePBC):
-        #        bookkeeper = getbookkeeper()
-        #        bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (self.s_retval,)))
+        args = args[1:]
+        assert len(self.s_args) == len(args)
+        for arg, expected in zip(args, self.s_args):
+            res = unionof(arg, expected)
+            assert expected.contains(res)
         return self.s_retval
 
 class ExternalType(ootype.OOType):
@@ -136,13 +138,15 @@ class ExternalType(ootype.OOType):
         self._methods = frozendict(_signs)
 
     def __hash__(self):
-        # FIXME: for now
         return hash(self._name)
     
     def set_field(self, attr, knowntype):
         self.check_update()
-        self._fields[attr] = knowntype
-        
+        assert attr in self._fields
+        field_ann = self._fields[attr]
+        res = unionof(knowntype, field_ann)
+        assert res.contains(knowntype)
+    
     def check_update(self):
         if not self.updated:
             _fields, _methods = self._data
@@ -155,7 +159,7 @@ class ExternalType(ootype.OOType):
     def get_field(self, attr):
         self.check_update()
         return self._fields[attr]
-    
+
     def find_method(self, meth):
         raise NotImplementedError()
     
@@ -181,8 +185,11 @@ class Entry_basicexternalmeta(ExtRegistryEntry):
     def get_field_annotation(self, ext_obj, attr):
         return ext_obj.get_field(attr)
     
-    def get_arg_annotation(self, ext_obj, attr):
-        return ext_obj._class_._fields[attr].args_s
+    #def get_arg_annotation(self, ext_obj, attr, s_pbc):
+    #    s_field = ext_obj.get_field(attr)
+    #    res = unionof(s_field, s_pbc)
+    #    assert s_field.contains(res)
+    #    return s_field.args_s
     
     def set_field_annotation(self, ext_obj, attr, s_val):
         ext_obj.set_field(attr, s_val)

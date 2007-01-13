@@ -127,7 +127,7 @@ class CD(BasicExternal):
 
 def test_callback_field():
     def callback(x):
-        return 8.3
+        return 8.3 + x
     
     def callback_field():
         a = CD()
@@ -137,3 +137,4 @@ def test_callback_field():
     a = RPythonAnnotator()
     s = a.build_types(callback_field, [])
     assert isinstance(s, annmodel.SomeGenericCallable)
+    assert aa.translator._graphof(callback)

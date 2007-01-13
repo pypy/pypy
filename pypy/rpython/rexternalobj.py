@@ -1,13 +1,13 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rmodel import Repr
+from pypy.rpython.rmodel import Repr, HalfConcreteWrapper
 from pypy.rpython.extfunctable import typetable
 from pypy.rpython import rbuiltin
 from pypy.rpython.module.support import init_opaque_object
 from pypy.objspace.flow.model import Constant
 from pypy.rpython import extregistry
-
+from pypy.annotation.signature import annotation
 
 class __extend__(annmodel.SomeExternalObject):
 
@@ -51,10 +51,17 @@ class ExternalBuiltinRepr(Repr):
     def rtype_setattr(self, hop):
         if self.lowleveltype is ootype.Void:
             return
-        attr = hop.args_s[1].const
-        #self.lowleveltype._check_field(attr)
-        vlist = hop.inputargs(self, ootype.Void, hop.args_r[2])
-        s_attr = hop.args_s[1]
+        vlist = [hop.inputarg(self, arg=0), hop.inputarg(ootype.Void, arg=1)]
+        field_name = hop.args_s[1].const
+        obj = self.knowntype._class_._fields[field_name]
+        bookkeeper = hop.rtyper.annotator.bookkeeper
+        # XXX WARNING XXX
+        # annotation() here should not be called, but we somehow
+        # have overwritten _fields. This will do no harm, but may hide some
+        # errors
+        r = hop.rtyper.getrepr(annotation(obj, bookkeeper))
+        v = hop.inputarg(r, arg=2)
+        vlist.append(v)
         return hop.genop('oosetfield', vlist)
     
     def call_method(self, name, hop):
