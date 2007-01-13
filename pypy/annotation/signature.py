@@ -10,6 +10,7 @@ from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 def annotation(t, bookkeeper=None):
     from pypy.rpython.lltypesystem import lltype
     from pypy.annotation.bookkeeper import getbookkeeper
+    from pypy.rpython import extregistry
     if bookkeeper is None:
         bookkeeper = getbookkeeper()
     
@@ -17,17 +18,7 @@ def annotation(t, bookkeeper=None):
         return t
     elif isinstance(t, lltype.LowLevelType):
         return lltype_to_annotation(t)
-    else:
-        return annotationoftype(t, bookkeeper)
-
-def annotationoftype(t, bookkeeper=False):
-    from pypy.annotation.builtin import BUILTIN_ANALYZERS
-    from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
-    from pypy.rpython import extregistry
-
-    """The most precise SomeValue instance that contains all
-    objects of type t."""
-    if isinstance(t, list):
+    elif isinstance(t, list):
         assert len(t) == 1, "We do not support type joining in list"
         listdef = ListDef(None, annotation(t[0]), mutated=True, resized=True)
         return SomeList(listdef)
@@ -39,13 +30,29 @@ def annotationoftype(t, bookkeeper=False):
                                 annotation(t.values()[0])))
     elif type(t) is types.NoneType:
         return s_None
-    #assert isinstance(t, (type, types.ClassType))
-    elif t is bool:
+    elif extregistry.is_registered(t):
+        entry = extregistry.lookup(t)
+        entry.bookkeeper = bookkeeper
+        return entry.compute_result_annotation()
+    else:
+        return annotationoftype(t, bookkeeper)
+
+def annotationoftype(t, bookkeeper=False):
+    from pypy.annotation.builtin import BUILTIN_ANALYZERS
+    from pypy.annotation.builtin import EXTERNAL_TYPE_ANALYZERS
+    from pypy.rpython import extregistry
+
+    """The most precise SomeValue instance that contains all
+    objects of type t."""
+    assert isinstance(t, (type, types.ClassType))
+    if t is bool:
         return SomeBool()
     elif t is int:
         return SomeInteger()
     elif t is float:
         return SomeFloat()
+    elif issubclass(t, str): # py.lib uses annotated str subclasses
+        return SomeString()
     elif t is list:
         return SomeList(MOST_GENERAL_LISTDEF)
     elif t is dict:
@@ -61,12 +68,6 @@ def annotationoftype(t, bookkeeper=False):
     elif bookkeeper and t.__module__ != '__builtin__' and t not in bookkeeper.pbctypes:
         classdef = bookkeeper.getuniqueclassdef(t)
         return SomeInstance(classdef)
-    elif extregistry.is_registered(t):
-        entry = extregistry.lookup(t)
-        entry.bookkeeper = bookkeeper
-        return entry.compute_result_annotation()
-    elif issubclass(t, str): # py.lib uses annotated str subclasses
-        return SomeString()
     else:
         o = SomeObject()
         if t != object:
