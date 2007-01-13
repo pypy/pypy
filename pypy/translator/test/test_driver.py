@@ -42,7 +42,8 @@ def test_ctr():
                  'source_squeak', 'source_cli', 'source_c', 'source_llvm',
                  'compile_cl', 'compile_cli', 'compile_c', 'compile_squeak',
                  'compile_llvm', 'compile_js', 'run_cl', 'run_squeak',
-                 'run_llvm', 'run_c', 'run_js', 'run_cli'])
+                 'run_llvm', 'run_c', 'run_js', 'run_cli',
+                 'compile_jvm', 'source_jvm', 'run_jvm'])
 
     td = TranslationDriver({'backend': None, 'type_system': 'lltype'})
 
