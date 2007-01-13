@@ -403,6 +403,7 @@ def make_longwinded_and(rgenop):
     return_false_builder.start_writing()
     return_false_builder.finish_and_return(sigtoken, rgenop.genconst(0))
 
+    builder.end()
     return gv_f
 
 def make_condition_result_cross_link(rgenop):
@@ -425,6 +426,7 @@ def make_condition_result_cross_link(rgenop):
     target2.start_writing()
     target2.finish_and_return(sigtoken, rgenop.genconst(3))
 
+    builder.end()
     return gv_f
 
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
