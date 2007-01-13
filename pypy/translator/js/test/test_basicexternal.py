@@ -9,7 +9,7 @@ from pypy.translator.js.test.runtest import compile_function, check_source_conta
 from pypy.translator.js.tester import schedule_callbacks
 
 class A(BasicExternal):
-    @described(retval=3)
+    @described(retval=int)
     def some_code(self, var="aa"):
         pass
 
@@ -49,7 +49,7 @@ def test_basicexternal_element():
 ##    assert fun() == 3
 
 class EE(BasicExternal):
-    @described(retval=3)
+    @described(retval=int)
     def bb(self):
         pass
 
@@ -64,7 +64,7 @@ def test_prebuild_basicexternal():
     assert check_source_contains(fun, "EE = ee")
 
 class C(BasicExternal):
-    @described(retval=3)
+    @described(retval=int)
     def f(self):
         pass
 
@@ -84,11 +84,11 @@ def test_basicexternal_raise_method_call():
 
 class D(BasicExternal):
     _fields = {
-        'a': {"aa":"aa"},
-        'b': ["aa"],
+        'a': {str:str},
+        'b': [str],
     }
 
-D._fields['c'] = [D(),D()]
+D._fields['c'] = [D]
 
 d = D()
 d._render_name = 'd'
@@ -114,7 +114,7 @@ def test_basicextenal_dict():
 
 def test_method_call():
     class Meth(BasicExternal):
-        @described(retval=3)
+        @described(retval=int)
         def meth(self):
             return 8
             
