@@ -76,6 +76,9 @@ class TestShadowTracking(object):
         assert w_inst.w__dict__.implementation.shadows_anything
 
 class AppTestShadowTracking(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withshadowtracking": True})
+
     def test_shadowtracking_does_not_blow_up(self):
         class A(object):
             def f(self):
