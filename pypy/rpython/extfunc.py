@@ -4,6 +4,24 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import unionof
 from pypy.annotation.signature import annotation
+from pypy.annotation import model as annmodel
+
+class _callable(object):
+    """ A way to specify the callable annotation, but deferred until
+    we have bookkeeper
+    """
+    def __init__(self, args, result=None):
+        self.args = args
+        self.result = result
+
+class _ext_callable(ExtRegistryEntry):
+    _type_ = _callable
+    # we defer a bit annotation here
+
+    def compute_result_annotation(self):
+        return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
+                                             for i in self.instance.args],
+                           annotation(self.instance.result, self.bookkeeper))
 
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
