@@ -39,13 +39,11 @@ def annotationoftype(t, bookkeeper=False):
                                 annotation(t.values()[0])))
     elif type(t) is types.NoneType:
         return s_None
-    assert isinstance(t, (type, types.ClassType))
-    if t is bool:
+    #assert isinstance(t, (type, types.ClassType))
+    elif t is bool:
         return SomeBool()
     elif t is int:
         return SomeInteger()
-    elif issubclass(t, str): # py.lib uses annotated str subclasses
-        return SomeString()
     elif t is float:
         return SomeFloat()
     elif t is list:
@@ -63,6 +61,12 @@ def annotationoftype(t, bookkeeper=False):
     elif bookkeeper and t.__module__ != '__builtin__' and t not in bookkeeper.pbctypes:
         classdef = bookkeeper.getuniqueclassdef(t)
         return SomeInstance(classdef)
+    elif extregistry.is_registered(t):
+        entry = extregistry.lookup(t)
+        entry.bookkeeper = bookkeeper
+        return entry.compute_result_annotation()
+    elif issubclass(t, str): # py.lib uses annotated str subclasses
+        return SomeString()
     else:
         o = SomeObject()
         if t != object:
