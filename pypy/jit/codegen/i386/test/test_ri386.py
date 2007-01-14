@@ -75,6 +75,19 @@ def test_basic():
     yield check, '\xE8\x11\x00\x00\x00',     'CALL', rel32(22)
 
 
+##def test_conditional():
+##    """Compare the encoding for the instructions JE, JAE, JC etc.,
+##    with the encoding for the 'Jcond' pseudo-instruction.
+##    """
+##    def check(insn, *args):
+##        from pypy.jit.codegen.i386.ri386setup import Conditions
+##        for cond, value in Conditions.items():
+##            s1 = CodeBuilder()
+##            getattr(s1, insn+cond)(*args)
+##            s2 = CodeBuilder()
+##            getattr(s2, insn+'cond')(imm8(value), *args)
+
+
 def test_translate():
     from pypy.rpython.test.test_llinterp import interpret
 

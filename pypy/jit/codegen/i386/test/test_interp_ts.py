@@ -3,9 +3,11 @@ from pypy.annotation import model as annmodel
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.jit.codegen.i386.rgenop import RI386GenOp, IntConst
 from pypy.jit.codegen.i386.test.test_operation import RGenOpPacked
+from pypy.jit.codegen.i386.conftest import option
 
 def setup_module(mod):
-    py.test.skip("these tests take ages and are not really useful")
+    if not option.interp:
+        py.test.skip("these tests take ages and are not really useful")
 
 class Whatever(object):
     def __eq__(self, other):

@@ -1,74 +1,664 @@
-import sys, py, os
-from pypy.rlib.objectmodel import specialize
+import sys, py
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.jit.codegen.i386.ri386 import *
-from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
-from pypy.rlib import objectmodel
-from pypy.rpython.annlowlevel import llhelper
+from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.jit.codegen.i386.ri386 import *
+from pypy.jit.codegen.i386.ri386setup import Conditions
+from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
+from pypy.jit.codegen.i386 import conftest
 
-WORD = 4
-DEBUG_CALL_ALIGN = True
+
+WORD = 4    # bytes
 if sys.platform == 'darwin':
     CALL_ALIGN = 4
 else:
     CALL_ALIGN = 1
 
-class Var(GenVar):
+PROLOGUE_FIXED_WORDS = 5
 
-    def __init__(self, stackpos):
-        # 'stackpos' is an index relative to the pushed arguments
-        # (where N is the number of arguments of the function
-        #  and B is a small integer for stack alignment purposes):
-        #
-        # B + 0  = last arg
-        #        = ...
-        # B +N-1 = 1st arg
-        # B + N  = return address
-        # B +N+1 = local var
-        # B +N+2 = ...
-        #          ...              <--- esp+4
-        #          local var        <--- esp
-        #
-        self.stackpos = stackpos
+RK_NO_RESULT = 0
+RK_WORD      = 1
+RK_CC        = 2
 
-    def operand(self, builder):
-        return builder.stack_access(self.stackpos)
-
-    def nonimmoperand(self, builder, tmpregister):
-        return self.operand(builder)
-
-    def __repr__(self):
-        return 'var@%d' % (self.stackpos,)
-
-    repr = __repr__
+DEBUG_TRAP = conftest.option.trap
 
 
-##class Const(GenConst):
+class Operation(GenVar):
+    clobbers_cc = True
+    result_kind = RK_WORD
+    cc_result   = -1
 
-##    def revealconst(self, TYPE):
-##        if isinstance(self, IntConst):
-##            self.revealconst_int(TYPE)
-##        elif isinstance(self, PtrConst):
-##            self.revealconst_ptr(TYPE)
-        
-##        if isinstance(TYPE, lltype.Ptr):
-##            if isinstance(self, PtrConst):
-##                return self.revealconst_ptr(TYPE)
-##            el
-##                return self.revealconst_ptr(TYPE)
-##        elif TYPE is lltype.Float:
-##            assert isinstance(self, DoubleConst)
-##            return self.revealconst_double()
-##        else:
-##            assert isinstance(TYPE, lltype.Primitive)
-##            assert TYPE is not lltype.Void, "cannot make red boxes of voids"
-##            assert isinstance(self, IntConst)
-##            return self.revealconst_primitive(TYPE)
-##        return self.value
-##    revealconst._annspecialcase_ = 'specialize:arg(1)'
+    def allocate(self, allocator):
+        pass
+    def generate(self, allocator):
+        raise NotImplementedError
 
+class Op1(Operation):
+    def __init__(self, x):
+        self.x = x
+    def allocate(self, allocator):
+        allocator.using(self.x)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # result not used
+        srcop = allocator.get_operand(self.x)
+        return self.generate2(allocator.mc, dstop, srcop)
+    def generate2(self, mc, dstop, srcop):
+        raise NotImplementedError
+
+class UnaryOp(Op1):
+    def generate(self, allocator):
+        try:
+            loc = allocator.var2loc[self]
+        except KeyError:
+            return    # simple operation whose result is not used anyway
+        op = allocator.load_location_with(loc, self.x)
+        self.emit(allocator.mc, op)
+
+class OpIntNeg(UnaryOp):
+    opname = 'int_neg'
+    emit = staticmethod(I386CodeBuilder.NEG)
+
+class OpIntInvert(UnaryOp):
+    opname = 'int_invert', 'uint_invert'
+    emit = staticmethod(I386CodeBuilder.NOT)
+
+class OpIntAbs(Op1):
+    opname = 'int_abs'
+    def generate2(self, mc, dstop, srcop):
+        # ABS-computing code from Psyco, found by exhaustive search
+        # on *all* short sequences of operations :-)
+        inplace = (dstop == srcop)
+        if inplace or not (isinstance(srcop, REG) or isinstance(dstop, REG)):
+            mc.MOV(ecx, srcop)
+            srcop = ecx
+        if not inplace:
+            mc.MOV(dstop, srcop)
+        mc.SHL(dstop, imm8(1))
+        mc.SBB(dstop, srcop)
+        mc.SBB(ecx, ecx)
+        mc.XOR(dstop, ecx)
+
+class OpSameAs(Op1):
+    clobbers_cc = False
+    def generate2(self, mc, dstop, srcop):
+        if srcop != dstop:
+            try:
+                mc.MOV(dstop, srcop)
+            except FailedToImplement:
+                mc.MOV(ecx, srcop)
+                mc.MOV(dstop, ecx)
+
+class OpCompare1(Op1):
+    result_kind = RK_CC
+    def generate(self, allocator):
+        srcop = allocator.get_operand(self.x)
+        mc = allocator.mc
+        self.emit(mc, srcop)
+
+class OpIntIsTrue(OpCompare1):
+    opname = 'int_is_true'
+    cc_result = Conditions['NE']
+    @staticmethod
+    def emit(mc, x):
+        mc.CMP(x, imm8(0))
+
+class Op2(Operation):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def allocate(self, allocator):
+        allocator.using(self.x)
+        allocator.using(self.y)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # simple operation whose result is not used anyway
+        op1 = allocator.get_operand(self.x)
+        op2 = allocator.get_operand(self.y)
+        self.generate3(allocator.mc, dstop, op1, op2)
+    def generate3(self, mc, dstop, op1, op2):
+        raise NotImplementedError
+
+class BinaryOp(Op2):
+    commutative = False
+    def generate3(self, mc, dstop, op1, op2):
+        # now all of dstop, op1 and op2 may alias each other and be in
+        # a register, in the stack or an immediate... finding a correct
+        # and encodable combination of instructions is loads of fun
+        if dstop == op1:
+            case = 1       # optimize for this common case
+        elif self.commutative and dstop == op2:
+            op1, op2 = op2, op1
+            case = 1
+        elif isinstance(dstop, REG):
+            if dstop != op2:
+                # REG = OPERATION(op1, op2)   with op2 != REG
+                case = 2
+            else:
+                # REG = OPERATION(op1, REG)
+                case = 3
+        elif isinstance(op1, REG) and isinstance(op2, REG):
+            # STACK = OPERATION(REG, REG)
+            case = 2
+        else:
+            case = 3
+        # generate instructions according to the 'case' determined above
+        if case == 1:
+            # dstop == op1
+            try:
+                self.emit(mc, op1, op2)
+            except FailedToImplement:    # emit(STACK, STACK) combination
+                mc.MOV(ecx, op2)
+                self.emit(mc, op1, ecx)
+        elif case == 2:
+            # this case works for:
+            #   * REG = OPERATION(op1, op2)   with op2 != REG
+            #   * STACK = OPERATION(REG, REG)
+            mc.MOV(dstop, op1)
+            self.emit(mc, dstop, op2)
+        else:
+            # most general case
+            mc.MOV(ecx, op1)
+            self.emit(mc, ecx, op2)
+            mc.MOV(dstop, ecx)
+
+class OpIntAdd(BinaryOp):
+    opname = 'int_add', 'uint_add'
+    emit = staticmethod(I386CodeBuilder.ADD)
+    commutative = True
+
+class OpIntSub(BinaryOp):
+    opname = 'int_sub', 'uint_sub'
+    emit = staticmethod(I386CodeBuilder.SUB)
+
+class OpIntAnd(BinaryOp):
+    opname = 'int_and', 'uint_and'
+    emit = staticmethod(I386CodeBuilder.AND)
+
+class OpIntOr(BinaryOp):
+    opname = 'int_or', 'uint_or'
+    emit = staticmethod(I386CodeBuilder.OR)
+
+class OpIntXor(BinaryOp):
+    opname = 'int_xor', 'uint_xor'
+    emit = staticmethod(I386CodeBuilder.XOR)
+
+class OpIntMul(Op2):
+    opname = 'int_mul'
+    def generate3(self, mc, dstop, op1, op2):
+        if isinstance(dstop, REG):
+            tmpop = dstop
+        else:
+            tmpop = ecx
+        if tmpop == op1:
+            mc.IMUL(tmpop, op2)
+        elif isinstance(op2, IMM32):
+            mc.IMUL(tmpop, op1, op2)
+        elif isinstance(op1, IMM32):
+            mc.IMUL(tmpop, op2, op1)
+        else:
+            if tmpop != op2:
+                mc.MOV(tmpop, op2)
+            mc.IMUL(tmpop, op1)
+        if dstop != tmpop:
+            mc.MOV(dstop, tmpop)
+
+class MulOrDivOp(Op2):
+    def generate3(self, mc, dstop, op1, op2):
+        # not very efficient but not very common operations either
+        if dstop != eax:
+            mc.PUSH(eax)
+        if dstop != edx:
+            mc.PUSH(edx)
+        if op1 != eax:
+            mc.MOV(eax, op1)
+        if self.input_is_64bits:
+            mc.CDQ()
+        try:
+            self.emit(mc, op2)
+        except FailedToImplement:
+            mc.MOV(ecx, op2)
+            self.emit(mc, ecx)
+        if dstop != self.reg_containing_result:
+            mc.MOV(dstop, self.reg_containing_result)
+        if dstop != edx:
+            mc.POP(edx)
+        if dstop != eax:
+            mc.POP(eax)
+
+class OpIntFloorDiv(MulOrDivOp):
+    opname = 'int_floordiv'
+    input_is_64bits = True
+    reg_containing_result = eax
+    emit = staticmethod(I386CodeBuilder.IDIV)
+
+class OpIntMod(MulOrDivOp):
+    opname = 'int_mod'
+    input_is_64bits = True
+    reg_containing_result = edx
+    emit = staticmethod(I386CodeBuilder.IDIV)
+
+class OpUIntMul(MulOrDivOp):
+    opname = 'uint_mul'
+    input_is_64bits = False
+    reg_containing_result = eax
+    emit = staticmethod(I386CodeBuilder.MUL)
+
+class OpUIntFloorDiv(MulOrDivOp):
+    opname = 'uint_floordiv'
+    input_is_64bits = True
+    reg_containing_result = eax
+    emit = staticmethod(I386CodeBuilder.DIV)
+
+class OpUIntMod(MulOrDivOp):
+    opname = 'uint_mod'
+    input_is_64bits = True
+    reg_containing_result = edx
+    emit = staticmethod(I386CodeBuilder.DIV)
+
+class OpIntLShift(Op2):
+    opname = 'int_lshift', 'uint_lshift'
+    def generate3(self, mc, dstop, op1, op2):
+        # XXX not optimized
+        mc.MOV(ecx, op2)
+        if dstop != op1:
+            try:
+                mc.MOV(dstop, op1)
+            except FailedToImplement:
+                mc.PUSH(op1)
+                mc.POP(dstop)
+        mc.SHL(dstop, cl)
+        mc.CMP(ecx, imm8(32))
+        mc.SBB(ecx, ecx)
+        mc.AND(dstop, ecx)
+
+class OpIntRShift(Op2):
+    opname = 'int_rshift'
+    def generate3(self, mc, dstop, op1, op2):
+        # XXX not optimized
+        mc.MOV(ecx, imm(31))
+        mc.CMP(op2, ecx)
+        mc.CMOVBE(ecx, op2)
+        if dstop != op1:
+            try:
+                mc.MOV(dstop, op1)
+            except FailedToImplement:
+                mc.PUSH(op1)
+                mc.POP(dstop)
+        mc.SAR(dstop, cl)
+
+class OpUIntRShift(Op2):
+    opname = 'uint_rshift'
+    def generate3(self, mc, dstop, op1, op2):
+        # XXX not optimized
+        mc.MOV(ecx, op2)
+        if dstop != op1:
+            try:
+                mc.MOV(dstop, op1)
+            except FailedToImplement:
+                mc.PUSH(op1)
+                mc.POP(dstop)
+        mc.SHR(dstop, cl)
+        mc.CMP(ecx, imm8(32))
+        mc.SBB(ecx, ecx)
+        mc.AND(dstop, ecx)
+
+class OpCompare2(Op2):
+    result_kind = RK_CC
+    def generate(self, allocator):
+        srcop = allocator.get_operand(self.x)
+        dstop = allocator.get_operand(self.y)
+        mc = allocator.mc
+        # XXX optimize the case CMP(immed, reg-or-modrm)
+        try:
+            mc.CMP(srcop, dstop)
+        except FailedToImplement:
+            mc.MOV(ecx, srcop)
+            mc.CMP(ecx, dstop)
+
+class OpIntLt(OpCompare2):
+    opname = 'int_lt', 'char_lt'
+    cc_result = Conditions['L']
+
+class OpIntLe(OpCompare2):
+    opname = 'int_le', 'char_le'
+    cc_result = Conditions['LE']
+
+class OpIntEq(OpCompare2):
+    opname = 'int_eq', 'char_eq', 'unichar_eq'
+    cc_result = Conditions['E']
+
+class OpIntNe(OpCompare2):
+    opname = 'int_ne', 'char_ne', 'unichar_ne'
+    cc_result = Conditions['NE']
+
+class OpIntGt(OpCompare2):
+    opname = 'int_gt', 'char_gt'
+    cc_result = Conditions['G']
+
+class OpIntGe(OpCompare2):
+    opname = 'int_ge', 'char_ge'
+    cc_result = Conditions['GE']
+
+class JumpIf(Operation):
+    clobbers_cc = False
+    result_kind = RK_NO_RESULT
+    def __init__(self, gv_condition, targetbuilder, negate):
+        self.gv_condition = gv_condition
+        self.targetbuilder = targetbuilder
+        self.negate = negate
+    def allocate(self, allocator):
+        allocator.using_cc(self.gv_condition)
+        for gv in self.targetbuilder.inputargs_gv:
+            allocator.using(gv)
+    def generate(self, allocator):
+        cc = self.gv_condition.cc_result
+        if self.negate:
+            cc = cond_negate(cc)
+        mc = allocator.mc
+        targetbuilder = self.targetbuilder
+        targetbuilder.set_coming_from(mc, insncond=cc)
+        targetbuilder.inputoperands = [allocator.get_operand(gv)
+                                       for gv in targetbuilder.inputargs_gv]
+
+class OpLabel(Operation):
+    clobbers_cc = False
+    result_kind = RK_NO_RESULT
+    def __init__(self, lbl, args_gv):
+        self.lbl = lbl
+        self.args_gv = args_gv
+    def allocate(self, allocator):
+        for v in self.args_gv:
+            allocator.using(v)
+    def generate(self, allocator):
+        lbl = self.lbl
+        lbl.targetaddr = allocator.mc.tell()
+        lbl.targetstackdepth = allocator.required_frame_depth
+        lbl.inputoperands = [allocator.get_operand(v) for v in self.args_gv]
+
+class Label(GenLabel):
+    targetaddr = 0
+    targetstackdepth = 0
+    inputoperands = None
+
+class OpCall(Operation):
+    def __init__(self, sigtoken, gv_fnptr, args_gv):
+        self.sigtoken = sigtoken
+        self.gv_fnptr = gv_fnptr
+        self.args_gv = args_gv
+    def allocate(self, allocator):
+        # XXX try to use eax for the result
+        allocator.using(self.gv_fnptr)
+        for v in self.args_gv:
+            allocator.using(v)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            dstop = None
+        mc = allocator.mc
+        stack_align_words = PROLOGUE_FIXED_WORDS
+        if dstop != eax:
+            mc.PUSH(eax)
+            if CALL_ALIGN > 1: stack_align_words += 1
+        if dstop != edx:
+            mc.PUSH(edx)
+            if CALL_ALIGN > 1: stack_align_words += 1
+        args_gv = self.args_gv
+        num_placeholders = 0
+        if CALL_ALIGN > 1:
+            stack_align_words += len(args_gv)
+            stack_align_words &= CALL_ALIGN-1
+            if stack_align_words > 0:
+                num_placeholders = CALL_ALIGN - stack_align_words
+                mc.SUB(esp, imm(WORD * num_placeholders))
+        for i in range(len(args_gv)-1, -1, -1):
+            srcop = allocator.get_operand(args_gv[i])
+            mc.PUSH(srcop)
+        fnop = allocator.get_operand(self.gv_fnptr)
+        if isinstance(fnop, IMM32):
+            mc.CALL(rel32(fnop.value))
+        else:
+            mc.CALL(fnop)
+        mc.ADD(esp, imm(WORD * (len(args_gv) + num_placeholders)))
+        if dstop != edx:
+            mc.POP(edx)
+        if dstop != eax:
+            if dstop is not None:
+                mc.MOV(dstop, eax)
+            mc.POP(eax)
+
+def field_operand(mc, base, fieldtoken):
+    # may use ecx
+    fieldoffset, fieldsize = fieldtoken
+
+    if isinstance(base, MODRM):
+        mc.MOV(ecx, base)
+        base = ecx
+    elif isinstance(base, IMM32):
+        fieldoffset += base.value
+        base = None
+
+    if fieldsize == 1:
+        return mem8(base, fieldoffset)
+    else:
+        return mem (base, fieldoffset)
+
+def array_item_operand(mc, base, arraytoken, opindex):
+    # may use ecx
+    _, startoffset, itemoffset = arraytoken
+
+    if isinstance(opindex, IMM32):
+        startoffset += itemoffset * opindex.value
+        opindex = None
+        indexshift = 0
+    elif itemoffset in SIZE2SHIFT:
+        if not isinstance(opindex, REG):
+            mc.MOV(ecx, opindex)
+            opindex = ecx
+        indexshift = SIZE2SHIFT[itemoffset]
+    else:
+        mc.IMUL(ecx, opindex, imm(itemoffset))
+        opindex = ecx
+        indexshift = 0
+
+    assert base is not ecx
+    if isinstance(base, MODRM):
+        if opindex != ecx:
+            mc.MOV(ecx, base)
+        else:   # waaaa
+            opindex = None
+            if indexshift > 0:
+                mc.SHL(ecx, imm8(indexshift))
+            mc.ADD(ecx, base)
+        base = ecx
+    elif isinstance(base, IMM32):
+        startoffset += base.value
+        base = None
+
+    if itemoffset == 1:
+        return memSIB8(base, opindex, indexshift, startoffset)
+    else:
+        return memSIB (base, opindex, indexshift, startoffset)
+
+class OpComputeSize(Operation):
+    def __init__(self, varsizealloctoken, gv_length):
+        self.varsizealloctoken = varsizealloctoken
+        self.gv_length = gv_length
+    def allocate(self, allocator):
+        allocator.using(self.gv_length)
+    def generate(self, allocator):
+        dstop = allocator.get_operand(self)
+        srcop = allocator.get_operand(self.gv_length)
+        mc = allocator.mc
+        op_size = array_item_operand(mc, None, self.varsizealloctoken, srcop)
+        try:
+            mc.LEA(dstop, op_size)
+        except FailedToImplement:
+            mc.LEA(ecx, op_size)
+            mc.MOV(dstop, ecx)
+
+def hard_store(mc, opmemtarget, opvalue, itemsize):
+    # For the possibly hard cases of stores
+    # Generates a store to 'opmemtarget' of size 'itemsize' == 1, 2 or 4.
+    # If it is 1, opmemtarget must be a MODRM8; otherwise, it must be a MODRM.
+    if itemsize == WORD:
+        try:
+            mc.MOV(opmemtarget, opvalue)
+        except FailedToImplement:
+            if opmemtarget.involves_ecx():
+                mc.PUSH(opvalue)
+                mc.POP(opmemtarget)
+            else:
+                mc.MOV(ecx, opvalue)
+                mc.MOV(opmemtarget, ecx)
+    else:
+        must_pop_eax = False
+        if itemsize == 1:
+            if isinstance(opvalue, REG) and opvalue.lowest8bits:
+                # a register whose lower 8 bits are directly readable
+                opvalue = opvalue.lowest8bits
+            elif isinstance(opvalue, IMM8):
+                pass
+            else:
+                if opmemtarget.involves_ecx():    # grumble!
+                    mc.PUSH(eax)
+                    must_pop_eax = True
+                    scratch = eax
+                else:
+                    scratch = ecx
+                if opvalue.width == 1:
+                    mc.MOV(scratch.lowest8bits, opvalue)
+                else:
+                    mc.MOV(scratch, opvalue)
+                opvalue = scratch.lowest8bits
+        else:
+            assert itemsize == 2
+            if isinstance(opvalue, MODRM) or type(opvalue) is IMM32:
+                # no support for now to encode 16-bit immediates,
+                # so we use a scratch register for this case too
+                if opmemtarget.involves_ecx():    # grumble!
+                    mc.PUSH(eax)
+                    must_pop_eax = True
+                    scratch = eax
+                else:
+                    scratch = ecx
+                mc.MOV(scratch, opvalue)
+                opvalue = scratch
+            mc.o16()    # prefix for the MOV below
+        # and eventually, the real store:
+        mc.MOV(opmemtarget, opvalue)
+        if must_pop_eax:
+            mc.POP(eax)
+
+def hard_load(mc, opdst, opmemsource, itemsize):
+    # For the possibly hard cases of stores
+    # Generates a load from 'opmemsource' of size 'itemsize' == 1, 2 or 4.
+    # If it is 1, opmemtarget must be a MODRM8; otherwise, it must be a MODRM.
+    if itemsize == WORD:
+        try:
+            mc.MOV(opdst, opmemsource)
+        except FailedToImplement:               # opdst is a MODRM
+            if opmemtarget.involves_ecx():
+                mc.PUSH(opmemsource)
+                mc.POP(opdst)
+            else:
+                mc.MOV(ecx, opmemsource)
+                mc.MOV(opdst, ecx)
+    else:
+        try:
+            mc.MOVZX(opdst, opmemsource)
+        except FailedToImplement:               # opdst is a MODRM
+            if opmemtarget.involves_ecx():
+                mc.PUSH(eax)
+                mc.MOVZX(eax, opmemsource)
+                mc.MOV(opdst, eax)
+                mc.POP(eax)
+            else:
+                mc.MOVZX(ecx, opmemsource)
+                mc.MOV(opdst, ecx)
+
+class OpGetField(Operation):
+    def __init__(self, fieldtoken, gv_ptr):
+        self.fieldtoken = fieldtoken
+        self.gv_ptr = gv_ptr
+    def allocate(self, allocator):
+        allocator.using(self.gv_ptr)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # result not used
+        opptr = allocator.get_operand(self.gv_ptr)
+        mc = allocator.mc
+        opsource = field_operand(mc, opptr, self.fieldtoken)
+        _, fieldsize = self.fieldtoken
+        hard_load(mc, dstop, opsource, fieldsize)
+
+class OpSetField(Operation):
+    result_kind = RK_NO_RESULT
+    def __init__(self, fieldtoken, gv_ptr, gv_value):
+        self.fieldtoken = fieldtoken
+        self.gv_ptr   = gv_ptr
+        self.gv_value = gv_value
+    def allocate(self, allocator):
+        allocator.using(self.gv_ptr)
+        allocator.using(self.gv_value)
+    def generate(self, allocator):
+        opptr   = allocator.get_operand(self.gv_ptr)
+        opvalue = allocator.get_operand(self.gv_value)
+        mc = allocator.mc
+        optarget = field_operand(mc, opptr, self.fieldtoken)
+        _, fieldsize = self.fieldtoken
+        hard_store(mc, optarget, opvalue, fieldsize)
+
+class OpGetArrayItem(Operation):
+    def __init__(self, arraytoken, gv_array, gv_index):
+        self.arraytoken = arraytoken
+        self.gv_array = gv_array
+        self.gv_index = gv_index
+    def allocate(self, allocator):
+        allocator.using(self.gv_array)
+        allocator.using(self.gv_index)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # result not used
+        oparray = allocator.get_operand(self.gv_array)
+        opindex = allocator.get_operand(self.gv_index)
+        mc = allocator.mc
+        opsource = array_item_operand(mc, oparray, self.arraytoken, opindex)
+        _, _, itemsize = self.arraytoken
+        hard_load(mc, dstop, opsource, itemsize)
+
+class OpSetArrayItem(Operation):
+    result_kind = RK_NO_RESULT
+    def __init__(self, arraytoken, gv_array, gv_index, gv_value):
+        self.arraytoken = arraytoken
+        self.gv_array = gv_array
+        self.gv_index = gv_index
+        self.gv_value = gv_value
+    def allocate(self, allocator):
+        allocator.using(self.gv_array)
+        allocator.using(self.gv_index)
+        allocator.using(self.gv_value)
+    def generate(self, allocator):
+        oparray = allocator.get_operand(self.gv_array)
+        opindex = allocator.get_operand(self.gv_index)
+        opvalue = allocator.get_operand(self.gv_value)
+        mc = allocator.mc
+        optarget = array_item_operand(mc, oparray, self.arraytoken, opindex)
+        _, _, itemsize = self.arraytoken
+        hard_store(mc, optarget, opvalue, itemsize)
+
+# ____________________________________________________________
 
 class IntConst(GenConst):
 
@@ -101,13 +691,6 @@ class IntConst(GenConst):
     def repr(self):
         return "const=$%s" % (self.value,)
 
-
-##class FnPtrConst(IntConst):
-##    def __init__(self, value, mc):
-##        self.value = value
-##        self.mc = mc    # to keep it alive
-
-
 class AddrConst(GenConst):
 
     def __init__(self, addr):
@@ -138,28 +721,25 @@ class AddrConst(GenConst):
     def repr(self):
         return "const=<0x%x>" % (llmemory.cast_adr_to_int(self.addr),)
 
-
-class Label(GenLabel):
-
-    def __init__(self, startaddr, arg_positions, stackdepth):
-        self.startaddr = startaddr
-        self.arg_positions = arg_positions
-        self.stackdepth = stackdepth
-
+# ____________________________________________________________
 
 class FlexSwitch(CodeGenSwitch):
+    REG = eax
 
-    def __init__(self, rgenop):
+    def __init__(self, rgenop, inputargs_gv, inputoperands):
         self.rgenop = rgenop
-        self.default_case_builder = None
-        self.default_case_key = 0
-        self._je_key = 0
+        self.inputargs_gv = inputargs_gv
+        self.inputoperands = inputoperands
+        self.defaultcaseaddr = 0
 
-    def initialize(self, builder, gv_exitswitch):
-        mc = builder.mc
-        mc.MOV(eax, gv_exitswitch.operand(builder))
-        self.saved_state = builder._save_state()
+    def initialize(self, mc):
         self._reserve(mc)
+        default_builder = Builder(self.rgenop, self.inputargs_gv,
+                                  self.inputoperands)
+        default_builder.set_coming_from(mc)
+        default_builder.update_defaultcaseaddr_of = self
+        default_builder.start_writing()
+        return default_builder
 
     def _reserve(self, mc):
         RESERVED = 11*4+5      # XXX quite a lot for now :-/
@@ -181,603 +761,75 @@ class FlexSwitch(CodeGenSwitch):
         
     def add_case(self, gv_case):
         rgenop = self.rgenop
-        targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
+        targetbuilder = Builder(self.rgenop, self.inputargs_gv,
+                                self.inputoperands)
         try:
             self._add_case(gv_case, targetbuilder)
         except CodeBlockOverflow:
             self._reserve_more()
             self._add_case(gv_case, targetbuilder)
-        targetbuilder._open()
+        targetbuilder.start_writing()
         return targetbuilder
     
     def _add_case(self, gv_case, targetbuilder):
-        # XXX this code needs to be simplified, now that we always
-        # have a default case
         start = self.nextfreepos
         end   = self.endfreepos
         mc = self.rgenop.InMemoryCodeBuilder(start, end)
-        mc.CMP(eax, gv_case.operand(None))
-        self._je_key = targetbuilder.come_from(mc, 'JE', self._je_key)
+        value = gv_case.revealconst(lltype.Signed)
+        mc.CMP(FlexSwitch.REG, imm(value))
+        targetbuilder.set_coming_from(mc, Conditions['E'])
         pos = mc.tell()
-        if self.default_case_builder:
-            self.default_case_key = self.default_case_builder.come_from(
-                mc, 'JMP', self.default_case_key)
-        else:
-            illegal_start = mc.tell()
-            mc.JMP(rel32(0))
-            ud2_addr = mc.tell()
-            mc.UD2()
-            illegal_mc = self.rgenop.InMemoryCodeBuilder(illegal_start, end)
-            illegal_mc.JMP(rel32(ud2_addr))
+        assert self.defaultcaseaddr != 0
+        mc.JMP(rel32(self.defaultcaseaddr))
         mc.done()
-        self._je_key = 0
         self.nextfreepos = pos
 
-    def _add_default(self):
-        rgenop = self.rgenop
-        targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
-        self.default_case_builder = targetbuilder
-        start = self.nextfreepos
-        end   = self.endfreepos
-        mc = self.rgenop.InMemoryCodeBuilder(start, end)
-        self.default_case_key = targetbuilder.come_from(mc, 'JMP')
-        targetbuilder._open()
-        return targetbuilder
-
-class Builder(GenBuilder):
-
-    def __init__(self, rgenop, stackdepth):
-        self.rgenop = rgenop
-        self.stackdepth = stackdepth
-        self.mc = None
-        self._pending_come_from = {}
-        self.start = 0
-        self.closed = False
-        self.tail = (0, 0)
-
-    def _open(self):
-        if self.mc is None and not self.closed:
-            self.mc = self.rgenop.open_mc()
-            if not self.start:
-                # This is the first open. remember the start address
-                # and patch all come froms.
-                self.start = self.mc.tell()
-                come_froms = self._pending_come_from
-                self._pending_come_from = None
-                for start, (end, insn) in come_froms.iteritems():
-                    if end == self.start:
-                        # there was a pending JMP just before self.start,
-                        # so we can as well overwrite the JMP and start writing
-                        # code directly there
-                        self.mc.seekback(end - start)
-                        self.start = start
-                        break
-                for start, (end, insn) in come_froms.iteritems():
-                    if start != self.start:
-                        mc = self.rgenop.InMemoryCodeBuilder(start, end)
-                        self._emit_come_from(mc, insn, self.start)
-                        mc.done()
-            else:
-                # We have been paused and are being opened again.
-                # Is the new codeblock immediately after the previous one?
-                prevstart, prevend = self.tail
-                curpos = self.mc.tell()
-                if prevend == curpos:
-                    # Yes. We can overwrite the JMP and just continue writing
-                    # code directly there
-                    self.mc.seekback(prevend - prevstart)
-                else:
-                    # No. Patch the jump at the end of the previous codeblock.
-                    mc = self.rgenop.InMemoryCodeBuilder(prevstart, prevend)
-                    mc.JMP(rel32(curpos))
-                    mc.done()
-
-    def pause_writing(self, alive_vars_gv):
-        if self.mc is not None:
-            start = self.mc.tell()
-            self.mc.JMP(rel32(0))
-            end = self.mc.tell()
-            self.tail = (start, end)
-            self.mc.done()
-            self.rgenop.close_mc(self.mc)
-            self.mc = None
-        return self
-        
-    def start_writing(self):
-        self._open()
-        
-    def _emit_come_from(self, mc, insn, addr):
-        if insn == 'JMP':
-            mc.JMP(rel32(addr))
-        elif insn == 'JE':
-            mc.JE(rel32(addr))
-        elif insn == 'JNE':
-            mc.JNE(rel32(addr))
-        else:
-            raise ValueError('Unsupported jump')
-        
-    def come_from(self, mc, insn, key=0):
-        start = mc.tell()
-        if self._pending_come_from is None:
-            self._emit_come_from(mc, insn, self.start)
-        else:
-            self._emit_come_from(mc, insn, 0)
-            end = mc.tell()
-            if key != 0:
-                del self._pending_come_from[key]
-            self._pending_come_from[start] = (end, insn)
-        return start
-    
-    def end(self):
-        pass
-
-    def _write_prologue(self, sigtoken):
-        self._open()
-        numargs = sigtoken     # for now
-        #self.mc.BREAKPOINT()
-        # self.stackdepth-1 is the return address; the arguments
-        # come just before
-        return [Var(self.stackdepth-2-n) for n in range(numargs)]
-
-    def _close(self):
-        self.closed = True
-        self.mc.done()
-        self.rgenop.close_mc(self.mc)
-        self.mc = None
-
-    def _fork(self):
-        return self.rgenop.newbuilder(self.stackdepth)
-
-    def _save_state(self):
-        return self.stackdepth
-
-    @staticmethod
-    def _new_from_state(rgenop, stackdepth):
-        return rgenop.newbuilder(stackdepth)
-
-    @specialize.arg(1)
-    def genop1(self, opname, gv_arg):
-        genmethod = getattr(self, 'op_' + opname)
-        return genmethod(gv_arg)
-
-    @specialize.arg(1)
-    def genop2(self, opname, gv_arg1, gv_arg2):
-        genmethod = getattr(self, 'op_' + opname)
-        return genmethod(gv_arg1, gv_arg2)
-
-    def genop_getfield(self, (offset, fieldsize), gv_ptr):
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        if fieldsize == WORD:
-            op = mem(edx, offset)
-        else:
-            if fieldsize == 1:
-                op = mem8(edx, offset)
-            else:
-                assert fieldsize == 2
-                op = mem(edx, offset)
-            self.mc.MOVZX(eax, op)
-            op = eax
-        return self.returnvar(op)
-
-    def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
-        self.mc.MOV(eax, gv_value.operand(self))
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        if fieldsize == 1:
-            self.mc.MOV(mem8(edx, offset), al)
-        else:
-            if fieldsize == 2:
-                self.mc.o16()    # followed by the MOV below
-            else:
-                assert fieldsize == WORD
-            self.mc.MOV(mem(edx, offset), eax)
-
-    def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        self.mc.LEA(eax, mem(edx, offset))
-        return self.returnvar(eax)
-
-    def itemaddr(self, base, arraytoken, gv_index):
-        # uses ecx
-        lengthoffset, startoffset, itemoffset = arraytoken
-        if itemoffset == 1:
-            memSIBx = memSIB8
-        else:
-            memSIBx = memSIB
-        if isinstance(gv_index, IntConst):
-            startoffset += itemoffset * gv_index.value
-            op = memSIBx(base, None, 0, startoffset)
-        elif itemoffset in SIZE2SHIFT:
-            self.mc.MOV(ecx, gv_index.operand(self))
-            op = memSIBx(base, ecx, SIZE2SHIFT[itemoffset], startoffset)
-        else:
-            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
-            op = memSIBx(base, ecx, 0, startoffset)
-        return op
-
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        op = self.itemaddr(edx, arraytoken, gv_index)
-        _, _, itemsize = arraytoken
-        if itemsize != WORD:
-            assert itemsize == 1 or itemsize == 2
-            self.mc.MOVZX(eax, op)
-            op = eax
-        return self.returnvar(op)
-
-    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        op = self.itemaddr(edx, arraytoken, gv_index)
-        self.mc.LEA(eax, op)
-        return self.returnvar(eax)
-
-    def genop_getarraysize(self, arraytoken, gv_ptr):
-        lengthoffset, startoffset, itemoffset = arraytoken
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        return self.returnvar(mem(edx, lengthoffset))
-
-    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        self.mc.MOV(eax, gv_value.operand(self))
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        destop = self.itemaddr(edx, arraytoken, gv_index)
-        _, _, itemsize = arraytoken
-        if itemsize != WORD:
-            if itemsize == 1:
-                self.mc.MOV(destop, al)
-                return
-            elif itemsize == 2:
-                self.mc.o16()    # followed by the MOV below
-            else:
-                raise AssertionError
-        self.mc.MOV(destop, eax)
-
-    def genop_malloc_fixedsize(self, size):
-        # XXX boehm only, no atomic/non atomic distinction for now
-        self.push(imm(size))
-        self.mc.CALL(rel32(gc_malloc_fnaddr()))
-        return self.returnvar(eax)
-
-    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-        # XXX boehm only, no atomic/non atomic distinction for now
-        # XXX no overflow checking for now
-        op_size = self.itemaddr(None, varsizealloctoken, gv_size)
-        self.mc.LEA(edx, op_size)
-        self.push(edx)
-        self.mc.CALL(rel32(gc_malloc_fnaddr()))
-        lengthoffset, _, _ = varsizealloctoken
-        self.mc.MOV(ecx, gv_size.operand(self))
-        self.mc.MOV(mem(eax, lengthoffset), ecx)
-        return self.returnvar(eax)
-        
-    def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        numargs = sigtoken      # for now
-        MASK = CALL_ALIGN-1
-        if MASK:
-            final_depth = self.stackdepth + numargs
-            delta = ((final_depth+MASK)&~MASK)-final_depth
-            if delta:
-                self.mc.SUB(esp, imm(delta*WORD))
-                self.stackdepth += delta
-        for i in range(numargs-1, -1, -1):
-            gv_arg = args_gv[i]
-            self.push(gv_arg.operand(self))
-        if DEBUG_CALL_ALIGN:
-            self.mc.MOV(eax, esp)
-            self.mc.AND(eax, imm8((WORD*CALL_ALIGN)-1))
-            self.mc.ADD(eax, imm32(sys.maxint))   # overflows unless eax == 0
-            self.mc.INTO()
-        if gv_fnptr.is_const:
-            target = gv_fnptr.revealconst(lltype.Signed)
-            self.mc.CALL(rel32(target))
-        else:
-            self.mc.CALL(gv_fnptr.operand(self))
-        # XXX only for int return_kind, check calling conventions
-        return self.returnvar(eax)
-
-    def genop_same_as(self, kind, gv_x):
-        if gv_x.is_const:    # must always return a var
-            return self.returnvar(gv_x.operand(self))
-        else:
-            return gv_x
-
-    def genop_debug_pdb(self):    # may take an args_gv later
-        self.mc.BREAKPOINT()
-
-    def enter_next_block(self, kinds, args_gv):
-        self._open()
-        arg_positions = []
-        seen = {}
-        for i in range(len(args_gv)):
-            gv = args_gv[i]
-            # turn constants into variables; also make copies of vars that
-            # are duplicate in args_gv
-            if not isinstance(gv, Var) or gv.stackpos in seen:
-                gv = args_gv[i] = self.returnvar(gv.operand(self))
-            # remember the var's position in the stack
-            arg_positions.append(gv.stackpos)
-            seen[gv.stackpos] = None
-        return Label(self.mc.tell(), arg_positions, self.stackdepth)
-
-    def jump_if_false(self, gv_condition, args_gv):
-        targetbuilder = self._fork()
-        self.mc.CMP(gv_condition.operand(self), imm8(0))
-        targetbuilder.come_from(self.mc, 'JE')
-        return targetbuilder
-
-    def jump_if_true(self, gv_condition, args_gv):
-        targetbuilder = self._fork()
-        self.mc.CMP(gv_condition.operand(self), imm8(0))
-        targetbuilder.come_from(self.mc, 'JNE')
-        return targetbuilder
-
-    def finish_and_return(self, sigtoken, gv_returnvar):
-        self._open()
-        initialstackdepth = self.rgenop._initial_stack_depth(sigtoken)
-        self.mc.MOV(eax, gv_returnvar.operand(self))
-        self.mc.ADD(esp, imm(WORD * (self.stackdepth - initialstackdepth)))
-        self.mc.RET()
-        self._close()
-
-    def finish_and_goto(self, outputargs_gv, target):
-        self._open()
-        remap_stack_layout(self, outputargs_gv, target)
-        self.mc.JMP(rel32(target.startaddr))
-        self._close()
-
-    def flexswitch(self, gv_exitswitch, args_gv):
-        result = FlexSwitch(self.rgenop)
-        result.initialize(self, gv_exitswitch)
-        self._close()
-        return result, result._add_default()
-
-    def show_incremental_progress(self):
-        pass
-
-    def log(self, msg):
-        self.mc.log(msg)
-
-    # ____________________________________________________________
-
-    def stack_access(self, stackpos):
-        return mem(esp, WORD * (self.stackdepth-1 - stackpos))
-
-    def push(self, op):
-        self.mc.PUSH(op)
-        self.stackdepth += 1
-
-    def returnvar(self, op):
-        res = Var(self.stackdepth)
-        self.push(op)
-        return res
-
-    @staticmethod
-    def identity(gv_x):
-        return gv_x
-
-    op_int_is_true = identity
-
-    def op_int_add(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.ADD(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_sub(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.SUB(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_mul(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.IMUL(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_floordiv(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CDQ()
-        self.mc.IDIV(gv_y.nonimmoperand(self, ecx))
-        return self.returnvar(eax)
-
-    def op_int_mod(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CDQ()
-        self.mc.IDIV(gv_y.nonimmoperand(self, ecx))
-        return self.returnvar(edx)
-
-    def op_int_and(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.AND(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_or(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.OR(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_xor(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.XOR(eax, gv_y.operand(self))
-        return self.returnvar(eax)
-
-    def op_int_lt(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETL(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_le(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETLE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_eq(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_ne(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETNE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_gt(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETG(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_ge(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETGE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_int_neg(self, gv_x):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.NEG(eax)
-        return self.returnvar(eax)
-
-    def op_int_abs(self, gv_x):
-        self.mc.MOV(eax, gv_x.operand(self))
-        # ABS-computing code from Psyco, found by exhaustive search
-        # on *all* short sequences of operations :-)
-        self.mc.ADD(eax, eax)
-        self.mc.SBB(eax, gv_x.operand(self))
-        self.mc.SBB(edx, edx)
-        self.mc.XOR(eax, edx)
-        return self.returnvar(eax)
-
-    def op_int_invert(self, gv_x):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.NOT(eax)
-        return self.returnvar(eax)
-
-    def op_int_lshift(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
-        self.mc.SHL(eax, cl)
-        return self.returnvar(eax)
-
-    def op_int_rshift(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
-        self.mc.SAR(eax, cl)
-        return self.returnvar(eax)
-
-    op_uint_is_true = op_int_is_true
-    op_uint_invert  = op_int_invert
-    op_uint_add     = op_int_add
-    op_uint_sub     = op_int_sub
-
-    def op_uint_mul(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MUL(gv_y.nonimmoperand(self, edx))
-        return self.returnvar(eax)
-
-    def op_uint_floordiv(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.XOR(edx, edx)
-        self.mc.DIV(gv_y.nonimmoperand(self, ecx))
-        return self.returnvar(eax)
-
-    def op_uint_mod(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.XOR(edx, edx)
-        self.mc.DIV(gv_y.nonimmoperand(self, ecx))
-        return self.returnvar(edx)
-
-    def op_uint_lt(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETB(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_uint_le(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETBE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    op_uint_eq = op_int_eq
-    op_uint_ne = op_int_ne
-
-    def op_uint_gt(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETA(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_uint_ge(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.CMP(eax, gv_y.operand(self))
-        self.mc.SETAE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    op_uint_and    = op_int_and
-    op_uint_or     = op_int_or
-    op_uint_xor    = op_int_xor
-    op_uint_lshift = op_int_lshift
-
-    def op_uint_rshift(self, gv_x, gv_y):
-        self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
-        self.mc.SHR(eax, cl)
-        return self.returnvar(eax)
-
-    def op_bool_not(self, gv_x):
-        self.mc.CMP(gv_x.operand(self), imm8(0))
-        self.mc.SETE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    def op_cast_bool_to_int(self, gv_x):
-        self.mc.CMP(gv_x.operand(self), imm8(0))
-        self.mc.SETNE(al)
-        self.mc.MOVZX(eax, al)
-        return self.returnvar(eax)
-
-    op_cast_bool_to_uint   = op_cast_bool_to_int
-
-    op_cast_char_to_int    = identity
-    op_cast_unichar_to_int = identity
-    op_cast_int_to_char    = identity
-    op_cast_int_to_unichar = identity
-    op_cast_int_to_uint    = identity
-    op_cast_uint_to_int    = identity
-    op_cast_ptr_to_int     = identity
-    op_cast_int_to_ptr     = identity
-
-    op_char_lt = op_int_lt
-    op_char_le = op_int_le
-    op_char_eq = op_int_eq
-    op_char_ne = op_int_ne
-    op_char_gt = op_int_gt
-    op_char_ge = op_int_ge
-
-    op_unichar_eq = op_int_eq
-    op_unichar_ne = op_int_ne
-
-    op_ptr_nonzero = op_int_is_true
-    op_ptr_iszero  = op_bool_not        # for now
-    op_ptr_eq      = op_int_eq
-    op_ptr_ne      = op_int_ne
-
+# ____________________________________________________________
+
+def setup_opclasses(base):
+    d = {}
+    for name, value in globals().items():
+        if type(value) is type(base) and issubclass(value, base):
+            opnames = getattr(value, 'opname', ())
+            if isinstance(opnames, str):
+                opnames = (opnames,)
+            for opname in opnames:
+                assert opname not in d
+                d[opname] = value
+    return d
+OPCLASSES1 = setup_opclasses(Op1)
+OPCLASSES2 = setup_opclasses(Op2)
+del setup_opclasses
+
+# identity operations
+OPCLASSES1['cast_bool_to_int'] = None
+OPCLASSES1['cast_char_to_int'] = None
+OPCLASSES1['cast_unichar_to_int'] = None
+OPCLASSES1['cast_int_to_char'] = None
+OPCLASSES1['cast_int_to_unichar'] = None
+
+def setup_conditions():
+    result1 = [None] * 16
+    result2 = [None] * 16
+    for key, value in Conditions.items():
+        result1[value] = getattr(I386CodeBuilder, 'J'+key)
+        result2[value] = getattr(I386CodeBuilder, 'SET'+key)
+    return result1, result2
+EMIT_JCOND, EMIT_SETCOND = setup_conditions()
+INSN_JMP = len(EMIT_JCOND)
+EMIT_JCOND.append(I386CodeBuilder.JMP)    # not really a conditional jump
+del setup_conditions
+
+def cond_negate(cond):
+    assert 0 <= cond < INSN_JMP
+    return cond ^ 1
 
 SIZE2SHIFT = {1: 0,
               2: 1,
               4: 2,
               8: 3}
+
+# ____________________________________________________________
 
 GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], llmemory.Address))
 
@@ -787,7 +839,7 @@ def gc_malloc(size):
 
 def gc_malloc_fnaddr():
     """Returns the address of the Boehm 'malloc' function."""
-    if objectmodel.we_are_translated():
+    if we_are_translated():
         gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
         return lltype.cast_ptr_to_int(gc_malloc_ptr)
     else:
@@ -812,172 +864,445 @@ def gc_malloc_fnaddr():
 
 # ____________________________________________________________
 
-def remap_stack_layout(builder, outputargs_gv, target):
-##    import os
-##    s = ', '.join([gv.repr() for gv in outputargs_gv])
-##    os.write(2, "writing at %d (stack=%d, [%s])\n  --> %d (stack=%d, %s)\n"
-##     % (builder.mc.tell(),
-##        builder.stackdepth,
-##        s,
-##        target.startaddr,
-##        target.stackdepth,
-##        target.arg_positions))
+class StackOpCache:
+    INITIAL_STACK_EBP_OFS = -4
+stack_op_cache = StackOpCache()
+stack_op_cache.lst = []
 
-    N = target.stackdepth
-    if builder.stackdepth < N:
-        builder.mc.SUB(esp, imm(WORD * (N - builder.stackdepth)))
-        builder.stackdepth = N
+def stack_op(n):
+    "Return the mem operand that designates the nth stack-spilled location"
+    assert n >= 0
+    lst = stack_op_cache.lst
+    while len(lst) <= n:
+        ofs = WORD * (StackOpCache.INITIAL_STACK_EBP_OFS - len(lst))
+        lst.append(mem(ebp, ofs))
+    return lst[n]
 
-    M = len(outputargs_gv)
-    arg_positions = target.arg_positions
-    assert M == len(arg_positions)
-    targetlayout = [None] * N
-    srccount = [-N] * N
-    for i in range(M):
-        pos = arg_positions[i]
-        gv = outputargs_gv[i]
-        assert targetlayout[pos] is None
-        targetlayout[pos] = gv
-        srccount[pos] = 0
-    pending_dests = M
-    for i in range(M):
-        targetpos = arg_positions[i]
-        gv = outputargs_gv[i]
-        if isinstance(gv, Var):
-            p = gv.stackpos
-            if 0 <= p < N:
-                if p == targetpos:
-                    srccount[p] = -N     # ignore 'v=v'
-                    pending_dests -= 1
+def stack_n_from_op(op):
+    ofs = op.ofs_relative_to_ebp()
+    return StackOpCache.INITIAL_STACK_EBP_OFS - ofs / WORD
+
+
+class RegAllocator(object):
+    AVAILABLE_REGS = [eax, edx, ebx, esi, edi]   # XXX ecx reserved for stuff
+
+    # 'gv' -- GenVars, used as arguments and results of operations
+    #
+    # 'loc' -- location, a small integer that represents an abstract
+    #          register number
+    #
+    # 'operand' -- a concrete machine code operand, which can be a
+    #              register (ri386.eax, etc.) or a stack memory operand
+
+    def __init__(self):
+        self.nextloc = 0
+        self.var2loc = {}
+        self.available_locs = []
+        self.force_loc2operand = {}
+        self.force_operand2loc = {}
+        self.initial_moves = []
+
+    def set_final(self, final_vars_gv):
+        for v in final_vars_gv:
+            if not v.is_const and v not in self.var2loc:
+                self.var2loc[v] = self.nextloc
+                self.nextloc += 1
+
+    def creating(self, v):
+        try:
+            loc = self.var2loc[v]
+        except KeyError:
+            pass
+        else:
+            self.available_locs.append(loc)   # now available again for reuse
+
+    def using(self, v):
+        if not v.is_const and v not in self.var2loc:
+            try:
+                loc = self.available_locs.pop()
+            except IndexError:
+                loc = self.nextloc
+                self.nextloc += 1
+            self.var2loc[v] = loc
+
+    def creating_cc(self, v):
+        if self.need_var_in_cc is v:
+            # common case: v is a compare operation whose result is precisely
+            # what we need to be in the CC
+            self.need_var_in_cc = None
+        self.creating(v)
+
+    def save_cc(self):
+        # we need a value to be in the CC, but we see a clobbering
+        # operation, so we copy the original CC-creating operation down
+        # past the clobbering operation
+        v = self.need_var_in_cc
+        if not we_are_translated():
+            assert v in self.operations[:self.operationindex]
+        self.operations.insert(self.operationindex, v)
+        self.need_var_in_cc = None
+
+    def using_cc(self, v):
+        assert isinstance(v, Operation)
+        assert 0 <= v.cc_result < INSN_JMP
+        if self.need_var_in_cc is not None:
+            self.save_cc()
+        self.need_var_in_cc = v
+
+    def allocate_locations(self, operations):
+        # assign locations to gvars
+        self.operations = operations
+        self.need_var_in_cc = None
+        self.operationindex = len(operations)
+        for i in range(len(operations)-1, -1, -1):
+            v = operations[i]
+            kind = v.result_kind
+            if kind == RK_WORD:
+                self.creating(v)
+            elif kind == RK_CC:
+                self.creating_cc(v)
+            if self.need_var_in_cc is not None and v.clobbers_cc:
+                self.save_cc()
+            v.allocate(self)
+            self.operationindex = i
+        if self.need_var_in_cc is not None:
+            self.save_cc()
+
+    def force_var_operands(self, force_vars, force_operands, at_start):
+        force_loc2operand = self.force_loc2operand
+        force_operand2loc = self.force_operand2loc
+        for i in range(len(force_vars)):
+            v = force_vars[i]
+            operand = force_operands[i]
+            try:
+                loc = self.var2loc[v]
+            except KeyError:
+                if at_start:
+                    pass    # input variable not used anyway
                 else:
-                    srccount[p] += 1
+                    self.add_final_move(v, operand, make_copy=v.is_const)
+            else:
+                if loc in force_loc2operand or operand in force_operand2loc:
+                    if at_start:
+                        self.initial_moves.append((loc, operand))
+                    else:
+                        self.add_final_move(v, operand, make_copy=True)
+                else:
+                    force_loc2operand[loc] = operand
+                    force_operand2loc[operand] = loc
 
-    while pending_dests:
-        progress = False
-        for i in range(N):
-            if srccount[i] == 0:
-                srccount[i] = -1
-                pending_dests -= 1
-                gv_src = targetlayout[i]
-                if isinstance(gv_src, Var):
-                    p = gv_src.stackpos
-                    if 0 <= p < N:
-                        srccount[p] -= 1
-                builder.mc.MOV(eax, gv_src.operand(builder))
-                builder.mc.MOV(builder.stack_access(i), eax)
-                progress = True
-        if not progress:
-            # we are left with only pure disjoint cycles; break them
-            for i in range(N):
-                if srccount[i] >= 0:
-                    dst = i
-                    builder.mc.MOV(edx, builder.stack_access(dst))
+    def add_final_move(self, v, targetoperand, make_copy):
+        if make_copy:
+            v = OpSameAs(v)
+            self.operations.append(v)
+        loc = self.nextloc
+        self.nextloc += 1
+        self.var2loc[v] = loc
+        self.force_loc2operand[loc] = targetoperand
+
+    def allocate_registers(self):
+        # assign registers to locations that don't have one already
+        force_loc2operand = self.force_loc2operand
+        operands = []
+        seen_regs = 0
+        seen_stackn = {}
+        for op in force_loc2operand.values():
+            if isinstance(op, REG):
+                seen_regs |= 1 << op.op
+            elif isinstance(op, MODRM):
+                seen_stackn[stack_n_from_op(op)] = None
+        i = 0
+        stackn = 0
+        for loc in range(self.nextloc):
+            try:
+                operand = force_loc2operand[loc]
+            except KeyError:
+                # grab the next free register
+                try:
                     while True:
-                        assert srccount[dst] == 1
-                        srccount[dst] = -1
-                        pending_dests -= 1
-                        gv_src = targetlayout[dst]
-                        assert isinstance(gv_src, Var)
-                        src = gv_src.stackpos
-                        assert 0 <= src < N
-                        if src == i:
+                        operand = RegAllocator.AVAILABLE_REGS[i]
+                        i += 1
+                        if not (seen_regs & (1 << operand.op)):
                             break
-                        builder.mc.MOV(eax, builder.stack_access(src))
-                        builder.mc.MOV(builder.stack_access(dst), eax)
-                        dst = src
-                    builder.mc.MOV(builder.stack_access(dst), edx)
-            assert pending_dests == 0
+                except IndexError:
+                    while stackn in seen_stackn:
+                        stackn += 1
+                    operand = stack_op(stackn)
+                    stackn += 1
+            operands.append(operand)
+        self.operands = operands
+        self.required_frame_depth = stackn
 
-    if builder.stackdepth > N:
-        builder.mc.ADD(esp, imm(WORD * (builder.stackdepth - N)))
-        builder.stackdepth = N
+    def get_operand(self, gv_source):
+        if isinstance(gv_source, IntConst):
+            return imm(gv_source.value)
+        else:
+            loc = self.var2loc[gv_source]
+            return self.operands[loc]
+
+    def load_location_with(self, loc, gv_source):
+        dstop = self.operands[loc]
+        srcop = self.get_operand(gv_source)
+        if srcop != dstop:
+            self.mc.MOV(dstop, srcop)
+        return dstop
+
+    def generate_initial_moves(self):
+        initial_moves = self.initial_moves
+        # first make sure that the reserved stack frame is big enough
+        last_n = self.required_frame_depth - 1
+        for loc, srcoperand in initial_moves:
+            if isinstance(srcoperand, MODRM):
+                n = stack_n_from_op(srcoperand)
+                if last_n < n:
+                    last_n = n
+        if last_n >= 0:
+            if CALL_ALIGN > 1:
+                last_n = (last_n & ~(CALL_ALIGN-1)) + (CALL_ALIGN-1)
+            self.required_frame_depth = last_n + 1
+            self.mc.LEA(esp, stack_op(last_n))
+        # XXX naive algo for now
+        for loc, srcoperand in initial_moves:
+            if self.operands[loc] != srcoperand:
+                self.mc.PUSH(srcoperand)
+        initial_moves.reverse()
+        for loc, srcoperand in initial_moves:
+            if self.operands[loc] != srcoperand:
+                self.mc.POP(self.operands[loc])
+
+    def generate_operations(self):
+        for v in self.operations:
+            v.generate(self)
+            cc = v.cc_result
+            if cc >= 0 and v in self.var2loc:
+                # force a comparison instruction's result into a
+                # regular location
+                dstop = self.get_operand(v)
+                mc = self.mc
+                insn = EMIT_SETCOND[cc]
+                insn(mc, cl)
+                try:
+                    mc.MOVZX(dstop, cl)
+                except FailedToImplement:
+                    mc.MOVZX(ecx, cl)
+                    mc.MOV(dstop, ecx)
 
 
-#
+class Builder(GenBuilder):
+    coming_from = 0
+    operations = None
+    update_defaultcaseaddr_of = None
 
-dummy_var = Var(0)
-
-class ReplayFlexSwitch(CodeGenSwitch):
-
-    def __init__(self, replay_builder):
-        self.replay_builder = replay_builder
-
-    def add_case(self, gv_case):
-        return self.replay_builder
-
-class ReplayBuilder(GenBuilder):
-
-    def __init__(self, rgenop):
+    def __init__(self, rgenop, inputargs_gv, inputoperands):
         self.rgenop = rgenop
+        self.inputargs_gv = inputargs_gv
+        self.inputoperands = inputoperands
+
+    def start_writing(self):
+        assert self.operations is None
+        self.operations = []
+
+    def generate_block_code(self, final_vars_gv, force_vars=[],
+                                                 force_operands=[],
+                                                 renaming=True,
+                                                 minimal_stack_depth=0):
+        allocator = RegAllocator()
+        allocator.set_final(final_vars_gv)
+        if not renaming:
+            final_vars_gv = allocator.var2loc.keys()  # unique final vars
+        allocator.allocate_locations(self.operations)
+        allocator.force_var_operands(force_vars, force_operands,
+                                     at_start=False)
+        allocator.force_var_operands(self.inputargs_gv, self.inputoperands,
+                                     at_start=True)
+        allocator.allocate_registers()
+        if allocator.required_frame_depth < minimal_stack_depth:
+            allocator.required_frame_depth = minimal_stack_depth
+        mc = self.start_mc()
+        allocator.mc = mc
+        allocator.generate_initial_moves()
+        allocator.generate_operations()
+        self.operations = None
+        if renaming:
+            self.inputargs_gv = [GenVar() for v in final_vars_gv]
+        else:
+            # just keep one copy of each Variable that is alive
+            self.inputargs_gv = final_vars_gv
+        self.inputoperands = [allocator.get_operand(v) for v in final_vars_gv]
+        return mc
+
+    def enter_next_block(self, kinds, args_gv):
+##        mc = self.generate_block_code(args_gv)
+##        assert len(self.inputargs_gv) == len(args_gv)
+##        args_gv[:len(args_gv)] = self.inputargs_gv
+##        self.set_coming_from(mc)
+##        self.rgenop.close_mc(mc)
+##        self.start_writing()
+        for i in range(len(args_gv)):
+            op = OpSameAs(args_gv[i])
+            args_gv[i] = op
+            self.operations.append(op)
+        lbl = Label()
+        lblop = OpLabel(lbl, args_gv)
+        self.operations.append(lblop)
+        return lbl
+
+    def set_coming_from(self, mc, insncond=INSN_JMP):
+        self.coming_from_cond = insncond
+        self.coming_from = mc.tell()
+        insnemit = EMIT_JCOND[insncond]
+        insnemit(mc, rel32(0))
+
+    def start_mc(self):
+        mc = self.rgenop.open_mc()
+        # update the coming_from instruction
+        start = self.coming_from
+        if start:
+            targetaddr = mc.tell()
+            if self.update_defaultcaseaddr_of:   # hack for FlexSwitch
+                self.update_defaultcaseaddr_of.defaultcaseaddr = targetaddr
+            end = start + 6    # XXX hard-coded, enough for JMP and Jcond
+            oldmc = self.rgenop.InMemoryCodeBuilder(start, end)
+            insn = EMIT_JCOND[self.coming_from_cond]
+            insn(oldmc, rel32(targetaddr))
+            oldmc.done()
+            self.coming_from = 0
+        return mc
+
+    def _jump_if(self, gv_condition, args_for_jump_gv, negate):
+        newbuilder = Builder(self.rgenop, list(args_for_jump_gv), None)
+        # if the condition does not come from an obvious comparison operation,
+        # e.g. a getfield of a Bool or an input argument to the current block,
+        # then insert an OpIntIsTrue
+        if gv_condition.cc_result < 0 or gv_condition not in self.operations:
+            gv_condition = OpIntIsTrue(gv_condition)
+            self.operations.append(gv_condition)
+        self.operations.append(JumpIf(gv_condition, newbuilder, negate=negate))
+        return newbuilder
+
+    def jump_if_false(self, gv_condition, args_for_jump_gv):
+        return self._jump_if(gv_condition, args_for_jump_gv, True)
+
+    def jump_if_true(self, gv_condition, args_for_jump_gv):
+        return self._jump_if(gv_condition, args_for_jump_gv, False)
+
+    def finish_and_goto(self, outputargs_gv, targetlbl):
+        operands = targetlbl.inputoperands
+        if operands is None:
+            # this occurs when jumping back to the same currently-open block;
+            # close the block and re-open it
+            self.pause_writing(outputargs_gv)
+            self.start_writing()
+            operands = targetlbl.inputoperands
+            assert operands is not None
+        mc = self.generate_block_code(outputargs_gv, outputargs_gv, operands,
+                              minimal_stack_depth = targetlbl.targetstackdepth)
+        mc.JMP(rel32(targetlbl.targetaddr))
+        self.rgenop.close_mc(mc)
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        mc = self.generate_block_code([gv_returnvar], [gv_returnvar], [eax])
+        # --- epilogue ---
+        mc.LEA(esp, mem(ebp, -12))
+        mc.POP(edi)
+        mc.POP(esi)
+        mc.POP(ebx)
+        mc.POP(ebp)
+        mc.RET()
+        # ----------------
+        self.rgenop.close_mc(mc)
+
+    def pause_writing(self, alive_gv):
+        mc = self.generate_block_code(alive_gv, renaming=False)
+        self.set_coming_from(mc)
+        self.rgenop.close_mc(mc)
+        return self
 
     def end(self):
         pass
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
-        return dummy_var
+        cls = OPCLASSES1[opname]
+        if cls is None:     # identity
+            return gv_arg
+        op = cls(gv_arg)
+        self.operations.append(op)
+        return op
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
-        return dummy_var
-
-    def genop_getfield(self, fieldtoken, gv_ptr):
-        return dummy_var
-
-    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
-        return dummy_var
-
-    def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        return dummy_var
-
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        return dummy_var
-
-    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
-        return dummy_var
-
-    def genop_getarraysize(self, arraytoken, gv_ptr):
-        return dummy_var
-
-    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        return dummy_var
-
-    def genop_malloc_fixedsize(self, size):
-        return dummy_var
-
-    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-        return dummy_var
-        
-    def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        return dummy_var
+        cls = OPCLASSES2[opname]
+        op = cls(gv_arg1, gv_arg2)
+        self.operations.append(op)
+        return op
 
     def genop_same_as(self, kind, gv_x):
-        return dummy_var
+        if gv_x.is_const:    # must always return a var
+            op = OpSameAs(gv_x)
+            self.operations.append(op)
+            return op
+        else:
+            return gv_x
 
-    def genop_debug_pdb(self):    # may take an args_gv later
-        pass
+    def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        op = OpCall(sigtoken, gv_fnptr, list(args_gv))
+        self.operations.append(op)
+        return op
 
-    def enter_next_block(self, kinds, args_gv):
-        return None
+    def genop_malloc_fixedsize(self, size):
+        # XXX boehm only, no atomic/non atomic distinction for now
+        op = OpCall(MALLOC_SIGTOKEN,
+                    IntConst(gc_malloc_fnaddr()),
+                    [IntConst(size)])
+        self.operations.append(op)
+        return op
 
-    def jump_if_false(self, gv_condition, args_gv):
-        return self
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        # XXX boehm only, no atomic/non atomic distinction for now
+        # XXX no overflow checking for now
+        opsz = OpComputeSize(varsizealloctoken, gv_size)
+        self.operations.append(opsz)
+        opmalloc = OpCall(MALLOC_SIGTOKEN,
+                          IntConst(gc_malloc_fnaddr()),
+                          [opsz])
+        self.operations.append(opmalloc)
+        lengthtoken, _, _ = varsizealloctoken
+        self.operations.append(OpSetField(lengthtoken, opmalloc, opsz))
+        return opmalloc
 
-    def jump_if_true(self, gv_condition, args_gv):
-        return self
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        op = OpGetField(fieldtoken, gv_ptr)
+        self.operations.append(op)
+        return op
 
-    def finish_and_return(self, sigtoken, gv_returnvar):
-        pass
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        self.operations.append(OpSetField(fieldtoken, gv_ptr, gv_value))
 
-    def finish_and_goto(self, outputargs_gv, target):
-        pass
+    def genop_getarrayitem(self, arraytoken, gv_array, gv_index):
+        op = OpGetArrayItem(arraytoken, gv_array, gv_index)
+        self.operations.append(op)
+        return op
+
+    def genop_setarrayitem(self, arraytoken, gv_array, gv_index, gv_value):
+        self.operations.append(OpSetArrayItem(arraytoken, gv_array,
+                                              gv_index, gv_value))
 
     def flexswitch(self, gv_exitswitch, args_gv):
-        flexswitch = ReplayFlexSwitch(self)
-        return flexswitch, self
+        reg = FlexSwitch.REG
+        mc = self.generate_block_code(args_gv, [gv_exitswitch], [reg],
+                                      renaming=False)
+        result = FlexSwitch(self.rgenop, self.inputargs_gv, self.inputoperands)
+        default_builder = result.initialize(mc)
+        self.rgenop.close_mc(mc)
+        return result, default_builder
 
     def show_incremental_progress(self):
         pass
+
+    def log(self, msg):
+        self.mc.log(msg)
+
 
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
@@ -1008,31 +1333,37 @@ class RI386GenOp(AbstractRGenOp):
     def check_no_open_mc(self):
         assert len(self.mcs) == self.total_code_blocks
 
-    def newbuilder(self, stackdepth):
-        return Builder(self, stackdepth)
-
     def newgraph(self, sigtoken, name):
-        builder = self.newbuilder(self._initial_stack_depth(sigtoken))
-        builder._open() # Force builder to have an mc
-        entrypoint = builder.mc.tell()
-        inputargs_gv = builder._write_prologue(sigtoken)
-        return builder, IntConst(entrypoint), inputargs_gv
+        # --- prologue ---
+        mc = self.open_mc()
+        entrypoint = mc.tell()
+        if DEBUG_TRAP:
+            mc.BREAKPOINT()
+        mc.PUSH(ebp)
+        mc.MOV(ebp, esp)
+        mc.PUSH(ebx)
+        mc.PUSH(esi)
+        mc.PUSH(edi)
+        # ^^^ pushed 5 words including the retval ( == PROLOGUE_FIXED_WORDS)
+        self.close_mc(mc)
+        # NB. a bit of a hack: the first generated block of the function
+        # will immediately follow, by construction
+        # ----------------
+        numargs = sigtoken     # for now
+        inputargs_gv = []
+        inputoperands = []
+        for i in range(numargs):
+            inputargs_gv.append(GenVar())
+            inputoperands.append(mem(ebp, WORD * (2+i)))
+        builder = Builder(self, inputargs_gv, inputoperands)
+        builder.start_writing()
+        #ops = [OpSameAs(v) for v in inputargs_gv]
+        #builder.operations.extend(ops)
+        #inputargs_gv = ops
+        return builder, IntConst(entrypoint), inputargs_gv[:]
 
-    def _initial_stack_depth(self, sigtoken):
-        # If a stack depth is a multiple of CALL_ALIGN then the
-        # arguments are correctly aligned for a call.  We have to
-        # precompute initialstackdepth to guarantee that.  For OS/X the
-        # convention is that the stack should be aligned just after all
-        # arguments are pushed, i.e. just before the return address is
-        # pushed by the CALL instruction.  In other words, after
-        # 'numargs' arguments have been pushed the stack is aligned:
-        numargs = sigtoken          # for now
-        MASK = CALL_ALIGN - 1
-        initialstackdepth = ((numargs+MASK)&~MASK) + 1
-        return initialstackdepth
-
-    def replay(self, label, kinds):
-        return ReplayBuilder(self), [dummy_var] * len(kinds)
+##    def replay(self, label, kinds):
+##        return ReplayBuilder(self), [dummy_var] * len(kinds)
 
     @specialize.genconst(1)
     def genconst(self, llvalue):
@@ -1076,16 +1407,16 @@ class RI386GenOp(AbstractRGenOp):
             arrayfield = T._arrayfld
             ARRAYFIELD = getattr(T, arrayfield)
             arraytoken = RI386GenOp.arrayToken(ARRAYFIELD)
-            length_offset, items_offset, item_size = arraytoken
+            (lengthoffset, lengthsize), itemsoffset, itemsize = arraytoken
             arrayfield_offset = llmemory.offsetof(T, arrayfield)
-            return (arrayfield_offset+length_offset,
-                    arrayfield_offset+items_offset,
-                    item_size)
+            return ((arrayfield_offset+lengthoffset, lengthsize),
+                    arrayfield_offset+itemsoffset,
+                    itemsize)
 
     @staticmethod
     @specialize.memo()    
     def arrayToken(A):
-        return (llmemory.ArrayLengthOffset(A),
+        return ((llmemory.ArrayLengthOffset(A), WORD),
                 llmemory.ArrayItemsOffset(A),
                 llmemory.ItemOffset(A.OF))
 
@@ -1118,3 +1449,5 @@ class RI386GenOp(AbstractRGenOp):
 
 global_rgenop = RI386GenOp()
 RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst
+
+MALLOC_SIGTOKEN = RI386GenOp.sigToken(GC_MALLOC.TO)

@@ -6,11 +6,16 @@ class OPERAND(object):
 
 class REG(OPERAND):
     width = 4
+    lowest8bits = None
+    def __repr__(self):
+        return '<%s>' % self.__class__.__name__.lower()
     def assembler(self):
         return '%' + self.__class__.__name__.lower()
 
 class REG8(OPERAND):
     width = 1
+    def __repr__(self):
+        return '<%s>' % self.__class__.__name__.lower()
     def assembler(self):
         return '%' + self.__class__.__name__.lower()
 
@@ -34,6 +39,7 @@ class BH(REG8): op=7
 
 class IMM32(OPERAND):
     width = 4
+    value = 0      # annotator hack
 
     def __init__(self, value):
         self.value = value
@@ -101,6 +107,35 @@ class MODRM(OPERAND):
         mod = self.byte & 0xC0
         return mod == 0xC0
 
+    def ofs_relative_to_ebp(self):
+        # very custom: if self is a mem(ebp, ofs) then return ofs
+        # otherwise raise ValueError
+        mod = self.byte & 0xC0
+        rm  = self.byte & 0x07
+        if mod == 0xC0:
+            raise ValueError     # self is just a register
+        if self.byte == 0x05:
+            raise ValueError     # self is just an [immediate]
+        if rm != 5:
+            raise ValueError     # not a simple [ebp+ofs]
+        offset = self.extradata
+        if not offset:
+            return 0
+        else:
+            return unpack(offset)
+
+    def involves_ecx(self):
+        # very custom: is ecx present in this mod/rm?
+        mod = self.byte & 0xC0
+        rm  = self.byte & 0x07
+        if mod != 0xC0 and rm == 4:
+            SIB = ord(self.extradata[0])
+            index = (SIB & 0x38) >> 3
+            base  = (SIB & 0x07)
+            return base == ECX.op or index == ECX.op
+        else:
+            return rm == ECX.op
+
 
 class MODRM8(MODRM):
     width = 1
@@ -141,6 +176,11 @@ ah = AH()
 ch = CH()
 dh = DH()
 bh = BH()
+
+eax.lowest8bits = al
+ecx.lowest8bits = cl
+edx.lowest8bits = dl
+ebx.lowest8bits = bl
 
 registers = [eax, ecx, edx, ebx, esp, ebp, esi, edi]
 registers8 = [al, cl, dl, bl, ah, ch, dh, bh]
@@ -230,6 +270,7 @@ def unpack(s):
     assert len(s) in (1, 2, 4)
     result = 0
     shift = 0
+    char = '\x00'      # flow space workaround
     for char in s:
         result |= ord(char) << shift
         shift += 8

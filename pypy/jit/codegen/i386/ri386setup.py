@@ -111,6 +111,14 @@ class relative(operand):
         lines.append('builder.write(packimm32(offset))')
         return False
 
+##class conditioncode(operand):
+##    def __init__(self):
+##        pass
+##    def eval(self, lines, has_orbyte):
+##        assert not has_orbyte, "malformed bytecode"
+##        lines.append('orbyte = arg1.value')
+##        return True
+
 
 def consolidate(code1):
     for i in range(len(code1)-1, 0, -1):
@@ -462,6 +470,17 @@ define_cond('J',   1, (REL32,),  ['\x0F', None,'\x80', relative(1)])
 define_cond('SET', 0, (MODRM8,), ['\x0F', None,'\x90',orbyte(0<<3),modrm(1,'b')])
 define_cond('CMOV',0,(REG,MODRM),['\x0F', None,'\x40', register(1,8), modrm(2)])
 # note: CMOVxx are Pentium-class instructions, unknown to the 386 and 486
+
+##Jcond = Instruction()
+##Jcond.mode2(  IMM8, REL32,     ['\x0F', conditioncode(),'\x80', relative(2)])
+
+##SETcond = Instruction()
+##SETcond.mode2(IMM8, MODRM8,    ['\x0F', conditioncode(),'\x90', orbyte(0<<3),
+##                                                                modrm(2,'b')])
+
+##CMOVcond = Instruction()
+##CMOVcond.mode3(IMM8,REG,MODRM, ['\x0F', conditioncode(),'\x40', register(2,8),
+##                                                                modrm(3)])
 
 
 all_instructions = {}

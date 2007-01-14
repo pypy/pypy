@@ -211,7 +211,7 @@ def rec_test_all(instrname, modes, args=[]):
         if instrname in ('MOVZX', 'MOVSX'):
             if args[1][1].width == 4:
                 return []
-        if instrname == 'o16':
+        if instrname == 'o16' or instrname.endswith('cond'):
             return []
         return [args]
 

@@ -148,7 +148,7 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
         self._size = map_size
         self._pos = 0
         self._base = LLTypeMachineCodeBlock.state.base
-        LLTypeMachineCodeBlock.state.base += 2 * map_size
+        LLTypeMachineCodeBlock.state.base += map_size
 
     def write(self, data):
         p = self._pos
@@ -158,7 +158,7 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
         return
 
     def tell(self):
-        return self._base + 2 * self._pos
+        return self._base + self._pos
 
     def seekback(self, count):
         self._pos -= count
@@ -170,7 +170,7 @@ class LLTypeInMemoryCodeBuilder(LLTypeMachineCodeBlock):
     _last_dump_start = 0
 
     def __init__(self, start, end):
-        self._size = (end - start) / 2
+        self._size = end - start
         self._pos = 0
         self._base = start
 
