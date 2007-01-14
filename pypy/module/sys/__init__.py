@@ -63,6 +63,7 @@ class Module(MixedModule):
         'meta_path'             : 'space.wrap([])',
         'path_hooks'            : 'space.wrap([])',
         'path_importer_cache'   : 'space.wrap({})',
+        #'subversion'           : added in Python 2.5
 }
     appleveldefs = {
         #'displayhook'           : 'app.displayhook', 
