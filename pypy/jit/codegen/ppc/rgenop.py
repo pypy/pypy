@@ -271,13 +271,14 @@ class Builder(GenBuilder):
                    2:_PPC.lhz,
                    4:_PPC.lwz}[itemsize]
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, False, opcode, opcodei)
+        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, opcode, opcodei)
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
         assert itemsize == 4
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, True, _PPC.add, _PPC.addi)
+        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, _PPC.add, _PPC.addi,
+                                         commutative=True)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
         return self._arg_imm_op(gv_ptr, IntConst(lengthoffset), _PPC.lwz)
@@ -654,7 +655,8 @@ class Builder(GenBuilder):
             insn.Insn_GPR__GPR_IMM(opcode, gv_result, [gv_x, gv_imm]))
         return gv_result
 
-    def _arg_arg_op_with_imm(self, gv_x, gv_y, commutative, opcode, opcodei):
+    def _arg_arg_op_with_imm(self, gv_x, gv_y, opcode, opcodei,
+                             commutative=False):
         if gv_y.fits_in_immediate():
             return self._arg_imm_op(gv_x, gv_y, opcodei)
         elif gv_x.fits_in_immediate() and commutative:
@@ -746,13 +748,15 @@ class Builder(GenBuilder):
         return self._arg_op(gv_arg, _PPC.not_)
 
     def op_int_add(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.add, _PPC.addi)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.add, _PPC.addi,
+                                         commutative=True)
 
     def op_int_sub(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.sub, _PPC.subi)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.sub, _PPC.subi)
 
     def op_int_mul(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.mullw, _PPC.mulli)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.mullw, _PPC.mulli,
+                                         commutative=True)
 
     def op_int_floordiv(self, gv_x, gv_y):
         return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
@@ -798,18 +802,20 @@ class Builder(GenBuilder):
         return self._arg_arg_op(gv_x, gv_y, _PPC.and_)
 
     def op_int_or(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.or_, _PPC.ori)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.or_, _PPC.ori,
+                                         commutative=True)
 
     def op_int_lshift(self, gv_x, gv_y):
         # could be messy if shift is not in 0 <= ... < 32
-        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.slw, _PPC.slwi)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.slw, _PPC.slwi)
     ## def op_int_lshift_val(self, gv_x, gv_y):
     def op_int_rshift(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.sraw, _PPC.srawi)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.sraw, _PPC.srawi)
     ## def op_int_rshift_val(self, gv_x, gv_y):
 
     def op_int_xor(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, True, _PPC.xor, _PPC.xori)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.xor, _PPC.xori,
+                                         commutative=True)
 
     ## various int_*_ovfs
 
@@ -855,7 +861,7 @@ class Builder(GenBuilder):
 
     op_uint_lshift = op_int_lshift
     def op_uint_rshift(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, False, _PPC.srw, _PPC.srwi)
+        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.srw, _PPC.srwi)
 
     ## def op_uint_lshift_val(self, gv_x, gv_y):
     ## def op_uint_rshift(self, gv_x, gv_y):
