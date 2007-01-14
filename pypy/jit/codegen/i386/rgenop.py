@@ -689,13 +689,6 @@ class IntConst(GenConst):
     def __init__(self, value):
         self.value = value
 
-    def operand(self, builder):
-        return imm(self.value)
-
-    def nonimmoperand(self, builder, tmpregister):
-        builder.mc.MOV(tmpregister, self.operand(builder))
-        return tmpregister
-
     @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
@@ -719,13 +712,6 @@ class AddrConst(GenConst):
 
     def __init__(self, addr):
         self.addr = addr
-
-    def operand(self, builder):
-        return imm(llmemory.cast_adr_to_int(self.addr))
-
-    def nonimmoperand(self, builder, tmpregister):
-        builder.mc.MOV(tmpregister, self.operand(builder))
-        return tmpregister
 
     @specialize.arg(1)
     def revealconst(self, T):
