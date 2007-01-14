@@ -64,4 +64,7 @@ def register_external(function, args, result, export_name=None,
         if ooimpl:
             ootypeimpl = ooimpl
 
-    FunEntry.__name__ = export_name
+    if export_name:
+        FunEntry.__name__ = export_name
+    else:
+        FunEntry.__name__ = function.func_name

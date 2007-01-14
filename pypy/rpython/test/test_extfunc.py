@@ -1,5 +1,5 @@
 
-from pypy.rpython.extfunc import ExtFuncEntry
+from pypy.rpython.extfunc import ExtFuncEntry, _callable, register_external
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation.policy import AnnotatorPolicy
@@ -73,3 +73,18 @@ def test_callback():
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeFloat)
     assert a.translator._graphof(callback)
+
+def dd():
+    pass
+
+register_external(dd, [int], int)
+
+def test_register_external_signature():
+    def f():
+        return dd(3)
+
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    a = RPythonAnnotator(policy=policy)
+    s = a.build_types(f, [])
+    assert isinstance(s, annmodel.SomeInteger)
