@@ -771,12 +771,12 @@ class FrozenJITState(object):
         frame         = self.fz_frame        .unfreeze(incomingvarboxes, memo)
         exc_type_box  = self.fz_exc_type_box .unfreeze(incomingvarboxes, memo)
         exc_value_box = self.fz_exc_value_box.unfreeze(incomingvarboxes, memo)
-        virtualizables = {}
+        virtualizables = []
         for fz_virtualizable_box in self.fz_virtualizables:
             virtualizable_box = fz_virtualizable_box.unfreeze(incomingvarboxes,
                                                               memo)
             assert isinstance(virtualizable_box, rvalue.PtrRedBox)
-            virtualizables[virtualizable_box] = None
+            virtualizables.append(virtualizable_box)
         return JITState(None, frame, exc_type_box, exc_value_box,
                         virtualizables=virtualizables)
 
@@ -834,21 +834,25 @@ class JITState(object):
         self.resumepoint = resumepoint
         self.greens = newgreens
         self.resuming = resuming   # None or a ResumingInfo
+
+        # XXX can not be adictionary
+        # it needs to be iterated in a deterministic order.
         if virtualizables is None:
-            virtualizables = {}
+            virtualizables = []
         self.virtualizables = virtualizables
 
     def add_virtualizable(self, virtualizable_box):
         assert isinstance(virtualizable_box, rvalue.PtrRedBox)
-        self.virtualizables[virtualizable_box] = None
+        if virtualizable_box not in self.virtualizables:
+            self.virtualizables.append(virtualizable_box)
 
     def split(self, newbuilder, newresumepoint, newgreens):
         memo = rvalue.copy_memo()
-        virtualizables = {}
+        virtualizables = []
         for virtualizable_box in self.virtualizables:
             new_virtualizable_box = virtualizable_box.copy(memo)
             assert isinstance(new_virtualizable_box, rvalue.PtrRedBox)
-            virtualizables[new_virtualizable_box] = None
+            virtualizables.append(new_virtualizable_box)
         later_jitstate = JITState(newbuilder,
                                   self.frame.copy(memo),
                                   self.exc_type_box .copy(memo),
@@ -874,9 +878,11 @@ class JITState(object):
         self._enter_block(incoming, memo)
         virtualizables = self.virtualizables
         builder = self.curbuilder
-        for virtualizable_box in virtualizables.keys():
-            if virtualizable_box.content not in memo.containers:
-                del virtualizables[virtualizable_box]
+        self.virtualizables = []
+        for virtualizable_box in virtualizables:
+            if virtualizable_box.content in memo.containers:
+                self.virtualizables.append(virtualizable_box)
+            else:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.store_back(self)
@@ -887,7 +893,7 @@ class JITState(object):
         if virtualizables:
             builder = self.curbuilder            
             gv_base = builder.get_frame_base()
-            for virtualizable_box in virtualizables.keys():
+            for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.prepare_for_residual_call(self, gv_base)
@@ -896,7 +902,7 @@ class JITState(object):
         virtualizables = self.virtualizables
         if virtualizables:
             builder = self.curbuilder            
-            for virtualizable_box in virtualizables.keys():
+            for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.after_residual_call(self)
@@ -906,22 +912,22 @@ class JITState(object):
         result.fz_frame = self.frame.freeze(memo)
         result.fz_exc_type_box  = self.exc_type_box .freeze(memo)
         result.fz_exc_value_box = self.exc_value_box.freeze(memo)
-        fz_virtualizables = result.fz_virtualizables = {}
+        fz_virtualizables = result.fz_virtualizables = []
         for virtualizable_box in self.virtualizables:
             assert virtualizable_box in memo.boxes
-            fz_virtualizables[virtualizable_box.freeze(memo)] = None
+            fz_virtualizables.append(virtualizable_box.freeze(memo))
         return result
 
     def replace(self, memo):
         self.frame.replace(memo)
         self.exc_type_box  = self.exc_type_box .replace(memo)
         self.exc_value_box = self.exc_value_box.replace(memo)
-        virtualizables = {}
-        for virtualizable_box in self.virtualizables:
+        virtualizables = []
+        for i in range(len(self.virtualizables)):
+            virtualizable_box = self.virtualizables[i]
             new_virtualizable_box = virtualizable_box.replace(memo)
             assert isinstance(new_virtualizable_box, rvalue.PtrRedBox)
-            virtualizables[new_virtualizable_box] = None
-        self.virtualizables = virtualizables
+            self.virtualizables[i] = new_virtualizable_box
             
     def get_locals_gv(self): # xxx
         # get all the genvars that are "alive", i.e. stored in the JITState
