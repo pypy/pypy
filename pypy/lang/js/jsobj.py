@@ -18,9 +18,8 @@ class ThrowException(Exception):
 class JsTypeError(Exception):
     pass
 
-INF = 1e300 * 1e300
-MINF = -INF
-NaN = INF/INF
+Infinity = 1e300 * 1e300
+NaN = Infinity/Infinity
 
 
 class Property(object):
@@ -270,24 +269,46 @@ class ActivationObject(W_PrimitiveObject):
         W_PrimitiveObject.__init__(self, Class='Activation')
         del self.propdict["prototype"]
 
-class W_Array(W_Object):
+def arraycallbi(ctx, args, this):
+    return W_Array()
+    
+class W_Array(W_Builtin):
     def __init__(self, ctx=None, Prototype=None, Class='Array',
                  Value=w_Undefined, callfunc=None):
-        W_Object.__init__(self, ctx, Prototype, Class, Value, callfunc)
+        W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
+        toString = W_Builtin()
+        toString.set_builtin_call(self.str_builtin)
+        self.Put('toString', toString)
         self.Put('length', W_Number(0))
         self.array = []
+        self.set_builtin_call(arraycallbi)
+    
     
     def Put(self, P, V):
         try:
             x = int(P)
             if x > self.Get('length').ToNumber():
                 self.propdict['length'].value = W_Number(x)
+                currsize = len(self.array)
+                for i in range(x-(currsize-1)):
+                    self.array.append(w_Undefined)
+                    
         except ValueError:
             if not self.CanPut(P): return
             if P in self.propdict:
                 self.propdict[P].value = V
             else:
                 self.propdict[P] = Property(P, V)
+
+    def Get(self, P):
+        try:
+            x = int(P)
+            if x > (len(self.array)-1):
+                return W_Undefined
+            else:
+                return self.array[x]
+        except ValueError:
+            return W_PrimitiveObject.Get(self, P)
     
     def str_builtin(self, ctx, args, this):
         return W_String(ToString())
@@ -335,14 +356,16 @@ class W_String(W_Primitive):
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
-        #print "w_number = ", floatval
         self.floatval = floatval
 
     def ToString(self):
         if str(self.floatval) == str(NaN):
             return 'NaN'
-        if float(int(self.floatval)) == self.floatval:
-            return str(int(self.floatval))
+        try:
+            if float(int(self.floatval)) == self.floatval:
+                return str(int(self.floatval))
+        except OverflowError, e:
+            pass
         return str(self.floatval)
     
     def ToBoolean(self):

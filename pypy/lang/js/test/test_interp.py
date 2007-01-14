@@ -313,9 +313,8 @@ class TestInterp(object):
         """, ["3","2"])
 
     def test_arrayobject(self):
-        py.test.skip('not ready yet')
         self.assert_prints("""var x = new Array();
-        print(x.length);""", ['0'])
+        print(x.length == 0)""", ['true'])
          
     def test_break(self):
         self.assert_prints("""
@@ -376,17 +375,25 @@ class TestInterp(object):
         var x = 5;
         y = z = x
         print(y)""", ["5"])
-        
-    def test_smallthings(self):
+    
+    def test_math_stuff(self):
         py.test.skip('not ready yet')
-        x = """
-        var x;
-        if ( gc == undefined ) {
-        print('undef');
-        }
-        """        
-        x = "Math.abs(actual-expect) < 0.0000001 ) {"
-        x = """if ( isNaN( t ) ){
-            return ( Number.NaN );"""
-        x = "Number.POSITIVE_INFINITY Number.NEGATIVE_INFINITY" 
-        x = "Math.floor( Math.abs( t ) ) );"
+        self.assert_prints("""
+        var x = 5;
+        var z = 2;
+        prtin(x*z)
+        print(4/z)
+        print(isNaN(z))
+        print(Math.abs(z-x))
+        print(Number.NaN)
+        print(Number.POSITIVE_INFINITY)
+        print(Number.NEGATIVE_INFINITY)
+        print(Math.floor(3.2))
+        """, ['10', '2', 'false', '3'])
+        
+    def test_globalproperties(self):
+        self.assert_prints( """
+        print(NaN)
+        print(Infinity)
+        print(undefined)
+        """, ['NaN', 'inf', 'undefined'])

@@ -100,7 +100,7 @@ class Interpreter(object):
         w_ObjPrototype.Put('constructor', w_Object)
         #And some other stuff
         
-        w_Array = W_Array([])
+        w_Array = W_Array()
         w_Global.Put('Object', w_Object)
         w_Global.Put('Function', w_Function)
         w_Global.Put('Array', w_Array)
@@ -110,6 +110,12 @@ class Interpreter(object):
         printbuiltin = W_Builtin(Class='function')
         printbuiltin.set_builtin_call(printjs)
         w_Global.Put('print', printbuiltin)
+        
+        #Global Properties
+        w_Global.Put('NaN', W_Number(NaN))
+        w_Global.Put('Infinity', W_Number(Infinity))
+        w_Global.Put('undefined', w_Undefined)
+        
         
         self.global_context = ctx
         self.w_Global = w_Global
@@ -405,7 +411,6 @@ class New(Expression):
         self.newexpr = newexpr
 
     def eval(self, ctx):
-        print self.newexpr
         x = self.newexpr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
@@ -418,7 +423,6 @@ class NewWithArgs(Expression):
         self.arglist = arglist
 
     def eval(self, ctx):
-        print self.newexpr
         x = self.newexpr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
@@ -752,7 +756,6 @@ def from_tree(t):
         node = Script(getlist(t), var_decl, func_decl)
     elif tp == 'SEMICOLON':
         expr = gettreeitem(t, 'expression')
-        print expr
         if isinstance(expr, Symbol):
             node = Semicolon()
         else:
