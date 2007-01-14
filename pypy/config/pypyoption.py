@@ -155,8 +155,18 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    default=False,
                    requires=[("objspace.std.withmultidict", True),
                              ("objspace.std.withtypeversion", True)]),
-
-
+        BoolOption("withmethodcache",
+                   "try to cache methods",
+                   default=False,
+                   requires=[("objspace.std.withshadowtracking", True)]),
+        BoolOption("withmethodcachecounter",
+                   "try to cache methods and provide a counter in pypymagic. "
+                   "for testing purposes only.",
+                   default=False,
+                   requires=[("objspace.std.withmethodcache", True)]),
+        IntOption("methodcachesize",
+                  "size of the method cache (should be a power of 2)",
+                  default=2048),
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),

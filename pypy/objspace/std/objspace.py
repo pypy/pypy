@@ -275,6 +275,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # add space specific fields to execution context
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = self.newdict()
+        if self.config.objspace.std.withmethodcache:
+            SIZE = self.config.objspace.std.methodcachesize
+            ec.method_cache_versions = [None] * SIZE
+            ec.method_cache_names = [None] * SIZE
+            ec.method_cache_lookup_where = [(None, None)] * SIZE
+            if self.config.objspace.std.withmethodcachecounter:
+                ec.method_cache_hits = {}
+                ec.method_cache_misses = {}
         return ec
 
     def createframe(self, code, w_globals, closure=None):

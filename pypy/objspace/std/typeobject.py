@@ -276,8 +276,22 @@ class W_TypeObject(W_Object):
                     return w_value
         return w_value
 
-    def lookup(w_self, key):
+    def lookup(w_self, name):
         # note that this doesn't call __get__ on the result at all
+        space = w_self.space
+        if space.config.objspace.std.withmethodcache:
+            return w_self.lookup_where_with_method_cache(name)[1]
+
+        return w_self._lookup(name)
+
+    def lookup_where(w_self, name):
+        space = w_self.space
+        if space.config.objspace.std.withmethodcache:
+            return w_self.lookup_where_with_method_cache(name)
+
+        return w_self._lookup_where(name)
+
+    def _lookup(w_self, key):
         space = w_self.space
         for w_class in w_self.mro_w:
             w_value = w_class.getdictvalue_w(space, key)
@@ -285,7 +299,7 @@ class W_TypeObject(W_Object):
                 return w_value
         return None
 
-    def lookup_where(w_self, key):
+    def _lookup_where(w_self, key):
         # like lookup() but also returns the parent class in which the
         # attribute was found
         space = w_self.space
@@ -294,6 +308,41 @@ class W_TypeObject(W_Object):
             if w_value is not None:
                 return w_class, w_value
         return None, None
+
+    def lookup_where_with_method_cache(w_self, name):
+        space = w_self.space
+        assert space.config.objspace.std.withmethodcache
+        ec = space.getexecutioncontext()
+        try:
+            frame = ec.framestack.top()
+            position_hash = frame.last_instr ^ id(frame.pycode)
+        except IndexError:
+            position_hash = 0
+        version_tag = w_self.version_tag
+        if version_tag is None:
+            tup = w_self._lookup_where(name)
+            return tup
+        SIZE = space.config.objspace.std.methodcachesize
+        method_hash = (id(version_tag) ^ position_hash ^ hash(name)) % SIZE
+        cached_version_tag = ec.method_cache_versions[method_hash]
+        if cached_version_tag is version_tag:
+            cached_name = ec.method_cache_names[method_hash]
+            if cached_name == name:
+                tup = ec.method_cache_lookup_where[method_hash]
+                if space.config.objspace.std.withmethodcachecounter:
+                    ec.method_cache_hits[name] = \
+                            ec.method_cache_hits.get(name, 0) + 1
+#                print "hit", w_self, name
+                return tup
+        tup = w_self._lookup_where(name)
+        ec.method_cache_versions[method_hash] = version_tag
+        ec.method_cache_names[method_hash] = name
+        ec.method_cache_lookup_where[method_hash] = tup
+        if space.config.objspace.std.withmethodcachecounter:
+            ec.method_cache_misses[name] = \
+                    ec.method_cache_misses.get(name, 0) + 1
+#        print "miss", w_self, name
+        return tup
 
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
