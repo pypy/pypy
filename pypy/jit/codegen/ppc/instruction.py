@@ -12,7 +12,7 @@ class AllocationSlot(object):
         # instances with the same value in self.alloc can be used at
         # once.
         self.alloc = self
-        
+
     def make_loc(self):
         """ When we assign a variable to one of these registers, we
         call make_loc() to get the actual location instance; that
@@ -48,7 +48,7 @@ CT_REGISTER = 3
 class Register(AllocationSlot):
     is_register = True
     def __init__(self):
-        AllocationSlot.__init__(self)        
+        AllocationSlot.__init__(self)
 
 class GPR(Register):
     regclass = GP_REGISTER
@@ -88,7 +88,7 @@ class CRF(Register):
         Register.__init__(self)
         self.alloc = crf
         self.number = crf.number
-        self.info = (-1,-1) # (bit, negated) 
+        self.info = (-1,-1) # (bit, negated)
     def set_info(self, info):
         assert len(info) == 2
         self.info = info
