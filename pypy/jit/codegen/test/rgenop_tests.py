@@ -840,8 +840,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         rgenop = self.RGenOp()
         signed_kind = rgenop.kindToken(lltype.Signed)
         sigtoken = rgenop.sigToken(FUNC)
-        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken,
-                                                       "sameas")
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "sameas")
         gv_nineteen = builder.genop_same_as(signed_kind, rgenop.genconst(19))
         assert not gv_nineteen.is_const   # 'same_as' must return a variable
         builder.finish_and_return(sigtoken, gv_nineteen)
@@ -851,3 +850,35 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(17)
         assert res == 19
+
+    def test_pause_and_resume(self):
+        # def f(x):
+        #     y = x + 1
+        #     # pause/resume here
+        #     z = x - 1
+        #     w = y*z
+        #     return w
+        rgenop = self.RGenOp()
+
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "f")
+
+        gv_one = rgenop.genconst(1)
+
+        gv_y = builder.genop2("int_add", gv_x, gv_one)
+
+        builder = builder.pause_writing([gv_x, gv_y])
+        builder.start_writing()
+
+        gv_z = builder.genop2("int_sub", gv_x, gv_one)
+        gv_w = builder.genop2("int_mul", gv_y, gv_z)
+
+        builder.finish_and_return(sigtoken, gv_w)
+
+        builder.end()
+
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(1)
+        assert res == 0
