@@ -20,14 +20,16 @@ def annotation(t, bookkeeper=None):
         return lltype_to_annotation(t)
     elif isinstance(t, list):
         assert len(t) == 1, "We do not support type joining in list"
-        listdef = ListDef(None, annotation(t[0]), mutated=True, resized=True)
+        listdef = ListDef(bookkeeper, annotation(t[0]), mutated=True, resized=True)
         return SomeList(listdef)
     elif isinstance(t, tuple):
         return SomeTuple(tuple([annotation(i) for i in t]))
     elif isinstance(t, dict):
+        assert bookkeeper
         assert len(t) == 1, "We do not support type joining in dict"
-        return SomeDict(DictDef(None, annotation(t.keys()[0]),
+        result = SomeDict(DictDef(bookkeeper, annotation(t.keys()[0]),
                                 annotation(t.values()[0])))
+        return result
     elif type(t) is types.NoneType:
         return s_None
     elif extregistry.is_registered(t):
