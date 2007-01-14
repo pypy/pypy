@@ -638,3 +638,67 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 42
+
+    def test_explicit_force_multiple_reads_residual_red_call(self):
+        def get_p(xp):
+            xp_access = xp.vable_access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            return p
+        def g(e):
+            xp = e.xp
+            p1 = get_p(xp)
+            p2 = get_p(xp)
+            e.w = int(p1 == p2)
+
+        def f(e, a, b):
+            xp = e.xp
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            xp_access = xp.vable_access
+            if xp_access:
+                xp_access.set_p(xp, s)
+            else:
+                xp.p = s
+            xp_access = xp.vable_access
+            
+            xp_access = xp.vable_access
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            xp_access = xp.vable_access
+            newx = 2*x
+            if xp_access:
+                xp_access.set_x(xp, newx)
+            else:
+                xp.x = newx
+            g(e)            
+            return xp.x
+            
+        def main(a, b, x):
+            xp = lltype.malloc(XP)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            xp.p = lltype.nullptr(S)
+            e = lltype.malloc(E2)
+            e.xp = xp
+            f(e, a, b)
+            return e.w
+
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift_from_portal(main, f, [2, 20, 10],
+                                         policy=StopAtGPolicy())
+        assert res == 1

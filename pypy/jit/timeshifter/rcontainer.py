@@ -372,7 +372,7 @@ class VirtualStruct(VirtualContainer):
                 self.ownbox.genvar = gv
                 self.ownbox.content = None
                 return
-        debug_print(lltype.Void, "FORCE CONTAINER")
+        debug_print(lltype.Void, "FORCE CONTAINER: "+ typedesc.TYPE._name)
         #debug_pdb(lltype.Void)
         genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
         # force the box pointing to this VirtualStruct
@@ -461,7 +461,8 @@ class VirtualInfo(object):
     def __init__(self, RGenOp):
         self.RGenOp = RGenOp
         self.vinfos = []
-
+        self.s = lltype.nullptr(llmemory.GCREF.TO)
+        
     def read_field(self, fielddesc, base, index):
         T = fielddesc.RESTYPE
         vinfo = self.vinfos[index]
@@ -469,9 +470,11 @@ class VirtualInfo(object):
             return self.RGenOp.read_frame_var(T, base,
                                               self.info, index)
         assert isinstance(T, lltype.Ptr)
+        if self.s:
+            return lltype.cast_opaque_ptr(T, self.s)
         S = T.TO
         s = lltype.malloc(S)
-        # xxx remember that s has been forced
+        self.s = lltype.cast_opaque_ptr(llmemory.GCREF, s)
         fielddesc.fill_into(s, base, vinfo)
         return s
                     
