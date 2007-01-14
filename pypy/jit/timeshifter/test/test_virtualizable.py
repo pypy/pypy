@@ -15,8 +15,8 @@ SETTER = lambda STRUC: lltype.Ptr(lltype.FuncType([lltype.Ptr(STRUC),
                                                  lltype.Void))
 
 XP = lltype.GcForwardReference()
-PGETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XP)], PS))
-PSETTER = lltype.Ptr(lltype.FuncType([lltype.Ptr(XP), PS],
+PGETTER = lambda XP: lltype.Ptr(lltype.FuncType([lltype.Ptr(XP)], PS))
+PSETTER = lambda XP: lltype.Ptr(lltype.FuncType([lltype.Ptr(XP), PS],
                                    lltype.Void))
 
 XY_ACCESS = lltype.Struct('xy_access',
@@ -31,8 +31,8 @@ XY_ACCESS = lltype.Struct('xy_access',
 XP_ACCESS = lltype.Struct('xp_access',
                           ('get_x', GETTER(XP)),
                           ('set_x', SETTER(XP)),
-                          ('get_p', PGETTER),
-                          ('set_p', PSETTER),
+                          ('get_p', PGETTER(XP)),
+                          ('set_p', PSETTER(XP)),
                           hints = {'immutable': True},
                           )
 
@@ -60,7 +60,27 @@ XP.become(lltype.GcStruct('xp',
 E2 = lltype.GcStruct('e', ('xp', lltype.Ptr(XP)),
                          ('w',  lltype.Signed))
 
-     
+PQ = lltype.GcForwardReference()
+PQ_ACCESS = lltype.Struct('pq_access',
+                          ('get_p', PGETTER(PQ)),
+                          ('set_p', PSETTER(PQ)),
+                          ('get_q', PGETTER(PQ)),
+                          ('set_q', PSETTER(PQ)),
+                          hints = {'immutable': True},
+                          )
+
+PQ.become(lltype.GcStruct('pq',
+                          ('vable_base', llmemory.Address),
+                          ('vable_info', VABLEINFOPTR),                     
+                          ('vable_access', lltype.Ptr(PQ_ACCESS)),
+                          ('p', PS),
+                          ('q', PS),
+                          hints = {'virtualizable': True}
+              ))
+
+E3 = lltype.GcStruct('e', ('pq', lltype.Ptr(PQ)),
+                         ('w',  lltype.Signed))
+
 class TestVirtualizable(PortalTest):
 
     def test_simple_explicit(self):
@@ -686,6 +706,77 @@ class TestVirtualizable(PortalTest):
             xp.p = lltype.nullptr(S)
             e = lltype.malloc(E2)
             e.xp = xp
+            f(e, a, b)
+            return e.w
+
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift_from_portal(main, f, [2, 20, 10],
+                                         policy=StopAtGPolicy())
+        assert res == 1
+
+
+    def test_explicit_force_unaliased_residual_red_call(self):
+        py.test.skip('Fails for unknown reason.')
+        def get_p(pq):
+            pq_access = pq.vable_access
+            if pq_access:
+                p = pq_access.get_p(pq)
+            else:
+                p = pq.p
+            return p
+        def get_q(pq):
+            pq_access = pq.vable_access
+            if pq_access:
+                q = pq_access.get_q(pq)
+            else:
+                q = pq.q
+            return q
+
+        def g(e):
+            pq = e.pq
+            p = get_p(pq)
+            q = get_q(pq)
+            e.w = int(p != q)
+
+        def f(e, a, b):
+            pq = e.pq
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            pq_access = pq.vable_access
+            if pq_access:
+                pq_access.set_p(pq, s)
+            else:
+                pq.p = s
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            pq_access = pq.vable_access
+            if pq_access:
+                pq_access.set_q(pq, s)
+            else:
+                pq.q = s
+            
+            g(e)            
+            return pq.p.a
+            
+        
+        def main(a, b, x):
+            pq = lltype.malloc(PQ)
+            pq.vable_access = lltype.nullptr(PQ_ACCESS)
+            pq.p = lltype.nullptr(S)
+            pq.q = pq.p
+            e = lltype.malloc(E3)
+            e.pq = pq
             f(e, a, b)
             return e.w
 
