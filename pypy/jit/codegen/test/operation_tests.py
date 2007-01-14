@@ -2,7 +2,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.codegen import graph2rgenop
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int, c_float
 from pypy import conftest
 
@@ -45,8 +45,10 @@ class OperationTests(object):
                    lambda x, y: abs(-x),
                    ]:
             fp = self.rgen(fn, [int, int])
-            assert fp(40, 2) == fn(40, 2)
-            assert fp(25, 3) == fn(25, 3)
+            assert fp(40, 2) == intmask(fn(40, 2))
+            assert fp(25, 3) == intmask(fn(25, 3))
+            assert fp(149, 32) == intmask(fn(149, 32))
+            assert fp(149, 33) == intmask(fn(149, 33))
 
     def test_comparison(self):
         for fn in [lambda x, y: int(x <  y),
