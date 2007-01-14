@@ -275,26 +275,25 @@ class W_Array(W_Object):
                  Value=w_Undefined, callfunc=None):
         W_Object.__init__(self, ctx, Prototype, Class, Value, callfunc)
         self.Put('length', W_Number(0))
+        self.array = []
     
     def Put(self, P, V):
-        if not self.CanPut(P): return
-        if P in self.propdict:
-            self.propdict[P].value = V
-        else:
-            try:
-                x = int(P)
-            except ValueError:
-                x = -1
-            # FIXME: Get this working
-            # if x > self.Get('length'):
-            #     self.propdict['length'].value = W_Number(x)
-            self.propdict[P] = Property(P, V)
+        try:
+            x = int(P)
+            if x > self.Get('length').ToNumber():
+                self.propdict['length'].value = W_Number(x)
+        except ValueError:
+            if not self.CanPut(P): return
+            if P in self.propdict:
+                self.propdict[P].value = V
+            else:
+                self.propdict[P] = Property(P, V)
     
     def str_builtin(self, ctx, args, this):
         return W_String(ToString())
 
     def ToString(self):
-        return ''
+        return ','.join(self.array)
 
 
 class W_Boolean(W_Primitive):

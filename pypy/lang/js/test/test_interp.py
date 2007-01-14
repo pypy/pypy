@@ -335,6 +335,9 @@ class TestInterp(object):
     
     def test_switch(self):
         py.test.skip('not ready yet')
+    
+    def test_semicolon(self):
+        self.assert_prints(';', [])
 
     def test_newwithargs(self):
         self.assert_prints("""

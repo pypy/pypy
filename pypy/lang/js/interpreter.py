@@ -752,9 +752,11 @@ def from_tree(t):
         node = Script(getlist(t), var_decl, func_decl)
     elif tp == 'SEMICOLON':
         expr = gettreeitem(t, 'expression')
+        print expr
         if isinstance(expr, Symbol):
             node = Semicolon()
-        node = Semicolon(from_tree(expr))
+        else:
+            node = Semicolon(from_tree(expr))
     elif tp == 'STRING':
         node = String(gettreeitem(t, 'value').additional_info)
     elif tp == 'THIS':
