@@ -566,7 +566,7 @@ def hard_load(mc, opdst, opmemsource, itemsize):
         try:
             mc.MOV(opdst, opmemsource)
         except FailedToImplement:               # opdst is a MODRM
-            if opmemtarget.involves_ecx():
+            if opmemsource.involves_ecx():
                 mc.PUSH(opmemsource)
                 mc.POP(opdst)
             else:
@@ -576,7 +576,7 @@ def hard_load(mc, opdst, opmemsource, itemsize):
         try:
             mc.MOVZX(opdst, opmemsource)
         except FailedToImplement:               # opdst is a MODRM
-            if opmemtarget.involves_ecx():
+            if opmemsource.involves_ecx():
                 mc.PUSH(eax)
                 mc.MOVZX(eax, opmemsource)
                 mc.MOV(opdst, eax)
@@ -658,6 +658,29 @@ class OpSetArrayItem(Operation):
         optarget = array_item_operand(mc, oparray, self.arraytoken, opindex)
         _, _, itemsize = self.arraytoken
         hard_store(mc, optarget, opvalue, itemsize)
+
+class OpGetArraySubstruct(Operation):
+    def __init__(self, arraytoken, gv_array, gv_index):
+        self.arraytoken = arraytoken
+        self.gv_array = gv_array
+        self.gv_index = gv_index
+    def allocate(self, allocator):
+        allocator.using(self.gv_array)
+        allocator.using(self.gv_index)
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # result not used
+        oparray = allocator.get_operand(self.gv_array)
+        opindex = allocator.get_operand(self.gv_index)
+        mc = allocator.mc
+        opsource = array_item_operand(mc, oparray, self.arraytoken, opindex)
+        try:
+            mc.LEA(dstop, opsource)
+        except FailedToImplement:
+            mc.LEA(ecx, opsource)
+            mc.MOV(dstop, ecx)
 
 # ____________________________________________________________
 
@@ -1280,6 +1303,11 @@ class Builder(GenBuilder):
     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
         self.operations.append(OpSetField(fieldtoken, gv_ptr, gv_value))
 
+    def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
+        op = OpIntAdd(gv_ptr, IntConst(offset))
+        self.operations.append(op)
+        return op
+
     def genop_getarrayitem(self, arraytoken, gv_array, gv_index):
         op = OpGetArrayItem(arraytoken, gv_array, gv_index)
         self.operations.append(op)
@@ -1288,6 +1316,17 @@ class Builder(GenBuilder):
     def genop_setarrayitem(self, arraytoken, gv_array, gv_index, gv_value):
         self.operations.append(OpSetArrayItem(arraytoken, gv_array,
                                               gv_index, gv_value))
+
+    def genop_getarraysubstruct(self, arraytoken, gv_array, gv_index):
+        op = OpGetArraySubstruct(arraytoken, gv_array, gv_index)
+        self.operations.append(op)
+        return op
+
+    def genop_getarraysize(self, arraytoken, gv_array):
+        lengthtoken, _, _ = arraytoken
+        op = OpGetField(lengthtoken, gv_array)
+        self.operations.append(op)
+        return op
 
     def flexswitch(self, gv_exitswitch, args_gv):
         reg = FlexSwitch.REG
