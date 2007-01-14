@@ -377,11 +377,10 @@ class TestInterp(object):
         print(y)""", ["5"])
     
     def test_math_stuff(self):
-        py.test.skip('not ready yet')
         self.assert_prints("""
         var x = 5;
         var z = 2;
-        prtin(x*z)
+        print(x*z)
         print(4/z)
         print(isNaN(z))
         print(Math.abs(z-x))

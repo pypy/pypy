@@ -245,6 +245,12 @@ class W_Object(W_PrimitiveObject):
 
 
 class W_Builtin(W_PrimitiveObject):
+    def __init__(self, builtin=None, ctx=None, Prototype=None, Class='function',
+                 Value=w_Undefined, callfunc=None):
+        W_PrimitiveObject.__init__(self, ctx, Prototype,
+                                   Class, Value, callfunc)
+        self.set_builtin_call(builtin)
+        
     def set_builtin_call(self, callfuncbi):
         self.callfuncbi = callfuncbi
 
@@ -392,6 +398,9 @@ class W_List(W_Root):
     def ToBoolean(self):
         return bool(self.list_w)
     
+    def get_args(self):
+        return self.list_w
+    
     def __str__(self):
         return str(self.list_w)
 
@@ -467,6 +476,9 @@ class W_Reference(W_Root):
         if self.base is None:
             exception = "ReferenceError: %s is not defined"%(self.property_name,)
             raise ThrowException(W_String(exception))
+        
+        print "ref base: %s, prop: %s, getresult: %s"%(self.base,
+                        self.property_name, self.base.Get(self.property_name))
         return self.base.Get(self.property_name)
 
     def PutValue(self, w, ctx):

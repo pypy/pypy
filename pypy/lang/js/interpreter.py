@@ -18,6 +18,7 @@ class Node(object):
         raise NotImplementedError
     
     def get_literal(self):
+        print self
         raise NotImplementedError
     
     def get_args(self, ctx):
@@ -77,7 +78,10 @@ def printjs(ctx, args, this):
 
 def objectconstructor(ctx, args, this):
     return W_Object()
-    
+
+def isnanjs(ctx, args, this):
+    return W_Boolean(args[0].ToNumber() == NaN)
+        
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
@@ -100,18 +104,20 @@ class Interpreter(object):
         w_ObjPrototype.Put('constructor', w_Object)
         #And some other stuff
         
-        w_Array = W_Array()
-        w_Global.Put('Object', w_Object)
-        w_Global.Put('Function', w_Function)
-        w_Global.Put('Array', w_Array)
-        evalbuiltin = W_Builtin(Class='function')
-        evalbuiltin.set_builtin_call(evaljs)
-        w_Global.Put('eval', evalbuiltin)
-        printbuiltin = W_Builtin(Class='function')
-        printbuiltin.set_builtin_call(printjs)
-        w_Global.Put('print', printbuiltin)
+        #Math
+        # w_math = W_Object(Class='Math')
+        # w_math.Put('abs')
         
         #Global Properties
+        w_Global.Put('Object', w_Object)
+        w_Global.Put('Function', w_Function)
+        w_Global.Put('Array', W_Array())
+        # w_Global.Put('Math', )
+
+        w_Global.Put('eval', W_Builtin(evaljs))
+        w_Global.Put('print', W_Builtin(printjs))
+        w_Global.Put('isNaN', W_Builtin(isnanjs))
+
         w_Global.Put('NaN', W_Number(NaN))
         w_Global.Put('Infinity', W_Number(Infinity))
         w_Global.Put('undefined', w_Undefined)
@@ -194,9 +200,18 @@ class Call(Expression):
         self.arglist = arglist
 
     def eval(self, ctx):
-        name = self.identifier.get_literal()
-        w_obj = ctx.resolve_identifier(name).GetValue()
-        retval = w_obj.Call(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
+        r1 = self.identifier.eval(ctx)
+        r2 = self.arglist.eval(ctx)
+        r3 = r1.GetValue()
+        if isinstance(r1, W_Reference):
+            r6 = r1.GetBase()
+        else:
+            r6 = None
+        if isinstance(r2, ActivationObject):
+            r7 = None
+        else:
+            r7 = r6
+        retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
         return retval
 
 
@@ -397,8 +412,8 @@ class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
         
-    def get_args(self, ctx):
-        return [node.eval(ctx) for node in self.nodes]
+    def eval(self, ctx):
+        return W_List([node.eval(ctx) for node in self.nodes])
 
 class Minus(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
@@ -464,6 +479,31 @@ class Plus(BinaryComparisonOp):
             num_left = prim_left.ToNumber()
             num_right = prim_right.ToNumber()
             return W_Number(num_left + num_right)
+
+class Mult(BinaryComparisonOp):
+    def decision(self, ctx, op1, op2):
+        prim_left = op1.ToPrimitive(ctx, 'Number')
+        prim_right = op2.ToPrimitive(ctx, 'Number')
+        num_left = prim_left.ToNumber()
+        num_right = prim_right.ToNumber()
+        return W_Number(num_left * num_right)
+
+class Div(BinaryComparisonOp):
+    def decision(self, ctx, op1, op2):
+        prim_left = op1.ToPrimitive(ctx, 'Number')
+        prim_right = op2.ToPrimitive(ctx, 'Number')
+        num_left = prim_left.ToNumber()
+        num_right = prim_right.ToNumber()
+        return W_Number(num_left / num_right)
+
+class Minus(BinaryComparisonOp):
+    def decision(self, ctx, op1, op2):
+        prim_left = op1.ToPrimitive(ctx, 'Number')
+        prim_right = op2.ToPrimitive(ctx, 'Number')
+        num_left = prim_left.ToNumber()
+        num_right = prim_right.ToNumber()
+        return W_Number(num_left - num_right)
+
 
 class Script(Statement):
     def __init__(self, nodes, var_decl, func_decl):
@@ -732,6 +772,12 @@ def from_tree(t):
         node = ObjectInit(getlist(t))
     elif tp == 'PLUS':
         node = Plus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'MUL':
+        node = Mult(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'DIV':
+        node = Div(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'MIN':
+        node = Minus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))    
     elif tp == 'PROPERTY_INIT':
         node = PropertyInit(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'RETURN':
