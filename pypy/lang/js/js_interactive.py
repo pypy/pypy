@@ -21,7 +21,8 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-def loadjs(ctx, filename):
+def loadjs(ctx, args, this):
+    filename = args[0]
     f = open(filename.ToString())
     t = load_source(f.read())
     f.close()
@@ -50,14 +51,18 @@ def main(argv=None):
         return 2
     
     interp = Interpreter()
-    def quiter():
+    def quiter(ctx, args, this):
         sys.exit(0)
         return "this should not be printed"
     
-    interp.w_Global.Put('quit', W_Builtin(quiter))
-    interp.w_Global.Put('load', W_Builtin(loadjs, context=True, args=1))
+    quitbi = W_Builtin()
+    quitbi.set_builtin_call(quiter)
+    loadbi = W_Builtin()
+    loadbi.set_builtin_call(loadjs)
+    interp.w_Global.Put('quit', quitbi)
+    interp.w_Global.Put('load', loadbi)
     for filename in filenames:
-        loadjs(interp.global_context, W_String(filename))
+        loadjs(interp.global_context, [W_String(filename)], None)
     
     while 1:
         res = interp.run(load_source(raw_input("pypy-js> ")))
