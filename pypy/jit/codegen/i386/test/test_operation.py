@@ -5,7 +5,10 @@ from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 
 def conv(n):
     if not isinstance(n, int):
-        n = convert_offset_to_int(n)
+        if isinstance(n, tuple):
+            n = tuple(map(conv, n))
+        else:
+            n = convert_offset_to_int(n)
     return n
 
 
@@ -18,12 +21,12 @@ class RGenOpPacked(RI386GenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return tuple(map(conv, RI386GenOp.fieldToken(T, name)))
+        return conv(RI386GenOp.fieldToken(T, name))
 
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
-        return tuple(map(conv, RI386GenOp.arrayToken(A)))
+        return conv(RI386GenOp.arrayToken(A))
 
     @staticmethod
     @specialize.memo()
@@ -33,7 +36,7 @@ class RGenOpPacked(RI386GenOp):
     @staticmethod
     @specialize.memo()
     def varsizeAllocToken(A):
-        return tuple(map(conv, RI386GenOp.varsizeAllocToken(A)))
+        return conv(RI386GenOp.varsizeAllocToken(A))
 
 
 class I386TestMixin(object):
