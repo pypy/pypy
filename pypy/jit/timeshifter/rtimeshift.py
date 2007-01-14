@@ -950,6 +950,14 @@ class JITState(object):
         self.residual_ll_exception(cast_instance_to_base_ptr(e))
         
 
+def start_writing(jitstate=None, prevopen=None):
+    if jitstate is not prevopen:
+        if prevopen is not None:
+            prevopen.pause()
+        jitstate.curbuilder.start_writing()
+    return jitstate
+
+
 def ensure_queue(jitstate, DispatchQueueClass):
     return DispatchQueueClass()
 ensure_queue._annspecialcase_ = 'specialize:arg(1)'
@@ -987,18 +995,19 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     return_chain = dispatchqueue.return_chain
     return_cache = {}
     still_pending = None
+    opened = None
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
-        jitstate.curbuilder.start_writing()
+        opened = start_writing(jitstate, opened)
         res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                           return_marker,
                                           force_merge=force_merge)
         if res is False:    # not finished
-            if still_pending:
-                still_pending.pause()
             jitstate.next = still_pending
             still_pending = jitstate
+        else:
+            opened = None
     
     # Of the jitstates we have left some may be mergable to a later
     # more general one.
@@ -1006,21 +1015,19 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     if return_chain is not None:
         return_cache = {}
         still_pending = None
-        was_paused = False
         while return_chain is not None:
             jitstate = return_chain
             return_chain = return_chain.next
-            if was_paused:
-                jitstate.curbuilder.start_writing()
-            was_paused = True   # only the head of the list was *not* paused
+            opened = start_writing(jitstate, opened)
             res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                               return_marker,
                                               force_merge=force_merge)
             if res is False:    # not finished
-                if still_pending:
-                    still_pending.pause()
                 jitstate.next = still_pending
                 still_pending = jitstate
+            else:
+                opened = None
+    start_writing(still_pending, opened)
     return still_pending
 
 def leave_graph_red(jitstate, dispatchqueue, is_portal):
