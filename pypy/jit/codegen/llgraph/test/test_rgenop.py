@@ -55,3 +55,14 @@ def test_read_frame_var():
     ptr = gv_f.revealconst(lltype.Ptr(F1))
     res = testgengraph(ptr._obj.graph, [21])
     assert res == 42
+
+def test_not_calling_end_explodes():
+    F1 = lltype.FuncType([lltype.Signed], lltype.Signed)
+    rgenop = RGenOp()
+    sigtoken = rgenop.sigToken(F1)
+    builder, gv_adder, [gv_x] = rgenop.newgraph(sigtoken, "adder")
+    gv_result = builder.genop2("int_add", gv_x, rgenop.genconst(5))
+    builder.finish_and_return(sigtoken, gv_result)
+    #builder.end() <--- the point
+    ptr = gv_adder.revealconst(lltype.Ptr(F1))
+    py.test.raises(AssertionError, "testgengraph(ptr._obj.graph, [1])")

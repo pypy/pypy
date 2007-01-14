@@ -43,6 +43,14 @@ def newgraph(gv_FUNCTYPE, name):
         v.concretetype = lltype.erasedType(ARG)
         erasedinputargs.append(v)
     startblock = flowmodel.Block(inputargs)
+    # insert an exploding operation here which is removed by
+    # builder.end() to ensure that builder.end() is actually called.
+    startblock.operations.append(
+        flowmodel.SpaceOperation("debug_assert",
+                                 [flowmodel.Constant(False, lltype.Bool),
+                                  flowmodel.Constant("you didn't call builder.end()?",
+                                                     lltype.Void)],
+                                 varoftype(lltype.Void)))
     return_var = flowmodel.Variable()
     return_var.concretetype = FUNCTYPE.RESULT
     graph = flowmodel.FunctionGraph(name, startblock, return_var)
@@ -204,8 +212,9 @@ def isconst(gv_value):
     return isinstance(c, flowmodel.Constant)
 
 # XXX
-# temporary interface; it's unclera if genop itself should change to ease dinstinguishing
-# Void special args from the rest. Or there should be variation for the ops involving them
+# temporary interface; it's unclear if genop itself should change to
+# ease dinstinguishing Void special args from the rest. Or there
+# should be variation for the ops involving them
 
 def placeholder(dummy):
     c = flowmodel.Constant(dummy)
@@ -418,6 +427,8 @@ def fixduplicatevars(graph):
             done[block] = True
 
 def _buildgraph(graph):
+    assert graph.startblock.operations[0].opname == 'debug_assert'
+    del graph.startblock.operations[0]
     # rgenop makes graphs that use the same variable in several blocks,
     fixduplicatevars(graph)                             # fix this now
     flowmodel.checkgraph(graph)
