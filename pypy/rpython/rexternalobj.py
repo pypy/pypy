@@ -60,12 +60,22 @@ class ExternalBuiltinRepr(Repr):
         # have overwritten _fields. This will do no harm, but may hide some
         # errors
         r = hop.rtyper.getrepr(annotation(obj, bookkeeper))
+        r.setup()
         v = hop.inputarg(r, arg=2)
         vlist.append(v)
         return hop.genop('oosetfield', vlist)
     
     def call_method(self, name, hop):
-        vlist = hop.inputargs(self, *(hop.args_r[1:]))
+        bookkeeper = hop.rtyper.annotator.bookkeeper
+        args_r = []
+        for num, arg_desc in enumerate(self.knowntype._class_._methods[name].args):
+            s_v = arg_desc._type
+#            if isinstance(s_v, annmodel.SomeGenericCallable):
+#                import pdb;pdb.set_trace()
+            r = hop.rtyper.getrepr(s_v)
+            r.setup()
+            args_r.append(r)
+        vlist = hop.inputargs(self, *args_r)
         c_name = hop.inputconst(ootype.Void, name)
         hop.exception_is_here()
         return hop.genop('oosend', [c_name] + vlist, resulttype=hop.r_result)

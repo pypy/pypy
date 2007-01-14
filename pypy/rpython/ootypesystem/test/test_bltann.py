@@ -39,7 +39,9 @@ def test_bltn_attrs():
     assert s.knowntype is int
 
 class AA(BasicExternal):
-    pass
+    _fields = {
+        'b':int
+        }
 
 def test_bltn_set_attr():
     def add_attr():
@@ -63,7 +65,7 @@ class B(BasicExternal):
 def test_bltn_method():
     def access_meth():
         a = B()
-        return a.m()
+        return a.m(3)
     
     a = RPythonAnnotator()
     s = a.build_types(access_meth, [])
@@ -137,4 +139,4 @@ def test_callback_field():
     a = RPythonAnnotator()
     s = a.build_types(callback_field, [])
     assert isinstance(s, annmodel.SomeGenericCallable)
-    assert aa.translator._graphof(callback)
+    assert a.translator._graphof(callback)

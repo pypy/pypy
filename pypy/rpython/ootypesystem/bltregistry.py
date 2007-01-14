@@ -97,7 +97,7 @@ class Analyzer(object):
     def __call__(self, *args):
         args = args[1:]
         assert len(self.s_args) == len(args)
-        for arg, expected in zip(args, self.s_args):
+        for num, (arg, expected) in enumerate(zip(args, self.s_args)):
             res = unionof(arg, expected)
             assert expected.contains(res)
         return self.s_retval
@@ -128,9 +128,10 @@ class ExternalType(ootype.OOType):
         self._fields = {}
         for i, val in _methods.iteritems():
             #s_retval =
+            val.check_update()
             retval = annotation(val.retval._type)
             values = [arg._type for arg in val.args]
-            s_args = [annotation(j) for j in values]
+            s_args = [j for j in values]
             _signs[i] = MethodDesc(tuple(s_args), retval)
             next = annmodel.SomeBuiltin(Analyzer(i, val, retval, s_args), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
             next.const = True

@@ -32,14 +32,25 @@ class AbstractGenericCallableRepr(Repr):
         r_func = self.rtyper.getrepr(bookkeeper.immutablevalue(value))
         return r_func.get_unique_llfn().value
 
+    def _setup_repr(self):
+        for r in self.args_r:
+            r.setup()
+        self.r_result.setup()
+
 class __extend__(annmodel.SomeGenericCallable):
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rgeneric.GenericCallableRepr(rtyper, self)
 
+    def rtyper_makekey(self):
+        return self.__class__, tuple([i.rtyper_makekey() for i in self.args_s]),\
+              self.s_result.rtyper_makekey(), tuple(self.descriptions.keys())
+
 class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractGenericCallableRepr)):
     def convert_from_to((pbcrepr, gencallrepr), v, llops):
         if pbcrepr.lowleveltype is lltype.Void:
-            return gencallrepr.convert_const(pbcrepr.s_pbc.const)
+            r = gencallrepr.convert_const(pbcrepr.s_pbc.const)
+            r.setup()
+            return r
         if pbcrepr.lowleveltype == gencallrepr.lowleveltype:
             return v
         return NotImplemented
