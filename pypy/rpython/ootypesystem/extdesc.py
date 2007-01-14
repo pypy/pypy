@@ -15,9 +15,6 @@ class ArgDesc(object):
     def __repr__(self):
         return "<ArgDesc %s: %s>" % (self.name, self._type)
 
-    def update(self):
-        return ArgDesc(self.name, annotation(self._type))
-
 class MethodDesc(object):
     """ Description of method to be external,
     args are taken from examples given as keyword arguments or as args,
@@ -28,7 +25,6 @@ class MethodDesc(object):
         self.args = [self.convert_val(arg) for arg in args]
         self.retval = self.convert_val(retval)
         self.example = self
-        self.updated = False
     
     def convert_val(self, val):
         if isinstance(val, ArgDesc) or isinstance(val, MethodDesc):
@@ -39,11 +35,5 @@ class MethodDesc(object):
             self.num += 1
             return ArgDesc('v%d' % (self.num-1), val)
 
-    def check_update(self):
-        if not self.updated:
-            self.args = [i.update() for i in self.args]
-            self.retval = self.retval.update()
-            self.updated = True
-    
     def __repr__(self):
         return "<MethodDesc (%r)>" % (self.args,)

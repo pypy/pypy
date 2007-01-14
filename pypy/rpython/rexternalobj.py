@@ -68,11 +68,8 @@ class ExternalBuiltinRepr(Repr):
     def call_method(self, name, hop):
         bookkeeper = hop.rtyper.annotator.bookkeeper
         args_r = []
-        for num, arg_desc in enumerate(self.knowntype._class_._methods[name].args):
-            s_v = arg_desc._type
-#            if isinstance(s_v, annmodel.SomeGenericCallable):
-#                import pdb;pdb.set_trace()
-            r = hop.rtyper.getrepr(s_v)
+        for s_arg in self.knowntype._fields[name].analyser.s_args:
+            r = hop.rtyper.getrepr(s_arg)
             r.setup()
             args_r.append(r)
         vlist = hop.inputargs(self, *args_r)

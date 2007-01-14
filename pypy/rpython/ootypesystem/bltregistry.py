@@ -127,10 +127,8 @@ class ExternalType(ootype.OOType):
         _signs = {}
         self._fields = {}
         for i, val in _methods.iteritems():
-            #s_retval =
-            val.check_update()
             retval = annotation(val.retval._type)
-            values = [arg._type for arg in val.args]
+            values = [annotation(arg._type) for arg in val.args]
             s_args = [j for j in values]
             _signs[i] = MethodDesc(tuple(s_args), retval)
             next = annmodel.SomeBuiltin(Analyzer(i, val, retval, s_args), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
