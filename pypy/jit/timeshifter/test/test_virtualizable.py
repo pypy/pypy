@@ -725,7 +725,6 @@ class TestVirtualizable(PortalTest):
 
 
     def test_explicit_force_unaliased_residual_red_call(self):
-        py.test.skip('Fails for unknown reason.')
         def get_p(pq):
             pq_access = pq.vable_access
             if pq_access:
@@ -760,6 +759,72 @@ class TestVirtualizable(PortalTest):
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
+            pq_access = pq.vable_access
+            if pq_access:
+                pq_access.set_q(pq, s)
+            else:
+                pq.q = s
+            
+            g(e)            
+            return pq.p.a
+            
+        
+        def main(a, b, x):
+            pq = lltype.malloc(PQ)
+            pq.vable_access = lltype.nullptr(PQ_ACCESS)
+            pq.p = lltype.nullptr(S)
+            pq.q = pq.p
+            e = lltype.malloc(E3)
+            e.pq = pq
+            f(e, a, b)
+            return e.w
+
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift_from_portal(main, f, [2, 20, 10],
+                                         policy=StopAtGPolicy())
+        assert res == 1
+
+    def test_explicit_force_aliased_residual_red_call(self):
+        def get_p(pq):
+            pq_access = pq.vable_access
+            if pq_access:
+                p = pq_access.get_p(pq)
+            else:
+                p = pq.p
+            return p
+        def get_q(pq):
+            pq_access = pq.vable_access
+            if pq_access:
+                q = pq_access.get_q(pq)
+            else:
+                q = pq.q
+            return q
+
+        def g(e):
+            pq = e.pq
+            p = get_p(pq)
+            q = get_q(pq)
+            e.w = int(p == q)
+
+        def f(e, a, b):
+            pq = e.pq
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            pq_access = pq.vable_access
+            if pq_access:
+                pq_access.set_p(pq, s)
+            else:
+                pq.p = s
             pq_access = pq.vable_access
             if pq_access:
                 pq_access.set_q(pq, s)

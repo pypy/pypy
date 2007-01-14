@@ -893,10 +893,11 @@ class JITState(object):
         if virtualizables:
             builder = self.curbuilder            
             gv_base = builder.get_frame_base()
+            memo = rvalue.make_vinfo_memo()
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.prepare_for_residual_call(self, gv_base)
+                content.prepare_for_residual_call(self, gv_base, memo)
                 
     def after_residual_call(self):
         virtualizables = self.virtualizables

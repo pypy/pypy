@@ -423,14 +423,18 @@ class VirtualStruct(VirtualContainer):
     def op_getsubstruct(self, jitstate, fielddesc):
         return self.ownbox
 
-    def make_vinfo(self, jitstate):
-        # xxx aliasing
+    def make_vinfo(self, jitstate, memo):
+        try:
+            return memo.containers[self]
+        except KeyError:
+            pass
         typedesc = self.typedesc
         assert typedesc is not None
         builder = jitstate.curbuilder
         gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
                            typedesc.gv_make_vinfo_ptr,
                            [])
+        memo.containers[self] = gv_vinfo
         vars_gv = []
         for box in self.content_boxes:
             if box.genvar:
@@ -444,7 +448,7 @@ class VirtualStruct(VirtualContainer):
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
                 assert isinstance(content, VirtualStruct) # XXX for now
-                gv_vinfo1 = content.make_vinfo(jitstate)
+                gv_vinfo1 = content.make_vinfo(jitstate, memo)
                 builder.genop_call(typedesc.vinfo_append_vinfo_token,
                            typedesc.gv_vinfo_append_vinfo_ptr,
                            [gv_vinfo, gv_vinfo1])
@@ -470,15 +474,21 @@ class VirtualInfo(object):
             return self.RGenOp.read_frame_var(T, base,
                                               self.info, index)
         assert isinstance(T, lltype.Ptr)
+        return vinfo.get_forced(fielddesc, base)
+    read_field._annspecialcase_ = "specialize:arg(1)"
+
+    def get_forced(self, fielddesc, base):
+        T = fielddesc.RESTYPE
+        assert isinstance(T, lltype.Ptr)
         if self.s:
             return lltype.cast_opaque_ptr(T, self.s)
         S = T.TO
         s = lltype.malloc(S)
         self.s = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        fielddesc.fill_into(s, base, vinfo)
+        fielddesc.fill_into(s, base, self)
         return s
-                    
-    read_field._annspecialcase_ = "specialize:arg(1)"
+    get_forced._annspecialcase_ = "specialize:arg(1)"
+        
 
 class VirtualizableStruct(VirtualStruct):
 
@@ -515,11 +525,13 @@ class VirtualizableStruct(VirtualStruct):
             boxes[i] = fielddesc.generate_get(jitstate, gv_outside)
         jitstate.add_virtualizable(self.ownbox)
 
-    def prepare_for_residual_call(self, jitstate, gv_base):
+    def prepare_for_residual_call(self, jitstate, gv_base, memo):
         typedesc = self.typedesc
         builder = jitstate.curbuilder
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is not typedesc.gv_null:
+            if self in memo.containers:
+                return
             base_desc = typedesc.base_desc
             assert base_desc is not None
             base_token = base_desc.fieldtoken
@@ -531,6 +543,8 @@ class VirtualizableStruct(VirtualStruct):
             gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
                                typedesc.gv_make_vinfo_ptr,
                                [])
+            memo.containers[self] = gv_vinfo
+            
             for i in range(NVABLEFIELDS, n-1):
                 box = boxes[i]
                 if box.genvar:
@@ -544,7 +558,7 @@ class VirtualizableStruct(VirtualStruct):
                     assert isinstance(box, rvalue.PtrRedBox)
                     content = box.content
                     assert isinstance(content, VirtualStruct) # XXX for now
-                    gv_vinfo1 = content.make_vinfo(jitstate)
+                    gv_vinfo1 = content.make_vinfo(jitstate, memo)
                     builder.genop_call(typedesc.vinfo_append_vinfo_token,
                                typedesc.gv_vinfo_append_vinfo_ptr,
                                [gv_vinfo, gv_vinfo1])
