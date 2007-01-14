@@ -1,12 +1,13 @@
 
 import operator
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.annlowlevel import cachedtype
+from pypy.rpython.annlowlevel import cachedtype, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import base_ptr_lltype, cast_instance_to_base_ptr
 from pypy.jit.timeshifter import rvalue
 from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lloperation
+from pypy.rpython.lltypesystem import lloperation, llmemory
 debug_print = lloperation.llop.debug_print
 debug_pdb = lloperation.llop.debug_pdb
 
@@ -40,6 +41,7 @@ class FrozenContainer(AbstractContainer):
 
 VABLEFIELDS = ('vable_base', 'vable_info', 'vable_access')
 NVABLEFIELDS = len(VABLEFIELDS)
+VABLEINFOPTR = base_ptr_lltype()
 
 class StructTypeDesc(object):
     __metaclass__ = cachedtype
@@ -108,14 +110,16 @@ class StructTypeDesc(object):
             j = 0
             def make_get_field(T, j):
                 def get_field(struc):
-                    return RGenOp.read_frame_var(T, struc.vable_base,
-                                                 struc.vable_info,
-                                                 j)
+                    vable_info = struc.vable_info
+                    vable_info = cast_base_ptr_to_instance(VirtualInfo,
+                                                           vable_info)
+                    return vable_info.read_field(fielddesc,
+                                                 struc.vable_base, j)
                 return get_field
             s_structtype = annmodel.lltype_to_annotation(self.PTRTYPE)
             for i in range(NVABLEFIELDS, len(fielddescs)):
                 fielddesc = fielddescs[i]        
-                get_field = make_get_field(fielddesc.RESTYPE, j)
+                get_field = make_get_field(fielddesc, j)
                 j += 1
                 s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
                 get_field_ptr = annhelper.delayedfunction(get_field,
@@ -126,9 +130,10 @@ class StructTypeDesc(object):
                 setattr(access, 'get_'+name, get_field_ptr)
         else:
             self.VStructCls = VirtualStruct
-            
+
+        descs = unrolling_iterable(fielddescs)
         if self.immutable and self.noidentity:
-            descs = unrolling_iterable(fielddescs)
+            
             def materialize(rgenop, boxes):
                 s = lltype.malloc(TYPE)
                 i = 0
@@ -139,7 +144,25 @@ class StructTypeDesc(object):
                 return rgenop.genconst(s)
 
             self.materialize = materialize
-                
+
+        def fill_into(s, base, vinfo):
+            i = 0
+            for desc in descs:
+                v = vinfo.read_field(desc, base, i)
+                i += 1
+                setattr(s, desc.fieldname, v)
+        self.fill_into = fill_into
+
+        self.gv_make_vinfo_ptr = hrtyper.gv_make_vinfo_ptr
+        self.make_vinfo_token = hrtyper.make_vinfo_token
+
+        self.gv_vinfo_set_info_ptr = hrtyper.gv_vinfo_set_info_ptr
+        self.vinfo_set_info_token = hrtyper.vinfo_set_info_token
+        self.gv_vinfo_append_vinfo_ptr = hrtyper.gv_vinfo_append_vinfo_ptr
+        self.vinfo_append_vinfo_token = hrtyper.vinfo_append_vinfo_token
+        self.gv_vinfo_skip_vinfo_ptr = hrtyper.gv_vinfo_skip_vinfo_ptr
+        self.vinfo_skip_vinfo_token = hrtyper.vinfo_skip_vinfo_token
+        
     def getfielddesc(self, name):
         return self.fielddesc_by_name[name]
 
@@ -172,16 +195,20 @@ class FieldDesc(object):
     allow_void = False
     virtualizable = False
     gv_default = None
-
+    
     def __init__(self, hrtyper, PTRTYPE, RESTYPE):
         RGenOp = hrtyper.RGenOp
         self.PTRTYPE = PTRTYPE
+        T = None
         if isinstance(RESTYPE, lltype.ContainerType):
+            T = RESTYPE
             RESTYPE = lltype.Ptr(RESTYPE)
         elif isinstance(RESTYPE, lltype.Ptr):
             T = RESTYPE.TO
             if hasattr(T, '_hints'):
                 self.virtualizable = T._hints.get('virtualizable', False)
+            if not isinstance(T, lltype.ContainerType):
+                T = None
         self.RESTYPE = RESTYPE
         self.ptrkind = RGenOp.kindToken(PTRTYPE)
         self.kind = RGenOp.kindToken(RESTYPE)
@@ -190,9 +217,14 @@ class FieldDesc(object):
         if RESTYPE is lltype.Void and self.allow_void:
             pass   # no redboxcls at all
         elif self.virtualizable:
-            self.structdesc = StructTypeDesc(hrtyper, T)
+            pass
         else:
             self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
+
+        if T is not None and isinstance(T, lltype.Struct): # xxx for now
+            self.structdesc = StructTypeDesc(hrtyper, T)
+            self.fill_into = self.structdesc.fill_into
+            
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
 
     def _freeze_(self):
@@ -212,6 +244,7 @@ class FieldDesc(object):
             return structbox
         return self.redboxcls(self.kind, gvar)
 
+    
 class NamedFieldDesc(FieldDesc):
 
     def __init__(self, hrtyper, PTRTYPE, name):
@@ -390,6 +423,60 @@ class VirtualStruct(VirtualContainer):
     def op_getsubstruct(self, jitstate, fielddesc):
         return self.ownbox
 
+    def make_vinfo(self, jitstate):
+        # xxx aliasing
+        typedesc = self.typedesc
+        assert typedesc is not None
+        builder = jitstate.curbuilder
+        gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
+                           typedesc.gv_make_vinfo_ptr,
+                           [])
+        vars_gv = []
+        for box in self.content_boxes:
+            if box.genvar:
+                vars_gv.append(box.genvar)
+                builder.genop_call(typedesc.vinfo_skip_vinfo_token,
+                           typedesc.gv_vinfo_skip_vinfo_ptr,
+                           [gv_vinfo])
+
+            else:
+                vars_gv.append(None)
+                assert isinstance(box, rvalue.PtrRedBox)
+                content = box.content
+                assert isinstance(content, VirtualStruct) # XXX for now
+                gv_vinfo1 = content.make_vinfo(jitstate)
+                builder.genop_call(typedesc.vinfo_append_vinfo_token,
+                           typedesc.gv_vinfo_append_vinfo_ptr,
+                           [gv_vinfo, gv_vinfo1])
+
+
+        gv_info = builder.get_frame_info(vars_gv)
+        builder.genop_call(typedesc.vinfo_set_info_token,
+                           typedesc.gv_vinfo_set_info_ptr,
+                           [gv_vinfo, gv_info])
+        return gv_vinfo
+
+class VirtualInfo(object):
+
+    def __init__(self, RGenOp):
+        self.RGenOp = RGenOp
+        self.vinfos = []
+
+    def read_field(self, fielddesc, base, index):
+        T = fielddesc.RESTYPE
+        vinfo = self.vinfos[index]
+        if vinfo is None:
+            return self.RGenOp.read_frame_var(T, base,
+                                              self.info, index)
+        assert isinstance(T, lltype.Ptr)
+        S = T.TO
+        s = lltype.malloc(S)
+        # xxx remember that s has been forced
+        fielddesc.fill_into(s, base, vinfo)
+        return s
+                    
+    read_field._annspecialcase_ = "specialize:arg(1)"
+
 class VirtualizableStruct(VirtualStruct):
 
     def force_runtime_container(self, jitstate):
@@ -434,19 +521,42 @@ class VirtualizableStruct(VirtualStruct):
             assert base_desc is not None
             base_token = base_desc.fieldtoken
             builder.genop_setfield(base_token, gv_outside, gv_base)
-            # xxx recursive and virtual stuff
+            # xxx aliasing
             boxes = self.content_boxes
             vars_gv = []
             n = len(boxes)
+            gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
+                               typedesc.gv_make_vinfo_ptr,
+                               [])
             for i in range(NVABLEFIELDS, n-1):
                 box = boxes[i]
-                assert box.genvar
-                vars_gv.append(box.genvar)
+                if box.genvar:
+                    vars_gv.append(box.genvar)
+                    builder.genop_call(typedesc.vinfo_skip_vinfo_token,
+                               typedesc.gv_vinfo_skip_vinfo_ptr,
+                               [gv_vinfo])
+                    
+                else:
+                    vars_gv.append(None)
+                    assert isinstance(box, rvalue.PtrRedBox)
+                    content = box.content
+                    assert isinstance(content, VirtualStruct) # XXX for now
+                    gv_vinfo1 = content.make_vinfo(jitstate)
+                    builder.genop_call(typedesc.vinfo_append_vinfo_token,
+                               typedesc.gv_vinfo_append_vinfo_ptr,
+                               [gv_vinfo, gv_vinfo1])
+                    
+                    
             gv_info = builder.get_frame_info(vars_gv)
+            builder.genop_call(typedesc.vinfo_set_info_token,
+                               typedesc.gv_vinfo_set_info_ptr,
+                               [gv_vinfo, gv_info])
             info_token = typedesc.info_desc.fieldtoken
+            builder.genop_setfield(info_token, gv_outside,
+                                   gv_vinfo)
             access_token = typedesc.access_desc.fieldtoken
-            builder.genop_setfield(info_token, gv_outside, gv_info)
-            builder.genop_setfield(access_token, gv_outside, typedesc.gv_access)
+            builder.genop_setfield(access_token, gv_outside,
+                                   typedesc.gv_access)
 
     def after_residual_call(self, jitstate):
         typedesc = self.typedesc

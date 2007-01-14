@@ -1,7 +1,7 @@
 from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_portal import PortalTest, P_NOVIRTUAL
 from pypy.rpython.lltypesystem import lltype, llmemory
-
+from pypy.jit.timeshifter.rcontainer import VABLEINFOPTR
 import py
 
 S = lltype.GcStruct('s', ('a', lltype.Signed), ('b', lltype.Signed))
@@ -38,7 +38,7 @@ XP_ACCESS = lltype.Struct('xp_access',
 
 XY.become(lltype.GcStruct('xy',
                           ('vable_base', llmemory.Address),
-                          ('vable_info', llmemory.GCREF),
+                          ('vable_info', VABLEINFOPTR),
                           ('vable_access', lltype.Ptr(XY_ACCESS)),
                           ('x', lltype.Signed),
                           ('y', lltype.Signed),
@@ -50,12 +50,15 @@ E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)),
 
 XP.become(lltype.GcStruct('xp',
                           ('vable_base', llmemory.Address),
-                          ('vable_info', llmemory.GCREF),                     
+                          ('vable_info', VABLEINFOPTR),                     
                           ('vable_access', lltype.Ptr(XP_ACCESS)),
                           ('x', lltype.Signed),
                           ('p', PS),
                           hints = {'virtualizable': True}
               ))
+
+E2 = lltype.GcStruct('e', ('xp', lltype.Ptr(XP)),
+                         ('w',  lltype.Signed))
 
      
 class TestVirtualizable(PortalTest):
@@ -506,7 +509,8 @@ class TestVirtualizable(PortalTest):
 
 
         class StopAtGPolicy(HintAnnotatorPolicy):
-            novirtualcontainer = True
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
 
             def look_inside_graph(self, graph):
                 if graph.name == 'g':
@@ -556,7 +560,8 @@ class TestVirtualizable(PortalTest):
 
 
         class StopAtGPolicy(HintAnnotatorPolicy):
-            novirtualcontainer = True
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
 
             def look_inside_graph(self, graph):
                 if graph.name == 'g':
@@ -564,5 +569,72 @@ class TestVirtualizable(PortalTest):
                 return True
 
         res = self.timeshift_from_portal(main, f, [2, 20],
+                                         policy=StopAtGPolicy())
+        assert res == 42
+
+    def test_explicit_force_in_residual_red_call(self):
+
+        def g(e):
+            xp = e.xp
+            xp_access = xp.vable_access
+            if xp_access:
+                p = xp_access.get_p(xp)
+            else:
+                p = xp.p
+            xp_access = xp.vable_access
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+                
+            e.w = p.a + p.b + x
+
+        def f(e, a, b):
+            xp = e.xp
+            s = lltype.malloc(S)
+            s.a = a
+            s.b = b            
+            xp_access = xp.vable_access
+            if xp_access:
+                xp_access.set_p(xp, s)
+            else:
+                xp.p = s
+            xp_access = xp.vable_access
+            
+            xp_access = xp.vable_access
+            if xp_access:
+                x = xp_access.get_x(xp)
+            else:
+                x = xp.x
+            xp_access = xp.vable_access
+            newx = 2*x
+            if xp_access:
+                xp_access.set_x(xp, newx)
+            else:
+                xp.x = newx
+            g(e)            
+            return xp.x
+            
+        def main(a, b, x):
+            xp = lltype.malloc(XP)
+            xp.vable_access = lltype.nullptr(XP_ACCESS)
+            xp.x = x
+            xp.p = lltype.nullptr(S)
+            e = lltype.malloc(E2)
+            e.xp = xp
+            f(e, a, b)
+            return e.w
+
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            def __init__(self):
+                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 42

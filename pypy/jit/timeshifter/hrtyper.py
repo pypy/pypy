@@ -8,6 +8,8 @@ from pypy.annotation import model as annmodel
 from pypy.annotation import listdef
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
@@ -153,6 +155,68 @@ class HintRTyper(RPythonTyper):
 
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
         #self.void_red_repr = VoidRedRepr(self)
+
+        annhelper = self.annhelper
+        def make_vinfo():
+            vinfo = rcontainer.VirtualInfo(RGenOp)
+            return cast_instance_to_base_ptr(vinfo)
+
+        s_vableinfoptr = annmodel.lltype_to_annotation(rcontainer.VABLEINFOPTR)
+        s_info = annmodel.lltype_to_annotation(llmemory.GCREF)
+        
+        make_vinfo_ptr = annhelper.delayedfunction(make_vinfo, [],
+                                                   s_vableinfoptr,
+                                                   needtype=True)
+        self.gv_make_vinfo_ptr = RGenOp.constPrebuiltGlobal(make_vinfo_ptr)
+        self.make_vinfo_token = RGenOp.sigToken(
+                                     lltype.typeOf(make_vinfo_ptr).TO)
+
+        def vinfo_set_info(vinfo, info):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            vinfo.info = info
+
+        vinfo_set_info_ptr = annhelper.delayedfunction(vinfo_set_info,
+                              [s_vableinfoptr, s_info],
+                              annmodel.s_None,
+                              needtype=True)
+        self.gv_vinfo_set_info_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_set_info_ptr)
+        self.vinfo_set_info_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_set_info_ptr).TO)
+        
+
+        def vinfo_append_vinfo(vinfo, vinfo1):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            vinfo1 = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo1)
+            vinfo.vinfos.append(vinfo1)
+
+        vinfo_append_vinfo_ptr = annhelper.delayedfunction(vinfo_append_vinfo,
+                              [s_vableinfoptr, s_vableinfoptr],
+                              annmodel.s_None,
+                              needtype=True)
+        self.gv_vinfo_append_vinfo_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_append_vinfo_ptr)
+        self.vinfo_append_vinfo_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_append_vinfo_ptr).TO)
+        
+        def vinfo_skip_vinfo(vinfo):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            vinfo.vinfos.append(None)
+
+        vinfo_skip_vinfo_ptr = annhelper.delayedfunction(vinfo_skip_vinfo,
+                              [s_vableinfoptr],
+                              annmodel.s_None,
+                              needtype=True)
+        self.gv_vinfo_skip_vinfo_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_skip_vinfo_ptr)
+        self.vinfo_skip_vinfo_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_skip_vinfo_ptr).TO)
+        
+
 
     def specialize(self, origportalgraph=None, view=False):
         """
