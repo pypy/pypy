@@ -28,6 +28,7 @@ A good summary of the progress over the years.....enjoy!
   * `Europython/Geneva (July 2006)`_
   * Limerick (Aug 2006)
   * `Düsseldorf (October 2006)`_
+  * `Leysin (January 2007)`_
     
     .. _Hildesheim (Feb 2003): http://codespeak.net/pypy/extradoc/sprintinfo/HildesheimReport.html
     .. _Gothenburg (May 2003): http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
@@ -50,4 +51,4 @@ A good summary of the progress over the years.....enjoy!
     .. _Europython/Geneva (July 2006): http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/report.txt
     .. _Düsseldorf (October 2006): http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006b/report.txt
     
-    
+    .. _`Leysin (January 2007)`: http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2007/report.txt
