@@ -835,3 +835,19 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(1291)
         assert res == 1291 * (49*50/2) + 17
+
+    def test_same_as(self):
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken,
+                                                       "sameas")
+        gv_nineteen = builder.genop_same_as(signed_kind, rgenop.genconst(19))
+        assert not gv_nineteen.is_const   # 'same_as' must return a variable
+        builder.finish_and_return(sigtoken, gv_nineteen)
+        builder.end()
+
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(17)
+        assert res == 19
