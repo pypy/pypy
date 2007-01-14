@@ -1,3 +1,4 @@
+import random
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem import lltype
@@ -58,6 +59,62 @@ def get_dummy_runner(RGenOp):
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
     return dummy_runner
+
+FUNC100 = lltype.FuncType([lltype.Signed]*100, lltype.Signed)
+
+def largedummy_example():
+    args = [random.randrange(-10, 50) for i in range(100)]
+    total = 0
+    for i in range(0, 100, 2):
+        total += args[i] - args[i+1]
+    return args, total
+
+def make_largedummy(rgenop):
+    # 'return v0-v1+v2-v3+v4-v5...+v98-v99'
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC100)
+    builder, gv_largedummyfn, gvs = rgenop.newgraph(sigtoken, "largedummy")
+
+    for i in range(0, 100, 2):
+        gvs.append(builder.genop2("int_sub", gvs[i], gvs[i+1]))
+
+    builder.enter_next_block([signed_kind] * 150, gvs)
+    while len(gvs) > 101:
+        gv_sum = builder.genop2("int_add", gvs.pop(), gvs.pop())
+        gvs.append(gv_sum)
+
+    builder.finish_and_return(sigtoken, gvs.pop())
+
+    builder.end()
+    return gv_largedummyfn
+
+def get_largedummy_runner(RGenOp):
+    def largedummy_runner(v0,  v1,  v2,  v3,  v4,  v5,  v6,  v7,  v8,  v9,
+                          v10, v11, v12, v13, v14, v15, v16, v17, v18, v19,
+                          v20, v21, v22, v23, v24, v25, v26, v27, v28, v29,
+                          v30, v31, v32, v33, v34, v35, v36, v37, v38, v39,
+                          v40, v41, v42, v43, v44, v45, v46, v47, v48, v49,
+                          v50, v51, v52, v53, v54, v55, v56, v57, v58, v59,
+                          v60, v61, v62, v63, v64, v65, v66, v67, v68, v69,
+                          v70, v71, v72, v73, v74, v75, v76, v77, v78, v79,
+                          v80, v81, v82, v83, v84, v85, v86, v87, v88, v89,
+                          v90, v91, v92, v93, v94, v95, v96, v97, v98, v99):
+        rgenop = RGenOp()
+        gv_largedummyfn = make_largedummy(rgenop)
+        largedummyfn = gv_largedummyfn.revealconst(lltype.Ptr(FUNC100))
+        res = largedummyfn(v0,  v1,  v2,  v3,  v4,  v5,  v6,  v7,  v8,  v9,
+                           v10, v11, v12, v13, v14, v15, v16, v17, v18, v19,
+                           v20, v21, v22, v23, v24, v25, v26, v27, v28, v29,
+                           v30, v31, v32, v33, v34, v35, v36, v37, v38, v39,
+                           v40, v41, v42, v43, v44, v45, v46, v47, v48, v49,
+                           v50, v51, v52, v53, v54, v55, v56, v57, v58, v59,
+                           v60, v61, v62, v63, v64, v65, v66, v67, v68, v69,
+                           v70, v71, v72, v73, v74, v75, v76, v77, v78, v79,
+                           v80, v81, v82, v83, v84, v85, v86, v87, v88, v89,
+                           v90, v91, v92, v93, v94, v95, v96, v97, v98, v99)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return largedummy_runner
 
 def make_branching(rgenop):
     # 'if x > 5: return x-1
@@ -126,9 +183,9 @@ def loop_body(rgenop, loopblock, bodybuilder, signed_kind, gv_x, gv_y, gv_z):
 def make_goto(rgenop):
     # z = 1
     # while x > 0:
-    #     y += x
-    #     z *= x
-    #     x -= 1
+    #     z = x * z
+    #     y = x + y
+    #     x = x - 1
     # y += z
     # return y
     signed_kind = rgenop.kindToken(lltype.Signed)
@@ -543,6 +600,20 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 8111
         res = fn(2)
         assert res == 8222
+
+    def test_largedummy_direct(self):
+        rgenop = self.RGenOp()
+        gv_largedummyfn = make_largedummy(rgenop)
+        fnptr = self.cast(gv_largedummyfn, 100)
+        args, expected = largedummy_example()
+        res = fnptr(*args)
+        assert res == expected
+
+    def test_largedummy_compile(self):
+        fn = self.compile(get_largedummy_runner(self.RGenOp), [int] * 100)
+        args, expected = largedummy_example()
+        res = fn(*args)
+        assert res == expected
 
     def test_branching_direct(self):
         rgenop = self.RGenOp()
