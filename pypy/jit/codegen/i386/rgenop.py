@@ -8,6 +8,7 @@ from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.i386.ri386setup import Conditions
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386 import conftest
+from pypy.rpython.annlowlevel import llhelper
 
 
 WORD = 4    # bytes
