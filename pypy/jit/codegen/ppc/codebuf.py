@@ -65,6 +65,7 @@ class MachineCodeBlock:
         return self._pos
 
     def setpos(self, _pos):
+        assert _pos >=0
         self._pos = _pos
 
     def tell(self):

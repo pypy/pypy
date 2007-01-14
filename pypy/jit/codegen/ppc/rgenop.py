@@ -127,15 +127,11 @@ class JumpPatchupGenerator(object):
                 emit(srcloc.move_to_gpr(self.allocator, tarloc.number))
         elif tarloc.is_register and not srcloc.is_register:
             emit(insn.Unspill(None, tarloc, srcloc))
-            #self.asm.lwz(tarloc.number, rFP, srcloc.offset)
         elif not tarloc.is_register and srcloc.is_register:
             emit(insn.Spill(None, srcloc, tarloc))
-            #self.asm.stw(srcloc.number, rFP, tarloc.offset)
         elif not tarloc.is_register and not srcloc.is_register:
             emit(insn.Unspill(None, insn.gprs[0], srcloc))
             emit(insn.Spill(None, insn.gprs[0], tarloc))
-            #self.asm.lwz(rSCRATCH, rFP, srcloc.offset)
-            #self.asm.stw(rSCRATCH, rFP, tarloc.offset)
 
     def create_fresh_location(self):
         r = self.min_offset
@@ -485,9 +481,12 @@ class Builder(GenBuilder):
         if self.final_jump_addr != 0:
             mc = self.rgenop.open_mc()
             target = mc.tell()
-            self.asm.mc = self.rgenop.ExistingCodeBlock(
-                self.final_jump_addr, self.final_jump_addr+8)
-            self.asm.load_word(rSCRATCH, target)
+            if target == self.final_jump_addr + 16:
+                mc.setpos(mc.getpos()-4)
+            else:
+                self.asm.mc = self.rgenop.ExistingCodeBlock(
+                    self.final_jump_addr, self.final_jump_addr+8)
+                self.asm.load_word(rSCRATCH, target)
             self.asm.mc = mc
             self.final_jump_addr = 0
             self.closed = False

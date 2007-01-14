@@ -430,6 +430,43 @@ def make_condition_result_cross_link(rgenop):
     builder.end()
     return gv_f
 
+def make_pause_and_resume(rgenop):
+    # def f(x):
+    #     y = x + 1
+    #     # pause/resume here
+    #     z = x - 1
+    #     w = y*z
+    #     return w
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "f")
+
+    gv_one = rgenop.genconst(1)
+
+    gv_y = builder.genop2("int_add", gv_x, gv_one)
+
+    builder = builder.pause_writing([gv_x, gv_y])
+    builder.start_writing()
+
+    gv_z = builder.genop2("int_sub", gv_x, gv_one)
+    gv_w = builder.genop2("int_mul", gv_y, gv_z)
+
+    builder.finish_and_return(sigtoken, gv_w)
+
+    builder.end()
+
+    return gv_callable
+
+def get_pause_and_resume_runner(RGenOp):
+    def runner(x):
+        rgenop = RGenOp()
+        gv_f = make_pause_and_resume(rgenop)
+        f = gv_f.revealconst(lltype.Ptr(FUNC))
+        res = f(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return runner
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -851,34 +888,28 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fnptr(17)
         assert res == 19
 
-    def test_pause_and_resume(self):
-        # def f(x):
-        #     y = x + 1
-        #     # pause/resume here
-        #     z = x - 1
-        #     w = y*z
-        #     return w
+    def test_pause_and_resume_direct(self):
         rgenop = self.RGenOp()
-
-        signed_kind = rgenop.kindToken(lltype.Signed)
-        sigtoken = rgenop.sigToken(FUNC)
-        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "f")
-
-        gv_one = rgenop.genconst(1)
-
-        gv_y = builder.genop2("int_add", gv_x, gv_one)
-
-        builder = builder.pause_writing([gv_x, gv_y])
-        builder.start_writing()
-
-        gv_z = builder.genop2("int_sub", gv_x, gv_one)
-        gv_w = builder.genop2("int_mul", gv_y, gv_z)
-
-        builder.finish_and_return(sigtoken, gv_w)
-
-        builder.end()
-
+        gv_callable = make_pause_and_resume(rgenop)
         fnptr = self.cast(gv_callable, 1)
 
         res = fnptr(1)
         assert res == 0
+
+        res = fnptr(2)
+        assert res == 3
+
+        res = fnptr(3)
+        assert res == 8
+
+    def test_pause_and_resume_compile(self):
+        fn = self.compile(get_pause_and_resume_runner(self.RGenOp), [int])
+
+        res = fn(1)
+        assert res == 0
+
+        res = fn(2)
+        assert res == 3
+
+        res = fn(3)
+        assert res == 8
