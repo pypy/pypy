@@ -2,7 +2,7 @@ import py
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from pypy.jit.codegen.llvm.test.test_llvmjit import skip_unsupported_platform
-from pypy.jit.codegen.i386.test.test_operation import BasicTests
+from pypy.jit.codegen.test.operations_test import OperationTests
 from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
 from pypy.jit.codegen.llvm.llvmjit import llvm_version, MINIMAL_VERSION
 
@@ -45,10 +45,10 @@ class LLVMTestBasicMixin(object):
 
 
 class TestBasic(LLVMTestBasicMixin,
-                BasicTests):
+                OperationTests):
 
     # for the individual tests see
-    # ====> ../../i386/test/test_operation.py
+    # ====> ../../test/operation_tests.py
 
     def skip(self):
         py.test.skip('WIP')

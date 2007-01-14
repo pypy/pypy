@@ -1,7 +1,7 @@
-from pypy.rlib.objectmodel import specialize
 from pypy.jit.codegen.test.operation_tests import OperationTests
-from pypy.jit.codegen.i386.rgenop import RI386GenOp
+from pypy.jit.codegen.ppc.rgenop import RPPCGenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+from pypy.rlib.objectmodel import specialize
 
 def conv(n):
     if not isinstance(n, int):
@@ -9,8 +9,8 @@ def conv(n):
     return n
 
 
-class RGenOpPacked(RI386GenOp):
-    """Like RI386GenOp, but produces concrete offsets in the tokens
+class RGenOpPacked(RPPCGenOp):
+    """Like RPPCGenOp, but produces concrete offsets in the tokens
     instead of llmemory.offsets.  These numbers may not agree with
     your C compiler's.
     """
@@ -18,27 +18,26 @@ class RGenOpPacked(RI386GenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return tuple(map(conv, RI386GenOp.fieldToken(T, name)))
+        return tuple(map(conv, RPPCGenOp.fieldToken(T, name)))
 
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
-        return tuple(map(conv, RI386GenOp.arrayToken(A)))
+        return tuple(map(conv, RPPCGenOp.arrayToken(A)))
 
     @staticmethod
     @specialize.memo()
     def allocToken(T):
-        return conv(RI386GenOp.allocToken(T))
+        return conv(RPPCGenOp.allocToken(T))
 
     @staticmethod
     @specialize.memo()
     def varsizeAllocToken(A):
-        return tuple(map(conv, RI386GenOp.varsizeAllocToken(A)))
+        return tuple(map(conv, RPPCGenOp.varsizeAllocToken(A)))
 
 
-class I386TestMixin(object):
+class PPCTestMixin(object):
     RGenOp = RGenOpPacked
 
-class TestOperation(I386TestMixin, OperationTests):
+class TestOperation(PPCTestMixin, OperationTests):
     pass
-

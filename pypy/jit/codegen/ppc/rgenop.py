@@ -1,3 +1,4 @@
+import py
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -245,76 +246,59 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_getfield(self, fieldtoken, gv_ptr):
-        gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR_IMM(_PPC.lwz,
-                                   gv_result, [gv_ptr, IntConst(fieldtoken)]))
-        return gv_result
+        fieldoffset, fieldsize = fieldtoken
+        opcode = {1:_PPC.lbz, 2:_PPC.lhz, 4:_PPC.lwz}[fieldsize]
+        return self._arg_imm_op(gv_ptr, IntConst(fieldoffset), opcode)
 
     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
         gv_result = Var()
+        fieldoffset, fieldsize = fieldtoken
+        opcode = {1:_PPC.stb, 2:_PPC.sth, 4:_PPC.stw}[fieldsize]
         self.insns.append(
-            insn.Insn_None__GPR_GPR_IMM(_PPC.stw,
-                                        [gv_value, gv_ptr, IntConst(fieldtoken)]))
+            insn.Insn_None__GPR_GPR_IMM(opcode,
+                                        [gv_value, gv_ptr, IntConst(fieldoffset)]))
         return gv_result
 
     def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
-                                   gv_result, [gv_ptr, IntConst(fieldtoken)]))
-        return gv_result
+        return self._arg_imm_op(gv_ptr, IntConst(fieldtoken), _PPC.addi)
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
-        assert itemsize == 4
+        opcode = {1:_PPC.lbzx,
+                  2:_PPC.lhzx,
+                  4:_PPC.lwzx}[itemsize]
+        opcodei = {1:_PPC.lbz,
+                   2:_PPC.lhz,
+                   4:_PPC.lwz}[itemsize]
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        gv_result = Var()
-        if gv_itemoffset.fits_in_immediate():
-            self.insns.append(
-                insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
-                                       gv_result, [gv_ptr, gv_itemoffset]))
-        else:
-            self.insns.append(
-                insn.Insn_GPR__GPR_GPR(RPPCAssembler.lwzx,
-                                       gv_result, [gv_ptr, gv_itemoffset]))
-        return gv_result
+        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, False, opcode, opcodei)
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
         assert itemsize == 4
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        gv_result = Var()
-        if gv_itemoffset.fits_in_immediate():
-            self.insns.append(
-                insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
-                                       gv_result, [gv_ptr, gv_itemoffset]))
-        else:
-            self.insns.append(
-                insn.Insn_GPR__GPR_GPR(RPPCAssembler.add,
-                                       gv_result, [gv_ptr, gv_itemoffset]))
-        return gv_result
+        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, True, _PPC.add, _PPC.addi)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
-        lengthoffset, _, _ = arraytoken
-        gv_result = Var()
-        self.insns.append(
-                insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
-                                       gv_result, [gv_ptr, IntConst(lengthoffset)]))
-        return gv_result
+        return self._arg_imm_op(gv_ptr, IntConst(lengthoffset), _PPC.lwz)
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
         _, _, itemsize = arraytoken
-        assert itemsize == 4
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
         gv_result = Var()
         if gv_itemoffset.fits_in_immediate():
+            opcode = {1:_PPC.stb,
+                      2:_PPC.sth,
+                      4:_PPC.stw}[itemsize]
             self.insns.append(
-                insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+                insn.Insn_None__GPR_GPR_IMM(opcode,
                                             [gv_value, gv_ptr, gv_itemoffset]))
         else:
+            opcode = {1:_PPC.stbx,
+                      2:_PPC.sthx,
+                      4:_PPC.stwx}[itemsize]
             self.insns.append(
-                insn.Insn_None__GPR_GPR_GPR(RPPCAssembler.stwx,
+                insn.Insn_None__GPR_GPR_GPR(opcode,
                                             [gv_value, gv_ptr, gv_itemoffset]))
 
     def genop_malloc_fixedsize(self, alloctoken):
@@ -329,7 +313,7 @@ class Builder(GenBuilder):
                                     [gv_itemoffset])
         lengthoffset, _, _ = varsizealloctoken
         self.insns.append(
-            insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+            insn.Insn_None__GPR_GPR_IMM(_PPC.stw,
                                         [gv_size, gv_result, IntConst(lengthoffset)]))
         return gv_result
 
@@ -653,38 +637,30 @@ class Builder(GenBuilder):
 
     def _arg_op(self, gv_arg, opcode):
         gv_result = Var()
-        self.insns.append(insn.Insn_GPR__GPR(opcode, gv_result, gv_arg))
-        return gv_result
-
-    def _arg_arg_op_with_imm(self, gv_x, gv_y, commutative, opcode, opcodei):
-        gv_result = Var()
-        if gv_y.fits_in_immediate():
-            self.insns.append(
-                insn.Insn_GPR__GPR_IMM(opcodei,
-                                       gv_result, [gv_x, gv_y]))
-        elif gv_x.fits_in_immediate() and commutative:
-            self.insns.append(
-                insn.Insn_GPR__GPR_IMM(opcodei,
-                                       gv_result, [gv_y, gv_x]))
-        else:
-            self.insns.append(
-                insn.Insn_GPR__GPR_GPR(opcode,
-                                       gv_result, [gv_x, gv_y]))
+        self.insns.append(
+            insn.Insn_GPR__GPR(opcode, gv_result, gv_arg))
         return gv_result
 
     def _arg_arg_op(self, gv_x, gv_y, opcode):
         gv_result = Var()
         self.insns.append(
-            insn.Insn_GPR__GPR_GPR(opcode,
-                                   gv_result, [gv_x, gv_y]))
+            insn.Insn_GPR__GPR_GPR(opcode, gv_result, [gv_x, gv_y]))
         return gv_result
 
     def _arg_imm_op(self, gv_x, gv_imm, opcode):
+        assert gv_imm.fits_in_immediate()
         gv_result = Var()
         self.insns.append(
-            insn.Insn_GPR__GPR_IMM(opcode,
-                                   gv_result, [gv_x, gv_imm]))
+            insn.Insn_GPR__GPR_IMM(opcode, gv_result, [gv_x, gv_imm]))
         return gv_result
+
+    def _arg_arg_op_with_imm(self, gv_x, gv_y, commutative, opcode, opcodei):
+        if gv_y.fits_in_immediate():
+            return self._arg_imm_op(gv_x, gv_y, opcodei)
+        elif gv_x.fits_in_immediate() and commutative:
+            return self._arg_imm_op(gv_y, gv_x, opcodei)
+        else:
+            return self._arg_arg_op(gv_x, gv_y, opcode)
 
     def _identity(self, gv_arg):
         return gv_arg
@@ -759,7 +735,11 @@ class Builder(GenBuilder):
 
     ## op_int_neg_ovf(self, gv_arg) XXX
 
-    ## op_int_abs(self, gv_arg):
+    def op_int_abs(self, gv_arg):
+        gv_sign = self._arg_imm_op(gv_arg, self.rgenop.genconst(31), _PPC.srawi)
+        gv_maybe_inverted = self._arg_arg_op(gv_arg, gv_sign, _PPC.xor)
+        return self._arg_arg_op(gv_sign, gv_maybe_inverted, _PPC.subf)
+
     ## op_int_abs_ovf(self, gv_arg):
 
     def op_int_invert(self, gv_arg):
@@ -778,7 +758,12 @@ class Builder(GenBuilder):
         return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
 
     ## def op_int_floordiv_zer(self, gv_x, gv_y):
-    ## def op_int_mod(self, gv_x, gv_y):
+
+    def op_int_mod(self, gv_x, gv_y):
+        gv_dividend = self.op_int_floordiv(gv_x, gv_y)
+        gv_z = self.op_int_mul(gv_dividend, gv_y)
+        return self.op_int_sub(gv_x, gv_z)
+
     ## def op_int_mod_zer(self, gv_x, gv_y):
 
     def op_int_lt(self, gv_x, gv_y):
@@ -798,6 +783,16 @@ class Builder(GenBuilder):
 
     def op_int_ge(self, gv_x, gv_y):
         return self._compare('ge', gv_x, gv_y)
+
+    op_char_lt = op_int_lt
+    op_char_le = op_int_le
+    op_char_eq = op_int_eq
+    op_char_ne = op_int_ne
+    op_char_gt = op_int_gt
+    op_char_ge = op_int_ge
+
+    op_unichar_eq = op_int_eq
+    op_unichar_ne = op_int_ne
 
     def op_int_and(self, gv_x, gv_y):
         return self._arg_arg_op(gv_x, gv_y, _PPC.and_)
@@ -826,10 +821,15 @@ class Builder(GenBuilder):
     op_uint_mul = op_int_mul
 
     def op_uint_floordiv(self, gv_x, gv_y):
-        return self._two_arg_op(gv_x, gv_y, _PPC.divwu)
+        return self._arg_arg_op(gv_x, gv_y, _PPC.divwu)
 
     ## def op_uint_floordiv_zer(self, gv_x, gv_y):
-    ## def op_uint_mod(self, gv_x, gv_y):
+
+    def op_uint_mod(self, gv_x, gv_y):
+        gv_dividend = self.op_uint_floordiv(gv_x, gv_y)
+        gv_z = self.op_uint_mul(gv_dividend, gv_y)
+        return self.op_uint_sub(gv_x, gv_z)
+
     ## def op_uint_mod_zer(self, gv_x, gv_y):
 
     def op_uint_lt(self, gv_x, gv_y):
@@ -850,7 +850,7 @@ class Builder(GenBuilder):
     def op_uint_ge(self, gv_x, gv_y):
         return self._compare_u('ge', gv_x, gv_y)
 
-    op_uint_and = op_int_add
+    op_uint_and = op_int_and
     op_uint_or = op_int_or
 
     op_uint_lshift = op_int_lshift
@@ -875,8 +875,9 @@ class Builder(GenBuilder):
     ## def op_cast_bool_to_float(self, gv_arg):
     op_cast_char_to_int = _identity
     op_cast_unichar_to_int = _identity
-    ## def op_cast_int_to_char(self, gv_arg):
-    ## def op_cast_int_to_unichar(self, gv_arg):
+    op_cast_int_to_char = _identity
+
+    op_cast_int_to_unichar = _identity
     op_cast_int_to_uint = _identity
     ## def op_cast_int_to_float(self, gv_arg):
     ## def op_cast_int_to_longlong(self, gv_arg):
@@ -956,7 +957,7 @@ class RPPCGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return llmemory.offsetof(T, name)
+        return (llmemory.offsetof(T, name), llmemory.sizeof(getattr(T, name)))
 
     @staticmethod
     @specialize.memo()
@@ -989,6 +990,8 @@ class RPPCGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def kindToken(T):
+        if T is lltype.Float:
+            py.test.skip("not implemented: floats in the i386^WPPC back-end")
         return None                   # for now
 
     @staticmethod
