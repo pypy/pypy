@@ -375,6 +375,29 @@ class Jump(Insn):
             BO = 4  # jump if relavent bit is NOT set in the CR
         asm.bcctr(BO, self.crf.number*4 + bit)
 
+class Label(Insn):
+    def __init__(self, label):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result_regclass =  NO_REGISTER
+        self.result = None
+        self.label = label
+    def allocate(self, allocator):
+        self.label.arg_locations = []
+        for gv in self.label.args_gv:
+            loc = allocator.loc_of(gv)
+            if isinstance(loc, CRF):
+                allocator.forget(gv, loc)
+                allocator.freeregs[loc.regclass].append(loc.alloc)
+                new_loc = allocator._allocate_reg(GP_REGISTER, gv)
+                allocator.insns.append(loc.move_to_gpr(allocator, new_loc.number))
+                loc = new_loc
+            self.label.arg_locations.append(loc)
+        allocator.labels_to_tell_spill_offset_to.append(self.label)
+    def emit(self, asm):
+        self.label.startaddr = asm.mc.tell()
+
 class SpillCalleeSaves(Insn):
     def __init__(self):
         Insn.__init__(self)

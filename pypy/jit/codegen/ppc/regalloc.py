@@ -37,6 +37,7 @@ class RegisterAllocation:
                 self.freeregs[loc.regclass].remove(loc.alloc)
                 self.lru.append(var)
 
+        self.labels_to_tell_spill_offset_to = []
         self.builders_to_tell_spill_offset_to = []
 
     def set(self, var, loc):

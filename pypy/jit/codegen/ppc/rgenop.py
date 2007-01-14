@@ -163,10 +163,11 @@ def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target, allocator):
 
 class Label(GenLabel):
 
-    def __init__(self, startaddr, arg_locations, min_stack_offset):
-        self.startaddr = startaddr
-        self.arg_locations = arg_locations
-        self.min_stack_offset = min_stack_offset
+    def __init__(self, args_gv):
+        self.args_gv = args_gv
+        #self.startaddr = startaddr
+        #self.arg_locations = arg_locations
+        #self.min_stack_offset = min_stack_offset
 
 # our approach to stack layout:
 
@@ -329,81 +330,18 @@ class Builder(GenBuilder):
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def enter_next_block(self, kinds, args_gv):
-        #print 'enter_next_block of', id(self)
-        vars_gv = [v for v in args_gv if isinstance(v, Var)]
-        #print 'initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
-        #print 'initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
-        allocator = self.allocate_and_emit(vars_gv)
-        var2loc = allocator.var2loc
-
-        #print '!!!!', args_gv, var2loc
-
-        self.insns = []
-
-        reallocate = False
-        for i in range(len(args_gv)):
-            v = args_gv[i]
-            if isinstance(v, Var) and isinstance(var2loc[v], insn.CRF):
-                reallocate = True
-                nv = Var()
-                self.insns.append(insn.MoveCRB2GPR(nv, v))
-                args_gv[i] = nv
-        self.initial_var2loc = var2loc
-        if reallocate:
-            allocator = self.allocate_and_emit([v for v in args_gv if isinstance(v, Var)])
-            var2loc = allocator.var2loc
-            self.insns = []
-
-        #print 'var2loc.keys():', [id(v) for v in var2loc.keys()]
-        #print 'var2loc.values():', [id(v) for v in var2loc.values()]
-        #print 'args_gv', [id(v) for v in args_gv]
-
-        #print "enter_next_block:", args_gv, var2loc
-
-        min_stack_offset = self._var_offset(0)
-        usedregs = {}
-        livevar2loc = {}
-        for gv in args_gv:
-            if isinstance(gv, Var):
-                assert gv in var2loc
-##                 if gv not in var2loc:
-##                     lloperation.llop.debug_print(lltype.Void, gv)
-##                     lloperation.llop.debug_print(lltype.Void, var2loc)
-##                     lloperation.llop.debug_print(lltype.Void, args_gv)
-##                     lloperation.llop.debug_pdb(lltype.Void)
-                loc = var2loc[gv]
-                livevar2loc[gv] = loc
-                if not loc.is_register:
-                    min_stack_offset = min(min_stack_offset, loc.offset)
-                else:
-                    usedregs[loc] = None
-
-        unusedregs = [loc for loc in self.rgenop.freeregs[insn.GP_REGISTER] if loc not in usedregs]
-        arg_locations = []
-
         for i in range(len(args_gv)):
             gv = args_gv[i]
             if isinstance(gv, Var):
-                arg_locations.append(livevar2loc[gv])
+                pass
             else:
-                if unusedregs:
-                    loc = unusedregs.pop()
-                else:
-                    loc = insn.stack_slot(min_stack_offset)
-                    min_stack_offset -= 4
-                gv.load_now(self.asm, loc)
-                args_gv[i] = gv = Var()
-                livevar2loc[gv] = loc
-                arg_locations.append(loc)
+                new_gv = Var()
+                gv.load(self.insns, new_gv)
+                args_gv[i] = new_gv
 
-        #print livevar2loc
-
-        self.initial_var2loc = livevar2loc
-        #print 'final initial_var2loc.keys():', [id(v) for v in self.initial_var2loc.keys()]
-        #print 'final initial_var2loc.values():', [id(v) for v in self.initial_var2loc.values()]
-        self.initial_spill_offset = min_stack_offset
-        target_addr = self.asm.mc.tell()
-        return Label(target_addr, arg_locations, min_stack_offset)
+        r = Label(args_gv)
+        self.insns.append(insn.Label(r))
+        return r
 
     def jump_if_false(self, gv_condition, args_gv):
         #print 'jump_if_false', [id(v) for v in args_gv]
@@ -599,6 +537,8 @@ class Builder(GenBuilder):
             self.emit_stack_adjustment(self._stack_size(allocator.spill_offset))
         for insn in self.insns:
             insn.emit(self.asm)
+        for label in allocator.labels_to_tell_spill_offset_to:
+            label.min_stack_offset = allocator.spill_offset
         for builder in allocator.builders_to_tell_spill_offset_to:
             builder.initial_spill_offset = allocator.spill_offset
         return allocator
