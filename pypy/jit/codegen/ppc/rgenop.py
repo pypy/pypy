@@ -167,7 +167,7 @@ class Label(GenLabel):
         self.args_gv = args_gv
         #self.startaddr = startaddr
         #self.arg_locations = arg_locations
-        #self.min_stack_offset = min_stack_offset
+        self.min_stack_offset = 1
 
 # our approach to stack layout:
 
@@ -374,6 +374,9 @@ class Builder(GenBuilder):
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
+        if target.min_stack_offset == 1:
+            self.pause_writing(outputargs_gv)
+            self.start_writing()
         allocator = self.allocate(outputargs_gv)
         min_offset = min(allocator.spill_offset, target.min_stack_offset)
         allocator.spill_offset = prepare_for_jump(
