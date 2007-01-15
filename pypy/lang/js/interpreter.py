@@ -521,10 +521,11 @@ class Script(Statement):
             for node in self.nodes:
                 last = node.execute(ctx)
             return last
-        except ExecutionReturned, e:
-            if e.type == 'return':
+        except Exception, e:
+            if isinstance(e, ExecutionReturned) and e.type == 'return':
                 return e.value
             else:
+                print "exeception in line: %s, %s - %s"%(node.lineno, node.value, self)
                 raise e
 
 class Semicolon(Statement):
