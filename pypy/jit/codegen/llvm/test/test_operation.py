@@ -2,7 +2,7 @@ import py
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from pypy.jit.codegen.llvm.test.test_llvmjit import skip_unsupported_platform
-from pypy.jit.codegen.test.operations_test import OperationTests
+from pypy.jit.codegen.test.operation_tests import OperationTests
 from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
 from pypy.jit.codegen.llvm.llvmjit import llvm_version, MINIMAL_VERSION
 
