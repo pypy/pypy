@@ -3,6 +3,7 @@ from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.jit.codegen.llvm.logger import logger
 from pypy.jit.codegen.llvm.compatibility import i1, i8, i16, i32, f64
 
 
