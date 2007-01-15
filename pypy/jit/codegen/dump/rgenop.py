@@ -336,4 +336,15 @@ class RDumpGenOp(llrgenop.RGenOp):
             name))
         return builder, gv_callable, inputargs_gv
 
+    def replay(self, label, kinds):
+        self.dump("# replay")
+        b, args_gv = llrgenop.RGenOp.replay(self, label, kinds)
+        b = Builder(self, b)
+        self.dump("%s, [%s] = rgenop.replay(%s, [%s])" % (
+            b.name,
+            self.vlistname(args_gv),
+            self.lblname(label),
+            self.kindtokensname(kinds)))
+        return b, args_gv
+
 kindtokennames = {}
