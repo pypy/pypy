@@ -115,6 +115,28 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(dummyfn, [])
         assert res == 13
 
+    def test_overridden_classattr_as_defaults(self):
+        class W_Root(object):
+            pass
+        class W_Thunk(W_Root):
+            pass
+
+        THUNK_PLACEHOLDER = W_Thunk()
+        W_Root.w_thunkalias = None
+        W_Thunk.w_thunkalias = THUNK_PLACEHOLDER
+
+        def dummyfn(x):
+            if x == 1:
+                t = W_Thunk()
+            elif x == 2:
+                t = W_Thunk()
+                t.w_thunkalias = W_Thunk()
+            else:
+                t = W_Root()
+            return t.w_thunkalias is THUNK_PLACEHOLDER
+        res = self.interpret(dummyfn, [1])
+        assert res == True
+
     def test_prebuilt_instance(self):
         a = EmptyBase()
         a.x = 5

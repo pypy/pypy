@@ -57,6 +57,7 @@ class Instance(OOType):
 
         self._methods = frozendict()
         self._fields = frozendict()
+        self._overridden_defaults = frozendict()
 
         self._add_fields(fields)
         self._add_methods(methods)
@@ -115,6 +116,13 @@ class Instance(OOType):
 
         self._fields.update(fields)
 
+    def _override_default_for_fields(self, fields):
+        # sanity check
+        for field in fields:
+            INST, TYPE = self._superclass._lookup_field(field)
+            assert TYPE is not None, "Can't find field %s in superclasses" % field
+        self._overridden_defaults.update(fields)
+
     def _add_methods(self, methods):
         # Note to the unwary: _add_methods adds *methods* whereas
         # _add_fields adds *descriptions* of fields.  This is obvious
@@ -132,6 +140,9 @@ class Instance(OOType):
             self._superclass._init_instance(instance)
         
         for name, (ootype, default) in self._fields.iteritems():
+            instance.__dict__[name] = enforce(ootype, default)
+
+        for name, (ootype, default) in self._overridden_defaults.iteritems():
             instance.__dict__[name] = enforce(ootype, default)
 
     def _has_field(self, name):
@@ -1379,6 +1390,9 @@ def addFields(INSTANCE, fields):
 
 def addMethods(INSTANCE, methods):
     INSTANCE._add_methods(methods)
+
+def overrideDefaultForFields(INSTANCE, fields):
+    INSTANCE._override_default_for_fields(fields)
 
 def runtimeClass(INSTANCE):
     assert isinstance(INSTANCE, Instance)

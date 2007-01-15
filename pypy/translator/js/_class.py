@@ -77,7 +77,9 @@ class Class(Node):
         self.db.record_class(self.classdef, self.name)
     
     def copy_class_attributes(self, ilasm):
-        for field_name, (field_type, field_value) in self.classdef._fields.items():
+        default_values = self.classdef._fields.copy()
+        default_values.update(self.classdef._overridden_defaults)
+        for field_name, (field_type, field_value) in default_values.iteritems():
             ilasm.load_str("this")
             self.db.load_const(field_type, field_value, ilasm)
             ilasm.set_field(None, field_name)

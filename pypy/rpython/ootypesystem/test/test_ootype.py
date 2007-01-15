@@ -74,6 +74,14 @@ def test_simple_default_class():
 
     py.test.raises(TypeError, "Instance('test', ROOT, {'a': (Signed, 3.0)})")
 
+def test_overridden_default():
+    A = Instance("A", ROOT, {"a": (Signed, 3)})
+    B = Instance("B", A)
+    overrideDefaultForFields(B, {"a": (Signed, 5)})
+
+    b = new(B)e
+    assert b.a == 5
+
 def test_simple_null():
     C = Instance("test", ROOT, {"a": Signed})
 
