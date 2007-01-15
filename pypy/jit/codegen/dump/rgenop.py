@@ -97,6 +97,7 @@ class Builder(GenBuilder):
 
     def end(self):
         self.dump("%s.end()" % (self.name,))
+        self.llbuilder.end()
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):

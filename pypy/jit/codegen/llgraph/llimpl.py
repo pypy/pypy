@@ -201,8 +201,11 @@ def revealconst(T, gv_value):
     elif T == llmemory.Address:
         return llmemory.cast_ptr_to_adr(c.value)
     else:
-        if lltype.typeOf(c.value) == llmemory.Address:
+        T1 = lltype.typeOf(c.value)
+        if T1 is llmemory.Address:
             value = llmemory.cast_adr_to_int(c.value)
+        elif isinstance(T1, lltype.Ptr):
+            value = lltype.cast_ptr_to_int(c.value)
         else:
             value = c.value
         return lltype.cast_primitive(T, value)
