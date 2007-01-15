@@ -289,12 +289,13 @@ class RGenOp(AbstractRGenOp):
     currently_writing = None
 
     def newgraph(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name):
+        debug_assert(self.currently_writing is None,
+                     "newgraph: currently_writing")
         gv_func = llimpl.newgraph(gv_FUNCTYPE.v, name)
-        rgenop1 = RGenOp()
-        builder = LLBuilder(rgenop1, gv_func, llimpl.getstartblock(gv_func))
+        builder = LLBuilder(self, gv_func, llimpl.getstartblock(gv_func))
         inputargs_gv = [LLVar(llimpl.getinputarg(builder.b, i))
                         for i in range(len(ARGS_gv))]
-        rgenop1.currently_writing = builder
+        self.currently_writing = builder
         return builder, LLConst(gv_func), inputargs_gv
 
     @staticmethod
