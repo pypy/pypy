@@ -13,7 +13,6 @@ class Directory(py.test.collect.Directory):
             if processor != 'i386':
                 py.test.skip('detected a %r CPU' % (processor,))
 
-        py.test.skip("in-progress")
         return super(Directory, self).run()
 
 Option = py.test.Config.Option

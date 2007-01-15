@@ -1,4 +1,5 @@
 import py, os
+py.test.skip("in-progress")
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.rlib.unroll import unrolling_iterable

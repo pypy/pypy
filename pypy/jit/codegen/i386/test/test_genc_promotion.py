@@ -1,4 +1,5 @@
 import py
+py.test.skip("in-progress")
 from pypy.jit.timeshifter.test import test_promotion
 from pypy.jit.codegen.i386.test.test_genc_ts import I386TimeshiftingTestMixin
 
