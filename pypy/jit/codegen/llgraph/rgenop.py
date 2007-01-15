@@ -369,9 +369,6 @@ class RGenOp(AbstractRGenOp):
             v = fishllattr(gv, 'v')
         return llimpl.reveal(v)
 
-    def _freeze_(self):
-        return True    # no real point in using a full class in llgraph
-
     @staticmethod
     @specialize.arg(0)
     def read_frame_var(T, base, info, index):
