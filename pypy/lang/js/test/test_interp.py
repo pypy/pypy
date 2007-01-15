@@ -81,6 +81,7 @@ class TestInterp(object):
     
     def test_function_returns(self):
         self.assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
+        self.assert_prints('function x() { return }', [])
     
     def test_var_declaration(self):
         self.assert_prints('var x = 3; print(x);', ["3"])
@@ -388,7 +389,8 @@ class TestInterp(object):
         print(Number.POSITIVE_INFINITY)
         print(Number.NEGATIVE_INFINITY)
         print(Math.floor(3.2))
-        """, ['10', '2', 'false', '3'])
+        print(-z)
+        """, ['10', '2', 'false', '3', '-2'])
         
     def test_globalproperties(self):
         self.assert_prints( """
@@ -396,3 +398,6 @@ class TestInterp(object):
         print(Infinity)
         print(undefined)
         """, ['NaN', 'inf', 'undefined'])
+
+    def test_strangefunc(self):
+        self.assert_prints("""function f1() { var z; var t;}""", [])

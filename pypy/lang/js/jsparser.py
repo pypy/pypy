@@ -46,6 +46,7 @@ def parse(code_string):
     return t
 
 def parse_bytecode(bytecode):
+    # print bytecode
     t = parse_tree(bytecode)
     tree = ToAST().transform(t)
     unquote(tree)

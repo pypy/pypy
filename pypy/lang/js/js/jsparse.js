@@ -296,7 +296,7 @@ Np.toString = function () {
             }
         }
         val = a[i].value + "";
-        if ((val.search("\\},\\{") != -1 )) {
+        if ((val.search("\n"+INDENTATION.repeat(n)+"\\},\\{") != -1 )) {
             s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': [" + val + "]";
         } else { 
             if (val.search("\n") != -1) {

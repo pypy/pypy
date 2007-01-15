@@ -477,8 +477,8 @@ class W_Reference(W_Root):
             exception = "ReferenceError: %s is not defined"%(self.property_name,)
             raise ThrowException(W_String(exception))
         
-        print "ref base: %s, prop: %s, getresult: %s"%(self.base,
-                        self.property_name, self.base.Get(self.property_name))
+        # print "ref base: %s, prop: %s, getresult: %s"%(self.base,
+        #                         self.property_name, self.base.Get(self.property_name))
         return self.base.Get(self.property_name)
 
     def PutValue(self, w, ctx):

@@ -18,7 +18,6 @@ class Node(object):
         raise NotImplementedError
     
     def get_literal(self):
-        print self
         raise NotImplementedError
     
     def get_args(self, ctx):
@@ -441,8 +440,8 @@ class NewWithArgs(Expression):
         x = self.newexpr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
-        
-        return x.Construct(ctx=ctx, args=[i for i in self.arglist.get_args(ctx)])
+        args = self.arglist.eval(ctx).get_args()
+        return x.Construct(ctx=ctx, args=args)
             
 
 class Number(Expression):
@@ -552,7 +551,11 @@ class Return(Statement):
         self.expr = expr
 
     def execute(self, ctx):
-        raise ExecutionReturned('return', self.expr.eval(ctx), None)
+        if self.expr is None:
+            raise ExecutionReturned('return', None, None)
+        else:
+            raise ExecutionReturned('return', self.expr.eval(ctx), None)
+                    
 
 class Throw(Statement):
     def __init__(self, exception):
@@ -659,6 +662,13 @@ class Not(Expression):
     def eval(self, ctx):
         return W_Boolean(not self.op.eval(ctx).GetValue().ToBoolean())
 
+class UMinus(Expression):
+    def __init__(self, op):
+        self.op = op
+    
+    def eval(self, ctx):
+        return W_Number(-self.op.eval(ctx).GetValue().ToNumber())
+
 def getlist(t):
     item = gettreeitem(t, 'length')
     if item is None:
@@ -669,8 +679,9 @@ def getlist(t):
     
 def gettreeitem(t, name):
     for x in t.children:
-        if x.children[0].additional_info == name:
-            return x.children[1]
+        if isinstance(x.children[0], Symbol):
+            if x.children[0].additional_info == name:
+                return x.children[1]
     return None
 
 
@@ -781,7 +792,11 @@ def from_tree(t):
     elif tp == 'PROPERTY_INIT':
         node = PropertyInit(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
     elif tp == 'RETURN':
-        node = Return(from_tree(gettreeitem(t, 'value')))
+        valit = gettreeitem(t, 'value')
+        if not isinstance(valit, Symbol):
+            node = Return(from_tree(valit))
+        else:
+            node = Return(None)
     elif tp == 'SCRIPT':
         f = gettreeitem(t, 'funDecls')
         if f.symbol == "dict":
@@ -839,6 +854,8 @@ def from_tree(t):
         node = Boolean(False)
     elif tp == 'NOT':
         node = Not(from_tree(gettreeitem(t, '0')))
+    elif tp == 'UNARY_MINUS':
+        node = UMinus(from_tree(gettreeitem(t, '0')))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)
     
@@ -853,7 +870,6 @@ def from_tree(t):
         value = gettreeitem(t, 'type')
     else:
         value = gettreeitem(t, 'value').additional_info
-    
     
     node.init_common(gettreeitem(t, 'type').additional_info, value,
     int(gettreeitem(t, 'lineno').additional_info), start, end)
