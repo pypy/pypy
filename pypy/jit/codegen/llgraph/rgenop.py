@@ -61,7 +61,10 @@ class LLFlexSwitch(CodeGenSwitch):
         l_case = llimpl.add_case(self.b, gv_case.v)
         b = llimpl.closelinktofreshblock(l_case, self.args_gv, self.l_default)
         builder = LLBuilder(self.rgenop, self.gv_f, b)
-        debug_assert(self.rgenop.currently_writing is None,
+        debug_assert(self.rgenop.currently_writing is None or
+                     # special case: we stop replaying and add a case after
+                     # a call to flexswitch() on a replay builder
+                     self.rgenop.currently_writing.is_default_builder,
                      "add_case: currently_writing elsewhere")
         self.rgenop.currently_writing = builder
         return builder
@@ -74,10 +77,12 @@ class LLFlexSwitch(CodeGenSwitch):
         debug_assert(self.rgenop.currently_writing is None,
                      "_add_default: currently_writing elsewhere")
         self.rgenop.currently_writing = builder
+        builder.is_default_builder = True
         return builder
 
 class LLBuilder(GenBuilder):
     jumped_from = None
+    is_default_builder = False
 
     def __init__(self, rgenop, g, block):
         self.rgenop = rgenop
@@ -345,9 +350,9 @@ class RGenOp(AbstractRGenOp):
     def replay(self, label, kinds):
         builder = LLBuilder(self, label.g, llimpl.nullblock)
         args_gv = builder._newblock(kinds)
-        debug_assert(self.rgenop.currently_writing is None,
+        debug_assert(self.currently_writing is None,
                      "replay: currently_writing")
-        self.rgenop.currently_writing = builder
+        self.currently_writing = builder
         return builder, args_gv
 
     #def stop_replay(self, endblock, kinds):

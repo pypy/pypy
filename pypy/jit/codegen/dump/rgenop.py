@@ -1,7 +1,21 @@
-from pypy.rlib.objectmodel import specialize
+"""
+This backend records all operations that the JIT front-end tries to do,
+and writes them as pseudo-Python source in
+
+    /tmp/usession-<yourname>/rdumpgenop.py.
+"""
+import os
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
+from pypy.tool.udir import udir
+
+LOGFILE = str(udir.join('rdumpgenop.py'))
+
+
+class FinishedGeneratingCannotExecute(Exception):
+    pass
 
 
 class Label(GenLabel):
@@ -15,6 +29,9 @@ class Var(GenVar):
 class DummyConst(GenConst):
     def __init__(self, name):
         self.name = name
+    @specialize.arg(1)
+    def revealconst(self, T):
+        raise FinishedGeneratingCannotExecute
 
 class IntConst(GenConst):
     def __init__(self, value):
@@ -33,7 +50,11 @@ class IntConst(GenConst):
 class AddrConst(GenConst):
     def __init__(self, addr):
         self.addr = addr
-        self.name = '<address %x>' % self.revealconst(lltype.Signed)
+        if we_are_translated():
+            intaddr = llmemory.cast_adr_to_int(self.addr)
+            self.name = '<address %s>' % intaddr
+        else:
+            self.name = repr(addr)
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -237,14 +258,17 @@ class Builder(GenBuilder):
         pass
 
     def log(self, msg):
-        print 'log:', msg
+        self.rgenop.dump('# log: %s' % (msg,))
 
 
 class RDumpGenOp(AbstractRGenOp):
+    create_dump = True
 
     def __init__(self):
         self.keepalive_gc_refs = []
         self.counters = {}
+        if self.create_dump:
+            self.dump("# ------------------------------------------------------------")
 
     def count(self, prefix):
         count = self.counters.get(prefix, 0)
@@ -253,6 +277,15 @@ class RDumpGenOp(AbstractRGenOp):
 
     def dump(self, text):
         print text
+        text += '\n'
+        fd = os.open(LOGFILE, os.O_WRONLY|os.O_CREAT, 0666)
+        os.lseek(fd, 0, 2)
+        while text:
+            count = os.write(fd, text)
+            if count == 0:
+                raise IOError
+            text = text[count:]
+        os.close(fd)
 
     def check_no_open_mc(self):
         pass
@@ -326,5 +359,9 @@ class RDumpGenOp(AbstractRGenOp):
         else:
             assert 0, "XXX not implemented"
 
-global_rgenop = RDumpGenOp()
+
+class RGlobalDumpGenOp(RDumpGenOp):
+    create_dump = False
+
+global_rgenop = RGlobalDumpGenOp()
 RDumpGenOp.constPrebuiltGlobal = global_rgenop.genconst
