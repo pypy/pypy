@@ -279,6 +279,7 @@ class Builder(GenBuilder):
                                          commutative=True)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
+        lengthoffset, _, _ = arraytoken
         return self._arg_imm_op(gv_ptr, IntConst(lengthoffset), _PPC.lwz)
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
