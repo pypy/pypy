@@ -267,3 +267,28 @@ class OperationTests(object):
                 for operand1 in range(-32, 33):
                     res = fp(operand1)
                     assert res == eval(op, {'x': operand1, 'y': constant})
+
+    def test_ptr_comparison(self):
+        S = lltype.GcStruct('S')
+        T = lltype.GcStruct('T', ('s', lltype.Ptr(S)))
+
+        def fn():
+            s1 = lltype.malloc(S)
+            s2 = lltype.malloc(S)
+            return bool(s1) + bool(s2)*10 + (s1==s2)*100 + (s1!=s2)*1000
+        fp = self.rgen(fn, [])
+        assert fp() == 1011
+
+        def fn():
+            s1 = lltype.malloc(S)
+            s2 = lltype.malloc(T).s    # null
+            return bool(s1) + bool(s2)*10 + (s1==s2)*100 + (s1!=s2)*1000
+        fp = self.rgen(fn, [])
+        assert fp() == 1001
+
+        def fn():
+            s1 = lltype.malloc(S)
+            s2 = s1
+            return bool(s1) + bool(s2)*10 + (s1==s2)*100 + (s1!=s2)*1000
+        fp = self.rgen(fn, [])
+        assert fp() == 111

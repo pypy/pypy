@@ -102,11 +102,15 @@ class OpCompare1(Op1):
         self.emit(mc, srcop)
 
 class OpIntIsTrue(OpCompare1):
-    opname = 'int_is_true'
+    opname = 'int_is_true', 'ptr_nonzero'
     cc_result = Conditions['NE']
     @staticmethod
     def emit(mc, x):
         mc.CMP(x, imm8(0))
+
+class OpIntIsNull(OpIntIsTrue):
+    opname = 'ptr_iszero'
+    cc_result = Conditions['E']
 
 class Op2(Operation):
     def __init__(self, x, y):
@@ -413,11 +417,11 @@ class OpIntLe(OpCompare2):
     cc_result = Conditions['LE']
 
 class OpIntEq(OpCompare2):
-    opname = 'int_eq', 'char_eq', 'unichar_eq'
+    opname = 'int_eq', 'char_eq', 'unichar_eq', 'ptr_eq'
     cc_result = Conditions['E']
 
 class OpIntNe(OpCompare2):
-    opname = 'int_ne', 'char_ne', 'unichar_ne'
+    opname = 'int_ne', 'char_ne', 'unichar_ne', 'ptr_ne'
     cc_result = Conditions['NE']
 
 class OpIntGt(OpCompare2):

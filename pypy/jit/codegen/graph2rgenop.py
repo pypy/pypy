@@ -69,6 +69,9 @@ def compile_graph(rgenop, graph):
                                                        var2gv(op.args[0]),
                                                        var2gv(op.args[1]),
                                                        var2gv(op.args[2]))
+            elif op.opname == 'same_as':
+                token = rgenop.kindToken(op.args[0])
+                gv_result = builder.genop_same_as(token, var2gv(op.args[0]))
             elif len(op.args) == 1:
                 gv_result = builder.genop1(op.opname, var2gv(op.args[0]))
             elif len(op.args) == 2:
