@@ -18,9 +18,6 @@ class Directory(py.test.collect.Directory):
 Option = py.test.Config.Option
 
 option = py.test.Config.addoptions("ppc options",
-        Option('--trap', action="store_true", default=False,
-               dest="trap",
-               help=""),
         Option('--run-interp-tests', action="store_true", default=False,
                dest="run_interp_tests",
                help=""),

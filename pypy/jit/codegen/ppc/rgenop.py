@@ -4,7 +4,7 @@ from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rlib.objectmodel import specialize, we_are_translated
-from pypy.jit.codegen.ppc.conftest import option
+from pypy.jit.codegen.conftest import option
 from ctypes import POINTER, cast, c_void_p, c_int
 
 from pypy.jit.codegen.ppc import codebuf

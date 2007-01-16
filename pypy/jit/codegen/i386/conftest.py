@@ -18,9 +18,6 @@ class Directory(py.test.collect.Directory):
 Option = py.test.Config.Option
 
 option = py.test.Config.addoptions("ppc options",
-        Option('--trap', action="store_true", default=False,
-               dest="trap",
-               help="generate a breakpoint instruction at the start"),
         Option('--interp', action="store_true", default=False,
                dest="interp",
                help="run the very slow genc_interp_* tests"),
