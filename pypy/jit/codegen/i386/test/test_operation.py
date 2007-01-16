@@ -45,3 +45,5 @@ class I386TestMixin(object):
 class TestOperation(I386TestMixin, OperationTests):
     pass
 
+    # for the individual tests see
+    # ====> ../../test/operation_tests.py

@@ -258,3 +258,12 @@ class OperationTests(object):
             assert fp(2.0) == fn(2.0), op
             assert fp(0.0) == fn(0.0), op
             assert fp(-2.0) == fn(-2.0), op
+
+    def test_constants_in_divmod(self):
+        for op in ['x // y', 'x % y']:
+            for constant in range(1, 20):
+                fn = eval("lambda x: " + op, {'y': constant})
+                fp = self.rgen(fn, [int], int)
+                for operand1 in range(-32, 33):
+                    res = fp(operand1)
+                    assert res == eval(op, {'x': operand1, 'y': constant})

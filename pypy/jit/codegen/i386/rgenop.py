@@ -237,13 +237,94 @@ class OpIntFloorDiv(MulOrDivOp):
     opname = 'int_floordiv'
     input_is_64bits = True
     reg_containing_result = eax
-    emit = staticmethod(I386CodeBuilder.IDIV)
+    @staticmethod
+    def emit(mc, op2):
+        # from the PPC backend which has the same problem:
+        # 
+        #   grumble, the powerpc handles division when the signs of x
+        #   and y differ the other way to how cpython wants it.  this
+        #   crawling horror is a branch-free way of computing the right
+        #   remainder in all cases.  it's probably not optimal.
+        #
+        #   we need to adjust the result iff the remainder is non-zero
+        #   and the signs of x and y differ.  in the standard-ish PPC
+        #   way, we compute boolean values as either all-bits-0 or
+        #   all-bits-1 and "and" them together, resulting in either
+        #   adding 0 or -1 as needed in the final step.
+        #
+        #                 Python    i386
+        #    20/3    =     6, 2     6, 2
+        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
+        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
+        # (-20)/(-3) =     6,-2     6,-2
+        #
+        if isinstance(op2, IMM32):
+            # if op2 is an immediate, we do an initial adjustment of operand 1
+            # so that we get directly the correct answer
+            if op2.value >= 0:
+                # if op1 is negative, subtract (op2-1)
+                mc.MOV(ecx, edx)       # -1 if op1 is negative, 0 otherwise
+                mc.AND(ecx, imm(op2.value-1))
+                mc.SUB(eax, ecx)
+                mc.SBB(edx, imm8(0))
+            else:
+                # if op1 is positive (or null), add (op2-1)
+                mc.MOV(ecx, edx)
+                mc.NEG(ecx)            # -1 if op1 is positive, 0 otherwise
+                mc.AND(ecx, imm(op2.value-1))
+                mc.ADD(eax, ecx)
+                mc.ADC(edx, imm8(0))
+            mc.MOV(ecx, op2)
+            mc.IDIV(ecx)
+        else:
+            # subtract 1 to the result if the operand signs differ and
+            # the remainder is not zero
+            mc.MOV(ecx, eax)
+            mc.IDIV(op2)
+            mc.XOR(ecx, op2)
+            mc.SAR(ecx, imm8(31)) # -1 if signs differ, 0 otherwise
+            mc.AND(ecx, edx)      # nonnull if signs differ and edx != 0
+            mc.CMP(ecx, imm8(1))  # no carry flag iff signs differ and edx != 0
+            mc.ADC(eax, imm8(-1)) # subtract 1 iff no carry flag
 
 class OpIntMod(MulOrDivOp):
     opname = 'int_mod'
     input_is_64bits = True
     reg_containing_result = edx
-    emit = staticmethod(I386CodeBuilder.IDIV)
+    @staticmethod
+    def emit(mc, op2):
+        #                 Python    i386
+        #    20/3    =     6, 2     6, 2
+        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
+        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
+        # (-20)/(-3) =     6,-2     6,-2
+        #
+        if isinstance(op2, IMM32):
+            mc.MOV(ecx, op2)
+            mc.IDIV(ecx)
+            if op2.value >= 0:
+                # if the result is negative, add op2 to it
+                mc.MOV(ecx, edx)
+                mc.SAR(ecx, imm8(31))
+                mc.AND(ecx, imm(op2.value))
+                mc.ADD(edx, ecx)
+            else:
+                # if the result is > 0, subtract op2 from it
+                mc.MOV(ecx, edx)
+                mc.NEG(ecx)
+                mc.SAR(ecx, imm8(31))
+                mc.AND(ecx, imm(op2.value))
+                mc.SUB(edx, ecx)
+        else:
+            # if the operand signs differ and the remainder is not zero,
+            # add operand2 to the result
+            mc.MOV(ecx, eax)
+            mc.IDIV(op2)
+            mc.XOR(ecx, op2)
+            mc.SAR(ecx, imm8(31)) # -1 if signs differ, 0 otherwise
+            mc.AND(ecx, edx)      # nonnull if signs differ and edx != 0
+            mc.CMOVNZ(ecx, op2)   # == op2  if signs differ and edx != 0
+            mc.ADD(edx, ecx)
 
 class OpUIntMul(MulOrDivOp):
     opname = 'uint_mul'
