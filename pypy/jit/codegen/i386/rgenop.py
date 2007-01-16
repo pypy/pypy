@@ -1125,8 +1125,8 @@ class RegAllocator(object):
         self.required_frame_depth = stackn
 
     def get_operand(self, gv_source):
-        if isinstance(gv_source, IntConst):
-            return imm(gv_source.value)
+        if gv_source.is_const:
+            return imm(gv_source.revealconst(lltype.Signed))
         else:
             loc = self.var2loc[gv_source]
             return self.operands[loc]

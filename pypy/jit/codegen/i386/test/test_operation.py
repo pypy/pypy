@@ -1,4 +1,5 @@
 from pypy.rlib.objectmodel import specialize
+from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.test.operation_tests import OperationTests
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
@@ -47,3 +48,31 @@ class TestOperation(I386TestMixin, OperationTests):
 
     # for the individual tests see
     # ====> ../../test/operation_tests.py
+
+    def test_specific_bug(self):
+        rgenop = self.RGenOp()
+        FUNC0 = lltype.FuncType([], lltype.Signed)
+        A = lltype.GcArray(lltype.Signed)
+        a = lltype.malloc(A, 2, immortal=True)
+        gv_a = rgenop.genconst(a)
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        arraytoken = rgenop.arrayToken(A)
+        builder0, gv_callable, _ = rgenop.newgraph(rgenop.sigToken(FUNC0),
+                                                   'generated')
+        builder0.genop_setarrayitem(arraytoken, gv_a, rgenop.genconst(0),
+                                    rgenop.genconst(1))
+        builder0.genop_setarrayitem(arraytoken, gv_a, rgenop.genconst(1),
+                                    rgenop.genconst(2))
+        v0 = builder0.genop_getarrayitem(arraytoken, gv_a, rgenop.genconst(0))
+        v1 = builder0.genop_getarrayitem(arraytoken, gv_a, rgenop.genconst(1))
+        v2 = builder0.genop2('int_add', v0, v1)
+        builder1 = builder0.pause_writing([v2])
+        builder1.start_writing()
+        args_gv = [v2]
+        label0 = builder1.enter_next_block([signed_kind], args_gv)
+        [v3] = args_gv
+        args_gv = [v3]
+        label1 = builder1.enter_next_block([signed_kind], args_gv)
+        [v4] = args_gv
+        builder1.finish_and_return(rgenop.sigToken(FUNC0), v4)
+        builder0.end()
