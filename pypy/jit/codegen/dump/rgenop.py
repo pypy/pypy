@@ -148,7 +148,7 @@ class Builder(GenBuilder):
         return v
 
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-        v = self.llbuilder.genop_malloc_varsize(alloctoken)
+        v = self.llbuilder.genop_malloc_varsize(varsizealloctoken, gv_size)
         self.dump("%s = %s.genop_malloc_varsize(%s, %s)" % (
             self.rgenop.vname(v),
             self.name,
