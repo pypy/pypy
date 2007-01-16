@@ -50,12 +50,30 @@ class OperationTests(object):
             assert fp(25, 3) == intmask(fn(25, 3))
             assert fp(149, 32) == intmask(fn(149, 32))
             assert fp(149, 33) == intmask(fn(149, 33))
+            assert fp(149, 65) == intmask(fn(149, 65))
             assert fp(149, 150) == intmask(fn(149, 150))
             assert fp(-40, 2) == intmask(fn(-40, 2))
             assert fp(-25, 3) == intmask(fn(-25, 3))
             assert fp(-149, 32) == intmask(fn(-149, 32))
             assert fp(-149, 33) == intmask(fn(-149, 33))
+            assert fp(-149, 65) == intmask(fn(-149, 65))
             assert fp(-149, 150) == intmask(fn(-149, 150))
+            try:
+                fn(40, -2)
+            except ValueError:
+                # the shift tests with negative y are invalid
+                continue
+            else:
+                assert fp(40, -2) == intmask(fn(40, -2))
+                assert fp(25, -3) == intmask(fn(25, -3))
+                assert fp(149, -32) == intmask(fn(149, -32))
+                assert fp(149, -33) == intmask(fn(149, -33))
+                assert fp(149, -150) == intmask(fn(149, -150))
+                assert fp(-40, -2) == intmask(fn(-40, -2))
+                assert fp(-25, -3) == intmask(fn(-25, -3))
+                assert fp(-149, -32) == intmask(fn(-149, -32))
+                assert fp(-149, -33) == intmask(fn(-149, -33))
+                assert fp(-149, -150) == intmask(fn(-149, -150))
 
     def test_comparison(self):
         for op, fn in [('int(x <  y)', lambda x, y: int(x <  y)),
@@ -197,8 +215,17 @@ class OperationTests(object):
                        ('~y', lambda x, y: ~y),
                        ]:
             fp = self.rgen(fn, [r_uint, r_uint])
-            assert fp(40, 2) == fn(40, 2), op
-            assert fp(25, 3) == fn(25, 3), op
+            print op
+            fn1 = lambda x, y: fn(r_uint(x), r_uint(y))
+            fp1 = lambda x, y: r_uint(fp(x, y))
+            assert fp1(40, 2) == fn1(40, 2)
+            assert fp1(25, 3) == fn1(25, 3)
+            assert fp1(40, 2) == fn1(40, 2)
+            assert fp1(25, 3) == fn1(25, 3)
+            assert fp1(149, 32) == fn1(149, 32)
+            assert fp1(149, 33) == fn1(149, 33)
+            assert fp1(149, 65) == fn1(149, 65)
+            assert fp1(149, 150) == fn1(149, 150)
 
     def test_float_arithmetic(self):
         for op, fn in [('x + y', lambda x, y: x + y),

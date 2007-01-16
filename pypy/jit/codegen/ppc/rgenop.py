@@ -757,16 +757,15 @@ class Builder(GenBuilder):
 
     def op_int_lshift(self, gv_x, gv_y):
         if gv_y.fits_in_immediate():
-            if abs(gv_y.value) > 32:
+            if abs(gv_y.value) >= 32:
                 return self.rgenop.genconst(0)
             else:
                 return self._arg_imm_op(gv_x, gv_y, _PPC.slwi)
-        gv_abs_y = self.op_int_abs(gv_y)
         # computing x << y when you don't know y is <=32
-        # (we can assume y >=0 though, i think)
+        # (we can assume y >= 0 though)
         # here's the plan:
         #
-        # z = ngeu(y, 32) (as per cwg)
+        # z = nltu(y, 32) (as per cwg)
         # w = x << y
         # r = w&z
         gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
@@ -778,7 +777,30 @@ class Builder(GenBuilder):
     ## def op_int_lshift_val(self, gv_x, gv_y):
 
     def op_int_rshift(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.sraw, _PPC.srawi)
+        if gv_y.fits_in_immediate():
+            if abs(gv_y.value) >= 32:
+                gv_y = rgenop.genconst(31)
+            return self._arg_imm_op(gv_x, gv_y, _PPC.srawi)
+        # computing x >> y when you don't know y is <=32
+        # (we can assume y >= 0 though)
+        # here's the plan:
+        #
+        # ntlu_y_32 = nltu(y, 32) (as per cwg)
+        # o = srawi(x, 31) & ~ntlu_y_32
+        # w = (x >> y) & ntlu_y_32
+        # r = w|o
+        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_b = self._arg_op(gv_y, _PPC.addze)
+        gv_ntlu_y_32 = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
+
+        gv_c = self._arg_imm_op(gv_x, self.rgenop.genconst(31), _PPC.srawi)
+        gv_d = self._arg_op(gv_ntlu_y_32, _PPC.not_)
+        gv_o = self._arg_arg_op(gv_c, gv_d, _PPC.and_)
+
+        gv_e = self._arg_arg_op(gv_x, gv_y, _PPC.sraw)
+        gv_w = self._arg_arg_op(gv_e, gv_ntlu_y_32, _PPC.and_)
+
+        return self._arg_arg_op(gv_o, gv_w, _PPC.or_)
 
     ## def op_int_rshift_val(self, gv_x, gv_y):
 
@@ -830,7 +852,23 @@ class Builder(GenBuilder):
 
     op_uint_lshift = op_int_lshift
     def op_uint_rshift(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.srw, _PPC.srwi)
+        if gv_y.fits_in_immediate():
+            if abs(gv_y.value) >= 32:
+                return self.rgenop.genconst(0)
+            else:
+                return self._arg_imm_op(gv_x, gv_y, _PPC.srwi)
+        # computing x << y when you don't know y is <=32
+        # (we can assume y >=0 though, i think)
+        # here's the plan:
+        #
+        # z = ngeu(y, 32) (as per cwg)
+        # w = x << y
+        # r = w&z
+        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_b = self._arg_op(gv_y, _PPC.addze)
+        gv_z = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
+        gv_w = self._arg_arg_op(gv_x, gv_y, _PPC.srw)
+        return self._arg_arg_op(gv_z, gv_w, _PPC.and_)
 
     ## def op_uint_lshift_val(self, gv_x, gv_y):
     ## def op_uint_rshift(self, gv_x, gv_y):
