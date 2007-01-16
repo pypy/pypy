@@ -411,9 +411,7 @@ class SpillCalleeSaves(Insn):
         for v in allocator.var2loc:
             loc = allocator.loc_of(v)
             if loc in callersave:
-                #print "spilling", v, "from", loc, "to",
                 allocator.spill(loc, v)
-                #print allocator.loc_of(v)
                 allocator.freeregs[GP_REGISTER].append(loc)
     def emit(self, asm):
         pass
@@ -526,6 +524,7 @@ class Spill(AllocTimeInsn):
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
+        #print 'spilling to', self.stack.offset
         asm.stw(self.reg.number, rFP, self.stack.offset)
 
 class _CRF2GPR(AllocTimeInsn):

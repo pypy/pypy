@@ -68,6 +68,7 @@ class IntConst(GenConst):
             assert isinstance(loc, insn.GPR)
             asm.load_word(loc.number, self.value)
         else:
+            #print 'load_now to', loc.offset
             asm.load_word(rSCRATCH, self.value)
             asm.stw(rSCRATCH, rFP, loc.offset)
 
@@ -105,15 +106,15 @@ class AddrConst(GenConst):
             assert isinstance(loc, insn.GPR)
             asm.load_word(loc.number, value)
         else:
+            #print 'load_now to', loc.offset
             asm.load_word(rSCRATCH, value)
             asm.stw(rSCRATCH, rFP, loc.offset)
 
 
 class JumpPatchupGenerator(object):
 
-    def __init__(self, insns, min_offset, allocator):
+    def __init__(self, insns, allocator):
         self.insns = insns
-        self.min_offset = min_offset
         self.allocator = allocator
 
     def emit_move(self, tarloc, srcloc):
@@ -135,11 +136,9 @@ class JumpPatchupGenerator(object):
             emit(insn.Spill(None, insn.gprs[0], tarloc))
 
     def create_fresh_location(self):
-        r = self.min_offset
-        self.min_offset -= 4
-        return insn.stack_slot(r)
+        return self.allocator.spill_slot()
 
-def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target, allocator):
+def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
 
     tar2src = {}     # tar var -> src var
     tar2loc = {}
@@ -154,11 +153,12 @@ def prepare_for_jump(insns, min_offset, sourcevars, src2loc, target, allocator):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
         else:
+            if not tloc.is_register:
+                allocator.spill_offset = min(tloc.offset, allocator.spill_offset)
             insns.append(insn.Load(tloc, src))
 
-    gen = JumpPatchupGenerator(insns, min_offset, allocator)
+    gen = JumpPatchupGenerator(insns, allocator)
     emit_moves(gen, tar2src, tar2loc, src2loc)
-    return gen.min_offset
 
 
 class Label(GenLabel):
@@ -202,7 +202,6 @@ class Builder(GenBuilder):
         self.asm = RPPCAssembler()
         self.asm.mc = None
         self.insns = []
-        self.stack_adj_addr = 0
         self.initial_spill_offset = 0
         self.initial_var2loc = None
         self.max_param_space = -1
@@ -372,9 +371,9 @@ class Builder(GenBuilder):
             self.pause_writing(outputargs_gv)
             self.start_writing()
         allocator = self.allocate(outputargs_gv)
-        min_offset = min(allocator.spill_offset, target.min_stack_offset)
-        allocator.spill_offset = prepare_for_jump(
-            self.insns, min_offset, outputargs_gv, allocator.var2loc, target, allocator)
+        prepare_for_jump(
+            self.insns, outputargs_gv, allocator.var2loc, target, allocator)
+        allocator.spill_offset = min(allocator.spill_offset, target.min_stack_offset)
         self.emit(allocator)
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
@@ -507,6 +506,7 @@ class Builder(GenBuilder):
         'lv' is the largest (wrt to abs() :) rFP-relative byte offset of
         any variable on the stack.  Plus 4 because the rFP actually points
         into our caller's linkage area."""
+        assert lv <= 0
         if self.max_param_space >= 0:
             param = self.max_param_space + 24
         else:
@@ -557,8 +557,7 @@ class Builder(GenBuilder):
         # patch_stack_adjustment below).
         # note that this stomps on both rSCRATCH (not a problem) and
         # crf0 (a very small chance of being a problem)
-        self.stack_adj_addr = self.asm.mc.tell()
-        #print "emit_stack_adjustment at: ", self.stack_adj_addr
+        #print 'enlargening stack to', newsize
         self.asm.addi(rSCRATCH, rFP, -newsize)
         self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
         self.asm.beq(3) # if rSCRATCH == 0, there is no actual adjustment, so
