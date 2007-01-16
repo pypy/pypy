@@ -49,7 +49,7 @@ class Builder(GenBuilder):
             self.rgenop.lblname(lbl),
             self.name,
             self.rgenop.kindtokensname(kinds)))
-        self.dump("[%s] = args_gv" % self.rgenop.vlistname(args_gv))
+        self.dump("%s = args_gv" % self.rgenop.vlistassname(args_gv))
         return lbl
 
     def jump_if_false(self, gv_condition, args_for_jump_gv):
@@ -195,6 +195,7 @@ class Builder(GenBuilder):
     def genop_setarrayitem(self, arraytoken, gv_array, gv_index, gv_value):
         self.dump("%s.genop_setarrayitem(%s, %s, %s, %s)" % (
             self.name,
+            self.rgenop.arraytokenname(arraytoken),
             self.rgenop.vname(gv_array),
             self.rgenop.vname(gv_index),
             self.rgenop.vname(gv_value)))
@@ -275,6 +276,13 @@ class RDumpGenOp(llrgenop.RGenOp):
     def vlistname(self, list_gv):
         return ', '.join([self.vname(v) for v in list_gv])
 
+    def vlistassname(self, list_gv):
+        # [] = x  => SyntaxError, grumble
+        if list_gv:
+            return '[%s]' % self.vlistname(list_gv)
+        else:
+            return '_'
+
     def lblname(self, lbl):
         try:
             return self.lblnames[lbl]
@@ -309,7 +317,7 @@ class RDumpGenOp(llrgenop.RGenOp):
     @specialize.memo()
     def kindToken(T):
         result = llrgenop.rgenop.kindToken(T)
-        kindtokennames[result] = str(T).lower() + '_token'
+        kindtokennames[result] = str(T).lower() + '_kind'
         return result
 
     def dump(self, text):
@@ -328,10 +336,10 @@ class RDumpGenOp(llrgenop.RGenOp):
         builder, gv_callable, inputargs_gv = llrgenop.RGenOp.newgraph(
             self, sigtoken, name)
         builder = Builder(self, builder)
-        self.dump("%s, %s, [%s] = rgenop.newgraph(%s, '%s')" % (
+        self.dump("# new graph at address %s" % self.vname(gv_callable))
+        self.dump("%s, gv_callable, %s = rgenop.newgraph(%s, '%s')" % (
             builder.name,
-            self.vname(gv_callable),
-            self.vlistname(inputargs_gv),
+            self.vlistassname(inputargs_gv),
             self.sigtokenname(sigtoken),
             name))
         return builder, gv_callable, inputargs_gv
@@ -340,9 +348,9 @@ class RDumpGenOp(llrgenop.RGenOp):
         self.dump("# replay")
         b, args_gv = llrgenop.RGenOp.replay(self, label, kinds)
         b = Builder(self, b)
-        self.dump("%s, [%s] = rgenop.replay(%s, [%s])" % (
+        self.dump("%s, %s = rgenop.replay(%s, [%s])" % (
             b.name,
-            self.vlistname(args_gv),
+            self.vlistassname(args_gv),
             self.lblname(label),
             self.kindtokensname(kinds)))
         return b, args_gv
