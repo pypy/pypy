@@ -794,8 +794,7 @@ class Builder(GenBuilder):
         gv_ntlu_y_32 = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
 
         gv_c = self._arg_imm_op(gv_x, self.rgenop.genconst(31), _PPC.srawi)
-        gv_d = self._arg_op(gv_ntlu_y_32, _PPC.not_)
-        gv_o = self._arg_arg_op(gv_c, gv_d, _PPC.and_)
+        gv_o = self._arg_arg_op(gv_c, gv_ntlu_y_32, _PPC.andc_)
 
         gv_e = self._arg_arg_op(gv_x, gv_y, _PPC.sraw)
         gv_w = self._arg_arg_op(gv_e, gv_ntlu_y_32, _PPC.and_)
@@ -851,6 +850,9 @@ class Builder(GenBuilder):
     op_uint_or = op_int_or
 
     op_uint_lshift = op_int_lshift
+
+    ## def op_uint_lshift_val(self, gv_x, gv_y):
+
     def op_uint_rshift(self, gv_x, gv_y):
         if gv_y.fits_in_immediate():
             if abs(gv_y.value) >= 32:
@@ -862,16 +864,13 @@ class Builder(GenBuilder):
         # here's the plan:
         #
         # z = ngeu(y, 32) (as per cwg)
-        # w = x << y
+        # w = x >> y
         # r = w&z
         gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
         gv_b = self._arg_op(gv_y, _PPC.addze)
         gv_z = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
         gv_w = self._arg_arg_op(gv_x, gv_y, _PPC.srw)
         return self._arg_arg_op(gv_z, gv_w, _PPC.and_)
-
-    ## def op_uint_lshift_val(self, gv_x, gv_y):
-    ## def op_uint_rshift(self, gv_x, gv_y):
     ## def op_uint_rshift_val(self, gv_x, gv_y):
 
     op_uint_xor = op_int_xor
