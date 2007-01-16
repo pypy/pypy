@@ -79,7 +79,7 @@ def test_overridden_default():
     B = Instance("B", A)
     overrideDefaultForFields(B, {"a": (Signed, 5)})
 
-    b = new(B)e
+    b = new(B)
     assert b.a == 5
 
 def test_simple_null():
