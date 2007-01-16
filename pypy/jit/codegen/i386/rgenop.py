@@ -899,6 +899,14 @@ OPCLASSES1['cast_unichar_to_int'] = None
 OPCLASSES1['cast_int_to_char'] = None
 OPCLASSES1['cast_int_to_unichar'] = None
 
+@specialize.memo()
+def getMissingBackendOperation(opname):
+    class MissingBackendOperation(Exception):
+        pass
+    MissingBackendOperation.__name__ += '_' + opname
+    return MissingBackendOperation
+
+
 def setup_conditions():
     result1 = [None] * 16
     result2 = [None] * 16
@@ -1314,7 +1322,10 @@ class Builder(GenBuilder):
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
-        cls = OPCLASSES1[opname]
+        try:
+            cls = OPCLASSES1[opname]
+        except KeyError:
+            raise getMissingBackendOperation(opname)()
         if cls is None:     # identity
             return gv_arg
         op = cls(gv_arg)
@@ -1323,7 +1334,10 @@ class Builder(GenBuilder):
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
-        cls = OPCLASSES2[opname]
+        try:
+            cls = OPCLASSES2[opname]
+        except KeyError:
+            raise getMissingBackendOperation(opname)()
         op = cls(gv_arg1, gv_arg2)
         self.operations.append(op)
         return op
