@@ -766,7 +766,7 @@ class Builder(GenBuilder):
         # (we can assume y >=0 though, i think)
         # here's the plan:
         #
-        # z = ngeu(x, 32) (as per cwg)
+        # z = ngeu(y, 32) (as per cwg)
         # w = x << y
         # r = w&z
         gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
