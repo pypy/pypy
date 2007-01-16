@@ -1408,7 +1408,8 @@ class Builder(GenBuilder):
         pass
 
     def log(self, msg):
-        self.mc.log(msg)
+        pass  # self.mc.log(msg)
+        # XXX re-do this somehow...
 
 
 class RI386GenOp(AbstractRGenOp):
