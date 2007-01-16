@@ -23,20 +23,19 @@ Leysin Winter Sports Sprint, 8th - 14th January 2007
 
    <table border=0><tr><td>
 
-The next PyPy sprint will be in Leysin, Switzerland, for the fourth
-time.  This sprint is a fully public sprint and will also be a kick-off
-for the final work on the upcoming PyPy 1.0 release (scheduled for
-mid-February).  See the `Leysin announcement`_ for details.
+The PyPy Leysin sprint is over. We worked hard on various topics, including
+preparing the upcoming py-lib and PyPy releases. For more details, see the
+`Leysin sprint report`_, the `Leysin announcement`_ and the
+`list of people present`_.
 
-The sprint is the last best chance for students looking for a `"summer" job
-with PyPy`_ this winter!
 
 .. raw:: html
 
    </td><td><img src="http://www.ermina.ch/002.JPG"></td></tr></table>
 
 .. _`Leysin announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2007/announcement.html
-.. _`"summer" job with PyPy`: http://codespeak.net/pypy/dist/pypy/doc/summer-of-pypy.html
+.. _`Leysin sprint report`: http://codespeak.net/pipermail/pypy-dev/2007q1/003481.html
+.. _`list of people present`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/leysin-winter-2007/people.txt
 
 
 Massive Parallelism and Translation Aspects
