@@ -464,7 +464,8 @@ class Builder(GenBuilder):
         for arg in inputargs[:8]:
             self.initial_var2loc[arg] = gprs[3+len(self.initial_var2loc)]
         if len(inputargs) > 8:
-            for arg in inputargs[8:]:
+            for i in range(8, len(inputargs)):
+                arg = inputargs[i]
                 self.initial_var2loc[arg] = insn.stack_slot(24 + 4 * len(self.initial_var2loc))
         self.initial_spill_offset = self._var_offset(0)
 
