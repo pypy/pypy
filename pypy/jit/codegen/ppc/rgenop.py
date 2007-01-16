@@ -193,9 +193,6 @@ class Label(GenLabel):
 #    into the local variables area from the FP (frame pointer; it is not
 #    usual on the PPC to have a frame pointer, but there's no reason we
 #    can't have one :-)
-# 4. we don't support calls, so we never allocate a parameter or
-#    linkage area for functions we call.  this shouldn't be too hard
-#    to support, it's just not done yet...
 
 
 class Builder(GenBuilder):
@@ -463,8 +460,10 @@ class Builder(GenBuilder):
         inputargs = [Var() for i in range(numargs)]
         assert self.initial_var2loc is None
         self.initial_var2loc = {}
-        for arg in inputargs:
+        for arg in inputargs[:8]:
             self.initial_var2loc[arg] = gprs[3+len(self.initial_var2loc)]
+        for arg in inputargs[8:]:
+            self.initial_var2loc[arg] = insn.stack_slot(24 + 4 * len(self.initial_var2loc))
         self.initial_spill_offset = self._var_offset(0)
 
         # Standard prologue:
