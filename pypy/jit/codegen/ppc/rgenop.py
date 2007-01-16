@@ -48,7 +48,7 @@ class IntConst(GenConst):
 
     def __init__(self, value):
         self.value = value
-        
+
     @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
@@ -344,11 +344,7 @@ class Builder(GenBuilder):
         return r
 
     def jump_if_false(self, gv_condition, args_gv):
-        #print 'jump_if_false', [id(v) for v in args_gv]
-        #print id(self)
-        t = self._jump(gv_condition, False, args_gv)
-        #print '->', id(t)
-        return t
+        return self._jump(gv_condition, False, args_gv)
 
     def jump_if_true(self, gv_condition, args_gv):
         return self._jump(gv_condition, True, args_gv)
@@ -569,16 +565,6 @@ class Builder(GenBuilder):
         self.asm.stw(rFP, rSP, 0)
         # branch to "here"
 
-##     def patch_stack_adjustment(self, newsize):
-##         if self.stack_adj_addr == 0:
-##             return
-##         #print "patch_stack_adjustment at:", self.stack_adj_addr, newsize
-##         # we build an addi instruction by hand here
-##         mc = self.asm.mc
-##         self.asm.mc = self.rgenop.ExistingCodeBlock(self.stack_adj_addr, self.stack_adj_addr+4)
-##         self.asm.addi(rSCRATCH, rFP, -newsize)
-##         self.asm.mc = mc
-
     def _arg_op(self, gv_arg, opcode):
         gv_result = Var()
         self.insns.append(
@@ -702,7 +688,28 @@ class Builder(GenBuilder):
                                          commutative=True)
 
     def op_int_floordiv(self, gv_x, gv_y):
-        return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
+        # grumble, the powerpc handles division when the signs of x
+        # and y differ the other way to how cpython wants it.  this
+        # crawling horror is a branch-free way of computing the right
+        # remainder in all cases.  it's probably not optimal.
+
+        # we need to adjust the result iff the remainder is non-zero
+        # and the signs of x and y differ.  in the standard-ish PPC
+        # way, we compute boolean values as either all-bits-0 or
+        # all-bits-1 and "and" them together, resulting in either
+        # adding 0 or -1 as needed in the final step.
+
+        gv_dividend = self._arg_arg_op(gv_x, gv_y, _PPC.divw)
+        gv_remainder = self.op_int_sub(gv_x, self.op_int_mul(gv_dividend, gv_y))
+
+        gv_t = self._arg_arg_op(gv_y, gv_x, _PPC.xor)
+        gv_signs_differ = self._arg_imm_op(gv_t, self.rgenop.genconst(31), _PPC.srawi)
+
+        gv_foo = self._arg_imm_op(gv_remainder, self.rgenop.genconst(0), _PPC.subfic)
+        gv_remainder_non_zero = self._arg_arg_op(gv_foo, gv_foo, _PPC.subfe)
+
+        gv_b = self._arg_arg_op(gv_remainder_non_zero, gv_signs_differ, _PPC.and_)
+        return self._arg_arg_op(gv_dividend, gv_b, _PPC.add)
 
     ## def op_int_floordiv_zer(self, gv_x, gv_y):
 
@@ -749,11 +756,30 @@ class Builder(GenBuilder):
                                          commutative=True)
 
     def op_int_lshift(self, gv_x, gv_y):
-        # could be messy if shift is not in 0 <= ... < 32
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.slw, _PPC.slwi)
+        if gv_y.fits_in_immediate():
+            if abs(gv_y.value) > 32:
+                return self.rgenop.genconst(0)
+            else:
+                return self._arg_imm_op(gv_x, gv_y, _PPC.slwi)
+        gv_abs_y = self.op_int_abs(gv_y)
+        # computing x << y when you don't know y is <=32
+        # (we can assume y >=0 though, i think)
+        # here's the plan:
+        #
+        # z = ngeu(x, 32) (as per cwg)
+        # w = x << y
+        # r = w&z
+        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_b = self._arg_op(gv_y, _PPC.addze)
+        gv_z = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
+        gv_w = self._arg_arg_op(gv_x, gv_y, _PPC.slw)
+        return self._arg_arg_op(gv_z, gv_w, _PPC.and_)
+
     ## def op_int_lshift_val(self, gv_x, gv_y):
+
     def op_int_rshift(self, gv_x, gv_y):
         return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.sraw, _PPC.srawi)
+
     ## def op_int_rshift_val(self, gv_x, gv_y):
 
     def op_int_xor(self, gv_x, gv_y):
@@ -866,7 +892,7 @@ class RPPCGenOp(AbstractRGenOp):
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
-        self.keepalive_gc_refs = [] 
+        self.keepalive_gc_refs = []
 
     # ----------------------------------------------------------------
     # the public RGenOp interface

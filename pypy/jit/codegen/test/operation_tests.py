@@ -29,88 +29,95 @@ class OperationTests(object):
         return fp
 
     def test_arithmetic(self):
-        for fn in [lambda x, y: x + y,
-                   lambda x, y: x - y,
-                   lambda x, y: x * y,
-                   lambda x, y: x // y,
-                   lambda x, y: x % y,
-                   lambda x, y: x << y,
-                   lambda x, y: x >> y,
-                   lambda x, y: x ^ y,
-                   lambda x, y: x & y,
-                   lambda x, y: x | y,
-                   lambda x, y: -y,
-                   lambda x, y: ~y,
-                   lambda x, y: abs(y),
-                   lambda x, y: abs(-x),
-                   ]:
+        for op, fn in [('x + y', lambda x, y: x + y),
+                       ('x - y', lambda x, y: x - y),
+                       ('x * y', lambda x, y: x * y),
+                       ('x // y', lambda x, y: x // y),
+                       ('x % y', lambda x, y: x % y),
+                       ('x << y', lambda x, y: x << y),
+                       ('x >> y', lambda x, y: x >> y),
+                       ('x ^ y', lambda x, y: x ^ y),
+                       ('x & y', lambda x, y: x & y),
+                       ('x | y', lambda x, y: x | y),
+                       ('-y', lambda x, y: -y),
+                       ('~y', lambda x, y: ~y),
+                       ('abs(y)', lambda x, y: abs(y)),
+                       ('abs(-x)', lambda x, y: abs(-x)),
+                       ]:
             fp = self.rgen(fn, [int, int])
+            print op
             assert fp(40, 2) == intmask(fn(40, 2))
             assert fp(25, 3) == intmask(fn(25, 3))
             assert fp(149, 32) == intmask(fn(149, 32))
             assert fp(149, 33) == intmask(fn(149, 33))
+            assert fp(149, 150) == intmask(fn(149, 150))
+            assert fp(-40, 2) == intmask(fn(-40, 2))
+            assert fp(-25, 3) == intmask(fn(-25, 3))
+            assert fp(-149, 32) == intmask(fn(-149, 32))
+            assert fp(-149, 33) == intmask(fn(-149, 33))
+            assert fp(-149, 150) == intmask(fn(-149, 150))
 
     def test_comparison(self):
-        for fn in [lambda x, y: int(x <  y),
-                   lambda x, y: int(x <= y),
-                   lambda x, y: int(x == y),
-                   lambda x, y: int(x != y),
-                   lambda x, y: int(x >  y),
-                   lambda x, y: int(x >= y),
-                   ]:
+        for op, fn in [('int(x <  y)', lambda x, y: int(x <  y)),
+                       ('int(x <= y)', lambda x, y: int(x <= y)),
+                       ('int(x == y)', lambda x, y: int(x == y)),
+                       ('int(x != y)', lambda x, y: int(x != y)),
+                       ('int(x >  y)', lambda x, y: int(x >  y)),
+                       ('int(x >= y)', lambda x, y: int(x >= y)),
+                       ]:
             fp = self.rgen(fn, [int, int])
-            assert fp(12, 11) == fn(12, 11)
-            assert fp(12, 12) == fn(12, 12)
-            assert fp(12, 13) == fn(12, 13)
-            assert fp(-12, 11) == fn(-12, 11)
-            assert fp(-12, 12) == fn(-12, 12)
-            assert fp(-12, 13) == fn(-12, 13)
-            assert fp(12, -11) == fn(12, -11)
-            assert fp(12, -12) == fn(12, -12)
-            assert fp(12, -13) == fn(12, -13)
-            assert fp(-12, -11) == fn(-12, -11)
-            assert fp(-12, -12) == fn(-12, -12)
-            assert fp(-12, -13) == fn(-12, -13)
+            assert fp(12, 11) == fn(12, 11), op
+            assert fp(12, 12) == fn(12, 12), op
+            assert fp(12, 13) == fn(12, 13), op
+            assert fp(-12, 11) == fn(-12, 11), op
+            assert fp(-12, 12) == fn(-12, 12), op
+            assert fp(-12, 13) == fn(-12, 13), op
+            assert fp(12, -11) == fn(12, -11), op
+            assert fp(12, -12) == fn(12, -12), op
+            assert fp(12, -13) == fn(12, -13), op
+            assert fp(-12, -11) == fn(-12, -11), op
+            assert fp(-12, -12) == fn(-12, -12), op
+            assert fp(-12, -13) == fn(-12, -13), op
 
     def test_char_comparison(self):
-        for fn in [lambda x, y: int(chr(x) <  chr(y)),
-                   lambda x, y: int(chr(x) <= chr(y)),
-                   lambda x, y: int(chr(x) == chr(y)),
-                   lambda x, y: int(chr(x) != chr(y)),
-                   lambda x, y: int(chr(x) >  chr(y)),
-                   lambda x, y: int(chr(x) >= chr(y)),
-                   ]:
+        for op, fn in [('int(chr(x) <  chr(y))', lambda x, y: int(chr(x) <  chr(y))),
+                       ('int(chr(x) <= chr(y))', lambda x, y: int(chr(x) <= chr(y))),
+                       ('int(chr(x) == chr(y))', lambda x, y: int(chr(x) == chr(y))),
+                       ('int(chr(x) != chr(y))', lambda x, y: int(chr(x) != chr(y))),
+                       ('int(chr(x) >  chr(y))', lambda x, y: int(chr(x) >  chr(y))),
+                       ('int(chr(x) >= chr(y))', lambda x, y: int(chr(x) >= chr(y))),
+                       ]:
             fp = self.rgen(fn, [int, int])
-            assert fp(12, 11) == fn(12, 11)
-            assert fp(12, 12) == fn(12, 12)
-            assert fp(12, 13) == fn(12, 13)
-            assert fp(182, 11) == fn(182, 11)
-            assert fp(182, 12) == fn(182, 12)
-            assert fp(182, 13) == fn(182, 13)
-            assert fp(12, 181) == fn(12, 181)
-            assert fp(12, 182) == fn(12, 182)
-            assert fp(12, 183) == fn(12, 183)
-            assert fp(182, 181) == fn(182, 181)
-            assert fp(182, 182) == fn(182, 182)
-            assert fp(182, 183) == fn(182, 183)
+            assert fp(12, 11) == fn(12, 11), op
+            assert fp(12, 12) == fn(12, 12), op
+            assert fp(12, 13) == fn(12, 13), op
+            assert fp(182, 11) == fn(182, 11), op
+            assert fp(182, 12) == fn(182, 12), op
+            assert fp(182, 13) == fn(182, 13), op
+            assert fp(12, 181) == fn(12, 181), op
+            assert fp(12, 182) == fn(12, 182), op
+            assert fp(12, 183) == fn(12, 183), op
+            assert fp(182, 181) == fn(182, 181), op
+            assert fp(182, 182) == fn(182, 182), op
+            assert fp(182, 183) == fn(182, 183), op
 
     def test_unichar_comparison(self):
-        for fn in [lambda x, y: int(unichr(x) == unichr(y)),
-                   lambda x, y: int(unichr(x) != unichr(y)),
-                   ]:
+        for op, fn in [('int(unichr(x) == unichr(y))', lambda x, y: int(unichr(x) == unichr(y))),
+                       ('int(unichr(x) != unichr(y))', lambda x, y: int(unichr(x) != unichr(y))),
+                       ]:
             fp = self.rgen(fn, [int, int])
-            assert fp(12, 11) == fn(12, 11)
-            assert fp(12, 12) == fn(12, 12)
-            assert fp(12, 13) == fn(12, 13)
-            assert fp(53182, 11) == fn(53182, 11)
-            assert fp(53182, 12) == fn(53182, 12)
-            assert fp(53182, 13) == fn(53182, 13)
-            assert fp(12, 53181) == fn(12, 53181)
-            assert fp(12, 53182) == fn(12, 53182)
-            assert fp(12, 53183) == fn(12, 53183)
-            assert fp(53182, 53181) == fn(53182, 53181)
-            assert fp(53182, 53182) == fn(53182, 53182)
-            assert fp(53182, 53183) == fn(53182, 53183)
+            assert fp(12, 11) == fn(12, 11), op
+            assert fp(12, 12) == fn(12, 12), op
+            assert fp(12, 13) == fn(12, 13), op
+            assert fp(53182, 11) == fn(53182, 11), op
+            assert fp(53182, 12) == fn(53182, 12), op
+            assert fp(53182, 13) == fn(53182, 13), op
+            assert fp(12, 53181) == fn(12, 53181), op
+            assert fp(12, 53182) == fn(12, 53182), op
+            assert fp(12, 53183) == fn(12, 53183), op
+            assert fp(53182, 53181) == fn(53182, 53181), op
+            assert fp(53182, 53182) == fn(53182, 53182), op
+            assert fp(53182, 53183) == fn(53182, 53183), op
 
     def test_char_array(self):
         A = lltype.GcArray(lltype.Char)
@@ -176,51 +183,51 @@ class OperationTests(object):
         assert res == 5
 
     def test_unsigned(self):
-        for fn in [lambda x, y: x + y,
-                   lambda x, y: x - y,
-                   lambda x, y: x * y,
-                   lambda x, y: x // y,
-                   lambda x, y: x % y,
-                   lambda x, y: x << y,
-                   lambda x, y: x >> y,
-                   lambda x, y: x ^ y,
-                   lambda x, y: x & y,
-                   lambda x, y: x | y,
-                   lambda x, y: -y,
-                   lambda x, y: ~y,
-                   ]:
+        for op, fn in [('x + y', lambda x, y: x + y),
+                       ('x - y', lambda x, y: x - y),
+                       ('x * y', lambda x, y: x * y),
+                       ('x // y', lambda x, y: x // y),
+                       ('x % y', lambda x, y: x % y),
+                       ('x << y', lambda x, y: x << y),
+                       ('x >> y', lambda x, y: x >> y),
+                       ('x ^ y', lambda x, y: x ^ y),
+                       ('x & y', lambda x, y: x & y),
+                       ('x | y', lambda x, y: x | y),
+                       ('-y', lambda x, y: -y),
+                       ('~y', lambda x, y: ~y),
+                       ]:
             fp = self.rgen(fn, [r_uint, r_uint])
-            assert fp(40, 2) == fn(40, 2)
-            assert fp(25, 3) == fn(25, 3)
+            assert fp(40, 2) == fn(40, 2), op
+            assert fp(25, 3) == fn(25, 3), op
 
     def test_float_arithmetic(self):
-        for fn in [lambda x, y: x + y,
-                   lambda x, y: x - y,
-                   lambda x, y: x * y,
-                   lambda x, y: x / y,
-                   #lambda x, y: x % y,  #not used?
-                   lambda x, y: -y,
-                   #lambda x, y: ~y,    #TypeError: bad operand type for unary ~
-                   lambda x, y: abs(y),
-                   lambda x, y: abs(-x),
-                   ]:
+        for op, fn in [('x + y', lambda x, y: x + y),
+                       ('x - y', lambda x, y: x - y),
+                       ('x * y', lambda x, y: x * y),
+                       ('x / y', lambda x, y: x / y),
+                       #('x % y', lambda x, y: x % y),  #not used?
+                       ('-y', lambda x, y: -y),
+                       #('~y', lambda x, y: ~y),    #TypeError: bad operand type for unary ~
+                       ('abs(y)', lambda x, y: abs(y)),
+                       ('abs(-x)', lambda x, y: abs(-x)),
+                       ]:
             fp = self.rgen(fn, [float, float], float)
-            assert fp(40.0, 2.0) == fn(40.0, 2.0)
-            assert fp(25.125, 1.5) == fn(25.125, 1.5)
+            assert fp(40.0, 2.0) == fn(40.0, 2.0), op
+            assert fp(25.125, 1.5) == fn(25.125, 1.5), op
 
     def test_float_pow(self): #harder test for llvm
-        for fn in [lambda x, y: x ** y,    #not supported in llvm backend
-                   ]:
+        for op, fn in [('x ** y', lambda x, y: x ** y),    #not supported in llvm backend
+                       ]:
             fp = self.rgen(fn, [float, float], float)
-            assert fp(40.0, 2.0) == fn(40.0, 2.0)
-            assert fp(25.125, 1.5) == fn(25.125, 1.5)
+            assert fp(40.0, 2.0) == fn(40.0, 2.0), op
+            assert fp(25.125, 1.5) == fn(25.125, 1.5), op
 
     def test_float_cast(self): #because of different rettype
-        for fn in [lambda x: bool(x),
-                   lambda x: bool(x - 2.0),
-                   ]:
+        for op, fn in [('bool(x)', lambda x: bool(x)),
+                       ('bool(2.0 - x)', lambda x: bool(x - 2.0)),
+                       ]:
             fp = self.rgen(fn, [float], bool)
-            assert fp(6.0) == fn(6.0)
-            assert fp(2.0) == fn(2.0)
-            assert fp(0.0) == fn(0.0)
-            assert fp(-2.0) == fn(-2.0)
+            assert fp(6.0) == fn(6.0), op
+            assert fp(2.0) == fn(2.0), op
+            assert fp(0.0) == fn(0.0), op
+            assert fp(-2.0) == fn(-2.0), op
