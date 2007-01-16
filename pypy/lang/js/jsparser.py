@@ -52,8 +52,8 @@ def parse_bytecode(bytecode):
     unquote(tree)
     return tree
 
-regexs, rules, ToAST = parse_ebnf("""
-    QUOTED_STRING: "'[^\\']*'";
+regexs, rules, ToAST = parse_ebnf(r"""
+    QUOTED_STRING: "'([^\']|\\\')*'";"""+"""
     IGNORE: " |\n";
     data: <dict> | <QUOTED_STRING> | <list>;
     dict: ["{"] (dictentry [","])* dictentry ["}"];

@@ -378,6 +378,7 @@ class TestInterp(object):
         print(y)""", ["5"])
     
     def test_math_stuff(self):
+        py.test.skip('not ready yet')
         self.assert_prints("""
         var x = 5;
         var z = 2;
@@ -401,3 +402,19 @@ class TestInterp(object):
 
     def test_strangefunc(self):
         self.assert_prints("""function f1() { var z; var t;}""", [])
+        self.assert_prints(""" "'t'" """, [])
+        
+    def test_null(self):
+        self.assert_result("null", w_Null)
+
+    def test_void(self):
+        self.assert_prints("print(void print('hello'))",
+                            ["hello", "undefined"])
+
+    def test_activationprob(self):
+        self.assert_prints( """
+        function x (actual){
+            print(typeof actual)
+        }
+        x(true)
+        """, ['boolean'])

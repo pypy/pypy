@@ -140,6 +140,7 @@ class W_PrimitiveObject(W_Root):
             arg = self.callfunc.params[i]
             try:
                 value = args[i]
+                print "value is", value
             except IndexError:
                 value = w_Undefined
             act.Put(self.callfunc.params[i], value)

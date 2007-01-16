@@ -295,7 +295,12 @@ Np.toString = function () {
                 continue                
             }
         }
-        val = a[i].value + "";
+        
+        if(typeof a[i].value == 'string'){
+            val = a[i].value.replace(/'/g, "\\'")
+        } else {
+            val = a[i].value+ "";
+        }
         if ((val.search("\n"+INDENTATION.repeat(n)+"\\},\\{") != -1 )) {
             s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': [" + val + "]";
         } else { 

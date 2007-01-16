@@ -80,7 +80,13 @@ def objectconstructor(ctx, args, this):
 
 def isnanjs(ctx, args, this):
     return W_Boolean(args[0].ToNumber() == NaN)
+
+def booleanjs(ctx, args, this):
+    if len(args) > 0:
+        return W_Boolean(args[0].ToBoolean())
+    return W_Boolean(False)
         
+    
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
@@ -116,6 +122,7 @@ class Interpreter(object):
         w_Global.Put('eval', W_Builtin(evaljs))
         w_Global.Put('print', W_Builtin(printjs))
         w_Global.Put('isNaN', W_Builtin(isnanjs))
+        w_Global.Put('Boolean', W_Builtin(booleanjs, Class="Boolean"))
 
         w_Global.Put('NaN', W_Number(NaN))
         w_Global.Put('Infinity', W_Number(Infinity))
@@ -210,6 +217,9 @@ class Call(Expression):
             r7 = None
         else:
             r7 = r6
+        if r1.property_name == "getTestCaseResult":
+            import pdb
+            pdb.set_trace()
         retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
         return retval
 
@@ -442,7 +452,10 @@ class NewWithArgs(Expression):
             raise TypeError()
         args = self.arglist.eval(ctx).get_args()
         return x.Construct(ctx=ctx, args=args)
-            
+
+class Null(Expression):
+    def eval(self, ctx):
+        return w_Null            
 
 class Number(Expression):
     def __init__(self, num):
@@ -526,7 +539,7 @@ class Script(Statement):
                 return e.value
             else:
                 print "exeception in line: %s, %s - %s"%(node.lineno, node.value, self)
-                raise e
+                raise
 
 class Semicolon(Statement):
     def __init__(self, expr = None):
@@ -601,7 +614,14 @@ class Typeof(Expression):
         self.op = op
     
     def eval(self, ctx):
-        return W_String(self.op.eval(ctx).GetValue().type())
+        val = self.op.eval(ctx)
+        print val, val.GetBase()
+        if val.GetBase() is None:
+            return W_String("undefined")
+        if isinstance(val.GetValue(), W_Reference):
+            import pdb
+            pdb.set_trace()
+        return W_String(val.GetValue().type())
         
 class Undefined(Statement):
     def execute(self, ctx):
@@ -614,6 +634,14 @@ class Vars(Statement):
     def execute(self, ctx):
         for var in self.nodes:
             var.execute(ctx)
+
+class Void(Expression):
+    def __init__(self, expr):
+        self.expr = expr
+    
+    def eval(self, ctx):
+        self.expr.eval(ctx)
+        return w_Undefined
 
 class While(Statement):
     def __init__(self, condition, body):
@@ -778,6 +806,8 @@ def from_tree(t):
         node = New(from_tree(gettreeitem(t, '0')))
     elif tp == 'NEW_WITH_ARGS':
         node = NewWithArgs(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
+    elif tp == 'NULL':
+        node = Null()
     elif tp == 'NUMBER':
         node = Number(float(gettreeitem(t, 'value').additional_info))
     elif tp == 'OBJECT_INIT':
@@ -845,6 +875,8 @@ def from_tree(t):
         node = Typeof(from_tree(gettreeitem(t, '0')))
     elif tp == 'VAR':
         node = Vars(getlist(t))
+    elif tp == 'VOID':
+        node = Void(from_tree(gettreeitem(t, '0')))
     elif tp == 'WHILE':
         body = from_tree(gettreeitem(t, 'body'))
         condition = from_tree(gettreeitem(t, 'condition'))
@@ -858,7 +890,7 @@ def from_tree(t):
     elif tp == 'UNARY_MINUS':
         node = UMinus(from_tree(gettreeitem(t, '0')))
     else:
-        raise NotImplementedError("Dont know how to handler %s" % tp)
+        raise NotImplementedError("Dont know how to handle %s" % tp)
     
     if tp == 'SCRIPT':
         start = 0

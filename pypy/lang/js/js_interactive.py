@@ -55,15 +55,11 @@ def main(argv=None):
         sys.exit(0)
         return "this should not be printed"
     
-    quitbi = W_Builtin()
-    quitbi.set_builtin_call(quiter)
-    loadbi = W_Builtin()
-    loadbi.set_builtin_call(loadjs)
-    interp.w_Global.Put('quit', quitbi)
-    interp.w_Global.Put('load', loadbi)
+    interp.w_Global.Put('quit', W_Builtin(quiter))
+    interp.w_Global.Put('load', W_Builtin(loadjs))
     for filename in filenames:
         loadjs(interp.global_context, [W_String(filename)], None)
-    
+
     while 1:
         res = interp.run(load_source(raw_input("pypy-js> ")))
         if res is not None:
