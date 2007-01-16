@@ -1377,7 +1377,7 @@ class Builder(GenBuilder):
                           [opsz])
         self.operations.append(opmalloc)
         lengthtoken, _, _ = varsizealloctoken
-        self.operations.append(OpSetField(lengthtoken, opmalloc, opsz))
+        self.operations.append(OpSetField(lengthtoken, opmalloc, gv_size))
         return opmalloc
 
     def genop_getfield(self, fieldtoken, gv_ptr):
