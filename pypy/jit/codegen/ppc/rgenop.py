@@ -258,7 +258,7 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        return self._arg_imm_op(gv_ptr, IntConst(fieldtoken), _PPC.addi)
+        return self._arg_imm_op(gv_ptr, IntConst(fieldtoken[0]), _PPC.addi)
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
@@ -971,7 +971,12 @@ class RPPCGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return (llmemory.offsetof(T, name), llmemory.sizeof(getattr(T, name)))
+        FIELD = getattr(T, name)
+        if isinstance(FIELD, lltype.ContainerType):
+            fieldsize = 0      # not useful for getsubstruct
+        else:
+            fieldsize = llmemory.sizeof(FIELD)
+        return (llmemory.offsetof(T, name), fieldsize)
 
     @staticmethod
     @specialize.memo()
