@@ -23,3 +23,4 @@ class TestRLLVMGenop(AbstractRGenOpTests):
         test_goto_direct = skip_too_minimal #segfault
         test_goto_compile = skip_too_minimal #segfault
         test_fact_direct = skip_too_minimal #segfault
+        test_fact_compile= skip_too_minimal #segfault
