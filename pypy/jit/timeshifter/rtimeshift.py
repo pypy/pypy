@@ -653,6 +653,7 @@ def ll_promote(jitstate, promotebox, promotiondesc):
             assert jitstate.promotion_path is None
             resuming = jitstate.resuming
             if resuming.mergesleft != 0:
+                default_builder.pause_writing([])
                 return True
 
             promotenode = resuming.path.pop()
