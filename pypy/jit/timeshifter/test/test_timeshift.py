@@ -1231,3 +1231,25 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [ord('b'), 0], [], policy=P_NOVIRTUAL)
         assert res == 1
+
+    def test_self_referential_structures(self):
+        S = lltype.GcForwardReference()
+        S.become(lltype.GcStruct('s',
+                                 ('ps', lltype.Ptr(S))))
+
+        def f(x):
+            s = lltype.malloc(S)
+            if x:
+                s.ps = lltype.malloc(S)
+            return s
+        def count_depth(s):
+            x = 0
+            while s:
+                x += 1
+                s = s.ps
+            return str(x)
+        
+        f.convert_result = count_depth
+
+        res = self.timeshift(f, [3], [], policy=P_NOVIRTUAL)
+        assert res == '2'

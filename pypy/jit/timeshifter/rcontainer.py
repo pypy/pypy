@@ -64,6 +64,16 @@ class StructTypeDesc(object):
         innermostdesc = self
         if not TYPE._is_varsize():
             self.alloctoken = RGenOp.allocToken(TYPE)
+
+        # N.B. Closes over descs defined below
+        def fill_into(s, base, vinfo):
+            i = 0
+            for desc in descs:
+                v = vinfo.read_field(desc, base, i)
+                i += 1
+                setattr(s, desc.fieldname, v)
+        self.fill_into = fill_into
+
         fielddescs = []
         fielddesc_by_name = {}
         for name in self.TYPE._names:
@@ -87,6 +97,8 @@ class StructTypeDesc(object):
                     desc = StructFieldDesc(hrtyper, self.PTRTYPE, name, index)
                     fielddescs.append(desc)
                 fielddesc_by_name[name] = desc
+        descs = unrolling_iterable(fielddescs) # Used in fill_into above
+
         self.fielddescs = fielddescs
         self.fielddesc_by_name = fielddesc_by_name
         self.innermostdesc = innermostdesc
@@ -131,7 +143,6 @@ class StructTypeDesc(object):
         else:
             self.VStructCls = VirtualStruct
 
-        descs = unrolling_iterable(fielddescs)
         if self.immutable and self.noidentity:
             
             def materialize(rgenop, boxes):
@@ -144,14 +155,6 @@ class StructTypeDesc(object):
                 return rgenop.genconst(s)
 
             self.materialize = materialize
-
-        def fill_into(s, base, vinfo):
-            i = 0
-            for desc in descs:
-                v = vinfo.read_field(desc, base, i)
-                i += 1
-                setattr(s, desc.fieldname, v)
-        self.fill_into = fill_into
 
         self.gv_make_vinfo_ptr = hrtyper.gv_make_vinfo_ptr
         self.make_vinfo_token = hrtyper.make_vinfo_token
