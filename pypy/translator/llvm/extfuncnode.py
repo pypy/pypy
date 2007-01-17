@@ -25,6 +25,30 @@ if maxint != 2**31-1:
     ext_func_sigs["%LL_os_write"] = ExtFuncSig(None, ["int", None])
     ext_func_sigs["%LL_math_ldexp"] = ExtFuncSig(None, [None, "int"])
 
+
+class SimplerExternalFuncNode(ConstantLLVMNode):
+
+    def __init__(self, db, value):
+        self.db = db
+        self.value = value
+        self.ref = "%" + value._name
+
+    def writeglobalconstants(self, codewriter):
+        pass
+
+    def getdecl_parts(self):
+        T = self.value._TYPE
+        rettype = self.db.repr_type(T.RESULT)
+        argtypes = [self.db.repr_type(a) for a in T.ARGS if a is not lltype.Void]
+        return rettype, argtypes
+
+    def getdecl(self):
+        rettype, argtypes = self.getdecl_parts()
+        return "%s %s(%s)" % (rettype, self.ref, ", ".join(argtypes))
+
+    def writedecl(self, codewriter):
+        codewriter.declare(self.getdecl())
+
 class ExternalFuncNode(ConstantLLVMNode):
 
     def __init__(self, db, value):

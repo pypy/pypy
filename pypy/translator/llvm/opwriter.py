@@ -287,6 +287,8 @@ class OpWriter(object):
         self.db.gcpolicy.zeromalloc(self.codewriter, opr.retref, opr.rettype,
                                     atomic=arg_type._is_atomic(), exc_flag=exc)
 
+    zero_malloc = malloc
+
     def malloc_varsize(self, opr):
 
         # XXX transformation perhaps?

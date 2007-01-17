@@ -3,7 +3,7 @@ import sys
 
 from pypy.translator.llvm.log import log 
 from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
-from pypy.translator.llvm.extfuncnode import ExternalFuncNode
+from pypy.translator.llvm.extfuncnode import ExternalFuncNode, SimplerExternalFuncNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
      StructTypeNode, StructVarsizeTypeNode, getindexhelper, \
      FixedSizeArrayTypeNode, FixedSizeArrayNode
@@ -60,6 +60,8 @@ class Database(object):
             if getattr(value._callable, "suggested_primitive", False):
                 node = ExternalFuncNode(self, value)
                 self.externalfuncs[node.callable] = value
+            elif getattr(value, 'external', None) == 'C':
+                node = SimplerExternalFuncNode(self, value)
             else:
                 node = FuncNode(self, value)
 
