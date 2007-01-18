@@ -31,7 +31,10 @@ from pypy.rpython.rctypes.aerrno import geterrno
 
 if hasattr(os, 'execv'):
 
-    os_execv = libc.execv
+    if os.name == 'nt':
+        os_execv = libc._execv
+    else:
+        os_execv = libc.execv
     os_execv.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
     os_execv.restype = ctypes.c_int
 
@@ -53,7 +56,10 @@ if hasattr(os, 'execv'):
     register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
                       execv_lltypeimpl, export_name="ll_os.ll_os_execv")
 
-os_dup = libc.dup
+if os.name == 'nt':
+    os_dup = libc._dup
+else:
+    os_dup = libc.dup
 os_dup.argtypes = [ctypes.c_int]
 os_dup.restype = ctypes.c_int
 
@@ -65,7 +71,10 @@ def dup_lltypeimpl(fd):
 register_external(os.dup, [int], int, llimpl=dup_lltypeimpl,
                   export_name="ll_os.ll_os_dup")
 
-os_dup2 = libc.dup2
+if os.name == 'nt':
+    os_dup2 = libc._dup2
+else:
+    os_dup2 = libc.dup2
 os_dup2.argtypes = [ctypes.c_int, ctypes.c_int]
 os_dup2.restype = ctypes.c_int
 
