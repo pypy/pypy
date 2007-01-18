@@ -81,7 +81,11 @@ def make_module_from_llvm(genllvm, llvmfile,
     # run llvm assembler and optimizer
     simple_optimizations = not optimize
     opts = optimizations(simple_optimizations, use_gcc)
-    cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
+    v = exe_version('llvm-as')
+    if v < 2.0:
+        cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
+    else: #we generate 1.x .ll files, so upgrade these first
+        cmds = ["llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b)]
 
     object_files = ["-L%s/lib" % distutils.sysconfig.EXEC_PREFIX]
     library_files = genllvm.db.gcpolicy.gc_libraries()
