@@ -109,20 +109,20 @@ them are already described in the `coding guide`_
 .. _`coding guide`: coding-guide.html
 
 
-``rlong``
-=========
+``rbigint``
+===========
 
-The rlong_ module contains a full RPython implementation of the Python ``long``
-type (which itself is not supported in RPython). The ``rlong`` class contains
-that implementation. To construct ``rlong`` instances use the static methods
+The rbigint module contains a full RPython implementation of the Python ``long``
+type (which itself is not supported in RPython). The ``rbigint`` class contains
+that implementation. To construct ``rbigint`` instances use the static methods
 ``fromint``, ``frombool``, ``fromfloat`` and ``fromdecimalstr``. To convert back
 to other types use the methods ``toint``, ``tobool``, ``touint`` and
 ``tofloat``. Since RPython does not support operator overloading, all the
-special methods of ``rlong`` that would normally start and end with "__" have
+special methods of ``rbigint`` that would normally start and end with "__" have
 these underscores left out for better readability (so ``a.add(b)`` can be used
-to add two rlongs).
+to add two rbigint).
 
-.. _rlong: ../../pypy/rlib/rlong.py
+.. _rbigint: ../../pypy/rlib/rbigint.py
 
 
 ``rrandom``

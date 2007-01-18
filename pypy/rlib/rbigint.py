@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, ovfcheck
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong, ovfcheck
 
 import math, sys
 
@@ -93,7 +93,7 @@ FIVEARY_CUTOFF = 8
 
 
 
-class rlong(object):
+class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     
     def __init__(w_self, digits, sign=0):
@@ -110,7 +110,7 @@ class rlong(object):
             sign = 1
             ival = r_uint(intval)
         else:
-            return rlong([0], 0)
+            return rbigint([0], 0)
         # Count the number of Python digits.
         # We used to pick 5 ("big enough for anything"), but that's a
         # waste of time and space given that 5*15 = 75 bits are rarely
@@ -120,7 +120,7 @@ class rlong(object):
         while t:
             ndigits += 1
             t >>= SHIFT
-        v = rlong([0] * ndigits, sign)
+        v = rbigint([0] * ndigits, sign)
         t = ival
         p = 0
         while t:
@@ -131,15 +131,15 @@ class rlong(object):
     fromint = staticmethod(fromint)
 
     def frombool(b):
-        return rlong([b & MASK], int(b))
+        return rbigint([b & MASK], int(b))
     frombool = staticmethod(frombool)
 
     def fromlong(l):
-        return rlong(*args_from_long(l))
+        return rbigint(*args_from_long(l))
     fromlong = staticmethod(fromlong)
 
     def fromfloat(dval):
-        """ Create a new long int object from a float """
+        """ Create a new bigint object from a float """
         neg = 0
         if isinf(dval):
             raise OverflowError
@@ -148,9 +148,9 @@ class rlong(object):
             dval = -dval
         frac, expo = math.frexp(dval) # dval = frac*2**expo; 0.0 <= frac < 1.0
         if expo <= 0:
-            return rlong([0], 0)
+            return rbigint([0], 0)
         ndig = (expo-1) // SHIFT + 1 # Number of 'digits' in result
-        v = rlong([0] * ndig, 1)
+        v = rbigint([0] * ndig, 1)
         frac = math.ldexp(frac, (expo-1) % SHIFT + 1)
         for i in range(ndig-1, -1, -1):
             bits = int(frac) & MASK # help the future annotator?
@@ -163,12 +163,12 @@ class rlong(object):
     fromfloat = staticmethod(fromfloat)
 
     def fromrarith_int(i):
-        return rlong(*args_from_rarith_int(i))
+        return rbigint(*args_from_rarith_int(i))
     fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
     fromrarith_int = staticmethod(fromrarith_int)
 
     def fromdecimalstr(s):
-        return _decimalstr_to_long(s)
+        return _decimalstr_to_bigint(s)
     fromdecimalstr = staticmethod(fromdecimalstr)
 
     def toint(self):
@@ -188,6 +188,20 @@ class rlong(object):
             if (x >> SHIFT) != prev:
                 raise OverflowError(
                         "long int too large to convert to unsigned int")
+            i -= 1
+        return x
+
+    def toulonglong(self):
+        if self.sign == -1:
+            raise ValueError("cannot convert negative integer to unsigned int")
+        x = r_ulonglong(0)
+        i = len(self.digits) - 1
+        while i >= 0:
+            prev = x
+            x = (x << SHIFT) + self.digits[i]
+            if (x >> SHIFT) != prev:
+                    raise OverflowError(
+                        "long int too large to convert to unsigned long long int")
             i -= 1
         return x
 
@@ -220,46 +234,46 @@ class rlong(object):
     def str(self):
         return _format(self, 10, False)
 
-    def eq(w_long1, w_long2):
-        if (w_long1.sign != w_long2.sign or
-            len(w_long1.digits) != len(w_long2.digits)):
+    def eq(w_bigint1, w_bigint2):
+        if (w_bigint1.sign != w_bigint2.sign or
+            len(w_bigint1.digits) != len(w_bigint2.digits)):
             return False
         i = 0
-        ld = len(w_long1.digits)
+        ld = len(w_bigint1.digits)
         while i < ld:
-            if w_long1.digits[i] != w_long2.digits[i]:
+            if w_bigint1.digits[i] != w_bigint2.digits[i]:
                 return False
             i += 1
         return True
 
-    def lt(w_long1, w_long2):
-        if w_long1.sign > w_long2.sign:
+    def lt(w_bigint1, w_bigint2):
+        if w_bigint1.sign > w_bigint2.sign:
             return False
-        if w_long1.sign < w_long2.sign:
+        if w_bigint1.sign < w_bigint2.sign:
             return True
-        ld1 = len(w_long1.digits)
-        ld2 = len(w_long2.digits)
+        ld1 = len(w_bigint1.digits)
+        ld2 = len(w_bigint2.digits)
         if ld1 > ld2:
-            if w_long2.sign > 0:
+            if w_bigint2.sign > 0:
                 return False
             else:
                 return True
         elif ld1 < ld2:
-            if w_long2.sign > 0:
+            if w_bigint2.sign > 0:
                 return True
             else:
                 return False
         i = ld1 - 1
         while i >= 0:
-            d1 = w_long1.digits[i]
-            d2 = w_long2.digits[i]
+            d1 = w_bigint1.digits[i]
+            d2 = w_bigint2.digits[i]
             if d1 < d2:
-                if w_long2.sign > 0:
+                if w_bigint2.sign > 0:
                     return True
                 else:
                     return False
             elif d1 > d2:
-                if w_long2.sign > 0:
+                if w_bigint2.sign > 0:
                     return False
                 else:
                     return True
@@ -269,58 +283,58 @@ class rlong(object):
     def hash(w_value):
         return _hash(w_value)
 
-    def add(w_long1, w_long2):
-        if w_long1.sign < 0:
-            if w_long2.sign < 0:
-                result = _x_add(w_long1, w_long2)
+    def add(w_bigint1, w_bigint2):
+        if w_bigint1.sign < 0:
+            if w_bigint2.sign < 0:
+                result = _x_add(w_bigint1, w_bigint2)
                 if result.sign != 0:
                     result.sign = -result.sign
             else:
-                result = _x_sub(w_long2, w_long1)
+                result = _x_sub(w_bigint2, w_bigint1)
         else:
-            if w_long2.sign < 0:
-                result = _x_sub(w_long1, w_long2)
+            if w_bigint2.sign < 0:
+                result = _x_sub(w_bigint1, w_bigint2)
             else:
-                result = _x_add(w_long1, w_long2)
+                result = _x_add(w_bigint1, w_bigint2)
         result._normalize()
         return result
 
-    def sub(w_long1, w_long2):
-        if w_long1.sign < 0:
-            if w_long2.sign < 0:
-                result = _x_sub(w_long1, w_long2)
+    def sub(w_bigint1, w_bigint2):
+        if w_bigint1.sign < 0:
+            if w_bigint2.sign < 0:
+                result = _x_sub(w_bigint1, w_bigint2)
             else:
-                result = _x_add(w_long1, w_long2)
+                result = _x_add(w_bigint1, w_bigint2)
             result.sign = -result.sign
         else:
-            if w_long2.sign < 0:
-                result = _x_add(w_long1, w_long2)
+            if w_bigint2.sign < 0:
+                result = _x_add(w_bigint1, w_bigint2)
             else:
-                result = _x_sub(w_long1, w_long2)
+                result = _x_sub(w_bigint1, w_bigint2)
         result._normalize()
         return result
 
-    def mul(w_long1, w_long2):
+    def mul(w_bigint1, w_bigint2):
         if USE_KARATSUBA:
-            result = _k_mul(w_long1, w_long2)
+            result = _k_mul(w_bigint1, w_bigint2)
         else:
-            result = _x_mul(w_long1, w_long2)
-        result.sign = w_long1.sign * w_long2.sign
+            result = _x_mul(w_bigint1, w_bigint2)
+        result.sign = w_bigint1.sign * w_bigint2.sign
         return result
 
-    def truediv(w_long1, w_long2):
-        div = _long_true_divide(w_long1, w_long2)
+    def truediv(w_bigint1, w_bigint2):
+        div = _bigint_true_divide(w_bigint1, w_bigint2)
         return div
 
-    def floordiv(w_long1, w_long2):
-        div, mod = w_long1.divmod(w_long2)
+    def floordiv(w_bigint1, w_bigint2):
+        div, mod = w_bigint1.divmod(w_bigint2)
         return div
 
-    def div(w_long1, w_long2):
-        return w_long1.floordiv(w_long2)
+    def div(w_bigint1, w_bigint2):
+        return w_bigint1.floordiv(w_bigint2)
 
-    def mod(w_long1, w_long2):
-        div, mod = w_long1.divmod(w_long2)
+    def mod(w_bigint1, w_bigint2):
+        div, mod = w_bigint1.divmod(w_bigint2)
         return mod
 
     def divmod(v, w):
@@ -343,7 +357,7 @@ class rlong(object):
         div, mod = _divrem(v, w)
         if mod.sign * w.sign == -1:
             mod = mod.add(w)
-            one = rlong([1], 1)
+            one = rbigint([1], 1)
             div = div.sub(one)
         return div, mod
 
@@ -360,7 +374,7 @@ class rlong(object):
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
             # XXX failed to implement
-            raise ValueError("long pow() too negative")
+            raise ValueError("bigint pow() too negative")
 
         if c is not None:
             if c.sign == 0:
@@ -371,12 +385,12 @@ class rlong(object):
             #     modulus = -modulus
             if c.sign < 0:
                 negativeOutput = True
-                c = rlong(c.digits, -c.sign)
+                c = rbigint(c.digits, -c.sign)
 
             # if modulus == 1:
             #     return 0
             if len(c.digits) == 1 and c.digits[0] == 1:
-                return rlong([0], 0)
+                return rbigint([0], 0)
 
             # if base < 0:
             #     base = base % modulus
@@ -388,7 +402,7 @@ class rlong(object):
         # At this point a, b, and c are guaranteed non-negative UNLESS
         # c is NULL, in which case a may be negative. */
 
-        z = rlong([1], 1)
+        z = rbigint([1], 1)
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
@@ -429,23 +443,23 @@ class rlong(object):
             z = z.sub(c)
         return z
 
-    def neg(w_long1):
-        return rlong(w_long1.digits, -w_long1.sign)
+    def neg(w_bigint1):
+        return rbigint(w_bigint1.digits, -w_bigint1.sign)
 
-    def abs(w_long):
-        return rlong(w_long.digits, abs(w_long.sign))
+    def abs(w_bigint):
+        return rbigint(w_bigint.digits, abs(w_bigint.sign))
 
-    def invert(w_long): #Implement ~x as -(x + 1)
-        return w_long.add(rlong([1], 1)).neg()
+    def invert(w_bigint): #Implement ~x as -(x + 1)
+        return w_bigint.add(rbigint([1], 1)).neg()
 
-    def lshift(w_long1, w_long2):
-        if w_long2.sign < 0:
+    def lshift(w_bigint1, w_bigint2):
+        if w_bigint2.sign < 0:
             raise ValueError("negative shift count")
-        elif w_long2.sign == 0:
-            return w_long1
-        shiftby = w_long2.toint()
+        elif w_bigint2.sign == 0:
+            return w_bigint1
+        shiftby = w_bigint2.toint()
 
-        a = w_long1
+        a = w_bigint1
         # wordshift, remshift = divmod(shiftby, SHIFT)
         wordshift = shiftby // SHIFT
         remshift  = shiftby - wordshift * SHIFT
@@ -454,7 +468,7 @@ class rlong(object):
         newsize = oldsize + wordshift
         if remshift:
             newsize += 1
-        z = rlong([0] * newsize, a.sign)
+        z = rbigint([0] * newsize, a.sign)
         # not sure if we will initialize things in the future?
         for i in range(wordshift):
             z.digits[i] = 0
@@ -474,28 +488,28 @@ class rlong(object):
         z._normalize()
         return z
 
-    def rshift(w_long1, w_long2):
-        if w_long2.sign < 0:
+    def rshift(w_bigint1, w_bigint2):
+        if w_bigint2.sign < 0:
             raise ValueError("negative shift count")
-        elif w_long2.sign == 0:
-            return w_long1
-        if w_long1.sign == -1:
-            w_a1 = w_long1.invert()
-            w_a2 = w_a1.rshift(w_long2)
+        elif w_bigint2.sign == 0:
+            return w_bigint1
+        if w_bigint1.sign == -1:
+            w_a1 = w_bigint1.invert()
+            w_a2 = w_a1.rshift(w_bigint2)
             return w_a2.invert()
-        shiftby = w_long2.toint()
+        shiftby = w_bigint2.toint()
 
-        a = w_long1
+        a = w_bigint1
         wordshift = shiftby // SHIFT
         newsize = len(a.digits) - wordshift
         if newsize <= 0:
-            return rlong([0], 0)
+            return rbigint([0], 0)
 
         loshift = shiftby % SHIFT
         hishift = SHIFT - loshift
         lomask = (1 << hishift) - 1
         himask = MASK ^ lomask
-        z = rlong([0] * newsize, a.sign)
+        z = rbigint([0] * newsize, a.sign)
         i = 0
         j = wordshift
         while i < newsize:
@@ -507,26 +521,26 @@ class rlong(object):
         z._normalize()
         return z
 
-    def and_(w_long1, w_long2):
-        return _bitwise(w_long1, '&', w_long2)
+    def and_(w_bigint1, w_bigint2):
+        return _bitwise(w_bigint1, '&', w_bigint2)
 
-    def xor(w_long1, w_long2):
-        return _bitwise(w_long1, '^', w_long2)
+    def xor(w_bigint1, w_bigint2):
+        return _bitwise(w_bigint1, '^', w_bigint2)
 
-    def or_(w_long1, w_long2):
-        return _bitwise(w_long1, '|', w_long2)
+    def or_(w_bigint1, w_bigint2):
+        return _bitwise(w_bigint1, '|', w_bigint2)
 
-    def oct(w_long1):
-        return _format(w_long1, 8, True)
+    def oct(w_bigint1):
+        return _format(w_bigint1, 8, True)
 
-    def hex(w_long1):
-        return _format(w_long1, 16, True)
+    def hex(w_bigint1):
+        return _format(w_bigint1, 16, True)
 
-    def log(w_long, base):
+    def log(w_bigint, base):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
-            return _loghelper(math.log10, w_long)
-        ret = _loghelper(math.log, w_long)
+            return _loghelper(math.log10, w_bigint)
+        ret = _loghelper(math.log, w_bigint)
         if base != 0.0:
             ret /= math.log(base)
         return ret
@@ -631,7 +645,7 @@ def args_from_long(x):
         return digits_from_nonneg_long(-long(x)), -1
 
 def _x_add(a, b):
-    """ Add the absolute values of two long integers. """
+    """ Add the absolute values of two bigint integers. """
     size_a = len(a.digits)
     size_b = len(b.digits)
 
@@ -639,7 +653,7 @@ def _x_add(a, b):
     if size_a < size_b:
         a, b = b, a
         size_a, size_b = size_b, size_a
-    z = rlong([0] * (len(a.digits) + 1), 1)
+    z = rbigint([0] * (len(a.digits) + 1), 1)
     i = 0
     carry = 0
     while i < size_b:
@@ -674,12 +688,12 @@ def _x_sub(a, b):
         while i >= 0 and a.digits[i] == b.digits[i]:
             i -= 1
         if i < 0:
-            return rlong([0], 0)
+            return rbigint([0], 0)
         if a.digits[i] < b.digits[i]:
             sign = -1
             a, b = b, a
         size_a = size_b = i+1
-    z = rlong([0] * size_a, 1)
+    z = rbigint([0] * size_a, 1)
     i = 0
     while i < size_b:
         # The following assumes unsigned arithmetic
@@ -710,7 +724,7 @@ def _x_mul(a, b):
 
     size_a = len(a.digits)
     size_b = len(b.digits)
-    z = rlong([0] * (size_a + size_b), 1)
+    z = rbigint([0] * (size_a + size_b), 1)
     if a == b:
         # Efficient squaring per HAC, Algorithm 14.16:
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
@@ -776,7 +790,7 @@ def _x_mul(a, b):
 def _kmul_split(n, size):
     """
     A helper for Karatsuba multiplication (k_mul).
-    Takes a long "n" and an integer "size" representing the place to
+    Takes a bigint "n" and an integer "size" representing the place to
     split, and sets low and high such that abs(n) == (high << size) + low,
     viewing the shift as being by digits.  The sign bit is ignored, and
     the return values are >= 0.
@@ -784,8 +798,8 @@ def _kmul_split(n, size):
     size_n = len(n.digits)
     size_lo = min(size_n, size)
 
-    lo = rlong(n.digits[:size_lo], 1)
-    hi = rlong(n.digits[size_lo:], 1)
+    lo = rbigint(n.digits[:size_lo], 1)
+    hi = rbigint(n.digits[size_lo:], 1)
     lo._normalize()
     hi._normalize()
     return hi, lo
@@ -817,7 +831,7 @@ def _k_mul(a, b):
         i = KARATSUBA_CUTOFF
     if asize <= i:
         if a.sign == 0:
-            return rlong([0], 0)
+            return rbigint([0], 0)
         else:
             return _x_mul(a, b)
 
@@ -856,7 +870,7 @@ def _k_mul(a, b):
     #    at shift.
 
     # 1. Allocate result space.
-    ret = rlong([0] * (asize + bsize), 1)
+    ret = rbigint([0] * (asize + bsize), 1)
 
     # 2. t1 <- ah*bh, and copy into high digits of result.
     t1 = _k_mul(ah, bh)
@@ -975,12 +989,12 @@ def _k_lopsided_mul(a, b):
     assert 2 * asize <= bsize
 
     # Allocate result space, and zero it out.
-    ret = rlong([0] * (asize + bsize), 1)
+    ret = rbigint([0] * (asize + bsize), 1)
 
     # Successive slices of b are copied into bslice.
-    #bslice = rlong([0] * asize, 1)
+    #bslice = rbigint([0] * asize, 1)
     # XXX we cannot pre-allocate, see comments below!
-    bslice = rlong([0], 1)
+    bslice = rbigint([0], 1)
 
     nbdone = 0;
     while bsize > 0:
@@ -1009,7 +1023,7 @@ def _k_lopsided_mul(a, b):
 
 def _inplace_divrem1(pout, pin, n, size=0):
     """
-    Divide long pin by non-zero digit n, storing quotient
+    Divide bigint pin by non-zero digit n, storing quotient
     in pout, and returning the remainder. It's OK for pin == pout on entry.
     """
     rem = 0
@@ -1027,13 +1041,13 @@ def _inplace_divrem1(pout, pin, n, size=0):
 
 def _divrem1(a, n):
     """
-    Divide a long integer by a digit, returning both the quotient
+    Divide a bigint integer by a digit, returning both the quotient
     and the remainder as a tuple.
     The sign of a is ignored; n should not be zero.
     """
     assert n > 0 and n <= MASK
     size = len(a.digits)
-    z = rlong([0] * size, 1)
+    z = rbigint([0] * size, 1)
     rem = _inplace_divrem1(z, a, n)
     z._normalize()
     return z, rem
@@ -1097,7 +1111,7 @@ def _muladd1(a, n, extra):
     """Multiply by a single digit and add a single digit, ignoring the sign.
     """
     size_a = len(a.digits)
-    z = rlong([0] * (size_a+1), 1)
+    z = rbigint([0] * (size_a+1), 1)
     carry = extra
     assert carry & MASK == carry
     i = 0
@@ -1112,7 +1126,7 @@ def _muladd1(a, n, extra):
 
 
 def _x_divrem(v1, w1):
-    """ Unsigned long division with remainder -- the algorithm """
+    """ Unsigned bigint division with remainder -- the algorithm """
     size_w = len(w1.digits)
     d = (MASK+1) // (w1.digits[size_w-1] + 1)
     v = _muladd1(v1, d, 0)
@@ -1122,7 +1136,7 @@ def _x_divrem(v1, w1):
     assert size_v >= size_w and size_w > 1 # Assert checks by div()
 
     size_a = size_v - size_w + 1
-    a = rlong([0] * size_a, 1)
+    a = rbigint([0] * size_a, 1)
 
     j = size_v
     k = size_a - 1
@@ -1196,12 +1210,12 @@ def _divrem(a, b):
         (size_a == size_b and
          a.digits[size_a-1] < b.digits[size_b-1])):
         # |a| < |b|
-        z = rlong([0], 0)
+        z = rbigint([0], 0)
         rem = a
         return z, rem
     if size_b == 1:
         z, urem = _divrem1(a, b.digits[0])
-        rem = rlong([urem], int(urem != 0))
+        rem = rbigint([urem], int(urem != 0))
     else:
         z, rem = _x_divrem(a, b)
     # Set the signs.
@@ -1267,7 +1281,7 @@ def isinf(x):
 # YYY no, we decided to do ignore this!
 
 def _AsDouble(v):
-    """ Get a C double from a long int object. """
+    """ Get a C double from a bigint object. """
     x, e = _AsScaledDouble(v)
     if e <= sys.maxint / SHIFT:
         x = math.ldexp(x, e * SHIFT)
@@ -1278,9 +1292,9 @@ def _AsDouble(v):
 
 def _loghelper(func, w_arg):
     """
-    A decent logarithm is easy to compute even for huge longs, but libm can't
+    A decent logarithm is easy to compute even for huge bigints, but libm can't
     do that by itself -- loghelper can.  func is log or log10, and name is
-    "log" or "log10".  Note that overflow isn't possible:  a long can contain
+    "log" or "log10".  Note that overflow isn't possible:  a bigint can contain
     no more than INT_MAX * SHIFT bits, so has value certainly less than
     2**(2**64 * 2**16) == 2**2**80, and log2 of that is 2**80, which is
     small enough to fit in an IEEE single.  log and log10 are even smaller.
@@ -1295,7 +1309,7 @@ def _loghelper(func, w_arg):
     return func(x) + (e * float(SHIFT) * func(2.0))
 _loghelper._annspecialcase_ = 'specialize:arg(0)'
 
-def _long_true_divide(a, b):
+def _bigint_true_divide(a, b):
     ad, aexp = _AsScaledDouble(a)
     bd, bexp = _AsScaledDouble(b)
     if bd == 0.0:
@@ -1319,7 +1333,7 @@ def _long_true_divide(a, b):
 
 def _format(a, base, addL):
     """
-    Convert a long int object to a string, using a given conversion base.
+    Convert a bigint object to a string, using a given conversion base.
     Return a string object.
     If base is 8 or 16, add the proper prefix '0' or '0x'.
     """
@@ -1397,7 +1411,7 @@ def _format(a, base, addL):
             power += 1
 
         # Get a scratch area for repeated division.
-        scratch = rlong([0] * size, 1)
+        scratch = rbigint([0] * size, 1)
 
         # Repeatedly divide by powbase.
         while 1:
@@ -1512,7 +1526,7 @@ def _bitwise(a, op, b): # '&', '|', '^'
     else:
         size_z = max(size_a, size_b)
 
-    z = rlong([0] * size_z, 1)
+    z = rbigint([0] * size_z, 1)
 
     for i in range(size_z):
         if i < size_a:
@@ -1538,7 +1552,7 @@ _bitwise._annspecialcase_ = "specialize:arg(1)"
 
 def _AsLong(v):
     """
-    Get an integer from a long int object.
+    Get an integer from a bigint object.
     Raises OverflowError if overflow occurs.
     """
     # This version by Tim Peters
@@ -1588,9 +1602,9 @@ while int('9' * DEC_PER_DIGIT) < MASK:
 DEC_PER_DIGIT -= 1
 DEC_MAX = 10 ** DEC_PER_DIGIT
 
-def _decimalstr_to_long(s):
+def _decimalstr_to_bigint(s):
     # a string that has been already parsed to be decimal and valid,
-    # is turned into a long
+    # is turned into a bigint
     p = 0
     lim = len(s)
     sign = False
@@ -1600,7 +1614,7 @@ def _decimalstr_to_long(s):
     elif s[p] == '+':
         p += 1
 
-    a = rlong.fromint(0)
+    a = rbigint.fromint(0)
     cnt = DEC_PER_DIGIT
     tens = 1
     dig = 0

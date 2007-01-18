@@ -253,7 +253,7 @@ def marshal_w__Long(space, w_long, m):
         m.put_short(digit)
 
 def unmarshal_Long(space, u, tc):
-    from pypy.rlib import rlong
+    from pypy.rlib import rbigint
     lng = u.get_int()
     if lng < 0:
         sign = -1
@@ -271,7 +271,7 @@ def unmarshal_Long(space, u, tc):
         digits[i] = digit
         i += 1
     # XXX poking at internals
-    w_long = W_LongObject(rlong.rlong(digits, sign))
+    w_long = W_LongObject(rbigint.rbigint(digits, sign))
     w_long.num._normalize()
     return w_long
 register(TYPE_LONG, unmarshal_Long)
