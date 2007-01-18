@@ -1,8 +1,8 @@
 import py
 
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
-option = py.test.Config.addoptions("pypy-squeak options", 
+option = py.test.config.addoptions("pypy-squeak options", 
         Option('--showsqueak', action="store_true", dest="showsqueak", 
                default=False, help="don't run squeak headless, for debugging"),
     )

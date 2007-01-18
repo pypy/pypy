@@ -1,8 +1,8 @@
 import py
 
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
-option = py.test.Config.addoptions(
+option = py.test.config.addoptions(
     "pypy-jvm options",
 
     Option('--java', action='store', dest='java', default='java',

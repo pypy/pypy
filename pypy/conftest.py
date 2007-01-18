@@ -11,10 +11,10 @@ rootdir = py.magic.autopath().dirpath()
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
 #
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
 
-option = py.test.Config.addoptions("pypy options",
+option = py.test.config.addoptions("pypy options",
         Option('--view', action="store_true", dest="view", default=False,
                help="view translation tests' flow graphs with Pygame"),
         Option('-A', '--runappdirect', action="store_true",

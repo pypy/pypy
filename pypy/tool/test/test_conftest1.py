@@ -6,9 +6,9 @@ from py.__.test.terminal.terminal import TerminalSession
 
 class TestPyPyTests: 
     def test_select_interplevel(self): 
-        config, args = py.test.Config.parse(['-k', 'interplevel'])
+        config = py.test.config._reparse([innertest, '-k', 'interplevel'])
         session = TerminalSession(config, py.std.sys.stdout)
-        session.main([innertest])
+        session.main()
         l = session.getitemoutcomepairs(py.test.Item.Passed)
         assert len(l) == 2 
         for item in l:
@@ -21,9 +21,9 @@ class TestPyPyTests:
             assert item[0].name in ('app_test_something', 'test_method_app')
 
     def test_select_applevel(self): 
-        config, args = py.test.Config.parse(['-k', 'applevel'])
+        config = py.test.config._reparse([innertest, '-k', 'applevel'])
         session = TerminalSession(config, py.std.sys.stdout)
-        session.main([innertest])
+        session.main()
         l = session.getitemoutcomepairs(py.test.Item.Passed)
         assert len(l) == 2 
         for item in l:
@@ -36,9 +36,10 @@ class TestPyPyTests:
             assert item[0].name in ('test_something', 'test_method')
 
     def XXX_test_appdirect(self):
-        config, args = py.test.Config.parse(['-k', 'applevel', '--appdirect', str(innertest)])
+        config = py.test.config._reparse([innertest, 
+                                          '-k', 'applevel', '--appdirect'])
         session = TerminalSession(config, py.std.sys.stdout)
-        session.main([innertest])
+        session.main()
         l = session.getitemoutcomepairs(py.test.Item.Passed)
         assert len(l) == 2 
         for item in l:

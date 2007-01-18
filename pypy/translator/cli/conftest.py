@@ -1,8 +1,8 @@
 import py
 
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
-option = py.test.Config.addoptions\
+option = py.test.config.addoptions\
          ("pypy-cli options", 
 
           Option('--source', action="store_true", dest="source", default=False,

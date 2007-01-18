@@ -16,9 +16,9 @@ from pypy.jit.codegen import detect_cpu
 #
 #        return super(Directory, self).run()
 
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
-option = py.test.Config.addoptions("llvm options",
+option = py.test.config.addoptions("llvm options",
         Option('--lineno', action="store_true", default=False,
                dest="lineno",
                help="add linenumbers to the generated code"),

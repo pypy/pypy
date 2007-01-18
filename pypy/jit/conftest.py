@@ -10,9 +10,9 @@ import py, time, os
 #          if bench.stop():
 #              break
 
-Option = py.test.Config.Option
+Option = py.test.config.Option
 
-option = py.test.Config.addoptions("pypy options", 
+option = py.test.config.addoptions("pypy options", 
         Option('--benchmark', action="store_true",
                dest="benchmark", default=False,
                help="give benchmarks in tests that support it"),

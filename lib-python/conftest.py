@@ -33,8 +33,8 @@ from pypy.tool.pytest.result import Result, ResultFromMime
 #                   type="string", dest="listpassing", 
 #                   help="just display the list of expected-to-pass tests.")
 
-Option = py.test.Config.Option 
-option = py.test.Config.addoptions("compliance testing options", 
+Option = py.test.config.Option 
+option = py.test.config.addoptions("compliance testing options", 
     Option('-C', '--compiled', action="store_true", 
            default=False, dest="use_compiled", 
            help="use a compiled version of pypy, expected in pypy/bin/pypy-c"),
