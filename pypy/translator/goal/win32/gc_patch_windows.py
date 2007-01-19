@@ -34,6 +34,8 @@ and the name of the .lib and .dll files is changed to gc_pypy.???
 
 Now you need to build your gc, either as a debug or as a release
 build. First of all, make sure that you have your environment prepared.
+Please note that you will need to use Microsoft's cmd, as cygwin bash
+doesn't correctly handle the batch file in the next step.
 
 With my setup, I have to do
 
