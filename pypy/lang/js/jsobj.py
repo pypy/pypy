@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+DEBUG = False
 
 class SeePage(NotImplementedError):
     pass
@@ -109,7 +110,7 @@ class W_Null(W_Root):
         return False
 
     def type(self):
-        return 'object'
+        return 'null'
 
 w_Undefined = W_Undefined()
 w_Null = W_Null()
@@ -294,7 +295,7 @@ class W_Array(W_Builtin):
     def Put(self, P, V):
         try:
             x = int(P)
-            print "puting", V, 'in', x
+            # print "puting", V, 'in', x
             if x > self.Get('length').ToNumber() - 1:
                 self.propdict['length'].value = W_Number(x)
                 currsize = len(self.array)
@@ -315,7 +316,7 @@ class W_Array(W_Builtin):
             if x > (len(self.array)-1):
                 return w_Undefined
             else:
-                print "returning", self.array[x], 'in', x
+                # print "returning", self.array[x], 'in', x
                 return self.array[x]
         except ValueError:
             return W_PrimitiveObject.Get(self, P)
@@ -481,8 +482,9 @@ class W_Reference(W_Root):
             exception = "ReferenceError: %s is not defined"%(self.property_name,)
             raise ThrowException(W_String(exception))
         
-        # print "ref base: %s, prop: %s, getresult: %s"%(self.base,
-        #                         self.property_name, self.base.Get(self.property_name))
+        if DEBUG:
+            print "ref base: %s, prop: %s, getresult: %s"%(self.base,
+                  self.property_name, 'self.base.Get(self.property_name)')
         return self.base.Get(self.property_name)
 
     def PutValue(self, w, ctx):

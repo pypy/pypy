@@ -4,6 +4,8 @@ from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 
+DEBUG = False
+
 class Node(object):
     def init_common(self, type='', value='', lineno=0, start=0, end=0):
         self.type = type
@@ -45,6 +47,8 @@ class BinaryComparisonOp(BinaryOp):
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         s4 = self.right.eval(ctx).GetValue()
+        if DEBUG:
+            print "bincomp, op1 and op2 ", s2, s4
         return self.decision(ctx, s2, s4)
     
     def decision(self, ctx, op1, op2):
@@ -86,10 +90,21 @@ def booleanjs(ctx, args, this):
     if len(args) > 0:
         return W_Boolean(args[0].ToBoolean())
     return W_Boolean(False)
+
+def numberjs(ctx, args, this):
+    if len(args) > 0:
+        return W_Number(args[0].ToNumber())
+    return W_Number(0)
         
 def absjs(ctx, args, this):
     return W_Number(abs(args[0].ToNumber()))
-    
+
+def floorjs(ctx, args, this):
+    return W_Number(math.floor(args[0].ToNumber()))
+
+def versionjs(ctx, args, this):
+    return w_Undefined
+
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
@@ -116,13 +131,21 @@ class Interpreter(object):
         w_math = W_Object(Class='Math')
         w_Global.Put('Math', w_math)
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
+        w_math.Put('floor', W_Builtin(floorjs, Class='function'))
+        
         
         #Global Properties
         w_Global.Put('Object', w_Object)
         w_Global.Put('Function', w_Function)
         w_Global.Put('Array', W_Array())
-        # w_Global.Put('Math', )
-
+        w_Global.Put('version', W_Builtin(versionjs))
+        
+        w_Number = W_Builtin(numberjs, Class="Number")
+        w_Number.Put('NaN', W_Number(NaN))
+        w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
+        w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
+        
+        w_Global.Put('Number', w_Number)
         w_Global.Put('eval', W_Builtin(evaljs))
         w_Global.Put('print', W_Builtin(printjs))
         w_Global.Put('isNaN', W_Builtin(isnanjs))
@@ -272,7 +295,7 @@ class Identifier(Expression):
     def eval(self, ctx):
         if self.initialiser is not None:
             ref = ctx.resolve_identifier(self.name)
-            ref.PutValue(self.initialiser.eval(ctx), ctx)
+            ref.PutValue(self.initialiser.eval(ctx).GetValue(), ctx)
         return ctx.resolve_identifier(self.name)
     
     def get_literal(self):
@@ -286,7 +309,7 @@ class If(Statement):
         self.elsePart = elsePart
 
     def execute(self, ctx):
-        temp = self.condition.eval(ctx)
+        temp = self.condition.eval(ctx).GetValue()
         if temp.ToBoolean():
             return self.thenPart.execute(ctx)
         else:
@@ -372,6 +395,11 @@ def AEC(x, y):
     Implements the Abstract Equality Comparison x == y
     not following the specs yet
     """
+    objtype = x.GetValue().type()
+    if objtype == y.GetValue().type():
+        if objtype == "undefined" or objtype == "null":
+            return True
+        
     if isinstance(x, W_String) and isinstance(y, W_String):
         r = x.ToString() == y.ToString()
     else:
@@ -482,7 +510,8 @@ class Plus(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         prim_left = op1.ToPrimitive(ctx, 'Number')
         prim_right = op2.ToPrimitive(ctx, 'Number')
-        print "plus", self.left, op1, prim_left, "+", self.right, op2, prim_right
+        if DEBUG:
+            print "plus", self.left, op1, prim_left, "+", self.right, op2, prim_right
         if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
             str_left = prim_left.ToString()
             str_right = prim_right.ToString()

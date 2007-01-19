@@ -37,6 +37,7 @@ class TestInterp(object):
                     js_int.run(load_source(codepiece))
         except ThrowException, excpt:
             l.append("uncaught exception: "+str(excpt.exception))
+        print l, assval
         assert l == assval
     
     def assert_result(self, code, result):
@@ -391,7 +392,7 @@ class TestInterp(object):
         print(Math.floor(3.2))
         print(null)
         print(-z)
-        """, ['10', '2', 'false', '3', '', '-2'])
+        """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
         
     def test_globalproperties(self):
         self.assert_prints( """
@@ -436,3 +437,10 @@ class TestInterp(object):
             print(x[i]);
         }
         """, ['1', '2', '3'])
+    
+    def test_array_length(self):
+        self.assert_prints("""
+        var testcases = new Array();
+        var tc = testcases.length;
+        print('tc'+tc) 
+        """, ['tc0'])
