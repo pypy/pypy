@@ -21,7 +21,16 @@ edges are likely.
 Understanding the ext compiler 
 ----------------------------------
 
-PyPy provides a generic way to write modules for all Python
+In regular Python, the ability for users to write external modules is of
+great importance.  These external modules must be written in C, which is
+both an advantage - it allows access to external C libraries, low-level
+features, or raw performance - and an inconvenience.  In the context of
+PyPy the greatest drawback of hard-coded C external modules is that
+low-level details like multithreading (e.g. locks) and memory management
+must be explicitly written in such a language, which would prevent the
+same module from being used in several different versions of pypy-c.
+
+PyPy provides instead a generic way to write modules for all Python
 implementations: the so-called *mixed module* approach.  A single mixed
 module is implemented as a set of Python source files, making a
 subpackage of the `pypy/module/`_ package.  While running PyPy, each of
@@ -261,6 +270,12 @@ you have troubles compiling the demo modules, check out our
 ctypes-specific `installation notes`_.
 
 .. _`installation notes`: rctypes.html#installation
+
+
+Implementation of the ext compiler
+-----------------------------------------------
+
+XXX no documentation available yet, see `pypy/objspace/cpy`_.
 
 
 .. include:: _ref.txt
