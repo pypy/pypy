@@ -96,11 +96,11 @@ FIVEARY_CUTOFF = 8
 class rbigint(object):
     """This is a reimplementation of longs using a list of digits."""
     
-    def __init__(w_self, digits, sign=0):
+    def __init__(self, digits, sign=0):
         if len(digits) == 0:
             digits = [0]
-        w_self.digits = DigitArray(digits)
-        w_self.sign = sign
+        self.digits = DigitArray(digits)
+        self.sign = sign
 
     def fromint(intval):
         if intval < 0:
@@ -234,107 +234,107 @@ class rbigint(object):
     def str(self):
         return _format(self, 10, False)
 
-    def eq(w_bigint1, w_bigint2):
-        if (w_bigint1.sign != w_bigint2.sign or
-            len(w_bigint1.digits) != len(w_bigint2.digits)):
+    def eq(self, other):
+        if (self.sign != other.sign or
+            len(self.digits) != len(other.digits)):
             return False
         i = 0
-        ld = len(w_bigint1.digits)
+        ld = len(self.digits)
         while i < ld:
-            if w_bigint1.digits[i] != w_bigint2.digits[i]:
+            if self.digits[i] != other.digits[i]:
                 return False
             i += 1
         return True
 
-    def lt(w_bigint1, w_bigint2):
-        if w_bigint1.sign > w_bigint2.sign:
+    def lt(self, other):
+        if self.sign > other.sign:
             return False
-        if w_bigint1.sign < w_bigint2.sign:
+        if self.sign < other.sign:
             return True
-        ld1 = len(w_bigint1.digits)
-        ld2 = len(w_bigint2.digits)
+        ld1 = len(self.digits)
+        ld2 = len(other.digits)
         if ld1 > ld2:
-            if w_bigint2.sign > 0:
+            if other.sign > 0:
                 return False
             else:
                 return True
         elif ld1 < ld2:
-            if w_bigint2.sign > 0:
+            if other.sign > 0:
                 return True
             else:
                 return False
         i = ld1 - 1
         while i >= 0:
-            d1 = w_bigint1.digits[i]
-            d2 = w_bigint2.digits[i]
+            d1 = self.digits[i]
+            d2 = other.digits[i]
             if d1 < d2:
-                if w_bigint2.sign > 0:
+                if other.sign > 0:
                     return True
                 else:
                     return False
             elif d1 > d2:
-                if w_bigint2.sign > 0:
+                if other.sign > 0:
                     return False
                 else:
                     return True
             i -= 1
         return False
 
-    def hash(w_value):
-        return _hash(w_value)
+    def hash(self):
+        return _hash(self)
 
-    def add(w_bigint1, w_bigint2):
-        if w_bigint1.sign < 0:
-            if w_bigint2.sign < 0:
-                result = _x_add(w_bigint1, w_bigint2)
+    def add(self, other):
+        if self.sign < 0:
+            if other.sign < 0:
+                result = _x_add(self, other)
                 if result.sign != 0:
                     result.sign = -result.sign
             else:
-                result = _x_sub(w_bigint2, w_bigint1)
+                result = _x_sub(other, self)
         else:
-            if w_bigint2.sign < 0:
-                result = _x_sub(w_bigint1, w_bigint2)
+            if other.sign < 0:
+                result = _x_sub(self, other)
             else:
-                result = _x_add(w_bigint1, w_bigint2)
+                result = _x_add(self, other)
         result._normalize()
         return result
 
-    def sub(w_bigint1, w_bigint2):
-        if w_bigint1.sign < 0:
-            if w_bigint2.sign < 0:
-                result = _x_sub(w_bigint1, w_bigint2)
+    def sub(self, other):
+        if self.sign < 0:
+            if other.sign < 0:
+                result = _x_sub(self, other)
             else:
-                result = _x_add(w_bigint1, w_bigint2)
+                result = _x_add(self, other)
             result.sign = -result.sign
         else:
-            if w_bigint2.sign < 0:
-                result = _x_add(w_bigint1, w_bigint2)
+            if other.sign < 0:
+                result = _x_add(self, other)
             else:
-                result = _x_sub(w_bigint1, w_bigint2)
+                result = _x_sub(self, other)
         result._normalize()
         return result
 
-    def mul(w_bigint1, w_bigint2):
+    def mul(self, other):
         if USE_KARATSUBA:
-            result = _k_mul(w_bigint1, w_bigint2)
+            result = _k_mul(self, other)
         else:
-            result = _x_mul(w_bigint1, w_bigint2)
-        result.sign = w_bigint1.sign * w_bigint2.sign
+            result = _x_mul(self, other)
+        result.sign = self.sign * other.sign
         return result
 
-    def truediv(w_bigint1, w_bigint2):
-        div = _bigint_true_divide(w_bigint1, w_bigint2)
+    def truediv(self, other):
+        div = _bigint_true_divide(self, other)
         return div
 
-    def floordiv(w_bigint1, w_bigint2):
-        div, mod = w_bigint1.divmod(w_bigint2)
+    def floordiv(self, other):
+        div, mod = self.divmod(other)
         return div
 
-    def div(w_bigint1, w_bigint2):
-        return w_bigint1.floordiv(w_bigint2)
+    def div(self, other):
+        return self.floordiv(other)
 
-    def mod(w_bigint1, w_bigint2):
-        div, mod = w_bigint1.divmod(w_bigint2)
+    def mod(self, other):
+        div, mod = self.divmod(other)
         return mod
 
     def divmod(v, w):
@@ -443,40 +443,36 @@ class rbigint(object):
             z = z.sub(c)
         return z
 
-    def neg(w_bigint1):
-        return rbigint(w_bigint1.digits, -w_bigint1.sign)
+    def neg(self):
+        return rbigint(self.digits, -self.sign)
 
-    def abs(w_bigint):
-        return rbigint(w_bigint.digits, abs(w_bigint.sign))
+    def abs(self):
+        return rbigint(self.digits, abs(self.sign))
 
-    def invert(w_bigint): #Implement ~x as -(x + 1)
-        return w_bigint.add(rbigint([1], 1)).neg()
+    def invert(self): #Implement ~x as -(x + 1)
+        return self.add(rbigint([1], 1)).neg()
 
-    def lshift(w_bigint1, w_bigint2):
-        if w_bigint2.sign < 0:
+    def lshift(self, other):
+        if other.sign < 0:
             raise ValueError("negative shift count")
-        elif w_bigint2.sign == 0:
-            return w_bigint1
-        shiftby = w_bigint2.toint()
+        elif other.sign == 0:
+            return self
+        shiftby = other.toint()
 
-        a = w_bigint1
         # wordshift, remshift = divmod(shiftby, SHIFT)
         wordshift = shiftby // SHIFT
         remshift  = shiftby - wordshift * SHIFT
 
-        oldsize = len(a.digits)
+        oldsize = len(self.digits)
         newsize = oldsize + wordshift
         if remshift:
             newsize += 1
-        z = rbigint([0] * newsize, a.sign)
-        # not sure if we will initialize things in the future?
-        for i in range(wordshift):
-            z.digits[i] = 0
+        z = rbigint([0] * newsize, self.sign)
         accum = 0
         i = wordshift
         j = 0
         while j < oldsize:
-            accum |= a.digits[j] << remshift
+            accum |= self.digits[j] << remshift
             z.digits[i] = accum & MASK
             accum >>= SHIFT
             i += 1
@@ -488,20 +484,19 @@ class rbigint(object):
         z._normalize()
         return z
 
-    def rshift(w_bigint1, w_bigint2):
-        if w_bigint2.sign < 0:
+    def rshift(self, other):
+        if other.sign < 0:
             raise ValueError("negative shift count")
-        elif w_bigint2.sign == 0:
-            return w_bigint1
-        if w_bigint1.sign == -1:
-            w_a1 = w_bigint1.invert()
-            w_a2 = w_a1.rshift(w_bigint2)
-            return w_a2.invert()
-        shiftby = w_bigint2.toint()
+        elif other.sign == 0:
+            return self
+        if self.sign == -1:
+            a1 = self.invert()
+            a2 = a1.rshift(other)
+            return a2.invert()
+        shiftby = other.toint()
 
-        a = w_bigint1
         wordshift = shiftby // SHIFT
-        newsize = len(a.digits) - wordshift
+        newsize = len(self.digits) - wordshift
         if newsize <= 0:
             return rbigint([0], 0)
 
@@ -509,38 +504,38 @@ class rbigint(object):
         hishift = SHIFT - loshift
         lomask = (1 << hishift) - 1
         himask = MASK ^ lomask
-        z = rbigint([0] * newsize, a.sign)
+        z = rbigint([0] * newsize, self.sign)
         i = 0
         j = wordshift
         while i < newsize:
-            z.digits[i] = (a.digits[j] >> loshift) & lomask
+            z.digits[i] = (self.digits[j] >> loshift) & lomask
             if i+1 < newsize:
-                z.digits[i] |= (a.digits[j+1] << hishift) & himask
+                z.digits[i] |= (self.digits[j+1] << hishift) & himask
             i += 1
             j += 1
         z._normalize()
         return z
 
-    def and_(w_bigint1, w_bigint2):
-        return _bitwise(w_bigint1, '&', w_bigint2)
+    def and_(self, other):
+        return _bitwise(self, '&', other)
 
-    def xor(w_bigint1, w_bigint2):
-        return _bitwise(w_bigint1, '^', w_bigint2)
+    def xor(self, other):
+        return _bitwise(self, '^', other)
 
-    def or_(w_bigint1, w_bigint2):
-        return _bitwise(w_bigint1, '|', w_bigint2)
+    def or_(self, other):
+        return _bitwise(self, '|', other)
 
-    def oct(w_bigint1):
-        return _format(w_bigint1, 8, True)
+    def oct(self):
+        return _format(self, 8, True)
 
-    def hex(w_bigint1):
-        return _format(w_bigint1, 16, True)
+    def hex(self):
+        return _format(self, 16, True)
 
-    def log(w_bigint, base):
+    def log(self, base):
         # base is supposed to be positive or 0.0, which means we use e
         if base == 10.0:
-            return _loghelper(math.log10, w_bigint)
-        ret = _loghelper(math.log, w_bigint)
+            return _loghelper(math.log10, self)
+        ret = _loghelper(math.log, self)
         if base != 0.0:
             ret /= math.log(base)
         return ret
@@ -1290,7 +1285,7 @@ def _AsDouble(v):
         return x
     raise OverflowError # can't say "long int too large to convert to float"
 
-def _loghelper(func, w_arg):
+def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
     do that by itself -- loghelper can.  func is log or log10, and name is
@@ -1299,7 +1294,7 @@ def _loghelper(func, w_arg):
     2**(2**64 * 2**16) == 2**2**80, and log2 of that is 2**80, which is
     small enough to fit in an IEEE single.  log and log10 are even smaller.
     """
-    x, e = _AsScaledDouble(w_arg);
+    x, e = _AsScaledDouble(arg);
     if x <= 0.0:
         raise ValueError
     # Value is ~= x * 2**(e*SHIFT), so the log ~=
