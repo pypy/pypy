@@ -156,6 +156,7 @@ class StructTypeDesc(object):
 
             self.materialize = materialize
 
+        # xxx
         self.gv_make_vinfo_ptr = hrtyper.gv_make_vinfo_ptr
         self.make_vinfo_token = hrtyper.make_vinfo_token
 
@@ -165,6 +166,15 @@ class StructTypeDesc(object):
         self.vinfo_append_vinfo_token = hrtyper.vinfo_append_vinfo_token
         self.gv_vinfo_skip_vinfo_ptr = hrtyper.gv_vinfo_skip_vinfo_ptr
         self.vinfo_skip_vinfo_token = hrtyper.vinfo_skip_vinfo_token
+
+        self.gv_vinfo_get_vinfo_ptr = hrtyper.gv_vinfo_get_vinfo_ptr
+        self.vinfo_get_vinfo_token = hrtyper.vinfo_get_vinfo_token
+
+        self.gv_vinfo_get_shape_ptr = hrtyper.gv_vinfo_get_shape_ptr
+        self.vinfo_get_shape_token = hrtyper.vinfo_get_shape_token
+
+        self.gv_vinfo_read_forced_ptr = hrtyper.gv_vinfo_read_forced_ptr
+        self.vinfo_read_forced_token = hrtyper.vinfo_read_forced_token
         
     def getfielddesc(self, name):
         return self.fielddesc_by_name[name]
@@ -434,9 +444,11 @@ class VirtualStruct(VirtualContainer):
         typedesc = self.typedesc
         assert typedesc is not None
         builder = jitstate.curbuilder
+        gv_bitmask = builder.rgenop.genconst(1<<memo.bitcount)
+        memo.bitcount += 1
         gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
                            typedesc.gv_make_vinfo_ptr,
-                           [])
+                           [gv_bitmask])
         memo.containers[self] = gv_vinfo
         vars_gv = []
         for box in self.content_boxes:
@@ -463,12 +475,45 @@ class VirtualStruct(VirtualContainer):
                            [gv_vinfo, gv_info])
         return gv_vinfo
 
+
+    def reshape(self, jitstate, gv_vinfo, shapemask, memo):
+        if self in memo.containers:
+            return
+        typedesc = self.typedesc
+        assert typedesc is not None
+        builder = jitstate.curbuilder        
+        memo.containers[self] = None
+        bitmask = 1<<memo.bitcount
+        memo.bitcount += 1
+        boxes = self.content_boxes
+        if bitmask&shapemask:
+            gv_ptr = builder.genop_call(typedesc.vinfo_read_forced_token,
+                                        typedesc.gv_vinfo_read_forced_ptr,
+                                        [gv_vinfo])
+            self.content_boxes = None
+            self.ownbox.genvar = gv_ptr
+            self.ownbox.content = None
+
+        for i in range(len(boxes)): # xxx duplication
+            box = boxes[i]
+            if not box.genvar:
+                gv_vinfo1 = builder.genop_call(typedesc.vinfo_get_vinfo_token,
+                                               typedesc.gv_vinfo_get_vinfo_ptr,
+                                               [gv_vinfo, builder.rgenop.genconst(i)])
+                assert isinstance(box, rvalue.PtrRedBox)
+                content = box.content
+                assert isinstance(content, VirtualStruct) # xxx for now
+                content.reshape(jitstate, gv_vinfo1, shapemask, memo)        
+        
+
+
 class VirtualInfo(object):
 
-    def __init__(self, RGenOp):
+    def __init__(self, RGenOp, bitmask):
         self.RGenOp = RGenOp
         self.vinfos = []
         self.s = lltype.nullptr(llmemory.GCREF.TO)
+        self.bitmask = bitmask
         
     def read_field(self, fielddesc, base, index):
         T = fielddesc.RESTYPE
@@ -491,7 +536,16 @@ class VirtualInfo(object):
         fielddesc.fill_into(s, base, self)
         return s
     get_forced._annspecialcase_ = "specialize:arg(1)"
-        
+
+    def read_forced(self):
+        assert self.s
+        return self.s
+    
+    def get_shape(self):
+        if self.s:
+            return self.bitmask
+        else:
+            return 0
 
 class VirtualizableStruct(VirtualStruct):
 
@@ -543,9 +597,10 @@ class VirtualizableStruct(VirtualStruct):
             boxes = self.content_boxes
             vars_gv = []
             n = len(boxes)
+            gv_zeromask = builder.rgenop.genconst(0)
             gv_vinfo = builder.genop_call(typedesc.make_vinfo_token,
                                typedesc.gv_make_vinfo_ptr,
-                               [])
+                               [gv_zeromask])
             memo.containers[self] = gv_vinfo
             
             for i in range(NVABLEFIELDS, n-1):
@@ -589,12 +644,38 @@ class VirtualizableStruct(VirtualStruct):
             info_token = typedesc.info_desc.fieldtoken
             access_token = typedesc.access_desc.fieldtoken
             gv_base_null = typedesc.base_desc.gv_default
-            gv_info_null = typedesc.info_desc.gv_default
             gv_access_null = typedesc.access_desc.gv_default
             builder.genop_setfield(base_token, gv_outside, gv_base_null)
-            builder.genop_setfield(info_token, gv_outside, gv_info_null)
             builder.genop_setfield(access_token, gv_outside, gv_access_null)
-                                   
+
+    def reshape(self, jitstate, gv_vinfo, shapemask, memo):
+        typedesc = self.typedesc
+        builder = jitstate.curbuilder
+        gv_outside = self.content_boxes[-1].genvar
+        if gv_outside is not typedesc.gv_null:
+            info_desc = typedesc.info_desc
+            assert info_desc is not None
+            if self in memo.containers:
+                return
+            # xxx we can avoid traversing the full tree
+            memo.containers[self] = None
+
+            assert gv_vinfo is None # xxx
+            info_token = info_desc.fieldtoken
+            gv_vinfo = builder.genop_getfield(info_token, gv_outside)            
+            boxes = self.content_boxes
+            n = len(boxes)
+            for i in range(NVABLEFIELDS, n-1):
+                box = boxes[i]
+                if not box.genvar:
+                    gv_vinfo1 = builder.genop_call(typedesc.vinfo_get_vinfo_token,
+                                                   typedesc.gv_vinfo_get_vinfo_ptr,
+                                                   [gv_vinfo, builder.rgenop.genconst(i-NVABLEFIELDS)])
+                    assert isinstance(box, rvalue.PtrRedBox)
+                    content = box.content
+                    assert isinstance(content, VirtualStruct) # xxx for now
+                    content.reshape(jitstate, gv_vinfo1, shapemask, memo)
+                    
 # ____________________________________________________________
 
 class FrozenPartialDataStruct(AbstractContainer):

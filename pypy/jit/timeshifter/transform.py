@@ -151,12 +151,15 @@ class HintGraphTransformer(object):
 
     # __________ helpers __________
 
-    def genop(self, block, opname, args, resulttype=None, result_like=None):
+    def genop(self, block, opname, args, resulttype=None, result_like=None, red=False):
         # 'result_like' can be a template variable whose hintannotation is
         # copied
         if resulttype is not None:
             v_res = varoftype(resulttype)
-            hs = hintmodel.SomeLLAbstractConstant(resulttype, {})
+            if red:
+                hs = hintmodel.SomeLLAbstractVariable(resulttype)
+            else:
+                hs = hintmodel.SomeLLAbstractConstant(resulttype, {})
             self.hannotator.setbinding(v_res, hs)
         elif result_like is not None:
             v_res = copyvar(self.hannotator, result_like)
@@ -615,19 +618,15 @@ class HintGraphTransformer(object):
         postconstantblock.recloseblock(Link([], resumeblock))
 
         if nonconstantblock is not None:
-            args_v = op.args[1:]
-            if op.opname == 'indirect_call':
-                del args_v[-1]
-            # pseudo-obscure: the arguments for the call go in save_locals
-            args_v = [v for v in args_v if v.concretetype is not lltype.Void]
-            self.genop(nonconstantblock, 'save_locals', args_v)
-            v_res = self.genop(nonconstantblock, 'residual_%s_call' % (color,),
-                               [op.args[0]], result_like = op.result)
+            v_res, nonconstantblock2 = self.handle_residual_call_details(nonconstantblock, 0,
+                                                                         op, color,
+                                                                         preserve_res = False)
 
             if color == 'red':
                 linkargs[0] = v_res
-            
-            nonconstantblock.closeblock(Link(linkargs, nextblock))
+
+            blockset[nonconstantblock2] = False            
+            nonconstantblock2.recloseblock(Link(linkargs, nextblock))
 
         blockset[block] = True     # reachable from outside
         blockset[nextblock] = True # reachable from outside
@@ -700,25 +699,49 @@ class HintGraphTransformer(object):
                     postblock: False}, self.hannotator)
 
     def handle_residual_call(self, block, pos):
-        op = block.operations[pos]
+        op = block.operations[pos]        
+        if op.result.concretetype is lltype.Void:
+            color = 'gray'
+        else:
+            color = 'red'
+        v_res, _ = self.handle_residual_call_details(block, pos, op, color)
+        return v_res
+                    
+    def handle_residual_call_details(self, block, pos, op, color, preserve_res=True):
         if op.opname == 'direct_call':
             args_v = op.args[1:]
         elif op.opname == 'indirect_call':
             args_v = op.args[1:-1]
         else:
             raise AssertionError(op.opname)
-        if op.result.concretetype is lltype.Void:
-            color = 'gray'
-        else:
-            color = 'red'
         newops = []
         # pseudo-obscure: the arguments for the call go in save_locals
         args_v = [v for v in args_v if v.concretetype is not lltype.Void]
         self.genop(newops, 'save_locals', args_v)
-        self.genop(newops, 'residual_%s_call' % (color,),
-                   [op.args[0]], result_like = op.result)
-        newops[-1].result = op.result
+        self.genop(newops, 'prepare_residual_call', [])
+        call_index = len(newops)
+        v_res = self.genop(newops, 'residual_%s_call' % (color,),
+                           [op.args[0]], result_like = op.result)
+        v_shape = self.genop(newops, 'after_residual_call', [], resulttype=lltype.Signed, red=True)
+        reshape_index = len(newops)
+        self.genop(newops, 'reshape', [v_shape])
+        reshape_pos = pos+reshape_index
         block.operations[pos:pos+1] = newops
+        if preserve_res:
+            v_res = newops[call_index].result = op.result
+
+        link = split_block(self.hannotator, block, reshape_pos)
+        nextblock = link.target
+
+        reds, greens = self.sort_by_color(link.args)
+        self.genop(block, 'save_locals', reds)
+        v_finished_flag = self.genop(block, 'promote', [v_shape],
+                                     resulttype = lltype.Bool)
+        self.go_to_dispatcher_if(block, v_finished_flag)
+
+            
+        return v_res, nextblock
+
 
     # __________ hints __________
 
@@ -764,7 +787,6 @@ class HintGraphTransformer(object):
         block.operations[i] = newop
 
         link = split_block(self.hannotator, block, i)
-        nextblock = link.target
 
         reds, greens = self.sort_by_color(link.args)
         self.genop(block, 'save_locals', reds)

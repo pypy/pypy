@@ -123,11 +123,16 @@ def cast(block, gv_TYPE, gv_var):
     TYPE = from_opaque_object(gv_TYPE).value
     v = from_opaque_object(gv_var)
     if TYPE != v.concretetype:
-        assert v.concretetype == lltype.erasedType(TYPE)
+        if TYPE is llmemory.GCREF or v.concretetype is llmemory.GCREF:
+            lltype.cast_opaque_ptr(TYPE, v.concretetype._defl()) # sanity check
+            opname = 'cast_opaque_ptr'
+        else:
+            assert v.concretetype == lltype.erasedType(TYPE)
+            opname = 'cast_pointer'
         block = from_opaque_object(block)
         v2 = flowmodel.Variable()
         v2.concretetype = TYPE
-        op = flowmodel.SpaceOperation('cast_pointer', [v], v2)
+        op = flowmodel.SpaceOperation(opname, [v], v2)
         block.operations.append(op)
         v = v2
     return to_opaque_object(v)

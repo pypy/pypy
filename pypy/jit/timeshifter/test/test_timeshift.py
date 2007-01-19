@@ -1126,7 +1126,29 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [0, 2], [0], policy=P_NOVIRTUAL)
         assert res == 42
-        self.check_insns({'int_mul': 1})        
+        self.check_insns({'int_mul': 1})
+
+    def test_simple_red_meth_vars_around(self):
+        class Base(object):
+            def m(self, n):
+                raise NotImplementedError
+            pass  # for inspect.getsource() bugs
+
+        class Concrete(Base):
+            def m(self, n):
+                return 21*n
+            pass  # for inspect.getsource() bugs
+
+        def f(flag, x, y, z):
+            if flag:
+                o = Base()
+            else:
+                o = Concrete()
+            return (o.m(x)+y)-z
+
+        res = self.timeshift(f, [0, 2, 7, 5], [0], policy=P_NOVIRTUAL)
+        assert res == 44
+        self.check_insns({'int_mul': 1, 'int_add': 1, 'int_sub': 1})              
 
     def test_compile_time_const_tuple(self):
         d = {(4, 5): 42, (6, 7): 12}

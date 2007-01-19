@@ -463,13 +463,21 @@ class CallDesc:
 
 def ll_gen_residual_call(jitstate, calldesc, funcbox):
     builder = jitstate.curbuilder
-    jitstate.prepare_for_residual_call()
     gv_funcbox = funcbox.getgenvar(jitstate)
     argboxes = jitstate.frame.local_boxes
     args_gv = [argbox.getgenvar(jitstate) for argbox in argboxes]
     gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
-    jitstate.after_residual_call()
     return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
+
+def prepare_residual_call(jitstate):
+    jitstate.prepare_for_residual_call()
+
+def after_residual_call(jitstate):
+    return jitstate.after_residual_call()
+
+def reshape(jitstate, shapebox):
+    shapemask = rvalue.ll_getvalue(shapebox, lltype.Signed)
+    jitstate.reshape(shapemask)
 
 
 class ResumingInfo(object):
@@ -895,20 +903,47 @@ class JITState(object):
             builder = self.curbuilder            
             gv_base = builder.get_frame_base()
             memo = rvalue.make_vinfo_memo()
+            memo.bitcount = 0
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.prepare_for_residual_call(self, gv_base, memo)
+            assert memo.bitcount < 32
+            self.make_vinfo_memo = memo
                 
     def after_residual_call(self):
         virtualizables = self.virtualizables
+        builder = self.curbuilder
+        gv_shape = builder.rgenop.genconst(0)
         if virtualizables:
-            builder = self.curbuilder            
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.after_residual_call(self)
+            memo = self.make_vinfo_memo
+            self.make_vinfo_memo = None
+            for container, gv_vinfo in memo.containers.iteritems():
+                if isinstance(container, rcontainer.VirtualizableStruct):
+                    continue
+                assert isinstance(container, rcontainer.VirtualStruct)
+                typedesc = container.typedesc # xxx
+                gv_new_shape = builder.genop_call(typedesc.vinfo_get_shape_token,
+                                                  typedesc.gv_vinfo_get_shape_ptr,
+                                                  [gv_vinfo])
+                gv_shape = builder.genop2('int_or', gv_shape, gv_new_shape)
+        return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Signed), gv_shape)
 
+    def reshape(self, shapemask):
+        virtualizables = self.virtualizables
+        builder = self.curbuilder
+        if virtualizables and shapemask:
+            memo = rvalue.make_vinfo_memo()
+            memo.bitcount = 0            
+            for virtualizable_box in virtualizables:
+                content = virtualizable_box.content
+                assert isinstance(content, rcontainer.VirtualizableStruct)
+                content.reshape(self, None, shapemask, memo) # xxx gv_vinfo argument
+                
     def freeze(self, memo):
         result = FrozenJITState()
         result.fz_frame = self.frame.freeze(memo)

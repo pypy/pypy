@@ -156,15 +156,17 @@ class HintRTyper(RPythonTyper):
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
         #self.void_red_repr = VoidRedRepr(self)
 
+        # XXX use helpers, factor out perhaps?
         annhelper = self.annhelper
-        def make_vinfo():
-            vinfo = rcontainer.VirtualInfo(RGenOp)
+        def make_vinfo(bitmask):
+            vinfo = rcontainer.VirtualInfo(RGenOp, bitmask)
             return cast_instance_to_base_ptr(vinfo)
 
         s_vableinfoptr = annmodel.lltype_to_annotation(rcontainer.VABLEINFOPTR)
-        s_info = annmodel.lltype_to_annotation(llmemory.GCREF)
+        s_gcref = annmodel.lltype_to_annotation(llmemory.GCREF)
+        s_info = s_gcref
         
-        make_vinfo_ptr = annhelper.delayedfunction(make_vinfo, [],
+        make_vinfo_ptr = annhelper.delayedfunction(make_vinfo, [annmodel.SomeInteger()],
                                                    s_vableinfoptr,
                                                    needtype=True)
         self.gv_make_vinfo_ptr = RGenOp.constPrebuiltGlobal(make_vinfo_ptr)
@@ -215,9 +217,51 @@ class HintRTyper(RPythonTyper):
             vinfo_skip_vinfo_ptr)
         self.vinfo_skip_vinfo_token = RGenOp.sigToken(
                                      lltype.typeOf(vinfo_skip_vinfo_ptr).TO)
+
+        def vinfo_get_shape(vinfo):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            return vinfo.get_shape()
+        vinfo_get_shape_ptr = annhelper.delayedfunction(vinfo_get_shape,
+                                                        [s_vableinfoptr],
+                                                        annmodel.SomeInteger(),
+                                                        needtype=True)
+        self.gv_vinfo_get_shape_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_get_shape_ptr)
+        self.vinfo_get_shape_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_get_shape_ptr).TO)
+
+
+        def vinfo_get_vinfo(vinfo, index):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            childvinfo = vinfo.vinfos[index]
+            return cast_instance_to_base_ptr(childvinfo)            
+
+        vinfo_get_vinfo_ptr = annhelper.delayedfunction(vinfo_get_vinfo,
+                              [s_vableinfoptr, annmodel.SomeInteger()],
+                              s_vableinfoptr,
+                              needtype=True)
+        self.gv_vinfo_get_vinfo_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_get_vinfo_ptr)
+        self.vinfo_get_vinfo_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_get_vinfo_ptr).TO)
+
+        def vinfo_read_forced(vinfo):
+            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
+                                              vinfo)
+            return vinfo.read_forced()
+
+        vinfo_read_forced_ptr = annhelper.delayedfunction(vinfo_read_forced,
+                              [s_vableinfoptr],
+                              s_gcref,
+                              needtype=True)
+        self.gv_vinfo_read_forced_ptr = RGenOp.constPrebuiltGlobal(
+            vinfo_read_forced_ptr)
+        self.vinfo_read_forced_token = RGenOp.sigToken(
+                                     lltype.typeOf(vinfo_read_forced_ptr).TO)
         
-
-
+         
     def specialize(self, origportalgraph=None, view=False):
         """
         Driver for running the timeshifter.
@@ -1396,6 +1440,28 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_residual_gray_call(self, hop):
         self.translate_op_residual_red_call(hop, color='gray')
+
+    def translate_op_prepare_residual_call(self, hop):
+        v_jitstate = hop.llops.getjitstate()        
+        return hop.llops.genmixlevelhelpercall(rtimeshift.prepare_residual_call,
+                                               [self.s_JITState],
+                                               [v_jitstate],
+                                               annmodel.s_None)
+
+    def translate_op_after_residual_call(self, hop):
+        v_jitstate = hop.llops.getjitstate()        
+        return hop.llops.genmixlevelhelpercall(rtimeshift.after_residual_call,
+                                               [self.s_JITState],
+                                               [v_jitstate],
+                                               self.s_RedBox)
+        
+    def translate_op_reshape(self, hop):
+        v_jitstate = hop.llops.getjitstate()                
+        v_shape, = hop.inputargs(self.getredrepr(lltype.Signed))
+        return hop.llops.genmixlevelhelpercall(rtimeshift.reshape,
+                                               [self.s_JITState, self.s_RedBox],
+                                               [v_jitstate     , v_shape      ],
+                                               annmodel.s_None)        
 
     def translate_op_reverse_split_queue(self, hop):
         hop.llops.genmixlevelhelpercall(rtimeshift.reverse_split_queue,
