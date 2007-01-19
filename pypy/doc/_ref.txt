@@ -66,10 +66,13 @@
 .. _`rlib/`: ../../pypy/rlib
 .. _`pypy/rlib/objectmodel.py`: ../../pypy/rlib/objectmodel.py
 .. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
+.. _`pypy/rlib/rctypes/rctypesobject.py`: ../../pypy/rlib/rctypes/rctypesobject.py
+.. _`pypy/rlib/rctypes/test/test_rctypesobject.py`: ../../pypy/rlib/rctypes/test/test_rctypesobject.py
 .. _`pypy/rlib/test`: ../../pypy/rlib/test
 .. _`pypy/rpython`:
 .. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
+.. _`pypy/rpython/controllerentry.py`: ../../pypy/rpython/controllerentry.py
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`rpython/lltypesystem/`: ../../pypy/rpython/lltypesystem
 .. _`pypy/rpython/lltypesystem/lltype.py`:
