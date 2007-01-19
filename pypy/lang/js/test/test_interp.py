@@ -378,7 +378,6 @@ class TestInterp(object):
         print(y)""", ["5"])
     
     def test_math_stuff(self):
-        py.test.skip('not ready yet')
         self.assert_prints("""
         var x = 5;
         var z = 2;
@@ -390,8 +389,9 @@ class TestInterp(object):
         print(Number.POSITIVE_INFINITY)
         print(Number.NEGATIVE_INFINITY)
         print(Math.floor(3.2))
+        print(null)
         print(-z)
-        """, ['10', '2', 'false', '3', '-2'])
+        """, ['10', '2', 'false', '3', '', '-2'])
         
     def test_globalproperties(self):
         self.assert_prints( """
@@ -413,8 +413,26 @@ class TestInterp(object):
 
     def test_activationprob(self):
         self.assert_prints( """
-        function x (actual){
-            print(typeof actual)
+        function intern (int1){
+            print(int1);
+            return int1;
         }
-        x(true)
-        """, ['boolean'])
+        function x (v1){
+            this.p1 = v1
+            this.p2 = intern(this.p1)
+        }
+        var ins = new x(1)
+        print(ins.p1)
+        print(ins.p2)
+        """, ['1','1', '1'])
+
+    def test_array_acess(self):
+        self.assert_prints("""
+        var x = new Array()
+        x[0] = 1;
+        x[x[0]] = 2;
+        x[2] = x[0]+x[1];
+        for(i=0; i<3; i++){
+            print(x[i]);
+        }
+        """, ['1', '2', '3'])

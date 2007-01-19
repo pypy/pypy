@@ -1,4 +1,5 @@
 
+import math
 from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
@@ -86,6 +87,8 @@ def booleanjs(ctx, args, this):
         return W_Boolean(args[0].ToBoolean())
     return W_Boolean(False)
         
+def absjs(ctx, args, this):
+    return W_Number(abs(args[0].ToNumber()))
     
 class Interpreter(object):
     """Creates a js interpreter"""
@@ -110,8 +113,9 @@ class Interpreter(object):
         #And some other stuff
         
         #Math
-        # w_math = W_Object(Class='Math')
-        # w_math.Put('abs')
+        w_math = W_Object(Class='Math')
+        w_Global.Put('Math', w_math)
+        w_math.Put('abs', W_Builtin(absjs, Class='function'))
         
         #Global Properties
         w_Global.Put('Object', w_Object)
@@ -217,9 +221,6 @@ class Call(Expression):
             r7 = None
         else:
             r7 = r6
-        if r1.property_name == "getTestCaseResult":
-            import pdb
-            pdb.set_trace()
         retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
         return retval
 
@@ -247,7 +248,7 @@ class Conditional(Expression):
 class Dot(BinaryOp):
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
-        name = self.right.get_literal()
+        name = self.right.eval(ctx).GetPropertyName()
         return W_Reference(name, w_obj)
 
 class Function(Expression):
@@ -411,18 +412,16 @@ class Index(Expression):
         self.expr = expr
 
     def eval(self, ctx):
-        w_obj = self.left.eval(ctx).GetValue()
-        w_member = self.expr.eval(ctx).GetValue()
-        w_obj = w_obj.ToObject()
-        name = w_member.ToString()
-        return w_obj.Get(name)
+        w_obj = self.left.eval(ctx).GetValue().ToObject()
+        name= self.expr.eval(ctx).GetValue().ToString()
+        return W_Reference(name, w_obj)
 
 class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
         
     def eval(self, ctx):
-        return W_List([node.eval(ctx) for node in self.nodes])
+        return W_List([node.eval(ctx).GetValue() for node in self.nodes])
 
 class Minus(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
@@ -483,6 +482,7 @@ class Plus(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         prim_left = op1.ToPrimitive(ctx, 'Number')
         prim_right = op2.ToPrimitive(ctx, 'Number')
+        print "plus", self.left, op1, prim_left, "+", self.right, op2, prim_right
         if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
             str_left = prim_left.ToString()
             str_right = prim_right.ToString()
@@ -615,14 +615,10 @@ class Typeof(Expression):
     
     def eval(self, ctx):
         val = self.op.eval(ctx)
-        print val, val.GetBase()
         if val.GetBase() is None:
             return W_String("undefined")
-        if isinstance(val.GetValue(), W_Reference):
-            import pdb
-            pdb.set_trace()
         return W_String(val.GetValue().type())
-        
+
 class Undefined(Statement):
     def execute(self, ctx):
         return None

@@ -67,6 +67,7 @@ class W_Root(object):
         raise NotImplementedError
     
     def PutValue(self, w, ctx):
+        print self, w.ToString(), w.__class__, ctx
         raise NotImplementedError
     
     def Call(self, ctx, args=[], this=None):
@@ -116,7 +117,7 @@ w_Null = W_Null()
 
 class W_Primitive(W_Root):
     """unifying parent for primitives"""
-    def ToPrimitive(self, ctx, PreferredType):
+    def ToPrimitive(self, ctx, hint=""):
         return self
 
 class W_PrimitiveObject(W_Root):
@@ -140,7 +141,6 @@ class W_PrimitiveObject(W_Root):
             arg = self.callfunc.params[i]
             try:
                 value = args[i]
-                print "value is", value
             except IndexError:
                 value = w_Undefined
             act.Put(self.callfunc.params[i], value)
@@ -212,7 +212,7 @@ class W_PrimitiveObject(W_Root):
                 return val
         raise JsTypeError
 
-    def DefaultValue(self, ctx, hint):
+    def DefaultValue(self, ctx, hint=""):
         if hint == "String":
             return self.internal_def_value(ctx, "toString", "valueOf")
         else: #suppose hint is "Number" dunno what to do otherwise
@@ -294,11 +294,13 @@ class W_Array(W_Builtin):
     def Put(self, P, V):
         try:
             x = int(P)
-            if x > self.Get('length').ToNumber():
+            print "puting", V, 'in', x
+            if x > self.Get('length').ToNumber() - 1:
                 self.propdict['length'].value = W_Number(x)
                 currsize = len(self.array)
                 for i in range(x-(currsize-1)):
                     self.array.append(w_Undefined)
+            self.array[x]=V
                     
         except ValueError:
             if not self.CanPut(P): return
@@ -311,8 +313,9 @@ class W_Array(W_Builtin):
         try:
             x = int(P)
             if x > (len(self.array)-1):
-                return W_Undefined
+                return w_Undefined
             else:
+                print "returning", self.array[x], 'in', x
                 return self.array[x]
         except ValueError:
             return W_PrimitiveObject.Get(self, P)
