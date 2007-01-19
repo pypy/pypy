@@ -8,6 +8,7 @@ if llvm_version() < 2.0:
     icmp = scmp = ucmp = fcmp = 'set'
     inttoptr = trunc = zext = bitcast = inttoptr = 'cast'
     shr_prefix = ['', '']
+    i1  = 'bool'
     i8  = 'ubyte'
     i16 = 'short'
     i32 = 'int'
@@ -25,10 +26,10 @@ else:   # >= 2.0
     inttoptr = 'inttoptr'
     shr_prefix = ['l', 'a']
     define = 'define'
+    i1  = 'i1'
     i8  = 'i8'
     i16 = 'i16'
     i32 = 'i32'
     i64 = 'i64'
 
-i1 = 'bool'
 f64 = 'double'

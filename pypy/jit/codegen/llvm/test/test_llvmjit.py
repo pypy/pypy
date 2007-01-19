@@ -2,7 +2,7 @@ import py
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.llvm import llvmjit
-from pypy.jit.codegen.llvm.compatibility import define, icmp, i32
+from pypy.jit.codegen.llvm.compatibility import define, icmp, i1, i32
 
 try:
     from pypy.jit.codegen.llvm import llvmjit
@@ -30,7 +30,7 @@ llmul2 = '''%(define)s %(i32)s %%mul2(%(i32)s %%n) {
 lldeadcode = '''%(define)s %(i32)s %%deadcode(%(i32)s %%n) {
 Test:
     %%cond = %(icmp)seq %(i32)s %%n, %%n
-    br bool %%cond, label %%IfEqual, label %%IfUnequal
+    br %(i1)s %%cond, label %%IfEqual, label %%IfUnequal
 
 IfEqual:
     %%n2 = mul %(i32)s %%n, 2
