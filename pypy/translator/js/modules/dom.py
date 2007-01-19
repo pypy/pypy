@@ -299,6 +299,11 @@ class Window(EventTarget):
     
     location = property(_getLocation, _setLocation)
 
+scrollX = 0
+scrollMaxX = 0
+scrollY = 0
+scrollMaxY = 0
+
 def some_fun():
     pass
     
@@ -422,7 +427,7 @@ Element._methods.update({
     'removeAttribute' : MethodDesc([str]),
     'removeAttributeNS' : MethodDesc([str]),
     'removeAttributeNode' : MethodDesc([Element], str),
-    'setAttribute' : MethodDesc([str]),
+    'setAttribute' : MethodDesc([str, str]),
     'setAttributeNS' : MethodDesc([str]),
     'setAttributeNode' : MethodDesc([Element], Element),
     'setAttributeNodeNS' : MethodDesc([str, Element], Element),
