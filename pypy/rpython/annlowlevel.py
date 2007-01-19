@@ -383,11 +383,15 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
         return annmodel.SomePtr(s_PTR.const)
 
     def specialize_call(self, hop):
+        from pypy.rpython import rpbc
+        PTR = hop.r_result.lowleveltype
+        if isinstance(hop.args_r[1], rpbc.NoneFrozenPBCRepr):
+            return hop.inputconst(PTR, lltype.nullptr(PTR.TO))
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, lltype.Ptr)
         hop.exception_cannot_occur()
         return hop.genop('cast_pointer', [v_arg],
-                         resulttype = hop.r_result.lowleveltype)
+                         resulttype = PTR)
 
 # ____________________________________________________________
 
