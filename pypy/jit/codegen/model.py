@@ -201,7 +201,10 @@ class AbstractRGenOp(object):
         inputargs_gv where the new builder is for the startblock,
         entrypoint is the address of the new function as GenConst and
         inputargs_gv is the location of each argument on entry to the
-        function.  name is for debugging purposes"""
+        function.  name is for debugging purposes.  The fresh builder
+        is initially paused, you must call start_writing() before
+        actually putting operations in it.
+        """
         raise NotImplementedError
 
     # all staticmethods commented out for the sake of the annotator

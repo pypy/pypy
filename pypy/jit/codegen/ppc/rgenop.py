@@ -413,7 +413,6 @@ class Builder(GenBuilder):
             return self
         else:
             self._open()
-            self.closed = False
             self.maybe_patch_start_here()
             return self
 
@@ -520,6 +519,7 @@ class Builder(GenBuilder):
 
     def _open(self):
         self.asm.mc = self.rgenop.open_mc()
+        self.closed = False
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)

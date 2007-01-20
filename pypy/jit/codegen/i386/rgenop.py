@@ -244,6 +244,7 @@ class OpIntFloorDiv(MulOrDivOp):
     opname = 'int_floordiv'
     input_is_64bits = True
     reg_containing_result = eax
+    unsigned = False
     @staticmethod
     def emit(mc, op2):
         # from the PPC backend which has the same problem:
@@ -1312,6 +1313,7 @@ class Builder(GenBuilder):
         mc = self.generate_block_code(outputargs_gv, outputargs_gv, operands,
                               minimal_stack_depth = targetlbl.targetstackdepth)
         mc.JMP(rel32(targetlbl.targetaddr))
+        mc.done()
         self.rgenop.close_mc(mc)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
@@ -1324,11 +1326,13 @@ class Builder(GenBuilder):
         mc.POP(ebp)
         mc.RET()
         # ----------------
+        mc.done()
         self.rgenop.close_mc(mc)
 
     def pause_writing(self, alive_gv):
         mc = self.generate_block_code(alive_gv, renaming=False)
         self.set_coming_from(mc)
+        mc.done()
         self.rgenop.close_mc(mc)
         return self
 
@@ -1430,6 +1434,7 @@ class Builder(GenBuilder):
                                       renaming=False)
         result = FlexSwitch(self.rgenop, self.inputargs_gv, self.inputoperands)
         default_builder = result.initialize(mc)
+        mc.done()
         self.rgenop.close_mc(mc)
         return result, default_builder
 
@@ -1568,9 +1573,6 @@ class RI386GenOp(AbstractRGenOp):
         mc.PUSH(esi)
         mc.PUSH(edi)
         # ^^^ pushed 5 words including the retval ( == PROLOGUE_FIXED_WORDS)
-        self.close_mc(mc)
-        # NB. a bit of a hack: the first generated block of the function
-        # will immediately follow, by construction
         # ----------------
         numargs = sigtoken     # for now
         inputargs_gv = []
@@ -1579,7 +1581,12 @@ class RI386GenOp(AbstractRGenOp):
             inputargs_gv.append(GenVar())
             inputoperands.append(mem(ebp, WORD * (2+i)))
         builder = Builder(self, inputargs_gv, inputoperands)
-        builder.start_writing()
+        # XXX this makes the code layout in memory a bit obscure: we have the
+        # prologue of the new graph somewhere in the middle of its first
+        # caller, all alone...
+        builder.set_coming_from(mc)
+        mc.done()
+        self.close_mc(mc)
         #ops = [OpSameAs(v) for v in inputargs_gv]
         #builder.operations.extend(ops)
         #inputargs_gv = ops

@@ -159,6 +159,7 @@ class TimeshiftingTests(object):
             sigtoken = rgenop.sigToken(FUNC)
             builder, gv_generated, inputargs_gv = rgenop.newgraph(sigtoken,
                                                                   "generated")
+            builder.start_writing()
             i = 0
             for color in argcolors:
                 if color == "green":

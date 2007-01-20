@@ -19,6 +19,7 @@ class TestRI386Genop(AbstractRGenOpTests):
         # ------------------------------------------------------------
         builder0, gv_callable, [v0, v1, v2] = rgenop.newgraph(
             rgenop.sigToken(FUNC3), 'generated')
+        builder0.start_writing()
         v3 = builder0.genop_malloc_varsize(varsizealloctoken,
                                            rgenop.genconst(2))
         v4 = builder0.genop1('ptr_iszero', v3)

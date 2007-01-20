@@ -12,6 +12,7 @@ def compile_graph(rgenop, graph):
     sigtoken = rgenop.sigToken(FUNC)
     builder, gv_entrypoint, args_gv = rgenop.newgraph(sigtoken,
                                          "compiled_%s" % (graph.name,))
+    builder.start_writing()
 
     pending_blocks = {graph.startblock: (builder, args_gv)}
     seen_blocks = {}

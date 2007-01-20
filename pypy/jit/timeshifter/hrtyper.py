@@ -260,8 +260,15 @@ class HintRTyper(RPythonTyper):
             vinfo_read_forced_ptr)
         self.vinfo_read_forced_token = RGenOp.sigToken(
                                      lltype.typeOf(vinfo_read_forced_ptr).TO)
-        
-         
+
+        # global state for the portal corresponding to this timeshifted world
+        class PortalState(object):
+            pass
+        def compile_more_functions():
+            "Empty by default; overridden in rewire_portal()"
+        self.portalstate = PortalState()
+        self.portalstate.compile_more_functions = compile_more_functions
+
     def specialize(self, origportalgraph=None, view=False):
         """
         Driver for running the timeshifter.
@@ -352,12 +359,7 @@ class HintRTyper(RPythonTyper):
         args_specification = unrolling_iterable(args_specification)
         fresh_jitstate = self.ll_fresh_jitstate
         finish_jitstate = self.ll_finish_jitstate
-
-        class PortalState(object):
-            def __init__(self):
-                self.cache = {}
-
-        state = PortalState()
+        sigtoken = rgenop.sigToken(FUNC)
 
         # debug helper
         def readportal(*args):
@@ -400,7 +402,6 @@ class HintRTyper(RPythonTyper):
                 gv_generated = cache[key]
             except KeyError:
                 portal_ts_args = ()
-                sigtoken = rgenop.sigToken(FUNC)
                 builder, gv_generated, inputargs_gv = rgenop.newgraph(sigtoken,
                                                              "generated")
                 cache[key] = gv_generated
@@ -418,15 +419,27 @@ class HintRTyper(RPythonTyper):
                         i += make_arg_redbox.consumes                        
                         portal_ts_args += (box,)
 
-                top_jitstate = portal_fn(top_jitstate, *portal_ts_args)
-                if top_jitstate is not None:
-                    finish_jitstate(top_jitstate, sigtoken)
-                    
-                builder.end()
-                builder.show_incremental_progress()
+                state.graph_compilation_queue.append((top_jitstate, portal_ts_args))
+                compile_more_functions()
+
             fn = gv_generated.revealconst(lltype.Ptr(FUNC))
             return fn(*residualargs)
 
+        def compile_more_functions():
+            while state.graph_compilation_queue:
+                top_jitstate, portal_ts_args = state.graph_compilation_queue.pop()
+                builder = top_jitstate.curbuilder
+                builder.start_writing()
+                top_jitstate = portal_fn(top_jitstate, *portal_ts_args)
+                if top_jitstate is not None:
+                    finish_jitstate(top_jitstate, sigtoken)
+                builder.end()
+                builder.show_incremental_progress()
+
+        state = self.portalstate
+        state.cache = {}
+        state.graph_compilation_queue = []
+        state.compile_more_functions = compile_more_functions
 
         args_s = [annmodel.lltype_to_annotation(v.concretetype) for
                   v in origportalgraph.getargs()]
@@ -464,7 +477,6 @@ class HintRTyper(RPythonTyper):
                     box = args[i]
                     args_gv.append(box.getgenvar(jitstate))
                 i = i + 1
-            sigtoken = rgenop.sigToken(FUNC)
             cache = state.cache
             try:
                 gv_generated = cache[key]
@@ -489,14 +501,8 @@ class HintRTyper(RPythonTyper):
                         portal_ts_args += (box,)
 
                 top_jitstate = fresh_jitstate(builder)
-                top_jitstate = portal_fn(top_jitstate, *portal_ts_args)
-                if top_jitstate is not None:
-                    finish_jitstate(top_jitstate, sigtoken)
+                state.graph_compilation_queue.append((top_jitstate, portal_ts_args))
 
-                builder.end()
-                builder.show_incremental_progress()
-
- 
             gv_res = curbuilder.genop_call(sigtoken, gv_generated, args_gv)
             fetch_global_excdata(jitstate)
 

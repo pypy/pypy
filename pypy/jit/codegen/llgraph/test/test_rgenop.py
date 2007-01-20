@@ -44,6 +44,7 @@ def test_read_frame_var():
     readertoken = rgenop.sigToken(lltype.typeOf(reader_ptr).TO)
 
     builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
 
     gv_y = builder.genop2("int_mul", gv_x, rgenop.genconst(2))
     gv_base = builder.get_frame_base()
@@ -61,6 +62,7 @@ def test_not_calling_end_explodes():
     rgenop = RGenOp()
     sigtoken = rgenop.sigToken(F1)
     builder, gv_adder, [gv_x] = rgenop.newgraph(sigtoken, "adder")
+    builder.start_writing()
     gv_result = builder.genop2("int_add", gv_x, rgenop.genconst(5))
     builder.finish_and_return(sigtoken, gv_result)
     #builder.end() <--- the point

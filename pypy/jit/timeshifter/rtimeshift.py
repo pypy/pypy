@@ -596,25 +596,26 @@ MC_IGNORE_UNTIL_RETURN = -1
 MC_CALL_NOT_TAKEN      = -2
 
 
-def ll_continue_compilation(promotion_point_ptr, value):
-    try:
-        promotion_point = cast_base_ptr_to_instance(PromotionPoint,
-                                                    promotion_point_ptr)
-        path = [None]
-        root = promotion_point.promotion_path.follow_path(path)
-        gv_value = root.rgenop.genconst(value)
-        resuminginfo = ResumingInfo(promotion_point, gv_value, path)
-        root.continue_compilation(resuminginfo)
-    except Exception, e:
-        lloperation.llop.debug_fatalerror(lltype.Void,
-                                          "compilation-time error %s" % e)
-
 class PromotionDesc:
     __metatype__ = cachedtype
 
     def __init__(self, ERASED, hrtyper):
-##        (s_PromotionPoint,
-##         r_PromotionPoint) = hrtyper.s_r_instanceof(PromotionPoint)
+        state = hrtyper.portalstate
+
+        def ll_continue_compilation(promotion_point_ptr, value):
+            try:
+                promotion_point = cast_base_ptr_to_instance(
+                    PromotionPoint, promotion_point_ptr)
+                path = [None]
+                root = promotion_point.promotion_path.follow_path(path)
+                gv_value = root.rgenop.genconst(value)
+                resuminginfo = ResumingInfo(promotion_point, gv_value, path)
+                root.continue_compilation(resuminginfo)
+                state.compile_more_functions()
+            except Exception, e:
+                lloperation.llop.debug_fatalerror(
+                    lltype.Void, "compilation-time error %s" % e)
+
         fnptr = hrtyper.annhelper.delayedfunction(
             ll_continue_compilation,
             [annmodel.SomePtr(base_ptr_lltype()),

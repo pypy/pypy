@@ -14,6 +14,7 @@ def test_simple():
         rgenop = LLTypeRGenOp()
         sigtoken = rgenop.sigToken(FUNC)
         builder, gv_add_one, [gv_x] = rgenop.newgraph(sigtoken, "adder")
+        builder.start_writing()
         gv_result = builder.genop2("int_add", gv_x, rgenop.genconst(n))
         builder.finish_and_return(sigtoken, gv_result)
         builder.end()

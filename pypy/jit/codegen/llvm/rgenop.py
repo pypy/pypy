@@ -811,7 +811,6 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         self.funcsig[n] = '%s %%%s' % (restype, name)
         self.gv_entrypoint = IntConst(n)    #note: updated by Builder.end() (i.e after compilation)
         args = list(prologueblock.inputargs)
-        builder.start_writing()
         return builder, self.gv_entrypoint, args
 
     @specialize.genconst(1)

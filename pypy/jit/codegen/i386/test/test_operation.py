@@ -59,6 +59,7 @@ class TestOperation(I386TestMixin, OperationTests):
         arraytoken = rgenop.arrayToken(A)
         builder0, gv_callable, _ = rgenop.newgraph(rgenop.sigToken(FUNC0),
                                                    'generated')
+        builder0.start_writing()
         builder0.genop_setarrayitem(arraytoken, gv_a, rgenop.genconst(0),
                                     rgenop.genconst(1))
         builder0.genop_setarrayitem(arraytoken, gv_a, rgenop.genconst(1),
