@@ -96,6 +96,8 @@ class Sig(object):
                 assert isinstance(s_input, annmodel.SomePBC)
                 assert s_input.is_constant()
                 args_s.append(s_input)
+            elif argtype is None:
+                args_s.append(inputcells[i])     # no change
             else:
                 args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
         if len(inputcells) != len(args_s):

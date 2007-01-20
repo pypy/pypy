@@ -313,6 +313,7 @@ def _ll_list_resize_really(l, newsize):
             p -= 1
     l.length = newsize
     l.items = newitems
+_ll_list_resize_really._annenforceargs_ = (None, int)
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
