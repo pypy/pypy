@@ -2,7 +2,7 @@
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
-     SomeObject, SomeInstance, lltype_to_annotation
+     SomeObject, SomeInstance, SomeTuple, lltype_to_annotation
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
