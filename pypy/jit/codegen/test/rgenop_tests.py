@@ -984,3 +984,17 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fn(3)
         assert res == 8
+
+    def test_defaultonly_switch(self):
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "defaultonly")
+        flexswitch, default_builder = builder.flexswitch(gv_x, [gv_x])
+        default_builder.finish_and_return(sigtoken, gv_x)
+        builder.end()
+
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(17)
+        assert res == 17

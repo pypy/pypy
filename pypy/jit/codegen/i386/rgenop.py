@@ -838,7 +838,11 @@ class FlexSwitch(CodeGenSwitch):
         self._reserve(mc)
         default_builder = Builder(self.rgenop, self.inputargs_gv,
                                   self.inputoperands)
-        default_builder.set_coming_from(mc)
+        start = self.nextfreepos
+        end   = self.endfreepos
+        fullmc = self.rgenop.InMemoryCodeBuilder(start, end)
+        default_builder.set_coming_from(fullmc)
+        fullmc.done()
         default_builder.update_defaultcaseaddr_of = self
         default_builder.start_writing()
         return default_builder
