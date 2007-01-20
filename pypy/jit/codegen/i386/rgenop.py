@@ -1267,6 +1267,7 @@ class Builder(GenBuilder):
         self.coming_from = mc.tell()
         insnemit = EMIT_JCOND[insncond]
         insnemit(mc, rel32(0))
+        self.coming_from_end = mc.tell()
 
     def start_mc(self):
         mc = self.rgenop.open_mc()
@@ -1274,13 +1275,23 @@ class Builder(GenBuilder):
         start = self.coming_from
         if start:
             targetaddr = mc.tell()
+            end = self.coming_from_end
+            fallthrough = targetaddr == end
             if self.update_defaultcaseaddr_of:   # hack for FlexSwitch
                 self.update_defaultcaseaddr_of.defaultcaseaddr = targetaddr
-            end = start + 6    # XXX hard-coded, enough for JMP and Jcond
-            oldmc = self.rgenop.InMemoryCodeBuilder(start, end)
-            insn = EMIT_JCOND[self.coming_from_cond]
-            insn(oldmc, rel32(targetaddr))
-            oldmc.done()
+                fallthrough = False
+            if fallthrough:
+                # the jump would be with an offset 0, i.e. it would go
+                # exactly after itself, so we don't really need the jump
+                # instruction at all and we can overwrite it and continue.
+                mc.seekback(end - start)
+                targetaddr = start
+            else:
+                # normal case: patch the old jump to go to targetaddr
+                oldmc = self.rgenop.InMemoryCodeBuilder(start, end)
+                insn = EMIT_JCOND[self.coming_from_cond]
+                insn(oldmc, rel32(targetaddr))
+                oldmc.done()
             self.coming_from = 0
         return mc
 
