@@ -114,7 +114,7 @@ def print_info():
         optitems = options.items()
         optitems.sort()
         for name, value in optitems:
-            print '   %25s: %s' % (name, value)
+            print ' %51s: %s' % (name, value)
 
 def print_help():
     print 'usage: %s [options]' % (sys.executable,)
