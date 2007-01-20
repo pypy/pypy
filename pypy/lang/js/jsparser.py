@@ -14,9 +14,15 @@ from pypy.rlib.parsing.ebnfparse import Symbol
 class JsSyntaxError(Exception):
     pass
 
+singlequote = re.compile(r"(?<!\\)'")
 def read_js_output(code_string):
-    stripped_code = code_string.replace("\n", "\\n")
-    stripped_code = stripped_code.replace("'",r"\'")
+    print "------ got:"
+    print code_string
+    print "------ put:"
+    stripped_code = re.sub(r"\\",r"\\\\", code_string)
+    stripped_code = stripped_code.replace("\n", "\\n")
+    stripped_code = singlequote.sub(r"\'", stripped_code)
+    print stripped_code
     jsdir = py.path.local(__file__).dirpath().join("js")
     jsdefs = jsdir.join("jsdefs.js").read()
     jsparse = jsdir.join("jsparse.js").read()

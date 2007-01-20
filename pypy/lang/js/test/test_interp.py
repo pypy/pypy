@@ -333,10 +333,7 @@ class TestInterp(object):
         var x = 3;
         typeof x == 'number'
         """, W_Boolean(True))
-    
-    def test_switch(self):
-        py.test.skip('not ready yet')
-    
+        
     def test_semicolon(self):
         self.assert_prints(';', [])
 
