@@ -1440,6 +1440,92 @@ class Builder(GenBuilder):
         pass  # self.mc.log(msg)
         # XXX re-do this somehow...
 
+#
+
+dummy_var = GenVar()
+
+class ReplayFlexSwitch(CodeGenSwitch):
+
+    def __init__(self, replay_builder):
+        self.replay_builder = replay_builder
+
+    def add_case(self, gv_case):
+        return self.replay_builder
+
+class ReplayBuilder(GenBuilder):
+
+    def __init__(self, rgenop):
+        self.rgenop = rgenop
+
+    def end(self):
+        pass
+
+    @specialize.arg(1)
+    def genop1(self, opname, gv_arg):
+        return dummy_var
+
+    @specialize.arg(1)
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        return dummy_var
+
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        return dummy_var
+
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        return dummy_var
+
+    def genop_getsubstruct(self, fieldtoken, gv_ptr):
+        return dummy_var
+
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        return dummy_var
+
+    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
+        return dummy_var
+
+    def genop_getarraysize(self, arraytoken, gv_ptr):
+        return dummy_var
+
+    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+        return dummy_var
+
+    def genop_malloc_fixedsize(self, size):
+        return dummy_var
+
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        return dummy_var
+        
+    def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        return dummy_var
+
+    def genop_same_as(self, kind, gv_x):
+        return dummy_var
+
+    def genop_debug_pdb(self):    # may take an args_gv later
+        pass
+
+    def enter_next_block(self, kinds, args_gv):
+        return None
+
+    def jump_if_false(self, gv_condition, args_gv):
+        return self
+
+    def jump_if_true(self, gv_condition, args_gv):
+        return self
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        pass
+
+    def finish_and_goto(self, outputargs_gv, target):
+        pass
+
+    def flexswitch(self, gv_exitswitch, args_gv):
+        flexswitch = ReplayFlexSwitch(self)
+        return flexswitch, self
+
+    def show_incremental_progress(self):
+        pass
+
 
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
@@ -1499,8 +1585,8 @@ class RI386GenOp(AbstractRGenOp):
         #inputargs_gv = ops
         return builder, IntConst(entrypoint), inputargs_gv[:]
 
-##    def replay(self, label, kinds):
-##        return ReplayBuilder(self), [dummy_var] * len(kinds)
+    def replay(self, label, kinds):
+        return ReplayBuilder(self), [dummy_var] * len(kinds)
 
     @specialize.genconst(1)
     def genconst(self, llvalue):
