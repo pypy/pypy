@@ -8,7 +8,7 @@ annoying to add new options. To circumvent these problems the configuration
 management was introduced. There all the necessary options are stored into an
 configuration object, which is available nearly everywhere in the translation
 toolchain and in the standard interpreter so that adding new options becomes
-trivial. The options are organized into a tree. Configuration objects can be
+trivial. Options are organized into a tree. Configuration objects can be
 created in different ways, there is support for creating an optparse command
 line parser automatically.
 
@@ -26,10 +26,11 @@ API Details
 ===========
 
 The handling of options is split into two parts: the description of which
-options are available, what there possible values and defaults are and how they
+options are available, what their possible values and defaults are and how they
 are organized into a tree. A specific choice of options is bundled into a
 configuration object which has a reference to its option description (and
-therefore makes sure that the configuration adheres to the option description).
+therefore makes sure that the configuration values adhere to the option
+description).
 This splitting is remotely similar to the distinction between types and
 instances in the type systems of the rtyper: the types describe what sort of
 fields the instances have.
@@ -43,8 +44,9 @@ Description of Options
 
 All the constructors take a ``name`` and a ``doc`` argument as first arguments
 to give the option or option group a name and to document it. Most constructors
-take a ``default`` argument that specifies, well, the default of the option. If
-this argument is not supplied, it is assumed to be ``None``. Most constructors
+take a ``default`` argument that specifies the default value of the option. If
+this argument is not supplied the default value is assumed to be ``None``.
+Most constructors
 also take a ``cmdline`` argument where you can specify what the command line
 option should look like (for example cmdline="-v --version"). If ``cmdline`` is
 not specified a default cmdline option is created that uses the name of the
@@ -83,11 +85,15 @@ Represents a choice out of several objects. The option can also have the value
 
 Represents a choice between ``True`` and ``False``. 
 
-    ``__init__(self, name, doc, default=None, requires=None, cmdline=DEFAULT, negation=True)``
-        ``default`` specifies the default value of the option, ``requires`` is a
-        list of two-element tuples describing the requirements when the option
-        is set to true. ``negation`` specifies whether the negative commandline
-        option should be generated.
+    ``__init__(self, name, doc, default=None, requires=None, suggests=None, cmdline=DEFAULT, negation=True)``
+        ``default`` specifies the default value of the option. ``requires`` is
+        a list of two-element tuples describing the requirements when the
+        option is set to true, ``suggests`` is a list of the same structure but
+        the options in there are only suggested, not absolutely neccessary. The
+        difference is small: if the current option is set to True, both the
+        required and the suggested options are set. The required options cannot
+        be changed later, though. ``negation`` specifies whether the negative
+        commandline option should be generated.
 
 
 ``IntOption``
@@ -152,7 +158,7 @@ Description of the (useful) methods on ``Config``:
     ``set(self, **kwargs)``:
         "do what I mean"-interface to option setting. Searches all paths
         starting from that config for matches of the optional arguments and sets
-        the corresponding option.
+        the found option if the match is not ambiguous.
 
 
 Production of optparse Parsers
@@ -171,3 +177,17 @@ creating the parser is updated automatically.
         If ``useoptions`` is ``None``, then all sub-options are turned into
         cmdline options. ``parser`` can be an existing parser object, if
         ``None`` is passed in, then a new one is created.
+
+
+The usage of config objects in PyPy
+===================================
+
+The two large parts of PyPy, the standard interpreter and the translation
+toolchain, have too separate sets of options. The translation toolchain options
+can be found on the ``config`` attribute of all ``TranslationContext``
+instances and are described in translationoption.py_. The interpreter options
+are attached to the object space, also under the name ``config`` and are
+described in pypyoption.py_.
+
+.. _translationoption.py: ../config/translationoption.py
+.. _pypyoption.py: ../config/pypyoption.py
