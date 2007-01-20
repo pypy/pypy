@@ -433,13 +433,24 @@ class LoadArg(Insn):
         else:
             self.loc = None
     def emit(self, asm):
-        targetreg = 3+self.argnumber
-        if self.loc is None:
-            self.arg.load_now(asm, gprs[targetreg])
-        elif self.loc.is_register:
-            asm.mr(targetreg, self.loc.number)
+        if self.argnumber < 8: # magic numbers 'r' us
+            targetreg = 3+self.argnumber
+            if self.loc is None:
+                self.arg.load_now(asm, gprs[targetreg])
+            elif self.loc.is_register:
+                asm.mr(targetreg, self.loc.number)
+            else:
+                asm.lwz(targetreg, rFP, self.loc.offset)
         else:
-            asm.lwz(targetreg, rFP, self.loc.offset)
+            targetoffset = 24+self.argnumber*4
+            if self.loc is None:
+                self.arg.load_now(asm, gprs[0])
+                asm.stw(r0, r1, targetoffset)
+            elif self.loc.is_register:
+                asm.stw(self.loc.number, r1, targetoffset)
+            else:
+                asm.lwz(r0, rFP, self.loc.offset)
+                asm.stw(r0, r1, targetoffset)
 
 class CALL(Insn):
     def __init__(self, result, target):

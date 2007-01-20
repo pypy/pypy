@@ -153,8 +153,6 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
         else:
-            if not tloc.is_register:
-                allocator.spill_offset = min(tloc.offset, allocator.spill_offset)
             insns.append(insn.Load(tloc, src))
 
     gen = JumpPatchupGenerator(insns, allocator)
@@ -238,7 +236,7 @@ class Builder(GenBuilder):
         for i in range(len(args_gv)):
             self.insns.append(insn.LoadArg(i, args_gv[i]))
         gv_result = Var()
-        self.max_param_space = len(args_gv)*4
+        self.max_param_space = max(self.max_param_space, len(args_gv)*4)
         self.insns.append(insn.CALL(gv_result, gv_fnptr))
         return gv_result
 
@@ -373,8 +371,11 @@ class Builder(GenBuilder):
         allocator = self.allocate(outputargs_gv)
         prepare_for_jump(
             self.insns, outputargs_gv, allocator.var2loc, target, allocator)
-        allocator.spill_offset = min(allocator.spill_offset, target.min_stack_offset)
         self.emit(allocator)
+        here_size = self._stack_size(allocator.spill_offset)
+        there_size = self._stack_size(target.min_stack_offset)
+        if here_size != there_size:
+            self.emit_stack_adjustment(there_size)
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
@@ -419,14 +420,18 @@ class Builder(GenBuilder):
     def maybe_patch_start_here(self):
         if self.patch_start_here:
             mc = self.asm.mc
-            self.asm.mc = self.rgenop.ExistingCodeBlock(self.patch_start_here, self.patch_start_here+8)
+            self.asm.mc = self.rgenop.ExistingCodeBlock(
+                self.patch_start_here, self.patch_start_here+8)
             self.asm.load_word(rSCRATCH, mc.tell())
             self.asm.mc = mc
             self.patch_start_here = 0
 
     def pause_writing(self, args_gv):
-        self.initial_var2loc = self.allocate_and_emit(args_gv).var2loc
+        allocator = self.allocate_and_emit(args_gv)
+        self.initial_var2loc = allocator.var2loc
+        self.initial_spill_offset = allocator.spill_offset
         self.insns = []
+        self.max_param_space = -1
         self.final_jump_addr = self.asm.mc.tell()
         self.closed = True
         self.asm.nop()
@@ -534,8 +539,11 @@ class Builder(GenBuilder):
         return allocator
 
     def emit(self, allocator):
-        if allocator.spill_offset < self.initial_spill_offset:
-            self.emit_stack_adjustment(self._stack_size(allocator.spill_offset))
+        in_size = self._stack_size(self.initial_spill_offset)
+        our_size = self._stack_size(allocator.spill_offset)
+        if in_size != our_size:
+            assert our_size > in_size
+            self.emit_stack_adjustment(our_size)
         for insn in self.insns:
             insn.emit(self.asm)
         for label in allocator.labels_to_tell_spill_offset_to:
@@ -551,20 +559,17 @@ class Builder(GenBuilder):
         # this code satisfies this, although there is a 1-instruction
         # window where such walking would find a strange intermediate
         # "frame"
-        # as we emit these instructions waaay before doing the
-        # register allocation for this block we don't know how much
-        # stack will be required, so we patch it later (see
-        # patch_stack_adjustment below).
-        # note that this stomps on both rSCRATCH (not a problem) and
-        # crf0 (a very small chance of being a problem)
-        #print 'enlargening stack to', newsize
         self.asm.addi(rSCRATCH, rFP, -newsize)
-        self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
-        self.asm.beq(3) # if rSCRATCH == 0, there is no actual adjustment, so
-                        # don't end up with the situation where *(rSP) == rSP
+        self.asm.sub(rSCRATCH, rSCRATCH, rSP)
+
+        # this is a pure debugging check that we avoid the situation
+        # where *(r1) == r1 which would violates the ABI rules listed
+        # above. after a while it can be removed or maybe made
+        # conditional on some --option passed to py.test
+        self.asm.tweqi(rSCRATCH, 0)
+
         self.asm.stwux(rSP, rSP, rSCRATCH)
         self.asm.stw(rFP, rSP, 0)
-        # branch to "here"
 
     def _arg_op(self, gv_arg, opcode):
         gv_result = Var()
@@ -964,8 +969,16 @@ class RPPCGenOp(AbstractRGenOp):
 
 ##     def replay(self, label, kinds):
 
-##     @staticmethod
-##     def erasedType(T):
+    @staticmethod
+    def erasedType(T):
+        if T is llmemory.Address:
+            return llmemory.Address
+        if isinstance(T, lltype.Primitive):
+            return lltype.Signed
+        elif isinstance(T, lltype.Ptr):
+            return llmemory.GCREF
+        else:
+            assert 0, "XXX not implemented"
 
     @staticmethod
     @specialize.memo()

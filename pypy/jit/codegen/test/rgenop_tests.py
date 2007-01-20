@@ -524,6 +524,83 @@ def get_pause_and_resume_runner(RGenOp):
         return res
     return runner
 
+def make_something_a_bit_like_residual_red_call_with_exc(rgenop):
+    # def f(x, y):
+    #     if x:
+    #         z = 1
+    #         w = 2
+    #     else:
+    #         z = y+1
+    #         w = y
+    #     return add1(z*w)
+    # but more obfuscated, more like:
+    # def f(x, y)
+    #     c = x != 0
+    #     jump_if_true c, []        ---> finish_and_goto([1, 2])
+    #     y = add1(y)                            |
+    #     [z, w] = enter_next_block([y, x]) <----'
+    #     pause/resume here
+    #     z2 = z * w
+    #     u = add1(z2)
+    #     v = u * z
+    #     return add1(u)
+    gv_add1 = make_adder(rgenop, 1)
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, gv_f, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "f")
+
+    gv_c = builder.genop2("int_ne", gv_x, rgenop.genconst(0))
+
+    true_builder = builder.jump_if_true(gv_c, [])
+
+    gv_y2 = builder.genop_call(rgenop.sigToken(FUNC), gv_add1, [gv_y])
+
+    args_gv = [gv_y2, gv_y]
+    label = builder.enter_next_block([signed_kind], args_gv)
+    [gv_z, gv_w] = args_gv
+
+    builder = builder.pause_writing(args_gv)
+    builder.start_writing()
+
+    gv_z2 = builder.genop2("int_mul", gv_z, gv_w)
+
+    gv_u = builder.genop_call(rgenop.sigToken(FUNC), gv_add1, [gv_z2])
+
+    gv_v = builder.genop2("int_mul", gv_u, gv_z)
+
+    gv_result = builder.genop_call(rgenop.sigToken(FUNC), gv_add1, [gv_u])
+
+    builder.finish_and_return(sigtoken, gv_result)
+
+    true_builder.start_writing()
+    true_builder.finish_and_goto([rgenop.genconst(1), rgenop.genconst(2)], label)
+
+    builder.end()
+    return gv_f
+
+def make_call_functions_with_different_signatures(rgenop):
+    # this also tests calling functions with enormous numbers of
+    # parameters, something not tested yet.
+    # def f(x, y):
+    #     z = largedummy(*((y,)*100))
+    #     w = add1(x)
+    #     return z+w
+    sig2token = rgenop.sigToken(FUNC2)
+    sig1token = rgenop.sigToken(FUNC)
+    sig100token = rgenop.sigToken(FUNC100)
+    builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sig2token, "f")
+
+    gv_largedummy = make_largedummy(rgenop)
+    gv_add1 = make_adder(rgenop, 1)
+
+    gv_z = builder.genop_call(sig100token, gv_largedummy, [gv_y]*100)
+    gv_w = builder.genop_call(sig1token, gv_add1, [gv_x])
+    gv_result = builder.genop2("int_add", gv_z, gv_w)
+    builder.finish_and_return(sig2token, gv_result)
+    builder.end()
+
+    return gv_callable
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -701,7 +778,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 42
         for x in range(1,11):
             res = fn(x, 7)
-            assert res == 2**x+7 
+            assert res == 2**x+7
         res = fn(42, 18)
         assert res == 18
 
@@ -984,6 +1061,28 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fn(3)
         assert res == 8
+
+    def test_like_residual_red_call_with_exc_direct(self):
+        rgenop = self.RGenOp()
+        gv_callable = make_something_a_bit_like_residual_red_call_with_exc(rgenop)
+        fnptr = self.cast(gv_callable, 2)
+
+        res = fnptr(1, 3)
+        assert res == 4
+
+        res = fnptr(0, 3)
+        assert res == 14
+
+    def test_call_functions_with_different_signatures_direct(self):
+        rgenop = self.RGenOp()
+        gv_callable = make_call_functions_with_different_signatures(rgenop)
+        fnptr = self.cast(gv_callable, 2)
+
+        res = fnptr(1, 3)
+        assert res == 2
+
+        res = fnptr(0, 3)
+        assert res == 1
 
     def test_defaultonly_switch(self):
         rgenop = self.RGenOp()

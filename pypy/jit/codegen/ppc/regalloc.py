@@ -33,9 +33,12 @@ class RegisterAllocation:
         # go through the initial mapping and initialize the data structures
         for var, loc in initial_mapping.iteritems():
             self.set(var, loc)
-            if loc.is_register and loc.alloc in self.freeregs[loc.regclass]:
-                self.freeregs[loc.regclass].remove(loc.alloc)
-                self.lru.append(var)
+            if loc.is_register:
+                if loc.alloc in self.freeregs[loc.regclass]:
+                    self.freeregs[loc.regclass].remove(loc.alloc)
+                    self.lru.append(var)
+            else:
+                assert loc.offset >= self.spill_offset
 
         self.labels_to_tell_spill_offset_to = []
         self.builders_to_tell_spill_offset_to = []
