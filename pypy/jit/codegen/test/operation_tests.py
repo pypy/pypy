@@ -226,6 +226,11 @@ class OperationTests(object):
             assert fp1(149, 33) == fn1(149, 33)
             assert fp1(149, 65) == fn1(149, 65)
             assert fp1(149, 150) == fn1(149, 150)
+            big = r_uint(-42)
+            assert fp1(big, 3) == fn1(big, 3)
+            if op not in ('x << y', 'x >> y'):
+                assert fp1(38, big) == fn1(38, big)
+                assert fp1(big-5, big-12) == fn1(big-5, big-12)
 
     def test_float_arithmetic(self):
         for op, fn in [('x + y', lambda x, y: x + y),

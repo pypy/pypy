@@ -224,7 +224,10 @@ class MulOrDivOp(Op2):
         if op1 != eax:
             mc.MOV(eax, op1)
         if self.input_is_64bits:
-            mc.CDQ()
+            if self.unsigned:
+                mc.XOR(edx, edx)
+            else:
+                mc.CDQ()
         try:
             self.emit(mc, op2)
         except FailedToImplement:
@@ -295,6 +298,7 @@ class OpIntMod(MulOrDivOp):
     opname = 'int_mod'
     input_is_64bits = True
     reg_containing_result = edx
+    unsigned = False
     @staticmethod
     def emit(mc, op2):
         #                 Python    i386
@@ -334,18 +338,21 @@ class OpUIntMul(MulOrDivOp):
     opname = 'uint_mul'
     input_is_64bits = False
     reg_containing_result = eax
+    unsigned = True
     emit = staticmethod(I386CodeBuilder.MUL)
 
 class OpUIntFloorDiv(MulOrDivOp):
     opname = 'uint_floordiv'
     input_is_64bits = True
     reg_containing_result = eax
+    unsigned = True
     emit = staticmethod(I386CodeBuilder.DIV)
 
 class OpUIntMod(MulOrDivOp):
     opname = 'uint_mod'
     input_is_64bits = True
     reg_containing_result = edx
+    unsigned = True
     emit = staticmethod(I386CodeBuilder.DIV)
 
 class OpIntLShift(Op2):
