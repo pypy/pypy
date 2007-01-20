@@ -88,3 +88,28 @@ def test_register_external_signature():
     a = RPythonAnnotator(policy=policy)
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeInteger)
+
+
+def function_with_tuple_arg():
+    """
+    Dummy function which is declared via register_external to take a tuple as
+    an argument so that register_external's behavior for tuple-taking functions
+    can be verified.
+    """
+register_external(function_with_tuple_arg, [(int,)], int)
+
+def test_register_external_tuple_args():
+    """
+    Verify the annotation of a registered external function which takes a tuple
+    argument.
+    """
+    def f():
+        return function_with_tuple_arg((1,))
+
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    a = RPythonAnnotator(policy=policy)
+    s = a.build_types(f, [])
+
+    # Not a very good assertion, but at least it means _something_ happened.
+    assert isinstance(s, annmodel.SomeInteger)
