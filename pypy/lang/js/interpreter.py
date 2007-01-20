@@ -432,7 +432,7 @@ class Increment(Expression):
         x = val.ToNumber()
         resl = Plus(None, None).decision(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
-        return resl
+        return val
 
 class Index(Expression):
     def __init__(self, left, expr):
@@ -644,7 +644,7 @@ class Typeof(Expression):
     
     def eval(self, ctx):
         val = self.op.eval(ctx)
-        if val.GetBase() is None:
+        if isinstance(val, W_Reference) and val.GetBase() is None:
             return W_String("undefined")
         return W_String(val.GetValue().type())
 
@@ -691,7 +691,7 @@ class For(Statement):
         self.body = body
 
     def execute(self, ctx):
-        self.setup.eval(ctx)
+        self.setup.eval(ctx).GetValue()
         while self.condition.eval(ctx).ToBoolean():
             try:
                 self.body.execute(ctx)

@@ -28,6 +28,11 @@ def loadjs(ctx, args, this):
     f.close()
     return t.execute(ctx)
 
+def tracejs(ctx, args, this):
+    arguments = args
+    import pdb
+    pdb.set_trace()
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -57,6 +62,7 @@ def main(argv=None):
     
     interp.w_Global.Put('quit', W_Builtin(quiter))
     interp.w_Global.Put('load', W_Builtin(loadjs))
+    interp.w_Global.Put('trace', W_Builtin(tracejs))
     for filename in filenames:
         loadjs(interp.global_context, [W_String(filename)], None)
 

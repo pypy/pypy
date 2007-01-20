@@ -22,7 +22,6 @@ class JsTypeError(Exception):
 Infinity = 1e300 * 1e300
 NaN = Infinity/Infinity
 
-
 class Property(object):
     def __init__(self, name, value, dd=False, 
                  ro=False, de=False, it=False):
@@ -76,9 +75,6 @@ class W_Root(object):
 
     def __str__(self):
         return self.ToString()
-        
-    def __repr__(self):
-        return "<%s(%s)>" % (self.__class__.__name__, self.ToString())
     
     def type(self):
         raise NotImplementedError
@@ -228,7 +224,7 @@ class W_PrimitiveObject(W_Root):
         return "<Object class: %s>" % self.Class
 
     def type(self):
-        if callfunc is not none:
+        if self.callfunc is not None:
             return 'function'
         else:
             return 'object'
@@ -301,7 +297,7 @@ class W_Array(W_Builtin):
                 currsize = len(self.array)
                 for i in range(x-(currsize-1)):
                     self.array.append(w_Undefined)
-            self.array[x]=V
+            self.array[x]= V
                     
         except ValueError:
             if not self.CanPut(P): return
@@ -380,7 +376,7 @@ class W_Number(W_Primitive):
         return str(self.floatval)
     
     def ToBoolean(self):
-        if self.floatval == 0.0 or self.floatval == NaN:
+        if self.floatval == 0.0 or str(self.floatval) == str(NaN):
             return False
         return bool(self.floatval)
 
