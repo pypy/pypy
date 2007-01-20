@@ -18,6 +18,8 @@ Usage:
 
         Reload the coroutine from demo.pickle and continue running it.
         (It can be interrupted again with Ctrl-C.)
+
+This demo is documented in detail in pypy/doc/stackless.txt.
 """
 
 try:
