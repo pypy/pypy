@@ -17,7 +17,7 @@ class Directory(py.test.collect.Directory):
 
 Option = py.test.config.Option
 
-option = py.test.config.addoptions("ppc options",
+option = py.test.config.addoptions("i386 options",
         Option('--interp', action="store_true", default=False,
                dest="interp",
                help="run the very slow genc_interp_* tests"),
