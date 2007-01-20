@@ -556,7 +556,7 @@ def make_something_a_bit_like_residual_red_call_with_exc(rgenop):
     gv_y2 = builder.genop_call(rgenop.sigToken(FUNC), gv_add1, [gv_y])
 
     args_gv = [gv_y2, gv_y]
-    label = builder.enter_next_block([signed_kind], args_gv)
+    label = builder.enter_next_block([signed_kind, signed_kind], args_gv)
     [gv_z, gv_w] = args_gv
 
     builder = builder.pause_writing(args_gv)
@@ -585,13 +585,14 @@ def make_call_functions_with_different_signatures(rgenop):
     #     z = largedummy(*((y,)*100))
     #     w = add1(x)
     #     return z+w
+
+    gv_largedummy = make_largedummy(rgenop)
+    gv_add1 = make_adder(rgenop, 1)
+
     sig2token = rgenop.sigToken(FUNC2)
     sig1token = rgenop.sigToken(FUNC)
     sig100token = rgenop.sigToken(FUNC100)
     builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sig2token, "f")
-
-    gv_largedummy = make_largedummy(rgenop)
-    gv_add1 = make_adder(rgenop, 1)
 
     gv_z = builder.genop_call(sig100token, gv_largedummy, [gv_y]*100)
     gv_w = builder.genop_call(sig1token, gv_add1, [gv_x])
