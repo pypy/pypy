@@ -2,6 +2,7 @@ from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.codegen import graph2rgenop
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import r_uint, intmask
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int, c_float
 from pypy import conftest
@@ -96,6 +97,29 @@ class OperationTests(object):
             assert fp(-12, -11) == fn(-12, -11), op
             assert fp(-12, -12) == fn(-12, -12), op
             assert fp(-12, -13) == fn(-12, -13), op
+
+    def test_unsigned_comparison(self):
+        for op, fn in [('int(x <  y)', lambda x, y: int(x <  y)),
+                       ('int(x <= y)', lambda x, y: int(x <= y)),
+                       ('int(x == y)', lambda x, y: int(x == y)),
+                       ('int(x != y)', lambda x, y: int(x != y)),
+                       ('int(x >  y)', lambda x, y: int(x >  y)),
+                       ('int(x >= y)', lambda x, y: int(x >= y)),
+                       ]:
+            fp = self.rgen(fn, [r_uint, r_uint])
+            print op
+            assert fp(r_uint(12), r_uint(11)) == fn(r_uint(12), r_uint(11))
+            assert fp(r_uint(12), r_uint(12)) == fn(r_uint(12), r_uint(12))
+            assert fp(r_uint(12), r_uint(13)) == fn(r_uint(12), r_uint(13))
+            assert fp(r_uint(-12), r_uint(11)) == fn(r_uint(-12), r_uint(11))
+            assert fp(r_uint(-12), r_uint(12)) == fn(r_uint(-12), r_uint(12))
+            assert fp(r_uint(-12), r_uint(13)) == fn(r_uint(-12), r_uint(13))
+            assert fp(r_uint(12), r_uint(-11)) == fn(r_uint(12), r_uint(-11))
+            assert fp(r_uint(12), r_uint(-12)) == fn(r_uint(12), r_uint(-12))
+            assert fp(r_uint(12), r_uint(-13)) == fn(r_uint(12), r_uint(-13))
+            assert fp(r_uint(-12), r_uint(-11)) == fn(r_uint(-12), r_uint(-11))
+            assert fp(r_uint(-12), r_uint(-12)) == fn(r_uint(-12), r_uint(-12))
+            assert fp(r_uint(-12), r_uint(-13)) == fn(r_uint(-12), r_uint(-13))
 
     def test_char_comparison(self):
         for op, fn in [('int(chr(x) <  chr(y))', lambda x, y: int(chr(x) <  chr(y))),
@@ -297,3 +321,14 @@ class OperationTests(object):
             return bool(s1) + bool(s2)*10 + (s1==s2)*100 + (s1!=s2)*1000
         fp = self.rgen(fn, [])
         assert fp() == 111
+
+    def test_is_true(self):
+        for op, fn in [('bool(x)', lambda x: bool(x)),
+                       ('not x',   lambda x: llop.bool_not(lltype.Bool,
+                                                           bool(x))),
+                       ]:
+            for typ in [int, r_uint, bool]:
+                fp = self.rgen(fn, [typ], bool)
+                assert fp(typ(12)) == fn(typ(12)), (op, typ)
+                assert fp(typ(0))  == fn(typ(0)),  (op, typ)
+                assert fp(typ(-1)) == fn(typ(-1)), (op, typ)

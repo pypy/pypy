@@ -1120,3 +1120,26 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(17)
         assert res == 17
+
+    def test_bool_not_direct(self):
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        bool_kind = rgenop.kindToken(lltype.Bool)
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_callable, [gv_x] = rgenop.newgraph(sigtoken, "bool_not")
+        builder.start_writing()
+        gv_cond = builder.genop2("int_lt", gv_x, rgenop.genconst(10))
+        gv_neg  = builder.genop1("bool_not", gv_cond)
+        builder2 = builder.jump_if_true(gv_neg, [])
+        builder.finish_and_return(sigtoken, rgenop.genconst(111))
+
+        builder2.start_writing()
+        builder2.finish_and_return(sigtoken, rgenop.genconst(168))
+        builder.end()
+
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(17)
+        assert res == 168
+        res = fnptr(7)
+        assert res == 111

@@ -102,14 +102,14 @@ class OpCompare1(Op1):
         self.emit(mc, srcop)
 
 class OpIntIsTrue(OpCompare1):
-    opname = 'int_is_true', 'ptr_nonzero'
+    opname = 'int_is_true', 'ptr_nonzero', 'uint_is_true'
     cc_result = Conditions['NE']
     @staticmethod
     def emit(mc, x):
         mc.CMP(x, imm8(0))
 
-class OpIntIsNull(OpIntIsTrue):
-    opname = 'ptr_iszero'
+class OpIntIsZero(OpIntIsTrue):
+    opname = 'ptr_iszero', 'bool_not'
     cc_result = Conditions['E']
 
 class Op2(Operation):
@@ -425,11 +425,11 @@ class OpIntLe(OpCompare2):
     cc_result = Conditions['LE']
 
 class OpIntEq(OpCompare2):
-    opname = 'int_eq', 'char_eq', 'unichar_eq', 'ptr_eq'
+    opname = 'int_eq', 'char_eq', 'unichar_eq', 'ptr_eq', 'uint_eq'
     cc_result = Conditions['E']
 
 class OpIntNe(OpCompare2):
-    opname = 'int_ne', 'char_ne', 'unichar_ne', 'ptr_ne'
+    opname = 'int_ne', 'char_ne', 'unichar_ne', 'ptr_ne', 'uint_ne'
     cc_result = Conditions['NE']
 
 class OpIntGt(OpCompare2):
@@ -439,6 +439,22 @@ class OpIntGt(OpCompare2):
 class OpIntGe(OpCompare2):
     opname = 'int_ge', 'char_ge'
     cc_result = Conditions['GE']
+
+class OpUIntLt(OpCompare2):
+    opname = 'uint_lt'
+    cc_result = Conditions['B']
+
+class OpUIntLe(OpCompare2):
+    opname = 'uint_le'
+    cc_result = Conditions['BE']
+
+class OpUIntGt(OpCompare2):
+    opname = 'uint_gt'
+    cc_result = Conditions['A']
+
+class OpUIntGe(OpCompare2):
+    opname = 'uint_ge'
+    cc_result = Conditions['AE']
 
 class JumpIf(Operation):
     clobbers_cc = False
@@ -914,13 +930,31 @@ OPCLASSES1['cast_char_to_int'] = None
 OPCLASSES1['cast_unichar_to_int'] = None
 OPCLASSES1['cast_int_to_char'] = None
 OPCLASSES1['cast_int_to_unichar'] = None
+OPCLASSES1['cast_ptr_to_int'] = None
+OPCLASSES1['cast_int_to_ptr'] = None
+OPCLASSES1['cast_uint_to_int'] = None
+OPCLASSES1['cast_bool_to_uint'] = None
+OPCLASSES1['cast_int_to_uint'] = None
+
+# special cases
+#OPCLASSES1['bool_not'] = genop_bool_not       XXX do something about it
 
 @specialize.memo()
-def getMissingBackendOperation(opname):
-    class MissingBackendOperation(Exception):
-        pass
-    MissingBackendOperation.__name__ += '_' + opname
-    return MissingBackendOperation
+def getopclass1(opname):
+    try:
+        return OPCLASSES1[opname]
+    except KeyError:
+        raise MissingBackendOperation(opname)
+
+@specialize.memo()
+def getopclass2(opname):
+    try:
+        return OPCLASSES2[opname]
+    except KeyError:
+        raise MissingBackendOperation(opname)
+
+class MissingBackendOperation(Exception):
+    pass
 
 
 def setup_conditions():
@@ -1352,10 +1386,7 @@ class Builder(GenBuilder):
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
-        try:
-            cls = OPCLASSES1[opname]
-        except KeyError:
-            raise getMissingBackendOperation(opname)()
+        cls = getopclass1(opname)
         if cls is None:     # identity
             return gv_arg
         op = cls(gv_arg)
@@ -1364,10 +1395,7 @@ class Builder(GenBuilder):
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
-        try:
-            cls = OPCLASSES2[opname]
-        except KeyError:
-            raise getMissingBackendOperation(opname)()
+        cls = getopclass2(opname)
         op = cls(gv_arg1, gv_arg2)
         self.operations.append(op)
         return op
