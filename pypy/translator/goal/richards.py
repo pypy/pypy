@@ -414,6 +414,10 @@ def main(entry_point = entry_point, iterations = 10):
     print "Average time per iteration: %.2f ms" %(total_s*1000/iterations)
 
 try:
+    import sys
+    if '-nojit' in sys.argv:
+        sys.argv.remove('-nojit')
+        raise ImportError
     import pypyjit
 except ImportError:
     pass
