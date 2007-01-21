@@ -575,8 +575,11 @@ def static_instruction_count(graph):
 
 def inlining_heuristic(graph):
     # XXX ponderation factors?
+    count = static_instruction_count(graph)
+    if count >= 200:
+        return count
     return (0.9999 * measure_median_execution_cost(graph) +
-            static_instruction_count(graph))
+            count)
 
 
 def inlinable_static_callers(graphs):
