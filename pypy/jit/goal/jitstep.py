@@ -26,6 +26,7 @@ forbidden_modules = {'pypy.interpreter.gateway': True,
                      'pypy.interpreter.typedef': True,
                      'pypy.interpreter.eval': True,
                      'pypy.interpreter.function': True,
+                     'pypy.interpreter.pytraceback': True,
                      }
 
 POLICY = PyPyHintAnnotatorPolicy(novirtualcontainer = True,
@@ -43,8 +44,9 @@ def hintannotate(drv):
                                  for v in portal_graph.getargs()])
     drv.log.info('Hint-annotated %d graphs.' % (
         len(hannotator.translator.graphs),))
+    n = len(list(hannotator.translator.graphs[0].iterblocks()))
+    drv.log.info("portal has %d blocks" % n)
     drv.hannotator = hannotator
-
 
 def timeshift(drv):
     from pypy.jit.timeshifter.hrtyper import HintRTyper
@@ -61,6 +63,6 @@ def timeshift(drv):
     for graph in ha.translator.graphs:
         checkgraph(graph)
         t.graphs.append(graph)
-
+        
     # XXX temp
     drv.source()

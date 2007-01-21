@@ -92,7 +92,8 @@ class __extend__(pyframe.PyFrame):
         if attach_tb:
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
-            ec.exception_trace(self, operr)
+            if BYTECODE_TRACE_ENABLED:
+                ec.exception_trace(self, operr)
 
         block = self.unrollstack(SApplicationException.kind)
         if block is None:

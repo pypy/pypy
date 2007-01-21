@@ -23,7 +23,7 @@ def setup():
     # dispatch_bytecode() has been manually inlined.
     # Do this with py.code.Source manipulations for now.
     src = py.code.Source(super_dispatch)
-    CALL_SITE = 'return self.dispatch_bytecode(co_code, next_instr, ec)'
+    CALL_SITE = 'w_result = self.dispatch_bytecode(co_code, next_instr, ec)'
     for i, line in enumerate(src):
         if line.strip() == CALL_SITE:
             break
@@ -36,12 +36,20 @@ def setup():
     hdr = src2[0].strip()
     assert hdr == 'def dispatch_bytecode(self, co_code, next_instr, ec):'
     src2 = src2[1:].deindent().indent(indent)
+    #print src2
 
-    src3 = py.code.Source('%s\n%s\n%s\n' % (src[:i], src2, src[i+1:]))
+    src3 = py.code.Source('%s\n%s\n%s\n' % (src[1:i], src2, src[i+1:]))
+
+    src3 = src3.putaround(
+                  "def maker(BYTECODE_TRACE_ENABLED):\n" # no comma here
+                  "  def dispatch_jit(self, co_code, next_instr, ec):\n",
+                  "#\n" # for indentation :-(
+                  "  return dispatch_jit")
+  
     #print src3
     d = {}
     exec src3.compile() in super_dispatch.func_globals, d
-    PyFrame.dispatch_jit = func_with_new_name(d['dispatch'], 'dispatch_jit')
+    PyFrame.dispatch_jit = d['maker'](BYTECODE_TRACE_ENABLED=False)
 
     class __extend__(PyFrame):
 

@@ -308,6 +308,8 @@ class HintRTyper(RPythonTyper):
         self.log.event("Timeshifted %d graphs." % (len(seen),))
 
         if origportalgraph:
+            n = len(list(self.portalgraph.iterblocks()))
+            self.log.event("portal has now %d blocks" % n)
             self.rewire_portal()
 
     # remember a shared pointer for the portal graph,

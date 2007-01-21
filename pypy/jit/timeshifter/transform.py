@@ -586,8 +586,14 @@ class HintGraphTransformer(object):
                 v_result = nextblock.inputargs.pop(index)
                 nextblock.inputargs.insert(0, v_result)
         else:
-            assert op.result not in varsalive   # XXX gray result used
-
+            if op.result in varsalive:
+                index = varsalive.index(op.result)
+                del varsalive[index]
+                linkargs.pop(index)
+                c_void = Constant(None, lltype.Void)
+                linkargs.insert(0, c_void)
+                v_result = nextblock.inputargs.pop(index)
+                nextblock.inputargs.insert(0, v_result)                                
         reds, greens = self.sort_by_color(varsalive)
 
         v_func = op.args[0]
