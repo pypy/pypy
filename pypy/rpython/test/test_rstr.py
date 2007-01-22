@@ -6,6 +6,7 @@ from pypy.rpython.ootypesystem.ootype import make_string
 from pypy.rpython.rtyper import RPythonTyper, TyperError
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.llinterp import LLException
+from pypy.objspace.flow.model import summary
 
 def test_parse_fmt():
     parse = AbstractLLHelpers.parse_fmt_string
@@ -707,6 +708,19 @@ class BaseTestRstr(BaseRtypingTest):
             pass
         else:
             assert False
+
+    def test_fold_concat(self):
+        def g(tail):
+            return "head"+tail
+        def f():
+            return g("tail")
+        from pypy import conftest
+
+        t, typer, fgraph = self.gengraph(f, [], backendopt=True)
+        if conftest.option.view:
+            t.view()
+        assert summary(fgraph) == {}
+        
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

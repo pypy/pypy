@@ -291,6 +291,8 @@ class __extend__(pairtype(AbstractStringRepr, AbstractSliceRepr)):
 class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
     def rtype_add((r_str1, r_str2), hop):
         string_repr = hop.rtyper.type_system.rstr.string_repr
+        if hop.s_result.is_constant():
+            return hop.inputconst(string_repr, hop.s_result.const)
         v_str1, v_str2 = hop.inputargs(string_repr, string_repr)
         return hop.gendirectcall(r_str1.ll.ll_strconcat, v_str1, v_str2)
     rtype_inplace_add = rtype_add

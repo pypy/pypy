@@ -1,9 +1,15 @@
 import py
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.test.test_llinterp import interpret, interpret_raises
+from pypy.rpython.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
+
+    def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
+             backendopt=False, config=None):
+        return gengraph(func, argtypes, viewbefore, policy, type_system=self.type_system,
+                        backendopt=backendopt, config=config)
+    
     def interpret(self, fn, args, **kwds):
         return interpret(fn, args, type_system=self.type_system, **kwds)
 
