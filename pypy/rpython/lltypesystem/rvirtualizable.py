@@ -1,8 +1,10 @@
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.rmodel import inputconst
-from pypy.rpython.lltypesystem.rclass import InstanceRepr
+from pypy.rpython.lltypesystem.rclass import OBJECTPTR, InstanceRepr
 from pypy.rpython.annlowlevel import cachedtype
+
+VABLEINFOPTR = OBJECTPTR
 
 class VirtualizableInstanceRepr(InstanceRepr):
 
@@ -21,9 +23,12 @@ class VirtualizableInstanceRepr(InstanceRepr):
         llfields = []
         ACCESS = lltype.ForwardReference()
         if self.top_of_virtualizable_hierarchy:
+            llfields.append(('vable_base',   llmemory.Address))
+            llfields.append(('vable_info',   VABLEINFOPTR))
             llfields.append(('vable_access', lltype.Ptr(ACCESS)))
         InstanceRepr._setup_repr(self, llfields,
-                                 adtmeths={'ACCESS': ACCESS})
+                                 hints = {'virtualizable': True},
+                                 adtmeths = {'ACCESS': ACCESS})
         rbase = self.rbase
         accessors = []
         if self.top_of_virtualizable_hierarchy:
@@ -35,13 +40,18 @@ class VirtualizableInstanceRepr(InstanceRepr):
             accessors.append(('parent', rbase.ACCESS))
         name = self.lowleveltype.TO._name
         SELF = self.lowleveltype
+        redirected_fields = []
         for name, (mangled_name, r) in self.fields.items():
             T = r.lowleveltype
             GETTER = lltype.Ptr(lltype.FuncType([SELF], T))
             SETTER = lltype.Ptr(lltype.FuncType([SELF, T], lltype.Void))
             accessors.append(('get_'+mangled_name, GETTER))
             accessors.append(('set_'+mangled_name, SETTER))
-        ACCESS.become(lltype.Struct(name+'_access', *accessors))
+            redirected_fields.append(mangled_name)
+        ACCESS.become(lltype.Struct(name+'_access',
+                                    hints = {'immutable': True},
+                                    adtmeths = {'redirected_fields': tuple(redirected_fields)},
+                                    *accessors))
                                     
         self.ACCESS = ACCESS
 
@@ -55,7 +65,9 @@ class VirtualizableInstanceRepr(InstanceRepr):
         if self.top_of_virtualizable_hierarchy:
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            for name, llvalue in (('access', lltype.nullptr(self.ACCESS)),):
+            for name, llvalue in (('access', lltype.nullptr(self.ACCESS)),
+                                  ('base',   llmemory.NULL),
+                                  ('info',   lltype.nullptr(VABLEINFOPTR.TO))):
                 cname = inputconst(lltype.Void, 'vable_'+name)
                 vvalue = inputconst(lltype.typeOf(llvalue), llvalue)
                 llops.genop('setfield', [vinst, cname, vvalue])

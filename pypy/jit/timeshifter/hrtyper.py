@@ -1644,12 +1644,13 @@ class RedStructRepr(RedRepr):
             RedRepr.build_portal_arg_helpers(self)
             return
 
+        typedesc = self.gettypedesc()
+        names = unrolling_iterable([(fielddesc.fieldname, j)
+                                    for (fielddesc, j) in typedesc.redirected_fielddescs])
 
-        names = unrolling_iterable([name for name in T._names
-                                    if name not in rcontainer.VABLEFIELDS])
         def collect_residual_args(v): 
             t = (v,)
-            for name in names:
+            for name, _ in names:
                 t = t + (getattr(v, name),) # xxx need to use access ?
             return t
         self.collect_residual_args = collect_residual_args
@@ -1657,26 +1658,22 @@ class RedStructRepr(RedRepr):
         TYPE = self.original_concretetype
         kind = self.hrtyper.RGenOp.kindToken(TYPE)
         boxcls = rvalue.ll_redboxcls(TYPE)
-
-        typedesc = self.gettypedesc()
         
         def make_arg_redbox(jitstate, inputargs_gv, i):
             box = typedesc.factory()
             jitstate.add_virtualizable(box)
-            j = rcontainer.NVABLEFIELDS
             content = box.content
             assert isinstance(content, rcontainer.VirtualStruct)
             content_boxes = content.content_boxes
             gv_outside = inputargs_gv[i]
             i += 1
-            for name in names:
+            for name, j in names:
                 content_boxes[j].genvar = inputargs_gv[i]
-                j = j + 1
                 i += 1
-            content_boxes[j].genvar = gv_outside
+            content_boxes[-1].genvar = gv_outside
             return box
         self.make_arg_redbox = make_arg_redbox
-        make_arg_redbox.consumes = len(T._names)-rcontainer.NVABLEFIELDS+1
+        make_arg_redbox.consumes = len(typedesc.redirected_fielddescs)+1
 
     def gettypedesc(self):
         if self.typedesc is None:
@@ -1697,10 +1694,9 @@ class RedStructRepr(RedRepr):
         T = self.original_concretetype.TO
         if T._hints.get('virtualizable', False):
             getredrepr = self.hrtyper.getredrepr
-            for name in T._names:
-                if name in rcontainer.VABLEFIELDS:
-                    continue
-                FIELDTYPE = getattr(T, name)
+            typedesc = self.gettypedesc()
+            for fielddesc, _ in typedesc.redirected_fielddescs:
+                FIELDTYPE = getattr(T, fielddesc.fieldname)
                 argtypes += getredrepr(FIELDTYPE).residual_argtypes()
         return argtypes
 

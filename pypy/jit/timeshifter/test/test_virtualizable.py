@@ -26,6 +26,7 @@ XY_ACCESS = lltype.Struct('xy_access',
                           ('get_y', GETTER(XY)),
                           ('set_y', SETTER(XY)),
                           hints = {'immutable': True},
+                          adtmeths = {'redirected_fields': ('x', 'y')}
                           )
 
 
@@ -35,6 +36,7 @@ XP_ACCESS = lltype.Struct('xp_access',
                           ('get_p', PGETTER(XP)),
                           ('set_p', PSETTER(XP)),
                           hints = {'immutable': True},
+                          adtmeths = {'redirected_fields': ('x', 'p')}
                           )
 
 XY.become(lltype.GcStruct('xy',
@@ -68,6 +70,7 @@ PQ_ACCESS = lltype.Struct('pq_access',
                           ('get_q', PGETTER(PQ)),
                           ('set_q', PSETTER(PQ)),
                           hints = {'immutable': True},
+                          adtmeths = {'redirected_fields': ('p', 'q')}
                           )
 
 PQ.become(lltype.GcStruct('pq',
@@ -82,9 +85,9 @@ PQ.become(lltype.GcStruct('pq',
 E3 = lltype.GcStruct('e', ('pq', lltype.Ptr(PQ)),
                          ('w',  lltype.Signed))
 
-class TestVirtualizable(PortalTest):
+class TestVirtualizableExplict(PortalTest):
 
-    def test_simple_explicit(self):
+    def test_simple(self):
    
         def f(xy):
             xy_access = xy.vable_access
@@ -114,7 +117,7 @@ class TestVirtualizable(PortalTest):
         assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
                 [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
-    def test_simple_explicit_set(self):
+    def test_simple_set(self):
    
         def f(xy):
             xy_access = xy.vable_access
@@ -149,7 +152,7 @@ class TestVirtualizable(PortalTest):
         assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
                 [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
-    def test_explicit_set_effect(self):
+    def test_set_effect(self):
    
         def f(xy):
             xy_access = xy.vable_access
@@ -185,7 +188,7 @@ class TestVirtualizable(PortalTest):
         assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
                 [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
-    def test_simple_explicit_escape(self):
+    def test_simple_escape(self):
    
         def f(e, xy):
             xy_access = xy.vable_access
@@ -213,7 +216,7 @@ class TestVirtualizable(PortalTest):
         assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
                 [lltype.Ptr(E), lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
-    def test_simple_explicit_return_it(self):
+    def test_simple_return_it(self):
         def f(which, xy1, xy2):
             xy1_access = xy1.vable_access
             if xy1_access:
@@ -248,7 +251,7 @@ class TestVirtualizable(PortalTest):
         assert res == 23
         self.check_insns(getfield=0)
 
-    def test_simple_explicit_construct_no_escape(self):
+    def test_simple_construct_no_escape(self):
    
         def f(x, y):
             xy = lltype.malloc(XY)
@@ -274,7 +277,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=0)
 
-    def test_simple_explicit_construct_escape(self):
+    def test_simple_construct_escape(self):
    
         def f(x, y):
             xy = lltype.malloc(XY)
@@ -301,7 +304,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=0)
 
-    def test_simple_with_struct_explicit(self):
+    def test_simple_with_struct(self):
    
         def f(xp):
             xp_access = xp.vable_access
@@ -331,7 +334,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=2)    
 
-    def test_simple_with_setting_struct_explicit(self):
+    def test_simple_with_setting_struct(self):
    
         def f(xp, s):
             xp_access = xp.vable_access
@@ -366,7 +369,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=3)
 
-    def test_simple_with_setting_new_struct_explicit(self):
+    def test_simple_with_setting_new_struct(self):
    
         def f(xp, a, b):
             s = lltype.malloc(S)
@@ -402,7 +405,7 @@ class TestVirtualizable(PortalTest):
         self.check_insns(getfield=2, malloc=1)
 
 
-    def test_simple_constr_with_setting_new_struct_explicit(self):
+    def test_simple_constr_with_setting_new_struct(self):
    
         def f(x, a, b):
             xp = lltype.malloc(XP)
@@ -437,7 +440,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
 
-    def test_simple_explicit_read(self):
+    def test_simple_read(self):
    
         def f(e):
             xy = e.xy
@@ -462,7 +465,7 @@ class TestVirtualizable(PortalTest):
         assert res == 63
         self.check_insns(getfield=3)
 
-    def test_simple_explicit_escape_through_vstruct(self):
+    def test_simple_escape_through_vstruct(self):
    
         def f(x, y):
             xy = lltype.malloc(XY)
@@ -492,7 +495,7 @@ class TestVirtualizable(PortalTest):
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
 
-    def test_explicit_late_residual_red_call(self):
+    def test_late_residual_red_call(self):
         def g(e):
             xy = e.xy
             xy_access = xy.vable_access
@@ -543,7 +546,7 @@ class TestVirtualizable(PortalTest):
                                          policy=StopAtGPolicy())
         assert res == 42
 
-    def test_explicit_residual_red_call(self):
+    def test_residual_red_call(self):
         
         def g(e):
             xy = e.xy
@@ -595,7 +598,7 @@ class TestVirtualizable(PortalTest):
                                          policy=StopAtGPolicy())
         assert res == 42
 
-    def test_explicit_force_in_residual_red_call(self):
+    def test_force_in_residual_red_call(self):
 
         def g(e):
             xp = e.xp
@@ -663,7 +666,7 @@ class TestVirtualizable(PortalTest):
                                          policy=StopAtGPolicy())
         assert res == 42
 
-    def test_explicit_force_multiple_reads_residual_red_call(self):
+    def test_force_multiple_reads_residual_red_call(self):
         def get_p(xp):
             xp_access = xp.vable_access
             if xp_access:
@@ -729,7 +732,7 @@ class TestVirtualizable(PortalTest):
         assert res == 1
 
 
-    def test_explicit_force_unaliased_residual_red_call(self):
+    def test_force_unaliased_residual_red_call(self):
         def get_p(pq):
             pq_access = pq.vable_access
             if pq_access:
@@ -799,7 +802,7 @@ class TestVirtualizable(PortalTest):
                                          policy=StopAtGPolicy())
         assert res == 1
 
-    def test_explicit_force_aliased_residual_red_call(self):
+    def test_force_aliased_residual_red_call(self):
         def get_p(pq):
             pq_access = pq.vable_access
             if pq_access:
@@ -866,7 +869,7 @@ class TestVirtualizable(PortalTest):
                                          policy=StopAtGPolicy())
         assert res == 1
 
-    def test_explicit_force_in_residual_red_call_with_more_use(self):
+    def test_force_in_residual_red_call_with_more_use(self):
         def g(e):
             xp = e.xp
             xp_access = xp.vable_access
@@ -934,3 +937,26 @@ class TestVirtualizable(PortalTest):
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 42 + 140 + 10
+
+
+class TestVirtualizableImplicit(PortalTest):
+
+    def test_simple(self):
+
+        class XY(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+   
+        def f(xy):
+            return xy.x+xy.y
+
+        def main(x, y):
+            xy = XY(x, y)
+            return f(xy)
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(getfield=0)
