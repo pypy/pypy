@@ -15,6 +15,17 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy Trillke Sprints upcoming, 25-28th Feb and 1-5th March 2007
+==================================================================
+
+The end of the EU project period is nearing and we are going
+for two sprints, one on particular EU related issues and
+one for public coding and discussing the time ahead. 
+Read the `full announcement here`_ and `people known to come`_ already. 
+
+.. _`full announcement here`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/trillke-2007/announcement.txt
+.. _`people known to come`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/trillke-2007/people.txt
+
 
 Leysin Winter Sports Sprint, 8th - 14th January 2007
 ==================================================================
