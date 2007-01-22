@@ -314,7 +314,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 
-    def _setup_repr(self):
+    def _setup_repr(self, llfields=None):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
         #       of recursion where other code would uses these
@@ -326,7 +326,8 @@ class InstanceRepr(AbstractInstanceRepr):
             fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
         else:
             # instance attributes
-            llfields = []
+            if llfields is None:
+                llfields = []
             attrs = self.classdef.attrs.items()
             attrs.sort()
             for name, attrdef in attrs:
@@ -605,11 +606,19 @@ class InstanceRepr(AbstractInstanceRepr):
 def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
     if classdef is None:
         unboxed = []
+        virtualizable = False
     else:
         unboxed = [subdef for subdef in classdef.getallsubdefs()
                           if subdef.classdesc.pyobj is not None and
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-    if len(unboxed) == 0:
+        virtualizable = classdef.classdesc.read_attribute('_virtualizable_',
+                                                          Constant(False)).value
+    if virtualizable:
+        assert len(unboxed) == 0
+        assert gcflavor == 'gc'
+        from pypy.rpython.lltypesystem import rvirtualizable
+        return rvirtualizable.VirtualizableInstanceRepr(rtyper, classdef)
+    elif len(unboxed) == 0:
         return InstanceRepr(rtyper, classdef, gcflavor)
     else:
         # the UnboxedValue class and its parent classes need a
