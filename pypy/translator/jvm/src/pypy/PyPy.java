@@ -13,6 +13,9 @@ import java.util.Arrays;
  * Python mere minutes before.
  */
 public class PyPy {
+    
+    public static Interlink interlink;
+
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
@@ -178,6 +181,15 @@ public class PyPy {
         if (s.length() != 1)
             throw new RuntimeException("String not single character: '"+s+"'");
         return s.charAt(0);
+    }
+
+    public static char ll_stritem_nonneg(String s, int idx) {
+        try {
+            return s.charAt(idx);
+        } catch (StringIndexOutOfBoundsException exc) {
+            throwIndexError();
+        }
+        throw new RuntimeException("Should not get here");
     }
 
     // Used in testing:
@@ -554,7 +566,22 @@ public class PyPy {
             _ll_resize_ge(self, length);
         else if (length < self.size())
             _ll_resize_le(self, length); 
-   }
+    }
+
+    // ----------------------------------------------------------------------
+    // Convenient Helpers for throwing exceptions
+    //
+    // Also, an abstraction barrier: at a later date we may want to
+    // switch to using thread-local data rather than a global variable,
+    // and if so we can easily do it in these functions here.
+
+    public static void throwZeroDivisionError() {
+        interlink.throwZeroDivisionError();
+    }
+
+    public static void throwIndexError() {
+        interlink.throwIndexError();
+    }
 
     // ----------------------------------------------------------------------
     // Self Test

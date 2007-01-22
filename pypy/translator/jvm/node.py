@@ -22,7 +22,7 @@ from pypy.rpython.ootypesystem import \
      ootype, rclass
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
-     jObject, JvmType, jStringBuilder
+     jObject, JvmType, jStringBuilder, jPyPyInterlink
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -92,6 +92,12 @@ class EntryPoint(Node):
         gen.begin_function(
             'main', (), [jStringArray], jVoid, static=True)
 
+        # First thing we do is setup the PyPy helper.  For now this is
+        # a static variable of the PyPy class, though that precludes
+        # running multiple translations.
+        gen.new_with_jtype(gen.db.interlink_class)
+        jvmgen.PYPYINTERLINK.store(gen)
+
         if self.print_result:
             gen.begin_try()
 
@@ -147,9 +153,28 @@ class EntryPoint(Node):
         gen.end_function()
         gen.end_class()
 
-class Function(OOFunction):
+class Function(object):
+
+    """ A generic interface for Function objects; these objects can
+    be added as methods of classes and rendered.  This class serves
+    only as documentation. """
+
+    # A "name" attribute must be defined
+    name = None                       
     
-    """ Represents a function to be emitted. """
+    def render(self, gen):
+        """ Uses the gen argument, a jvmgen.Generator, to create the
+        appropriate JVM assembly for this method. """
+        raise NotImplementedError
+    
+    def method(self):
+        """ Returns a jvmgen.Method object that would allow this
+        function to be invoked. """
+        raise NotImplementedError
+    
+class GraphFunction(OOFunction, Function):
+    
+    """ Represents a function that is generated from a graph. """
     
     def __init__(self, db, classty, name, jargtypes,
                  jrettype, graph, is_static):
@@ -418,12 +443,17 @@ class Class(Node, JvmClassType):
         "java.lang.String", supercls is a Class object
         """
         JvmClassType.__init__(self, name)
-        self.super_class = supercls # can also be set later with set_super_class
-        self.fields = {}
-        self.rendered = False
-        self.abstract = False
-        self.methods = {}
-        self.abstract_methods = {}
+        self.super_class = supercls # JvmType; if None, must use set_super_class
+        self.rendered = False       # has rendering occurred?
+        self.abstract = False       # is this an abstract class?
+        self.fields = {}            # maps field name to jvmgen.Field object
+        self.interfaces = []        # list of JvmTypes
+        self.methods = {}           # maps method name to a Function object*
+        self.abstract_methods = {}  # maps method name to jvmgen.Method object
+
+        # * --- actually maps to an object that defines the
+        # attributes: name, method() and render().  Usually, this is a
+        # Function object, but in some subclasses it is not.
 
     def set_super_class(self, supercls):
         self.super_class = supercls
@@ -433,6 +463,10 @@ class Class(Node, JvmClassType):
         descriptor 'fieldobj'.  Must be called before render()."""
         assert not self.rendered and isinstance(fieldobj, jvmgen.Field)
         self.fields[fieldobj.field_name] = (fieldobj, fielddef)
+
+    def add_interface(self, inter):
+        assert not self.rendered and isinstance(inter, JvmType)
+        self.interfaces.append(inter)
 
     def lookup_field(self, fieldnm):
         """ Given a field name, returns a jvmgen.Field object """
@@ -466,6 +500,9 @@ class Class(Node, JvmClassType):
         self.rendered = True
         gen.begin_class(self, self.super_class, abstract=self.abstract)
 
+        for inter in self.interfaces:
+            gen.implements(inter)
+
         for field, fielddef in self.fields.values():
             gen.add_field(field)
 
@@ -490,3 +527,32 @@ class Class(Node, JvmClassType):
             gen.end_function()
         
         gen.end_class()
+
+class InterlinkFunction(Function):
+
+    """
+    Used for methods of the interlink helper class that we generate.
+    Generates a method which takes no arguments and which invokes
+    a given static helper function.
+    """
+
+    def __init__(self, interlink, name, helper):
+        """
+        interlink:  the JvmType of the Interlink implementation
+        name:       the name of the method
+        helper:     a jvmgen.Method object for the helper func we should invoke
+        """
+        self.interlink = interlink
+        self.name = name
+        self.helper = helper
+        self.method_obj = jvmgen.Method.v(interlink, self.name, [], jVoid)
+
+    def method(self):
+        return self.method_obj
+
+    def render(self, gen):
+        gen.begin_function(self.name, (), [self.interlink], jVoid)
+        gen.emit(self.helper)
+        gen.return_val(jVoid)
+        gen.end_function()
+

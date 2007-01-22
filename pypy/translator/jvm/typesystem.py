@@ -168,6 +168,9 @@ jPyPyExcWrap = JvmClassType('pypy.ExceptionWrapper')
 jPyPyConst = JvmClassType('pypy.Constant')
 jPyPyMain = JvmClassType('pypy.Main')
 jPyPyDictItemsIterator = JvmClassType('pypy.DictItemsIterator')
+jPyPyInterlink = JvmClassType('pypy.Interlink')
+
+jArithmeticException = JvmClassType('java.lang.ArithmeticException')
 
 class JvmScalarType(JvmType):
     """

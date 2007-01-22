@@ -49,5 +49,43 @@ class _JvmCallMethod(MicroInstruction):
         self._invoke_method(gen, gen.db, jmethod,
                             jactargs, op.args[2:],
                             jmethod.return_type, op.result)
-
 JvmCallMethod = _JvmCallMethod()
+
+class TranslateException(MicroInstruction):
+    """ Translates an exception into a call of a method on the PyPy object """
+    def __init__(self, jexc, pexcmthd, inst):
+        """
+        jexc: the JvmType of the exception
+        pexcmthd: the name of the method on the PyPy object to call.
+        The PyPy method must take no arguments, return void, and must
+        always throw an exception in practice.
+        """
+        self.java_exc = jexc
+        self.pypy_method = jvmgen.Method.s(
+            jvmtype.jPyPy, pexcmthd, [], jvmtype.jVoid)
+        self.instruction = inst
+        
+    def render(self, gen, op):
+        trylbl = gen.unique_label('translate_exc_begin')
+        catchlbl = gen.unique_label('translate_exc_catch')
+        donelbl = gen.unique_label('translate_exc_done')
+
+        # try {
+        gen.mark(trylbl)
+        self.instruction.render(gen, op)
+        gen.goto(donelbl)
+        # } catch (JavaExceptionType) {
+        gen.mark(catchlbl)
+        gen.emit(jvmgen.POP)
+        gen.emit(self.pypy_method)
+        # Note: these instructions will never execute, as we expect
+        # the pypy_method to throw an exception and not to return.  We
+        # need them here to satisfy the Java verifier, however, as it
+        # does not know that the pypy_method will never return.
+        gen.emit(jvmgen.ACONST_NULL)
+        gen.emit(jvmgen.ATHROW)
+        # }
+        gen.mark(donelbl)
+
+        gen.try_catch_region(self.java_exc, trylbl, catchlbl, catchlbl)
+        

@@ -9,20 +9,34 @@ from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
      SetField, GetField, DownCast, RuntimeNew, OOString, CastTo
 from pypy.translator.jvm.metavm import \
-     IndirectCall, JvmCallMethod
+     IndirectCall, JvmCallMethod, TranslateException
+
 import pypy.translator.jvm.generator as jvmgen
+import pypy.translator.jvm.typesystem as jvmtype
+
+def _proc(val):
+    """ Function which is used to post-process each entry in the
+    opcodes table; it adds a PushAllArgs and StoreResult by default,
+    unless the entry is a list already. """
+    if not isinstance(val, list):
+        val = InstructionList((PushAllArgs, val, StoreResult))
+    else:
+        val = InstructionList(val)
+    return val
 
 def _check_zer(op):
-    # TODO
-    return op
+    return [TranslateException(
+        jvmtype.jArithmeticException,
+        'throwZeroDivisionError',
+        _proc(op))]
 
 def _check_ovf(op):
     # TODO
     return op
 
 # This table maps the opcodes to micro-ops for processing them.
-# It is post-processed by a function to be found below.
-opcodes = {
+# It is post-processed by _proc.
+_opcodes = {
     # __________ object oriented operations __________
     'new':                      [New, StoreResult],
     'runtimenew':               [RuntimeNew, StoreResult],
@@ -221,10 +235,7 @@ opcodes = {
     
 }
 
-for opc in opcodes:
-    val = opcodes[opc]
-    if not isinstance(val, list):
-        val = InstructionList((PushAllArgs, val, StoreResult))
-    else:
-        val = InstructionList(val)
-    opcodes[opc] = val
+opcodes = {}
+for opc, val in _opcodes.items():
+    opcodes[opc] = _proc(val)
+del _opcodes

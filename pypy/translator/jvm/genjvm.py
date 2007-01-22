@@ -2,9 +2,10 @@
 Backend for the JVM.
 """
 
-import os, os.path, subprocess, sys
+import os, os.path, sys
 
 import py
+from py.compat import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.oosupport.genoo import GenOO
@@ -18,6 +19,7 @@ from pypy.translator.jvm.opcodes import opcodes
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.constant import \
      JVMConstantGenerator, JVMStaticMethodConst
+from pypy.translator.jvm.prebuiltnodes import create_interlink_node
 
 class JvmError(Exception):
     """ Indicates an error occurred in JVM backend """
@@ -128,7 +130,8 @@ class JvmGeneratedSource(object):
         self.compiled = True
         self._compile_helper(('DictItemsIterator',
                               'PyPy',
-                              'ExceptionWrapper'))
+                              'ExceptionWrapper',
+                              'Interlink'))
 
     def _make_str(self, a):
         if isinstance(a, ootype._string):
@@ -206,6 +209,7 @@ class GenJvm(GenOO):
         'entrypoint' --- if supplied, an object with a render method
         """
         GenOO.__init__(self, tmpdir, translator, entrypoint)
+        create_interlink_node(self.db)
         self.jvmsrc = JvmGeneratedSource(tmpdir, getoption('package'))
 
     def generate_source(self):

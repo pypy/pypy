@@ -18,6 +18,6 @@ class TestJvmString(JvmTest, oostring.BaseTestString):
 
     def test_float(self):
         py.test.skip("JVM does not yet support ooparse_float")
-        
+
     def test_getitem_exc(self):
-        py.test.skip("JVM has trouble with exceptions")
+        py.test.skip("TODO: Appears to be a bug in test_rstr.py??")

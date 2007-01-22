@@ -10,7 +10,7 @@ from pypy.translator.jvm.typesystem import \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
-     jObjectArray
+     jObjectArray, jPyPyInterlink
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -411,6 +411,8 @@ DOUBLENAN =    Field('java.lang.Double', 'NaN', jDouble, True)
 DOUBLEPOSINF = Field('java.lang.Double', 'POSITIVE_INFINITY', jDouble, True)
 DOUBLENEGINF = Field('java.lang.Double', 'NEGATIVE_INFINITY', jDouble, True)
 
+PYPYINTERLINK= Field(jPyPy.name, 'interlink', jPyPyInterlink, True)
+
 EXCWRAPOBJ =   Field(jPyPyExcWrap.name, 'object', jObject, False)
 
 # ___________________________________________________________________________
@@ -479,7 +481,8 @@ class JVMGenerator(Generator):
         looks like:
 
         begin_class()
-        [add_field()]
+        {implements()}
+        {add_field()}
         begin_constructor()...end_constructor()
         [begin_function()...end_function()]
         end_class()
@@ -510,6 +513,13 @@ class JVMGenerator(Generator):
     def _end_class(self):
         """ Main implementation of end_class """
         raise NotImplementedError    
+
+    def implements(self, jinterface):
+        """
+        Indicates that the current class implements the interface
+        jinterface, which should be a JvmType.
+        """
+        raise NotImplementedError
 
     def add_field(self, fobj):
         """
@@ -728,7 +738,7 @@ class JVMGenerator(Generator):
         'excclsty' --- a JvmType for the class of exception to be caught
         """
         catchlbl = self.unique_label("catch", mark=True)
-        self._try_catch_region(
+        self.try_catch_region(
             jPyPyExcWrap, self.begintrylbl, self.endtrylbl, catchlbl)
 
         # emit the code to unwrap the exception, check the type
@@ -754,9 +764,13 @@ class JVMGenerator(Generator):
         """
         return
         
-    def _try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
         """
-        Indicates a try/catch region:
+        Indicates a try/catch region.
+
+        Either invoked directly, or from the begin_catch() routine:
+        the latter is invoked by the oosupport code.
+        
         'excclsty' --- a JvmType for the class of exception to be caught
         'trystartlbl', 'tryendlbl' --- labels marking the beginning and end
         of the try region
@@ -1165,6 +1179,10 @@ class JasminGenerator(JVMGenerator):
     def add_comment(self, comment):
         self.curclass.out("  ; %s\n" % comment)
 
+    def implements(self, jinterface):
+        self.curclass.out(
+            '.implements ' + jinterface.descriptor.int_class_name() + '\n')
+        
     def add_field(self, fobj):
         kw = ['public']
         if fobj.is_static: kw.append('static')
@@ -1208,11 +1226,10 @@ class JasminGenerator(JVMGenerator):
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
         self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
-        self.curclass.out('    %-60s\n' % (
-            instr_text,))
+        self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
-    def _try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
         self.curclass.out('  .catch %s from %s to %s using %s\n' % (
             excclsty.descriptor.int_class_name(),
             trystartlbl.jasmin_syntax(),

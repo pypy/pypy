@@ -76,6 +76,25 @@ class Database(OODatabase):
     #
     # Creates nodes that represents classes, functions, simple constants.
 
+    def create_interlink_node(self, methods):
+        """ This is invoked by create_interlinke_node() in
+        jvm/prebuiltnodes.py.  It creates a Class node that will
+        be an instance of the Interlink interface, which is used
+        to allow the static java code to throw PyPy exceptions and the
+        like.
+
+        The 'methods' argument should be a dictionary whose keys are
+        method names and whose entries are jvmgen.Method objects which
+        the corresponding method should invoke. """
+
+        nm = self._pkg(self._uniq('InterlinkImplementation'))
+        cls = node.Class(nm, supercls=jObject)
+        for method_name, helper in methods.items():
+            cls.add_method(node.InterlinkFunction(cls, method_name, helper))
+        cls.add_interface(jvmtype.jPyPyInterlink)
+        self.interlink_class = cls
+        self.pending_node(cls)
+
     def types_for_graph(self, graph):
         """
         Given a graph, returns a tuple like so:
@@ -98,7 +117,7 @@ class Database(OODatabase):
         the method to 'classobj', which should be a node.Class object.
         """
         jargtypes, jrettype = self.types_for_graph(graph)
-        funcobj = node.Function(
+        funcobj = node.GraphFunction(
             self, classobj, funcnm, jargtypes, jrettype, graph, is_static)
         return funcobj
     
