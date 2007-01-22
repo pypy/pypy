@@ -13,9 +13,11 @@ from pypy.lang.js.jsobj import W_Builtin, W_String
 help_message = '''
 Pypy Javascript Interpreter:
  -f filname Load a file
+ -n to not be interactive
  -h show this help message
 '''
 
+interactive = True
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -34,11 +36,12 @@ def tracejs(ctx, args, this):
     pdb.set_trace()
 
 def main(argv=None):
+    global interactive
     if argv is None:
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hf:", ["help",])
+            opts, args = getopt.getopt(argv[1:], "hnf:", ["help",])
         except getopt.error, msg:
             raise Usage(msg)
     
@@ -47,6 +50,8 @@ def main(argv=None):
         for option, value in opts:
             if option == "-f":
                 filenames.append(value)
+            if option == "-n":
+                interactive = False
             if option in ("-h", "--help"):
                 raise Usage(help_message)
     
@@ -57,16 +62,16 @@ def main(argv=None):
     
     interp = Interpreter()
     def quiter(ctx, args, this):
-        sys.exit(0)
-        return "this should not be printed"
-    
+        global interactive
+        interactive = False
+        
     interp.w_Global.Put('quit', W_Builtin(quiter))
     interp.w_Global.Put('load', W_Builtin(loadjs))
     interp.w_Global.Put('trace', W_Builtin(tracejs))
     for filename in filenames:
         loadjs(interp.global_context, [W_String(filename)], None)
 
-    while 1:
+    while interactive:
         res = interp.run(load_source(raw_input("pypy-js> ")))
         if res is not None:
             print res

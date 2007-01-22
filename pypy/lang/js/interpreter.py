@@ -7,14 +7,24 @@ from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 DEBUG = False
 
 class Node(object):
-    def init_common(self, type='', value='', lineno=0, start=0, end=0):
-        self.type = type
-        self.value = value
-        self.lineno = lineno
-        self.start = start
-        self.end = end
-        
+    def __init__(self, t=None, type='', value='', lineno=0, start=0, end=0):
+        if t is None:
+            self.type = type
+            self.value = value
+            self.lineno = lineno
+            self.start = start
+            self.end = end
+        else:
+            self.type = gettreeitem(t, 'type').additional_info
+            self.value = gettreeitem(t, 'value').additional_info
+            self.lineno = int(gettreeitem(t, 'lineno').additional_info)
+            self.start = int(gettreeitem(t, 'start').additional_info)
+            self.end = int(gettreeitem(t, 'end').additional_info)
+            self.from_tree(t)
+
     def eval(self, ctx):
+        if DEBUG:
+            print self
         raise NotImplementedError
 
     def execute(self, ctx):
@@ -25,7 +35,9 @@ class Node(object):
     
     def get_args(self, ctx):
         raise NotImplementedError
-        
+    
+    def __str__(self):
+        return "<astop %s %s >"%(self.opcode, self.value)
 
 class Statement(Node):
     pass
@@ -37,10 +49,18 @@ class Expression(Statement):
     def execute(self, ctx):
         return self.eval(ctx)
 
+class ListOp(Expression):
+    def from_tree(self, t):
+        self.list = get_objects(t)
+        
+class UnaryOp(Expression):
+    def from_tree(self, t):
+        self.expr = get_Obj(t, '0')
+
 class BinaryOp(Expression):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+    def from_tree(self, t):
+        self.left = get_obj(t,'0')
+        self.right = get_obj(t, '1')
     
 class BinaryComparisonOp(BinaryOp):
     """super class for binary operators"""
@@ -164,42 +184,34 @@ class Interpreter(object):
         """run the interpreter"""
         return script.execute(self.global_context)
 
-class PropertyInit(Node):
-    def __init__(self, name, value):
-        self.nameinit = name
-        self.valueinit = value
+class PropertyInit(BinaryOp):
+    opcode = 'PROPERTY_INIT'
+
+class Array(ListOp):
+    opcode = 'ARRAY_INIT':
     
-    def __repr__(self):
-        return "<%s : %s>"%(str(self.namein), str(self.value))
-
-
-class Array(Expression):
-    def __init__(self, items=()):
-        self.items = items
-
     def eval(self, ctx):
         #d = dict(enumerate(self.items))
-        d = {}
-        for i in range(len(self.items)):
-            d[i] = self.items[i]
-        return W_Array(d)
+        array = W_Array()
+        for i in range(len(self.list)):
+            array.Put(str(i), self.list[i])
+        return array
 
 
-class Assign(Expression):
-    def __init__(self, LHSExp, AssignmentExp):
-        self.LHSExp = LHSExp
-        self.AssignmentExp = AssignmentExp
+class Assign(BinaryOp):
+    opcode = 'ASSIGN'
     
     def eval(self, ctx):
-        v1 = self.LHSExp.eval(ctx)
-        v3 = self.AssignmentExp.eval(ctx).GetValue()
+        v1 = self.left.eval(ctx)
+        v3 = self.right.eval(ctx).GetValue()
         v1.PutValue(v3, ctx)
         return v3
 
-
 class Block(Statement):
-    def __init__(self, nodes):
-        self.nodes = nodes
+    opcode = 'BLOCK'
+
+    def from_tree(t):
+        self.nodes = get_objects(t)        
 
     def execute(self, ctx):
         try:
@@ -214,27 +226,27 @@ class Block(Statement):
                 raise e
 
 class Unconditional(Statement):
-    def __init__(self, targtype, targlineno, targstart):
-        self.targtype = targtype
-        self.targlineno = targlineno
-        self.targstart = targstart
+    def from_tree(self, t):
+        self.targtype, self.targlineno, self.targstart = gettreeitem(t, 'target').additional_info.split(',')
         
 class Break(Unconditional):
+    opcode = 'BREAK'
+    
     def execute(self, ctx):
         raise ExecutionReturned('break', None, None)
 
 class Continue(Unconditional):
+    opcode = 'CONTINUE'
+    
     def execute(self, ctx):
         raise ExecutionReturned('continue', None, None)
 
-class Call(Expression):
-    def __init__(self, identifier, arglist):
-        self.identifier = identifier
-        self.arglist = arglist
+class Call(BinaryOp):
+    opcode = 'CALL'
 
     def eval(self, ctx):
-        r1 = self.identifier.eval(ctx)
-        r2 = self.arglist.eval(ctx)
+        r1 = self.left.eval(ctx)
+        r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
         if isinstance(r1, W_Reference):
             r6 = r1.GetBase()
@@ -247,44 +259,61 @@ class Call(Expression):
         retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
         return retval
 
-
 class Comma(BinaryOp):
+    opcode = 'COMMA'
+    
     def eval(self, ctx):
         self.left.eval(ctx)
         return self.right.eval(ctx)
 
-
 class Conditional(Expression):
-    def __init__(self, logicalexpr, trueop, falseop):
-        self.logicalexpr = logicalexpr
-        self.trueop = trueop
-        self.falseop = falseop
+    opcode = 'CONDITIONAL'
+
+    def from_tree(self, t):
+        self.logicalexpr = get_obj(t, '0')
+        self.trueop = get_obj(t, '1')
+        self.falseop = get_obj(t, '2')
         
     def eval(self, ctx):
-        cond = self.logicalexpr.eval(ctx).GetValue().ToBoolean()
-        if cond == True:
+        if self.logicalexpr.eval(ctx).GetValue().ToBoolean():
             return self.trueop.eval(ctx).GetValue()
         else:
             return self.falseop.eval(ctx).GetValue()
 
-
 class Dot(BinaryOp):
+    opcode = 'DOT'
+
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
         name = self.right.eval(ctx).GetPropertyName()
         return W_Reference(name, w_obj)
 
 class Function(Expression):
-    def __init__(self, name, params, body):
-        self.name = name
+    opcode = 'FUNCTION'
+
+    def from_tree(self, t):
+        self.name = get_string(t, 'name')
+                
         self.params = params
-        self.body = body
+        self.body = get_obj(t, 'body')
+        
+        params = get_string(t, 'params')
+        if params == '':
+            self.params = []
+        else:
+            self.params = params.split(',')
 
     def eval(self, ctx):
        w_obj = W_Object(ctx=ctx, callfunc = self)
        return w_obj
 
 class Identifier(Expression):
+    opcode = 'IDENTIFIER'
+
+    def from_tree(self, t):
+        self.name = get_string(t,'value')
+        self.initializer = get_obj(t, 'initializer')
+
     def __init__(self, name, initialiser=None):
         self.name = name
         self.initialiser = initialiser
@@ -301,12 +330,16 @@ class Identifier(Expression):
     def get_literal(self):
         return self.name
 
+class This(Identifier):
+    opcode = "THIS"
 
 class If(Statement):
-    def __init__(self, condition, thenPart=None, elsePart=None):
-        self.condition = condition
-        self.thenPart = thenPart
-        self.elsePart = elsePart
+    opcode = 'IF'
+
+    def from_tree(self, t):
+        self.condition = get_obj(t, 'condition')
+        self.thenPart = get_obj(t, 'thenPart')
+        self.elsePart = get_obj(t, 'elsePart')
 
     def execute(self, ctx):
         temp = self.condition.eval(ctx).GetValue()
@@ -315,12 +348,11 @@ class If(Statement):
         else:
             return self.elsePart.execute(ctx)
 
-class Group(Expression):
-    def __init__(self, expr):
-        self.expr = expr
-
+class Group(UnaryOp):
+    opcode = 'GROUP'
+    
     def eval(self, ctx):
-        return self.expr.eval(ctx)
+        return self.exp.eval(ctx)
 
 def ARC(ctx, x, y):
     """
@@ -343,6 +375,8 @@ def ARC(ctx, x, y):
         return -1
 
 class Or(BinaryLogicOp):
+    opcode = 'OR'
+    
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         if s2.ToBoolean():
@@ -351,6 +385,8 @@ class Or(BinaryLogicOp):
         return s4
 
 class And(BinaryLogicOp):
+    opcode = 'AND'
+    
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         if not s2.ToBoolean():
@@ -359,6 +395,8 @@ class And(BinaryLogicOp):
         return s4
 
 class Ge(BinaryComparisonOp):
+    opcode = 'GE'
+    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
         if s5 in (-1, 1):
@@ -367,6 +405,8 @@ class Ge(BinaryComparisonOp):
             return W_Boolean(True)
 
 class Gt(BinaryComparisonOp):
+    opcode = 'GT'
+    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
         if s5 == -1:
@@ -375,6 +415,8 @@ class Gt(BinaryComparisonOp):
             return W_Boolean(s5)
 
 class Le(BinaryComparisonOp):
+    opcode = 'LE'
+    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
         if s5 in (-1, 1):
@@ -383,6 +425,8 @@ class Le(BinaryComparisonOp):
             return W_Boolean(True)
 
 class Lt(BinaryComparisonOp):
+    opcode = 'LT'
+    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
         if s5 == -1:
@@ -407,148 +451,174 @@ def AEC(x, y):
     return r
 
 class Eq(BinaryComparisonOp):
+    opcode = 'EQ'
+    
     def decision(self, ctx, op1, op2):
         return W_Boolean(AEC(op1, op2))
 
 class Ne(BinaryComparisonOp):
+    opcode = 'NE'
+    
     def decision(self, ctx, op1, op2):
         return W_Boolean(not AEC(op1, op2))
 
 
 class In(BinaryComparisonOp):
+    opcode = 'IN'
+    
     def decision(self, ctx, op1, op2):
         if not isinstance(op2, W_Object):
             raise ThrowException(W_String("TypeError"))
         name = op1.ToString()
         return W_Boolean(op2.HasProperty(name))
 
-class Increment(Expression):
-    def __init__(self, op):
-        self.op = op
-    
+class Increment(UnaryOp):
+    opcode = 'INCREMENT'
+        
     def eval(self, ctx):
-        thing = self.op.eval(ctx)
+        thing = self.expr.eval(ctx)
         val = thing.GetValue()
         x = val.ToNumber()
         resl = Plus(None, None).decision(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
         return val
 
-class Index(Expression):
-    def __init__(self, left, expr):
-        self.left = left
-        self.expr = expr
-
+class Index(BinaryOp):
+    opcode = 'INDEX'
+    
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
-        name= self.expr.eval(ctx).GetValue().ToString()
+        name= self.right.eval(ctx).GetValue().ToString()
         return W_Reference(name, w_obj)
 
-class List(Node):
-    def __init__(self, nodes):
-        self.nodes = nodes
+class List(ListOp):
+    opcode = 'LIST'
         
     def eval(self, ctx):
         return W_List([node.eval(ctx).GetValue() for node in self.nodes])
 
 class Minus(BinaryComparisonOp):
+    opcode = 'MINUS'
+    
     def decision(self, ctx, op1, op2):
         x = op1.ToNumber()
         y = op2.ToNumber()
         return W_Number(x - y)
 
-class New(Expression):
-    def __init__(self, newexpr):
-        self.newexpr = newexpr
+class New(UnaryOp):
+    opcode = 'NEW'
 
     def eval(self, ctx):
-        x = self.newexpr.eval(ctx).GetValue()
+        x = self.expr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
         
         return x.Construct(ctx=ctx)
 
-class NewWithArgs(Expression):
-    def __init__(self, newexpr, arglist):
-        self.newexpr = newexpr
-        self.arglist = arglist
-
+class NewWithArgs(BinaryOp):
+    opcode = 'NEW_WITH_ARGS'
+    
     def eval(self, ctx):
-        x = self.newexpr.eval(ctx).GetValue()
+        x = self.left.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
-        args = self.arglist.eval(ctx).get_args()
+        args = self.right.eval(ctx).get_args()
         return x.Construct(ctx=ctx, args=args)
 
 class Null(Expression):
+    opcode = 'NULL'
+    
     def eval(self, ctx):
         return w_Null            
 
 class Number(Expression):
-    def __init__(self, num):
-        self.num = num
+    opcode = 'NUMBER'
+    
+    def from_tree(self, t):
+        self.num = get_string(t, 'value')
 
     def eval(self, ctx):
-        return W_Number(self.num)
-    
-    def get_literal(self):
-        return W_Number(self.num).ToString()
+        return W_Number(self.expr)
 
-class ObjectInit(Expression):
-    def __init__(self, properties):
-        self.properties = properties
+class ObjectInit(ListOp):
+    opcode = 'OBJECT_INIT'
 
     def eval(self, ctx):
         w_obj = W_Object()
-        for property in self.properties:
-            name = property.nameinit.get_literal()
-            w_expr = property.valueinit.eval(ctx).GetValue()
+        for prop in self.list:
+            name = prop.left.get_literal()
+            w_expr = prop.right.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
 
-class Plus(BinaryComparisonOp):
-    def decision(self, ctx, op1, op2):
-        prim_left = op1.ToPrimitive(ctx, 'Number')
-        prim_right = op2.ToPrimitive(ctx, 'Number')
+class BinaryNumberOp(BinaryOp):
+    def eval(self, ctx):
+        nleft = self.left.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
+        nright = self.right.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
+        result = self.mathop(ctx, nleft, nright)
         if DEBUG:
-            print "plus", self.left, op1, prim_left, "+", self.right, op2, prim_right
-        if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
-            str_left = prim_left.ToString()
-            str_right = prim_right.ToString()
-            return W_String(str_left + str_right)
+            print self.left, nleft, self.opcode, self.right, nright, '=', result
+        return result
+        
+class Plus(BinaryNumberOp):
+    opcode = 'PLUS'
+    
+    def mathop(self, ctx, nleft, nright):
+        if isinstance(nleft, W_String) or isinstance(nright, W_String):
+            sleft = nleft.ToString()
+            sright = nright.ToString()
+            return W_String(sleft + sright)
         else:
-            num_left = prim_left.ToNumber()
-            num_right = prim_right.ToNumber()
-            return W_Number(num_left + num_right)
+            fleft = nleft.ToNumber()
+            fright = nright.ToNumber()
+            return W_Number(fleft + fright)
 
-class Mult(BinaryComparisonOp):
-    def decision(self, ctx, op1, op2):
-        prim_left = op1.ToPrimitive(ctx, 'Number')
-        prim_right = op2.ToPrimitive(ctx, 'Number')
-        num_left = prim_left.ToNumber()
-        num_right = prim_right.ToNumber()
-        return W_Number(num_left * num_right)
+class Mult(BinaryNumberOp):
+    opcode = 'MULT'
+    
+    def mathop(self, ctx, nleft, nright):
+        fleft = nleft.ToNumber()
+        fright = nright.ToNumber()
+        return W_Number(fleft * fright)
 
-class Div(BinaryComparisonOp):
-    def decision(self, ctx, op1, op2):
-        prim_left = op1.ToPrimitive(ctx, 'Number')
-        prim_right = op2.ToPrimitive(ctx, 'Number')
-        num_left = prim_left.ToNumber()
-        num_right = prim_right.ToNumber()
-        return W_Number(num_left / num_right)
+class Div(BinaryNumberOp):
+    opcode = 'DIV'
+    
+    def mathop(self, ctx, nleft, nright):
+        fleft = nleft.ToNumber()
+        fright = nright.ToNumber()
+        return W_Number(fleft / fright)
 
-class Minus(BinaryComparisonOp):
-    def decision(self, ctx, op1, op2):
-        prim_left = op1.ToPrimitive(ctx, 'Number')
-        prim_right = op2.ToPrimitive(ctx, 'Number')
-        num_left = prim_left.ToNumber()
-        num_right = prim_right.ToNumber()
-        return W_Number(num_left - num_right)
+class Minus(BinaryNumberOp):
+    opcode = 'MINUS'
+    
+    def mathop(self, ctx, nleft, nright):
+        fleft = nleft.ToNumber()
+        fright = nright.ToNumber()
+        return W_Number(fleft - fright)
 
 
 class Script(Statement):
-    def __init__(self, nodes, var_decl, func_decl):
-        self.nodes = nodes
+    opcode = 'SCRIPT'
+
+    def from_tree(self, t):
+        f = gettreeitem(t, 'funDecls')
+        if f.symbol == "dict":
+            func_decl = [from_tree(f),]
+        elif f.symbol == "list":
+            func_decl = [from_tree(x) for x in f.children]
+        else:
+            func_decl = []
+        
+        v = gettreeitem(t, 'varDecls')
+        if v.symbol == "dict":
+            var_decl = [from_tree(v),]
+        elif v.symbol == "list":
+            var_decl = [from_tree(x) for x in v.children]
+        else:
+            var_decl = []
+        
+        self.nodes = getlist(t)
         self.var_decl = var_decl
         self.func_decl = func_decl
 
@@ -571,12 +641,14 @@ class Script(Statement):
                 raise
 
 class Semicolon(Statement):
-    def __init__(self, expr = None):
-        self.expr = expr
+    opcode = 'SEMICOLON'
 
+    def from_tree(self, t):
+        self.expr = get_obj(t, 'expression')
+    
     def execute(self, ctx):
         if self.expr is None:
-            return w_Undefined
+            returmn w_Undefined
         return self.expr.execute(ctx)
 
 class String(Expression):
@@ -590,15 +662,19 @@ class String(Expression):
         return W_String(self.strval).ToString()
 
 class Return(Statement):
+    opcode = 'RETURN'
+
+    def from_tree(self, t):
+        self.expr = get_obj(t, 'value')
+
     def __init__(self, expr):
         self.expr = expr
 
     def execute(self, ctx):
-        if self.expr is None:
+        if isinstance(self.expr, Undefined):
             raise ExecutionReturned('return', None, None)
         else:
             raise ExecutionReturned('return', self.expr.eval(ctx), None)
-                    
 
 class Throw(Statement):
     def __init__(self, exception):
@@ -660,10 +736,9 @@ class Vars(Statement):
         for var in self.nodes:
             var.execute(ctx)
 
-class Void(Expression):
-    def __init__(self, expr):
-        self.expr = expr
-    
+class Void(UnaryOp):
+    opcode = 'VOID'
+
     def eval(self, ctx):
         self.expr.eval(ctx)
         return w_Undefined
@@ -684,12 +759,14 @@ class While(Statement):
                     continue
 
 class For(Statement):
-    def __init__(self, setup, condition, update, body):
-        self.setup = setup
-        self.condition = condition
-        self.update = update
-        self.body = body
+    opcode = 'FOR'
 
+    def from_tree(self, t):
+        self.setup = get_obj(t, 'setup')
+        self.condition = get_obj(t, 'condition')
+        self.update = get_obj(t, 'update')
+        self.body = get_obj(t, 'body')
+    
     def execute(self, ctx):
         self.setup.eval(ctx).GetValue()
         while self.condition.eval(ctx).ToBoolean():
@@ -701,186 +778,86 @@ class For(Statement):
                     break
                 elif e.type == 'continue':
                     continue
-
+    
 class Boolean(Expression):
-    def __init__(self, bool):
-        self.bool = bool
+    def from_tree(selt, t):
+        if self.opcode == 'TRUE':
+            self.bool = True
+        else:
+            self.bool = False
     
     def eval(self, ctx):
         return W_Boolean(self.bool)
 
-class Not(Expression):
-    def __init__(self, op):
-        self.op = op
+class True(Boolean):
+    opcode = 'TRUE'
+
+class False(Boolean):
+    opcode = 'FALSE'
+
+class Not(UnaryOp):
+    opcode = 'NOT'
     
     def eval(self, ctx):
-        return W_Boolean(not self.op.eval(ctx).GetValue().ToBoolean())
+        return W_Boolean(not self.expr.eval(ctx).GetValue().ToBoolean())
 
-class UMinus(Expression):
-    def __init__(self, op):
-        self.op = op
+class UMinus(UnaryOp):
+    opcode = "UNARY_MINUS"
     
     def eval(self, ctx):
-        return W_Number(-self.op.eval(ctx).GetValue().ToNumber())
+        return W_Number(-self.expr.eval(ctx).GetValue().ToNumber())
 
-def getlist(t):
-    item = gettreeitem(t, 'length')
+def get_obj(t, objname):
+    item = gettreeitem(t, objname)
+    if isinstance(item, Nonterminal):
+        return from_tree(item)
+    else:
+        return Undefined()
+
+def get_string(t, string):
+        simb = gettreeitem(t, string)
+        if simb is not None:
+            return simb.additional_info
+        else:
+            return ''
+
+def get_objects(t):
+    item = get_tree_item(t, 'length')
     if item is None:
         return []
     lgt = int(item.additional_info)
-    output = [from_tree(gettreeitem(t, str(i))) for i in range(lgt)]
+    output = [get_obj(t, str(i)) for i in range(lgt)]
     return output
     
-def gettreeitem(t, name):
+def get_tree_item(t, name):
     for x in t.children:
         if isinstance(x.children[0], Symbol):
             if x.children[0].additional_info == name:
                 return x.children[1]
     return None
 
+opcodedict = {}
+for i in locals():
+    if isinstance(i, type(Node)) and issubclass(i, Node):
+        if i.opcode is not None:
+            opcodedict[i.opcode] = i
 
 def from_tree(t):
     if t is None:
         return None
-    tp = gettreeitem(t, 'type').additional_info
-    if tp == 'ARRAY_INIT':
-        node = Array(getlist(t))
-    elif tp == 'ASSIGN':
-        node = Assign(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'BLOCK':
-        node = Block(getlist(t))
-    elif tp == 'BREAK':
-        targtype, targlineno, targstart = gettreeitem(t, 'target').additional_info.split(',')
-        node = Break(targtype, targlineno, targstart)
-    elif tp == 'CALL':
-        node = Call(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'COMMA':
-        node = Comma(from_tree(gettreeitem(t, '0')),from_tree(gettreeitem(t, '1')))
-    elif tp == 'CONDITIONAL':
-        node = Conditional(from_tree(gettreeitem(t, '0')),
-                        from_tree(gettreeitem(t, '1')),
-                        from_tree(gettreeitem(t, '2')))
-    elif tp == 'CONTINUE':
-        targtype, targlineno, targstart = gettreeitem(t, 'target').additional_info.split(',')
-        node = Continue(targtype, targlineno, targstart)
-    elif tp == 'DOT':
-        node = Dot(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'EQ':
-        node = Eq(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'OR':
-        node = Or(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'AND':
-        node = And(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'FOR':
-        setup = from_tree(gettreeitem(t, 'setup'))
-        condition = from_tree(gettreeitem(t, 'condition'))
-        update = from_tree(gettreeitem(t, 'update'))
-        body = from_tree(gettreeitem(t, 'body'))
-        node = For(setup, condition, update, body)
-    elif tp == 'FUNCTION':        
-        namesimb = gettreeitem(t, 'name')
-        name = None
-        if namesimb is not None:
-            name = namesimb.additional_info
-        body = from_tree(gettreeitem(t, 'body'))
-        if gettreeitem(t, 'params').additional_info == '':
-            params = []
-        else:
-            params = gettreeitem(t, 'params').additional_info.split(',')
-        f = Function(name, params, body)
-        node = f
-    elif tp == 'GROUP':
-        node = Group(from_tree(gettreeitem(t, '0')))
-    elif tp == 'GE':
-        node = Ge(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'GT':
-        node = Gt(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'IDENTIFIER':
-        node = Identifier(gettreeitem(t, 'value').additional_info, from_tree(gettreeitem(t, 'initializer')))
-    elif tp == 'IF':
-        condition = from_tree(gettreeitem(t, 'condition'))
-        thenPart = gettreeitem(t, 'thenPart')
-        if isinstance(thenPart, Nonterminal):
-            thenPart = from_tree(thenPart)
-        else:
-            thenPart = Undefined()
-
-        elsePart = gettreeitem(t, 'elsePart')
-        if isinstance(elsePart, Nonterminal):
-            elsePart = from_tree(elsePart)
-        else:
-            elsePart = Undefined()
-        node = If(condition,thenPart,elsePart)
-    elif tp == 'IN':
-        node = In(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'INCREMENT':
-        node = Increment(from_tree(gettreeitem(t, '0')))
-    elif tp == 'INDEX':
-        node = Index(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'LIST':
-        node = List(getlist(t))
-    elif tp == 'LE':
-        node = Le(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'LT':
-        node = Lt(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'MINUS':
-        node = Minus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'NE':
-        node = Ne(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'NEW':
-        node = New(from_tree(gettreeitem(t, '0')))
-    elif tp == 'NEW_WITH_ARGS':
-        node = NewWithArgs(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'NULL':
-        node = Null()
+    opcode = get_string('type')
+    if opcode in opcodedict:
+        return opcodedict[opcode](t)
+    else:
+        raise NotImplementedError("Dont know how to handle %s" % opcode)
+    
+def from_tree2(t):
     elif tp == 'NUMBER':
         node = Number(float(gettreeitem(t, 'value').additional_info))
     elif tp == 'OBJECT_INIT':
         node = ObjectInit(getlist(t))
-    elif tp == 'PLUS':
-        node = Plus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'MUL':
-        node = Mult(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'DIV':
-        node = Div(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'MIN':
-        node = Minus(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))    
-    elif tp == 'PROPERTY_INIT':
-        node = PropertyInit(from_tree(gettreeitem(t, '0')), from_tree(gettreeitem(t, '1')))
-    elif tp == 'RETURN':
-        valit = gettreeitem(t, 'value')
-        if not isinstance(valit, Symbol):
-            node = Return(from_tree(valit))
-        else:
-            node = Return(None)
-    elif tp == 'SCRIPT':
-        f = gettreeitem(t, 'funDecls')
-        if f.symbol == "dict":
-            func_decl = [from_tree(f),]
-        elif f.symbol == "list":
-            func_decl = [from_tree(x) for x in f.children]
-        else:
-            func_decl = []
-        
-        v = gettreeitem(t, 'varDecls')
-        if v.symbol == "dict":
-            var_decl = [from_tree(v),]
-        elif v.symbol == "list":
-            var_decl = [from_tree(x) for x in v.children]
-        else:
-            var_decl = []
-
-        node = Script(getlist(t), var_decl, func_decl)
-    elif tp == 'SEMICOLON':
-        expr = gettreeitem(t, 'expression')
-        if isinstance(expr, Symbol):
-            node = Semicolon()
-        else:
-            node = Semicolon(from_tree(expr))
     elif tp == 'STRING':
         node = String(gettreeitem(t, 'value').additional_info)
-    elif tp == 'THIS':
-        node = Identifier(gettreeitem(t, 'value').additional_info)
     elif tp == 'THROW':
         node = Throw(from_tree(gettreeitem(t, 'exception')))
     elif tp == 'TRY':
@@ -900,22 +877,10 @@ def from_tree(t):
         node = Typeof(from_tree(gettreeitem(t, '0')))
     elif tp == 'VAR':
         node = Vars(getlist(t))
-    elif tp == 'VOID':
-        node = Void(from_tree(gettreeitem(t, '0')))
     elif tp == 'WHILE':
         body = from_tree(gettreeitem(t, 'body'))
         condition = from_tree(gettreeitem(t, 'condition'))
         node = While(condition, body)
-    elif tp == 'TRUE':
-        node = Boolean(True)
-    elif tp == 'FALSE':
-        node = Boolean(False)
-    elif tp == 'NOT':
-        node = Not(from_tree(gettreeitem(t, '0')))
-    elif tp == 'UNARY_MINUS':
-        node = UMinus(from_tree(gettreeitem(t, '0')))
-    else:
-        raise NotImplementedError("Dont know how to handle %s" % tp)
     
     if tp == 'SCRIPT':
         start = 0

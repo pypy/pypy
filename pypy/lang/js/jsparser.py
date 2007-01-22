@@ -7,22 +7,24 @@
 import os
 import py
 import re
-from subprocess import Popen, PIPE, STDOUT
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.ebnfparse import Symbol
+
+DEBUG=False
 
 class JsSyntaxError(Exception):
     pass
 
 singlequote = re.compile(r"(?<!\\)'")
 def read_js_output(code_string):
-    print "------ got:"
-    print code_string
-    print "------ put:"
-    stripped_code = re.sub(r"\\",r"\\\\", code_string)
+    stripped_code = re.sub(r"\\(?!')",r"\\\\", code_string)
     stripped_code = stripped_code.replace("\n", "\\n")
     stripped_code = singlequote.sub(r"\'", stripped_code)
-    print stripped_code
+    if DEBUG:
+        print "------ got:"
+        print code_string
+        print "------ put:"
+        print stripped_code
     jsdir = py.path.local(__file__).dirpath().join("js")
     jsdefs = jsdir.join("jsdefs.js").read()
     jsparse = jsdir.join("jsparse.js").read()
@@ -41,6 +43,7 @@ def unquote(t):
     if isinstance(t, Symbol):
         if t.symbol == "QUOTED_STRING":
             t.additional_info = t.additional_info.strip("'")
+            t.additional_info = re.sub(r"\\'", r"'", t.additional_info)
     else:
         for i in t.children:
             unquote(i)
