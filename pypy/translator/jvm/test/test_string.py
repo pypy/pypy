@@ -20,4 +20,8 @@ class TestJvmString(JvmTest, oostring.BaseTestString):
         py.test.skip("JVM does not yet support ooparse_float")
 
     def test_getitem_exc(self):
-        py.test.skip("TODO: Appears to be a bug in test_rstr.py??")
+        # This test is supposed to crash in a system specific way;
+        # in our case an StringIndexOutOfBounds exception is thrown,
+        # but we don't bother to make runtest understand how to parse that,
+        # so we just skip the test.
+        py.test.skip("test fails in JVM specific way")

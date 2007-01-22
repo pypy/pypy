@@ -183,15 +183,6 @@ public class PyPy {
         return s.charAt(0);
     }
 
-    public static char ll_stritem_nonneg(String s, int idx) {
-        try {
-            return s.charAt(idx);
-        } catch (StringIndexOutOfBoundsException exc) {
-            throwIndexError();
-        }
-        throw new RuntimeException("Should not get here");
-    }
-
     // Used in testing:
 
     public static void dump(String text) {

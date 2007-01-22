@@ -89,6 +89,9 @@ built_in_methods = {
     (ootype.String.__class__, "ll_strlen"):
     jvmgen.Method.v(jString, "length", (), jInt),
     
+    (ootype.String.__class__, "ll_stritem_nonneg"):
+    jvmgen.Method.v(jString, "charAt", (jInt,), jChar),
+
     (ootype.String.__class__, "ll_startswith"):
     jvmgen.Method.v(jString, "startsWith", (jString,), jBool),
 
