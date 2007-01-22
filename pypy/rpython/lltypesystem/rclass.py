@@ -314,7 +314,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.lowleveltype = Ptr(self.object_type)
         self.gcflavor = gcflavor
 
-    def _setup_repr(self, llfields=None):
+    def _setup_repr(self, llfields=None, adtmeths=None):
         # NOTE: don't store mutable objects like the dicts below on 'self'
         #       before they are fully built, to avoid strange bugs in case
         #       of recursion where other code would uses these
@@ -353,8 +353,11 @@ class InstanceRepr(AbstractInstanceRepr):
                 llfields.append(('wrapper', Ptr(PyObject)))
 
             MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
+            if adtmeths is None:
+                adtmeths = {}
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
+                                   adtmeths=adtmeths,
                                    *llfields)
             self.object_type.become(object_type)
             allinstancefields.update(self.rbase.allinstancefields)
