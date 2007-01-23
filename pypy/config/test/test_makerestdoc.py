@@ -11,11 +11,7 @@ def checkrest(rest, filename):
     restcheck(tempfile)
     return tempfile.new(ext='.html').read()
 
-def test_simple():
-    descr = OptionDescription("foo", "doc", [
-            ChoiceOption("bar", "more doc", ["a", "b", "c"]),
-            OptionDescription("sub", "nope", [
-                ChoiceOption("subbar", "", ["d", "f"])])])
+def generate_html(descr):
     config = Config(descr)
     txt = descr.make_rest_doc().text()
     checkrest(txt, descr._name + ".txt")
@@ -26,3 +22,44 @@ def test_simple():
         txt = getattr(subconf._cfgimpl_descr, step).make_rest_doc(
                 prefix).text()
         checkrest(txt, fullpath + ".txt")
+
+def test_simple():
+    descr = OptionDescription("foo", "doc", [
+            ChoiceOption("bar", "more doc", ["a", "b", "c"]),
+            OptionDescription("sub", "nope", [
+                ChoiceOption("subbar", "", ["d", "f"]),
+                BoolOption("boolean", "this is a boolean", default=False,
+                           cmdline="-b --with-b")
+                ]),
+            StrOption("str", "string option!", default="strange"),
+            IntOption("int", "integer option", default=42),
+            FloatOption("float", "float option", default=py.std.math.pi),
+            ArbitraryOption("surprise", "special", defaultfactory=int),
+            ])
+    generate_html(descr)
+
+def test_choice_requires():
+    descr = OptionDescription("s0", "doc", [
+            BoolOption("b1", "", default=False),
+            BoolOption("b2", "", default=False),
+            BoolOption("b3", "", default=False),
+            ChoiceOption("bar", "more doc", ["a", "b", "c"],
+                         default="a",
+                         requires={"a": [("s0.b1", True),
+                                         ("s0.b2", False)],
+                                   "b": [("s0.b1", False)]})
+            ])
+    generate_html(descr)
+
+def test_bool_requires_suggests():
+    descr = OptionDescription("a0", "doc", [
+            BoolOption("B1", "", default=False),
+            BoolOption("B2", "", default=False,
+                       suggests=[("a0.B1", True)]),
+            BoolOption("B3", "", default=False,
+                       requires=[("a0.bar", "c"), ("a0.B2", True)]),
+            ChoiceOption("bar", "more doc", ["a", "b", "c"],
+                         default="a")])
+    generate_html(descr)
+
+

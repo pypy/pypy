@@ -4,7 +4,8 @@ from py.__.rest.rst import Directive
 
 from pypy.config.config import ChoiceOption, BoolOption, StrOption, IntOption
 from pypy.config.config import FloatOption, OptionDescription, Option, Config
-from pypy.config.config import DEFAULT_OPTION_NAME
+from pypy.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
+from pypy.config.config import _getnegation
 
 class __extend__(Option):
     def make_rest_doc(self, path=""):
@@ -15,6 +16,7 @@ class __extend__(Option):
         result = Rest(
             Title(fullpath, abovechar="=", belowchar="="),
             Directive("contents"),
+            Paragraph(Link("back to parent", path + ".html")),
             Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))
@@ -47,6 +49,76 @@ class __extend__(ChoiceOption):
                       for (opt, rval) in req]))
         if requirements:
             content.add(ListItem(Strong("requirements:"), *requirements))
+        return content
+
+class __extend__(BoolOption):
+    def make_rest_doc(self, path=""):
+        content = super(BoolOption, self).make_rest_doc(path)
+        if path:
+            fullpath = "%s.%s" % (path, self._name)
+        else:
+            fullpath = self._name
+        if self.negation and self.cmdline is not None:
+            if self.cmdline is DEFAULT_OPTION_NAME:
+                cmdline = '--%s' % (fullpath.replace('.', '-'),)
+            else:
+                cmdline = self.cmdline
+            neg_cmdline = ["--" + _getnegation(argname.lstrip("-"))
+                               for argname in cmdline.split()
+                                   if argname.startswith("--")][0]
+            content.add(ListItem(Strong("command-line for negation:"),
+                                 neg_cmdline))
+        content.add(ListItem(Strong("option type:"), "boolean option"))
+        if self.default is not None:
+            content.add(ListItem(Strong("default:"), str(self.default)))
+        if self._requires is not None:
+            requirements = [ListItem(Link(opt, opt + ".html"),
+                               "must be set to '%s'" % (rval, ))
+                                for (opt, rval) in self._requires]
+            if requirements:
+                content.add(ListItem(Strong("requirements:"), *requirements))
+        if self._suggests is not None:
+            suggestions = [ListItem(Link(opt, opt + ".html"),
+                              "should be set to '%s'" % (rval, ))
+                               for (opt, rval) in self._suggests]
+            if suggestions:
+                content.add(ListItem(Strong("suggestions:"), *suggestions))
+        return content
+
+class __extend__(IntOption):
+    def make_rest_doc(self, path=""):
+        content = super(IntOption, self).make_rest_doc(path)
+        content.add(ListItem(Strong("option type:"), "integer option"))
+        if self.default is not None:
+            content.add(ListItem(Strong("default:"), str(self.default)))
+        return content
+
+class __extend__(FloatOption):
+    def make_rest_doc(self, path=""):
+        content = super(FloatOption, self).make_rest_doc(path)
+        content.add(ListItem(Strong("option type:"), "float option"))
+        if self.default is not None:
+            content.add(ListItem(Strong("default:"), str(self.default)))
+        return content
+
+class __extend__(StrOption):
+    def make_rest_doc(self, path=""):
+        content = super(StrOption, self).make_rest_doc(path)
+        content.add(ListItem(Strong("option type:"), "string option"))
+        if self.default is not None:
+            content.add(ListItem(Strong("default:"), str(self.default)))
+        return content
+
+class __extend__(ArbitraryOption):
+    def make_rest_doc(self, path=""):
+        content = super(ArbitraryOption, self).make_rest_doc(path)
+        content.add(ListItem(Strong("option type:"),
+                             "arbitrary option (mostly internal)"))
+        if self.default is not None:
+            content.add(ListItem(Strong("default:"), str(self.default)))
+        elif self.defaultfactory is not None:
+            content.add(ListItem(Strong("factory for the default value:"),
+                                 str(self.defaultfactory)))
         return content
 
 class __extend__(OptionDescription):
