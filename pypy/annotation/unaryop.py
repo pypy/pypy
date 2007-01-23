@@ -525,10 +525,17 @@ class __extend__(SomeInstance):
             if isinstance(s_result, SomePBC):
                 s_result = ins.classdef.lookup_filter(s_result, attr)
             elif isinstance(s_result, SomeImpossibleValue):
-                ins.classdef.check_missing_attribute_update(attr)
-                if ins.classdef.classdesc.allslots is not None:
-                    if attr in ins.classdef.classdesc.allslots:
-                        raise HarmlesslyBlocked("getattr on a slot")
+                if ins.classdef.check_missing_attribute_update(attr):
+                    attrdef = ins.classdef.find_attribute(attr)
+                    attrdef.read_locations[position] = True
+                    s_result = attrdef.getvalue()
+                # blocking is harmless if the attribute is explicitly listed
+                # in the class or a parent class.
+                if isinstance(s_result, SomeImpossibleValue):
+                    for basedef in ins.classdef.getmro():
+                        if basedef.classdesc.allslots is not None:
+                            if attr in basedef.classdesc.allslots:
+                                raise HarmlesslyBlocked("getattr on a slot")
             return s_result
         return SomeObject()
     getattr.can_only_throw = []

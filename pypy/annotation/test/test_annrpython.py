@@ -2423,6 +2423,28 @@ class TestAnnotateTestCase:
                 from pypy.annotation.classdef import NoSuchSlotError
                 py.test.raises(NoSuchSlotError, a.build_types, fun, [int])
 
+    def test_slots_enforce_attrs(self):
+        class Superbase(object):
+            __slots__ = 'x'
+        class Base(Superbase):
+            pass
+        class A(Base):
+            pass
+        class B(Base):
+            pass
+        def fun(s):
+            if s is None:   # known not to be None in this test
+                o = B()
+                o.x = 12
+            elif len(s) > 5:
+                o = A()
+            else:
+                o = Base()
+            return o.x
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [str])
+        assert s == annmodel.s_ImpossibleValue   # but not blocked blocks
+
     def test_pbc_enforce_attrs(self):
         class F(object):
             _attrs_ = ['foo',]
