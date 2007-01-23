@@ -9,7 +9,7 @@ from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
-
+py.test.skip('WIP')
 def js_is_on_path():
     if py.path.local.sysfind("js") is None:
         py.test.skip("js binary not found")
