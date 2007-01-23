@@ -1,4 +1,3 @@
-
 import operator
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cachedtype, cast_base_ptr_to_instance
@@ -42,16 +41,16 @@ from pypy.rpython.lltypesystem.rvirtualizable import VABLEINFOPTR
 
 class StructTypeDesc(object):
     __metaclass__ = cachedtype
-    firstsubstructdesc = None
-    arrayfielddesc = None
-    alloctoken = None
-    varsizealloctoken = None
-    materialize = None
 
-    base_desc = None
-    info_desc = None
-    access_desc = None
-    gv_access = None
+    _attrs_ = """firstsubstructdesc arrayfielddesc
+                 alloctoken varsizealloctoken
+                 materialize
+                 base_desc info_desc access_desc
+                 gv_access
+                 redirected_fielddescs
+              """.split()
+
+    materialize = None
     
     def __init__(self, hrtyper, TYPE):
         RGenOp = hrtyper.RGenOp
@@ -358,7 +357,7 @@ class FrozenVirtualStruct(FrozenContainer):
 
 
 class VirtualStruct(VirtualContainer):
-    typedesc = None
+    __slots__ = "typedesc content_boxes ownbox".split()
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -366,7 +365,6 @@ class VirtualStruct(VirtualContainer):
         #self.ownbox = ... set in factory()
 
     def enter_block(self, incoming, memo):
-        assert self.typedesc is not None
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
@@ -375,7 +373,6 @@ class VirtualStruct(VirtualContainer):
 
     def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
-        assert typedesc is not None
         builder = jitstate.curbuilder
         boxes = self.content_boxes
         self.content_boxes = None
@@ -403,7 +400,6 @@ class VirtualStruct(VirtualContainer):
     def freeze(self, memo):
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
-        assert self.typedesc is not None
         result = contmemo[self] = FrozenVirtualStruct(self.typedesc)
         frozens = [box.freeze(memo) for box in self.content_boxes]
         result.fz_content_boxes = frozens
@@ -411,7 +407,6 @@ class VirtualStruct(VirtualContainer):
 
     def copy(self, memo):
         typedesc = self.typedesc
-        assert typedesc is not None
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
         result = contmemo[self] = typedesc.VStructCls(typedesc)
@@ -421,7 +416,6 @@ class VirtualStruct(VirtualContainer):
         return result
 
     def replace(self, memo):
-        assert self.typedesc is not None        
         contmemo = memo.containers
         assert self not in contmemo     # contmemo no longer used
         contmemo[self] = None
@@ -445,7 +439,6 @@ class VirtualStruct(VirtualContainer):
         except KeyError:
             pass
         typedesc = self.typedesc
-        assert typedesc is not None
         builder = jitstate.curbuilder
         gv_bitmask = builder.rgenop.genconst(1<<memo.bitcount)
         memo.bitcount += 1
@@ -483,7 +476,6 @@ class VirtualStruct(VirtualContainer):
         if self in memo.containers:
             return
         typedesc = self.typedesc
-        assert typedesc is not None
         builder = jitstate.curbuilder        
         memo.containers[self] = None
         bitmask = 1<<memo.bitcount
@@ -557,7 +549,6 @@ class VirtualizableStruct(VirtualStruct):
 
     def getgenvar(self, jitstate):
         typedesc = self.typedesc
-        assert typedesc is not None
         builder = jitstate.curbuilder
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is typedesc.gv_null:
@@ -591,7 +582,6 @@ class VirtualizableStruct(VirtualStruct):
             if self in memo.containers:
                 return
             base_desc = typedesc.base_desc
-            assert base_desc is not None
             base_token = base_desc.fieldtoken
             builder.genop_setfield(base_token, gv_outside, gv_base)
             # xxx aliasing
@@ -640,7 +630,6 @@ class VirtualizableStruct(VirtualStruct):
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is not typedesc.gv_null:
             base_desc = typedesc.base_desc
-            assert base_desc is not None
             base_token = typedesc.base_desc.fieldtoken
             info_token = typedesc.info_desc.fieldtoken
             access_token = typedesc.access_desc.fieldtoken
@@ -655,7 +644,6 @@ class VirtualizableStruct(VirtualStruct):
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is not typedesc.gv_null:
             info_desc = typedesc.info_desc
-            assert info_desc is not None
             if self in memo.containers:
                 return
             # xxx we can avoid traversing the full tree
