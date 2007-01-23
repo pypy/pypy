@@ -62,7 +62,8 @@ XY.become(lltype.GcStruct('xy',
                           ('vable_access', lltype.Ptr(XY_ACCESS)),
                           ('x', lltype.Signed),
                           ('y', lltype.Signed),
-                          hints = {'virtualizable': True}
+                          hints = {'virtualizable': True},
+                          adtmeths = {'ACCESS': XY_ACCESS},
               ))
 
 E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)),
@@ -77,7 +78,8 @@ XP.become(lltype.GcStruct('xp',
                           ('vable_access', lltype.Ptr(XP_ACCESS)),
                           ('x', lltype.Signed),
                           ('p', PS),
-                          hints = {'virtualizable': True}
+                          hints = {'virtualizable': True},
+                          adtmeths = {'ACCESS': XP_ACCESS},
               ))
 xp_get_x, xp_set_x = getset('x')
 xp_get_p, xp_set_p = getset('p')
@@ -101,7 +103,8 @@ PQ.become(lltype.GcStruct('pq',
                           ('vable_access', lltype.Ptr(PQ_ACCESS)),
                           ('p', PS),
                           ('q', PS),
-                          hints = {'virtualizable': True}
+                          hints = {'virtualizable': True},
+                          adtmeths = {'ACCESS': PQ_ACCESS},
               ))
 pq_get_p, pq_set_p = getset('p')
 pq_get_q, pq_set_q = getset('q')
@@ -675,6 +678,32 @@ class TestVirtualizableImplicit(PortalTest):
             return xy.x+xy.y
 
         def main(x, y):
+            xy = XY(x, y)
+            return f(xy)
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
+        assert res == 42
+        self.check_insns(getfield=0)
+
+    def test_simple_inheritance(self):
+
+        class X(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x):
+                self.x = x
+
+        class XY(X):
+
+            def __init__(self, x, y):
+                X.__init__(self, x)
+                self.y = y
+   
+        def f(xy):
+            return xy.x+xy.y
+
+        def main(x, y):
+            X(0)
             xy = XY(x, y)
             return f(xy)
 

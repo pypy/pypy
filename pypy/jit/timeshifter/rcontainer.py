@@ -51,8 +51,9 @@ class StructTypeDesc(object):
                  gv_access_is_null_ptr access_is_null_token
               """.split()
 
+    firstsubstructdesc = None
     materialize = None
-    
+   
     def __init__(self, hrtyper, TYPE):
         RGenOp = hrtyper.RGenOp
         self.TYPE = TYPE
@@ -106,56 +107,6 @@ class StructTypeDesc(object):
         self.null = self.PTRTYPE._defl()
         self.gv_null = RGenOp.constPrebuiltGlobal(self.null)
 
-        self.virtualizable = TYPE._hints.get('virtualizable', False)
-        if self.virtualizable:
-            self.VStructCls = VirtualizableStruct
-            self.base_desc = self.getfielddesc('vable_base')
-            self.info_desc = self.getfielddesc('vable_info')
-            self.access_desc = self.getfielddesc('vable_access')
-            ACCESS = TYPE.vable_access.TO
-            redirected_fields = ACCESS.redirected_fields
-            access = lltype.malloc(ACCESS, immortal=True)
-            self.gv_access = RGenOp.constPrebuiltGlobal(access)
-            annhelper = hrtyper.annhelper
-            j = 0
-            def make_get_field(T, j):
-                def get_field(struc):
-                    vable_info = struc.vable_info
-                    vable_info = cast_base_ptr_to_instance(VirtualInfo,
-                                                           vable_info)
-                    return vable_info.read_field(fielddesc,
-                                                 struc.vable_base, j)
-                return get_field
-            s_structtype = annmodel.lltype_to_annotation(self.PTRTYPE)
-            self.redirected_fielddescs = redirected_fieldescs = []
-            i = -1
-            for fielddesc in fielddescs:
-                i += 1
-                name = fielddesc.fieldname
-                if name not in redirected_fields:
-                   continue
-                redirected_fieldescs.append((fielddesc, i))
-                get_field = make_get_field(fielddesc, j)
-                j += 1
-                s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
-                get_field_ptr = annhelper.delayedfunction(get_field,
-                                                          [s_structtype],
-                                                          s_lltype,
-                                                          needtype = True)
-                setattr(access, 'get_'+name, get_field_ptr)
-            def access_is_null(struc):
-                assert not struc.vable_access
-            access_is_null_ptr = annhelper.delayedfunction(access_is_null,
-                                                           [s_structtype],
-                                                           annmodel.s_None,
-                                                           needtype = True)
-            self.gv_access_is_null_ptr = RGenOp.constPrebuiltGlobal(
-                                           access_is_null_ptr)
-            self.access_is_null_token =  RGenOp.sigToken(
-                                     lltype.typeOf(access_is_null_ptr).TO)
-
-        else:
-            self.VStructCls = VirtualStruct
 
         if self.immutable and self.noidentity:
             
@@ -169,6 +120,92 @@ class StructTypeDesc(object):
                 return rgenop.genconst(s)
 
             self.materialize = materialize
+
+        self.virtualizable = TYPE._hints.get('virtualizable', False)
+        if self.virtualizable:
+            self.VStructCls = VirtualizableStruct
+            self.base_desc = self.getfielddesc('vable_base')
+            self.info_desc = self.getfielddesc('vable_info')
+            self.access_desc = self.getfielddesc('vable_access')
+            ACCESS = TYPE.ACCESS
+            redirected_fields = ACCESS.redirected_fields
+            print self.PTRTYPE, redirected_fields
+            access = lltype.malloc(ACCESS, immortal=True)
+            self.gv_access = RGenOp.constPrebuiltGlobal(access)
+            TOPPTR = self.access_desc.PTRTYPE
+            s_structtype = annmodel.lltype_to_annotation(TOPPTR)
+            annhelper = hrtyper.annhelper
+            j = 0
+            def make_get_field(T, j):
+                def get_field(struc):
+                    vable_info = struc.vable_info
+                    vable_info = cast_base_ptr_to_instance(VirtualInfo,
+                                                           vable_info)
+                    return vable_info.read_field(fielddesc,
+                                                 struc.vable_base, j)
+                return get_field
+            
+            self.redirected_fielddescs = redirected_fieldescs = []
+            i = -1
+            my_redirected_names = []
+            self.my_redirected_getters = {}
+            for fielddesc in fielddescs:
+                i += 1
+                name = fielddesc.fieldname
+                if name not in redirected_fields:
+                    continue
+                redirected_fieldescs.append((fielddesc, i))
+                if fielddesc.PTRTYPE != self.PTRTYPE:
+                    continue
+                my_redirected_names.append(name)
+                get_field = make_get_field(fielddesc, j)
+                j += 1
+                s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
+                get_field_ptr = annhelper.delayedfunction(get_field,
+                                                          [s_structtype],
+                                                          s_lltype,
+                                                          needtype = True)
+                self.my_redirected_getters[name] = get_field_ptr
+
+            self.fill_access(access)
+
+            def access_is_null(struc):
+                assert not struc.vable_access
+            access_is_null_ptr = annhelper.delayedfunction(access_is_null,
+                                                           [s_structtype],
+                                                           annmodel.s_None,
+                                                           needtype = True)
+            self.gv_access_is_null_ptr = RGenOp.constPrebuiltGlobal(
+                                           access_is_null_ptr)
+            self.access_is_null_token =  RGenOp.sigToken(
+                                     lltype.typeOf(access_is_null_ptr).TO)
+
+            my_redirected_names = unrolling_iterable(my_redirected_names)
+
+            if TOPPTR == self.PTRTYPE:
+                _super_collect = None
+            else:
+                _super_collect = self.firstsubstructdesc._collect_residual_args
+
+            def _collect_residual_args(v): 
+                if _super_collect is None:
+                    assert not v.vable_access  # xxx need to use access ?
+                    t = ()
+                else:
+                    t = _super_collect(v.super)
+                for name in my_redirected_names:
+                    t = t + (getattr(v, name),)
+                return t
+
+            self._collect_residual_args = _collect_residual_args
+
+            def collect_residual_args(v): 
+                t = (v,) + _collect_residual_args(v)
+                return t
+
+            self.collect_residual_args = collect_residual_args
+        else:
+            self.VStructCls = VirtualStruct
 
         # xxx
         self.gv_make_vinfo_ptr = hrtyper.gv_make_vinfo_ptr
@@ -189,9 +226,20 @@ class StructTypeDesc(object):
 
         self.gv_vinfo_read_forced_ptr = hrtyper.gv_vinfo_read_forced_ptr
         self.vinfo_read_forced_token = hrtyper.vinfo_read_forced_token
+
+    def fill_access(self, access):
+        firstsubstructdesc = self.firstsubstructdesc
+        if (firstsubstructdesc is not None and 
+            firstsubstructdesc.virtualizable):
+            firstsubstructdesc.fill_access(access.parent)
+        for name, get_field_ptr in self.my_redirected_getters.iteritems():
+            setattr(access, 'get_'+name, get_field_ptr)
         
     def getfielddesc(self, name):
-        return self.fielddesc_by_name[name]
+        try:
+            return self.fielddesc_by_name[name]
+        except KeyError:
+            return self.firstsubstructdesc.getfielddesc(name)
 
     def factory(self):
         vstruct = self.VStructCls(self)

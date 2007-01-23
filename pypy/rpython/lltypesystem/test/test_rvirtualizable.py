@@ -118,7 +118,7 @@ def test_get_accessor_inheritance():
         return value
 
     def getv1(vinst):
-        value = vinst.inst_v1
+        value = lltype.normalizeptr(vinst).inst_v1
         witness.append(value)
         return value    
 

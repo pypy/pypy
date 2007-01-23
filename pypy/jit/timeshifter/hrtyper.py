@@ -1634,6 +1634,13 @@ class RedRepr(Repr):
 class RedStructRepr(RedRepr):
     typedesc = None
 
+    def residual_args_collector(self):
+        typedesc = self.gettypedesc()
+        if typedesc.virtualizable:
+            return typedesc.collect_residual_args
+        else:
+            return self.collect_residual_args
+
     def build_portal_arg_helpers(self):
         T = self.original_concretetype.TO
         if not T._hints.get('virtualizable', False):
@@ -1643,14 +1650,6 @@ class RedStructRepr(RedRepr):
         typedesc = self.gettypedesc()
         names = unrolling_iterable([(fielddesc.fieldname, j)
                                     for (fielddesc, j) in typedesc.redirected_fielddescs])
-
-        def collect_residual_args(v): 
-            t = (v,)
-            assert not v.vable_access
-            for name, _ in names:
-                t = t + (getattr(v, name),) # xxx need to use access ?
-            return t
-        self.collect_residual_args = collect_residual_args
 
         TYPE = self.original_concretetype
         kind = self.hrtyper.RGenOp.kindToken(TYPE)
@@ -1693,7 +1692,7 @@ class RedStructRepr(RedRepr):
             getredrepr = self.hrtyper.getredrepr
             typedesc = self.gettypedesc()
             for fielddesc, _ in typedesc.redirected_fielddescs:
-                FIELDTYPE = getattr(T, fielddesc.fieldname)
+                FIELDTYPE = fielddesc.RESTYPE
                 argtypes += getredrepr(FIELDTYPE).residual_argtypes()
         return argtypes
 

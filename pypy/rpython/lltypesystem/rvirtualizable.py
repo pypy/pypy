@@ -38,15 +38,17 @@ class VirtualizableInstanceRepr(InstanceRepr):
                 raise TyperError("virtulizable class cannot have"
                                  " non-virtualizable base class with instance"
                                  " fields: %r" % self.classdef)
+            redirected_fields = []
+
         else:
             accessors.append(('parent', rbase.ACCESS))
+            redirected_fields = list(rbase.ACCESS.redirected_fields)
         name = self.lowleveltype.TO._name
-        SELF = self.lowleveltype
-        redirected_fields = []
+        TOPPTR = self.get_top_virtualizable_type()
         for name, (mangled_name, r) in self.fields.items():
             T = r.lowleveltype
-            GETTER = lltype.Ptr(lltype.FuncType([SELF], T))
-            SETTER = lltype.Ptr(lltype.FuncType([SELF, T], lltype.Void))
+            GETTER = lltype.Ptr(lltype.FuncType([TOPPTR], T))
+            SETTER = lltype.Ptr(lltype.FuncType([TOPPTR, T], lltype.Void))
             accessors.append(('get_'+mangled_name, GETTER))
             accessors.append(('set_'+mangled_name, SETTER))
             redirected_fields.append(mangled_name)
@@ -93,7 +95,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
             access = top.vable_access
             if access:
                 return getattr(lltype.cast_pointer(ACCESSPTR, access),
-                               'get_'+name)(inst)
+                               'get_'+name)(top)
             else:
                 return getattr(inst, name)
         ll_getter.oopspec = 'vable.get_%s(inst)' % name
@@ -112,7 +114,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
             access = top.vable_access
             if access:
                 return getattr(lltype.cast_pointer(ACCESSPTR, access),
-                               'set_'+name)(inst, value)
+                               'set_'+name)(top, value)
             else:
                 return setattr(inst, name, value)
         ll_setter.oopspec = 'vable.set_%s(inst, value)' % name
