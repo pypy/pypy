@@ -214,8 +214,6 @@ class Option(object):
                                    callback=callback, metavar=self._name.upper(),
                                    *argnames)
 
-    def make_rest_docs(self):
-        pass
 
 class ConfigUpdate(object):
 
