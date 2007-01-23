@@ -590,7 +590,10 @@ class Bookkeeper:
 
         if isinstance(s_result, SomeImpossibleValue):
             for desc in descs:
-                attrs = desc.read_attribute('_attrs_')
+                try:
+                    attrs = desc.read_attribute('_attrs_')
+                except AttributeError:
+                    continue
                 if isinstance(attrs, Constant):
                     attrs = attrs.value
                 if attr in attrs:
