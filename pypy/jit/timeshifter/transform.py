@@ -489,6 +489,8 @@ class HintGraphTransformer(object):
             fnobj = c_func.value._obj
             if (hasattr(fnobj._callable, 'oopspec') and
                 self.hannotator.policy.oopspec):
+                if fnobj._callable.oopspec.startswith('vable.'):
+                    return 'vable'
                 return 'oopspec'
 
         for v in spaceop.args:
@@ -646,6 +648,22 @@ class HintGraphTransformer(object):
         assert op.opname == 'direct_call'
         op.opname = 'oopspec_call'
 
+    def handle_vable_call(self, block, pos):
+        op = block.operations[pos]
+        assert op.opname == 'direct_call'
+        oopspec = op.args[0].value._obj._callable.oopspec
+        name, _ = oopspec.split('(')
+        kind, name = name.split('_', 1)
+
+        if kind == 'vable.get':
+            opname = 'getfield'
+        else:
+            assert kind == 'vable.set'
+            opname = 'setfield'
+        args = op.args[1:]
+        args.insert(1, Constant(name, lltype.Void))
+        block.operations[pos] = SpaceOperation(opname, args, op.result)
+        
     def handle_green_call(self, block, pos):
         # green-returning call, for now (XXX) we assume it's an
         # all-green function that we can just call

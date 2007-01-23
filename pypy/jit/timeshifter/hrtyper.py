@@ -795,11 +795,7 @@ class HintRTyper(RPythonTyper):
         # virtualizable access read
         PTRTYPE = originalconcretetype(hop.args_s[0])
         if PTRTYPE.TO._hints.get('virtualizable', False):
-            # xxx optimisation: do this folding already at hint-annotation time!
-            if hop.args_v[1].value == 'vable_access':
-                ACCESSPTR = PTRTYPE.TO.vable_access
-                access_repr = self.getredrepr(ACCESSPTR)
-                return hop.inputconst(access_repr, lltype.nullptr(ACCESSPTR.TO))
+            assert hop.args_v[1].value != 'vable_access'
 
         # non virtual case                
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),

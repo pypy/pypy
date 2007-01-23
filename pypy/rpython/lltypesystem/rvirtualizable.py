@@ -17,6 +17,8 @@ class VirtualizableInstanceRepr(InstanceRepr):
             self.top_of_virtualizable_hierarchy = True
         else:
             self.top_of_virtualizable_hierarchy = False
+        self._setters = {}
+        self._getters = {}
 
 
     def _setup_repr(self):
@@ -79,11 +81,44 @@ class VirtualizableInstanceRepr(InstanceRepr):
         self.set_vable(llops, vptr)
         return vptr
 
-    def get_namedesc(self, mangled_name):
+    def get_getter(self, name):
+        try:
+            return self._getters[name]
+        except KeyError:
+            pass
         TOPPTR = self.get_top_virtualizable_type()
-        namedesc = NameDesc(mangled_name, TOPPTR, lltype.Ptr(self.ACCESS))
-        return inputconst(lltype.Void, namedesc)
-        
+        ACCESSPTR =  lltype.Ptr(self.ACCESS)
+        def ll_getter(inst):
+            top = lltype.cast_pointer(TOPPTR, inst)
+            access = top.vable_access
+            if access:
+                return getattr(lltype.cast_pointer(ACCESSPTR, access),
+                               'get_'+name)(inst)
+            else:
+                return getattr(inst, name)
+        ll_getter.oopspec = 'vable.get_%s(inst)' % name
+        self._getters[name] = ll_getter
+        return ll_getter
+
+    def get_setter(self, name):
+        try:
+            return self._setters[name]
+        except KeyError:
+            pass
+        TOPPTR = self.get_top_virtualizable_type()
+        ACCESSPTR =  lltype.Ptr(self.ACCESS)
+        def ll_setter(inst, value):
+            top = lltype.cast_pointer(TOPPTR, inst)
+            access = top.vable_access
+            if access:
+                return getattr(lltype.cast_pointer(ACCESSPTR, access),
+                               'set_'+name)(inst, value)
+            else:
+                return setattr(inst, name, value)
+        ll_setter.oopspec = 'vable.set_%s(inst, value)' % name
+        self._setters[name] = ll_setter
+        return ll_setter
+   
 
     def getfield(self, vinst, attr, llops, force_cast=False):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
@@ -91,8 +126,8 @@ class VirtualizableInstanceRepr(InstanceRepr):
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            cname = self.get_namedesc(mangled_name)
-            return llops.gendirectcall(ll_access_get, vinst, cname)
+            ll_getter = self.get_getter(mangled_name)
+            return llops.gendirectcall(ll_getter, vinst)
         else:
             return InstanceRepr.getfield(self, vinst, attr, llops, force_cast)
 
@@ -102,40 +137,8 @@ class VirtualizableInstanceRepr(InstanceRepr):
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
-            cname = self.get_namedesc(mangled_name)                
-            llops.gendirectcall(ll_access_set, vinst, cname, vvalue)
+            ll_setter = self.get_setter(mangled_name)                
+            llops.gendirectcall(ll_setter, vinst, vvalue)
         else:
             InstanceRepr.setfield(self, vinst, attr, vvalue, llops, force_cast,
                                   opname)
-            
-class NameDesc(object):
-    __metaclass__ = cachedtype
-    
-    def __init__(self, name, TOPPTR, ACCESSPTR):
-        self.name = name
-        self.TOPPTR = TOPPTR
-        self.ACCESSPTR = ACCESSPTR
-
-    def _freeze_(self):
-        return True
-
-
-def ll_access_get(vinst, namedesc):
-    name = namedesc.name
-    top = lltype.cast_pointer(namedesc.TOPPTR, vinst)
-    access = top.vable_access
-    if access:
-        return getattr(lltype.cast_pointer(namedesc.ACCESSPTR, access),
-                       'get_'+name)(vinst)
-    else:
-        return getattr(vinst, name)
-
-def ll_access_set(vinst, namedesc, value):
-    name = namedesc.name
-    top = lltype.cast_pointer(namedesc.TOPPTR, vinst)
-    access = top.vable_access    
-    if access:
-        getattr(lltype.cast_pointer(namedesc.ACCESSPTR, access),
-                'set_'+name)(vinst, value)
-    else:
-        setattr(vinst, name, value)

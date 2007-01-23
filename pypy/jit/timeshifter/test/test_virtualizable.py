@@ -1,5 +1,5 @@
 from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
-from pypy.jit.timeshifter.test.test_portal import PortalTest, P_NOVIRTUAL
+from pypy.jit.timeshifter.test.test_portal import PortalTest, P_OOPSPEC
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.timeshifter.rcontainer import VABLEINFOPTR
 from pypy.rlib.objectmodel import hint
@@ -14,6 +14,23 @@ GETTER = lambda STRUC: lltype.Ptr(lltype.FuncType([lltype.Ptr(STRUC)],
 SETTER = lambda STRUC: lltype.Ptr(lltype.FuncType([lltype.Ptr(STRUC),
                                                   lltype.Signed],
                                                  lltype.Void))
+
+def getset(name):
+    def get(obj):
+        access = obj.vable_access
+        if access:
+            return getattr(access, 'get_'+name)(obj)
+        else:
+            return getattr(obj, name)
+    get.oopspec = 'vable.get_%s(obj)' % name
+    def set(obj, value):
+        access = obj.vable_access
+        if access:
+            return getattr(access, 'set_'+name)(obj, value)
+        else:
+            return setattr(obj, name, value)
+    set.oopspec = 'vable.set_%s(obj, value)' % name
+    return get, set
 
 XP = lltype.GcForwardReference()
 PGETTER = lambda XP: lltype.Ptr(lltype.FuncType([lltype.Ptr(XP)], PS))
@@ -50,6 +67,9 @@ XY.become(lltype.GcStruct('xy',
 
 E = lltype.GcStruct('e', ('xy', lltype.Ptr(XY)),
                          ('w',  lltype.Signed))
+xy_get_x, xy_set_x = getset('x')
+xy_get_y, xy_set_y = getset('y')
+
 
 XP.become(lltype.GcStruct('xp',
                           ('vable_base', llmemory.Address),
@@ -59,6 +79,8 @@ XP.become(lltype.GcStruct('xp',
                           ('p', PS),
                           hints = {'virtualizable': True}
               ))
+xp_get_x, xp_set_x = getset('x')
+xp_get_p, xp_set_p = getset('p')
 
 E2 = lltype.GcStruct('e', ('xp', lltype.Ptr(XP)),
                          ('w',  lltype.Signed))
@@ -81,25 +103,32 @@ PQ.become(lltype.GcStruct('pq',
                           ('q', PS),
                           hints = {'virtualizable': True}
               ))
+pq_get_p, pq_set_p = getset('p')
+pq_get_q, pq_set_q = getset('q')
 
 E3 = lltype.GcStruct('e', ('pq', lltype.Ptr(PQ)),
                          ('w',  lltype.Signed))
 
-class TestVirtualizableExplict(PortalTest):
+
+
+class StopAtGPolicy(HintAnnotatorPolicy):
+    def __init__(self):
+        HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
+                                     oopspec=True)
+
+    def look_inside_graph(self, graph):
+        if graph.name == 'g':
+            return False
+        return True
+
+
+class TestVirtualizableExplicit(PortalTest):
 
     def test_simple(self):
    
         def f(xy):
-            xy_access = xy.vable_access
-            if xy_access:
-                x = xy_access.get_x(xy)
-            else:
-                x = xy.x
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
             return x+y
 
         def main(x, y):
@@ -109,7 +138,7 @@ class TestVirtualizableExplict(PortalTest):
             xy.y = y
             return f(xy)
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
         residual_graph = self.get_residual_graph()
@@ -120,21 +149,9 @@ class TestVirtualizableExplict(PortalTest):
     def test_simple_set(self):
    
         def f(xy):
-            xy_access = xy.vable_access
-            if xy_access:
-                x = xy_access.get_x(xy)
-            else:
-                x = xy.x
-            xy_access = xy.vable_access
-            if xy_access:
-                xy_access.set_y(xy, 1)
-            else:
-                xy.y = 1
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
+            x = xy_get_x(xy)
+            xy_set_y(xy, 1)
+            y = xy_get_y(xy)
             return x+y
 
         def main(x, y):
@@ -144,7 +161,7 @@ class TestVirtualizableExplict(PortalTest):
             xy.y = y
             return f(xy)
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 21
         self.check_insns(getfield=0)
         residual_graph = self.get_residual_graph()
@@ -153,24 +170,12 @@ class TestVirtualizableExplict(PortalTest):
                 [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_set_effect(self):
-   
+
         def f(xy):
-            xy_access = xy.vable_access
-            if xy_access:
-                x = xy_access.get_x(xy)
-            else:
-                x = xy.x
-            xy_access = xy.vable_access
-            if xy_access:
-                xy_access.set_y(xy, 3)
-            else:
-                xy.y = 3
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
-            return x+y
+           x = xy_get_x(xy)
+           xy_set_y(xy, 3)
+           y = xy_get_y(xy)
+           return x+y
 
         def main(x, y):
             xy = lltype.malloc(XY)
@@ -180,7 +185,7 @@ class TestVirtualizableExplict(PortalTest):
             v = f(xy)
             return v + xy.y
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 26
         self.check_insns(getfield=0)
         residual_graph = self.get_residual_graph()
@@ -191,11 +196,7 @@ class TestVirtualizableExplict(PortalTest):
     def test_simple_escape(self):
    
         def f(e, xy):
-            xy_access = xy.vable_access
-            if xy_access:
-                xy_access.set_y(xy, 3)
-            else:
-                xy.y = 3
+            xy_set_y(xy, 3)
             e.xy = xy
             return 0
 
@@ -208,7 +209,7 @@ class TestVirtualizableExplict(PortalTest):
             f(e, xy)
             return e.xy.x+e.xy.y
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 23
         self.check_insns(getfield=0)
         residual_graph = self.get_residual_graph()
@@ -218,16 +219,8 @@ class TestVirtualizableExplict(PortalTest):
 
     def test_simple_return_it(self):
         def f(which, xy1, xy2):
-            xy1_access = xy1.vable_access
-            if xy1_access:
-                xy1_access.set_y(xy1, 3)
-            else:
-                xy1.y = 3
-            xy2_access = xy2.vable_access
-            if xy2_access:
-                xy2_access.set_y(xy2, 7)
-            else:
-                xy2.y = 7
+            xy_set_y(xy1, 3)
+            xy_set_y(xy2, 7)
             if which == 1:
                 return xy1
             else:
@@ -247,7 +240,7 @@ class TestVirtualizableExplict(PortalTest):
             return xy.x+xy.y
 
         res = self.timeshift_from_portal(main, f, [1, 20, 22],
-                                         policy=P_NOVIRTUAL)
+                                         policy=P_OOPSPEC)
         assert res == 23
         self.check_insns(getfield=0)
 
@@ -258,22 +251,14 @@ class TestVirtualizableExplict(PortalTest):
             xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
-            xy_access = xy.vable_access
-            if xy_access:
-                x = xy_access.get_x(xy)
-            else:
-                x = xy.x
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
             return x+y
 
         def main(x, y):
             return f(x, y)
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
 
@@ -284,39 +269,23 @@ class TestVirtualizableExplict(PortalTest):
             xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
-            xy_access = xy.vable_access
-            if xy_access:
-                x = xy_access.get_x(xy)
-            else:
-                x = xy.x
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)            
             return xy
 
         def main(x, y):
             xy = f(x, y)
             return xy.x+xy.y
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
 
     def test_simple_with_struct(self):
    
         def f(xp):
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
+            x = xp_get_x(xp)
+            p = xp_get_p(xp)
             return x+p.a+p.b
 
         def main(x, a, b):
@@ -330,27 +299,16 @@ class TestVirtualizableExplict(PortalTest):
             return f(xp)
 
         res = self.timeshift_from_portal(main, f, [20, 10, 12],
-                                         policy=P_NOVIRTUAL)
+                                         policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=2)    
 
     def test_simple_with_setting_struct(self):
    
         def f(xp, s):
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
+            xp_set_p(xp, s)
+            x = xp_get_x(xp)
+            p = xp_get_p(xp)
             p.b = p.b*2
             return x+p.a+p.b
 
@@ -365,7 +323,7 @@ class TestVirtualizableExplict(PortalTest):
             return v+xp.p.b
 
         res = self.timeshift_from_portal(main, f, [20, 10, 3],
-                                         policy=P_NOVIRTUAL)
+                                         policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=3)
 
@@ -374,22 +332,11 @@ class TestVirtualizableExplict(PortalTest):
         def f(xp, a, b):
             s = lltype.malloc(S)
             s.a = a
-            s.b = b            
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
+            s.b = b
+            xp_set_p(xp, s)            
+            p = xp_get_p(xp)
             p.b = p.b*2
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
+            x = xp_get_x(xp)
             return x+p.a+p.b
 
         def main(x, a, b):
@@ -400,9 +347,9 @@ class TestVirtualizableExplict(PortalTest):
             return v+xp.p.b
 
         res = self.timeshift_from_portal(main, f, [20, 10, 3],
-                                         policy=P_NOVIRTUAL)
+                                         policy=P_OOPSPEC)
         assert res == 42
-        self.check_insns(getfield=2, malloc=1)
+        self.check_insns(getfield=0, malloc=1)
 
 
     def test_simple_constr_with_setting_new_struct(self):
@@ -414,21 +361,10 @@ class TestVirtualizableExplict(PortalTest):
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
+            xp_set_p(xp, s)            
+            p = xp_get_p(xp)
             p.b = p.b*2
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
+            x = xp_get_x(xp)
             return xp
 
         def main(x, a, b):
@@ -436,7 +372,7 @@ class TestVirtualizableExplict(PortalTest):
             return xp.x+xp.p.a+xp.p.b+xp.p.b
 
         res = self.timeshift_from_portal(main, f, [20, 10, 3],
-                                         policy=P_NOVIRTUAL)
+                                         policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
 
@@ -444,12 +380,8 @@ class TestVirtualizableExplict(PortalTest):
    
         def f(e):
             xy = e.xy
-            xy_access = xy.vable_access
-            if xy_access:
-                xy_access.set_y(xy, 3)
-            else:
-                xy.y = 3
-            return xy.x*2
+            xy_set_y(xy, 3)
+            return xy_get_x(xy)*2
 
         def main(x, y):
             xy = lltype.malloc(XY)
@@ -461,7 +393,7 @@ class TestVirtualizableExplict(PortalTest):
             v = f(e)
             return v + e.xy.x+e.xy.y
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 63
         self.check_insns(getfield=3)
 
@@ -474,51 +406,31 @@ class TestVirtualizableExplict(PortalTest):
             xy.y = y
             e = lltype.malloc(E)
             e.xy = xy
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
-            xy_access = xy.vable_access
+            y = xy_get_y(xy)
             newy = 2*y
-            if xy_access:
-                xy_access.set_y(xy, newy)
-            else:
-                xy.y = newy
+            xy_set_y(xy, newy)
             return e
 
         def main(x, y):
             e = f(x, y)
             return e.xy.x+e.xy.y
 
-        res = self.timeshift_from_portal(main, f, [20, 11], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 11], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
 
     def test_late_residual_red_call(self):
         def g(e):
             xy = e.xy
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
+            y = xy_get_y(xy)
             e.w = y
 
         def f(e):
             hint(None, global_merge_point=True)
             xy = e.xy
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
-            xy_access = xy.vable_access
+            y = xy_get_y(xy)
             newy = 2*y
-            if xy_access:
-                xy_access.set_y(xy, newy)
-            else:
-                xy.y = newy
+            xy_set_y(xy, newy)
             g(e)
             return 0
             
@@ -532,45 +444,22 @@ class TestVirtualizableExplict(PortalTest):
             f(e)
             return e.w
 
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
         res = self.timeshift_from_portal(main, f, [0, 21],
                                          policy=StopAtGPolicy())
         assert res == 42
 
     def test_residual_red_call(self):
-        
         def g(e):
             xy = e.xy
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
-            e.w = y
+            y = xy_get_y(xy)
+            e.w = y        
 
         def f(e):
             hint(None, global_merge_point=True)
             xy = e.xy
-            xy_access = xy.vable_access
-            if xy_access:
-                y = xy_access.get_y(xy)
-            else:
-                y = xy.y
-            xy_access = xy.vable_access
+            y = xy_get_y(xy)
             newy = 2*y
-            if xy_access:
-                xy_access.set_y(xy, newy)
-            else:
-                xy.y = newy
+            xy_set_y(xy, newy)
             g(e)
             return xy.x
             
@@ -584,16 +473,6 @@ class TestVirtualizableExplict(PortalTest):
             v = f(e)
             return v+e.w
 
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
         res = self.timeshift_from_portal(main, f, [2, 20],
                                          policy=StopAtGPolicy())
         assert res == 42
@@ -602,16 +481,8 @@ class TestVirtualizableExplict(PortalTest):
 
         def g(e):
             xp = e.xp
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
+            p = xp_get_p(xp)
+            x = xp_get_x(xp)
                 
             e.w = p.a + p.b + x
 
@@ -620,25 +491,13 @@ class TestVirtualizableExplict(PortalTest):
             xp = e.xp
             s = lltype.malloc(S)
             s.a = a
-            s.b = b            
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            xp_access = xp.vable_access
-            
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
-            xp_access = xp.vable_access
+            s.b = b
+
+            xp_set_p(xp, s)
+
+            x = xp_get_x(xp)
             newx = 2*x
-            if xp_access:
-                xp_access.set_x(xp, newx)
-            else:
-                xp.x = newx
+            xp_set_x(xp, newx)
             g(e)            
             return xp.x
             
@@ -652,32 +511,15 @@ class TestVirtualizableExplict(PortalTest):
             f(e, a, b)
             return e.w
 
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 42
 
     def test_force_multiple_reads_residual_red_call(self):
-        def get_p(xp):
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
-            return p
         def g(e):
             xp = e.xp
-            p1 = get_p(xp)
-            p2 = get_p(xp)
+            p1 = xp_get_p(xp)
+            p2 = xp_get_p(xp)
             e.w = int(p1 == p2)
 
         def f(e, a, b):
@@ -686,24 +528,11 @@ class TestVirtualizableExplict(PortalTest):
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            xp_access = xp.vable_access
+            xp_set_p(xp, s)
             
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
-            xp_access = xp.vable_access
+            x = xp_get_x(xp)
             newx = 2*x
-            if xp_access:
-                xp_access.set_x(xp, newx)
-            else:
-                xp.x = newx
+            xp_set_x(xp, newx)
             g(e)            
             return xp.x
             
@@ -717,41 +546,17 @@ class TestVirtualizableExplict(PortalTest):
             f(e, a, b)
             return e.w
 
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 1
 
 
     def test_force_unaliased_residual_red_call(self):
-        def get_p(pq):
-            pq_access = pq.vable_access
-            if pq_access:
-                p = pq_access.get_p(pq)
-            else:
-                p = pq.p
-            return p
-        def get_q(pq):
-            pq_access = pq.vable_access
-            if pq_access:
-                q = pq_access.get_q(pq)
-            else:
-                q = pq.q
-            return q
 
         def g(e):
             pq = e.pq
-            p = get_p(pq)
-            q = get_q(pq)
+            p = pq_get_p(pq)
+            q = pq_get_q(pq)
             e.w = int(p != q)
 
         def f(e, a, b):
@@ -759,21 +564,12 @@ class TestVirtualizableExplict(PortalTest):
             pq = e.pq
             s = lltype.malloc(S)
             s.a = a
-            s.b = b            
-            pq_access = pq.vable_access
-            if pq_access:
-                pq_access.set_p(pq, s)
-            else:
-                pq.p = s
+            s.b = b
+            pq_set_p(pq, s)
             s = lltype.malloc(S)
             s.a = a
             s.b = b            
-            pq_access = pq.vable_access
-            if pq_access:
-                pq_access.set_q(pq, s)
-            else:
-                pq.q = s
-            
+            pq_set_q(pq, s)
             g(e)            
             return pq.p.a
             
@@ -788,40 +584,16 @@ class TestVirtualizableExplict(PortalTest):
             f(e, a, b)
             return e.w
 
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
         assert res == 1
 
     def test_force_aliased_residual_red_call(self):
-        def get_p(pq):
-            pq_access = pq.vable_access
-            if pq_access:
-                p = pq_access.get_p(pq)
-            else:
-                p = pq.p
-            return p
-        def get_q(pq):
-            pq_access = pq.vable_access
-            if pq_access:
-                q = pq_access.get_q(pq)
-            else:
-                q = pq.q
-            return q
 
         def g(e):
             pq = e.pq
-            p = get_p(pq)
-            q = get_q(pq)
+            p = pq_get_p(pq)
+            q = pq_get_q(pq)
             e.w = int(p == q)
 
         def f(e, a, b):
@@ -829,22 +601,12 @@ class TestVirtualizableExplict(PortalTest):
             pq = e.pq
             s = lltype.malloc(S)
             s.a = a
-            s.b = b            
-            pq_access = pq.vable_access
-            if pq_access:
-                pq_access.set_p(pq, s)
-            else:
-                pq.p = s
-            pq_access = pq.vable_access
-            if pq_access:
-                pq_access.set_q(pq, s)
-            else:
-                pq.q = s
-            
+            s.b = b
+            pq_set_p(pq, s)
+            pq_set_q(pq, s)
             g(e)            
             return pq.p.a
-            
-        
+                    
         def main(a, b, x):
             pq = lltype.malloc(PQ)
             pq.vable_access = lltype.nullptr(PQ_ACCESS)
@@ -854,16 +616,6 @@ class TestVirtualizableExplict(PortalTest):
             e.pq = pq
             f(e, a, b)
             return e.w
-
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
@@ -872,16 +624,8 @@ class TestVirtualizableExplict(PortalTest):
     def test_force_in_residual_red_call_with_more_use(self):
         def g(e):
             xp = e.xp
-            xp_access = xp.vable_access
-            if xp_access:
-                p = xp_access.get_p(xp)
-            else:
-                p = xp.p
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x                
+            p = xp_get_p(xp)
+            x = xp_get_x(xp)
             e.w = p.a + p.b + x
             p.b, p.a = p.a, p.b
 
@@ -890,25 +634,12 @@ class TestVirtualizableExplict(PortalTest):
             xp = e.xp
             s = lltype.malloc(S)
             s.a = a
-            s.b = b            
-            xp_access = xp.vable_access
-            if xp_access:
-                xp_access.set_p(xp, s)
-            else:
-                xp.p = s
-            xp_access = xp.vable_access
-            
-            xp_access = xp.vable_access
-            if xp_access:
-                x = xp_access.get_x(xp)
-            else:
-                x = xp.x
-            xp_access = xp.vable_access
+            s.b = b
+            xp_set_p(xp, s)
+
+            x = xp_get_x(xp)
             newx = 2*x
-            if xp_access:
-                xp_access.set_x(xp, newx)
-            else:
-                xp.x = newx
+            xp_set_x(xp, newx)
             g(e)
             s.a = s.a*7
             s.b = s.b*5
@@ -923,16 +654,6 @@ class TestVirtualizableExplict(PortalTest):
             e.xp = xp
             f(e, a, b)
             return e.w + xp.p.a + xp.p.b
-
-
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            def __init__(self):
-                HintAnnotatorPolicy.__init__(self, novirtualcontainer=True)
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
                                          policy=StopAtGPolicy())
@@ -957,6 +678,6 @@ class TestVirtualizableImplicit(PortalTest):
             xy = XY(x, y)
             return f(xy)
 
-        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
