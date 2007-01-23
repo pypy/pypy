@@ -689,6 +689,8 @@ Event._methods = {
     'stopPropagation': MethodDesc([]),
 }
 
+KeyEvent._methods = Event._methods.copy()
+
 KeyEvent._fields = Event._fields.copy()
 KeyEvent._fields.update({
     'keyCode' : int,
