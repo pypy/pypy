@@ -2423,6 +2423,28 @@ class TestAnnotateTestCase:
                 from pypy.annotation.classdef import NoSuchSlotError
                 py.test.raises(NoSuchSlotError, a.build_types, fun, [int])
 
+    def test_pbc_enforce_attrs(self):
+        class F(object):
+            _attrs_ = ['foo',]
+
+            def _freeze_(self):
+                return True
+
+        p1 = F()
+        p2 = F()
+
+        def g(): pass
+
+        def f(x):
+            if x:
+                p = p1
+            else:
+                p = p2
+            g()
+            return p.foo
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [bool])
 
     def test_float_cmp(self):
         def fun(x, y):

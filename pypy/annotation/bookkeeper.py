@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, SomeWeakGcAddress
+     SomeList, SomeObject, SomeWeakGcAddress, HarmlesslyBlocked
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -587,7 +587,15 @@ class Bookkeeper:
         if change:
             for position in attrfamily.read_locations:
                 self.annotator.reflowfromposition(position)
-                
+
+        if isinstance(s_result, SomeImpossibleValue):
+            for desc in descs:
+                attrs = desc.read_attribute('_attrs_')
+                if isinstance(attrs, Constant):
+                    attrs = attrs.value
+                if attr in attrs:
+                    raise HarmlesslyBlocked("getattr on enforced attr")
+
         return s_result
 
     def pbc_call(self, pbc, args, emulated=None):
