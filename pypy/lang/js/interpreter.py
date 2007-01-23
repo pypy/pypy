@@ -4,9 +4,10 @@ from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 
-DEBUG = False
+DEBUG = True
 
 class Node(object):
+    opcode = None
     def __init__(self, t=None, type='', value='', lineno=0, start=0, end=0):
         if t is None:
             self.type = type
@@ -15,11 +16,18 @@ class Node(object):
             self.start = start
             self.end = end
         else:
-            self.type = gettreeitem(t, 'type').additional_info
-            self.value = gettreeitem(t, 'value').additional_info
-            self.lineno = int(gettreeitem(t, 'lineno').additional_info)
-            self.start = int(gettreeitem(t, 'start').additional_info)
-            self.end = int(gettreeitem(t, 'end').additional_info)
+            self.type = get_string(t, 'type')
+            self.value = get_string(t, 'value')
+            self.lineno = int(get_string(t, 'lineno'))
+            
+            try:
+                self.start = int(get_string(t, 'start'))
+            except ValueError, e:
+                self.start = 0
+            try:
+                self.end = int(get_string(t, 'end'))
+            except Exception, e:
+                self.end = 0
             self.from_tree(t)
 
     def eval(self, ctx):
@@ -188,7 +196,7 @@ class PropertyInit(BinaryOp):
     opcode = 'PROPERTY_INIT'
 
 class Array(ListOp):
-    opcode = 'ARRAY_INIT':
+    opcode = 'ARRAY_INIT'
     
     def eval(self, ctx):
         #d = dict(enumerate(self.items))
@@ -227,7 +235,9 @@ class Block(Statement):
 
 class Unconditional(Statement):
     def from_tree(self, t):
-        self.targtype, self.targlineno, self.targstart = gettreeitem(t, 'target').additional_info.split(',')
+        self.targtype, 
+        self.targlineno, 
+        self.targstart = get_string(t, 'target').split(',')
         
 class Break(Unconditional):
     opcode = 'BREAK'
@@ -245,6 +255,8 @@ class Call(BinaryOp):
     opcode = 'CALL'
 
     def eval(self, ctx):
+        if DEBUG:
+            print self.left
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
@@ -495,7 +507,7 @@ class List(ListOp):
     opcode = 'LIST'
         
     def eval(self, ctx):
-        return W_List([node.eval(ctx).GetValue() for node in self.nodes])
+        return W_List([node.eval(ctx).GetValue() for node in self.list])
 
 class Minus(BinaryComparisonOp):
     opcode = 'MINUS'
@@ -535,10 +547,10 @@ class Number(Expression):
     opcode = 'NUMBER'
     
     def from_tree(self, t):
-        self.num = get_string(t, 'value')
+        self.num = float(get_string(t, 'value'))
 
     def eval(self, ctx):
-        return W_Number(self.expr)
+        return W_Number(self.num)
 
 class ObjectInit(ListOp):
     opcode = 'OBJECT_INIT'
@@ -602,7 +614,7 @@ class Script(Statement):
     opcode = 'SCRIPT'
 
     def from_tree(self, t):
-        f = gettreeitem(t, 'funDecls')
+        f = get_tree_item(t, 'funDecls')
         if f.symbol == "dict":
             func_decl = [from_tree(f),]
         elif f.symbol == "list":
@@ -610,7 +622,7 @@ class Script(Statement):
         else:
             func_decl = []
         
-        v = gettreeitem(t, 'varDecls')
+        v = get_tree_item(t, 'varDecls')
         if v.symbol == "dict":
             var_decl = [from_tree(v),]
         elif v.symbol == "list":
@@ -618,7 +630,7 @@ class Script(Statement):
         else:
             var_decl = []
         
-        self.nodes = getlist(t)
+        self.nodes = get_objects(t)
         self.var_decl = var_decl
         self.func_decl = func_decl
 
@@ -648,12 +660,14 @@ class Semicolon(Statement):
     
     def execute(self, ctx):
         if self.expr is None:
-            returmn w_Undefined
+            return w_Undefined
         return self.expr.execute(ctx)
 
 class String(Expression):
-    def __init__(self, strval):
-        self.strval = strval
+    code = 'STRING'
+    
+    def from_tree(self, t):
+        self.strval = get_string(t, 'value')
 
     def eval(self, ctx):
         return W_String(self.strval)
@@ -667,9 +681,6 @@ class Return(Statement):
     def from_tree(self, t):
         self.expr = get_obj(t, 'value')
 
-    def __init__(self, expr):
-        self.expr = expr
-
     def execute(self, ctx):
         if isinstance(self.expr, Undefined):
             raise ExecutionReturned('return', None, None)
@@ -677,19 +688,28 @@ class Return(Statement):
             raise ExecutionReturned('return', self.expr.eval(ctx), None)
 
 class Throw(Statement):
-    def __init__(self, exception):
-        self.exception = exception
+    opcode = 'THROW'
+    
+    def from_tree(self, t):
+        self.exception = get_obj(t, 'exception')
 
     def execute(self, ctx):
         raise ThrowException(self.exception.eval(ctx))
 
 class Try(Statement):
-    # TODO: rewrite to use 'Undefined'
-    def __init__(self, tryblock, catchblock, finallyblock, catchparam):
-        self.tryblock = tryblock
-        self.catchblock = catchblock
-        self.finallyblock = finallyblock
-        self.catchparam = catchparam
+    opcode = 'TRY'
+
+    def from_tree(self, t):
+        self.tryblock = get_obj(t, 'tryBlock')
+        self.finallyblock = get_obj(t, 'finallyBlock')
+        catch = get_tree_item(t, 'catchClauses')
+        if catch is not None:
+            #multiple catch clauses is a spidermonkey extension
+            self.catchblock = get_obj(catch, 'block')
+            self.catchparam = get_string(catch, 'varName')
+        else:
+            self.catchblock = None
+            self.catchparam = None
 
     def execute(self, ctx):
         e = None
@@ -714,12 +734,11 @@ class Try(Statement):
         
         return tryresult
 
-class Typeof(Expression):
-    def __init__(self, op):
-        self.op = op
+class Typeof(UnaryOp):
+    opcode = 'TYPEOF'
     
     def eval(self, ctx):
-        val = self.op.eval(ctx)
+        val = self.exp.eval(ctx)
         if isinstance(val, W_Reference) and val.GetBase() is None:
             return W_String("undefined")
         return W_String(val.GetValue().type())
@@ -729,8 +748,10 @@ class Undefined(Statement):
         return None
 
 class Vars(Statement):
-    def __init__(self, nodes):
-        self.nodes = nodes
+    opcode = 'VAR'
+
+    def from_tree(self, t):
+        self.nodes = get_objects(t)
 
     def execute(self, ctx):
         for var in self.nodes:
@@ -744,9 +765,11 @@ class Void(UnaryOp):
         return w_Undefined
 
 class While(Statement):
-    def __init__(self, condition, body):
-        self.condition = condition
-        self.body = body
+    opcode = 'WHILE'
+    
+    def from_tree(self, t):
+        self.condition = get_obj(t, 'condition')
+        self.body = get_obj(t, 'body')
 
     def execute(self, ctx):
         while self.condition.eval(ctx).ToBoolean():
@@ -808,14 +831,14 @@ class UMinus(UnaryOp):
         return W_Number(-self.expr.eval(ctx).GetValue().ToNumber())
 
 def get_obj(t, objname):
-    item = gettreeitem(t, objname)
+    item = get_tree_item(t, objname)
     if isinstance(item, Nonterminal):
         return from_tree(item)
     else:
         return Undefined()
 
 def get_string(t, string):
-        simb = gettreeitem(t, string)
+        simb = get_tree_item(t, string)
         if simb is not None:
             return simb.additional_info
         else:
@@ -837,7 +860,7 @@ def get_tree_item(t, name):
     return None
 
 opcodedict = {}
-for i in locals():
+for i in locals().values():
     if isinstance(i, type(Node)) and issubclass(i, Node):
         if i.opcode is not None:
             opcodedict[i.opcode] = i
@@ -845,57 +868,9 @@ for i in locals():
 def from_tree(t):
     if t is None:
         return None
-    opcode = get_string('type')
+    opcode = get_string(t, 'type')
     if opcode in opcodedict:
         return opcodedict[opcode](t)
     else:
         raise NotImplementedError("Dont know how to handle %s" % opcode)
-    
-def from_tree2(t):
-    elif tp == 'NUMBER':
-        node = Number(float(gettreeitem(t, 'value').additional_info))
-    elif tp == 'OBJECT_INIT':
-        node = ObjectInit(getlist(t))
-    elif tp == 'STRING':
-        node = String(gettreeitem(t, 'value').additional_info)
-    elif tp == 'THROW':
-        node = Throw(from_tree(gettreeitem(t, 'exception')))
-    elif tp == 'TRY':
-        finallyblock = None
-        catchblock = None
-        catchparam = ''
-        final = gettreeitem(t, 'finallyBlock')
-        if final is not None:
-            finallyblock = from_tree(final)
-        catch = gettreeitem(t, 'catchClauses')
-        if catch is not None:
-            #multiple catch clauses is a spidermonkey extension
-            catchblock = from_tree(gettreeitem(catch, 'block'))
-            catchparam = gettreeitem(catch, 'varName').additional_info
-        node = Try(from_tree(gettreeitem(t, 'tryBlock')), catchblock, finallyblock, catchparam)
-    elif tp == 'TYPEOF':
-        node = Typeof(from_tree(gettreeitem(t, '0')))
-    elif tp == 'VAR':
-        node = Vars(getlist(t))
-    elif tp == 'WHILE':
-        body = from_tree(gettreeitem(t, 'body'))
-        condition = from_tree(gettreeitem(t, 'condition'))
-        node = While(condition, body)
-    
-    if tp == 'SCRIPT':
-        start = 0
-        end = 0
-    else:
-        start = int(gettreeitem(t, 'start').additional_info)
-        end = int(gettreeitem(t, 'end').additional_info)
-    
-    if tp == 'SCRIPT' or tp == 'RETURN':
-        value = gettreeitem(t, 'type')
-    else:
-        value = gettreeitem(t, 'value').additional_info
-    
-    node.init_common(gettreeitem(t, 'type').additional_info, value,
-    int(gettreeitem(t, 'lineno').additional_info), start, end)
-    return node
 
-    
