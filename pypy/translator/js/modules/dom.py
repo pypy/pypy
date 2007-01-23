@@ -694,7 +694,10 @@ KeyEvent._methods = Event._methods.copy()
 KeyEvent._fields = Event._fields.copy()
 KeyEvent._fields.update({
     'keyCode' : int,
-    'charCode' : int,
+    'charCode': int,
+    'altKey'  : bool,
+    'ctrlKey' : bool,
+    'shiftKey': bool,
 })
 
 setTimeout.suggested_primitive = True
