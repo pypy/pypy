@@ -7,12 +7,17 @@ from pypy.config.config import FloatOption, OptionDescription, Option, Config
 from pypy.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
 from pypy.config.config import _getnegation
 
+def get_fullpath(opt, path):
+    if path:
+        return "%s.%s" % (path, opt._name)
+    else:
+        return opt._name
+
+   
+
 class __extend__(Option):
     def make_rest_doc(self, path=""):
-        if path:
-            fullpath = "%s.%s" % (path, self._name)
-        else:
-            fullpath = self._name
+        fullpath = get_fullpath(self, path)
         result = Rest(
             Title(fullpath, abovechar="=", belowchar="="),
             Directive("contents"),
@@ -54,10 +59,7 @@ class __extend__(ChoiceOption):
 class __extend__(BoolOption):
     def make_rest_doc(self, path=""):
         content = super(BoolOption, self).make_rest_doc(path)
-        if path:
-            fullpath = "%s.%s" % (path, self._name)
-        else:
-            fullpath = self._name
+        fullpath = get_fullpath(self, path)
         if self.negation and self.cmdline is not None:
             if self.cmdline is DEFAULT_OPTION_NAME:
                 cmdline = '--%s' % (fullpath.replace('.', '-'),)
@@ -123,10 +125,7 @@ class __extend__(ArbitraryOption):
 
 class __extend__(OptionDescription):
     def make_rest_doc(self, path=""):
-        if path:
-            fullpath = "%s.%s" % (path, self._name)
-        else:
-            fullpath = self._name
+        fullpath = get_fullpath(self, path)
         content = Rest(
             Title(fullpath, abovechar="=", belowchar="="),
             Directive("contents"))
@@ -137,7 +136,7 @@ class __extend__(OptionDescription):
             Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc),
-            Title("Children")
+            Title("Sub-Options")
             ]:
             content.add(elt)
         conf = Config(self)
