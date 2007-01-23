@@ -338,7 +338,6 @@ EventTarget._fields = {
     'onmousemove' : _callable([MouseEvent]),
     'onmouseup' : _callable([MouseEvent]),
     'onmouseover' : _callable([MouseEvent]),
-    'onmouseup' : _callable([MouseEvent]),
     'onresize' : _callable([Event]),
     'onscroll' : _callable([MouseEvent]),
     'onselect' : _callable([MouseEvent]),
@@ -413,6 +412,7 @@ Element._fields.update({
     'tabIndex' : int,
     # XXX: From HTMLInputElement to make pythonconsole work.
     'value': str,
+    'checked': bool,
 })
 
 Element._methods = Node._methods.copy()
