@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
+from pypy.rlib.rbigint import rbigint
 from pypy.objspace.std.inttype import wrapint
 
 """
@@ -45,6 +46,9 @@ def uint_w__Int(space, w_int1):
                              space.wrap("cannot convert negative integer to unsigned"))
     else:
         return r_uint(intval)
+
+def bigint_w__Int(space, w_int1):
+    return rbigint.fromint(w_int1.intval)
 
 def repr__Int(space, w_int1):
     a = w_int1.intval

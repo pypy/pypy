@@ -104,6 +104,9 @@ def uint_w__Long(space, w_value):
         raise OperationError(space.w_OverflowError, space.wrap(
             "long int too large to convert to unsigned int"))
 
+def bigint_w__Long(space, w_value):
+    return w_value.num
+
 def repr__Long(space, w_long):
     return space.wrap(w_long.num.repr())
 

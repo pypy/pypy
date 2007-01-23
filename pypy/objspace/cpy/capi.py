@@ -268,6 +268,19 @@ PyLong_FromUnsignedLongLong = cpyapi.PyLong_FromUnsignedLongLong
 PyLong_FromUnsignedLongLong.argtypes = [c_ulonglong]
 PyLong_FromUnsignedLongLong.restype = W_Object
 
+_PyLong_Sign = cpyapi._PyLong_Sign
+_PyLong_Sign.argtypes = [W_Object]
+_PyLong_Sign.restype = c_long
+
+_PyLong_NumBits = cpyapi._PyLong_NumBits
+_PyLong_NumBits.argtypes = [W_Object]
+_PyLong_NumBits.restype = c_size_t
+
+_PyLong_AsByteArray = cpyapi._PyLong_AsByteArray
+_PyLong_AsByteArray.argtypes = [W_Object, POINTER(c_ubyte), c_size_t,
+                                c_long, c_long]
+_PyLong_AsByteArray.restype = c_long
+
 # a version of PyLong_FromVoidPtr() that pretends to take a PyObject* arg
 PyLong_FromVoidPtr_PYOBJ = cpyapi.PyLong_FromVoidPtr
 PyLong_FromVoidPtr_PYOBJ.argtypes = [W_Object]

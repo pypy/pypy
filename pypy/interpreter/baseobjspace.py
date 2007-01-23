@@ -904,6 +904,7 @@ ObjSpace.ExceptionTable = [
 #              int_w(w_ival or w_long_ival) -> ival
 #                       float_w(w_floatval) -> floatval
 #             uint_w(w_ival or w_long_ival) -> r_uint_val (unsigned int value)
+#             bigint_w(w_ival or w_long_ival) -> rbigint
 #interpclass_w(w_interpclass_inst or w_obj) -> interpclass_inst|w_obj
 #                               unwrap(w_x) -> x
 #                              is_true(w_x) -> True or False
@@ -921,6 +922,7 @@ ObjSpace.IrregularOpTable = [
     'int_w',
     'float_w',
     'uint_w',
+    'bigint_w',
     'interpclass_w',
     'unwrap',
     'is_true',

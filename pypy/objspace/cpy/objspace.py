@@ -1,6 +1,7 @@
 import types
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.capi import _PyType_Lookup
+from pypy.objspace.cpy.capi import _PyLong_Sign, _PyLong_NumBits, _PyLong_AsByteArray
 from pypy.objspace.cpy.refcount import Py_Incref
 from pypy.objspace.cpy.appsupport import W_AppLevel
 from pypy.interpreter import baseobjspace
@@ -8,6 +9,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 
 
@@ -145,6 +147,25 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     str     = staticmethod(PyObject_Str)
     repr    = staticmethod(PyObject_Repr)
     id      = staticmethod(PyLong_FromVoidPtr_PYOBJ)
+
+    def bigint_w(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_long)):
+            sign = _PyLong_Sign(w_obj)
+            #XXX Can throw exception if long larger than size_t bits
+            numbits = _PyLong_NumBits(w_obj)
+            numbytes = (numbits+1) / 8 # +1 sign bit cpython always adds
+            if (numbits+1) % 8 != 0:
+                numbytes += 1
+            ByteArray = c_ubyte * numbytes
+            cbytes = ByteArray()
+            _PyLong_AsByteArray(w_obj, cbytes, numbytes, 1, 1) # little endian, signed
+            rdigits = _cpylongarray_to_bigintarray(cbytes, numbytes, numbits, sign)
+            return rbigint(rdigits, sign)
+        elif self.is_true(self.isinstance(w_obj, self.w_int)):
+            value = self.int_w(w_obj)
+            return rbigint.fromint(value)
+        else:
+            raise OperationError(self.w_TypeError, self.wrap("Expected type int or long"))
 
     def len(self, w_obj):
         return self.wrap(PyObject_Size(w_obj))
@@ -335,6 +356,45 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             w_res = w_res.force()
         return w_res
 
+def _cpylongarray_to_bigintarray(cbytes, numbytes, numbits, sign):
+    """
+     helper function to convert an array of bytes from a cpython long to
+     the 15 bit digits needed by the rbigint implementation.
+    """
+    # convert from 2's complement to unsigned 
+    if sign == -1:
+        add = 1
+        for i in xrange(numbytes):
+            cbytes[i] = (cbytes[i] ^ 0xFF) + add
+            if add and cbytes[i] != 0:
+                add = 0
+            elif add and cbytes[i] == 0:
+                cbytes[i] == 0xFF
+    # convert 8 bit digits from cpython into 15 bit digits for rbigint
+    rdigits = []
+    digitbits = 0
+    usedbits = r_uint(0)    # XXX: Will break on platforms where size_t > uint
+    digit = 0
+    for i in xrange(numbytes):
+        cdigit = cbytes[i]
+        digit |= (cdigit << digitbits)
+        digitbits += 8
+        usedbits += 8
+        if digitbits >= 15: # XXX: 15 should be the same as rbigint.SHIFT
+            rdigits.append(digit & 0x7FFF) # need to mask off rbigint.SHIFT bits
+            digit = 0
+            digitbits = digitbits-15
+            usedbits -= digitbits
+            if digitbits > 0 and usedbits < numbits:
+                digit = cdigit >> (8-digitbits)
+                usedbits += digitbits
+            else:
+                # digitbits is either zero or we have used all the bits
+                # set it to zero so we don't append an extra rpython digit
+                digitbits = 0
+    if digitbits != 0:
+        rdigits.append(digit)
+    return rdigits
 
 # Register add, sub, neg, etc...
 for _name, _cname in UnaryOps.items() + BinaryOps.items():

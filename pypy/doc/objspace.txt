@@ -160,6 +160,9 @@ Conversions from Application Level to Interpreter Level
 **int_w(w_x):**
   If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
 
+**bigint_w(w_x):**
+  If w_x is an application-level integer or long, return an interpreter-level rbigint. Otherwise raise TypeError.
+
 **str_w(w_x):**
   If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
 

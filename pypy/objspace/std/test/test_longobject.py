@@ -5,6 +5,16 @@ from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rbigint import rbigint
+
+class TestW_LongObject:
+
+    def test_bigint_w(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        assert isinstance(space.bigint_w(fromlong(42)), rbigint)
+        assert space.bigint_w(fromlong(42)).eq(rbigint.fromint(42))
+        assert space.bigint_w(fromlong(-1)).eq(rbigint.fromint(-1))
 
 class AppTestLong:
     def test_add(self):

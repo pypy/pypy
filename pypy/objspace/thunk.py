@@ -100,6 +100,7 @@ def setup():
         'int_w': 1,
         'float_w': 1,
         'uint_w': 1,
+        'bigint_w': 1,
         'interpclass_w': 1,
         'unwrap': 1,
         'is_true': 1,

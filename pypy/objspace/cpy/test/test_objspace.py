@@ -1,6 +1,7 @@
 from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.tool.pytest.appsupport import raises_w
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+from pypy.rlib.rbigint import rbigint
 
 def test_simple():
     space = CPyObjSpace()
@@ -147,3 +148,18 @@ def test_newlong():
     i2 = space.newint(42)
     assert space.is_true(space.eq(i1, i2))
     assert space.is_true(space.ne(space.type(i1), space.type(i2)))
+
+def test_bigint_w():
+    space = CPyObjSpace()
+    r1 = space.bigint_w(space.newlong(42))
+    assert isinstance(r1, rbigint)
+    assert r1.eq(rbigint.fromint(42))
+    # cpython digit size
+    assert space.bigint_w(space.newlong(2**8)).eq(rbigint.fromint(2**8))
+    # rpython digit size
+    assert space.bigint_w(space.newlong(2**15)).eq(rbigint.fromint(2**15))
+    # and negative numbers
+    assert space.bigint_w(space.newlong(-1)).eq(rbigint.fromint(-1))
+    assert space.bigint_w(space.newlong(-2**8)).eq(rbigint.fromint(-2**8))
+    assert space.bigint_w(space.newlong(-2**15)).eq(rbigint.fromlong(-2**15))
+

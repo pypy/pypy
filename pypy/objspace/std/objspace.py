@@ -563,6 +563,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         str_w   = StdObjSpaceMultiMethod('str_w', 1, [])     # returns an unwrapped string
         float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
         uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
+        bigint_w = StdObjSpaceMultiMethod('bigint_w', 1, []) # returns an unwrapped rbigint
         marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
         log     = StdObjSpaceMultiMethod('log', 1, [], extra_args=['base'])
 

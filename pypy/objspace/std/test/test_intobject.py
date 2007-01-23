@@ -3,6 +3,7 @@ import autopath
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rbigint import rbigint
 
 
 class TestW_IntObject:
@@ -34,6 +35,11 @@ class TestW_IntObject:
         assert space.uint_w(space.wrap(42)) == 42
         assert isinstance(space.uint_w(space.wrap(42)), r_uint)
         space.raises_w(space.w_ValueError, space.uint_w, space.wrap(-1))
+
+    def test_bigint_w(self):
+        space = self.space
+        assert isinstance(space.bigint_w(space.wrap(42)), rbigint)
+        assert space.bigint_w(space.wrap(42)).eq(rbigint.fromint(42))
         
     def test_repr(self):
         x = 1
