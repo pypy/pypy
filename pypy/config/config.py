@@ -1,5 +1,6 @@
-
+import py
 from py.compat import optparse
+from pypy.tool.pairtype import extendabletype
 
 SUPPRESS_USAGE = optparse.SUPPRESS_USAGE
 
@@ -179,6 +180,8 @@ DEFAULT_OPTION_NAME = object()
 
 
 class Option(object):
+    __metaclass__ = extendabletype
+
     def __init__(self, name, doc, cmdline=DEFAULT_OPTION_NAME):
         self._name = name
         self.doc = doc
@@ -210,6 +213,9 @@ class Option(object):
                                    action='callback', type=self.opt_type,
                                    callback=callback, metavar=self._name.upper(),
                                    *argnames)
+
+    def make_rest_docs(self):
+        pass
 
 class ConfigUpdate(object):
 
@@ -278,6 +284,7 @@ class ChoiceOption(Option):
 
     def convert_from_cmdline(self, value):
         return value.strip()
+
 
 def _getnegation(optname):
     if optname.startswith("without"):
@@ -408,7 +415,10 @@ class ArbitraryOption(Option):
         return self.default
 
 class OptionDescription(object):
+    __metaclass__ = extendabletype
+
     cmdline = None
+
     def __init__(self, name, doc, children):
         self._name = name
         self.doc = doc
