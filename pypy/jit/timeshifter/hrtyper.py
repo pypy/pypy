@@ -1646,6 +1646,7 @@ class RedStructRepr(RedRepr):
 
         def collect_residual_args(v): 
             t = (v,)
+            assert not v.vable_access
             for name, _ in names:
                 t = t + (getattr(v, name),) # xxx need to use access ?
             return t

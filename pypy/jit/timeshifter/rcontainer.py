@@ -46,8 +46,9 @@ class StructTypeDesc(object):
                  alloctoken varsizealloctoken
                  materialize
                  base_desc info_desc access_desc
-                 gv_access
                  redirected_fielddescs
+                 gv_access
+                 gv_access_is_null_ptr access_is_null_token
               """.split()
 
     materialize = None
@@ -142,6 +143,17 @@ class StructTypeDesc(object):
                                                           s_lltype,
                                                           needtype = True)
                 setattr(access, 'get_'+name, get_field_ptr)
+            def access_is_null(struc):
+                assert not struc.vable_access
+            access_is_null_ptr = annhelper.delayedfunction(access_is_null,
+                                                           [s_structtype],
+                                                           annmodel.s_None,
+                                                           needtype = True)
+            self.gv_access_is_null_ptr = RGenOp.constPrebuiltGlobal(
+                                           access_is_null_ptr)
+            self.access_is_null_token =  RGenOp.sigToken(
+                                     lltype.typeOf(access_is_null_ptr).TO)
+
         else:
             self.VStructCls = VirtualStruct
 
@@ -570,6 +582,10 @@ class VirtualizableStruct(VirtualStruct):
         typedesc = self.typedesc
         boxes = self.content_boxes
         boxes[-1].genvar = gv_outside
+        builder = jitstate.curbuilder
+        builder.genop_call(typedesc.access_is_null_token,
+                           typedesc.gv_access_is_null_ptr,
+                           [gv_outside])
         for fielddesc, i in typedesc.redirected_fielddescs:
             boxes[i] = fielddesc.generate_get(jitstate, gv_outside)
         jitstate.add_virtualizable(self.ownbox)
