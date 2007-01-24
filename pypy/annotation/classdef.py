@@ -416,7 +416,14 @@ class InstanceSource:
         self.obj = obj
  
     def s_get_value(self, classdef, name):
-        s_value = self.bookkeeper.immutablevalue(getattr(self.obj, name))
+        try:
+            v = getattr(self.obj, name)
+        except AttributeError:
+            allslots = classdef.classdesc.allslots
+            if allslots and name in allslots:
+                return s_ImpossibleValue
+            raise
+        s_value = self.bookkeeper.immutablevalue(v)
         return s_value
 
     def all_instance_attributes(self):
