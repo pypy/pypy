@@ -4,7 +4,7 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR, InstanceRepr
 from pypy.rpython.annlowlevel import cachedtype
 
-VABLEINFOPTR = OBJECTPTR
+VABLERTIPTR = OBJECTPTR
 
 class VirtualizableInstanceRepr(InstanceRepr):
 
@@ -26,7 +26,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
         ACCESS = lltype.ForwardReference()
         if self.top_of_virtualizable_hierarchy:
             llfields.append(('vable_base',   llmemory.Address))
-            llfields.append(('vable_info',   VABLEINFOPTR))
+            llfields.append(('vable_rti',   VABLERTIPTR))
             llfields.append(('vable_access', lltype.Ptr(ACCESS)))
         InstanceRepr._setup_repr(self, llfields,
                                  hints = {'virtualizable': True},
@@ -71,7 +71,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
             for name, llvalue in (('access', lltype.nullptr(self.ACCESS)),
                                   ('base',   llmemory.NULL),
-                                  ('info',   lltype.nullptr(VABLEINFOPTR.TO))):
+                                  ('rti',    lltype.nullptr(VABLERTIPTR.TO))):
                 cname = inputconst(lltype.Void, 'vable_'+name)
                 vvalue = inputconst(lltype.typeOf(llvalue), llvalue)
                 llops.genop('setfield', [vinst, cname, vvalue])

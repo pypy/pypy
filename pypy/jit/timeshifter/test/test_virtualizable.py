@@ -1,7 +1,7 @@
 from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_portal import PortalTest, P_OOPSPEC
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.jit.timeshifter.rcontainer import VABLEINFOPTR
+from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
 from pypy.rlib.objectmodel import hint
 import py
 
@@ -58,7 +58,7 @@ XP_ACCESS = lltype.Struct('xp_access',
 
 XY.become(lltype.GcStruct('xy',
                           ('vable_base', llmemory.Address),
-                          ('vable_info', VABLEINFOPTR),
+                          ('vable_rti', VABLERTIPTR),
                           ('vable_access', lltype.Ptr(XY_ACCESS)),
                           ('x', lltype.Signed),
                           ('y', lltype.Signed),
@@ -74,7 +74,7 @@ xy_get_y, xy_set_y = getset('y')
 
 XP.become(lltype.GcStruct('xp',
                           ('vable_base', llmemory.Address),
-                          ('vable_info', VABLEINFOPTR),                     
+                          ('vable_rti', VABLERTIPTR),                     
                           ('vable_access', lltype.Ptr(XP_ACCESS)),
                           ('x', lltype.Signed),
                           ('p', PS),
@@ -99,7 +99,7 @@ PQ_ACCESS = lltype.Struct('pq_access',
 
 PQ.become(lltype.GcStruct('pq',
                           ('vable_base', llmemory.Address),
-                          ('vable_info', VABLEINFOPTR),                     
+                          ('vable_rti', VABLERTIPTR),                     
                           ('vable_access', lltype.Ptr(PQ_ACCESS)),
                           ('p', PS),
                           ('q', PS),
@@ -114,14 +114,18 @@ E3 = lltype.GcStruct('e', ('pq', lltype.Ptr(PQ)),
 
 
 
-class StopAtGPolicy(HintAnnotatorPolicy):
-    def __init__(self):
+class StopAtXPolicy(HintAnnotatorPolicy):
+    def __init__(self, *funcs):
         HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
                                      oopspec=True)
+        self.funcs = funcs
 
     def look_inside_graph(self, graph):
-        if graph.name == 'g':
-            return False
+        try:
+            if graph.func in self.funcs:
+                return False
+        except AttributeError:
+            pass
         return True
 
 
@@ -434,8 +438,12 @@ class TestVirtualizableExplicit(PortalTest):
             y = xy_get_y(xy)
             newy = 2*y
             xy_set_y(xy, newy)
+            if y:
+                dummy = 0
+            else:
+                dummy = 1
             g(e)
-            return 0
+            return dummy
             
         def main(x, y):
             xy = lltype.malloc(XY)
@@ -448,7 +456,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w
 
         res = self.timeshift_from_portal(main, f, [0, 21],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 42
 
     def test_residual_red_call(self):
@@ -477,7 +485,7 @@ class TestVirtualizableExplicit(PortalTest):
             return v+e.w
 
         res = self.timeshift_from_portal(main, f, [2, 20],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 42
 
     def test_force_in_residual_red_call(self):
@@ -515,7 +523,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 42
 
     def test_force_multiple_reads_residual_red_call(self):
@@ -550,7 +558,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 1
 
 
@@ -588,7 +596,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 1
 
     def test_force_aliased_residual_red_call(self):
@@ -621,7 +629,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 1
 
     def test_force_in_residual_red_call_with_more_use(self):
@@ -659,7 +667,7 @@ class TestVirtualizableExplicit(PortalTest):
             return e.w + xp.p.a + xp.p.b
 
         res = self.timeshift_from_portal(main, f, [2, 20, 10],
-                                         policy=StopAtGPolicy())
+                                         policy=StopAtXPolicy(g))
         assert res == 42 + 140 + 10
 
 
@@ -710,3 +718,55 @@ class TestVirtualizableImplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
+
+    def test_simple_interpreter_with_frame(self):
+        class Log:
+            acc = 0
+        log = Log()
+        class Frame(object):
+            _virtualizable_ = True
+            def __init__(self, code, acc, y):
+                self.code = code
+                self.pc = 0
+                self.acc = acc
+                self.y = y
+
+            def run(self):
+                self.plus_minus(self.code)
+                return self.acc
+
+            def plus_minus(self, s):
+                n = len(s)
+                pc = 0
+                while pc < n:
+                    hint(None, global_merge_point=True)
+                    self.pc = pc
+                    op = s[pc]
+                    op = hint(op, concrete=True)
+                    if op == '+':
+                        self.acc += self.y
+                    elif op == '-':
+                        self.acc -= self.y
+                    elif op == 'd':
+                        self.debug()
+                    pc += 1
+                return 0
+
+            def debug(self):
+                log.acc = self.acc
+            
+        def main(x, y):
+            code = '+d+-+'
+            f = Frame(code, x, y)
+            return f.run(), log.acc
+        
+        res = self.timeshift_from_portal(main, Frame.plus_minus.im_func,
+                            [0, 2],
+                            policy=StopAtXPolicy(Frame.debug.im_func))
+
+        assert res.item0 == 4
+        assert res.item1 == 2
+        calls = self.count_direct_calls()
+        call_count = sum([count for graph, count in calls.iteritems()
+                          if not graph.name.startswith('rpyexc_')])
+        assert call_count == 3

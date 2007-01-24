@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import hint
 
 import py.test
 
+
 class PortalTest(object):
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
 
@@ -108,6 +109,17 @@ class PortalTest(object):
         for opname, count in counts.items():
             assert self.insns.get(opname, 0) == count
 
+
+    def count_direct_calls(self):
+        residual_graph = self.get_residual_graph()
+        calls = {}
+        for block in residual_graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    graph = getattr(op.args[0].value._obj, 'graph', None)
+                    calls[graph] = calls.get(graph, 0) + 1
+        return calls
+        
 class TestPortal(PortalTest):
             
     def test_simple(self):

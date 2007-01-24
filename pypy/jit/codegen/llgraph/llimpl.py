@@ -219,6 +219,7 @@ def isconst(gv_value):
     c = from_opaque_object(gv_value)
     return isinstance(c, flowmodel.Constant)
 
+
 # XXX
 # temporary interface; it's unclear if genop itself should change to
 # ease dinstinguishing Void special args from the rest. Or there
@@ -569,8 +570,17 @@ setannotation(show_incremental_progress, None)
 
 # read frame var support
 
+def get_frame_info(block, vars_gv):
+    genop(block, 'frame_info', vars_gv, lltype.Void)
+    block = from_opaque_object(block)
+    frame_info = block.operations[-1]
+    return lltype.opaqueptr(llmemory.GCREF.TO, 'frame_info',
+                            info=frame_info)
+
+setannotation(get_frame_info, annmodel.SomePtr(llmemory.GCREF))
+
 def read_frame_var(T, base, info, index):
-    vars = info._obj.vars
+    vars = info._obj.info.args
     v = vars[index]
     if isinstance(v, flowmodel.Constant):
         val = v.value

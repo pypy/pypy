@@ -175,10 +175,10 @@ class GenBuilder(object):
 
     # read frame var support
     
-    def get_frame_base(self):
+    def genop_get_frame_base(self):
         pass
 
-    def get_frame_info(self):
+    def get_frame_info(self, vars):
         pass
         
 class GenLabel(object):

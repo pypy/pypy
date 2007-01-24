@@ -158,108 +158,41 @@ class HintRTyper(RPythonTyper):
 
         # XXX use helpers, factor out perhaps?
         annhelper = self.annhelper
-        def make_vinfo(bitmask):
-            vinfo = rcontainer.VirtualInfo(RGenOp, bitmask)
-            return cast_instance_to_base_ptr(vinfo)
+        from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
+        s_vablertiptr = annmodel.lltype_to_annotation(VABLERTIPTR)
 
-        s_vableinfoptr = annmodel.lltype_to_annotation(rcontainer.VABLEINFOPTR)
         s_gcref = annmodel.lltype_to_annotation(llmemory.GCREF)
-        s_info = s_gcref
-        
-        make_vinfo_ptr = annhelper.delayedfunction(make_vinfo, [annmodel.SomeInteger()],
-                                                   s_vableinfoptr,
-                                                   needtype=True)
-        self.gv_make_vinfo_ptr = RGenOp.constPrebuiltGlobal(make_vinfo_ptr)
-        self.make_vinfo_token = RGenOp.sigToken(
-                                     lltype.typeOf(make_vinfo_ptr).TO)
-
-        def vinfo_set_info(vinfo, info):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            vinfo.info = info
-
-        vinfo_set_info_ptr = annhelper.delayedfunction(vinfo_set_info,
-                              [s_vableinfoptr, s_info],
-                              annmodel.s_None,
-                              needtype=True)
-        self.gv_vinfo_set_info_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_set_info_ptr)
-        self.vinfo_set_info_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_set_info_ptr).TO)
-        
-
-        def vinfo_append_vinfo(vinfo, vinfo1):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            vinfo1 = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo1)
-            vinfo.vinfos.append(vinfo1)
-
-        vinfo_append_vinfo_ptr = annhelper.delayedfunction(vinfo_append_vinfo,
-                              [s_vableinfoptr, s_vableinfoptr],
-                              annmodel.s_None,
-                              needtype=True)
-        self.gv_vinfo_append_vinfo_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_append_vinfo_ptr)
-        self.vinfo_append_vinfo_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_append_vinfo_ptr).TO)
-        
-        def vinfo_skip_vinfo(vinfo):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            vinfo.vinfos.append(None)
-
-        vinfo_skip_vinfo_ptr = annhelper.delayedfunction(vinfo_skip_vinfo,
-                              [s_vableinfoptr],
-                              annmodel.s_None,
-                              needtype=True)
-        self.gv_vinfo_skip_vinfo_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_skip_vinfo_ptr)
-        self.vinfo_skip_vinfo_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_skip_vinfo_ptr).TO)
-
-        def vinfo_get_shape(vinfo):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            return vinfo.get_shape()
-        vinfo_get_shape_ptr = annhelper.delayedfunction(vinfo_get_shape,
-                                                        [s_vableinfoptr],
-                                                        annmodel.SomeInteger(),
-                                                        needtype=True)
-        self.gv_vinfo_get_shape_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_get_shape_ptr)
-        self.vinfo_get_shape_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_get_shape_ptr).TO)
+        from pypy.jit.timeshifter import rvirtualizable
+        def vrti_get_global_shape(vablerti):
+            vablerti = cast_base_ptr_to_instance(
+                         rvirtualizable.VirtualizableRTI,
+                         vablerti)
+            return vablerti.get_global_shape()
+        vrti_get_global_shape_ptr = annhelper.delayedfunction(
+                                        vrti_get_global_shape,
+                                        [s_vablertiptr],
+                                        annmodel.SomeInteger(),
+                                        needtype=True)
+        self.gv_vrti_get_global_shape_ptr = RGenOp.constPrebuiltGlobal(
+            vrti_get_global_shape_ptr)
+        self.vrti_get_global_shape_token = RGenOp.sigToken(
+                                  lltype.typeOf(vrti_get_global_shape_ptr).TO)
 
 
-        def vinfo_get_vinfo(vinfo, index):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            childvinfo = vinfo.vinfos[index]
-            return cast_instance_to_base_ptr(childvinfo)            
+        def vrti_read_forced(vablerti, bitkey):
+            vablerti = cast_base_ptr_to_instance(
+                     rvirtualizable.WithForcedStateVirtualizableRTI,
+                              vablerti)
+            return vablerti.read_forced(bitkey)
 
-        vinfo_get_vinfo_ptr = annhelper.delayedfunction(vinfo_get_vinfo,
-                              [s_vableinfoptr, annmodel.SomeInteger()],
-                              s_vableinfoptr,
-                              needtype=True)
-        self.gv_vinfo_get_vinfo_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_get_vinfo_ptr)
-        self.vinfo_get_vinfo_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_get_vinfo_ptr).TO)
-
-        def vinfo_read_forced(vinfo):
-            vinfo = cast_base_ptr_to_instance(rcontainer.VirtualInfo,
-                                              vinfo)
-            return vinfo.read_forced()
-
-        vinfo_read_forced_ptr = annhelper.delayedfunction(vinfo_read_forced,
-                              [s_vableinfoptr],
+        vrti_read_forced_ptr = annhelper.delayedfunction(vrti_read_forced,
+                              [s_vablertiptr, annmodel.SomeInteger()],
                               s_gcref,
                               needtype=True)
-        self.gv_vinfo_read_forced_ptr = RGenOp.constPrebuiltGlobal(
-            vinfo_read_forced_ptr)
-        self.vinfo_read_forced_token = RGenOp.sigToken(
-                                     lltype.typeOf(vinfo_read_forced_ptr).TO)
+        self.gv_vrti_read_forced_ptr = RGenOp.constPrebuiltGlobal(
+            vrti_read_forced_ptr)
+        self.vrti_read_forced_token = RGenOp.sigToken(
+                                     lltype.typeOf(vrti_read_forced_ptr).TO)
 
         # global state for the portal corresponding to this timeshifted world
         class PortalState(object):
@@ -464,7 +397,7 @@ class HintRTyper(RPythonTyper):
                                                   TYPES))
         fetch_global_excdata = self.fetch_global_excdata
 
-        def portalreentry(jitstate, *args): # xxx
+        def portalreentry(jitstate, *args): # xxx virtualizables?
             i = 0
             key = ()
             curbuilder = jitstate.curbuilder
@@ -609,7 +542,10 @@ class HintRTyper(RPythonTyper):
             redreprcls = RedRepr
             if isinstance(lowleveltype, lltype.Ptr):
                 if isinstance(lowleveltype.TO, lltype.Struct):
-                    redreprcls = RedStructRepr
+                    if lowleveltype.TO._hints.get('virtualizable', False):
+                        redreprcls = RedVirtualizableStructRepr
+                    else:
+                        redreprcls = RedStructRepr
             r = redreprcls(lowleveltype, self)
             self.red_reprs[lowleveltype] = r
             return r
@@ -956,14 +892,14 @@ class HintRTyper(RPythonTyper):
         assert isinstance(hop.r_result, RedRepr)
         PTRTYPE = originalconcretetype(hop.s_result)
         TYPE = PTRTYPE.TO
+        v_size = hop.inputarg(self.getredrepr(lltype.Signed), arg=1)
         if isinstance(TYPE, lltype.Struct):
-            contdesc = rcontainer.StructTypeDesc(self, TYPE)
-        else:
-            contdesc = rcontainer.ArrayFieldDesc(self, TYPE)
+            return hop.r_result.create_varsize(hop, v_size)
+        
+        contdesc = rcontainer.ArrayFieldDesc(self, TYPE)
         c_contdesc = inputconst(lltype.Void, contdesc)
         s_contdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(contdesc)
         v_jitstate = hop.llops.getjitstate()
-        v_size = hop.inputarg(self.getredrepr(lltype.Signed), arg=1)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_genmalloc_varsize,
                    [ts.s_JITState, s_contdesc, ts.s_RedBox],
                    [v_jitstate,    c_contdesc, v_size     ], ts.s_RedBox)
@@ -1633,24 +1569,53 @@ class RedRepr(Repr):
 
 class RedStructRepr(RedRepr):
     typedesc = None
+    _s_c_typedesc = None
 
-    def residual_args_collector(self):
+    def gettypedesc(self):
+        if self.typedesc is None:
+            hrtyper = self.hrtyper
+            T = self.original_concretetype.TO
+            self.typedesc = rcontainer.StructTypeDesc(hrtyper, T)
+        return self.typedesc
+
+    def s_c_typedesc(self):
+        if self._s_c_typedesc is not None:
+            return self._s_c_typedesc
+        ts = self.hrtyper
         typedesc = self.gettypedesc()
-        if typedesc.virtualizable:
-            return typedesc.collect_residual_args
-        else:
-            return self.collect_residual_args
+        annhelper = ts.annhelper
+        s_r = annhelper.s_r_instanceof(rcontainer.StructTypeDesc)
+        s_typedesc, r_typedesc = s_r 
+        typedesc_ptr = ts.annhelper.delayedconst(r_typedesc, typedesc)
+        ctypedesc = inputconst(lltype.typeOf(typedesc_ptr), typedesc_ptr)
+        self._s_c_typedesc = s_typedesc, ctypedesc
+        return self._s_c_typedesc
+
+    def create(self, hop):
+        ts = self.hrtyper
+        s_typedesc, ctypedesc = self.s_c_typedesc()
+        v_jitstate = hop.llops.getjitstate()
+        v_ptrbox = hop.llops.genmixlevelhelpercall(rcontainer.create,
+            [ts.s_JITState, s_typedesc], [v_jitstate, ctypedesc],
+            ts.s_PtrRedBox)
+        return hop.llops.as_redbox(v_ptrbox)
+
+    def create_varsize(self, hop, v_size):
+        ts = self.hrtyper
+        s_typedesc, ctypedesc = self.s_c_typedesc()
+        v_jitstate = hop.llops.getjitstate()
+        v_ptrbox = hop.llops.genmixlevelhelpercall(rcontainer.create_varsize,
+            [ts.s_JITState, s_typedesc, ts.s_RedBox],
+            [v_jitstate,    ctypedesc,  v_size     ], ts.s_PtrRedBox)
+        return hop.llops.as_redbox(v_ptrbox)
+
+class RedVirtualizableStructRepr(RedStructRepr):
 
     def build_portal_arg_helpers(self):
-        T = self.original_concretetype.TO
-        if not T._hints.get('virtualizable', False):
-            RedRepr.build_portal_arg_helpers(self)
-            return
-
         typedesc = self.gettypedesc()
         names = unrolling_iterable([(fielddesc.fieldname, j)
-                                    for (fielddesc, j) in typedesc.redirected_fielddescs])
-
+                                    for (fielddesc, j) in
+                                    typedesc.redirected_fielddescs])
         TYPE = self.original_concretetype
         kind = self.hrtyper.RGenOp.kindToken(TYPE)
         boxcls = rvalue.ll_redboxcls(TYPE)
@@ -1668,33 +1633,23 @@ class RedStructRepr(RedRepr):
                 i += 1
             content_boxes[-1].genvar = gv_outside
             return box
+        
         self.make_arg_redbox = make_arg_redbox
         make_arg_redbox.consumes = len(typedesc.redirected_fielddescs)+1
 
-    def gettypedesc(self):
-        if self.typedesc is None:
-            hrtyper = self.hrtyper
-            T = self.original_concretetype.TO
-            self.typedesc = rcontainer.StructTypeDesc(hrtyper, T)
-        return self.typedesc
-
-    def create(self, hop):
-        ts = self.hrtyper
-        typedesc = self.gettypedesc()
-        v_ptrbox = hop.llops.genmixlevelhelpercall(typedesc.ll_factory,
-            [], [], ts.s_PtrRedBox)
-        return hop.llops.as_redbox(v_ptrbox)
-
     def residual_argtypes(self):
         argtypes = [self.original_concretetype]
-        T = self.original_concretetype.TO
-        if T._hints.get('virtualizable', False):
-            getredrepr = self.hrtyper.getredrepr
-            typedesc = self.gettypedesc()
-            for fielddesc, _ in typedesc.redirected_fielddescs:
-                FIELDTYPE = fielddesc.RESTYPE
-                argtypes += getredrepr(FIELDTYPE).residual_argtypes()
+        getredrepr = self.hrtyper.getredrepr
+        typedesc = self.gettypedesc()
+        for fielddesc, _ in typedesc.redirected_fielddescs:
+            FIELDTYPE = fielddesc.RESTYPE
+            argtypes += getredrepr(FIELDTYPE).residual_argtypes()
         return argtypes
+
+    def residual_args_collector(self):
+        typedesc = self.gettypedesc()
+        return typedesc.collect_residual_args
+    
 
 ##class VoidRedRepr(Repr):
 ##    def __init__(self, hrtyper):

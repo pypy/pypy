@@ -40,7 +40,6 @@ gv_Signed = gv_TYPE(lltype.Signed)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 gv_Address = gv_TYPE(llmemory.Address)
-gv_GCREF = gv_TYPE(llmemory.GCREF)
 
 class LLLabel(GenLabel):
     def __init__(self, b, g):
@@ -276,13 +275,12 @@ class LLBuilder(GenBuilder):
 
     # read_frame_var support
 
-    def get_frame_base(self):
+    def genop_get_frame_base(self):
         return LLVar(llimpl.genop(self.b, 'get_frame_base', [],
                                   gv_Address.v))
 
     def get_frame_info(self, vars):
-        return LLVar(llimpl.genop(self.b, 'get_frame_info', vars,
-                                  gv_GCREF.v))
+        return llimpl.get_frame_info(self.b, vars)
 
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void

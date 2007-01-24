@@ -47,8 +47,9 @@ def test_read_frame_var():
     builder.start_writing()
 
     gv_y = builder.genop2("int_mul", gv_x, rgenop.genconst(2))
-    gv_base = builder.get_frame_base()
-    gv_info = builder.get_frame_info([gv_y])
+    gv_base = builder.genop_get_frame_base()
+    info = builder.get_frame_info([gv_y])
+    gv_info = RGenOp.constPrebuiltGlobal(info)
     gv_z = builder.genop_call(readertoken, gv_reader, [gv_base, gv_info])
     builder.finish_and_return(sigtoken, gv_z)
     builder.end()

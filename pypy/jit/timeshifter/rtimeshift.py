@@ -2,7 +2,7 @@ import operator, weakref
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.jit.hintannotator.model import originalconcretetype
-from pypy.jit.timeshifter import rvalue, rcontainer
+from pypy.jit.timeshifter import rvalue, rcontainer, rvirtualizable
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import cachedtype, base_ptr_lltype
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
@@ -901,49 +901,58 @@ class JITState(object):
     def prepare_for_residual_call(self):
         virtualizables = self.virtualizables
         if virtualizables:
-            builder = self.curbuilder            
-            gv_base = builder.get_frame_base()
+            builder = self.curbuilder
             memo = rvalue.make_vinfo_memo()
             memo.bitcount = 0
+            memo.frameindex = 0
+            memo.framevars_gv = []
+            memo.vable_getset_rtis = []
+            vable_rtis = []
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.prepare_for_residual_call(self, gv_base, memo)
+                vable_rtis.append(content.make_rti(self, memo))
             assert memo.bitcount < 32
-            self.make_vinfo_memo = memo
+            gv_base = builder.genop_get_frame_base()
+            frameinfo = builder.get_frame_info(memo.framevars_gv)
+            vable_getset_rtis = memo.vable_getset_rtis
+            for i in range(len(virtualizables)):
+                vable_rti = vable_rtis[i]
+                if vable_rti is None:
+                    continue
+                assert isinstance(vable_rti, rvirtualizable.VirtualizableRTI)
+                vable_rti.frameinfo = frameinfo
+                vable_rti.vable_getset_rtis = vable_getset_rtis
+                virtualizable_box = virtualizables[i]
+                content = virtualizable_box.content
+                assert isinstance(content, rcontainer.VirtualizableStruct)
+                content.prepare_for_residual_call(self, gv_base, vable_rti)
                 
     def after_residual_call(self):
         virtualizables = self.virtualizables
         builder = self.curbuilder
-        gv_shape = builder.rgenop.genconst(0)
+        gv_shape = None
         if virtualizables:
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.after_residual_call(self)
-            memo = self.make_vinfo_memo
-            self.make_vinfo_memo = None
-            for container, gv_vinfo in memo.containers.iteritems():
-                if isinstance(container, rcontainer.VirtualizableStruct):
-                    continue
-                assert isinstance(container, rcontainer.VirtualStruct)
-                typedesc = container.typedesc # xxx
-                gv_new_shape = builder.genop_call(typedesc.vinfo_get_shape_token,
-                                                  typedesc.gv_vinfo_get_shape_ptr,
-                                                  [gv_vinfo])
-                gv_shape = builder.genop2('int_or', gv_shape, gv_new_shape)
-        return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Signed), gv_shape)
+                gv_shape = content.after_residual_call(self, gv_shape)
+        if gv_shape is None:
+            gv_shape = builder.rgenop.genconst(0)
+        return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Signed),
+                                gv_shape)
 
     def reshape(self, shapemask):
         virtualizables = self.virtualizables
         builder = self.curbuilder
         if virtualizables and shapemask:
             memo = rvalue.make_vinfo_memo()
-            memo.bitcount = 0            
+            memo.bitcount = 0
+            memo.gv_vable_rti = None
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.reshape(self, None, shapemask, memo) # xxx gv_vinfo argument
+                content.reshape(self, shapemask, memo)
                 
     def freeze(self, memo):
         result = FrozenJITState()
@@ -967,7 +976,7 @@ class JITState(object):
             assert isinstance(new_virtualizable_box, rvalue.PtrRedBox)
             self.virtualizables[i] = new_virtualizable_box
             
-    def get_locals_gv(self): # xxx
+    def get_locals_gv(self):
         # get all the genvars that are "alive", i.e. stored in the JITState
         # or the VirtualFrames
         incoming = []

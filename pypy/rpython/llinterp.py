@@ -865,11 +865,9 @@ class LLFrame(object):
     def op_get_frame_base(self):
         return llmemory.fakeaddress(self)
 
-    def op_get_frame_info(self, *vars):
-        return lltype.opaqueptr(llmemory.GCREF.TO,
-                                'frame_info',
-                                vars=vars)
-    op_get_frame_info.specialform = True
+    def op_frame_info(self, *vars):
+        pass
+    op_frame_info.specialform = True
  
     #Operation of ootype
 

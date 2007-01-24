@@ -11,9 +11,12 @@ PORTAL = getattr(PORTAL, 'im_func', PORTAL)
 class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
 
     def look_inside_graph(self, graph):
-        func = graph.func
+        try:
+            func = graph.func
+        except AttributeError:
+            return True
         mod = func.__module__ or '?'
-        if mod.startswith('pypy.objspace.'):
+        if mod.startswith('pypy.objspace'):
             return False
         if mod.startswith('pypy.module.'):
             return False
@@ -31,7 +34,6 @@ forbidden_modules = {'pypy.interpreter.gateway': True,
 
 POLICY = PyPyHintAnnotatorPolicy(novirtualcontainer = True,
                                  oopspec = True)
-
 
 def hintannotate(drv):
     t = drv.translator
@@ -65,4 +67,4 @@ def timeshift(drv):
         t.graphs.append(graph)
         
     # XXX temp
-    drv.source()
+    drv.compile()

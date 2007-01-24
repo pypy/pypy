@@ -431,7 +431,7 @@ LL_OPERATIONS = {
 
     # _____ read frame var support ___
     'get_frame_base':       LLOp(),
-    'get_frame_info':       LLOp(),
+    'frame_info':           LLOp(),
 }
 # ***** Run test_lloperation after changes. *****
 
