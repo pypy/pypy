@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-DEBUG = False
+DEBUG = True
 
 class SeePage(NotImplementedError):
     pass
@@ -253,6 +253,8 @@ class W_Builtin(W_PrimitiveObject):
         self.callfuncbi = callfuncbi
 
     def Call(self, ctx, args=[], this = None):
+        if DEBUG:
+            print args
         return self.callfuncbi(ctx, args, this)
         
     def type(self):
@@ -326,10 +328,12 @@ class W_Array(W_Builtin):
 
 class W_Boolean(W_Primitive):
     def __init__(self, boolval):
+        if DEBUG:
+            print boolval
         self.boolval = bool(boolval)
 
     def ToString(self):
-        if self.boolval:
+        if self.boolval == True:
             return "true"
         return "false"
     
@@ -343,6 +347,9 @@ class W_Boolean(W_Primitive):
 
     def type(self):
         return 'boolean'
+        
+    def __repr__(self):
+        return "<W_Bool "+str(self.boolval)+" >"
 
 class W_String(W_Primitive):
     def __init__(self, strval):

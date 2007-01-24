@@ -45,7 +45,7 @@ class Node(object):
         raise NotImplementedError
     
     def __str__(self):
-        return "<astop %s %s >"%(self.opcode, self.value)
+        return "<ASTop %s %s >"%(self.opcode, self.value)
 
 class Statement(Node):
     pass
@@ -63,7 +63,7 @@ class ListOp(Expression):
         
 class UnaryOp(Expression):
     def from_tree(self, t):
-        self.expr = get_Obj(t, '0')
+        self.expr = get_obj(t, '0')
 
 class BinaryOp(Expression):
     def from_tree(self, t):
@@ -218,7 +218,7 @@ class Assign(BinaryOp):
 class Block(Statement):
     opcode = 'BLOCK'
 
-    def from_tree(t):
+    def from_tree(self, t):
         self.nodes = get_objects(t)        
 
     def execute(self, ctx):
@@ -235,9 +235,10 @@ class Block(Statement):
 
 class Unconditional(Statement):
     def from_tree(self, t):
-        self.targtype, 
-        self.targlineno, 
-        self.targstart = get_string(t, 'target').split(',')
+        pieces = get_string(t, 'target').split(',')
+        self.targtype = pieces[0] 
+        self.targlineno = pieces[1]
+        self.targstart = pieces[2]
         
 class Break(Unconditional):
     opcode = 'BREAK'
@@ -305,10 +306,7 @@ class Function(Expression):
 
     def from_tree(self, t):
         self.name = get_string(t, 'name')
-                
-        self.params = params
         self.body = get_obj(t, 'body')
-        
         params = get_string(t, 'params')
         if params == '':
             self.params = []
@@ -325,18 +323,14 @@ class Identifier(Expression):
     def from_tree(self, t):
         self.name = get_string(t,'value')
         self.initializer = get_obj(t, 'initializer')
-
-    def __init__(self, name, initialiser=None):
-        self.name = name
-        self.initialiser = initialiser
         
     def __str__(self):
-        return "<id %s init: %s>"%(str(self.name), str(self.initialiser))
+        return "<id %s init: %s>"%(str(self.name), str(self.initializer))
     
     def eval(self, ctx):
-        if self.initialiser is not None:
+        if self.initializer is not astundef:
             ref = ctx.resolve_identifier(self.name)
-            ref.PutValue(self.initialiser.eval(ctx).GetValue(), ctx)
+            ref.PutValue(self.initializer.eval(ctx).GetValue(), ctx)
         return ctx.resolve_identifier(self.name)
     
     def get_literal(self):
@@ -364,7 +358,7 @@ class Group(UnaryOp):
     opcode = 'GROUP'
     
     def eval(self, ctx):
-        return self.exp.eval(ctx)
+        return self.expr.eval(ctx)
 
 def ARC(ctx, x, y):
     """
@@ -411,6 +405,8 @@ class Ge(BinaryComparisonOp):
     
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
+        if DEBUG:
+            print ">= ARC result:", s5
         if s5 in (-1, 1):
             return W_Boolean(False)
         else:
@@ -421,6 +417,8 @@ class Gt(BinaryComparisonOp):
     
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
+        if DEBUG:
+            print "> ARC result:", s5
         if s5 == -1:
             return W_Boolean(False)
         else:
@@ -491,7 +489,7 @@ class Increment(UnaryOp):
         thing = self.expr.eval(ctx)
         val = thing.GetValue()
         x = val.ToNumber()
-        resl = Plus(None, None).decision(ctx, W_Number(x), W_Number(1))
+        resl = Plus().mathop(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
         return val
 
@@ -540,6 +538,9 @@ class NewWithArgs(BinaryOp):
 class Null(Expression):
     opcode = 'NULL'
     
+    def from_tree(self, t):
+        pass
+    
     def eval(self, ctx):
         return w_Null            
 
@@ -558,7 +559,9 @@ class ObjectInit(ListOp):
     def eval(self, ctx):
         w_obj = W_Object()
         for prop in self.list:
-            name = prop.left.get_literal()
+            if DEBUG:
+                print prop.left
+            name = prop.left.value
             w_expr = prop.right.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
@@ -586,7 +589,7 @@ class Plus(BinaryNumberOp):
             return W_Number(fleft + fright)
 
 class Mult(BinaryNumberOp):
-    opcode = 'MULT'
+    opcode = 'MUL'
     
     def mathop(self, ctx, nleft, nright):
         fleft = nleft.ToNumber()
@@ -664,7 +667,7 @@ class Semicolon(Statement):
         return self.expr.execute(ctx)
 
 class String(Expression):
-    code = 'STRING'
+    opcode = 'STRING'
     
     def from_tree(self, t):
         self.strval = get_string(t, 'value')
@@ -738,7 +741,7 @@ class Typeof(UnaryOp):
     opcode = 'TYPEOF'
     
     def eval(self, ctx):
-        val = self.exp.eval(ctx)
+        val = self.expr.eval(ctx)
         if isinstance(val, W_Reference) and val.GetBase() is None:
             return W_String("undefined")
         return W_String(val.GetValue().type())
@@ -803,7 +806,7 @@ class For(Statement):
                     continue
     
 class Boolean(Expression):
-    def from_tree(selt, t):
+    def from_tree(self, t):
         if self.opcode == 'TRUE':
             self.bool = True
         else:
@@ -812,10 +815,10 @@ class Boolean(Expression):
     def eval(self, ctx):
         return W_Boolean(self.bool)
 
-class True(Boolean):
+class BTrue(Boolean):
     opcode = 'TRUE'
 
-class False(Boolean):
+class BFalse(Boolean):
     opcode = 'FALSE'
 
 class Not(UnaryOp):
@@ -830,16 +833,17 @@ class UMinus(UnaryOp):
     def eval(self, ctx):
         return W_Number(-self.expr.eval(ctx).GetValue().ToNumber())
 
+astundef = Undefined()
 def get_obj(t, objname):
     item = get_tree_item(t, objname)
     if isinstance(item, Nonterminal):
         return from_tree(item)
     else:
-        return Undefined()
+        return astundef
 
 def get_string(t, string):
         simb = get_tree_item(t, string)
-        if simb is not None:
+        if isinstance(simb, Symbol):
             return simb.additional_info
         else:
             return ''

@@ -9,7 +9,7 @@ from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
-py.test.skip('WIP')
+
 def js_is_on_path():
     if py.path.local.sysfind("js") is None:
         py.test.skip("js binary not found")
@@ -18,7 +18,14 @@ js_is_on_path()
 
 class TestInterp(object):
     def test_simple(self):
-        assert Plus(Number(3), Number(4)).eval(ExecutionContext()).floatval == 7
+        p = Plus()
+        n1 = Number()
+        n2 = Number()
+        n1.num = 2
+        n2.num = 4
+        p.left = n1
+        p.right = n2
+        assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6
         l = []
         interpreter.writer = l.append
         # Script([Semicolon(Call(Identifier('print', None), 
