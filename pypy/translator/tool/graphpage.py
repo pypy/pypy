@@ -87,7 +87,7 @@ class VariableHistoryGraphPage(GraphPage):
 
 
 def graphsof(translator, func):
-    if isinstance(func, FunctionGraph):
+    if isinstance(func, (FunctionGraph, IncompleteGraph)):
         return [func]   # already a graph
     graphs = []
     if translator.annotator:
@@ -473,6 +473,7 @@ def try_show(obj):
 
 class IncompleteGraph:
     name = '(incomplete graph)'
+    tag = None
 
     def __init__(self, bunch_of_blocks):
         self.bunch_of_blocks = bunch_of_blocks
