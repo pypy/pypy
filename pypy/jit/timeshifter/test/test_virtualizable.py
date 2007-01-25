@@ -267,7 +267,7 @@ class TestVirtualizableExplicit(PortalTest):
 
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
-        self.check_insns(getfield=0)
+        self.check_insns({'int_add': 1})
 
     def test_simple_construct_escape(self):
    
