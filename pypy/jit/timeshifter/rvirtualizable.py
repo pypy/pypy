@@ -3,10 +3,10 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rlib.unroll import unrolling_iterable
 
-def define_touch_store(TOPPTR, fielddescs, access_touched):
+def define_touch_update(TOPPTR, fielddescs, access_touched):
     fielddescs = unrolling_iterable(fielddescs)
 
-    def touch_store(strucref):
+    def touch_update(strucref):
         struc = lltype.cast_opaque_ptr(TOPPTR, strucref)
         vable_rti = struc.vable_rti
         vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
@@ -24,7 +24,7 @@ def define_touch_store(TOPPTR, fielddescs, access_touched):
 
         struc.vable_access = access_touched
 
-    return touch_store
+    return touch_update
 
 def define_getset_field_ptrs(fielddesc, j):
 
@@ -53,7 +53,7 @@ def define_getset_field_ptrs(fielddesc, j):
     def set_field_untouched(struc, value):
         vable_rti = struc.vable_rti
         vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
-        vable_rti.touch_store(lltype.cast_opaque_ptr(llmemory.GCREF, struc))
+        vable_rti.touch_update(lltype.cast_opaque_ptr(llmemory.GCREF, struc))
         set_field_touched(struc, value)
 
     def get_field_untouched(struc):
@@ -107,7 +107,7 @@ class VirtualRTI(object):
     _get_forced._annspecialcase_ = "specialize:arg(2)"
 
 class VirtualizableRTI(VirtualRTI):
-    _attrs_ = "frameinfo vable_getset_rtis touch_store".split()
+    _attrs_ = "frameinfo vable_getset_rtis touch_update".split()
             
     def get_global_shape(self):
         return 0

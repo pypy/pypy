@@ -191,7 +191,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
     _attrs_  =  """redirected_fielddescs
                     base_desc rti_desc access_desc
                     gv_access
-                    touch_store
+                    touch_update
                     gv_access_is_null_ptr access_is_null_token
                     get_rti_ptr set_rti_ptr
                  """.split()
@@ -233,7 +233,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         self._fill_access('touched',   access_touched)
         self.gv_access = RGenOp.constPrebuiltGlobal(access_untouched)
 
-        self.touch_store = rvirtualizable.define_touch_store(TOPPTR,
+        self.touch_update = rvirtualizable.define_touch_update(TOPPTR,
                                 self.redirected_fielddescs,
                                 access_touched)
 
@@ -609,7 +609,7 @@ class VirtualStruct(VirtualContainer):
         vrti = rvirtualizable.VirtualStructRTI(rgenop, bitmask)
         memo.containers[self] = vrti
 
-        varboxes = memo.framevarboxes
+        vars_gv = memo.framevars_gv
         varindexes = vrti.varindexes
         vrtis = vrti.vrtis
         j = -1
@@ -617,7 +617,7 @@ class VirtualStruct(VirtualContainer):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                varboxes.append(box)
+                vars_gv.append(box.genvar)
             else:
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)
@@ -710,11 +710,11 @@ class VirtualizableStruct(VirtualStruct):
         assert isinstance(typedesc, VirtualizableStructTypeDesc)        
         rgenop = jitstate.curbuilder.rgenop
         vable_rti = rvirtualizable.VirtualizableRTI(rgenop, 0)
-        vable_rti.touch_store = typedesc.touch_store
+        vable_rti.touch_update = typedesc.touch_update
         memo.containers[self] = vable_rti
         
-        varboxes = memo.framevarboxes
-        varboxes.append(outsidebox)
+        vars_gv = memo.framevars_gv
+        vars_gv.append(gv_outside)
         getset_rti = (memo.frameindex,
                       typedesc.get_rti_ptr,
                       typedesc.set_rti_ptr)
@@ -729,7 +729,7 @@ class VirtualizableStruct(VirtualStruct):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                varboxes.append(box)
+                vars_gv.append(box.genvar)
             else:
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)
