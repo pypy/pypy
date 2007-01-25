@@ -17,6 +17,10 @@ class PortalTest(object):
     small = True
 
     def setup_class(cls):
+        from pypy.jit.timeshifter.test.conftest import option
+        if option.use_dump_backend:
+            from pypy.jit.codegen.dump.rgenop import RDumpGenOp
+            cls.RGenOp = RDumpGenOp
         cls._cache = {}
         cls._cache_order = []
 
