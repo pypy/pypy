@@ -142,7 +142,7 @@ TypeDesc = DictTypeDesc
 
 
 class AbstractFrozenVirtualDict(FrozenContainer):
-    __slots__ = ('typedesc',)
+    _attrs_ = ('typedesc',)
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -183,7 +183,7 @@ class AbstractFrozenVirtualDict(FrozenContainer):
 
 
 class AbstractVirtualDict(VirtualContainer):
-    __slots__ = ('typedesc', 'ownbox')     # and no item_boxes
+    _attrs_ = ('typedesc', 'ownbox')     # and no item_boxes
 
     FrozenVirtualDict = AbstractFrozenVirtualDict    # overridden in subclasses
 

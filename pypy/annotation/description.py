@@ -350,7 +350,7 @@ NODEFAULT = object()
 class ClassDesc(Desc):
     knowntype = type
     instance_level = False
-    allslots = None   # or a set
+    all_enforced_attrs = None   # or a set
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, basedesc=None, classdict=None,
@@ -400,17 +400,21 @@ class ClassDesc(Desc):
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
 
-            if '__slots__' in cls.__dict__:
-                slots = cls.__dict__['__slots__']
-                if isinstance(slots, str):
-                    slots = (slots,)
-                slots = dict.fromkeys(slots)
+            if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
+                attrs = {}
+                for decl in ('__slots__', '_attrs_'):
+                    decl = cls.__dict__.get(decl, [])
+                    if isinstance(decl, str):
+                        decl = (decl,)
+                    decl = dict.fromkeys(decl)
+                    attrs.update(decl)
                 if self.basedesc is not None:
-                    if self.basedesc.allslots is None:
-                        raise Exception("%r has slots, but not its base class"
+                    if self.basedesc.all_enforced_attrs is None:
+                        raise Exception("%r has slots or _attrs_, "
+                                        "but not its base class"
                                         % (pyobj,))
-                    slots.update(self.basedesc.allslots)
-                self.allslots = slots
+                    attrs.update(self.basedesc.all_enforced_attrs)
+                self.all_enforced_attrs = attrs
 
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):

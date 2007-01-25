@@ -12,7 +12,7 @@ debug_print = lloperation.llop.debug_print
 debug_pdb = lloperation.llop.debug_pdb
 
 class AbstractContainer(object):
-    __slots__ = []
+    _attrs_ = []
 
     def op_getfield(self, jitstate, fielddesc):
         raise NotImplementedError
@@ -25,11 +25,11 @@ class AbstractContainer(object):
 
 
 class VirtualContainer(AbstractContainer):
-    __slots__ = []
+    _attrs_ = []
 
 
 class FrozenContainer(AbstractContainer):
-    __slots__ = []
+    _attrs_ = []
 
     def exactmatch(self, vstruct, outgoingvarboxes, memo):
         raise NotImplementedError
@@ -44,7 +44,7 @@ class StructTypeDesc(object):
 
     VirtualStructCls = None # patched later with VirtualStruct
 
-    __slots__ =  """TYPE PTRTYPE
+    _attrs_ =  """TYPE PTRTYPE
                     firstsubstructdesc arrayfielddesc
                     innermostdesc
                     ptrkind
@@ -59,9 +59,8 @@ class StructTypeDesc(object):
                     gv_vrti_get_global_shape_ptr
                     vrti_read_forced_token
                     gv_vrti_read_forced_ptr
-                    __dict__
-                 """.split()  # XXX remove rpython abuse of __slots__
-                              # use our own _attrs_ instead
+                 """.split()
+                            
 
     firstsubstructdesc = None
     materialize = None
@@ -188,7 +187,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
     VirtualStructCls = None # patched later with VirtualizableStruct
 
-    __slots__ =  """redirected_fielddescs
+    _attrs_  =  """redirected_fielddescs
                     base_desc rti_desc access_desc
                     gv_access
                     gv_access_is_null_ptr access_is_null_token
@@ -498,7 +497,7 @@ class FrozenVirtualStruct(FrozenContainer):
 
 
 class VirtualStruct(VirtualContainer):
-    __slots__ = "typedesc content_boxes ownbox".split()
+    _attrs_ = "typedesc content_boxes ownbox".split()
 
     def __init__(self, typedesc):
         self.typedesc = typedesc

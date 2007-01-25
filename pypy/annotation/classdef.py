@@ -72,7 +72,7 @@ class Attribute:
         self.bookkeeper = bookkeeper
         self.s_value = s_ImpossibleValue
         self.readonly = True
-        self.slot_allowed = True
+        self.attr_allowed = True
         self.read_locations = {}
 
     def add_constant_source(self, classdef, source):
@@ -121,17 +121,17 @@ class Attribute:
                                                         (self.name, homedef))
                                 break
 
-        # check for attributes forbidden by slots
-        if homedef.classdesc.allslots is not None:
-            if self.name not in homedef.classdesc.allslots:
-                self.slot_allowed = False
+        # check for attributes forbidden by slots or _attrs_
+        if homedef.classdesc.all_enforced_attrs is not None:
+            if self.name not in homedef.classdesc.all_enforced_attrs:
+                self.attr_allowed = False
                 if not self.readonly:
-                    raise NoSuchSlotError(homedef, self.name)
+                    raise NoSuchAttrError(homedef, self.name)
 
     def modified(self, classdef='?'):
         self.readonly = False
-        if not self.slot_allowed:
-            raise NoSuchSlotError(classdef, self.name)
+        if not self.attr_allowed:
+            raise NoSuchAttrError(classdef, self.name)
 
 
 class ClassDef:
@@ -419,8 +419,8 @@ class InstanceSource:
         try:
             v = getattr(self.obj, name)
         except AttributeError:
-            allslots = classdef.classdesc.allslots
-            if allslots and name in allslots:
+            all_enforced_attrs = classdef.classdesc.all_enforced_attrs
+            if all_enforced_attrs and name in all_enforced_attrs:
                 return s_ImpossibleValue
             raise
         s_value = self.bookkeeper.immutablevalue(v)
@@ -439,8 +439,9 @@ class InstanceSource:
                         result.extend(slots)
         return result
 
-class NoSuchSlotError(Exception):
-    "Raised when an attribute is found on a class where __slots__ forbits it."
+class NoSuchAttrError(Exception):
+    """Raised when an attribute is found on a class where __slots__
+     or _attrs_ forbits it."""
 
 # ____________________________________________________________
 

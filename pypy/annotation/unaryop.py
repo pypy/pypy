@@ -529,9 +529,9 @@ class __extend__(SomeInstance):
                 # blocking is harmless if the attribute is explicitly listed
                 # in the class or a parent class.
                 for basedef in ins.classdef.getmro():
-                    if basedef.classdesc.allslots is not None:
-                        if attr in basedef.classdesc.allslots:
-                            raise HarmlesslyBlocked("getattr on a slot")
+                    if basedef.classdesc.all_enforced_attrs is not None:
+                        if attr in basedef.classdesc.all_enforced_attrs:
+                            raise HarmlesslyBlocked("get enforced attr")
             return s_result
         return SomeObject()
     getattr.can_only_throw = []

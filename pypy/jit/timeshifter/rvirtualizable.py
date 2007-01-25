@@ -3,7 +3,8 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 class VirtualRTI(object):
-    __slots__ = 'rgenop varindexes vrtis bitmask'.split()
+    _attrs_ = 'rgenop varindexes vrtis bitmask'.split()
+    
     def __init__(self, rgenop, bitmask):
         self.rgenop = rgenop
         self.varindexes = []
@@ -39,7 +40,7 @@ class VirtualRTI(object):
     get_forced._annspecialcase_ = "specialize:arg(2)"
 
 class VirtualizableRTI(VirtualRTI):
-    __slots__ = "frameinfo vable_getset_rtis".split()
+    _attrs_ = "frameinfo vable_getset_rtis".split()
             
     def get_global_shape(self):
         return 0
@@ -64,7 +65,7 @@ class VirtualizableRTI(VirtualRTI):
         return state
 
 class WithForcedStateVirtualizableRTI(VirtualizableRTI):
-    __slots__ = "state".split()
+    _attrs_ = "state"
 
     def __init__(self, vablerti, state):
         self.rgenop = vablerti.rgenop

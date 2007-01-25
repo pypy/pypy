@@ -32,7 +32,7 @@ class DontMerge(Exception):
     pass
 
 class RedBox(object):
-    __slots__ = ['kind', 'genvar']
+    _attrs_ = ['kind', 'genvar']
 
     def __init__(self, kind, genvar=None):
         self.kind = kind
