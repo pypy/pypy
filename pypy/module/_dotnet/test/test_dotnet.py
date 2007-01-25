@@ -48,3 +48,11 @@ class AppTestDotnet:
         import _dotnet
         raises(TypeError, _dotnet.ArrayList.Add)
         raises(TypeError, _dotnet.ArrayList.Add, 0)
+
+    def test_overload(self):
+        import _dotnet
+        obj = _dotnet.ArrayList()
+        for i in range(10):
+            obj.Add(i)
+        assert obj.IndexOf(7) == 7
+        assert obj.IndexOf(7, 0, 5) == -1

@@ -8,6 +8,7 @@ from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_
 
 System = CLR.System
 TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
+AmbiguousMatchException = NativeException(CLR.System.Reflection.AmbiguousMatchException)
 
 import sys
 
@@ -16,10 +17,18 @@ class W_CliObject(Wrappable):
         self.space = space
         self.b_obj = b_obj
 
-    def call_method(self, name, w_args, startfrom=0):
+    def get_method(self, name, b_paramtypes):
         b_type = self.b_obj.GetType()
-        b_meth = b_type.GetMethod(name) # TODO: overloading!
-        b_args = self.rewrap_args(w_args, startfrom)
+        try:
+            return b_type.GetMethod(name, b_paramtypes)
+        except AmbiguousMatchException:
+            msg = 'Multiple overloads for %s could match' % name
+            raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
+
+    def call_method(self, name, w_args, startfrom=0):
+        b_args, b_paramtypes = self.rewrap_args(w_args, startfrom)
+        b_meth = self.get_method(name, b_paramtypes)
+
         try:
             # for an explanation of the box() call, see the log message for revision 35167
             b_res = box(b_meth.Invoke(self.b_obj, b_args))
@@ -33,10 +42,15 @@ class W_CliObject(Wrappable):
 
     def rewrap_args(self, w_args, startfrom):
         args = self.space.unpackiterable(w_args)
-        b_res = new_array(System.Object, len(args)-startfrom)
+        paramlen = len(args)-startfrom
+        b_args = new_array(System.Object, paramlen)
+        b_paramtypes = new_array(System.Type, paramlen)
         for i in range(startfrom, len(args)):
-            b_res[i-startfrom] = self.py2cli(args[i])
-        return b_res
+            j = i-startfrom
+            b_obj = self.py2cli(args[i])
+            b_args[j] = b_obj
+            b_paramtypes[j] = b_obj.GetType() # XXX: potentially inefficient
+        return b_args, b_paramtypes
 
     def py2cli(self, w_obj):
         space = self.space

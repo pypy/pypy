@@ -25,7 +25,7 @@ class UnboundMethod(object):
     def __raise_TypeError(self, thing):
         raise TypeError, 'unbound method %s() must be called with %s ' \
               'instance as first argument (got %s instead)' % \
-              (self.im_name, self.im_class.__cliname__, thing)
+              (self.im_name, self.im_class.__cliclass__, thing)
 
     def __call__(self, *args):
         if len(args) == 0:
@@ -36,7 +36,7 @@ class UnboundMethod(object):
         return im_self.__cliobj__.call_method(self.im_name, args, 1) # ignore the first arg
 
     def __repr__(self):
-        return '<unbound CLI method %s.%s>' % (self.im_class.__cliname__, self.im_name)
+        return '<unbound CLI method %s.%s>' % (self.im_class.__cliclass__, self.im_name)
 
 
 class BoundMethod(object):
@@ -50,7 +50,7 @@ class BoundMethod(object):
         return self.im_self.__cliobj__.call_method(self.im_name, args)
 
     def __repr__(self):
-        return '<bound CLI method %s.%s of %s>' % (self.im_self.__class__.__cliname__, self.im_name, self.im_self)
+        return '<bound CLI method %s.%s of %s>' % (self.im_self.__class__.__cliclass__, self.im_name, self.im_self)
 
 
 class CliClassWrapper(object):
@@ -58,12 +58,13 @@ class CliClassWrapper(object):
 
     def __init__(self):
         import _dotnet
-        self.__cliobj__ = _dotnet._CliObject_internal(self.__cliname__)
+        self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__)
 
 
 class ArrayList(CliClassWrapper):
-    __cliname__ = 'System.Collections.ArrayList'
+    __cliclass__ = 'System.Collections.ArrayList'
 
     Add = MethodWrapper('Add')
     get_Item = MethodWrapper('get_Item')
     __getitem__ = get_Item
+    IndexOf = MethodWrapper('IndexOf')
