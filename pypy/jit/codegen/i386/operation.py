@@ -592,6 +592,7 @@ def array_item_operand(mc, base, arraytoken, opindex):
         return memSIB (base, opindex, indexshift, startoffset)
 
 class OpComputeSize(Operation):
+    clobbers_cc = False
     def __init__(self, varsizealloctoken, gv_length):
         self.varsizealloctoken = varsizealloctoken
         self.gv_length = gv_length
@@ -689,6 +690,7 @@ def hard_load(mc, opdst, opmemsource, itemsize):
                 mc.MOV(opdst, ecx)
 
 class OpGetField(Operation):
+    clobbers_cc = False
     def __init__(self, fieldtoken, gv_ptr):
         self.fieldtoken = fieldtoken
         self.gv_ptr = gv_ptr
@@ -706,6 +708,7 @@ class OpGetField(Operation):
         hard_load(mc, dstop, opsource, fieldsize)
 
 class OpSetField(Operation):
+    clobbers_cc = False
     result_kind = RK_NO_RESULT
     def __init__(self, fieldtoken, gv_ptr, gv_value):
         self.fieldtoken = fieldtoken
@@ -784,6 +787,15 @@ class OpGetArraySubstruct(Operation):
         except FailedToImplement:
             mc.LEA(ecx, opsource)
             mc.MOV(dstop, ecx)
+
+class OpGetFrameBase(Operation):
+    def generate(self, allocator):
+        try:
+            dstop = allocator.get_operand(self)
+        except KeyError:
+            return    # result not used
+        mc = allocator.mc
+        mc.MOV(dstop, ebp)
 
 # ____________________________________________________________
 

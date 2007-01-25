@@ -5,7 +5,7 @@ from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
-from pypy.jit.codegen.i386.regalloc import RegAllocator
+from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack
 from pypy.jit.codegen import conftest
 from pypy.rpython.annlowlevel import llhelper
 
@@ -20,12 +20,7 @@ class IntConst(GenConst):
 
     @specialize.arg(1)
     def revealconst(self, T):
-        if isinstance(T, lltype.Ptr):
-            return lltype.cast_int_to_ptr(T, self.value)
-        elif T is llmemory.Address:
-            return llmemory.cast_int_to_adr(self.value)
-        else:
-            return lltype.cast_primitive(T, self.value)
+        return cast_int_to_whatever(T, self.value)
 
     def __repr__(self):
         "NOT_RPYTHON"
@@ -44,14 +39,7 @@ class AddrConst(GenConst):
 
     @specialize.arg(1)
     def revealconst(self, T):
-        if T is llmemory.Address:
-            return self.addr
-        elif isinstance(T, lltype.Ptr):
-            return llmemory.cast_adr_to_ptr(self.addr, T)
-        elif T is lltype.Signed:
-            return llmemory.cast_adr_to_int(self.addr)
-        else:
-            assert 0, "XXX not implemented"
+        return cast_adr_to_whatever(T, self.addr)
 
     def __repr__(self):
         "NOT_RPYTHON"
@@ -59,6 +47,26 @@ class AddrConst(GenConst):
 
     def repr(self):
         return "const=<0x%x>" % (llmemory.cast_adr_to_int(self.addr),)
+
+@specialize.arg(0)
+def cast_int_to_whatever(T, value):
+    if isinstance(T, lltype.Ptr):
+        return lltype.cast_int_to_ptr(T, value)
+    elif T is llmemory.Address:
+        return llmemory.cast_int_to_adr(value)
+    else:
+        return lltype.cast_primitive(T, value)
+
+@specialize.arg(0)
+def cast_adr_to_whatever(T, addr):
+    if T is llmemory.Address:
+        return addr
+    elif isinstance(T, lltype.Ptr):
+        return llmemory.cast_adr_to_ptr(addr, T)
+    elif T is lltype.Signed:
+        return llmemory.cast_adr_to_int(addr)
+    else:
+        assert 0, "XXX not implemented"
 
 # ____________________________________________________________
 
@@ -160,12 +168,24 @@ def gc_malloc_fnaddr():
             GC_malloc = boehmlib.GC_malloc
             return cast(GC_malloc, c_void_p).value
 
+def peek_word_at(addr):
+    # now the Very Obscure Bit: when translated, 'addr' is an
+    # address.  When not, it's an integer.  It just happens to
+    # make the test pass, but that's probably going to change.
+    if we_are_translated():
+        return addr.signed[0]
+    else:
+        from ctypes import cast, c_void_p, c_int, POINTER
+        p = cast(c_void_p(addr), POINTER(c_int))
+        return p.contents.value
+
 # ____________________________________________________________
 
 class Builder(GenBuilder):
     coming_from = 0
     operations = None
     update_defaultcaseaddr_of = None
+    force_in_stack = None
 
     def __init__(self, rgenop, inputargs_gv, inputoperands):
         self.rgenop = rgenop
@@ -181,6 +201,8 @@ class Builder(GenBuilder):
                                                  renaming=True,
                                                  minimal_stack_depth=0):
         allocator = RegAllocator()
+        if self.force_in_stack is not None:
+            allocator.force_stack_storage(self.force_in_stack)
         allocator.set_final(final_vars_gv)
         if not renaming:
             final_vars_gv = allocator.var2loc.keys()  # unique final vars
@@ -196,6 +218,9 @@ class Builder(GenBuilder):
         allocator.mc = mc
         allocator.generate_initial_moves()
         allocator.generate_operations()
+        if self.force_in_stack is not None:
+            allocator.save_storage_places(self.force_in_stack)
+            self.force_in_stack = None
         self.operations = None
         if renaming:
             self.inputargs_gv = [GenVar() for v in final_vars_gv]
@@ -409,6 +434,23 @@ class Builder(GenBuilder):
         pass  # self.mc.log(msg)
         # XXX re-do this somehow...
 
+    def genop_get_frame_base(self):
+        op = OpGetFrameBase()
+        self.operations.append(op)
+        return op
+
+    def get_frame_info(self, vars_gv):
+        if self.force_in_stack is None:
+            self.force_in_stack = []
+        result = []
+        for v in vars_gv:
+            if not v.is_const:
+                place = StorageInStack()
+                self.force_in_stack.append((v, place))
+                v = place
+            result.append(v)
+        return result
+
 
 class Label(GenLabel):
     targetaddr = 0
@@ -500,6 +542,12 @@ class ReplayBuilder(GenBuilder):
 
     def show_incremental_progress(self):
         pass
+
+    def genop_get_frame_base(self):
+        return dummy_var
+
+    def get_frame_info(self, vars_gv):
+        return None
 
 # ____________________________________________________________
 
@@ -647,6 +695,23 @@ class RI386GenOp(AbstractRGenOp):
             return llmemory.GCREF
         else:
             assert 0, "XXX not implemented"
+
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_var(T, base, info, index):
+        # XXX assumes sizeof(T) == WORD
+        v = info[index]
+        if isinstance(v, StorageInStack):
+            value = peek_word_at(base + v.get_offset())
+            return cast_int_to_whatever(T, value)
+        else:
+            assert isinstance(v, GenConst)
+            return v.revealconst(T)
+
+    @staticmethod
+    @specialize.arg(0)
+    def write_frame_var(T, base, info, index, value):
+        raise NotImplementedError
 
 global_rgenop = RI386GenOp()
 RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst

@@ -51,7 +51,7 @@ class TestRI386Genop(AbstractRGenOpTests):
         res = fnptr(21, -21, 0)
         assert res == 42
 
-    def test_read_frame_var_direct(self):   py.test.skip("in-progress")
-    def test_read_frame_var_compile(self):  py.test.skip("in-progress")
+    #def test_read_frame_var_direct(self):   py.test.skip("in-progress")
+    #def test_read_frame_var_compile(self):  py.test.skip("in-progress")
     def test_write_frame_var_direct(self):  py.test.skip("in-progress")
     def test_write_frame_var_compile(self): py.test.skip("in-progress")

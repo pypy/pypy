@@ -617,19 +617,33 @@ def make_call_functions_with_different_signatures(rgenop):
 
     return gv_callable
 
-FRAME_VAR_READER = lltype.Ptr(lltype.FuncType([llmemory.Address,
-                                               llmemory.GCREF],
-                                              lltype.Signed))
-FRAME_VAR_WRITER = lltype.Ptr(lltype.FuncType([llmemory.Address,
-                                               llmemory.GCREF,
-                                               lltype.Signed],
-                                              lltype.Void))
+class FrameVarReader:
+    FUNC = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+    def __init__(self, RGenOp):
+        def reader(base):
+            return RGenOp.read_frame_var(lltype.Signed, base,
+                                         self.frameinfo, 0)
+        self.reader = reader
+    def get_reader(self, info):
+        self.frameinfo = info
+        return llhelper(self.FUNC, self.reader)
 
-def make_read_frame_var(rgenop, reader_ptr):
+class FrameVarWriter:
+    FUNC = lltype.Ptr(lltype.FuncType([llmemory.Address, lltype.Signed],
+                                      lltype.Void))
+    def __init__(self, RGenOp):
+        def writer(base, value):
+            return RGenOp.write_frame_var(lltype.Signed, base,
+                                          self.frameinfo, 0, value)
+        self.writer = writer
+    def get_writer(self, info):
+        self.frameinfo = info
+        return llhelper(self.FUNC, self.writer)
+
+def make_read_frame_var(rgenop, get_reader):
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC)
-    gv_reader = rgenop.constPrebuiltGlobal(reader_ptr)
-    readertoken = rgenop.sigToken(FRAME_VAR_READER.TO)
+    readertoken = rgenop.sigToken(FrameVarReader.FUNC.TO)
 
     builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
     builder.start_writing()
@@ -637,31 +651,29 @@ def make_read_frame_var(rgenop, reader_ptr):
     gv_y = builder.genop2("int_mul", gv_x, rgenop.genconst(2))
     gv_base = builder.genop_get_frame_base()
     info = builder.get_frame_info([gv_y])
-    gv_info = rgenop.genconst(info)
-    gv_z = builder.genop_call(readertoken, gv_reader, [gv_base, gv_info])
+    gv_reader = rgenop.constPrebuiltGlobal(get_reader(info))
+    gv_z = builder.genop_call(readertoken, gv_reader, [gv_base])
     builder.finish_and_return(sigtoken, gv_z)
     builder.end()
 
     return gv_f
 
 def get_read_frame_var_runner(RGenOp):
-    def reader(base, info):
-        return RGenOp.read_frame_var(lltype.Signed, base, info, 0) + 2
+    fvr = FrameVarReader(RGenOp)
 
     def read_frame_var_runner(x):
         rgenop = RGenOp()
-        gv_f = make_read_frame_var(rgenop, llhelper(FRAME_VAR_READER, reader))
+        gv_f = make_read_frame_var(rgenop, fvr.get_reader)
         fn = gv_f.revealconst(lltype.Ptr(FUNC))
         res = fn(x)
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
     return read_frame_var_runner
 
-def make_write_frame_var(rgenop, writer_ptr):
+def make_write_frame_var(rgenop, get_writer):
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC)
-    gv_writer = rgenop.constPrebuiltGlobal(writer_ptr)
-    writertoken = rgenop.sigToken(FRAME_VAR_WRITER.TO)
+    writertoken = rgenop.sigToken(FrameVarWriter.FUNC.TO)
 
     builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
     builder.start_writing()
@@ -669,21 +681,20 @@ def make_write_frame_var(rgenop, writer_ptr):
     gv_y = builder.genop_same_as(signed_kind, rgenop.genconst(0))
     gv_base = builder.genop_get_frame_base()
     info = builder.get_frame_info([gv_y])
-    gv_info = rgenop.constPrebuiltGlobal(info)
     gv_42 = rgenop.genconst(42)
-    builder.genop_call(writertoken, gv_writer, [gv_base, gv_info, gv_42])
+    gv_writer = rgenop.constPrebuiltGlobal(get_writer(info))
+    builder.genop_call(writertoken, gv_writer, [gv_base, gv_42])
     builder.finish_and_return(sigtoken, gv_y)
     builder.end()
 
     return gv_f
 
 def get_write_frame_var_runner(RGenOp):
-    def writer(base, info, value):
-        RGenOp.write_frame_var(lltype.Signed, base, info, 0, value)
+    fvw = FrameVarWriter(RGenOp)
 
     def write_frame_var_runner(x):
         rgenop = RGenOp()
-        gv_f = make_write_frame_var(rgenop, llhelper(FRAME_VAR_WRITER, writer))
+        gv_f = make_write_frame_var(rgenop, fvw.get_writer)
         fn = gv_f.revealconst(lltype.Ptr(FUNC))
         res = fn(x)
         keepalive_until_here(rgenop)    # to keep the code blocks alive
@@ -1229,32 +1240,32 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 111
 
     def test_read_frame_var_direct(self):
-        RGenOp = self.RGenOp
-
-        def reader(base, info):
-            return RGenOp.read_frame_var(lltype.Signed, base, info, 0) + 2
-        reader_ptr = self.directtesthelper(FRAME_VAR_READER, reader)
+        def get_reader(info):
+            fvr = FrameVarReader(self.RGenOp)
+            fvr.frameinfo = info
+            reader_ptr = self.directtesthelper(fvr.FUNC, fvr.reader)
+            return reader_ptr
 
         rgenop = self.RGenOp()
-        gv_callable = make_read_frame_var(rgenop, reader_ptr)
+        gv_callable = make_read_frame_var(rgenop, get_reader)
         fnptr = self.cast(gv_callable, 1)
         res = fnptr(20)
-        assert res == 42
+        assert res == 40
 
     def test_read_frame_var_compile(self):
         fn = self.compile(get_read_frame_var_runner(self.RGenOp), [int])
         res = fn(30)
-        assert res == 62
+        assert res == 60
 
     def test_write_frame_var_direct(self):
-        RGenOp = self.RGenOp
-
-        def writer(base, info, value):
-            RGenOp.write_frame_var(lltype.Signed, base, info, 0, value)
-        writer_ptr = self.directtesthelper(FRAME_VAR_WRITER, writer)
+        def get_writer(info):
+            fvw = FrameVarWriter(self.RGenOp)
+            fvw.frameinfo = info
+            writer_ptr = self.directtesthelper(fvw.FUNC, fvw.writer)
+            return writer_ptr
 
         rgenop = self.RGenOp()
-        gv_callable = make_write_frame_var(rgenop, writer_ptr)
+        gv_callable = make_write_frame_var(rgenop, get_writer)
         fnptr = self.cast(gv_callable, 1)
         res = fnptr(-0xfada)
         assert res == 42

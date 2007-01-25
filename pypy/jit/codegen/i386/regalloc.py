@@ -44,12 +44,11 @@ class RegAllocator(object):
         self.force_loc2operand = {}
         self.force_operand2loc = {}
         self.initial_moves = []
+        self.num_stack_locs = 0
 
     def set_final(self, final_vars_gv):
         for v in final_vars_gv:
-            if not v.is_const and v not in self.var2loc:
-                self.var2loc[v] = self.nextloc
-                self.nextloc += 1
+            self.using(v)
 
     def creating(self, v):
         try:
@@ -57,7 +56,8 @@ class RegAllocator(object):
         except KeyError:
             pass
         else:
-            self.available_locs.append(loc)   # now available again for reuse
+            if loc >= self.num_stack_locs:
+                self.available_locs.append(loc) # now available again for reuse
 
     def using(self, v):
         if not v.is_const and v not in self.var2loc:
@@ -156,12 +156,16 @@ class RegAllocator(object):
                 seen_stackn[stack_n_from_op(op)] = None
         i = 0
         stackn = 0
+        num_stack_locs = self.num_stack_locs
         for loc in range(self.nextloc):
             try:
                 operand = force_loc2operand[loc]
             except KeyError:
-                # grab the next free register
                 try:
+                    # try to grab the next free register,
+                    # unless this location is forced to go to the stack
+                    if loc < num_stack_locs:
+                        raise IndexError
                     while True:
                         operand = RegAllocator.AVAILABLE_REGS[i]
                         i += 1
@@ -229,3 +233,30 @@ class RegAllocator(object):
                 except FailedToImplement:
                     mc.MOVZX(ecx, cl)
                     mc.MOV(dstop, ecx)
+
+    def force_stack_storage(self, lst):
+        # this is called at the very beginning, so the 'loc' numbers
+        # computed here are the smaller ones
+        N = 0
+        for v, place in lst:
+            self.using(v)
+            loc = self.var2loc[v]
+            if loc >= N:
+                N = loc + 1
+        self.num_stack_locs = N
+
+    def save_storage_places(self, lst):
+        for v, place in lst:
+            loc = self.var2loc[v]
+            operand = self.operands[loc]
+            place.offset = operand.ofs_relative_to_ebp()
+
+
+class StorageInStack(GenVar):
+    """Place of a variable that must live in the stack.  Its position is
+    choosen by the register allocator and put in the 'stackn' attribute."""
+    offset = 0
+
+    def get_offset(self):
+        assert self.offset != 0     # otherwise, RegAllocator bug
+        return self.offset
