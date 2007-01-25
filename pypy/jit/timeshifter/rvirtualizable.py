@@ -21,6 +21,7 @@ class VirtualRTI(object):
         vinfo = self.vrtis[index]
         assert isinstance(T, lltype.Ptr)
         assert fielddesc.canbevirtual
+        assert fielddesc.gcref
         return vinfo.get_forced(vablerti, fielddesc, base)
     _read_field._annspecialcase_ = "specialize:arg(2)"
 

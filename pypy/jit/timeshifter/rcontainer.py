@@ -137,7 +137,8 @@ class StructTypeDesc(object):
             for desc in descs:
                 v = vrti._read_field(vablerti, desc, base, i)
                 i += 1
-                setattr(s, desc.fieldname, v)
+                tgt = lltype.cast_pointer(desc.PTRTYPE, s)
+                setattr(tgt, desc.fieldname, v)
                 
         self.fill_into = fill_into
 
@@ -357,6 +358,7 @@ class FieldDesc(object):
     virtualizable = False
     gv_default = None
     canbevirtual = False
+    gcref = False
 
     def __init__(self, hrtyper, PTRTYPE, RESTYPE):
         RGenOp = hrtyper.RGenOp
@@ -369,8 +371,9 @@ class FieldDesc(object):
             T = RESTYPE.TO
             if hasattr(T, '_hints'):
                 self.virtualizable = T._hints.get('virtualizable', False)
+            self.gcref = T._gckind == 'gc'
             if isinstance(T, lltype.ContainerType):
-                if isinstance(T, lltype.Struct) and T._arrayfld is None:
+                if not T._is_varsize():
                     self.canbevirtual = True
             else:
                 T = None

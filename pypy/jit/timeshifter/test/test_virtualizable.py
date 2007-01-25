@@ -821,3 +821,36 @@ class TestVirtualizableImplicit(PortalTest):
         call_count = sum([count for graph, count in calls.iteritems()
                           if not graph.name.startswith('rpyexc_')])
         assert call_count == 3
+
+
+    def test_setting_pointer_in_residual_call(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+            
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, s):
+                self.s = s
+
+        def g(v):
+            assert v.s is None
+            s = S(1, 7)
+            v.s = s
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            g(v)
+            s = v.s
+            return s.x + s.y
+
+        def main():
+            S(5, 5)
+            v = V(None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == 8
+
+        
