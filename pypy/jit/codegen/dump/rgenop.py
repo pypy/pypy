@@ -240,6 +240,21 @@ class Builder(GenBuilder):
     def log(self, msg):
         self.rgenop.dump('# log: %s' % (msg,))
 
+    def genop_get_frame_base(self):
+        v = self.llbuilder.genop_get_frame_base()
+        self.dump("%s = %s.genop_get_frame_base()" % (
+            self.rgenop.vname(v),
+            self.name))
+        return v
+
+    def get_frame_info(self, vars_gv):
+        info = self.llbuilder.get_frame_info(vars_gv)
+        self.dump("%r = %s.get_frame_info([%s])" % (
+            info,
+            self.name,
+            self.rgenop.vlistname(vars_gv)))
+        return info
+
 
 class RDumpGenOp(llrgenop.RGenOp):
 
@@ -354,5 +369,15 @@ class RDumpGenOp(llrgenop.RGenOp):
             self.lblname(label),
             self.kindtokensname(kinds)))
         return b, args_gv
+
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_var(T, base, info, index):
+        XXX
+
+    @staticmethod
+    @specialize.arg(0)
+    def write_frame_var(T, base, info, index, value):
+        XXX
 
 kindtokennames = {}

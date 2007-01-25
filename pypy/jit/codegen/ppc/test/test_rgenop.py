@@ -20,3 +20,8 @@ class TestRPPCGenopNoRegs(TestRPPCGenop):
 
     def compile(self, runner, argtypes):
         py.test.skip("Skip compiled tests w/ restricted register allocator")
+
+    def test_read_frame_var_direct(self):   py.test.skip("in-progress")
+    def test_read_frame_var_compile(self):  py.test.skip("in-progress")
+    def test_write_frame_var_direct(self):  py.test.skip("in-progress")
+    def test_write_frame_var_compile(self): py.test.skip("in-progress")

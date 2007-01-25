@@ -1,7 +1,7 @@
 import random
-from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
+from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy, llhelper
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.c.test import test_boehm
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
 
@@ -617,6 +617,80 @@ def make_call_functions_with_different_signatures(rgenop):
 
     return gv_callable
 
+FRAME_VAR_READER = lltype.Ptr(lltype.FuncType([llmemory.Address,
+                                               llmemory.GCREF],
+                                              lltype.Signed))
+FRAME_VAR_WRITER = lltype.Ptr(lltype.FuncType([llmemory.Address,
+                                               llmemory.GCREF,
+                                               lltype.Signed],
+                                              lltype.Void))
+
+def make_read_frame_var(rgenop, reader_ptr):
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    gv_reader = rgenop.constPrebuiltGlobal(reader_ptr)
+    readertoken = rgenop.sigToken(FRAME_VAR_READER.TO)
+
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
+
+    gv_y = builder.genop2("int_mul", gv_x, rgenop.genconst(2))
+    gv_base = builder.genop_get_frame_base()
+    info = builder.get_frame_info([gv_y])
+    gv_info = rgenop.genconst(info)
+    gv_z = builder.genop_call(readertoken, gv_reader, [gv_base, gv_info])
+    builder.finish_and_return(sigtoken, gv_z)
+    builder.end()
+
+    return gv_f
+
+def get_read_frame_var_runner(RGenOp):
+    def reader(base, info):
+        return RGenOp.read_frame_var(lltype.Signed, base, info, 0) + 2
+
+    def read_frame_var_runner(x):
+        rgenop = RGenOp()
+        gv_f = make_read_frame_var(rgenop, llhelper(FRAME_VAR_READER, reader))
+        fn = gv_f.revealconst(lltype.Ptr(FUNC))
+        res = fn(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return read_frame_var_runner
+
+def make_write_frame_var(rgenop, writer_ptr):
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    gv_writer = rgenop.constPrebuiltGlobal(writer_ptr)
+    writertoken = rgenop.sigToken(FRAME_VAR_WRITER.TO)
+
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
+
+    gv_y = builder.genop_same_as(signed_kind, rgenop.genconst(0))
+    gv_base = builder.genop_get_frame_base()
+    info = builder.get_frame_info([gv_y])
+    gv_info = rgenop.constPrebuiltGlobal(info)
+    gv_42 = rgenop.genconst(42)
+    builder.genop_call(writertoken, gv_writer, [gv_base, gv_info, gv_42])
+    builder.finish_and_return(sigtoken, gv_y)
+    builder.end()
+
+    return gv_f
+
+def get_write_frame_var_runner(RGenOp):
+    def writer(base, info, value):
+        RGenOp.write_frame_var(lltype.Signed, base, info, 0, value)
+
+    def write_frame_var_runner(x):
+        rgenop = RGenOp()
+        gv_f = make_write_frame_var(rgenop, llhelper(FRAME_VAR_WRITER, writer))
+        fn = gv_f.revealconst(lltype.Ptr(FUNC))
+        res = fn(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return write_frame_var_runner
+
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -627,6 +701,16 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     def cast(self, gv, nb_args):
         print gv.value
         return cast(c_void_p(gv.value), CFUNCTYPE(c_int, *[c_int]*nb_args))
+
+    def directtesthelper(self, FUNCTYPE, func):
+        # for machine code backends: build a ctypes function pointer
+        # (with a real physical address) that will call back our 'func'
+        nb_args = len(FUNCTYPE.TO.ARGS)
+        callback = CFUNCTYPE(c_int, *[c_int]*nb_args)(func)
+        keepalive = self.__dict__.setdefault('_keepalive', [])
+        keepalive.append((callback, func))
+        return cast(callback, c_void_p).value
+        # NB. returns the address as an integer
 
     def test_adder_direct(self):
         rgenop = self.RGenOp()
@@ -1143,3 +1227,39 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 168
         res = fnptr(7)
         assert res == 111
+
+    def test_read_frame_var_direct(self):
+        RGenOp = self.RGenOp
+
+        def reader(base, info):
+            return RGenOp.read_frame_var(lltype.Signed, base, info, 0) + 2
+        reader_ptr = self.directtesthelper(FRAME_VAR_READER, reader)
+
+        rgenop = self.RGenOp()
+        gv_callable = make_read_frame_var(rgenop, reader_ptr)
+        fnptr = self.cast(gv_callable, 1)
+        res = fnptr(20)
+        assert res == 42
+
+    def test_read_frame_var_compile(self):
+        fn = self.compile(get_read_frame_var_runner(self.RGenOp), [int])
+        res = fn(30)
+        assert res == 62
+
+    def test_write_frame_var_direct(self):
+        RGenOp = self.RGenOp
+
+        def writer(base, info, value):
+            RGenOp.write_frame_var(lltype.Signed, base, info, 0, value)
+        writer_ptr = self.directtesthelper(FRAME_VAR_WRITER, writer)
+
+        rgenop = self.RGenOp()
+        gv_callable = make_write_frame_var(rgenop, writer_ptr)
+        fnptr = self.cast(gv_callable, 1)
+        res = fnptr(-0xfada)
+        assert res == 42
+
+    def test_write_frame_var_compile(self):
+        fn = self.compile(get_write_frame_var_runner(self.RGenOp), [int])
+        res = fn(-1)
+        assert res == 42
