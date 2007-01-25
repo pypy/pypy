@@ -24,6 +24,14 @@ class VirtualRTI(object):
         return vinfo.get_forced(vablerti, fielddesc, base)
     _read_field._annspecialcase_ = "specialize:arg(2)"
 
+    def _write_field(self, vablerti, fielddesc, base, index, value):
+        T = fielddesc.RESTYPE
+        frameindex = self.varindexes[index]
+        if frameindex >= 0:
+            return vablerti.write_frame_var(T, base, frameindex, value)
+        raise NotImplementedError
+    _write_field._annspecialcase_ = "specialize:arg(2)"
+
     def get_forced(self, vablerti, fielddesc, base):
         T = fielddesc.RESTYPE
         assert isinstance(T, lltype.Ptr)
@@ -53,6 +61,15 @@ class VirtualizableRTI(VirtualRTI):
         return self._read_field(self, fielddesc, base, index)
     read_field._annspecialcase_ = "specialize:arg(1)"
 
+    def write_frame_var(self, T, base, frameindex, value):
+        return self.rgenop.write_frame_var(T, base, self.frameinfo, frameindex,
+                                           value)
+    write_frame_var._annspecialcase_ = "specialize:arg(1)"
+
+    def write_field(self, fielddesc, base, index, value):
+        return self._write_field(self, fielddesc, base, index, value)
+    write_field._annspecialcase_ = "specialize:arg(1)"
+
     def getforcestate(self, base):
         state = {}
         for i, get, set in self.vable_getset_rtis:
@@ -66,7 +83,8 @@ class VirtualizableRTI(VirtualRTI):
 
 class WithForcedStateVirtualizableRTI(VirtualizableRTI):
     _attrs_ = "state"
-
+    state = {}
+    
     def __init__(self, vablerti, state):
         self.rgenop = vablerti.rgenop
         self.varindexes = vablerti.varindexes
@@ -85,6 +103,7 @@ class WithForcedStateVirtualizableRTI(VirtualizableRTI):
         return bitmask
 
     def read_forced(self, bitkey):
+        assert self.state
         return self.state[bitkey]
 
 

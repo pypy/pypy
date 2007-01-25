@@ -694,6 +694,33 @@ class TestVirtualizableExplicit(PortalTest):
                                          policy=StopAtXPolicy(g))
 
         assert res == 42
+
+    def test_setting_in_residual_call(self):
+        def g(xy):
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
+            xy_set_x(xy, y)
+            xy_set_y(xy, x)
+
+        def f(x):
+            hint(None, global_merge_point=True)
+            xy = lltype.malloc(XY)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = 11
+            g(xy)
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
+            return x*2 + y
+
+        
+        def main(x):
+            return f(x)
+        
+        res = self.timeshift_from_portal(main, f, [20],
+                                         policy=StopAtXPolicy(g))
+
+        assert res == 42
         
 class TestVirtualizableImplicit(PortalTest):
 

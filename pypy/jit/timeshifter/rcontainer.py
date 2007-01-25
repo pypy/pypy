@@ -213,14 +213,14 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
         annhelper = hrtyper.annhelper
 
-        self.my_redirected_getters = {}
+        self.my_redirected_getsetters = {}
         self.my_redirected_names = my_redirected_names = []
         j = 0
         for fielddesc, _  in self.redirected_fielddescs:
             if fielddesc.PTRTYPE != self.PTRTYPE:
                 continue
             my_redirected_names.append(fielddesc.fieldname)
-            self._define_get_field_ptr(hrtyper, fielddesc, j)
+            self._define_getset_field_ptr(hrtyper, fielddesc, j)
             j += 1
 
         self._define_getset_rti_ptrs(hrtyper)
@@ -233,21 +233,32 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         self._define_collect_residual_args()
 
 
-    def _define_get_field_ptr(self, hrtyper, fielddesc, j):
+    def _define_getset_field_ptr(self, hrtyper, fielddesc, j):
         annhelper = hrtyper.annhelper
+        s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
         def get_field(struc):
             vable_rti = struc.vable_rti
             vable_rti = cast_base_ptr_to_instance(rvirtualizable.VirtualRTI,
                                                   vable_rti)
             return vable_rti.read_field(fielddesc, struc.vable_base, j)
 
-        s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
         get_field_ptr = annhelper.delayedfunction(get_field,
                                                   [self.s_structtype],
                                                   s_lltype,
                                                   needtype = True)
-        self.my_redirected_getters[fielddesc.fieldname] = get_field_ptr        
+        def set_field(struc, value):
+            vable_rti = struc.vable_rti
+            vable_rti = cast_base_ptr_to_instance(rvirtualizable.VirtualRTI,
+                                                  vable_rti)
+            vable_rti.write_field(fielddesc, struc.vable_base, j, value)
 
+        set_field_ptr = annhelper.delayedfunction(set_field,
+                                                  [self.s_structtype,
+                                                   s_lltype],
+                                                  annmodel.s_None,
+                                                  needtype = True)
+        self.my_redirected_getsetters[fielddesc.fieldname] = (get_field_ptr,
+                                                              set_field_ptr)
     def _define_getset_rti_ptrs(self, hrtyper):
         RGenOp = hrtyper.RGenOp
         annhelper = hrtyper.annhelper
@@ -281,9 +292,11 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         if (firstsubstructdesc is not None and 
             isinstance(firstsubstructdesc, VirtualizableStructTypeDesc)):
             firstsubstructdesc._fill_access(access.parent)
-        for name, get_field_ptr in self.my_redirected_getters.iteritems():
+        getsetters = self.my_redirected_getsetters.iteritems()
+        for name, (get_field_ptr, set_field_ptr) in getsetters:
             setattr(access, 'get_'+name, get_field_ptr)
-            
+            setattr(access, 'set_'+name, set_field_ptr)
+ 
     def _define_collect_residual_args(self):
         my_redirected_names = unrolling_iterable(self.my_redirected_names)
         TOPPTR = self.access_desc.PTRTYPE
@@ -585,7 +598,7 @@ class VirtualStruct(VirtualContainer):
         vrti = rvirtualizable.VirtualStructRTI(rgenop, bitmask)
         memo.containers[self] = vrti
 
-        vars_gv = memo.framevars_gv
+        varboxes = memo.framevarboxes
         varindexes = vrti.varindexes
         vrtis = vrti.vrtis
         j = -1
@@ -593,7 +606,7 @@ class VirtualStruct(VirtualContainer):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                vars_gv.append(box.genvar)
+                varboxes.append(box)
             else:
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)
@@ -675,7 +688,8 @@ class VirtualizableStruct(VirtualStruct):
 
     def make_rti(self, jitstate, memo):
         typedesc = self.typedesc
-        gv_outside = self.content_boxes[-1].genvar
+        outsidebox = self.content_boxes[-1]
+        gv_outside = outsidebox.genvar
         if gv_outside is typedesc.gv_null:
             return None
         try:
@@ -687,8 +701,9 @@ class VirtualizableStruct(VirtualStruct):
         vable_rti = rvirtualizable.VirtualizableRTI(rgenop, 0)
         memo.containers[self] = vable_rti
         
-        vars_gv = memo.framevars_gv
-        vars_gv.append(gv_outside)
+        in_virtualizable_varboxes = memo.in_virtualizable_framevarboxes
+        varboxes = memo.framevarboxes
+        varboxes.append(outsidebox)
         getset_rti = (memo.frameindex,
                       typedesc.get_rti_ptr,
                       typedesc.set_rti_ptr)
@@ -703,7 +718,8 @@ class VirtualizableStruct(VirtualStruct):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                vars_gv.append(box.genvar)
+                in_virtualizable_varboxes[box] = None
+                varboxes.append(box)
             else:
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)

@@ -903,7 +903,8 @@ class JITState(object):
             memo = rvalue.make_vinfo_memo()
             memo.bitcount = 0
             memo.frameindex = 0
-            memo.framevars_gv = []
+            memo.in_virtualizable_framevarboxes = {}
+            memo.framevarboxes = []
             memo.vable_getset_rtis = []
             vable_rtis = []
             for virtualizable_box in virtualizables:
@@ -912,7 +913,14 @@ class JITState(object):
                 vable_rtis.append(content.make_rti(self, memo))
             assert memo.bitcount < 32
             gv_base = builder.genop_get_frame_base()
-            frameinfo = builder.get_frame_info(memo.framevars_gv)
+            for varbox in memo.in_virtualizable_framevarboxes:
+                if varbox.genvar.is_const:
+                    gvar = builder.genop_same_as(varbox.kind, varbox.genvar)
+                    varbox.genvar = gvar
+            framevars_gv = []
+            for varbox in memo.framevarboxes:
+                framevars_gv.append(varbox.genvar)
+            frameinfo = builder.get_frame_info(framevars_gv)
             vable_getset_rtis = memo.vable_getset_rtis
             for i in range(len(virtualizables)):
                 vable_rti = vable_rtis[i]
