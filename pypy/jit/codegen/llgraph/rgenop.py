@@ -46,6 +46,12 @@ class LLLabel(GenLabel):
         self.b = b
         self.g = g
 
+class LLPlace:
+    absorbed = False
+    def __init__(self, v, info):
+        self.v    = v
+        self.info = info
+
 class LLFlexSwitch(CodeGenSwitch):
     
     def __init__(self, rgenop, b, g, args_gv):
@@ -276,11 +282,30 @@ class LLBuilder(GenBuilder):
     # read_frame_var support
 
     def genop_get_frame_base(self):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_get_frame_base: bad currently_writing")
         return LLVar(llimpl.genop(self.b, 'get_frame_base', [],
                                   gv_Address.v))
 
     def get_frame_info(self, vars):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "get_frame_info: bad currently_writing")
         return llimpl.get_frame_info(self.b, vars)
+
+    def alloc_frame_place(self, gv_TYPE, gv_initial_value):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "alloc_frame_place: bad currently_writing")
+        v = LLVar(llimpl.genop(self.b, 'same_as', [gv_initial_value],
+                               gv_TYPE.v))
+        return LLPlace(v, llimpl.get_frame_info(self.b, [v]))
+
+    def genop_absorb_place(self, gv_TYPE, place):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "alloc_frame_place: bad currently_writing")
+        debug_assert(not place.absorbed, "place already absorbed")
+        place.absorbed = True
+        return place.v
+
 
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void
@@ -372,8 +397,7 @@ class RGenOp(AbstractRGenOp):
 
     @staticmethod
     @specialize.arg(0)
-    def write_frame_var(T, base, info, index, value):
-        llimpl.write_frame_var(base, info, index, value)
-
+    def write_frame_place(T, base, place, value):
+        llimpl.write_frame_var(base, place.info, 0, value)
 
 rgenop = RGenOp()      # no real point in using a full class in llgraph

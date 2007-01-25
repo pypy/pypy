@@ -27,5 +27,5 @@ class TestRLLVMGenop(AbstractRGenOpTests):
 
     test_read_frame_var_direct   = skip
     test_read_frame_var_compile  = skip
-    test_write_frame_var_direct  = skip
-    test_write_frame_var_compile = skip
+    test_write_frame_place_direct  = skip
+    test_write_frame_place_compile = skip

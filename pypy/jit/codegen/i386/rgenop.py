@@ -451,6 +451,12 @@ class Builder(GenBuilder):
             result.append(v)
         return result
 
+    def alloc_frame_place(self, kind, gv_initial_value):
+        raise NotImplementedError
+
+    def genop_absorb_place(self, kind, place):
+        raise NotImplementedError
+
 
 class Label(GenLabel):
     targetaddr = 0
@@ -710,7 +716,7 @@ class RI386GenOp(AbstractRGenOp):
 
     @staticmethod
     @specialize.arg(0)
-    def write_frame_var(T, base, info, index, value):
+    def write_frame_place(T, base, place, value):
         raise NotImplementedError
 
 global_rgenop = RI386GenOp()

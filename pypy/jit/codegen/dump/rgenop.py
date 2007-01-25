@@ -255,6 +255,24 @@ class Builder(GenBuilder):
             self.rgenop.vlistname(vars_gv)))
         return info
 
+    def alloc_frame_place(self, kind, gv_initial_value):
+        place = self.llbuilder.alloc_frame_place(kind, gv_initial_value)
+        self.dump("%s = %s.alloc_frame_place(%s, %s)" % (
+            place,
+            self.name,
+            self.rgenop.kindtokenname(kind),
+            self.rgenop.vname(gv_initial_value)))
+        return place
+
+    def genop_absorb_place(self, kind, place):
+        v = self.llbuilder.genop_absorb_place(kind, place)
+        self.dump("%s = %s.genop_absorb_place(%s, %s)" % (
+            self.rgenop.vname(v),
+            self.name,
+            self.rgenop.kindtokenname(kind),
+            place))
+        return v
+
 
 class RDumpGenOp(llrgenop.RGenOp):
 
@@ -379,8 +397,8 @@ class RDumpGenOp(llrgenop.RGenOp):
 
     @staticmethod
     @specialize.arg(0)
-    def write_frame_var(T, base, info, index, value):
-        RDumpGenOp.dump("# write_frame_var(info=%s, index=%d)" % (info, index))
-        llrgenop.RGenOp.write_frame_var(T, base, info, index, value)
+    def write_frame_place(T, base, place, value):
+        RDumpGenOp.dump("# write_frame_place(place=%s)" % (place,))
+        llrgenop.RGenOp.write_frame_place(T, base, place, value)
 
 kindtokennames = {}
