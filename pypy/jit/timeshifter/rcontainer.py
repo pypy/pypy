@@ -191,6 +191,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
     _attrs_  =  """redirected_fielddescs
                     base_desc rti_desc access_desc
                     gv_access
+                    touch_store
                     gv_access_is_null_ptr access_is_null_token
                     get_rti_ptr set_rti_ptr
                  """.split()
@@ -214,87 +215,65 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
         annhelper = hrtyper.annhelper
 
-        self.my_redirected_getsetters = {}
+        self.my_redirected_getsetters_untouched = {}
+        self.my_redirected_getsetters_touched = {}        
         self.my_redirected_names = my_redirected_names = []
-        j = 0
+        j = -1
         for fielddesc, _  in self.redirected_fielddescs:
+            j += 1
             if fielddesc.PTRTYPE != self.PTRTYPE:
                 continue
             my_redirected_names.append(fielddesc.fieldname)
             self._define_getset_field_ptr(hrtyper, fielddesc, j)
-            j += 1
+
+
+        access_untouched = lltype.malloc(ACCESS, immortal=True)
+        access_touched = lltype.malloc(ACCESS, immortal=True)
+        self._fill_access('untouched', access_untouched)
+        self._fill_access('touched',   access_touched)
+        self.gv_access = RGenOp.constPrebuiltGlobal(access_untouched)
+
+        self.touch_store = rvirtualizable.define_touch_store(TOPPTR,
+                                self.redirected_fielddescs,
+                                access_touched)
+
+        self._define_collect_residual_args()
 
         self._define_getset_rti_ptrs(hrtyper)
-
-        access = lltype.malloc(ACCESS, immortal=True)
-        self._fill_access(access)
-        self.gv_access = RGenOp.constPrebuiltGlobal(access)
-
         self._define_access_is_null(hrtyper)
-        self._define_collect_residual_args()
 
 
     def _define_getset_field_ptr(self, hrtyper, fielddesc, j):
         annhelper = hrtyper.annhelper
         s_lltype = annmodel.lltype_to_annotation(fielddesc.RESTYPE)
-        def get_field(struc):
-            vable_rti = struc.vable_rti
-            vable_rti = cast_base_ptr_to_instance(rvirtualizable.VirtualRTI,
-                                                  vable_rti)
-            return vable_rti.read_field(fielddesc, struc.vable_base, j)
 
-        get_field_ptr = annhelper.delayedfunction(get_field,
-                                                  [self.s_structtype],
-                                                  s_lltype,
-                                                  needtype = True)
-        def set_field(struc, value):
-            vable_rti = struc.vable_rti
-            vable_rti = cast_base_ptr_to_instance(rvirtualizable.VirtualRTI,
-                                                  vable_rti)
-            vable_rti.write_field(fielddesc, struc.vable_base, j, value)
+        untouched = self.my_redirected_getsetters_untouched
+        touched = self.my_redirected_getsetters_touched
 
-        set_field_ptr = annhelper.delayedfunction(set_field,
-                                                  [self.s_structtype,
-                                                   s_lltype],
-                                                  annmodel.s_None,
-                                                  needtype = True)
-        self.my_redirected_getsetters[fielddesc.fieldname] = (get_field_ptr,
-                                                              set_field_ptr)
-    def _define_getset_rti_ptrs(self, hrtyper):
-        RGenOp = hrtyper.RGenOp
-        annhelper = hrtyper.annhelper
-        TOPPTR = self.access_desc.PTRTYPE
-        
-        def get_rti(base, frameinfo, frameindex):
-            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
-            return struc.vable_rti
+        mkptr = annhelper.delayedfunction
 
-        def set_rti(base, frameinfo, frameindex, new_vable_rti):
-            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
-            struc.vable_rti = new_vable_rti
+        fnpairs = rvirtualizable.define_getset_field_ptrs(fielddesc, j)
 
-        s_addr = annmodel.SomeAddress()
-        s_frameinfo = annmodel.lltype_to_annotation(llmemory.GCREF)
-        s_frameindex = annmodel.SomeInteger()
-        from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
-        s_vable_rti = annmodel.lltype_to_annotation(VABLERTIPTR)
+        name = fielddesc.fieldname
+        for getsetters, (get_field, set_field) in zip((untouched, touched),
+                                                      fnpairs):
 
-        self.get_rti_ptr = annhelper.delayedfunction(get_rti,
-                                [s_addr, s_frameinfo, s_frameindex],
-                                s_vable_rti, needtype=True)
-        self.set_rti_ptr = annhelper.delayedfunction(set_rti,
-                                [s_addr, s_frameinfo, s_frameindex,
-                                 s_vable_rti],
-                                annmodel.s_None, needtype=True)
+            get_field_ptr = mkptr(get_field, [self.s_structtype], s_lltype,
+                                             needtype = True)
+            set_field_ptr = mkptr(set_field, [self.s_structtype, s_lltype],
+                                             annmodel.s_None, needtype=True)
+            
+            getsetters[name] = get_field_ptr, set_field_ptr
 
-
-    def _fill_access(self, access):
+    def _fill_access(self, which, access):
         firstsubstructdesc = self.firstsubstructdesc
         if (firstsubstructdesc is not None and 
             isinstance(firstsubstructdesc, VirtualizableStructTypeDesc)):
-            firstsubstructdesc._fill_access(access.parent)
-        getsetters = self.my_redirected_getsetters.iteritems()
-        for name, (get_field_ptr, set_field_ptr) in getsetters:
+            firstsubstructdesc._fill_access(which, access.parent)
+            
+        getsetters = getattr(self, 'my_redirected_getsetters_'+which)
+
+        for name, (get_field_ptr, set_field_ptr) in getsetters.iteritems():
             setattr(access, 'get_'+name, get_field_ptr)
             setattr(access, 'set_'+name, set_field_ptr)
  
@@ -324,6 +303,35 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
             return t
 
         self.collect_residual_args = collect_residual_args
+
+
+
+    def _define_getset_rti_ptrs(self, hrtyper):
+        RGenOp = hrtyper.RGenOp
+        annhelper = hrtyper.annhelper
+        TOPPTR = self.access_desc.PTRTYPE
+        
+        def get_rti(base, frameinfo, frameindex):
+            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
+            return struc.vable_rti
+
+        def set_rti(base, frameinfo, frameindex, new_vable_rti):
+            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
+            struc.vable_rti = new_vable_rti
+
+        s_addr = annmodel.SomeAddress()
+        s_frameinfo = annmodel.lltype_to_annotation(llmemory.GCREF)
+        s_frameindex = annmodel.SomeInteger()
+        from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
+        s_vable_rti = annmodel.lltype_to_annotation(VABLERTIPTR)
+
+        self.get_rti_ptr = annhelper.delayedfunction(get_rti,
+                                [s_addr, s_frameinfo, s_frameindex],
+                                s_vable_rti, needtype=True)
+        self.set_rti_ptr = annhelper.delayedfunction(set_rti,
+                                [s_addr, s_frameinfo, s_frameindex,
+                                 s_vable_rti],
+                                annmodel.s_None, needtype=True)
 
     def _define_access_is_null(self, hrtyper):
         RGenOp = hrtyper.RGenOp
@@ -702,6 +710,7 @@ class VirtualizableStruct(VirtualStruct):
         assert isinstance(typedesc, VirtualizableStructTypeDesc)        
         rgenop = jitstate.curbuilder.rgenop
         vable_rti = rvirtualizable.VirtualizableRTI(rgenop, 0)
+        vable_rti.touch_store = typedesc.touch_store
         memo.containers[self] = vable_rti
         
         varboxes = memo.framevarboxes
@@ -720,9 +729,6 @@ class VirtualizableStruct(VirtualStruct):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                if box.genvar.is_const: # KILL KILL KILL
-                    copymemo = rvalue.copy_memo()
-                    box = boxes[i] = box.forcevar(jitstate, copymemo)
                 varboxes.append(box)
             else:
                 varindexes.append(j)
@@ -731,6 +737,12 @@ class VirtualizableStruct(VirtualStruct):
                 assert isinstance(content, VirtualStruct) # XXX for now
                 vrtis.append(content.make_rti(jitstate, memo))
                 j -= 1
+
+        nvirtual = -j-1
+        bitmask = 1 << memo.bitcount
+        memo.bitcount += 1
+        memo.bitcount += nvirtual
+        vable_rti.bitmask = bitmask
         return vable_rti
 
     def prepare_for_residual_call(self, jitstate, gv_base, vable_rti):
