@@ -410,6 +410,10 @@ class LLFrame(object):
         except LLException, e:
             raise
         except Exception:
+            if getattr(obj, '_debugexc', False):
+                import sys
+                from pypy.translator.tool.pdbplus import PdbPlusShow
+                PdbPlusShow(None).post_mortem(sys.exc_info()[2])
             self.make_llexception()
 
     def find_roots(self, roots):

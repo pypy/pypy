@@ -359,15 +359,10 @@ def _closelink(link, vars, targetblock):
         raise TypeError
 
 def closelink(link, vars, targetblock):
-    try:
-        link = from_opaque_object(link)
-        targetblock = from_opaque_object(targetblock)
-        vars = _inputvars(vars)
-        _closelink(link, vars, targetblock)
-    except Exception, e:
-        import sys; tb = sys.exc_info()[2]
-        import pdb; pdb.post_mortem(tb)
-        raise
+    link = from_opaque_object(link)
+    targetblock = from_opaque_object(targetblock)
+    vars = _inputvars(vars)
+    _closelink(link, vars, targetblock)
 
 def closereturnlink(link, returnvar, gv_func):
     returnvar = from_opaque_object(returnvar)
@@ -528,7 +523,7 @@ def setannotation(func, annotation, specialize_as_constant=False):
                                            hop.r_result.lowleveltype)
                 args_v = hop.inputargs(*hop.args_r)
                 funcptr = lltype.functionptr(FUNCTYPE, func.__name__,
-                                             _callable=func)
+                                             _callable=func, _debugexc=True)
                 cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
                 return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
 
