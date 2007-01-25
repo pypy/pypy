@@ -4,8 +4,6 @@ from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 
-DEBUG = True
-
 class Node(object):
     opcode = None
     def __init__(self, t=None, type='', value='', lineno=0, start=0, end=0):
@@ -104,6 +102,19 @@ def evaljs(ctx, args, this):
         code = W_String('')
     return load_source(code.ToString()).execute(ctx)
 
+def functionjs(ctx, args, this):
+    if len(args) >= 1:
+        fbody  = args[-1].GetValue().ToString()
+        argslist = []
+        for i in range(len(args)-1):
+            argslist.append(args[i].GetValue().ToString())
+        fargs = ','.join(argslist)
+        functioncode = "__anon__ = function (%s) {%s}"%(fargs, fbody)
+    else:
+        functioncode = "__anon__ = function () {}"
+    print functioncode
+    return evaljs(ctx, [W_String(functioncode),], this)
+
 def printjs(ctx, args, this):
     writer(",".join([i.GetValue().ToString() for i in args]))
     return w_Undefined
@@ -142,7 +153,7 @@ class Interpreter(object):
         w_ObjPrototype = W_Object(Prototype=None, Class='Object')
         
         #Function stuff
-        w_Function = W_Object(ctx=ctx, Class='Function', 
+        w_Function = W_Builtin(functionjs, ctx=ctx, Class='Function', 
                               Prototype=w_ObjPrototype)
         w_Function.Put('prototype', w_Function, dd=True, de=True, ro=True)
         w_Function.Put('constructor', w_Function)
@@ -177,11 +188,15 @@ class Interpreter(object):
         w_Global.Put('eval', W_Builtin(evaljs))
         w_Global.Put('print', W_Builtin(printjs))
         w_Global.Put('isNaN', W_Builtin(isnanjs))
+        
+        w_Boolean = W_Builtin(booleanjs, Class="Boolean")
         w_Global.Put('Boolean', W_Builtin(booleanjs, Class="Boolean"))
+        
 
         w_Global.Put('NaN', W_Number(NaN))
         w_Global.Put('Infinity', W_Number(Infinity))
         w_Global.Put('undefined', w_Undefined)
+        w_Global.Put('this', w_Global)
         
         
         self.global_context = ctx
@@ -257,7 +272,7 @@ class Call(BinaryOp):
 
     def eval(self, ctx):
         if DEBUG:
-            print self.left
+            print "calling", self.left, self.right
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()

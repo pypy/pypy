@@ -237,9 +237,7 @@ class W_Object(W_PrimitiveObject):
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype,
                                    Class, Value, callfunc)
-        toString = W_Builtin()
-        toString.set_builtin_call(self.str_builtin)
-        self.propdict['toString'] = Property('toString', toString)
+        self.propdict['toString'] = Property('toString', W_Builtin(self.str_builtin))
 
 
 class W_Builtin(W_PrimitiveObject):

@@ -10,7 +10,7 @@ import re
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.ebnfparse import Symbol
 
-DEBUG=False
+DEBUG = False
 
 class JsSyntaxError(Exception):
     pass
