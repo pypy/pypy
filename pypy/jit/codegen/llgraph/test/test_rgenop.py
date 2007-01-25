@@ -58,6 +58,41 @@ def test_read_frame_var():
     res = testgengraph(ptr._obj.graph, [21])
     assert res == 42
 
+def test_write_frame_var():
+    from pypy.annotation import model as annmodel
+
+    def writer(base, info, value):
+        RGenOp.write_frame_var(lltype.Signed, base, info, 0, value)
+
+    t, rtyper, writer_graph = gengraph(writer,
+                                       [annmodel.SomeAddress(),
+                                        annmodel.SomePtr(llmemory.GCREF),
+                                        annmodel.SomeInteger()])
+    writer_ptr = rtyper.getcallable(writer_graph)
+
+    F1 = lltype.FuncType([lltype.Signed], lltype.Signed)
+    rgenop = RGenOp()
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(F1)
+    gv_writer = RGenOp.constPrebuiltGlobal(writer_ptr)
+    writertoken = rgenop.sigToken(lltype.typeOf(writer_ptr).TO)
+
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
+
+    gv_y = builder.genop_same_as(signed_kind, rgenop.genconst(0))
+    gv_base = builder.genop_get_frame_base()
+    info = builder.get_frame_info([gv_y])
+    gv_info = RGenOp.constPrebuiltGlobal(info)
+    gv_42 = rgenop.genconst(42)
+    builder.genop_call(writertoken, gv_writer, [gv_base, gv_info, gv_42])
+    builder.finish_and_return(sigtoken, gv_y)
+    builder.end()
+
+    ptr = gv_f.revealconst(lltype.Ptr(F1))
+    res = testgengraph(ptr._obj.graph, [-1])
+    assert res == 42
+
 def test_not_calling_end_explodes():
     F1 = lltype.FuncType([lltype.Signed], lltype.Signed)
     rgenop = RGenOp()

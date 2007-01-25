@@ -608,3 +608,13 @@ class ReadFrameVarEntry(ExtRegistryEntry):
                                          _callable=read_frame_var)
             cfunc = hop.inputconst(lltype.Ptr(FUNCTYPE), funcptr)
             return hop.genop('direct_call', [cfunc] + args_v, hop.r_result)
+
+def write_frame_var(base, info, index, value):
+    vars = info._obj.info.args
+    v = vars[index]
+    assert isinstance(v, flowmodel.Variable)
+    llframe = base.ptr
+    llframe.setvar(v, value)
+
+
+setannotation(write_frame_var, None)

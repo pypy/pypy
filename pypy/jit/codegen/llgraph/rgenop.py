@@ -193,7 +193,7 @@ class LLBuilder(GenBuilder):
     def genop_same_as(self, gv_TYPE, gv_value):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_same_as: bad currently_writing")
-        return LLVar(gv_value.v)
+        return LLVar(llimpl.genop(self.b, 'same_as', [gv_value], gv_TYPE.v))
 
     def _newblock(self, kinds):
         self.b = newb = llimpl.newblock()
@@ -369,6 +369,11 @@ class RGenOp(AbstractRGenOp):
     @specialize.arg(0)
     def read_frame_var(T, base, info, index):
         return llimpl.read_frame_var(T, base, info, index)
+
+    @staticmethod
+    @specialize.arg(0)
+    def write_frame_var(T, base, info, index, value):
+        llimpl.write_frame_var(base, info, index, value)
 
 
 rgenop = RGenOp()      # no real point in using a full class in llgraph
