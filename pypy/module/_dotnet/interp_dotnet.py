@@ -16,10 +16,10 @@ class W_CliObject(Wrappable):
         self.space = space
         self.b_obj = b_obj
 
-    def call_method(self, name, w_args):
+    def call_method(self, name, w_args, startfrom=0):
         b_type = self.b_obj.GetType()
         b_meth = b_type.GetMethod(name) # TODO: overloading!
-        b_args = self.rewrap_args(w_args)
+        b_args = self.rewrap_args(w_args, startfrom)
         try:
             # for an explanation of the box() call, see the log message for revision 35167
             b_res = box(b_meth.Invoke(self.b_obj, b_args))
@@ -29,13 +29,13 @@ class W_CliObject(Wrappable):
             # TODO: use the appropriate exception, not StandardError
             raise OperationError(self.space.w_StandardError, self.space.wrap(message))
         return self.cli2py(b_res)
-    call_method.unwrap_spec = ['self', str, W_Root]
+    call_method.unwrap_spec = ['self', str, W_Root, int]
 
-    def rewrap_args(self, w_args):
+    def rewrap_args(self, w_args, startfrom):
         args = self.space.unpackiterable(w_args)
-        b_res = new_array(System.Object, len(args))
-        for i in range(len(args)):
-            b_res[i] = self.py2cli(args[i])
+        b_res = new_array(System.Object, len(args)-startfrom)
+        for i in range(startfrom, len(args)):
+            b_res[i-startfrom] = self.py2cli(args[i])
         return b_res
 
     def py2cli(self, w_obj):

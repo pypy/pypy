@@ -31,3 +31,20 @@ class AppTestDotnet:
         obj.Add(42.0)
         item = obj.get_Item(0)
         assert isinstance(item, float)
+
+    def test_getitem(self):
+        import _dotnet
+        obj = _dotnet.ArrayList()
+        obj.Add(42)
+        assert obj[0] == 42
+
+    def test_unboundmethod(self):
+        import _dotnet
+        obj = _dotnet.ArrayList()
+        _dotnet.ArrayList.Add(obj, 42)
+        assert obj.get_Item(0) == 42
+
+    def test_unboundmethod_typeerror(self):
+        import _dotnet
+        raises(TypeError, _dotnet.ArrayList.Add)
+        raises(TypeError, _dotnet.ArrayList.Add, 0)
