@@ -1381,13 +1381,6 @@ class HintRTyper(RPythonTyper):
     def translate_op_residual_gray_call(self, hop):
         self.translate_op_residual_red_call(hop, color='gray')
 
-    def translate_op_prepare_residual_call(self, hop):
-        v_jitstate = hop.llops.getjitstate()        
-        return hop.llops.genmixlevelhelpercall(rtimeshift.prepare_residual_call,
-                                               [self.s_JITState],
-                                               [v_jitstate],
-                                               annmodel.s_None)
-
     def translate_op_after_residual_call(self, hop):
         v_jitstate = hop.llops.getjitstate()        
         return hop.llops.genmixlevelhelpercall(rtimeshift.after_residual_call,

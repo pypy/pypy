@@ -742,7 +742,6 @@ class HintGraphTransformer(object):
         # pseudo-obscure: the arguments for the call go in save_locals
         args_v = [v for v in args_v if v.concretetype is not lltype.Void]
         self.genop(newops, 'save_locals', args_v)
-        self.genop(newops, 'prepare_residual_call', [])
         call_index = len(newops)
         v_res = self.genop(newops, 'residual_%s_call' % (color,),
                            [op.args[0]], result_like = op.result)

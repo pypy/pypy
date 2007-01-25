@@ -282,7 +282,7 @@ class TestVirtualizableExplicit(PortalTest):
 
         def main(x, y):
             xy = f(x, y)
-            return xy.x+xy.y
+            return xy_get_x(xy)+xy_get_y(xy)
 
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
@@ -670,7 +670,31 @@ class TestVirtualizableExplicit(PortalTest):
                                          policy=StopAtXPolicy(g))
         assert res == 42 + 140 + 10
 
+    def test_virtualizable_escaped_as_argument_to_red_call(self):
+        def g(xy):
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
+            return y*2 + x
 
+        def f(x, y):
+            hint(None, global_merge_point=True)
+            xy = lltype.malloc(XY)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
+            r = g(xy)
+            x = xy_get_x(xy)
+            y = xy_get_y(xy)
+            return r
+        
+        def main(x, y):
+            return f(x,y)
+        
+        res = self.timeshift_from_portal(main, f, [20, 11],
+                                         policy=StopAtXPolicy(g))
+
+        assert res == 42
+        
 class TestVirtualizableImplicit(PortalTest):
 
     def test_simple(self):

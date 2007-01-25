@@ -638,12 +638,16 @@ class VirtualizableStruct(VirtualStruct):
 
     def getgenvar(self, jitstate):
         typedesc = self.typedesc
-        builder = jitstate.curbuilder
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is typedesc.gv_null:
+            assert isinstance(typedesc, VirtualizableStructTypeDesc)
+            builder = jitstate.curbuilder
             gv_outside = builder.genop_malloc_fixedsize(typedesc.alloctoken)
             self.content_boxes[-1].genvar = gv_outside
             jitstate.add_virtualizable(self.ownbox)
+            access_token = typedesc.access_desc.fieldtoken            
+            gv_access_null = typedesc.access_desc.gv_default
+            builder.genop_setfield(access_token, gv_outside, gv_access_null)
         return gv_outside
 
     def store_back(self, jitstate):

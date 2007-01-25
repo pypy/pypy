@@ -466,11 +466,9 @@ def ll_gen_residual_call(jitstate, calldesc, funcbox):
     gv_funcbox = funcbox.getgenvar(jitstate)
     argboxes = jitstate.frame.local_boxes
     args_gv = [argbox.getgenvar(jitstate) for argbox in argboxes]
+    jitstate.prepare_for_residual_call()
     gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
     return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
-
-def prepare_residual_call(jitstate):
-    jitstate.prepare_for_residual_call()
 
 def after_residual_call(jitstate):
     return jitstate.after_residual_call()
