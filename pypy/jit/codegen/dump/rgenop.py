@@ -249,7 +249,7 @@ class Builder(GenBuilder):
 
     def get_frame_info(self, vars_gv):
         info = self.llbuilder.get_frame_info(vars_gv)
-        self.dump("%r = %s.get_frame_info([%s])" % (
+        self.dump("%s = %s.get_frame_info([%s])" % (
             info,
             self.name,
             self.rgenop.vlistname(vars_gv)))
@@ -335,7 +335,8 @@ class RDumpGenOp(llrgenop.RGenOp):
         kindtokennames[result] = str(T).lower() + '_kind'
         return result
 
-    def dump(self, text):
+    @staticmethod
+    def dump(text):
         print text
         text += '\n'
         fd = os.open(LOGFILE, os.O_WRONLY|os.O_CREAT, 0666)
@@ -373,11 +374,13 @@ class RDumpGenOp(llrgenop.RGenOp):
     @staticmethod
     @specialize.arg(0)
     def read_frame_var(T, base, info, index):
-        XXX
+        RDumpGenOp.dump("# read_frame_var(info=%s, index=%d)" % (info, index))
+        return llrgenop.RGenOp.read_frame_var(T, base, info, index)
 
     @staticmethod
     @specialize.arg(0)
     def write_frame_var(T, base, info, index, value):
-        XXX
+        RDumpGenOp.dump("# write_frame_var(info=%s, index=%d)" % (info, index))
+        llrgenop.RGenOp.write_frame_var(T, base, info, index, value)
 
 kindtokennames = {}
