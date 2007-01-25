@@ -5,7 +5,7 @@ from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
-from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack
+from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack, Place
 from pypy.jit.codegen import conftest
 from pypy.rpython.annlowlevel import llhelper
 
@@ -56,6 +56,15 @@ def cast_int_to_whatever(T, value):
         return llmemory.cast_int_to_adr(value)
     else:
         return lltype.cast_primitive(T, value)
+
+@specialize.arg(0)
+def cast_whatever_to_int(T, value):
+    if isinstance(T, lltype.Ptr):
+        return lltype.cast_ptr_to_int(value)
+    elif T is llmemory.Address:
+        return llmemory.cast_adr_to_int(value)
+    else:
+        return lltype.cast_primitive(lltype.Signed, value)
 
 @specialize.arg(0)
 def cast_adr_to_whatever(T, addr):
@@ -177,7 +186,18 @@ def peek_word_at(addr):
     else:
         from ctypes import cast, c_void_p, c_int, POINTER
         p = cast(c_void_p(addr), POINTER(c_int))
-        return p.contents.value
+        return p[0]
+
+def poke_word_into(addr, value):
+    # now the Very Obscure Bit: when translated, 'addr' is an
+    # address.  When not, it's an integer.  It just happens to
+    # make the test pass, but that's probably going to change.
+    if we_are_translated():
+        addr.signed[0] = value
+    else:
+        from ctypes import cast, c_void_p, c_int, POINTER
+        p = cast(c_void_p(addr), POINTER(c_int))
+        p[0] = value
 
 # ____________________________________________________________
 
@@ -452,10 +472,19 @@ class Builder(GenBuilder):
         return result
 
     def alloc_frame_place(self, kind, gv_initial_value):
-        raise NotImplementedError
+        if self.force_in_stack is None:
+            self.force_in_stack = []
+        v = OpSameAs(gv_initial_value)
+        self.operations.append(v)
+        place = Place()
+        place.stackvar = v
+        self.force_in_stack.append((v, place))
+        return place
 
     def genop_absorb_place(self, kind, place):
-        raise NotImplementedError
+        v = place.stackvar
+        place.stackvar = None  # break reference to potentially lots of memory
+        return v
 
 
 class Label(GenLabel):
@@ -717,7 +746,9 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.arg(0)
     def write_frame_place(T, base, place, value):
-        raise NotImplementedError
+        # XXX assumes sizeof(T) == WORD
+        value = cast_whatever_to_int(T, value)
+        poke_word_into(base + place.get_offset(), value)
 
 global_rgenop = RI386GenOp()
 RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst

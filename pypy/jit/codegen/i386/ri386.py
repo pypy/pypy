@@ -124,6 +124,14 @@ class MODRM(OPERAND):
         else:
             return unpack(offset)
 
+    def is_relative_to_ebp(self):
+        try:
+            self.ofs_relative_to_ebp()
+        except ValueError:
+            return False
+        else:
+            return True
+
     def involves_ecx(self):
         # very custom: is ecx present in this mod/rm?
         mod = self.byte & 0xC0

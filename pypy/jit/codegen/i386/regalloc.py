@@ -125,7 +125,15 @@ class RegAllocator(object):
                 else:
                     self.add_final_move(v, operand, make_copy=v.is_const)
             else:
-                if loc in force_loc2operand or operand in force_operand2loc:
+                # we need to make of copy of this var if we have conflicting
+                # requirements about where it should go:
+                #  * its location is forced to another operand
+                #  * the operand is assigned to another location
+                #  * it should be in the stack, but it is not
+                if (loc in force_loc2operand or operand in force_operand2loc or
+                    (loc < self.num_stack_locs and not (
+                                 isinstance(operand, MODRM)
+                                 and operand.is_relative_to_ebp()))):
                     if at_start:
                         self.initial_moves.append((loc, operand))
                     else:
@@ -260,3 +268,7 @@ class StorageInStack(GenVar):
     def get_offset(self):
         assert self.offset != 0     # otherwise, RegAllocator bug
         return self.offset
+
+
+class Place(StorageInStack):
+    pass
