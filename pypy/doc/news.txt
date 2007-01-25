@@ -23,8 +23,8 @@ for two sprints, one on particular EU related issues and
 one for public coding and discussing the time ahead. 
 Read the `full announcement here`_ and `people known to come`_ already. 
 
-.. _`full announcement here`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/trillke-2007/announcement.txt
-.. _`people known to come`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/trillke-2007/people.txt
+.. _`full announcement here`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/announcement.html
+.. _`people known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/people.html
 
 
 Leysin Winter Sports Sprint, 8th - 14th January 2007
