@@ -214,7 +214,7 @@ def builtin_list(s_iterable):
     s_iter = s_iterable.iter()
     return getbookkeeper().newlist(s_iter.next())
 
-def builtin_zip(s_iterable1, s_iterable2):
+def builtin_zip(s_iterable1, s_iterable2): # xxx not actually implemented
     s_iter1 = s_iterable1.iter()
     s_iter2 = s_iterable2.iter()
     s_tup = SomeTuple((s_iter1.next(),s_iter2.next()))
