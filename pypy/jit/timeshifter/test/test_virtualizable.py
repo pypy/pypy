@@ -854,3 +854,31 @@ class TestVirtualizableImplicit(PortalTest):
         assert res == 8
 
         
+    def test_aliased_box(self):
+        py.test.skip("WIP")
+        class S(object):
+            def __init__(self, x):
+                self.x = x
+
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, x):
+                self.x = x
+
+        def g(v):
+            v.x = 42
+        
+        def f(x):
+            hint(None, global_merge_point=True)
+            s = S(x)
+            v = V(x)
+            g(v)
+            return v.x + s.x
+        
+        def main(x):
+            s = S(19)
+            r = f(x)
+            return r
+        
+        res = self.timeshift_from_portal(main, f, [0], policy=StopAtXPolicy(g))
+        assert res == 42

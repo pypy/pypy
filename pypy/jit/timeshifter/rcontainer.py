@@ -704,7 +704,6 @@ class VirtualizableStruct(VirtualStruct):
         vable_rti = rvirtualizable.VirtualizableRTI(rgenop, 0)
         memo.containers[self] = vable_rti
         
-        in_virtualizable_varboxes = memo.in_virtualizable_framevarboxes
         varboxes = memo.framevarboxes
         varboxes.append(outsidebox)
         getset_rti = (memo.frameindex,
@@ -721,7 +720,9 @@ class VirtualizableStruct(VirtualStruct):
             if box.genvar:
                 varindexes.append(memo.frameindex)
                 memo.frameindex += 1
-                in_virtualizable_varboxes[box] = None
+                if box.genvar.is_const: # KILL KILL KILL
+                    copymemo = rvalue.copy_memo()
+                    box = boxes[i] = box.forcevar(jitstate, copymemo)
                 varboxes.append(box)
             else:
                 varindexes.append(j)
