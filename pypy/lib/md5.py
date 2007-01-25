@@ -319,10 +319,7 @@ class MD5Type:
         self._transform(bits)
 
         # Store state in digest.
-        digest = (struct.pack("<I", self.A) +
-                  struct.pack("<I", self.B) +
-                  struct.pack("<I", self.C) +
-                  struct.pack("<I", self.D))
+        digest = struct.pack("<IIII", self.A, self.B, self.C, self.D)
 
         self.A = A 
         self.B = B
