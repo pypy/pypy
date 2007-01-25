@@ -70,21 +70,34 @@ def impl_sub_atom(engine, s, before, length, after, sub, continuation):
         if startbefore < 0:
             startbefore = 0
             stopbefore = len(s) + 1
+    oldstate = engine.frame.branch()
     if not isinstance(sub, term.Var):
         s1 = helper.unwrap_atom(sub)
         if len(s1) >= stoplength or len(s1) < startlength:
             raise error.UnificationFailed()
-        i = s.find(s1)
-        if not startbefore <= i < stopbefore:
-            raise error.UnificationFailed()
-        if not startlength <= len(s1) < stoplength:
-            raise error.UnificationFailed()
+        start = startbefore
+        while True:
+            try:
+                try:
+                    b = s.find(s1, start, stopbefore + len(s1)) # XXX -1?
+                    if b == -1:
+                        break
+                    start = b + 1
+                    before.unify(term.Number(b), engine.frame)
+                    after.unify(term.Number(len(s) - len(s1) - b), engine.frame)
+                    length.unify(term.Number(len(s1)), engine.frame)
+                    return continuation.call(engine)
+                except:
+                    engine.frame.revert(oldstate)
+                    raise
+            except error.UnificationFailed:
+                pass
+        raise error.UnificationFailed()
     if isinstance(after, term.Var):
         for b in range(startbefore, stopbefore):
             for l in range(startlength, stoplength):
                 if l + b > len(s):
                     continue
-                oldstate = engine.frame.branch()
                 try:
                     try:
                         before.unify(term.Number(b), engine.frame)
@@ -104,7 +117,6 @@ def impl_sub_atom(engine, s, before, length, after, sub, continuation):
             assert b >= 0
             if l + b > len(s):
                 continue
-            oldstate = engine.frame.branch()
             try:
                 try:
                     before.unify(term.Number(b), engine.frame)

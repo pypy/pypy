@@ -61,8 +61,8 @@ class TermFormatter(object):
         if self.quoted:
             try:
                 tokens = parsing.lexer.tokenize(s)
-                if (len(tokens) == 1 and tokens[0][0] == 'ATOM' and
-                    tokens[0][1] == s):
+                if (len(tokens) == 1 and tokens[0].name == 'ATOM' and
+                    tokens[0].source == s):
                     return s
             except LexerError:
                 pass

@@ -19,3 +19,14 @@ def test_op_formatting():
     assert f.format(t) == "1+3*2"
     t = parse_query_term("'*'(1, *(3, 2)).")
     assert f.format(t) == "1*(3*2)"
+
+def test_atom_formatting():
+    f = formatting.TermFormatter(Engine(), quoted=False, ignore_ops=False)
+    t = parse_query_term("'abc def'.")
+    assert f.format(t) == "abc def"
+    f = formatting.TermFormatter(Engine(), quoted=True, ignore_ops=False)
+    t = parse_query_term("'abc def'.")
+    assert f.format(t) == "'abc def'"
+    t = parse_query_term("abc.")
+    assert f.format(t) == "abc"
+

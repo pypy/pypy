@@ -211,6 +211,7 @@ def test_type_checks():
     assert_false("float(12).")
     assert_true("number(123).")
     assert_true("number(42.42).")
+    assert_false("number(abc).")
     assert_false("integer(a).")
     assert_false("integer(X).")
     assert_true("var(X).")
@@ -320,6 +321,9 @@ def test_atom_concat():
 
 def test_sub_atom():
     assert_true("sub_atom(abc, B, L, A, bc), B=1, L=2, A=0.")
+    assert_false("sub_atom(abc, B, 1, A, bc).")
+    assert_true("sub_atom(abcabcabc, 3, 3, A, abc), A=3.")
+    assert_true("sub_atom(abcabcabc, B, L, 3, abc), B=3, L=3.")
 
 def test_findall():
     assert_true("findall(X, (X = a; X = b; X = c), L), L = [a, b, c].")
