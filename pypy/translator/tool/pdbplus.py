@@ -473,6 +473,7 @@ start serving graphs on <port>
 
 def pdbcatch(f):
     "A decorator that throws you in a pdbplus if the given function raises."
+    from pypy.tool.sourcetools import func_with_new_name
     def wrapper(*args, **kwds):
         try:
             return f(*args, **kwds)
@@ -480,4 +481,5 @@ def pdbcatch(f):
             import sys
             PdbPlusShow(None).post_mortem(sys.exc_info()[2])
             raise
+    wrapper = func_with_new_name(wrapper, f.__name__)
     return wrapper
