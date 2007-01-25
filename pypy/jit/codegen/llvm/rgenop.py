@@ -12,7 +12,7 @@ from pypy.jit.codegen.llvm.genvarorconst import count, Var, BoolConst, CharConst
     IntConst, UIntConst, FloatConst, AddrConst
 from pypy.jit.codegen.llvm.logger import logger, log
 from pypy.jit.codegen.llvm.cast import cast
-from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp, inttoptr,\
+from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp,\
     trunc, zext, bitcast, inttoptr, shr_prefix, define, i1, i8, i16, i32, f64
 
 
@@ -344,7 +344,11 @@ class Builder(GenBuilder):
     op_int_abs = _abs
     def op_float_abs(self, gv_x):   return self._abs(gv_x, '0.0')
 
-    #def op_bool_not(self, gv_x): #use select, xor or sub XXXX todo: did not see a test for this
+    def op_bool_not(self, gv_x):
+        gv_result = Var(i1)
+        self.asm.append(' %s=select %s,%s false,%s true' % (
+            gv_result.operand2(), gv_x.operand(), i1, i1))
+        return gv_result
 
     #XXX 'cast' has been replaced by many sext/zext/uitofp/... opcodes in the upcoming llvm 2.0.
     #The lines upto /XXX should be refactored to do the right thing
@@ -352,14 +356,17 @@ class Builder(GenBuilder):
         if gv_x.is_const:    # must always return a var
             restype = gv_x.type
             gv_result = Var(restype)
+            v = gv_x.operand2()
             if restype[-1] == '*':
                 cst = inttoptr
                 t   = i32
+                if v == 'null':
+                    v = '0'
             else:
                 cst = bitcast
                 t   = restype
             self.asm.append(' %s=%s %s %s to %s ;1' % (
-                gv_result.operand2(), cst, t, gv_x.operand2(), restype))
+                gv_result.operand2(), cst, t, v, restype))
             return gv_result
         else:
             return gv_x
