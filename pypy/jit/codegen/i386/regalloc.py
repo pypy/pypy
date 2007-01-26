@@ -157,11 +157,15 @@ class RegAllocator(object):
         operands = []
         seen_regs = 0
         seen_stackn = {}
+        last_seen_stackn = -1
         for op in force_loc2operand.values():
             if isinstance(op, REG):
                 seen_regs |= 1 << op.op
             elif isinstance(op, MODRM):
-                seen_stackn[stack_n_from_op(op)] = None
+                n = stack_n_from_op(op)
+                seen_stackn[n] = None
+                if n > last_seen_stackn:
+                    last_seen_stackn = n
         i = 0
         stackn = 0
         num_stack_locs = self.num_stack_locs
@@ -186,6 +190,8 @@ class RegAllocator(object):
                     stackn += 1
             operands.append(operand)
         self.operands = operands
+        if stackn <= last_seen_stackn:
+            stackn = last_seen_stackn + 1
         self.required_frame_depth = stackn
 
     def get_operand(self, gv_source):
