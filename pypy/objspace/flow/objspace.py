@@ -623,12 +623,17 @@ def make_op(name, symbol, arity, specialnames):
                     raise flowcontext.OperationThatShouldNotBePropagatedError(
                         self.wrap(etype), self.wrap(msg))
                 else:
-                    try:
-                        return self.wrap(result)
-                    except WrapException:
-                        # type cannot sanely appear in flow graph,
-                        # store operation with variable result instead
-                        pass
+                    # don't try to constant-fold operations giving a 'long'
+                    # result.  The result is probably meant to be sent to
+                    # an intmask(), but the 'long' constant confuses the
+                    # annotator a lot.
+                    if type(result) is not long:
+                        try:
+                            return self.wrap(result)
+                        except WrapException:
+                            # type cannot sanely appear in flow graph,
+                            # store operation with variable result instead
+                            pass
 
         #print >> sys.stderr, 'Variable operation', name, args_w
         w_result = self.do_operation_with_implicit_exceptions(name, *args_w)

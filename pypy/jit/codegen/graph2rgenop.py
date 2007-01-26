@@ -17,17 +17,16 @@ def rcompile(rgenop, entrypoint, argtypes, random_seed=0):
     t.buildannotator(policy=policy).build_types(entrypoint, argtypes)
     t.buildrtyper().specialize()
 
-    #from pypy.translator.backendopt.all import backend_optimizations
-    #backend_optimizations(t)
+    # note that backend optimizations will constant-fold simple operations,
+    # which is required by some backends that don't accept calls like
+    # genop1("add", constant, constant).
+    from pypy.translator.backendopt.all import backend_optimizations
+    backend_optimizations(t)
 
     if conftest.option.view:
         t.view()
 
-    from pypy.translator.c.genc import CStandaloneBuilder
-    cbuild = CStandaloneBuilder(t, entrypoint, config=t.config)
-    db = cbuild.generate_graphs_for_llinterp()
-    entrypointptr = cbuild.getentrypointptr()
-    entrygraph = entrypointptr._obj.graph
+    entrygraph = t._graphof(entrypoint)
     return compile_graph(rgenop, entrygraph, random_seed=random_seed)
 
 

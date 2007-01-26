@@ -53,11 +53,20 @@ class Op1(Operation):
 class UnaryOp(Op1):
     def generate(self, allocator):
         try:
-            loc = allocator.var2loc[self]
+            dstop = allocator.get_operand(self)
         except KeyError:
             return    # simple operation whose result is not used anyway
-        op = allocator.load_location_with(loc, self.x)
-        self.emit(allocator.mc, op)
+        srcop = allocator.get_operand(self.x)
+        mc = allocator.mc
+        if srcop != dstop:
+            try:
+                mc.MOV(dstop, srcop)
+            except FailedToImplement:
+                mc.MOV(ecx, srcop)
+                self.emit(mc, ecx)
+                mc.MOV(dstop, ecx)
+                return
+        self.emit(mc, dstop)
 
 class OpIntNeg(UnaryOp):
     opname = 'int_neg'
@@ -214,6 +223,8 @@ class OpIntMul(Op2):
             mc.MOV(dstop, tmpop)
 
 class MulOrDivOp(Op2):
+    extra_scratch = mem(esp)
+
     def generate3(self, mc, dstop, op1, op2):
         # not very efficient but not very common operations either
         if dstop != eax:
@@ -223,6 +234,9 @@ class MulOrDivOp(Op2):
         if op1 != eax:
             mc.MOV(eax, op1)
         if self.input_is_64bits:
+            if op2 == edx:
+                mc.PUSH(edx)
+                op2 = MulOrDivOp.extra_scratch
             if self.unsigned:
                 mc.XOR(edx, edx)
             else:
@@ -234,6 +248,8 @@ class MulOrDivOp(Op2):
             self.emit(mc, ecx)
         if dstop != self.reg_containing_result:
             mc.MOV(dstop, self.reg_containing_result)
+        if op2 is MulOrDivOp.extra_scratch:
+            mc.ADD(esp, imm8(WORD))
         if dstop != edx:
             mc.POP(edx)
         if dstop != eax:

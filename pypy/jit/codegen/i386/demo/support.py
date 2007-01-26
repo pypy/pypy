@@ -26,8 +26,6 @@ def rundemo(entrypoint, *args):
     seed = demo_conftest.option.randomseed
     benchmark = bench_conftest.option.benchmark
 
-    expected = entrypoint(*args)
-
     logfile = str(udir.join('%s.log' % (entrypoint.__name__,)))
     try:
         os.unlink(logfile)
@@ -58,20 +56,22 @@ def rundemo(entrypoint, *args):
                              random_seed=seed)
     machine_code_dumper._freeze_()    # clean up state
 
-    fp = cast(c_void_p(gv_entrypoint.value),
-              CFUNCTYPE(c_int, *[c_int] * nb_args))
+    print
+    print 'Random seed value: %d' % (seed,)
+    print
+    expected = entrypoint(*args)
 
-    print
-    print 'Random seed value was %d.' % (seed,)
-    print
     print 'Running %s(%s)...' % (entrypoint.__name__,
                                  ', '.join(map(repr, args)))
+    fp = cast(c_void_p(gv_entrypoint.value),
+              CFUNCTYPE(c_int, *[c_int] * nb_args))
     res = fp(*args)
     print '===>', res
     print
     if res != expected:
-        raise AssertionError("expected return value is %s, got %s" % (
-            expected, res))
+        raise AssertionError(
+            "expected return value is %s, got %s\nseed = %s" % (
+                expected, res, seed))
 
     if view:
         from pypy.jit.codegen.i386.viewcode import World

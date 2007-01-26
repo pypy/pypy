@@ -48,14 +48,13 @@ def test_f1():
     #rundemo(f1, 2117)
     rundemo(f1, 217)
 
-def test_random_function():
-    py.test.skip("in-progress (e.g. --seed=225 shows a backend crash)")
-    from pypy.rlib.unroll import SpecTag
-    blocklabels = range(15)
+def test_random_function(nb_blocks=15, max_block_length=20):
+    py.test.skip("in-progress")
+    blocklabels = range(nb_blocks)
     r = Random()
     vars = list("abcdefghijklmnopqrstuvwxyz")
     varlist = ', '.join(vars)
-    magicsum = '+'.join(['%s^%d' % (v, hash(v)) for v in vars])
+    magicsum = '+'.join(['%s*%d' % (v, hash(v)) for v in vars])
     operations = ['%s + %s',
                   '%s + %s',
                   '%s - %s',
@@ -64,8 +63,8 @@ def test_random_function():
                   '%s & %s',
                   '%s | %s',
                   '%s ^ %s',
-                  '%s << abs(%s)',
-                  '%s >> abs(%s)',
+                  '%s << (%s & 0x1234567f)',
+                  '%s >> (%s & 0x1234567f)',
                   'abs(%s)',
                   '-%s',
                   '~%s',
@@ -84,14 +83,13 @@ def test_random_function():
                   '!%s >  %s',
                   '!%s >= %s',
                   ]
-    lines = ["def dummyfn(%(varlist)s):" % locals(),
-             "  goto = blocktag0",
-             "  counter = 10000",
-             "  while counter > 0:",
-             "    counter -= 1"]
+    lines = ["def dummyfn(counter, %(varlist)s):" % locals(),
+             "  goto = 0",
+             "  while True:",
+             ]
     for i in blocklabels:
-        lines.append("    if goto is blocktag%d:" % i)
-        for j in range(r.randrange(0, 20)):
+        lines.append("    if goto == %d:" % i)
+        for j in range(r.randrange(0, max_block_length)):
             v1 = r.choice(vars)
             constbytes = r.randrange(-15, 5)
             if constbytes <= 0:
@@ -113,19 +111,19 @@ def test_random_function():
                     constant = constant << 8 | r.randrange(0, 256)
                 lines.append("      %s = %d" % (v1, constant))
         v1 = r.choice(vars)
-        lines.append("      if %s: goto = blocktag%d" %
-                     (v1, r.choice(blocklabels)))
-        lines.append("      else: goto = blocktag%d" %
-                     (r.choice(blocklabels),))
-    lines.append("  del goto")
+        for line in ["      if %s:" % v1,
+                     "      else:"]:
+            lines.append(line)
+            j = r.choice(blocklabels)
+            if j <= i:
+                lines.append("        counter -= 1")
+                lines.append("        if not counter: break")
+            lines.append("        goto = %d" % j)
     lines.append("  return intmask(%(magicsum)s)" % locals())
 
-    miniglobals = {'intmask': intmask}
-    for i in blocklabels:
-        miniglobals['blocktag%d' % i] = SpecTag()
     src = py.code.Source('\n'.join(lines))
-    exec src.compile() in miniglobals
-    dummyfn = miniglobals['dummyfn']
+    print src
+    exec src.compile()
 
     args = [r.randrange(-99, 100) for v1 in vars]
-    rundemo(dummyfn, *args)
+    rundemo(dummyfn, 100, *args)

@@ -77,3 +77,15 @@ class TestOperation(I386TestMixin, OperationTests):
         [v4] = args_gv
         builder1.finish_and_return(rgenop.sigToken(FUNC0), v4)
         builder0.end()
+
+    def test_idiv_bug(self):
+        def fn(x, y):
+            return (x+1) // (-y) + x + y      # generated a bogus "idiv edx"
+        fp = self.rgen(fn, [int, int])
+        assert fp(5, 7) == fn(5, 7)
+
+    def test_imod_bug(self):
+        def fn(x, y):
+            return (x+1) % (-y) + x + y
+        fp = self.rgen(fn, [int, int])
+        assert fp(5, 7) == fn(5, 7)
