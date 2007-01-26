@@ -13,7 +13,8 @@ from pypy.jit.codegen.llvm.genvarorconst import count, Var, BoolConst, CharConst
 from pypy.jit.codegen.llvm.logger import logger, log
 from pypy.jit.codegen.llvm.cast import cast
 from pypy.jit.codegen.llvm.compatibility import icmp, scmp, ucmp, fcmp,\
-    trunc, zext, bitcast, inttoptr, shr_prefix, define, i1, i8, i16, i32, f64
+    trunc, zext, bitcast, inttoptr, shr_prefix, define, globalprefix,\
+    i1, i8, i16, i32, f64
 
 
 pi8  = i8  + '*'
@@ -99,10 +100,8 @@ class PrologueBlock(Block):
 
     def writecode(self, lines):
         argtypes, restype = self.sigtoken
-        lines.append('%s %s %%%s(%s){' % (
-            define,
-            restype,
-            self.name,
+        lines.append('%s %s %s%s(%s){' % (
+            define, restype, globalprefix, self.name,
             ','.join([v.operand() for v in self.inputargs])))
         lines.append(self.label + ':')
         lines.append(' br label %%%s' % (self.startblocklabel,))
@@ -815,7 +814,7 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         argtypes, restype = sigtoken
         n = len(self.funcsig) * 2 + 1     #+1 so we recognize these pre compilation 'pointers'
         self.name = name
-        self.funcsig[n] = '%s %%%s' % (restype, name)
+        self.funcsig[n] = '%s %s%s' % (restype, globalprefix, name)
         self.gv_entrypoint = IntConst(n)    #note: updated by Builder.end() (i.e after compilation)
         args = list(prologueblock.inputargs)
         return builder, self.gv_entrypoint, args

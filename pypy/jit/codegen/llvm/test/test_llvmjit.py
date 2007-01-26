@@ -2,7 +2,7 @@ import py
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.llvm import llvmjit
-from pypy.jit.codegen.llvm.compatibility import define, icmp, i1, i32
+from pypy.jit.codegen.llvm.compatibility import define, globalprefix, icmp, i1, i32
 
 try:
     from pypy.jit.codegen.llvm import llvmjit
@@ -16,18 +16,18 @@ def skip_unsupported_platform():
         py.test.skip('dynamic vs. static library issue on Darwin. see: http://www.cocoadev.com/index.pl?ApplicationLinkingIssues for more information (FIXME)')
 
 #
-llsquare = '''%(define)s %(i32)s %%square(%(i32)s %%n) {
+llsquare = '''%(define)s %(i32)s %(globalprefix)ssquare(%(i32)s %%n) {
     %%n2 = mul %(i32)s %%n, %%n
     ret %(i32)s %%n2
 }''' % vars()
 
-llmul2 = '''%(define)s %(i32)s %%mul2(%(i32)s %%n) {
+llmul2 = '''%(define)s %(i32)s %(globalprefix)smul2(%(i32)s %%n) {
     %%n2 = mul %(i32)s %%n, 2
     ret %(i32)s %%n2
 }''' % vars()
 
 #
-lldeadcode = '''%(define)s %(i32)s %%deadcode(%(i32)s %%n) {
+lldeadcode = '''%(define)s %(i32)s %(globalprefix)sdeadcode(%(i32)s %%n) {
 Test:
     %%cond = %(icmp)seq %(i32)s %%n, %%n
     br %(i1)s %%cond, label %%IfEqual, label %%IfUnequal
@@ -41,67 +41,67 @@ IfUnequal:
 }''' % vars()
 
 #
-llfuncA = '''%(define)s %(i32)s %%func(%(i32)s %%n) {
+llfuncA = '''%(define)s %(i32)s %(globalprefix)sfunc(%(i32)s %%n) {
     %%n2 = add %(i32)s %%n, %%n
     ret %(i32)s %%n2
 }''' % vars()
 
-llfuncB = '''%(define)s %(i32)s %%func(%(i32)s %%n) {
+llfuncB = '''%(define)s %(i32)s %(globalprefix)sfunc(%(i32)s %%n) {
     %%n2 = mul %(i32)s %%n, %%n
     ret %(i32)s %%n2
 }''' % vars()
 
 #
-llacross1 = '''declare %(i32)s %%across2(%(i32)s)
+llacross1 = '''declare %(i32)s %(globalprefix)sacross2(%(i32)s)
 
 implementation
 
-%(define)s %(i32)s %%across1(%(i32)s %%n) {
+%(define)s %(i32)s %(globalprefix)sacross1(%(i32)s %%n) {
     %%n2 = mul %(i32)s %%n, 3
     ret %(i32)s %%n2
 }
 
-%(define)s %(i32)s %%across1to2(%(i32)s %%n) {
+%(define)s %(i32)s %(globalprefix)sacross1to2(%(i32)s %%n) {
     %%n2 = add %(i32)s %%n, 5
-    %%n3 = call %(i32)s %%across2(%(i32)s %%n2)
+    %%n3 = call %(i32)s %(globalprefix)sacross2(%(i32)s %%n2)
     ret %(i32)s %%n3
 }''' % vars()
 
-llacross2 = '''declare %(i32)s %%across1(%(i32)s %%dsf)
+llacross2 = '''declare %(i32)s %(globalprefix)sacross1(%(i32)s %%dsf)
 
 implementation
 
-%(define)s %(i32)s %%across2(%(i32)s %%n) {
+%(define)s %(i32)s %(globalprefix)sacross2(%(i32)s %%n) {
     %%n2 = mul %(i32)s %%n, 7
     ret %(i32)s %%n2
 }
 
-%(define)s %(i32)s %%across2to1(%(i32)s %%n) {
+%(define)s %(i32)s %(globalprefix)sacross2to1(%(i32)s %%n) {
     %%n2 = add %(i32)s %%n, 9
-    %%n3 = call %(i32)s %%across1(%(i32)s %%n2)
+    %%n3 = call %(i32)s %(globalprefix)sacross1(%(i32)s %%n2)
     ret %(i32)s %%n3
 }''' % vars()
 
 #
-llglobalmul4 = '''%%my_global_data = external global %(i32)s
+llglobalmul4 = '''%(globalprefix)smy_global_data = external global %(i32)s
 
 implementation
 
-%(define)s %(i32)s %%globalmul4(%(i32)s %%a) {
-    %%v0 = load %(i32)s* %%my_global_data
+%(define)s %(i32)s %(globalprefix)sglobalmul4(%(i32)s %%a) {
+    %%v0 = load %(i32)s* %(globalprefix)smy_global_data
     %%v1 = mul %(i32)s %%v0, 4
     %%v2 = add %(i32)s %%v1, %%a
-    store %(i32)s %%v2, %(i32)s* %%my_global_data
+    store %(i32)s %%v2, %(i32)s* %(globalprefix)smy_global_data
     ret %(i32)s %%v2
 }''' % vars()
 
 #
-llcall_global_function = '''declare %(i32)s %%my_global_function(%(i32)s, %(i32)s, %(i32)s)
+llcall_global_function = '''declare %(i32)s %(globalprefix)smy_global_function(%(i32)s, %(i32)s, %(i32)s)
 
 implementation
 
-%(define)s %(i32)s %%call_global_function(%(i32)s %%n) {
-    %%v = call %(i32)s %%my_global_function(%(i32)s 3, %(i32)s %%n, %(i32)s 7) ;note: maybe tail call?
+%(define)s %(i32)s %(globalprefix)scall_global_function(%(i32)s %%n) {
+    %%v = call %(i32)s %(globalprefix)smy_global_function(%(i32)s 3, %(i32)s %%n, %(i32)s 7) ;note: maybe tail call?
     ret %(i32)s %%v
 }''' % vars()
 

@@ -14,6 +14,7 @@ if llvm_version() < 2.0:
     i32 = 'int'
     i64 = 'long'
     define = ''
+    globalprefix = '%'
 else:   # >= 2.0
     icmp = 'icmp '
     scmp = 'icmp s'
@@ -26,6 +27,7 @@ else:   # >= 2.0
     inttoptr = 'inttoptr'
     shr_prefix = ['l', 'a']
     define = 'define'
+    globalprefix = '@'
     i1  = 'i1'
     i8  = 'i8'
     i16 = 'i16'
