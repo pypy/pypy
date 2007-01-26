@@ -2571,6 +2571,13 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert not hasattr(s, 'const')
 
+    def test_compare_int_bool(self):
+        def fun(x):
+            return 50 < x
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        s = a.build_types(fun, [bool])
+        assert isinstance(s, annmodel.SomeBool)
+
 def g(n):
     return [0,1,2,n]
 

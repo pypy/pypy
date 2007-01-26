@@ -304,7 +304,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         assert op.opname == opname
         assert len(op.args) == 2
         def tointtype(int0):
-            if int1.knowntype is bool:
+            if int0.knowntype is bool:
                 return int
             return int0.knowntype
         if int1.nonneg and isinstance(op.args[1], Variable):
