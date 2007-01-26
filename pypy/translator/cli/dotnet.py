@@ -56,6 +56,9 @@ class SomeCliInstance(SomeOOInstance):
     def __repr__(self):
         return '%s(%s, can_be_None=%s)' % (self.__class__.__name__, self.ootype, self.can_be_None)
 
+    def rtyper_makerepr(self, rtyper):
+        return CliInstanceRepr(self.ootype)
+
 _make_none_union('SomeCliInstance', 'ootype=obj.ootype, can_be_None=True', globals())
 
 class __extend__(pairtype(SomeCliInstance, SomeInteger)):
@@ -112,7 +115,14 @@ class CliStaticMethodRepr(Repr):
         cDesc = hop.inputconst(ootype.Void, desc)
         return hop.genop("direct_call", [cDesc] + vlist, resulttype=resulttype)
 
-class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
+class CliInstanceRepr(OOInstanceRepr):
+    def convert_const(self, value):
+        if value is None:
+            return ootype.null(self.lowleveltype)
+        else:
+            return OOInstanceRepr.convert_const(self, value)
+
+class __extend__(pairtype(CliInstanceRepr, IntegerRepr)):
 
     def rtype_getitem((r_inst, r_int), hop):
         if not r_inst.lowleveltype._isArray:

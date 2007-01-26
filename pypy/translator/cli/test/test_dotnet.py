@@ -296,6 +296,15 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res is True
 
+    def test_mix_None_and_instance(self):
+        def fn(x):
+            if x:
+                return None
+            else:
+                return box(42)
+        res = self.interpret(fn, [1])
+        assert res is None
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args):
