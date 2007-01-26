@@ -946,11 +946,17 @@ class JITState(object):
         if virtualizables and shapemask:
             memo = rvalue.make_vinfo_memo()
             memo.bitcount = 0
+            memo.forced = []
             memo.gv_vable_rti = None
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.reshape(self, shapemask, memo)
+
+            for vstruct, gv_ptr in memo.forced:
+                vstruct.content_boxes = None
+                vstruct.ownbox.genvar = gv_ptr
+                vstruct.ownbox.content = None
                 
     def freeze(self, memo):
         result = FrozenJITState()

@@ -1,7 +1,9 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rlib.unroll import unrolling_iterable
+
+debug_print = lloperation.llop.debug_print
 
 def define_touch_update(TOPPTR, fielddescs, access_touched):
     fielddescs = unrolling_iterable(fielddescs)
@@ -12,6 +14,7 @@ def define_touch_update(TOPPTR, fielddescs, access_touched):
         vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
         vable_rti.touch(struc.vable_base)
         
+        #debug_print(lltype.Void, "TOUCH UPDATE")
         j = 0
         for fielddesc, _ in fielddescs:
             if fielddesc.canbevirtual and fielddesc.gcref:

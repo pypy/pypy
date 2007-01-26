@@ -696,7 +696,7 @@ class TestVirtualizableExplicit(PortalTest):
         assert res == 42
 
     def test_setting_in_residual_call(self):
-        py.test.skip('Tempararily out of service')
+
         def g(xy):
             x = xy_get_x(xy)
             y = xy_get_y(xy)

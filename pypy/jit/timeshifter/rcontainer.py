@@ -643,17 +643,14 @@ class VirtualStruct(VirtualContainer):
             gv_ptr = builder.genop_call(typedesc.vrti_read_forced_token,
                                         typedesc.gv_vrti_read_forced_ptr,
                                         [gv_vable_rti, gv_bitkey])
-            self.content_boxes = None
-            self.ownbox.genvar = gv_ptr
-            self.ownbox.content = None
+            memo.forced.append((self, gv_ptr))
 
         for box in boxes:
             if not box.genvar:
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
                 assert isinstance(content, VirtualStruct) # xxx for now
-                content.reshape(jitstate, shapemask, memo)        
-        
+                content.reshape(jitstate, shapemask, memo)
 
 class VirtualizableStruct(VirtualStruct):
 
@@ -795,13 +792,29 @@ class VirtualizableStruct(VirtualStruct):
             gv_vable_rti = builder.genop_getfield(rti_token, gv_outside)
             memo.gv_vable_rti = gv_vable_rti
         boxes = self.content_boxes
+        nvirtual = 0
         for _, i in typedesc.redirected_fielddescs:
             box = boxes[i]
             if not box.genvar:
+                nvirtual += 1
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
                 assert isinstance(content, VirtualStruct) # xxx for now
                 content.reshape(jitstate, shapemask, memo)
+
+        bitmask = 1 << memo.bitcount
+        memo.bitcount += 1
+        memo.bitcount += nvirtual
+        if shapemask&bitmask:
+            vmask = bitmask
+            for fielddesc, i in typedesc.redirected_fielddescs:
+                box = boxes[i]
+                if not box.genvar:
+                    vmask = vmask<<1
+                    if not (shapemask&vmask):
+                        continue
+                boxes[i] = fielddesc.generate_get(jitstate, gv_outside)
+
 
 # patching VirtualStructCls
 StructTypeDesc.VirtualStructCls = VirtualStruct
