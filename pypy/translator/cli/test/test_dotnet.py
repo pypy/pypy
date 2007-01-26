@@ -5,7 +5,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, String,\
      ROOT, overload, Instance, new
 from pypy.translator.cli.test.runtest import CliTest
-from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod, SomeCliInstance,\
+from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
      native_exc, new_array, init_array, typeof
 
@@ -74,7 +74,7 @@ class TestDotnetAnnotation(object):
             return ArrayList()
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
-        assert isinstance(s, SomeCliInstance)
+        assert isinstance(s, annmodel.SomeOOInstance)
         assert isinstance(s.ootype, NativeInstance)
         assert s.ootype._name == '[mscorlib]System.Collections.ArrayList'
 
@@ -83,7 +83,7 @@ class TestDotnetAnnotation(object):
             return box(42)
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
-        assert isinstance(s, SomeCliInstance)
+        assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._name == '[mscorlib]System.Object'
 
     def test_unbox(self):
@@ -100,7 +100,7 @@ class TestDotnetAnnotation(object):
             return x.ToArray()
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
-        assert isinstance(s, SomeCliInstance)
+        assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._isArray
         assert s.ootype._ELEMENT._name == '[mscorlib]System.Object'
 
@@ -110,7 +110,7 @@ class TestDotnetAnnotation(object):
             return x[0]
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
-        assert isinstance(s, SomeCliInstance)
+        assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._name == '[mscorlib]System.Object'
 
     def test_mix_None_and_instance(self):
@@ -121,7 +121,7 @@ class TestDotnetAnnotation(object):
                 return box(42)
         a = RPythonAnnotator()
         s = a.build_types(fn, [bool])
-        assert isinstance(s, SomeCliInstance)
+        assert isinstance(s, annmodel.SomeOOInstance)
         assert s.can_be_None == True
 
 
@@ -297,11 +297,14 @@ class TestDotnetRtyping(CliTest):
         assert res is True
 
     def test_mix_None_and_instance(self):
-        def fn(x):
-            if x:
-                return None
+        def g(x):
+            return x
+        def fn(flag):
+            if flag:
+                x = None
             else:
-                return box(42)
+                x = box(42)
+            return g(x)
         res = self.interpret(fn, [1])
         assert res is None
 

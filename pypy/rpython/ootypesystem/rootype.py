@@ -62,6 +62,12 @@ class OOInstanceRepr(Repr):
         vlist = hop.inputargs(self)
         return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
 
+    def convert_const(self, value):
+        if value is None:
+            return ootype.null(self.lowleveltype)
+        else:
+            return Repr.convert_const(self, value)
+
 
 class __extend__(pairtype(OOInstanceRepr, OOInstanceRepr)):
     def rtype_is_((r_ins1, r_ins2), hop):

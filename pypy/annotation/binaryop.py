@@ -753,6 +753,8 @@ from pypy.annotation.model import SomePtr, SomeOOInstance, SomeOOClass
 from pypy.annotation.model import ll_to_annotation, annotation_to_lltype
 from pypy.rpython.ootypesystem import ootype
 
+_make_none_union('SomeOOInstance', 'ootype=obj.ootype, can_be_None=True')
+
 class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
         assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %

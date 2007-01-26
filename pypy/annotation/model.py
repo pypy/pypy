@@ -541,8 +541,9 @@ class SomeOOClass(SomeObject):
         self.ootype = ootype
 
 class SomeOOInstance(SomeObject):
-    def __init__(self, ootype):
+    def __init__(self, ootype, can_be_None=False):
         self.ootype = ootype
+        self.can_be_None = can_be_None
 
 class SomeOOBoundMeth(SomeObject):
     immutable = True

@@ -24,7 +24,7 @@ class SomeCliClass(SomeObject):
 
     def simple_call(self, *s_args):
         assert self.is_constant()
-        return SomeCliInstance(self.const._INSTANCE)
+        return SomeOOInstance(self.const._INSTANCE)
 
     def rtyper_makerepr(self, rtyper):
         return CliClassRepr(self.const)
@@ -48,23 +48,10 @@ class SomeCliStaticMethod(SomeObject):
         return self.__class__, self.cli_class, self.meth_name
 
 
-class SomeCliInstance(SomeOOInstance):
-    def __init__(self, ootype, can_be_None=False):
-        SomeOOInstance.__init__(self, ootype)
-        self.can_be_None= can_be_None
-
-    def __repr__(self):
-        return '%s(%s, can_be_None=%s)' % (self.__class__.__name__, self.ootype, self.can_be_None)
-
-    def rtyper_makerepr(self, rtyper):
-        return CliInstanceRepr(self.ootype)
-
-_make_none_union('SomeCliInstance', 'ootype=obj.ootype, can_be_None=True', globals())
-
-class __extend__(pairtype(SomeCliInstance, SomeInteger)):
+class __extend__(pairtype(SomeOOInstance, SomeInteger)):
     def getitem((ooinst, index)):
         if ooinst.ootype._isArray:
-            return SomeCliInstance(ooinst.ootype._ELEMENT)
+            return SomeOOInstance(ooinst.ootype._ELEMENT)
         return s_ImpossibleValue
 
     def setitem((ooinst, index), s_value):
@@ -115,14 +102,8 @@ class CliStaticMethodRepr(Repr):
         cDesc = hop.inputconst(ootype.Void, desc)
         return hop.genop("direct_call", [cDesc] + vlist, resulttype=resulttype)
 
-class CliInstanceRepr(OOInstanceRepr):
-    def convert_const(self, value):
-        if value is None:
-            return ootype.null(self.lowleveltype)
-        else:
-            return OOInstanceRepr.convert_const(self, value)
 
-class __extend__(pairtype(CliInstanceRepr, IntegerRepr)):
+class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
 
     def rtype_getitem((r_inst, r_int), hop):
         if not r_inst.lowleveltype._isArray:
@@ -160,7 +141,7 @@ class OverloadingResolver(ootype.OverloadingResolver):
 
     def lltype_to_annotation(cls, TYPE):
         if isinstance(TYPE, NativeInstance):
-            return SomeCliInstance(TYPE)
+            return SomeOOInstance(TYPE)
         elif TYPE is ootype.Char:
             return SomeChar()
         elif TYPE is ootype.String:
@@ -339,7 +320,7 @@ class Entry(ExtRegistryEntry):
     _about_ = box
 
     def compute_result_annotation(self, x_s):
-        return SomeCliInstance(CLR.System.Object._INSTANCE)
+        return SomeOOInstance(CLR.System.Object._INSTANCE)
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
@@ -358,7 +339,7 @@ class Entry(ExtRegistryEntry):
     _about_ = unbox
 
     def compute_result_annotation(self, x_s, type_s):
-        assert isinstance(x_s, SomeCliInstance)
+        assert isinstance(x_s, SomeOOInstance)
         assert x_s.ootype == CLR.System.Object._INSTANCE
         assert type_s.is_constant()
         TYPE = type_s.const
@@ -406,7 +387,7 @@ class Entry(ExtRegistryEntry):
         cls = exc_s.classdef.classdesc.pyobj
         assert issubclass(cls, Exception)
         NATIVE_INSTANCE = cls._rpython_hints['NATIVE_INSTANCE']
-        return SomeCliInstance(NATIVE_INSTANCE)
+        return SomeOOInstance(NATIVE_INSTANCE)
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
@@ -429,7 +410,7 @@ class Entry(ExtRegistryEntry):
         TYPE = type_s.const._INSTANCE
         fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
         cliArray = load_class_maybe(fullname)
-        return SomeCliInstance(cliArray._INSTANCE)
+        return SomeOOInstance(cliArray._INSTANCE)
 
     def specialize_call(self, hop):
         c_type, v_length = hop.inputargs(*hop.args_r)
@@ -450,7 +431,7 @@ class Entry(ExtRegistryEntry):
                       (i, TYPE, arg_s.ootype)
         fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
         cliArray = load_class_maybe(fullname)
-        return SomeCliInstance(cliArray._INSTANCE)
+        return SomeOOInstance(cliArray._INSTANCE)
 
     def specialize_call(self, hop):
         vlist = hop.inputargs(*hop.args_r)
@@ -476,7 +457,7 @@ class Entry(ExtRegistryEntry):
         from query import load_class_maybe
         assert cliClass_s.is_constant()
         cliType = load_class_maybe('System.Type')
-        return SomeCliInstance(cliType._INSTANCE)
+        return SomeOOInstance(cliType._INSTANCE)
 
     def specialize_call(self, hop):
         v_type, = hop.inputargs(*hop.args_r)
