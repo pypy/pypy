@@ -708,7 +708,9 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 # mixing Nones with other objects
 
-def _make_none_union(classname, constructor_args=''):
+def _make_none_union(classname, constructor_args='', glob=None):
+    if glob is None:
+        glob = globals()
     loc = locals()
     source = py.code.Source("""
         class __extend__(pairtype(%(classname)s, SomePBC)):
@@ -725,7 +727,7 @@ def _make_none_union(classname, constructor_args=''):
                 else:
                     return SomeObject()
     """ % loc)
-    exec source.compile() in globals()
+    exec source.compile() in glob
 
 _make_none_union('SomeInstance',   'classdef=obj.classdef, can_be_None=True')
 _make_none_union('SomeString',      'can_be_None=True')
