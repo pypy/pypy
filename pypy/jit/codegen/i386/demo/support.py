@@ -12,6 +12,15 @@ from pypy.jit import conftest as bench_conftest
 from pypy.jit.codegen.i386.demo import conftest as demo_conftest
 
 
+def Random():
+    import random
+    seed = demo_conftest.option.randomseed
+    print
+    print 'Random seed value is %d.' % (seed,)
+    print
+    return random.Random(seed)
+
+
 def rundemo(entrypoint, *args):
     view = conftest.option.view
     seed = demo_conftest.option.randomseed

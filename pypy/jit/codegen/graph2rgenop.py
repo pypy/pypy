@@ -9,9 +9,12 @@ import random
 
 def rcompile(rgenop, entrypoint, argtypes, random_seed=0):
     from pypy.translator.translator import TranslationContext
+    from pypy.annotation.policy import AnnotatorPolicy
     from pypy import conftest
     t = TranslationContext()
-    t.buildannotator().build_types(entrypoint, argtypes)
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    t.buildannotator(policy=policy).build_types(entrypoint, argtypes)
     t.buildrtyper().specialize()
 
     #from pypy.translator.backendopt.all import backend_optimizations
