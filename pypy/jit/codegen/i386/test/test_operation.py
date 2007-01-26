@@ -89,3 +89,11 @@ class TestOperation(I386TestMixin, OperationTests):
             return (x+1) % (-y) + x + y
         fp = self.rgen(fn, [int, int])
         assert fp(5, 7) == fn(5, 7)
+
+    def test_imod_bug_2(self):
+        def fn(x, y):
+            z = -y
+            z += x % z
+            return z
+        fp = self.rgen(fn, [int, int])
+        assert fp(5, 7) == fn(5, 7)

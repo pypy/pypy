@@ -223,20 +223,18 @@ class OpIntMul(Op2):
             mc.MOV(dstop, tmpop)
 
 class MulOrDivOp(Op2):
-    extra_scratch = mem(esp)
 
     def generate3(self, mc, dstop, op1, op2):
-        # not very efficient but not very common operations either
-        if dstop != eax:
-            mc.PUSH(eax)
-        if dstop != edx:
-            mc.PUSH(edx)
+        # XXX not very efficient but not very common operations either
+        mc.PUSH(eax)
+        mc.PUSH(edx)
         if op1 != eax:
+            if op2 == eax:
+                op2 = mem(esp, 4)
             mc.MOV(eax, op1)
         if self.input_is_64bits:
             if op2 == edx:
-                mc.PUSH(edx)
-                op2 = MulOrDivOp.extra_scratch
+                op2 = mem(esp)
             if self.unsigned:
                 mc.XOR(edx, edx)
             else:
@@ -248,11 +246,13 @@ class MulOrDivOp(Op2):
             self.emit(mc, ecx)
         if dstop != self.reg_containing_result:
             mc.MOV(dstop, self.reg_containing_result)
-        if op2 is MulOrDivOp.extra_scratch:
-            mc.ADD(esp, imm8(WORD))
-        if dstop != edx:
+        if dstop == edx:
+            mc.ADD(esp, imm8(4))
+        else:
             mc.POP(edx)
-        if dstop != eax:
+        if dstop == eax:
+            mc.ADD(esp, imm8(4))
+        else:
             mc.POP(eax)
 
 class OpIntFloorDiv(MulOrDivOp):
@@ -373,50 +373,55 @@ class OpUIntMod(MulOrDivOp):
 
 class OpIntLShift(Op2):
     opname = 'int_lshift', 'uint_lshift'
+    emit = staticmethod(I386CodeBuilder.SHL)
     def generate3(self, mc, dstop, op1, op2):
         # XXX not optimized
-        mc.MOV(ecx, op2)
+        if isinstance(op2, IMM32):
+            n = op2.value
+            if n < 0 or n >= 32:
+                mc.MOV(dstop, imm8(0))   # shift out of range, result is zero
+                return
+            count = imm8(n)
+        else:
+            mc.MOV(ecx, op2)
+            count = cl
         if dstop != op1:
             try:
                 mc.MOV(dstop, op1)
             except FailedToImplement:
                 mc.PUSH(op1)
                 mc.POP(dstop)
-        mc.SHL(dstop, cl)
-        mc.CMP(ecx, imm8(32))
-        mc.SBB(ecx, ecx)
-        mc.AND(dstop, ecx)
+        self.emit(mc, dstop, count)
+        if count == cl:
+            mc.CMP(ecx, imm8(32))
+            mc.SBB(ecx, ecx)
+            mc.AND(dstop, ecx)
 
 class OpIntRShift(Op2):
     opname = 'int_rshift'
     def generate3(self, mc, dstop, op1, op2):
         # XXX not optimized
-        mc.MOV(ecx, imm(31))
-        mc.CMP(op2, ecx)
-        mc.CMOVBE(ecx, op2)
+        if isinstance(op2, IMM32):
+            n = op2.value
+            if n < 0 or n >= 32:
+                n = 31     # shift out of range, replace with 31
+            count = imm8(n)
+        else:
+            mc.MOV(ecx, imm(31))
+            mc.CMP(op2, ecx)
+            mc.CMOVBE(ecx, op2)
+            count = cl
         if dstop != op1:
             try:
                 mc.MOV(dstop, op1)
             except FailedToImplement:
                 mc.PUSH(op1)
                 mc.POP(dstop)
-        mc.SAR(dstop, cl)
+        mc.SAR(dstop, count)
 
-class OpUIntRShift(Op2):
+class OpUIntRShift(OpIntLShift):
     opname = 'uint_rshift'
-    def generate3(self, mc, dstop, op1, op2):
-        # XXX not optimized
-        mc.MOV(ecx, op2)
-        if dstop != op1:
-            try:
-                mc.MOV(dstop, op1)
-            except FailedToImplement:
-                mc.PUSH(op1)
-                mc.POP(dstop)
-        mc.SHR(dstop, cl)
-        mc.CMP(ecx, imm8(32))
-        mc.SBB(ecx, ecx)
-        mc.AND(dstop, ecx)
+    emit = staticmethod(I386CodeBuilder.SHR)
 
 class OpCompare2(Op2):
     result_kind = RK_CC
