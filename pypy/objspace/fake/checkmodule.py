@@ -79,7 +79,7 @@ def checkmodule(modname, backend, interactive=False, basepath='pypy.module'):
 
     gateways = find_gateways(modname, basepath, module)
     functions = [gw.__spacebind__(space) for gw in gateways]
-    arguments = AbstractArguments.frompacked(space, W_Object(None), W_Object(None))
+    arguments = AbstractArguments.frompacked(space, W_Object(), W_Object())
     dummy_function = copy(functions[0])
 
     def main(argv): # use the standalone mode not to allow SomeObject

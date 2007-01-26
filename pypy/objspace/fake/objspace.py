@@ -6,11 +6,10 @@ class W_Type(W_Root):
     pass
 
 class W_Object(W_Root):
-    def __init__(self, value):
-        self.value = value
+    pass
 W_Object.typedef = W_Type()
 
-def make_dummy(a=W_Object(None), b=W_Object(None)):
+def make_dummy(a=W_Object(), b=W_Object()):
     def fn(*args):
         if NonConstant(True):
             return a
@@ -25,23 +24,23 @@ str_dummy   = make_dummy('foo', 'bar')
 bool_dummy  = make_dummy(True, False)
 
 class FakeObjSpace(ObjSpace):
-    w_None           = W_Object(None)
-    w_False          = W_Object(None)
-    w_True           = W_Object(None)
-    w_Ellipsis       = W_Object(None)
-    w_NotImplemented = W_Object(None)
-    w_int            = W_Object(None)
-    w_dict           = W_Object(None)
-    w_float          = W_Object(None)
-    w_long           = W_Object(None)
-    w_tuple          = W_Object(None)
-    w_str            = W_Object(None)
-    w_unicode        = W_Object(None)
-    w_type           = W_Object(None)
-    w_instance       = W_Object(None)
-    w_slice          = W_Object(None)
-    w_hex            = W_Object(None)
-    w_oct            = W_Object(None)
+    w_None           = W_Object()
+    w_False          = W_Object()
+    w_True           = W_Object()
+    w_Ellipsis       = W_Object()
+    w_NotImplemented = W_Object()
+    w_int            = W_Object()
+    w_dict           = W_Object()
+    w_float          = W_Object()
+    w_long           = W_Object()
+    w_tuple          = W_Object()
+    w_str            = W_Object()
+    w_unicode        = W_Object()
+    w_type           = W_Object()
+    w_instance       = W_Object()
+    w_slice          = W_Object()
+    w_hex            = W_Object()
+    w_oct            = W_Object()
     
     def initialize(self):
         self.config.objspace.geninterp = False
@@ -55,12 +54,12 @@ class FakeObjSpace(ObjSpace):
         if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             return w_result
-        return W_Object(x)
+        return W_Object()
     wrap._annspecialcase_ = "specialize:argtype(1)"
 
     def unwrap(self, w_obj):
         assert isinstance(w_obj, W_Object)
-        return w_obj.value
+        return None
 
     lookup            = make_dummy()
     allocate_instance = make_dummy()
@@ -135,11 +134,11 @@ class FakeObjSpace(ObjSpace):
 
     gettypefor     = make_dummy()
     gettypeobject  = make_dummy()
-    unpackiterable = make_dummy([W_Object(None)], [W_Object(None)])
+    unpackiterable = make_dummy([W_Object()], [W_Object()])
 
 
 ## Register all exceptions
 import exceptions
 for name in ObjSpace.ExceptionTable:
     exc = getattr(exceptions, name)
-    setattr(FakeObjSpace, 'w_' + name, W_Object(None))
+    setattr(FakeObjSpace, 'w_' + name, W_Object())
