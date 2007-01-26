@@ -7,12 +7,16 @@ from pypy.objspace.flow import model as flowmodel
 import random
 
 
-def rcompile(rgenop, entrypoint, argtypes):
+def rcompile(rgenop, entrypoint, argtypes, random_seed=0):
     from pypy.translator.translator import TranslationContext
     from pypy import conftest
     t = TranslationContext()
     t.buildannotator().build_types(entrypoint, argtypes)
     t.buildrtyper().specialize()
+
+    #from pypy.translator.backendopt.all import backend_optimizations
+    #backend_optimizations(t)
+
     if conftest.option.view:
         t.view()
 
@@ -21,7 +25,7 @@ def rcompile(rgenop, entrypoint, argtypes):
     db = cbuild.generate_graphs_for_llinterp()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
-    return compile_graph(rgenop, entrygraph)
+    return compile_graph(rgenop, entrygraph, random_seed=random_seed)
 
 
 def compile_graph(rgenop, graph, random_seed=0):

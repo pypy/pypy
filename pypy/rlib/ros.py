@@ -6,8 +6,10 @@ import os
 
 def putenv(name_eq_value):
     # we fake it with the real one
+    global _initial_items
     name, value = name_eq_value.split('=', 1)
-    os.putenv(name, value)
+    os.environ[name] = value
+    _initial_items = os.environ.items()
 putenv._annenforceargs_ = (str,)
 
 _initial_items = os.environ.items()
