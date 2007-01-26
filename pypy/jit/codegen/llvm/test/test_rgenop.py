@@ -24,6 +24,7 @@ class TestRLLVMGenop(AbstractRGenOpTests):
         test_goto_compile = skip_too_minimal #segfault
         test_fact_direct = skip_too_minimal #segfault
         test_fact_compile= skip_too_minimal #segfault
+        test_tight_loop = skip_too_minimal #llvm 1.9 assertion failure
 
     test_read_frame_var_direct   = skip
     test_read_frame_var_compile  = skip
