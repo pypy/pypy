@@ -8,6 +8,8 @@ JIT Generation in PyPy
 Introduction
 =============
 
+.. BODY
+
 .. Interpreters to compilers, psyco parallel...
 
 One the of the central goals of the PyPy project is to automatically
@@ -56,10 +58,10 @@ not be good, especially for a dynamic language, because essentially
 the input program doesn't contain enough information to generate good
 code. What is really desired is not a generating extension doing
 static compilation, but one capable of dynamic compilation, exploiting
-runtime information in its result, or using a different terminology
-(XXX explain differently the following)
-capable of producing code that is specialised with respect to some of
-the run-time information, for example language-level types.
+runtime information in its result. Compilation should be able to
+suspend and resume letting the produced code run to collect run-time
+information (for example language-level types) to be used to produced
+code optimised for effective the run-time behaviour of the program.
 
 Inspired by Psyco, which in some sense is such a specialising
 generating extension for Python, but hand-written, we added support
@@ -893,6 +895,11 @@ Scaling to PyPy
 ...
 
 
+Virtualizables
+----------------------
+
+...
+
 Backends
 ====================
 
@@ -906,6 +913,18 @@ The Backend interface
 
 The interface (which is not yet completely stable) is documented in
 `pypy/jit/codegen/model.py`_.
+
+
+Results
+======================
+
+...
+
+
+Related work
+======================
+
+...
 
 
 .. _VMC: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
