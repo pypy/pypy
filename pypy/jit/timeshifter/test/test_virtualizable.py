@@ -825,7 +825,6 @@ class TestVirtualizableImplicit(PortalTest):
 
 
     def test_setting_pointer_in_residual_call(self):
-        py.test.skip('Tempararily out of service')
         class S(object):
             def __init__(self, x, y):
                 self.x = x
@@ -857,7 +856,6 @@ class TestVirtualizableImplicit(PortalTest):
 
         
     def test_aliased_box(self):
-        py.test.skip("WIP")
         class S(object):
             def __init__(self, x):
                 self.x = x
