@@ -882,3 +882,84 @@ class TestVirtualizableImplicit(PortalTest):
         
         res = self.timeshift_from_portal(main, f, [0], policy=StopAtXPolicy(g))
         assert res == 42
+
+    def test_force_then_set_in_residual_call(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+            
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, s):
+                self.s = s
+
+        def g(v):
+            s = v.s
+            x = s.x
+            y = s.y
+            s.x = y
+            s.y = x
+            v.s = S(x*100, y*100)
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            s = S(1, 10)
+            v.s = s
+            g(v)
+            s2 = v.s
+            return s.x*2 + s.y + s2.x * 2 + s2.y
+
+        def main():
+            v = V(None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == 20 + 1 + 200 + 1000
+
+
+    def test_inheritance_with_residual_call(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+            
+
+        class X(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x):
+                self.x = x
+
+        class XY(X):
+
+            def __init__(self, x, y, s):
+                X.__init__(self, x)
+                self.s = s
+                self.y = y
+
+        def g(xy):
+            s = xy.s
+            x = xy.x
+            y = xy.y
+            if x:
+                xy.x = s.x
+                xy.y = s.y
+            if y:
+                xy.s = S(x, y)
+   
+        def f(xy, sx, sy):
+            hint(None, global_merge_point=True)
+            xy.s = S(sx, sy)
+            g(xy)
+            return xy.x + xy.y * 16 + xy.s.x * 16 ** 2 + xy.s.y * 16 ** 3
+
+        def main(x, y, sx, sy):
+            X(0)
+            xy = XY(x, y, None)
+            return f(xy, sx, sy)
+
+        res = self.timeshift_from_portal(main, f, [1, 2, 4, 8],
+                                         policy=StopAtXPolicy(g))
+        assert res == 4 + 8 * 16 + 1 * 16 ** 2 + 2 * 16 ** 3
+

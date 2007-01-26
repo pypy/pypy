@@ -14,7 +14,6 @@ def define_touch_update(TOPPTR, fielddescs, access_touched):
         vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
         vable_rti.touch(struc.vable_base)
         
-        #debug_print(lltype.Void, "TOUCH UPDATE")
         j = 0
         for fielddesc, _ in fielddescs:
             if fielddesc.canbevirtual and fielddesc.gcref:
@@ -24,8 +23,8 @@ def define_touch_update(TOPPTR, fielddescs, access_touched):
             tgt = lltype.cast_pointer(fielddesc.PTRTYPE, struc)            
             setattr(tgt, fielddesc.fieldname, v)
             j += 1
-
-        struc.vable_access = access_touched
+        ACCESSPTR = TOPPTR.TO.vable_access
+        struc.vable_access = lltype.cast_pointer(ACCESSPTR, access_touched)
 
     return touch_update
 
@@ -154,7 +153,7 @@ class VirtualizableRTI(VirtualRTI):
         if frameindex >= 0:
             return
         posshift = -frameindex
-        assert index > 0
+        assert posshift > 0
         touched = self.getforcestate(base).touched
         touched[self.bitmask<<posshift] = None
 
