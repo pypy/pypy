@@ -290,7 +290,7 @@ class OperationTests(object):
 
     def test_constants_in_divmod(self):
         for op in ['x // y', 'x % y']:
-            for constant in range(1, 20):
+            for constant in range(1, 20) + range(-1, -20, -1):
                 fn = eval("lambda x: " + op, {'y': constant})
                 fp = self.rgen(fn, [int], int)
                 for operand1 in range(-32, 33):

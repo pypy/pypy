@@ -291,10 +291,10 @@ class OpIntFloorDiv(MulOrDivOp):
                 mc.SUB(eax, ecx)
                 mc.SBB(edx, imm8(0))
             else:
-                # if op1 is positive (or null), add (op2-1)
+                # if op1 is positive (or null), add (|op2|-1)
                 mc.MOV(ecx, edx)
-                mc.NEG(ecx)            # -1 if op1 is positive, 0 otherwise
-                mc.AND(ecx, imm(op2.value-1))
+                mc.NOT(ecx)            # -1 if op1 is positive, 0 otherwise
+                mc.AND(ecx, imm(-op2.value-1))
                 mc.ADD(eax, ecx)
                 mc.ADC(edx, imm8(0))
             mc.MOV(ecx, op2)
@@ -326,19 +326,15 @@ class OpIntMod(MulOrDivOp):
         if isinstance(op2, IMM32):
             mc.MOV(ecx, op2)
             mc.IDIV(ecx)
-            if op2.value >= 0:
-                # if the result is negative, add op2 to it
-                mc.MOV(ecx, edx)
-                mc.SAR(ecx, imm8(31))
-                mc.AND(ecx, imm(op2.value))
-                mc.ADD(edx, ecx)
-            else:
-                # if the result is > 0, subtract op2 from it
-                mc.MOV(ecx, edx)
+            # adjustment needed:
+            #   if op2 > 0: if the result is negative, add op2 to it
+            #   if op2 < 0: if the result is > 0, subtract |op2| from it
+            mc.MOV(ecx, edx)
+            if op2.value < 0:
                 mc.NEG(ecx)
-                mc.SAR(ecx, imm8(31))
-                mc.AND(ecx, imm(op2.value))
-                mc.SUB(edx, ecx)
+            mc.SAR(ecx, imm8(31))
+            mc.AND(ecx, imm(op2.value))
+            mc.ADD(edx, ecx)
         else:
             # if the operand signs differ and the remainder is not zero,
             # add operand2 to the result
