@@ -1,5 +1,20 @@
 # NOT_RPYTHON
 
+class StaticMethodWrapper(object):
+    __slots__ = ('class_name', 'meth_name',)
+
+    def __init__(self, class_name, meth_name):
+        self.class_name = class_name
+        self.meth_name = meth_name
+
+    def __call__(self, *args):
+        import _dotnet
+        return _dotnet.call_staticmethod(self.class_name, self.meth_name, args)
+
+    def __repr__(self):
+        return '<static CLI method %s.%s>' % (self.class_name, self.meth_name)
+
+
 class MethodWrapper(object):
     __slots__ = ('meth_name',)
     
@@ -14,6 +29,7 @@ class MethodWrapper(object):
 
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__, repr(self.meth_name))
+
 
 class UnboundMethod(object):
     __slots__ = ('im_class', 'im_name')
@@ -63,8 +79,12 @@ class CliClassWrapper(object):
 
 class ArrayList(CliClassWrapper):
     __cliclass__ = 'System.Collections.ArrayList'
-
     Add = MethodWrapper('Add')
     get_Item = MethodWrapper('get_Item')
     __getitem__ = get_Item
     IndexOf = MethodWrapper('IndexOf')
+
+
+class Math(CliClassWrapper):
+    __cliclass__ = 'System.Math'
+    Abs = StaticMethodWrapper(__cliclass__, 'Abs')

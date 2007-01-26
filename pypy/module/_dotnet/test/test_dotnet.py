@@ -56,3 +56,12 @@ class AppTestDotnet:
             obj.Add(i)
         assert obj.IndexOf(7) == 7
         assert obj.IndexOf(7, 0, 5) == -1
+
+    def test_staticmethod(self):
+        from _dotnet import Math
+        res = Math.Abs(-42)
+        assert res == 42
+        assert type(res) is int
+        res = Math.Abs(-42.0)
+        assert res == 42.0
+        assert type(res) is float
