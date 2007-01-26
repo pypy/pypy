@@ -103,13 +103,13 @@ class RegAllocator(object):
         self.operationindex = len(operations)
         for i in range(len(operations)-1, -1, -1):
             v = operations[i]
+            if self.need_var_in_cc is not None and v.clobbers_cc:
+                self.save_cc()
             kind = v.result_kind
             if kind == RK_WORD:
                 self.creating(v)
             elif kind == RK_CC:
                 self.creating_cc(v)
-            if self.need_var_in_cc is not None and v.clobbers_cc:
-                self.save_cc()
             v.allocate(self)
             self.operationindex = i
         if self.need_var_in_cc is not None:

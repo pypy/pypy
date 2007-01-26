@@ -13,6 +13,7 @@ def rerun(seed, *args):
 # These are tests that failed at some point.  Run them all with
 # py.test rerun_failures.py.
 
+def test_9473():       rerun(9473)
 def test_3888():       rerun(3888)
 def test_2307():       rerun(2307)
 def test_9792():       rerun(9792)
