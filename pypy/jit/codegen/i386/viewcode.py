@@ -234,8 +234,11 @@ class World(object):
 
     def show(self):
         g1 = Graph('codedump')
+        self.ranges.sort()
         for r in self.ranges:
-            text, width = tab2columns(r.disassemble())
+            disassembled = r.disassemble()
+            print disassembled
+            text, width = tab2columns(disassembled)
             text = '0x%x\n\n%s' % (r.addr, text)
             g1.emit_node('N_%x' % r.addr, shape="box", label=text,
                          width=str(width*0.1125))
@@ -245,6 +248,7 @@ class World(object):
                 else:
                     color = "red"
                 g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr, color=color)
+        sys.stdout.flush()
         g1.display()
 
 
