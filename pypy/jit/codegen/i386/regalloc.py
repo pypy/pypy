@@ -78,11 +78,15 @@ class RegAllocator(object):
     def save_cc(self):
         # we need a value to be in the CC, but we see a clobbering
         # operation, so we copy the original CC-creating operation down
-        # past the clobbering operation
+        # past the clobbering operation.
+        # <pedronis> completely obscure code
+        # <arigo> yes, well, needs very careful reviewing I guess :-)
         v = self.need_var_in_cc
         if not we_are_translated():
             assert v in self.operations[:self.operationindex]
+        v = v.copy()
         self.operations.insert(self.operationindex, v)
+        v.allocate(self)
         self.need_var_in_cc = None
 
     def using_cc(self, v):

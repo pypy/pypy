@@ -108,6 +108,8 @@ class OpCompare1(Op1):
         srcop = allocator.get_operand(self.x)
         mc = allocator.mc
         self.emit(mc, srcop)
+    def copy(self):
+        return self.__class__(self.x)
 
 class OpIntIsTrue(OpCompare1):
     opname = 'int_is_true', 'ptr_nonzero', 'uint_is_true'
@@ -431,6 +433,8 @@ class OpCompare2(Op2):
         except FailedToImplement:
             mc.MOV(ecx, srcop)
             mc.CMP(ecx, dstop)
+    def copy(self):
+        return self.__class__(self.x, self.y)
 
 class OpIntLt(OpCompare2):
     opname = 'int_lt', 'char_lt'
