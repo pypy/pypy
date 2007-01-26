@@ -59,14 +59,15 @@ def rundemo(entrypoint, *args):
     print
     print 'Random seed value: %d' % (seed,)
     print
-    expected = entrypoint(*args)
 
     print 'Running %s(%s)...' % (entrypoint.__name__,
                                  ', '.join(map(repr, args)))
+    expected = entrypoint(*args)
+    print 'Python ===>', expected
     fp = cast(c_void_p(gv_entrypoint.value),
               CFUNCTYPE(c_int, *[c_int] * nb_args))
     res = fp(*args)
-    print '===>', res
+    print 'i386   ===>', res
     print
     if res != expected:
         raise AssertionError(
