@@ -51,9 +51,8 @@ class Instance(OOType):
         if _is_root:
             self._superclass = None
         else:
-            assert isinstance(superclass, Instance)
-            self._superclass = superclass
-            self._superclass._add_subclass(self)
+            if superclass is not None:
+                self._set_superclass(superclass)
 
         self._methods = frozendict()
         self._fields = frozendict()
@@ -84,6 +83,11 @@ class Instance(OOType):
 
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self._name)
+
+    def _set_superclass(self, superclass):
+        assert isinstance(superclass, Instance)
+        self._superclass = superclass
+        self._superclass._add_subclass(self)
 
     def _add_subclass(self, INSTANCE):
         assert isinstance(INSTANCE, Instance)

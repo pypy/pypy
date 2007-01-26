@@ -48,7 +48,7 @@ class LowLevelDatabase(OODatabase):
         return self.unique()
 
     def _default_record_name(self, RECORD):
-        trans = string.maketrans('<>(), :', '_______')
+        trans = string.maketrans('[]<>(), :', '_________')
         name = ['Record']
         # XXX: refactor this: we need a proper way to ensure unique names
         for f_name, (FIELD_TYPE, f_default) in RECORD._fields.iteritems():

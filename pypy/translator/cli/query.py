@@ -118,8 +118,14 @@ class ClassDesc(Desc):
         namespace, name = self.FullName.rsplit('.', 1)
 
         # construct OOTYPE and CliClass
-        load_class_maybe(self.BaseType)
-        BASETYPE = ClassCache[self.BaseType]._INSTANCE
+        if self.FullName == 'System.Type':
+            # we need to special case System.Type because it contains
+            # circular dependencies, since its superclasses have got
+            # methods which take System.Type as parameters
+            BASETYPE = None
+        else:
+            load_class_maybe(self.BaseType)
+            BASETYPE = ClassCache[self.BaseType]._INSTANCE
         TYPE = NativeInstance('[mscorlib]', namespace, name, BASETYPE, {}, {})
         TYPE._isArray = self.IsArray
         if self.IsArray:
@@ -128,6 +134,11 @@ class ClassDesc(Desc):
         Class = CliClass(TYPE, {})
         OOTypeCache[self.OOType] = TYPE
         ClassCache[self.FullName] = Class
+
+        if BASETYPE is None:
+            load_class_maybe(self.BaseType)
+            BASETYPE = ClassCache[self.BaseType]._INSTANCE
+            TYPE._set_superclass(BASETYPE)
 
         # render dependencies
         for name in self.Depend:

@@ -321,6 +321,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
 
+        hop.exception_cannot_occur()
         TYPE = v_obj.concretetype
         if (TYPE is ootype.String or isinstance(TYPE, NativeInstance)):
             return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
