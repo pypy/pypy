@@ -126,7 +126,8 @@ class JumpPatchupGenerator(object):
         self.allocator = allocator
 
     def emit_move(self, tarloc, srcloc):
-        if tarloc == srcloc: return
+        if tarloc == srcloc:
+            return
         emit = self.insns.append
         if tarloc.is_register and srcloc.is_register:
             assert isinstance(tarloc, insn.GPR)

@@ -53,7 +53,8 @@ def emit_moves(gen, tar2src, tar2loc, src2loc):
             data.loc2src[loc] = src
 
     for tarvar in tarvars:
-        _cycle_walk(gen, tarvar, data)
+        if data.tar2loc[tarvar] != data.src2loc[data.tar2src[tarvar]]:
+            _cycle_walk(gen, tarvar, data)
             
     return data
 
@@ -67,8 +68,6 @@ def _cycle_walk(gen, tarvar, data):
     srcvar = data.tar2src[tarvar]
     #print "srcvar in data.src2loc", srcvar, srcvar in data.src2loc
     srcloc = data.src2loc[srcvar]
-
-
 
     # if location we are about to write to is not going to be read
     # by anyone, we are safe

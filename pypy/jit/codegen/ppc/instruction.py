@@ -526,7 +526,7 @@ class Unspill(AllocTimeInsn):
         asm.lwz(r, rFP, self.stack.offset)
         if not isinstance(self.reg, GPR):
             assert isinstance(self.reg, CRF)
-            self.reg.move_from_gpr(0).emit(asm)
+            self.reg.move_from_gpr(None, 0).emit(asm)
 
 class Spill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."
