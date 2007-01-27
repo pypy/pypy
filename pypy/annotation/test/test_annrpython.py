@@ -2578,6 +2578,21 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [bool])
         assert isinstance(s, annmodel.SomeBool)
 
+    def test_long_as_intermediate_value(self):
+        from sys import maxint
+        from pypy.rlib.rarithmetic import intmask
+        def fun(x):
+            if x > 0:
+                v = maxint
+            else:
+                v = -maxint
+            return intmask(v * 10)
+        P = policy.AnnotatorPolicy()
+        P.allow_someobjects = False
+        a = self.RPythonAnnotator(policy=P)
+        s = a.build_types(fun, [bool])
+        assert isinstance(s, annmodel.SomeInteger)
+
 def g(n):
     return [0,1,2,n]
 
