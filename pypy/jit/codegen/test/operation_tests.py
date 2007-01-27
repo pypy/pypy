@@ -30,21 +30,64 @@ class OperationTests(object):
         return fp
 
     def test_arithmetic(self):
-        for op, fn in [('x + y', lambda x, y: x + y),
-                       ('x - y', lambda x, y: x - y),
-                       ('x * y', lambda x, y: x * y),
-                       ('x // y', lambda x, y: x // y),
-                       ('x % y', lambda x, y: x % y),
-                       ('x << y', lambda x, y: x << y),
-                       ('x >> y', lambda x, y: x >> y),
-                       ('x ^ y', lambda x, y: x ^ y),
-                       ('x & y', lambda x, y: x & y),
-                       ('x | y', lambda x, y: x | y),
-                       ('-y', lambda x, y: -y),
-                       ('~y', lambda x, y: ~y),
-                       ('abs(y)', lambda x, y: abs(y)),
-                       ('abs(-x)', lambda x, y: abs(-x)),
-                       ]:
+        for op in ['x + y',
+                   'x - y',
+                   'x * y',
+                   'x // y',
+                   'x % y',
+                   'x << y',
+                   'x >> y',
+                   'x ^ y',
+                   'x & y',
+                   'x | y',
+                   '-y',
+                   '~y',
+                   'abs(y)',
+                   'abs(-x)',
+                   # and now for aliasing issues:
+                   'x + x',
+                   'x - x',
+                   'x * x',
+                   'y // y',
+                   'y % y',
+                   'y << y',
+                   'y >> y',
+                   'x ^ x',
+                   'x & x',
+                   'x | x',
+                   # and some constant cases:
+                   '17 + x',
+                   'x + (-21)',
+                   '(-17) - x',
+                   'x - 21',
+                   # '*' see below
+                   '101 // y',
+                   '(-983) // y',
+                   '2121 % y',
+                   '(-69) % y',
+                   # '// constant' and '% constant' see below
+                   '(-934831) << y',
+                   '111 << y',
+                   'y << 0',
+                   'y << 1',
+                   'y << 31',
+                   'y << 32',
+                   'y << 45',
+                   '(-934831) >> y',
+                   '111 >> y',
+                   'y >> 0',
+                   'y >> 1',
+                   'y >> 31',
+                   'y >> 32',
+                   'y >> 45',
+                   '(-123) ^ x',
+                   'x ^ 644',
+                   '123 & x',
+                   'x & (-77)',
+                   '(-145) | x',
+                   'x | 598',
+                   ]:
+            fn = eval("lambda x, y: %s" % (op,))
             fp = self.rgen(fn, [int, int])
             print op
             assert fp(40, 2) == intmask(fn(40, 2))
@@ -287,6 +330,15 @@ class OperationTests(object):
             assert fp(2.0) == fn(2.0), op
             assert fp(0.0) == fn(0.0), op
             assert fp(-2.0) == fn(-2.0), op
+
+    def test_constants_in_mul(self):
+        for op in ['x * y', 'y * x']:
+            for constant in range(-33, 34):
+                fn = eval("lambda x: " + op, {'y': constant})
+                fp = self.rgen(fn, [int], int)
+                for operand1 in range(-33, 34):
+                    res = fp(operand1)
+                    assert res == eval(op, {'x': operand1, 'y': constant})
 
     def test_constants_in_divmod(self):
         for op in ['x // y', 'x % y']:
