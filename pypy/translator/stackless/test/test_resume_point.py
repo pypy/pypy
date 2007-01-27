@@ -4,14 +4,6 @@ from pypy import conftest
 import py
 from pypy.rlib import rstack
 
-def do_inline(t):
-    from pypy.translator.backendopt import inline, removenoops
-    callgraph = inline.inlinable_static_callers(t.graphs)
-    inline.auto_inlining(t, 1, callgraph=callgraph)
-    for graph in t.graphs:
-        removenoops.remove_superfluous_keep_alive(graph)
-        removenoops.remove_duplicate_casts(graph, t)
-
 def do_backendopt(t):
     from pypy.translator.backendopt import all
     all.backend_optimizations(t)
