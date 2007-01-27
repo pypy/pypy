@@ -658,11 +658,7 @@ class Builder(GenBuilder):
         return targetbuilder
 
     def op_bool_not(self, gv_arg):
-        gv_result = Var()
-        self.insns.append(
-            insn.Insn_GPR__GPR_IMM(RPPCAssembler.subfi,
-                                   gv_result, [gv_arg, rgenop.genconst(1)]))
-        return gv_result
+        return self._arg_imm_op(gv_arg, self.rgenop.genconst(1), RPPCAssembler.xori)
 
     def op_int_is_true(self, gv_arg):
         return self._compare('ne', gv_arg, self.rgenop.genconst(0))
