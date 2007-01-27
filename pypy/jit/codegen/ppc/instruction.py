@@ -358,8 +358,10 @@ class Jump(Insn):
 
         assert self.targetbuilder.initial_var2loc is None
         self.targetbuilder.initial_var2loc = {}
+        from pypy.jit.codegen.ppc.rgenop import Var
         for gv_arg in self.jump_args_gv:
-            self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
+            if isinstance(gv_arg, Var):
+                self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
         allocator.builders_to_tell_spill_offset_to.append(self.targetbuilder)
     def emit(self, asm):
         if self.targetbuilder.start:
@@ -389,6 +391,7 @@ class Label(Insn):
             loc = allocator.loc_of(gv)
             if isinstance(loc, CRF):
                 allocator.forget(gv, loc)
+                allocator.lru.remove(gv)
                 allocator.freeregs[loc.regclass].append(loc.alloc)
                 new_loc = allocator._allocate_reg(GP_REGISTER, gv)
                 allocator.insns.append(loc.move_to_gpr(allocator, new_loc.number))
@@ -513,11 +516,17 @@ class Unspill(AllocTimeInsn):
         """
         AllocTimeInsn.__init__(self)
         self.var = var
-        assert isinstance(reg, GPR)
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
-        asm.lwz(self.reg.number, rFP, self.stack.offset)
+        if isinstance(self.reg, GPR):
+            r = self.reg.number
+        else:
+            r = 0
+        asm.lwz(r, rFP, self.stack.offset)
+        if not isinstance(self.reg, GPR):
+            assert isinstance(self.reg, CRF)
+            self.reg.move_from_gpr(0).emit(asm)
 
 class Spill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."
@@ -531,12 +540,17 @@ class Spill(AllocTimeInsn):
         """
         AllocTimeInsn.__init__(self)
         self.var = var
-        assert isinstance(reg, GPR)
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
+        if isinstance(self.reg, GPR):
+            r = self.reg.number
+        else:
+            assert isinstance(self.reg, CRF)
+            self.reg.move_to_gpr(None, 0).emit(asm)
+            r = 0
         #print 'spilling to', self.stack.offset
-        asm.stw(self.reg.number, rFP, self.stack.offset)
+        asm.stw(r, rFP, self.stack.offset)
 
 class _CRF2GPR(AllocTimeInsn):
     def __init__(self, targetreg, bit, negated):
