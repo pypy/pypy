@@ -34,8 +34,8 @@ XL2 = Form("crbD", "XO1", "Rc")
 XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
 
-MI = Form("rS", "rA", "SH", "MB", "ME", "Rc")
-MB = Form("rS", "rA", "rB", "MB", "ME", "Rc")
+MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
+MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
 
 
 class BasicPPCAssembler(Assembler):
