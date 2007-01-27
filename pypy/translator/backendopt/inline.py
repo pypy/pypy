@@ -12,6 +12,7 @@ from pypy.rpython.lltypesystem.lltype import normalizeptr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
+from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -715,3 +716,12 @@ def auto_inlining(translator, threshold=None,
                     heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
     return count
+
+def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None):
+        callgraph = inlinable_static_callers(graphs)
+        count = auto_inlining(translator, threshold, callgraph=callgraph,
+                              call_count_pred=call_count_pred)
+        log.inlining('inlined %d callsites.'% (count,))
+        for graph in graphs:
+            removenoops.remove_superfluous_keep_alive(graph)
+            removenoops.remove_duplicate_casts(graph, translator)

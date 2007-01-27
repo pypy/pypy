@@ -80,6 +80,9 @@ class AbstractDataFlowInterpreter(object):
         self.dependencies = {} # creationpoint: {block: graph containing it}
         self.functionargs = {} # graph: list of state of args
         self.flown_blocks = {} # block: True
+
+    def seen_graphs(self):
+        return self.functionargs.keys()
     
     def getstate(self, var_or_const):
         if not isonheap(var_or_const):

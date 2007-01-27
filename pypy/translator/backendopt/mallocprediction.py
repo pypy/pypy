@@ -1,9 +1,9 @@
 from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter
-from pypy.translator.backendopt.malloc import remove_simple_mallocs
-from pypy.translator.backendopt.inline import auto_inlining
-from pypy.translator.backendopt import removenoops
+from pypy.translator.backendopt.all import remove_mallocs
+from pypy.translator.backendopt import inline
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator import simplify
+from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log
 
 SMALL_THRESHOLD = 15
@@ -95,66 +95,67 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
                                           adi, translator, seen)
     return interesting_creps
 
-def find_malloc_removal_candidates(t):
+def find_malloc_removal_candidates(t, graphs):
     adi = AbstractDataFlowInterpreter(t)
-    for graph in t.graphs:
+    for graph in graphs:
         if graph.startblock not in adi.flown_blocks:
             adi.schedule_function(graph)
             adi.complete()
+    targetset = dict.fromkeys(graphs)
     caller_candidates = {}
     seen = {}
-    for graph in t.graphs:
+    for graph in adi.seen_graphs():
         creps = find_malloc_creps(graph, adi, t)
         #print "malloc creps", creps
         if creps:
             find_calls_where_creps_go(creps, graph, adi, t, seen)
             if creps:
-                caller_candidates[graph] = True
+                if graph in targetset:
+                    caller_candidates[graph] = True
     callgraph = []
     for (called_graph, i), callers in seen.iteritems():
         for caller in callers:
-            callgraph.append((caller, called_graph))
+            if caller in targetset:
+                callgraph.append((caller, called_graph))
+            else:
+                log.inlineandremove.WARNING("would like to inline into"
+                                            " out of target set: %r"
+                                            % caller)
     return callgraph, caller_candidates
 
-def inline_and_remove(t, threshold=BIG_THRESHOLD):
-    callgraph, caller_candidates = find_malloc_removal_candidates(t)
+def inline_and_remove(t, graphs, threshold=BIG_THRESHOLD):
+    callgraph, caller_candidates = find_malloc_removal_candidates(t, graphs)
     log.inlineandremove("found %s malloc removal candidates" %
                         len(caller_candidates))
     if callgraph:
-        count = auto_inlining(t, callgraph=callgraph, threshold=threshold)
+        count = inline.auto_inlining(t, callgraph=callgraph,
+                                     threshold=threshold)
         if not count:
             return False
+        log.inlineandremove('inlined %d callsites.'% (count,))
         count = remove_mallocs(t, caller_candidates.keys())
         return count
     else:
         return False
 
-def remove_mallocs(translator, graphs=None):
-    tot = 0
+def preparation(translator, graphs, threshold=SMALL_THRESHOLD):
+    count = 0
+    inline.auto_inline_graphs(translator, graphs, threshold)
+    count += remove_mallocs(translator, graphs)
+    log.inlineandremove("preparation removed %s mallocs in total" % count)
+    return count
+
+def clever_inlining_and_malloc_removal(translator, graphs=None,
+                                       threshold=BIG_THRESHOLD):
     if graphs is None:
         graphs = translator.graphs
-    for graph in graphs:
-        count = remove_simple_mallocs(graph)
-        if count:
-            # remove typical leftovers from malloc removal
-            removenoops.remove_same_as(graph)
-            simplify.eliminate_empty_blocks(graph)
-            simplify.transform_dead_op_vars(graph, translator)
-            tot += count
-    log.malloc("removed %d simple mallocs in total" % tot)
-    return tot
-
-def clever_inlining_and_malloc_removal(translator):
-    count = remove_mallocs(translator)
-    auto_inlining(translator, threshold=SMALL_THRESHOLD)
-    count += remove_mallocs(translator)
+    count = 0
     while 1:
-        newcount = inline_and_remove(translator)
+        newcount = inline_and_remove(translator, graphs, threshold=threshold)
         if not newcount:
             break
         count += newcount
-    log.inlineandremove.event("removed %s mallocs in total" % count)
-    for graph in translator.graphs:
+    for graph in graphs:
         removenoops.remove_superfluous_keep_alive(graph)
         removenoops.remove_duplicate_casts(graph, translator)
     return count

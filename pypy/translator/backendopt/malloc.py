@@ -3,7 +3,8 @@ from pypy.objspace.flow.model import SpaceOperation, traverse
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.simplify import remove_identical_vars
+from pypy.translator import simplify
+from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log
 
 class LifeTime:
@@ -287,7 +288,7 @@ class BaseMallocRemover(object):
 
     def remove_mallocs_once(self, graph):
         """Perform one iteration of malloc removal."""
-        remove_identical_vars(graph)
+        simplify.remove_identical_vars(graph)
         lifetimes = self.compute_lifetimes(graph)
         progress = 0
         for info in lifetimes:
@@ -602,3 +603,21 @@ def remove_simple_mallocs(graph, type_system='lltypesystem'):
     else:
         remover = OOTypeMallocRemover()
     return remover.remove_simple_mallocs(graph)
+
+
+def remove_mallocs(translator, graphs=None, type_system="lltypesystem"):
+    if graphs is None:
+        graphs = translator.graphs
+    tot = 0
+    for graph in graphs:
+        count = remove_simple_mallocs(graph, type_system=type_system)
+        if count:
+            # remove typical leftovers from malloc removal
+            removenoops.remove_same_as(graph)
+            simplify.eliminate_empty_blocks(graph)
+            simplify.transform_dead_op_vars(graph, translator)
+            tot += count
+    log.malloc("removed %d simple mallocs in total" % tot)
+    return tot
+
+

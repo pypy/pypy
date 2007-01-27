@@ -20,11 +20,11 @@ def rtype(fn, signature):
     
 
 def check_inlining(t, graph, args, result):
-    callgraph, caller_candidates = find_malloc_removal_candidates(t)
+    callgraph, caller_candidates = find_malloc_removal_candidates(t, t.graphs)
     nice_callgraph = {}
     for caller, callee in callgraph:
         nice_callgraph.setdefault(caller, {})[callee] = True
-    inline_and_remove(t)
+    inline_and_remove(t, t.graphs)
     if option.view:
         t.view()
     interp = LLInterpreter(t.rtyper)
@@ -121,11 +121,13 @@ def test_pystone():
     entrypoint, _, _ = make_target_definition(10)
     # does not crash
     t, graph = rtype(entrypoint, [int])
+    total0 = preparation(t, t.graphs)
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 8
+    assert total0 + total == 8
 
 def test_richards():
     from pypy.translator.goal.richards import entry_point
     t, graph = rtype(entry_point, [int])
+    total0 = preparation(t, t.graphs)
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 9
+    assert total0 + total == 9
