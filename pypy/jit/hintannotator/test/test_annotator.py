@@ -28,7 +28,7 @@ def hannotate(func, argtypes, policy=P_DEFAULT, annotator=False, inline=None,
     rtyper = t.buildrtyper()
     rtyper.specialize()
     if inline:
-        auto_inlining(t, inline)
+        auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
@@ -570,7 +570,7 @@ def test_hannotate_plus_minus():
         return acc
     assert ll_plus_minus("+-+", 0, 2) == 2
     hannotate(ll_plus_minus, [str, int, int])
-    hannotate(ll_plus_minus, [str, int, int], inline=999)
+    hannotate(ll_plus_minus, [str, int, int], inline=100000)
 
 def test_invalid_hint_1():
     S = lltype.GcStruct('S', ('x', lltype.Signed))

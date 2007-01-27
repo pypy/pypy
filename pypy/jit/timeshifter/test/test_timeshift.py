@@ -41,7 +41,7 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
     rtyper = t.buildrtyper()
     rtyper.specialize()
     if inline:
-        auto_inlining(t, inline)
+        auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
@@ -712,7 +712,7 @@ class TestTimeshift(TimeshiftingTests):
                 pc += 1
             return acc
         ll_plus_minus.convert_arguments = [LLSupport.to_rstr, int, int]
-        res = self.timeshift(ll_plus_minus, ["+-+", 0, 2], [0], inline=999)
+        res = self.timeshift(ll_plus_minus, ["+-+", 0, 2], [0], inline=100000)
         assert res == ll_plus_minus("+-+", 0, 2)
         self.check_insns({'int_add': 2, 'int_sub': 1})
 

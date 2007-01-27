@@ -16,9 +16,6 @@ from pypy.translator.backendopt.support import log, split_block_with_keepalive
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
 
-BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
-# and just small enough to prevend inlining of some rlist functions.
-
 class CannotInline(Exception):
     pass
 
@@ -605,8 +602,7 @@ def inlinable_static_callers(graphs):
                         result.append((parentgraph, graph))
     return result
     
-def instrument_inline_candidates(graphs, multiplier):
-    threshold = BASE_INLINE_THRESHOLD * multiplier
+def instrument_inline_candidates(graphs, threshold):
     cache = {None: False}
     def candidate(graph):
         try:
@@ -644,11 +640,11 @@ def instrument_inline_candidates(graphs, multiplier):
                         n += 1
     log.inlining("%d call sites instrumented" % n)
 
-def auto_inlining(translator, multiplier=1, callgraph=None,
-                  threshold=BASE_INLINE_THRESHOLD,
+def auto_inlining(translator, threshold=None,
+                  callgraph=None,
                   call_count_pred=None):
+    assert threshold is not None and threshold != 1
     from heapq import heappush, heappop, heapreplace, heapify
-    threshold = threshold * multiplier
     callers = {}     # {graph: {graphs-that-call-it}}
     callees = {}     # {graph: {graphs-that-it-calls}}
     if callgraph is None:

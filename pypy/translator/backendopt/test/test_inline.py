@@ -15,6 +15,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.tool import LLRtypeMixin, OORtypeMixin
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
+from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from pypy.conftest import option
 
 
@@ -95,17 +96,16 @@ class BaseTestInline:
         # inline!
         sanity_check(t)    # also check before inlining (so we don't blame it)
 
+        threshold = INLINE_THRESHOLD_FOR_TEST
         if multiplier is not None:
-            multiplier = {'multiplier': multiplier}
-        else:
-            multiplier = {}
+            threshold *= multiplier
 
         call_count_pred = None
         if call_count_check:
             call_count_pred = lambda lbl: True
-            instrument_inline_candidates(t.graphs, **multiplier)
+            instrument_inline_candidates(t.graphs, threshold)
 
-        auto_inlining(t, call_count_pred=call_count_pred, **multiplier)
+        auto_inlining(t, threshold, call_count_pred=call_count_pred)
 
         sanity_check(t)
         if option.view:

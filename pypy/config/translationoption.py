@@ -1,7 +1,10 @@
 import autopath
 import py, os
-from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
+from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
+
+DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
+# and just small enough to prevend inlining of some rlist functions.
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
@@ -105,8 +108,8 @@ translation_optiondescription = OptionDescription(
         BoolOption("remove_asserts",
                    "Kill 'raise AssertionError', which lets the C "
                    "optimizer remove the asserts", default=False),
-        IntOption("inline_threshold", "Threshold when to inline functions",
-                  default=1, cmdline=None),
+        FloatOption("inline_threshold", "Threshold when to inline functions",
+                  default=DEFL_INLINE_THRESHOLD, cmdline="--inline-threshold"),
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
                   ", specify arguments",

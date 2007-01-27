@@ -5,6 +5,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.memory.gctransform.test.test_transform import getops
 from pypy.translator.test.snippet import simple_method
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -14,12 +15,12 @@ from pypy import conftest
 import py
 log = py.log.Producer('test_backendoptimization')
 
-def get_graph(fn, signature, inline_threshold=True, all_opts=True):
+def get_graph(fn, signature, all_opts=True):
     t = TranslationContext()
     t.buildannotator().build_types(fn, signature)
     t.buildrtyper().specialize()
     if all_opts:
-        backend_optimizations(t, inline_threshold=inline_threshold,
+        backend_optimizations(t, inline_threshold=INLINE_THRESHOLD_FOR_TEST,
                               constfold=False,
                               raisingop2direct_call=False)
     graph = graphof(t, fn)
@@ -119,7 +120,7 @@ def test_remove_duplicate_casts():
             c = B(x, x + 1, x + 2)
         return a.x + a.y + b.x + b.y + b.z + c.getsum()
     assert f(10, True) == 75
-    graph, t = get_graph(f, [int, bool], 1, False)
+    graph, t = get_graph(f, [int, bool], all_opts=False)
     num_cast_pointer = len(getops(graph)['cast_pointer'])
     changed = remove_duplicate_casts(graph, t)
     assert changed

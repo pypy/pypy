@@ -1,5 +1,6 @@
 import py
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from pypy.translator.backendopt.support import md5digest
 from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval as LLTypeMallocRemovalTest
 from pypy.translator.backendopt.test.test_malloc import TestOOTypeMallocRemoval as OOTypeMallocRemovalTest
@@ -39,6 +40,8 @@ def big():
     """
     return firstthat(myfunction, condition)
 
+LARGE_THRESHOLD  = 10*INLINE_THRESHOLD_FOR_TEST
+HUGE_THRESHOLD  = 100*INLINE_THRESHOLD_FOR_TEST
 
 class BaseTester(object):
     type_system = None
@@ -57,7 +60,8 @@ class BaseTester(object):
     def test_big(self):
         assert big() == 83
 
-        t = self.translateopt(big, [], inline_threshold=100, mallocs=True) 
+        t = self.translateopt(big, [], inline_threshold=HUGE_THRESHOLD,
+                              mallocs=True) 
 
         big_graph = graphof(t, big)
         self.check_malloc_removed(big_graph)
@@ -74,8 +78,9 @@ class BaseTester(object):
                 total += i
             return total
 
-        t  = self.translateopt(f, [int], inline_threshold=1, mallocs=True)
-        # this also checks that the BASE_INLINE_THRESHOLD is enough for 'for' loops
+        t  = self.translateopt(f, [int], mallocs=True)
+        # this also checks that the BASE_INLINE_THRESHOLD is enough
+        # for 'for' loops
 
         f_graph = graph = graphof(t, f)
         self.check_malloc_removed(f_graph)
@@ -103,7 +108,7 @@ class BaseTester(object):
                 #debug(" lowered -> " + a)
             return 0
 
-        t  = self.translateopt(entry_point, inputtypes, inline_threshold=1, mallocs=True)
+        t  = self.translateopt(entry_point, inputtypes, mallocs=True)
 
         entry_point_graph = graphof(t, entry_point)
 
@@ -156,7 +161,7 @@ class BaseTester(object):
 
         assert myfunc(10) == 5
 
-        t = self.translateopt(myfunc, [int], inline_threshold=100)
+        t = self.translateopt(myfunc, [int], inline_threshold=HUGE_THRESHOLD)
         interp = LLInterpreter(t.rtyper)
         res = interp.eval_graph(graphof(t, myfunc), [10])
         assert res == 5
@@ -204,7 +209,8 @@ class TestLLType(BaseTester):
             c = [i for i in range(n2)]
             return 33
 
-        t  = self.translateopt(f, [int, int], inline_threshold=10, mallocs=True)
+        t  = self.translateopt(f, [int, int], inline_threshold=LARGE_THRESHOLD,
+                               mallocs=True)
 
         f_graph = graphof(t, f)
         self.check_malloc_removed(f_graph)

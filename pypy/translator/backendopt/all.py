@@ -13,6 +13,8 @@ from pypy.translator.backendopt.support import log
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 from pypy.objspace.flow.model import checkgraph
 
+INLINE_THRESHOLD_FOR_TEST = 33
+
 def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     # sensible keywords are
     # raisingop2direct_call, inline_threshold, mallocs
