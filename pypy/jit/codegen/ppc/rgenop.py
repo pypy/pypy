@@ -36,7 +36,9 @@ class Var(GenVar):
         _var_index[0] += 1
     def __repr__(self):
         return "<Var %d>" % self.__magic_index
-    def fits_in_immediate(self):
+    def fits_in_uimm(self):
+        return False
+    def fits_in_simm(self):
         return False
 
 class ConditionVar(Var):
@@ -72,8 +74,11 @@ class IntConst(GenConst):
             asm.load_word(rSCRATCH, self.value)
             asm.stw(rSCRATCH, rFP, loc.offset)
 
-    def fits_in_immediate(self):
-        return abs(self.value) < 2**16
+    def fits_in_simm(self):
+        return abs(self.value) < 2**15
+
+    def fits_in_uimm(self):
+        return 0 <= self.value < 2**16
 
 class AddrConst(GenConst):
 
@@ -91,7 +96,10 @@ class AddrConst(GenConst):
         else:
             assert 0, "XXX not implemented"
 
-    def fits_in_immediate(self):
+    def fits_in_simm(self):
+        return False
+
+    def fits_in_uimm(self):
         return False
 
     def load(self, insns, var):
@@ -243,7 +251,7 @@ class Builder(GenBuilder):
     def genop_getfield(self, fieldtoken, gv_ptr):
         fieldoffset, fieldsize = fieldtoken
         opcode = {1:_PPC.lbz, 2:_PPC.lhz, 4:_PPC.lwz}[fieldsize]
-        return self._arg_imm_op(gv_ptr, IntConst(fieldoffset), opcode)
+        return self._arg_simm_op(gv_ptr, IntConst(fieldoffset), opcode)
 
     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
         gv_result = Var()
@@ -255,7 +263,7 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        return self._arg_imm_op(gv_ptr, IntConst(fieldtoken[0]), _PPC.addi)
+        return self._arg_simm_op(gv_ptr, IntConst(fieldtoken[0]), _PPC.addi)
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
@@ -266,24 +274,24 @@ class Builder(GenBuilder):
                    2:_PPC.lhz,
                    4:_PPC.lwz}[itemsize]
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, opcode, opcodei)
+        return self._arg_arg_op_with_simm(gv_ptr, gv_itemoffset, opcode, opcodei)
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
         _, _, itemsize = arraytoken
         assert itemsize == 4
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
-        return self._arg_arg_op_with_imm(gv_ptr, gv_itemoffset, _PPC.add, _PPC.addi,
+        return self._arg_arg_op_with_simm(gv_ptr, gv_itemoffset, _PPC.add, _PPC.addi,
                                          commutative=True)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
         lengthoffset, _, _ = arraytoken
-        return self._arg_imm_op(gv_ptr, IntConst(lengthoffset), _PPC.lwz)
+        return self._arg_simm_op(gv_ptr, IntConst(lengthoffset), _PPC.lwz)
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
         _, _, itemsize = arraytoken
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
         gv_result = Var()
-        if gv_itemoffset.fits_in_immediate():
+        if gv_itemoffset.fits_in_simm():
             opcode = {1:_PPC.stb,
                       2:_PPC.sth,
                       4:_PPC.stw}[itemsize]
@@ -583,19 +591,35 @@ class Builder(GenBuilder):
             insn.Insn_GPR__GPR_GPR(opcode, gv_result, [gv_x, gv_y]))
         return gv_result
 
-    def _arg_imm_op(self, gv_x, gv_imm, opcode):
-        assert gv_imm.fits_in_immediate()
+    def _arg_simm_op(self, gv_x, gv_imm, opcode):
+        assert gv_imm.fits_in_simm()
         gv_result = Var()
         self.insns.append(
             insn.Insn_GPR__GPR_IMM(opcode, gv_result, [gv_x, gv_imm]))
         return gv_result
 
-    def _arg_arg_op_with_imm(self, gv_x, gv_y, opcode, opcodei,
+    def _arg_uimm_op(self, gv_x, gv_imm, opcode):
+        assert gv_imm.fits_in_uimm()
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(opcode, gv_result, [gv_x, gv_imm]))
+        return gv_result
+
+    def _arg_arg_op_with_simm(self, gv_x, gv_y, opcode, opcodei,
                              commutative=False):
-        if gv_y.fits_in_immediate():
-            return self._arg_imm_op(gv_x, gv_y, opcodei)
-        elif gv_x.fits_in_immediate() and commutative:
-            return self._arg_imm_op(gv_y, gv_x, opcodei)
+        if gv_y.fits_in_simm():
+            return self._arg_simm_op(gv_x, gv_y, opcodei)
+        elif gv_x.fits_in_simm() and commutative:
+            return self._arg_simm_op(gv_y, gv_x, opcodei)
+        else:
+            return self._arg_arg_op(gv_x, gv_y, opcode)
+
+    def _arg_arg_op_with_uimm(self, gv_x, gv_y, opcode, opcodei,
+                             commutative=False):
+        if gv_y.fits_in_uimm():
+            return self._arg_uimm_op(gv_x, gv_y, opcodei)
+        elif gv_x.fits_in_uimm() and commutative:
+            return self._arg_uimm_op(gv_y, gv_x, opcodei)
         else:
             return self._arg_arg_op(gv_x, gv_y, opcode)
 
@@ -625,10 +649,10 @@ class Builder(GenBuilder):
     def _compare(self, op, gv_x, gv_y):
         #print "op", op
         gv_result = ConditionVar()
-        if gv_y.fits_in_immediate():
+        if gv_y.fits_in_simm():
             self.insns.append(
                 insn.CMPWI(self.cmp2info[op], gv_result, [gv_x, gv_y]))
-        elif gv_x.fits_in_immediate():
+        elif gv_x.fits_in_simm():
             self.insns.append(
                 insn.CMPWI(self.cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
         else:
@@ -638,10 +662,10 @@ class Builder(GenBuilder):
 
     def _compare_u(self, op, gv_x, gv_y):
         gv_result = ConditionVar()
-        if gv_y.fits_in_immediate():
+        if gv_y.fits_in_uimm():
             self.insns.append(
                 insn.CMPWLI(self.cmp2info[op], gv_result, [gv_x, gv_y]))
-        elif gv_x.fits_in_immediate():
+        elif gv_x.fits_in_uimm():
             self.insns.append(
                 insn.CMPWLI(self.cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
         else:
@@ -658,7 +682,7 @@ class Builder(GenBuilder):
         return targetbuilder
 
     def op_bool_not(self, gv_arg):
-        return self._arg_imm_op(gv_arg, self.rgenop.genconst(1), RPPCAssembler.xori)
+        return self._arg_uimm_op(gv_arg, self.rgenop.genconst(1), RPPCAssembler.xori)
 
     def op_int_is_true(self, gv_arg):
         return self._compare('ne', gv_arg, self.rgenop.genconst(0))
@@ -669,7 +693,7 @@ class Builder(GenBuilder):
     ## op_int_neg_ovf(self, gv_arg) XXX
 
     def op_int_abs(self, gv_arg):
-        gv_sign = self._arg_imm_op(gv_arg, self.rgenop.genconst(31), _PPC.srawi)
+        gv_sign = self._arg_uimm_op(gv_arg, self.rgenop.genconst(31), _PPC.srawi)
         gv_maybe_inverted = self._arg_arg_op(gv_arg, gv_sign, _PPC.xor)
         return self._arg_arg_op(gv_sign, gv_maybe_inverted, _PPC.subf)
 
@@ -679,15 +703,15 @@ class Builder(GenBuilder):
         return self._arg_op(gv_arg, _PPC.not_)
 
     def op_int_add(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.add, _PPC.addi,
-                                         commutative=True)
+        return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.add, _PPC.addi,
+                                          commutative=True)
 
     def op_int_sub(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.sub, _PPC.subi)
+        return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.sub, _PPC.subi)
 
     def op_int_mul(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.mullw, _PPC.mulli,
-                                         commutative=True)
+        return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.mullw, _PPC.mulli,
+                                          commutative=True)
 
     def op_int_floordiv(self, gv_x, gv_y):
         # grumble, the powerpc handles division when the signs of x
@@ -705,9 +729,9 @@ class Builder(GenBuilder):
         gv_remainder = self.op_int_sub(gv_x, self.op_int_mul(gv_dividend, gv_y))
 
         gv_t = self._arg_arg_op(gv_y, gv_x, _PPC.xor)
-        gv_signs_differ = self._arg_imm_op(gv_t, self.rgenop.genconst(31), _PPC.srawi)
+        gv_signs_differ = self._arg_simm_op(gv_t, self.rgenop.genconst(31), _PPC.srawi)
 
-        gv_foo = self._arg_imm_op(gv_remainder, self.rgenop.genconst(0), _PPC.subfic)
+        gv_foo = self._arg_simm_op(gv_remainder, self.rgenop.genconst(0), _PPC.subfic)
         gv_remainder_non_zero = self._arg_arg_op(gv_foo, gv_foo, _PPC.subfe)
 
         gv_b = self._arg_arg_op(gv_remainder_non_zero, gv_signs_differ, _PPC.and_)
@@ -754,15 +778,15 @@ class Builder(GenBuilder):
         return self._arg_arg_op(gv_x, gv_y, _PPC.and_)
 
     def op_int_or(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.or_, _PPC.ori,
-                                         commutative=True)
+        return self._arg_arg_op_with_uimm(gv_x, gv_y, _PPC.or_, _PPC.ori,
+                                          commutative=True)
 
     def op_int_lshift(self, gv_x, gv_y):
-        if gv_y.fits_in_immediate():
+        if gv_y.fits_in_simm():
             if abs(gv_y.value) >= 32:
                 return self.rgenop.genconst(0)
             else:
-                return self._arg_imm_op(gv_x, gv_y, _PPC.slwi)
+                return self._arg_uimm_op(gv_x, gv_y, _PPC.slwi)
         # computing x << y when you don't know y is <=32
         # (we can assume y >= 0 though)
         # here's the plan:
@@ -770,7 +794,7 @@ class Builder(GenBuilder):
         # z = nltu(y, 32) (as per cwg)
         # w = x << y
         # r = w&z
-        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_a = self._arg_simm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
         gv_b = self._arg_op(gv_y, _PPC.addze)
         gv_z = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
         gv_w = self._arg_arg_op(gv_x, gv_y, _PPC.slw)
@@ -779,10 +803,10 @@ class Builder(GenBuilder):
     ## def op_int_lshift_val(self, gv_x, gv_y):
 
     def op_int_rshift(self, gv_x, gv_y):
-        if gv_y.fits_in_immediate():
+        if gv_y.fits_in_simm():
             if abs(gv_y.value) >= 32:
-                gv_y = rgenop.genconst(31)
-            return self._arg_imm_op(gv_x, gv_y, _PPC.srawi)
+                gv_y = self.rgenop.genconst(31)
+            return self._arg_simm_op(gv_x, gv_y, _PPC.srawi)
         # computing x >> y when you don't know y is <=32
         # (we can assume y >= 0 though)
         # here's the plan:
@@ -791,11 +815,11 @@ class Builder(GenBuilder):
         # o = srawi(x, 31) & ~ntlu_y_32
         # w = (x >> y) & ntlu_y_32
         # r = w|o
-        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_a = self._arg_uimm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
         gv_b = self._arg_op(gv_y, _PPC.addze)
         gv_ntlu_y_32 = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
 
-        gv_c = self._arg_imm_op(gv_x, self.rgenop.genconst(31), _PPC.srawi)
+        gv_c = self._arg_uimm_op(gv_x, self.rgenop.genconst(31), _PPC.srawi)
         gv_o = self._arg_arg_op(gv_c, gv_ntlu_y_32, _PPC.andc_)
 
         gv_e = self._arg_arg_op(gv_x, gv_y, _PPC.sraw)
@@ -806,8 +830,8 @@ class Builder(GenBuilder):
     ## def op_int_rshift_val(self, gv_x, gv_y):
 
     def op_int_xor(self, gv_x, gv_y):
-        return self._arg_arg_op_with_imm(gv_x, gv_y, _PPC.xor, _PPC.xori,
-                                         commutative=True)
+        return self._arg_arg_op_with_uimm(gv_x, gv_y, _PPC.xor, _PPC.xori,
+                                          commutative=True)
 
     ## various int_*_ovfs
 
@@ -856,11 +880,11 @@ class Builder(GenBuilder):
     ## def op_uint_lshift_val(self, gv_x, gv_y):
 
     def op_uint_rshift(self, gv_x, gv_y):
-        if gv_y.fits_in_immediate():
+        if gv_y.fits_in_simm():
             if abs(gv_y.value) >= 32:
                 return self.rgenop.genconst(0)
             else:
-                return self._arg_imm_op(gv_x, gv_y, _PPC.srwi)
+                return self._arg_simm_op(gv_x, gv_y, _PPC.srwi)
         # computing x << y when you don't know y is <=32
         # (we can assume y >=0 though, i think)
         # here's the plan:
@@ -868,7 +892,7 @@ class Builder(GenBuilder):
         # z = ngeu(y, 32) (as per cwg)
         # w = x >> y
         # r = w&z
-        gv_a = self._arg_imm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
+        gv_a = self._arg_simm_op(gv_y, self.rgenop.genconst(32), _PPC.subfic)
         gv_b = self._arg_op(gv_y, _PPC.addze)
         gv_z = self._arg_arg_op(gv_b, gv_y, _PPC.subf)
         gv_w = self._arg_arg_op(gv_x, gv_y, _PPC.srw)
