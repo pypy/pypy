@@ -60,8 +60,8 @@ code. What is really desired is not a generating extension doing
 static compilation, but one capable of dynamic compilation, exploiting
 runtime information in its result. Compilation should be able to
 suspend and resume letting the produced code run to collect run-time
-information (for example language-level types) to be used to produced
-code optimised for effective the run-time behaviour of the program.
+information (for example language-level types) to be used to generate
+code optimised for the effective run-time behaviour of the program.
 
 Inspired by Psyco, which in some sense is such a specialising
 generating extension for Python, but hand-written, we added support
