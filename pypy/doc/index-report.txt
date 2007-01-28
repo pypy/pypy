@@ -15,7 +15,7 @@ Reports of 2007
 `Draft D03.1 Extension Compiler`_ is an interim version of a
 report about PyPy's logic programming and constraint solving features, as well
 as the work going on to tie semantic web technologies and PyPy together. The
-report is still a draft, all feedback for it is welcome.
+report is still a draft, all feedback for it is welcome. *(2007-01-22)*
 
 
 
@@ -29,12 +29,12 @@ research, dissemination and community aspects.  Feedback is very welcome!
 `D07.1 Massive Parallelism and Translation Aspects`_ is a report about
 PyPy's optimization efforts, garbage collectors and massive parallelism
 (stackless) features.  This report refers to the paper `PyPy's approach
-to virtual machine construction`_.
+to virtual machine construction`_. *(2006-12-15)*
 
 `Draft D09.1 Constraint Solving and Semantic Web`_ is an interim version of a
 report about PyPy's logic programming and constraint solving features, as well
 as the work going on to tie semantic web technologies and PyPy together. The
-report is still a draft, all feedback for it is welcome.
+report is still a draft, all feedback for it is welcome. *(2006-07-28)*
 
 
 Reports of 2005
