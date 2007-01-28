@@ -15,6 +15,22 @@ from pypy.objspace.flow.model import checkgraph
 
 INLINE_THRESHOLD_FOR_TEST = 33
 
+def get_function(dottedname):
+    parts = dottedname.split('.')
+    module = '.'.join(parts[:-1])
+    name = parts[-1]
+    try:
+        mod = __import__(module, {}, {}, ['__doc__'])
+    except ImportError, e:
+        raise Exception, "Import error loading %s: %s" % (dottedname, e)
+
+    try:
+        func = getattr(mod, name)
+    except AttributeError:
+        raise Exception, "Function %s not found in module" % dottedname
+
+    return func
+
 def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     # sensible keywords are
     # raisingop2direct_call, inline_threshold, mallocs
@@ -48,35 +64,44 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print "after no-op removal:"
         print_statistics(translator.graphs[0], translator)
 
-    if not config.clever_malloc_removal:
-        if config.profile_based_inline and not secondary:
-            inline_malloc_removal_phase(config, translator, graphs,
-                                        config.inline_threshold*.5) # xxx tune!
-            inline.instrument_inline_candidates(graphs, config.inline_threshold)
-            counters = translator.driver_instrument_result(
-                       config.profile_based_inline)
-            n = len(counters)
-            def call_count_pred(label):
-                if label >= n:
-                    return False
-                return counters[label] > 250 # xxx tune!
-        else:
-            call_count_pred = None
+    if config.inline_threshold != 0:
+        heuristic = get_function(config.inline_heuristic)
         inline_malloc_removal_phase(config, translator, graphs,
                                     config.inline_threshold,
-                                    call_count_pred=call_count_pred)
-    else:
-        count = mallocprediction.preparation(translator, graphs, 15)
-        count += mallocprediction.clever_inlining_and_malloc_removal(
-            translator, graphs, 33)
+                                    inline_heuristic=heuristic)
+
+    if config.clever_malloc_removal:
+        threshold = config.clever_malloc_removal_threshold
+        heuristic = get_function(config.clever_malloc_removal_heuristic)        
+        log.inlineandremove("phase with threshold factor: %s" % threshold)
+        log.inlineandremove("heuristic: %s.%s" % (heuristic.__module__,
+                                                  heuristic.__name__))
+        count = mallocprediction.clever_inlining_and_malloc_removal(
+            translator, graphs,
+            threshold = threshold,
+            heuristic=heuristic)
         log.inlineandremove("removed %d simple mallocs in total" % count)
+        constfold(config, graphs)
         if config.print_statistics:
             print "after clever inlining and malloc removal"
-            print_statistics(translator.graphs[0], translator)
+            print_statistics(translator.graphs[0], translator)        
 
-    if config.constfold:
-        for graph in graphs:
-            constant_fold_graph(graph)
+
+    if config.profile_based_inline and not secondary:
+        threshold = config.profile_based_inline_threshold
+        heuristic = get_function(config.profile_based_inline_heuristic)
+        inline.instrument_inline_candidates(graphs, threshold)
+        counters = translator.driver_instrument_result(
+            config.profile_based_inline)
+        n = len(counters)
+        def call_count_pred(label):
+            if label >= n:
+                return False
+            return counters[label] > 250 # xxx introduce an option for this
+        inline_malloc_removal_phase(config, translator, graphs,
+                                    threshold,
+                                    inline_heuristic=heuristic,
+                                    call_count_pred=call_count_pred)
 
     if config.remove_asserts:
         remove_asserts(translator, graphs)
@@ -96,15 +121,24 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     for graph in graphs:
         checkgraph(graph)
 
+def constfold(config, graphs):
+    if config.constfold:
+        for graph in graphs:
+            constant_fold_graph(graph)    
+
 def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
+                                inline_heuristic,
                                 call_count_pred=None):
 
     type_system = translator.rtyper.type_system.name
     log.inlining("phase with threshold factor: %s" % inline_threshold)
+    log.inlining("heuristic: %s.%s" % (inline_heuristic.__module__,
+                                       inline_heuristic.__name__))
 
     # inline functions in each other
     if inline_threshold:
         inline.auto_inline_graphs(translator, graphs, inline_threshold,
+                                  heuristic=inline_heuristic,
                                   call_count_pred=call_count_pred)
 
         if config.print_statistics:
@@ -119,7 +153,5 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
             print "after malloc removal:"
             print_statistics(translator.graphs[0], translator)    
 
-    if config.constfold:
-        for graph in graphs:
-            constant_fold_graph(graph)
+    constfold(config, graphs)
 

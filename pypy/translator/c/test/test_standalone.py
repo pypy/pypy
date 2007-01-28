@@ -2,6 +2,7 @@ import py
 import sys, os
 
 from pypy.translator.translator import TranslationContext
+from pypy.translator.backendopt import all
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.tool.udir import udir
@@ -103,7 +104,16 @@ def test_prof_inline():
         return 0
     from pypy.translator.interactive import Translation
     t = Translation(entry_point, backend='c', standalone=True)
-    t.backendopt(profile_based_inline="500")
+    # no counters
+    t.backendopt(inline_threshold=100, profile_based_inline="500")
+    exe = t.compile()
+    out = py.process.cmdexec("%s 500" % exe)
+    assert int(out) == 500*501/2
+
+    t = Translation(entry_point, backend='c', standalone=True)
+    # counters
+    t.backendopt(inline_threshold=all.INLINE_THRESHOLD_FOR_TEST*0.5,
+                 profile_based_inline="500")
     exe = t.compile()
     out = py.process.cmdexec("%s 500" % exe)
     assert int(out) == 500*501/2

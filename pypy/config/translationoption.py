@@ -6,6 +6,9 @@ from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
 
+DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
+DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
+
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
     BoolOption("stackless", "compile stackless features in",
@@ -90,6 +93,14 @@ translation_optiondescription = OptionDescription(
                  default=None, cmdline="--fork-before"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
+        # control inlining
+        FloatOption("inline_threshold", "Threshold when to inline functions",
+                  default=DEFL_INLINE_THRESHOLD, cmdline="--inline-threshold"),
+        StrOption("inline_heuristic", "Dotted name of an heuristic function "
+                  "for inlining",
+                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                cmdline="--inline-heuristic"),
+        
         BoolOption("print_statistics", "Print statistics while optimizing",
                    default=False),
         BoolOption("merge_if_blocks", "Merge if ... elif chains",
@@ -103,17 +114,40 @@ translation_optiondescription = OptionDescription(
         BoolOption("heap2stack", "Escape analysis and stack allocation",
                    default=False,
                    requires=[("translation.stackless", False)]),
-        BoolOption("clever_malloc_removal",
-                   "Remove mallocs in a clever way", default=False),
-        BoolOption("remove_asserts",
-                   "Kill 'raise AssertionError', which lets the C "
-                   "optimizer remove the asserts", default=False),
-        FloatOption("inline_threshold", "Threshold when to inline functions",
-                  default=DEFL_INLINE_THRESHOLD, cmdline="--inline-threshold"),
+        # control profile based inlining
         StrOption("profile_based_inline",
                   "Use call count profiling to drive inlining"
                   ", specify arguments",
                   default=None, cmdline="--prof-based-inline"),
+        FloatOption("profile_based_inline_threshold",
+                    "Threshold when to inline functions "
+                    "for profile based inlining",
+                  default=DEFL_PROF_BASED_INLINE_THRESHOLD,
+                  cmdline="--prof-based-inline-threshold"),
+        StrOption("profile_based_inline_heuristic",
+                  "Dotted name of an heuristic function "
+                  "for profile based inlining",
+                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                cmdline="--prof-based-inline-heuristic"),
+        # control clever malloc removal
+        BoolOption("clever_malloc_removal",
+                   "Drives inlining to remove  mallocs in a clever way",
+                   default=False,
+                   cmdline="--clever-malloc-removal"),
+        FloatOption("clever_malloc_removal_threshold",
+                    "Threshold when to inline functions in "
+                    "clever malloc removal",
+                  default=DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD,
+                  cmdline="--clever-malloc-removal-threshold"),
+        StrOption("clever_malloc_removal_heuristic",
+                  "Dotted name of an heuristic function "
+                  "for inlining in clever malloc removal",
+                default="pypy.translator.backendopt.inline.inlining_heuristic",
+                cmdline="--clever-malloc-removal-heuristic"),
+
+        BoolOption("remove_asserts",
+                   "Kill 'raise AssertionError', which lets the C "
+                   "optimizer remove the asserts", default=False),
     ]),
 
     OptionDescription("cli", "GenCLI options", [
