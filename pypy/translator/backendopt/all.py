@@ -66,9 +66,9 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
                                     config.inline_threshold,
                                     call_count_pred=call_count_pred)
     else:
-        count = mallocprediction.preparation(translator, graphs)
+        count = mallocprediction.preparation(translator, graphs, 15)
         count += mallocprediction.clever_inlining_and_malloc_removal(
-            translator, graphs)
+            translator, graphs, 33)
         log.inlineandremove("removed %d simple mallocs in total" % count)
         if config.print_statistics:
             print "after clever inlining and malloc removal"
