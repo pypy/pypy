@@ -575,9 +575,9 @@ def inlining_heuristic(graph):
     # XXX ponderation factors?
     count = static_instruction_count(graph)
     if count >= 200:
-        return count, True
+        return count
     return (0.9999 * measure_median_execution_cost(graph) +
-            count), True
+            count)
 
 
 def inlinable_static_callers(graphs):
@@ -643,8 +643,7 @@ def instrument_inline_candidates(graphs, threshold):
 
 def auto_inlining(translator, threshold=None,
                   callgraph=None,
-                  call_count_pred=None,
-                  heuristic=inlining_heuristic):
+                  call_count_pred=None):
     assert threshold is not None and threshold != 1
     from heapq import heappush, heappop, heapreplace, heapify
     callers = {}     # {graph: {graphs-that-call-it}}
@@ -657,7 +656,7 @@ def auto_inlining(translator, threshold=None,
     # the -len(callers) change is OK
     heap = [(0.0, -len(callers[graph]), graph) for graph in callers]
     valid_weight = {}
-    try_again = {}
+    couldnt_inline = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
     raise_analyzer = RaiseAnalyzer(translator)
     count = 0
@@ -665,12 +664,10 @@ def auto_inlining(translator, threshold=None,
     while heap:
         weight, _, graph = heap[0]
         if not valid_weight.get(graph):
-            weight, fixed = heuristic(graph)
+            weight = inlining_heuristic(graph)
             #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True
-            if not fixed:
-                try_again[graph] = True
             continue
 
         if weight >= threshold:
@@ -702,7 +699,7 @@ def auto_inlining(translator, threshold=None,
                                            call_count_pred)
                 res = bool(subcount)
             except CannotInline:
-                try_again[graph] = True
+                couldnt_inline[graph] = True
                 res = CannotInline
             if res is True:
                 count += subcount
@@ -711,20 +708,18 @@ def auto_inlining(translator, threshold=None,
                 for graph2 in callees.get(graph, {}):
                     callees[parentgraph][graph2] = True
                     callers[graph2][parentgraph] = True
-                if parentgraph in try_again:
+                if parentgraph in couldnt_inline:
                     # the parentgraph was previously uninlinable, but it has
                     # been modified.  Maybe now we can inline it into further
                     # parents?
-                    del try_again[parentgraph]
+                    del couldnt_inline[parentgraph]
                     heappush(heap, (0.0, -len(callers[parentgraph]), parentgraph))
                 valid_weight[parentgraph] = False
     return count
 
-def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None,
-                       heuristic=inlining_heuristic):
+def auto_inline_graphs(translator, graphs, threshold, call_count_pred=None):
         callgraph = inlinable_static_callers(graphs)
         count = auto_inlining(translator, threshold, callgraph=callgraph,
-                              heuristic=heuristic,
                               call_count_pred=call_count_pred)
         log.inlining('inlined %d callsites.'% (count,))
         for graph in graphs:

@@ -46,7 +46,7 @@ def find_calls_where_creps_go(interesting_creps, graph, adi,
                     if len(varstate.creation_points) != 1:
                         del interesting_creps[crep]
                         break
-
+    
     # drop creps that are passed into an indirect_call
     for block, op in graph.iterblockops():
         if not interesting_creps:
@@ -123,15 +123,13 @@ def find_malloc_removal_candidates(t, graphs):
                                             % caller)
     return callgraph, caller_candidates
 
-def inline_and_remove(t, graphs, threshold=BIG_THRESHOLD,
-                      heuristic=inline.inlining_heuristic):
+def inline_and_remove(t, graphs, threshold=BIG_THRESHOLD):
     callgraph, caller_candidates = find_malloc_removal_candidates(t, graphs)
     log.inlineandremove("found %s malloc removal candidates" %
                         len(caller_candidates))
     if callgraph:
         count = inline.auto_inlining(t, callgraph=callgraph,
-                                     threshold=threshold,
-                                     heuristic=heuristic)
+                                     threshold=threshold)
         if not count:
             return False
         log.inlineandremove('inlined %d callsites.'% (count,))
@@ -140,24 +138,20 @@ def inline_and_remove(t, graphs, threshold=BIG_THRESHOLD,
     else:
         return False
 
-def preparation(translator, graphs, threshold=SMALL_THRESHOLD,
-                heuristic=inline.inlining_heuristic):
+def preparation(translator, graphs, threshold=SMALL_THRESHOLD):
     count = 0
-    inline.auto_inline_graphs(translator, graphs, threshold,
-                              heuristic=heuristic)
+    inline.auto_inline_graphs(translator, graphs, threshold)
     count += remove_mallocs(translator, graphs)
     log.inlineandremove("preparation removed %s mallocs in total" % count)
     return count
 
 def clever_inlining_and_malloc_removal(translator, graphs=None,
-                                       threshold=BIG_THRESHOLD,
-                                       heuristic=inline.inlining_heuristic):
+                                       threshold=BIG_THRESHOLD):
     if graphs is None:
         graphs = translator.graphs
     count = 0
     while 1:
-        newcount = inline_and_remove(translator, graphs, threshold=threshold,
-                                     heuristic=heuristic)
+        newcount = inline_and_remove(translator, graphs, threshold=threshold)
         if not newcount:
             break
         count += newcount
