@@ -16,7 +16,7 @@ def get_annotation(func):
     missing = [object] * (func.func_code.co_argcount - len(argstypelist))
     return missing + argstypelist
 
-def getcompiled(func, view=conftest.option.view, inline_threshold=1, use_boehm=False):
+def getcompiled(func, view=conftest.option.view, use_boehm=False):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
 
@@ -37,7 +37,7 @@ def getcompiled(func, view=conftest.option.view, inline_threshold=1, use_boehm=F
     cbuilder.generate_source()
     cbuilder.compile()
 
-    backend_optimizations(t, inline_threshold=inline_threshold)
+    backend_optimizations(t)
     if view:
         t.viewcg()
     return getattr(cbuilder.import_module(), func.__name__)

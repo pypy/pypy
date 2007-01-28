@@ -64,7 +64,7 @@ def should_expose(func):
 def must_expose(func):
     return hasattr(func, '_initialannotation_')
 
-def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
+def get_compiled_module(func, view=conftest.option.view,
                 use_boehm=False, exports=None, expose_all=True):
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
@@ -133,7 +133,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
     if use_boehm:
         gcpolicy = gc.BoehmGcPolicy
 
-    backend_optimizations(t, inline_threshold=inline_threshold)
+    backend_optimizations(t)
     if view:
         t.viewcg()
 

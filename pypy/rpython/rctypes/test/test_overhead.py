@@ -8,13 +8,14 @@ import pypy.rpython.rctypes.implementation
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import gengraph
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 
 from ctypes import c_int, Structure, pointer, POINTER, py_object
 
 
 def find_mallocs(func, argtypes):
     t, typer, graph = gengraph(func, argtypes)
-    backend_optimizations(t, inline_threshold=10)
+    backend_optimizations(t, inline_threshold=10*INLINE_THRESHOLD_FOR_TEST)
     if conftest.option.view:
         t.view()
 
