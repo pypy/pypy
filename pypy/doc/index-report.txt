@@ -12,6 +12,11 @@ preliminary.
 Reports of 2007
 ===============
 
+`Draft D08.2 JIT Compiler Architecture`_ is an interim version of a report
+about the Architecture and working of our JIT compiler generator.  The report
+is still a draft, all feedback for it is welcome. *(2007-01-28)*
+
+
 `Draft D02.3 Testing Tool`_ is an interim version of a report about the
 `py.test`_ testing tool which is part of the `py-lib`_. The report is still a
 draft, all feedback for it is welcome. *(2007-01-28)*
@@ -89,3 +94,4 @@ project during the first year of EU funding (December 2004 - December 2005)
 .. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`Draft D03.1 Extension Compiler`: http://codespeak.net/pypy/extradoc/eu-report/D03.1_Extension_Compiler-interim-2007-01-22.pdf
 .. _`Draft D02.3 Testing Tool`: http://codespeak.net/pypy/extradoc/eu-report/D02.3_Testing_Framework-interim-2007-01-28.pdf
+.. _`Draft D08.2 JIT Compiler Architecture`: http://codespeak.net/pypy/extradoc/eu-report/D08.2_JIT_Compiler_Architecture-interim-2007-01-28.pdf
