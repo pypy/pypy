@@ -105,7 +105,7 @@ class VirtualRTI(object):
         s = lltype.malloc(S)
         sref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
         forcestate[bitmask] = sref
-        fielddesc.fill_into(vablerti, sref, base, self)
+        fielddesc.fill_into(vablerti, s, base, self)
         return s
     _get_forced._annspecialcase_ = "specialize:arg(2)"
 
