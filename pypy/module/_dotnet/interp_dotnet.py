@@ -1,6 +1,7 @@
+import os.path
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, ApplevelClass
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc,\
@@ -9,6 +10,8 @@ from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_
 System = CLR.System
 TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
 AmbiguousMatchException = NativeException(CLR.System.Reflection.AmbiguousMatchException)
+
+System.Double # force the type to be loaded, else the annotator could think that System has no Double attribute
 
 def get_method(space, b_type, name, b_paramtypes):
     try:
@@ -82,6 +85,24 @@ class W_CliObject(Wrappable):
         return call_method(self.space, self.b_obj, self.b_obj.GetType(), name, w_args, startfrom)
     call_method.unwrap_spec = ['self', str, W_Root, int]
 
+def load_cli_class(space, namespace, classname):
+    fullname = '%s.%s' % (namespace, classname)
+    t = System.Type.GetType(fullname)
+    methods = []
+    staticmethods = []
+    methodsinfo = t.GetMethods()
+    for i in range(len(methodsinfo)):
+        meth = methodsinfo[i]
+        if meth.IsPublic:
+            if meth.IsStatic:
+                staticmethods.append(str(meth.Name))
+            else:
+                methods.append(str(meth.Name))
+    w_staticmethods = space.wrap(staticmethods)
+    w_methods = space.wrap(methods)
+    return build_wrapper(space, space.wrap(namespace), space.wrap(classname),
+                         w_staticmethods, w_methods)
+load_cli_class.unwrap_spec = [ObjSpace, str, str]
 
 def cli_object_new(space, w_subtype, typename):
     b_type = System.Type.GetType(typename)
@@ -90,9 +111,14 @@ def cli_object_new(space, w_subtype, typename):
     return space.wrap(W_CliObject(space, b_obj))
 cli_object_new.unwrap_spec = [ObjSpace, W_Root, str]
 
-
 W_CliObject.typedef = TypeDef(
     '_CliObject_internal',
     __new__ = interp2app(cli_object_new),
     call_method = interp2app(W_CliObject.call_method),
     )
+
+path, _ = os.path.split(__file__)
+app_dotnet = os.path.join(path, 'app_dotnet.py')
+app = ApplevelClass(file(app_dotnet).read())
+del path, app_dotnet
+build_wrapper = app.interphook("build_wrapper")

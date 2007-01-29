@@ -77,14 +77,12 @@ class CliClassWrapper(object):
         self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__)
 
 
-class ArrayList(CliClassWrapper):
-    __cliclass__ = 'System.Collections.ArrayList'
-    Add = MethodWrapper('Add')
-    get_Item = MethodWrapper('get_Item')
-    __getitem__ = get_Item
-    IndexOf = MethodWrapper('IndexOf')
-
-
-class Math(CliClassWrapper):
-    __cliclass__ = 'System.Math'
-    Abs = StaticMethodWrapper(__cliclass__, 'Abs')
+def build_wrapper(namespace, classname, staticmethods, methods):
+    fullname = '%s.%s' % (namespace, classname)
+    d = {'__cliclass__': fullname,
+         '__module__': namespace}
+    for name in staticmethods:
+        d[name] = StaticMethodWrapper(fullname, name)
+    for name in methods:
+        d[name] = MethodWrapper(name)
+    return type(classname, (CliClassWrapper,), d)
