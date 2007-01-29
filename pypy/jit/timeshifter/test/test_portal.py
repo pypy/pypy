@@ -7,13 +7,13 @@ from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph, summary
 from pypy.rlib.objectmodel import hint
+from pypy.jit.codegen.llgraph.rgenop import RGenOp as LLRGenOp
 
 import py.test
 
 
 class PortalTest(object):
-    from pypy.jit.codegen.llgraph.rgenop import RGenOp
-
+    RGenOp = LLRGenOp
     small = True
 
     def setup_class(cls):
@@ -23,6 +23,7 @@ class PortalTest(object):
             cls.RGenOp = RDumpGenOp
         cls._cache = {}
         cls._cache_order = []
+        cls.on_llgraph = cls.RGenOp is LLRGenOp
 
     def teardown_class(cls):
         del cls._cache

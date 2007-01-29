@@ -148,10 +148,12 @@ class TestVirtualizableExplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 42
         self.check_insns(getfield=0)
-        residual_graph = self.get_residual_graph()
-        assert len(residual_graph.startblock.inputargs) == 3
-        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
-                [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
+        if self.on_llgraph:
+            residual_graph = self.get_residual_graph()
+            inputargs = residual_graph.startblock.inputargs
+            assert len(inputargs) == 3
+            assert ([v.concretetype for v in inputargs] ==
+                    [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_simple_set(self):
    
@@ -171,10 +173,12 @@ class TestVirtualizableExplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 21
         self.check_insns(getfield=0)
-        residual_graph = self.get_residual_graph()
-        assert len(residual_graph.startblock.inputargs) == 3
-        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
-                [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
+        if self.on_llgraph:
+            residual_graph = self.get_residual_graph()
+            inputargs = residual_graph.startblock.inputargs
+            assert len(inputargs) == 3
+            assert ([v.concretetype for v in inputargs] ==
+                    [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_set_effect(self):
 
@@ -195,10 +199,12 @@ class TestVirtualizableExplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 26
         self.check_insns(getfield=0)
-        residual_graph = self.get_residual_graph()
-        assert len(residual_graph.startblock.inputargs) == 3
-        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
-                [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
+        if self.on_llgraph:
+            residual_graph = self.get_residual_graph()
+            inputargs = residual_graph.startblock.inputargs
+            assert len(inputargs) == 3
+            assert ([v.concretetype for v in inputargs] ==
+                    [lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_simple_escape(self):
    
@@ -219,9 +225,11 @@ class TestVirtualizableExplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
         assert res == 23
         self.check_insns(getfield=0)
-        residual_graph = self.get_residual_graph()
-        assert len(residual_graph.startblock.inputargs) == 4
-        assert ([v.concretetype for v in residual_graph.startblock.inputargs] ==
+        if self.on_llgraph:
+            residual_graph = self.get_residual_graph()
+            inputargs = residual_graph.startblock.inputargs
+            assert len(inputargs) == 4
+            assert ([v.concretetype for v in inputargs] ==
                 [lltype.Ptr(E), lltype.Ptr(XY), lltype.Signed, lltype.Signed])
 
     def test_simple_return_it(self):
@@ -810,18 +818,17 @@ class TestVirtualizableImplicit(PortalTest):
         def main(x, y):
             code = '+d+-+'
             f = Frame(code, x, y)
-            return f.run(), log.acc
-        
+            return f.run() * 10 + log.acc
+
         res = self.timeshift_from_portal(main, Frame.plus_minus.im_func,
                             [0, 2],
                             policy=StopAtXPolicy(Frame.debug.im_func))
-
-        assert res.item0 == 4
-        assert res.item1 == 2
-        calls = self.count_direct_calls()
-        call_count = sum([count for graph, count in calls.iteritems()
-                          if not graph.name.startswith('rpyexc_')])
-        assert call_count == 3
+        assert res == 42
+        if self.on_llgraph:
+            calls = self.count_direct_calls()
+            call_count = sum([count for graph, count in calls.iteritems()
+                              if not graph.name.startswith('rpyexc_')])
+            assert call_count == 3
 
 
     def test_setting_pointer_in_residual_call(self):
