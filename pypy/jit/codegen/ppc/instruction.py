@@ -213,6 +213,9 @@ class Insn_GPR__GPR(Insn):
         self.result_regclass = GP_REGISTER
         self.reg_args = [arg]
         self.reg_arg_regclasses = [GP_REGISTER]
+
+        self.result_reg = None
+        self.arg_reg = None
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
@@ -485,6 +488,7 @@ class Label(Insn):
                 allocator.lru.remove(gv)
                 allocator.freeregs[loc.regclass].append(loc.alloc)
                 new_loc = allocator._allocate_reg(GP_REGISTER, gv)
+                allocator.lru.append(gv)
                 allocator.insns.append(loc.move_to_gpr(allocator, new_loc.number))
                 loc = new_loc
             self.label.arg_locations.append(loc)
