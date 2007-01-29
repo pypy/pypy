@@ -193,7 +193,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
                     gv_access
                     touch_update
                     gv_access_is_null_ptr access_is_null_token
-                    get_rti_ptr set_rti_ptr
+                    get_rti set_rti
                  """.split()
 
     def __init__(self, hrtyper, TYPE):
@@ -308,7 +308,6 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
     def _define_getset_rti_ptrs(self, hrtyper):
         RGenOp = hrtyper.RGenOp
-        annhelper = hrtyper.annhelper
         TOPPTR = self.access_desc.PTRTYPE
         
         def get_rti(base, frameinfo, frameindex):
@@ -319,19 +318,8 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
             struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
             struc.vable_rti = new_vable_rti
 
-        s_addr = annmodel.SomeAddress()
-        s_frameinfo = annmodel.lltype_to_annotation(llmemory.GCREF)
-        s_frameindex = annmodel.SomeInteger()
-        from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
-        s_vable_rti = annmodel.lltype_to_annotation(VABLERTIPTR)
-
-        self.get_rti_ptr = annhelper.delayedfunction(get_rti,
-                                [s_addr, s_frameinfo, s_frameindex],
-                                s_vable_rti, needtype=True)
-        self.set_rti_ptr = annhelper.delayedfunction(set_rti,
-                                [s_addr, s_frameinfo, s_frameindex,
-                                 s_vable_rti],
-                                annmodel.s_None, needtype=True)
+        self.get_rti = get_rti
+        self.set_rti = set_rti
 
     def _define_access_is_null(self, hrtyper):
         RGenOp = hrtyper.RGenOp
@@ -713,8 +701,8 @@ class VirtualizableStruct(VirtualStruct):
         vars_gv = memo.framevars_gv
         vars_gv.append(gv_outside)
         getset_rti = (memo.frameindex,
-                      typedesc.get_rti_ptr,
-                      typedesc.set_rti_ptr)
+                      typedesc.get_rti,
+                      typedesc.set_rti)
         memo.vable_getset_rtis.append(getset_rti)
         memo.frameindex += 1
         varindexes = vable_rti.varindexes
