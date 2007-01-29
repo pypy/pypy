@@ -1,7 +1,7 @@
 import py
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
-from pypy.jit.codegen.model import ReplayBuilder
+from pypy.jit.codegen.model import ReplayBuilder, dummy_var
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rlib.objectmodel import specialize, we_are_translated

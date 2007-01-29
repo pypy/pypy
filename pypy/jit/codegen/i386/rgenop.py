@@ -3,7 +3,7 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
-from pypy.jit.codegen.model import ReplayBuilder
+from pypy.jit.codegen.model import ReplayBuilder, dummy_var
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
 from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack, Place
