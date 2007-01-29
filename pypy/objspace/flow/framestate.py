@@ -10,7 +10,7 @@ class FrameState:
     def __init__(self, state):
         if isinstance(state, PyFrame):
             # getfastscope() can return real None, for undefined locals
-            data = state.getfastscope() + state.valuestack.items
+            data = state.getfastscope() + state.savevaluestack()
             if state.last_exception is None:
                 data.append(Constant(None))
                 data.append(Constant(None))
@@ -20,7 +20,7 @@ class FrameState:
             recursively_flatten(state.space, data)
             self.mergeable = data
             self.nonmergeable = (
-                state.blockstack.items[:],
+                state.blockstack[:],
                 state.last_instr,   # == next_instr when between bytecodes
                 state.w_locals,
             )
@@ -40,14 +40,14 @@ class FrameState:
             data = self.mergeable[:]
             recursively_unflatten(frame.space, data)
             frame.setfastscope(data[:fastlocals])  # Nones == undefined locals
-            frame.valuestack.items[:] = data[fastlocals:-2]
+            frame.restorevaluestack(data[fastlocals:-2])
             if data[-2] == Constant(None):
                 assert data[-1] == Constant(None)
                 frame.last_exception = None
             else:
                 frame.last_exception = OperationError(data[-2], data[-1])
             (
-                frame.blockstack.items[:],
+                frame.blockstack[:],
                 frame.last_instr,
                 frame.w_locals,
             ) = self.nonmergeable

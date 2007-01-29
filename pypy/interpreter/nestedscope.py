@@ -165,7 +165,7 @@ class __extend__(pyframe.PyFrame):
         # nested scopes: access the cell object
         cell = f.cells[varindex]
         w_value = f.space.wrap(cell)
-        f.valuestack.push(w_value)
+        f.pushvalue(w_value)
 
     def LOAD_DEREF(f, varindex, *ignored):
         # nested scopes: access a variable through its cell object
@@ -183,11 +183,11 @@ class __extend__(pyframe.PyFrame):
                 w_exc_type = f.space.w_NameError
             raise OperationError(w_exc_type, f.space.wrap(message))
         else:
-            f.valuestack.push(w_value)
+            f.pushvalue(w_value)
 
     def STORE_DEREF(f, varindex, *ignored):
         # nested scopes: access a variable through its cell object
-        w_newvalue = f.valuestack.pop()
+        w_newvalue = f.popvalue()
         #try:
         cell = f.cells[varindex]
         #except IndexError:
@@ -196,19 +196,19 @@ class __extend__(pyframe.PyFrame):
         cell.set(w_newvalue)
 
     def MAKE_CLOSURE(f, numdefaults, *ignored):
-        w_codeobj = f.valuestack.pop()
+        w_codeobj = f.popvalue()
         codeobj = f.space.interp_w(pycode.PyCode, w_codeobj)
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge
-            w_freevarstuple = f.valuestack.pop()
+            w_freevarstuple = f.popvalue()
             freevars = [f.space.interp_w(Cell, cell)
                         for cell in f.space.unpacktuple(w_freevarstuple)]
         else:
             nfreevars = len(codeobj.co_freevars)
-            freevars = [f.space.interp_w(Cell, f.valuestack.pop())
+            freevars = [f.space.interp_w(Cell, f.popvalue())
                         for i in range(nfreevars)]
             freevars.reverse()
-        defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
+        defaultarguments = [f.popvalue() for i in range(numdefaults)]
         defaultarguments.reverse()
         fn = function.Function(f.space, codeobj, f.w_globals,
                                defaultarguments, freevars)
-        f.valuestack.push(f.space.wrap(fn))
+        f.pushvalue(f.space.wrap(fn))

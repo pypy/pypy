@@ -385,8 +385,8 @@ class FlowExecutionContext(ExecutionContext):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.crnt_frame.valuestack.items
-        for i in range(len(stack_items_w)):
+        stack_items_w = self.crnt_frame.valuestack_w
+        for i in range(self.crnt_frame.valuestackdepth):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:

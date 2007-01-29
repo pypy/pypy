@@ -61,8 +61,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 def BINARY_ADD(f, oparg, *ignored):
                     from pypy.objspace.std.intobject import \
                          W_IntObject, add__Int_Int
-                    w_2 = f.valuestack.pop()
-                    w_1 = f.valuestack.pop()
+                    w_2 = f.popvalue()
+                    w_1 = f.popvalue()
                     if isinstance(w_1, W_IntObject) and \
                            isinstance(w_2, W_IntObject):
                         try:
@@ -71,7 +71,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                             w_result = f.space.add(w_1, w_2)
                     else:
                         w_result = f.space.add(w_1, w_2)
-                    f.valuestack.push(w_result)
+                    f.pushvalue(w_result)
 
             def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
                 from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
@@ -96,12 +96,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 nargs = oparg & 0xff
                 w_function = w_value
                 try:
-                    w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
+                    w_result = f.space.call_valuestack(w_function, nargs, f.valuestack_w)
                     # XXX XXX fix the problem of resume points!
                     #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
                 finally:
-                    f.valuestack.drop(nargs)
-                f.valuestack.push(w_result)
+                    f.dropvalues(nargs)
+                f.pushvalue(w_result)
 
         self.FrameClass = StdObjSpaceFrame
 

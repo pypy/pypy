@@ -211,25 +211,26 @@ class ArgumentsFromValuestack(AbstractArguments):
     Only for the case of purely positional arguments, for now.
     """
 
-    def __init__(self, space, valuestack, nargs=0):
+    def __init__(self, space, frame, nargs=0):
         self.space = space
-        self.valuestack = valuestack
+        self.frame = frame
         self.nargs = nargs
 
     def firstarg(self):
         if self.nargs <= 0:
             return None
-        return self.valuestack.top(self.nargs - 1)
+        return self.frame.peekvalue(self.nargs - 1)
 
     def popfirst(self):
         if self.nargs <= 0:
             raise IndexError
-        valuestack = self.valuestack
+        frame = self.frame
         newnargs = self.nargs-1
-        return valuestack.top(newnargs), ArgumentsFromValuestack(self.space, valuestack, newnargs)
-        
+        return (frame.peekvalue(newnargs),
+                ArgumentsFromValuestack(self.space, frame, newnargs))
+
     def __repr__(self):
-        return 'ArgumentsFromValuestack(%r, %r)' % (self.valuestack, self.nargs)
+        return 'ArgumentsFromValuestack(%r, %r)' % (self.frame, self.nargs)
 
     def has_keywords(self):
         return False
@@ -237,7 +238,7 @@ class ArgumentsFromValuestack(AbstractArguments):
     def unpack(self):
         args_w = [None] * self.nargs
         for i in range(self.nargs):
-            args_w[i] = self.valuestack.top(self.nargs - 1 - i)
+            args_w[i] = self.frame.peekvalue(self.nargs - 1 - i)
         return args_w, {}
 
     def fixedunpack(self, argcount):
@@ -248,7 +249,7 @@ class ArgumentsFromValuestack(AbstractArguments):
         data_w = [None] * self.nargs
         nargs = self.nargs
         for i in range(nargs):
-            data_w[i] = self.valuestack.top(nargs - 1 - i)
+            data_w[i] = self.frame.peekvalue(nargs - 1 - i)
         return data_w
 
     def _rawshape(self, nextra=0):
@@ -272,21 +273,21 @@ class ArgumentsFromValuestack(AbstractArguments):
 
         if blindargs + self.nargs >= co_argcount:
             for i in range(co_argcount - blindargs):
-                scope_w[i + blindargs] = self.valuestack.top(self.nargs - 1 - i)
+                scope_w[i + blindargs] = self.frame.peekvalue(self.nargs - 1 - i)
             if has_vararg:
                 if blindargs > co_argcount:
                     stararg_w = extravarargs
                     for i in range(self.nargs):
-                        stararg_w.append(self.valuestack.top(self.nargs - 1 - i))
+                        stararg_w.append(self.frame.peekvalue(self.nargs - 1 - i))
                 else:
                     stararg_w = [None] * (self.nargs + blindargs - co_argcount)
                     for i in range(co_argcount - blindargs, self.nargs):
-                        stararg_w[i - co_argcount + blindargs] = self.valuestack.top(self.nargs - 1 - i)
+                        stararg_w[i - co_argcount + blindargs] = self.frame.peekvalue(self.nargs - 1 - i)
                 scope_w[co_argcount] = self.space.newtuple(stararg_w)
                 co_argcount += 1
         else:
             for i in range(self.nargs):
-                scope_w[i + blindargs] = self.valuestack.top(self.nargs - 1 - i)
+                scope_w[i + blindargs] = self.frame.peekvalue(self.nargs - 1 - i)
             ndefaults = len(defaults_w)
             missing = co_argcount - self.nargs - blindargs
             first_default = ndefaults - missing
@@ -304,7 +305,7 @@ class ArgumentsFromValuestack(AbstractArguments):
     def flatten(self):
         data_w = [None] * self.nargs
         for i in range(self.nargs):
-            data_w[i] = self.valuestack.top(nargs - 1 - i)
+            data_w[i] = self.frame.peekvalue(self.nargs - 1 - i)
         return nextra + self.nargs, (), False, False, data_w
 
     def num_args(self):

@@ -3,7 +3,6 @@
 
 from pypy.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
-from pypy.interpreter.miscutils import Stack, FixedStack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 import opcode
@@ -31,7 +30,7 @@ class PyFrame(eval.Frame):
      * 'w_locals' is the locals dictionary to use
      * 'w_globals' is the attached globals dictionary
      * 'builtin' is the attached built-in module
-     * 'valuestack', 'blockstack', control the interpretation
+     * 'valuestack_w', 'blockstack', control the interpretation
     """
 
     __metaclass__ = extendabletype
@@ -50,14 +49,9 @@ class PyFrame(eval.Frame):
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
-        # XXX hack: FlowSpace directly manipulates stack
-        # cannot use FixedStack without rewriting framestate
-        if space.full_exceptions:
-            self.valuestack = FixedStack()
-            self.valuestack.setup(code.co_stacksize)
-        else:
-            self.valuestack = Stack()
-        self.blockstack = Stack()
+        self.valuestack_w = [None] * code.co_stacksize
+        self.valuestackdepth = 0
+        self.blockstack = []
         self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
@@ -110,6 +104,63 @@ class PyFrame(eval.Frame):
         return w_exitvalue
     execute_frame.insert_stack_check_here = True
 
+    # stack manipulation helpers
+    def pushvalue(self, w_object):
+        depth = self.valuestackdepth
+        self.valuestack_w[depth] = w_object
+        self.valuestackdepth = depth + 1
+        self._checkme()
+
+    def popvalue(self):
+        depth = self.valuestackdepth - 1
+        assert depth >= 0, "pop from empty value stack"
+        w_object = self.valuestack_w[depth]
+        self.valuestack_w[depth] = None
+        self.valuestackdepth = depth
+        self._checkme()
+        return w_object
+
+    def peekvalue(self, index_from_top=0):
+        index = self.valuestackdepth + ~index_from_top
+        assert index >= 0, "peek past the bottom of the stack"
+        return self.valuestack_w[index]
+        self._checkme()
+
+    def settopvalue(self, w_object, index_from_top=0):
+        index = self.valuestackdepth + ~index_from_top
+        assert index >= 0, "settop past the bottom of the stack"
+        self.valuestack_w[index] = w_object
+        self._checkme()
+
+    def dropvaluesuntil(self, finaldepth):
+        depth = self.valuestackdepth - 1
+        while depth >= finaldepth:
+            self.valuestack_w[depth] = None
+            depth -= 1
+        self.valuestackdepth = finaldepth
+        self._checkme()
+
+    def dropvalues(self, n):
+        finaldepth = self.valuestackdepth - n
+        assert finaldepth >= 0, "stack underflow in dropvalues()"
+        self.dropvaluesuntil(finaldepth)
+        self._checkme()
+
+    def savevaluestack(self):
+        self._checkme()
+        return self.valuestack_w[:self.valuestackdepth]
+
+    def restorevaluestack(self, items_w):
+        assert None not in items_w
+        self.valuestack_w[:len(items_w)] = items_w
+        self.dropvaluesuntil(len(items_w))
+
+    def _checkme(self):
+        n = self.valuestackdepth
+        assert 0 <= n <= len(self.valuestack_w)
+        assert None not in self.valuestack_w[:n]
+        assert self.valuestack_w[n:] == [None] * (len(self.valuestack_w)-n)
+
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -131,10 +182,10 @@ class PyFrame(eval.Frame):
         else:
             f_lineno = self.f_lineno
 
-        values_w = self.valuestack.items[0:self.valuestack.ptr]
+        values_w = self.valuestack_w[0:self.valuestackdepth]
         w_valuestack = maker.slp_into_tuple_with_nulls(space, values_w)
         
-        w_blockstack = nt([block._get_state_(space) for block in self.blockstack.items])
+        w_blockstack = nt([block._get_state_(space) for block in self.blockstack])
         w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
         tup_base = [
             w(self.pycode),
@@ -201,12 +252,11 @@ class PyFrame(eval.Frame):
         PyFrame.__init__(self, space, pycode, w_globals, closure)
         new_frame.f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.builtin = space.interp_w(Module, w_builtin)
-        new_frame.blockstack.items = [unpickle_block(space, w_blk)
-                                      for w_blk in space.unpackiterable(w_blockstack)]
+        new_frame.blockstack = [unpickle_block(space, w_blk)
+                                for w_blk in space.unpackiterable(w_blockstack)]
         values_w = maker.slp_from_tuple_with_nulls(space, w_valuestack)
-        valstack = new_frame.valuestack
         for w_value in values_w:
-            valstack.push(w_value)
+            new_frame.pushvalue(w_value)
         if space.is_w(w_exc_value, space.w_None):
             new_frame.last_exception = None
         else:
@@ -316,27 +366,27 @@ class PyFrame(eval.Frame):
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
         new_lasti_setup_addr = -1
-        blockstack = Stack()
+        blockstack = []
         addr = 0
         while addr < len(code):
             op = ord(code[addr])
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
-                blockstack.push([addr, False])
+                blockstack.append([addr, False])
             elif op == POP_BLOCK:
-                setup_op = ord(code[blockstack.top()[0]])
+                setup_op = ord(code[blockstack[-1][0]])
                 if setup_op == SETUP_FINALLY:
-                    blockstack.top()[1] = True
+                    blockstack[-1][1] = True
                 else:
                     blockstack.pop()
             elif op == END_FINALLY:
-                if not blockstack.empty():
-                    setup_op = ord(code[blockstack.top()[0]])
+                if len(blockstack) > 0:
+                    setup_op = ord(code[blockstack[-1][0]])
                     if setup_op == SETUP_FINALLY:
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
-                for ii in range(blockstack.depth()):
-                    setup_addr, in_finally = blockstack.top(ii)
+                for ii in range(len(blockstack)):
+                    setup_addr, in_finally = blockstack[~ii]
                     if in_finally:
                         if addr == new_lasti:
                             new_lasti_setup_addr = setup_addr
@@ -349,7 +399,7 @@ class PyFrame(eval.Frame):
             else:
                 addr += 1
                 
-        assert blockstack.empty()
+        assert len(blockstack) == 0
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
             raise OperationError(space.w_ValueError,
@@ -380,7 +430,7 @@ class PyFrame(eval.Frame):
             else:
                 addr += 1
 
-        f_iblock = self.blockstack.depth()
+        f_iblock = len(self.blockstack)
         min_iblock = f_iblock + min_delta_iblock
         if new_lasti > self.last_instr:
             new_iblock = f_iblock + delta_iblock

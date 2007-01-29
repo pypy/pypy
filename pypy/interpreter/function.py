@@ -61,62 +61,62 @@ class Function(Wrappable):
                 return w_res
         return self.call_args(Arguments(self.space, list(args_w)))
 
-    def funccall_valuestack(self, nargs, valuestack): # speed hack
+    def funccall_valuestack(self, nargs, frame): # speed hack
         if nargs == 0:
             w_res = self.code.fastcall_0(self.space, self)
             if w_res is not None:
                 return w_res
         elif nargs == 1:
-            w_res = self.code.fastcall_1(self.space, self, valuestack.top(0))
+            w_res = self.code.fastcall_1(self.space, self, frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 2:
-            w_res = self.code.fastcall_2(self.space, self, valuestack.top(1),
-                                         valuestack.top(0))
+            w_res = self.code.fastcall_2(self.space, self, frame.peekvalue(1),
+                                         frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 3:
-            w_res = self.code.fastcall_3(self.space, self, valuestack.top(2),
-                                         valuestack.top(1), valuestack.top(0))
+            w_res = self.code.fastcall_3(self.space, self, frame.peekvalue(2),
+                                         frame.peekvalue(1), frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 4:
-            w_res = self.code.fastcall_4(self.space, self, valuestack.top(3),
-                                         valuestack.top(2), valuestack.top(1),
-                                         valuestack.top(0))
+            w_res = self.code.fastcall_4(self.space, self, frame.peekvalue(3),
+                                         frame.peekvalue(2), frame.peekvalue(1),
+                                         frame.peekvalue(0))
             if w_res is not None:
                 return w_res
-        args = ArgumentsFromValuestack(self.space, valuestack, nargs)
+        args = ArgumentsFromValuestack(self.space, frame, nargs)
         try:
             return self.call_args(args)
         finally:
-            args.valuestack = None
+            args.frame = None
 
-    def funccall_obj_valuestack(self, w_obj, nargs, valuestack): # speed hack
+    def funccall_obj_valuestack(self, w_obj, nargs, frame): # speed hack
         if nargs == 0:
             w_res = self.code.fastcall_1(self.space, self, w_obj)
             if w_res is not None:
                 return w_res
         elif nargs == 1:
-            w_res = self.code.fastcall_2(self.space, self, w_obj, valuestack.top(0))
+            w_res = self.code.fastcall_2(self.space, self, w_obj, frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 2:
-            w_res = self.code.fastcall_3(self.space, self, w_obj, valuestack.top(1),
-                                         valuestack.top(0))
+            w_res = self.code.fastcall_3(self.space, self, w_obj, frame.peekvalue(1),
+                                         frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 3:
-            w_res = self.code.fastcall_4(self.space, self, w_obj, valuestack.top(2),
-                                         valuestack.top(1), valuestack.top(0))
+            w_res = self.code.fastcall_4(self.space, self, w_obj, frame.peekvalue(2),
+                                         frame.peekvalue(1), frame.peekvalue(0))
             if w_res is not None:
                 return w_res
-        stkargs = ArgumentsFromValuestack(self.space, valuestack, nargs)
+        stkargs = ArgumentsFromValuestack(self.space, frame, nargs)
         args = stkargs.prepend(w_obj)
         try:
             return self.call_args(args)
         finally:
-            stkargs.valuestack = None
+            stkargs.frame = None
 
     def getdict(self):
         if self.w_func_dict is None:

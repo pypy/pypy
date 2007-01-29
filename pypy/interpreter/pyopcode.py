@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
 from pypy.interpreter import gateway, function, eval
 from pypy.interpreter import pyframe, pytraceback
-from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated, hint
@@ -22,9 +22,9 @@ def unaryoperation(operationname):
     """NOT_RPYTHON"""
     def opimpl(f, *ignored):
         operation = getattr(f.space, operationname)
-        w_1 = f.valuestack.pop()
+        w_1 = f.popvalue()
         w_result = operation(w_1)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
@@ -32,10 +32,10 @@ def binaryoperation(operationname):
     """NOT_RPYTHON"""    
     def opimpl(f, *ignored):
         operation = getattr(f.space, operationname)
-        w_2 = f.valuestack.pop()
-        w_1 = f.valuestack.pop()
+        w_2 = f.popvalue()
+        w_1 = f.popvalue()
         w_result = operation(w_1, w_2)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
@@ -148,7 +148,7 @@ class __extend__(pyframe.PyFrame):
                 hint(oparg, concrete=True)
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                w_returnvalue = self.valuestack.pop()
+                w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
                     return w_returnvalue
@@ -160,7 +160,7 @@ class __extend__(pyframe.PyFrame):
 
             if opcode == opcodedesc.YIELD_VALUE.index:
                 #self.last_instr = intmask(next_instr - 1) XXX clean up!
-                w_yieldvalue = self.valuestack.pop()
+                w_yieldvalue = self.popvalue()
                 return w_yieldvalue
 
             if opcode == opcodedesc.END_FINALLY.index:
@@ -207,7 +207,7 @@ class __extend__(pyframe.PyFrame):
                     next_instr = hint(next_instr, promote=True)
 
     def unrollstack(self, unroller_kind):
-        while not self.blockstack.empty():
+        while len(self.blockstack) > 0:
             block = self.blockstack.pop()
             if (block.handling_mask & unroller_kind) != 0:
                 return block
@@ -254,14 +254,14 @@ class __extend__(pyframe.PyFrame):
             varname = f.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment" % varname
             raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
-        f.valuestack.push(w_value)
+        f.pushvalue(w_value)
 
     def LOAD_CONST(f, constindex, *ignored):
         w_const = f.getconstant_w(constindex)
-        f.valuestack.push(w_const)
+        f.pushvalue(w_const)
 
     def STORE_FAST(f, varindex, *ignored):
-        w_newvalue = f.valuestack.pop()
+        w_newvalue = f.popvalue()
         f.fastlocals_w[varindex] = w_newvalue
         #except:
         #    print "exception: got index error"
@@ -274,41 +274,41 @@ class __extend__(pyframe.PyFrame):
         #    raise
 
     def POP_TOP(f, *ignored):
-        f.valuestack.pop()
+        f.popvalue()
 
     def ROT_TWO(f, *ignored):
-        w_1 = f.valuestack.pop()
-        w_2 = f.valuestack.pop()
-        f.valuestack.push(w_1)
-        f.valuestack.push(w_2)
+        w_1 = f.popvalue()
+        w_2 = f.popvalue()
+        f.pushvalue(w_1)
+        f.pushvalue(w_2)
 
     def ROT_THREE(f, *ignored):
-        w_1 = f.valuestack.pop()
-        w_2 = f.valuestack.pop()
-        w_3 = f.valuestack.pop()
-        f.valuestack.push(w_1)
-        f.valuestack.push(w_3)
-        f.valuestack.push(w_2)
+        w_1 = f.popvalue()
+        w_2 = f.popvalue()
+        w_3 = f.popvalue()
+        f.pushvalue(w_1)
+        f.pushvalue(w_3)
+        f.pushvalue(w_2)
 
     def ROT_FOUR(f, *ignored):
-        w_1 = f.valuestack.pop()
-        w_2 = f.valuestack.pop()
-        w_3 = f.valuestack.pop()
-        w_4 = f.valuestack.pop()
-        f.valuestack.push(w_1)
-        f.valuestack.push(w_4)
-        f.valuestack.push(w_3)
-        f.valuestack.push(w_2)
+        w_1 = f.popvalue()
+        w_2 = f.popvalue()
+        w_3 = f.popvalue()
+        w_4 = f.popvalue()
+        f.pushvalue(w_1)
+        f.pushvalue(w_4)
+        f.pushvalue(w_3)
+        f.pushvalue(w_2)
 
     def DUP_TOP(f, *ignored):
-        w_1 = f.valuestack.top()
-        f.valuestack.push(w_1)
+        w_1 = f.peekvalue()
+        f.pushvalue(w_1)
 
     def DUP_TOPX(f, itemcount, *ignored):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
         for i in range(itemcount):
-            w_1 = f.valuestack.top(itemcount-1)
-            f.valuestack.push(w_1)
+            w_1 = f.peekvalue(itemcount-1)
+            f.pushvalue(w_1)
 
     UNARY_POSITIVE = unaryoperation("pos")
     UNARY_NEGATIVE = unaryoperation("neg")
@@ -317,10 +317,10 @@ class __extend__(pyframe.PyFrame):
     UNARY_INVERT   = unaryoperation("invert")
 
     def BINARY_POWER(f, *ignored):
-        w_2 = f.valuestack.pop()
-        w_1 = f.valuestack.pop()
+        w_2 = f.popvalue()
+        w_1 = f.popvalue()
         w_result = f.space.pow(w_1, w_2, f.space.w_None)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
@@ -338,10 +338,10 @@ class __extend__(pyframe.PyFrame):
     BINARY_OR  = binaryoperation("or_")
 
     def INPLACE_POWER(f, *ignored):
-        w_2 = f.valuestack.pop()
-        w_1 = f.valuestack.pop()
+        w_2 = f.popvalue()
+        w_1 = f.popvalue()
         w_result = f.space.inplace_pow(w_1, w_2)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     INPLACE_MULTIPLY = binaryoperation("inplace_mul")
     INPLACE_TRUE_DIVIDE  = binaryoperation("inplace_truediv")
@@ -358,97 +358,97 @@ class __extend__(pyframe.PyFrame):
     INPLACE_OR  = binaryoperation("inplace_or")
 
     def slice(f, w_start, w_end):
-        w_obj = f.valuestack.pop()
+        w_obj = f.popvalue()
         w_result = f.space.getslice(w_obj, w_start, w_end)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     def SLICE_0(f, *ignored):
         f.slice(f.space.w_None, f.space.w_None)
 
     def SLICE_1(f, *ignored):
-        w_start = f.valuestack.pop()
+        w_start = f.popvalue()
         f.slice(w_start, f.space.w_None)
 
     def SLICE_2(f, *ignored):
-        w_end = f.valuestack.pop()
+        w_end = f.popvalue()
         f.slice(f.space.w_None, w_end)
 
     def SLICE_3(f, *ignored):
-        w_end = f.valuestack.pop()
-        w_start = f.valuestack.pop()
+        w_end = f.popvalue()
+        w_start = f.popvalue()
         f.slice(w_start, w_end)
 
     def storeslice(f, w_start, w_end):
-        w_obj = f.valuestack.pop()
-        w_newvalue = f.valuestack.pop()
+        w_obj = f.popvalue()
+        w_newvalue = f.popvalue()
         f.space.setslice(w_obj, w_start, w_end, w_newvalue)
 
     def STORE_SLICE_0(f, *ignored):
         f.storeslice(f.space.w_None, f.space.w_None)
 
     def STORE_SLICE_1(f, *ignored):
-        w_start = f.valuestack.pop()
+        w_start = f.popvalue()
         f.storeslice(w_start, f.space.w_None)
 
     def STORE_SLICE_2(f, *ignored):
-        w_end = f.valuestack.pop()
+        w_end = f.popvalue()
         f.storeslice(f.space.w_None, w_end)
 
     def STORE_SLICE_3(f, *ignored):
-        w_end = f.valuestack.pop()
-        w_start = f.valuestack.pop()
+        w_end = f.popvalue()
+        w_start = f.popvalue()
         f.storeslice(w_start, w_end)
 
     def deleteslice(f, w_start, w_end):
-        w_obj = f.valuestack.pop()
+        w_obj = f.popvalue()
         f.space.delslice(w_obj, w_start, w_end)
 
     def DELETE_SLICE_0(f, *ignored):
         f.deleteslice(f.space.w_None, f.space.w_None)
 
     def DELETE_SLICE_1(f, *ignored):
-        w_start = f.valuestack.pop()
+        w_start = f.popvalue()
         f.deleteslice(w_start, f.space.w_None)
 
     def DELETE_SLICE_2(f, *ignored):
-        w_end = f.valuestack.pop()
+        w_end = f.popvalue()
         f.deleteslice(f.space.w_None, w_end)
 
     def DELETE_SLICE_3(f, *ignored):
-        w_end = f.valuestack.pop()
-        w_start = f.valuestack.pop()
+        w_end = f.popvalue()
+        w_start = f.popvalue()
         f.deleteslice(w_start, w_end)
 
     def STORE_SUBSCR(f, *ignored):
         "obj[subscr] = newvalue"
-        w_subscr = f.valuestack.pop()
-        w_obj = f.valuestack.pop()
-        w_newvalue = f.valuestack.pop()
+        w_subscr = f.popvalue()
+        w_obj = f.popvalue()
+        w_newvalue = f.popvalue()
         f.space.setitem(w_obj, w_subscr, w_newvalue)
 
     def DELETE_SUBSCR(f, *ignored):
         "del obj[subscr]"
-        w_subscr = f.valuestack.pop()
-        w_obj = f.valuestack.pop()
+        w_subscr = f.popvalue()
+        w_obj = f.popvalue()
         f.space.delitem(w_obj, w_subscr)
 
     def PRINT_EXPR(f, *ignored):
-        w_expr = f.valuestack.pop()
+        w_expr = f.popvalue()
         print_expr(f.space, w_expr)
 
     def PRINT_ITEM_TO(f, *ignored):
-        w_stream = f.valuestack.pop()
-        w_item = f.valuestack.pop()
+        w_stream = f.popvalue()
+        w_item = f.popvalue()
         if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_item_to(f.space, w_item, w_stream)
 
     def PRINT_ITEM(f, *ignored):
-        w_item = f.valuestack.pop()
+        w_item = f.popvalue()
         print_item(f.space, w_item)
 
     def PRINT_NEWLINE_TO(f, *ignored):
-        w_stream = f.valuestack.pop()
+        w_stream = f.popvalue()
         if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_newline_to(f.space, w_stream)
@@ -477,9 +477,9 @@ class __extend__(pyframe.PyFrame):
             raise Reraise
 
         w_value = w_traceback = space.w_None
-        if nbargs >= 3: w_traceback = f.valuestack.pop()
-        if nbargs >= 2: w_value     = f.valuestack.pop()
-        if 1:           w_type      = f.valuestack.pop()
+        if nbargs >= 3: w_traceback = f.popvalue()
+        if nbargs >= 2: w_value     = f.popvalue()
+        if 1:           w_type      = f.popvalue()
         operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
         if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
@@ -497,12 +497,12 @@ class __extend__(pyframe.PyFrame):
             raise Reraise
 
     def LOAD_LOCALS(f, *ignored):
-        f.valuestack.push(f.w_locals)
+        f.pushvalue(f.w_locals)
 
     def EXEC_STMT(f, *ignored):
-        w_locals  = f.valuestack.pop()
-        w_globals = f.valuestack.pop()
-        w_prog    = f.valuestack.pop()
+        w_locals  = f.popvalue()
+        w_globals = f.popvalue()
+        w_prog    = f.popvalue()
         flags = f.space.getexecutioncontext().compiler.getcodeflags(f.pycode)
         w_compile_flags = f.space.wrap(flags)
         w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog,
@@ -529,26 +529,26 @@ class __extend__(pyframe.PyFrame):
         #   [exception type  or None]
         #   [exception value or None]
         #   [wrapped stack unroller ]
-        f.valuestack.pop()   # ignore the exception type
-        f.valuestack.pop()   # ignore the exception value
-        w_unroller = f.valuestack.pop()
+        f.popvalue()   # ignore the exception type
+        f.popvalue()   # ignore the exception value
+        w_unroller = f.popvalue()
         unroller = f.space.interpclass_w(w_unroller)
         return unroller
 
     def BUILD_CLASS(f, *ignored):
-        w_methodsdict = f.valuestack.pop()
-        w_bases       = f.valuestack.pop()
-        w_name        = f.valuestack.pop()
+        w_methodsdict = f.popvalue()
+        w_bases       = f.popvalue()
+        w_name        = f.popvalue()
         w_metaclass = find_metaclass(f.space, w_bases,
                                      w_methodsdict, f.w_globals,
                                      f.space.wrap(f.builtin)) 
         w_newclass = f.space.call_function(w_metaclass, w_name,
                                            w_bases, w_methodsdict)
-        f.valuestack.push(w_newclass)
+        f.pushvalue(w_newclass)
 
     def STORE_NAME(f, varindex, *ignored):
         w_varname = f.getname_w(varindex)
-        w_newvalue = f.valuestack.pop()
+        w_newvalue = f.popvalue()
         f.space.set_str_keyed_item(f.w_locals, w_varname, w_newvalue)
 
     def DELETE_NAME(f, varindex, *ignored):
@@ -563,31 +563,31 @@ class __extend__(pyframe.PyFrame):
             raise OperationError(f.space.w_NameError, f.space.wrap(message))
 
     def UNPACK_SEQUENCE(f, itemcount, *ignored):
-        w_iterable = f.valuestack.pop()
+        w_iterable = f.popvalue()
         try:
             items = f.space.unpackiterable(w_iterable, itemcount)
         except UnpackValueError, e:
             raise OperationError(f.space.w_ValueError, f.space.wrap(e.msg))
         items.reverse()
         for item in items:
-            f.valuestack.push(item)
+            f.pushvalue(item)
 
     def STORE_ATTR(f, nameindex, *ignored):
         "obj.attributename = newvalue"
         w_attributename = f.getname_w(nameindex)
-        w_obj = f.valuestack.pop()
-        w_newvalue = f.valuestack.pop()
+        w_obj = f.popvalue()
+        w_newvalue = f.popvalue()
         f.space.setattr(w_obj, w_attributename, w_newvalue)
 
     def DELETE_ATTR(f, nameindex, *ignored):
         "del obj.attributename"
         w_attributename = f.getname_w(nameindex)
-        w_obj = f.valuestack.pop()
+        w_obj = f.popvalue()
         f.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(f, nameindex, *ignored):
         w_varname = f.getname_w(nameindex)
-        w_newvalue = f.valuestack.pop()
+        w_newvalue = f.popvalue()
         f.space.set_str_keyed_item(f.w_globals, w_varname, w_newvalue)
 
     def DELETE_GLOBAL(f, nameindex, *ignored):
@@ -599,7 +599,7 @@ class __extend__(pyframe.PyFrame):
             w_varname = f.getname_w(nameindex)
             w_value = f.space.finditem(f.w_locals, w_varname)
             if w_value is not None:
-                f.valuestack.push(w_value)
+                f.pushvalue(w_value)
                 return
         f.LOAD_GLOBAL(nameindex)    # fall-back
 
@@ -616,7 +616,7 @@ class __extend__(pyframe.PyFrame):
         return w_value
 
     def LOAD_GLOBAL(f, nameindex, *ignored):
-        f.valuestack.push(f._load_global(f.getname_w(nameindex)))
+        f.pushvalue(f._load_global(f.getname_w(nameindex)))
 
     def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
@@ -627,29 +627,29 @@ class __extend__(pyframe.PyFrame):
         
 
     def BUILD_TUPLE(f, itemcount, *ignored):
-        items = [f.valuestack.pop() for i in range(itemcount)]
+        items = [f.popvalue() for i in range(itemcount)]
         items.reverse()
         w_tuple = f.space.newtuple(items)
-        f.valuestack.push(w_tuple)
+        f.pushvalue(w_tuple)
 
     def BUILD_LIST(f, itemcount, *ignored):
-        items = [f.valuestack.pop() for i in range(itemcount)]
+        items = [f.popvalue() for i in range(itemcount)]
         items.reverse()
         w_list = f.space.newlist(items)
-        f.valuestack.push(w_list)
+        f.pushvalue(w_list)
 
     def BUILD_MAP(f, zero, *ignored):
         if zero != 0:
             raise BytecodeCorruption
         w_dict = f.space.newdict()
-        f.valuestack.push(w_dict)
+        f.pushvalue(w_dict)
 
     def LOAD_ATTR(f, nameindex, *ignored):
         "obj.attributename"
         w_attributename = f.getname_w(nameindex)
-        w_obj = f.valuestack.pop()
+        w_obj = f.popvalue()
         w_value = f.space.getattr(w_obj, w_attributename)
-        f.valuestack.push(w_value)
+        f.pushvalue(w_value)
 
     def cmp_lt(f, w_1, w_2):  return f.space.lt(w_1, w_2)
     def cmp_le(f, w_1, w_2):  return f.space.le(w_1, w_2)
@@ -683,20 +683,20 @@ class __extend__(pyframe.PyFrame):
         cmp_exc_match,
         ]
     def COMPARE_OP(f, testnum, *ignored):
-        w_2 = f.valuestack.pop()
-        w_1 = f.valuestack.pop()
+        w_2 = f.popvalue()
+        w_1 = f.popvalue()
         try:
             testfn = f.compare_dispatch_table[testnum]
         except IndexError:
             raise BytecodeCorruption, "bad COMPARE_OP oparg"
         w_result = testfn(f, w_1, w_2)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
 
     def IMPORT_NAME(f, nameindex, *ignored):
         space = f.space
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
-        w_fromlist = f.valuestack.pop()
+        w_fromlist = f.popvalue()
         w_import = f.builtin.getdictvalue_w(f.space, '__import__')
         if w_import is None:
             raise OperationError(space.w_ImportError,
@@ -706,17 +706,17 @@ class __extend__(pyframe.PyFrame):
             w_locals = space.w_None
         w_obj = space.call_function(w_import, space.wrap(modulename),
                                     f.w_globals, w_locals, w_fromlist)
-        f.valuestack.push(w_obj)
+        f.pushvalue(w_obj)
 
     def IMPORT_STAR(f, *ignored):
-        w_module = f.valuestack.pop()
+        w_module = f.popvalue()
         w_locals = f.getdictscope()
         import_all_from(f.space, w_module, w_locals)
         f.setdictscope(w_locals)
 
     def IMPORT_FROM(f, nameindex, *ignored):
         w_name = f.getname_w(nameindex)
-        w_module = f.valuestack.top()
+        w_module = f.peekvalue()
         try:
             w_obj = f.space.getattr(w_module, w_name)
         except OperationError, e:
@@ -724,20 +724,20 @@ class __extend__(pyframe.PyFrame):
                 raise
             raise OperationError(f.space.w_ImportError,
                              f.space.wrap("cannot import name '%s'" % f.space.str_w(w_name) ))
-        f.valuestack.push(w_obj)
+        f.pushvalue(w_obj)
 
     def JUMP_FORWARD(f, jumpby, next_instr, *ignored):
         next_instr += jumpby
         return next_instr
 
     def JUMP_IF_FALSE(f, stepby, next_instr, *ignored):
-        w_cond = f.valuestack.top()
+        w_cond = f.peekvalue()
         if not f.space.is_true(w_cond):
             next_instr += stepby
         return next_instr
 
     def JUMP_IF_TRUE(f, stepby, next_instr, *ignored):
-        w_cond = f.valuestack.top()
+        w_cond = f.peekvalue()
         if f.space.is_true(w_cond):
             next_instr += stepby
         return next_instr
@@ -746,22 +746,22 @@ class __extend__(pyframe.PyFrame):
         return jumpto
 
     def GET_ITER(f, *ignored):
-        w_iterable = f.valuestack.pop()
+        w_iterable = f.popvalue()
         w_iterator = f.space.iter(w_iterable)
-        f.valuestack.push(w_iterator)
+        f.pushvalue(w_iterator)
 
     def FOR_ITER(f, jumpby, next_instr, *ignored):
-        w_iterator = f.valuestack.top()
+        w_iterator = f.peekvalue()
         try:
             w_nextitem = f.space.next(w_iterator)
         except OperationError, e:
             if not e.match(f.space, f.space.w_StopIteration):
                 raise 
             # iterator exhausted
-            f.valuestack.pop()
+            f.popvalue()
             next_instr += jumpby
         else:
-            f.valuestack.push(w_nextitem)
+            f.pushvalue(w_nextitem)
         return next_instr
 
     def FOR_LOOP(f, oparg, *ignored):
@@ -769,20 +769,20 @@ class __extend__(pyframe.PyFrame):
 
     def SETUP_LOOP(f, offsettoend, next_instr, *ignored):
         block = LoopBlock(f, next_instr + offsettoend)
-        f.blockstack.push(block)
+        f.blockstack.append(block)
 
     def SETUP_EXCEPT(f, offsettoend, next_instr, *ignored):
         block = ExceptBlock(f, next_instr + offsettoend)
-        f.blockstack.push(block)
+        f.blockstack.append(block)
 
     def SETUP_FINALLY(f, offsettoend, next_instr, *ignored):
         block = FinallyBlock(f, next_instr + offsettoend)
-        f.blockstack.push(block)
+        f.blockstack.append(block)
 
     def WITH_CLEANUP(f, *ignored):
         # see comment in END_FINALLY for stack state
-        w_exitfunc = f.valuestack.pop()
-        w_unroller = f.valuestack.top(2)
+        w_exitfunc = f.popvalue()
+        w_unroller = f.peekvalue(2)
         unroller = f.space.interpclass_w(w_unroller)
         if isinstance(unroller, SApplicationException):
             operr = unroller.operr
@@ -792,7 +792,7 @@ class __extend__(pyframe.PyFrame):
                                              operr.application_traceback)
             if f.space.is_true(w_result):
                 # __exit__() returned True -> Swallow the exception.
-                f.valuestack.set_top(f.space.w_None, 2)
+                f.settopvalue(f.space.w_None, 2)
         else:
             f.space.call_function(w_exitfunc,
                                   f.space.w_None,
@@ -806,72 +806,72 @@ class __extend__(pyframe.PyFrame):
         if n_keywords:
             keywords = {}
             for i in range(n_keywords):
-                w_value = f.valuestack.pop()
-                w_key   = f.valuestack.pop()
+                w_value = f.popvalue()
+                w_key   = f.popvalue()
                 key = f.space.str_w(w_key)
                 keywords[key] = w_value
         arguments = [None] * n_arguments
         for i in range(n_arguments - 1, -1, -1):
-            arguments[i] = f.valuestack.pop()
+            arguments[i] = f.popvalue()
         args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
-        w_function  = f.valuestack.pop()
+        w_function  = f.popvalue()
         w_result = f.space.call_args(w_function, args)
         rstack.resume_point("call_function", f, returns=w_result)
-        f.valuestack.push(w_result)
+        f.pushvalue(w_result)
         
     def CALL_FUNCTION(f, oparg, *ignored):
         # XXX start of hack for performance
         if (oparg >> 8) & 0xff == 0:
             # Only positional arguments
             nargs = oparg & 0xff
-            w_function = f.valuestack.top(nargs)
+            w_function = f.peekvalue(nargs)
             try:
-                w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
+                w_result = f.space.call_valuestack(w_function, nargs, f)
                 rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
             finally:
-                f.valuestack.drop(nargs + 1)
-            f.valuestack.push(w_result)
+                f.dropvalues(nargs + 1)
+            f.pushvalue(w_result)
         # XXX end of hack for performance
         else:
             # general case
             f.call_function(oparg)
 
     def CALL_FUNCTION_VAR(f, oparg, *ignored):
-        w_varargs = f.valuestack.pop()
+        w_varargs = f.popvalue()
         f.call_function(oparg, w_varargs)
 
     def CALL_FUNCTION_KW(f, oparg, *ignored):
-        w_varkw = f.valuestack.pop()
+        w_varkw = f.popvalue()
         f.call_function(oparg, None, w_varkw)
 
     def CALL_FUNCTION_VAR_KW(f, oparg, *ignored):
-        w_varkw = f.valuestack.pop()
-        w_varargs = f.valuestack.pop()
+        w_varkw = f.popvalue()
+        w_varargs = f.popvalue()
         f.call_function(oparg, w_varargs, w_varkw)
 
     def MAKE_FUNCTION(f, numdefaults, *ignored):
-        w_codeobj = f.valuestack.pop()
+        w_codeobj = f.popvalue()
         codeobj = f.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
+        defaultarguments = [f.popvalue() for i in range(numdefaults)]
         defaultarguments.reverse()
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
-        f.valuestack.push(f.space.wrap(fn))
+        f.pushvalue(f.space.wrap(fn))
 
     def BUILD_SLICE(f, numargs, *ignored):
         if numargs == 3:
-            w_step = f.valuestack.pop()
+            w_step = f.popvalue()
         elif numargs == 2:
             w_step = f.space.w_None
         else:
             raise BytecodeCorruption
-        w_end   = f.valuestack.pop()
-        w_start = f.valuestack.pop()
+        w_end   = f.popvalue()
+        w_start = f.popvalue()
         w_slice = f.space.newslice(w_start, w_end, w_step)
-        f.valuestack.push(w_slice)
+        f.pushvalue(w_slice)
 
     def LIST_APPEND(f, *ignored):
-        w = f.valuestack.pop()
-        v = f.valuestack.pop()
+        w = f.popvalue()
+        v = f.popvalue()
         f.space.call_method(v, 'append', w)
 
     def SET_LINENO(f, lineno, *ignored):
@@ -884,10 +884,10 @@ class __extend__(pyframe.PyFrame):
         w_function = f._load_global(w_varname)
         nargs = oparg&0xFF
         try:
-            w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
+            w_result = f.space.call_valuestack(w_function, nargs, f)
         finally:
-            f.valuestack.drop(nargs)
-        f.valuestack.push(w_result)
+            f.dropvalues(nargs)
+        f.pushvalue(w_result)
 
 ##     def EXTENDED_ARG(f, oparg, *ignored):
 ##         opcode = f.nextop()
@@ -1005,7 +1005,7 @@ class FrameBlock:
 
     def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
-        self.valuestackdepth = frame.valuestack.depth()
+        self.valuestackdepth = frame.valuestackdepth
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1019,8 +1019,7 @@ class FrameBlock:
         return hash((self.handlerposition, self.valuestackdepth))
 
     def cleanupstack(self, frame):
-        for i in range(self.valuestackdepth, frame.valuestack.depth()):
-            frame.valuestack.pop()
+        frame.dropvaluesuntil(self.valuestackdepth)
 
     def cleanup(self, frame):
         "Clean up a frame when we normally exit the block."
@@ -1043,7 +1042,7 @@ class LoopBlock(FrameBlock):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
             # exception's argument
-            frame.blockstack.push(self)
+            frame.blockstack.append(self)
             return unroller.jump_to
         else:
             # jump to the end of the loop
@@ -1068,9 +1067,9 @@ class ExceptBlock(FrameBlock):
         # the stack setup is slightly different than in CPython:
         # instead of the traceback, we store the unroller object,
         # wrapped.
-        frame.valuestack.push(frame.space.wrap(unroller))
-        frame.valuestack.push(operationerr.w_value)
-        frame.valuestack.push(operationerr.w_type)
+        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(operationerr.w_value)
+        frame.pushvalue(operationerr.w_type)
         return self.handlerposition   # jump to the handler
 
 
@@ -1088,17 +1087,17 @@ class FinallyBlock(FrameBlock):
         # here).
         self.cleanupstack(frame)
         # one None already pushed by the bytecode
-        frame.valuestack.push(frame.space.w_None)
-        frame.valuestack.push(frame.space.w_None)
+        frame.pushvalue(frame.space.w_None)
+        frame.pushvalue(frame.space.w_None)
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().
         self.cleanupstack(frame)
-        frame.valuestack.push(frame.space.wrap(unroller))
-        frame.valuestack.push(frame.space.w_None)
-        frame.valuestack.push(frame.space.w_None)
+        frame.pushvalue(frame.space.wrap(unroller))
+        frame.pushvalue(frame.space.w_None)
+        frame.pushvalue(frame.space.w_None)
         return self.handlerposition   # jump to the handler
 
 

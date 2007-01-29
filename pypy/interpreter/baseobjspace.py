@@ -588,7 +588,7 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, valuestack):
+    def call_valuestack(self, w_func, nargs, frame):
         # XXX start of hack for performance
         from pypy.interpreter.function import Function, Method
         if isinstance(w_func, Method):
@@ -596,20 +596,19 @@ class ObjSpace(object):
             if w_inst is not None:
                 func = w_func.w_function
                 if isinstance(func, Function):
-                    return func.funccall_obj_valuestack(w_inst,
-                                                        nargs, valuestack)
+                    return func.funccall_obj_valuestack(w_inst, nargs, frame)
             else:
                 w_func = w_func.w_function
 
         if isinstance(w_func, Function):
-            return w_func.funccall_valuestack(nargs, valuestack)
+            return w_func.funccall_valuestack(nargs, frame)
         # XXX end of hack for performance
 
-        args = ArgumentsFromValuestack(self, valuestack, nargs)
+        args = ArgumentsFromValuestack(self, frame, nargs)
         try:
             return self.call_args(w_func, args)
         finally:
-            args.valuestack = None
+            args.frame = None
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
