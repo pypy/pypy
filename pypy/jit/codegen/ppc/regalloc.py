@@ -138,18 +138,19 @@ class RegisterAllocation:
         for insn in insns2:
 
             if DEBUG_PRINT:
-                print "Processing instruction", insn,
-                print "with args", insn.reg_args, "and result", insn.result, ":"
+                print "Processing instruction"
+                print insn
+                #print "with args", insn.reg_args, "and result", insn.result, ":"
 
-                print "LRU list was:", self.lru
+                #print "LRU list was:", self.lru
 
             # put things into the lru
             for arg in insn.reg_args:
                 self._promote(arg)
             if insn.result:
                 self._promote(insn.result)
-            if DEBUG_PRINT:
-                print "LRU list is now:", self.lru
+            #if DEBUG_PRINT:
+            #    print "LRU list is now:", self.lru
 
             # We need to allocate a register for each used
             # argument that is not already in one
@@ -200,5 +201,12 @@ class RegisterAllocation:
                     print "Allocating register for result %r..." % (insn.result,)
                 resultreg = self._allocate_reg(insn.result_regclass, insn.result)
             insn.allocate(self)
+            if DEBUG_PRINT:
+                print insn
+                print
             self.insns.append(insn)
+        #print 'allocation done'
+        #for i in self.insns:
+        #    print i
+        #print self.var2loc
         return self.insns

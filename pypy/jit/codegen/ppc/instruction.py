@@ -102,6 +102,8 @@ class CRF(Register):
         # cmp2info['ne']
         self.set_info((2, 1))
         return _GPR2CRF(self, gpr)
+    def __repr__(self):
+        return 'crf' + str(self.number) + str(self.info)
 
 class CTR(Register):
     regclass = CT_REGISTER
@@ -136,13 +138,31 @@ class Insn_GPR__GPR_GPR(Insn):
         self.reg_args = args
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
+        self.result_reg = None
+        self.arg_reg1 = None
+        self.arg_reg2 = None
+
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg1 = allocator.loc_of(self.reg_args[0])
         self.arg_reg2 = allocator.loc_of(self.reg_args[1])
 
     def __repr__(self):
-        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        if self.arg_reg1:
+            a1 = "%s@%s"%(self.reg_args[0], self.arg_reg1)
+        else:
+            a1 = str(self.reg_args[0])
+        if self.arg_reg2:
+            a2 = "%s@%s"%(self.reg_args[1], self.arg_reg2)
+        else:
+            a2 = str(self.reg_args[1])
+        return "<%s-%s %s %s, %s, %s>" % (self.__class__.__name__, self._magic_index,
+                                          self.methptr.im_func.func_name,
+                                          r, a1, a2)
 
     def emit(self, asm):
         self.methptr(asm,
@@ -160,11 +180,23 @@ class Insn_GPR__GPR_IMM(Insn):
         self.result_regclass = GP_REGISTER
         self.reg_args = [args[0]]
         self.reg_arg_regclasses = [GP_REGISTER]
+        self.result_reg = None
+        self.arg_reg = None
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
     def __repr__(self):
-        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        if self.arg_reg:
+            a = "%s@%s"%(self.reg_args[0], self.arg_reg)
+        else:
+            a = str(self.reg_args[0])
+        return "<%s-%d %s %s, %s, (%s)>" % (self.__class__.__name__, self._magic_index,
+                                            self.methptr.im_func.func_name,
+                                            r, a, self.imm.value)
 
     def emit(self, asm):
         self.methptr(asm,
@@ -185,8 +217,16 @@ class Insn_GPR__GPR(Insn):
         self.result_reg = allocator.loc_of(self.result)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
     def __repr__(self):
-        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
-
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        if self.arg_reg:
+            a = "%s@%s"%(self.reg_args[0], self.arg_reg)
+        else:
+            a = str(self.reg_args[0])
+        return "<%s-%d %s %s, %s>" % (self.__class__.__name__, self._magic_index,
+                                   self.methptr.im_func.func_name, r, a)
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -202,11 +242,17 @@ class Insn_GPR__IMM(Insn):
         self.result_regclass = GP_REGISTER
         self.reg_args = []
         self.reg_arg_regclasses = []
+        self.result_reg = None
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
     def __repr__(self):
-        return "<%s %s %d>" % (self.__class__.__name__, self.methptr.im_func.func_name, self._magic_index)
-
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        return "<%s-%d %s %s, (%s)>" % (self.__class__.__name__, self._magic_index,
+                                        self.methptr.im_func.func_name, r,
+                                        self.imm.value)
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -279,6 +325,7 @@ class CMPInsn(Insn):
         Insn.__init__(self)
         self.info = info
         self.result = result
+        self.result_reg = None
 
     def allocate(self, allocator):
         self.result_reg = allocator.loc_of(self.result)
@@ -291,11 +338,30 @@ class CMPW(CMPInsn):
         self.result_regclass = CR_FIELD
         self.reg_args = args
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
+        self.arg_reg1 = None
+        self.arg_reg2 = None
 
     def allocate(self, allocator):
         CMPInsn.allocate(self, allocator)
         self.arg_reg1 = allocator.loc_of(self.reg_args[0])
         self.arg_reg2 = allocator.loc_of(self.reg_args[1])
+
+    def __repr__(self):
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        if self.arg_reg1:
+            a1 = "%s@%s"%(self.reg_args[0], self.arg_reg1)
+        else:
+            a1 = str(self.reg_args[0])
+        if self.arg_reg2:
+            a2 = "%s@%s"%(self.reg_args[1], self.arg_reg2)
+        else:
+            a2 = str(self.reg_args[1])
+        return "<%s-%d %s %s, %s, %s>"%(self.__class__.__name__, self._magic_index,
+                                        self.__class__.__name__.lower(),
+                                        r, a1, a2)
 
     def emit(self, asm):
         asm.cmpw(self.result_reg.number, self.arg_reg1.number, self.arg_reg2.number)
@@ -311,11 +377,24 @@ class CMPWI(CMPInsn):
         self.result_regclass = CR_FIELD
         self.reg_args = [args[0]]
         self.reg_arg_regclasses = [GP_REGISTER]
+        self.arg_reg = None
 
     def allocate(self, allocator):
         CMPInsn.allocate(self, allocator)
         self.arg_reg = allocator.loc_of(self.reg_args[0])
 
+    def __repr__(self):
+        if self.result_reg:
+            r = "%s@%s"%(self.result, self.result_reg)
+        else:
+            r = str(self.result)
+        if self.arg_reg:
+            a = "%s@%s"%(self.reg_args[0], self.arg_reg)
+        else:
+            a = str(self.reg_args[0])
+        return "<%s-%d %s %s, %s, (%s)>"%(self.__class__.__name__, self._magic_index,
+                                        self.__class__.__name__.lower(),
+                                        r, a, self.imm.value)
     def emit(self, asm):
         #print "CMPWI", asm.mc.tell()
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
@@ -350,6 +429,7 @@ class Jump(Insn):
         self.result_regclass = NO_REGISTER
         self.reg_args = [gv_cond]
         self.reg_arg_regclasses = [CR_FIELD]
+        self.crf = None
 
         self.jump_args_gv = jump_args_gv
         self.targetbuilder = targetbuilder
@@ -363,6 +443,17 @@ class Jump(Insn):
             if isinstance(gv_arg, Var):
                 self.targetbuilder.initial_var2loc[gv_arg] = allocator.var2loc[gv_arg]
         allocator.builders_to_tell_spill_offset_to.append(self.targetbuilder)
+    def __repr__(self):
+        if self.jump_if_true:
+            op = 'if_true'
+        else:
+            op = 'if_false'
+        if self.crf:
+            a = '%s@%s'%(self.reg_args[0], self.crf)
+        else:
+            a = self.reg_args[0]
+        return '<%s-%d %s %s>'%(self.__class__.__name__, self._magic_index,
+                                op, a)
     def emit(self, asm):
         if self.targetbuilder.start:
             asm.load_word(rSCRATCH, self.targetbuilder.start)
@@ -398,6 +489,15 @@ class Label(Insn):
                 loc = new_loc
             self.label.arg_locations.append(loc)
         allocator.labels_to_tell_spill_offset_to.append(self.label)
+    def __repr__(self):
+        if hasattr(self.label, 'arg_locations'):
+            arg_locations = '[' + ', '.join(
+                ['%s@%s'%(gv, loc) for gv, loc in
+                 zip(self.label.args_gv, self.label.arg_locations)]) + ']'
+        else:
+            arg_locations = str(self.label.args_gv)
+        return '<Label-%s %s>'%(self._magic_index,
+                                arg_locations)
     def emit(self, asm):
         self.label.startaddr = asm.mc.tell()
 
@@ -492,6 +592,7 @@ class AllocTimeInsn(Insn):
 
 class Move(AllocTimeInsn):
     def __init__(self, dest, src):
+        AllocTimeInsn.__init__(self)
         self.dest = dest
         self.src = src
     def emit(self, asm):
@@ -499,8 +600,11 @@ class Move(AllocTimeInsn):
 
 class Load(AllocTimeInsn):
     def __init__(self, dest, const):
+        AllocTimeInsn.__init__(self)
         self.dest = dest
         self.const = const
+    def __repr__(self):
+        return "<Load-%d %s, (%s)>"%(self._magic_index, self.dest, self.const)
     def emit(self, asm):
         self.const.load_now(asm, self.dest)
 
@@ -518,6 +622,8 @@ class Unspill(AllocTimeInsn):
         self.var = var
         self.reg = reg
         self.stack = stack
+    def __repr__(self):
+        return '<Spill-%d %s: %s, %s>'%(self._magic_index, self.var, self.reg, self.stack)
     def emit(self, asm):
         if isinstance(self.reg, GPR):
             r = self.reg.number
@@ -542,6 +648,8 @@ class Spill(AllocTimeInsn):
         self.var = var
         self.reg = reg
         self.stack = stack
+    def __repr__(self):
+        return '<Spill-%d %s: %s, %s>'%(self._magic_index, self.var, self.stack, self.reg)
     def emit(self, asm):
         if isinstance(self.reg, GPR):
             r = self.reg.number

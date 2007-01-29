@@ -27,6 +27,7 @@ _PPC = RPPCAssembler
 NSAVEDREGISTERS = 19
 
 DEBUG_TRAP = option.trap
+DEBUG_PRINT = option.debug_print
 
 _var_index = [0]
 class Var(GenVar):
@@ -35,7 +36,7 @@ class Var(GenVar):
         self.__magic_index = _var_index[0]
         _var_index[0] += 1
     def __repr__(self):
-        return "<Var %d>" % self.__magic_index
+        return "v%d" % self.__magic_index
     def fits_in_uimm(self):
         return False
     def fits_in_simm(self):
@@ -50,6 +51,9 @@ class IntConst(GenConst):
 
     def __init__(self, value):
         self.value = value
+
+    def __repr__(self):
+        return 'IntConst(%d)'%self.value
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -382,8 +386,14 @@ class Builder(GenBuilder):
             self.pause_writing(outputargs_gv)
             self.start_writing()
         allocator = self.allocate(outputargs_gv)
+        if DEBUG_PRINT:
+            before_moves = len(self.insns)
         prepare_for_jump(
             self.insns, outputargs_gv, allocator.var2loc, target, allocator)
+        if DEBUG_PRINT:
+            print 'moves:'
+            for i in self.insns[before_moves:]:
+                print ' ', i
         self.emit(allocator)
         here_size = self._stack_size(allocator.spill_offset)
         there_size = self._stack_size(target.min_stack_offset)
