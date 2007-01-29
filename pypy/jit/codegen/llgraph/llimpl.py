@@ -387,6 +387,8 @@ def closelinktofreshblock(link, inputargs=None, otherlink=None):
         linkvars = list(otherlink.args)
     # check linkvars for consistency
     existing_vars = dict.fromkeys(prevblockvars)
+    for v in inputvars:
+        assert isinstance(v, flowmodel.Variable)
     for v in linkvars:
         assert v in existing_vars
 

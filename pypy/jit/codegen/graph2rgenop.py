@@ -100,7 +100,11 @@ def compile_graph(rgenop, graph, random_seed=0):
                     meth = builder.jump_if_true
                 else:
                     meth = builder.jump_if_false
-                newbuilder = meth(varmap[block.exitswitch], args_gv)
+                vars_gv = {}
+                for v in args_gv:
+                    if not v.is_const:
+                        vars_gv[v] = True
+                newbuilder = meth(varmap[block.exitswitch], vars_gv.keys())
                 more_pending_blocks.append((jumplink.target,
                                             newbuilder,
                                             args_gv))
