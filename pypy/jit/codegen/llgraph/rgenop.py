@@ -400,4 +400,16 @@ class RGenOp(AbstractRGenOp):
     def write_frame_place(T, base, place, value):
         llimpl.write_frame_var(base, place.info, 0, value)
 
+
+    @staticmethod
+    def get_python_callable(FUNC, gv):
+        # return a closure that will run the graph on the llinterp
+        from pypy.jit.codegen.llgraph.llimpl import testgengraph
+        ptr = gv.revealconst(FUNC)
+        graph = ptr._obj.graph
+        def runner(*args):
+            return testgengraph(graph, list(args))
+        return runner
+
+
 rgenop = RGenOp()      # no real point in using a full class in llgraph

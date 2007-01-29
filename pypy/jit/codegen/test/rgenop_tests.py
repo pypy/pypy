@@ -711,8 +711,8 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
                                 annotatorpolicy = GENOP_POLICY)
 
     def cast(self, gv, nb_args):
-        print gv.value
-        return cast(c_void_p(gv.value), CFUNCTYPE(c_int, *[c_int]*nb_args))
+        F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
+        return self.RGenOp.get_python_callable(lltype.Ptr(F1), gv)
 
     def directtesthelper(self, FUNCTYPE, func):
         # for machine code backends: build a ctypes function pointer
@@ -1296,7 +1296,8 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "f")
         builder.start_writing()
 
-        false_builder = builder.jump_if_false(gv_x, [])
+        gv_cond = builder.genop1("int_is_true", gv_x)
+        false_builder = builder.jump_if_false(gv_cond, [])
 
         args_gv = [gv_y, gv_y]
         label = builder.enter_next_block([signed_kind, signed_kind], args_gv)
@@ -1308,8 +1309,9 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         false_builder.start_writing()
         false_builder.finish_and_goto([rgenop.genconst(2), rgenop.genconst(1)], label)
+        builder.end()
 
-        fnptr = self.cast(gv_callable, 1)
+        fnptr = self.cast(gv_callable, 2)
 
         res = fnptr(20, 2)
         assert res == 4

@@ -9,13 +9,6 @@ from pypy.rpython.test.test_llinterp import gengraph, interpret
 class TestLLGraphRGenop(AbstractRGenOpTests):
     RGenOp = RGenOp
 
-    def cast(self, gv, nb_args):
-        F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
-        ptr = gv.revealconst(lltype.Ptr(F1))
-        def runner(*args):
-            return testgengraph(ptr._obj.graph, list(args))
-        return runner
-
     def getcompiled(self, runner, argtypes, annotatorpolicy):
         def quasi_compiled_runner(*args):
             return interpret(runner, args, policy=annotatorpolicy)
