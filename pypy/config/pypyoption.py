@@ -1,5 +1,7 @@
 import autopath
 import py, os
+import sys
+import platform
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 
@@ -26,6 +28,8 @@ working_modules.update(dict.fromkeys(
     ]
 ))
 
+if platform.machine() == "x86_64" and sys.maxint != 2147483647:
+    del working_modules['bz2'] # not 64 bit ready
 
 module_dependencies = { }
 if os.name == "posix":
@@ -40,7 +44,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                      "thunk": [("objspace.geninterp", False)],
                      "logic": [("objspace.geninterp", False),
                                ("objspace.usemodules._stackless", True),
-                               ("translation.debug", True),
                                ("translation.gc", 'framework'),
                                ],
                  },
