@@ -20,6 +20,12 @@ def get_method(space, b_type, name, b_paramtypes):
         msg = 'Multiple overloads for %s could match' % name
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
+def get_constructor(space, b_type, b_paramtypes):
+    try:
+        return b_type.GetConstructor(b_paramtypes)
+    except AmbiguousMatchException:
+        msg = 'Multiple overloads for %s could match' % name
+        raise OperationError(space.w_TypeError, space.wrap(msg))
 
 def rewrap_args(space, w_args, startfrom):
     args = space.unpackiterable(w_args)
@@ -78,16 +84,6 @@ def cli2py(space, b_obj):
         msg = "Can't convert object %s to Python" % str(b_obj.ToString())
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
-
-class W_CliObject(Wrappable):
-    def __init__(self, space, b_obj):
-        self.space = space
-        self.b_obj = b_obj
-
-    def call_method(self, name, w_args, startfrom=0):
-        return call_method(self.space, self.b_obj, self.b_obj.GetType(), name, w_args, startfrom)
-    call_method.unwrap_spec = ['self', str, W_Root, int]
-
 def load_cli_class(space, namespace, classname):
     fullname = '%s.%s' % (namespace, classname)
     b_type = System.Type.GetType(fullname)
@@ -128,12 +124,30 @@ def load_cli_class(space, namespace, classname):
                          w_staticmethods, w_methods, w_properties, w_indexers)
 load_cli_class.unwrap_spec = [ObjSpace, str, str]
 
-def cli_object_new(space, w_subtype, typename):
+
+class W_CliObject(Wrappable):
+    def __init__(self, space, b_obj):
+        self.space = space
+        self.b_obj = b_obj
+
+    def call_method(self, name, w_args, startfrom=0):
+        return call_method(self.space, self.b_obj, self.b_obj.GetType(), name, w_args, startfrom)
+    call_method.unwrap_spec = ['self', str, W_Root, int]
+
+def cli_object_new(space, w_subtype, typename, w_args):
     b_type = System.Type.GetType(typename)
-    b_ctor = b_type.GetConstructor(init_array(System.Type))
-    b_obj = b_ctor.Invoke(init_array(System.Object))
+    b_args, b_paramtypes = rewrap_args(space, w_args, 0)
+    b_ctor = get_constructor(space, b_type, b_paramtypes)
+    #b_obj = b_ctor.Invoke(init_array(System.Object))
+    try:
+        b_obj = b_ctor.Invoke(b_args)
+    except TargetInvocationException, e:
+        b_inner = native_exc(e).get_InnerException()
+        message = str(b_inner.get_Message())
+        # TODO: use the appropriate exception, not StandardError
+        raise OperationError(space.w_StandardError, space.wrap(message))
     return space.wrap(W_CliObject(space, b_obj))
-cli_object_new.unwrap_spec = [ObjSpace, W_Root, str]
+cli_object_new.unwrap_spec = [ObjSpace, W_Root, str, W_Root]
 
 W_CliObject.typedef = TypeDef(
     '_CliObject_internal',

@@ -7,7 +7,7 @@ class AppTestDotnet:
 
     def test_cliobject(self):
         import _dotnet
-        obj = _dotnet._CliObject_internal('System.Collections.ArrayList')
+        obj = _dotnet._CliObject_internal('System.Collections.ArrayList', [])
         max_index = obj.call_method('Add', [42])
         assert max_index == 0
 
@@ -81,3 +81,9 @@ class AppTestDotnet:
         res = Math.Abs(-42.0)
         assert res == 42.0
         assert type(res) is float
+
+    def test_constructor_args(self):
+        import _dotnet
+        ArrayList = _dotnet.load_cli_class('System.Collections', 'ArrayList')
+        obj = ArrayList(42)
+        assert obj.Capacity == 42

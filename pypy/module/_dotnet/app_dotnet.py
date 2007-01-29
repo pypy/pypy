@@ -72,9 +72,9 @@ class BoundMethod(object):
 class CliClassWrapper(object):
     __slots__ = ('__cliobj__',)
 
-    def __init__(self):
+    def __init__(self, *args):
         import _dotnet
-        self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__)
+        self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__, args)
 
 
 def build_wrapper(namespace, classname, staticmethods, methods, properties, indexers):
