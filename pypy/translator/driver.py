@@ -356,11 +356,11 @@ class TranslationDriver(SimpleTaskEngine):
             clever_malloc_removal=False)
         if self.config.translation.backend == 'cli':
             opt['merge_if_blocks'] = True
-            opt['inline_threshold'] = 1
+            opt['inline_threshold'] = self.config.translation.backendopt.inline_threshold
             opt['mallocs'] = True
             
         if self.config.translation.backend == 'jvm':
-            opt['inline_threshold'] = 1
+            opt['inline_threshold'] = self.config.translation.backendopt.inline_threshold
             opt['mallocs'] = True
         backend_optimizations(self.translator, **opt)
     #
