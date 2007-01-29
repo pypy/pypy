@@ -9,7 +9,9 @@ class PseudoAnnhelper(object):
     rtyper = None
 GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
 
-FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
+FUNC  = lltype.FuncType([lltype.Signed], lltype.Signed)
+FUNC2 = lltype.FuncType([lltype.Signed]*2, lltype.Signed)
+FUNC3 = lltype.FuncType([lltype.Signed]*3, lltype.Signed)
 
 def make_adder(rgenop, n):
     # 'return x+n'
@@ -30,8 +32,6 @@ def get_adder_runner(RGenOp):
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
     return runner
-
-FUNC2 = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 
 def make_dummy(rgenop):
     # 'return x - (y - (x-1))'
@@ -1319,3 +1319,68 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fnptr(0, 2)
         assert res == 3
 
+
+    def test_from_random_direct(self):
+        #def dummyfn(counter, a, b):
+        #  goto = 0
+        #  while True:
+        #    if goto == 0:
+        #      b = not a
+        #      if a:
+        #        counter -= 1
+        #        if not counter: break
+        #        goto = 0
+        #      else:
+        #        counter -= 1
+        #        if not counter: break
+        #        goto = 0
+        #  return intmask(a*-468864544+b*-340864157)
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        bool_kind = rgenop.kindToken(lltype.Bool)
+
+        builder0, gv_callable, [v0, v1, v2] = rgenop.newgraph(rgenop.sigToken(FUNC3), 'compiled_dummyfn')
+
+        builder0.start_writing()
+        args_gv = [v0, v1]
+        label0 = builder0.enter_next_block([signed_kind, signed_kind], args_gv)
+        [v3, v4] = args_gv
+        v5 = builder0.genop1('int_is_true', v4)
+        builder1 = builder0.jump_if_true(v5, [v3, v4])
+        args_gv = [v3, v4, rgenop.genconst(1)]
+        label1 = builder0.enter_next_block([signed_kind, signed_kind, bool_kind], args_gv)
+        [v6, v7, v8] = args_gv
+        v9 = builder0.genop1('int_is_true', v7)
+        builder2 = builder0.jump_if_true(v9, [v7, v8, v6])
+        v10 = builder0.genop2('int_sub', v6, rgenop.genconst(1))
+        v11 = builder0.genop1('int_is_true', v10)
+        builder3 = builder0.jump_if_false(v11, [v8, v7])
+        builder0.finish_and_goto([v10, v7], label0)
+
+        builder2.start_writing()
+        v12 = builder2.genop2('int_sub', v6, rgenop.genconst(1))
+        v13 = builder2.genop1('int_is_true', v12)
+        builder4 = builder2.jump_if_false(v13, [v8, v7])
+        builder2.finish_and_goto([v12, v7], label0)
+
+        builder3.start_writing()
+        args_gv = [v8, v7]
+        label2 = builder3.enter_next_block([bool_kind, signed_kind], args_gv)
+        [v14, v15] = args_gv
+        v16 = builder3.genop2('int_mul', v15, rgenop.genconst(-468864544))
+        v17 = builder3.genop1('cast_bool_to_int', v14)
+        v18 = builder3.genop2('int_mul', v17, rgenop.genconst(-340864157))
+        v19 = builder3.genop2('int_add', v16, v18)
+        builder3.finish_and_return(rgenop.sigToken(FUNC3), v19)
+
+        builder1.start_writing()
+        builder1.finish_and_goto([v3, v4, rgenop.genconst(0)], label1)
+
+        builder4.start_writing()
+        builder4.finish_and_goto([v8, v7], label2)
+        builder4.end()
+
+        fnptr = self.cast(gv_callable, 3)
+
+        res = fnptr(1, -58, -50)
+        assert res == 1424339776

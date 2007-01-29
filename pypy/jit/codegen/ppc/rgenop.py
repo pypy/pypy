@@ -165,12 +165,15 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
         if isinstance(src, Var):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
-        else:
-            insns.append(insn.Load(tloc, src))
 
     gen = JumpPatchupGenerator(insns, allocator)
     emit_moves(gen, tar2src, tar2loc, src2loc)
 
+    for i in range(len(targetlocs)):
+        tloc = targetlocs[i]
+        src = sourcevars[i]
+        if not isinstance(src, Var):
+            insns.append(insn.Load(tloc, src))
 
 class Label(GenLabel):
 
