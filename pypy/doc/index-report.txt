@@ -33,10 +33,6 @@ welcome. *(2007-01-22)*
 Reports of 2006
 ===============
 
-`D14.3 Report about Milestone/Phase 2`_ is the final report about
-the second phase of the EU project, summarizing and detailing technical, 
-research, dissemination and community aspects.  Feedback is very welcome! 
-
 `D07.1 Massive Parallelism and Translation Aspects`_ is a report about
 PyPy's optimization efforts, garbage collectors and massive parallelism
 (stackless) features.  This report refers to the paper `PyPy's approach
@@ -46,6 +42,10 @@ to virtual machine construction`_. *(2006-12-15)*
 report about PyPy's logic programming and constraint solving features, as well
 as the work going on to tie semantic web technologies and PyPy together. The
 report is still a draft, all feedback for it is welcome. *(2006-07-28)*
+
+`D14.3 Report about Milestone/Phase 2`_ is the final report about
+the second phase of the EU project, summarizing and detailing technical, 
+research, dissemination and community aspects.  Feedback is very welcome! 
 
 
 Reports of 2005
