@@ -109,7 +109,6 @@ class PyFrame(eval.Frame):
         depth = self.valuestackdepth
         self.valuestack_w[depth] = w_object
         self.valuestackdepth = depth + 1
-        self._checkme()
 
     def popvalue(self):
         depth = self.valuestackdepth - 1
@@ -117,20 +116,17 @@ class PyFrame(eval.Frame):
         w_object = self.valuestack_w[depth]
         self.valuestack_w[depth] = None
         self.valuestackdepth = depth
-        self._checkme()
         return w_object
 
     def peekvalue(self, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "peek past the bottom of the stack"
         return self.valuestack_w[index]
-        self._checkme()
 
     def settopvalue(self, w_object, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "settop past the bottom of the stack"
         self.valuestack_w[index] = w_object
-        self._checkme()
 
     def dropvaluesuntil(self, finaldepth):
         depth = self.valuestackdepth - 1
@@ -138,28 +134,19 @@ class PyFrame(eval.Frame):
             self.valuestack_w[depth] = None
             depth -= 1
         self.valuestackdepth = finaldepth
-        self._checkme()
 
     def dropvalues(self, n):
         finaldepth = self.valuestackdepth - n
         assert finaldepth >= 0, "stack underflow in dropvalues()"
         self.dropvaluesuntil(finaldepth)
-        self._checkme()
 
     def savevaluestack(self):
-        self._checkme()
         return self.valuestack_w[:self.valuestackdepth]
 
     def restorevaluestack(self, items_w):
         assert None not in items_w
         self.valuestack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
-
-    def _checkme(self):
-        n = self.valuestackdepth
-        assert 0 <= n <= len(self.valuestack_w)
-        assert None not in self.valuestack_w[:n]
-        assert self.valuestack_w[n:] == [None] * (len(self.valuestack_w)-n)
 
 
     def descr__reduce__(self, space):
