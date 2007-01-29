@@ -21,3 +21,7 @@ def test_9792():       rerun(9792)
 def test_37():         rerun(37)
 def test_2871_1_100(): rerun(2871, 1, 100)
 def test_6294():       rerun(6294)
+
+# here's a ppcfew failure:
+
+def test_39263():      rerun(39263)
