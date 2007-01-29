@@ -19,8 +19,12 @@ elif demo_conftest.option.backend == 'i386':
     from pypy.jit.codegen.i386.codebuf import machine_code_dumper
 elif demo_conftest.option.backend == 'ppc':
     from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
+elif demo_conftest.option.backend == 'ppcfew':
+    from pypy.jit.codegen.ppc.test.test_rgenop import FewRegisters as RGenOp
 elif demo_conftest.option.backend == 'llvm':
     from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp as RGenOp
+else:
+    assert 0, "unknown backend %r"%demo_conftest.option.backend
 
 def Random():
     import random
