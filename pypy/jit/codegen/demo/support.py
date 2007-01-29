@@ -3,14 +3,24 @@ import py
 from pypy.tool.udir import udir
 from pypy.rlib.ros import putenv
 from pypy.jit.codegen.graph2rgenop import rcompile
-from pypy.jit.codegen.i386.rgenop import RI386GenOp
-from pypy.jit.codegen.i386.codebuf import machine_code_dumper
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int
 
 from pypy import conftest
 from pypy.jit import conftest as bench_conftest
 from pypy.jit.codegen.demo import conftest as demo_conftest
 
+machine_code_dumper = None
+if demo_conftest.option.backend == 'llgraph':
+    from pypy.jit.codegen.llgraph.rgenop import RGenOp
+elif demo_conftest.option.backend == 'dump':
+    from pypy.jit.codegen.dump.rgenop import RDumpGenOp as RGenOp
+elif demo_conftest.option.backend == 'i386':
+    from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
+    from pypy.jit.codegen.i386.codebuf import machine_code_dumper
+elif demo_conftest.option.backend == 'ppc':
+    from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
+elif demo_conftest.option.backend == 'llvm':
+    from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp as RGenOp
 
 def Random():
     import random
@@ -50,11 +60,13 @@ def rundemo(entrypoint, *args):
         entrypoint = miniglobals['benchmark_runner']
 
     nb_args = len(args)      # XXX ints only for now
-    machine_code_dumper._freeze_()    # clean up state
-    rgenop = RI386GenOp()
+    if machine_code_dumper:
+        machine_code_dumper._freeze_() # clean up state
+    rgenop = RGenOp()
     gv_entrypoint = rcompile(rgenop, entrypoint, [int]*nb_args,
                              random_seed=seed)
-    machine_code_dumper._freeze_()    # clean up state
+    if machine_code_dumper:
+        machine_code_dumper._freeze_()    # clean up state
 
     print
     print 'Random seed value: %d' % (seed,)
@@ -74,7 +86,7 @@ def rundemo(entrypoint, *args):
             "expected return value is %s, got %s\nseed = %s" % (
                 expected, res, seed))
 
-    if view:
+    if view and machine_code_dumper:
         from pypy.jit.codegen.i386.viewcode import World
         world = World()
         world.parse(open(logfile))
