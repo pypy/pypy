@@ -401,7 +401,6 @@ class TestPortal(PortalTest):
         assert res == 11
     
     def test_isinstance(self):
-        py.test.skip("(cfbolz) don't get it")
         class Base(object):
             pass
         class Int(Base):
@@ -426,5 +425,5 @@ class TestPortal(PortalTest):
             
 
         res = self.timeshift_from_portal(ll_main, ll_function, [5], policy=P_NOVIRTUAL)
-        assert res == 10
+        assert res is False
 

@@ -80,6 +80,13 @@ class LLOp(object):
         return op_impl
     fold = roproperty(get_fold_impl)
 
+    def is_pure(self, *ARGTYPES):
+        return (self.canfold or                # canfold => pure operation
+                self is llop.debug_assert or   # debug_assert is pure enough
+                                               # reading from immutable
+                (self in (llop.getfield, llop.getarrayitem) and
+                 ARGTYPES[0].TO._hints.get('immutable')))
+
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
     """Enumerate operations that have no side-effects

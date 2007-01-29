@@ -688,3 +688,17 @@ def test_simple_meth():
         return o.m()
 
     hs = hannotate(f, [bool], policy=P_OOPSPEC_NOVIRTUAL)
+
+
+def test_green_isinstance():
+    class Base(object):
+        pass
+    class Concrete(Base):
+        pass
+
+    def f(o):
+        hint(o, concrete=True)
+        return isinstance(o, Concrete)
+
+    hs = hannotate(f, [Base], policy=P_OOPSPEC_NOVIRTUAL)
+    assert hs.is_green()

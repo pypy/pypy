@@ -3,8 +3,9 @@ from pypy.tool.tls import tlsobject
 from pypy.tool.ansi_print import ansi_log
 from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.tool.algo.unionfind import UnionFind
+from pypy.translator.backendopt import graphanalyze
 
 TLS = tlsobject()
 
@@ -64,6 +65,20 @@ class TsGraphCallFamily:
 
     def update(self, other):
         self.tsgraphs.update(other.tsgraphs)
+
+
+class ImpurityAnalyzer(graphanalyze.GraphAnalyzer):
+    """An impure graph has side-effects or depends on state that
+    can be mutated.  A pure graph always gives the same answer for
+    given arguments."""
+
+    def analyze_exceptblock(self, block, seen=None):
+        raise AssertionError("graphs here should be exception-transformed")
+
+    def operation_is_true(self, op):
+        operation = lloperation.LL_OPERATIONS[op.opname]
+        ARGTYPES = [v.concretetype for v in op.args]
+        return not operation.is_pure(*ARGTYPES)
 
 
 class HintBookkeeper(object):
@@ -143,15 +158,34 @@ class HintBookkeeper(object):
             hs_red = hintmodel.variableoftype(v.concretetype)
             self.annotator.setbinding(v, hs_red)
 
+        # is_green_call() is only meaningful at fixpoint,
+        # so initialize the state here
+        t = self.annotator.base_translator
+        self.impurity_analyzer = ImpurityAnalyzer(t)
+
         # propagate the green/red constraints
         log.event("Computing maximal green set...")
         greenorigindependencies = {}
+        callreturndependencies = {}
         for origin in self.originflags.values():
             origin.greenargs = True
-            origin.record_dependencies(greenorigindependencies)
+            origin.record_dependencies(greenorigindependencies,
+                                       callreturndependencies)
 
         while True:
             progress = False
+            # check all calls to see if they are green calls or not
+            for origin, graphs in callreturndependencies.items():
+                if self.is_green_call(origin.spaceop):
+                    pass   # green call => don't force spaceop.result to red
+                else:
+                    # non-green calls: replace the dependency with a regular
+                    # dependency from graph.getreturnvar() to spaceop.result
+                    del callreturndependencies[origin]
+                    retdeps = greenorigindependencies.setdefault(origin, [])
+                    for graph in graphs:
+                        retdeps.append(graph.getreturnvar())
+            # propagate normal dependencies
             for origin, deps in greenorigindependencies.items():
                 for v in deps:
                     if not binding(v).is_green():
@@ -184,6 +218,17 @@ class HintBookkeeper(object):
             sig_hs = ([ha.binding(v) for v in tsgraph.getargs()],
                       ha.binding(tsgraph.getreturnvar()))
             self.tsgraphsigs[tsgraph] = sig_hs
+
+    def is_green_call(self, callop):
+        "Is the given call operation completely computable at compile-time?"
+        for v in callop.args:
+            hs_arg = self.annotator.binding(v)
+            if not hs_arg.is_green():
+                return False
+        # all-green arguments.  Note that we can return True even if the
+        # result appears to be red; it's not a real red result then.
+        impure = self.impurity_analyzer.analyze(callop)
+        return not impure
 
     def immutableconstant(self, const):
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})

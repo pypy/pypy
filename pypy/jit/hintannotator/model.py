@@ -68,14 +68,16 @@ class OriginFlags(object):
                 for p in self.read_positions:
                     annotator.reflowfromposition(p)
 
-    def record_dependencies(self, greenorigindependencies):
+    def record_dependencies(self, greenorigindependencies,
+                                  callreturndependencies):
         deps = greenorigindependencies.setdefault(self, [])
         deps.extend(self.spaceop.args)
 
 
 class CallOpOriginFlags(OriginFlags):
 
-    def record_dependencies(self, greenorigindependencies):
+    def record_dependencies(self, greenorigindependencies,
+                                  callreturndependencies):
         bk = self.bookkeeper
         if self.spaceop.opname == 'direct_call':
             args = self.spaceop.args[1:]
@@ -89,9 +91,9 @@ class CallOpOriginFlags(OriginFlags):
         _, repgraph, callfamily = call_families.find(graph)
 
         # record the argument and return value dependencies
-        retdeps = greenorigindependencies.setdefault(self, [])
+        retdeps = callreturndependencies.setdefault(self, [])
         for graph in callfamily.tsgraphs:
-            retdeps.append(graph.getreturnvar())
+            retdeps.append(graph)
             for i, v in enumerate(args):
                 argorigin = bk.myinputargorigin(graph, i)
                 deps = greenorigindependencies.setdefault(argorigin, [])
@@ -111,7 +113,8 @@ class InputArgOriginFlags(OriginFlags):
     def __repr__(self):
         return '<%s %s>' % (self.getarg(), self.reprstate())
 
-    def record_dependencies(self, greenorigindependencies):
+    def record_dependencies(self, greenorigindependencies,
+                                  callreturndependencies):
         bk = self.bookkeeper
         call_families = bk.tsgraph_maximal_call_families
         _, repgraph, callfamily = call_families.find(self.graph)
