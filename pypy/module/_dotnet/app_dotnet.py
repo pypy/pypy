@@ -77,7 +77,7 @@ class CliClassWrapper(object):
         self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__)
 
 
-def build_wrapper(namespace, classname, staticmethods, methods):
+def build_wrapper(namespace, classname, staticmethods, methods, properties, indexers):
     fullname = '%s.%s' % (namespace, classname)
     d = {'__cliclass__': fullname,
          '__module__': namespace}
@@ -85,4 +85,25 @@ def build_wrapper(namespace, classname, staticmethods, methods):
         d[name] = StaticMethodWrapper(fullname, name)
     for name in methods:
         d[name] = MethodWrapper(name)
-    return type(classname, (CliClassWrapper,), d)
+
+    assert len(indexers) <= 1
+    if indexers:
+        name, getter, setter = indexers[0]
+        if getter:
+            d['__getitem__'] = d[getter]
+        if setter:
+            d['__setitem__'] = d[setter]
+    cls = type(classname, (CliClassWrapper,), d)
+    
+    # we must add properties *after* the class has been created
+    # because we need to store UnboundMethods as getters and setters
+    for (name, getter, setter) in properties:
+        fget = None
+        fset = None
+        if getter:
+            fget = getattr(cls, getter)
+        if setter:
+            fset = getattr(cls, setter)
+        setattr(cls, name, property(fget, fset))
+
+    return cls

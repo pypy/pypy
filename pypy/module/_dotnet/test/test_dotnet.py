@@ -35,12 +35,20 @@ class AppTestDotnet:
         assert isinstance(item, float)
 
     def test_getitem(self):
-        skip('skip for now')
         import _dotnet
         ArrayList = _dotnet.load_cli_class('System.Collections', 'ArrayList')
         obj = ArrayList()
         obj.Add(42)
         assert obj[0] == 42
+
+    def test_property(self):
+        import _dotnet
+        ArrayList = _dotnet.load_cli_class('System.Collections', 'ArrayList')
+        obj = ArrayList()
+        obj.Add(42)
+        assert obj.Count == 1
+        obj.Capacity = 10
+        assert obj.Capacity == 10
 
     def test_unboundmethod(self):
         import _dotnet
