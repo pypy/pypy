@@ -1279,3 +1279,41 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == -100
         res = fn(606)
         assert res == 4242
+
+    def test_unaliasing_variables_direct(self):
+        # def f(x, y):
+        #     if x:
+        #        a = b = y
+        #     else:
+        #        a = 2
+        #        b = 1
+        #     return a+b
+
+        rgenop = self.RGenOp()
+
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken = rgenop.sigToken(FUNC2)
+        builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "f")
+        builder.start_writing()
+
+        false_builder = builder.jump_if_false(gv_x, [])
+
+        args_gv = [gv_y, gv_y]
+        label = builder.enter_next_block([signed_kind, signed_kind], args_gv)
+        [gv_a, gv_b] = args_gv
+
+        gv_result = builder.genop2("int_add", gv_a, gv_b)
+
+        builder.finish_and_return(sigtoken, gv_result)
+
+        false_builder.start_writing()
+        false_builder.finish_and_goto([rgenop.genconst(2), rgenop.genconst(1)], label)
+
+        fnptr = self.cast(gv_callable, 1)
+
+        res = fnptr(20, 2)
+        assert res == 4
+
+        res = fnptr(0, 2)
+        assert res == 3
+
