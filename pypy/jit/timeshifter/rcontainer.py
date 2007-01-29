@@ -132,12 +132,12 @@ class StructTypeDesc(object):
 
     def _define_fill_into(self):
         descs = unrolling_iterable(self.fielddescs)
-        def fill_into(vablerti, s, base, vrti):
+        def fill_into(vablerti, sref, base, vrti):
             i = 0
             for desc in descs:
                 v = vrti._read_field(vablerti, desc, base, i)
                 i += 1
-                tgt = lltype.cast_pointer(desc.PTRTYPE, s)
+                tgt = lltype.cast_opaque_ptr(desc.PTRTYPE, sref)
                 setattr(tgt, desc.fieldname, v)
                 
         self.fill_into = fill_into
@@ -242,6 +242,9 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         self._define_getset_rti_ptrs(hrtyper)
         self._define_access_is_null(hrtyper)
 
+
+    def _define_fill_into(self):
+        pass
 
     def _define_getset_field_ptr(self, hrtyper, fielddesc, j):
         annhelper = hrtyper.annhelper

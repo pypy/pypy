@@ -970,3 +970,120 @@ class TestVirtualizableImplicit(PortalTest):
                                          policy=StopAtXPolicy(g))
         assert res == 4 + 8 * 16 + 1 * 16 ** 2 + 2 * 16 ** 3
 
+
+    def test_force_then_set_in_residual_call_more(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        class T(object):
+            def __init__(self, s1, s2):
+                self.s1 = s1
+                self.s2 = s2
+
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, s, t):
+                self.s = s
+                self.t = t
+
+        def g(v):
+            s1 = v.s
+            x = s1.x
+            y = s1.y
+            s1.x = y
+            s1.y = x
+            v.s = S(x*100, y*100)
+            t = v.t
+            s1bis = t.s1
+            assert s1bis is s1
+            s2 = t.s2
+            x = s2.x
+            y = s2.y
+            s2.x = 5*y
+            s2.y = 5*x
+            t.s1 = s2
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            s1 = S(1, 10)
+            s2 = S(3, 23)
+            v.s = s1
+            v.t = t0 = T(s1, s2)
+            g(v)
+            t = v.t
+            assert t is t0
+            assert t.s1 is t.s2
+            assert t.s1 is s2
+            assert v.s is not s1
+            s3 = v.s
+            return s1.x + 7*s1.y + s2.x + 11*s2.y + s3.x + 17 * s3.y 
+
+        def main():
+            v = V(None, None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == main()
+
+
+
+    def test_force_then_set_in_residual_call_evenmore(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        class T(object):
+            def __init__(self, s1, s2):
+                self.s1 = s1
+                self.s2 = s2
+
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, s, t):
+                self.s = s
+                self.t = t
+
+        def g(v):
+            s1 = v.s
+            x = s1.x
+            y = s1.y
+            s1.x = y
+            s1.y = x
+            t = v.t
+            s1bis = t.s1
+            assert s1bis is s1
+            s2 = t.s2
+            x = s2.x
+            y = s2.y
+            s2.x = 5*y
+            s2.y = 5*x
+            t.s1 = s2
+            v.t = T(t.s1, t.s2)
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            s1 = S(1, 10)
+            s2 = S(3, 23)
+            v.s = s1
+            v.t = t0 = T(s1, s2)
+            g(v)
+            t = v.t
+
+            assert t is not t0
+            assert t.s1 is t.s2
+            assert t.s1 is s2
+            assert v.s is s1
+            s3 = v.s
+            return s1.x + 7*s1.y + s2.x + 11*s2.y + s3.x + 17 * s3.y 
+
+        def main():
+            v = V(None, None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == main()
+
+
