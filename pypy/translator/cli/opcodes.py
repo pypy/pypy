@@ -41,6 +41,7 @@ opcodes = {
     'cli_getelem':              [GetArrayElem],
     'cli_setelem':              [SetArrayElem],
     'cli_typeof':               [TypeOf],
+    'cli_arraylength':          'ldlen',
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],

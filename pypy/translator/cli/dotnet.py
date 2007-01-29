@@ -120,6 +120,15 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
         return hop.genop('cli_setelem', vlist, hop.r_result.lowleveltype)
 
 
+class __extend__(OOInstanceRepr):
+
+    def rtype_len(self, hop):
+        if not self.lowleveltype._isArray:
+            raise TypeError("len() on a non-array instance")
+        vlist = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.genop('cli_arraylength', vlist, hop.r_result.lowleveltype)
+
 ## OOType model
 
 class OverloadingResolver(ootype.OverloadingResolver):
