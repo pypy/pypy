@@ -4,7 +4,8 @@ from pypy.jit.codegen.demo.support import rundemo, Random, udir
 from pypy.jit.codegen.demo import conftest as demo_conftest
 
 
-def test_random_function(nb_blocks=15, max_block_length=20):
+def test_random_function(nb_blocks=demo_conftest.option.nb_blocks,
+                         max_block_length=demo_conftest.option.max_block_length):
     #py.test.skip("in-progress")
     blocklabels = range(nb_blocks)
     r = Random()
