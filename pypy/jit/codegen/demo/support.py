@@ -8,8 +8,11 @@ from pypy.rpython.lltypesystem import lltype
 from pypy import conftest
 from pypy.jit import conftest as bench_conftest
 from pypy.jit.codegen.demo import conftest as demo_conftest
+from pypy.jit.codegen import conftest as codegen_conftest
 
 machine_code_dumper = None
+run_in_subprocess = False
+
 if demo_conftest.option.backend == 'llgraph':
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
 elif demo_conftest.option.backend == 'dump':
@@ -17,14 +20,20 @@ elif demo_conftest.option.backend == 'dump':
 elif demo_conftest.option.backend == 'i386':
     from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
     from pypy.jit.codegen.i386.codebuf import machine_code_dumper
+    run_in_subprocess = True
 elif demo_conftest.option.backend == 'ppc':
     from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
+    run_in_subprocess = True
 elif demo_conftest.option.backend == 'ppcfew':
     from pypy.jit.codegen.ppc.test.test_rgenop import FewRegisters as RGenOp
+    run_in_subprocess = True
 elif demo_conftest.option.backend == 'llvm':
     from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp as RGenOp
 else:
     assert 0, "unknown backend %r"%demo_conftest.option.backend
+
+if codegen_conftest.option.trap:
+    run_in_subprocess = False
 
 def Random():
     import random
@@ -34,6 +43,33 @@ def Random():
     print
     return random.Random(seed)
 
+if run_in_subprocess:
+    def runfp(fp, *args):
+        import signal, os
+        p2cread, p2cwrite = os.pipe()
+        pid = os.fork()
+        if not pid:
+            signal.alarm(3)
+            res = fp(*args)
+            os.write(p2cwrite, str(res) + "\n")
+            os.close(p2cwrite)
+            os._exit(0)
+        else:
+            _, status = os.waitpid(pid, 0)
+            if status == 0:
+                res = os.read(p2cread, 10000)
+                return int(res)
+            else:
+                signalled = os.WIFSIGNALED(status)
+                if signalled:
+                    sig = os.WTERMSIG(status)
+                    if sig == signal.SIGALRM:
+                        return "HUNG?"
+                    else:
+                        return "CRASHED (signal %s)"%(sig,)
+else:
+    def runfp(fp, *args):
+        return fp(*args)
 
 def rundemo(entrypoint, *args):
     view = conftest.option.view
@@ -82,7 +118,7 @@ def rundemo(entrypoint, *args):
     print 'Python ===>', expected
     F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
     fp = RGenOp.get_python_callable(lltype.Ptr(F1), gv_entrypoint)
-    res = fp(*args)
+    res = runfp(fp, *args)
     print '%-6s ===>'%demo_conftest.option.backend, res
     print
     if res != expected:
