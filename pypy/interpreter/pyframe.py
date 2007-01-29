@@ -517,6 +517,7 @@ def unpickle_block(space, w_tup):
     opname = space.str_w(w_opname)
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
+    assert valuestackdepth >= 0
     blk = instantiate(get_block_class(opname))
     blk.handlerposition = handlerposition
     blk.valuestackdepth = valuestackdepth
