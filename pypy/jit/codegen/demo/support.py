@@ -3,7 +3,7 @@ import py
 from pypy.tool.udir import udir
 from pypy.rlib.ros import putenv
 from pypy.jit.codegen.graph2rgenop import rcompile
-from ctypes import cast, c_void_p, CFUNCTYPE, c_int
+from pypy.rpython.lltypesystem import lltype
 
 from pypy import conftest
 from pypy.jit import conftest as bench_conftest
@@ -80,8 +80,8 @@ def rundemo(entrypoint, *args):
                                  ', '.join(map(repr, args)))
     expected = entrypoint(*args)
     print 'Python ===>', expected
-    fp = cast(c_void_p(gv_entrypoint.value),
-              CFUNCTYPE(c_int, *[c_int] * nb_args))
+    F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
+    fp = RGenOp.get_python_callable(lltype.Ptr(F1), gv_entrypoint)
     res = fp(*args)
     print 'i386   ===>', res
     print

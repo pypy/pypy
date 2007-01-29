@@ -89,4 +89,8 @@ def test_random_function(nb_blocks=demo_conftest.option.nb_blocks,
         'print dummyfn(10000, *args)\n' % (src, args))
     exec src.compile()
 
-    rundemo(dummyfn, 10000, *args)
+    if demo_conftest.option.backend == 'llgraph':
+        iterations = 50
+    else:
+        iterations = 10000
+    rundemo(dummyfn, iterations, *args)
