@@ -9,7 +9,7 @@ def test_random_function(nb_blocks=demo_conftest.option.nb_blocks,
     #py.test.skip("in-progress")
     blocklabels = range(nb_blocks)
     r = Random()
-    vars = list("abcdefghijklmnopqrstuvwxyz")
+    vars = list("abcdefghijklmnopqrstuvwxyz"[:demo_conftest.option.n_vars])
     varlist = ', '.join(vars)
     magicsum = '+'.join(['%s*%d' % (v, hash(v)) for v in vars])
     operations = ['%s + %s',

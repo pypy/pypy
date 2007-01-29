@@ -20,4 +20,8 @@ option = py.test.config.addoptions("demo options",
                default=20,
                dest="max_block_length",
                help="insert up to this many operations in each block"),
+        Option('--n-vars', action="store", type="int",
+               default=26,
+               dest="n_vars",
+               help="supply this many randomly-valued arguments to the function"),
         )
