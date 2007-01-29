@@ -25,3 +25,6 @@ option = py.test.config.addoptions("demo options",
                dest="n_vars",
                help="supply this many randomly-valued arguments to the function"),
         )
+
+very_slow_backends = {'llgraph': True,
+                      'dump': True}
