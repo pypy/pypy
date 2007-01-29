@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.rarithmetic import intmask
-from pypy.jit.codegen.i386.demo.support import rundemo, Random, udir
-from pypy.jit.codegen.i386.demo import conftest as demo_conftest
+from pypy.jit.codegen.demo.support import rundemo, Random, udir
+from pypy.jit.codegen.demo import conftest as demo_conftest
 
 
 def test_random_function(nb_blocks=15, max_block_length=20):

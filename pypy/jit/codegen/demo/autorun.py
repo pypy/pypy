@@ -1,6 +1,6 @@
 import random
-from pypy.jit.codegen.i386.demo import test_random
-from pypy.jit.codegen.i386.demo import conftest as demo_conftest
+from pypy.jit.codegen.demo import test_random
+from pypy.jit.codegen.demo import conftest as demo_conftest
 
 
 def test_forever():

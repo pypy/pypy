@@ -9,7 +9,7 @@ from ctypes import cast, c_void_p, CFUNCTYPE, c_int
 
 from pypy import conftest
 from pypy.jit import conftest as bench_conftest
-from pypy.jit.codegen.i386.demo import conftest as demo_conftest
+from pypy.jit.codegen.demo import conftest as demo_conftest
 
 
 def Random():

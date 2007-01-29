@@ -1,5 +1,5 @@
-from pypy.jit.codegen.i386.demo import test_random
-from pypy.jit.codegen.i386.demo import conftest as demo_conftest
+from pypy.jit.codegen.demo import test_random
+from pypy.jit.codegen.demo import conftest as demo_conftest
 
 def rerun(seed, *args):
     prevseed = demo_conftest.option.randomseed
@@ -10,8 +10,8 @@ def rerun(seed, *args):
         demo_conftest.option.randomseed = prevseed
 
 # ____________________________________________________________
-# These are tests that failed at some point.  Run them all with
-# py.test rerun_failures.py.
+# These are tests that failed at some point on intel.  Run
+# them all with py.test rerun_failures.py.
 
 def test_4327406():    rerun(4327406)
 def test_9473():       rerun(9473)

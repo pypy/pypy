@@ -1,5 +1,5 @@
 import py
-from pypy.jit.codegen.i386.demo.support import rundemo
+from pypy.jit.codegen.demo.support import rundemo
 
 # try running this with the following py.test options:
 #
