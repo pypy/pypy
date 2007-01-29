@@ -1515,7 +1515,6 @@ class BaseTestRPBC(BaseRtypingTest):
         assert res == 11
 
     def test_single_pbc_getattr(self):
-        py.test.skip("in-progress")
         class C:
             def __init__(self, v1, v2):
                 self.v1 = v1

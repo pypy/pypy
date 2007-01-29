@@ -439,6 +439,10 @@ class AbstractMultipleUnrelatedFrozenPBCRepr(CanBeNull, Repr):
         frozendesc = self.rtyper.annotator.bookkeeper.getdesc(pbc)
         return self.convert_desc(frozendesc)
 
+    def rtype_getattr(_, hop):
+        if not hop.s_result.is_constant():
+            raise TyperError("getattr on a constant PBC returns a non-constant")
+        return hop.inputconst(hop.r_result, hop.s_result.const)
 
 class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
     """For a SomePBC of frozen PBCs with a common attribute access set."""
@@ -480,6 +484,9 @@ class AbstractMultipleFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
             return result
 
     def rtype_getattr(self, hop):
+        if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
+
         attr = hop.args_s[1].const
         vpbc, vattr = hop.inputargs(self, Void)
         v_res = self.getfield(vpbc, attr, hop.llops)
