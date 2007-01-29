@@ -83,7 +83,7 @@ def rundemo(entrypoint, *args):
     F1 = lltype.FuncType([lltype.Signed] * nb_args, lltype.Signed)
     fp = RGenOp.get_python_callable(lltype.Ptr(F1), gv_entrypoint)
     res = fp(*args)
-    print 'i386   ===>', res
+    print '%-6s ===>'%demo_conftest.option.backend, res
     print
     if res != expected:
         raise AssertionError(
