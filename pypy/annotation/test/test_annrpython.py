@@ -860,7 +860,6 @@ class TestAnnotateTestCase:
         assert dict.fromkeys(acc1.attrs) == {'v1': None, 'v2': None}
 
     def test_single_pbc_getattr(self):
-        py.test.skip("in-progress")
         class C:
             def __init__(self, v1, v2):
                 self.v1 = v1

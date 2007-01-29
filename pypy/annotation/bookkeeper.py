@@ -569,7 +569,11 @@ class Bookkeeper:
         descs = pbc.descriptions.keys()
         if not descs:
             return s_ImpossibleValue
+
         first = descs[0]
+        if len(descs) == 1:
+            return first.s_read_attribute(attr)
+        
         change = first.mergeattrfamilies(descs[1:], attr)
         attrfamily = first.getattrfamily(attr)
 
