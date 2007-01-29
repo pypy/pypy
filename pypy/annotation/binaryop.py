@@ -798,7 +798,7 @@ class __extend__(pairtype(SomeOOInstance, SomeOOInstance)):
     def union((r1, r2)):
         common = ootype.commonBaseclass(r1.ootype, r2.ootype)
         assert common is not None, 'Mixing of incompatible instances %r, %r' %(r1.ootype, r2.ootype)
-        return SomeOOInstance(common)
+        return SomeOOInstance(common, can_be_None=r1.can_be_None or r2.can_be_None)
 
 class __extend__(pairtype(SomeOOClass, SomeOOClass)):
     def union((r1, r2)):
