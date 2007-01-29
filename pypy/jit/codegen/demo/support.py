@@ -46,6 +46,8 @@ def Random():
 if run_in_subprocess:
     def runfp(fp, *args):
         import signal, os
+        sigs = dict([(value, name) for name, value in signal.__dict__.items()
+                     if name.startswith('SIG')])
         p2cread, p2cwrite = os.pipe()
         pid = os.fork()
         if not pid:
@@ -66,7 +68,7 @@ if run_in_subprocess:
                     if sig == signal.SIGALRM:
                         return "HUNG?"
                     else:
-                        return "CRASHED (signal %s)"%(sig,)
+                        return "CRASHED (caught %s)"%(sigs.get(sig, sig),)
 else:
     def runfp(fp, *args):
         return fp(*args)
