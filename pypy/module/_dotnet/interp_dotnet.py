@@ -45,7 +45,7 @@ def call_method(space, b_obj, b_type, name, w_args, startfrom):
         message = str(b_inner.get_Message())
         # TODO: use the appropriate exception, not StandardError
         raise OperationError(space.w_StandardError, space.wrap(message))
-    if b_meth.ReturnType.Name == 'Void':
+    if b_meth.get_ReturnType().get_Name() == 'Void':
         return space.w_None
     else:
         return cli2py(space, b_res)
@@ -99,31 +99,31 @@ def load_cli_class(space, namespace, classname):
     b_methodinfos = b_type.GetMethods()
     for i in range(len(b_methodinfos)):
         b_meth = b_methodinfos[i]
-        if b_meth.IsPublic:
-            if b_meth.IsStatic:
-                staticmethods.append(str(b_meth.Name))
+        if b_meth.get_IsPublic():
+            if b_meth.get_IsStatic():
+                staticmethods.append(str(b_meth.get_Name()))
             else:
-                methods.append(str(b_meth.Name))
+                methods.append(str(b_meth.get_Name()))
 
     b_propertyinfos = b_type.GetProperties()
     for i in range(len(b_propertyinfos)):
         b_prop = b_propertyinfos[i]
         get_name = None
         set_name = None
-        if b_prop.CanRead:
-            get_name = b_prop.GetGetMethod().Name
-        if b_prop.CanWrite:
-            set_name = b_prop.GetSetMethod().Name
+        if b_prop.get_CanRead():
+            get_name = b_prop.GetGetMethod().get_Name()
+        if b_prop.get_CanWrite():
+            set_name = b_prop.GetSetMethod().get_Name()
         b_indexparams = b_prop.GetIndexParameters()
         if len(b_indexparams) == 0:
-            properties.append((b_prop.Name, get_name, set_name))
+            properties.append((b_prop.get_Name(), get_name, set_name))
         else:
-            indexers.append((b_prop.Name, get_name, set_name))
+            indexers.append((b_prop.get_Name(), get_name, set_name))
 
     w_staticmethods = space.wrap(staticmethods)
     w_methods = space.wrap(methods)
-    w_properties = space.wrap(properties)
-    w_indexers = space.wrap(indexers)
+    w_properties = space.newlist([space.wrap(item) for item in properties])
+    w_indexers = space.newlist([space.wrap(item) for item in indexers])
     return build_wrapper(space, space.wrap(namespace), space.wrap(classname),
                          w_staticmethods, w_methods, w_properties, w_indexers)
 load_cli_class.unwrap_spec = [ObjSpace, str, str]
