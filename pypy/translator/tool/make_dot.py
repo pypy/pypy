@@ -77,8 +77,9 @@ class DotGen:
 
 TAG_TO_COLORS = {
     "timeshifted":  "#cfa5f0",
-    "portal_entry": "#84abf0",
-    "portal_reentry": "#f084c2",
+    "portal":       "#cfa5f0",
+    "PortalEntry": "#84abf0",
+    "PortalReentry": "#f084c2",
 }
 DEFAULT_TAG_COLOR = "#a5e6f0"
 RETURN_COLOR = "green"

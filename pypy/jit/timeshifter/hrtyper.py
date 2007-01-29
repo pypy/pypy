@@ -280,6 +280,9 @@ class HintRTyper(RPythonTyper):
         tsportalgraph = portalgraph
         # patch the shared portal pointer
         portalgraph = flowmodel.copygraph(tsportalgraph, shallow=True)
+        portalgraph.tag = 'portal'
+        self.annotator.translator.graphs.append(portalgraph)
+
         portal_fnptr = self.naked_tsfnptr(self.portalgraph)
         portal_fnptr._obj.graph = portalgraph
         
@@ -381,7 +384,8 @@ class HintRTyper(RPythonTyper):
         s_result = annmodel.lltype_to_annotation(
                     origportalgraph.getreturnvar().concretetype)
         portalentrygraph = annhelper.getgraph(portalentry, args_s, s_result)
-        portalentrygraph.tag = "portal_entry"
+        x = self.annotator.base_translator.graphs.pop()
+        assert portalentrygraph is x
 
         s_funcptr = annmodel.SomePtr(lltype.Ptr(FUNC))
         self.readportalgraph = annhelper.getgraph(readportal, args_s,
@@ -451,17 +455,22 @@ class HintRTyper(RPythonTyper):
 
         portalreentrygraph = annhelper.getgraph(portalreentry,
                 [self.s_JITState] + portal_args_s, self.s_JITState)
-        portalreentrygraph.tag = "portal_reentry"
+        x = self.annotator.base_translator.graphs.pop()
+        assert portalreentrygraph is x
 
         annhelper.finish()
 
         origportalgraph.startblock = portalentrygraph.startblock
         origportalgraph.returnblock = portalentrygraph.returnblock
         origportalgraph.exceptblock = portalentrygraph.exceptblock
+        origportalgraph.tag = "PortalEntry"
+        origportalgraph.name += '_portal_entry'
 
         tsportalgraph.startblock = portalreentrygraph.startblock
         tsportalgraph.returnblock = portalreentrygraph.returnblock
         tsportalgraph.exceptblock = portalreentrygraph.exceptblock
+        tsportalgraph.tag = "PortalReentry"
+        tsportalgraph.name += '_portal_reentry'        
         
 
     def transform_graph(self, graph, is_portal=False):
