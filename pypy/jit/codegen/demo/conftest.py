@@ -24,6 +24,11 @@ option = py.test.config.addoptions("demo options",
                default=26,
                dest="n_vars",
                help="supply this many randomly-valued arguments to the function"),
+        Option('--iterations', action="store", type="int",
+               default=0,
+               dest="iterations",
+               help="run the loop of the generated function this many times - "
+                    "the default is backend dependent"),
         )
 
 very_slow_backends = {'llgraph': True,

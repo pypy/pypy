@@ -89,8 +89,12 @@ def test_random_function(nb_blocks=demo_conftest.option.nb_blocks,
         'print dummyfn(10000, *args)\n' % (src, args))
     exec src.compile()
 
-    if demo_conftest.option.backend in demo_conftest.very_slow_backends:
-        iterations = 50
+    if demo_conftest.option.iterations != 0:
+        iterations = demo_conftest.option.iterations
     else:
-        iterations = 10000
+        if demo_conftest.option.backend in demo_conftest.very_slow_backends:
+            iterations = 50
+        else:
+            iterations = 10000
+
     rundemo(dummyfn, iterations, *args)
