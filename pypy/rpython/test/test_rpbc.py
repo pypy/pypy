@@ -1514,6 +1514,32 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [7])
         assert res == 11
 
+    def test_single_pbc_getattr(self):
+        py.test.skip("in-progress")
+        class C:
+            def __init__(self, v1, v2):
+                self.v1 = v1
+                self.v2 = v2
+            def _freeze_(self):
+                return True
+        c1 = C(11, lambda: "hello")
+        c2 = C(22, lambda: 623)
+        def f1(l, c):
+            l.append(c.v1)
+        def f2(c):
+            return c.v2
+        def f3(c):
+            return c.v2
+        def g():
+            l = []
+            f1(l, c1)
+            f1(l, c2)
+            return l, f2(c1)(), f3(c2)()
+
+        res = self.interpret(g, [])
+        assert self.ll_to_string(res.item1) == "hello"
+        assert res.item2 == 623
+
 
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
