@@ -128,10 +128,6 @@ class FakeObjSpace(ObjSpace):
     def marshal_w(self, *args):raise NotImplementedError("space.marshal_w()")
     def log(self, *args):      raise NotImplementedError("space.log()")
 
-    def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
-        "NOT_RPYTHON"
-        raise NotImplementedError("space.exec_")
-
     gettypefor     = make_dummy()
     gettypeobject  = make_dummy()
     unpackiterable = make_dummy([W_Object()], [W_Object()])
