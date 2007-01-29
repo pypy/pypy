@@ -859,6 +859,40 @@ class TestAnnotateTestCase:
         assert len(acc1.descs) == 3
         assert dict.fromkeys(acc1.attrs) == {'v1': None, 'v2': None}
 
+    def test_single_pbc_getattr(self):
+        py.test.skip("in-progress")
+        class C:
+            def __init__(self, v1, v2):
+                self.v1 = v1
+                self.v2 = v2
+            def _freeze_(self):
+                return True
+        c1 = C(11, "hello")
+        c2 = C(22, 623)
+        def f1(l, c):
+            l.append(c.v1)
+        def f2(c):
+            return c.v2
+        def f3(c):
+            return c.v2
+        def g():
+            l = []
+            f1(l, c1)
+            f1(l, c2)
+            return l, f2(c1), f3(c2)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(g,[])
+        s_l, s_c1v2, s_c2v2 = s.items
+        assert listitem(s_l).knowntype == int
+        assert s_c1v2.const == "hello"
+        assert s_c2v2.const == 623
+
+        acc1 = a.bookkeeper.getdesc(c1).getattrfamily()
+        acc2 = a.bookkeeper.getdesc(c2).getattrfamily()
+        assert acc1 is acc2
+        assert acc1.attrs.keys() == ['v1']
+
     def test_simple_pbc_call(self):
         def f1(x,y=0):
             pass
