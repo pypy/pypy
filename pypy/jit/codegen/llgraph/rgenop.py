@@ -37,6 +37,7 @@ def gv_TYPE(TYPE):
 
 gv_Void = gv_TYPE(lltype.Void)
 gv_Signed = gv_TYPE(lltype.Signed)
+gv_Bool = gv_TYPE(lltype.Bool)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 gv_Address = gv_TYPE(llmemory.Address)
@@ -200,6 +201,34 @@ class LLBuilder(GenBuilder):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_same_as: bad currently_writing")
         return LLVar(llimpl.genop(self.b, 'same_as', [gv_value], gv_TYPE.v))
+
+    def genop_ptr_iszero(self, gv_PTRTYPE, gv_ptr):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_ptr_iszero: bad currently_writing")
+        gv_ptr = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v)
+        return LLVar(llimpl.genop(self.b, 'ptr_iszero', [gv_ptr], gv_Bool.v))
+
+    def genop_ptr_nonzero(self, gv_PTRTYPE, gv_ptr):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_ptr_nonzero: bad currently_writing")
+        gv_ptr = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v)
+        return LLVar(llimpl.genop(self.b, 'ptr_nonzero', [gv_ptr], gv_Bool.v))
+                                  
+    def genop_ptr_eq(self, gv_PTRTYPE, gv_ptr1, gv_ptr2):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_ptr_eq: bad currently_writing")
+        gv_ptr1 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr1.v)
+        gv_ptr2 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr2.v)        
+        return LLVar(llimpl.genop(self.b, 'ptr_eq', [gv_ptr1, gv_ptr2],
+                                  gv_Bool.v))
+
+    def genop_ptr_ne(self, gv_PTRTYPE, gv_ptr1, gv_ptr2):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_ptr_ne: bad currently_writing")
+        gv_ptr1 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr1.v)
+        gv_ptr2 = llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr2.v)        
+        return LLVar(llimpl.genop(self.b, 'ptr_ne', [gv_ptr1, gv_ptr2],
+                                  gv_Bool.v))
 
     def _newblock(self, kinds):
         self.b = newb = llimpl.newblock()

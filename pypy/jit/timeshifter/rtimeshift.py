@@ -169,9 +169,9 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
     if argbox.content is None:
         gv_addr = argbox.getgenvar(jitstate)
         if reverse:
-            gv_res = builder.genop1("ptr_iszero", gv_addr)
+            gv_res = builder.genop_ptr_iszero(argbox.kind, gv_addr)
         else:
-            gv_res = builder.genop1("ptr_nonzero", gv_addr)
+            gv_res = builder.genop_ptr_nonzero(argbox.kind, gv_addr)
     else:
         gv_res = builder.rgenop.genconst(True ^ reverse)
     return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Bool), gv_res)
@@ -188,9 +188,9 @@ def ll_genptreq(jitstate, argbox0, argbox1, reverse):
     gv_addr0 = argbox0.getgenvar(jitstate)
     gv_addr1 = argbox1.getgenvar(jitstate)
     if reverse:
-        gv_res = builder.genop2("ptr_ne", gv_addr0, gv_addr1)
+        gv_res = builder.genop_ptr_ne(argbox0.kind, gv_addr0, gv_addr1)
     else:
-        gv_res = builder.genop2("ptr_eq", gv_addr0, gv_addr1)
+        gv_res = builder.genop_ptr_eq(argbox0.kind, gv_addr0, gv_addr1)
     return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Bool), gv_res)
 
 # ____________________________________________________________

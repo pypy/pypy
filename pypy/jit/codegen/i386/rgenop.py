@@ -3,6 +3,7 @@ from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
+from pypy.jit.codegen.model import ReplayBuilder
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
 from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack, Place
@@ -370,6 +371,30 @@ class Builder(GenBuilder):
         self.operations.append(op)
         return op
 
+    def genop_ptr_iszero(self, kind, gv_ptr):
+        cls = getopclass1('ptr_iszero')
+        op = cls(gv_ptr)
+        self.operations.append(op)
+        return op
+
+    def genop_ptr_nonzero(self, kind, gv_ptr):
+        cls = getopclass1('ptr_nonzero')
+        op = cls(gv_ptr)
+        self.operations.append(op)
+        return op
+
+    def genop_ptr_eq(self, kind, gv_ptr1, gv_ptr2):
+        cls = getopclass2('ptr_eq')
+        op = cls(gv_ptr1, gv_ptr2)
+        self.operations.append(op)
+        return op
+
+    def genop_ptr_ne(self, kind, gv_ptr1, gv_ptr2):
+        cls = getopclass2('ptr_ne')
+        op = cls(gv_ptr1, gv_ptr2)
+        self.operations.append(op)
+        return op
+
     def genop_same_as(self, kind, gv_x):
         if gv_x.is_const:    # must always return a var
             op = OpSameAs(gv_x)
@@ -494,97 +519,6 @@ class Label(GenLabel):
 
 # ____________________________________________________________
 
-dummy_var = GenVar()
-
-class ReplayFlexSwitch(CodeGenSwitch):
-
-    def __init__(self, replay_builder):
-        self.replay_builder = replay_builder
-
-    def add_case(self, gv_case):
-        return self.replay_builder
-
-class ReplayBuilder(GenBuilder):
-
-    def __init__(self, rgenop):
-        self.rgenop = rgenop
-
-    def end(self):
-        pass
-
-    @specialize.arg(1)
-    def genop1(self, opname, gv_arg):
-        return dummy_var
-
-    @specialize.arg(1)
-    def genop2(self, opname, gv_arg1, gv_arg2):
-        return dummy_var
-
-    def genop_getfield(self, fieldtoken, gv_ptr):
-        return dummy_var
-
-    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
-        return dummy_var
-
-    def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        return dummy_var
-
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        return dummy_var
-
-    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
-        return dummy_var
-
-    def genop_getarraysize(self, arraytoken, gv_ptr):
-        return dummy_var
-
-    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        return dummy_var
-
-    def genop_malloc_fixedsize(self, size):
-        return dummy_var
-
-    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-        return dummy_var
-        
-    def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        return dummy_var
-
-    def genop_same_as(self, kind, gv_x):
-        return dummy_var
-
-    def genop_debug_pdb(self):    # may take an args_gv later
-        pass
-
-    def enter_next_block(self, kinds, args_gv):
-        return None
-
-    def jump_if_false(self, gv_condition, args_gv):
-        return self
-
-    def jump_if_true(self, gv_condition, args_gv):
-        return self
-
-    def finish_and_return(self, sigtoken, gv_returnvar):
-        pass
-
-    def finish_and_goto(self, outputargs_gv, target):
-        pass
-
-    def flexswitch(self, gv_exitswitch, args_gv):
-        flexswitch = ReplayFlexSwitch(self)
-        return flexswitch, self
-
-    def show_incremental_progress(self):
-        pass
-
-    def genop_get_frame_base(self):
-        return dummy_var
-
-    def get_frame_info(self, vars_gv):
-        return None
-
-# ____________________________________________________________
 
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock

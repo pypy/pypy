@@ -151,6 +151,27 @@ def generate_operation(rgenop, builder, op, var2gv):
     elif op.opname == 'same_as':
         token = rgenop.kindToken(op.args[0].concretetype)
         gv_result = builder.genop_same_as(token, var2gv(op.args[0]))
+
+    elif op.opname == 'ptr_iszero':
+        token = rgenop.kindToken(op.args[0].concretetype)
+        gv_result = builder.genop_ptr_iszero(token, var2gv(op.args[0]))
+        
+    elif op.opname == 'ptr_nonzero':
+        token = rgenop.kindToken(op.args[0].concretetype)
+        gv_result = builder.genop_ptr_nonzero(token, var2gv(op.args[0]))
+        
+    elif op.opname == 'ptr_eq':
+        token = rgenop.kindToken(op.args[0].concretetype)
+        gv_result = builder.genop_ptr_eq(token,
+                                         var2gv(op.args[0]),
+                                         var2gv(op.args[1]))
+        
+    elif op.opname == 'ptr_ne':
+        token = rgenop.kindToken(op.args[0].concretetype)
+        gv_result = builder.genop_ptr_ne(token,
+                                         var2gv(op.args[0]),
+                                         var2gv(op.args[1]))
+        
     elif len(op.args) == 1:
         gv_result = builder.genop1(op.opname, var2gv(op.args[0]))
     elif len(op.args) == 2:
