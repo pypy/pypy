@@ -25,7 +25,7 @@ def copy_memo():
 def unfreeze_memo():
     return Memo()
 
-def make_vinfo_memo():
+def make_vrti_memo():
     return Memo()
 
 class DontMerge(Exception):

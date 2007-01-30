@@ -156,44 +156,6 @@ class HintRTyper(RPythonTyper):
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
         #self.void_red_repr = VoidRedRepr(self)
 
-        # XXX use helpers, factor out perhaps?
-        annhelper = self.annhelper
-        from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
-        s_vablertiptr = annmodel.lltype_to_annotation(VABLERTIPTR)
-
-        s_gcref = annmodel.lltype_to_annotation(llmemory.GCREF)
-        from pypy.jit.timeshifter import rvirtualizable
-        def vrti_get_global_shape(vablerti):
-            vablerti = cast_base_ptr_to_instance(
-                         rvirtualizable.VirtualizableRTI,
-                         vablerti)
-            return vablerti.get_global_shape()
-        vrti_get_global_shape_ptr = annhelper.delayedfunction(
-                                        vrti_get_global_shape,
-                                        [s_vablertiptr],
-                                        annmodel.SomeInteger(),
-                                        needtype=True)
-        self.gv_vrti_get_global_shape_ptr = RGenOp.constPrebuiltGlobal(
-            vrti_get_global_shape_ptr)
-        self.vrti_get_global_shape_token = RGenOp.sigToken(
-                                  lltype.typeOf(vrti_get_global_shape_ptr).TO)
-
-
-        def vrti_read_forced(vablerti, bitkey):
-            vablerti = cast_base_ptr_to_instance(
-                     rvirtualizable.WithForcedStateVirtualizableRTI,
-                              vablerti)
-            return vablerti.read_forced(bitkey)
-
-        vrti_read_forced_ptr = annhelper.delayedfunction(vrti_read_forced,
-                              [s_vablertiptr, annmodel.SomeInteger()],
-                              s_gcref,
-                              needtype=True)
-        self.gv_vrti_read_forced_ptr = RGenOp.constPrebuiltGlobal(
-            vrti_read_forced_ptr)
-        self.vrti_read_forced_token = RGenOp.sigToken(
-                                     lltype.typeOf(vrti_read_forced_ptr).TO)
-
         # global state for the portal corresponding to this timeshifted world
         class PortalState(object):
             pass

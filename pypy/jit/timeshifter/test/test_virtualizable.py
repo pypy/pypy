@@ -813,7 +813,7 @@ class TestVirtualizableImplicit(PortalTest):
             calls = self.count_direct_calls()
             call_count = sum([count for graph, count in calls.iteritems()
                               if not graph.name.startswith('rpyexc_')])
-            assert call_count == 3
+            assert call_count == 2
 
 
     def test_setting_pointer_in_residual_call(self):
@@ -913,8 +913,8 @@ class TestVirtualizableImplicit(PortalTest):
     def test_inheritance_with_residual_call(self):
         class S(object):
             def __init__(self, x, y):
-                self.x = x
-                self.y = y
+                self.sx = x
+                self.sy = y
             
 
         class X(object):
@@ -935,8 +935,8 @@ class TestVirtualizableImplicit(PortalTest):
             x = xy.x
             y = xy.y
             if x:
-                xy.x = s.x
-                xy.y = s.y
+                xy.x = s.sx
+                xy.y = s.sy
             if y:
                 xy.s = S(x, y)
    
@@ -944,7 +944,7 @@ class TestVirtualizableImplicit(PortalTest):
             hint(None, global_merge_point=True)
             xy.s = S(sx, sy)
             g(xy)
-            return xy.x + xy.y * 16 + xy.s.x * 16 ** 2 + xy.s.y * 16 ** 3
+            return xy.x + xy.y * 16 + xy.s.sx * 16 ** 2 + xy.s.sy * 16 ** 3
 
         def main(x, y, sx, sy):
             X(0)

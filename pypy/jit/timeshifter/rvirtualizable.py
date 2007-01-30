@@ -4,25 +4,27 @@ from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rlib.unroll import unrolling_iterable
 
 debug_print = lloperation.llop.debug_print
+debug_pdb = lloperation.llop.debug_pdb
 
-def define_touch_update(TOPPTR, fielddescs, access_touched):
-    fielddescs = unrolling_iterable(fielddescs)
+def define_touch_update(TOPPTR, redirected_fielddescs, access_touched):
+    redirected_fielddescs = unrolling_iterable(redirected_fielddescs)
 
     def touch_update(strucref):
         struc = lltype.cast_opaque_ptr(TOPPTR, strucref)
         vable_rti = struc.vable_rti
         vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
         vable_rti.touch(struc.vable_base)
-        
-        j = 0
-        for fielddesc, _ in fielddescs:
+        vable_base = struc.vable_base
+
+        j = -1
+        for fielddesc, _ in redirected_fielddescs:
+            j += 1
             if fielddesc.canbevirtual and fielddesc.gcref:
-                if vable_rti.is_field_virtual(j):
+                if vable_rti.is_field_virtual(vable_base, j):
                     continue
-            v = vable_rti.read_field(fielddesc, struc.vable_base, j)
+            v = vable_rti.read_field(fielddesc, vable_base, j)
             tgt = lltype.cast_pointer(fielddesc.PTRTYPE, struc)            
             setattr(tgt, fielddesc.fieldname, v)
-            j += 1
         ACCESSPTR = TOPPTR.TO.vable_access
         struc.vable_access = lltype.cast_pointer(ACCESSPTR, access_touched)
 
@@ -45,9 +47,10 @@ def define_getset_field_ptrs(fielddesc, j):
         if fielddesc.canbevirtual and fielddesc.gcref:
             vable_rti = struc.vable_rti
             vable_rti = cast_base_ptr_to_instance(VirtualizableRTI, vable_rti)
-            if vable_rti.is_field_virtual(j):
+            vable_base = struc.vable_base
+            if vable_rti.is_field_virtual(vable_base, j):
                 # this will force
-                s = vable_rti.read_field(fielddesc, struc.vable_base, j)
+                s = vable_rti.read_field(fielddesc, vable_base, j)
                 setattr(tgt, fielddesc.fieldname, s)
                 return s
         return getattr(tgt, fielddesc.fieldname)
@@ -87,44 +90,23 @@ class VirtualRTI(object):
         assert isinstance(T, lltype.Ptr)
         assert fielddesc.canbevirtual
         assert fielddesc.gcref
+        assert isinstance(vrti, VirtualStructRTI)
         return vrti._get_forced(vablerti, fielddesc, base)
     _read_field._annspecialcase_ = "specialize:arg(2)"
 
-    def _is_virtual(self, forcestate):
-        return self.bitmask not in forcestate
-
-    def _get_forced(self, vablerti, fielddesc, base):
-        T = fielddesc.RESTYPE
-        assert isinstance(T, lltype.Ptr)
-        forcestate = vablerti.getforcestate(base).forced
-        bitmask = self.bitmask
-        if bitmask in forcestate:
-            s = forcestate[bitmask] 
-            return lltype.cast_opaque_ptr(T, s)
-        S = T.TO
-        s = lltype.malloc(S)
-        sref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        forcestate[bitmask] = sref
-        fielddesc.fill_into(vablerti, s, base, self)
-        return s
-    _get_forced._annspecialcase_ = "specialize:arg(2)"
 
 class VirtualizableRTI(VirtualRTI):
-    _attrs_ = "frameinfo vable_getset_rtis touch_update".split()
-            
-    def get_global_shape(self):
-        return 0
+    _attrs_ = "frameinfo touch_update shape_place".split()
 
-    def is_field_virtual(self, index):
+    def is_field_virtual(self, base, index):
         frameindex = self.varindexes[index]
         if frameindex >= 0:
             return False
         index = -frameindex-1
         assert index >= 0
-        return self._is_field_virtual(index)
-
-    def _is_field_virtual(self, index):
-       return True
+        vrti = self.vrtis[index]
+        assert isinstance(vrti, VirtualStructRTI)
+        return vrti._is_virtual(self.get_shape(base))       
 
     def read_frame_var(self, T, base, frameindex):
         return self.rgenop.read_frame_var(T, base, self.frameinfo, frameindex)
@@ -134,20 +116,8 @@ class VirtualizableRTI(VirtualRTI):
         return self._read_field(self, fielddesc, base, index)
     read_field._annspecialcase_ = "specialize:arg(1)"
 
-    def getforcestate(self, base):
-        state = State()
-        for i, get, set in self.vable_getset_rtis:
-            p = get(base, self.frameinfo, i)
-            vablerti = cast_base_ptr_to_instance(VirtualizableRTI, p)
-            # xxx see below
-            wforcestate = WithForcedStateVirtualizableRTI(vablerti, state) 
-            p = cast_instance_to_base_ptr(wforcestate)
-            set(base, self.frameinfo, i, p)
-        return state
-
     def touch(self, base):
-        touched = self.getforcestate(base).touched
-        touched[self.bitmask] = None
+        self.set_shape_bits(base, self.bitmask)
 
     def touched_ptr_field(self, base, index):
         frameindex = self.varindexes[index]
@@ -155,47 +125,37 @@ class VirtualizableRTI(VirtualRTI):
             return
         posshift = -frameindex
         assert posshift > 0
-        touched = self.getforcestate(base).touched
-        touched[self.bitmask<<posshift] = None
+        self.set_shape_bits(base, self.bitmask << posshift)
 
+    def get_shape(self, base):
+        return self.rgenop.read_frame_place(lltype.Signed, base,
+                                            self.shape_place)
 
-class State(object):
-    forced = {}
-    touched = {}
+    def set_shape(self, base, shapemask):
+        return self.rgenop.write_frame_place(lltype.Signed, base,
+                                            self.shape_place, shapemask)
 
-class WithForcedStateVirtualizableRTI(VirtualizableRTI):
-    _attrs_ = "state"
-    state = None
-    
-    def __init__(self, vablerti, state):
-        self.rgenop = vablerti.rgenop
-        self.varindexes = vablerti.varindexes
-        self.vrtis = vablerti.vrtis # xxx what if these contain virtualizables 
-        self.frameinfo = vablerti.frameinfo
-        self.bitmask = vablerti.bitmask
-        self.state = state
-
-    def _is_field_virtual(self, index):
-       vinfo = self.vrtis[index]
-       return vinfo._is_virtual(self.state.forced)
-
-    def getforcestate(self, base):
-        return self.state
-
-    def get_global_shape(self):
-        assert self.state
-        bitmask = 0
-        for bitkey in self.state.forced:
-            bitmask |= bitkey
-        for bitkey in self.state.touched:
-            bitmask |= bitkey  
-        return bitmask
-
-    def read_forced(self, bitkey):
-        assert self.state
-        assert self.state.forced
-        return self.state.forced[bitkey]
+    def set_shape_bits(self, base, bitmask):
+        self.set_shape(base, bitmask | self.get_shape(base))
 
 
 class VirtualStructRTI(VirtualRTI):
-    pass
+    _attrs_ = "forced_place"
+
+    def _get_forced(self, vablerti, fielddesc, base):
+        T = fielddesc.RESTYPE
+        assert isinstance(T, lltype.Ptr)
+        shapemask = vablerti.get_shape(base)
+        bitmask = self.bitmask
+        if bitmask & shapemask:
+            return self.rgenop.read_frame_place(T, base, self.forced_place)
+        S = T.TO
+        s = lltype.malloc(S)
+        self.rgenop.write_frame_place(T, base, self.forced_place, s)
+        vablerti.set_shape(base, shapemask| bitmask)
+        fielddesc.fill_into(vablerti, s, base, self)
+        return s
+    _get_forced._annspecialcase_ = "specialize:arg(2)"
+
+    def _is_virtual(self, shapemask):
+        return bool(self.bitmask & shapemask)

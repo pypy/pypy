@@ -54,11 +54,6 @@ class StructTypeDesc(object):
                     immutable noidentity
                     materialize
                     fill_into
-
-                    vrti_get_global_shape_token
-                    gv_vrti_get_global_shape_ptr
-                    vrti_read_forced_token
-                    gv_vrti_read_forced_ptr
                  """.split()
                             
 
@@ -90,14 +85,7 @@ class StructTypeDesc(object):
         self._define_fill_into()
         if self.immutable and self.noidentity:
             self._define_materialize()
-
-        # xxx
-        self.gv_vrti_get_global_shape_ptr = hrtyper.gv_vrti_get_global_shape_ptr
-        self.vrti_get_global_shape_token = hrtyper.vrti_get_global_shape_token
         
-        self.gv_vrti_read_forced_ptr = hrtyper.gv_vrti_read_forced_ptr
-        self.vrti_read_forced_token = hrtyper.vrti_read_forced_token
-
     def _compute_fielddescs(self, hrtyper):
         RGenOp = hrtyper.RGenOp
         TYPE = self.TYPE
@@ -239,7 +227,6 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
         self._define_collect_residual_args()
 
-        self._define_getset_rti_ptrs(hrtyper)
         self._define_access_is_null(hrtyper)
 
 
@@ -307,22 +294,6 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 
         self.collect_residual_args = collect_residual_args
 
-
-
-    def _define_getset_rti_ptrs(self, hrtyper):
-        RGenOp = hrtyper.RGenOp
-        TOPPTR = self.access_desc.PTRTYPE
-        
-        def get_rti(base, frameinfo, frameindex):
-            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
-            return struc.vable_rti
-
-        def set_rti(base, frameinfo, frameindex, new_vable_rti):
-            struc = RGenOp.read_frame_var(TOPPTR, base, frameinfo, frameindex)
-            struc.vable_rti = new_vable_rti
-
-        self.get_rti = get_rti
-        self.set_rti = set_rti
 
     def _define_access_is_null(self, hrtyper):
         RGenOp = hrtyper.RGenOp
@@ -600,6 +571,12 @@ class VirtualStruct(VirtualContainer):
         vrti = rvirtualizable.VirtualStructRTI(rgenop, bitmask)
         memo.containers[self] = vrti
 
+        builder = jitstate.curbuilder
+        place = builder.alloc_frame_place(typedesc.ptrkind,
+                                          typedesc.gv_null)
+        gv_forced = builder.genop_absorb_place(typedesc.ptrkind, place)
+        vrti.forced_place = place
+
         vars_gv = memo.framevars_gv
         varindexes = vrti.varindexes
         vrtis = vrti.vrtis
@@ -616,6 +593,10 @@ class VirtualStruct(VirtualContainer):
                 assert isinstance(content, VirtualStruct) # XXX for now
                 vrtis.append(content.make_rti(jitstate, memo))
                 j -= 1
+
+        self.content_boxes.append(rvalue.PtrRedBox(typedesc.ptrkind,
+                                                   gv_forced))
+                
         return vrti
 
     def reshape(self, jitstate, shapemask, memo):
@@ -628,14 +609,11 @@ class VirtualStruct(VirtualContainer):
         memo.bitcount += 1
 
         boxes = self.content_boxes
+        outside_box = boxes.pop()
         if bitmask&shapemask:
-            gv_vable_rti = memo.gv_vable_rti
-            gv_bitkey = builder.rgenop.genconst(bitmask)
-            gv_ptr = builder.genop_call(typedesc.vrti_read_forced_token,
-                                        typedesc.gv_vrti_read_forced_ptr,
-                                        [gv_vable_rti, gv_bitkey])
-            memo.forced.append((self, gv_ptr))
-
+            gv_forced = outside_box.genvar
+            memo.forced.append((self, gv_forced))
+            
         for box in boxes:
             if not box.genvar:
                 assert isinstance(box, rvalue.PtrRedBox)
@@ -644,7 +622,7 @@ class VirtualStruct(VirtualContainer):
                 content.reshape(jitstate, shapemask, memo)
 
 class VirtualizableStruct(VirtualStruct):
-
+    
     def force_runtime_container(self, jitstate):
         assert 0
 
@@ -699,15 +677,10 @@ class VirtualizableStruct(VirtualStruct):
         rgenop = jitstate.curbuilder.rgenop
         vable_rti = rvirtualizable.VirtualizableRTI(rgenop, 0)
         vable_rti.touch_update = typedesc.touch_update
+        vable_rti.shape_place = jitstate.shape_place
         memo.containers[self] = vable_rti
         
         vars_gv = memo.framevars_gv
-        vars_gv.append(gv_outside)
-        getset_rti = (memo.frameindex,
-                      typedesc.get_rti,
-                      typedesc.set_rti)
-        memo.vable_getset_rtis.append(getset_rti)
-        memo.frameindex += 1
         varindexes = vable_rti.varindexes
         vrtis = vable_rti.vrtis
         boxes = self.content_boxes
@@ -748,23 +721,16 @@ class VirtualizableStruct(VirtualStruct):
         access_token = typedesc.access_desc.fieldtoken
         builder.genop_setfield(access_token, gv_outside, typedesc.gv_access)
 
-    def after_residual_call(self, jitstate, gv_shape):
+    def after_residual_call(self, jitstate):
         typedesc = self.typedesc
         builder = jitstate.curbuilder
         gv_outside = self.content_boxes[-1].genvar
         if gv_outside is typedesc.gv_null:
-            return gv_shape
+            return
         assert isinstance(typedesc, VirtualizableStructTypeDesc)
         access_token = typedesc.access_desc.fieldtoken            
         gv_access_null = typedesc.access_desc.gv_default
         builder.genop_setfield(access_token, gv_outside, gv_access_null)
-        if gv_shape is None:
-            rti_token = typedesc.rti_desc.fieldtoken                
-            gv_vable_rti = builder.genop_getfield(rti_token, gv_outside)
-            tok = typedesc.vrti_get_global_shape_token
-            fn = typedesc.gv_vrti_get_global_shape_ptr
-            gv_shape = builder.genop_call(tok, fn, [gv_vable_rti])
-        return gv_shape
 
 
     def reshape(self, jitstate, shapemask, memo):
@@ -777,11 +743,7 @@ class VirtualizableStruct(VirtualStruct):
             return
         memo.containers[self] = None
         assert isinstance(typedesc, VirtualizableStructTypeDesc)
-        gv_vable_rti = memo.gv_vable_rti
-        if gv_vable_rti is None:
-            rti_token = typedesc.rti_desc.fieldtoken
-            gv_vable_rti = builder.genop_getfield(rti_token, gv_outside)
-            memo.gv_vable_rti = gv_vable_rti
+
         boxes = self.content_boxes
         nvirtual = 0
         for _, i in typedesc.redirected_fielddescs:
