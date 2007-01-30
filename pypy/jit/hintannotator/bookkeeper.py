@@ -73,7 +73,8 @@ class ImpurityAnalyzer(graphanalyze.GraphAnalyzer):
     given arguments."""
 
     def analyze_exceptblock(self, block, seen=None):
-        raise AssertionError("graphs here should be exception-transformed")
+        return True      # for now, we simplify and say that functions
+                         # raising exceptions cannot be pure
 
     def operation_is_true(self, op):
         operation = lloperation.LL_OPERATIONS[op.opname]
@@ -91,6 +92,9 @@ class HintBookkeeper(object):
         self.tsgraph_maximal_call_families = UnionFind(TsGraphCallFamily)
         self.annotator = hannotator
         self.tsgraphsigs = {}
+        if hannotator is not None:     # for tests
+            t = hannotator.base_translator
+            self.impurity_analyzer = ImpurityAnalyzer(t)
         # circular imports hack
         global hintmodel
         from pypy.jit.hintannotator import model as hintmodel
@@ -158,11 +162,6 @@ class HintBookkeeper(object):
             hs_red = hintmodel.variableoftype(v.concretetype)
             self.annotator.setbinding(v, hs_red)
 
-        # is_green_call() is only meaningful at fixpoint,
-        # so initialize the state here
-        t = self.annotator.base_translator
-        self.impurity_analyzer = ImpurityAnalyzer(t)
-
         # propagate the green/red constraints
         log.event("Computing maximal green set...")
         greenorigindependencies = {}
@@ -218,6 +217,10 @@ class HintBookkeeper(object):
             sig_hs = ([ha.binding(v) for v in tsgraph.getargs()],
                       ha.binding(tsgraph.getreturnvar()))
             self.tsgraphsigs[tsgraph] = sig_hs
+
+    def is_pure_graph(self, graph):
+        impure = self.impurity_analyzer.analyze_direct_call(graph)
+        return not impure
 
     def is_green_call(self, callop):
         "Is the given call operation completely computable at compile-time?"

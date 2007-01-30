@@ -34,12 +34,11 @@ class HintAnnotator(RPythonAnnotator):
     def __init__(self, translator=None, base_translator=None, policy=None):
         if policy is None:
             policy = HintAnnotatorPolicy()
+        self.base_translator = base_translator
+        assert base_translator is not None      # None not supported any more
         bookkeeper = HintBookkeeper(self)        
         RPythonAnnotator.__init__(self, translator, policy=policy,
                                   bookkeeper=bookkeeper)
-
-        self.base_translator = base_translator
-        assert base_translator is not None      # None not supported any more
         self.exceptiontransformer = base_translator.getexceptiontransformer()
         
     def build_types(self, origgraph, input_args_hs):

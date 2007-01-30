@@ -336,7 +336,9 @@ class __extend__(SomeLLAbstractValue):
         bookkeeper = getbookkeeper()
         if not bookkeeper.annotator.policy.look_inside_graphs(graph_list):
             # cannot follow
-            return variableoftype(hs_v1.concretetype.TO.RESULT)
+            return cannot_follow_call(bookkeeper, graph_list,
+                                      (hs_v1,) + args_hs,
+                                      hs_v1.concretetype.TO.RESULT)
 
         myorigin = bookkeeper.myorigin()
         myorigin.__class__ = CallOpOriginFlags     # thud
@@ -397,7 +399,8 @@ class __extend__(SomeLLAbstractConstant):
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
         if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
-            return variableoftype(lltype.typeOf(fnobj).RESULT)
+            return cannot_follow_call(bookkeeper, [fnobj.graph], args_hs,
+                                      lltype.typeOf(fnobj).RESULT)
 
         # recursive call from the entry point to itself: ignore them and
         # just hope the annotations are correct
@@ -642,6 +645,26 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
 
     hs_result = handler(*args_hs)   # which may raise NotImplementedError
     return hs_result
+
+def cannot_follow_call(bookkeeper, graph_list, args_hs, RESTYPE):
+    # the policy prevents us from following the call
+    if not graph_list:       # no known target, give up
+        return variableoftype(RESTYPE)
+    for graph in graph_list:
+        if not bookkeeper.is_pure_graph(graph):
+            # it's not calling pure graphs either, so the result
+            # is entierely unknown
+            return variableoftype(RESTYPE)
+    # when calling pure graphs, consider the call as an operation.
+    for hs in args_hs:
+        if not isinstance(hs, SomeLLAbstractConstant):
+            return variableoftype(RESTYPE)
+    # if all arguments are SomeLLAbstractConstant, so can the result be.
+    origin = bookkeeper.myorigin()
+    d = newset({origin: True}, *[hs_c.origins for hs_c in args_hs])
+    return SomeLLAbstractConstant(RESTYPE, d,
+                                  eager_concrete = False,   # probably
+                                  myorigin = origin)
 
 # ____________________________________________________________
 #
