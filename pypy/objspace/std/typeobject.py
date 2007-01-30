@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+from pypy.rlib.objectmodel import we_are_translated
 
 from copy_reg import _HEAPTYPE
 
@@ -390,10 +391,17 @@ class W_TypeObject(W_Object):
 
     def get_module(w_self):
         space = w_self.space
-        if (not space.is_w(w_self, space.w_type)    # hum
-            and '__module__' in w_self.dict_w):
+        if w_self.is_heaptype() and '__module__' in w_self.dict_w:
             return w_self.dict_w['__module__']
         else:
+            # for non-heap types, CPython checks for a module.name in the
+            # type name.  we skip that here and only provide the default
+            if not we_are_translated():
+                # hack for faked types
+                if ('__module__' in w_self.dict_w and
+                    space.is_true(space.isinstance(w_self.dict_w['__module__'],
+                                                   space.w_str))):
+                    return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
 
     def add_subclass(w_self, w_subclass):

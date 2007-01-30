@@ -224,18 +224,6 @@ def descr__flags(space, w_type):
     w_type = _check(space, w_type)    
     return space.wrap(w_type.__flags__)
 
-def defunct_descr_get__module(space, w_type):
-    if w_type.is_heaptype():
-        return w_type.dict_w['__module__']
-    else:
-        # here CPython checks for a module.name in the type description.
-        # we skip that here and only provide the default
-        return space.wrap('__builtin__')
-
-# heaptypeness is not really the right criteria, because we
-# also might get a module attribute from a faked type.
-# therefore, we use the module attribute whenever it exists.
-
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)
     return w_type.get_module()

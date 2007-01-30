@@ -708,9 +708,11 @@ class AppTestTypeObject:
         assert b.x == 3
 
     def test_module(self):
+        def f(): pass
         assert object.__module__ == '__builtin__'
         assert int.__module__ == '__builtin__'
         assert type.__module__ == '__builtin__'
+        assert type(f).__module__ == '__builtin__'
         d = {'__name__': 'yay'}
         exec """class A(object):\n  pass\n""" in d
         A = d['A']
