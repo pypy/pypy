@@ -703,6 +703,48 @@ def get_write_frame_place_runner(RGenOp):
     return write_frame_place_runner
 
 
+class FramePlaceReader:
+    FUNC = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
+    def __init__(self, RGenOp):
+        def reader(base):
+            return RGenOp.read_frame_place(lltype.Signed, base,
+                                         self.place)
+        self.reader = reader
+    def get_reader(self, place):
+        self.place = place
+        return llhelper(self.FUNC, self.reader)
+
+def make_read_frame_place(rgenop, get_reader):
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    readertoken = rgenop.sigToken(FramePlaceReader.FUNC.TO)
+
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
+
+    place = builder.alloc_frame_place(signed_kind,
+                                      rgenop.genconst(42))
+    gv_base = builder.genop_get_frame_base()
+    gv_reader = rgenop.constPrebuiltGlobal(get_reader(place))
+    gv_z = builder.genop_call(readertoken, gv_reader, [gv_base])
+    builder.finish_and_return(sigtoken, gv_z)
+    builder.end()
+
+    return gv_f
+
+def get_read_frame_place_runner(RGenOp):
+    fpr = FramePlaceReader(RGenOp)
+
+    def read_frame_place_runner(x):
+        rgenop = RGenOp()
+        gv_f = make_read_frame_place(rgenop, fpr.get_reader)
+        fn = gv_f.revealconst(lltype.Ptr(FUNC))
+        res = fn(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return read_frame_place_runner
+
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -1279,6 +1321,24 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == -100
         res = fn(606)
         assert res == 4242
+
+    def test_read_frame_place_direct(self):
+        def get_reader(place):
+            fpr = FramePlaceReader(self.RGenOp)
+            fpr.place = place
+            reader_ptr = self.directtesthelper(fpr.FUNC, fpr.reader)
+            return reader_ptr
+
+        rgenop = self.RGenOp()
+        gv_callable = make_read_frame_place(rgenop, get_reader)
+        fnptr = self.cast(gv_callable, 1)
+        res = fnptr(-1)
+        assert res == 42
+
+    def test_read_frame_place_compile(self):
+        fn = self.compile(get_read_frame_place_runner(self.RGenOp), [int])
+        res = fn(-1)
+        assert res == 42
 
     def test_unaliasing_variables_direct(self):
         # def f(x, y):

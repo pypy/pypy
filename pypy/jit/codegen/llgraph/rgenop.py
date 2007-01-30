@@ -429,6 +429,11 @@ class RGenOp(AbstractRGenOp):
     def write_frame_place(T, base, place, value):
         llimpl.write_frame_var(base, place.info, 0, value)
 
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_place(T, base, place):
+        return llimpl.read_frame_var(T, base, place.info, 0)
+
 
     @staticmethod
     def get_python_callable(FUNC, gv):

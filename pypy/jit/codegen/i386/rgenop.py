@@ -684,6 +684,13 @@ class RI386GenOp(AbstractRGenOp):
         value = cast_whatever_to_int(T, value)
         poke_word_into(base + place.get_offset(), value)
 
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_place(T, base, place):
+        value = peek_word_at(base + place.get_offset())
+        return cast_int_to_whatever(T, value)
+        
+
 global_rgenop = RI386GenOp()
 RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst
 
