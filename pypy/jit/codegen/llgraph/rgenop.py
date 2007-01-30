@@ -204,6 +204,7 @@ class LLBuilder(GenBuilder):
     def genop_same_as(self, gv_TYPE, gv_value):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_same_as: bad currently_writing")
+        gv_value = llimpl.cast(self.b, gv_TYPE.v, gv_value.v)
         return LLVar(llimpl.genop(self.b, 'same_as', [gv_value], gv_TYPE.v))
 
     def genop_ptr_iszero(self, gv_PTRTYPE, gv_ptr):
@@ -328,6 +329,7 @@ class LLBuilder(GenBuilder):
     def alloc_frame_place(self, gv_TYPE, gv_initial_value):
         debug_assert(self.rgenop.currently_writing is self,
                      "alloc_frame_place: bad currently_writing")
+        gv_initial_value = llimpl.cast(self.b, gv_TYPE.v, gv_initial_value.v)
         v = LLVar(llimpl.genop(self.b, 'same_as', [gv_initial_value],
                                gv_TYPE.v))
         return LLPlace(v, llimpl.get_frame_info(self.b, [v]))
