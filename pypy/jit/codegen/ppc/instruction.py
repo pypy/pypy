@@ -676,6 +676,11 @@ class _CRF2GPR(AllocTimeInsn):
         self.targetreg = targetreg
         self.bit = bit
         self.negated = negated
+    def __repr__(self):
+        number = self.bit // 4
+        bit = self.bit % 4
+        return '<CRF2GPR-%d r%s, crf%s(%s, %s)>' % (
+            self._magic_index, self.targetreg, number, bit, self.negated)
     def emit(self, asm):
         asm.mfcr(self.targetreg)
         asm.extrwi(self.targetreg, self.targetreg, 1, self.bit)
@@ -687,6 +692,9 @@ class _GPR2CRF(AllocTimeInsn):
         AllocTimeInsn.__init__(self)
         self.targetreg = targetreg
         self.fromreg = fromreg
+    def __repr__(self):
+        return '<GPR2CRF-%d %s, r%s>' % (
+            self._magic_index, self.targetreg, self.fromreg)
     def emit(self, asm):
         asm.cmpwi(self.targetreg.number, self.fromreg, 0)
 
