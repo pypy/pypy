@@ -1464,7 +1464,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         builder1 = builder0.jump_if_true(v3, [v0, v1, v2])
 
-        args_gv = [v0, v1, v2, rgenop.genconst(1)]
+        args_gv = [v0, v1, v2, rgenop.genconst(True)]
         label0 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, bool_kind], args_gv)
         [v4, v5, v6, v7] = args_gv
 
@@ -1480,7 +1480,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         builder0.finish_and_goto([v13, v9, v10, v11], label0)
 
         builder1.start_writing()
-        builder1.finish_and_goto([v0, v1, v2, rgenop.genconst(0)], label0)
+        builder1.finish_and_goto([v0, v1, v2, rgenop.genconst(False)], label0)
 
         builder3.start_writing()
         v14 = builder3.genop1('cast_bool_to_int', v7)
