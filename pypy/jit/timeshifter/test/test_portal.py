@@ -425,5 +425,5 @@ class TestPortal(PortalTest):
             
 
         res = self.timeshift_from_portal(ll_main, ll_function, [5], policy=P_NOVIRTUAL)
-        assert res is False
+        assert not res
 
