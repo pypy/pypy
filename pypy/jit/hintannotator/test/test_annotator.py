@@ -705,7 +705,6 @@ def test_green_isinstance():
 
 
 def test_cast_pointer_keeps_deepfreeze():
-    py.test.skip("does not work")
 
     class A(object):
         pass
@@ -729,5 +728,3 @@ def test_cast_pointer_keeps_deepfreeze():
 
     hs = hannotate(ll_function, [int], policy=P_NOVIRTUAL)
     assert hs.deepfrozen
-
-

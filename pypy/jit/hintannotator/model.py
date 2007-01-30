@@ -327,6 +327,10 @@ class __extend__(SomeLLAbstractValue):
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE), hs_v1.deepfrozen)
 
+    def cast_pointer(hs_v1):
+        RESTYPE = getbookkeeper().current_op_concretetype()
+        return SomeLLAbstractVariable(RESTYPE, hs_v1.deepfrozen)
+
     def indirect_call(hs_v1, *args_hs):
         hs_graph_list = args_hs[-1]
         args_hs = args_hs[:-1]
@@ -451,6 +455,16 @@ class __extend__(SomeLLAbstractConstant):
         return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d,
                                       myorigin=origin,
                                       deepfrozen=hs_c1.deepfrozen)    
+
+    def cast_pointer(hs_c1):
+        bk = getbookkeeper()
+        origin = bk.myorigin()
+        d = setadd(hs_c1.origins, origin)
+        RESTYPE = bk.current_op_concretetype()
+        return SomeLLAbstractConstant(RESTYPE, d,
+                                      eager_concrete = hs_c1.eager_concrete,
+                                      myorigin = origin,
+                                      deepfrozen = hs_c1.deepfrozen)
 
 
 class __extend__(SomeLLAbstractContainer):
@@ -687,7 +701,6 @@ def const_unary(hs_c1):
     return SomeLLAbstractConstant(RESTYPE, d,
                                   eager_concrete = hs_c1.eager_concrete,
                                   myorigin = origin)
-                                  #deepfrozen = hs_c1.deepfrozen)
 
 def const_binary((hs_c1, hs_c2)):
     #XXX unsure hacks
@@ -699,7 +712,6 @@ def const_binary((hs_c1, hs_c2)):
                                   eager_concrete = hs_c1.eager_concrete or
                                                    hs_c2.eager_concrete,
                                   myorigin = origin)
-                                  #deepfrozen = hs_c1.deepfrozen and hs_c2.deepfrozen)
 
 def setup(oplist, ValueCls, var_fn, ConstantCls, const_fn):
     for name in oplist:
