@@ -4,6 +4,7 @@ from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llgraph import llimpl
 from pypy.rpython.lltypesystem.rclass import fishllattr
+from pypy.rpython.module.support import LLSupport
 
 
 class LLVar(GenVar):
@@ -21,6 +22,9 @@ class LLConst(GenConst):
     @specialize.arg(1)
     def revealconst(self, T):
         return llimpl.revealconst(T, self.v)
+
+    def revealconstrepr(self):
+        return LLSupport.from_rstr(llimpl.revealconstrepr(self.v))
 
     def __repr__(self):
         return repr(RGenOp.reveal(self))

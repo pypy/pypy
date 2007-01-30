@@ -218,6 +218,10 @@ def revealconst(T, gv_value):
     assert isinstance(c, flowmodel.Constant)
     return _generalcast(T, c.value)
 
+def revealconstrepr(gv_value):
+    c = from_opaque_object(gv_value)
+    return LLSupport.to_rstr(repr(c.value))
+
 def isconst(gv_value):
     c = from_opaque_object(gv_value)
     return isinstance(c, flowmodel.Constant)
@@ -549,6 +553,8 @@ setannotation(genconst, s_ConstOrVar)
 setannotation(cast, s_ConstOrVar)
 setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
                                                   s_T.const))
+from pypy.rpython.lltypesystem.rstr import STR
+setannotation(revealconstrepr, annmodel.SomePtr(lltype.Ptr(STR)))
 setannotation(isconst, annmodel.SomeBool())
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)

@@ -333,14 +333,7 @@ class RDumpGenOp(llrgenop.RGenOp):
             if not gv.is_const:
                 name = self.count('v')
             else:
-                try:
-                    value = gv.revealconst(lltype.Signed)
-                except Exception:
-                    if we_are_translated():
-                        raise
-                    name = self.count('gv_')
-                else:
-                    name = 'rgenop.genconst(%d)' % value
+                name = 'rgenop.genconst(%s)' % gv.revealconstrepr()
             self.vnames[gv] = name
             return name
 
@@ -408,7 +401,7 @@ class RDumpGenOp(llrgenop.RGenOp):
         builder, gv_callable, inputargs_gv = llrgenop.RGenOp.newgraph(
             self, sigtoken, name)
         builder = Builder(self, builder)
-        self.dump("# new graph at address %s" % self.vname(gv_callable))
+        self.dump("# new graph %s" % self.vname(gv_callable))
         self.dump("%s, gv_callable, %s = rgenop.newgraph(%s, '%s')" % (
             builder.name,
             self.vlistassname(inputargs_gv),
