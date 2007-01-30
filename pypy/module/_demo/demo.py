@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.libc import libc
 import sys, math
@@ -68,6 +68,10 @@ def mytype_new(space, w_subtype, x):
     return space.wrap(W_MyType(space, x))
 mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
 
+getset_x = GetSetProperty(W_MyType.fget_x, W_MyType.fset_x, cls=W_MyType)
+
 W_MyType.typedef = TypeDef('MyType',
-    __new__ = interp2app(mytype_new)
+    __new__ = interp2app(mytype_new),
+    x = getset_x,
+    multiply = interp2app(W_MyType.multiply),
 )
