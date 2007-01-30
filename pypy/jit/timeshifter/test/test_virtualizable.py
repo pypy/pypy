@@ -1,5 +1,5 @@
-from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_portal import PortalTest, P_OOPSPEC
+from pypy.jit.timeshifter.test.test_timeshift import StopAtXPolicy
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
 from pypy.rlib.objectmodel import hint
@@ -112,21 +112,6 @@ pq_get_q, pq_set_q = getset('q')
 E3 = lltype.GcStruct('e', ('pq', lltype.Ptr(PQ)),
                          ('w',  lltype.Signed))
 
-
-
-class StopAtXPolicy(HintAnnotatorPolicy):
-    def __init__(self, *funcs):
-        HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
-                                     oopspec=True)
-        self.funcs = funcs
-
-    def look_inside_graph(self, graph):
-        try:
-            if graph.func in self.funcs:
-                return False
-        except AttributeError:
-            pass
-        return True
 
 
 class TestVirtualizableExplicit(PortalTest):

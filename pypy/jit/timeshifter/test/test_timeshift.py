@@ -334,6 +334,21 @@ class TimeshiftingTests(object):
         assert count == expected_count
 
 
+class StopAtXPolicy(HintAnnotatorPolicy):
+    def __init__(self, *funcs):
+        HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
+                                     oopspec=True)
+        self.funcs = funcs
+
+    def look_inside_graph(self, graph):
+        try:
+            if graph.func in self.funcs:
+                return False
+        except AttributeError:
+            pass
+        return True
+
+
 class TestTimeshift(TimeshiftingTests):
 
     def test_simple_fixed(self):
@@ -1182,15 +1197,7 @@ class TestTimeshift(TimeshiftingTests):
         def f(x):
             return 2*g(x)
 
-        class StopAtGPolicy(HintAnnotatorPolicy):
-            novirtualcontainer = True
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'g':
-                    return False
-                return True
-
-        res = self.timeshift(f, [20], [], policy=StopAtGPolicy())
+        res = self.timeshift(f, [20], [], policy=StopAtXPolicy(g))
         assert res == 42
         self.check_insns(int_add=0)
 
@@ -1210,16 +1217,7 @@ class TestTimeshift(TimeshiftingTests):
             except ValueError:
                 return 7
 
-        class StopAtHPolicy(HintAnnotatorPolicy):
-            novirtualcontainer = True
-
-            def look_inside_graph(self, graph):
-                if graph.name == 'h':
-                    return False
-                return True
-
-        stop_at_h = StopAtHPolicy()
-
+        stop_at_h = StopAtXPolicy(h)
         res = self.timeshift(f, [20], [], policy=stop_at_h)
         assert res == 42
         self.check_insns(int_add=0)

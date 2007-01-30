@@ -1314,6 +1314,7 @@ class HintRTyper(RPythonTyper):
     def translate_op_green_call(self, hop):
         for r_arg in hop.args_r:
             assert isinstance(r_arg, GreenRepr)
+        assert isinstance(hop.r_result, GreenRepr)
         v = hop.genop('direct_call', hop.args_v, hop.r_result.lowleveltype)
         return v
 
