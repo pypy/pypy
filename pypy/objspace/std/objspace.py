@@ -324,19 +324,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_StringObject(x)
         if isinstance(x, unicode):
             return W_UnicodeObject([unichr(ord(u)) for u in x]) # xxx
-        if isinstance(x, dict):
-            items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
-            r = self.newdict()
-            r.initialize_content(items_w)
-            return r
         if isinstance(x, float):
             return W_FloatObject(x)
-        if isinstance(x, tuple):
-            wrappeditems = [self.wrap(item) for item in list(x)]
-            return W_TupleObject(wrappeditems)
-        if isinstance(x, list):
-            wrappeditems = [self.wrap(item) for item in x]
-            return W_ListObject(wrappeditems)
         if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
@@ -345,7 +334,24 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_LongObject.fromrarith_int(x)
 
         # _____ below here is where the annotator should not get _____
-        
+
+        # wrap() of a container works on CPython, but the code is
+        # not RPython.  Don't use -- it is kept around mostly for tests.
+        # Use instead newdict(), newlist(), newtuple().
+        if isinstance(x, dict):
+            items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
+            r = self.newdict()
+            r.initialize_content(items_w)
+            return r
+        if isinstance(x, tuple):
+            wrappeditems = [self.wrap(item) for item in list(x)]
+            return W_TupleObject(wrappeditems)
+        if isinstance(x, list):
+            wrappeditems = [self.wrap(item) for item in x]
+            return W_ListObject(wrappeditems)
+
+        # The following cases are even stranger.
+        # Really really only for tests.
         if isinstance(x, long):
             return W_LongObject.fromlong(x)
         if isinstance(x, slice):
