@@ -1177,11 +1177,7 @@ def to_byte_array(int_value):
         byte_array[i] = int_value & 0xff
         int_value = int_value >> 8
     if BIG_ENDIAN:
-        # Uhm, maybe there's a better way to reverse lists
-        byte_array_reversed = [0] * CODESIZE
-        for i in range(CODESIZE):
-            byte_array_reversed[-i-1] = byte_array[i]
-        byte_array = byte_array_reversed
+        byte_array.reverse()
     return byte_array
 
 set_dispatch_table = [
