@@ -24,7 +24,7 @@ def get_constructor(space, b_type, b_paramtypes):
     try:
         return b_type.GetConstructor(b_paramtypes)
     except AmbiguousMatchException:
-        msg = 'Multiple overloads for %s could match' % name
+        msg = 'Multiple constructors could match'
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
 def rewrap_args(space, w_args, startfrom):
@@ -84,6 +84,17 @@ def cli2py(space, b_obj):
         msg = "Can't convert object %s to Python" % str(b_obj.ToString())
         raise OperationError(space.w_TypeError, space.wrap(msg))
 
+def wrap_list_of_tuples(space, lst):
+    list_w = []
+    for (a,b,c) in lst:
+        items_w = [space.wrap(a), space.wrap(b), space.wrap(c)]
+        list_w.append(space.newtuple(items_w))
+    return space.newlist(list_w)
+
+def wrap_list_of_strings(space, lst):
+    list_w = [space.wrap(s) for s in lst]
+    return space.newlist(list_w)
+
 def load_cli_class(space, namespace, classname):
     fullname = '%s.%s' % (namespace, classname)
     b_type = System.Type.GetType(fullname)
@@ -116,10 +127,10 @@ def load_cli_class(space, namespace, classname):
         else:
             indexers.append((b_prop.get_Name(), get_name, set_name))
 
-    w_staticmethods = space.wrap(staticmethods)
-    w_methods = space.wrap(methods)
-    w_properties = space.newlist([space.wrap(item) for item in properties])
-    w_indexers = space.newlist([space.wrap(item) for item in indexers])
+    w_staticmethods = wrap_list_of_strings(space, staticmethods)
+    w_methods = wrap_list_of_strings(space, methods)
+    w_properties = wrap_list_of_tuples(space, properties)
+    w_indexers = wrap_list_of_tuples(space, indexers)
     return build_wrapper(space, space.wrap(namespace), space.wrap(classname),
                          w_staticmethods, w_methods, w_properties, w_indexers)
 load_cli_class.unwrap_spec = [ObjSpace, str, str]
@@ -138,7 +149,6 @@ def cli_object_new(space, w_subtype, typename, w_args):
     b_type = System.Type.GetType(typename)
     b_args, b_paramtypes = rewrap_args(space, w_args, 0)
     b_ctor = get_constructor(space, b_type, b_paramtypes)
-    #b_obj = b_ctor.Invoke(init_array(System.Object))
     try:
         b_obj = b_ctor.Invoke(b_args)
     except TargetInvocationException, e:
