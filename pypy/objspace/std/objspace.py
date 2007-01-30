@@ -96,7 +96,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 nargs = oparg & 0xff
                 w_function = w_value
                 try:
-                    w_result = f.space.call_valuestack(w_function, nargs, f.valuestack_w)
+                    w_result = f.space.call_valuestack(w_function, nargs, f)
                     # XXX XXX fix the problem of resume points!
                     #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
                 finally:
