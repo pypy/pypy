@@ -64,7 +64,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print "after no-op removal:"
         print_statistics(translator.graphs[0], translator)
 
-    if config.inline_threshold != 0:
+    if config.inline and config.inline_threshold != 0:
         heuristic = get_function(config.inline_heuristic)
         inline_malloc_removal_phase(config, translator, graphs,
                                     config.inline_threshold,

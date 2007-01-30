@@ -94,6 +94,8 @@ translation_optiondescription = OptionDescription(
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
+        BoolOption("inline", "Do basic inlining and malloc removal",
+                   default=True),
         FloatOption("inline_threshold", "Threshold when to inline functions",
                   default=DEFL_INLINE_THRESHOLD, cmdline="--inline-threshold"),
         StrOption("inline_heuristic", "Dotted name of an heuristic function "
