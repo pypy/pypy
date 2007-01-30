@@ -668,7 +668,6 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.arg(0)
     def read_frame_var(T, base, info, index):
-        # XXX assumes sizeof(T) == WORD
         v = info[index]
         if isinstance(v, StorageInStack):
             value = peek_word_at(base + v.get_offset())
@@ -680,7 +679,6 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.arg(0)
     def write_frame_place(T, base, place, value):
-        # XXX assumes sizeof(T) == WORD
         value = cast_whatever_to_int(T, value)
         poke_word_into(base + place.get_offset(), value)
 
