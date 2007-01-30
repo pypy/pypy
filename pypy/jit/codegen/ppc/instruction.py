@@ -438,6 +438,7 @@ class Jump(Insn):
         self.targetbuilder = targetbuilder
     def allocate(self, allocator):
         self.crf = allocator.loc_of(self.reg_args[0])
+        assert self.crf.info[0] != -1
 
         assert self.targetbuilder.initial_var2loc is None
         self.targetbuilder.initial_var2loc = {}
@@ -465,6 +466,7 @@ class Jump(Insn):
             asm.load_word(rSCRATCH, 0)
         asm.mtctr(rSCRATCH)
         bit, negated = self.crf.info
+        assert bit != -1
         if negated ^ self.jump_if_true:
             BO = 12 # jump if relavent bit is set in the CR
         else:
@@ -626,6 +628,11 @@ class Unspill(AllocTimeInsn):
         self.var = var
         self.reg = reg
         self.stack = stack
+        if not isinstance(self.reg, GPR):
+            assert isinstance(self.reg, CRF)
+            self.moveinsn = self.reg.move_from_gpr(None, 0)
+        else:
+            self.moveinsn = None
     def __repr__(self):
         return '<Spill-%d %s: %s, %s>'%(self._magic_index, self.var, self.reg, self.stack)
     def emit(self, asm):
@@ -634,9 +641,8 @@ class Unspill(AllocTimeInsn):
         else:
             r = 0
         asm.lwz(r, rFP, self.stack.offset)
-        if not isinstance(self.reg, GPR):
-            assert isinstance(self.reg, CRF)
-            self.reg.move_from_gpr(None, 0).emit(asm)
+        if self.moveinsn:
+            self.moveinsn.emit(asm)
 
 class Spill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."

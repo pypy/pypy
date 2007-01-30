@@ -102,10 +102,11 @@ class RegisterAllocation:
         self.spill(reg, argtospill)
 
         if DEBUG_PRINT:
-            print "allocate_reg: Spilled %r to %r." % (argtospill, self.loc_of(argtospill))
+            print "allocate_reg: Spilled %r from %r to %r." % (argtospill, reg, self.loc_of(argtospill))
 
         # update data structures to put newarg into the register
-        self.set(newarg, reg.alloc.make_loc())
+        reg = reg.alloc.make_loc()
+        self.set(newarg, reg)
         if DEBUG_PRINT:
             print "allocate_reg: Put %r in stolen reg %r." % (newarg, reg)
         return reg
@@ -140,17 +141,15 @@ class RegisterAllocation:
             if DEBUG_PRINT:
                 print "Processing instruction"
                 print insn
-                #print "with args", insn.reg_args, "and result", insn.result, ":"
-
-                #print "LRU list was:", self.lru
+                print "LRU list was:", self.lru
 
             # put things into the lru
             for arg in insn.reg_args:
                 self._promote(arg)
             if insn.result:
                 self._promote(insn.result)
-            #if DEBUG_PRINT:
-            #    print "LRU list is now:", self.lru
+            if DEBUG_PRINT:
+                print "LRU list is now:", self.lru
 
             # We need to allocate a register for each used
             # argument that is not already in one

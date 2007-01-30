@@ -1384,3 +1384,53 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(1, -58, -50)
         assert res == 1424339776
+
+    def test_from_random_2_direct(self):
+
+        # def dummyfn(counter, d, e):
+        #   a = not d
+        #   while counter:
+        #     d = a and e
+        #     counter -= 1
+        #   return intmask(d)
+
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        bool_kind = rgenop.kindToken(lltype.Bool)
+
+        builder0, gv_callable, [v0, v1, v2] = rgenop.newgraph(rgenop.sigToken(FUNC3), 'compiled_dummyfn')
+        builder0.start_writing()
+        v3 = builder0.genop1('int_is_true', v1)
+
+        builder1 = builder0.jump_if_true(v3, [v0, v1, v2])
+
+        args_gv = [v0, v1, v2, rgenop.genconst(1)]
+        label0 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, bool_kind], args_gv)
+        [v4, v5, v6, v7] = args_gv
+
+        v8 = builder0.genop1('int_is_true', v4)
+        builder2 = builder0.jump_if_false(v8, [v5])
+        builder3 = builder0.jump_if_false(v7, [v7, v6, v4])
+
+        args_gv = [v6, v6, v7, v4]
+        label1 = builder0.enter_next_block([signed_kind, signed_kind, bool_kind, signed_kind], args_gv)
+        [v9, v10, v11, v12] = args_gv
+
+        v13 = builder0.genop2('int_sub', v12, rgenop.genconst(1))
+        builder0.finish_and_goto([v13, v9, v10, v11], label0)
+
+        builder1.start_writing()
+        builder1.finish_and_goto([v0, v1, v2, rgenop.genconst(0)], label0)
+
+        builder3.start_writing()
+        v14 = builder3.genop1('cast_bool_to_int', v7)
+        builder3.finish_and_goto([v14, v6, v7, v4], label1)
+
+        builder2.start_writing()
+        builder2.finish_and_return(rgenop.sigToken(FUNC3), v5)
+        builder2.end()
+
+        fnptr = self.cast(gv_callable, 3)
+
+        res = fnptr(2, -89, -99)
+        assert res == 0
