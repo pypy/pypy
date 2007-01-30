@@ -72,7 +72,7 @@ def main(argv=None):
         loadjs(interp.global_context, [W_String(filename)], None)
 
     while interactive:
-        res = interp.run(load_source(raw_input("pypy-js> ")))
+        res = interp.run(load_source(raw_input("js-pypy> ")))
         if res is not None:
             print res
 
