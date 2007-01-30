@@ -354,18 +354,21 @@ class Builder(GenBuilder):
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def enter_next_block(self, kinds, args_gv):
+        if DEBUG_PRINT:
+            print 'enter_next_block1', args_gv
         seen = {}
         for i in range(len(args_gv)):
             gv = args_gv[i]
             if isinstance(gv, Var):
-                if gv in seen:
-                    new_gv = self._arg_op(gv, _PPC.mr)
-                    args_gv[i] = new_gv
-                seen[gv] = True
+                new_gv = self._arg_op(gv, _PPC.mr)
+                args_gv[i] = new_gv
             else:
                 new_gv = Var()
                 gv.load(self.insns, new_gv)
                 args_gv[i] = new_gv
+
+        if DEBUG_PRINT:
+            print 'enter_next_block2', args_gv
 
         r = Label(args_gv)
         self.insns.append(insn.Label(r))
