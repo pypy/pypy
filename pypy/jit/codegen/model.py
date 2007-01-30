@@ -474,3 +474,9 @@ class ReplayBuilder(GenBuilder):
 
     def get_frame_info(self, vars_gv):
         return None
+
+    def alloc_frame_place(self, kind, gv_initial_value):
+        return None
+
+    def genop_absorb_place(self, kind, place):
+        return dummy_var
