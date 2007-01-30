@@ -35,6 +35,7 @@ class TestTLC(PortalTest):
                                          [bytecode, 0, n],
                                          policy=P_OOPSPEC)#, backendoptimize=True)
         assert res == expected
+        self.check_insns(malloc=1)
 
     def test_nth_item(self):
         # get the nth item of a chained list
