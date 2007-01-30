@@ -1,5 +1,5 @@
 import operator
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import cachedtype, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import base_ptr_lltype, cast_instance_to_base_ptr
 from pypy.jit.timeshifter import rvalue
@@ -7,7 +7,8 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.timeshifter import rvirtualizable
 
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import lloperation, llmemory
+
+from pypy.rpython.lltypesystem import lloperation
 debug_print = lloperation.llop.debug_print
 debug_pdb = lloperation.llop.debug_pdb
 
@@ -26,6 +27,11 @@ class AbstractContainer(object):
 
 class VirtualContainer(AbstractContainer):
     _attrs_ = []
+
+    allowed_in_virtualizable = False
+
+    def setforced(self, _):
+        raise NotImplementedError
 
 
 class FrozenContainer(AbstractContainer):
@@ -53,7 +59,7 @@ class StructTypeDesc(object):
                     fielddescs fielddesc_by_name
                     immutable noidentity
                     materialize
-                    fill_into
+                    devirtualize
                  """.split()
                             
 
@@ -82,7 +88,7 @@ class StructTypeDesc(object):
         self.gv_null = RGenOp.constPrebuiltGlobal(self.null)
 
         self._compute_fielddescs(hrtyper)
-        self._define_fill_into()
+        self._define_devirtualize()
         if self.immutable and self.noidentity:
             self._define_materialize()
         
@@ -118,17 +124,26 @@ class StructTypeDesc(object):
         self.fielddesc_by_name = fielddesc_by_name
         self.innermostdesc = innermostdesc        
 
-    def _define_fill_into(self):
+    def _define_devirtualize(self):
+        TYPE = self.TYPE
+        PTRTYPE = self.PTRTYPE
         descs = unrolling_iterable(self.fielddescs)
+
+        def make(vrti):
+            s = lltype.malloc(TYPE)
+            s = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            return s
+        
         def fill_into(vablerti, s, base, vrti):
+            s = lltype.cast_opaque_ptr(PTRTYPE, s)
             i = 0
             for desc in descs:
                 v = vrti._read_field(vablerti, desc, base, i)
-                i += 1
                 tgt = lltype.cast_pointer(desc.PTRTYPE, s)
                 setattr(tgt, desc.fieldname, v)
-                
-        self.fill_into = fill_into
+                i = i + 1
+
+        self.devirtualize = make, fill_into
 
     def _define_materialize(self):
         TYPE = self.TYPE
@@ -139,7 +154,8 @@ class StructTypeDesc(object):
             i = 0
             for desc in descs:
                 v = rvalue.ll_getvalue(boxes[i], desc.RESTYPE)
-                setattr(s, desc.fieldname, v)
+                tgt = lltype.cast_pointer(desc.PTRTYPE, s)
+                setattr(tgt, desc.fieldname, v)
                 i = i + 1
             return rgenop.genconst(s)
 
@@ -230,7 +246,7 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         self._define_access_is_null(hrtyper)
 
 
-    def _define_fill_into(self):
+    def _define_virtual_desc(self):
         pass
 
     def _define_getset_field_ptr(self, hrtyper, fielddesc, j):
@@ -324,6 +340,8 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
 # XXX basic field descs for now
 class FieldDesc(object):
     __metaclass__ = cachedtype
+    _attrs_ = 'structdesc'
+    
     allow_void = False
     virtualizable = False
     gv_default = None
@@ -343,7 +361,7 @@ class FieldDesc(object):
                 self.virtualizable = T._hints.get('virtualizable', False)
             self.gcref = T._gckind == 'gc'
             if isinstance(T, lltype.ContainerType):
-                if not T._is_varsize():
+                if not T._is_varsize() or hasattr(T, 'll_newlist'):
                     self.canbevirtual = True
             else:
                 T = None
@@ -355,18 +373,11 @@ class FieldDesc(object):
         if RESTYPE is lltype.Void and self.allow_void:
             pass   # no redboxcls at all
         elif self.virtualizable:
-            pass
+            self.structdesc = StructTypeDesc(hrtyper, T)
         else:
             self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
-
-        if T is not None and isinstance(T, lltype.Struct): # xxx for now
-            self.structdesc = StructTypeDesc(hrtyper, T)
             
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
-
-    def _get_fill_into(self):
-        return self.structdesc.fill_into
-    fill_into = property(_get_fill_into)
 
     def _freeze_(self):
         return True
@@ -485,6 +496,8 @@ class FrozenVirtualStruct(FrozenContainer):
 class VirtualStruct(VirtualContainer):
     _attrs_ = "typedesc content_boxes ownbox".split()
 
+    allowed_in_virtualizable = True
+    
     def __init__(self, typedesc):
         self.typedesc = typedesc
         #self.content_boxes = ... set in factory()
@@ -497,6 +510,11 @@ class VirtualStruct(VirtualContainer):
             for box in self.content_boxes:
                 box.enter_block(incoming, memo)
 
+    def setforced(self, gv_forced):
+        self.content_boxes = None
+        self.ownbox.genvar = gv_forced
+        self.ownbox.content = None
+        
     def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
         builder = jitstate.curbuilder
@@ -515,8 +533,7 @@ class VirtualStruct(VirtualContainer):
         #debug_pdb(lltype.Void)
         genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
         # force the box pointing to this VirtualStruct
-        self.ownbox.genvar = genvar
-        self.ownbox.content = None
+        self.setforced(genvar)
         fielddescs = typedesc.fielddescs
         for i in range(len(fielddescs)):
             fielddesc = fielddescs[i]
@@ -568,7 +585,8 @@ class VirtualStruct(VirtualContainer):
         bitmask = 1 << memo.bitcount
         memo.bitcount += 1
         rgenop = jitstate.curbuilder.rgenop
-        vrti = rvirtualizable.VirtualStructRTI(rgenop, bitmask)
+        vrti = rvirtualizable.VirtualRTI(rgenop, bitmask)
+        vrti.devirtualize = typedesc.devirtualize
         memo.containers[self] = vrti
 
         builder = jitstate.curbuilder
@@ -590,7 +608,7 @@ class VirtualStruct(VirtualContainer):
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
-                assert isinstance(content, VirtualStruct) # XXX for now
+                assert content.allowed_in_virtualizable                
                 vrtis.append(content.make_rti(jitstate, memo))
                 j -= 1
 
@@ -618,7 +636,7 @@ class VirtualStruct(VirtualContainer):
             if not box.genvar:
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
-                assert isinstance(content, VirtualStruct) # xxx for now
+                assert content.allowed_in_virtualizable
                 content.reshape(jitstate, shapemask, memo)
 
 class VirtualizableStruct(VirtualStruct):
@@ -695,7 +713,7 @@ class VirtualizableStruct(VirtualStruct):
                 varindexes.append(j)
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
-                assert isinstance(content, VirtualStruct) # XXX for now
+                assert content.allowed_in_virtualizable
                 vrtis.append(content.make_rti(jitstate, memo))
                 j -= 1
 
@@ -752,7 +770,7 @@ class VirtualizableStruct(VirtualStruct):
                 nvirtual += 1
                 assert isinstance(box, rvalue.PtrRedBox)
                 content = box.content
-                assert isinstance(content, VirtualStruct) # xxx for now
+                assert content.allowed_in_virtualizable
                 content.reshape(jitstate, shapemask, memo)
 
         bitmask = 1 << memo.bitcount

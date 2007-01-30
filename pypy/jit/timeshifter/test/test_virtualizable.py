@@ -1072,3 +1072,70 @@ class TestVirtualizableImplicit(PortalTest):
         assert res == main()
 
 
+        
+    def test_virtual_list(self):
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, l):
+                self.l = l
+
+        def g(v):
+            l = v.l
+            x = l[0]
+            y = l[1]
+            l[0] = y
+            l[1] = x
+            v.l = [x*100, y*100]
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            l = [1, 10]
+            v.l = l
+            g(v)
+            l2 = v.l
+            return l[0]*2 + l[1] + l2[0] * 2 + l2[1]
+
+        def main():
+            v = V(None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == 20 + 1 + 200 + 1000
+
+    def test_virtual_list_and_struct(self):
+        class S(object):
+            def __init__(self, x, y):
+                self.x = x
+                self.y = y
+
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, l, s):
+                self.l = l
+                self.s = s
+        def g(v):
+            l = v.l
+            x = l[0]
+            y = l[1]
+            l[0] = y
+            l[1] = x
+            v.l = [x*100, y*100]
+            
+        def f(v):
+            hint(None, global_merge_point=True)
+            l = [1, 10]
+            s = S(3, 7)
+            v.l = l
+            v.s = s
+            g(v)
+            l2 = v.l
+            s2 = v.s
+            return l[0]*2 + l[1] + l2[0] * 2 + l2[1] + s.x * 7 + s.y + s2.x * 7 + s2.y 
+
+        def main():
+            v = V(None, None)
+            return f(v)
+
+        res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
+        assert res == main()
+

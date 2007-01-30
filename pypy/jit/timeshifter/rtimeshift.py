@@ -961,10 +961,8 @@ class JITState(object):
                 content.reshape(self, shapemask, memo)
 
             if shapemask:
-                for vstruct, gv_ptr in memo.forced:
-                    vstruct.content_boxes = None
-                    vstruct.ownbox.genvar = gv_ptr
-                    vstruct.ownbox.content = None
+                for vcontainer, gv_ptr in memo.forced:
+                    vcontainer.setforced(gv_ptr)
                 
     def freeze(self, memo):
         result = FrozenJITState()

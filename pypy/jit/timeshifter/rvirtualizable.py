@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
+from pypy.rpython.annlowlevel import cachedtype
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rlib.unroll import unrolling_iterable
@@ -70,7 +71,7 @@ def define_getset_field_ptrs(fielddesc, j):
             (get_field_touched,   set_field_touched))
 
 
-class VirtualRTI(object):
+class RTI(object):
     _attrs_ = 'rgenop varindexes vrtis bitmask'.split()
     
     def __init__(self, rgenop, bitmask):
@@ -87,15 +88,14 @@ class VirtualRTI(object):
         index = -frameindex-1
         assert index >= 0
         vrti = self.vrtis[index]
-        assert isinstance(T, lltype.Ptr)
         assert fielddesc.canbevirtual
         assert fielddesc.gcref
-        assert isinstance(vrti, VirtualStructRTI)
+        assert isinstance(vrti, VirtualRTI)
         return vrti._get_forced(vablerti, fielddesc, base)
     _read_field._annspecialcase_ = "specialize:arg(2)"
 
 
-class VirtualizableRTI(VirtualRTI):
+class VirtualizableRTI(RTI):
     _attrs_ = "frameinfo touch_update shape_place".split()
 
     def is_field_virtual(self, base, index):
@@ -105,7 +105,7 @@ class VirtualizableRTI(VirtualRTI):
         index = -frameindex-1
         assert index >= 0
         vrti = self.vrtis[index]
-        assert isinstance(vrti, VirtualStructRTI)
+        assert isinstance(vrti, VirtualRTI)
         return vrti._is_virtual(self.get_shape(base))       
 
     def read_frame_var(self, T, base, frameindex):
@@ -139,23 +139,26 @@ class VirtualizableRTI(VirtualRTI):
         self.set_shape(base, bitmask | self.get_shape(base))
 
 
-class VirtualStructRTI(VirtualRTI):
-    _attrs_ = "forced_place"
+class VirtualRTI(RTI):
+    _attrs_ = "forced_place devirtualize".split()
 
-    def _get_forced(self, vablerti, fielddesc, base):
-        T = fielddesc.RESTYPE
+    def _get_forced(self, vablerti, elemdesc, base):
+        T = elemdesc.RESTYPE
         assert isinstance(T, lltype.Ptr)
         shapemask = vablerti.get_shape(base)
         bitmask = self.bitmask
         if bitmask & shapemask:
             return self.rgenop.read_frame_place(T, base, self.forced_place)
-        S = T.TO
-        s = lltype.malloc(S)
-        self.rgenop.write_frame_place(T, base, self.forced_place, s)
+        make, fill_into = self.devirtualize
+        cref = make(self)
+        c = lltype.cast_opaque_ptr(T, cref)        
+        self.rgenop.write_frame_place(T, base, self.forced_place, c)
         vablerti.set_shape(base, shapemask| bitmask)
-        fielddesc.fill_into(vablerti, s, base, self)
-        return s
+        fill_into(vablerti, cref, base, self)
+        return c
     _get_forced._annspecialcase_ = "specialize:arg(2)"
 
     def _is_virtual(self, shapemask):
         return bool(self.bitmask & shapemask)
+
+

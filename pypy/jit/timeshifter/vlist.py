@@ -1,8 +1,25 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.timeshifter.rcontainer import VirtualContainer, FrozenContainer
 from pypy.jit.timeshifter.rcontainer import cachedtype
-from pypy.jit.timeshifter import rvalue
+from pypy.jit.timeshifter import rvalue, rvirtualizable
 
+
+class ItemDesc(object):
+    __metaclass__ = cachedtype
+    gcref = False
+    canbevirtual = False
+
+    def _freeze_(self):
+        return True
+
+    def __init__(self, ITEM):
+        self.RESTYPE = ITEM
+        if isinstance(ITEM, lltype.Ptr):
+            T = ITEM.TO
+            self.gcref = T._gckind == 'gc'
+            if isinstance(T, lltype.ContainerType):
+                if not T._is_varsize():
+                    self.canbevirtual = True
 
 class ListTypeDesc(object):
     __metaclass__ = cachedtype
@@ -13,6 +30,8 @@ class ListTypeDesc(object):
         self.LIST = LIST
         self.LISTPTR = lltype.Ptr(LIST)
         self.ptrkind = RGenOp.kindToken(self.LISTPTR)
+        self.null = self.LISTPTR._defl()
+        self.gv_null = RGenOp.constPrebuiltGlobal(self.null)
 
         argtypes = [lltype.Signed]
         ll_newlist_ptr = rtyper.annotate_helper_fn(LIST.ll_newlist,
@@ -26,6 +45,27 @@ class ListTypeDesc(object):
         self.gv_ll_setitem_fast = RGenOp.constPrebuiltGlobal(ll_setitem_fast)
         self.tok_ll_setitem_fast = RGenOp.sigToken(
             lltype.typeOf(ll_setitem_fast).TO)
+
+        self._define_devirtualize()
+
+    def _define_devirtualize(self):
+        LIST = self.LIST
+        LISTPTR = self.LISTPTR
+        itemdesc = ItemDesc(LIST.ITEM)
+
+        def make(vrti):
+            n = len(vrti.varindexes)
+            l = LIST.ll_newlist(n)
+            return lltype.cast_opaque_ptr(llmemory.GCREF, l)
+        
+        def fill_into(vablerti, l, base, vrti):
+            l = lltype.cast_opaque_ptr(LISTPTR, l)
+            n = len(vrti.varindexes)
+            for i in range(n):
+                v = vrti._read_field(vablerti, itemdesc, base, i)
+                l.ll_setitem_fast(i, v)
+
+        self.devirtualize = make, fill_into
 
     def _freeze_(self):
         return True
@@ -95,6 +135,8 @@ class FrozenVirtualList(FrozenContainer):
 
 class VirtualList(VirtualContainer):
 
+    allowed_in_virtualizable = True
+
     def __init__(self, typedesc, length=0, itembox=None):
         self.typedesc = typedesc
         self.item_boxes = [itembox] * length
@@ -107,6 +149,11 @@ class VirtualList(VirtualContainer):
             for box in self.item_boxes:
                 box.enter_block(incoming, memo)
 
+    def setforced(self, gv_forced):
+        self.item_boxes = None
+        self.ownbox.genvar = gv_forced
+        self.ownbox.content = None        
+
     def force_runtime_container(self, jitstate):
         typedesc = self.typedesc
         builder = jitstate.curbuilder
@@ -117,8 +164,8 @@ class VirtualList(VirtualContainer):
         gv_list = builder.genop_call(typedesc.tok_ll_newlist,
                                      typedesc.gv_ll_newlist,
                                      args_gv)
-        self.ownbox.genvar = gv_list
-        self.ownbox.content = None
+        self.setforced(gv_list)
+
         for i in range(len(boxes)):
             gv_item = boxes[i].getgenvar(jitstate)
             args_gv = [gv_list, builder.rgenop.genconst(i), gv_item]
@@ -154,6 +201,70 @@ class VirtualList(VirtualContainer):
             for i in range(len(self.item_boxes)):
                 self.item_boxes[i] = self.item_boxes[i].replace(memo)
             self.ownbox = self.ownbox.replace(memo)
+
+
+    def make_rti(self, jitstate, memo):
+        try:
+            return memo.containers[self]
+        except KeyError:
+            pass
+        typedesc = self.typedesc
+        bitmask = 1 << memo.bitcount
+        memo.bitcount += 1
+        rgenop = jitstate.curbuilder.rgenop
+        vrti = rvirtualizable.VirtualRTI(rgenop, bitmask)
+        vrti.devirtualize = typedesc.devirtualize
+        memo.containers[self] = vrti
+
+        builder = jitstate.curbuilder
+        place = builder.alloc_frame_place(typedesc.ptrkind,
+                                          typedesc.gv_null)
+        gv_forced = builder.genop_absorb_place(typedesc.ptrkind, place)
+        vrti.forced_place = place
+
+        vars_gv = memo.framevars_gv
+        varindexes = vrti.varindexes
+        vrtis = vrti.vrtis
+        j = -1
+        for box in self.item_boxes:
+            if box.genvar:
+                varindexes.append(memo.frameindex)
+                memo.frameindex += 1
+                vars_gv.append(box.genvar)
+            else:
+                varindexes.append(j)
+                assert isinstance(box, rvalue.PtrRedBox)
+                content = box.content
+                assert content.allowed_in_virtualizable
+                vrtis.append(content.make_rti(jitstate, memo))
+                j -= 1
+
+        self.item_boxes.append(rvalue.PtrRedBox(typedesc.ptrkind,
+                                                   gv_forced))
+                
+        return vrti
+
+    def reshape(self, jitstate, shapemask, memo):
+        if self in memo.containers:
+            return
+        typedesc = self.typedesc
+        builder = jitstate.curbuilder        
+        memo.containers[self] = None
+        bitmask = 1<<memo.bitcount
+        memo.bitcount += 1
+
+        boxes = self.item_boxes
+        outside_box = boxes.pop()
+        if bitmask&shapemask:
+            gv_forced = outside_box.genvar
+            memo.forced.append((self, gv_forced))
+            
+        for box in boxes:
+            if not box.genvar:
+                assert isinstance(box, rvalue.PtrRedBox)
+                content = box.content
+                assert content.allowed_in_virtualizable
+                content.reshape(jitstate, shapemask, memo)
 
 
 def oop_newlist(jitstate, oopspecdesc, lengthbox, itembox=None):
