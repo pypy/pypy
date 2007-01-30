@@ -1347,7 +1347,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         [v3, v4] = args_gv
         v5 = builder0.genop1('int_is_true', v4)
         builder1 = builder0.jump_if_true(v5, [v3, v4])
-        args_gv = [v3, v4, rgenop.genconst(1)]
+        args_gv = [v3, v4, rgenop.genconst(True)]
         label1 = builder0.enter_next_block([signed_kind, signed_kind, bool_kind], args_gv)
         [v6, v7, v8] = args_gv
         v9 = builder0.genop1('int_is_true', v7)
@@ -1374,7 +1374,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         builder3.finish_and_return(rgenop.sigToken(FUNC3), v19)
 
         builder1.start_writing()
-        builder1.finish_and_goto([v3, v4, rgenop.genconst(0)], label1)
+        builder1.finish_and_goto([v3, v4, rgenop.genconst(False)], label1)
 
         builder4.start_writing()
         builder4.finish_and_goto([v8, v7], label2)
