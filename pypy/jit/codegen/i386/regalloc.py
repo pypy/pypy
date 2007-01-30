@@ -92,7 +92,7 @@ class RegAllocator(object):
     def using_cc(self, v):
         assert isinstance(v, Operation)
         assert 0 <= v.cc_result < INSN_JMP
-        if self.need_var_in_cc is not None:
+        if self.need_var_in_cc is not None and self.need_var_in_cc is not v:
             self.save_cc()
         self.need_var_in_cc = v
 
@@ -103,7 +103,8 @@ class RegAllocator(object):
         self.operationindex = len(operations)
         for i in range(len(operations)-1, -1, -1):
             v = operations[i]
-            if self.need_var_in_cc is not None and v.clobbers_cc:
+            if (self.need_var_in_cc is not None and
+                self.need_var_in_cc is not v and v.clobbers_cc):
                 self.save_cc()
             kind = v.result_kind
             if kind == RK_WORD:
