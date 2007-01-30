@@ -432,4 +432,10 @@ class RDumpGenOp(llrgenop.RGenOp):
         RDumpGenOp.dump("# write_frame_place(place=%s)" % (place,))
         llrgenop.RGenOp.write_frame_place(T, base, place, value)
 
+    @staticmethod
+    @specialize.arg(0)
+    def read_frame_place(T, base, place):
+        RDumpGenOp.dump("# read_frame_place(place=%s)" % (place,))
+        return llrgenop.RGenOp.read_frame_place(T, base, place)
+
 kindtokennames = {}
