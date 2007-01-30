@@ -702,3 +702,32 @@ def test_green_isinstance():
 
     hs = hannotate(f, [Base], policy=P_OOPSPEC_NOVIRTUAL)
     assert hs.is_green()
+
+
+def test_cast_pointer_keeps_deepfreeze():
+    py.test.skip("does not work")
+
+    class A(object):
+        pass
+    class B(A):
+        pass
+    
+    def getinstance(n):
+        if n:
+            return A()
+        else:
+            return B()
+    
+    def ll_function(n):
+        a = getinstance(n)
+        a = hint(a, promote=True)
+        a = hint(a, deepfreeze=True)
+
+        if isinstance(a, B):
+            return a
+        return None
+
+    hs = hannotate(ll_function, [int], policy=P_NOVIRTUAL)
+    assert hs.deepfrozen
+
+
