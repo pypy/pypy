@@ -34,7 +34,7 @@ def emit_moves(gen, tar2src, tar2loc, src2loc):
     #   node's move and return.
 
     tarvars = tar2src.keys()
-    
+
     data = CycleData()
     data.tar2src = tar2src
     data.src2tar = {}
@@ -55,18 +55,15 @@ def emit_moves(gen, tar2src, tar2loc, src2loc):
     for tarvar in tarvars:
         if data.tar2loc[tarvar] != data.src2loc[data.tar2src[tarvar]]:
             _cycle_walk(gen, tarvar, data)
-            
+
     return data
 
 def _cycle_walk(gen, tarvar, data):
 
     if tarvar in data.emitted: return
 
-    #print "tarvar in data.tar2loc", tarvar in data.tar2loc
     tarloc = data.tar2loc[tarvar]
-    #print "tarvar in data.tar2src", tarvar in data.tar2src
     srcvar = data.tar2src[tarvar]
-    #print "srcvar in data.src2loc", srcvar, srcvar in data.src2loc
     srcloc = data.src2loc[srcvar]
 
     # if location we are about to write to is not going to be read
@@ -77,24 +74,20 @@ def _cycle_walk(gen, tarvar, data):
         return
 
     # Find source node that conflicts with us
-    #print "tarloc in data.loc2src", tarloc in data.loc2src
     conflictsrcvar = data.loc2src[tarloc]
 
     if conflictsrcvar not in data.srcstack:
         # No cycle on our stack yet
         data.srcstack.append(srcvar)
-        #print "conflictsrcvar in data.src2tar", conflictsrcvar in data.src2tar
         _cycle_walk(gen, data.src2tar[conflictsrcvar], data)
-        #print "srcvar in data.src2loc", srcvar in data.src2loc
         srcloc = data.src2loc[srcvar] # warning: may have changed, so reload
         gen.emit_move(tarloc, srcloc)
         data.emitted.append(tarvar)
-        return 
-    
+        return
+
     # Cycle detected, break it by moving the other node's source data
     # somewhere else so we can overwrite it
     freshloc = gen.create_fresh_location()
-    #print "conflictsrcvar in data.src2loc", conflictsrcvar in data.src2loc
     conflictsrcloc = data.src2loc[conflictsrcvar]
     gen.emit_move(freshloc, conflictsrcloc)
     data.src2loc[conflictsrcvar] = freshloc
