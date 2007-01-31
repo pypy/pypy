@@ -97,6 +97,11 @@ class Query(Target):
         Target.compile.im_func(cls, sources, out)
     compile = classmethod(compile)
 
+class Support(Target):
+    SOURCES = ['support.cs']
+    OUTPUT = 'support.dll'
+    FLAGS = ['/t:library']
+
 def get_pypy_dll():
     if os.environ.get('PYPYLIB', '').lower() == 'unix':
         DLL = UnixDLL

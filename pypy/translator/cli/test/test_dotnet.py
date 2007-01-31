@@ -124,6 +124,27 @@ class TestDotnetAnnotation(object):
         assert isinstance(s, annmodel.SomeOOInstance)
         assert s.can_be_None == True
 
+    def test_box_instance(self):
+        class Foo:
+            pass
+        def fn():
+            return box(Foo())
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeOOInstance)
+        assert s.ootype._name == '[mscorlib]System.Object'
+
+    def test_unbox_instance(self):
+        class Foo:
+            pass
+        def fn():
+            boxed = box(Foo())
+            return unbox(boxed, Foo)
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef.name.endswith('Foo')
+
 
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self, msg):
@@ -313,6 +334,29 @@ class TestDotnetRtyping(CliTest):
             return g(x)
         res = self.interpret(fn, [1])
         assert res is None
+
+    def test_box_unbox_instance(self):
+        class Foo:
+            pass
+        def fn():
+            obj = Foo()
+            b_obj = box(obj)
+            obj2 = unbox(b_obj, Foo)
+            return obj is obj2
+        res = self.interpret(fn, [])
+        assert res is True
+
+    def test_instance_wrapping(self):
+        class Foo:
+            pass
+        def fn():
+            obj = Foo()
+            x = ArrayList()
+            x.Add(box(obj))
+            obj2 = unbox(x.get_Item(0), Foo)
+            return obj is obj2
+        res = self.interpret(fn, [])
+        assert res is True
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

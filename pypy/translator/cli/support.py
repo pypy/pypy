@@ -1,12 +1,14 @@
 import py
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.cli.rte import Support
 
 from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("cli") 
+log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 
 try:
     import CLR as PythonNet
+    PythonNet.System.Reflection.Assembly.LoadFile(Support.get())
 except ImportError:
     class _PythonNet:
         __name__ = None

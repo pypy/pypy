@@ -289,6 +289,20 @@ BOXABLE_TYPES = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
                  ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
                  ootype.Char, ootype.String]
 
+class BoxedSpace:
+    objects = {}
+    index = 0
+    def put(cls, obj):
+        index = cls.index
+        cls.objects[index] = obj
+        cls.index += 1
+        return index
+    put = classmethod(put)
+
+    def get(cls, index):
+        return cls.objects[index]
+    get = classmethod(get)
+
 def box(x):
     t = type(x)
     if t is int:
@@ -310,12 +324,25 @@ def box(x):
             return CLR.System.String(x)
     elif isinstance(x, PythonNet.System.Object):
         return x
+    elif x is None:
+        return None
     else:
-        assert False
+        # cast RPython instances to System.Object is trivial when
+        # translated but not when interpreting, because Python for
+        # .NET doesn't support passing aribrary Python objects to
+        # .NET. To solve, we store them in the BoxedSpace, then we
+        # return an opaque objects, which will be used by unbox to
+        # retrieve the original RPython instance.
+        index = BoxedSpace.put(x)
+        res = PythonNet.pypy.test.ObjectWrapper(index)
+        return res
 
 def unbox(x, TYPE):
     # TODO: check that x is really of type TYPE
-    
+
+    if isinstance(x, PythonNet.pypy.test.ObjectWrapper):
+        return BoxedSpace.get(x.index)
+
     # this is a workaround against a pythonnet limitation: you can't
     # directly get the, e.g., python int from the System.Int32 object:
     # a simple way to do this is to put it into an ArrayList and
@@ -336,7 +363,7 @@ class Entry(ExtRegistryEntry):
 
         hop.exception_cannot_occur()
         TYPE = v_obj.concretetype
-        if (TYPE is ootype.String or isinstance(TYPE, NativeInstance)):
+        if (TYPE is ootype.String or isinstance(TYPE, (ootype.Instance, ootype.BuiltinType, NativeInstance))):
             return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
         else:
             if TYPE not in BOXABLE_TYPES:
@@ -352,12 +379,17 @@ class Entry(ExtRegistryEntry):
         assert x_s.ootype == CLR.System.Object._INSTANCE
         assert type_s.is_constant()
         TYPE = type_s.const
-        assert TYPE in BOXABLE_TYPES
-        return OverloadingResolver.lltype_to_annotation(TYPE)
+        if isinstance(TYPE, (type, types.ClassType)):
+            # it's a user-defined class, so we return SomeInstance
+            classdef = self.bookkeeper.getuniqueclassdef(TYPE)
+            return SomeInstance(classdef, can_be_None=x_s.can_be_None)
+        else:
+            assert TYPE in BOXABLE_TYPES
+            return OverloadingResolver.lltype_to_annotation(TYPE)
 
     def specialize_call(self, hop):
         v_obj, v_type = hop.inputargs(*hop.args_r)
-        if v_type.value is ootype.String:
+        if v_type.value is ootype.String or isinstance(v_type.value, (type, types.ClassType)):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
         else:
             return hop.genop('cliunbox', [v_obj, v_type], hop.r_result.lowleveltype)
