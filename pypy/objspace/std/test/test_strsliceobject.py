@@ -2,23 +2,32 @@ import autopath, py
 
 from pypy.objspace.std.test import test_stringobject
 from pypy.conftest import gettestobjspace
+from pypy.interpreter import gateway
+from pypy.objspace.std.strsliceobject import W_StringSliceObject
 
 class AppTestStringObject(test_stringobject.AppTestStringObject):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withstrslice": True})
+        def not_forced(space, w_s):
+            return space.wrap(isinstance(w_s, W_StringSliceObject) and
+                              (w_s.start != 0 or w_s.stop != len(w_s.str)))
+        cls.w_not_forced = cls.space.wrap(gateway.interp2app(not_forced))
 
     def test_basic(self):
         import pypymagic
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('0123456789' * 20)
         assert len(s) == 200
+        assert self.not_forced(s)
         assert s[5] == '5'
         assert s[-2] == '8'
         assert s[3:7] == '3456'
         assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         # when the slice is too short, don't use the slice string object
         assert 'W_StringObject' in pypymagic.pypy_repr("abcdefgh"[3:7])
+        s2 = s.upper()
+        assert not self.not_forced(s)
 
     def test_find(self):
         import pypymagic
@@ -100,3 +109,27 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         s = slice('a' * 101)
         assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
+
+    def test_split_produces_strslices(self):
+        import pypymagic
+        l = ("X" * 100 + "," + "Y" * 100).split(",")
+        assert "W_StringSliceObject" in pypymagic.pypy_repr(l[0])
+        assert "W_StringSliceObject" in pypymagic.pypy_repr(l[1])
+
+    def test_strip_produces_strslices(self):
+        import pypymagic
+        s = ("abc" + "X" * 100 + "," + "Y" * 100 + "abc").strip("abc")
+        assert "W_StringSliceObject" in pypymagic.pypy_repr(s)
+
+    def test_splitlines_produces_strslices(self):
+        import pypymagic
+        l = ("X" * 100 + "\n" + "Y" * 100).splitlines()
+        assert "W_StringSliceObject" in pypymagic.pypy_repr(l[0])
+        assert "W_StringSliceObject" in pypymagic.pypy_repr(l[1])
+
+    def test_count_does_not_force(self):
+        def slice(s): return (s*3)[len(s):-len(s)]
+        s = slice("X" * 100 + "\n" + "Y" * 100)
+        assert s.count("X") == 100
+        assert s.count("Y") == 100
+        assert self.not_forced(s)

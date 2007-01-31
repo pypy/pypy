@@ -228,7 +228,7 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(W_StringObject(value[i:j]))
+        res_w.append(sliced(space, value, i, j))
 
         # continue to look from the character following the space after the word
         i = j + 1
@@ -250,11 +250,11 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         next = value.find(by, start)
         if next < 0:
             break
-        res_w.append(W_StringObject(value[start:next]))
+        res_w.append(sliced(space, value, start, next))
         start = next + bylen
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-    res_w.append(W_StringObject(value[start:]))
+    res_w.append(sliced(space, value, start, len(value)))
 
     return W_ListObject(res_w)
 
@@ -285,7 +285,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         # the word is value[j+1:i+1]
         j1 = j + 1
         assert j1 >= 0
-        res_w.append(W_StringObject(value[j1:i+1]))
+        res_w.append(sliced(space, value, j1, i+1))
 
         # continue to look from the character before the space before the word
         i = j - 1
@@ -307,11 +307,11 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         next = value.rfind(by, 0, end)
         if next < 0:
             break
-        res_w.append(W_StringObject(value[next+bylen:end]))
+        res_w.append(sliced(space, value, next+bylen, end))
         end = next
         maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-    res_w.append(W_StringObject(value[:end]))
+    res_w.append(sliced(space, value, 0, end))
     res_w.reverse()
     return W_ListObject(res_w)
 
@@ -559,7 +559,7 @@ def _strip(space, w_self, w_chars, left, right):
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
-    return space.wrap(u_self[lpos:rpos])
+    return sliced(space, u_self, lpos, rpos)
 
 def _strip_none(space, w_self, left, right):
     "internal function called by str_xstrip methods"
@@ -578,7 +578,7 @@ def _strip_none(space, w_self, left, right):
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
-    return space.wrap(u_self[lpos:rpos])
+    return sliced(space, u_self, lpos, rpos)
 
 def str_strip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=1)
@@ -703,7 +703,7 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
     u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
     selflen = len(data)
     
-    L = []
+    strs_w = []
     i = j = 0
     while i < selflen:
         # Find a line and append it
@@ -716,13 +716,13 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
             i += 1
         if u_keepends:
             eol = i
-        L.append(W_StringObject(data[j:eol]))
+        strs_w.append(sliced(space, data, j, eol))
         j = i
 
     if j < selflen:
-        L.append(W_StringObject(data[j:]))
+        strs_w.append(sliced(space, data, j, len(data)))
 
-    return W_ListObject(L)
+    return space.newlist(strs_w)
 
 def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
