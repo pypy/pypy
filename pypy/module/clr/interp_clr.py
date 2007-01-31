@@ -36,7 +36,10 @@ def rewrap_args(space, w_args, startfrom):
         j = i-startfrom
         b_obj = py2cli(space, args[i])
         b_args[j] = b_obj
-        b_paramtypes[j] = b_obj.GetType() # XXX: potentially inefficient
+        if b_obj is None:
+            b_paramtypes[j] = typeof(System.Object) # we really can't be more precise
+        else:
+            b_paramtypes[j] = b_obj.GetType() # XXX: potentially inefficient
     return b_args, b_paramtypes
 
 
@@ -62,25 +65,14 @@ def call_staticmethod(space, typename, methname, w_args):
 call_staticmethod.unwrap_spec = [ObjSpace, str, str, W_Root]
 
 def py2cli(space, w_obj):
-##    if space.is_true(space.isinstance(w_obj, space.w_int)):
-##        return box(space.int_w(w_obj))
-##    if space.is_true(space.isinstance(w_obj, space.w_float)):
-##        return box(space.float_w(w_obj))
-##    else:
-##        typename = space.type(w_obj).getname(space, '?')
-##        msg = "Can't convert type %s to .NET" % typename
-##        raise OperationError(space.w_TypeError, space.wrap(msg))
-    b_result = w_obj.tocli()
-    if b_result is None:
-        typename = space.type(w_obj).getname(space, '?')
-        msg = "Can't convert type %s to .NET" % typename
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    else:
-        return b_result
+    return w_obj.tocli()
 
 def cli2py(space, b_obj):
+    # TODO: support other types and find the most efficient way to
+    # select the correct case
+    if b_obj is None:
+        return space.w_None
     b_type = b_obj.GetType()
-    # TODO: support other types
     if b_type == typeof(System.Int32):
         intval = unbox(b_obj, ootype.Signed)
         return space.wrap(intval)

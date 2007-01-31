@@ -87,3 +87,13 @@ class AppTestDotnet:
         ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
         obj = ArrayList(42)
         assert obj.Capacity == 42
+
+    def test_None_as_null(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        Hashtable = clr.load_cli_class('System.Collections', 'Hashtable')
+        x = ArrayList()
+        x.Add(None)
+        assert x[0] is None
+        y = Hashtable()
+        assert y["foo"] is None
