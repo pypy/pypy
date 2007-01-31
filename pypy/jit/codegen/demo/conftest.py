@@ -1,5 +1,7 @@
 import py, random
 
+from pypy.jit.codegen.ppc import conftest
+
 Option = py.test.config.Option
 
 option = py.test.config.addoptions("demo options",
