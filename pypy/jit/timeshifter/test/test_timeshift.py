@@ -17,6 +17,7 @@ from pypy.objspace.flow.model import checkgraph
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 from pypy.jit.conftest import Benchmark
+from pypy.jit.codegen.llgraph.rgenop import RGenOp as LLRGenOp
 
 P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True)
 
@@ -59,12 +60,13 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
     return hs, hannotator, rtyper
 
 class TimeshiftingTests(object):
-    from pypy.jit.codegen.llgraph.rgenop import RGenOp
+    RGenOp = LLRGenOp
 
     small = True
 
     def setup_class(cls):
         from pypy.jit.timeshifter.test.conftest import option
+        cls.on_llgraph = cls.RGenOp is LLRGenOp
         if option.use_dump_backend:
             from pypy.jit.codegen.dump.rgenop import RDumpGenOp
             cls.RGenOp = RDumpGenOp
@@ -324,6 +326,22 @@ class TimeshiftingTests(object):
             assert self.insns == expected
         for opname, count in counts.items():
             assert self.insns.get(opname, 0) == count
+
+    def check_oops(self, expected=None, **counts):
+        if not self.on_llgraph:
+            return
+        oops = {}
+        for block in self.residual_graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    f = getattr(op.args[0].value._obj, "_callable", None)
+                    if hasattr(f, 'oopspec'):
+                        name, _ = f.oopspec.split('(', 1)
+                        oops[name] = oops.get(name, 0) + 1
+        if expected is not None:
+            assert oops == expected
+        for name, count in counts.items():
+            assert oops.get(name, 0) == count
 
     def check_flexswitches(self, expected_count):
         count = 0

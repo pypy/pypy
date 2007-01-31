@@ -106,7 +106,6 @@ class PortalTest(object):
         return residual_graph
             
     def check_insns(self, expected=None, **counts):
-        # XXX only works if the portal is the same as the main
         residual_graph = self.get_residual_graph()
         self.insns = summary(residual_graph)
         if expected is not None:
@@ -114,6 +113,23 @@ class PortalTest(object):
         for opname, count in counts.items():
             assert self.insns.get(opname, 0) == count
 
+
+    def check_oops(self, expected=None, **counts):
+        if not self.on_llgraph:
+            return
+        oops = {}
+        residual_graph = self.get_residual_graph()
+        for block in residual_graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    f = getattr(op.args[0].value._obj, "_callable", None)
+                    if hasattr(f, 'oopspec'):
+                        name, _ = f.oopspec.split('(', 1)
+                        oops[name] = oops.get(name, 0) + 1
+        if expected is not None:
+            assert oops == expected
+        for name, count in counts.items():
+            assert oops.get(name, 0) == count
 
     def count_direct_calls(self):
         residual_graph = self.get_residual_graph()

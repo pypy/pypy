@@ -16,6 +16,7 @@ FOLDABLE_GREEN_OPS['getarrayitem'] = None
 
 debug_view = lloperation.llop.debug_view
 debug_print = lloperation.llop.debug_print
+debug_pdb = lloperation.llop.debug_pdb
 
 # ____________________________________________________________
 # emit ops

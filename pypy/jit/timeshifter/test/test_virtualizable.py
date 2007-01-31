@@ -1139,3 +1139,72 @@ class TestVirtualizableImplicit(PortalTest):
         res = self.timeshift_from_portal(main, f, [], policy=StopAtXPolicy(g))
         assert res == main()
 
+    def test_simple_interpreter_with_frame_with_stack(self):
+        class Log:
+            stack = None
+        log = Log()
+        class Frame(object):
+            _virtualizable_ = True
+            def __init__(self, code, *args):
+                self.code = code
+                self.pc = 0
+                self.stack = list(args)
+                
+            def run(self):
+                return self.interpret(self.code)
+
+            def interpret(self, s):
+                hint(None, global_merge_point=True)
+                n = len(s)
+                pc = 0
+                origstack = self.stack
+                stacklen = len(origstack)
+                stacklen = hint(stacklen, promote=True)
+                curstack = [0] * stacklen
+                i = 0
+                while i < stacklen:
+                    hint(i, concrete=True)
+                    curstack[i] = origstack[i]
+                    i += 1
+                self.stack = curstack
+                while pc < n:
+                    hint(None, global_merge_point=True)
+                    self.pc = pc
+                    op = s[pc]
+                    pc += 1
+                    op = hint(op, concrete=True)
+                    if op == 'P': 
+                        arg = s[pc]
+                        pc += 1
+                        hint(arg, concrete=True)
+                        self.stack.append(ord(arg) - ord('0')) 
+                    elif op == 'p':
+                        self.stack.pop()
+                    elif op == '+':
+                        arg = self.stack.pop()
+                        self.stack[-1] += arg
+                    elif op == '-':
+                        arg = self.stack.pop()
+                        self.stack[-1] -= arg
+                    elif op == 'd':
+                        self.debug()
+                    else:
+                        raise NotImplementedError
+                result = self.stack.pop()
+                self.stack = None
+                return result
+
+            def debug(self):
+                log.stack = self.stack[:]
+            
+        def main(x):
+            code = 'P2+P5+P3-'
+            f = Frame(code, x)
+            return f.run()
+
+        res = self.timeshift_from_portal(main, Frame.interpret.im_func,
+                            [38],
+                            policy=StopAtXPolicy(Frame.debug.im_func))
+        assert res == 42
+        self.check_oops(newlist=0)
+

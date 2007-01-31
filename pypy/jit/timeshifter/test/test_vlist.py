@@ -101,3 +101,12 @@ class TestVList(TimeshiftingTests):
         res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
         assert res == 30185379
         self.check_insns({})
+
+    def test_alloc_and_set(self):
+        def ll_function():
+            lst = [0] * 9
+            return len(lst)
+        res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
+        assert res == 9
+        self.check_insns({})
+        

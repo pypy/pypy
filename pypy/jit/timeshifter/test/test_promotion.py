@@ -2,6 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
+from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 from pypy.rlib.objectmodel import hint
 
 
@@ -256,3 +257,21 @@ class TestPromotion(TimeshiftingTests):
         res = self.timeshift(ll_function, ["20", 0], [], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_flexswitches(1)
+
+    def test_virtual_list_copy(self):
+        def ll_function(x, y):
+            hint(None, global_merge_point=True)
+            l = [y] * x
+            size = len(l)
+            size = hint(size, promote=True)
+            vl = [0] * size
+            i = 0
+            while i < size:
+                hint(i, concrete=True)
+                vl[i] = l[i]
+                i = i + 1
+            return len(vl)
+        res = self.timeshift(ll_function, [6, 5], [], policy=P_OOPSPEC)
+        assert res == 6
+        self.check_oops(**{'newlist': 1, 'list.len': 1})
+            
