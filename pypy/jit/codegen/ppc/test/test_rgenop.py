@@ -12,6 +12,9 @@ class FewRegisters(RPPCGenOp):
         insn.CR_FIELD:insn.crfs[:1],
         insn.CT_REGISTER:[insn.ctr]}
 
+class FewRegistersAndScribble(FewRegisters):
+    DEBUG_SCRIBBLE = True
+
 class TestRPPCGenop(AbstractRGenOpTests):
     RGenOp = RPPCGenOp
 
@@ -28,3 +31,6 @@ class TestRPPCGenopNoRegs(TestRPPCGenop):
 
     def compile(self, runner, argtypes):
         py.test.skip("Skip compiled tests w/ restricted register allocator")
+
+class TestRPPCGenopNoRegsAndScribble(TestRPPCGenopNoRegs):
+    RGenOp = FewRegistersAndScribble

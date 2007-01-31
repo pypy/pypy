@@ -420,6 +420,14 @@ class Builder(GenBuilder):
         there_size = self._stack_size(target.min_stack_offset)
         if here_size != there_size:
             self.emit_stack_adjustment(there_size)
+            if self.rgenop.DEBUG_SCRIBBLE:
+                if here_size > there_size:
+                    offsets = range(there_size, here_size, 4)
+                else:
+                    offsets = range(here_size, there_size, 4)
+                for offset in offsets:
+                    self.asm.load_word(rSCRATCH, 0x23456789)
+                    self.asm.stw(rSCRATCH, rSP, -offset)
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
@@ -541,6 +549,16 @@ class Builder(GenBuilder):
         # save stack pointer into linkage area and set stack pointer for us.
         self.asm.stwu(rSP, rSP, -minspace)
 
+        if self.rgenop.DEBUG_SCRIBBLE:
+            # write junk into all non-argument, non rFP or rSP registers
+            self.asm.load_word(rSCRATCH, 0x12345678)
+            for i in range(min(11, 3+len(self.initial_var2loc)), 32):
+                if i != 1 and i != 2: # apart from rSP and rFP of course...
+                    self.asm.load_word(i, 0x12345678)
+            # scribble the part of the stack between self._var_offset(0) and minspace
+            for offset in range(self._var_offset(0), -minspace, -4):
+                self.asm.stw(rSCRATCH, rFP, offset)
+
         return inputargs
 
     def _var_offset(self, v):
@@ -588,8 +606,26 @@ class Builder(GenBuilder):
         if in_size != our_size:
             assert our_size > in_size
             self.emit_stack_adjustment(our_size)
-        for insn in self.insns:
-            insn.emit(self.asm)
+            if self.rgenop.DEBUG_SCRIBBLE:
+                for offset in range(in_size, our_size, 4):
+                    self.asm.load_word(rSCRATCH, 0x23456789)
+                    self.asm.stw(rSCRATCH, rSP, -offset)
+        if self.rgenop.DEBUG_SCRIBBLE:
+            locs = {}
+            for _, loc in self.initial_var2loc.iteritems():
+                locs[loc] = True
+            regs = insn.gprs[3:]
+            for reg in regs:
+                if reg not in locs:
+                    self.asm.load_word(reg.number, 0x3456789)
+            self.asm.load_word(0, 0x3456789)
+            for offset in range(self._var_offset(0),
+                                self.initial_spill_offset,
+                                -4):
+                if insn.stack_slot(offset) not in locs:
+                    self.asm.stw(0, rFP, offset)
+        for insn_ in self.insns:
+            insn_.emit(self.asm)
         for label in allocator.labels_to_tell_spill_offset_to:
             label.min_stack_offset = allocator.spill_offset
         for builder in allocator.builders_to_tell_spill_offset_to:
@@ -988,6 +1024,7 @@ class RPPCGenOp(AbstractRGenOp):
         insn.FP_REGISTER:insn.fprs,
         insn.CR_FIELD:insn.crfs,
         insn.CT_REGISTER:[insn.ctr]}
+    DEBUG_SCRIBBLE = option.debug_scribble
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
