@@ -6,6 +6,8 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.i386.operation import *
 
+DEBUG_STACK = False
+
 
 class StackOpCache:
     INITIAL_STACK_EBP_OFS = -4
@@ -236,8 +238,21 @@ class RegAllocator(object):
             if self.operands[loc] != srcoperand:
                 self.mc.POP(self.operands[loc])
 
+    def randomize_stack(self):
+        import random
+        last_n = self.required_frame_depth - 1
+        for i in range(last_n+1, last_n+50):
+            self.mc.MOV(ecx, stack_op(i))
+            self.mc.LEA(ecx, mem(ecx, random.randrange(-sys.maxint,
+                                                       sys.maxint)))
+            self.mc.MOV(stack_op(i), ecx)
+        self.mc.LEA(ecx, mem(ecx, random.randrange(-sys.maxint,
+                                                   sys.maxint)))
+
     def generate_operations(self):
         for v in self.operations:
+            if DEBUG_STACK:
+                self.randomize_stack()
             v.generate(self)
             cc = v.cc_result
             if cc >= 0 and v in self.var2loc:
@@ -252,6 +267,8 @@ class RegAllocator(object):
                 except FailedToImplement:
                     mc.MOVZX(ecx, cl)
                     mc.MOV(dstop, ecx)
+        if DEBUG_STACK:
+            self.randomize_stack()
 
     def force_stack_storage(self, lst):
         # this is called at the very beginning, so the 'loc' numbers

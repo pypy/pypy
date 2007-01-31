@@ -7,6 +7,7 @@ from pypy.jit.codegen.model import ReplayBuilder, dummy_var
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
 from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack, Place
+from pypy.jit.codegen.i386.regalloc import DEBUG_STACK
 from pypy.jit.codegen import conftest
 from pypy.rpython.annlowlevel import llhelper
 
@@ -525,7 +526,9 @@ class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder
 
     MC_SIZE = 65536
-    
+    if DEBUG_STACK:
+        MC_SIZE *= 16
+
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
         self.keepalive_gc_refs = [] 
