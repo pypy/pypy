@@ -636,7 +636,7 @@ class Unspill(AllocTimeInsn):
         else:
             self.moveinsn = None
     def __repr__(self):
-        return '<Spill-%d %s: %s, %s>'%(self._magic_index, self.var, self.reg, self.stack)
+        return '<Unspill-%d %s: %s, %s>'%(self._magic_index, self.var, self.reg, self.stack)
     def emit(self, asm):
         if isinstance(self.reg, GPR):
             r = self.reg.number
