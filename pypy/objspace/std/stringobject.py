@@ -316,53 +316,27 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     return W_ListObject(res_w)
 
 def str_join__String_ANY(space, w_self, w_list):
-    list = space.unpackiterable(w_list)
+    list_w = space.unpackiterable(w_list)
     str_w = space.str_w
-    if list:
+    if list_w:
         self = w_self._value
-        firstelem = 1
         listlen = 0
         reslen = 0
-        #compute the length of the resulting string 
-        for i in range(len(list)):
-            if not space.is_true(space.isinstance(list[i], space.w_str)):
-                if space.is_true(space.isinstance(list[i], space.w_unicode)):
+        l = []
+        for i in range(len(list_w)):
+            w_s = list_w[i]
+            if not space.is_true(space.isinstance(w_s, space.w_str)):
+                if space.is_true(space.isinstance(w_s, space.w_unicode)):
                     w_u = space.call_function(space.w_unicode, w_self)
-                    return space.call_method(w_u, "join", space.newlist(list))
+                    return space.call_method(w_u, "join", space.newlist(list_w))
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("sequence item %d: expected string, %s "
-                               "found"%(i, space.type(list[i]).name)))
-            reslen = reslen + len(str_w(list[i]))
-            listlen = listlen + 1
-
-        reslen = reslen + (listlen - 1) * len(self)
-
-        #allocate the string buffer
-        res = [' '] * reslen
-
-        pos = 0
-        #fill in the string buffer
-        for w_item in list:
-            item = str_w(w_item)
-            if firstelem:
-                for i in range(len(item)):
-                    res[i+pos] = item[i]
-                pos = pos + len(item)
-                firstelem = 0
-            else:
-                for i in range(len(self)):
-                    res[i+pos] = self[i]
-                pos = pos + len(self)
-                 
-                for i in range(len(item)):
-                    res[i+pos] = item[i]
-                pos = pos + len(item)
-
-        return space.wrap("".join(res))
+                               "found" % (i, space.type(w_s).name)))
+            l.append(space.str_w(w_s))
+        return space.wrap(self.join(l))
     else:
         return space.wrap("")
-
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
@@ -454,7 +428,7 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
     input = w_self._value
     sub = w_sub._value
     by = w_by._value
-    maxsplit = space.int_w(w_maxsplit)   #I don't use it now
+    maxsplit = space.int_w(w_maxsplit)
 
     #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
 
@@ -492,54 +466,6 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
         buf[bufpos] = input[j]
         bufpos = bufpos + 1 
     return space.wrap("".join(buf))
-
-##def _find(self, sub, start, end, dir):
-
-##    length = len(self)
-
-##    #adjust_indicies
-##    if (end > length):
-##        end = length
-##    elif (end < 0):
-##        end += length
-##    if (end < 0):
-##        end = 0
-##    if (start < 0):
-##        start += length
-##    if (start < 0):
-##        start = 0
-
-##    if dir > 0:
-##        if len(sub) == 0 and start < end:
-##            return start
-
-##        end = end - len(sub) + 1
-
-##        for i in range(start, end):
-##            match = 1
-##            for idx in range(len(sub)):
-##                if sub[idx] != self[idx+i]:
-##                    match = 0
-##                    break
-##            if match: 
-##                return i
-##        return -1
-##    else:
-##        if len(sub) == 0 and start < end:
-##            return end
-
-##        end = end - len(sub)
-
-##        for j in range(end, start-1, -1):
-##            match = 1
-##            for idx in range(len(sub)):
-##                if sub[idx] != self[idx+j]:
-##                    match = 0
-##                    break
-##            if match:
-##                return j
-##        return -1        
-
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
@@ -732,6 +658,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
+    result = []
     buf = [' '] * width
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
         buf[0] = input[0]
