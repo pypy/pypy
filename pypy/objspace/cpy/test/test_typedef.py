@@ -419,3 +419,18 @@ def test_prebuilt_instance_inside_pyobj():
     assert type(res) is dict
     assert res.keys() == ['hello']
     assert type(res['hello']).__name__ == 'MyType'
+
+# ____________________________________________________________
+
+def test_interp_dict():
+    space = CPyObjSpace()
+    W_MyType.typedef = TypeDef("MyType", hello = 7)
+
+    def entry_point(x):
+        d = {W_MyType(space, x): True}
+        return space.wrap(d.keys()[0])
+
+    fn = compile(entry_point, [int],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(42, expected_extra_mallocs=1)
+    assert res.hello == 7

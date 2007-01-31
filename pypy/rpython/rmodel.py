@@ -171,7 +171,8 @@ class Repr:
         if (isinstance(T, lltype.Ptr) and
             isinstance(T.TO, (lltype.Struct,
                               lltype.Array,
-                              lltype.ForwardReference))):
+                              lltype.ForwardReference)) and
+            T.TO._gckind != 'cpy'):
             return DummyValueBuilder(rtyper, T.TO)
         else:
             return None
@@ -450,7 +451,8 @@ def getgcflavor(classdef):
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from pypy.rpython import rclass
-    if isinstance(item_repr, rclass.AbstractInstanceRepr):
+    if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
+        getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
         return item_repr, rclass.getinstancerepr(rtyper, None)
     else:
         return item_repr, item_repr
