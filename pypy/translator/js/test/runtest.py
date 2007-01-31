@@ -188,6 +188,10 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
     def ll_to_list(self, l):
         return l
 
+    def ll_unpack_tuple(self, t, length):
+        assert len(t) == length
+        return tuple(t)
+
     def class_name(self, value):
         return value[:-10].split('_')[-1]
 

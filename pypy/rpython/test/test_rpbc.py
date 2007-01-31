@@ -1051,10 +1051,11 @@ class BaseTestRPBC(BaseRtypingTest):
             return x.value, y.value
         for i in [0, 5, 10]:
             res = self.interpret(f, [i])
-            assert type(res.item0) is int   # precise
-            assert type(res.item1) is float
-            assert res.item0 == f(i)[0]
-            assert res.item1 == f(i)[1]
+            item0, item1 = self.ll_unpack_tuple(res, 2)
+            assert type(item0) is int   # precise
+            assert type(item1) in (float, int)  # we get int on JS
+            assert item0 == f(i)[0]
+            assert item1 == f(i)[1]
 
     def test_pbc_getattr_conversion_with_classes(self):
         class base: pass
@@ -1080,10 +1081,11 @@ class BaseTestRPBC(BaseRtypingTest):
             return x.value, y.value
         for i in [0, 5, 10]:
             res = self.interpret(f, [i])
-            assert type(res.item0) is int   # precise
-            assert type(res.item1) is float
-            assert res.item0 == f(i)[0]
-            assert res.item1 == f(i)[1]
+            item0, item1 = self.ll_unpack_tuple(res, 2)
+            assert type(item0) is int   # precise
+            assert type(item1) in (float, int)  # we get int on JS
+            assert item0 == f(i)[0]
+            assert item1 == f(i)[1]
 
     def test_pbc_imprecise_attrfamily(self):
         fr1 = Freezing(); fr1.x = 5; fr1.y = [8]
@@ -1533,11 +1535,12 @@ class BaseTestRPBC(BaseRtypingTest):
             l = []
             f1(l, c1)
             f1(l, c2)
-            return l, f2(c1)(), f3(c2)()
+            return f2(c1)(), f3(c2)()
 
         res = self.interpret(g, [])
-        assert self.ll_to_string(res.item1) == "hello"
-        assert res.item2 == 623
+        item0, item1 = self.ll_unpack_tuple(res, 2)
+        assert self.ll_to_string(item0) == "hello"
+        assert item1 == 623
 
 
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):

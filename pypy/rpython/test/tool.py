@@ -41,6 +41,9 @@ class LLRtypeMixin(object):
             r.append(items[i])
         return r
 
+    def ll_unpack_tuple(self, t, length):
+        return tuple([getattr(t, 'item%d' % i) for i in range(length)])
+
     def get_callable(self, fnptr):
         return fnptr._obj._callable
 
@@ -74,6 +77,9 @@ class OORtypeMixin(object):
 
     def ll_to_list(self, l):
         return l._list[:]
+
+    def ll_unpack_tuple(self, t, length):
+        return tuple([getattr(t, 'item%d' % i) for i in range(length)])
 
     def get_callable(self, sm):
         return sm._callable
