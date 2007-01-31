@@ -131,9 +131,16 @@ class JumpPatchupGenerator(object):
         self.allocator = allocator
 
     def emit_move(self, tarloc, srcloc):
+        if DEBUG_PRINT:
+            for v, loc in self.allocator.var2loc.iteritems():
+                if loc is srcloc:
+                    srcvar = v
+                    break
+        else:
+            srcvar = None
+        emit = self.insns.append
         if tarloc == srcloc:
             return
-        emit = self.insns.append
         if tarloc.is_register and srcloc.is_register:
             assert isinstance(tarloc, insn.GPR)
             if isinstance(srcloc, insn.GPR):
@@ -142,12 +149,12 @@ class JumpPatchupGenerator(object):
                 assert isinstance(srcloc, insn.CRF)
                 emit(srcloc.move_to_gpr(self.allocator, tarloc.number))
         elif tarloc.is_register and not srcloc.is_register:
-            emit(insn.Unspill(None, tarloc, srcloc))
+            emit(insn.Unspill(srcvar, tarloc, srcloc))
         elif not tarloc.is_register and srcloc.is_register:
-            emit(insn.Spill(None, srcloc, tarloc))
+            emit(insn.Spill(srcvar, srcloc, tarloc))
         elif not tarloc.is_register and not srcloc.is_register:
-            emit(insn.Unspill(None, insn.gprs[0], srcloc))
-            emit(insn.Spill(None, insn.gprs[0], tarloc))
+            emit(insn.Unspill(srcvar, insn.gprs[0], srcloc))
+            emit(insn.Spill(srcvar, insn.gprs[0], tarloc))
 
     def create_fresh_location(self):
         return self.allocator.spill_slot()
@@ -160,6 +167,11 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
     # construct mapping of targets to sources; note that "target vars"
     # and "target locs" are the same thing right now
     targetlocs = target.arg_locations
+
+    if DEBUG_PRINT:
+        print targetlocs
+        print allocator.var2loc
+
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]
         src = sourcevars[i]
@@ -409,6 +421,8 @@ class Builder(GenBuilder):
         allocator = self.allocate(outputargs_gv)
         if DEBUG_PRINT:
             before_moves = len(self.insns)
+        print outputargs_gv
+        print target.args_gv
         prepare_for_jump(
             self.insns, outputargs_gv, allocator.var2loc, target, allocator)
         if DEBUG_PRINT:
@@ -553,10 +567,13 @@ class Builder(GenBuilder):
             # write junk into all non-argument, non rFP or rSP registers
             self.asm.load_word(rSCRATCH, 0x12345678)
             for i in range(min(11, 3+len(self.initial_var2loc)), 32):
-                if i != 1 and i != 2: # apart from rSP and rFP of course...
-                    self.asm.load_word(i, 0x12345678)
-            # scribble the part of the stack between self._var_offset(0) and minspace
+                self.asm.load_word(i, 0x12345678)
+            # scribble the part of the stack between
+            # self._var_offset(0) and minspace
             for offset in range(self._var_offset(0), -minspace, -4):
+                self.asm.stw(rSCRATCH, rFP, offset)
+            # and then a bit more
+            for offset in range(-minspace-4, -minspace-200, -4):
                 self.asm.stw(rSCRATCH, rFP, offset)
 
         return inputargs
