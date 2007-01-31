@@ -109,7 +109,6 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
         cache_counter = pypymagic.method_cache_counter("f")
-        print cache_counter
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
 
@@ -133,7 +132,6 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
         cache_counter = pypymagic.method_cache_counter("f")
-        print cache_counter
         assert cache_counter[1] >= 2 # should be (18, 2)
         assert sum(cache_counter) == 20
  
@@ -148,7 +146,6 @@ class AppTestMethodCaching(AppTestShadowTracking):
             assert a.f() == 42 + i
             A.f = eval("lambda self: %s" % (42 + i + 1, ))
         cache_counter = pypymagic.method_cache_counter("f")
-        print cache_counter
         assert cache_counter == (0, 10)
 
     def test_subclasses(self):
@@ -166,7 +163,6 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + (i % 3 == 1)
         cache_counter = pypymagic.method_cache_counter("f")
-        print cache_counter
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
   
