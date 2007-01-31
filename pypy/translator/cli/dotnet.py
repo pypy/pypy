@@ -338,6 +338,9 @@ def box(x):
         return res
 
 def unbox(x, TYPE):
+    if isinstance(x, PythonNet.pypy.test.ObjectWrapper):
+        x = BoxedSpace.get(x.index)
+
     if isinstance(TYPE, (type, types.ClassType)):
         # we need to check the TYPE and return None if it fails
         if isinstance(x, TYPE):
@@ -346,9 +349,6 @@ def unbox(x, TYPE):
             return None
 
     # TODO: do the typechecking also in the other cases
-
-    if isinstance(x, PythonNet.pypy.test.ObjectWrapper):
-        return BoxedSpace.get(x.index)
 
     # this is a workaround against a pythonnet limitation: you can't
     # directly get the, e.g., python int from the System.Int32 object:
