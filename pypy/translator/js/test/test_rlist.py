@@ -3,6 +3,12 @@ import py
 from pypy.rpython.test.test_rlist import BaseTestRlist
 from pypy.translator.js.test.runtest import JsTest
 
+class Foo:
+    pass
+
+class Bar(Foo):
+    pass
+
 class TestJsList(JsTest, BaseTestRlist):
     def test_append(self):
         def dummyfn():
@@ -59,7 +65,6 @@ class TestJsList(JsTest, BaseTestRlist):
         pass
 
     def test_inst_list(self):
-        py.test.skip("WIP")
         def fn():
             l = [None]
             l[0] = Foo()
@@ -74,5 +79,5 @@ class TestJsList(JsTest, BaseTestRlist):
             x = l2.pop()
             return str(x)+";"+str(l)
         res = self.ll_to_string(self.interpret(fn, []))
-        res = res.replace('pypy.rpython.test.test_rlist.', '')
-        assert res == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
+        res = res.replace('pypy_translator_js_test_test_rlist_', '')
+        assert res == '<Foo instance>;[<Foo instance>, <Bar instance>, <Bar instance>, <Foo instance>, <Foo instance>]'
