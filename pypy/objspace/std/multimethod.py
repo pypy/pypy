@@ -504,10 +504,41 @@ class FuncEntry(object):
         lst.sort()
         return self.body, tuple(lst)
 
+    def get_function_name(self):
+        # pick a name consistently based on self.possiblenames
+        length = min([len(parts) for parts in self.possiblenames])
+        result = []
+        for i in range(length):
+            choices = {}
+            for parts in self.possiblenames:
+                choices[parts[i]] = True
+            parts = choices.keys()
+            res = str(len(parts))
+            for part in parts:
+                if type(part) is str:     # there is a string at this pos
+                    if '0_fail' in choices:
+                        res = '0_fail'
+                    elif len(parts) == 1:
+                        res = part
+                    break
+            else:
+                # only types at this location, try to find a common base
+                basecls = parts[0]
+                for cls in parts[1:]:
+                    if issubclass(basecls, cls):
+                        basecls = cls
+                for cls in parts[1:]:
+                    if not issubclass(cls, basecls):
+                        break   # no common base
+                else:
+                    res = basecls.__name__
+            result.append(res)
+        return '_'.join(result)
+
     def make_function(self, fnargs, nbargs_before, mrdtable):
         if self._function is not None:
             return self._function
-        name = min(self.possiblenames)   # pick a random one, but consistently
+        name = self.get_function_name()
         self.compress_typechecks(mrdtable)
         checklines = self.generate_typechecks(fnargs[nbargs_before:])
         if not checklines:
@@ -516,9 +547,18 @@ class FuncEntry(object):
             checklines.append(self.body)
             body = '\n    '.join(checklines)
         source = 'def %s(%s):\n    %s\n' % (name, ', '.join(fnargs), body)
-        #f = open('/tmp/mm-source/%s' % name, 'a')
-        #print >> f, source
-        #f.close()
+
+        if 0:    # for debugging the generated mm sources
+            f = open('/tmp/mm-source/%s' % name, 'a')
+            for possiblename in self.possiblenames:
+                print >> f, '#',
+                for part in possiblename:
+                    print >> f, getattr(part, '__name__', part),
+                print >> f
+            print >> f
+            print >> f, source
+            f.close()
+
         exec compile2(source) in self.miniglobals
         self._function = self.miniglobals[name]
         return self._function
@@ -657,7 +697,7 @@ class InstallerVersion2(object):
 
     def install(self):
         nskip = len(self.multimethod.argnames_before)
-        null_entry = self.build_funcentry(self.prefix + '_0_fail', [])
+        null_entry = self.build_funcentry([self.prefix, '0_fail'], [])
         null_entry.no_typecheck()
         if self.is_empty():
             return self.answer(null_entry)
@@ -671,9 +711,7 @@ class InstallerVersion2(object):
             if len(typesprefix) == self.multimethod.arity:
                 calllist = self.table.get(typesprefix, [])
                 funcname = [self.prefix]
-                for t1 in typesprefix:
-                    funcname.append(t1.__name__)
-                funcname = '_'.join(funcname)
+                funcname.extend(typesprefix)
                 entry = self.build_funcentry(funcname, calllist)
                 entry.register_valid_types(typesprefix)
                 return entry
@@ -716,7 +754,7 @@ class InstallerVersion2(object):
         exprfn = "funcarray.items[(%s + arg%d.%s) & mmmask]" % (exprfn, n,
                                                                 attrname)
         expr = Call(exprfn, self.fnargs)
-        entry = self.build_funcentry(self.prefix + '_0_perform_call',
+        entry = self.build_funcentry([self.prefix, '0_perform_call'],
                                      [expr],
                                      indexarray = indexarray,
                                      funcarray = funcarray,
@@ -733,7 +771,7 @@ class InstallerVersion2(object):
             expr = entry.body[len('return '):]
             return self.fnargs, expr, entry.miniglobals, entry.fallback
 
-    def build_funcentry(self, funcname, calllist, **extranames):
+    def build_funcentry(self, funcnameparts, calllist, **extranames):
         def expr(v):
             if isinstance(v, Call):
                 return '%s(%s)' % (invent_name(miniglobals, v.function),
@@ -762,7 +800,7 @@ class InstallerVersion2(object):
             entry = self.mmfunccache[key]
         except KeyError:
             self.mmfunccache[key] = entry
-        entry.possiblenames.append(funcname)
+        entry.possiblenames.append(funcnameparts)
         return entry
 
 # ____________________________________________________________
