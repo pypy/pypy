@@ -7,7 +7,6 @@ from pypy.jit.codegen.ppc.instruction import \
 from pypy.jit.codegen.ppc.conftest import option
 
 DEBUG_PRINT = option.debug_print
-DEBUG_PRINT = option.debug_print
 
 class RegisterAllocation:
     def __init__(self, freeregs, initial_mapping, initial_spill_offset):
