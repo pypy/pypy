@@ -72,6 +72,11 @@ def cli2py(space, b_obj):
     # select the correct case
     if b_obj is None:
         return space.w_None
+
+    w_obj = unbox(b_obj, W_Root)
+    if w_obj is not None:
+        return w_obj # it's already a wrapped object!
+    
     b_type = b_obj.GetType()
     if b_type == typeof(System.Int32):
         intval = unbox(b_obj, ootype.Signed)

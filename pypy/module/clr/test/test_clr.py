@@ -97,3 +97,14 @@ class AppTestDotnet:
         assert x[0] is None
         y = Hashtable()
         assert y["foo"] is None
+
+    def test_pass_opaque_arguments(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        class Foo:
+            pass
+        obj = Foo()
+        x = ArrayList()
+        x.Add(obj)
+        obj2 = x[0]
+        assert obj is obj2
