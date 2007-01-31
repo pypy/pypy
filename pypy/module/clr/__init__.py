@@ -9,8 +9,7 @@ class Module(MixedModule):
     appleveldefs = {}
     
     interpleveldefs = {
-        '_CliObject_internal': 'interp_dotnet.W_CliObject',
-        'call_staticmethod': 'interp_dotnet.call_staticmethod',
-        'load_cli_class': 'interp_dotnet.load_cli_class',
+        '_CliObject_internal': 'interp_clr.W_CliObject',
+        'call_staticmethod': 'interp_clr.call_staticmethod',
+        'load_cli_class': 'interp_clr.load_cli_class',
     }
-        

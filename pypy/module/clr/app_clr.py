@@ -8,8 +8,8 @@ class StaticMethodWrapper(object):
         self.meth_name = meth_name
 
     def __call__(self, *args):
-        import _dotnet
-        return _dotnet.call_staticmethod(self.class_name, self.meth_name, args)
+        import clr
+        return clr.call_staticmethod(self.class_name, self.meth_name, args)
 
     def __repr__(self):
         return '<static CLI method %s.%s>' % (self.class_name, self.meth_name)
@@ -73,8 +73,8 @@ class CliClassWrapper(object):
     __slots__ = ('__cliobj__',)
 
     def __init__(self, *args):
-        import _dotnet
-        self.__cliobj__ = _dotnet._CliObject_internal(self.__cliclass__, args)
+        import clr
+        self.__cliobj__ = clr._CliObject_internal(self.__cliclass__, args)
 
 
 def build_wrapper(namespace, classname, staticmethods, methods, properties, indexers):

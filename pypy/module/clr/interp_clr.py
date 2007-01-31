@@ -183,7 +183,7 @@ W_CliObject.typedef = TypeDef(
     )
 
 path, _ = os.path.split(__file__)
-app_dotnet = os.path.join(path, 'app_dotnet.py')
-app = ApplevelClass(file(app_dotnet).read())
-del path, app_dotnet
+app_clr = os.path.join(path, 'app_clr.py')
+app = ApplevelClass(file(app_clr).read())
+del path, app_clr
 build_wrapper = app.interphook("build_wrapper")
