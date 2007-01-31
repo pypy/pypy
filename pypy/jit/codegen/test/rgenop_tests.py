@@ -1576,3 +1576,62 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(2, 10, 10, 400, 0)
         assert res == 0
+
+    def test_from_random_4_direct(self):
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        bool_kind = rgenop.kindToken(lltype.Bool)
+
+        builder0, gv_callable, [v0, v1, v2] = rgenop.newgraph(
+            rgenop.sigToken(FUNC3), 'compiled_dummyfn')
+
+        builder0.start_writing()
+
+        args_gv = [v0, v1, v2]
+        label0 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+        [v3, v4, v5] = args_gv
+
+        v6 = builder0.genop2('int_add', v5, v4)
+        v7 = builder0.genop1('int_is_true', v4)
+        builder1 = builder0.jump_if_false(v7, [v4, v5, v3, v6])
+
+        args_gv = [v3, v4, v5]
+        label1 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+        [v8, v9, v10] = args_gv
+
+        v11 = builder0.genop1('int_is_true', v10)
+        builder2 = builder0.jump_if_true(v11, [v9, v10, v8])
+
+        builder0.finish_and_goto([v8, v9, v10], label1)
+
+        builder1.start_writing()
+        v24 = builder1.genop2('int_sub', v3, rgenop.genconst(1))
+        v25 = builder1.genop1('int_is_true', v24)
+        builder7 = builder1.jump_if_true(v25, [v24, v4, v5])
+
+        args_gv = [v5, v6, v4]
+        label4 = builder1.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+        [v26, v27, v28] = args_gv
+
+        builder1.finish_and_return(rgenop.sigToken(FUNC3), v27)
+
+        builder2.start_writing()
+        v33 = builder2.genop2('int_sub', v8, rgenop.genconst(1))
+        v34 = builder2.genop1('int_is_true', v33)
+        builder8 = builder2.jump_if_false(v34, [v10, v9])
+
+        builder2.finish_and_goto([v33, v9, v10], label1)
+
+        print 'waatch!'
+        builder8.start_writing()
+        builder8.finish_and_goto([v10, v9, v9], label4)
+        print 'stop!'
+
+        builder7.start_writing()
+        builder7.finish_and_goto([v24, v4, v5], label0)
+        builder7.end()
+
+        fnptr = self.cast(gv_callable, 3)
+
+        res = fnptr(10, 29, 12)
+        assert res == 29

@@ -167,6 +167,7 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
     # construct mapping of targets to sources; note that "target vars"
     # and "target locs" are the same thing right now
     targetlocs = target.arg_locations
+    tarvars = []
 
     if DEBUG_PRINT:
         print targetlocs
@@ -178,9 +179,10 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
         if isinstance(src, Var):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
+            tarvars.append(tloc)
 
     gen = JumpPatchupGenerator(insns, allocator)
-    emit_moves(gen, tar2src, tar2loc, src2loc)
+    emit_moves(gen, tarvars, tar2src, tar2loc, src2loc)
 
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]

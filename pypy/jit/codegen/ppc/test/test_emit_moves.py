@@ -20,7 +20,7 @@ def test_simple_cycle():
     src2loc = {'a':0, 'b':1}
     assert heap.data[0] == 0
     assert heap.data[1] == 1
-    emit_moves(heap, tar2src, tar2loc, src2loc)
+    emit_moves(heap, tar2src.keys(), tar2src, tar2loc, src2loc)
     assert heap.data[0] == 1
     assert heap.data[1] == 0
     assert heap.numlocs == 3 # only creates 1 extra loc
@@ -33,7 +33,7 @@ def test_cycle_3():
     assert heap.data[0] == 0
     assert heap.data[1] == 1
     assert heap.data[2] == 2
-    emit_moves(heap, tar2src, tar2loc, src2loc)
+    emit_moves(heap, tar2src.keys(), tar2src, tar2loc, src2loc)
     assert heap.data[0] == 1
     assert heap.data[1] == 2
     assert heap.data[2] == 0
@@ -47,8 +47,24 @@ def test_dag():
     assert heap.data[0] == 0
     assert heap.data[1] == 1
     assert heap.data[2] == 2
-    emit_moves(heap, tar2src, tar2loc, src2loc)
+    emit_moves(heap, tar2src.keys(), tar2src, tar2loc, src2loc)
     assert heap.data[0] == 1
     assert heap.data[1] == 2
     assert heap.data[2] == 2
     assert heap.numlocs == 3 # only creates 1 extra loc
+
+
+def test_one_to_many():
+    py.test.skip("failing :(")
+    heap = TheHeap(4)
+    tar2src = {'A':'a', 'B':'b', 'C':'a'}
+    tar2loc = {'A':2, 'B':1, 'C':3}
+    src2loc = {'a':1, 'b':0}
+    assert heap.data[0] == 0 # b
+    assert heap.data[1] == 1 # a
+    assert heap.data[2] == 2
+    assert heap.data[3] == 3
+    emit_moves(heap, ['B', 'A', 'C'], tar2src, tar2loc, src2loc)
+    assert heap.data[1] == 0 # B
+    assert heap.data[2] == 1 # A
+    assert heap.data[3] == 1 # C

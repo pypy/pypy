@@ -10,7 +10,7 @@ class CycleData:
     # emitted  -> list of emitted targets
     pass
 
-def emit_moves(gen, tar2src, tar2loc, src2loc):
+def emit_moves(gen, tarvars, tar2src, tar2loc, src2loc):
 
     # Basic idea:
     #
@@ -32,8 +32,6 @@ def emit_moves(gen, tar2src, tar2loc, src2loc):
     #   Whenever you have visited every edge going out from a node, all of
     #   its dependent moves have been performed, so you can emit the
     #   node's move and return.
-
-    tarvars = tar2src.keys()
 
     data = CycleData()
     data.tar2src = tar2src
