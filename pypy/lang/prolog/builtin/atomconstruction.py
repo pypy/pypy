@@ -80,7 +80,7 @@ def impl_sub_atom(engine, s, before, length, after, sub, continuation):
             try:
                 try:
                     b = s.find(s1, start, stopbefore + len(s1)) # XXX -1?
-                    if b == -1:
+                    if b < 0:
                         break
                     start = b + 1
                     before.unify(term.Number(b), engine.frame)

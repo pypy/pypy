@@ -48,6 +48,9 @@ class PrologObject(object):
     def get_deeper_unify_hash(self, frame=None):
         return [self.get_unify_hash(frame)]
 
+    def basic_unify(self, other, frame):
+        pass
+
     def unify(self, other, frame, occurs_check=False):
         pass
     unify._annspecialcase_ = "specialize:arg(3)"
@@ -66,11 +69,14 @@ class PrologObject(object):
         return not (self == other)
 
 
-class Var(PrologObject, UnboxedValue):
+class Var(PrologObject):#, UnboxedValue):
     TAG = 0
     STANDARD_ORDER = 0
 
     __slots__ = ('index', )
+
+    def __init__(self, index):
+        self.index = index
 
     def unify(self, other, frame, occurs_check=False):
         #debug_print("unify", self, other, frame.vars)
@@ -150,10 +156,10 @@ class Var(PrologObject, UnboxedValue):
     
     def make_template(self, vars_new_indexes):
         if self.index in vars_new_indexes:
-            return TemplateVar(vars_new_indexes[self.index])
+            return TemplateVar.make_templatevar(vars_new_indexes[self.index])
         index = len(vars_new_indexes)
         vars_new_indexes[self.index] = index
-        return TemplateVar(index)
+        return TemplateVar.make_templatevar(index)
 
     def get_unify_hash(self, frame=None):
         if frame is None:
@@ -179,6 +185,7 @@ class TemplateVar(PrologObject):
     TAG = 0
     STANDARD_ORDER = 0
     __slots__ = 'index'
+    cache = []
 
     def __init__(self, index):
         self.index = index
@@ -203,7 +210,7 @@ class TemplateVar(PrologObject):
         return self.index
 
     def clone(self, offset):
-        return TemplateVar(self.index + offset)
+        return TemplateVar.make_template(self.index + offset)
 
     def clone_compress_vars(self, vars_new_indexes, offset):
         raise UncatchableError("TemplateVar in wrong place")
@@ -223,6 +230,14 @@ class TemplateVar(PrologObject):
     def __repr__(self):
         return "TemplateVar(%s)" % (self.index, )
 
+    def make_templatevar(index):
+        l = len(TemplateVar.cache)
+        if index >= l:
+            TemplateVar.cache.extend(
+                [TemplateVar(i) for i in range(l, l + index + 1)])
+        return TemplateVar.cache[index]
+    make_templatevar = staticmethod(make_templatevar)
+
 
 class Callable(PrologObject):
     name = ""
@@ -234,6 +249,9 @@ class Callable(PrologObject):
 class Atom(Callable):
     TAG = tag()
     STANDARD_ORDER = 1
+
+    cache = {}
+
     def __init__(self, name):
         self.name = name
         self.signature = self.name + "/0"
@@ -244,15 +262,17 @@ class Atom(Callable):
     def __repr__(self):
         return "Atom(%r)" % (self.name,)
 
+    def basic_unify(self, other, frame):
+        if isinstance(other, Atom):
+            if self is other or other.name == self.name:
+                return
+        raise UnificationFailed
+
     def unify(self, other, frame, occurs_check=False):
         #debug_print("unify", self, other, type(other))
         if isinstance(other, Var):
             return other.unify(self, frame, occurs_check)
-        elif isinstance(other, Atom):
-            if other.name != self.name:
-                raise UnificationFailed
-            return
-        raise UnificationFailed
+        return self.basic_unify(other, frame)
     unify._annspecialcase_ = "specialize:arg(3)"
 
     def unify_with_template(self, other, frame, template_frame, to_instantiate):
@@ -260,11 +280,7 @@ class Atom(Callable):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
         elif isinstance(other, TemplateVar):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, Atom):
-            if other.name != self.name:
-                raise UnificationFailed
-            return
-        raise UnificationFailed
+        return self.basic_unify(other, frame)
 
     def get_unify_hash(self, frame=None):
         return intmask(hash(self.name) << TAGBITS | self.TAG)
@@ -272,21 +288,32 @@ class Atom(Callable):
     def get_prolog_signature(self):
         return Term("/", [self, Number(0)])
 
+    def make_atom(name):
+        result = Atom.cache.get(name, None)
+        if result is not None:
+            return result
+        Atom.cache[name] = result = Atom(name)
+        return result
+    make_atom = staticmethod(make_atom)
+
 class Number(PrologObject):
     TAG = tag()
     STANDARD_ORDER = 2
     def __init__(self, num):
         self.num = num
- 
-    def unify(self, other, frame, occurs_check=False):
-        #debug_print("unify", self, other, type(other))
-        if isinstance(other, Var):
-            return other.unify(self, frame, occurs_check)
-        elif isinstance(other, Number):
+
+    def basic_unify(self, other, frame):
+        if isinstance(other, Number):
             if other.num != self.num:
                 raise UnificationFailed
             return
         raise UnificationFailed
+
+    def unify(self, other, frame, occurs_check=False):
+        #debug_print("unify", self, other, type(other))
+        if isinstance(other, Var):
+            return other.unify(self, frame, occurs_check)
+        return self.basic_unify(other, frame)
     unify._annspecialcase_ = "specialize:arg(3)"
 
     def unify_with_template(self, other, frame, template_frame, to_instantiate):
@@ -294,11 +321,7 @@ class Number(PrologObject):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
         elif isinstance(other, TemplateVar):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, Number):
-            if other.num != self.num:
-                raise UnificationFailed
-            return
-        raise UnificationFailed
+        return self.basic_unify(other, frame)
 
     def __str__(self):
         return repr(self.num)
@@ -316,14 +339,24 @@ class Float(PrologObject):
     def __init__(self, num):
         self.num = num
 
-    def unify(self, other, frame, occurs_check=False):
-        if isinstance(other, Var):
-            return other.unify(self, frame, occurs_check)
-        elif isinstance(other, Float):
+    def basic_unify(self, other, frame):
+        if isinstance(other, Float):
             if other.num != self.num:
                 raise UnificationFailed
             return
         raise UnificationFailed
+
+    def basic_unify(self, other, frame):
+        if isinstance(other, Float):
+            if other.num != self.num:
+                raise UnificationFailed
+            return
+        raise UnificationFailed
+
+    def unify(self, other, frame, occurs_check=False):
+        if isinstance(other, Var):
+            return other.unify(self, frame, occurs_check)
+        return self.basic_unify(other, frame)
     unify._annspecialcase_ = "specialize:arg(3)"
 
     def unify_with_template(self, other, frame, template_frame, to_instantiate):
@@ -331,11 +364,7 @@ class Float(PrologObject):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
         elif isinstance(other, TemplateVar):
             return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, Float):
-            if other.num != self.num:
-                raise UnificationFailed
-            return
-        raise UnificationFailed
+        return self.basic_unify(other, frame)
 
     def get_unify_hash(self, frame=None):
         #XXX no clue whether this is a good idea...
@@ -456,7 +485,7 @@ class Term(Callable):
         return result
 
     def get_prolog_signature(self):
-        return Term("/", [Atom(self.name), Number(len(self.args))])
+        return Term("/", [Atom.make_atom(self.name), Number(len(self.args))])
     
     def contains_var(self, var, frame):
         for arg in self.args:

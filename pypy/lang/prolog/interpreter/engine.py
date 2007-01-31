@@ -84,7 +84,7 @@ class Frame(object):
         return self.needed_vars
 
     def newvar(self):
-        result = Var(self.maxvar)
+        result = Var(self.maxvar())
         self.extend(1)
         return result
 

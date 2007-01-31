@@ -19,7 +19,7 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
     code = ["def %s(engine, query, continuation):" % (funcname, )]
     if not translatable:
         code.append("    if we_are_translated():")
-        code.append("        raise error.UncatchableError('does not work in translated version')")
+        code.append("        raise error.UncatchableError('%s does not work in translated version')" % (name, ))
     subargs = ["engine"]
     for i, spec in enumerate(unwrap_spec):
         varname = "var%s" % (i, )
