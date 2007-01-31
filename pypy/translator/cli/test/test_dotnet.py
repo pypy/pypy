@@ -346,6 +346,15 @@ class TestDotnetRtyping(CliTest):
         res = self.interpret(fn, [])
         assert res is True
 
+    def test_unbox_instance_fail(self):
+        class Foo:
+            pass
+        def fn():
+            b_obj = box(42)
+            return unbox(b_obj, Foo)
+        res = self.interpret(fn, [])
+        assert res is None
+
     def test_instance_wrapping(self):
         class Foo:
             pass

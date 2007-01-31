@@ -337,7 +337,7 @@ class CLIBaseGenerator(Generator):
 
     def downcast(self, TYPE):
         type = self.cts.lltype_to_cts(TYPE)
-        return self.ilasm.opcode('castclass', type)
+        return self.ilasm.opcode('isinst', type)
 
     def instantiate(self):
         self.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
