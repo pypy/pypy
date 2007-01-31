@@ -482,7 +482,6 @@ class Label(Insn):
         self.result = None
         self.label = label
     def allocate(self, allocator):
-        self.label.arg_locations = []
         for gv in self.label.args_gv:
             loc = allocator.loc_of(gv)
             if isinstance(loc, CRF):
@@ -493,6 +492,9 @@ class Label(Insn):
                 allocator.lru.append(gv)
                 allocator.insns.append(loc.move_to_gpr(allocator, new_loc.number))
                 loc = new_loc
+        self.label.arg_locations = []
+        for gv in self.label.args_gv:
+            loc = allocator.loc_of(gv)
             self.label.arg_locations.append(loc)
         allocator.labels_to_tell_spill_offset_to.append(self.label)
     def __repr__(self):

@@ -360,8 +360,10 @@ class Builder(GenBuilder):
         for i in range(len(args_gv)):
             gv = args_gv[i]
             if isinstance(gv, Var):
-                new_gv = self._arg_op(gv, _PPC.mr)
-                args_gv[i] = new_gv
+                if gv in seen:
+                    new_gv = self._arg_op(gv, _PPC.mr)
+                    args_gv[i] = new_gv
+                seen[gv] = True
             else:
                 new_gv = Var()
                 gv.load(self.insns, new_gv)
