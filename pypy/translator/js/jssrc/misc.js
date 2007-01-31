@@ -169,4 +169,10 @@ function clock() {
 function substring(s, l, c) {
     return (s.substring(l, l+c));
 }
+
+function clear_dict(d) {
+    for (var elem in d) {
+        delete(d[elem]);
+    }
+}
 // ends hand written code

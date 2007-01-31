@@ -50,6 +50,11 @@ class _Call(MicroInstruction):
         for func_arg in args[1:]: # push parameters
             generator.load(func_arg)
         generator.call_external(builtin, args[1:])
+
+    def _render_builtin_prepared_args(self, generator, builtin, args):
+        for func_arg in args:
+            generator.load_str(func_arg)
+        generator.call_external(builtin, args)
     
     def _render_builtin_method(self, generator, builtin, args):
         for func_arg in args:

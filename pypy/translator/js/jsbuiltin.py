@@ -57,6 +57,8 @@ class _Builtins(object):
                 'll_contains' : ListContains,
                 'll_get_items_iterator' : CallBuiltin('dict_items_iterator'),
                 'll_length' : CallBuiltin('get_dict_len'),
+                'll_remove' : lambda g, op: CallBuiltin('delete')._render_builtin_prepared_args(g, 'delete', ['%s[%s]' % (op.args[1], op.args[2])]),
+                'll_clear': CallBuiltin('clear_dict'),
             },
             ootype.Record: {
                 'll_get' : ListGetitem,
