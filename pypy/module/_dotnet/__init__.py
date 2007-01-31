@@ -1,6 +1,8 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 
+import boxing_rules # with side effects
+
 class Module(MixedModule):
     """CLR module"""
 
@@ -11,3 +13,4 @@ class Module(MixedModule):
         'call_staticmethod': 'interp_dotnet.call_staticmethod',
         'load_cli_class': 'interp_dotnet.load_cli_class',
     }
+        

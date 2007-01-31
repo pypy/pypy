@@ -62,14 +62,21 @@ def call_staticmethod(space, typename, methname, w_args):
 call_staticmethod.unwrap_spec = [ObjSpace, str, str, W_Root]
 
 def py2cli(space, w_obj):
-    if space.is_true(space.isinstance(w_obj, space.w_int)):
-        return box(space.int_w(w_obj))
-    if space.is_true(space.isinstance(w_obj, space.w_float)):
-        return box(space.float_w(w_obj))
-    else:
+##    if space.is_true(space.isinstance(w_obj, space.w_int)):
+##        return box(space.int_w(w_obj))
+##    if space.is_true(space.isinstance(w_obj, space.w_float)):
+##        return box(space.float_w(w_obj))
+##    else:
+##        typename = space.type(w_obj).getname(space, '?')
+##        msg = "Can't convert type %s to .NET" % typename
+##        raise OperationError(space.w_TypeError, space.wrap(msg))
+    b_result = w_obj.tocli()
+    if b_result is None:
         typename = space.type(w_obj).getname(space, '?')
         msg = "Can't convert type %s to .NET" % typename
         raise OperationError(space.w_TypeError, space.wrap(msg))
+    else:
+        return b_result
 
 def cli2py(space, b_obj):
     b_type = b_obj.GetType()
@@ -95,14 +102,9 @@ def wrap_list_of_strings(space, lst):
     list_w = [space.wrap(s) for s in lst]
     return space.newlist(list_w)
 
-def load_cli_class(space, namespace, classname):
-    fullname = '%s.%s' % (namespace, classname)
-    b_type = System.Type.GetType(fullname)
+def get_methods(space, b_type):
     methods = []
     staticmethods = []
-    properties = []
-    indexers = []
-
     b_methodinfos = b_type.GetMethods()
     for i in range(len(b_methodinfos)):
         b_meth = b_methodinfos[i]
@@ -111,7 +113,13 @@ def load_cli_class(space, namespace, classname):
                 staticmethods.append(str(b_meth.get_Name()))
             else:
                 methods.append(str(b_meth.get_Name()))
+    w_staticmethods = wrap_list_of_strings(space, staticmethods)
+    w_methods = wrap_list_of_strings(space, methods)
+    return w_staticmethods, w_methods
 
+def get_properties(space, b_type):
+    properties = []
+    indexers = []
     b_propertyinfos = b_type.GetProperties()
     for i in range(len(b_propertyinfos)):
         b_prop = b_propertyinfos[i]
@@ -126,13 +134,22 @@ def load_cli_class(space, namespace, classname):
             properties.append((b_prop.get_Name(), get_name, set_name))
         else:
             indexers.append((b_prop.get_Name(), get_name, set_name))
-
-    w_staticmethods = wrap_list_of_strings(space, staticmethods)
-    w_methods = wrap_list_of_strings(space, methods)
     w_properties = wrap_list_of_tuples(space, properties)
     w_indexers = wrap_list_of_tuples(space, indexers)
-    return build_wrapper(space, space.wrap(namespace), space.wrap(classname),
-                         w_staticmethods, w_methods, w_properties, w_indexers)
+    return w_properties, w_indexers
+
+def load_cli_class(space, namespace, classname):
+    fullname = '%s.%s' % (namespace, classname)
+    b_type = System.Type.GetType(fullname)
+    w_staticmethods, w_methods = get_methods(space, b_type)
+    w_properties, w_indexers = get_properties(space, b_type)
+    return build_wrapper(space,
+                         space.wrap(namespace),
+                         space.wrap(classname),
+                         w_staticmethods,
+                         w_methods,
+                         w_properties,
+                         w_indexers)
 load_cli_class.unwrap_spec = [ObjSpace, str, str]
 
 
