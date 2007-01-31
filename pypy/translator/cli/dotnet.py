@@ -338,7 +338,14 @@ def box(x):
         return res
 
 def unbox(x, TYPE):
-    # TODO: check that x is really of type TYPE
+    if isinstance(TYPE, (type, types.ClassType)):
+        # we need to check the TYPE and return None if it fails
+        if isinstance(x, TYPE):
+            return x
+        else:
+            return None
+
+    # TODO: do the typechecking also in the other cases
 
     if isinstance(x, PythonNet.pypy.test.ObjectWrapper):
         return BoxedSpace.get(x.index)
