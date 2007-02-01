@@ -30,16 +30,7 @@ list_sort     = SMM('sort',   4, defaults=(None, None, False), argnames=['cmp', 
 list_reversed = SMM('__reversed__', 1,
                     doc='L.__reversed__() -- return a reverse iterator over'
                         ' the list')
-##
-##list_reversed__ANY = gateway.applevel('''
-##    # NOT_RPYTHON -- uses yield
-##
-##    def reversed(lst):
-##        return iter([x for x in lst[::-1]])
-##    #    for index in range(len(lst)-1, -1, -1):
-##    #        yield lst[index]
-##
-##''', filename=__file__).interphook('reversed')
+
 def list_reversed__ANY(space, w_list):
     from pypy.objspace.std.iterobject import W_ReverseSeqIterObject
     return W_ReverseSeqIterObject(space, w_list, -1)

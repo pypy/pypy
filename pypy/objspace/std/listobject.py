@@ -81,15 +81,6 @@ def iter__List(space, w_list):
 def add__List_List(space, w_list1, w_list2):
     return W_ListObject(w_list1.wrappeditems + w_list2.wrappeditems)
 
-#def radd__List_List(space, w_list1, w_list2):
-#    return W_ListObject(w_list2.wrappeditems + w_list1.wrappeditems)
-
-##def add__List_ANY(space, w_list, w_any):
-##    if space.is_true(space.isinstance(w_any, space.w_list)):
-##        items1_w = w_list.wrappeditems
-##        items2_w = space.unpackiterable(w_any)
-##        return W_ListObject(items1_w + items2_w)
-##    raise FailedToImplement
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
     list_extend__List_ANY(space, w_list1, w_iterable2)
@@ -139,14 +130,6 @@ def equal_wrappeditems(space, items1_w, items2_w):
             return space.w_False
         i += 1
     return space.w_True
-    #return space.newbool(len(w_list1.wrappeditems) == len(w_list2.wrappeditems))
-
-##def eq__List_ANY(space, w_list1, w_any):
-##    if space.is_true(space.isinstance(w_any, space.w_list)):
-##        items1_w = w_list1.wrappeditems
-##        items2_w = space.unpackiterable(w_any)
-##        return equal_wrappeditems(space, items1_w, items2_w)
-##    raise FailedToImplement
 
 def _min(a, b):
     if a < b:
@@ -183,25 +166,9 @@ def lt__List_List(space, w_list1, w_list2):
     return lessthan_unwrappeditems(space, w_list1.wrappeditems,
         w_list2.wrappeditems)
 
-##def lt__List_ANY(space, w_list1, w_any):
-##    # XXX: Implement it not unpacking all the elements
-##    if space.is_true(space.isinstance(w_any, space.w_list)):
-##        items1_w = w_list1.wrappeditems
-##        items2_w = space.unpackiterable(w_any)
-##        return lessthan_unwrappeditems(space, items1_w, items2_w)
-##    raise FailedToImplement
-
 def gt__List_List(space, w_list1, w_list2):
     return greaterthan_unwrappeditems(space, w_list1.wrappeditems,
         w_list2.wrappeditems)
-
-##def gt__List_ANY(space, w_list1, w_any):
-##    # XXX: Implement it not unpacking all the elements
-##    if space.is_true(space.isinstance(w_any, space.w_list)):
-##        items1_w = w_list1.wrappeditems
-##        items2_w = space.unpackiterable(w_any)
-##        return greaterthan_unwrappeditems(space, items1_w, items2_w)
-##    raise FailedToImplement
 
 def delitem__List_ANY(space, w_list, w_idx):
     idx = space.int_w(w_idx)
