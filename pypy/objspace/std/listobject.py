@@ -32,7 +32,10 @@ def init__List(space, w_list, __args__):
     w_iterable, = __args__.parse('list',
                                (['sequence'], None, None),   # signature
                                [EMPTY_LIST])                 # default argument
-    w_list.wrappeditems = space.unpackiterable(w_iterable)
+    if w_iterable is EMPTY_LIST:
+        w_list.wrappeditems = []
+    else:
+        w_list.wrappeditems = space.unpackiterable(w_iterable)
 
 def len__List(space, w_list):
     result = len(w_list.wrappeditems)
