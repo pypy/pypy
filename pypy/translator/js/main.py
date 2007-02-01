@@ -20,9 +20,6 @@ js_optiondescr = OptionDescription("jscompile", "", [
                default=False, cmdline="--view"),
     BoolOption("use_pdb", "Use debugger",
                default=False, cmdline="--pdb"),
-    BoolOption("debug_transform",
-               "Use !EXPERIMENTAL! debug transform to produce tracebacks",
-               default=False, cmdline="-d --debug"),
     StrOption("output", "File to save results (default output.js)",
               default="output.js", cmdline="--output")])
 
@@ -65,7 +62,6 @@ source_ssf_base = """
 
 import %(module_name)s
 from pypy.translator.js.helper import __show_traceback
-from pypy.translator.transformer.debug import traceback_handler
 from pypy.rlib.nonconst import NonConstant as NonConst
 
 %(function_defs)s
@@ -91,7 +87,7 @@ def %(fun_name)s(%(arg_names)s):
 function_base = "%(module_name)s.%(fun_name)s(%(args)s)"
 wrapped_function_base = "%(fun_name)s(%(args)s)"
 
-def get_source_ssf(mod, module_name, function_names, use_debug=True):
+def get_source_ssf(mod, module_name, function_names):
     #source_ssf = "\n".join(["import %s" % module_name, "def some_strange_function_which_will_never_be_called():"] + ["  "+\
     #    module_name+"."+fun_name+get_args(mod.__dict__[fun_name]) for fun_name in function_names])
     function_list = []
@@ -99,12 +95,7 @@ def get_source_ssf(mod, module_name, function_names, use_debug=True):
     for fun_name in function_names:
         args = get_args(mod.__dict__[fun_name])
         arg_names = get_arg_names(mod.__dict__[fun_name])
-        if not use_debug:
-            base = function_base
-        else:
-            base = wrapped_function_base
-            function_def_list.append(py.code.Source(wrapped_function_def_base %
-                locals()))
+        base = function_base
         function_list.append(py.code.Source(base % locals()))
     function_defs = "\n\n".join([str(i) for i in function_def_list])
     functions = "\n".join([str(i.indent()) for i in function_list])
@@ -140,16 +131,13 @@ def rpython2javascript(mod, function_names, jsconfig=None, use_pdb=True):
         if func_code.func_code.co_argcount > 0 and func_code.func_code. \
                 co_argcount != lgt:
             raise BadSignature("Function %s does not have default arguments" % func_name)
-    source_ssf = get_source_ssf(mod, module_name, function_names,
-                                jsconfig.debug_transform)
+    source_ssf = get_source_ssf(mod, module_name, function_names)
     exec(source_ssf) in globals()
     # now we gonna just cut off not needed function
     # XXX: Really do that
     #options = optparse.Values(defaults=DEFAULT_OPTIONS)
-    #options.debug_transform = opts.debug_transform
     from pypy.config.pypyoption import get_pypy_config
     config = get_pypy_config(translating=True)
-    config.translation.debug_transform = jsconfig.debug_transform
     driver = TranslationDriver(config=config)
     try:
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())

@@ -34,8 +34,7 @@ def test_ctr():
     assert td.backend_select_goals(['backendopt_lltype']) == [
         'backendopt_lltype']
 
-    assert cmpl(td.exposed,
-                ['annotate', 'backendopt_lltype',
+    assert cmpl(td.exposed, ['annotate', 'backendopt_lltype',
                  'backendopt_ootype',
                  'llinterpret_lltype',
                  'rtype_ootype', 'rtype_lltype', 'source_cl', 'source_js',
@@ -55,7 +54,8 @@ def test_ctr():
     assert td.backend_select_goals(['backendopt_lltype']) == [
         'backendopt_lltype']
 
-    assert cmpl(td.exposed,
-                ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source_c',
+    expected = ['annotate', 'backendopt', 'llinterpret', 'rtype', 'source_c',
                  'source_llvm', 'compile_c', 'compile_llvm', 'run_llvm',
-                 'run_c'])
+                 'run_c']
+
+    assert cmpl(td.exposed, expected)

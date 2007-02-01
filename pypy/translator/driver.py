@@ -29,7 +29,6 @@ DEFAULTS = {
   'translation.fork_before': None,
   'translation.backendopt.raisingop2direct_call' : False,
   'translation.backendopt.merge_if_blocks': True,
-  'translation.debug_transform' : False,
 }
 
 
@@ -274,11 +273,6 @@ class TranslationDriver(SimpleTaskEngine):
         annotator = translator.buildannotator(policy=policy)
         
         s = annotator.build_types(self.entry_point, self.inputtypes)
-        
-        if self.config.translation.debug_transform:
-            from pypy.translator.transformer.debug import DebugTransformer
-            dt = DebugTransformer(translator)
-            dt.transform_all()
         
         self.sanity_check_annotation()
         if self.standalone and s.knowntype != int:
@@ -550,8 +544,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_source_js(self):
         from pypy.translator.js.js import JS
         self.gen = JS(self.translator, functions=[self.entry_point],
-                      stackless=self.config.translation.stackless,
-                      use_debug=self.config.translation.debug_transform)
+                      stackless=self.config.translation.stackless)
         filename = self.gen.write_source()
         self.log.info("Wrote %s" % (filename,))
     task_source_js = taskdef(task_source_js, 

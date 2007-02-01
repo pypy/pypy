@@ -11,7 +11,6 @@ from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 from pypy.conftest import option
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
-from pypy.translator.transformer.debug import DebugTransformer
 from pypy.rlib.nonconst import NonConstant
 
 from pypy.rpython.llinterp import LLException
@@ -28,7 +27,7 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True, debug_transform = False):
+    def __init__(self, function, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
@@ -37,8 +36,6 @@ class compile_function(object):
         t = TranslationContext()
         ann = t.buildannotator()
         ann.build_types(function, annotations)
-        if debug_transform:
-            DebugTransformer(t).transform_all()
         if view or option.view:
             t.view()
         t.buildrtyper(type_system="ootype").specialize()

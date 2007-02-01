@@ -337,7 +337,7 @@ the list of the read positions functions is set to var or _."""
             
 
     def do_flowg(self, arg):
-        """callg obj
+        """flowg obj
 show flow graph for function obj, obj can be an expression or a dotted name
 (in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""            
         from pypy.translator.tool import graphpage                        

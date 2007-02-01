@@ -77,8 +77,6 @@ OVERRIDES = {
     'translation.cc': None,
     'translation.profopt': None,
     'translation.output': None,
-
-    'translation.debug_transform': False,
 }
 
 import py
