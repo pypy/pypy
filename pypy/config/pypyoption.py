@@ -110,7 +110,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    requires=[("objspace.std.withsmallint", False)]),
 
         IntOption("prebuiltintfrom", "lowest integer which is prebuilt",
-                  default=-5, cmdline="--prebuiltinfrom"),
+                  default=-5, cmdline="--prebuiltintfrom"),
 
         IntOption("prebuiltintto", "highest integer which is prebuilt",
                   default=100, cmdline="--prebuiltintto"),
