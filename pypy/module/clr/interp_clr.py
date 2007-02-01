@@ -135,8 +135,28 @@ def get_properties(space, b_type):
     w_indexers = wrap_list_of_tuples(space, indexers)
     return w_properties, w_indexers
 
+class _CliClassCache:
+    def __init__(self):
+        self.cache = {}
+
+    def put(self, fullname, cls):
+        assert fullname not in self.cache
+        self.cache[fullname] = cls
+
+    def get(self, fullname):
+        return self.cache.get(fullname, None)
+CliClassCache = _CliClassCache()
+
 def load_cli_class(space, namespace, classname):
     fullname = '%s.%s' % (namespace, classname)
+    w_cls = CliClassCache.get(fullname)
+    if w_cls is None:
+        w_cls = build_cli_class(space, namespace, classname, fullname)
+        CliClassCache.put(fullname, w_cls)
+    return w_cls
+load_cli_class.unwrap_spec = [ObjSpace, str, str]
+
+def build_cli_class(space, namespace, classname, fullname):
     b_type = System.Type.GetType(fullname)
     w_staticmethods, w_methods = get_methods(space, b_type)
     w_properties, w_indexers = get_properties(space, b_type)
@@ -147,7 +167,6 @@ def load_cli_class(space, namespace, classname):
                          w_methods,
                          w_properties,
                          w_indexers)
-load_cli_class.unwrap_spec = [ObjSpace, str, str]
 
 
 class W_CliObject(Wrappable):

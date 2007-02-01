@@ -11,6 +11,12 @@ class AppTestDotnet:
         max_index = obj.call_method('Add', [42])
         assert max_index == 0
 
+    def test_cache(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        ArrayList2 = clr.load_cli_class('System.Collections', 'ArrayList')
+        assert ArrayList is ArrayList2
+
     def test_ArrayList(self):
         import clr
         ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
