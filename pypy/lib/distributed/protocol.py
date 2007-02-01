@@ -363,13 +363,7 @@ class RemoteBuiltinObject(RemoteObject):
 
 def test_env(exported_names):
     from stackless import channel, tasklet, run
-    # XXX: This is a hack, proper support for recursive type is needed
     inp, out = channel(), channel()
     remote_protocol = RemoteProtocol(inp.send, out.receive, exported_names)
     t = tasklet(remote_loop)(remote_protocol)
     return RemoteProtocol(out.send, inp.receive)
-
-#def bootstrap(gw):
-#    import py
-#    import sys
-#    return gw.remote_exec(py.code.Source(sys.modules[__name__], "remote_loop(channel.send, channel.receive)"))
