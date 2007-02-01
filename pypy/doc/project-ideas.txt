@@ -44,20 +44,57 @@ As examples, we've got working implementations of things like:
 
 * dictionaries which use a different strategy when very small.
 
-Things we've thought about but not yet implemented include:
-
-* lists which are specialised for int-only values (for saving memory).
-
 * in-progress: caching the lookups of builtin names (by special forms of
   dictionaries that can invalidate the caches when they are written to)
 
+
+
+Things we've thought about but not yet implemented include:
+
+* try out things like lists of integers and lists of strings to save memory.
+  This might be based on (boringly) implementing "multilists" in the same
+  spirit as multidicts. 
+
+* neal norwitz in an old post to pypy-dev: "list slices are
+  often used for iteration.  It would be nice if we didn't need to make
+  a copy of the list.  This becomes difficult since the list could
+  change during iteration.  But we could make a copy in that case at the
+  time it was modified.  I'm not sure if that would be easy or difficult
+  to implement." This would probably be easy to implement in pypy and could be
+  based on multilists (see previous item).
+
 * create multiple representations of Unicode string that store the character
   data in narrower arrays when they can.
+
+* introduce a "call method" bytecode that is used for calls of the form
+  "a.b(...)".  This should allow us to shortcut argument passing, and most
+  importantly avoid the creation of the bound method object.  To be based
+  on the method shadowing detection optimization already implemented.
+
+* experiment with optimized global/builtin lookups by e.g. using
+  callback-on-modify-dictionaries for Module dicts, might be 
+  done using the multidicts.  Note however that CALL_LIKELY_BUILTIN already 
+  covers the case of calls to common builtins, so this should probably 
+  focus on global lookups.
 
 Experiments of this kind are really experiments in the sense that we do not know
 whether they will work well or not and the only way to find out is to try.  A
 project of this nature should provide benchmark results (both timing and memory
 usage) as much as code.
+
+Some ideas on concrete steps for benchmarking:
+
+* find a set of real-world applications that can be used as benchmarks
+  for pypy (ideas: docutils, http://hachoir.org/, moinmoin, ...?)
+
+* do benchmark runs to see how much speedup the currently written
+  optimizations give
+
+* profile pypy-c and it's variants with these benchmarks, identify slow areas
+
+* try to come up with optimized implementations for these slow areas
+
+
 
 Start or improve a back-end
 ---------------------------
@@ -87,7 +124,7 @@ Improve one of the JIT back-ends
 
 PyPy's Just-In-Time compiler relies on two assembler backends for actual code
 generation, one for PowerPC and the other for i386. Those two backends so far
-are mostly working, but nearly no effort has been made to make them produce
+are mostly working, but only some effort has been made to make them produce
 efficient code. This is an area where significant improvements could be made,
 hopefully without having to understand the full intricacies of the JIT.
 
