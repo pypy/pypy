@@ -317,7 +317,7 @@ def box(x):
         return CLR.System.Boolean(x)
     elif t is float:
         return CLR.System.Double(x)
-    elif t is str:
+    elif t is str or t is unicode:
         if len(x) == 1:
             return CLR.System.Char(x)
         else:
