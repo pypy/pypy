@@ -151,29 +151,10 @@ class Config(object):
                 result += substr
         return result
 
-    def getpaths(self, include_groups=False, currpath=None):
+    def getpaths(self, include_groups=False):
         """returns a list of all paths in self, recursively
-        
-            currpath should not be provided (helps with recursion)
         """
-        if currpath is None:
-            currpath = []
-        paths = []
-        for option in self._cfgimpl_descr._children:
-            attr = option._name
-            if attr.startswith('_cfgimpl'):
-                continue
-            value = getattr(self, attr)
-            if isinstance(value, Config):
-                if include_groups:
-                    paths.append('.'.join(currpath + [attr]))
-                currpath.append(attr)
-                paths += value.getpaths(include_groups=include_groups,
-                                        currpath=currpath)
-                currpath.pop()
-            else:
-                paths.append('.'.join(currpath + [attr]))
-        return paths
+        return self._cfgimpl_descr.getpaths(include_groups=include_groups)
 
 
 DEFAULT_OPTION_NAME = object()
@@ -395,6 +376,30 @@ class OptionDescription(object):
 
     def add_optparse_option(self, argnames, parser, config):
         return
+
+    def getpaths(self, include_groups=False, currpath=None):
+        """returns a list of all paths in self, recursively
+        
+            currpath should not be provided (helps with recursion)
+        """
+        if currpath is None:
+            currpath = []
+        paths = []
+        for option in self._children:
+            attr = option._name
+            if attr.startswith('_cfgimpl'):
+                continue
+            value = getattr(self, attr)
+            if isinstance(value, OptionDescription):
+                if include_groups:
+                    paths.append('.'.join(currpath + [attr]))
+                currpath.append(attr)
+                paths += value.getpaths(include_groups=include_groups,
+                                        currpath=currpath)
+                currpath.pop()
+            else:
+                paths.append('.'.join(currpath + [attr]))
+        return paths
 
 
 class OptHelpFormatter(optparse.IndentedHelpFormatter):

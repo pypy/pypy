@@ -255,10 +255,13 @@ def test_getpaths():
     assert config.getpaths() == ['gc.name', 'gc.dummy', 'gc.float', 'bool',
                                  'objspace', 'wantref', 'str', 'wantframework',
                                  'int']
+    assert config.getpaths() == descr.getpaths()
     assert config.gc.getpaths() == ['name', 'dummy', 'float']
+    assert config.gc.getpaths() == descr.gc.getpaths()
     assert config.getpaths(include_groups=True) == [
         'gc', 'gc.name', 'gc.dummy', 'gc.float',
         'bool', 'objspace', 'wantref', 'str', 'wantframework', 'int']
+    assert config.getpaths(True) == descr.getpaths(True)
 
 def test_underscore_in_option_name():
     descr = OptionDescription("opt", "", [

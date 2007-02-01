@@ -132,21 +132,20 @@ class __extend__(OptionDescription):
         if path:
             content.add(
                 Paragraph(Link("back to parent", path + ".html")))
-        for elt in [
+        content.join(
             Title("Basic Option Information"),
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc),
-            Title("Sub-Options")
-            ]:
-            content.add(elt)
-        conf = Config(self)
+            Title("Sub-Options"))
         stack = []
         prefix = fullpath
         curr = content
-        for subpath in conf.getpaths(include_groups=True):
+        for subpath in self.getpaths(include_groups=True):
             subpath = fullpath + "." + subpath
-            while not subpath.startswith(prefix):
+            while not (subpath.startswith(prefix) and
+                       subpath[len(prefix)] == "."):
                 curr, prefix = stack.pop()
+            print subpath, fullpath, curr
             new = curr.add(ListItem(Link(subpath, subpath + ".html")))
             stack.append((curr, prefix))
             prefix = subpath
