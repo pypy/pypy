@@ -69,6 +69,22 @@ class BoundMethod(object):
         return '<bound CLI method %s.%s of %s>' % (self.im_self.__class__.__cliclass__, self.im_name, self.im_self)
 
 
+class StaticProperty(object):
+    def __init__(self, fget=None, fset=None):
+        self.fget = fget
+        self.fset = fset
+
+    def __get__(self, obj, type_):
+        return self.fget()
+
+class MetaCliClassWrapper(type):
+    def __setattr__(cls, name, value):
+        obj = cls.__dict__.get(name, None)
+        if isinstance(obj, StaticProperty):
+            obj.fset(value)
+        else:
+            type.__setattr__(cls, name, value)
+
 class CliClassWrapper(object):
     __slots__ = ('__cliobj__',)
 
@@ -88,22 +104,27 @@ def build_wrapper(namespace, classname, staticmethods, methods, properties, inde
 
     assert len(indexers) <= 1
     if indexers:
-        name, getter, setter = indexers[0]
+        name, getter, setter, is_static = indexers[0]
+        assert not is_static
         if getter:
             d['__getitem__'] = d[getter]
         if setter:
             d['__setitem__'] = d[setter]
-    cls = type(classname, (CliClassWrapper,), d)
-    
+    cls = MetaCliClassWrapper(classname, (CliClassWrapper,), d)
+
     # we must add properties *after* the class has been created
     # because we need to store UnboundMethods as getters and setters
-    for (name, getter, setter) in properties:
+    for (name, getter, setter, is_static) in properties:
         fget = None
         fset = None
         if getter:
             fget = getattr(cls, getter)
         if setter:
             fset = getattr(cls, setter)
-        setattr(cls, name, property(fget, fset))
+        if is_static:
+            prop = StaticProperty(fget, fset)
+        else:
+            prop = property(fget, fset)
+        setattr(cls, name, prop)
 
     return cls

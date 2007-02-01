@@ -93,8 +93,8 @@ def cli2py(space, b_obj):
 
 def wrap_list_of_tuples(space, lst):
     list_w = []
-    for (a,b,c) in lst:
-        items_w = [space.wrap(a), space.wrap(b), space.wrap(c)]
+    for (a,b,c,d) in lst:
+        items_w = [space.wrap(a), space.wrap(b), space.wrap(c), space.wrap(d)]
         list_w.append(space.newtuple(items_w))
     return space.newlist(list_w)
 
@@ -126,14 +126,18 @@ def get_properties(space, b_type):
         get_name = None
         set_name = None
         if b_prop.get_CanRead():
-            get_name = b_prop.GetGetMethod().get_Name()
+            get_meth = b_prop.GetGetMethod()
+            get_name = get_meth.get_Name()
+            is_static = get_meth.get_IsStatic()
         if b_prop.get_CanWrite():
-            set_name = b_prop.GetSetMethod().get_Name()
+            set_meth = b_prop.GetSetMethod()
+            set_name = set_meth.get_Name()
+            is_static = set_meth.get_IsStatic()
         b_indexparams = b_prop.GetIndexParameters()
         if len(b_indexparams) == 0:
-            properties.append((b_prop.get_Name(), get_name, set_name))
+            properties.append((b_prop.get_Name(), get_name, set_name, is_static))
         else:
-            indexers.append((b_prop.get_Name(), get_name, set_name))
+            indexers.append((b_prop.get_Name(), get_name, set_name, is_static))
     w_properties = wrap_list_of_tuples(space, properties)
     w_indexers = wrap_list_of_tuples(space, indexers)
     return w_properties, w_indexers

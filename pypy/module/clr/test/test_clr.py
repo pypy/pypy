@@ -122,3 +122,11 @@ class AppTestDotnet:
         x.Add("bar")
         s = x[0]
         assert s == "bar"
+
+    def test_static_property(self):
+        import clr
+        import os
+        Environment = clr.load_cli_class('System', 'Environment')
+        assert Environment.CurrentDirectory == os.getcwd()
+        Environment.CurrentDirectory == '/'
+        assert Environment.CurrentDirectory == os.getcwd()
