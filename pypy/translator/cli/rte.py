@@ -27,7 +27,10 @@ class Target:
     ALIAS = None
     FLAGS = []
     DEPENDENCIES = []
-    COMPILER = SDK.csc()
+
+    def get_COMPILER(cls):
+        return SDK.csc()
+    get_COMPILER = classmethod(get_COMPILER)
     
     def get(cls):
         for dep in cls.DEPENDENCIES:
@@ -53,7 +56,7 @@ class Target:
         log.red("Compiling %s" % (cls.ALIAS or cls.OUTPUT))
         oldcwd = os.getcwd()
         os.chdir(SRC_DIR)
-        compiler = subprocess.Popen([cls.COMPILER] + cls.FLAGS + ['/out:%s' % out] + sources,
+        compiler = subprocess.Popen([cls.get_COMPILER()] + cls.FLAGS + ['/out:%s' % out] + sources,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = compiler.communicate()
         retval = compiler.wait()
@@ -68,8 +71,11 @@ class Target:
 class MainStub(Target):
     SOURCES = ['stub/main.il']
     OUTPUT = 'main.exe'
-    COMPILER = SDK.ilasm()
 
+    def get_COMPILER(cls):
+        return SDK.ilasm()
+    get_COMPILER = classmethod(get_COMPILER)
+    
 class FrameworkDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os.cs', 'errno.cs', 'll_math.cs']
     OUTPUT = 'pypylib.dll'
