@@ -460,7 +460,7 @@ else:
         return name
 
     def is_module_builtin(self, mod):
-        if not hasattr(mod, "__file__"):
+        if not hasattr(mod, "__file__") or mod.__file__ is None:
             return True
         if not (mod.__file__.endswith('.pyc') or
                 mod.__file__.endswith('.py') or
