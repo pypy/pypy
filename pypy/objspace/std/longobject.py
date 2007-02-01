@@ -205,7 +205,7 @@ def abs__Long(space, w_long):
 def nonzero__Long(space, w_long):
     return space.newbool(w_long.num.tobool())
 
-def invert__Long(space, w_long): #Implement ~x as -(x + 1)
+def invert__Long(space, w_long):
     return W_LongObject(w_long.num.invert())
 
 def lshift__Long_Long(space, w_long1, w_long2):

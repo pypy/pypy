@@ -28,14 +28,6 @@ class W_IntObject(W_Object):
 registerimplementation(W_IntObject)
 
 
-"""
-XXX not implemented:
-free list
-FromString
-FromUnicode
-print
-"""
-
 def int_w__Int(space, w_int1):
     return int(w_int1.intval)
 
@@ -324,19 +316,6 @@ def or__Int_Int(space, w_int1, w_int2):
     res = a | b
     return wrapint(space, res)
 
-# coerce is not wanted
-##
-##static int
-##coerce__Int(PyObject **pv, PyObject **pw)
-##{
-##    if (PyInt_Check(*pw)) {
-##        Py_INCREF(*pv);
-##        Py_INCREF(*pw);
-##        return 0;
-##    }
-##    return 1; /* Can't do it */
-##}
-
 # int__Int is supposed to do nothing, unless it has
 # a derived integer object, where it should return
 # an exact one.
@@ -345,14 +324,6 @@ def int__Int(space, w_int1):
         return w_int1
     a = w_int1.intval
     return wrapint(space, a)
-
-"""
-# Not registered
-def long__Int(space, w_int1):
-    a = w_int1.intval
-    x = long(a)  ## XXX should this really be done so?
-    return space.newlong(x)
-"""
 
 def float__Int(space, w_int1):
     a = w_int1.intval

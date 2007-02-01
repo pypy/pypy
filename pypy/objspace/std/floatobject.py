@@ -4,12 +4,6 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf
 
-##############################################################
-# for the time being, all calls that are made to some external
-# libraries in the floatobject.c, calls are made into the 
-# python math library
-##############################################################
-
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
@@ -280,11 +274,6 @@ def div__Float_Float(space, w_float1, w_float2):
 
 truediv__Float_Float = div__Float_Float
 
-# avoid space.getitem for a basic operation
-##def floordiv__Float_Float(space, w_float1, w_float2):
-##    w_t = divmod__Float_Float(space, w_float1, w_float2)
-##    return space.getitem(w_t, space.wrap(0))
-
 def floordiv__Float_Float(space, w_float1, w_float2):
     w_div, w_mod = _divmod_w(space, w_float1, w_float2)
     return w_div
@@ -396,17 +385,6 @@ def abs__Float(space, w_float):
 
 def nonzero__Float(space, w_float):
     return space.newbool(w_float.floatval != 0.0)
-
-######## coercion must be done later
-later = """
-def float_coerce(space, w_float):
-    if w_float.__class__ == W_FloatObject:
-        return w_float
-    else:
-        return W_FloatObject(w_float.floatval)
-
-StdObjSpace.coerce.register(float_coerce, W_FloatObject)
-"""
 
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(w_float.floatval)])
