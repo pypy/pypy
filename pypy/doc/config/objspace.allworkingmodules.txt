@@ -1,0 +1,2 @@
+This option enables the usage of all modules that are known to be working well
+and that translate without problem.
