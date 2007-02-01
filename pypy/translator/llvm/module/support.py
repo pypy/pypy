@@ -1,12 +1,18 @@
+from pypy.translator.llvm.buildllvm import llvm_version
+if llvm_version >= 2.0:
+    postfix = '.i32'
+else:
+    postfix = ''
 
 extdeclarations = """
 %last_exception_type  = internal global %RPYTHON_EXCEPTION_VTABLE* null
 %last_exception_value = internal global %RPYTHON_EXCEPTION* null
 
 declare ccc uint %strlen(sbyte*)
-declare ccc void %llvm.memset(sbyte*, ubyte, UWORD, UWORD)
-declare ccc void %llvm.memcpy(sbyte*, sbyte*, UWORD, UWORD)
+declare ccc void %llvm.memsetPOSTFIX(sbyte*, ubyte, UWORD, UWORD)
+declare ccc void %llvm.memcpyPOSTFIX(sbyte*, sbyte*, UWORD, UWORD)
 """
+extdeclarations = extdeclarations.replace('POSTFIX', postfix)
 
 extfunctions = """
 internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
@@ -36,7 +42,7 @@ internal fastcc %RPyString* %RPyString_FromString(sbyte* %s) {
     %rpystrptr = getelementptr %RPyString* %rpy, int 0, uint 1, uint 1
     %rpystr    = cast [0 x sbyte]* %rpystrptr to sbyte*
 
-    call ccc void %llvm.memcpy(sbyte* %rpystr, sbyte* %s, UWORD %lenuword, UWORD 0)
+    call ccc void %llvm.memcpyPOSTFIX(sbyte* %rpystr, sbyte* %s, UWORD %lenuword, UWORD 0)
 
     ret %RPyString* %rpy
 }
@@ -78,6 +84,7 @@ return_block:
 }
 
 """
+extfunctions = extfunctions.replace('POSTFIX', postfix)
 
 from sys import maxint
 if maxint != 2**31-1:

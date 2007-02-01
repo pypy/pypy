@@ -15,19 +15,24 @@ def llvm_is_on_path():
         return False 
     return True
 
-def exe_version(exe):
+def _exe_version(exe):
     v = os.popen(exe + ' -version 2>&1').read()
     v = ''.join([c for c in v if c.isdigit()])
     v = int(v) / 10.0
     return v
 
-def exe_version2(exe):
+llvm_version = _exe_version('llvm-as')
+
+def _exe_version2(exe):
     v = os.popen(exe + ' --version 2>&1').read()
     i = v.index(')')
     v = v[i+2:].split()[0].split('.')
     major, minor = v[0], ''.join([c for c in v[1] if c.isdigit()])
     v = float(major) + float(minor) / 10.0
     return v
+
+gcc_version = _exe_version2('gcc')
+llvm_gcc_version = _exe_version2('llvm-gcc')
 
 def optimizations(simple, use_gcc):
 
@@ -81,8 +86,7 @@ def make_module_from_llvm(genllvm, llvmfile,
     # run llvm assembler and optimizer
     simple_optimizations = not optimize
     opts = optimizations(simple_optimizations, use_gcc)
-    v = exe_version('llvm-as')
-    if v < 2.0:
+    if llvm_version < 2.0:
         cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
     else: #we generate 1.x .ll files, so upgrade these first
         cmds = ["llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b)]
