@@ -370,6 +370,12 @@ class AppTestW_ListObject:
         assert l is l0
         assert l == [1,2]
 
+    def test_extend_iterable(self):
+        l = l0 = [1]
+        l.extend(iter([1, 2, 3, 4]))
+        assert l is l0
+        assert l == [1, 1, 2, 3, 4]
+
     def test_sort(self):
         l = l0 = [1, 5, 3, 0]
         l.sort()
@@ -445,6 +451,12 @@ class AppTestW_ListObject:
     def test_iadd(self):
         l = l0 = [1,2,3]
         l += [4,5]
+        assert l is l0
+        assert l == [1,2,3,4,5]
+
+    def test_iadd_iterable(self):
+        l = l0 = [1,2,3]
+        l += iter([4,5])
         assert l is l0
         assert l == [1,2,3,4,5]
 

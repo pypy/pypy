@@ -92,6 +92,10 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
     list_extend__List_ANY(space, w_list1, w_iterable2)
     return w_list1
 
+def inplace_add__List_List(space, w_list1, w_list2):
+    list_extend__List_List(space, w_list1, w_list2)
+    return w_list1
+
 def mul_list_times(space, w_list, w_times):
     try:
         times = space.int_w(w_times)
@@ -356,6 +360,10 @@ def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
 
 def list_append__List_ANY(space, w_list, w_any):
     w_list.wrappeditems.append(w_any)
+    return space.w_None
+
+def list_extend__List_List(space, w_list, w_other):
+    w_list.wrappeditems += w_other.wrappeditems
     return space.w_None
 
 def list_extend__List_ANY(space, w_list, w_any):
