@@ -429,43 +429,32 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
     sub = w_sub._value
     by = w_by._value
     maxsplit = space.int_w(w_maxsplit)
+    if maxsplit == 0:
+        return space.wrap(input)
 
     #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
 
-    #what do we have to replace?
+    if not sub:
+        upper = len(input)
+        if maxsplit > 0 and maxsplit < upper + 2:
+            upper = maxsplit - 1
+            assert upper >= 0
+        substrings = [""]
+        for i in range(upper):
+            c = input[i]
+            substrings.append(c)
+        substrings.append(input[upper:])
+        return space.wrap(by.join(substrings))
     startidx = 0
-    indices = []
+    substrings = []
     foundidx = input.find(sub, startidx)
     while foundidx >= 0 and maxsplit != 0:
-        indices.append(foundidx)
-        if len(sub) == 0:
-            #so that we go forward, even if sub is empty
-            startidx = foundidx + 1
-        else: 
-            startidx = foundidx + len(sub)        
+        substrings.append(input[startidx:foundidx])
+        startidx = foundidx + len(sub)        
         foundidx = input.find(sub, startidx)
         maxsplit = maxsplit - 1
-    indiceslen = len(indices)
-    buf = [' '] * (len(input) - indiceslen * len(sub) + indiceslen * len(by))
-    startidx = 0
-
-    #ok, so do it
-    bufpos = 0
-    for i in range(indiceslen):
-        for j in range(startidx, indices[i]):
-            buf[bufpos] = input[j]
-            bufpos = bufpos + 1
- 
-        for j in range(len(by)):
-            buf[bufpos] = by[j]
-            bufpos = bufpos + 1
-
-        startidx = indices[i] + len(sub)
-
-    for j in range(startidx, len(input)):
-        buf[bufpos] = input[j]
-        bufpos = bufpos + 1 
-    return space.wrap("".join(buf))
+    substrings.append(input[startidx:])
+    return space.wrap(by.join(substrings))
 
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
@@ -771,7 +760,7 @@ def mul_string_times(space, w_str, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    if mul < 0:
+    if mul <= 0:
         return space.wrap('')
     input = w_str._value
     input_len = len(input)
