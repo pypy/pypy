@@ -114,3 +114,11 @@ class AppTestDotnet:
         x.Add(obj)
         obj2 = x[0]
         assert obj is obj2
+
+    def test_string_wrapping(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        x = ArrayList()
+        x.Add("bar")
+        s = x[0]
+        assert s == "bar"

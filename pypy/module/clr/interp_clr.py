@@ -84,6 +84,9 @@ def cli2py(space, b_obj):
     elif b_type == typeof(System.Double):
         floatval = unbox(b_obj, ootype.Float)
         return space.wrap(floatval)
+    elif b_type == typeof(System.String):
+        strval = unbox(b_obj, ootype.String)
+        return space.wrap(strval)
     else:
         msg = "Can't convert object %s to Python" % str(b_obj.ToString())
         raise OperationError(space.w_TypeError, space.wrap(msg))
