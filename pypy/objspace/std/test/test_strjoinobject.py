@@ -62,3 +62,11 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         u = s + 'd'
         v = s + 'e'
         assert v == 'abe' # meaning u is abcd
+
+    def test_buh_even_more(self):
+        a = 'a' + 'b'
+        b = a + 'c'
+        c = '0' + '1'
+        x = c + a
+        assert x == '01ab'
+
