@@ -7,12 +7,8 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.cli.option import getoption
-from pypy.translator.cli.cts import CTS
-from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.oosupport.metavm import Generator,InstructionList
 from pypy.translator.cli.node import Node
-from pypy.translator.cli.class_ import Class
 
 from pypy.translator.js.log import log
 from types import FunctionType
