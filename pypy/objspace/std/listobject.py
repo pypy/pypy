@@ -442,15 +442,6 @@ def list_reverse__List(space, w_list):
 # Reverse a slice of a list in place, from lo up to (exclusive) hi.
 # (used in sort)
 
-def _reverse_slice(lis, lo, hi):
-    hi -= 1
-    while lo < hi:
-        t = lis[lo]
-        lis[lo] = lis[hi]
-        lis[hi] = t
-        lo += 1
-        hi -= 1
-
 class KeyContainer(baseobjspace.W_Root):
     def __init__(self, w_key, w_item):
         self.w_key = w_key
@@ -530,14 +521,14 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         # Reverse sort stability achieved by initially reversing the list,
         # applying a stable forward sort, then reversing the final result.
         if has_reverse:
-            _reverse_slice(sorter.list, 0, sorter.listlength)
+            sorter.list.reverse()
 
         # perform the sort
         sorter.sort()
 
         # reverse again
         if has_reverse:
-            _reverse_slice(sorter.list, 0, sorter.listlength)
+            sorter.list.reverse()
 
     finally:
         # unwrap each item if needed
