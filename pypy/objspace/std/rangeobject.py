@@ -40,17 +40,16 @@ class W_RangeListObject(W_Object):
             w_self.w_list = space.newlist([])
             return w_self.w_list
         
-        arr = [0] * length  # this is to avoid using append.
+        arr = [None] * length  # this is to avoid using append.
 
         i = start
         n = 0
         while n < length:
-            arr[n] = i
+            arr[n] = wrapint(space, i)
             i += step
             n += 1
 
-        w_self.w_list = space.newlist([wrapint(space, element)
-                                           for element in arr])
+        w_self.w_list = space.newlist(arr)
         return w_self.w_list
 
     def getitem(w_self, i):
@@ -114,12 +113,33 @@ def repr__RangeList(space, w_rangelist):
         n += 1
     return space.wrap("[" + ", ".join(result) + "]")
 
+
+def list_pop__RangeList_ANY(space, w_rangelist, w_idx=-1):
+    if w_rangelist.w_list is not None:
+        raise FailedToImplement
+    length = w_rangelist.length
+    if length == 0:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("pop from empty list"))
+    idx = space.int_w(w_idx)
+    if idx == 0:
+        result = w_rangelist.start
+        w_rangelist.start += w_rangelist.step
+        w_rangelist.length -= 1
+        return wrapint(space, result)
+    if idx == -1 or idx == length - 1:
+        w_rangelist.length -= 1
+        return wrapint(
+            space, w_rangelist.start + (length - 1) * w_rangelist.step)
+    if idx >= w_rangelist.length:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("pop index out of range"))
+    raise FailedToImplement
+
 def list_reverse__RangeList(space, w_rangelist):
     # probably somewhat useless, but well...
     if w_rangelist.w_list is not None:
-        w_boundmethod = space.getattr(w_rangelist.w_list,
-                                      space.wrap("reverse"))
-        return space.call_function(w_boundmethod)
+        raise FailedToImplement
     w_rangelist.start = w_rangelist.getitem(-1)
     w_rangelist.step = -w_rangelist.step
 
@@ -128,8 +148,7 @@ def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
     # even more useless but fun
     has_reverse = space.is_true(w_reverse)
     if w_rangelist.w_list is not None:
-        w_sort = space.getattr(w_rangelist.w_list, space.wrap("sort"))
-        return space.call_function(w_sort, w_cmp, w_keyfunc, w_reverse)
+        raise FailedToImplement
     if has_reverse:
         factor = -1
     else:

@@ -46,6 +46,11 @@ class AppTestRangeListObject(object):
         r.reverse()
         assert self.not_forced(r)
         assert r == range(9, -1, -1)
+        r = range(3)
+        r[0] = 1
+        assert r == [1, 1, 2]
+        r.reverse()
+        assert r == [2, 1, 1]
 
     def test_sort(self):
         r = range(10, -1, -1)
@@ -61,3 +66,27 @@ class AppTestRangeListObject(object):
         assert not self.not_forced(r)
         r.sort()
         assert r == range(1, 100) + [999]
+
+    def test_pop(self):
+        r = range(10)
+        res = r.pop()
+        assert res == 9
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(9))
+        res = r.pop(0)
+        assert res == 0
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(1, 9))
+        res = r.pop(len(r) - 1)
+        assert res == 8
+        assert self.not_forced(r)
+        assert repr(r) == repr(range(1, 8))
+        res = r.pop(2)
+        assert res == 3
+        assert not self.not_forced(r)
+        assert r == [1, 2, 4, 5, 6, 7]
+        res = r.pop(2)
+        assert res == 4
+        assert not self.not_forced(r)
+        assert r == [1, 2, 5, 6, 7]
+       
