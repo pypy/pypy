@@ -21,9 +21,8 @@ from pypy.translator.js.demo.jsdemo import support
 
 commproxy.USE_MOCHIKIT = True
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-#from SimpleHTTPServer import SimpleHTTPRequestHandler
-
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from SocketServer import ThreadingMixIn
 
 HTML_PAGE = """
 <html>

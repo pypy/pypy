@@ -5,7 +5,7 @@ import cherrypy
 import autopath
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules import dom,xmlhttp
+from pypy.translator.js.modules import dom
 from pypy.translator.js.modules.dom import document
 
 import thread
@@ -24,7 +24,7 @@ def js_fun():
 def esc_html(data):
     return data.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") \
            .replace("\n", "<br/>").replace(" ", "&nbsp;")
-    
+
 class Root(controllers.Root):
     def __init__(self):
         self.lock = thread.allocate_lock()

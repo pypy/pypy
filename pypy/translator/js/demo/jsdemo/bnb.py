@@ -68,8 +68,6 @@ class SpriteManager(object):
         self.seen = set()
         return to_ret
 
-lambda_None = _callable([])
-
 # Needed double inheritance for both server job
 # and semi-transparent communication proxy
 class BnbRoot(Root, BasicExternal):
@@ -90,12 +88,12 @@ class BnbRoot(Root, BasicExternal):
     _render_xmlhttp = True
     
     _methods = {
-        'get_message'  : MethodDesc( [('player_id', int), ('keys' , str), ('callback', lambda_None)] , {str:[{str:str}]}),
-        'add_player'   : MethodDesc( [('player_id', int), ('callback', lambda_None)] , {str:[{str:str}]}),
-        'remove_player': MethodDesc( [('player_id', int), ('callback', lambda_None)] , {str:[{str:str}]}),
-        'player_name'  : MethodDesc( [('player_id', int), ('name', str), ('callback', lambda_None)] , {str:[{str:str}]}),
+        'get_message'  : MethodDesc( [('player_id', int), ('keys' , str), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
+        'add_player'   : MethodDesc( [('player_id', int), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
+        'remove_player': MethodDesc( [('player_id', int), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
+        'player_name'  : MethodDesc( [('player_id', int), ('name', str), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
 #        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'initialize_session' : MethodDesc( [('callback', lambda_None)], {str:str}),
+        'initialize_session' : MethodDesc( [('callback', _callable([{str:str}]))], {str:str}),
     }
     
     def add_player(self, player_id = 0):
