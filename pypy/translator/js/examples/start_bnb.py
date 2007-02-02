@@ -92,7 +92,6 @@ class SpriteManager(object):
     def hide_sprite(self, s):
         i = self.sprites[s]
         i.style.visibility = "hidden"
-        #pass
     
     def start_clean_sprites(self):
         self.all_sprites = {}
@@ -141,14 +140,14 @@ class KeyManager(object):
 km = KeyManager()
 
 def appendPlayfield(msg):
-    bgcolor = '#000000'
+    bgcolor = '#FFF'
     document.body.setAttribute('bgcolor', bgcolor)
     div = document.createElement("div")
     div.setAttribute("id", "playfield")
     div.setAttribute('width', msg['width'])
     div.setAttribute('height', msg['height'])
     div.setAttribute('style', 'position:absolute; top:0px; left:0px')
-    document.body.appendChild(div)
+    document.body.childNodes.insert(0, div)
 
 def appendPlayfieldXXX():
     bgcolor = '#000000'

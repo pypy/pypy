@@ -21,7 +21,8 @@ import urllib
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
-from pypy.translator.stackless.test.test_transform import one
+#from pypy.translator.stackless.test.test_transform import one
+from pypy.rpython.extfunc import _callable, register_external
 from xml.dom import minidom
 
 from pypy.annotation.signature import annotation
@@ -306,12 +307,10 @@ scrollMaxY = 0
 
 def some_fun():
     pass
-    
+
 def setTimeout(func, delay):
-    if one():
-        setTimeout(some_fun, delay)
-    else:
-        func()
+    pass
+register_external(setTimeout, args=[_callable([]), int], result=None)
 
 window = Window()
 document = window.document
@@ -700,6 +699,7 @@ KeyEvent._fields.update({
     'shiftKey': bool,
 })
 
+# XXX: Right now this is only way to get it rendered
 setTimeout.suggested_primitive = True
 
 # the following code wraps minidom nodes with Node classes, and makes
