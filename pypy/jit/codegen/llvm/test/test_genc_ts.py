@@ -27,3 +27,9 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
         test_two_loops_merging = skip_too_minimal #segfault
         test_green_char_at_merge = skip #segfault
         test_residual_red_call_with_exc = skip
+
+    def test_simple_red_meth(self):
+        py.test.skip('no frame var support yet')
+
+    test_simple_red_meth_vars_around = test_simple_red_meth
+
