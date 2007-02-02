@@ -5,6 +5,9 @@ from pypy.jit.codegen.test.rgenop_tests import AbstractRGenOpTests, FUNC, FUNC2
 from ctypes import cast, c_int, c_void_p, CFUNCTYPE
 from pypy.jit.codegen.ppc import instruction as insn
 
+# for the individual tests see
+# ====> ../../test/rgenop_tests.py
+
 class FewRegisters(RPPCGenOp):
     freeregs = {
         insn.GP_REGISTER:insn.gprs[3:6],
