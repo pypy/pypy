@@ -2,7 +2,7 @@
 """ Server testing
 """
 
-from pypy.translator.js.examples import server
+from pypy.translator.js.lib import server
 from urllib import URLopener
 
 class Handler(server.TestHandler):

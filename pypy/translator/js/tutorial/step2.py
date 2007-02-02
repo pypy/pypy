@@ -4,7 +4,7 @@ In this example, we'll show how to add javascript to our simple
 server from previous example
 """
 
-from pypy.translator.js.examples import server
+from pypy.translator.js.lib import server
 import sys
 
 # here we have virtual script "source.js" which we generate

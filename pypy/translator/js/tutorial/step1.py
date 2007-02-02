@@ -8,7 +8,7 @@ which just shows almost-empty HTML page
 
 # here we import server, which is derivative of
 # BaseHTTPServer from python standard library
-from pypy.translator.js.examples import server
+from pypy.translator.js.lib import server
 
 # We create handler, which will handle all our requests
 class Handler(server.TestHandler):

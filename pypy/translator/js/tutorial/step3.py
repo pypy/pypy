@@ -10,7 +10,7 @@ There is ongoing effort to provide API of somewhat higher level,
 which will be way easier to manipulate.
 """
 
-from pypy.translator.js.examples import server
+from pypy.translator.js.lib import server
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.modules.dom import document
 # dom manipulating module
