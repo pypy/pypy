@@ -22,7 +22,7 @@ HTML_PAGE = """
 <html>
 <head>
   <title>Example</title>
-  <script type="text/javascript" src="jssource"/>
+  <script type="text/javascript" src="jssource"></script>
 </head>
 <body onload="runjs()">
 This is a test!<br/>
