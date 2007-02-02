@@ -828,6 +828,11 @@ expression directly (instead of pulling it indirectly from a file)::
 The interpreter level expression has a ``space`` binding when
 it is executed.
 
+Having properly added an entry under pypy/module (e.g. mymodule)
+automagically creates a new config option (such as --withmod-mymodule
+and --withoutmod-mymodule (the later being the default)) for py.py and
+translate.py.
+
 Testing modules in ``pypy/lib``
 --------------------------------
 
