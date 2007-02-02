@@ -15,7 +15,6 @@ from cgi import parse_qs
 from pypy.translator.js.modules.dom import setTimeout, document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
-from pypy.translator.js.modules.mochikit import escapeHTML
 from pypy.rpython.extfunc import _callable
 
 from pypy.translator.js.demo.jsdemo import support
@@ -55,7 +54,7 @@ def callback(data):
 
 def add_text(text):
     data_elem = document.getElementById("data")
-    data_elem.innerHTML += escapeHTML(text)
+    data_elem.appendChild(document.createTextNode(text))
 
 class Storage(object):
     def __init__(self):
