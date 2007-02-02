@@ -313,8 +313,8 @@ register_external(setTimeout, args=[_callable([]), int], result=None)
 
 window = Window()
 document = window.document
-window._render_name = 'window'
-document._render_name = 'document'
+Window._render_name = 'window'
+Document._render_name = 'document'
 
 # rtyper stuff
 
