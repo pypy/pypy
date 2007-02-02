@@ -313,6 +313,8 @@ A number of options for configuration is here in `traceconfig.py`_.
 .. _`traceconfig.py`: http://codespeak.net/svn/pypy/dist/pypy/tool/traceconfig.py
 
 
+.. _`thunk object space`: 
+
 The Thunk Object Space
 ======================
 
