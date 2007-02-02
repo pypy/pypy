@@ -32,7 +32,7 @@ class _Builtins(object):
             ootype.String.__class__: {
                 'll_strconcat' : InstructionList([PushAllArgs, '+']),
                 'll_strlen' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
-                'll_stritem_nonneg' : ListGetitem,
+                'll_stritem_nonneg' : lambda g, op: Call._render_builtin_method(g, 'charAt', [op.args[1], op.args[2]]),
                 'll_streq' : InstructionList([PushAllArgs, '==']),
                 'll_strcmp' : CallBuiltin('strcmp'),
                 'll_startswith' : CallBuiltin('startswith'),
