@@ -128,10 +128,13 @@ Related projects
 
 * Jython_ is a Python implementation in Java.
 
-* `Iron Python`_ a new Python implementation compiling Python into 
+* IronPython_ a new Python implementation compiling Python into 
   Microsofts Common Language Runtime (CLR) Intermediate Language (IL).
 
 * `GNU lightning`_ generates assembly language at runtime. 
+
+* Tunes_ is not entierely unrelated.  (See also the `review of
+  programming languages`_.)
 
 .. _`CLR under the hood`: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
 .. _Stackless: http://stackless.com 
@@ -139,7 +142,6 @@ Related projects
 .. _Jython: http://www.jython.org
 .. _`Squeak`: http://www.squeak.org/
 .. _`Croquet`: http://www.opencroquet.org/
-.. _`Iron Python`: http://www.gotdotnet.com/workspaces/workspace.aspx?id=ad7acff7-ab1e-4bcb-99c0-57ac5a3a9742
 .. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
 .. _testdesign: http://codespeak.net/pypy/dist/pypy/doc/coding-guide.html#test-design
@@ -147,6 +149,8 @@ Related projects
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _`GNU lightning`: http://www.gnu.org/software/lightning/lightning.html
 .. _LLVM: http://llvm.org/
-.. _IronPython: http://www.python.org/pycon/dc2004/papers/9/
+.. _IronPython: http://www.codeplex.com/Wiki/View.aspx?ProjectName=IronPython
 .. _`Dynamic Native Optimization of Native Interpreters`: http://www.ai.mit.edu/~gregs/dynamorio.html
 .. _JikesRVM: http://jikesrvm.sf.net
+.. _Tunes: http://tunes.org
+.. _`review of programming languages`: http://web.archive.org/web/20050205011706/cliki.tunes.org/Programming+Languages
