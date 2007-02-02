@@ -121,11 +121,8 @@ decided to stop tracking and fixing the remaining issues for a while, as
 an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
 for now.
 
-*Some links below are broken because of hardware failure of the
-snake server - PyPy kills machines :-)*
-
 PyPy's own tests, daily updated, `on Linux`_ and `on Windows`_ and
-on `build pypy-c`_ (various variants).
+on build pypy-c (not available at the moment).
 
 `Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM.
 
@@ -158,11 +155,10 @@ recent compliance test runs against PyPy.
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
-.. _`on Linux`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`on Linux`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
 .. _`on Windows`: http://scottdial.com/pypytest/summary.html
 .. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
-.. _`build pypy-c`: http://snake.cs.uni-duesseldorf.de/pypy-c-tests/
 .. _`directory reference`: 
 .. _`rlib`: rlib.html
 
