@@ -1,4 +1,3 @@
-#from __future__ import nested_scopes
 import autopath, random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
@@ -553,3 +552,28 @@ class AppTestW_ListObject:
     def test_reversed(self):
         assert list(list('hello').__reversed__()) == ['o', 'l', 'l', 'e', 'h']
         assert list(reversed(list('hello'))) == ['o', 'l', 'l', 'e', 'h']
+
+    def test_mutate_while_remove(self):
+        class Mean(object):
+            def __init__(self, i):
+                self.i = i
+            def __eq__(self, other):
+                if self.i == 9:
+                    del l[i - 1]
+                    return True
+                else:
+                    return False
+        l = [Mean(i) for i in range(10)]
+        # does not crash
+        l.remove(None)
+        class Mean2(object):
+            def __init__(self, i):
+                self.i = i
+            def __eq__(self, other):
+                l.append(self.i)
+                return False
+        l = [Mean2(i) for i in range(10)]
+        # does not crash
+        l.remove(5)
+        print l
+        assert l[10:] == [0, 1, 2, 3, 4, 6, 7, 8, 9]

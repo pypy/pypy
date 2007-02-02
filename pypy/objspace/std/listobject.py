@@ -376,11 +376,13 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
 def list_remove__List_ANY(space, w_list, w_any):
     # needs to be safe against eq_w() mutating the w_list behind our back
     items = w_list.wrappeditems
-    length = len(items)
-    for i in range(length):
+    i = 0
+    while i < len(items):
         if space.eq_w(items[i], w_any):
-            del items[i]
+            if i < len(items): # if this is wrong the list was changed
+                del items[i]
             return space.w_None
+        i += 1
     raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
 
