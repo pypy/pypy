@@ -423,8 +423,8 @@ class Builder(GenBuilder):
         allocator = self.allocate(outputargs_gv)
         if DEBUG_PRINT:
             before_moves = len(self.insns)
-        print outputargs_gv
-        print target.args_gv
+            print outputargs_gv
+            print target.args_gv
         prepare_for_jump(
             self.insns, outputargs_gv, allocator.var2loc, target, allocator)
         if DEBUG_PRINT:
