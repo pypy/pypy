@@ -589,3 +589,11 @@ class AppTestMarshal:
         x = marshal.load(f)
         assert x == case
 
+
+class AppTestMultiDict(object):
+    def setup_class(cls):
+        from pypy.conftest import gettestobjspace
+        cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
+
+    test__dict__tcid_ = AppTestMarshal.test__dict__tcid_.im_func
+    test__dict_5_colon__6_comma__7_colon__8_tcid_ = AppTestMarshal.test__dict_5_colon__6_comma__7_colon__8_tcid_.im_func
