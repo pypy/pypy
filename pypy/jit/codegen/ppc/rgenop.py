@@ -131,13 +131,12 @@ class JumpPatchupGenerator(object):
         self.allocator = allocator
 
     def emit_move(self, tarloc, srcloc):
+        srcvar = None
         if DEBUG_PRINT:
             for v, loc in self.allocator.var2loc.iteritems():
                 if loc is srcloc:
                     srcvar = v
                     break
-        else:
-            srcvar = None
         emit = self.insns.append
         if tarloc == srcloc:
             return
@@ -180,6 +179,9 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
             tar2loc[tloc] = tloc
             tar2src[tloc] = src
             tarvars.append(tloc)
+        if not tloc.is_register:
+            if tloc in allocator.free_stack_slots:
+                allocator.free_stack_slots.remove(tloc)
 
     gen = JumpPatchupGenerator(insns, allocator)
     emit_moves_safe(gen, tarvars, tar2src, tar2loc, src2loc)
@@ -425,6 +427,7 @@ class Builder(GenBuilder):
             before_moves = len(self.insns)
             print outputargs_gv
             print target.args_gv
+        allocator.spill_offset = min(allocator.spill_offset, target.min_stack_offset)
         prepare_for_jump(
             self.insns, outputargs_gv, allocator.var2loc, target, allocator)
         if DEBUG_PRINT:
