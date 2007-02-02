@@ -12,7 +12,7 @@ from pypy.jit.codegen.ppc import codebuf
 from pypy.jit.codegen.ppc.instruction import rSP, rFP, rSCRATCH, gprs
 from pypy.jit.codegen.ppc import instruction as insn
 from pypy.jit.codegen.ppc.regalloc import RegisterAllocation
-from pypy.jit.codegen.ppc.emit_moves import emit_moves
+from pypy.jit.codegen.ppc.emit_moves import emit_moves, emit_moves_safe
 
 from pypy.translator.asm.ppcgen.rassemblermaker import make_rassembler
 from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
@@ -182,7 +182,7 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
             tarvars.append(tloc)
 
     gen = JumpPatchupGenerator(insns, allocator)
-    emit_moves(gen, tarvars, tar2src, tar2loc, src2loc)
+    emit_moves_safe(gen, tarvars, tar2src, tar2loc, src2loc)
 
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]

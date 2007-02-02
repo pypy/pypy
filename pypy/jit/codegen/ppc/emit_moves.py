@@ -92,3 +92,15 @@ def _cycle_walk(gen, tarvar, data):
     gen.emit_move(tarloc, srcloc) # now safe to do our move
     data.emitted.append(tarvar)
     return
+
+def emit_moves_safe(gen, tarvars, tar2src, tar2loc, src2loc):
+    second_moves = []
+    for tarvar in tarvars:
+        srcvar = tar2src[tarvar]
+        srcloc = src2loc[srcvar]
+        freshloc = gen.create_fresh_location()
+        gen.emit_move(freshloc, srcloc)
+        second_moves.append((tar2loc[tarvar], freshloc))
+
+    for tarloc, freshloc in second_moves:
+        gen.emit_move(tarloc, freshloc)
