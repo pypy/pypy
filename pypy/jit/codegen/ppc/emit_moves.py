@@ -44,7 +44,7 @@ def emit_moves(gen, tarvars, tar2src, tar2loc, src2loc):
     data.emitted = []
 
     for tar, src in tar2src.items():
-        data.src2tar[src] = tar
+        data.src2tar.setdefault(src, []).append(tar)
 
     for src, loc in src2loc.items():
         if src in data.src2tar:
@@ -77,7 +77,8 @@ def _cycle_walk(gen, tarvar, data):
     if conflictsrcvar not in data.srcstack:
         # No cycle on our stack yet
         data.srcstack.append(srcvar)
-        _cycle_walk(gen, data.src2tar[conflictsrcvar], data)
+        for tar in data.src2tar[conflictsrcvar]:
+            _cycle_walk(gen, tar, data)
         srcloc = data.src2loc[srcvar] # warning: may have changed, so reload
         gen.emit_move(tarloc, srcloc)
         data.emitted.append(tarvar)

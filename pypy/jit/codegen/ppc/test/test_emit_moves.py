@@ -1,5 +1,5 @@
 import py
-from pypy.jit.codegen.ppc.emit_moves import emit_moves
+from pypy.jit.codegen.ppc.emit_moves import emit_moves, emit_moves_safe
 
 class TheHeap(object):
     def __init__(self, locs):
@@ -53,9 +53,7 @@ def test_dag():
     assert heap.data[2] == 2
     assert heap.numlocs == 3 # only creates 1 extra loc
 
-
 def test_one_to_many():
-    py.test.skip("failing :(")
     heap = TheHeap(4)
     tar2src = {'A':'a', 'B':'b', 'C':'a'}
     tar2loc = {'A':2, 'B':1, 'C':3}
@@ -68,3 +66,34 @@ def test_one_to_many():
     assert heap.data[1] == 0 # B
     assert heap.data[2] == 1 # A
     assert heap.data[3] == 1 # C
+
+def test_random():
+    for _ in range(20):
+        import random
+        NVAR = random.randrange(1000)
+        heap = TheHeap(NVAR)
+        varlist = range(NVAR)
+        tar2src = {}
+        src2loc = {}
+        tar2loc = {}
+        for i in varlist:
+            tar2src[i] = random.randrange(NVAR)
+        srcs = list(dict.fromkeys(tar2src.values()))
+        srclocs = srcs[:]
+        random.shuffle(srclocs)
+        for j, k in zip(srcs, srclocs):
+            src2loc[j] = k
+        varlist2 = varlist[:]
+        random.shuffle(varlist2)
+        for i, j in zip(varlist, varlist2):
+            tar2loc[i] = j
+        for i in range(10):
+            random.shuffle(varlist)
+            heap1 = TheHeap(NVAR)
+            emit_moves(heap1, varlist,
+                            tar2src.copy(), tar2loc.copy(), src2loc.copy())
+            heap2 = TheHeap(NVAR)
+            emit_moves_safe(heap2, varlist,
+                            tar2src.copy(), tar2loc.copy(), src2loc.copy())
+            for i in range(NVAR):
+                assert heap1.data[i] == heap2.data[i]

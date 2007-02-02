@@ -184,7 +184,7 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
                 allocator.free_stack_slots.remove(tloc)
 
     gen = JumpPatchupGenerator(insns, allocator)
-    emit_moves_safe(gen, tarvars, tar2src, tar2loc, src2loc)
+    emit_moves(gen, tarvars, tar2src, tar2loc, src2loc)
 
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]
