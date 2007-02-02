@@ -21,7 +21,6 @@ import urllib
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
-#from pypy.translator.stackless.test.test_transform import one
 from pypy.rpython.extfunc import _callable, register_external
 from xml.dom import minidom
 
