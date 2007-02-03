@@ -1,0 +1,13 @@
+This enables "multidicts". They are a different implementation of the Python
+``dict`` type, indistinguishable for the normal user (when using multidicts, the
+normal implementation is not used at all). When the multidict implementation is
+used, a dictionary can change its internal representation over its lifetime. It
+starts with an "empty" representation (that can represent only empty dicts). If
+a few keys are added, it changes its representation to a "small" one (that is
+optimized for small dicts). As long as only string keys are added, a
+representation optimized for string keys is used. Since this case is extremely
+common in Python, this makes multidicts a good deal faster than the regular
+dictionary implementation.
+
+The flexibility of multidicts is used by a couple of other, even more advanced
+object implementations.

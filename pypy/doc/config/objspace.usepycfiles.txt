@@ -1,0 +1,3 @@
+Whether PyPy should import and generate "pyc" files. This is mostly always on,
+except when using other options that lead to PyPy-specific bytecodes that should
+not be cached on disk because they might confuse CPython.
