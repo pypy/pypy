@@ -273,8 +273,8 @@ class AppTestCaseMethod(py.test.Item):
         filename = str(self.fspath) 
         callex(space, set_argv, space, space.wrap(filename))
         #space.call_function(self.w_method)
-        res = callex(space, run_testcase_method, space, self.w_method) 
-        if res:
+        w_res = callex(space, run_testcase_method, space, self.w_method) 
+        if space.is_true(w_res):
             raise AssertionError(
         "testcase instance invociation raised errors, see stdoudt")
 
