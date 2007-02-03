@@ -2,54 +2,66 @@
 PyPy - transparent proxy implementation
 =======================================
 
-Among the unique features of PyPy, there is as well possibility of
+Among the unique features of PyPy, there is as well the possibility of
 having multiple implementations of builtin types. Multiple performance
 optimisations using this features are already implemented, some 
-hints are in `Object space`_ document.
+hints are in the `Object Space`_ document.
 
-Transparent proxy is implementation of some (maybe all at some point)
-of objects like functions, objects, lists etc. which forwards all
-operations performed on object to app-level function with specific
-signature.
+Transparent proxy are implementations of some (maybe all at some point)
+objects like functions, objects, lists etc. which forwards all
+operations performed on these object to app-level functions which have specific
+signatures.
 
-.. _`Object space`: objspace.html#object-types
+.. _`Object Space`: objspace.html#object-types
 
 Example:
 ========
 
 Suppose we want to have list which stores all operations performed on
-it for later analysis. So we create a list an apropriate controller::
+it for later analysis. So we create an apropriate controller::
 
- from pypymagic import transparent_proxy
+    from pypymagic import transparent_proxy
+   
+    class Controller(object):
+        def __init__(self, l):
+            self.l = l
+            self.history = []
+        def perform(self, name, *args, **kwargs):
+            self.history.append(name)
+            return getattr(self.l, name)(*args, **kwargs)
+    l = []
+    c = Controller(l)
+    lst = transparent_proxy(list, c.perform)
 
- class Controller(object):
-     def __init__(self, l):
-         self.l = l
-         self.history = []
-     def perform(self, name, *args, **kwargs):
-         self.history.append(name)
-         return getattr(self.l, name)(*args, **kwargs)
- l = []
- c = Controller(l)
- lst = transparent_proxy(list, c.perform)
-
-Here, we've created original list, some random class and called magic
-``transparent_proxy`` function, which eats operation name and additional 
+Here, we've created original list, some random class and called a magic
+``transparent_proxy`` function, which takes an type and a function which will be
+called on every operation on the result of the ``transparent_proxy`` call.
+The arguments of such a call are the operation name and additional 
 arguments.
-Important bit is that we do not need some existing object to perform
+
+The important bit is that we do not need some existing object to perform
 operations on, it can do whatever we like. And of course 
 ``type(lst) is type(l)`` and ``lst is not l`` (well, the latter is not
 "of course", but actually it's true).
 
-Now we can access all history of operations on ``c.history``, if we
-perform something like::
+Now we can access all the history of operations on the list in ``c.history``.
+Example::
 
- lst.append(3)
- print lst
- lst[:-1]
+    >>>> lst
+    []
+    >>>> type(lst)
+    <type 'list'>
+    >>>> lst.append(3)
+    >>>> lst
+    [3]
+    >>>> lst[-1]
+    3
+    >>>> c.history
+    ['__repr__', '__getattribute__', '__repr__', '__getitem__']
 
-it'll be something like ``['__getattribute__', '__repr__', '__getitem__']``
-(not that ``append`` is just an argument to ``__getattribute__``).
+Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
+does not show up at all (indeed the type is the only aspect of the instance that
+the controller cannot change).
 
 Further points of interest:
 ===========================
@@ -57,30 +69,31 @@ Further points of interest:
 A lot of tasks could be performed using transparent proxies. Including,
 but not limited to:
 
-* Remote version of objects, on which we perform operations
+* A Remote version of objects, on which we perform operations
   (think about transparent distribution)
 
-* Access to some persistent-storages like databases (imagine
+* Access to some persistent-storages like databases (imagine an
   SQL object mapper which looks like real object)
 
 * Access to external data structures, like other languages as normal
-  objects. (Of course some will raise exceptions, but it's purely done
-  in application level, so it's not real problem)
+  objects. (Of course some operations on them could raise exceptions, but it's
+  purely done in application level, so it's not real problem)
 
 Random notes:
 =============
 
-Transparent proxy is implemented on top of `standart object space`_, in
+Transparent proxy is implemented on top of `standard object space`_, in
 `proxy_helpers.py`_, `proxyobject.py`_ and `transparent.py`_. To run it
 you need to pass ``--with-transparent-proxy`` option to ``py.py`` or
 ``translate.py``. It registers implementations like a ``W_TransparentXxx``
 which usually corresponds to an apropriate ``W_XxxObject``, including some
-interpreter hacks for objects that are too involved into interpreter
-tricks to be implemented in a std objspace. Actually working objects are:
+interpreter hacks for objects that are too close to the interpreter
+to be implemented in a std objspace. The types of objects that can be proxied
+like this are:
 user created classes & functions, lists, dicts, exceptions, tracebacks and
 frames.
 
-.. _`standart object space`: objspace.html#the-standard-object-space
+.. _`standard object space`: objspace.html#the-standard-object-space
 .. _`proxy_helpers.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxy_helpers.py
 .. _`proxyobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxyobject.py
 .. _`transparent.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/transparent.py
