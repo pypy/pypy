@@ -448,3 +448,9 @@ class TestInterp(object):
         var tc = testcases.length;
         print('tc'+tc) 
         """, ['tc0'])
+    
+    def test_mod_op(self):
+        self.assert_prints("print(2%2)", ['0'])
+    
+    def test_unary_plus(self):
+        self.assert_prints("print(+1)", ['1'])

@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-DEBUG = True
+DEBUG = False
 
 class SeePage(NotImplementedError):
     pass
@@ -318,7 +318,7 @@ class W_Array(W_Builtin):
             return W_PrimitiveObject.Get(self, P)
     
     def str_builtin(self, ctx, args, this):
-        return W_String(ToString())
+        return W_String(self.ToString())
 
     def ToString(self):
         return ','.join(self.array)
