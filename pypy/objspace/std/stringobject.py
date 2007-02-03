@@ -233,7 +233,7 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return W_ListObject(res_w)
+    return space.newlist(res_w)
 
 
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
@@ -256,7 +256,7 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
 
     res_w.append(sliced(space, value, start, len(value)))
 
-    return W_ListObject(res_w)
+    return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -291,7 +291,7 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
         i = j - 1
 
     res_w.reverse()
-    return W_ListObject(res_w)
+    return space.newlist(res_w)
 
 def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -313,7 +313,7 @@ def str_rsplit__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
 
     res_w.append(sliced(space, value, 0, end))
     res_w.reverse()
-    return W_ListObject(res_w)
+    return space.newlist(res_w)
 
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.unpackiterable(w_list)
