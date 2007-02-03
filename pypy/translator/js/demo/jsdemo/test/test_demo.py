@@ -1,4 +1,5 @@
-from pypy.translator.js.demo.jsdemo import example, pythonconsole
+from pypy.translator.js.demo.jsdemo import example
+from pypy.translator.js.examples import pythonconsole
 from pypy.translator.js.demo.jsdemo.support import js_source
 
 def test_example():
