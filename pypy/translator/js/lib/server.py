@@ -98,6 +98,15 @@ class TestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+class Static(object):
+    exposed = True
+    
+    def __init__(self, path):
+        self.path = path
+
+    def __call__(self):
+        return open(self.path).read()
+
 def start_server(server_address = ('', 8000), handler=TestHandler, fork=False):
     httpd = HTTPServer(server_address, handler)
 
