@@ -128,6 +128,11 @@ def booleanjs(ctx, args, this):
         return W_Boolean(args[0].ToBoolean())
     return W_Boolean(False)
 
+def stringjs(ctx, args, this):
+    if len(args) > 0:
+        return W_String(args[0].ToString())
+    return W_String('')
+
 def numberjs(ctx, args, this):
     if len(args) > 0:
         return W_Number(args[0].ToNumber())
@@ -170,6 +175,7 @@ class Interpreter(object):
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
         
+        w_Global.Put('String', W_Builtin(stringjs, Class='String'))
         
         #Global Properties
         w_Global.Put('Object', w_Object)
@@ -177,6 +183,7 @@ class Interpreter(object):
         w_Global.Put('Array', W_Array())
         w_Global.Put('version', W_Builtin(versionjs))
         
+        #Number
         w_Number = W_Builtin(numberjs, Class="Number")
         w_Number.Put('NaN', W_Number(NaN))
         w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
@@ -873,7 +880,7 @@ def get_obj(t, objname):
 def get_string(t, string):
         simb = get_tree_item(t, string)
         if isinstance(simb, Symbol):
-            return simb.additional_info
+            return str(simb.additional_info)
         else:
             return ''
 
@@ -891,7 +898,7 @@ def get_tree_item(t, name):
             if x.children[0].additional_info == name:
                 return x.children[1]
     return None
-
+    
 opcodedict = {}
 for i in locals().values():
     if isinstance(i, type(Node)) and issubclass(i, Node):

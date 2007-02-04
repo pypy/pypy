@@ -2,18 +2,25 @@
 
 import autopath
 from py import path
+import py
 import os
+import sys
 
-shell = path.local(__file__).dirpath('test', 'ecma', 'shell.js')
-
+pwd = path.local(__file__)
+shell = pwd.dirpath('test', 'ecma', 'shell.js')
 exclusionlist = ['shell.js', 'browser.js']
 def filter(filename):
     if filename.basename in exclusionlist or not filename.basename.endswith('.js'):
         return False
     else:
         return True
+
+if py.path.local.sysfind("js") is None:
+    print "js interpreter not found in path"
+    sys.exit()
+
 results = open('results.txt', 'w')
-for f in path.local(__file__).dirpath('test', 'ecma').visit(filter):
+for f in pwd.dirpath('test', 'ecma').visit(filter):
     print f.basename
     stdout = os.popen('./js_interactive.py -n -f %s -f %s'%(shell.strpath,f.strpath), 'r')
     passed = 0
