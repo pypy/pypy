@@ -10,12 +10,12 @@ else:
     exit = "Use Ctrl-D (i.e. EOF) to exit."
 
 def copyright():
-    print 'Copyright 2003-2004 Pypy development team.\nAll rights reserved.\nFor further information see http://www.codespeak.net/pypy.\nSome materials may have a different copyright.\nIn these cases, this is explicitly noted in the source code file.'
+    print 'Copyright 2003-2007 PyPy development team.\nAll rights reserved.\nFor further information see http://www.codespeak.net/pypy.\nSome materials may have a different copyright.\nIn these cases, this is explicitly noted in the source code file.'
 
 def license():
     print \
 """
-Copyright (c) <2003-2005> <Pypy development team>
+Copyright (c) <2003-2007> <PyPy development team>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
