@@ -24,11 +24,11 @@ def setup_module(mod):
     pypy.tool.build.metaserver_instance = svr
 
     mod.c1c = c1c = FakeChannel()
-    mod.c1 = c1 = BuildServerForTests(c1c, {'foo': 1, 'bar': [1,2]})
+    mod.c1 = c1 = BuildServerForTests(c1c, {'foo': 1, 'bar': [1,2]}, "noname")
     svr.register(c1)
 
     mod.c2c = c2c = FakeChannel()
-    mod.c2 = c2 = BuildServerForTests(c2c, {'foo': 2, 'bar': [2,3]})
+    mod.c2 = c2 = BuildServerForTests(c2c, {'foo': 2, 'bar': [2,3]}, "noname")
     svr.register(c2)
 
 def test_compile():

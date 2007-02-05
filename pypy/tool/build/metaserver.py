@@ -26,7 +26,7 @@ def issubdict(d1, d2):
     return True
 
 class MetaServer(object):
-    """ the build server
+    """ the build meta-server
 
         this delegates or queues build requests, and stores results and sends
         out emails when they're done
@@ -88,13 +88,17 @@ class MetaServer(object):
                 return (True, path)
         for builder in self._builders:
             if builder.busy_on and request.has_satisfying_data(builder.busy_on):
-                self._channel.send('build for %s currently in progress' %
-                                   (request,))
+                self._channel.send(
+                    "build for %s currently in progress on '%s'" % (
+                        request, builder.hostname))
                 self._waiting.append(request)
-                return (False, 'this build is already in progress')
+                return (False, "this build is already in progress on '%s'" % (
+                    builder.hostname, ))
         # we don't have a build for this yet, find a builder to compile it
-        if self.run(request):
-            return (False, 'found a suitable build server, going to build')
+        hostname = self.run(request)
+        if hostname is not None:
+            return (False, "found a suitable server, going to build on '%s'" % 
+                    (hostname, ))
         self._queuelock.acquire()
         try:
             self._queued.append(request)
@@ -117,13 +121,13 @@ class MetaServer(object):
             else:
                 self._channel.send(
                     'going to send compile job for request %s to %s' % (
-                        request, builder
+                        request, builder.hostname
                     )
                 )
                 accepted = builder.compile(request)
                 if accepted:
                     self._channel.send('compile job accepted')
-                    return True
+                    return builder.hostname
                 else:
                     self._channel.send('compile job denied')
         self._channel.send(

@@ -52,7 +52,8 @@ def test_compile():
                             str(repodir), 'HEAD', 0)
     ret = svr.compile(br)
     assert not ret[0]
-    assert ret[1].find('found a suitable build server') > -1
+    assert ret[1].find('found a suitable server') > -1
+    assert "fake" in ret[1] # hostname
     ret = svr._channel.receive()
     assert ret.find('going to send compile job') > -1
     acceptedmsg = svr._channel.receive()

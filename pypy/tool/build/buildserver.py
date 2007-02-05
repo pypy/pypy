@@ -5,7 +5,8 @@ from cStringIO import StringIO
 from pypy.tool.build import build
 
 class BuildServer(object):
-    def __init__(self, channel, sysinfo, testing_sleeptime=False):
+    def __init__(self, channel, sysinfo, hostname, testing_sleeptime=False):
+        self.hostname = hostname
         self.channel = channel
         self.sysinfo = sysinfo
         self.busy_on = None
@@ -72,7 +73,7 @@ initcode = """
 
     try:
         try:
-            bs = BuildServer(channel, %r, %r)
+            bs = BuildServer(channel, %r, %r, %r)
             bs.sit_and_wait()
         except:
             try:
@@ -97,6 +98,7 @@ def init(gw, sysconfig, path=None, port=12321, testing_sleeptime=False):
     sysinfo = make_dict(sysconfig)
     conference = execnetconference.conference(gw, port, False)
     channel = conference.remote_exec(initcode % (path, sysinfo,
+                                                 py.std.socket.gethostname(),
                                                  testing_sleeptime))
     return channel
 

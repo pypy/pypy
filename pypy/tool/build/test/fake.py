@@ -22,6 +22,7 @@ class FakeClient(object):
         self.sysinfo = info
         self.busy_on = None
         self.refused = []
+        self.hostname = "fake"
 
     def compile(self, request):
         self.channel.send(request.serialize())
