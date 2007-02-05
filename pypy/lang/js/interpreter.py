@@ -222,7 +222,7 @@ class Array(ListOp):
         #d = dict(enumerate(self.items))
         array = W_Array()
         for i in range(len(self.list)):
-            array.Put(str(i), self.list[i])
+            array.Put(str(i), self.list[i].eval(ctx).GetValue())
         return array
 
 

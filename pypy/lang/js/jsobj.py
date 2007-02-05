@@ -229,15 +229,15 @@ class W_PrimitiveObject(W_Root):
         else:
             return 'object'
     
-    def str_builtin(self, ctx, args, this):
-        return W_String(self.ToString())
+def str_builtin(ctx, args, this):
+    return W_String(this.ToString())
 
 class W_Object(W_PrimitiveObject):
     def __init__(self, ctx=None, Prototype=None, Class='Object',
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype,
                                    Class, Value, callfunc)
-        self.propdict['toString'] = Property('toString', W_Builtin(self.str_builtin))
+        self.propdict['toString'] = Property('toString', W_Builtin(str_builtin))
 
 
 class W_Builtin(W_PrimitiveObject):
@@ -280,8 +280,7 @@ class W_Array(W_Builtin):
     def __init__(self, ctx=None, Prototype=None, Class='Array',
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
-        toString = W_Builtin()
-        toString.set_builtin_call(self.str_builtin)
+        toString = W_Builtin(array_str_builtin)
         self.Put('toString', toString)
         self.Put('length', W_Number(0))
         self.array = []
@@ -317,11 +316,12 @@ class W_Array(W_Builtin):
         except ValueError:
             return W_PrimitiveObject.Get(self, P)
     
-    def str_builtin(self, ctx, args, this):
-        return W_String(self.ToString())
-
     def ToString(self):
         return ','.join(self.array)
+
+def array_str_builtin(ctx, args, this):
+    return W_String(this.ToString())
+
 
 
 class W_Boolean(W_Primitive):
