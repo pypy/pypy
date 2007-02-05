@@ -429,7 +429,26 @@ class AppTestW_ListObject:
         l = ['a', 'C', 'b']
         l.sort(reverse = True, key = lower)
         assert l == ['C', 'b', 'a']
-        
+    
+    def test_getitem(self):
+        l = [1, 2, 3, 4, 5, 6, 9]
+        assert l[0] == 1
+        assert l[-1] == 9
+        assert l[-2] == 6
+        raises(IndexError, "l[len(l)]")
+        raises(IndexError, "l[-len(l)-1]")
+
+    def test_delitem(self):
+        l = [1, 2, 3, 4, 5, 6, 9]
+        del l[0]
+        assert l == [2, 3, 4, 5, 6, 9]
+        del l[-1]
+        assert l == [2, 3, 4, 5, 6]
+        del l[-2]
+        assert l == [2, 3, 4, 6]
+        raises(IndexError, "del l[len(l)]")
+        raises(IndexError, "del l[-len(l)-1]")
+
     def test_extended_slice(self):
         l = range(10)
         del l[::2]

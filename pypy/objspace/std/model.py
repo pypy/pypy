@@ -16,6 +16,7 @@ option_to_typename = {
                         "dictstrobject.W_DictStrIterObject"],
     "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
                         "dictmultiobject.W_DictMultiIterObject"],
+    "withmultilist"  : ["listmultiobject.W_ListMultiObject"],
     "withrangelist"  : ["rangeobject.W_RangeListObject",
                         "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
@@ -65,6 +66,7 @@ class StdTypeModel:
         from pypy.objspace.std import dictobject
         from pypy.objspace.std import dictstrobject
         from pypy.objspace.std import dictmultiobject
+        from pypy.objspace.std import listmultiobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import strjoinobject
@@ -112,6 +114,7 @@ class StdTypeModel:
         imported_but_not_registered = {
             dictobject.W_DictObject: True,
             dictobject.W_DictIterObject: True,
+            listobject.W_ListObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -126,6 +129,9 @@ class StdTypeModel:
             config.objspace.std.withmultidict):
             del self.typeorder[dictobject.W_DictObject]
             del self.typeorder[dictobject.W_DictIterObject]
+
+        if config.objspace.std.withmultilist:
+            del self.typeorder[listobject.W_ListObject]
 
         #check if we missed implementations
         from pypy.objspace.std.objspace import _registered_implementations

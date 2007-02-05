@@ -348,7 +348,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_TupleObject(wrappeditems)
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
-            return W_ListObject(wrappeditems)
+            return self.newlist(wrappeditems)
 
         # The following cases are even stranger.
         # Really really only for tests.
@@ -432,7 +432,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_TupleObject(list_w)
 
     def newlist(self, list_w):
-        return W_ListObject(list_w)
+        if self.config.objspace.std.withmultilist:
+            from pypy.objspace.std.listmultiobject import convert_list_w
+            return convert_list_w(self, list_w)
+        else:
+            from pypy.objspace.std.listobject import W_ListObject
+            return W_ListObject(list_w)
 
     def newdict(self, track_builtin_shadowing=False):
         if self.config.objspace.opcodes.CALL_LIKELY_BUILTIN and track_builtin_shadowing:

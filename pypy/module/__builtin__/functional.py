@@ -69,8 +69,9 @@ to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
     if (space.config.objspace.name == "std" and
-        space.config.objspace.std.withrangelist):
-        return range_withrangelist(space, w_x, w_y, w_step)
+        (space.config.objspace.std.withmultilist or
+         space.config.objspace.std.withrangelist)):
+        return range_withspecialized_implementation(space, w_x, w_y, w_step)
     try:
         # save duplication by redirecting every error to applevel
         x = space.int_w(w_x)
@@ -96,11 +97,9 @@ del range # don't hide the builtin one
 range_fallback = applevel(getsource(app_range), getfile(app_range)
                           ).interphook('range')
 
-def range_withrangelist(space, w_x, w_y, w_step):
+def range_withspecialized_implementation(space, w_x, w_y, w_step):
     # XXX object space dependant
-    from pypy.objspace.std.rangeobject import W_RangeListObject
     try:
-        # save duplication by redirecting every error to applevel
         x = space.int_w(w_x)
         if space.is_w(w_y, space.w_None):
             start, stop = 0, x
@@ -110,5 +109,12 @@ def range_withrangelist(space, w_x, w_y, w_step):
         howmany = get_len_of_range(start, stop, step)
     except (OperationError, ValueError, OverflowError):
         return range_fallback(space, w_x, w_y, w_step)
-    return W_RangeListObject(start, step, howmany)
+    if space.config.objspace.std.withrangelist:
+        from pypy.objspace.std.rangeobject import W_RangeListObject
+        return W_RangeListObject(start, step, howmany)
+    if space.config.objspace.std.withmultilist:
+        from pypy.objspace.std.listmultiobject import W_ListMultiObject
+        from pypy.objspace.std.listmultiobject import RangeImplementation
+        impl = RangeImplementation(space, start, step, howmany)
+        return W_ListMultiObject(space, impl)
 
