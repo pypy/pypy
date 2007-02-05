@@ -16,7 +16,7 @@ class FakeChannel(object):
     def waitclose(self):
         pass
 
-class FakeClient(object):
+class FakeBuildserver(object):
     def __init__(self, info):
         self.channel = FakeChannel()
         self.sysinfo = info

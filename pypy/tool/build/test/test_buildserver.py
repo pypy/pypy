@@ -1,12 +1,13 @@
+import py
 import path
+import sys
+from StringIO import StringIO
+import time
+from zipfile import ZipFile
+
 from pypy.tool.build import buildserver
 from pypy.tool.build import build
-import py
-import time
-import sys
-from zipfile import ZipFile
-from StringIO import StringIO
-from fake import FakeChannel, FakeMetaServer
+from pypy.tool.build.test.fake import FakeChannel, FakeMetaServer
 
 class BuildServerForTests(buildserver.BuildServer):
     def __init__(self, *args, **kwargs):

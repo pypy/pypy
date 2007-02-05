@@ -122,7 +122,7 @@ class BuildRequest(object):
                 self.svnrev, self.revrange)
 
     def serialize(self):
-        data = {'normalized_rev': self.normalized_rev}
+        data = {'normalized_rev': self.normalized_rev} # it's a property
         data.update(self.__dict__)
         return """\
 email: %(email)s

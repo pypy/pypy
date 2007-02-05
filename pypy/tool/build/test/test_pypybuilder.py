@@ -11,8 +11,8 @@ from pypy.tool.build import config, build
 from pypy.tool.build.conftest import option
 from pypy.config import config as pypyconfig
 
-from repo import create_temp_repo
-from fake import Container
+from pypy.tool.build.test.repo import create_temp_repo
+from pypy.tool.build.test.fake import Container
 
 # XXX this one is a bit messy, it's a quick functional test for the whole
 # system, but for instance contains time.sleep()s to make sure all threads

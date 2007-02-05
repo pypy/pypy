@@ -1,10 +1,11 @@
-import path
-from pypy.tool.build import metaserver
 import py
-from fake import FakeChannel, FakeClient, Container
-from pypy.tool.build import build
+import path
 import time
-from repo import create_temp_repo
+
+from pypy.tool.build import metaserver
+from pypy.tool.build.test.fake import FakeChannel, FakeBuildserver, Container
+from pypy.tool.build import build
+from pypy.tool.build.test.repo import create_temp_repo
 
 def setup_module(mod):
     mod.temppath = temppath = py.test.ensuretemp('pypybuilder-server')
@@ -12,10 +13,10 @@ def setup_module(mod):
                        mailhost=None)
     mod.svr = metaserver.MetaServer(config, FakeChannel())
     
-    mod.c1 = FakeClient({'foo': 1, 'bar': [1,2]})
+    mod.c1 = FakeBuildserver({'foo': 1, 'bar': [1,2]})
     mod.svr.register(mod.c1)
 
-    mod.c2 = FakeClient({'foo': 2, 'bar': [2,3]})
+    mod.c2 = FakeBuildserver({'foo': 2, 'bar': [2,3]})
     mod.svr.register(mod.c2)
 
 def test_server_issubdict():

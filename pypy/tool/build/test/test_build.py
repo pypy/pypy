@@ -1,8 +1,8 @@
 import py
-from pypy.tool.build import build
 from py.__.misc.cache import AgingCache
 from py.__.path.svn import urlcommand
-from repo import create_temp_repo
+from pypy.tool.build import build
+from pypy.tool.build.test.repo import create_temp_repo
 
 def setup_module(mod):
     # remove nasty cache from py.path.svnurl to allow this to work...
