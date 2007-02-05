@@ -1,6 +1,6 @@
 import py
 import thread
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from cStringIO import StringIO
 from pypy.tool.build import build
 
@@ -126,7 +126,7 @@ class ChannelWrapper(object):
         pass
 
 def zip_dir(res_dir, tofile):
-    zip = ZipFile(tofile, 'w')
+    zip = ZipFile(tofile, 'w', ZIP_DEFLATED)
     for fpath in res_dir.visit():
         if fpath.ext in ['.o']:
             continue
