@@ -131,7 +131,7 @@ def zip_dir(res_dir, tofile):
         if fpath.ext in ['.o']:
             continue
         try:
-            zip.writestr(fpath.relto(res_dir), fpath.read())
+            zip.writestr("pypy-compiled/" + fpath.relto(res_dir), fpath.read())
         except (py.error.ENOENT, py.error.EISDIR), exc:
             print exc
             continue
