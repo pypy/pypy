@@ -129,7 +129,7 @@ class W_PrimitiveObject(W_Root):
         if callfunc is not None:
             self.Scope = ctx.scope[:] 
         else:
-            self.Scope = []
+            self.Scope = None
         self.Value = Value
 
     def Call(self, ctx, args=[], this=None):

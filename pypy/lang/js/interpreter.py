@@ -671,6 +671,8 @@ class Script(Statement):
             ctx.variable.Put(var.name, w_Undefined)
         for fun in self.func_decl:
             ctx.variable.Put(fun.name, fun.eval(ctx))
+        
+        node = self
 
         try:
             last = w_Undefined

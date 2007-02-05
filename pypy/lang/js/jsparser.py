@@ -39,8 +39,7 @@ def read_js_output(code_string):
 def unquote(t):
     if isinstance(t, Symbol):
         if t.symbol == "QUOTED_STRING":
-            t.additional_info = t.additional_info.strip("'")
-            t.additional_info = re.sub(r"\\'", r"'", t.additional_info)
+            t.additional_info = t.additional_info.strip("'").replace("\\'", "'")
     else:
         for i in t.children:
             unquote(i)
