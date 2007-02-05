@@ -93,10 +93,10 @@ def test_zip_dir():
 
     zip.seek(0)
     zf = ZipFile(zip)
-    data = zf.read('foo/bar.txt')
+    data = zf.read('pypy-compiled/foo/bar.txt')
     assert data == 'bar'
 
-    py.test.raises(KeyError, 'zf.read("foo/bar.o")')
+    py.test.raises(KeyError, 'zf.read("pypy-compiled/foo/bar.o")')
 
 def test_tempdir():
     parent = py.test.ensuretemp('tempdir')
