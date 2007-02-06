@@ -50,6 +50,28 @@ def typeof(val):
         return tuple([typeof(i) for i in val])
     return type(val)
 
+def load_dict_args(func, args):
+    code = func.func_code
+    if not func.func_defaults:
+        defs = []
+    else:
+        defs = func.func_defaults
+    num_args = code.co_argcount
+    assert(num_args < len(defs) + len(args), "Not enough information for describing method")
+           
+    for arg in xrange(1, code.co_argcount - len(defs)):
+        assert code.co_varnames[arg] in args, "Don't have type for arg %s" % code.co_varnames[arg]
+        
+    arg_pass = []
+    start_pos = code.co_argcount - len(defs)
+    for arg in xrange(1, code.co_argcount):
+        varname = code.co_varnames[arg]
+        if varname in args:
+            arg_pass.append((varname, args[varname]))
+        else:
+            arg_pass.append((varname, typeof(defs[arg - start_pos])))
+    return arg_pass
+
 class BasicExternal(object):
     __metaclass__ = BasicMetaExternal
     __self__ = None
@@ -59,25 +81,11 @@ class BasicExternal(object):
     
     def described(retval=None, args={}):
         def decorator(func):
-            code = func.func_code
-            if not func.func_defaults:
-                defs = []
+            if isinstance(args, dict):
+                arg_pass = load_dict_args(func, args)
             else:
-                defs = func.func_defaults
-            
-            assert(code.co_argcount < len(defs) + len(args), "Not enough information for describing method")
-            
-            for arg in xrange(1, code.co_argcount - len(defs)):
-                assert code.co_varnames[arg] in args, "Don't have type for arg %s" % code.co_varnames[arg]
-            
-            arg_pass = []
-            start_pos = code.co_argcount - len(defs)
-            for arg in xrange(1, code.co_argcount):
-                varname = code.co_varnames[arg]
-                if varname in args:
-                    arg_pass.append((varname, args[varname]))
-                else:
-                    arg_pass.append((varname, typeof(defs[arg - start_pos])))
+                assert isinstance(args, list)
+                arg_pass = args
             func._method = (func.__name__, MethodDesc(arg_pass, retval))
             return func
         return decorator
@@ -96,7 +104,9 @@ class Analyzer(object):
     
     def __call__(self, *args):
         args = args[1:]
-        assert len(self.s_args) == len(args)
+        assert len(self.s_args) == len(args),\
+            "Function %s expects %d arguments, got %d instead" % (self.name,
+                                              len(self.s_args), len(args))
         for num, (arg, expected) in enumerate(zip(args, self.s_args)):
             res = unionof(arg, expected)
             assert expected.contains(res)

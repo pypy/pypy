@@ -140,3 +140,27 @@ def test_callback_field():
     s = a.build_types(callback_field, [])
     assert isinstance(s, annmodel.SomeGenericCallable)
     assert a.translator._graphof(callback)
+
+def test_callback_field_bound_method():
+    class A:
+        def x(self, i):
+            return float(i)
+
+    aa = A()
+
+    def callback(x):
+        return 8.3 + x
+
+    def callback_field(i):
+        a = CD()
+        if i:
+            a.callback_field = aa.x
+        else:
+            a.callback_field = callback
+        return a.callback_field(i+1)
+    
+    res = interpret(callback_field, [1], type_system="ootype")
+    assert res == 2.0
+    assert isinstance(res, float)
+    res = interpret(callback_field, [0], type_system="ootype")
+    assert res == 8.3
