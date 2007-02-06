@@ -36,8 +36,7 @@ class AndContinuation(engine.Continuation):
         next_call = self.next_call.dereference(engine.frame)
         if isinstance(next_call, term.Var):
             error.throw_instantiation_error()
-        if not isinstance(next_call, term.Callable):
-            error.throw_type_error('callable', next_call)
+        next_call = helper.ensure_callable(next_call)
         return engine.call(next_call, self.continuation)
 
 def impl_and(engine, call1, call2, continuation):
