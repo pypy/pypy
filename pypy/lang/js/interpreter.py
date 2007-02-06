@@ -232,7 +232,16 @@ class Assign(BinaryOp):
     def eval(self, ctx):
         v1 = self.left.eval(ctx)
         v3 = self.right.eval(ctx).GetValue()
-        v1.PutValue(v3, ctx)
+        op = self.value
+        if op == "=":
+            v1.PutValue(v3, ctx)
+        elif op == "*":
+            v1.PutValue(Mult().mathop(ctx, v1.GetValue(), v3), ctx)
+        elif op == "+":
+            v1.PutValue(Plus().mathop(ctx, v1.GetValue(), v3), ctx)
+        else:
+            print op
+            raise NotImplementedError()
         return v3
 
 class Block(Statement):
@@ -834,6 +843,7 @@ class For(Statement):
                 if e.type == 'break':
                     break
                 elif e.type == 'continue':
+                    self.update.eval(ctx)
                     continue
     
 class Boolean(Expression):

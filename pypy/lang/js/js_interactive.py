@@ -51,6 +51,10 @@ def tracejs(ctx, args, this):
     import pdb
     pdb.set_trace()
 
+def quitjs(ctx, args, this):
+    sys.exit(0)
+    
+    
 def main(argv=None):
     # XXX: note. This will not work when translated, because
     # globals cannot be modified (ie. interactive is always True).
@@ -84,11 +88,8 @@ def main(argv=None):
         return 2
     
     interp = Interpreter()
-    #def quiter(ctx, args, this):
-    #    global interactive
-    #    interactive = False
         
-    #interp.w_Global.Put('quit', W_Builtin(quiter))
+    interp.w_Global.Put('quit', W_Builtin(quitjs))
     interp.w_Global.Put('load', W_Builtin(loadjs))
     interp.w_Global.Put('trace', W_Builtin(tracejs))
     for filename in filenames:

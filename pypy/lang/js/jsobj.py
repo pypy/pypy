@@ -292,8 +292,8 @@ class W_Array(W_Builtin):
             x = int(P)
             # print "puting", V, 'in', x
             if x > self.Get('length').ToNumber() - 1:
-                self.propdict['length'].value = W_Number(x)
                 currsize = len(self.array)
+                self.propdict['length'].value = W_Number(x+1)
                 for i in range(x-(currsize-1)):
                     self.array.append(w_Undefined)
             self.array[x]= V
