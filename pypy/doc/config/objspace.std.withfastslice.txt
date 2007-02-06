@@ -1,0 +1,5 @@
+A variant of multilists_ that makes list slicing copy the list lazily (that is
+only when the original list or the slice are mutated.
+
+
+.. _multilists: objspace.std.withmultilist.html
