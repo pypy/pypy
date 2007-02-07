@@ -63,8 +63,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                          W_IntObject, add__Int_Int
                     w_2 = f.popvalue()
                     w_1 = f.popvalue()
-                    if isinstance(w_1, W_IntObject) and \
-                           isinstance(w_2, W_IntObject):
+                    if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
                         try:
                             w_result = add__Int_Int(f.space, w_1, w_2)
                         except FailedToImplement:
