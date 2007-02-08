@@ -594,5 +594,4 @@ class AppTestW_ListObject:
         l = [Mean2(i) for i in range(10)]
         # does not crash
         l.remove(5)
-        print l
         assert l[10:] == [0, 1, 2, 3, 4, 6, 7, 8, 9]
