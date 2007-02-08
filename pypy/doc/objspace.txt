@@ -325,9 +325,9 @@ Example usage::
     $ py.py -o thunk
     >>>> from pypymagic import thunk
     >>>> def f():
-    ...     print 'computing...'
-    ...     return 6*7
-    ...
+    ....    print 'computing...'
+    ....    return 6*7
+    ....
     >>>> x = thunk(f)
     >>>> x
     computing...
@@ -338,6 +338,24 @@ Example usage::
     >>>> type(y)
     computing...
     <pypy type 'int'>
+
+There is also a decorator for functions whose result can be computed
+lazily (the function appears to return a result, but it is not really
+invoked before the result is used, if at all):
+
+    $ py.py -o thunk
+    >>>> from pypymagic import lazy
+    >>>> @lazy
+    .... def f(x):
+    ....    print 'computing...'
+    ....    return x * 100
+    ....
+    >>>> lst = [f(i) for i in range(10)]
+    >>>> del lst[1:9]
+    >>>> lst
+    computing...
+    computing...
+    [0, 900]
 
 
 .. _`flow object space`:
