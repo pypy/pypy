@@ -225,17 +225,19 @@ def entry_point(executable, argv):
         if hasattr(signal, "SIGPIPE"):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
+    success = True
+
     try:
         if sys.argv:
             if run_command:
                 cmd = sys.argv.pop(1)
                 def run_it():
                     exec cmd in mainmodule.__dict__
-                run_toplevel(run_it)
+                success = run_toplevel(run_it)
             else:
                 scriptdir = resolvedirof(sys.argv[0])
                 sys.path.insert(0, scriptdir)
-                run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
+                success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
         else: 
             sys.argv.append('')
             go_interactive = True
@@ -243,11 +245,11 @@ def entry_point(executable, argv):
             print >> sys.stderr, "debug: importing code" 
             import code
             print >> sys.stderr, "debug: calling code.interact()"
-            run_toplevel(code.interact, local=mainmodule.__dict__)
+            success = run_toplevel(code.interact, local=mainmodule.__dict__)
     except SystemExit, e:
         return e.code
     else:
-        return 0
+        return not success
 
 def resolvedirof(filename):
     try:
