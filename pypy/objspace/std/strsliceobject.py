@@ -15,6 +15,8 @@ class W_StringSliceObject(W_Object):
         w_self.stop = stop
 
     def force(w_self):
+        if w_self.start == 0 and w_self.stop == len(w_self.str):
+            return w_self.str
         str = w_self.str[w_self.start:w_self.stop]
         w_self.str = str
         w_self.start = 0
