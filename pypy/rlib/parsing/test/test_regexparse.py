@@ -138,3 +138,9 @@ def test_escaped_quote():
     assert r.recognize(r'"a\"b"')
     assert r.recognize(r'"\\\""')
     assert not r.recognize(r'"\\""')
+
+def test_number():
+    r = make_runner(r"\-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][\+\-]?[0-9]+)?")
+    assert r.recognize("-0.912E+0001")
+    assert not r.recognize("-0.a912E+0001")
+    assert r.recognize("5")

@@ -24,7 +24,7 @@ class Symbol(Node):
         addinfo = str(self.additional_info).replace('"', "'") or "_"
         yield ('"%s" [shape=box,label="%s\\n%s"];' % (
             id(self), self.symbol.replace("\\", "\\\\"),
-            repr(addinfo).replace("\\", "\\\\")))
+            repr(addinfo).replace('"', '').replace("\\", "\\\\")))
 
     def visit(self, visitor):
         "NOT_RPYTHON"

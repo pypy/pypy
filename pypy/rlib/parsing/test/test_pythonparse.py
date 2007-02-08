@@ -231,6 +231,14 @@ def f(x):
         error = excinfo.value.errorinformation
         msg = excinfo.value.nice_error_message("<stdin>", source)
 
+    def test_precedence(self):
+        source = """
+a = 1 - 2 - 3
+"""
+        t = self.parse(source)
+        t = self.ToAST.transform(t)
+        t.view()
+
     def test_parse_this(self):
         s = py.magic.autopath().read()
         t = self.parse(s)

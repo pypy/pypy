@@ -181,60 +181,69 @@ expr2: expr1 B;
 """)
     py.test.raises(AssertionError, make_parse_function, regexs, rules, True)
 
-def test_dictparse():
-    regexs, rules, ToAST = parse_ebnf("""
-    QUOTED_STRING: "'[^\\']*'";
+def test_jsonparse():
+    source = """
+    STRING: "\\"[^\\\\"]*\\"";
+    NUMBER: "\-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][\+\-]?[0-9]+)?";
     IGNORE: " |\n";
-    data: <dict> | <QUOTED_STRING> | <list>;
-    dict: ["{"] (dictentry [","])* dictentry ["}"];
-    dictentry: QUOTED_STRING [":"] data;
-    list: ["["] (data [","])* data ["]"];
-""")
+    value: <STRING> | <NUMBER> | <object> | <array> | <"null"> |
+           <"true"> | <"false">;
+    object: ["{"] (entry [","])* entry ["}"];
+    array: ["["] (value [","])* value ["]"];
+    entry: STRING [":"] value;
+"""
+    regexs, rules, ToAST = parse_ebnf(source)
     parse = make_parse_function(regexs, rules, eof=True)
     t = parse("""
 {
-    'type': 'SCRIPT',
-    '0': {
-        'type': 'SEMICOLON',
-        'end': '5',
-        'expression': {
-            'type': 'ASSIGN',
-            '0': {
-                'type': 'IDENTIFIER',
-                'assignOp': 'null',
-                'end': '1',
-                'lineno': '1',
-                'start': '0',
-                'tokenizer': '[object Object]',
-                'value': 'x'
+    "type": "SCRIPT",
+    "0": {
+        "type": "SEMICOLON",
+        "end": "5",
+        "expression": {
+            "type": "ASSIGN",
+            "0": {
+                "type": "IDENTIFIER",
+                "assignOp": "null",
+                "end": "1",
+                "lineno": "1",
+                "start": "0",
+                "tokenizer": "[object Object]",
+                "value": "x"
             } ,
-            '1': {
-                'type': 'NUMBER',
-                'end': '5',
-                'lineno': '1',
-                'start': '4',
-                'tokenizer': '[object Object]',
-                'value': '1'
+            "1": {
+                "type": "NUMBER",
+                "end": "5",
+                "lineno": "1",
+                "start": "4",
+                "tokenizer": "[object Object]",
+                "value": "1"
             } ,
-            'end': '5',
-            'length': '2',
-            'lineno': '1',
-            'start': '0',
-            'tokenizer': '[object Object]',
-            'value': '='
+            "end": "5",
+            "length": "2",
+            "lineno": "1",
+            "start": "0",
+            "tokenizer": "[object Object]",
+            "value": "="
         } ,
-        'lineno': '1',
-        'start': '0',
-        'tokenizer': '[object Object]',
-        'value': 'x'
+        "lineno": "1",
+        "start": "0",
+        "tokenizer": "[object Object]",
+        "value": "x"
     } ,
-    'funDecls': '',
-    'length': '1',
-    'lineno': '1',
-    'tokenizer': '[object Object]',
-    'varDecls': ''
+    "funDecls": "",
+    "length": "1",
+    "lineno": "1",
+    "tokenizer": "[object Object]",
+    "varDecls": ""
 }""")
     t = ToAST().transform(t)
+    t = parse('{"a": "5", "b": [1, null, 3, true, {"f": "g", "h": 6}]}')
+    print "".join(list(t.dot()))
+    t.view()
+    t = ToAST().transform(t)
+    print "\n".join(list(t.dot()))
+    t.view()
 
 def test_starparse():
     regexs, rules, ToAST = parse_ebnf("""
