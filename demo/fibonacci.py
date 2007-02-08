@@ -2,7 +2,7 @@
 Thunk (a.k.a. lazy objects) in PyPy.
 To run on top of the thunk object space with the following command-line:
 
-    py.py -o thunk thunk-demo.py
+    py.py -o thunk fibonacci.py
 
 This is a typical Functional Programming Languages demo, computing the
 Fibonacci sequence by using an infinite lazy linked list.
