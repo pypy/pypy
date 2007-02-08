@@ -478,10 +478,9 @@ Here is a simple example to try::
 Translating the flow graph to CLI code
 ++++++++++++++++++++++++++++++++++++++
 
-The CLI backend aim to translate RPython code into .NET executables:
-it is still work-in-progress, but it is already somewhat usable for
-small snippets of code since it supports classes, list, dictionaries,
-and strings. You can try out the CLI backend from the interactive
+Use the CLI backend to translate the flowgraphs into .NET executables:
+``gencli`` is quite mature now and can also compile the whole
+interpreter. You can try out the CLI backend from the interactive
 translator shell::
 
     >>> def myfunc(a, b): return a+b
@@ -625,6 +624,30 @@ To create a standalone executable using the experimental LLVM_ compiler
 infrastructure::
 
     ./translate.py --text --batch --backend=llvm --raisingop2direct_call targetpypystandalone.py
+
+Translating using the CLI backend
++++++++++++++++++++++++++++++++++
+
+To create a standalone .NET executable using the CLI backend::
+
+    ./translate.py --text --batch --backend=cli targetpypystandalone.py
+
+The executable and all its dependecies will be stored in the
+./pypy-cli-data directory. To run pypy.NET, you can run
+./pypy-cli-data/main.exe. If you are using Linux or Mac, you can use
+the convenience ./pypy-cli script::
+
+  $ ./pypy-cli
+  debug: entry point starting
+  debug:  argv ->
+  debug: importing code
+  debug: calling code.interact()
+  Python 2.4.1 (pypy 0.9.0 build 38134) on linux2
+  Type "help", "copyright", "credits" or "license" for more information.
+  (InteractiveConsole)
+   >>>> 1 + 1
+   2
+   >>>>
 
 .. _`start reading sources`: 
 
