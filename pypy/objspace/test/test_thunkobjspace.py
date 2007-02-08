@@ -84,3 +84,17 @@ class AppTest_Thunk:
             pass
         assert is_thunk(thunk(f))
         assert not is_thunk(42)
+
+    def test_lazy(self):
+        from pypymagic import lazy
+        lst = []
+        def f(x):
+            lst.append(x)
+            return x+5
+        f = lazy(f)
+        y = f(3)
+        assert lst == []
+        assert type(y) is int
+        assert lst == [3]
+        assert type(y) is int
+        assert lst == [3]

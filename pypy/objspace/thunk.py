@@ -1,7 +1,7 @@
 """Example usage:
 
     $ py.py -o thunk
-    >>> from pypymagic import thunk, become
+    >>> from pypymagic import thunk, lazy, become
     >>> def f():
     ...     print 'computing...'
     ...     return 6*7
@@ -16,11 +16,22 @@
     >>> type(y)
     computing...
     <pypy type 'int'>
+
+    >>> @lazy
+    ... def g(n):
+    ...     print 'computing...'
+    ...     return n + 5
+    ...
+    >>> y = g(12)
+    >>> y
+    computing...
+    17
 """
 
 from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.typedef import Method
 
 # __________________________________________________________________________
 
@@ -84,6 +95,12 @@ def become(space, w_target, w_source):
     w_target.w_thunkalias = w_source
     return space.w_None
 app_become = gateway.interp2app(become)
+
+def lazy(space, w_callable):
+    meth = Method(space, space.wrap(app_thunk),
+                  w_callable, space.type(w_callable))
+    return space.wrap(meth)
+app_lazy = gateway.interp2app(lazy)
 
 # __________________________________________________________________________
 
@@ -161,4 +178,6 @@ def Space(*args, **kwds):
                   space.wrap(app_is_thunk))
     space.setattr(w_pypymagic, space.wrap('become'),
                  space.wrap(app_become))
+    space.setattr(w_pypymagic, space.wrap('lazy'),
+                 space.wrap(app_lazy))
     return space
