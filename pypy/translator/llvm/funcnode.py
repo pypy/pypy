@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Block, Constant, Link
-from pypy.objspace.flow.model import mkentrymap, traverse, c_last_exception
+from pypy.objspace.flow.model import mkentrymap, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
@@ -48,21 +48,21 @@ class FuncNode(ConstantLLVMNode):
 
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
-    
+
     def setup(self):
-        def visit(node):
-            if isinstance(node, Link):
-                map(self.db.prepare_arg, node.args)
-            elif isinstance(node, Block):
-                block = node
-                map(self.db.prepare_arg, block.inputargs)
-                for op in block.operations:
-                    map(self.db.prepare_arg, op.args)
-                    self.db.prepare_arg(op.result)
-                    assert block.exitswitch != c_last_exception
-                                            
         assert self.graph, "cannot traverse"
-        traverse(visit, self.graph)
+        prepare_arg = self.db.prepare_arg
+        for block in self.graph.iterblocks():
+            for arg in block.inputargs:
+                prepare_arg(arg)
+            for op in block.operations:
+                for arg in op.args:
+                    prepare_arg(arg)
+                prepare_arg(op.result)
+            assert block.exitswitch != c_last_exception
+            for link in block.exits:
+                for arg in link.args:
+                    prepare_arg(arg)
 
     # ______________________________________________________________________
     # main entry points from genllvm 
