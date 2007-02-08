@@ -93,7 +93,7 @@ class TinyObjSpace(object):
     def is_true(self, obj):
         return bool(obj)
 
-    def newlist(self):
+    def newdict(self):
         return {}
 
 
