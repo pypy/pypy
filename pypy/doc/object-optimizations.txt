@@ -1,0 +1,114 @@
+===================================================================
+Alternative object implementations in the PyPy standard interpreter
+===================================================================
+
+One of the advantages of the PyPy standard interpreter (compared to CPython) is
+that we can provide several implementations of the same object (e.g. for lists
+and strings) without the user noticing any difference. This makes it easy to
+provide a specialized implementation of a type that is optimized for a certain
+situation without disturbing the implementation for the regular case.
+
+We have implemented several such optimizations. Most of them are not enabled by
+default. Also, it is not clear for all there optimizations whether they are
+worth it in practice, for a real-world application (they sure make some
+microbenchmarks a lot faster of use less memory, which is not saying too much).
+If you have any observation in that direction, please let us know!
+
+
+String optimizations
+====================
+
+string-join objects
+-------------------
+
+String-join objects are a different implementation of the Python ``str`` type,
+They represent the lazy addition of several strings without actually performing
+the addition (which involves copying etc.). When the actual value of the string
+join object is needed, the addition is performed. This makes it possible to
+perform repeated string additions in a loop without using the
+``"".join(list_of_strings)`` pattern.
+
+string-slice objects
+--------------------
+
+String-slice objects are another implementation of the Python ``str`` type.
+They represent the lazy slicing of a string without actually performing the
+slicing (which would involve copying). This is only done for slices of step
+one. When the actual value of the string slice object is needed, the slicing
+is done (although a lot of string methods don't make this necessary). This
+makes string slicing a very efficient operation. It also saves memory in some
+cases but can also lead to memory leaks, since the string slice retains a
+reference to the original string (to make this a bit less likely, the slicing
+is only done when the length of the slice exceeds a certain number of characters
+and when the slice length is a significant amount of the original string's
+length).
+
+Integer optimizations
+=====================
+
+caching small integers
+----------------------
+
+integers as tagged pointers
+---------------------------
+
+Dictionary optimizations
+========================
+
+string-keyed dictionaries
+-------------------------
+
+String-keyed dictionaries are an alternate implmentation of the ``dict`` type.
+These dictionaries are optimized for string keys, which is obviously a big win
+for most Python programs. As soon as one non-string key is stored in the dict
+the whole information in the string-keyed dictionary is copied over into another
+RPython-dictionary, where arbitrary Python objects can be used as keys.
+
+multi-dicts
+-----------
+
+Multi-dicts are another special implementation of dictionaries. While
+implementing the string-keyed dictionaries it became clear that it is very
+useful to *change* the internal representation of an object during its lifetime.
+String-keyed dictionaries already do that in a limited way (changing the
+representation from a string-to-object mapping to an object-to-object mapping).
+Multi-Dicts are way more general in providing support for this switching of
+representations for dicts in a rather general way.
+
+If you just enable multi-dicts, special representations for empty dictionaries,
+for string-keyed dictionaries and for small dictionaries are used (as well as a
+general representation that can store arbitrary keys). In addition there are
+more specialized dictionary implementations for various purposes (see below).
+
+
+sharing dicts
+-------------
+
+Sharing dictionaries are a special representation used together with multidicts.
+This dict representation is used only for instance dictionaries and tries to
+make instance dictionaries use less memory (in fact, in the ideal case the
+memory behaviour should be mostly like that of using __slots__).
+
+The idea is the following: Most instances of the same class have very similar
+attributes, and are even adding these keys to the dictionary in the same order
+while ``__init__`` is being executed. That means that all the dictionaries of
+these instances look very similar: they have the same set of keys with different
+values per instance. What sharing dicts do is store these common keys into a
+common structure object and thus safe the space in the individual instance dict:
+the representation of the instance dict contains only a list of values.
+
+builtin-shadowing
+-----------------
+
+List optimizations
+==================
+
+range-lists
+-----------
+
+multi-lists
+-----------
+
+General type optimizations
+==========================
+
