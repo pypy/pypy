@@ -514,6 +514,37 @@ simply ignore some of the operation such as ``ooupcast`` and
 ``oodowncast``. Backends that supports implicit upcasting, such as CLI
 and Java, can simply ignore only ``ooupcast``.
 
+Object model
+++++++++++++
+
+The object model implemented by ootype is quite Java-like. The
+following is a list of key feature of the ootype object model which
+have a direct correspondence in the Java or .NET object:
+
+  - classes have a static set of strongly typed methods and
+    attributes;
+
+  - methods can be overriden in subclasses; every method is "virtual"
+    (i.e., can be overridden); methods can be "abstract" (i.e., need
+    to be overridden in subclasses);
+
+  - classes support single inheritance; all classes inherits directly
+    or indirectly from the ROOT class;
+
+  - there is some support for method overloading. This feature is not
+    used by the RTyper itself because RPython doesn't support method
+    overloading, but it is used by the GenCLI backend for offering
+    access to the native .NET libraries (see XXX);
+
+  - all classes, attributes and methods are public: ootype is only
+    used internally by the translator, so there is no need to enforce
+    accessibility rules;
+
+  - classes and functions are first-class order objects: this feature
+    can be easly simulated by backends for platform on which it is not
+    a native feature;
+
+  - there is a set of `built-in types`_ offering standard features;
 
 Exception handling
 ++++++++++++++++++
@@ -530,6 +561,7 @@ it. In particular the exception instances are typed with the
 ``Instance`` type, so the usual inheritance exception hierarchy is
 preserved and the native way to catch exception should just work.
 
+.. `built-in types`_
 
 Built-in types
 ++++++++++++++
