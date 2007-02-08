@@ -54,7 +54,7 @@ more useful ones are:
 
 ``ComputedIntSymbolic``:
     Instances of ``ComputedIntSymbolic`` are treated like integers of unknown
-    value by the annotator. The value is determined by a non-argument function
+    value by the annotator. The value is determined by a no-argument function
     (which needs to be passed into the constructor of the class). When the
     backend emits code, the function is called to determine the value.
 
@@ -93,7 +93,7 @@ more useful ones are:
     carries exactly one integer field. The class should have ``__slots__``
     with exactly one entry defined. After translation, instances of this class
     won't be allocated but represented by *tagged pointers**, that is pointers
-    who have the lowest bit set.
+    that have the lowest bit set.
 
 .. _objectmodel: ../../pypy/rlib/objectmodel.py
 
@@ -120,7 +120,7 @@ to other types use the methods ``toint``, ``tobool``, ``touint`` and
 ``tofloat``. Since RPython does not support operator overloading, all the
 special methods of ``rbigint`` that would normally start and end with "__" have
 these underscores left out for better readability (so ``a.add(b)`` can be used
-to add two rbigint).
+to add two rbigint instances).
 
 .. _rbigint: ../../pypy/rlib/rbigint.py
 
@@ -148,7 +148,7 @@ the socket standard library with a slightly different interface.
 ==========
 
 The rstack_ module allows an RPython progam to control its own execution stack.
-This is mostly only useful if the program is translated using stackless. An old
+This is only useful if the program is translated using stackless. An old
 description of the exposed functions is below.
 
 We introduce an RPython type ``frame_stack_top`` and a built-in function
@@ -325,16 +325,15 @@ An example to make this clearer::
     IGNORE: " ";
     DECIMAL: "0|[1-9][0-9]*";
     additive: multitive "+" additive |
-              multitive "-" additive |
               multitive;
     multitive: primary "*" multitive |
-               primary "/" multitive |
                primary;
     primary: "(" additive ")" | DECIMAL;
 
-This grammar describes the syntax of arithmetic impressions. The tokenizer
+This grammar describes the syntax of arithmetic impressions involving addition
+and multiplication. The tokenizer
 produces a stream of either DECIMAL tokens or tokens that have matched one of
-the literals "+", "-", "*" or "/". Any space will be ignored. The grammar
+the literals "+", "*", "(" or ")". Any space will be ignored. The grammar
 produces a syntax tree that follows the precedence of the operators. For example
 the expression ``12 + 4 * 5`` is parsed into the following tree:
 
@@ -378,7 +377,7 @@ As the tree of arithmetic example above shows, by default the parse tree
 contains a lot of nodes that are not really conveying useful information.
 To get rid of some of them, there is some support in the grammar format to
 automatically create a visitor that transforms the tree to remove the additional
-nodes. The simplest such transformation is to just remove nodes, but there are
+nodes. The simplest such transformation just removes nodes, but there are
 more complex ones.
 
 The syntax for these transformations is to enclose symbols in expansions of a
@@ -505,7 +504,28 @@ is transformed to look like this::
 Full Example
 ------------
 
-XXX to be written
+A semi-complete parser for the `json format`_::
+
+    STRING: "\\"[^\\\\"]*\\"";
+    NUMBER: "\-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][\+\-]?[0-9]+)?";
+    IGNORE: " |\n";
+    value: <STRING> | <NUMBER> | <object> | <array> | <"null"> |
+           <"true"> | <"false">;
+    object: ["{"] (entry [","])* entry ["}"];
+    array: ["["] (value [","])* value ["]"];
+    entry: STRING [":"] value;
+
+
+The resulting tree for parsing the string::
+
+    {"a": "5", "b": [1, null, 3, true, {"f": "g", "h": 6}]}
+
+looks like this:
+
+.. graphviz:: image/parsing_example10.dot
+
+
 
 .. _`Prolog interpreter`: ../../pypy/lang/prolog/
 .. _parsing: ../../pypy/rlib/parsing/
+.. _`json format`: http://www.json.org
