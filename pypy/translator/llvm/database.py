@@ -103,28 +103,30 @@ class Database(object):
 
         self.obj2node[key] = node 
         self._pendingsetup.append(node)
-        
+
     def prepare_type(self, type_):
         if type_ in self.obj2node:
             return
+
         if isinstance(type_, lltype.Primitive):
             pass
-        elif isinstance(type_, lltype.Ptr): 
+
+        elif isinstance(type_, lltype.Ptr):
             self.prepare_type(type_.TO)
 
         elif isinstance(type_, lltype.FixedSizeArray):
             self.addpending(type_, FixedSizeArrayTypeNode(self, type_))
-            
+
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
                 self.addpending(type_, StructVarsizeTypeNode(self, type_))
             else:
-                self.addpending(type_, StructTypeNode(self, type_))                
+                self.addpending(type_, StructTypeNode(self, type_))
 
-        elif isinstance(type_, lltype.FuncType): 
+        elif isinstance(type_, lltype.FuncType):
             self.addpending(type_, FuncTypeNode(self, type_))
 
-        elif isinstance(type_, lltype.Array): 
+        elif isinstance(type_, lltype.Array):
             if type_.OF is lltype.Void:
                 self.addpending(type_, VoidArrayTypeNode(self, type_))
             else:
@@ -132,7 +134,7 @@ class Database(object):
 
         elif isinstance(type_, lltype.OpaqueType):
             if hasattr(type_, '_exttypeinfo'):
-                self.addpending(type_, ExtOpaqueTypeNode(self, type_))            
+                self.addpending(type_, ExtOpaqueTypeNode(self, type_))
             else:
                 self.addpending(type_, OpaqueTypeNode(self, type_))
 
@@ -267,7 +269,11 @@ class Database(object):
             if isinstance(type_, lltype.Primitive):
                 return self.primitives[type_]
             elif isinstance(type_, lltype.Ptr):
-                return self.repr_type(type_.TO) + '*'
+                if isinstance(type_.TO, lltype.FixedSizeArray):
+                    # hack copied from genc
+                    return self.repr_type(type_.TO.OF) + '*'
+                else:
+                    return self.repr_type(type_.TO) + '*'
             else: 
                 raise TypeError("cannot represent %r" %(type_,))
             
