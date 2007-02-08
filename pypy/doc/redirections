@@ -34,5 +34,6 @@
     'draft-memory-management-threading-model.html': 'translation-aspects.html',
     'ctypes-integration.html': 'rctypes.html',
     'cpython-ctypes-behaviour.html': 'rctypes.html#cpython-behavior',
+    'proxy.html': 'objspace-proxies.html#tproxy',
 }
 

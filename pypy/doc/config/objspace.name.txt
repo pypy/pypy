@@ -1,11 +1,17 @@
-Which `Object Space`_ to use. The `Standard Object Space`_ gives the normal
-Python semantics, the others give additional features (except the Flow Object
-Space which is not intended for normal useage):
+Which `Object Space`_ to use. The `Standard Object Space`_ gives the
+normal Python semantics, the others are `Object Space Proxies`_ giving
+additional features (except the Flow Object Space which is not intended
+for normal usage):
 
-  * The `Thunk Object Space`_ adds lazy evaluation to Python
-
-XXX add the others
+  * thunk_: adds lazy evaluation to Python
+  * logic_: logical programming features
+  * taint_: soft security
+  * dump_:  dump all operations to a log
 
 .. _`Object Space`: ../objspace.html
+.. _`Object Space Proxies`: ../objspace-proxies.html
 .. _`Standard Object Space`: ../objspace.html#standard-object-space
-.. _`Thunk Object Space`: ../objspace.html#thunk-object-space
+.. _thunk: ../objspace-proxies.html#thunk
+.. _logic: ../objspace-proxies.html#logic
+.. _taint: ../objspace-proxies.html#taint
+.. _dump: ../objspace-proxies.html#dump

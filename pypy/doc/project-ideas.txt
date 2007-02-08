@@ -258,4 +258,4 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
 .. _`what is pypy.js`: js/whatis.html
 .. _`using the JavaScript backend`: js/using.html
-.. _`transparent proxy`: proxy.html
+.. _`transparent proxy`: objspace-proxies.html#tproxy

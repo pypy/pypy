@@ -28,7 +28,7 @@ interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled). 
 
-We currently have four working object spaces which can be plugged into
+We have many working object spaces which can be plugged into
 the bytecode interpreter:
 
 - The *Standard Object Space* is a complete implementation 
@@ -44,10 +44,10 @@ the bytecode interpreter:
   object space in order to trace the execution of bytecodes, 
   frames and object space operations.
 
-- the *Thunk Object Space* wraps another object space (e.g. the standard
-  one) and adds two capabilities: lazily computed objects (computed only when
-  an operation is performed on them), and "become", which completely and
-  globally replaces one object with another.
+- various `Object Space proxies`_ wrap another object space (e.g. the standard
+  one) and adds new capabilities, like lazily computed objects (computed only
+  when an operation is performed on them), security-checking objects,
+  distributed objects living on several machines, etc.
 
 - the *Flow Object Space* transforms a Python program into a
   flow-graph representation, by recording all operations that the bytecode 
@@ -61,6 +61,7 @@ The sources of PyPy contain the various object spaces in the directory
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 .. _`in another document`: translation.html
+.. _`Object Space proxies`: objspace-proxies.html
 
 Object Space Interface
 ======================
@@ -313,52 +314,18 @@ A number of options for configuration is here in `traceconfig.py`_.
 .. _`traceconfig.py`: http://codespeak.net/svn/pypy/dist/pypy/tool/traceconfig.py
 
 
-.. _`thunk object space`: 
+Proxy Object Spaces
+===================
 
-The Thunk Object Space
-======================
+We have implemented several *proxy object spaces* which wrap another
+space (typically the standard one) and add some capability to all
+objects.  These object spaces are documented in a separate page: `What
+PyPy can do for your objects`_.
 
-This small object space, meant as a nice example, wraps another object space (e.g. the standard one) and adds two capabilities: lazily computed objects (computed only when an operation is performed on them), and "become", which completely and globally replaces an object with another.
-
-Example usage::
-
-    $ py.py -o thunk
-    >>>> from pypymagic import thunk
-    >>>> def f():
-    ....    print 'computing...'
-    ....    return 6*7
-    ....
-    >>>> x = thunk(f)
-    >>>> x
-    computing...
-    42
-    >>>> x
-    42
-    >>>> y = thunk(f)
-    >>>> type(y)
-    computing...
-    <pypy type 'int'>
-
-There is also a decorator for functions whose result can be computed
-lazily (the function appears to return a result, but it is not really
-invoked before the result is used, if at all):
-
-    $ py.py -o thunk
-    >>>> from pypymagic import lazy
-    >>>> @lazy
-    .... def f(x):
-    ....    print 'computing...'
-    ....    return x * 100
-    ....
-    >>>> lst = [f(i) for i in range(10)]
-    >>>> del lst[1:9]
-    >>>> lst
-    computing...
-    computing...
-    [0, 900]
+.. _`What PyPy can do for your objects`: objspace-proxies.html
 
 
-.. _`flow object space`:
+.. _`Flow Object Space`:
 
 The Flow Object Space
 =====================

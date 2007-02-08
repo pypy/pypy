@@ -1,0 +1,264 @@
+=================================
+What PyPy can do for your objects
+=================================
+
+.. contents::
+.. sectnum::
+
+
+Thanks to the `Object Space`_ architecture, there is a kind of feature
+that is easy to implement on top of PyPy: namely, any feature that is
+based on proxying, extending, changing or otherwise controlling the
+behavior of all objects in a running program.
+
+Here is what we implemented so far, in historical order:
+
+* *Thunk Object Space*: lazily computed objects, computing only when an
+  operation is performed on them; lazy functions, computing their result
+  only if and when needed; and a way to globally replace an object with
+  another.
+
+* *Logic Object Space*: logical variables, i.e. placeholder objects
+  whose value can be bound once.
+
+* *Taint Object Space*: a soft security system.  Your application cannot
+  accidentally compute results based on tainted objects unless it
+  explicitly untaint them first.
+
+* *Dump Object Space*: dumps all operations performed on all the objects
+  into a large log file.  For debugging your applications.
+
+* *Transparent Proxies Object Space*: adds new objects that behave like
+  regular built-in objects (list objects, traceback objects, etc.), but
+  completely under the control of the application.
+
+
+.. _thunk:
+
+The Thunk Object Space
+======================
+
+This small object space, meant as a nice example, wraps another object
+space (e.g. the standard one) and adds two capabilities: lazily computed
+objects (computed only when an operation is performed on them), and
+"become", which completely and globally replaces an object with another.
+
+Example usage::
+
+    $ py.py -o thunk
+    >>>> from pypymagic import thunk
+    >>>> def f():
+    ....    print 'computing...'
+    ....    return 6*7
+    ....
+    >>>> x = thunk(f)
+    >>>> x
+    computing...
+    42
+    >>>> x
+    42
+    >>>> y = thunk(f)
+    >>>> type(y)
+    computing...
+    <pypy type 'int'>
+
+A related, but more obscure feature, allows one object to be instantly
+and globally replaced with another::
+
+    $ py.py -o thunk
+    >>>> from pypymagic import become
+    >>>> x = object()
+    >>>> lst = [1, 2, x, 4]
+    >>>> become(x, 3)
+    >>>> lst
+    [1, 2, 3, 4]
+
+There is also a decorator for functions whose result can be computed
+lazily (the function appears to return a result, but it is not really
+invoked before the result is used, if at all)::
+
+    $ py.py -o thunk
+    >>>> from pypymagic import lazy
+    >>>> @lazy
+    .... def f(x):
+    ....    print 'computing...'
+    ....    return x * 100
+    ....
+    >>>> lst = [f(i) for i in range(10)]
+    >>>> del lst[1:9]
+    >>>> lst
+    computing...
+    computing...
+    [0, 900]
+
+The implementation is short (see `pypy/objspace/thunk.py`_).  For the
+purpose of ``become()``, it adds an internal field `w_thunkalias` to
+each object, which is either None (in the common case) or a reference to
+the object that this object was replaced with.  When any space operation
+is invoked, the chain of ``w_thunkalias`` references is followed and the
+underlying object space really operates on the new objects instead of
+the old ones.
+
+For the laziness part, the function ``thunk()`` returns an instance of a
+new internal class ``W_Thunk`` which stores the user-supplied callable
+and arguments.  When a space operation follows the ``w_thunkalias``
+chains of objects, it special-cases ``W_Thunk``: it invokes the stored
+callable if necessary to compute the real value and then stores it in
+the ``w_thunkalias`` field of the ``W_Thunk``, which has the effect of
+replacing the latter with the real value.
+
+
+.. _logic:
+
+The Logic Object Space
+======================
+
+The Logic Object Space adds several logic programming features,
+including the notion of logical variable.  A logical variable is really
+an object from the Python point of view; it is called "variable" for
+consistency with logic programming terminology.  It is an "empty" object
+with no initial value at all.  It is possible to put a value into this
+object once, and only once, at any point in time.
+
+This is not entierely unrelated to a lazily-computed object, except that
+the object has no built-in knowledge about how it should compute itself.
+Trying to use such an object before it got a value results in a lock:
+the current thread is suspended, in the hope that another thread will
+eventually put a value into the object.  In practice, this works well
+with microthreads instead of real threads (see `Stackless features`_).
+
+Two somewhat outdated documents describe the Logic Object Space in more
+details:
+
+* `How to use the Logic Object space features of PyPy 0.9`_;
+* `EU Interim Report`_ (PDF).
+
+The following document is a draft:
+
+* `Ideas about syntactic and algorithmic aspects of Constraint and Logic
+  Programming in Python`_
+
+.. _`Ideas about syntactic and algorithmic aspects of Constraint and Logic Programming in Python`: constraints-and-logic.html
+.. _`How to use the Logic Object space features of PyPy 0.9`: howto-logicobjspace-0.9.html
+.. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2006-07-28.pdf
+.. _`Stackless features`: stackless.html
+
+
+.. _taint:
+
+The Taint Object Space
+======================
+
+XXX
+
+
+.. _dump:
+
+The Dump Object Space
+=====================
+
+XXX
+
+
+.. _tproxy:
+
+Transparent Proxy Implementation
+================================
+
+Among the unique features of PyPy, there is as well the possibility of
+having multiple implementations of builtin types. Multiple performance
+optimisations using this features are already implemented, some 
+hints are in the `Object Space`_ document.
+
+Transparent proxy are implementations of some (maybe all at some point)
+objects like functions, objects, lists etc. which forwards all
+operations performed on these object to app-level functions which have specific
+signatures.
+
+.. _`Object Space`: objspace.html#object-types
+
+Example:
+---------
+
+Suppose we want to have list which stores all operations performed on
+it for later analysis. So we create an apropriate controller::
+
+    from pypymagic import transparent_proxy
+   
+    class Controller(object):
+        def __init__(self, l):
+            self.l = l
+            self.history = []
+        def perform(self, name, *args, **kwargs):
+            self.history.append(name)
+            return getattr(self.l, name)(*args, **kwargs)
+    l = []
+    c = Controller(l)
+    lst = transparent_proxy(list, c.perform)
+
+Here, we've created original list, some random class and called a magic
+``transparent_proxy`` function, which takes an type and a function which will be
+called on every operation on the result of the ``transparent_proxy`` call.
+The arguments of such a call are the operation name and additional 
+arguments.
+
+The important bit is that we do not need some existing object to perform
+operations on, it can do whatever we like. And of course 
+``type(lst) is type(l)`` and ``lst is not l`` (well, the latter is not
+"of course", but actually it's true).
+
+Now we can access all the history of operations on the list in ``c.history``.
+Example::
+
+    >>>> lst
+    []
+    >>>> type(lst)
+    <type 'list'>
+    >>>> lst.append(3)
+    >>>> lst
+    [3]
+    >>>> lst[-1]
+    3
+    >>>> c.history
+    ['__repr__', '__getattribute__', '__repr__', '__getitem__']
+
+Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
+does not show up at all (indeed the type is the only aspect of the instance that
+the controller cannot change).
+
+Further points of interest:
+---------------------------
+
+A lot of tasks could be performed using transparent proxies. Including,
+but not limited to:
+
+* A Remote version of objects, on which we perform operations
+  (think about transparent distribution)
+
+* Access to some persistent-storages like databases (imagine an
+  SQL object mapper which looks like real object)
+
+* Access to external data structures, like other languages as normal
+  objects. (Of course some operations on them could raise exceptions, but it's
+  purely done in application level, so it's not real problem)
+
+Random notes:
+-------------
+
+Transparent proxy is implemented on top of `standard object space`_, in
+`proxy_helpers.py`_, `proxyobject.py`_ and `transparent.py`_. To run it
+you need to pass ``--with-transparent-proxy`` option to ``py.py`` or
+``translate.py``. It registers implementations like a ``W_TransparentXxx``
+which usually corresponds to an apropriate ``W_XxxObject``, including some
+interpreter hacks for objects that are too close to the interpreter
+to be implemented in a std objspace. The types of objects that can be proxied
+like this are:
+user created classes & functions, lists, dicts, exceptions, tracebacks and
+frames.
+
+.. _`standard object space`: objspace.html#the-standard-object-space
+.. _`proxy_helpers.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxy_helpers.py
+.. _`proxyobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxyobject.py
+.. _`transparent.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/transparent.py
+
+.. include:: _ref.txt

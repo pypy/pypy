@@ -2340,7 +2340,7 @@ Glossary and links mentioned in the text:
 
 
 .. _`Object Space`: objspace.html
-.. _`Thunk Object Space`: objspace.html#the-thunk-object-space
+.. _`Thunk Object Space`: objspace-proxies.html#thunk
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`formal definition`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _lattice: http://en.wikipedia.org/wiki/Lattice_%28order%29

@@ -108,7 +108,7 @@ Stackless_ and coroutines
 .. _Thunk: getting-started.html#lazily-computed-objects
 .. _Stackless: stackless.html
 .. _`Logic and Constraint`: howto-logicobjspace-0.9.html
-.. _`Transparent proxy`: proxy.html
+.. _`Transparent proxy`: objspace-proxies.html#tproxy
 
 
 Status
@@ -295,7 +295,7 @@ Directory                      explanation/links
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
 .. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`thunk object space`: objspace.html#the-thunk-object-space
+.. _`thunk object space`: objspace-proxies.html#thunk
 .. _`logic object space`: constraints-and-logic.html#logic-programming
 .. _StdObjSpace: objspace.html#the-standard-object-space 
 .. _`abstract interpretation`: theory.html#abstract-interpretation
