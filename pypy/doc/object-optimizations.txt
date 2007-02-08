@@ -12,7 +12,10 @@ We have implemented several such optimizations. Most of them are not enabled by
 default. Also, it is not clear for all there optimizations whether they are
 worth it in practice, for a real-world application (they sure make some
 microbenchmarks a lot faster of use less memory, which is not saying too much).
-If you have any observation in that direction, please let us know!
+If you have any observation in that direction, please let us know! By the way:
+alternative object implementations are a great way to get into PyPy development
+since you have to know only a rather small part of PyPy to do them. And they are
+fun too!
 
 
 String optimizations
@@ -49,8 +52,22 @@ Integer optimizations
 caching small integers
 ----------------------
 
+Similar to what CPython does it is possible to enable caching of small integer
+objects to not have to allocate all the time when doing simple arithmetic. Every
+time a new integer object is created it is checked whether the integer is small
+enough to be retrieved from the cache.
+
+
 integers as tagged pointers
 ---------------------------
+
+An even more aggressive way to save memory when using integers is "small int"
+integer implementation. It is another integer implementation used for integers
+that only need 31 bits (respective 63 bits on an 64 bit machine). These integers
+are represented as tagged pointers by setting their lowest bits to distinguish
+them from normal pointers. This makes boxing of these integers use no memory at
+all.
+
 
 Dictionary optimizations
 ========================
@@ -60,7 +77,8 @@ string-keyed dictionaries
 
 String-keyed dictionaries are an alternate implmentation of the ``dict`` type.
 These dictionaries are optimized for string keys, which is obviously a big win
-for most Python programs. As soon as one non-string key is stored in the dict
+for all but the most contrived Python programs. As soon as one non-string key
+is stored in the dict
 the whole information in the string-keyed dictionary is copied over into another
 RPython-dictionary, where arbitrary Python objects can be used as keys.
 
@@ -97,8 +115,28 @@ values per instance. What sharing dicts do is store these common keys into a
 common structure object and thus safe the space in the individual instance dict:
 the representation of the instance dict contains only a list of values.
 
+
 builtin-shadowing
 -----------------
+
+Usually the calling of builtins in Python requires two dictionary lookups: first
+to see whether the current global dictionary contains an object with the same
+name, then a lookup in the ``__builtin__`` dictionary. This is somehow
+circumvented by storing an often used builtin into a local variable to get
+the fast local lookup (which is a rather strange and ugly hack).
+
+The same problem is solved in a different way by "wary" dictionaries. They are
+another dictionary representation used together with multidicts. This
+representation is used only for module dictionaries. The repesentation checks on
+every setitem whether the key that is used is the name of a builtin. If this is
+the case, the dictionary is marked as shadowing that particular builtin.
+
+To identify calls to builtins easily, a new bytecode (``CALL_LIKELY_BUILTIN``)
+is introduced. Whenever it is executed, the globals dictionary is checked
+whether it masks the builtin (which is possible without a dictionary lookup).
+Then the ``__builtin__`` dict is checked whether somebody replaced the real
+builtin with something else in the same way. If both these conditions are not
+met, the proper builtin is called, using no dictionary lookup at all.
 
 List optimizations
 ==================
@@ -106,9 +144,69 @@ List optimizations
 range-lists
 -----------
 
+Range-lists solve the same problem that the ``xrange`` builtin solves poorly:
+the problem that ``range`` allocates memory even if the resulting list is only
+ever used for iterating over it. Range lists are a different implementation for
+lists. They are created only as a result of a call to ``range``. As long as the
+resulting list is used without being mutated, the list stores only start, stop
+and step of the range. Only when somebody mutates the list the actual list is
+created. This gives the memory and speed behaviour of ``xrange`` and the general
+of use of ``range``.
+
+
 multi-lists
 -----------
 
-General type optimizations
-==========================
+As with dictionaries it became clear that it is generally useful to allow lists
+to change their internal representation over their lifetime. Therefore
+multi-lists were implemented, mostly equivalently to multi-dicts. The special
+representations you get by default are for empty lists, for lists containing
+only strings and ranges again (the reason why range lists and multilists both
+implement the same optimization is that range lists came earlier and that
+multi-lists are not tried that much so far).
 
+
+fast list slicing
+------------------
+
+A rather experimental special list representation used with multilists is the
+slice list (the original idea is from `Neal Norwitz on pypy-dev`_). The
+observation is that slices are often created for iterating over them, so it
+seems wasteful to create a full copy of that portion of the list. Instead the
+list slice is only created lazily, that is when the original list or the sliced
+list are mutated.
+
+
+.. _`Neal Norwitz on pypy-dev`: http://codespeak.net/pipermail/pypy-dev/2005q4/002538.html
+
+
+User class optimizations
+========================
+
+Shadow tracking
+---------------
+
+Shadow tracking is a general optimization that speeds up method calls for user
+classes (that don't have special meta-class). For this a special dict
+representation is used together with multidicts. This dict representation is
+used only for instance dictionaries. The instance dictionary tracks whether an
+instance attribute shadows an attribute of its class. This makes method calls
+slightly faster in the following way: When calling a method the first thing that
+is checked is the class dictionary to find descriptors. Normally, when a method
+is found, the instance dictionary is then checked for instance attributes
+shadowing the class attribute. If we know that there is no shadowing (since
+instance dict tells us that) we can save this lookup on the instance dictionary.
+
+
+Method caching
+--------------
+
+Shadow tracking is also an important building block for the method caching
+optimization. A method cache is introduced where the result of a method lookup
+is stored (which involves potentially many lookups in the base classes of a
+class). Entries in the method cache are stored using a hash consisting of the
+hash of the name being looked up, the call site (e.g. the bytecode object and
+the currend program counter) and a special "version" of the type where the
+lookup happens (that version is incremented every time the type or one of its
+base classes is changed). On subsequent lookups the cached version can be used
+(at least if the instance did not shadow any of its classes attributes).
