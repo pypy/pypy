@@ -7,7 +7,7 @@ class TestResultCache:
     def setup_class(cls): 
         if not testresultdir.check(dir=1):
             py.test.skip("testresult directory not checked out")
-        cls.rc = ResultCache() 
+        cls.rc = ResultCache(testresultdir) 
         cls.rc.parselatest()
 
     def test_getlatest_all(self): 

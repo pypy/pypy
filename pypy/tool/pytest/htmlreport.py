@@ -14,10 +14,11 @@ from pypy.tool.pytest.overview import ResultCache
 #
 
 html = py.xml.html
+NBSP = py.xml.raw("&nbsp;")
 
 class HtmlReport(object): 
-    def __init__(self): 
-        self.resultcache = ResultCache()
+    def __init__(self, resultdir): 
+        self.resultcache = ResultCache(resultdir)
 
     def parselatest(self): 
         self.resultcache.parselatest()
@@ -49,10 +50,10 @@ class HtmlReport(object):
 
     def render_result_row(self, result): 
         dp = py.path.local(result['fspath']) 
-       
+
         options = " ".join([x for x in result.get('options', []) if x!= 'core'])
         if not options: 
-            options="&nbsp;"
+            options = NBSP
 
         failureratio = 100 * (1.0 - result.ratio_of_passed())
         return html.tr(
@@ -64,7 +65,7 @@ class HtmlReport(object):
                 html.td(result['platform']), 
                 html.td("%.2fs" % result['execution-time']),
                 html.td(options), 
-                html.td(result.repr_short_error() or '&nbsp;')
+                html.td(result.repr_short_error() or NBSP)
         )
 
     def getrelpath(self, p): 
@@ -89,7 +90,7 @@ class HtmlReport(object):
         def iscore(result): 
             return 'core' in result.get('options', []) 
         coretests = []
-        noncoretests = [] 
+        noncoretests = []
         for name in self.resultcache.getnames(): 
             result = self.resultcache.getlatestrelevant(name)
             if iscore(result): 
@@ -182,7 +183,6 @@ class ViewResult(Document):
                 text = result.getnamedtext(name)
             except KeyError: 
                 continue
-            text = py.xml.escape(text)
             self.body.append(html.h3(name))
             self.body.append(html.pre(text))
 

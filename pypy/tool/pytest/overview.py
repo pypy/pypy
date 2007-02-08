@@ -1,9 +1,9 @@
-from pypy.tool.pytest.confpath import testresultdir 
 from pypy.tool.pytest import result 
-
+import sys
 
 class ResultCache: 
-    def __init__(self): 
+    def __init__(self, resultdir):
+        self.resultdir = resultdir
         self.name2result = {}
 
     def parselatest(self): 
@@ -11,16 +11,17 @@ class ResultCache:
             return p.check(fnmatch='test_*.txt', file=1)
         def rec(p): 
             return p.check(dotfile=0)
-        for x in testresultdir.visit(filefilter, rec): 
+        for x in self.resultdir.visit(filefilter, rec): 
             self.parse_one(x)
     
-    def parse_one(self, resultpath): 
+    def parse_one(self, resultpath):
         try: 
             res = result.ResultFromMime(resultpath) 
             ver = res['testreport-version']
-            if ver != "1.1":
+            if ver != "1.1" and ver != "1.1.1":
                 raise TypeError
-        except TypeError: 
+        except TypeError: # xxx
+            print >>sys.stderr, "could not parse %s" % resultpath
             return
         name = res.testname 
         print name
@@ -35,7 +36,7 @@ class ResultCache:
         resultlist = self.name2result[name]
         maxrev = 0
         maxresult = None
-        for res in resultlist: 
+        for res in resultlist:
             resrev = res['pypy-revision']
             if resrev == 'unknown': 
                 continue 

@@ -23,6 +23,8 @@ from pypy.tool.pytest.confpath import pypydir, libpythondir, \
                                       regrtestdir, modregrtestdir, testresultdir
 from pypy.tool.pytest.result import Result, ResultFromMime
 
+pypyexecpath = pypydir.join('bin', 'pypy-c')
+    
 # 
 # Interfacing/Integrating with py.test's collection process 
 #
@@ -37,15 +39,22 @@ Option = py.test.config.Option
 option = py.test.config.addoptions("compliance testing options", 
     Option('-C', '--compiled', action="store_true", 
            default=False, dest="use_compiled", 
-           help="use a compiled version of pypy, expected in pypy/bin/pypy-c"),
+           help="use a compiled version of pypy"),
+    Option('--compiled-pypy', action="store", type="string", dest="pypy_executable",
+           default=str(pypyexecpath),
+           help="to use together with -C to specify the path to the "
+                "compiled version of pypy, by default expected in pypy/bin/pypy-c"),
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
     Option('-T', '--timeout', action="store", type="string", 
            default="100mp", dest="timeout", 
            help="fail a test module after the given timeout. "
-                "specify in seconds or 'NUMmp' aka Mega-Pystones")
-    ) 
+                "specify in seconds or 'NUMmp' aka Mega-Pystones"),
+    Option('--resultdir', action="store", type="string", 
+           default=str(testresultdir), dest="resultdir", 
+           help="directory under which to store results in USER@HOST subdirs"),
+    )
 
 def gettimeout(): 
     timeout = option.timeout.lower()
@@ -796,15 +805,19 @@ def getrev(path):
         return 'unknown'  
 
 def getexecutable(_cache={}):
-    execpath = pypydir.join('bin', 'pypy-c')
+    execpath = py.path.local(option.pypy_executable)
     if not _cache:
         text = execpath.sysexec('-c', 
-            'import sys; print sys.version; print sys.pypy_translation_info')
+            'import sys; '
+            'print sys.version; '
+            'print sys.pypy_svn_url; '
+            'print sys.pypy_translation_info; ')
         lines = text.split('\n')
-        assert len(lines) == 3 and lines[2] == ''
-        assert lines[1].startswith('{') and lines[1].endswith('}')
-        info = eval(lines[1])
+        assert len(lines) == 4 and lines[3] == ''
+        assert lines[2].startswith('{') and lines[2].endswith('}')
+        info = eval(lines[2])
         info['version'] = lines[0]
+        info['rev'] = eval(lines[1])[1]
         _cache.update(info)
     return execpath, _cache
 
@@ -827,7 +840,8 @@ class RunFileExternal(py.test.collect.Module):
         return ReallyRunFileExternal(name, parent=self) 
 
 
-def ensuretestresultdir(): 
+def ensuretestresultdir():
+    testresultdir = py.path.local(option.resultdir)
     if not testresultdir.check(dir=1): 
         py.test.skip("""'testresult' directory not found.
         To run tests in reporting mode (without -E), you first have to
@@ -835,7 +849,6 @@ def ensuretestresultdir():
         svn co http://codespeak.net/svn/pypy/testresult %s""" % (
             testresultdir, ))
     return testresultdir 
-
 
 #
 # testmethod: 
@@ -929,7 +942,7 @@ class ReallyRunFileExternal(py.test.Item):
                                      "more interesting non-timeout outcome")
             
         fn.write(result.repr_mimemessage().as_string(unixfrom=False))
-        if result['exit status']:  
+        if result['exit-status']:  
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
              print >>sys.stderr, result.getnamedtext('stderr') 
              py.test.fail("running test failed, see stderr output below") 
@@ -963,6 +976,7 @@ class ReallyRunFileExternal(py.test.Item):
         result['pypy-revision'] = getrev(pypydir) 
         if option.use_compiled:
             execpath, info = getexecutable()
+            result['pypy-revision'] = info.pop('rev')
             result['executable'] = execpath.basename
             for key, value in info.items():
                 result['executable-%s' % key] = str(value)
@@ -1002,7 +1016,7 @@ class ReallyRunFileExternal(py.test.Item):
         else: 
             outcome = "ERR"
         
-        result['exit status'] = exit_status 
+        result['exit-status'] = exit_status 
         result['outcome'] = outcome 
         return result
 

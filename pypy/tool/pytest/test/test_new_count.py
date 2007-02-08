@@ -5,9 +5,6 @@ from pypy.tool.pytest.result import ResultFromMime
 testpath = py.magic.autopath().dirpath('data')
 
 class TestResultCache:
-    def setup_class(self):
-        if py.std.sys.version_info >= (2,4): 
-            py.test.skip("does not work on python 2.4 and greater currently")
 
     def test_timeout(self):
         test = ResultFromMime(testpath.join('test___all__.txt'))

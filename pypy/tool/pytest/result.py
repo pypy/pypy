@@ -52,7 +52,10 @@ class Result(object):
         items = self._headers.items()
         items.sort()
         reprs = {}
-        for name, value in items: 
+        for name, value in items:
+            assert ':' not in name
+            chars = map(ord, name)
+            assert min(chars) >= 33 and max(chars) <= 126
             outer[name] = str(value) 
             if not isinstance(value, str): 
                 typename = type(value).__name__ 
@@ -105,17 +108,40 @@ class Result(object):
     def istimeout(self): 
         return self['outcome'].lower() == 't/o'
 
+# XXX backward compatibility
+def sanitize(msg, path):
+    if 'exit-status' in msg.keys():
+        return msg
+    f = open(str(path), 'r')
+    msg = f.read()
+    f.close()    
+    for broken in ('exit status', 'cpu model', 'cpu mhz'):
+        valid = broken.replace(' ','-')
+        invalid = msg.find(broken+':')
+        msg = (msg[:invalid] + valid +
+               msg[invalid+len(valid):])
+    from email import message_from_string
+    msg = message_from_string(msg)
+    return msg
+
+def sanitize_reprs(reprs):
+    if 'exit status' in reprs:
+        reprs['exit-status'] = reprs.pop('exit status')
+            
 class ResultFromMime(Result): 
     def __init__(self, path): 
         super(ResultFromMime, self).__init__(init=False) 
-        f = open(str(path), 'r') 
-        from email import message_from_file 
+        f = open(str(path), 'r')
+        from email import message_from_file
         msg = message_from_file(f)
+        f.close()
+        msg = sanitize(msg, path)
         # XXX security wise evil (keep in mind once we accept reporsts
         # from anonymous
         #print msg['_reprs']
-        self._reprs = eval(msg['_reprs']) 
+        self._reprs = eval(msg['_reprs'])
         del msg['_reprs']
+        sanitize_reprs(self._reprs)
         for name, value in msg.items(): 
             if name in self._reprs: 
                 value = eval(value)  # XXX security
@@ -132,7 +158,7 @@ class ResultFromMime(Result):
         payload = msg.get_payload() 
         if payload: 
            for submsg in payload: 
-                assert submsg.get_main_type() == 'text'
+                assert submsg.get_content_type() == 'text/plain'
                 fn = submsg.get_filename() 
                 assert fn
                 # XXX we need to deal better with encodings to
@@ -165,14 +191,14 @@ def stdinit(result):
     except:
         username = 'unknown'
     userhost = '%s@%s' % (username, socket.gethostname())
-    result['testreport-version'] = "1.1" 
+    result['testreport-version'] = "1.1.1"
     result['userhost'] = userhost 
     result['platform'] = sys.platform 
     result['python-version-info'] = sys.version_info 
     info = try_getcpuinfo() 
     if info is not None:
-        result['cpu model'] = info.get('model name', "unknown")
-        result['cpu mhz'] = info.get('cpu mhz', 'unknown')
+        result['cpu-model'] = info.get('model name', "unknown")
+        result['cpu-mhz'] = info.get('cpu mhz', 'unknown')
 #
 #
 #
