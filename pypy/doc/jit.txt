@@ -1,9 +1,151 @@
-=======================
-JIT Generation in PyPy
-=======================
+========================================================================
+                        JIT Compilers in PyPy
+========================================================================
 
 .. contents::
 .. sectnum::
+
+
+------------------------------------------------------------------------
+                           Usage and Status
+------------------------------------------------------------------------
+
+.. _warning:
+
+A foreword of warning about the JIT of PyPy as of February 2007:
+
+   * What it does is produce machine code in memory, and run it.
+   * What it does not do is gain much speed by doing so.
+   * Yet.
+
+
+Status
+======
+
+From a Python programmer's point of view, the JIT is not yet able to
+speed up many programs at all.  It generally results in slow-downs.
+
+All the pieces necessary to get a reasonable result are present, but
+need to be put together, which we expect to do in March.  We fully
+expect that the most extremely algorithmic examples will soon run at
+about 50% of the speed of compiled C code.
+
+It is worth underlying that the JIT has some rough edges but nothing
+fundamental stops it, and by construction it can JIT absolutely *any*
+kind of Python code - generators, nested scopes, ``exec`` statements,
+``sys._getframe().f_back.f_back.f_locals``, etc.
+
+
+In more details
+---------------
+
+So far there is little point in trying out the JIT unless you want to
+help find bugs.  You can also look at the machine code it produces, but
+if you do please keep in mind that the assembler will look fundamentally
+different after we extend the range of PyPy that the JIT generator
+processes.
+
+* The produced machine code is kind of good, in the sense that the
+  backends perform some reasonable register allocation.  The 386 backend
+  computes the lifetime of values within blocks.  The PPC backend does
+  not, but the fact that the processor has plenty of registers mitigates
+  this problem to some extent.  The PPC backend is not 100% complete
+  yet.  An LLVM_ backend is started but blocked half-way on a hard
+  problem that might not get solved any time soon.
+
+* The timeshifter_, which produces the JIT frontend, is able to handle
+  rather incredibly tricky situations successfully.
+
+* The remaining work is to do the necessary adjustments of the PyPy
+  interpreter source code so that the timeshifter can process it.  At
+  the moment only the interpreter's main dispatch loop (i.e. mostly only
+  pyopcode.py) is fed to the timeshifter, so the produced JIT can remove
+  the bytecode interpretation overhead, but cannot look inside the
+  implementation of ``space.add()``, for example.
+
+The results thus look like Python2C+gcc: we produce machine code that is
+essentially a sequence of calls to space.add(), space.cmp(),
+space.is_true(), etc.  A well-known estimate is that Python2C gives a
+~2x speed-up; we get about the same with our JIT, except that the
+start-up overhead is greater - calling small functions is still quite
+slower with the JIT than without.  On the other hand, Python2C doesn't
+emulate frames, for example, so AFAIK PyPy contains the first Python
+compiler ever where ``sys._getframe()`` completely works (Psyco_
+emulates frames but not at 100%).
+
+.. _LLVM: http://llvm.org/
+
+
+How to compile a pypy-c with a JIT
+==================================
+
+Go to ``pypy/jit/goal/`` and run::
+
+    ../../translator/goal/translate.py  targetjit.py
+
+Please first read the warning_ above.  This only works for Intel
+386-compatible machines yet.  **This is not going to speed up your
+programs yet!**
+
+This will produce the C code for a version pypy-c that includes both a
+regular interpreter and an automatically generated JIT compiler.  This
+pypy-c uses its interpreter by default, and due to some overhead we
+expect this interpreter to be a bit slower than the one found in a
+pypy-c compiled without JIT.
+
+Usage
+=====
+
+You can mark one or many code objects as candidates for being run by
+the JIT as follows::
+
+    >>>> def f(x): return x*5
+    >>>> import pypyjit
+    >>>> pypyjit.enable(f.func_code)
+    >>>> f(7)
+    # the JIT runs here
+    35
+    >>>> f(8)
+    # machine code already generated, no more jitting occurs here
+    40
+
+You can get a dump of the generated machine code by setting the
+environment variable ``PYPYJITLOG`` to a file name before you start
+pypy-c.  See `In more details`_ above.  To inspect this file, use the
+following tool::
+
+    python  pypy/jit/codegen/i386/viewcode.py  dumpfilename
+
+The viewcode.py script is based on the Linux tool ``objdump`` to produce
+a disassembly.  If you want to port the tool to Windows, have a look at
+http://codespeak.net/svn/psyco/dist/py-utils/xam.py : this is the tool
+from which viewcode.py was derived in the first place, but
+Windows-specific parts were omitted for lack of a Windows machine to try
+them on.
+
+Caveats
+-------
+
+When running JIT'ed code, the tracing hooks are not invoked.  This
+should be the only visible effect of the JIT, aside from the debug
+prints and the speed/memory impact.  In practice, of course, it still
+has also got rough edges.
+
+One of them is that all compile-time errors are fatal for now, because
+it is hard to recover from them.  Clearly, the compiler is not
+*supposed* to fail, but it can occur because the memory runs out, a bug
+hits, or for more subtle reasons.  For example, overflowing the stack is
+likely to cause the JIT compiler to try to compile the app-level
+handlers for the RuntimeError, and compiling takes up stack space too -
+so the compiler, running on top of the already-full stack, might hit the
+stack limit again before it has got a chance to generate code for the
+app-level handlers.
+
+
+------------------------------------------------------------------------
+             JIT Compiler Generation - Technical Section
+------------------------------------------------------------------------
+
 
 Introduction
 =============
