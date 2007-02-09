@@ -118,12 +118,6 @@ class PyPyTarget(object):
         # expose the following variables to ease debugging
         global space, entry_point
 
-        # obscure hack to stuff the translation options into the translated PyPy
-        import pypy.module.sys
-        options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options)
-        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
-
         if config.translation.thread:
             config.objspace.usemodules.thread = True
         elif config.objspace.usemodules.thread:
@@ -141,6 +135,12 @@ class PyPyTarget(object):
         import translate
         translate.log_config(config.objspace, "PyPy config object")
  
+        # obscure hack to stuff the translation options into the translated PyPy
+        import pypy.module.sys
+        options = make_dict(config)
+        wrapstr = 'space.wrap(%r)' % (options)
+        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+
         return self.get_entry_point(config)
 
     def get_entry_point(self, config):
