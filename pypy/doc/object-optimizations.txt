@@ -9,9 +9,9 @@ provide a specialized implementation of a type that is optimized for a certain
 situation without disturbing the implementation for the regular case.
 
 We have implemented several such optimizations. Most of them are not enabled by
-default. Also, it is not clear for all there optimizations whether they are
+default. Also, it is not clear for all these optimizations whether they are
 worth it in practice, for a real-world application (they sure make some
-microbenchmarks a lot faster of use less memory, which is not saying too much).
+microbenchmarks a lot faster and use less memory, which is not saying too much).
 If you have any observation in that direction, please let us know! By the way:
 alternative object implementations are a great way to get into PyPy development
 since you have to know only a rather small part of PyPy to do them. And they are
@@ -41,10 +41,10 @@ one. When the actual value of the string slice object is needed, the slicing
 is done (although a lot of string methods don't make this necessary). This
 makes string slicing a very efficient operation. It also saves memory in some
 cases but can also lead to memory leaks, since the string slice retains a
-reference to the original string (to make this a bit less likely, the slicing
-is only done when the length of the slice exceeds a certain number of characters
-and when the slice length is a significant amount of the original string's
-length).
+reference to the original string (to make this a bit less likely, we don't
+use lazy slicing when the slice would be much shorter than the original
+string.  There is also a minimum number of characters below which being lazy
+is not saving any time over making the copy).
 
 Integer optimizations
 =====================
@@ -63,10 +63,10 @@ integers as tagged pointers
 
 An even more aggressive way to save memory when using integers is "small int"
 integer implementation. It is another integer implementation used for integers
-that only need 31 bits (respective 63 bits on an 64 bit machine). These integers
+that only needs 31 bits (or 63 bits on a 64 bit machine). These integers
 are represented as tagged pointers by setting their lowest bits to distinguish
-them from normal pointers. This makes boxing of these integers use no memory at
-all.
+them from normal pointers. This completely avoids the boxing step, saving
+time and memory.
 
 
 Dictionary optimizations
@@ -75,7 +75,7 @@ Dictionary optimizations
 string-keyed dictionaries
 -------------------------
 
-String-keyed dictionaries are an alternate implmentation of the ``dict`` type.
+String-keyed dictionaries are an alternate implementation of the ``dict`` type.
 These dictionaries are optimized for string keys, which is obviously a big win
 for all but the most contrived Python programs. As soon as one non-string key
 is stored in the dict
@@ -90,8 +90,8 @@ implementing the string-keyed dictionaries it became clear that it is very
 useful to *change* the internal representation of an object during its lifetime.
 String-keyed dictionaries already do that in a limited way (changing the
 representation from a string-to-object mapping to an object-to-object mapping).
-Multi-Dicts are way more general in providing support for this switching of
-representations for dicts in a rather general way.
+Multi-Dicts are way more general: they provide generic support for such
+switching of representations for dicts.
 
 If you just enable multi-dicts, special representations for empty dictionaries,
 for string-keyed dictionaries and for small dictionaries are used (as well as a
@@ -109,10 +109,11 @@ memory behaviour should be mostly like that of using __slots__).
 
 The idea is the following: Most instances of the same class have very similar
 attributes, and are even adding these keys to the dictionary in the same order
-while ``__init__`` is being executed. That means that all the dictionaries of
+while ``__init__()`` is being executed. That means that all the dictionaries of
 these instances look very similar: they have the same set of keys with different
 values per instance. What sharing dicts do is store these common keys into a
-common structure object and thus safe the space in the individual instance dict:
+common structure object and thus save the space in the individual instance
+dicts:
 the representation of the instance dict contains only a list of values.
 
 
@@ -127,16 +128,17 @@ the fast local lookup (which is a rather strange and ugly hack).
 
 The same problem is solved in a different way by "wary" dictionaries. They are
 another dictionary representation used together with multidicts. This
-representation is used only for module dictionaries. The repesentation checks on
+representation is used only for module dictionaries. The representation checks on
 every setitem whether the key that is used is the name of a builtin. If this is
 the case, the dictionary is marked as shadowing that particular builtin.
 
 To identify calls to builtins easily, a new bytecode (``CALL_LIKELY_BUILTIN``)
 is introduced. Whenever it is executed, the globals dictionary is checked
-whether it masks the builtin (which is possible without a dictionary lookup).
-Then the ``__builtin__`` dict is checked whether somebody replaced the real
-builtin with something else in the same way. If both these conditions are not
-met, the proper builtin is called, using no dictionary lookup at all.
+to see whether it masks the builtin (which is possible without a dictionary
+lookup).  Then the ``__builtin__`` dict is checked in the same way,
+to see whether somebody replaced the real builtin with something else. In the
+common case, the program didn't do any of these; the proper builtin can then
+be called without using any dictionary lookup at all.
 
 List optimizations
 ==================
@@ -148,10 +150,10 @@ Range-lists solve the same problem that the ``xrange`` builtin solves poorly:
 the problem that ``range`` allocates memory even if the resulting list is only
 ever used for iterating over it. Range lists are a different implementation for
 lists. They are created only as a result of a call to ``range``. As long as the
-resulting list is used without being mutated, the list stores only start, stop
+resulting list is used without being mutated, the list stores only the start, stop
 and step of the range. Only when somebody mutates the list the actual list is
-created. This gives the memory and speed behaviour of ``xrange`` and the general
-of use of ``range``.
+created. This gives the memory and speed behaviour of ``xrange`` and the generality
+of use of ``range``, and makes ``xrange`` essentially useless.
 
 
 multi-lists
@@ -163,7 +165,7 @@ multi-lists were implemented, mostly equivalently to multi-dicts. The special
 representations you get by default are for empty lists, for lists containing
 only strings and ranges again (the reason why range lists and multilists both
 implement the same optimization is that range lists came earlier and that
-multi-lists are not tried that much so far).
+multi-lists are not tested that much so far).
 
 
 fast list slicing
@@ -173,8 +175,8 @@ A rather experimental special list representation used with multilists is the
 slice list (the original idea is from `Neal Norwitz on pypy-dev`_). The
 observation is that slices are often created for iterating over them, so it
 seems wasteful to create a full copy of that portion of the list. Instead the
-list slice is only created lazily, that is when the original list or the sliced
-list are mutated.
+list slice is only created lazily, that is when either the original list or
+the sliced list is mutated.
 
 
 .. _`Neal Norwitz on pypy-dev`: http://codespeak.net/pipermail/pypy-dev/2005q4/002538.html
@@ -204,9 +206,9 @@ Method caching
 Shadow tracking is also an important building block for the method caching
 optimization. A method cache is introduced where the result of a method lookup
 is stored (which involves potentially many lookups in the base classes of a
-class). Entries in the method cache are stored using a hash consisting of the
-hash of the name being looked up, the call site (e.g. the bytecode object and
-the currend program counter) and a special "version" of the type where the
-lookup happens (that version is incremented every time the type or one of its
-base classes is changed). On subsequent lookups the cached version can be used
-(at least if the instance did not shadow any of its classes attributes).
+class). Entries in the method cache are stored using a hash computed from
+the name being looked up, the call site (i.e. the bytecode object and
+the current program counter), and a special "version" of the type where the
+lookup happens (this version is incremented every time the type or one of its
+base classes is changed). On subsequent lookups the cached version can be used,
+as long as the instance did not shadow any of its classes attributes.
