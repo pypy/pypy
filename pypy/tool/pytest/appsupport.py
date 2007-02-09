@@ -4,6 +4,7 @@ import py
 from py.__.magic import exprinfo
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
+from py.__.test.outcome import ExceptionFailure
 
 # ____________________________________________________________
 
@@ -212,7 +213,7 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
         if not value.match(space, w_ExpectedException):
             raise type, value, tb
         return excinfo
-    except py.test.Item.ExceptionFailure, e:
+    except ExceptionFailure, e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise
 

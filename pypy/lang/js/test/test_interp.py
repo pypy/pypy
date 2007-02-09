@@ -454,4 +454,3 @@ class TestInterp(object):
     
     def test_unary_plus(self):
         self.assert_prints("print(+1)", ['1'])
-

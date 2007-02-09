@@ -6,7 +6,7 @@ _ppcgen = None
 def get_ppcgen():
     global _ppcgen
     if _ppcgen is None:
-        _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
+        _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c')._getpymodule()
     return _ppcgen
 
 class AsmCode(object):

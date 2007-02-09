@@ -3,7 +3,7 @@ def lookup(sym):
     global lookup
     import py
 
-    _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c').getpymodule()
+    _ppcgen = py.magic.autopath().dirpath().join('_ppcgen.c')._getpymodule()
 
     try:
         from _ppcgen import NSLookupAndBindSymbol

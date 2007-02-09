@@ -7,6 +7,9 @@ from inspect import isclass, getmro
 
 rootdir = py.magic.autopath().dirpath()
 
+dist_rsync_roots = ['.', '../lib-python', '../py', '../demo']
+dist_rsync_ignore = ['_cache']
+
 #
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
@@ -221,10 +224,10 @@ class PyPyTestFunction(py.test.Function):
 _pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
-    def haskeyword(self, keyword):
+    def _haskeyword(self, keyword):
         if keyword == 'interplevel':
             return True 
-        return super(IntTestFunction, self).haskeyword(keyword)
+        return super(IntTestFunction, self)._haskeyword(keyword)
 
     def execute(self, target, *args):
         co = target.func_code
@@ -254,8 +257,8 @@ class IntTestFunction(PyPyTestFunction):
                                      "if conftest.option.view is False")
 
 class AppTestFunction(PyPyTestFunction): 
-    def haskeyword(self, keyword):
-        return keyword == 'applevel' or super(AppTestFunction, self).haskeyword(keyword)
+    def _haskeyword(self, keyword):
+        return keyword == 'applevel' or super(AppTestFunction, self)._haskeyword(keyword)
 
     def execute(self, target, *args):
         assert not args 
@@ -302,9 +305,9 @@ class PyPyClassCollector(py.test.collect.Class):
 class IntClassCollector(PyPyClassCollector): 
     Function = IntTestFunction 
 
-    def haskeyword(self, keyword):
+    def _haskeyword(self, keyword):
         return keyword == 'interplevel' or \
-               super(IntClassCollector, self).haskeyword(keyword)
+               super(IntClassCollector, self)._haskeyword(keyword)
 
 class AppClassInstance(py.test.collect.Instance): 
     Function = AppTestMethod 
@@ -322,12 +325,12 @@ class AppClassInstance(py.test.collect.Instance):
 class AppClassCollector(PyPyClassCollector): 
     Instance = AppClassInstance 
 
-    def haskeyword(self, keyword):
+    def _haskeyword(self, keyword):
         return keyword == 'applevel' or \
-               super(AppClassCollector, self).haskeyword(keyword)
+               super(AppClassCollector, self)._haskeyword(keyword)
 
     def setup(self): 
-        super(AppClassCollector, self).setup()         
+        super(AppClassCollector, self).setup()        
         cls = self.obj 
         space = cls.space 
         clsname = cls.__name__ 
