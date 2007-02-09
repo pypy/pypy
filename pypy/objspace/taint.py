@@ -8,6 +8,7 @@ from pypy.objspace.thunk import nb_forcing_args
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import baseobjspace, gateway, executioncontext
 from pypy.interpreter.function import Method
+from pypy.interpreter.pyframe import PyFrame
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -31,11 +32,33 @@ class W_Tainted(baseobjspace.W_Root):
 ##    ...
 
 class W_TaintBomb(baseobjspace.W_Root):
+    filename = '?'
+    codename = '?'
+    codeline = 0
+
     def __init__(self, space, operr):
-        if get_debug_level(space) > 0:
-            debug_bomb(space, operr)
         self.space = space
         self.operr = operr
+        self.record_debug_info()
+
+    def record_debug_info(self):
+        ec = self.space.getexecutioncontext()
+        try:
+            frame = ec.framestack.top()
+        except IndexError:
+            pass
+        else:
+            if isinstance(frame, PyFrame):
+                self.filename = frame.pycode.co_filename
+                self.codename = frame.pycode.co_name
+                self.codeline = frame.get_last_lineno()
+        if get_debug_level(self.space) > 0:
+            self.debug_dump()
+
+    def debug_dump(self):
+        os.write(2, 'Taint Bomb from file "%s", line %d, in %s\n    %s\n' % (
+            self.filename, self.codeline, self.codename,
+            self.operr.errorstr(self.space)))
 
     def explode(self):
         #msg = self.operr.errorstr(space)
@@ -120,11 +143,22 @@ def taint_debug(space, level):
 app_taint_debug = gateway.interp2app(taint_debug,
                                      unwrap_spec=[gateway.ObjSpace, int])
 
+def taint_look(space, w_obj):
+    if isinstance(w_obj, W_Tainted):
+        info = space.type(w_obj.w_obj).getname(space, '?')
+        msg = space.str_w(w_obj.w_obj.getrepr(space, info))
+        msg = 'Taint Box %s\n' % msg
+        os.write(2, msg)
+    elif isinstance(w_obj, W_TaintBomb):
+        w_obj.debug_dump()
+    else:
+        os.write(2, 'not tainted\n')
+app_taint_look = gateway.interp2app(taint_look)
+
 def get_debug_level(space):
     return space.getexecutioncontext().taint_debug
 
 def debug_bomb(space, operr):
-    from pypy.interpreter.pyframe import PyFrame
     ec = space.getexecutioncontext()
     filename = '?'
     codename = '?'
@@ -164,8 +198,10 @@ class TaintSpace(StdObjSpace):
                      self.wrap(app_taint_atomic))
         self.setattr(w_pypymagic, self.wrap('TaintError'),
                      self.w_TaintError)
-        self.setattr(w_pypymagic, self.wrap('taint_debug'),
+        self.setattr(w_pypymagic, self.wrap('_taint_debug'),
                      self.wrap(app_taint_debug))
+        self.setattr(w_pypymagic, self.wrap('_taint_look'),
+                     self.wrap(app_taint_look))
         patch_space_in_place(self, 'taint', proxymaker)
 
 
