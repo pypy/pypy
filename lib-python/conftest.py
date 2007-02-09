@@ -11,7 +11,6 @@ from pypy.interpreter.gateway import ApplevelClass
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
-from py.__.misc.simplecapture import callcapture
 
 # the following adds command line options as a side effect! 
 from pypy.conftest import gettestobjspace, option as pypy_option 
