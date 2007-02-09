@@ -693,7 +693,7 @@ Ajax_ web applications entirely in Python (the client side would have to be
 restricted to RPython_), and this was the subject of Maciej Fijalkowski's
 Summer Of Code 2006 project.
 
-.. _Ajax: http://en.wikipedia.org/wiki/AJAX
+.. _Ajax: http://en.wikipedia.org/wiki/Ajax
 
 The first version of GenJS was written by Eric van Riet Paap (Maciej's mentor
 for the Summer Of Code project) and now he and Maciej are collaborating on its
