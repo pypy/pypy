@@ -424,7 +424,22 @@ the ``pypymagic`` module exposes the following interface:
 The Dump Object Space
 =====================
 
-XXX
+When PyPy is run with (or translated with) the Dump Object Space, all
+operations between objects are dumped to a file called
+``pypy-space-dump``.  This should give a powerful way to debug
+applications, but so far the dump can only be inspected in a text
+editor; better browsing tools are needed before it can be really useful.
+
+Try::
+
+    $ py.py -o dump
+    >>>> 2+3
+    5
+    >>>> (exit py.py here)
+    $ more pypy-space-dump
+
+On my machine the ``add`` between 2 and 3 starts at line 3152 (!)  and
+returns at line 3164.  All the rest is start-up, printing, and shutdown.
 
 
 .. _tproxy:
