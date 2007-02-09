@@ -31,7 +31,7 @@ CPython vs. PyPy
 
 Compared to the CPython implementation, Python takes the role of the C
 Code. We rewrite the CPython interpreter in Python itself.  We could
-also aim at writing a more flexible interpreter at C level but but we
+also aim at writing a more flexible interpreter at C level but we
 want to use Python to give an alternative description of the interpreter.
 
 The clear advantage is that such a description is shorter and simpler to
@@ -121,7 +121,8 @@ exception mechanism.
 
 In any case, it should be obvious that the application-level implementation 
 is definitely more readable, more elegant and more maintainable than the
-interpreter-level one.
+interpreter-level one (and indeed, dict.update is really implemented at appleve
+in PyPy).
 
 In fact, in almost all parts of PyPy, you find application level code in
 the middle of interpreter-level code.  Apart from some bootstrapping
@@ -140,17 +141,20 @@ to restrict itself to a subset of the Python language, and we adhere to some
 rules which make translation to lower level languages feasible. Code on
 application level can still use the full expressivity of Python.
 
-Unlike source-to-source translations (like e.g. Starkiller_) we start
+Unlike source-to-source translations (like e.g. Starkiller_ or more recently
+ShedSkin_) we start
 translation from live python code objects which constitute our Python
 interpreter.   When doing its work of interpreting bytecode our Python
 implementation must behave in a static way often referenced as
 "RPythonic".
 
 .. _Starkiller: http://www.python.org/pycon/dc2004/papers/1/paper.pdf
+.. _ShedSkin: http://shed-skin.blogspot.com/
 
 However, when the PyPy interpreter is started as a Python program, it
-can use all of the Python language until it reaches interpretation
-runtime. That is, during initialization our program is free to use the
+can use all of the Python language until it reaches a certain point in
+time, from which on everything that is being executed must be static.
+That is, during initialization our program is free to use the
 full dynamism of Python, including dynamic code generation.
 
 An example can be found in the current implementation which is quite
@@ -240,7 +244,9 @@ We are using
 
 **integer, float, string, boolean**
 
-  avoid string methods and complex operations like slicing with a step
+  a lot of, but not all string methods are supported. When slicing a string
+  it is necessary to prove that the slice start and stop indexes are
+  non-negative.
 
 **tuples**
 
@@ -312,7 +318,10 @@ We are using
 **classes**
 
 + methods and other class attributes do not change after startup
-+ inheritance is supported
++ single inheritance is fully supported
++ simple mixins work too, but the mixed in class needs a ``_mixin_ = True``
+  class attribute
+
 + classes are first-class objects too
 
 **objects**
@@ -341,6 +350,7 @@ silent wrap-around.  Whenever we need more control, we use the following
 helpers (which live the `pypy/rlib/rarithmetic.py`_):
 
 .. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
+
 
 **ovfcheck()**
 
@@ -509,117 +519,20 @@ The core bytecode interpreter considers wrapped objects as black boxes.
 It is not allowed to inspect them directly.  The allowed
 operations are all implemented on the object space: they are
 called ``space.xxx()``, where ``xxx`` is a standard operation
-name (``add``, ``getattr``, ``call``, ``eq``...).  The list of
-standard operations is found in the large table near the end
-of ``pypy.interpreter.baseobjspace``.  These operations take
-wrapped arguments and return a wrapped result (or sometimes
-just None).
+name (``add``, ``getattr``, ``call``, ``eq``...). They are documented in the
+`object space document`_.
 
-Also note some helpers:
+A short warning: **don't do** ``w_x == w_y`` or ``w_x is w_y``!
+rationale for this rule is that there is no reason that two
+wrappers are related in any way even if they contain what
+looks like the same object at application-level.  To check
+for equality, use ``space.is_true(space.eq(w_x, w_y))`` or
+even better the short-cut ``space.eq_w(w_x, w_y)`` returning
+directly a interpreter-level bool.  To check for identity,
+use ``space.is_true(space.is_(w_x, w_y))`` or better
+``space.is_w(w_x, w_y)``.
 
-* ``space.call_function(w_callable, ...)``: collects the given
-  (already-wrapped) arguments, builds a wrapped tuple for
-  them, and uses ``space.call()`` to perform the call.
-
-* ``space.call_method(w_object, 'method', ...)``: uses
-  ``space.getattr()`` to get the method object, and then
-  ``space.call_function()`` to invoke it.
-
-
-Building ``w_xxx`` objects
---------------------------
-
-From the bytecode interpreter, wrapped objects are usually built as the result of
-an object space operation.  The ways to directly create a wrapped object are:
-
-* ``space.wrap(x)``: returns a wrapped object containing the
-  value ``x``.  Only works if ``x`` is either a simple value
-  (integer, float, string) or an instance of an internal
-  bytecode interpreter class (Function, Code, Frame...).
-
-* ``space.newlist([w_x, w_y, w_z...])``: returns a wrapped
-  list from a list of already-wrapped objects.
-
-* ``space.newtuple([w_x, w_y, w_z...])``: returns a wrapped
-  tuple from a list of already-wrapped objects.
-
-* ``space.newdict([])``: returns a new, empty wrapped
-  dictionary.  (The argument list can contain tuples ``(w_key,
-  w_value)`` but it seems that such a use is not common.)
-
-* ``space.newbool(x)``: returns ``space.w_False`` or
-  ``space.w_True`` depending on the truth value of ``x``.
-
-There are a few less common constructors, described in the
-comments at the end of ``pypy.interpreter.baseobjspace``.
-
-
-Constant ``w_xxx`` objects
---------------------------
-
-The object space holds a number of predefined wrapped objects.
-The most common ones are ``space.w_None`` and
-``space.w_XxxError`` for each exception class ``XxxError``
-(e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
-
-
-Inspecting and unwrapping ``w_xxx`` objects
---------------------------------------------
-
-The most delicate operation is for the bytecode interpreter to inspect
-a wrapped object, which must be done via the object space.
-
-* ``space.is_true(w_x)``: checks if the given wrapped object
-  is considered to be ``True`` or ``False``.  You must never
-  use the truth-value of ``w_x`` directly; doing so (e.g.
-  writing ``if w_x:``) will give you an error reminding you of
-  the problem.
-
-* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The
-  rationale for this rule is that there is no reason that two
-  wrappers are related in any way even if they contain what
-  looks like the same object at application-level.  To check
-  for equality, use ``space.is_true(space.eq(w_x, w_y))`` or
-  even better the short-cut ``space.eq_w(w_x, w_y)`` returning
-  directly a interpreter-level bool.  To check for identity,
-  use ``space.is_true(space.is_(w_x, w_y))`` or better
-  ``space.is_w(w_x, w_y)``.
-
-* ``space.unpackiterable(w_x)``: this helper iterates ``w_x``
-  (using ``space.iter()`` and ``space.next()``) and collects
-  the resulting wrapped objects in a list.  Of course, in
-  cases where iterating directly is better than collecting the
-  elements in a list first, you should use ``space.iter()``
-  and ``space.next()`` directly.
-
-* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.
-  Attention!  Using ``space.unwrap()`` must be avoided
-  whenever possible, i.e. only use this when you are well
-  aware that you are cheating, in unit tests or bootstrapping
-  code.
-
-* ``space.interpclass_w(w_x)``: If w_x is a wrapped instance
-  of an interpreter class -- for example Function, Frame,
-  Cell, etc. -- return it unwrapped.  Otherwise return None.
-
-* ``space.int_w(w_x)``: If w_x is an application-level integer
-  or long which can be converted without overflow to an
-  integer, return an interpreter-level integer.  Otherwise
-  raise TypeError or OverflowError.
-
-* ``space.str_w(w_x)``: If w_x is an application-level string,
-  return an interpreter-level string.  Otherwise raise
-  TypeError.
-
-* ``space.float_w(w_x)``: If w_x is an application-level
-  float, integer or long, return interpreter-level float.
-  Otherwise raise TypeError or OverflowError in case of very
-  large longs.
-
-Remember that you can usually obtain the information you want
-by invoking operations or methods on the wrapped objects; e.g.
-``space.call_method(w_dict, 'iterkeys')`` returns a wrapped
-iterable that you can decode with ``space.unpackiterable()``.
+.. _`object space document`: objspace.html#interface
 
 .. _`applevel-exceptions`: 
 
@@ -679,14 +592,15 @@ module.
 
 When we need access to interpreter-level objects we put the module into
 `pypy/module`_.  Such modules use a `mixed module mechanism`_
-which makes it convenient to use both interpreter- and applicationlevel
-parts for the implementation.  Note that there is no extra facility for
-pure-interpreter level modules because we haven't needed it so far.
+which makes it convenient to use both interpreter- and applicationlevel parts
+for the implementation.  Note that there is no extra facility for
+pure-interpreter level modules, you just write a mixed module and leave the
+application-level part empty.
 
 Determining the location of a module implementation
 ---------------------------------------------------
 
-You can interactively find out where a module comes from,
+You can interactively find out where a module comes from, when running py.py.
 here are examples for the possible locations::
 
     >>>> import sys
@@ -734,7 +648,7 @@ Here is the order in which PyPy looks up Python modules:
 
 *lib-python/2.4.1/*
 
-    The unmodified CPython library. **Never ever checkin anything here**.
+    The unmodified CPython library. **Never ever check anything in there**.
 
 .. _`modify modules`:
 

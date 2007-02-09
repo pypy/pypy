@@ -63,6 +63,8 @@ The sources of PyPy contain the various object spaces in the directory
 .. _`in another document`: translation.html
 .. _`Object Space proxies`: objspace-proxies.html
 
+.. _interface:
+
 Object Space Interface
 ======================
 
@@ -105,9 +107,6 @@ These functions both take and return "wrapped" objects.
 **call(w_callable, w_args, w_kwds):**
   Call a function with the given args and keywords.
 
-**call_function(w_callable, *args_w, **kw_w):**
-  Convenience function that collects the arguments in a wrapped tuple and dict and invokes 'call()'.
-
 **is_(w_x, w_y):**
   Implements 'w_x is w_y'. (Returns a wrapped result too!)
 
@@ -116,6 +115,44 @@ These functions both take and return "wrapped" objects.
 
 **exception_match(w_exc_type, w_check_class):**
   Checks if the given exception type matches 'w_check_class'. Used in matching the actual exception raised with the list of those to catch in an except clause. (Returns a wrapped result too!)
+
+Convenience Functions
+---------------------
+
+The following functions are part of the object space interface but would not be
+strictly necessary because they can be expressed using several other object
+space methods. However, they are used so often that it seemed worthwhile to
+introduce them as shortcuts.
+
+**eq_w(w_obj1, w_obj2):**
+  Returns true when w_obj1 and w_obj2 are equal. Shortcut for
+  space.is_true(space.eq(w_obj1, w_obj2))
+
+**is_w(w_obj1, w_obj2):**
+  Shortcut for space.is_true(space.is_(w_obj1, w_obj2))
+
+**hash_w(w_obj):**
+  Shortcut for space.int_w(space.hash(w_obj))
+
+**call_function(w_callable, *args_w, **kw_w):**
+  Convenience function that collects the arguments in a wrapped tuple and dict
+  and invokes 'space.call(w_callable, ...)'.
+
+**space.call_method(w_object, 'method', ...)**: uses
+  ``space.getattr()`` to get the method object, and then
+  ``space.call_function()`` to invoke it.
+
+**unpackiterable(w_iterable, expected_length=-1):**
+  this helper iterates ``w_x``
+  (using ``space.iter()`` and ``space.next()``) and collects
+  the resulting wrapped objects in a list. If ``expected_length`` is given and
+  the length does not match, an exception is raised.  Of course, in cases where
+  iterating directly is better than collecting the elements in a list first,
+  you should use ``space.iter()`` and ``space.next()`` directly.
+
+**unpacktuple(w_tuple, expected_length=None):**
+  Same as unpackiterable(), but only for tuples.
+
 
 Creation of Application Level objects
 ---------------------------------------
@@ -128,16 +165,16 @@ Creation of Application Level objects
   internal bytecode interpreter classes).
 
 **newbool(b):**
-  Creates a Bool Object from an interpreter level object.
+  Creates a wrapped bool object from an interpreter level object.
 
-**newtuple([..]):**
-  Take an interpreter level list of wrapped objects.
+**newtuple([w_x, w_y, w_z, ...]):**
+  Makes a new wrapped tuple out of an interpreter level list of wrapped objects.
 
 **newlist([..]):**
   Takes an interpreter level list of wrapped objects.
 
-**newdict([..]):**
-  Takes an interpreter level list of interpreter level pairs of wrapped key:wrapped value entries (and NOT an interpreter level dictionary!).
+**newdict():**
+  Returns a new empty dictionary.
 
 **newslice(w_start, w_end, w_step):**
   Makes a new slice object.
@@ -152,7 +189,11 @@ Conversions from Application Level to Interpreter Level
 ----------------------------------------------------------
 
 **unwrap(w_x):**
-  Return Interpreter Level equivalent of w_x
+  Return Interpreter Level equivalent of w_x.
+  Attention!  Using ``space.unwrap()`` must be avoided
+  whenever possible, i.e. only use this when you are well
+  aware that you are cheating, in unit tests or bootstrapping
+  code.
 
 **interpclass_w(w_x):**
   If w_x is a wrapped instance of an bytecode interpreter class -- for example
@@ -173,23 +214,20 @@ Conversions from Application Level to Interpreter Level
 **is_true(w_x):**
   Return a interpreter level bool (True or False).
 
-**unpackiterable(w_iterable, expected_length=None):**
-  Unpack an iterable object into a real (interpreter level) list. Raise a real ValueError if the expected_length is wrong.
-
-**unpacktuple(w_tuple, expected_length=None):**
-  Same as unpackiterable(), but only for tuples.
-
 
 Data Members
 -----------------
 
-+ self.builtin
-+ self.sys
-+ self.w_None: The ObjSpace's None
-+ self.w_True: The ObjSpace's True
-+ self.w_False: The ObjSpace's False
-+ self.w_Ellipsis: The ObjSpace's Ellipsis
-+ self.w_NotImplemented: The ObjSpace's NotImplemented
++ space.builtin
++ space.sys
++ space.w_None: The ObjSpace's None
++ space.w_True: The ObjSpace's True
++ space.w_False: The ObjSpace's False
++ space.w_Ellipsis: The ObjSpace's Ellipsis
++ space.w_NotImplemented: The ObjSpace's NotImplemented
+
++ space.w_XxxError`` for each exception class ``XxxError``
+  (e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
 
 + ObjSpace.MethodTable:
    List of tuples (method name, symbol, number of arguments, list of special names) for the regular part of the interface. (Tuples are interpreter level.)
@@ -202,6 +240,7 @@ Data Members
 
 + ObjSpace.ExceptionTable:
    List of names of exception classes.
+
 
 
 .. _`standard object space`: 
