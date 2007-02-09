@@ -767,6 +767,33 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         return cast(callback, c_void_p).value
         # NB. returns the address as an integer
 
+    def test_directtesthelper_direct(self):
+        # def callable(x, y):
+        #     return f(x) + x + y
+        rgenop = self.RGenOp()
+
+        def f(x):
+            return x + 1
+
+        gv_f = rgenop.genconst(self.directtesthelper(lltype.Ptr(FUNC), f))
+
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        sigtoken1 = rgenop.sigToken(FUNC)
+        sigtoken2 = rgenop.sigToken(FUNC2)
+        builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sigtoken2, "callable")
+        builder.start_writing()
+
+        gv_t1 = builder.genop_call(sigtoken1, gv_f, [gv_x])
+        gv_t2 = builder.genop2("int_add", gv_t1, gv_x)
+        gv_result = builder.genop2("int_add", gv_t2, gv_y)
+        builder.finish_and_return(sigtoken2, gv_result)
+        builder.end()
+
+        fnptr = self.cast(gv_callable, 2)
+
+        res = fnptr(10, 5)
+        assert res == 11 + 10 + 5
+
     def test_adder_direct(self):
         rgenop = self.RGenOp()
         gv_add_5 = make_adder(rgenop, 5)

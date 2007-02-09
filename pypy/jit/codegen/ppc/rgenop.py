@@ -596,7 +596,7 @@ class Builder(GenBuilder):
         into our caller's linkage area."""
         assert lv <= 0
         if self.max_param_space >= 0:
-            param = self.max_param_space + 24
+            param = max(self.max_param_space, 32) + 24
         else:
             param = 0
         return ((4 + param - lv + 15) & ~15)
