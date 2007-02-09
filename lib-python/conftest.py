@@ -975,9 +975,11 @@ class ReallyRunFileExternal(py.test.Item):
         result['pypy-revision'] = getrev(pypydir) 
         if option.use_compiled:
             execpath, info = getexecutable()
-            result['pypy-revision'] = info['rev'] # info.pop('rev')
+            result['pypy-revision'] = info['rev']
             result['executable'] = execpath.basename
             for key, value in info.items():
+                if key == 'rev':
+                    continue
                 result['executable-%s' % key] = str(value)
         else:
             result['executable'] = 'py.py'
