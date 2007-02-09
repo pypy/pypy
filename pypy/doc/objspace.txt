@@ -140,10 +140,9 @@ introduce them as shortcuts.
   Convenience function that collects the arguments in a wrapped tuple and dict
   and invokes 'space.call(w_callable, ...)'.
 
-``space.call_method(w_object, 'method', ...)``
-   uses
-  ``space.getattr()`` to get the method object, and then
-  ``space.call_function()`` to invoke it.
+``space.call_method(w_object, 'method', ...):``
+   uses ``space.getattr()`` to get the method object, and then
+   ``space.call_function()`` to invoke it.
 
 ``unpackiterable(w_iterable, expected_length=-1):``
   this helper iterates ``w_x``
@@ -470,19 +469,21 @@ FunctionGraph
     A container for one graph (corresponding to one function).
 
     :startblock:   the first block.  It is where the control goes when the
-    function is called.  The input arguments of the startblock are the
-    function's arguments.  If the function takes a ``*args`` argument, the
-    ``args`` tuple is given as the last input argument of the startblock.
+                   function is called.  The input arguments of the startblock
+                   are the function's arguments.  If the function takes a
+                   ``*args`` argument, the ``args`` tuple is given as the last
+                   input argument of the startblock.
 
     :returnblock:  the (unique) block that performs a function return.  It is
-    empty, not actually containing any ``return`` operation; the return is
-    implicit.  The returned value is the unique input variable of the
-    returnblock.
+                   empty, not actually containing any ``return`` operation; the
+                   return is implicit.  The returned value is the unique input
+                   variable of the returnblock.
 
     :exceptblock:  the (unique) block that raises an exception out of the
-    function.  The two input variables are the exception class and the exception
-    value, respectively.  (No other block will actually link to the exceptblock
-    if the function does not explicitely raise exceptions.)
+                   function.  The two input variables are the exception class
+                   and the exception value, respectively.  (No other block will
+                   actually link to the exceptblock if the function does not
+                   explicitely raise exceptions.)
 
 
 Block
@@ -492,13 +493,14 @@ Block
     Variables.
 
     :inputargs:   list of fresh, distinct Variables that represent all the
-    values that can enter this block from any of the previous blocks.
+                  values that can enter this block from any of the previous
+                  blocks.
 
     :operations:  list of SpaceOperations.
     :exitswitch:  see below
 
     :exits:       list of Links representing possible jumps from the end of this
-    basic block to the beginning of other basic blocks.
+                  basic block to the beginning of other basic blocks.
 
     Each Block ends in one of the following ways:
 
@@ -557,10 +559,10 @@ SpaceOperation
     A recorded (or otherwise generated) basic operation.
 
     :opname:  the name of the operation.  Generally one from the list in
-    ``pypy.interpreter.baseobjspace``.
+              ``pypy.interpreter.baseobjspace``.
 
     :args:    list of arguments.  Each one is a Constant or a Variable seen
-    previously in the basic block.
+              previously in the basic block.
 
     :result:  a *new* Variable into which the result is to be stored.
 
@@ -579,8 +581,8 @@ Variable
     A placeholder for a run-time value.  There is mostly debugging stuff here.
 
     :name:  it is good style to use the Variable object itself instead of its
-    ``name`` attribute to reference a value, although the ``name`` is guaranteed
-    unique.
+            ``name`` attribute to reference a value, although the ``name`` is
+            guaranteed unique.
 
 
 Constant
