@@ -60,7 +60,7 @@ Example usage::
     >>>> y = thunk(f)
     >>>> type(y)
     computing...
-    <pypy type 'int'>
+    <type 'int'>
 
 A related, but more obscure feature, allows one object to be instantly
 and globally replaced with another::
@@ -165,7 +165,7 @@ external source and that must be validated before it is used.
 The idea is that, considering a large application that handles these
 kinds of sensitive data, there are typically only a small number of
 places that need to explicitly manipulate that sensitive data; all the
-other places merely pass it around, or do entierely unrelated things.
+other places merely pass it around, or do entirely unrelated things.
 
 Nevertheless, if a large application needs to be reviewed for security,
 it must be entierely carefully checked, because it is possible that a
