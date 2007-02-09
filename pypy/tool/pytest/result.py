@@ -103,7 +103,7 @@ class Result(object):
         return self['outcome'].lower() == 'ok'
 
     def iserror(self):
-        return self['outcome'].lower()[:3] == 'err'
+        return self['outcome'].lower()[:3] == 'err' or self['outcome'].lower() == 'fail'
 
     def istimeout(self): 
         return self['outcome'].lower() == 't/o'
