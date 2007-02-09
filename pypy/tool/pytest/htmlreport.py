@@ -5,6 +5,7 @@ the html test reporter
 
 """
 import sys, os, re
+import pprint
 import py 
 from pypy.tool.pytest import result
 from pypy.tool.pytest.overview import ResultCache 
@@ -56,6 +57,7 @@ class HtmlReport(object):
             options = NBSP
 
         failureratio = 100 * (1.0 - result.ratio_of_passed())
+        self.data[result.testname] = failureratio
         return html.tr(
                 html.td("%.2f%%" % failureratio, 
                     style = "background-color: %s" % (getresultcolor(result),)), 
@@ -102,22 +104,29 @@ class HtmlReport(object):
     # generate html files 
     #
     def makeindex(self, indexpath): 
-        self.indexpath = indexpath 
+        self.indexpath = indexpath
+        self.data = {}
         doc = Document(title='pypy test results')
         body = doc.body
         coretests, noncoretests = self.getcorelists()
         body.append(html.h2("PyPy - latest compliance test results - "
                        "core tests"))
 
-        body.append(self.render_test_summary(coretests))
+        body.append(self.render_test_summary('core', coretests))
         body.append(self.render_latest_table(coretests))
         body.append(
             html.h2("PyPy - latest compliance test results - non-core tests"))
-        body.append(self.render_test_summary(noncoretests))
+        body.append(self.render_test_summary('noncore', noncoretests))
         body.append(self.render_latest_table(noncoretests))
-        doc.writetopath(indexpath) 
-
-    def render_test_summary(self, tests):
+        doc.writetopath(indexpath)
+        datapath = indexpath.dirpath().join('data')
+        d = datapath.open('w')
+        print >>d, "data = ",
+        pprint.pprint(self.data, stream=d)
+        d.close()
+        self.data = None
+        
+    def render_test_summary(self, tag, tests):
         ok = len([x for x in tests if x.isok()])
         err = len([x for x in tests if x.iserror()])
         to = len([x for x in tests if x.istimeout()])
@@ -131,12 +140,20 @@ class HtmlReport(object):
             return html.tr(*[html.td(arg) for arg in args])
 
         sum_passed = sum([x.ratio_of_passed() for x in tests])
+        compliancy = sum_passed/sum100
+        self.data['%s-compliancy' % tag] = compliancy 
         t.append(row(html.b("tests compliancy"), 
-                     html.b("%.2f%%" % (sum_passed/sum100,))))
+                     html.b("%.2f%%" % (compliancy,))))
 
-        t.append(row("testmodules passed completely", "%.2f%%" % (ok/sum100)))
-        t.append(row("testmodules (partially) failed", "%.2f%%" % (err/sum100)))
-        t.append(row("testmodules timeout", "%.2f%%" % (to/sum100)))
+        passed = ok/sum100
+        self.data['%s-passed' % tag] = passed
+        t.append(row("testmodules passed completely", "%.2f%%" % passed))
+        failed = err/sum100
+        self.data['%s-failed' % tag] = failed
+        t.append(row("testmodules (partially) failed", "%.2f%%" % failed))
+        timedout = to/sum100
+        self.data['%s-timedout' % tag] = timedout
+        t.append(row("testmodules timeout", "%.2f%%" % timedout))
         return t
 
 class Document(object): 
