@@ -25,8 +25,8 @@ class AppTest_Taint:
         raises(TaintError, "untaint(int, x)")
         raises(TaintError, "untaint(float, x)")
 
-    def test_taint_mode(self):
-        from pypymagic import taint, untaint, TaintError, taint_mode
+    def test_taint_atomic(self):
+        from pypymagic import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x *= 7
 
@@ -35,14 +35,14 @@ class AppTest_Taint:
                 return 5
             else:
                 return 3
-        dummy = taint_mode(dummy)
+        dummy = taint_atomic(dummy)
 
         y = dummy(x)
         raises(TaintError, "if y == 3: z = 1")
         assert untaint(int, y) == 5
 
-    def test_taint_mode_exception(self):
-        from pypymagic import taint, untaint, TaintError, taint_mode
+    def test_taint_atomic_exception(self):
+        from pypymagic import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x *= 7
 
@@ -51,24 +51,27 @@ class AppTest_Taint:
                 return 5
             else:
                 return 3
-        dummy = taint_mode(dummy)
+        dummy = taint_atomic(dummy)
 
         y = dummy(x)
         raises(TaintError, "if y == 3: z = 1")
         raises(TaintError, "untaint(int, y)")
 
-    def test_taint_mode_incoming_bomb(self):
-        from pypymagic import taint, untaint, TaintError, taint_mode
+    def test_taint_atomic_incoming_bomb(self):
+        from pypymagic import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x /= 0
+        lst = []
 
         def dummy(x):
+            lst.append("running!")
             if x > 40:
                 return 5
             else:
                 return 3
-        dummy = taint_mode(dummy)
+        dummy = taint_atomic(dummy)
 
         y = dummy(x)
         raises(TaintError, "if y == 3: z = 1")
+        assert lst == []
         raises(TaintError, "untaint(int, y)")

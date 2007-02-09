@@ -80,38 +80,36 @@ app_untaint = gateway.interp2app(untaint)
 
 # ____________________________________________________________
 
-executioncontext.ExecutionContext.is_taint_mode = False
-
-def taint_mode_function(space, w_func, __args__):
-    ec = space.getexecutioncontext()
-    old_auth = ec.is_taint_mode
+def taint_atomic_function(space, w_func, args_w):
+    newargs_w = []
+    tainted = False
+    for w_arg in args_w:
+        if isinstance(w_arg, W_Tainted):
+            tainted = True
+            w_arg = w_arg.w_obj
+        elif isinstance(w_arg, W_TaintBomb):
+            return w_arg
+        newargs_w.append(w_arg)
+    w_newargs = space.newtuple(newargs_w)
     try:
-        ec.is_taint_mode = True
-        try:
-            w_res = space.call_args(w_func, __args__)
-        except OperationError, operr:
-            if old_auth:
-                raise
-            w_res = W_TaintBomb(space, operr)
-        else:
-            if not old_auth:
-                w_res = taint(w_res)
-    finally:
-        ec.is_taint_mode = old_auth
+        w_res = space.call(w_func, w_newargs)
+    except OperationError, operr:
+        if not tainted:
+            raise
+        return W_TaintBomb(space, operr)
+    if tainted:
+        w_res = taint(w_res)
     return w_res
 
-app_taint_mode_function = gateway.interp2app(
-    taint_mode_function,
-    unwrap_spec=[gateway.ObjSpace, gateway.W_Root, gateway.Arguments])
+app_taint_atomic_function = gateway.interp2app(
+    taint_atomic_function,
+    unwrap_spec=[gateway.ObjSpace, gateway.W_Root, 'args_w'])
 
-def taint_mode(space, w_callable):
-    meth = Method(space, space.wrap(app_taint_mode_function),
+def taint_atomic(space, w_callable):
+    meth = Method(space, space.wrap(app_taint_atomic_function),
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
-app_taint_mode = gateway.interp2app(taint_mode)
-
-def have_taint_mode(space):
-    return space.getexecutioncontext().is_taint_mode
+app_taint_atomic = gateway.interp2app(taint_atomic)
 
 # ____________________________________________________________
 
@@ -162,8 +160,8 @@ class TaintSpace(StdObjSpace):
                      self.wrap(app_is_tainted))
         self.setattr(w_pypymagic, self.wrap('untaint'),
                      self.wrap(app_untaint))
-        self.setattr(w_pypymagic, self.wrap('taint_mode'),
-                     self.wrap(app_taint_mode))
+        self.setattr(w_pypymagic, self.wrap('taint_atomic'),
+                     self.wrap(app_taint_atomic))
         self.setattr(w_pypymagic, self.wrap('TaintError'),
                      self.w_TaintError)
         self.setattr(w_pypymagic, self.wrap('taint_debug'),
@@ -201,8 +199,6 @@ def proxymaker(space, name, parentfn):
                     tainted = True
                     w_arg = w_arg.w_obj
                 elif isinstance(w_arg, W_TaintBomb):
-                    if have_taint_mode(space):
-                        raise OperationError, w_arg.operr
                     return w_arg
                 newargs_w += (w_arg,)
             newargs_w += args_w[arity:]
@@ -213,10 +209,7 @@ def proxymaker(space, name, parentfn):
                     raise
                 return W_TaintBomb(space, operr)
             if tainted:
-                if name == 'type' and have_taint_mode(space):
-                    pass
-                else:
-                    w_res = taint(w_res)
+                w_res = taint(w_res)
             return w_res
 
     elif arity == 0:
@@ -225,22 +218,13 @@ def proxymaker(space, name, parentfn):
     else:
 
         def proxy(*args_w):
-            newargs_w = ()
             for i in indices:
                 w_arg = args_w[i]
                 if isinstance(w_arg, W_Tainted):
-                    if have_taint_mode(space):
-                        w_arg = w_arg.w_obj
-                    else:
-                        tainted_error(space, name)
+                    tainted_error(space, name)
                 elif isinstance(w_arg, W_TaintBomb):
-                    if have_taint_mode(space):
-                        raise OperationError, w_arg.operr
-                    else:
-                        w_arg.explode()
-                newargs_w += (w_arg,)
-            newargs_w += args_w[arity:]
-            return parentfn(*newargs_w)
+                    w_arg.explode()
+            return parentfn(*args_w)
 
     proxy = func_with_new_name(proxy, '%s_proxy' % name)
     return proxy
