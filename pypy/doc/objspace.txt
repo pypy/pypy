@@ -304,7 +304,7 @@ binary compatible with CPython's (basically the PyTypeObject structure and its
 function pointers). If compatibility is not required it will be more
 straightforwardly converted into some efficient multimethod code.
 
-.. _StdObjSpace: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
+.. _StdObjSpace: ../objspace/std/
 .. _MultiMethod: theory.html#multimethods
 
 
@@ -336,19 +336,22 @@ defines ``__new__()`` to import the class ``W_TupleObject`` from
 
 The goal of the above module layout is to cleanly separate the Python type
 object, visible to the user, and the actual implementation of its instances.  It
-is possible (though not done so far) to provide *several* implementations of the
+is possible to provide *several* implementations of the
 instances of the same Python type.  The ``__new__()`` method could decide to
 create one or the other.  From the user's point of view, they are still all
 instances of exactly the same type; the possibly multiple internal
 ``W_XxxObject`` classes are not visible.  PyPy knows that (e.g.) the
 application-level type of its interpreter-level ``W_TupleObject`` instances is
 "tuple" because there is a ``typedef`` class attribute in ``W_TupleObject``
-which points back to the tuple type specification from `tupletype.py`_.
+which points back to the tuple type specification from `tupletype.py`_. For
+examples of having several implementations of the same type, see the `object
+optimizations`_ page.
 
-.. _`listtype.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/listtype.py
-.. _`tupletype.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupletype.py
-.. _`tupleobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupleobject.py
+.. _`listtype.py`: ../objspace/std/listtype.py
+.. _`tupletype.py`: ../objspace/std/tupletype.py
+.. _`tupleobject.py`: ../objspace/std/tupleobject.py
 
+.. _`object optimizations`: object-optimizations.html
 
 
 The Trace Object Space
@@ -395,7 +398,7 @@ A number of options for configuration is here in `traceconfig.py`_.
 
 .. _`found here` : getting-started.html#tracing-bytecode-and-operations-on-objects
 .. _`Abstract Interpretation`: theory.html#abstract-interpretation
-.. _`traceconfig.py`: http://codespeak.net/svn/pypy/dist/pypy/tool/traceconfig.py
+.. _`traceconfig.py`: ../tool/traceconfig.py
 
 
 Proxy Object Spaces
@@ -449,7 +452,7 @@ result.  During these calls the FlowObjSpace will record a basic block::
     v3 = add(v2, Constant(2))
 
 
-.. _FlowObjSpace: http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
+.. _FlowObjSpace: ../objspace/flow/
 
 
 The Flow model
