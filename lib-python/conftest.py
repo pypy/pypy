@@ -881,8 +881,11 @@ class ReallyRunFileExternal(py.test.Item):
         python = sys.executable 
         pypy_script = pypydir.join('bin', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
+        watchdog_script = pypydir.join('tool', 'watchdog.py')
+
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
+        
         if option.use_compiled:
             execpath, info = getexecutable()        
         pypy_options = []
@@ -908,7 +911,10 @@ class ReallyRunFileExternal(py.test.Item):
             cmd = "%s %s %s %s" %(
                 execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
-            print cmd
+            if sys.platform != 'win32':
+                cmd = "%s %s %s %s" %(
+                       python, watchdog_script, TIMEOUT,
+                       cmd)
         else:
             cmd = "%s %s %d %s %s %s %s %s" %(
                 python, alarm_script, TIMEOUT, 
