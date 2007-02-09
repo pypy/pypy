@@ -39,6 +39,16 @@ class ExportedMethods(BasicExternal):
 
 exported_methods = ExportedMethods()
 
+def patch_handler(handler_class):
+    """ This function takes care of adding necessary
+    attributed to Static objects
+    """
+    for name, value in handler_class.__dict__.iteritems():
+        if isinstance(value, Static) and value.path is None:
+            assert hasattr(handler_class, "static_dir")
+            value.path = os.path.join(str(handler_class.static_dir),
+                                      name + ".html")
+
 class TestHandler(BaseHTTPRequestHandler):
     exported_methods = exported_methods
     
@@ -101,19 +111,40 @@ class TestHandler(BaseHTTPRequestHandler):
 class Static(object):
     exposed = True
     
-    def __init__(self, path):
+    def __init__(self, path=None):
         self.path = path
 
     def __call__(self):
         return open(self.path).read()
 
-def start_server(server_address = ('', 8000), handler=TestHandler, fork=False):
-    httpd = HTTPServer(server_address, handler)
+def start_server(server_address = ('', 8000), handler=TestHandler, fork=False,
+                 timeout=None, server=HTTPServer):
+    patch_handler(handler)
+    httpd = server(server_address, handler)
+    if timeout:
+        def f(httpd):
+            while 1:
+                time.sleep(.3)
+                if time.time() - httpd.last_activity > timeout:
+                    httpd.server_close()
+                    import os
+                    os.kill(os.getpid(), 15)
+        import thread
+        thread.start_new_thread(f, (httpd,))
+    httpd.last_activity = time.time()
 
     if fork:
         import thread
         thread.start_new_thread(httpd.serve_forever, ())
-        print "Server started, listening on %s" % (server_address,)
+        print "Server started, listening on %s:%s" %\
+             (httpd.server_address[0],httpd.server_port)
+        sys.stdout.flush()
+        return httpd
     else:
-        print "Server started, listening on %s" % (server_address,)
+        print "Server started, listening on %s:%s" %\
+             (httpd.server_address[0],httpd.server_port)
+        sys.stdout.flush()
         httpd.serve_forever()
+
+Handler = TestHandler
+# deprecate TestHandler name
