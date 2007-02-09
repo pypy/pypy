@@ -183,6 +183,9 @@ To list the PyPy interpreter command line options, type::
     cd pypy/bin
     python py.py --help
 
+(this will give you a daunting list, so it is a good idea to use a pager).
+py.py supports most of the options that CPython supports too (in addition to a
+large amount of options that can be used to customize py.py).
 As an example of using PyPy from the command line, you could type::
 
     python py.py -c "from test import pystone; pystone.main(10)"
@@ -198,7 +201,7 @@ Special PyPy features
 Interpreter-level console
 +++++++++++++++++++++++++
 
-There are a few extra features of the PyPy console: If you press
+There are quite a few extra features of the PyPy console: If you press
 <Ctrl-C> on the console you enter the interpreter-level console, a
 usual CPython console.  You can then access internal objects of PyPy
 (e.g. the object space) and any variables you have created on the PyPy
@@ -330,6 +333,7 @@ To run all the unit tests::
     cd pypy
     python test_all.py
 
+(this is not recommended, since it takes hours and uses huge amounts of RAM).
 Alternatively, you may run subtests by going to the correct subdirectory
 and running them individually::
 
@@ -457,7 +461,8 @@ Here is a simple example to try::
 Translating the flow graph to Javascript code
 +++++++++++++++++++++++++++++++++++++++++++++
 
-The Javascript backend is still experimental but will be worked on during this
+The Javascript backend is still experimental but was heavily improved
+during last
 years `Google summer of code`_. It contains some rudimentary support
 for the document object model and a good integration with PyPy's unittesting
 framework. Code can be tested with the `Spidermonkey`_ commandline javascript
@@ -474,6 +479,11 @@ Here is a simple example to try::
    >>> t = Translation(snippet.my_gcd)
    >>> a = t.annotate([int, int])
    >>> source = t.source_js()
+
+If you want to know more about the JavaScript backend please refer to the
+`JavaScript docs`_.
+
+.. _`JavaScript docs`: js/whatis.html
 
 Translating the flow graph to CLI code
 ++++++++++++++++++++++++++++++++++++++
@@ -537,7 +547,7 @@ ultimate example of source that our translation toolchain can process::
 
 By default the translation process will try to use the
 `Boehm-Demers-Weiser garbage collector`_ for the translated PyPy (Use
-``--gc=ref`` to use our own reference counting implementation which
+``--gc=framework`` to use our own exact mark-n-sweep implementation which
 at the moment is slower but doesn't have external dependencies). Otherwise, be sure
 to install Boehm before starting the translation (e.g. by running
 ``apt-get install libgc-dev`` on Debian).
@@ -598,7 +608,7 @@ You can also use the translate.py script to try out several smaller
 programs, e.g. a slightly changed version of Pystone::
 
     cd pypy/translator/goal
-    python translate.py targetrpystone
+    python translate.py targetrpystonedalone
 
 
 Translating PyPy under Windows
