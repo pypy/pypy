@@ -227,7 +227,7 @@ Start a py.py with the Taint Object Space and try the following example::
 Notice that using a tainted boolean like ``x > 5`` in an ``if``
 statement is forbidden.  This is because knowing which path is followed
 would give away a hint about ``x``; in the example above, if the
-statement ``if x > 5: y = 2`` were allowed to run, we would know
+statement ``if x > 5: y = 2`` was allowed to run, we would know
 something about the value of ``x`` by looking at the (untainted) value
 in the variable ``y``.
 
