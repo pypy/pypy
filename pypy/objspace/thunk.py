@@ -31,7 +31,7 @@
 from pypy.objspace.proxy import patch_space_in_place
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import Method
+from pypy.interpreter.function import Method
 
 # __________________________________________________________________________
 
