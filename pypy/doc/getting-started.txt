@@ -754,6 +754,14 @@ the convenience ./pypy-cli script::
    2
    >>>>
 
+Unfortunately, at the moment it's impossible to do the translation
+under Windows because of a bug of Microsoft ilasm that crashes when
+trying to assemble the huge IL file produced by GenCLI.
+
+As a workaround you can use the Mono ilasm, which does the job
+fine. Once assembled, you can run the produced executable with the
+Microsoft Runtime.
+
 .. _`start reading sources`: 
 
 Where to start reading the sources
