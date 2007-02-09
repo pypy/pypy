@@ -638,18 +638,33 @@ GenCLI
 GenCLI targets the `Common Language Infrastructure`_, the most famous
 implementations of which are Microsoft's `.NET`_ and Mono_.
 
-.. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
-.. _`.NET`: http://www.microsoft.com/net/
-.. _Mono: http://www.mono-project.com/
-
 It is probably the most advanced of the object oriented backends -- it can
 compile our two standard benchmarks, RPyStone (CPython's PyStone benchmark
 modified slightly to be RPython) and a RPython version of the common Richards
 benchmark.
 
-It is almost entirely the work of Antonio Cuni, who worked on this backend as
-part of his Bachelor's thesis and is continuing to work on it as part of
-Google's Summer of Code 2006 program.
+It is almost entirely the work of Antonio Cuni, who started this
+backend as part of his `Master's thesis`_, the Google's Summer of Code
+2006 program and the Summer of PyPy program.
+
+.. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
+.. _`.NET`: http://www.microsoft.com/net/
+.. _Mono: http://www.mono-project.com/
+.. _`Master's thesis`: http://codespeak.net/~antocuni/Implementing%20Python%20in%20.NET.pdf
+
+GenJVM
+++++++
+
+GenJVM targets the Java Virtual Machine: it translates RPython
+programs directly into Java bytecode, similarly to what GenCLI does.
+
+So far it is the second most mature high level backend after GenCLI:
+it still can't translate the full Standard Interpreter, but after the
+Leysin sprint we were able to compile and run the rpytstone and
+richards benchmarks.
+
+GenJVM is almost entirely the work of Niko Matsakis, who worked on it
+also as part of the Summer of PyPy program.
 
 GenSqueak
 +++++++++
