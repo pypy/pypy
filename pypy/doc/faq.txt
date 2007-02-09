@@ -24,19 +24,55 @@ XXX
 On what platforms does it run?
 ------------------------------
 
-XXX
+PyPy is regularly and extensively tested on Linux machines and on Mac OS X and
+mostly works under Windows too (but is tested there less extensively). PyPy
+needs a CPython running on the target platform to bootstrap, cross compilation
+is not really meant to work, currently. Apart from that restriction, translating
+PyPy is supposed to produce nice platform-independent code, so the chances are
+not too bad that it works.
+
+Currently (due to time restrictions) we are not trying hard to make PyPy support
+64 bit platforms. While this seems to still mostly work out, a few modules won't
+work on 64 bit machines, such as ``bz2``.
 
 ----------------------------------------------
 Which Python version (2.x?) does PyPy support?
 ----------------------------------------------
 
-XXX
+PyPy currently targets to be fully compatible with Python 2.4. That means that
+it contains the stdandard library of Python 2.4 and that it supports 2.4
+features (such as decorators) but not the 2.5 features (with statement, ternary
+operators).  The 2.5 features will probably be eventually suported, the most
+important reasons why nobody is working on them is that we did not promise this
+to the EU and have currently enough other tasks.
 
 -------------------------------------------------
 Do threads work?  What are the modules that work?
 -------------------------------------------------
 
-XXX
+Operating-System threads work in a limited way. If you enable the ``thread``
+module then PyPy will get support for GIL based threading. The limitations are
+that not that many IO operations actually release the GIL, which reduces the
+usefulness of threads. On the other hand, PyPy fully supports `stackless-like
+microthreads`_. 
+
+As for other modules: The general rule of thumb is that pure-Python modules
+work, C extension modules don't. Some of the C extension modules of the standard
+library have been re-implemented in pure Python or as a mixed module (for some
+there were also older pure-Python versions available). A (probably incomplete)
+list:
+
+ * pure Python implementations: binascii, cmath, collections, cPickle,
+   cStringIO, datetime, functional, imp, itertools, md5, operator,
+   sha, struct
+
+ * mixed module implementations: exceptions, sys, __builtin__, posix
+   _codecs, gc, _weakref, array, marshal, errno, math, _sre,  parser, symbol,
+   _random, socket, unicodedata, mmap, fcntl, time, select, bz2, crypt, 
+   signal
+
+
+.. _`stackless-like microthreads`: stackless.html
 
 ------------------------------------
 Can I use CPython extension modules?
