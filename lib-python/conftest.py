@@ -883,10 +883,13 @@ class ReallyRunFileExternal(py.test.Item):
         alarm_script = pypydir.join('tool', 'alarm.py')
         regr_script = pypydir.join('tool', 'pytest', 
                                    'run-script', 'regrverbose.py')
+        if option.use_compiled:
+            execpath, info = getexecutable()        
         pypy_options = []
         if regrtest.oldstyle: 
-            if option.use_compiled:
-                py.test.skip("old-style classes not available in pypy-c")
+            if (option.use_compiled and
+                not info.get('objspace.std.oldstyle', False)):
+                py.test.skip("old-style classes not available with this pypy-c")
             pypy_options.append('--oldstyle') 
         if regrtest.compiler:
             pypy_options.append('--compiler=%s' % regrtest.compiler)
@@ -902,7 +905,6 @@ class ReallyRunFileExternal(py.test.Item):
         
         TIMEOUT = gettimeout()
         if option.use_compiled:
-            execpath, info = getexecutable()
             cmd = "%s %s %s %s" %(
                 execpath, 
                 regrrun, regrrun_verbosity, fspath.purebasename)
