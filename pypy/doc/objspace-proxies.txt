@@ -149,7 +149,274 @@ The following document is a draft:
 The Taint Object Space
 ======================
 
-XXX
+Motivation
+----------
+
+The Taint Object Space provides a form of security: "tainted objects",
+inspired by various sources, including Perl's tainting (XXX more
+references needed).
+
+The basic idea of this kind of security is not to protect against
+malicious code, unlike sandboxing, for example.  The idea is that,
+considering a large application that handles sensitive data, there are
+typically only a small number of places that need to explicitly
+manipulate that sensitive data; all the other places merely pass it
+around, or do entierely unrelated things.
+
+Nevertheless, if a large application needs to be reviewed for security,
+it must be entierely carefully checked, because it is possible that a
+bug at some apparently unrelated place could lead to a leak of sensitive
+information in a way that an external attacker could exploit.  For
+example, if any part of the application provides web services, an
+attacker might be able to issue unexpected requests with a regular web
+browser and deduce secret information from the details of the answers he
+gets.
+
+An approach like that of the Taint Object Space allows the small parts
+of the program that manipulate sensitive data to be explicitly marked.
+The effect of this is that although these small parts still need a
+careful security review, the rest of the application no longer does,
+because even a bug would be unable to leak the information.
+
+We have implemented a simple two-levels model: objects are either
+regular (untainted), or hidden (tainted).  It would be simple to extend
+the code for more fine-grained scales of secrecy.  For example it is
+typical in the literature to consider user-specified lattices of secrecy
+levels, corresponding to multiple "owners" that cannot access data
+belonging to another "owner" unless explicitly authorized to do so.
+
+Tainting and untainting
+-----------------------
+
+Start a py.py with the Taint Object Space and try the following example::
+
+    $ py.py -o taint
+    >>>> from pypymagic import taint
+    >>>> x = taint(6)
+
+    # x is secret from now on.  We can pass it around and
+    # even operate on it, but not inspect it.  Taintness
+    # is propagated to operation results.
+
+    >>>> x
+    TaintError
+
+    >>>> if x > 5: y = 2
+    TaintError
+
+    >>>> y = x + 5       # ok
+    >>>> lst = [x, y]
+    >>>> z = lst.pop()
+    >>>> t = type(z)     # type() works too, tainted answer
+    >>>> t
+    TaintError
+    >>>> u = t is int    # even 'is' works
+    >>>> u
+    TaintError
+
+Notice that using a tainted boolean like ``x > 5`` in an ``if``
+statement is forbidden.  This is because knowing which path is followed
+would give away a hint about ``x``; in the example above, if the
+statement ``if x > 5: y = 2`` were allowed to run, we would know
+something about the value of ``x`` by looking at the (untainted) value
+in the variable ``y``.
+
+Of course, there is a way to inspect tainted objects.  The basic way is
+to explicitly untaint the object.  In an application, the places that
+use this ``untaint()`` declassification function are the places that
+need careful security review.  To avoid unexpected objects showing up,
+the ``untaint()`` function must be called with the exact type of the
+object to declassify.  It will raise ``TaintError`` if the type doesn't
+match::
+
+    >>>> from pypymagic import taint
+    >>>> untaint(int, x)
+    6
+    >>>> untaint(int, z)
+    11
+    >>>> untaint(bool, x > 5)
+    True
+    >>>> untaint(int, x > 5)
+    TaintError
+
+
+Taint Bombs
+-----------
+
+In this area, a common problem is what to do about failing operations.
+If an operation raises an exception when manipulating a tainted object,
+then the very presence of the exception can leak information about the
+tainted object itself.  Consider::
+
+    >>>> 5 / (x-6)
+
+By checking if this raises ``ZeroDivisionError`` or not, we would know
+if ``x`` was equal to 6 or not.  The solution to this problem in the
+Taint Object Space is to introduce *Taint Bombs*.  They are a kind of
+tainted object that doesn't contain a real object, but a pending
+exception.  Taint Bombs are undistinguishable from normal tainted
+objects to unpriviledged code. See::
+
+    >>>> x = taint(6)
+    >>>> i = 5 / (x-6)     # no exception here
+    >>>> j = i + 1         # nor here
+    >>>> k = j + 5         # nor here
+    >>>> untaint(int, k)
+    TaintError
+
+In the above example, all of ``i``, ``j`` and ``k`` contain a Taint
+Bomb.  Trying to untaint it raises ``TaintError``, but at the point
+where ``untaint()`` is called.  This means that all calls to
+``untaint()`` must also be carefully reviewed for what occurs if they
+receive a Taint Bomb; they might catch the ``TaintError`` and give the
+user a generic message that something went wrong, if we are reasonably
+careful that the message or even its preserve doesn't give information
+away.  This might be a decliate problem by itself, but there is no
+satisfying general solution to this problem; it must be considered on a
+case-by-case basis.  Again, what the Taint Object Space approach
+achieves is not solving these problems, but localizing them to
+well-defined small parts of the application - namely, around calls to
+``untaint()``.
+
+Note that the ``TaintError`` exception is deliberately not including any
+useful error message, because that might give information away too.
+However, it makes debugging quite harder.  This is a difficult problem
+to solve in general too; so far we implemented a "debug mode" that dumps
+information to the low-level stderr of the application (where we hope
+that it is unlikely to be seen by anyone else than the application
+developer).  The debug mode must be activated with
+``pypymagic.taint_debug(1)``.
+
+
+Taint Atomic functions
+----------------------
+
+Occasionally, a more complicated computation must be performed on a
+tainted object.  This requires first untainting the object, perform the
+computations, and then carefully taint the result again (including
+hiding all exceptions that could give information away).
+
+There is a built-in decorator that does exactly that::
+
+    >>>> @pypymagic.taint_atomic
+    >>>> def myop(x, y):
+    ....     while x > 0:
+    ....         x -= y
+    ....     return x
+    ....
+    >>>> myop(42, 10)
+    -8
+    >>>> z = myop(taint(42), 10)
+    >>>> z
+    TaintError
+    >>>> untaint(int, z)
+    -8
+
+The decorator makes a whole function behave like a built-in operation.
+If no tainted argument is passed in, the function behaves normally.  But
+if any of the arguments is tainted, it is automatically untainted - so
+the function body always sees untainted arguments - and the eventual
+result is tainted again (possibly in a Taint Bomb).
+
+It is important for the function marked as ``taint_atomic`` to have no
+visible side effects, otherwise information could be leaked that way.
+This is currently not enforced, which means that all ``taint_atomic``
+functions have to be carefully reviewed for security (but not the
+callers of ``taint_atomic`` functions).
+
+A possible future extension would be to forbid side-effects on
+non-tainted objects from all ``taint_atomic`` functions.
+
+An example of usage: given a tainted object ``passwords_db`` that
+references a database of passwords, we can write a function
+that checks if a password is valid as follows::
+
+    @taint_atomic
+    def validate(passwords_db, username, password):
+        assert type(passwords_db) is PasswordDatabase
+        assert type(username) is str
+        assert type(password) is str
+        ...load username entry from passwords_db...
+        return expected_password == password
+
+It returns a tainted boolean answer, or a Taint Bomb if something
+went wrong.  A caller can do:
+
+    ok = validate(passwords_db, 'john', '1234')
+    ok = untaint(bool, ok)
+
+This can give three outcomes: ``True``, ``False``, or a ``TaintError``
+exception (with no information on it) if anything went wrong.  If even
+this is considered giving too much information away, the ``False`` case
+can be made indistinguishable from the ``TaintError`` case (simply by
+also raising an exception in ``validate()`` if the password is wrong).
+
+In the above example, the security achieved is that as long as
+``validate()`` does not leak information, no other part of the code can
+obtain more information about a passwords database than a Yes/No answer
+to a precise query.
+
+A possible extension of the ``taint_atomic`` decorator would be to check
+the argument types as ``untaint()`` does, for the same reason - to
+prevent bugs where a function like ``validate()`` above is accidentally
+called with the wrong kind of object, and thus leaks information about
+it.  For now, all ``taint_atomic`` function should be conservative and
+carefully check all assumptions on all input arguments.
+
+
+Interface
+---------
+
+.. _`like a built-in operation`:
+
+The basic rule of the Tainted Object Space is that it introduces two new
+kinds of objects, Tainted Boxes and Tainted Bombs (which are not types
+in the Python sense).  Each box internally contains a regular object;
+each bomb internally contains an exception object.  An operation
+involving Tainted Boxes is performed on the objects contained in the
+boxes, and give a Tainted Box or a Tainted Bomb as a result (such an
+operation does not let an exception be raised).  An operation called
+with a Tainted Bomb argument immediately returns the same Tainted Bomb.
+
+In a PyPy running with (or translated with) the Taint Object Space,
+the ``pypymagic`` module exposes the following interface:
+
+* ``taint(obj)``
+
+    Return a new Tainted Box wrapping ``obj``.  Return ``obj`` itself
+    if it is already tainted (a Box or a Bomb).
+
+* ``is_tainted(obj)``
+
+    Check if ``obj`` is tainted (a Box or a Bomb).
+
+* ``untaint(type, obj)``
+
+    Untaints ``obj`` if it is tainted.  Raise ``TaintError`` if the type
+    of the untainted object is not exactly ``type``, or if ``obj`` is a
+    Bomb.
+
+* ``taint_atomic(func)``
+
+    Return a wrapper function around the callable ``func``.  The wrapper
+    behaves `like a built-in operation`_ with respect to untainting the
+    arguments, tainting the result, and returning a Bomb.
+
+* ``TaintError``
+
+    Exception.  On purpose, it provides no attribute or error message.
+
+* ``_taint_debug(level)``
+
+    Set the debugging level to ``level`` (0=off).  At level 1 or above,
+    all Taint Bombs print a diagnostic message to stderr when they are
+    created.
+
+* ``_taint_look(obj)``
+
+    For debugging purposes: prints (to stderr) the type and address of
+    the object in a Tainted Box, or prints the exception if ``obj`` is
+    a Taint Bomb.
 
 
 .. _dump:
