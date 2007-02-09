@@ -60,6 +60,7 @@
 .. _`objspace/logic.py`: ../../pypy/objspace/logic.py
 .. _`objspace/std/`:
 .. _`pypy/objspace/std`: ../../pypy/objspace/std
+.. _`objspace/taint.py`: ../../pypy/objspace/taint.py
 .. _`objspace/thunk.py`:
 .. _`pypy/objspace/thunk.py`: ../../pypy/objspace/thunk.py
 .. _`objspace/trace.py`:

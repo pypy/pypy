@@ -5,14 +5,30 @@ PyPy - a Python_ implementation written in Python
 .. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
 .. sectnum::
-.. contents::
+.. contents:: :depth: 1
 
 
-Meta-documentation
-=====================================
+PyPy User Documentation
+===============================================
 
 `getting started`_ provides hands-on instructions 
 including a two-liner to run PyPy on your system. 
+
+`FAQ`_ contains some frequently asked questions.
+
+New features of PyPy (available from optional built-in modules):
+  * `What PyPy can do for your objects`_
+  * `Stackless and coroutines`_
+
+`extension compiler`_ describes the (in-progress) tool that can be used
+to write modules in PyPy's style and compile them into regular CPython
+extension modules.
+
+Status_ of the project.
+
+
+Meta-Documentation
+=====================================
 
 `coding guide`_ helps you to write code for PyPy (especially also describes
 coding in RPython a bit). 
@@ -31,16 +47,37 @@ into PyPy.
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
 introductions) that are available.
 
-`license`_ contains licensing details (basically a straight MIT-license). 
+`EU reports`_ is a page that contains links to the
+reports that we submitted to the European Union.
 
-`FAQ`_ contains the beginning of frequently asked questions.
-Right now it's a bit empty.
+`license`_ contains licensing details (basically a straight MIT-license). 
 
 `Glossary`_ of PyPy words to help you align your inner self with
 the PyPy universe.
 
 
-PyPy documentation
+Status
+===================================
+
+PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
+but platform-specific bugs tend to take longer before we notice and fix
+them.  About 64-bit machines: although support is mostly present, we
+decided to stop tracking and fixing the remaining issues for a while, as
+an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
+for now.
+
+PyPy's own tests, daily updated, `on Linux`_, on Windows (unavailable
+at the moment) and `on built pypy-c`_.
+
+`Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM (PowerPC machine).
+
+`compliance test status`_ shows outcomes of 
+recent compliance test runs against PyPy. 
+
+`PyPy statistics`_ shows LOC statistics about PyPy.
+
+
+Source Code Documentation
 ===============================================
 
 architecture_ gives a complete view of PyPy's basic design. 
@@ -73,10 +110,6 @@ the parser.
 `garbage collection`_ contains documentation about
 garbage collection in PyPy.
 
-`extension compiler`_ describes the (in-progress) tool that can be used
-to write modules in PyPy's style and compile them into regular CPython
-extension modules.
-
 `rlib`_ describes some modules that can be used when implementing programs in
 RPython.
 
@@ -86,50 +119,6 @@ AJAX-based web pages.
 `JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
 from our Python interpreter.
 
-`EU reports`_ is a page that contains links to the
-preliminary reports that we submitted to the European Union.
-
-
-New Python features
-==========================================
-
-(Note that emphasis so far has not been on adding new features to the
-Python language.  These new features are experimental, and require you
-to enable them explicitly while running or translating PyPy.)
-
-The Thunk_ Object Space: lazily computed objects.
-
-Stackless_ and coroutines
-
-`Logic and Constraint`_ programming features
-
-`Transparent proxy`_ implementation
-
-.. _Thunk: getting-started.html#lazily-computed-objects
-.. _Stackless: stackless.html
-.. _`Logic and Constraint`: howto-logicobjspace-0.9.html
-.. _`Transparent proxy`: objspace-proxies.html#tproxy
-
-
-Status
-======================================
-
-PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
-but platform-specific bugs tend to take longer before we notice and fix
-them.  About 64-bit machines: although support is mostly present, we
-decided to stop tracking and fixing the remaining issues for a while, as
-an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
-for now.
-
-PyPy's own tests, daily updated, `on Linux`_, on Windows (unavailable
-at the moment) and `on built pypy-c`_.
-
-`Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM.
-
-`compliance test status`_ shows outcomes of 
-recent compliance test runs against PyPy. 
-
-`PyPy statistics`_ shows LOC statistics about PyPy. 
 
 
 .. _`FAQ`: faq.html
@@ -163,7 +152,7 @@ recent compliance test runs against PyPy.
 .. _`rlib`: rlib.html
 
 PyPy directory cross-reference 
-======================================================
+------------------------------
 
 Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
@@ -222,6 +211,8 @@ Directory                      explanation/links
 
 `objspace/dump.py`_            the dump object space saves a large, searchable log file
                                with all operations
+
+`objspace/taint.py`_           the `taint object space`_, providing object tainting
 
 `objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
 
@@ -295,8 +286,11 @@ Directory                      explanation/links
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
 .. _`trace object space`: objspace.html#the-trace-object-space 
+.. _`taint object space`: objspace-proxies.html#taint
 .. _`thunk object space`: objspace-proxies.html#thunk
-.. _`logic object space`: constraints-and-logic.html#logic-programming
+.. _`logic object space`: objspace-proxies.html#logic
+.. _`What PyPy can do for your objects`: objspace-proxies.html
+.. _`Stackless and coroutines`: stackless.html
 .. _StdObjSpace: objspace.html#the-standard-object-space 
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`rpython`: coding-guide.html#rpython 
