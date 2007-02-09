@@ -21,8 +21,8 @@ class FewRegistersAndScribble(FewRegisters):
 class TestRPPCGenop(AbstractRGenOpTests):
     RGenOp = RPPCGenOp
 
-    def test_read_frame_var_direct(self):   py.test.skip("in-progress")
-    def test_read_frame_var_compile(self):  py.test.skip("in-progress")
+#    def test_read_frame_var_direct(self):   py.test.skip("in-progress")
+#    def test_read_frame_var_compile(self):  py.test.skip("in-progress")
     def test_write_frame_place_direct(self):  py.test.skip("in-progress")
     def test_write_frame_place_compile(self): py.test.skip("in-progress")
     def test_read_frame_place_direct(self):  py.test.skip("in-progress")

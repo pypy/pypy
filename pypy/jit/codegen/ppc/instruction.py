@@ -509,6 +509,33 @@ class Label(Insn):
     def emit(self, asm):
         self.label.startaddr = asm.mc.tell()
 
+class LoadFramePointer(Insn):
+    def __init__(self, result):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result = result
+        self.result_regclass = GP_REGISTER
+    def allocate(self, allocator):
+        self.result_reg = allocator.loc_of(self.result)
+    def emit(self, asm):
+        asm.mr(self.result_reg.number, rFP)
+
+class CopyIntoStack(Insn):
+    def __init__(self, place, v):
+        Insn.__init__(self)
+        self.reg_args = [v]
+        self.reg_arg_regclasses = [GP_REGISTER]
+        self.result = None
+        self.result_regclass = NO_REGISTER
+        self.place = place
+    def allocate(self, allocator):
+        self.arg_reg = allocator.loc_of(self.reg_args[0])
+        self.target_slot = allocator.spill_slot()
+        self.place.offset = self.target_slot.offset
+    def emit(self, asm):
+        asm.stw(self.arg_reg.number, rFP, self.target_slot.offset)
+
 class SpillCalleeSaves(Insn):
     def __init__(self):
         Insn.__init__(self)
