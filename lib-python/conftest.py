@@ -1014,7 +1014,7 @@ class ReallyRunFileExternal(py.test.Item):
                 test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
                 if test_stdout != expected: 
                     exit_status = 2  
-                    res, out, err = callcapture(reportdiff, expected, test_stdout)
+                    res, out, err = py.io.StdCapture.call(reportdiff, expected, test_stdout)
                     outcome = 'ERROUT' 
                     result.addnamedtext('reportdiff', out)
             else:
