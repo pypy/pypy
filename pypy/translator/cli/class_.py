@@ -134,9 +134,10 @@ class Class(Node):
             cts_type = self.cts.lltype_to_cts(F_TYPE)
             f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
+                INSTANCE_DEF, _ = self.INSTANCE._lookup_field(f_name)
                 self.ilasm.opcode('ldarg.0')
                 push_constant(self.db, F_TYPE, f_default, self.gen)
-                class_name = self.db.class_name(self.INSTANCE)
+                class_name = self.db.class_name(INSTANCE_DEF)
                 self.ilasm.set_field((cts_type, class_name, f_name))
 
         self.ilasm.opcode('ret')
