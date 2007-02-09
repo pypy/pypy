@@ -24,7 +24,10 @@ else: # parent
         else:
             t.cancel()
             break
-    sys.exit(status)
+    if os.WIFEXITED(status):
+        sys.exit(os.WEXITSTATUS(status))
+    else:
+        sys.exit(1)
 
     
     
