@@ -812,7 +812,7 @@ def getexecutable(_cache={}):
             'print sys.version; '
             'print sys.pypy_svn_url; '
             'print sys.pypy_translation_info; ')
-        lines = text.split('\n')
+        lines = [line.strip() for line in text.split('\n')]
         assert len(lines) == 4 and lines[3] == ''
         assert lines[2].startswith('{') and lines[2].endswith('}')
         info = eval(lines[2])
@@ -976,7 +976,7 @@ class ReallyRunFileExternal(py.test.Item):
         result['pypy-revision'] = getrev(pypydir) 
         if option.use_compiled:
             execpath, info = getexecutable()
-            result['pypy-revision'] = info.pop('rev')
+            result['pypy-revision'] = info['rev'] # info.pop('rev')
             result['executable'] = execpath.basename
             for key, value in info.items():
                 result['executable-%s' % key] = str(value)
