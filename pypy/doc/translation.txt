@@ -690,7 +690,7 @@ implementations are browsers, and they probably wouldn't be too happy with the
 
 Instead, the goal of GenJS is more directed towards allowing one to write
 Ajax_ web applications entirely in Python (the client side would have to be
-restricted to RPython_), and this is the subject of Maciej Fijalkowski's
+restricted to RPython_), and this was the subject of Maciej Fijalkowski's
 Summer Of Code 2006 project.
 
 .. _Ajax: http://en.wikipedia.org/wiki/AJAX
@@ -698,6 +698,12 @@ Summer Of Code 2006 project.
 The first version of GenJS was written by Eric van Riet Paap (Maciej's mentor
 for the Summer Of Code project) and now he and Maciej are collaborating on its
 further development.
+
+To read more about JS backend there is a `whatis document`_ and
+a `using document`_.
+
+.. _`whatis document`: js/whatis.html
+.. _`using document`: js/using.html
 
 GenCL
 +++++
