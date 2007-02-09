@@ -2,6 +2,7 @@
 import autopath
 import py
 from py.__.misc.cmdline import countloc 
+from py.xml import raw
 
 pypydir = py.path.local(autopath.pypydir)
 
@@ -67,13 +68,13 @@ def percent(x, y):
 
 def viewlocsummary(model):
     t = html.table(
-        row("total number of lines", model.totallines, "&nbsp;"), 
+        row("total number of lines", model.totallines, raw("&nbsp;")), 
         row("number of testlines", model.testlines, 
             percent(model.testlines, model.totallines)), 
         row("number of non-testlines", model.notestlines, 
             percent(model.notestlines, model.totallines)), 
 
-        row("total number of files", model.totalfiles, "&nbsp;"), 
+        row("total number of files", model.totalfiles, raw("&nbsp;")), 
         row("number of testfiles", model.testfiles, 
             percent(model.testfiles, model.totalfiles)), 
         row("number of non-testfiles", model.notestfiles, 
@@ -112,6 +113,11 @@ def viewsubdirs(model):
     return t
 
 if __name__ == '__main__': 
+    if len(py.std.sys.argv) >= 2:
+        target = py.path.local(py.std.sys.argv[1])
+    else:
+        target = py.path.local('index.html')
+    print "writing source statistics to", target
     pypycounter = getpypycounter() 
     model = CounterModel(pypycounter) 
     rev = py.path.svnwc(autopath.pypydir).info().rev
@@ -130,4 +136,6 @@ if __name__ == '__main__':
             html.p("files with less than 3 lines ignored")
         )
     )
-    print doc.unicode(indent=2).encode('utf8')
+    content = doc.unicode(indent=2).encode('utf8')
+    target.write(content)
+
