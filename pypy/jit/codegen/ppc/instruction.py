@@ -536,6 +536,20 @@ class CopyIntoStack(Insn):
     def emit(self, asm):
         asm.stw(self.arg_reg.number, rFP, self.target_slot.offset)
 
+class CopyOffStack(Insn):
+    def __init__(self, v, place):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result = v
+        self.result_regclass = GP_REGISTER
+        self.place = place
+    def allocate(self, allocator):
+        self.result_reg = allocator.loc_of(self.result)
+        allocator.free_stack_slots.append(stack_slot(self.place.offset))
+    def emit(self, asm):
+        asm.lwz(self.result_reg.number, rFP, self.place.offset)
+
 class SpillCalleeSaves(Insn):
     def __init__(self):
         Insn.__init__(self)
