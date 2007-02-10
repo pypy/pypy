@@ -69,8 +69,8 @@ decided to stop tracking and fixing the remaining issues for a while, as
 an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
 for now.
 
-PyPy's own tests, daily updated, `on Linux`_, on Windows (unavailable
-at the moment) and `on built pypy-c`_.
+PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
+ and `on built pypy-c`_.
 
 `Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM (PowerPC machine).
 
@@ -147,6 +147,7 @@ from our Python interpreter.
 .. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
 .. _`on Linux`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`on Windows`: http://scottdial.com/pypytest/
 .. _`on built pypy-c`: http://wyvern.cs.uni-duesseldorf.de/~fijal/pypy-c-tests/
 .. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
