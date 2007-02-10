@@ -101,7 +101,7 @@ As of August 2005, PyPy was successfully translated to C.  Compared to
 CPython, the version of PyPy that still runs on top of CPython is slower by
 a factor of 2000. The first translated version was roughly 300 times slower
 than CPython, version 0.8.0 about 10-20 times, version 0.9 about 4-7 times
-and the current version (1.0) is about 2.4 - 5 times slower than CPython.
+and the current version (1.0) is about 2.4 - 5 times as slow as CPython.
 Note that the speed heavily depends on the enabled options at compile time.
 
 
@@ -252,7 +252,7 @@ It's not that writing RPython is difficult, but if there was some kind
 of rpythonc compiling tool there would be much more temptation to try
 to compile arbitrary, pre-existing Python programs and this is fairly
 unlikely to work (to start, there is very little in the way of an
-"RPython standard library").
+"RPython standard library"). XXX outdated
 
 
 ---------------------------------------------------------------------------
