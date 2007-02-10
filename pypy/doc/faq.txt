@@ -78,7 +78,12 @@ list:
 Can I use CPython extension modules?
 ------------------------------------
 
-XXX
+No and there are no current plans to implement so. CPython extension modules
+relies heavily on CPython's C API which contains a lot of implementation details
+like reference counting, exact C-level objects implementations etc.
+
+Although if your module uses ctypes rather than C-level code, there is a hope.
+You can try to write a mixed module (see next question).
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -127,12 +132,11 @@ I am getting strange errors while playing with PyPy, what should I do?
 ----------------------------------------------------------------------
 
 It seems that a lot of strange, unexplainable problems can be magically
-solved by removing all the \*.pyc files from the PyPy source
-tree. Another thing you can do is removing the pypy/_cache
+solved by removing all the \*.pyc files from the PyPy source tree
+(script py.cleanup from py/bin will do that for you).
+Another thing you can do is removing the pypy/_cache
 completely. If the error is persistent and still annoys you after this
 treatment please send us a bug report (or even better, a fix :-)
-
-
 
 PyPy translation tool chain
 ========================================================================
@@ -141,7 +145,17 @@ PyPy translation tool chain
 What is this RPython language?
 ------------------------------
 
-XXX
+RPython is a way of interpreting your python program, already running.
+This means that term *RPython* is about some part of your program,
+beggining from your entry point (function which you explicitely 
+specify) to whatever is called from that point, also across modules.
+
+It's a subset of Python which allows full type inference (ie. you can
+deduct at compile time what are arguments of certain function),
+which puts it a bit closer to C++ or Java. To read more about RPython
+limitations read `RPython description`_
+
+.. _`RPython description`: coding-guide.html#Restriced_Python
 
 -------------------------------------------------------------------
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
