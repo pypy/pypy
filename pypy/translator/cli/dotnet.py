@@ -4,6 +4,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomePBC
 from pypy.annotation.binaryop import _make_none_union
+from pypy.annotation import model as annmodel
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -56,6 +57,8 @@ class __extend__(pairtype(SomeOOInstance, SomeInteger)):
 
     def setitem((ooinst, index), s_value):
         if ooinst.ootype._isArray:
+            if s_value is annmodel.s_None:
+                return s_None
             ELEMENT = ooinst.ootype._ELEMENT
             VALUE = s_value.ootype
             assert ootype.isSubclass(VALUE, ELEMENT)
@@ -114,7 +117,7 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
 
     def rtype_setitem((r_inst, r_int), hop):
         if not r_inst.lowleveltype._isArray:
-            raise TyperError("setitem() on a non-array instance")        
+            raise TyperError("setitem() on a non-array instance")
         vlist = hop.inputargs(*hop.args_r)
         hop.exception_is_here()
         return hop.genop('cli_setelem', vlist, hop.r_result.lowleveltype)
@@ -446,7 +449,7 @@ def new_array(type, length):
 
 def init_array(type, *args):
     # PythonNet doesn't provide a straightforward way to create arrays... fake it with a list
-    return args
+    return list(args)
 
 class Entry(ExtRegistryEntry):
     _about_ = new_array

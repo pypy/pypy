@@ -235,7 +235,10 @@ class _SetArrayElem(MicroInstruction):
         v_array, v_index, v_elem = op.args
         generator.load(v_array)
         generator.load(v_index)
-        generator.load(v_elem)
+        if v_elem.concretetype is ootype.Void and v_elem.value is None:
+            generator.ilasm.opcode('ldnull')
+        else:
+            generator.load(v_elem)
         elemtype = generator.cts.lltype_to_cts(v_array.concretetype)
         generator.ilasm.opcode('stelem', elemtype)
 
