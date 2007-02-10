@@ -212,6 +212,7 @@ f(x, y, abc=34, *arg, **kwargs)
         t = self.ToAST.transform(t)
 
     def test_trailers(self):
+        py.test.skip("in progress")
         t = self.parse("""
 (a + b).foo[1 + i - j:](32, *args)
 """)
@@ -237,7 +238,6 @@ a = 1 - 2 - 3
 """
         t = self.parse(source)
         t = self.ToAST.transform(t)
-        t.view()
 
     def test_parse_this(self):
         s = py.magic.autopath().read()

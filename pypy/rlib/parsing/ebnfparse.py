@@ -6,6 +6,7 @@ import string
 from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing.deterministic import DFA
 from pypy.rlib.parsing.lexer import Lexer, DummyLexer
+from pypy.rlib.objectmodel import we_are_translated
 
 def make_ebnf_parser():
     NONTERMINALNAME = parse_regex("([a-z]|_)[a-z0-9_]*")
@@ -83,6 +84,9 @@ def make_parse_function(regexs, rules, eof=False):
     def parse(s):
         tokens = lexer.tokenize(s, eof=eof)
         s = parser.parse(tokens)
+        if not we_are_translated():
+            if py.test.config.option.view: 
+                s.view()
         return s
     return parse
 
@@ -287,6 +291,11 @@ class TransformerMaker(object):
         self.emit("assert tree.symbol == %r" % (startsymbol, ))
         self.emit("r = self.visit_%s(tree)" % (startsymbol, ))
         self.emit("assert len(r) == 1")
+        self.start_block("if not we_are_translated():")
+        self.start_block("if py.test.config.option.view:")
+        self.emit("r[0].view()")
+        self.end_block("option.view")
+        self.end_block("we_are_translated")
         self.emit("return r[0]")
         self.end_block("transform")
         self.end_block("ToAST")
@@ -294,7 +303,8 @@ class TransformerMaker(object):
         code = "\n".join(self.code)
         if print_code:
             print code
-        ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+        ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal,
+              "we_are_translated": we_are_translated, "py": py}
         exec py.code.Source(code).compile() in ns
         ToAST = ns["ToAST"]
         ToAST.__module__ = "pypy.rlib.parsing.ebnfparse"

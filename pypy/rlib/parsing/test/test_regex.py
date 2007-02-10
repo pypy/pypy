@@ -1,6 +1,7 @@
+import py
 from pypy.rlib.parsing.regex import *
 
-def compile_rex(rex, view=False):
+def compile_rex(rex):
     try:
         from pypy.translator.interactive import Translation
     except ImportError:
@@ -10,7 +11,7 @@ def compile_rex(rex, view=False):
     fn = fda.make_code()
     t = Translation(fn)
     t.backendopt([str], backend="c")
-    if view:
+    if py.test.config.option.view:
         t.view()
     return t.compile_c()
 
@@ -98,7 +99,7 @@ def test_bigger_than_101001():
     assert recognize("101010")
     assert recognize("101100")
     assert recognize("110000")
-    fn = compile_rex(rex, view=False)
+    fn = compile_rex(rex)
     assert fn("1000000")
     assert fn("101010")
     assert fn("101100")
@@ -132,7 +133,7 @@ def test_range():
     r = dfa.get_runner()
     assert r.recognize("aASsdFAASaSFasdfaSFD")
     assert not r.recognize("ASsdFAASaSFasdfaSFD")
-    fn = compile_rex(atoms, view=False)
+    fn = compile_rex(atoms)
     assert fn("a")
     assert fn("aaaaaAAAAaAAzAzaslwer")
 
@@ -162,4 +163,4 @@ def test_big_example():
     dfa = nfa.make_deterministic()
     r = dfa.get_runner()
     dfa.optimize()
-    fn = compile_rex(all, view=False)
+    fn = compile_rex(all)
