@@ -193,7 +193,7 @@ Partially implemented backends:
 
 * Squeak_, `Common Lisp`_
 
-To learn more about backends take a look at a `translation document`_
+To learn more about backends take a look at the `translation document`_
 
 .. _CLI: cli-backend.html
 .. _JavaScript: js/whatis.html
