@@ -155,7 +155,7 @@ deduct at compile time what are arguments of certain function),
 which puts it a bit closer to C++ or Java. To read more about RPython
 limitations read `RPython description`_
 
-.. _`RPython description`: coding-guide.html#Restriced_Python
+.. _`RPython description`: coding-guide.html#restricted-python
 
 -------------------------------------------------------------------
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
