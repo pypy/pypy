@@ -140,7 +140,7 @@ PyPy translation tool chain
 What is this RPython language?
 ------------------------------
 
-RPython is a way of interpreting your python program, already running.
+RPython is a way of interpreting your python program, running already.
 This means that term *RPython* is about some part of your program,
 beggining from your entry point (function which you explicitely 
 specify) to whatever is called from that point, also across modules.
@@ -184,7 +184,25 @@ which parts of PyPy itself are written.  XXX
 Which backends are there?
 -------------------------
 
-XXX
+Somewhat mature backends:
+
+* Low level backends: C_, LLVM_
+* High level backends: CLI_, JVM_, JavaScript_
+
+Partially implemented backends:
+
+* Squeak_, `Common Lisp`_
+
+To learn more about backends take a look at a `translation document`_
+
+.. _CLI: cli-backend.html
+.. _JavaScript: js/whatis.html
+.. _C: translation.html#the-c-back-end
+.. _LLVM: translation.html#the-llvm-back-end
+.. _`translation document`: translation.html
+.. _JVM: translation.html#GenJVM
+.. _Squeak: translation.html#GenSqueak
+.. _`Common Lisp`: translation.html#GenCL
 
 -------------------------------------------------------
 Are there other projects that need the PyPy tool chain?
