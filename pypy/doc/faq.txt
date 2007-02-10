@@ -51,10 +51,10 @@ Do threads work?  What are the modules that work?
 -------------------------------------------------
 
 Operating-System threads work in a limited way. If you enable the ``thread``
-module then PyPy will get support for GIL based threading. The limitations are
+module then PyPy will get support for GIL based threading. One limitation is
 that not that many IO operations actually release the GIL, which reduces the
 usefulness of threads. On the other hand, PyPy fully supports `stackless-like
-microthreads`_. 
+microthreads`_ (although both cannot be mixed yet).
 
 As for other modules: The general rule of thumb is that pure-Python modules
 work, C extension modules don't. Some of the C extension modules of the standard
@@ -200,9 +200,9 @@ To learn more about backends take a look at a `translation document`_
 .. _C: translation.html#the-c-back-end
 .. _LLVM: translation.html#the-llvm-back-end
 .. _`translation document`: translation.html
-.. _JVM: translation.html#GenJVM
-.. _Squeak: translation.html#GenSqueak
-.. _`Common Lisp`: translation.html#GenCL
+.. _JVM: translation.html#genjvm
+.. _Squeak: translation.html#gensqueak
+.. _`Common Lisp`: translation.html#gencl
 
 -------------------------------------------------------
 Are there other projects that need the PyPy tool chain?
@@ -239,7 +239,7 @@ Why isn't there a simpler way of doing that?
 --------------------------------------------
 
 One answer is that "officially speaking" supporting this is not a goal
-of the PyPy project (RPython is essentially an implementation detail).
+of the PyPy project.
 
 XXX
 
