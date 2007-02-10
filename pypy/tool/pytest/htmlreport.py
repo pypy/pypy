@@ -103,19 +103,19 @@ class HtmlReport(object):
     
     # generate html files 
     #
-    def makeindex(self, indexpath): 
+    def makeindex(self, indexpath, detail="PyPy - latest"): 
         self.indexpath = indexpath
         self.data = {}
         doc = Document(title='pypy test results')
         body = doc.body
         coretests, noncoretests = self.getcorelists()
-        body.append(html.h2("PyPy - latest compliance test results - "
-                       "core tests"))
+        body.append(html.h2("%s compliance test results - "
+                            "core tests" % detail))
 
         body.append(self.render_test_summary('core', coretests))
         body.append(self.render_latest_table(coretests))
         body.append(
-            html.h2("PyPy - latest compliance test results - non-core tests"))
+            html.h2("%s compliance test results - non-core tests" % detail))
         body.append(self.render_test_summary('noncore', noncoretests))
         body.append(self.render_latest_table(noncoretests))
         doc.writetopath(indexpath)
