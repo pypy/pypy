@@ -306,7 +306,6 @@ Directory                      explanation/links
 .. _`CLI backend`: cli-backend.html
 .. _`Common Lisp backend`: translation.html#gencl
 .. _`Squeak backend`: translation.html#gensqueak
-.. _`revision report`: http://codespeak.net/pypy/rev/current
 .. _`garbage collector`: garbage_collection.html
 .. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
