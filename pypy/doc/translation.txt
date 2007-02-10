@@ -775,13 +775,13 @@ LoopFinder?
 GenCLI
 ++++++
 
-GenCLI targets the `Common Language Infrastructure`_, the most famous
+GenCLI_ targets the `Common Language Infrastructure`_, the most famous
 implementations of which are Microsoft's `.NET`_ and Mono_.
 
-It is probably the most advanced of the object oriented backends -- it can
-compile our two standard benchmarks, RPyStone (CPython's PyStone benchmark
-modified slightly to be RPython) and a RPython version of the common Richards
-benchmark.
+It is the most advanced of the object oriented backends -- it can
+compile the PyPy interpreter as well as our two standard benchmarks,
+RPyStone (CPython's PyStone benchmark modified slightly to be RPython)
+and a RPython version of the common Richards benchmark.
 
 It is almost entirely the work of Antonio Cuni, who started this
 backend as part of his `Master's thesis`_, the Google's Summer of Code
@@ -791,6 +791,7 @@ backend as part of his `Master's thesis`_, the Google's Summer of Code
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
 .. _`Master's thesis`: http://codespeak.net/~antocuni/Implementing%20Python%20in%20.NET.pdf
+.. _GenCLI: cli-backend.html
 
 GenJVM
 ++++++

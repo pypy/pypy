@@ -488,9 +488,9 @@ If you want to know more about the JavaScript backend please refer to the
 Translating the flow graph to CLI code
 ++++++++++++++++++++++++++++++++++++++
 
-Use the CLI backend to translate the flowgraphs into .NET executables:
+Use the `CLI backend`_ to translate the flowgraphs into .NET executables:
 ``gencli`` is quite mature now and can also compile the whole
-interpreter. You can try out the CLI backend from the interactive
+interpreter. You can try out the `CLI backend`_ from the interactive
 translator shell::
 
     >>> def myfunc(a, b): return a+b
@@ -743,7 +743,7 @@ infrastructure::
 Translating using the CLI backend
 +++++++++++++++++++++++++++++++++
 
-To create a standalone .NET executable using the CLI backend::
+To create a standalone .NET executable using the `CLI backend`_::
 
     ./translate.py --text --batch --backend=cli targetpypystandalone.py
 
@@ -774,6 +774,36 @@ SDK that works, please tell us.
 As a workaround you can use the Mono ilasm, which does the job
 fine. Once assembled, you can run the produced executable with the
 Microsoft Runtime.
+
+You can also try the still very experimental ``clr`` module that
+enables integration with the surrounding .NET environment.  First, you
+have to tell translate.py to include the ``clr`` module::
+
+    ./translate.py --text --batch --backend=cli targetpypystandalone.py --withmod-clr
+
+Then, you can dynamically load .NET classes using the
+``clr.load_cli_classe`` method. After a class has been loaded, you can
+instantiate and use it as it were a normal Python class. Special
+methods such as indexers and properties are supported using the usual
+Python syntax:
+
+    >>>> import clr
+    >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+    >>>> obj.Add(1)
+    0
+    >>>> obj.Add(2)
+    1
+    >>>> obj.Add("foo")
+    2
+    >>>> print obj[0], obj[1], obj[2]
+    1 2 foo
+    >>>> print obj.Count
+    3
+
+At the moment the only way to load a .NET class is to explicitly use
+``clr.load_cli_class``; in the future they will be automatically
+loaded when accessing .NET namespaces as they were Python modules, as
+IronPython does.
 
 .. _`start reading sources`: 
 
@@ -900,6 +930,7 @@ plan where to meet with us.
 
 .. _`.NET Frameword SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
 .. _Mono: http://www.mono-project.com/Main_Page
+.. _`CLI backend`: cli-backend.html
 
 .. _Dot Graphviz:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
