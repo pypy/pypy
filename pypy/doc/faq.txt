@@ -227,7 +227,7 @@ Start from the example of
 `pypy/translator/goal/targetnopstandalone.py`_, which you compile by
 typing::
 
-    python translate_pypy.py targetnopstandalone
+    python translate.py targetnopstandalone
 
 You can have a look at intermediate C source code, which is (at the
 moment) put in ``/tmp/usession-*/testing_1/testing_1.c``.  Of course,
