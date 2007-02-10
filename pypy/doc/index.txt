@@ -24,6 +24,9 @@ New features of PyPy (available from optional built-in modules):
 to write modules in PyPy's style and compile them into regular CPython
 extension modules.
 
+`JavaScript backend`_ describes how to use the JavaScript backend to create
+AJAX-based web pages.
+
 Status_ of the project.
 
 
@@ -113,8 +116,7 @@ garbage collection in PyPy.
 `rlib`_ describes some modules that can be used when implementing programs in
 RPython.
 
-`JavaScript backend`_ describes how to use the JavaScript backend to create
-AJAX-based web pages.
+`CLI backend`_ describes the details of the .NET backend.
 
 `JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
 from our Python interpreter.
@@ -300,7 +302,7 @@ Directory                      explanation/links
 .. _`translation`: translation.html 
 .. _`GenC backend`: translation.html#genc 
 .. _`LLVM backend`: translation.html#llvm
-.. _`CLI backend`: translation.html#gencli
+.. _`CLI backend`: cli-backend.html
 .. _`Common Lisp backend`: translation.html#gencl
 .. _`Squeak backend`: translation.html#gensqueak
 .. _`revision report`: http://codespeak.net/pypy/rev/current
