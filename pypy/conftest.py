@@ -134,6 +134,11 @@ class Module(py.test.collect.Module):
         and at interp-level (because we need to stick a space 
         at the class) ourselves. 
     """
+    def __init__(self, *args, **kwargs):
+        if option.runappdirect:
+            option.conf_iocapture = "sys" # pypy cannot do FD-based
+        super(Module, self).__init__(*args, **kwargs)
+
     def funcnamefilter(self, name): 
         if name.startswith('test_'):
             return not option.runappdirect
