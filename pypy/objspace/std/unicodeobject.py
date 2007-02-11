@@ -65,30 +65,16 @@ def unichars_w__Unicode(space, w_uni):
 def str__Unicode(space, w_uni):
     return space.call_method(w_uni, 'encode')
 
-def cmp__Unicode_Unicode(space, w_left, w_right):
+def eq__Unicode_Unicode(space, w_left, w_right):
+    return space.newbool(w_left._value == w_right._value)
+
+def lt__Unicode_Unicode(space, w_left, w_right):
     left = w_left._value
     right = w_right._value
     for i in range(min(len(left), len(right))):
-        test = ord(left[i]) - ord(right[i])
-        if test < 0:
-            return space.wrap(-1)
-        if test > 0:
-            return space.wrap(1)
-            
-    test = len(left) - len(right)
-    if test < 0:
-        return space.wrap(-1)
-    if test > 0:
-        return space.wrap(1)
-    return space.wrap(0)
-
-## XXX what?? the following seems unnecessary
-##def cmp__Unicode_ANY(space, w_left, w_right):
-##    try:
-##        w_right = space.call_function(space.w_unicode, w_right)
-##    except:
-##        return space.wrap(1)
-##    return space.cmp(w_left, w_right)
+        if left[i] != right[i]:
+            return space.newbool(left[i] < right[i])
+    return space.newbool(len(left) < len(right))
 
 def ord__Unicode(space, w_uni):
     if len(w_uni._value) != 1:

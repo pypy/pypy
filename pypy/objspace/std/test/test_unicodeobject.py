@@ -1,16 +1,17 @@
-# test the integration of unicode and strings (even though we don't
-# really implement unicode yet).
-
 import autopath, sys
-
 
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
         assert u'a' == 'a'
         assert 'a' == u'a'
-        assert not u'a' == 'b' # xxx u'a' != 'b' fails
-        assert not 'a'  == u'b'# xxx 'a' != u'b' fails
+        assert not u'a' == 'b'
+        assert not 'a'  == u'b'
+        assert u'a' != 'b'
+        assert 'a'  != u'b'
+        assert not (u'a' == 5)
+        assert u'a' != 5
+        assert u'a' < 5 or u'a' > 5
 
 class AppTestUnicodeString:
     def test_addition(self):
