@@ -54,7 +54,6 @@ class SRE_Pattern(object):
         state = _sre._State(string, pos, endpos, self.flags)
         while state.start <= state.end:
             state.reset()
-            state.string_position = state.start
             if not _sre._search(state, self._code):
                 break
             match = SRE_Match(self, state)
@@ -84,7 +83,6 @@ class SRE_Pattern(object):
         n = last_pos = 0
         while not count or n < count:
             state.reset()
-            state.string_position = state.start
             if not _sre._search(state, self._code):
                 break
             if last_pos < state.start:
@@ -122,7 +120,6 @@ class SRE_Pattern(object):
         last = state.start
         while not maxsplit or n < maxsplit:
             state.reset()
-            state.string_position = state.start
             if not _sre._search(state, self._code):
                 break
             if state.start == state.string_position: # zero-width match
@@ -165,7 +162,6 @@ class SRE_Scanner(object):
     def _match_search(self, matcher):
         state = self._state
         state.reset()
-        state.string_position = state.start
         match = None
         if matcher(state, self.pattern._code):
             match = SRE_Match(self.pattern, state)
