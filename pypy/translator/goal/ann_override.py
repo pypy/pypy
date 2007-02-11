@@ -50,13 +50,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             return translator.buildflowgraph(yield_thread)
         return funcdesc.cachedgraph(None, builder=builder)
 
-    def count(self, kind):
-        try:
-            counters = self.foldedwraps
-        except AttributeError:
-            counters = self.foldedwraps = {}
-        counters[kind] = counters.get(kind, 0) + 1
-
     def specialize__wrap(pol,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import Wrappable
         from pypy.annotation.classdef import ClassDef
@@ -73,10 +66,8 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                     x = args_s[1].const
                     def fold():
                         if typ is str and isidentifier(x):
-                            pol.count('identifier')
                             return space.new_interned_str(x)
                         else:
-                            pol.count(typ)
                             return space.wrap(x)
                     builder = specialize.make_constgraphbuilder(2, factory=fold)
                     return funcdesc.cachedgraph(x, builder=builder)
