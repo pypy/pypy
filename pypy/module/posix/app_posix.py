@@ -22,6 +22,9 @@ class stat_result(tuple):
     st_atime = tuple_item_getter(7)
     st_mtime = tuple_item_getter(8)
     st_ctime = tuple_item_getter(9)
+    n_sequence_fields = 10
+    n_fields          = 10             # no extra attributes for now
+    n_unnamed_fields  = 0
 
 def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
