@@ -73,7 +73,8 @@ def lt__Unicode_Unicode(space, w_left, w_right):
     right = w_right._value
     for i in range(min(len(left), len(right))):
         if left[i] != right[i]:
-            return space.newbool(left[i] < right[i])
+            return space.newbool(ord(left[i]) < ord(right[i]))
+            # NB. 'unichar < unichar' is not RPython at the moment
     return space.newbool(len(left) < len(right))
 
 def ord__Unicode(space, w_uni):
