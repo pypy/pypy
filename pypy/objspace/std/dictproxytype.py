@@ -38,8 +38,6 @@ dictproxy_typedef = StdTypeDef("dictproxy",
     __contains__ = _proxymethod('__contains__'),
     __str__ = _proxymethod('__str__'),
     __iter__ = _proxymethod('__iter__'),
-    #__cmp__ = _proxymethod('__cmp__'),
-    # you cannot have it here if it is not in dict
     __lt__ = _compareproxymethod('lt'),
     __le__ = _compareproxymethod('le'),
     __eq__ = _compareproxymethod('eq'),
