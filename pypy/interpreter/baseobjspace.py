@@ -578,7 +578,8 @@ class ObjSpace(object):
                 func = w_func.w_function
                 if isinstance(func, Function):
                     return func.funccall(w_inst, *args_w)
-            else:
+            elif args_w and self.is_true(
+                    self.abstract_isinstance(args_w[0], w_func.w_class)):
                 w_func = w_func.w_function
 
         if isinstance(w_func, Function):
@@ -597,7 +598,9 @@ class ObjSpace(object):
                 func = w_func.w_function
                 if isinstance(func, Function):
                     return func.funccall_obj_valuestack(w_inst, nargs, frame)
-            else:
+            elif nargs > 0 and self.is_true(
+                self.abstract_isinstance(frame.peekvalue(nargs-1),   #    :-(
+                                         w_func.w_class)):
                 w_func = w_func.w_function
 
         if isinstance(w_func, Function):

@@ -254,6 +254,29 @@ class AppTestMethod:
         im = new.instancemethod(A(), 3)
         assert map(im, [4]) == [7]
 
+    def test_unbound_typecheck(self):
+        class A(object):
+            def foo(self, *args):
+                return args
+        class B(A):
+            pass
+        class C(A):
+            pass
+
+        assert A.foo(A(), 42) == (42,)
+        assert A.foo(B(), 42) == (42,)
+        raises(TypeError, A.foo, 5)
+        raises(TypeError, B.foo, C())
+        try:
+            class Fun:
+                __metaclass__ = A.foo
+            assert 0  # should have raised
+        except TypeError:
+            pass
+        class Fun:
+            __metaclass__ = A().foo
+        assert Fun[:2] == ('Fun', ())
+
 
 class TestMethod: 
     def setup_method(self, method):
