@@ -107,43 +107,27 @@ def _split_complex(s):
     return realpart, imagpart
 
 
-def check_second_arg(space, w_c):
-    """check, if second 'complex' argument is a string"""
-    if space.is_true(space.isinstance(w_c, space.w_str)):
-        raise TypeError()
-    return True
-
-def simple_arg_check(space, w_r, w_c):
-    """check, if there is a second argument, if first is a string"""
-    if space.is_true(space.isinstance(w_r, space.w_str)) or \
-            space.is_true(space.isinstance(w_r, space.w_unicode)):
-        if not space.eq_w(w_c,space.w_None):
-            raise TypeError
-
 def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
-    
     from pypy.objspace.std.complexobject import W_ComplexObject
 
-    try:
-        check_second_arg(space, w_imag)
-    except TypeError:
-        raise OperationError(space.w_TypeError,space.wrap("complex() second arg can't be a string"))
-    try:
-        simple_arg_check(space, w_real, w_imag)
-    except TypeError:
-        raise OperationError(space.w_TypeError, space.wrap(ERR_WRONG_SECOND))
-    # if arguments can be cast to a float, do it
-    if space.is_w(w_complextype, space.w_complex) and \
-        space.eq_w(space.type(w_real), space.w_complex) and \
-        space.eq_w(w_imag, space.w_None):
-        # common case
-        return w_real 
+    # if w_real is already a complex number and there is no second
+    # argument, return it.  Note that we cannot return w_real if
+    # it is an instance of a *subclass* of complex, or if w_complextype
+    # is itself a subclass of complex.
+    noarg2 = space.is_w(w_imag, space.w_None)
+    if (noarg2 and space.is_w(w_complextype, space.w_complex)
+               and space.is_w(space.type(w_real), space.w_complex)):
+        return w_real
 
     if space.is_true(space.isinstance(w_real, space.w_str)) or \
             space.is_true(space.isinstance(w_real, space.w_unicode)):
+        # a string argument
+        if not noarg2:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("complex() can't take second arg"
+                                            " if first is a string"))
         try:
             realstr, imagstr = _split_complex(space.str_w(w_real))
-
         except ValueError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
         try:
@@ -156,64 +140,62 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
             if abs(realval) == OVERFLOWED_FLOAT or abs(imagval) == OVERFLOWED_FLOAT:
                 raise OperationError(space.w_ValueError,space.wrap(
                                     "complex() literal too large to convert"))
-            if space.is_w(w_complextype, space.w_complex):
-                # common case
-                w_obj = W_ComplexObject(realval, imagval)
+
+    else:
+        # non-string arguments
+
+        # test for a '__complex__' method, and call it if found.
+        # A bit of a hack to support old-style classes: don't use
+        # space.lookup() (this is similar to CPython).
+        try:
+            w_method = space.getattr(w_real, space.wrap('__complex__'))
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+        else:
+            w_real = space.call_function(w_method)
+            # __complex__() could return a string, which space.float()
+            # could accept below...  Let's catch this case.
+            if space.is_true(space.isinstance(w_imag, space.w_str)) or \
+                   space.is_true(space.isinstance(w_imag, space.w_unicode)):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("__complex__() cannot return"
+                                                " a string"))
+
+        # at this point w_real can be an instance of 'complex',
+        # either because it is the result of __complex__() or because
+        # the shortcut at the beginning of the function didn't match
+        if space.is_true(space.isinstance(w_real, space.w_complex)):
+            # note that we are unwrapping the complex for the rest of
+            # the code.  This also ensures that we eventually return
+            # an object of the correct subclass of complex.
+            realval = space.float_w(space.getattr(w_real, space.wrap('real')))
+            imagval = space.float_w(space.getattr(w_real, space.wrap('imag')))
+        else:
+            realval = space.float_w(space.float(w_real))
+            imagval = 0.0
+
+        # now take w_imag into account
+        if not noarg2:
+            if space.is_true(space.isinstance(w_imag, space.w_complex)):
+                # complex(x, y) == x+y*j, even if 'y' is already a complex.
+                # say y == a+b*j:
+                a = space.float_w(space.getattr(w_imag, space.wrap('real')))
+                b = space.float_w(space.getattr(w_imag, space.wrap('imag')))
+                realval -= b
+                imagval += a
+            elif space.is_true(space.isinstance(w_imag, space.w_str)) or \
+                     space.is_true(space.isinstance(w_imag, space.w_unicode)):
+                # prevent space.float(w_imag) from succeeding
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("complex() second arg"
+                                                " can't be a string"))
             else:
-                # We are dealing with a subclass of complex
-                w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
-                W_ComplexObject.__init__(w_obj,realval, imagval)
-
-            return w_obj
-    # w_imag is now either float or None
-    # w_real is either string, complex or float
-    # test for '__complex__' attribute and get result of
-    # __complex__ method
-    w_complex_first = extract_complex(space, w_real)
-    if not space.eq_w(w_complex_first, space.w_None):
-        w_real = w_complex_first
-    
-    # if w_real is a complex number and there is no second
-    # argument, return w_real after checking the type
-    if space.is_true(space.isinstance(w_real, space.w_complex)):
-        if not space.eq_w(w_imag, space.w_None):
-            if not space.is_true(space.isinstance(w_imag, space.w_complex)):
-                w_imag = space.call_function(space.w_float, w_imag)
-            w_tmp = space.newcomplex(0, 1)
-            w_tmp = space.mul(w_tmp, w_imag)
-            w_real  = space.add(w_real, w_tmp)
-
-    elif not space.is_true(space.isinstance(w_real, space.w_str)):
-        if space.eq_w(w_imag, space.w_None):
-            w_imag = space.wrap(0)
-        w_real = space.call_function(space.w_float,w_real)
-        if not space.is_true(space.isinstance(w_imag, space.w_complex)):
-            w_imag = space.call_function(space.w_float,w_imag)
-        tmp = space.newcomplex(0, 1)
-        w_imag = space.mul(w_imag, tmp)
-        w_real = space.add(w_real, w_imag)
-    assert isinstance(w_real, W_ComplexObject)
-    if space.is_w(w_complextype, space.w_complex):
-        # common case
-        w_obj = W_ComplexObject(w_real.realval, w_real.imagval)
-    else:
-        # We are dealing with a subclass of complex
-        w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
-        W_ComplexObject.__init__(w_obj, w_real.realval, w_real.imagval)
+                imagval += space.float_w(space.float(w_imag))
+    # done
+    w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
+    W_ComplexObject.__init__(w_obj, realval, imagval)
     return w_obj
-        
-app = gateway.applevel(r"""
-def extract_complex(num):
-    if not hasattr(num,'__complex__'):
-        return None
-    cnum = num.__complex__()
-    if isinstance(cnum,complex):
-        return cnum
-    else:
-        return None
-""", filename=__file__)
-
-extract_complex = app.interphook('extract_complex')
 
 def complexwprop(name):
     def fget(space, w_obj):
