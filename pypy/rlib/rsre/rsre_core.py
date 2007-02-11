@@ -181,13 +181,9 @@ def fast_search(state, pattern_codes):
     assert prefix_skip >= 0
     prefix = pattern_codes[7:7 + prefix_len]
     overlap_offset = 7 + prefix_len - 1
-    overlap_stop = pattern_codes[1] + 1
     assert overlap_offset >= 0
-    assert overlap_stop >= 0
-    overlap = pattern_codes[overlap_offset:overlap_stop]
     pattern_offset = pattern_codes[1] + 1
     assert pattern_offset >= 0
-    pattern_codes = pattern_codes[pattern_offset:]
     i = 0
     string_position = state.string_position
     while string_position < state.end:
@@ -197,7 +193,7 @@ def fast_search(state, pattern_codes):
                 if i == 0:
                     break
                 else:
-                    i = overlap[i]
+                    i = pattern_codes[overlap_offset + i]
             else:
                 i += 1
                 if i == prefix_len:
@@ -207,9 +203,10 @@ def fast_search(state, pattern_codes):
                                                  - prefix_len + prefix_skip
                     if flags & SRE_INFO_LITERAL:
                         return True # matched all of pure literal pattern
-                    if match(state, pattern_codes[2 * prefix_skip:]):
+                    start = pattern_offset + 2 * prefix_skip
+                    if match(state, pattern_codes[start:]):
                         return True
-                    i = overlap[i]
+                    i = pattern_codes[overlap_offset + i]
                 break
         string_position += 1
     return False
