@@ -59,6 +59,9 @@ def delegate_String2Unicode(space, w_str):
 def str_w__Unicode(space, w_uni):
     return space.str_w(space.str(w_uni))
 
+def unichars_w__Unicode(space, w_uni):
+    return w_uni._value
+
 def str__Unicode(space, w_uni):
     return space.call_method(w_uni, 'encode')
 

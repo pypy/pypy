@@ -922,6 +922,7 @@ ObjSpace.IrregularOpTable = [
     'float_w',
     'uint_w',
     'bigint_w',
+    'unichars_w',
     'interpclass_w',
     'unwrap',
     'is_true',
