@@ -4,7 +4,7 @@ from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
 def init_globals_hack(space):
-    space.appexec([autopath.this_dir], """(this_dir):
+    space.appexec([space.wrap(autopath.this_dir)], """(this_dir):
     import __builtin__ as b
     import sys, os.path
     # Uh-oh, ugly hack
