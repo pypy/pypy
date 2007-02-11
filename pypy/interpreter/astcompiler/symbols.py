@@ -64,7 +64,7 @@ class Scope:
         self.varroles[name] = ROLE_GLOBAL
         return prevrole
 
-    def add_return(self):
+    def add_return(self, node):
         raise SyntaxError("'return' outside function")
 
     def add_yield(self):
@@ -217,6 +217,7 @@ class ModuleScope(Scope):
 
 class FunctionScope(Scope):
     generator = False
+    return_with_arg = None     # or the node
 
     def add_param(self, name):
         name = self.mangle(name)
@@ -225,8 +226,11 @@ class FunctionScope(Scope):
             raise SyntaxError(msg)
         self.varroles[name] = ROLE_PARAM
 
-    def add_return(self):
-        pass
+    def add_return(self, node):
+        if node.value is not None:
+            # record the first 'return expr' that we see, for error checking
+            if self.return_with_arg is None:
+                self.return_with_arg = node
 
     def add_yield(self):
         self.generator = True
@@ -563,7 +567,7 @@ class SymbolVisitor(ast.ASTVisitor):
         
     def visitReturn(self, node):
         scope = self.cur_scope()
-        scope.add_return()
+        scope.add_return(node)
         if node.value is not None:
             node.value.accept(self)
 

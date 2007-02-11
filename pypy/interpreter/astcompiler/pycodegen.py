@@ -1096,8 +1096,6 @@ class CodeGenerator(ast.ASTVisitor):
         if node.value is None:
             self.emitop_obj('LOAD_CONST', self.space.w_None)
         else:
-            if self.scope.generator:
-                raise SyntaxError("'return' with argument inside generator")
             node.value.accept( self )
         self.emit('RETURN_VALUE')
 
@@ -1407,6 +1405,10 @@ class FunctionCodeGenerator(AbstractFunctionCode):
         self.graph.setCellVars(self.scope.get_cell_vars())
         if self.scope.generator:
             self.graph.setFlag(CO_GENERATOR)
+            if self.scope.return_with_arg is not None:
+                node = self.scope.return_with_arg
+                raise SyntaxError("'return' with argument inside generator",
+                                  node.lineno)
 
 class GenExprCodeGenerator(AbstractFunctionCode):
 
