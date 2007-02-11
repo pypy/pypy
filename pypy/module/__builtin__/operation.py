@@ -199,3 +199,92 @@ def callable(space, w_object):
     """Check whether the object appears to be callable (i.e., some kind of
 function).  Note that classes are callable."""
     return space.callable(w_object)
+
+
+
+def _recursive_issubclass(space, w_cls, w_klass_or_tuple): # returns interp-level bool
+    if space.is_w(w_cls, w_klass_or_tuple):
+        return True
+    try:
+        w_bases = space.getattr(w_cls, space.wrap("__bases__"))
+    except OperationError:
+        return False
+    w_iterator = space.iter(w_bases)
+    while True:
+        try:
+            w_base = space.next(w_iterator)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if _recursive_issubclass(space, w_base, w_klass_or_tuple):
+            return True
+    return False
+
+def _issubclass(space, w_cls, w_klass_or_tuple, check_cls, depth): # returns interp-level bool
+    if depth == 0:
+        # XXX overzealous test compliance hack
+        raise OperationError(space.w_RuntimeError, space.wrap("maximum recursion depth exceeded"))
+    if space.is_true(space.issubtype(space.type(w_klass_or_tuple), space.w_tuple)):
+        w_iter = space.iter(w_klass_or_tuple)
+        while True:
+            try:
+                w_klass = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                   raise
+                break
+            if _issubclass(space, w_cls, w_klass, True, depth - 1):
+                return True
+        return False
+
+    try:
+        return space.is_true(space.issubtype(w_cls, w_klass_or_tuple))
+    except OperationError, e:
+        e.normalize_exception(space)
+        if space.is_true(space.issubtype(e.w_type, space.w_TypeError)):
+            w_bases = space.wrap('__bases__')
+            if check_cls:
+                try:
+                    space.getattr(w_cls, w_bases)
+                except OperationError:
+                    raise OperationError(space.w_TypeError, space.wrap('arg 1 must be a class or type'))
+            try:
+                space.getattr(w_klass_or_tuple, w_bases)
+            except OperationError:
+                raise OperationError(space.w_TypeError, space.wrap('arg 2 must be a class or type or a tuple thereof'))
+            return _recursive_issubclass(space, w_cls, w_klass_or_tuple)
+        else:
+            raise
+
+
+def issubclass(space, w_cls, w_klass_or_tuple):
+    """Check whether a class 'cls' is a subclass (i.e., a derived class) of
+another class.  When using a tuple as the second argument, check whether
+'cls' is a subclass of any of the classes listed in the tuple."""
+    w_getlimit = space.getattr(space.getbuiltinmodule('sys'), space.wrap('getrecursionlimit'))
+    w_limit = space.call_function(w_getlimit, )
+    return space.wrap(_issubclass(space, w_cls, w_klass_or_tuple, True, space.int_w(w_limit)))
+
+
+def isinstance(space, w_obj, w_klass_or_tuple):
+    """Check whether an object is an instance of a class (or of a subclass
+thereof).  When using a tuple as the second argument, check whether 'obj'
+is an instance of any of the classes listed in the tuple."""
+    if space.is_true(issubclass(space, space.type(w_obj), w_klass_or_tuple)):
+        return space.w_True
+    try:
+        w_objcls = space.getattr(w_obj, space.wrap("__class__"))
+    except OperationError, e:
+        e.normalize_exception(space)
+        if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
+            return space.w_False
+        else:
+            raise
+    if space.is_w(w_objcls, space.type(w_obj)):
+        return space.w_False
+    else:
+        w_getlimit = space.getattr(space.getbuiltinmodule('sys'), space.wrap('getrecursionlimit'))
+        limit = space.int_w(space.call_function(w_getlimit, ))
+        return space.wrap(_issubclass(space, w_objcls, w_klass_or_tuple, False, limit))
+

@@ -55,8 +55,6 @@ class Module(MixedModule):
         '_install_pickle_support_for_reversed_iterator':
         'app_functional._install_pickle_support_for_reversed_iterator',
 
-        'issubclass'    : 'app_inspect.issubclass',
-        'isinstance'    : 'app_inspect.isinstance',
         'hasattr'       : 'app_inspect.hasattr',
         'globals'       : 'app_inspect.globals',
         'locals'        : 'app_inspect.locals',
@@ -114,6 +112,8 @@ class Module(MixedModule):
         'coerce'        : 'operation.coerce',
         'divmod'        : 'operation.divmod',
         '_issubtype'    : 'operation._issubtype',
+        'issubclass'    : 'operation.issubclass',
+        'isinstance'    : 'operation.isinstance',
         'getattr'       : 'operation.getattr',
         'setattr'       : 'operation.setattr',
         'delattr'       : 'operation.delattr',
