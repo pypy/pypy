@@ -98,6 +98,18 @@ class AppTestBuiltinApp:
         raises(AttributeError, getattr, a, u'k')
         assert getattr(a, u'k', 42) == 42
 
+    def test_getattr_typecheck(self):
+        class A(object):
+            def __getattribute__(self, name):
+                pass
+            def __setattr__(self, name, value):
+                pass
+            def __delattr__(self, name):
+                pass
+        raises(TypeError, getattr, A(), 42)
+        raises(TypeError, setattr, A(), 42, 'x')
+        raises(TypeError, delattr, A(), 42)
+
     def test_sum(self):
         assert sum([]) ==0
         assert sum([42]) ==42

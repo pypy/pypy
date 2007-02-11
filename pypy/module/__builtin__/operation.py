@@ -24,22 +24,35 @@ def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
     return space.len(w_obj)
 
+
+def checkattrname(space, w_name):
+    # This is a check to ensure that getattr/setattr/delattr only pass a
+    # string to the rest of the code.  XXX not entirely sure if these three
+    # functions are the only way for non-string objects to reach
+    # space.{get,set,del}attr()...
+    # Note that if w_name is already a string (or a subclass of str),
+    # it must be returned unmodified (and not e.g. unwrapped-rewrapped).
+    name = space.str_w(w_name)    # typecheck
+    if not space.is_true(space.isinstance(w_name, space.w_type)):
+        w_name = space.wrap(name)  # typically, w_name was a unicode string
+    return w_name
+
 def delattr(space, w_object, w_name):
     """Delete a named attribute on an object.
 delattr(x, 'y') is equivalent to ``del x.y''."""
+    w_name = checkattrname(space, w_name)
     space.delattr(w_object, w_name)
     return space.w_None
 
 def getattr(space, w_object, w_name, w_defvalue=NoneNotWrapped):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
-    if space.is_true(space.isinstance(w_name, space.w_unicode)): # xxx collect this logic somewhere
-        w_name = space.call_method(w_name, 'encode')
+    w_name = checkattrname(space, w_name)
     try:
         return space.getattr(w_object, w_name)
     except OperationError, e:
-        if e.match(space, space.w_AttributeError):
-            if w_defvalue is not None:
+        if w_defvalue is not None:
+            if e.match(space, space.w_AttributeError):
                 return w_defvalue
         raise
 
@@ -183,6 +196,7 @@ For simple object types, eval(repr(object)) == object."""
 def setattr(space, w_object, w_name, w_val):
     """Store a named attribute into an object.
 setattr(x, 'y', z) is equivalent to ``x.y = z''."""
+    w_name = checkattrname(space, w_name)
     space.setattr(w_object, w_name, w_val)
     return space.w_None
 
