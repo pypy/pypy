@@ -1,15 +1,14 @@
 """Regular expression tests specific to _sre.py and accumulated during TDD."""
+import autopath
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
 def init_globals_hack(space):
-    space.appexec([], """():
+    space.appexec([autopath.this_dir], """(this_dir):
     import __builtin__ as b
     import sys, os.path
     # Uh-oh, ugly hack
-    test_path = os.path.join(
-        os.path.dirname(sys.modules["sys"].__file__), "../_sre/test")
-    sys.path.insert(0, test_path)
+    sys.path.insert(0, this_dir)
     import support_test_app_sre
     b.s = support_test_app_sre
     sys.path.pop(0)
@@ -188,6 +187,12 @@ class AppTestSreMatch:
                 ret += chr(ord(char) + 1)
             return ret
         assert ("bbbbb", 3) == re.subn("a", call_me, "ababa")
+
+    def test_match_array(self):
+        import re, array
+        a = array.array('c', 'hello')
+        m = re.match('hel+', a)
+        assert m.end() == 4
 
 
 class AppTestSreScanner:
