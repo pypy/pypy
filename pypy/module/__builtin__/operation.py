@@ -262,9 +262,7 @@ def issubclass(space, w_cls, w_klass_or_tuple):
     """Check whether a class 'cls' is a subclass (i.e., a derived class) of
 another class.  When using a tuple as the second argument, check whether
 'cls' is a subclass of any of the classes listed in the tuple."""
-    w_getlimit = space.getattr(space.getbuiltinmodule('sys'), space.wrap('getrecursionlimit'))
-    w_limit = space.call_function(w_getlimit, )
-    return space.wrap(_issubclass(space, w_cls, w_klass_or_tuple, True, space.int_w(w_limit)))
+    return space.wrap(_issubclass(space, w_cls, w_klass_or_tuple, True, space.sys.recursionlimit))
 
 
 def isinstance(space, w_obj, w_klass_or_tuple):
@@ -284,7 +282,5 @@ is an instance of any of the classes listed in the tuple."""
     if space.is_w(w_objcls, space.type(w_obj)):
         return space.w_False
     else:
-        w_getlimit = space.getattr(space.getbuiltinmodule('sys'), space.wrap('getrecursionlimit'))
-        limit = space.int_w(space.call_function(w_getlimit, ))
-        return space.wrap(_issubclass(space, w_objcls, w_klass_or_tuple, False, limit))
+        return space.wrap(_issubclass(space, w_objcls, w_klass_or_tuple, False, space.sys.recursionlimit))
 
