@@ -135,7 +135,7 @@ class Module(py.test.collect.Module):
         at the class) ourselves. 
     """
     def __init__(self, *args, **kwargs):
-        if option.runappdirect:
+        if hasattr(sys, 'pypy_objspaceclass'):
             option.conf_iocapture = "sys" # pypy cannot do FD-based
         super(Module, self).__init__(*args, **kwargs)
 
