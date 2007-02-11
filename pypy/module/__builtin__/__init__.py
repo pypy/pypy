@@ -55,7 +55,6 @@ class Module(MixedModule):
         '_install_pickle_support_for_reversed_iterator':
         'app_functional._install_pickle_support_for_reversed_iterator',
 
-        'hasattr'       : 'app_inspect.hasattr',
         'globals'       : 'app_inspect.globals',
         'locals'        : 'app_inspect.locals',
         'vars'          : 'app_inspect.vars',
@@ -117,6 +116,7 @@ class Module(MixedModule):
         'getattr'       : 'operation.getattr',
         'setattr'       : 'operation.setattr',
         'delattr'       : 'operation.delattr',
+        'hasattr'       : 'operation.hasattr',
         'iter'          : 'operation.iter',
         'id'            : 'operation.id',
         '_seqiter'      : 'operation._seqiter',

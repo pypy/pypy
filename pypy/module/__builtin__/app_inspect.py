@@ -31,23 +31,6 @@ def vars(*obj):
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"
 
-def hasattr(obj, attr):
-    """Check whether the object has an attribute with the given name."""
-    try:
-        getattr(obj, attr)
-        return True
-    except TypeError:
-        # if 'attr' was not a string or unicode, let the TypeError through,
-        # else eat it
-        if isinstance(attr, basestring):
-            return False
-        else:
-            raise
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except:
-        return False
-
 # Replaced by the interp-level helper space.callable(): 
 ##def callable(ob):
 ##    import __builtin__ # XXX this is insane but required for now for geninterp

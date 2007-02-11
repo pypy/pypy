@@ -455,13 +455,14 @@ class AppTestBuiltinApp:
             bac = property(broken2)
         x = X()
         x.foo = 42
-        assert hasattr(x, '__class__')
-        assert hasattr(x, 'foo')
-        assert not hasattr(x, 'bar')
-        assert not hasattr(x, 'abc')    # CPython compliance
-        assert not hasattr(x, 'bac')    # CPython compliance
+        assert hasattr(x, '__class__') is True
+        assert hasattr(x, 'foo') is True
+        assert hasattr(x, 'bar') is False
+        assert hasattr(x, 'abc') is False    # CPython compliance
+        assert hasattr(x, 'bac') is False    # CPython compliance
         raises(TypeError, hasattr, x, None)
         raises(TypeError, hasattr, x, 42)
+        raises(UnicodeError, hasattr, x, u'\u5678')  # cannot encode attr name
 
 class AppTestBuiltinOptimized(object):
     def setup_class(cls):

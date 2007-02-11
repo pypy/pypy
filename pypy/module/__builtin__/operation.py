@@ -56,6 +56,20 @@ getattr(x, 'y') is equivalent to ``x.y''."""
                 return w_defvalue
         raise
 
+def hasattr(space, w_object, w_name):
+    """Return whether the object has an attribute with the given name.
+    (This is done by calling getattr(object, name) and catching exceptions.)"""
+    w_name = checkattrname(space, w_name)
+    try:
+        space.getattr(w_object, w_name)
+    except OperationError, e:
+        # a PyPy extension: let SystemExit and KeyboardInterrupt go through
+        if (e.match(space, space.w_SystemExit) or
+            e.match(space, space.w_KeyboardInterrupt)):
+            raise
+        return space.w_False
+    return space.w_True
+
 def hash(space, w_object):
     """Return a hash value for the object.  Two objects which compare as
 equal have the same hash value.  It is possible, but unlikely, for
