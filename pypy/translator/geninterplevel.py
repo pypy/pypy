@@ -72,7 +72,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.19'  # bump this for substantial changes
+GI_VERSION = '1.1.20'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -1346,12 +1346,11 @@ else:
                 # which goes to the last err%d_%d label written above.
                 # Since we only have OperationError, we need to select:
                 yield "except %s, e:" % (self.nameof(OperationError),)
-                yield "    e.normalize_exception(space)"
                 q = "if"
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, py.builtin.BaseException)
                     # Exeption classes come unwrapped in link.exitcase
-                    yield "    %s space.is_true(space.issubtype(e.w_type, %s)):" % (q,
+                    yield "    %s e.match(space, %s):" % (q,
                                             self.nameof(link.exitcase))
                     q = "elif"
                     for op in self.gen_link(link, localscope, blocknum, block, {
