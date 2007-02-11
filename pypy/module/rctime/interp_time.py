@@ -199,14 +199,18 @@ def _set_module_object(space, obj_name, w_obj_value):
     w_module = space.getbuiltinmodule('time')
     space.setattr(w_module, space.wrap(obj_name), w_obj_value)
 
-def _get_floattime(space, w_seconds):
+def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
     # in the callers, so we never get a real None here).
     if space.is_w(w_seconds, space.w_None):
         seconds = _floattime()
     else:
         seconds = space.float_w(w_seconds)
-    return seconds
+    try:
+        return ovfcheck_float_to_int(seconds)
+    except OverflowError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("time argument too large"))
 
 def _tm_to_tuple(space, t):
     time_tuple = []
@@ -326,8 +330,8 @@ def ctime(space, w_seconds=None):
     This is equivalent to asctime(localtime(seconds)). When the time tuple is
     not present, current time as returned by localtime() is used."""
 
-    seconds = _get_floattime(space, w_seconds)
-    tt = time_t(int(seconds))
+    seconds = _get_inttime(space, w_seconds)
+    tt = time_t(seconds)
 
     p = libc.ctime(byref(tt))
     if not p:
@@ -364,8 +368,8 @@ def gmtime(space, w_seconds=None):
 
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
-    seconds = _get_floattime(space, w_seconds)
-    whent = time_t(int(seconds))
+    seconds = _get_inttime(space, w_seconds)
+    whent = time_t(seconds)
     p = libc.gmtime(byref(whent))
     
     if not p:
@@ -380,8 +384,8 @@ def localtime(space, w_seconds=None):
     Convert seconds since the Epoch to a time tuple expressing local time.
     When 'seconds' is not passed in, convert the current time instead."""
 
-    seconds = _get_floattime(space, w_seconds)
-    whent = time_t(int(seconds))
+    seconds = _get_inttime(space, w_seconds)
+    whent = time_t(seconds)
     p = libc.localtime(byref(whent))
     
     if not p:
@@ -424,7 +428,7 @@ if _POSIX:
         _set_module_object(space, "timezone", space.wrap(timezone))
         _set_module_object(space, 'daylight', space.wrap(daylight))
         tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])] 
-        _set_module_object(space, 'tzname', space.newlist(tzname_w))
+        _set_module_object(space, 'tzname', space.newtuple(tzname_w))
         _set_module_object(space, 'altzone', space.wrap(altzone))
     tzset.unwrap_spec = [ObjSpace]
 

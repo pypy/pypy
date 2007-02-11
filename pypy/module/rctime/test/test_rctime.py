@@ -43,6 +43,7 @@ class AppTestRCTime:
         res = rctime.ctime(0)
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
+        raises(ValueError, rctime.ctime, 1E200)
     
     def test_gmtime(self):
         import time as rctime
@@ -171,7 +172,7 @@ class AppTestRCTime:
             os.environ['TZ'] = eastern
             rctime.tzset()
             assert rctime.gmtime(xmas2002) != rctime.localtime(xmas2002)
-            assert rctime.tzname == ['EST', 'EDT']
+            assert rctime.tzname == ('EST', 'EDT')
             assert len(rctime.tzname) == 2
             assert rctime.daylight == 1
             assert rctime.timezone == 18000
