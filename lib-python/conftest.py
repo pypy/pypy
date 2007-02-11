@@ -899,12 +899,15 @@ class ReallyRunFileExternal(py.test.Item):
         pypy_options.extend(
             ['--withmod-%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
-        # experimental: always use regrverbose script 
-        # previously we only did it if regrtest.outputpath() was True
-        # the regrverbose script now does the logic that CPython
-        # uses in its regrtest.py 
+        # we use the regrverbose script to run the test, but don't get
+        # confused: it sets verbose to True only if regrtest.outputpath()
+        # is True, or if we pass the -v option to py.test.  It contains
+        # the logic that CPython uses in its regrtest.py.
         regrrun = str(regr_script)
-        regrrun_verbosity = regrtest.getoutputpath() and '0' or '1'
+        if regrtest.getoutputpath() or pypy_option.verbose:
+            regrrun_verbosity = '1'
+        else:
+            regrrun_verbosity = '0'
         
         TIMEOUT = gettimeout()
         if option.use_compiled:
