@@ -51,8 +51,9 @@ option = py.test.config.addoptions("compliance testing options",
            help="fail a test module after the given timeout. "
                 "specify in seconds or 'NUMmp' aka Mega-Pystones"),
     Option('--resultdir', action="store", type="string", 
-           default=str(testresultdir), dest="resultdir", 
-           help="directory under which to store results in USER@HOST subdirs"),
+           default=None, dest="resultdir", 
+           help="directory under which to store results in USER@HOST subdirs",
+           ),
     )
 
 def gettimeout(): 
@@ -840,14 +841,26 @@ class RunFileExternal(py.test.collect.Module):
 
 
 def ensuretestresultdir():
-    testresultdir = py.path.local(option.resultdir)
-    if not testresultdir.check(dir=1): 
-        py.test.skip("""'testresult' directory not found.
-        To run tests in reporting mode (without -E), you first have to
-        check it out as follows: 
-        svn co http://codespeak.net/svn/pypy/testresult %s""" % (
-            testresultdir, ))
-    return testresultdir 
+    resultdir = option.resultdir
+    default_place = False
+    if resultdir is not None:
+        resultdir = py.path.local(option.resultdir)
+    else:
+        if option.use_compiled:
+            return None
+        default_place = True
+        resultdir = testresultdir
+        
+    if not resultdir.check(dir=1):
+        if default_place:
+            py.test.skip("""'testresult' directory not found.
+                 To run tests in reporting mode (without -E), you first have to
+                 check it out as follows: 
+                 svn co http://codespeak.net/svn/pypy/testresult %s""" % (
+                testresultdir, ))
+        else:
+            py.test.skip("'%s' test result dir not found" % resultdir)
+    return resultdir 
 
 #
 # testmethod: 
@@ -934,26 +947,29 @@ class ReallyRunFileExternal(py.test.Item):
             i am afraid. 
         """ 
         regrtest = self.parent.regrtest
-        testresultdir = ensuretestresultdir() 
         result = self.getresult(regrtest) 
-        resultdir = testresultdir.join(result['userhost'])
-        assert resultdir.ensure(dir=1)
+        testresultdir = ensuretestresultdir()
+        if testresultdir is not None:
+            resultdir = testresultdir.join(result['userhost'])
+            assert resultdir.ensure(dir=1)
 
-        fn = resultdir.join(regrtest.basename).new(ext='.txt') 
-        if result.istimeout(): 
-            if fn.check(file=1): 
-               try: 
-                    oldresult = ResultFromMime(fn)
-               except TypeError: 
-                    pass
-               else: 
-                   if not oldresult.istimeout(): 
-                        py.test.skip("timed out, not overwriting "
-                                     "more interesting non-timeout outcome")
+            fn = resultdir.join(regrtest.basename).new(ext='.txt') 
+            if result.istimeout(): 
+                if fn.check(file=1): 
+                    try: 
+                        oldresult = ResultFromMime(fn)
+                    except TypeError: 
+                        pass
+                    else: 
+                        if not oldresult.istimeout(): 
+                            py.test.skip("timed out, not overwriting "
+                                         "more interesting non-timeout outcome")
             
-        fn.write(result.repr_mimemessage().as_string(unixfrom=False))
+            fn.write(result.repr_mimemessage().as_string(unixfrom=False))
+            
         if result['exit-status']:  
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
+             print >>sys.stdout, result.getnamedtext('stdout') 
              print >>sys.stderr, result.getnamedtext('stderr') 
              py.test.fail("running test failed, see stderr output below") 
 
