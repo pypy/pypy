@@ -213,6 +213,8 @@ class classobj(object):
             ret = init(*args, **kwds)
             if ret is not None:
                 raise TypeError("__init__() should return None")
+        elif args or kwds:
+            raise TypeError("this constructor takes no arguments")
         return inst
 
 # capture _name, _bases slots for usage and then hide them!
