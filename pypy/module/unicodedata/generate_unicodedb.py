@@ -301,7 +301,7 @@ def _get_record(code):
     print >> outfile, 'def isnumeric(code): return _get_record(code)[3] & %d != 0'% IS_NUMERIC
     print >> outfile, 'def isdigit(code): return _get_record(code)[3] & %d != 0'% IS_DIGIT
     print >> outfile, 'def isdecimal(code): return _get_record(code)[3] & %d != 0'% IS_DECIMAL
-    print >> outfile, 'def isalunm(code): return _get_record(code)[3] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
+    print >> outfile, 'def isalnum(code): return _get_record(code)[3] & %d != 0'% (IS_ALPHA | IS_NUMERIC)
     print >> outfile, 'def isupper(code): return _get_record(code)[3] & %d != 0'% IS_UPPER
     print >> outfile, 'def istitle(code): return _get_record(code)[3] & %d != 0'% IS_TITLE
     print >> outfile, 'def islower(code): return _get_record(code)[3] & %d != 0'% IS_LOWER

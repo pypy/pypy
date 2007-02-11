@@ -285,8 +285,7 @@ def unicode_isalnum__Unicode(space, w_unicode):
     if len(w_unicode._value) == 0:
         return space.w_False
     for uchar in w_unicode._value:
-        if not (unicodedb.isalpha(ord(uchar)) or
-                unicodedb.isnumeric(ord(uchar))):
+        if not unicodedb.isalnum(ord(uchar)):
             return space.w_False
     return space.w_True
 
