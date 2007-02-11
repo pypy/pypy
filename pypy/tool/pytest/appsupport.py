@@ -65,6 +65,9 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         self.space = space
         self.operr = operr
         self.traceback = AppTraceback(space, self.operr.application_traceback)
+        debug_excs = getattr(operr, 'debug_excs', [])
+        if debug_excs:
+            self._excinfo = debug_excs[0]
 
     def exconly(self, tryshort=True): 
         return '(application-level) ' + self.operr.errorstr(self.space)
