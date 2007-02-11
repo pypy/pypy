@@ -293,7 +293,14 @@ class StacklessTransformer(object):
         self.frametyper = FrameTyper(stackless_gc, self)
         self.masterarray1 = []
         self.curr_graph = None
-        
+
+        self.signaturecodes = [{} for RETTYPE in frame.STORAGE_TYPES]
+        # self.signaturecodes[n] is a dict {ARGTYPES: signature_index}
+        # where n is the return type as an index in STORAGE_TYPES.
+        # the signature_index is an arbitrary number but it encodes
+        # the type of the result, i.e.
+        #     n == (signature_index & storage_type_bitmask)
+
         bk = translator.annotator.bookkeeper
 
         self.unwind_exception_type = getinstancerepr(
@@ -363,6 +370,8 @@ class StacklessTransformer(object):
                 code.fetch_retval_addr, [], annmodel.SomeAddress()),
             SAVED_REFERENCE: mixlevelannotator.constfunc(
                 code.fetch_retval_ref, [], annmodel.SomePtr(SAVED_REFERENCE)),
+            llmemory.WeakGcAddress: mixlevelannotator.constfunc(
+                code.fetch_retval_weak, [], annmodel.SomeWeakGcAddress()),
             }
 
         s_StatePtr = annmodel.SomePtr(frame.OPAQUE_STATE_HEADER_PTR)
@@ -412,6 +421,10 @@ class StacklessTransformer(object):
             SAVED_REFERENCE: mixlevelannotator.constfunc(
                 code.resume_after_ref,
                 [s_StatePtr, annmodel.SomePtr(SAVED_REFERENCE)],
+                annmodel.s_None),
+            llmemory.WeakGcAddress: mixlevelannotator.constfunc(
+                code.resume_after_weak,
+                [s_StatePtr, annmodel.SomeWeakGcAddress()],
                 annmodel.s_None),
             }
         exception_def = bk.getuniqueclassdef(Exception)
@@ -1098,7 +1111,7 @@ class StacklessTransformer(object):
     def register_restart_info(self, restartinfo):
         assert not self.is_finished
         rtyper = self.translator.rtyper
-        for frame_info in restartinfo.compress(rtyper):
+        for frame_info in restartinfo.compress(self.signaturecodes, rtyper):
             self.masterarray1.append(frame_info)
 
     def finish(self):
@@ -1107,6 +1120,44 @@ class StacklessTransformer(object):
         if SAVE_STATISTICS:
             import cPickle
             cPickle.dump(self.stats, open('stackless-stats.pickle', 'wb'))
+
+        # fun fun fun patching the call_function_retval_xyz() functions!
+        for RESTYPE, typename in frame.STORAGE_TYPES_AND_FIELDS:
+            rettype_index = STORAGE_TYPES.index(RESTYPE)
+            cache = self.signaturecodes[rettype_index]
+            if not cache:
+                continue # not used anyway, don't produce a broken empty switch
+            func = getattr(code, 'call_function_retval_' + typename)
+            desc = self.translator.annotator.bookkeeper.getdesc(func)
+            graph = desc.getuniquegraph()
+
+            [v_fnaddr, v_signature_index] = graph.getargs()
+            block = model.Block([v_fnaddr, v_signature_index])
+            block.exitswitch = v_signature_index
+            block.isstartblock = True
+            graph.startblock = block
+            switchlinks = []
+
+            for ARGTYPES, signature_index in cache.items():
+                # XXX because of type erasure, the following cast is
+                # kind of invalid, but we hope that nobody will notice
+                FUNCTYPE = lltype.Ptr(lltype.FuncType(ARGTYPES, RESTYPE))
+                v_fnaddr1 = varoftype(v_fnaddr.concretetype)
+                callblock = model.Block([v_fnaddr1])
+                llops = LowLevelOpList()
+                args_v = [model.Constant(TYPE._defl(), concretetype=TYPE)
+                          for TYPE in ARGTYPES]
+                v_res = llops.genop('adr_call', [v_fnaddr1] + args_v,
+                                    resulttype = RESTYPE)
+                callblock.operations[:] = llops
+                callblock.closeblock(model.Link([v_res], graph.returnblock))
+                link = model.Link([v_fnaddr], callblock)
+                link.exitcase = signature_index
+                link.llexitcase = signature_index
+                switchlinks.append(link)
+
+            block.closeblock(*switchlinks)
+            model.checkgraph(graph)
 
         self.is_finished = True
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,

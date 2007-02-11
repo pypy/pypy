@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem.lltype import Unsigned, SignedLongLong, Float
 from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
-from pypy.rpython.lltypesystem.lltype import ForwardReference
+from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
 from pypy.rpython.lltypesystem.llmemory import Address, WeakGcAddress
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
@@ -377,10 +377,10 @@ class FunctionCodeGenerator(object):
         r = self.expr(op.result)
         return 'OP_CALL_ARGS((%s), %s);' % (', '.join(args), r)
 
-    def OP_DIRECT_CALL(self, op):
+    def generic_call(self, FUNC, fnexpr, args_v, v_result):
         args = []
-        fn = op.args[0]
-        for v, ARGTYPE in zip(op.args[1:], fn.concretetype.TO.ARGS):
+        assert len(args_v) == len(FUNC.TO.ARGS)
+        for v, ARGTYPE in zip(args_v, FUNC.TO.ARGS):
             if ARGTYPE is Void:
                 continue    # skip 'void' argument
             args.append(self.expr(v))
@@ -388,25 +388,32 @@ class FunctionCodeGenerator(object):
             if isinstance(ARGTYPE, ContainerType):
                 args[-1] = '*%s' % (args[-1],)
 
-        line = '%s(%s);' % (self.expr(fn), ', '.join(args))
-        if self.lltypemap(op.result) is not Void:
+        line = '%s(%s);' % (fnexpr, ', '.join(args))
+        if self.lltypemap(v_result) is not Void:
             # skip assignment of 'void' return value
-            r = self.expr(op.result)
+            r = self.expr(v_result)
             line = '%s = %s' % (r, line)
         return line
 
-    # the following works since the extra arguments that indirect_call has
-    # is removed by zip()
-    OP_INDIRECT_CALL = OP_DIRECT_CALL
+    def OP_DIRECT_CALL(self, op):
+        fn = op.args[0]
+        return self.generic_call(fn.concretetype, self.expr(fn),
+                                 op.args[1:], op.result)
 
-    def OP_UNSAFE_CALL(self, op):
-        line = '((%s (*)())(%s))();' % (cdecl(self.lltypename(op.result), ''),
-                                        self.expr(op.args[0]))
-        if self.lltypemap(op.result) is not Void:
-            r = self.expr(op.result)
-            line = '%s = %s' % (r, line)
-        return line
-            
+    def OP_INDIRECT_CALL(self, op):
+        fn = op.args[0]
+        return self.generic_call(fn.concretetype, self.expr(fn),
+                                 op.args[1:-1], op.result)
+
+    def OP_ADR_CALL(self, op):
+        ARGTYPES = [v.concretetype for v in op.args[1:]]
+        RESTYPE = op.result.concretetype
+        FUNC = Ptr(FuncType(ARGTYPES, RESTYPE))
+        typename = self.db.gettype(FUNC)
+        fnaddr = op.args[0]
+        fnexpr = '((%s)%s)' % (cdecl(typename, ''), self.expr(fnaddr))
+        return self.generic_call(FUNC, fnexpr, op.args[1:], op.result)
+
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)

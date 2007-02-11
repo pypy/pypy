@@ -30,6 +30,9 @@ for _TYPE, _FIELD in STORAGE_TYPES_AND_FIELDS:
     if _TYPE not in STORAGE_TYPES:
         STORAGE_TYPES.append(_TYPE)
 
+storage_type_bitmask = 0x07     # a power of two - 1
+assert storage_type_bitmask >= len(STORAGE_TYPES)
+
 STORAGE_FIELDS = dict(STORAGE_TYPES_AND_FIELDS)
 del STORAGE_FIELDS[lltype.Void]
 
@@ -98,7 +101,7 @@ def decodestate(index):
         finfo = masterarray[index - restartstate]
     return (finfo.fnaddr,  # function ptr
             restartstate,  # restart state within function
-            finfo.info)    # retval_type
+            finfo.info)    # signature_index
 decodestate.stackless_explicit = True
 
 
@@ -116,7 +119,7 @@ class RestartInfo(object):
         self.resume_point_count = resume_point_count
         self.frame_types = ()
 
-    def compress(self, rtyper):
+    def compress(self, signaturecodes, rtyper):
         """This returns sufficient information to be able to build the
         entries that will go in the global array of restart
         information."""
@@ -126,10 +129,18 @@ class RestartInfo(object):
             if not isinstance(graph, FunctionGraph):
                 graph = bk.getdesc(graph).getuniquegraph()
             funcptr = getfunctionptr(graph)
-            rettype = lltype.typeOf(funcptr).TO.RESULT
-            retval_type = STORAGE_TYPES.index(storage_type(rettype))
-
-            result = [(llmemory.cast_ptr_to_adr(funcptr), retval_type)]
+            FUNC = lltype.typeOf(funcptr).TO
+            rettype_index = STORAGE_TYPES.index(storage_type(FUNC.RESULT))
+            cache = signaturecodes[rettype_index]
+            key = tuple([storage_type(ARG) for ARG in FUNC.ARGS])
+            try:
+                signature_index = cache[key]
+            except KeyError:
+                signature_index = len(cache) * (storage_type_bitmask+1)
+                signature_index |= rettype_index
+                cache[key] = signature_index
+            assert (signature_index & storage_type_bitmask) == rettype_index
+            result = [(llmemory.cast_ptr_to_adr(funcptr), signature_index)]
             for i in range(1, self.resume_point_count):
                 result.append((llmemory.NULL, i))
         else:

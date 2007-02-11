@@ -38,8 +38,6 @@ class GraphAnalyzer(object):
             if op.args[-1].value is None:
                 return True
             return self.analyze_indirect_call(op.args[-1].value, seen)
-        elif op.opname == "unsafe_call":
-            return True
         if self.operation_is_true(op):
             return True
 

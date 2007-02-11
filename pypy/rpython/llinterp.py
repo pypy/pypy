@@ -576,20 +576,20 @@ class LLFrame(object):
             log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
-    def op_unsafe_call(self, TGT, f):
+    def op_adr_call(self, TGT, f, *inargs):
         checkadr(f)
         obj = self.llinterpreter.typer.type_system.deref(f.ref())
         assert hasattr(obj, 'graph') # don't want to think about that
         graph = obj.graph
         args = []
-        for arg in obj.graph.startblock.inputargs:
-            args.append(arg.concretetype._defl())
+        for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
+            args.append(lltype._cast_whatever(arg.concretetype, inarg))
         frame = self.__class__(graph, args, self.llinterpreter, self)
         result = frame.eval()
         from pypy.translator.stackless.frame import storage_type
         assert storage_type(lltype.typeOf(result)) == TGT
         return lltype._cast_whatever(TGT, result)
-    op_unsafe_call.need_result_type = True
+    op_adr_call.need_result_type = True
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:

@@ -135,8 +135,6 @@ LL_OPERATIONS = {
 
     'direct_call':          LLOp(canraise=(Exception,)),
     'indirect_call':        LLOp(canraise=(Exception,)),
-    #'safe_call':            LLOp(),
-    'unsafe_call':          LLOp(canraise=(Exception,)),
 
     # __________ numeric operations __________
 
@@ -347,6 +345,7 @@ LL_OPERATIONS = {
     'adr_ne':               LLOp(canfold=True),
     'adr_gt':               LLOp(canfold=True),
     'adr_ge':               LLOp(canfold=True),
+    'adr_call':             LLOp(canraise=(Exception,)),
     'cast_ptr_to_adr':      LLOp(canfold=True),
     'cast_adr_to_ptr':      LLOp(canfold=True),
     'cast_ptr_to_weakadr':  LLOp(canfold=True),

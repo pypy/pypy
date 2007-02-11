@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib import rarithmetic
 from pypy.rpython import extfunctable
 from pypy.translator.stackless import frame
@@ -282,7 +283,6 @@ INDEX_RESUME_AFTER_%(TYPENAME)s = frame.RestartInfo.add_prebuilt(resume_after_%(
 
 for _lltype, typename in STORAGE_TYPES_AND_FIELDS:
     if typename == 'void': continue
-    if typename == 'weak': continue
     exec template%dict(typename=typename, TYPENAME=typename.upper())
 
 # ____________________________________________________________
@@ -296,30 +296,54 @@ class StacklessData:
         self.retval_float = 0.0
         self.retval_addr = llmemory.NULL
         self.retval_ref = frame.null_saved_ref
+        self.retval_weak = llmemory.WEAKNULL
         self.exception = None
         self.masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY, 0,
                                          immortal=True)
 
 global_state = StacklessData()
 
-def call_function(fn, retval_code):
+# the following functions are patched by transform.py in finish()
+# so that they don't really do what they appear to - we discovered
+# that it was not safe at all to produce this kind of C code
+def define_call_function_retval(TYPE, typename):
+    FUNCTYPE = lltype.Ptr(lltype.FuncType([], TYPE))
+    def call_function_retval_xyz(fnaddr, signature_index):
+        fn = llmemory.cast_adr_to_ptr(fnaddr, FUNCTYPE)
+        return fn()
+    call_function_retval_xyz.stackless_explicit = True
+    call_function_retval_xyz.dont_inline = True
+    fnname = 'call_function_retval_' + typename
+    fn = func_with_new_name(call_function_retval_xyz, fnname)
+    globals()[fnname] = fn
+for _lltype, _typename in STORAGE_TYPES_AND_FIELDS:
+    define_call_function_retval(_lltype, _typename)
+
+
+def call_function(fn, signature_index):
+    retval_code = signature_index & frame.storage_type_bitmask
     if retval_code == frame.RETVAL_VOID:
-        lloperation.llop.unsafe_call(lltype.Void, fn)
+        call_function_retval_void(fn, signature_index)
     elif retval_code == frame.RETVAL_REF:
-        global_state.retval_ref = lloperation.llop.unsafe_call(
-            SAVED_REFERENCE, fn)
+        global_state.retval_ref = (
+            call_function_retval_ref(fn, signature_index))
     elif retval_code == frame.RETVAL_ADDR:
-        global_state.retval_addr = lloperation.llop.unsafe_call(
-            llmemory.Address, fn)
+        global_state.retval_addr = (
+            call_function_retval_addr(fn, signature_index))
     elif retval_code == frame.RETVAL_LONG:
-        global_state.retval_long = lloperation.llop.unsafe_call(
-            lltype.Signed, fn)
+        global_state.retval_long = (
+            call_function_retval_long(fn, signature_index))
     elif retval_code == frame.RETVAL_FLOAT:
-        global_state.retval_float = lloperation.llop.unsafe_call(
-            lltype.Float, fn)
+        global_state.retval_float = (
+            call_function_retval_float(fn, signature_index))
     elif retval_code == frame.RETVAL_LONGLONG:
-        global_state.retval_longlong = lloperation.llop.unsafe_call(
-            lltype.SignedLongLong, fn)
+        global_state.retval_longlong = (
+            call_function_retval_longlong(fn, signature_index))
+    elif retval_code == frame.RETVAL_WEAK:
+        global_state.retval_weak = (
+            call_function_retval_weak(fn, signature_index))
+    else:
+        assert False
 call_function.stackless_explicit = True
 
 class UnwindException(lloperation.StackException):
@@ -343,9 +367,9 @@ def slp_main_loop():
     while True:
         back = pending.f_back
         decoded = frame.decodestate(pending.f_restart)
-        (fn, global_state.restart_substate, retval_type) = decoded
+        (fn, global_state.restart_substate, signature_index) = decoded
         try:
-            call_function(fn, retval_type)
+            call_function(fn, signature_index)
         except UnwindException, u:   #XXX annotation support needed
             if u.frame_bottom:
                 u.frame_bottom.f_back = back
@@ -425,3 +449,12 @@ def fetch_retval_ref():
         global_state.retval_ref = frame.null_saved_ref
         return res
 fetch_retval_ref.stackless_explicit = True
+
+def fetch_retval_weak():
+    e = global_state.exception
+    if e:
+        global_state.exception = None
+        raise e
+    else:
+        return global_state.retval_weak
+fetch_retval_weak.stackless_explicit = True

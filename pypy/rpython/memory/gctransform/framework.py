@@ -443,7 +443,6 @@ class FrameworkGCTransformer(GCTransformer):
             self.default(hop)
 
     gct_indirect_call = gct_direct_call
-    gct_unsafe_call   = gct_direct_call
 
     def gct_malloc(self, hop):
         op = hop.spaceop
