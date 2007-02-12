@@ -377,8 +377,10 @@ def make_constgraphbuilder(n, v=None, factory=None):
     def constgraphbuilder(translator, ignore):
         args = ','.join(["arg%d" % i for i in range(n)])
         if factory is not None:
-            v = factory()
-        miniglobals = {'v': v}
+            computed_v = factory()
+        else:
+            computed_v = v
+        miniglobals = {'v': computed_v}
         exec "constf = lambda %s: v" % args in miniglobals
         return translator.buildflowgraph(miniglobals['constf'])
     return constgraphbuilder
