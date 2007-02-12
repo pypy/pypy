@@ -32,7 +32,7 @@ from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal,\
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js import commproxy
 
-commproxy.USE_MOCHIKIT = True
+commproxy.USE_MOCHIKIT = False
 
 class ExportedMethods(BasicExternal):
     _render_xmlhttp = True
@@ -118,7 +118,7 @@ class Static(object):
         return open(self.path).read()
 
 def start_server(server_address = ('', 8000), handler=TestHandler, fork=False,
-                 timeout=None, server=HTTPServer):
+                 timeout=None, server=HTTPServer, port_file=None):
     patch_handler(handler)
     httpd = server(server_address, handler)
     if timeout:
@@ -133,17 +133,16 @@ def start_server(server_address = ('', 8000), handler=TestHandler, fork=False,
         thread.start_new_thread(f, (httpd,))
     httpd.last_activity = time.time()
 
+    print "Server started, listening on %s:%s" %\
+          (httpd.server_address[0],httpd.server_port)
+    if port_file:
+        # this is strange hack to allow exchange of port information
+        py.path.local(port_file).write(str(httpd.server_port))
     if fork:
         import thread
         thread.start_new_thread(httpd.serve_forever, ())
-        print "Server started, listening on %s:%s" %\
-             (httpd.server_address[0],httpd.server_port)
-        sys.stdout.flush()
         return httpd
     else:
-        print "Server started, listening on %s:%s" %\
-             (httpd.server_address[0],httpd.server_port)
-        sys.stdout.flush()
         httpd.serve_forever()
 
 Handler = TestHandler

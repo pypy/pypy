@@ -53,3 +53,10 @@ def test_static_page_implicit():
     assert URLopener().open("http://127.0.0.1:21213/index").read() == \
            "<html></html>"
     
+def test_port_file():
+    tmpdir = py.test.ensuretemp("port_file")
+    server.start_server(('127.0.0.1', 21214), port_file=tmpdir.join("f"),
+                        fork=True)
+    assert tmpdir.join("f").read() == "21214"
+
+    
