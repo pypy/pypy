@@ -179,6 +179,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             buf[i] = p[i]
         return buf.raw
 
+    def unichars_w(self, w_obj):
+        not_implemented_sorry
+
     def call_function(self, w_callable, *args_w):
         args_w += (None,)
         return PyObject_CallFunctionObjArgs(w_callable, *args_w)
