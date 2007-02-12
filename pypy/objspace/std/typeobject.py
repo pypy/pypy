@@ -81,11 +81,8 @@ class W_TypeObject(W_Object):
                 else:
                     w_globals = caller.w_globals
                     w_str_name = space.wrap('__name__')
-                    try:
-                        w_name = space.getitem(w_globals, w_str_name)
-                    except OperationError:
-                        pass
-                    else:
+                    w_name = space.finditem(w_globals, w_str_name)
+                    if w_name is not None:
                         dict_w['__module__'] = w_name
             # find the most specific typedef
             instancetypedef = object_typedef

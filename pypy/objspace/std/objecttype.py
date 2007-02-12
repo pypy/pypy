@@ -59,9 +59,8 @@ def descr__init__(space, w_obj, __args__):
 
 def descr__reduce_ex__(space, w_obj, proto=0):
     w_st_reduce = space.wrap('__reduce__')
-    try: w_reduce = space.getattr(w_obj, w_st_reduce)
-    except OperationError: pass
-    else:
+    w_reduce = space.findattr(w_obj, w_st_reduce)
+    if w_reduce is not None:
         w_cls = space.getattr(w_obj, space.wrap('__class__'))
         w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
         w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))

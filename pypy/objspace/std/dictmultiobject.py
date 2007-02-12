@@ -1033,9 +1033,7 @@ def init__DictMulti(space, w_dict, __args__):
                           [W_DictMultiObject(space)])            # default argument
     # w_dict.implementation = space.emptydictimpl
     #                              ^^^ disabled only for CPython compatibility
-    try:
-        space.getattr(w_src, space.wrap("keys"))
-    except OperationError:
+    if space.findattr(w_src, space.wrap("keys")) is None:
         list_of_w_pairs = space.unpackiterable(w_src)
         for w_pair in list_of_w_pairs:
             pair = space.unpackiterable(w_pair)

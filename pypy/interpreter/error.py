@@ -37,6 +37,11 @@ class OperationError(Exception):
         "Check if this application-level exception matches 'w_check_class'."
         return space.exception_match(self.w_type, w_check_class)
 
+    def async(self, space):
+        "Check if this is an exception that should better not be caught."
+        return (self.match(space, space.w_SystemExit) or
+                self.match(space, space.w_KeyboardInterrupt))
+
     def __str__(self):
         "NOT_RPYTHON: Convenience for tracebacks."
         return '[%s: %s]' % (self.w_type, self.w_value)
@@ -186,16 +191,11 @@ class OperationError(Exception):
                 # things like 'raise 1', but it is probably fine (i.e.
                 # not ambiguous) to allow them in the explicit form
                 # 'raise int, 1'
-                try:
-                    space.getattr(w_value, space.wrap('__dict__'))
-                except OperationError:
-                    try:
-                        space.getattr(w_value, space.wrap('__slots__'))
-                    except OperationError:
-                        raise OperationError(space.w_TypeError,
-                            space.wrap("raising built-in objects can "
-                                       "be ambiguous, "
-                                       "use 'raise type, value' instead"))
+                if (space.findattr(w_value, space.wrap('__dict__')) is None and
+                    space.findattr(w_value, space.wrap('__slots__')) is None):
+                    msg = ("raising built-in objects can be ambiguous, "
+                           "use 'raise type, value' instead")
+                    raise OperationError(space.w_TypeError, space.wrap(msg))
         self.w_type  = w_type
         self.w_value = w_value
 

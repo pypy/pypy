@@ -421,8 +421,11 @@ def unmarshal_str(u):
     w_obj = u.get_w_obj(False)
     try:
         return u.space.str_w(w_obj)
-    except OperationError:
-        u.raise_exc('invalid marshal data for code object')
+    except OperationError, e:
+        if e.match(u.space, u.space.w_TypeError):
+            u.raise_exc('invalid marshal data for code object')
+        else:
+            raise
 
 def unmarshal_strlist(u, tc):
     lng = u.atom_lng(tc)

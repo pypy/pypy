@@ -448,6 +448,15 @@ class ObjSpace(object):
                 return None
             raise
 
+    def findattr(self, w_object, w_name):
+        try:
+            return self.getattr(w_object, w_name)
+        except OperationError, e:
+            # a PyPy extension: let SystemExit and KeyboardInterrupt go through
+            if e.async(self):
+                raise
+            return None
+
     def newbool(self, b):
         if b:
             return self.w_True
@@ -649,12 +658,15 @@ class ObjSpace(object):
     def abstract_issubclass(self, w_obj, w_cls, failhard=False):
         try:
             return self.issubtype(w_obj, w_cls)
-        except OperationError:
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
             try:
                 self.getattr(w_cls, self.wrap('__bases__')) # type sanity check
                 return self.recursive_issubclass(w_obj, w_cls)
-            except OperationError:
-                if failhard:
+            except OperationError, e:
+                if failhard or not (e.match(self, self.w_TypeError) or
+                                    e.match(self, self.w_AttributeError)):
                     raise
                 else:
                     return self.w_False
@@ -671,22 +683,25 @@ class ObjSpace(object):
     def abstract_isinstance(self, w_obj, w_cls):
         try:
             return self.isinstance(w_obj, w_cls)
-        except OperationError:
+        except OperationError, e:
+            if not e.match(self, self.w_TypeError):
+                raise
             try:
                 w_objcls = self.getattr(w_obj, self.wrap('__class__'))
                 return self.abstract_issubclass(w_objcls, w_cls)
-            except OperationError:
+            except OperationError, e:
+                if not (e.match(self, self.w_TypeError) or
+                        e.match(self, self.w_AttributeError)):
+                    raise
                 return self.w_False
 
     def abstract_isclass(self, w_obj):
         if self.is_true(self.isinstance(w_obj, self.w_type)):
             return self.w_True
-        try:
-            self.getattr(w_obj, self.wrap('__bases__'))
-        except OperationError:
-            return self.w_False
-        else:
+        if self.findattr(w_obj, self.wrap('__bases__')) is not None:
             return self.w_True
+        else:
+            return self.w_False
 
     def abstract_getclass(self, w_obj):
         try:

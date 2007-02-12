@@ -404,12 +404,7 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     the header; if not, return NULL.
     Doesn't set an exception.
     """
-    try:
-        w_marshal = space.getbuiltinmodule('marshal')
-    except OperationError:
-        #XXX debug
-        #print "skipped checking of", cpathname
-        return -1
+    w_marshal = space.getbuiltinmodule('marshal')
     stream = streamio.open_file_as_stream(cpathname, "rb")
     magic = _r_long(stream)
     try:
@@ -470,22 +465,13 @@ def write_compiled_module(space, co, cpathname, mtime):
     Errors are ignored, if a write error occurs an attempt is made to
     remove the file.
     """
-    # see if marshal exists, already.
-    # if not, skip the writing.
-    try:
-        w_marshal = space.getbuiltinmodule('marshal')
-    except OperationError:
-        # XXX debug
-        #print "skipped writing of", cpathname
-        return
-    else:
-        pass
-        #XXX debug
-        #print "indeed writing", cpathname
+    w_marshal = space.getbuiltinmodule('marshal')
     try:
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
         strbuf = space.str_w(w_str)
-    except OperationError:
+    except OperationError, e:
+        if e.async(self):
+            raise
         #print "Problem while marshalling %s, skipping" % cpathname
         return
     #

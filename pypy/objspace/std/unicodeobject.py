@@ -502,9 +502,12 @@ def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start
 def _to_unichar_w(space, w_char):
     try:
         w_unichar = unicodetype.unicode_from_object(space, w_char)
-    except OperationError:
-        # XXX don't completely eat this exception
-        raise OperationError(space.w_TypeError, space.wrap('The fill character cannot be converted to Unicode'))
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            msg = 'The fill character cannot be converted to Unicode'
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        else:
+            raise
 
     if space.int_w(space.len(w_unichar)) != 1:
         raise OperationError(space.w_TypeError, space.wrap('The fill character must be exactly one character long'))

@@ -390,7 +390,9 @@ class Arguments(AbstractArguments):
             for w_key in space.unpackiterable(w_starstararg):
                 try:
                     key = space.str_w(w_key)
-                except OperationError:
+                except OperationError, e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
                     raise OperationError(space.w_TypeError,
                                          space.wrap("keywords must be strings"))
                 if key in d:

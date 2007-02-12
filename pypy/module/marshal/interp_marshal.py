@@ -47,7 +47,9 @@ class FileWriter(object):
         try:
             self.func = space.getattr(w_f, space.wrap('write'))
             # XXX how to check if it is callable?
-        except OperationError:
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
             raise OperationError(space.w_TypeError, space.wrap(
             'marshal.dump() 2nd arg must be file-like object'))
 
@@ -67,7 +69,9 @@ class FileReader(object):
         try:
             self.func = space.getattr(w_f, space.wrap('read'))
             # XXX how to check if it is callable?
-        except OperationError:
+        except OperationError, e:
+            if not e.match(space, space.w_AttributeError):
+                raise
             raise OperationError(space.w_TypeError, space.wrap(
             'marshal.load() arg must be file-like object'))
 
@@ -454,7 +458,9 @@ class StringUnmarshaller(Unmarshaller):
         Unmarshaller.__init__(self, space, None)
         try:
             self.bufstr = space.str_w(w_str)
-        except OperationError:
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
             raise OperationError(space.w_TypeError, space.wrap(
                 'marshal.loads() arg must be string'))
         self.bufpos = 0

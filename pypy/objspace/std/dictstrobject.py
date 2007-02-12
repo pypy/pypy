@@ -109,9 +109,7 @@ def init__DictStr(space, w_dict, __args__):
     #else:                           -
     #    w_dict.content.clear()      -
 
-    try:
-        space.getattr(w_src, space.wrap("keys"))
-    except OperationError:
+    if space.findattr(w_src, space.wrap("keys")) is None:
         list_of_w_pairs = space.unpackiterable(w_src)
         for w_pair in list_of_w_pairs:
             pair = space.unpackiterable(w_pair)

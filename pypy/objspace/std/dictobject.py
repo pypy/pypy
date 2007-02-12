@@ -52,9 +52,7 @@ def init__Dict(space, w_dict, __args__):
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictObject(space)])            # default argument
     # w_dict.content.clear() - disabled only for CPython compatibility
-    try:
-        space.getattr(w_src, space.wrap("keys"))
-    except OperationError:
+    if space.findattr(w_src, space.wrap("keys")) is None:
         list_of_w_pairs = space.unpackiterable(w_src)
         for w_pair in list_of_w_pairs:
             pair = space.unpackiterable(w_pair)
