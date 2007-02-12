@@ -4,7 +4,7 @@ from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
+from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
 
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef

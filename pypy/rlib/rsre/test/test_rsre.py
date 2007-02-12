@@ -6,8 +6,8 @@ from pypy.rlib.rsre.rsre import SimpleStringState, set_unicode_db
 from pypy.rlib.rsre import rsre_char
 isre = SimpleStringState.rsre_core
 
-from pypy.module.unicodedata import unicodedb_4_1_0
-set_unicode_db(unicodedb_4_1_0)
+from pypy.module.unicodedata import unicodedb_3_2_0
+set_unicode_db(unicodedb_3_2_0)
 
 EM_SPACE = u"\u2001"
 INDIAN_DIGIT = u"\u0966"

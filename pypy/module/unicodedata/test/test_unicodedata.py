@@ -50,9 +50,13 @@ class AppTestUnicodeData:
         if sys.maxunicode < 0x10ffff:
             skip("requires a 'wide' python build.")
         import unicodedata
-        for first, last in ((0x3400, 0x4DB5),
-                            (0x4E00, 0x9FBB),
-                            (0x20000, 0x2A6D6)):
+        cases = ((0x3400, 0x4DB5),
+                 (0x4E00, 0x9FA5))
+        if unicodedata.unidata_version >= "4.1":
+            cases = ((0x3400, 0x4DB5),
+                     (0x4E00, 0x9FBB),
+                     (0x20000, 0x2A6D6))
+        for first, last in cases:
             # Test at and inside the boundary
             for i in (first, first + 1, last - 1, last):
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i
