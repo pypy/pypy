@@ -11,6 +11,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'start_new_thread':       'os_thread.start_new_thread',
+        'start_new':              'os_thread.start_new_thread', # obsolete syn.
         'get_ident':              'os_thread.get_ident',
         'allocate_lock':          'os_lock.allocate_lock',
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
