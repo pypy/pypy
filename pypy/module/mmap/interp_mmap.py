@@ -590,6 +590,7 @@ W_MMap.typedef = TypeDef("mmap",
     flush = interp2app(W_MMap.flush),
     move = interp2app(W_MMap.move),
     resize = interp2app(W_MMap.resize),
+    __module__ = "mmap",
 
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
