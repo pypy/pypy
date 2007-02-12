@@ -37,11 +37,14 @@ class StateMixin(object):
         regs = [(self.start, self.string_position)]
         for group in range(group_count):
             mark_index = 2 * group
+            start = end = -1
             if mark_index + 1 < len(self.marks):
-                regs.append((self.marks[mark_index],
-                             self.marks[mark_index + 1]))
-            else:
-                regs.append((-1, -1))
+                start1 = self.marks[mark_index]
+                end1   = self.marks[mark_index + 1]
+                if start1 >= 0 and end1 >= 0:
+                    start = start1
+                    end   = end1
+            regs.append((start, end))
         return regs
 
     def set_mark(self, mark_nr, position):

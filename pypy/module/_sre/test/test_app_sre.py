@@ -194,6 +194,31 @@ class AppTestSreMatch:
         m = re.match('hel+', a)
         assert m.end() == 4
 
+    def test_group_bug(self):
+        import re
+        r = re.compile(r"""
+            \&(?:
+              (?P<escaped>\&) |
+              (?P<named>[_a-z][_a-z0-9]*)      |
+              {(?P<braced>[_a-z][_a-z0-9]*)}   |
+              (?P<invalid>)
+            )
+        """, re.IGNORECASE | re.VERBOSE)
+        matches = list(r.finditer('this &gift is for &{who} &&'))
+        assert len(matches) == 3
+        assert matches[0].groupdict() == {'escaped': None,
+                                          'named': 'gift',
+                                          'braced': None,
+                                          'invalid': None}
+        assert matches[1].groupdict() == {'escaped': None,
+                                          'named': None,
+                                          'braced': 'who',
+                                          'invalid': None}
+        assert matches[2].groupdict() == {'escaped': '&',
+                                          'named': None,
+                                          'braced': None,
+                                          'invalid': None}
+
 
 class AppTestSreScanner:
 
