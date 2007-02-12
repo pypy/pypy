@@ -142,6 +142,8 @@ def test_callback_field():
     assert a.translator._graphof(callback)
 
 def test_callback_field_bound_method():
+    py.test.skip("needs an rtyping hack to help the js backend "
+                 "or generalized bound methods support in many places")
     class A:
         def x(self, i):
             return float(i)
