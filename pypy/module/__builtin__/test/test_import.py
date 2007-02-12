@@ -247,6 +247,12 @@ class AppTestImport:
         finally:
             os.chmod(p, 0775)
 
+    def test_invalid__name__(self):
+        glob = {}
+        exec "__name__ = None; import sys" in glob
+        import sys
+        assert glob['sys'] is sys
+
 def _getlong(data):
     x = marshal.dumps(data)
     return x[-4:]

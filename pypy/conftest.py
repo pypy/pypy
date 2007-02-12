@@ -145,16 +145,23 @@ class Module(py.test.collect.Module):
             option.conf_iocapture = "sys" # pypy cannot do FD-based
         super(Module, self).__init__(*args, **kwargs)
 
-    def funcnamefilter(self, name): 
+    def accept_regular_test(self):
+        if option.runappdirect:
+            # only collect regular tests if we are in an 'app_test' directory
+            return self.fspath.dirpath().basename == 'app_test'
+        else:
+            return True
+
+    def funcnamefilter(self, name):
         if name.startswith('test_'):
-            return not option.runappdirect
+            return self.accept_regular_test()
         if name.startswith('app_test_'):
             return True
         return False
 
     def classnamefilter(self, name): 
         if name.startswith('Test'):
-            return not option.runappdirect
+            return self.accept_regular_test()
         if name.startswith('AppTest'):
             return True
         return False

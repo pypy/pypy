@@ -380,7 +380,7 @@ def _init():
         _main_coroutine = _main_tasklet
         _main_tasklet = TaskletProxy(_main_tasklet)
         assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
-    tasklet._init(_main_tasklet, label='main')
+    tasklet._init.im_func(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
 

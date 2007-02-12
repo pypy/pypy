@@ -155,23 +155,29 @@ def importhook(space, modulename, w_globals=None,
               space.wrap("__import__() argument 1 must be string" + helper))
     w = space.wrap
 
+    ctxt_name = None
     if w_globals is not None and not space.is_w(w_globals, space.w_None):
         ctxt_w_name = try_getitem(space, w_globals, w('__name__'))
         ctxt_w_path = try_getitem(space, w_globals, w('__path__'))
+        if ctxt_w_name is not None:
+            try:
+                ctxt_name = space.str_w(ctxt_w_name)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
     else:
-        ctxt_w_name = None
         ctxt_w_path = None
 
     rel_modulename = None
-    if ctxt_w_name is not None:
+    if ctxt_name is not None:
 
-        ctxt_name_prefix_parts = space.str_w(ctxt_w_name).split('.')
+        ctxt_name_prefix_parts = ctxt_name.split('.')
         if ctxt_w_path is None: # context is a plain module
             ctxt_name_prefix_parts = ctxt_name_prefix_parts[:-1]
             if ctxt_name_prefix_parts:
                 rel_modulename = '.'.join(ctxt_name_prefix_parts+[modulename])
         else: # context is a package module
-            rel_modulename = space.str_w(ctxt_w_name)+'.'+modulename
+            rel_modulename = ctxt_name+'.'+modulename
         if rel_modulename is not None:
             w_mod = check_sys_modules(space, w(rel_modulename))
             if (w_mod is None or
