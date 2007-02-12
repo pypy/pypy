@@ -70,7 +70,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                         else:
                             return space.wrap(x)
                     builder = specialize.make_constgraphbuilder(2, factory=fold)
-                    return funcdesc.cachedgraph(x, builder=builder)
+                    return funcdesc.cachedgraph((typ, x), builder=builder)
         return funcdesc.cachedgraph(typ)
     
     def attach_lookup(pol, t, attr):
