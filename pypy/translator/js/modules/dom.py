@@ -274,10 +274,10 @@ class Location(BasicExternal):
         'search' : str,
     }
     _methods = {
-        'assign' : _callable([str]),
-        'reload' : _callable([bool]),
-        'replace' : _callable([str]),
-        'toString' : _callable([], str),
+        'assign' : MethodDesc([str]),
+        'reload' : MethodDesc([bool]),
+        'replace' : MethodDesc([str]),
+        'toString' : MethodDesc([], str),
     }
 
 class Window(EventTarget):
