@@ -27,14 +27,20 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
+    def __init__(self, function, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True, policy = None):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
         self.html = html
         self.is_interactive = is_interactive
         t = TranslationContext()
-        ann = t.buildannotator()
+        
+        if policy is None:
+            from pypy.annotation.policy import AnnotatorPolicy
+            policy = AnnotatorPolicy()
+            policy.allow_someobjects = False
+
+        ann = t.buildannotator(policy=policy)
         ann.build_types(function, annotations)
         if view or option.view:
             t.view()
@@ -136,7 +142,7 @@ class compile_function(object):
     reinterpret = classmethod(reinterpret)
 
 class JsTest(BaseRtypingTest, OORtypeMixin):
-    def _compile(self, _fn, args):
+    def _compile(self, _fn, args, policy=None):
         argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
         source = py.code.Source("""
         def %s():
@@ -149,18 +155,12 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         % (_fn.func_name, ",".join(["%s=NonConstant(%s)" % (name,i) for
                                    name, i in zip(argnames, args)])))
         exec source.compile() in locals()
-        return compile_function(locals()[_fn.func_name], [])
+        return compile_function(locals()[_fn.func_name], [], policy=policy)
     
-    def interpret(self, fn, args):
-        #def f(args):
-        #   fn(*args)
-        
-        f = self._compile(fn, args)
+    def interpret(self, fn, args, policy=None):
+        f = self._compile(fn, args, policy)
         res = f(*args)
         return res
-        #if isinstance(res, ExceptionWrapper):
-        #    raise res
-        #return res
 
     def interpret_raises(self, exception, fn, args):
         #import exceptions # needed by eval
@@ -197,7 +197,7 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         return bool(m)
 
     def read_attr(self, obj, name):
-        py.test.skip('read_attr not supported on gencli tests')
+        py.test.skip('read_attr not supported on genjs tests')
 
 def check_source_contains(compiled_function, pattern):
     import re
