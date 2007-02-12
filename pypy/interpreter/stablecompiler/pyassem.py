@@ -557,13 +557,9 @@ class PyFlowGraph(FlowGraph):
     _convert_DELETE_FAST = _convert_LOAD_FAST
 
     def _convert_LOAD_NAME(self, arg):
-        if self.klass is None:
-            self._lookupName(arg, self.varnames)
         return self._lookupName(arg, self.names)
 
     def _convert_NAME(self, arg):
-        if self.klass is None:
-            self._lookupName(arg, self.varnames)
         return self._lookupName(arg, self.names)
     _convert_STORE_NAME = _convert_NAME
     _convert_DELETE_NAME = _convert_NAME
@@ -578,13 +574,11 @@ class PyFlowGraph(FlowGraph):
 
     def _convert_DEREF(self, arg):
         self._lookupName(arg, self.names)
-        self._lookupName(arg, self.varnames)
         return self._lookupName(arg, self.closure)
     _convert_LOAD_DEREF = _convert_DEREF
     _convert_STORE_DEREF = _convert_DEREF
 
     def _convert_LOAD_CLOSURE(self, arg):
-        self._lookupName(arg, self.varnames)
         return self._lookupName(arg, self.closure)
 
     _cmp = list(dis.cmp_op)

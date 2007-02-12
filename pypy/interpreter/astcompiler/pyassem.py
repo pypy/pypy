@@ -664,12 +664,6 @@ class PyFlowGraph(FlowGraph):
 
     def _lookupName(self, name, list):
         """Return index of name in list, appending if necessary
-
-        This routine uses a list instead of a dictionary, because a
-        dictionary can't store two different keys if the keys have the
-        same value but different types, e.g. 2 and 2L.  The compiler
-        must treat these two separately, so it does an explicit type
-        comparison before comparing the values.
         """
         assert isinstance(name, str)
         for i in range(len(list)):
@@ -698,6 +692,13 @@ class PyFlowGraph(FlowGraph):
         return False
 
     def _lookupConst(self, w_obj, list_w):
+        """
+        This routine uses a list instead of a dictionary, because a
+        dictionary can't store two different keys if the keys have the
+        same value but different types, e.g. 2 and 2L.  The compiler
+        must treat these two separately, so it does an explicit type
+        comparison before comparing the values.
+        """
         space = self.space
         w_obj_type = space.type(w_obj)
         for i in range(len(list_w)):
@@ -731,8 +732,6 @@ class PyFlowGraph(FlowGraph):
     def _convert_NAME(self, inst):
         assert isinstance(inst, InstrName)
         arg = inst.name        
-        if not self.klass:
-            self._lookupName(arg, self.varnames)
         index = self._lookupName(arg, self.names)
         return InstrInt(inst.op, index)        
     _convert_LOAD_NAME = _convert_NAME
@@ -751,7 +750,6 @@ class PyFlowGraph(FlowGraph):
         assert isinstance(inst, InstrName)
         arg = inst.name               
         self._lookupName(arg, self.names)
-        self._lookupName(arg, self.varnames)
         index = self._lookupName(arg, self.closure)
         return InstrInt(inst.op, index)                
     _convert_LOAD_DEREF = _convert_DEREF
@@ -760,7 +758,6 @@ class PyFlowGraph(FlowGraph):
     def _convert_LOAD_CLOSURE(self, inst):
         assert isinstance(inst, InstrName)
         arg = inst.name                
-        self._lookupName(arg, self.varnames)
         index = self._lookupName(arg, self.closure)
         return InstrInt(inst.op, index)
     
