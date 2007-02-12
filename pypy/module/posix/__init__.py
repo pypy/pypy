@@ -87,6 +87,8 @@ corresponding Unix manual entries for more information on calls."""
         # YYY nor does it anywhere else
         #if config.translating and config.translation.type_system != "lltype":
         #    space.delattr(self, space.wrap("execve"))
+        if config.translating and config.translation.backend == "llvm":
+            space.delattr(self, space.wrap("execv"))
 
 for constant in dir(os):
     value = getattr(os, constant)
