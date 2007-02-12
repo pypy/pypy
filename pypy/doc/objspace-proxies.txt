@@ -127,22 +127,11 @@ the current thread is suspended, in the hope that another thread will
 eventually put a value into the object.  In practice, this works well
 with microthreads instead of real threads (see `Stackless features`_).
 
-Two somewhat outdated documents describe the Logic Object Space in more
-details:
+The `EU Interim Report`_ (PDF) describes the Logic Object Space in
+more details.
 
-* `How to use the Logic Object space features of PyPy 0.9`_;
-* `EU Interim Report`_ (PDF).
-
-The following document is a draft:
-
-* `Ideas about syntactic and algorithmic aspects of Constraint and Logic
-  Programming in Python`_
-
-.. _`Ideas about syntactic and algorithmic aspects of Constraint and Logic Programming in Python`: constraints-and-logic.html
-.. _`How to use the Logic Object space features of PyPy 0.9`: howto-logicobjspace-0.9.html
 .. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2006-07-28.pdf
 .. _`Stackless features`: stackless.html
-
 
 .. _taint:
 
