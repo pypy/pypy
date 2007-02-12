@@ -15,6 +15,7 @@ verify(f.tell(), p.tell())
 f.close()
 f = None
 gc.collect()
+gc.collect()
 try:
     p.tell()
 except ReferenceError:
