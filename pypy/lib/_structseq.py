@@ -50,6 +50,7 @@ class structseqtype(type):
             extra_fields.pop(0)
             n_sequence_fields += 1
         dict['n_sequence_fields'] = n_sequence_fields
+        dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
 
         extra_fields = [field for index, field in extra_fields]
         for field in extra_fields:

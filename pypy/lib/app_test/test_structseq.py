@@ -27,6 +27,7 @@ def test_class():
     assert mydata.st_mode.__doc__ == "protection bits"
     assert mydata.n_fields == 14
     assert mydata.n_sequence_fields == 10
+    assert mydata.n_unnamed_fields == 0
 
 def test_mydata():
     x = mydata(range(100, 111))
