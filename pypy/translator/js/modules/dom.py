@@ -262,6 +262,24 @@ class Style(BasicExternal):
 
 # Window is the main environment, the root node of the JS object tree
 
+class Location(BasicExternal):
+    _fields = {
+        'hostname' : str,
+        'href' : str,
+        'hash' : str,
+        'host' : str,
+        'pathname' : str,
+        'port' : str,
+        'protocol' : str,
+        'search' : str,
+    }
+    _methods = {
+        'assign' : _callable([str]),
+        'reload' : _callable([bool]),
+        'replace' : _callable([str]),
+        'toString' : _callable([], str),
+    }
+
 class Window(EventTarget):
     def __init__(self, html=('<html><head><title>Untitled document</title>'
                              '</head><body></body></html>'), parent=None):
@@ -458,7 +476,6 @@ Document._fields.update({
     'lastModified' : str,
     'linkColor' : str,
     'links' : [Element],
-    'location' : str,
     'referrer' : str,
     'title' : str,
     'URL' : str,
@@ -498,7 +515,7 @@ Window._fields.update({
     'innerHeight' : int,
     'innerWidth' : int,
     'length' : int,
-    'location' : str,
+    'location' : Location,
     'name' : str,
     # 'preference' : # denied in gecko
     'opener' : Window,

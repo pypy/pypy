@@ -365,6 +365,9 @@ def test_write_styles():
     assert dom._serialize_html(body) == ('<body style="background-color: red; '
                                          'color: green;"></body>')
 
+def test_document_location():
+    py.test.skip("To be written")
+
 def test_build():
     py.test.skip('Børken')
     global TRANSLATING
