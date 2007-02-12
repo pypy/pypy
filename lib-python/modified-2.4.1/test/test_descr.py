@@ -3,6 +3,7 @@
 from test.test_support import verify, vereq, verbose, TestFailed, TESTFN, get_original_stdout
 from copy import deepcopy
 import warnings
+import gc
 
 warnings.filterwarnings("ignore",
          r'complex divmod\(\), // and % are deprecated$',
@@ -982,8 +983,7 @@ def consistency_with_epg():
           (EditableScrollablePane, ScrollablePane, EditablePane,
            Pane, ScrollingMixin, EditingMixin, object))
 
-mro_err_msg = """Cannot create a consistent method resolution
-order (MRO) for bases """
+mro_err_msg = "cycle among base classes:"
 
 def mro_disagreement():
     if verbose: print "Testing error messages for MRO disagreement..."
@@ -1143,16 +1143,28 @@ def slots():
     x.a = Counted()
     x.b = Counted()
     x.c = Counted()
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 3)
     del x
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 0)
     class D(C):
         pass
     x = D()
     x.a = Counted()
     x.z = Counted()
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 2)
     del x
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 0)
     class E(D):
         __slots__ = ['e']
@@ -1160,8 +1172,14 @@ def slots():
     x.a = Counted()
     x.z = Counted()
     x.e = Counted()
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 3)
     del x
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 0)
 
     # Test cyclical leaks [SF bug 519621]
@@ -1170,14 +1188,19 @@ def slots():
     log = []
     s = F()
     s.a = [Counted(), s]
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 1)
     s = None
     import gc
     gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(Counted.counter, 0)
 
     # Test lookup leaks [SF bug 572567]
-    import sys,gc
+    import sys
     class G(object):
         def __cmp__(self, other):
             return 0
@@ -1743,12 +1766,13 @@ def specials():
         else:
             raise TestFailed, "shouldn't allow %s.__cmp__(%r, %r)" % (
                 a.__class__, a, b)
-    unsafecmp(u"123", "123")
-    unsafecmp("123", u"123")
-    unsafecmp(1, 1.0)
-    unsafecmp(1.0, 1)
-    unsafecmp(1, 1L)
-    unsafecmp(1L, 1)
+    # unicode, int, float and long does not have a __cmp__ in PyPy
+    # unsafecmp(u"123", "123")
+    # unsafecmp("123", u"123")
+    # unsafecmp(1, 1.0)
+    # unsafecmp(1.0, 1)
+    # unsafecmp(1, 1L)
+    # unsafecmp(1L, 1)
 
     class Letter(str):
         def __new__(cls, letter):
@@ -1782,6 +1806,9 @@ def weakrefs():
     r = weakref.ref(c)
     verify(r() is c)
     del c
+    gc.collect()
+    gc.collect()
+    gc.collect()
     verify(r() is None)
     del r
     class NoWeak(object):
@@ -1799,6 +1826,9 @@ def weakrefs():
     r = weakref.ref(yes)
     verify(r() is yes)
     del yes
+    gc.collect()
+    gc.collect()
+    gc.collect()
     verify(r() is None)
     del r
 
@@ -3019,6 +3049,9 @@ def delhook():
     c = C()
     vereq(log, [])
     del c
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(log, [1])
 
     class D(object): pass
@@ -3323,12 +3356,17 @@ def subtype_resurrection():
     # The most interesting thing here is whether this blows up, due to flawed
     #  GC tracking logic in typeobject.c's call_finalizer() (a 2.2.1 bug).
     del c
-
+    gc.collect()
+    gc.collect()
+    gc.collect()
     # If that didn't blow up, it's also interesting to see whether clearing
     # the last container slot works:  that will attempt to delete c again,
     # which will cause c to get appended back to the container again "during"
     # the del.
     del C.container[-1]
+    gc.collect()
+    gc.collect()
+    gc.collect()
     vereq(len(C.container), 1)
     vereq(C.container[-1].attr, 42)
 
@@ -3357,7 +3395,8 @@ def slotmultipleinheritance():
         pass
     class C(A,B) :
         __slots__=()
-    vereq(C.__basicsize__, B.__basicsize__)
+    # No __basicsize__ in PyPy
+    # vereq(C.__basicsize__, B.__basicsize__)
     verify(hasattr(C, '__dict__'))
     verify(hasattr(C, '__weakref__'))
     C().x = 2
