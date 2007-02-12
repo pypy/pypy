@@ -470,7 +470,7 @@ def write_compiled_module(space, co, cpathname, mtime):
         w_str = space.call_method(w_marshal, 'dumps', space.wrap(co))
         strbuf = space.str_w(w_str)
     except OperationError, e:
-        if e.async(self):
+        if e.async(space):
             raise
         #print "Problem while marshalling %s, skipping" % cpathname
         return
