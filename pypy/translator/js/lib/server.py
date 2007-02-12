@@ -117,8 +117,14 @@ class Static(object):
     def __call__(self):
         return open(self.path).read()
 
-def start_server(server_address = ('', 8000), handler=TestHandler, fork=False,
-                 timeout=None, server=HTTPServer, port_file=None):
+def create_server(server_address = ('', 8000), handler=TestHandler,
+                 timeout=None, server=HTTPServer):
+    """ Parameters:
+    spawn - create new thread and return (by default it doesn't return)
+    fork - do a real fork
+    timeout - kill process after X seconds (actually doesn't work for threads)
+    port_file - function to be called with port number
+    """
     patch_handler(handler)
     httpd = server(server_address, handler)
     if timeout:
@@ -132,18 +138,20 @@ def start_server(server_address = ('', 8000), handler=TestHandler, fork=False,
         import thread
         thread.start_new_thread(f, (httpd,))
     httpd.last_activity = time.time()
-
     print "Server started, listening on %s:%s" %\
           (httpd.server_address[0],httpd.server_port)
-    if port_file:
-        # this is strange hack to allow exchange of port information
-        py.path.local(port_file).write(str(httpd.server_port))
-    if fork:
-        import thread
-        thread.start_new_thread(httpd.serve_forever, ())
-        return httpd
-    else:
-        httpd.serve_forever()
+    return httpd
+
+def start_server_in_new_thread(server):
+    import thread
+    thread.start_new_thread(server.serve_forever, ())
+
+def start_server_in_new_process(server):
+    pid = os.fork()
+    if not pid:
+        httpd.server_forever()
+        os._exit(0)
+    return pid
 
 Handler = TestHandler
 # deprecate TestHandler name

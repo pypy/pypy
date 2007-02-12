@@ -49,4 +49,4 @@ class Handler(server.TestHandler):
 
 # server start, same as before
 if __name__ == '__main__':
-    server.start_server(handler=Handler)
+    server.create_server(handler=Handler).serve_forever()

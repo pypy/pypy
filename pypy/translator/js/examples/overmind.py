@@ -15,17 +15,22 @@ import os
 import py
 
 FUNCTION_LIST = ['launch_console']
-tempdir = py.test.ensuretemp("infos")
 TIMEOUT = 100
+pids = []
 
 def launch_console_in_new_thread():
     from pypy.translator.js.examples import pythonconsole
-    httpd = server.start_server(server_address=('', 0),
+    httpd = server.create_server(server_address=('', 0),
                         handler=pythonconsole.RequestHandler, timeout=TIMEOUT,
-                        port_file=tempdir.join("console_pid"),
-                        fork=True, server=pythonconsole.Server)
-    pythonconsole.httpd = httpd
-    port = int(tempdir.join("console_pid").read())
+                        server=pythonconsole.Server)
+    port = httpd.server_port
+    pid = os.fork()
+    if not pid:
+        pythonconsole.httpd = httpd
+        httpd.serve_forever()
+        os._exit(0)
+    del httpd
+    pids.append(pid)
     return port
 
 class ExportedMethods(server.ExportedMethods):
@@ -59,4 +64,11 @@ class Handler(server.Handler):
     source_js.exposed = True
 
 if __name__ == '__main__':
-    server.start_server(handler=Handler)
+    try:
+        server.create_server(handler=Handler).serve_forever()
+    except KeyboardInterrupt:
+        for pid in pids:
+            # eventually os.kill stuff
+            os.kill(pid, 15)
+            os.waitpid(pid, 0)
+

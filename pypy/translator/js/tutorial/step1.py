@@ -24,4 +24,4 @@ if __name__ == '__main__':
     # let's start our server,
     # this will create running server instance on port 8000 by default,
     # which will run until we press Control-C
-    server.start_server(handler=Handler)
+    server.create_server(handler=Handler).serve_forever()
