@@ -18,11 +18,13 @@ from pypy.translator.js import commproxy
 from pypy.rpython.extfunc import _callable
 
 from pypy.translator.js.demo.jsdemo import support
+from pypy.translator.js.lib import server
 
 commproxy.USE_MOCHIKIT = True
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from SocketServer import ThreadingMixIn
+import time
 
 HTML_PAGE = """
 <html>
@@ -141,6 +143,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     
     def run_some_callback(self, cmd=[""]):
         cmd = cmd[0]
+        self.server.last_activity = time.time()
         if cmd:
             buf = cStringIO.StringIO()
             out1 = sys.stdout
@@ -181,8 +184,8 @@ def build_http_server(server_address=('', 8001)):
     httpd = Server(server_address, RequestHandler)
     print 'http://127.0.0.1:%d' % (server_address[1],)
 
-def _main():
-    build_http_server()
+def _main(address=('', 8001)):
+    build_http_server(server_address=address)
     httpd.serve_forever()
 
 if __name__ == '__main__':
