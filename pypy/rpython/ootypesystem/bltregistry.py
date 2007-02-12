@@ -50,22 +50,17 @@ def typeof(val):
         return tuple([typeof(i) for i in val])
     return type(val)
 
-def load_dict_args(func, args):
-    code = func.func_code
-    if not func.func_defaults:
-        defs = []
-    else:
-        defs = func.func_defaults
-    num_args = code.co_argcount
-    assert(num_args < len(defs) + len(args), "Not enough information for describing method")
+def load_dict_args(varnames, defs, args):
+    argcount = len(varnames)
+    assert(argcount < len(defs) + len(args), "Not enough information for describing method")
            
-    for arg in xrange(1, code.co_argcount - len(defs)):
-        assert code.co_varnames[arg] in args, "Don't have type for arg %s" % code.co_varnames[arg]
-        
+    for arg in xrange(1, argcount - len(defs)):
+        assert varnames[arg] in args, "Don't have type for arg %s" % varnames[arg]
+
     arg_pass = []
-    start_pos = code.co_argcount - len(defs)
-    for arg in xrange(1, code.co_argcount):
-        varname = code.co_varnames[arg]
+    start_pos = argcount - len(defs)
+    for arg in xrange(1, argcount):
+        varname = varnames[arg]
         if varname in args:
             arg_pass.append((varname, args[varname]))
         else:
@@ -82,7 +77,11 @@ class BasicExternal(object):
     def described(retval=None, args={}):
         def decorator(func):
             if isinstance(args, dict):
-                arg_pass = load_dict_args(func, args)
+                defs = func.func_defaults
+                if defs is None:
+                    defs = ()
+                vars = func.func_code.co_varnames[:func.func_code.co_argcount]
+                arg_pass = load_dict_args(vars, defs, args)
             else:
                 assert isinstance(args, list)
                 arg_pass = args
