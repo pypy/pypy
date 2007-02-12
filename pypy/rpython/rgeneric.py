@@ -55,14 +55,3 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractGenericCallableRepr)
         if pbcrepr.lowleveltype == gencallrepr.lowleveltype:
             return v
         return NotImplemented
-
-class __extend__(pairtype(AbstractMethodsPBCRepr, AbstractGenericCallableRepr)):
-    def convert_from_to((pbcrepr, gencallrepr), v, llops):
-        import pdb;pdb.set_trace()
-        if pbcrepr.lowleveltype is lltype.Void:
-            r = gencallrepr.convert_const(pbcrepr.s_pbc.const)
-            r.setup()
-            return r
-        if pbcrepr.lowleveltype == gencallrepr.lowleveltype:
-            return v
-        return NotImplemented
