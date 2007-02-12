@@ -304,6 +304,7 @@ def unpack(fmt,data):
     while i<len(fmt):
         num,i=getNum(fmt,i)
         cur = fmt[i]
+        i += 1
         try:
             format = formatdef[cur]
         except KeyError:
@@ -311,25 +312,22 @@ def unpack(fmt,data):
 
         if not num :
             num = 1
+
         if cur == 'x':
             j += num
-            i += 1
         elif cur == 's':
             result.append(data[j:j+num])
             j += num
-            i += 1
         elif cur == 'p':
             n=ord(data[j])
             if n >= num:
                 n = num-1
             result.append(data[j+1:j+n+1])
             j += num
-            i += 1
         else:
             for n in range(num):
                 result += [format['unpack'](data,j,format['size'],endianness)]
                 j += format['size']
-                i += 1
 
     return tuple(result)
 
