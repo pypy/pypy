@@ -222,7 +222,7 @@ class test__mkstemp_inner(TC):
         def write(self, str):
             os.write(self.fd, str)
 
-        def __del__(self):
+        def close(self):
             self._close(self.fd)
             self._unlink(self.name)
 
@@ -237,25 +237,32 @@ class test__mkstemp_inner(TC):
         self.nameCheck(file.name, dir, pre, suf)
         return file
 
+    def create_blat(self, *args, **kwds):
+        f = self.do_create(*args, **kwds)
+        f.write("blat")
+        f.close()
+
     def test_basic(self):
         # _mkstemp_inner can create files
-        self.do_create().write("blat")
-        self.do_create(pre="a").write("blat")
-        self.do_create(suf="b").write("blat")
-        self.do_create(pre="a", suf="b").write("blat")
-        self.do_create(pre="aa", suf=".txt").write("blat")
+        self.create_blat()
+        self.create_blat(pre="a")
+        self.create_blat(suf="b")
+        self.create_blat(pre="a", suf="b")
+        self.create_blat(pre="aa", suf=".txt")
 
     def test_basic_many(self):
         # _mkstemp_inner can create many files (stochastic)
         extant = range(TEST_FILES)
         for i in extant:
             extant[i] = self.do_create(pre="aa")
+        for f in extant:
+            f.close()
 
     def test_choose_directory(self):
         # _mkstemp_inner can create files in a user-selected directory
         dir = tempfile.mkdtemp()
         try:
-            self.do_create(dir=dir).write("blat")
+            self.create_blat(dir=dir)
         finally:
             os.rmdir(dir)
 
@@ -266,6 +273,7 @@ class test__mkstemp_inner(TC):
 
         file = self.do_create()
         mode = stat.S_IMODE(os.stat(file.name).st_mode)
+        file.close()
         expected = 0600
         if sys.platform in ('win32', 'os2emx', 'mac'):
             # There's no distinction among 'user', 'group' and 'world';
@@ -308,6 +316,7 @@ class test__mkstemp_inner(TC):
             decorated = sys.executable
 
         retval = os.spawnl(os.P_WAIT, sys.executable, decorated, tester, v, fd)
+        file.close()
         self.failIf(retval < 0,
                     "child process caught fatal signal %d" % -retval)
         self.failIf(retval > 0, "child process reports failure")
@@ -317,7 +326,7 @@ class test__mkstemp_inner(TC):
         if not has_textmode:
             return            # ugh, can't use TestSkipped.
 
-        self.do_create(bin=0).write("blat\n")
+        self.create_blat(bin=0)
         # XXX should test that the file really is a text file
 
 test_classes.append(test__mkstemp_inner)
