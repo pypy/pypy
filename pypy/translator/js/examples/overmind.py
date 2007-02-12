@@ -16,7 +16,7 @@ FUNCTION_LIST = ['launch_console']
 tempdir = py.test.ensuretemp("infos")
 TIMEOUT = 100
 
-def launch_console_in_new_process():
+def launch_console_in_new_thread():
     from pypy.translator.js.examples import pythonconsole
     httpd = server.start_server(server_address=('', 0),
                         handler=pythonconsole.RequestHandler, timeout=TIMEOUT,
@@ -33,8 +33,8 @@ class ExportedMethods(server.ExportedMethods):
         if we want to make this multiplayer, we need additional locking
         XXX
         """
-        return launch_console_in_new_process()
-    
+        return launch_console_in_new_thread()
+
 exported_methods = ExportedMethods()
 
 def js_source(function_list):
@@ -44,6 +44,7 @@ def js_source(function_list):
 class Handler(server.Handler):
     static_dir = str(py.path.local(__file__).dirpath().join("data"))
     index = server.Static()
+    console = server.Static(os.path.join(static_dir, "launcher.html"))
     exported_methods = exported_methods
 
     def source_js(self):
