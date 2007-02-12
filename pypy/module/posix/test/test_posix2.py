@@ -40,6 +40,16 @@ class AppTestPosix:
         posix.close(fd2)
         posix.close(fd)
 
+    def test_pickle(self):
+        import pickle, os
+        st = self.posix.stat(os.curdir)
+        print type(st).__module__
+        s = pickle.dumps(st)
+        print repr(s)
+        new = pickle.loads(s)
+        assert new == st
+        assert type(new) is type(st)
+
     def test_open_exception(self): 
         posix = self.posix
         try: 

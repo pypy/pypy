@@ -174,17 +174,20 @@ def getappfileloader(pkgroot, spec):
     # hum, it's a bit more involved, because we usually 
     # want the import at applevel
     modname, attrname = spec.split('.')
-    impbase = pkgroot + '.' + modname 
-    mod = __import__(impbase, None, None, ['attrname'])
+    impbase = pkgroot + '.' + modname
     try:
-        app = applevelcache[mod]
+        app = applevelcache[impbase]
     except KeyError:
-        source = inspect.getsource(mod) 
-        fn = mod.__file__
+        import imp
+        pkg = __import__(pkgroot, None, None, ['__doc__'])
+        file, fn, (suffix, mode, typ) = imp.find_module(modname, pkg.__path__)
+        assert typ == imp.PY_SOURCE
+        source = file.read()
+        file.close()
         if fn.endswith('.pyc') or fn.endswith('.pyo'):
             fn = fn[:-1]
         app = gateway.applevel(source, filename=fn)
-        applevelcache[mod] = app
+        applevelcache[impbase] = app
 
     def afileloader(space): 
         return app.wget(space, attrname)

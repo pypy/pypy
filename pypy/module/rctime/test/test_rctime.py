@@ -264,3 +264,11 @@ class AppTestRCTime:
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
             rctime.strptime(rctime.strftime(format, tt), format)
+
+    def test_pickle(self):
+        import pickle
+        import time as rctime
+        now = rctime.localtime()
+        new = pickle.loads(pickle.dumps(now))
+        assert new == now
+        assert type(new) is type(now)

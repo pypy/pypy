@@ -1,30 +1,25 @@
 # NOT_RPYTHON
 
+from _structseq import structseqtype, structseqfield
+
 error = OSError
 
 
-def tuple_item_getter(n):   # helper to make properties
-    def getter(self):
-        return self[n]
-    return property(getter)
+class stat_result:
+    __metaclass__ = structseqtype
 
+    st_mode  = structseqfield(0, "protection bits")
+    st_ino   = structseqfield(1, "inode")
+    st_dev   = structseqfield(2, "device")
+    st_nlink = structseqfield(3, "number of hard links")
+    st_uid   = structseqfield(4, "user ID of owner")
+    st_gid   = structseqfield(5, "group ID of owner")
+    st_size  = structseqfield(6, "total size, in bytes")
+    st_atime = structseqfield(7, "time of last access (XXX as an int)")
+    st_mtime = structseqfield(8, "time of last modification (XXX as an int)")
+    st_ctime = structseqfield(9, "time of last change (XXX as an int)")
+    # XXX no extra fields for now
 
-class stat_result(tuple):
-    __slots__ = []
-
-    st_mode  = tuple_item_getter(0)
-    st_ino   = tuple_item_getter(1)
-    st_dev   = tuple_item_getter(2)
-    st_nlink = tuple_item_getter(3)
-    st_uid   = tuple_item_getter(4)
-    st_gid   = tuple_item_getter(5)
-    st_size  = tuple_item_getter(6)
-    st_atime = tuple_item_getter(7)
-    st_mtime = tuple_item_getter(8)
-    st_ctime = tuple_item_getter(9)
-    n_sequence_fields = 10
-    n_fields          = 10             # no extra attributes for now
-    n_unnamed_fields  = 0
 
 def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
