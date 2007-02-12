@@ -68,6 +68,8 @@ class ReferencesTestCase(TestBase):
         ref2 = weakref.ref(o, self.callback)
         del o
         gc.collect()
+        gc.collect()
+        gc.collect()
         self.assert_(ref1() is None,
                      "expected reference to be invalidated")
         self.assert_(ref2() is None,
@@ -126,6 +128,8 @@ class ReferencesTestCase(TestBase):
         o = factory()
         ref = weakref.ref(o, self.callback)
         del o
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assert_(self.cbcalled == 1,
                      "callback did not properly set 'cbcalled'")
@@ -313,6 +317,8 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref2
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assert_(weakref.getweakrefs(o) == [ref1],
                      "list of refs does not match")
@@ -749,12 +755,16 @@ class MappingTestCase(TestBase):
                      "deleting object did not cause dictionary update")
         del objects, o
         gc.collect()
+        gc.collect()
+        gc.collect()
         self.assert_(len(dict) == 0,
                      "deleting the values did not clear the dictionary")
         # regression on SF bug #447152:
         dict = weakref.WeakValueDictionary()
         self.assertRaises(KeyError, dict.__getitem__, 1)
         dict[2] = C()
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assertRaises(KeyError, dict.__getitem__, 2)
 
@@ -775,6 +785,8 @@ class MappingTestCase(TestBase):
         self.assert_(set(items1) == set(items2),
                      "cloning of weak-keyed dictionary did not work!")
         del items1, items2
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assert_(len(dict) == self.COUNT)
         del objects[0]
