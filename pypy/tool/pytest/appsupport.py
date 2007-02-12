@@ -12,6 +12,7 @@ class AppCode(object):
     def __init__(self, space, pycode):
         self.code = space.unwrap(space.getattr(pycode, space.wrap('co_code')))
         self.w_file = space.getattr(pycode, space.wrap('co_filename'))
+        self.name = space.getattr(pycode, space.wrap('co_name'))
         self.firstlineno = space.unwrap(space.getattr(pycode, space.wrap('co_firstlineno')))
         #try:
         #    self.path = space.unwrap(space.getattr(self.w_file, space.wrap('__path__')))
@@ -64,6 +65,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
+        self.typename = operr.w_type.name
         self.traceback = AppTraceback(space, self.operr.application_traceback)
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
