@@ -291,7 +291,7 @@ class BuiltinTest(unittest.TestCase):
             "Non-mapping"
             pass
         m = A()
-        self.assertRaises(TypeError, eval, 'a', g, m)
+        self.assertRaises((TypeError, AttributeError) , eval, 'a', g, m)
 
         # Verify that dict subclasses work as well
         class D(dict):
