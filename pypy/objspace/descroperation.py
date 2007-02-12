@@ -515,11 +515,7 @@ def _make_unaryop_impl(symbol, specialnames):
 for targetname, specialname, checkerspec in [
     ('int', '__int__', ("space.w_int", "space.w_long")), 
     ('long', '__long__', ("space.w_int", "space.w_long")), 
-    ('float', '__float__', ("space.w_float",)), 
-    ('str', '__str__', ("space.w_str",)), 
-    ('repr', '__repr__', ("space.w_str",)), 
-    ('oct', '__oct__', ("space.w_str",)), 
-    ('hex', '__hex__', ("space.w_str",))]: 
+    ('float', '__float__', ("space.w_float",))]:
 
     l = ["space.is_true(space.isinstance(w_result, %s))" % x 
                 for x in checkerspec]
@@ -538,6 +534,40 @@ for targetname, specialname, checkerspec in [
                                    space.wrap('__name__')))
             msg = '%(specialname)s returned non-%(targetname)s (type %%s)' %% (typename,) 
             raise OperationError(space.w_TypeError, space.wrap(msg)) 
+        assert not hasattr(DescrOperation, %(targetname)r)
+        DescrOperation.%(targetname)s = %(targetname)s
+        del %(targetname)s 
+        \n""" % locals() 
+    exec compile2(source) 
+
+for targetname, specialname in [
+    ('str', '__str__'), 
+    ('repr', '__repr__'), 
+    ('oct', '__oct__'), 
+    ('hex', '__hex__')]: 
+
+    source = """if 1:
+        def %(targetname)s(space, w_obj):
+            w_impl = space.lookup(w_obj, %(specialname)r)
+            if w_impl is None:
+                raise OperationError(space.w_TypeError,
+                       space.wrap("operand does not support unary %(targetname)s"))
+            w_result = space.get_and_call_function(w_impl, w_obj)
+
+            if space.is_true(space.isinstance(w_result, space.w_str)):
+                return w_result
+            try:
+                result = space.str_w(w_result)
+            except OperationError, e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+                typename = space.str_w(space.getattr(space.type(w_result), 
+                                       space.wrap('__name__')))
+                msg = '%(specialname)s returned non-%(targetname)s (type %%s)' %% (typename,) 
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            else:
+                # re-wrap the result as a real string
+                return space.wrap(result)
         assert not hasattr(DescrOperation, %(targetname)r)
         DescrOperation.%(targetname)s = %(targetname)s
         del %(targetname)s 

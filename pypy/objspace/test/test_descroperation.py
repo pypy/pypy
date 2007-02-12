@@ -247,3 +247,24 @@ class AppTest_Descroperation:
                     check(iexpr, c, a)
                     check(iexpr, c, b)
                     check(iexpr, c, 5)
+
+    def test_string_results(self):
+        class A(object):
+            def __str__(self):
+                return answer * 2
+            def __repr__(self):
+                return answer * 3
+            def __hex__(self):
+                return answer * 4
+            def __oct__(self):
+                return answer * 5
+
+        for operate, n in [(str, 2), (repr, 3), (hex, 4), (oct, 5)]:
+            answer = "hello"
+            assert operate(A()) == "hello" * n
+            if operate not in (hex, oct):
+                answer = u"world"
+                assert operate(A()) == "world" * n
+            assert type(operate(A())) is str
+            answer = 42
+            raises(TypeError, operate, A())
