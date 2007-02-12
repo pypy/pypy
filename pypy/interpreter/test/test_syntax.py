@@ -259,10 +259,11 @@ def checkinvalid(space, s):
 class Py25AppTest:
     def setup_class(self):
         space = self.space
-        w_globals = space.newdict([])
-        space.exec_('import sys; not_25 = sys.version_info < (2,5)',
-                         w_globals, w_globals)
-        not_25 = space.is_true(space.getitem(w_globals, space.wrap('not_25')))
+        w_not_25 = space.appexec([], """():
+            import sys
+            return sys.version_info < (2,5)
+        """)
+        not_25 = space.is_true(w_not_25)
         if not_25:
             py.test.skip('Needs python 2.5 grammar')
 
