@@ -49,14 +49,16 @@ def ll_int2hex(i, addPrefix):
     sign = 0
     if i < 0:
         sign = 1
-        i = -i
+        i = r_uint(-i)
+    else:
+        i = r_uint(i)
     if i == 0:
         len = 1
         temp[0] = '0'
     else:
         while i:
-            temp[len] = hex_chars[i%16]
-            i //= 16
+            temp[len] = hex_chars[i & 0xf]
+            i >>= 4
             len += 1
     len += sign
     if addPrefix:
@@ -88,10 +90,12 @@ def ll_int2oct(i, addPrefix):
     sign = 0
     if i < 0:
         sign = 1
-        i = -i
+        i = r_uint(-i)
+    else:
+        i = r_uint(i)
     while i:
-        temp[len] = hex_chars[i%8]
-        i //= 8
+        temp[len] = hex_chars[i & 0x7]
+        i >>= 3
         len += 1
     len += sign
     if addPrefix:

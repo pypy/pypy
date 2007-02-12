@@ -1,4 +1,6 @@
+import sys
 from pypy.rpython.ootypesystem.ootype import new, oostring, StringBuilder
+from pypy.rpython.ootypesystem.ootype import make_string
 
 def ll_int_str(repr, i):
     return ll_int2dec(i)
@@ -6,12 +8,20 @@ def ll_int_str(repr, i):
 def ll_int2dec(i):
     return oostring(i, 10)
 
+SPECIAL_VALUE     = -sys.maxint-1
+SPECIAL_VALUE_HEX = make_string(
+    '-' + hex(sys.maxint+1).replace('L', '').replace('l', ''))
+SPECIAL_VALUE_OCT = make_string(
+    '-' + oct(sys.maxint+1).replace('L', '').replace('l', ''))
+
 def ll_int2hex(i, addPrefix):
     if not addPrefix:
         return oostring(i, 16)
 
     buf = new(StringBuilder)
     if i<0:
+        if i == SPECIAL_VALUE:
+            return SPECIAL_VALUE_HEX
         i = -i
         buf.ll_append_char('-')
 
@@ -26,6 +36,8 @@ def ll_int2oct(i, addPrefix):
 
     buf = new(StringBuilder)
     if i<0:
+        if i == SPECIAL_VALUE:
+            return SPECIAL_VALUE_OCT
         i = -i
         buf.ll_append_char('-')
 
