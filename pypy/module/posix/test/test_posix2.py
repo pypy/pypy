@@ -111,6 +111,7 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             # XXX check status1
+        pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), "execv"): # and fork
         def test_execv(self):
@@ -135,6 +136,7 @@ class AppTestPosix:
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
+        pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), 'popen'):
         def test_popen(self):
