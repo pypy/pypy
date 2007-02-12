@@ -395,13 +395,12 @@ class W_TypeObject(W_Object):
             return w_self.dict_w['__module__']
         else:
             # for non-heap types, CPython checks for a module.name in the
-            # type name.  we skip that here and only provide the default
-            if not we_are_translated():
-                # hack for faked types
-                if ('__module__' in w_self.dict_w and
-                    space.is_true(space.isinstance(w_self.dict_w['__module__'],
-                                                   space.w_str))):
-                    return w_self.dict_w['__module__']
+            # type name.  That's a hack, so we're allowed to use a different
+            # hack...
+            if ('__module__' in w_self.dict_w and
+                space.is_true(space.isinstance(w_self.dict_w['__module__'],
+                                               space.w_str))):
+                return w_self.dict_w['__module__']
             return space.wrap('__builtin__')
 
     def add_subclass(w_self, w_subclass):
