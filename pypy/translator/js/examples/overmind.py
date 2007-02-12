@@ -3,6 +3,8 @@
 run them when needed
 """
 
+import autopath
+
 from pypy.translator.js.lib import server
 from pypy.translator.js.lib.support import callback
 from pypy.rpython.extfunc import _callable
