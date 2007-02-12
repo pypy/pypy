@@ -1,3 +1,5 @@
+import py
+
 try:
     import thread
 except ImportError:
