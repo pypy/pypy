@@ -78,12 +78,14 @@ class TinyObjSpace(object):
                 py.test.skip("cannot runappdirect this test on top of CPython")
             has = sys.pypy_translation_info.get(key, None)
             if has != value:
-                print sys.pypy_translation_info
+                #print sys.pypy_translation_info
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
     def appexec(self, args, body):
-        src = py.code.Source("def anonymous" + body.lstrip())
+        body = body.lstrip()
+        assert body.startswith('(')
+        src = py.code.Source("def anonymous" + body)
         d = {}
         exec src.compile() in d
         return d['anonymous'](*args)
@@ -99,6 +101,10 @@ class TinyObjSpace(object):
 
     def newdict(self):
         return {}
+
+def translation_test_so_skip_if_appdirect():
+    if option.runappdirect:
+        py.test.skip("translation test, skipped for appdirect")
 
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):

@@ -2,6 +2,7 @@
 testing cloning
 """
 
+from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
 from pypy.translator.c import gc
 from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.memory.test import test_transformed_gc

@@ -1,9 +1,5 @@
-import py
-
-try:
-    import thread
-except ImportError:
-    py.test.skip("Threads not supported")
+from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
+import thread
 import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
 from pypy.module.thread.rpython.ll_thread import *
 from pypy.annotation.annrpython import RPythonAnnotator
