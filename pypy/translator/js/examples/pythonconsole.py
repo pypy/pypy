@@ -35,6 +35,8 @@ HTML_PAGE = """
 </head>
 <body onload="setup_page()">
 <h3>Console</h3>
+<p>Note that a default timeout for the console is 5 minutes, after that time
+console just dies and stops responding</p>
 
     <pre id="data"></pre>
 
