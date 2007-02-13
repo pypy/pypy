@@ -40,6 +40,22 @@ class AppTestFile(object):
         finally:
             f.close()
 
+    def test_readlines(self):
+        import _file
+        f = _file.file(self.temppath, "w")
+        try:
+            f.write("foo\nbar\n")
+        finally:
+            f.close()
+        f = _file.file(self.temppath, "r")
+        raises(TypeError, f.readlines, None)
+        try:
+            s = f.readlines()
+            assert s == ["foo\n", "bar\n"]
+        finally:
+            f.close()
+
+
     def test_fdopen(self):
         import _file, os
         f = _file.file(self.temppath, "w")

@@ -131,6 +131,8 @@ The optional size argument, if given, is an approximate bound on the
 total number of bytes in the lines returned."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
+        if not isinstance(size, (int, long)):
+            raise TypeError("an integer is required")
         if size < 0:
             return list(iter(self.stream.readline, ""))
         else:
