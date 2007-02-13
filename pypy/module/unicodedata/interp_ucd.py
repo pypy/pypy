@@ -50,7 +50,7 @@ class UCD(Wrappable):
         
     def lookup(self, space, name):
         try:
-            code = self._lookup(name)
+            code = self._lookup(name.upper())
         except KeyError:
             msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
             raise OperationError(space.w_KeyError, msg)
