@@ -514,6 +514,9 @@ class AppTestW_ListObject:
         l = []
         l[:-3] = []
         assert l == []
+        l = range(6)
+        l[:] = []
+        assert l == []
 
     def test_recursive_repr(self):
         l = []
