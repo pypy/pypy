@@ -68,10 +68,6 @@ def range(space, w_x, w_y=None, w_step=1):
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
-    if (space.config.objspace.name == "std" and
-        (space.config.objspace.std.withmultilist or
-         space.config.objspace.std.withrangelist)):
-        return range_withspecialized_implementation(space, w_x, w_y, w_step)
     try:
         # save duplication by redirecting every error to applevel
         x = space.int_w(w_x)
@@ -81,15 +77,24 @@ get a list in decending order."""
             start, stop = x, space.int_w(w_y)
         step = space.int_w(w_step)
         howmany = get_len_of_range(start, stop, step)
-    except (OperationError, ValueError, OverflowError):
+    except OperationError, e:
+        if not e.match(space.w_TypeError):
+            raise
+    except (ValueError, OverflowError):
+        pass
         return range_fallback(space, w_x, w_y, w_step)
-
-    res_w = [None] * howmany
-    v = start
-    for idx in range(howmany):
-        res_w[idx] = space.wrap(v)
-        v += step
-    return space.newlist(res_w)
+    else:
+        if (space.config.objspace.name == "std" and
+            (space.config.objspace.std.withmultilist or
+             space.config.objspace.std.withrangelist)):
+            return range_withspecialized_implementation(space, start,
+                                                        step, howmany)
+        res_w = [None] * howmany
+        v = start
+        for idx in range(howmany):
+            res_w[idx] = space.wrap(v)
+            v += step
+        return space.newlist(res_w)
 range_int = range
 range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 del range # don't hide the builtin one
@@ -97,18 +102,7 @@ del range # don't hide the builtin one
 range_fallback = applevel(getsource(app_range), getfile(app_range)
                           ).interphook('range')
 
-def range_withspecialized_implementation(space, w_x, w_y, w_step):
-    # XXX object space dependant
-    try:
-        x = space.int_w(w_x)
-        if space.is_w(w_y, space.w_None):
-            start, stop = 0, x
-        else:
-            start, stop = x, space.int_w(w_y)
-        step = space.int_w(w_step)
-        howmany = get_len_of_range(start, stop, step)
-    except (OperationError, ValueError, OverflowError):
-        return range_fallback(space, w_x, w_y, w_step)
+def range_withspecialized_implementation(space, start, step, howmany):
     if space.config.objspace.std.withrangelist:
         from pypy.objspace.std.rangeobject import W_RangeListObject
         return W_RangeListObject(start, step, howmany)
