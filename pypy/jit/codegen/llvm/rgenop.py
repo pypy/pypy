@@ -726,8 +726,10 @@ class Builder(GenBuilder):
                 gv_fn.operand2(), inttoptr, i32, gv_fnptr.operand2(), gv_fn.type))
             funcsig = gv_fn.operand()
         else:
-            #XXX we probably need to call an address directly if we can't resolve the funcsig
-            funcsig = self.rgenop.funcsig[gv_fnptr.get_integer_value()]
+            try:
+                funcsig = self.rgenop.funcsig[gv_fnptr.get_integer_value()]
+            except KeyError:
+                py.test.skip('call an address directly not supported yet')
         args_gv2 = []
         for v in args_gv:
             if v.is_const and v.type[-1] == '*': #or use some kind of 'inline' cast (see LangRef)
