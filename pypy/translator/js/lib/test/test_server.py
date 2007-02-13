@@ -18,6 +18,7 @@ def test_basic_startup():
     httpd = server.HTTPServer(('127.0.0.1', 21210), Handler)
     thread.start_new_thread(httpd.serve_forever, ())
     assert URLopener().open("http://127.0.0.1:21210/index").read() == "xxx"
+    assert URLopener().open("http://127.0.0.1:21210/").read() == "xxx"
 
 def test_own_startup():
     httpd = server.create_server(server_address=('127.0.0.1', 21211),

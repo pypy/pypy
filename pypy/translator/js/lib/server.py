@@ -55,6 +55,8 @@ class TestHandler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         path, args = parse_url(self.path)
+        if not path:
+            path = ["index"]
         name_path = path[0].replace(".", "_")
         if len(path) > 1:
             rest = os.path.sep.join(path[1:])
