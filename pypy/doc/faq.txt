@@ -212,7 +212,7 @@ of mixing types in arbitrary ways. RPython does not allow the usage of two
 different types in the same variable. In this respect (and in some others) it
 feels a bit like Java. Other features not allowed in RPython are the usage of
 special methods (``__XXX__``) except ``__init__`` and ``__del__`` and reflection
-capabilities (e.g. ``__dict__`` and ``__class__``).
+capabilities (e.g. ``__dict__``).
 
 Most existing standard library modules are not RPython, except for some
 functions in ``os``, ``math`` and ``time``. In general it is quite unlikely that
