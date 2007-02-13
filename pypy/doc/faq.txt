@@ -178,17 +178,24 @@ heavily.  To read more about RPython limitations read `RPython description`_
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
---------------------------------------------------------------------
-What do you mean by "being RPython always applies to a full program?
---------------------------------------------------------------------
 
-XXX
+--------------------------------------------------------------------------
+What do you mean by "full program"? All the code in all the modules I use?
+--------------------------------------------------------------------------
 
------------------------------------------
-What does a "NOT_RPYTHON" docstring mean?
------------------------------------------
+"Full program" in the context of "being RPython" is all the code reachable from
+an "entry point" function. The translation toolchain follows all calls
+recursively and discovers what belongs to the program and what not.
 
-XXX
+------------------------------------------------------
+What's the ``"NOT_RPYTHON"`` I see in some docstrings?
+------------------------------------------------------
+
+If you put "NOT_RPYTHON" into the docstring of a function and that function is
+found while trying to translate an RPython program, the translation process
+stops and reports this as an error. You can therefore mark functions as
+"NOT_RPYTHON" to make sure that they are never analyzed.
+
 
 -------------------------------------------------------------------
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
