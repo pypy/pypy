@@ -1,13 +1,13 @@
-from pypy.objspace.std import StdObjSpace
-from pypy.interpreter.error import OperationError
-from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
+import sys
 import py
-import socket, sys
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['rsocket'])
+    global socket
+    import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
+    from pypy.tool.udir import udir
     mod.path = udir.join('fd')
     mod.path.write('fo')
     mod.raises = py.test.raises # make raises available from app-level tests
