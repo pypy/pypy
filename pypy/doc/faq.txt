@@ -14,14 +14,6 @@ What is PyPy?
 
 XXX
 
------------------------------------------
-Is PyPy a drop in replacement of CPython?
------------------------------------------
-
-No. It's more. For a list of new, unique, features see next questions.
-For using it as an interpreter for existing projects, one of the
-example problems is limited thread support.
-
 ------------------------------------------------------
 Why a new implementation of Python?  What does it add?
 ------------------------------------------------------
@@ -37,6 +29,16 @@ parts. For example compiler toolchain is a relatively mature part,
 which is known of running several other projects (see: XXX).
 
 XXX finish that one
+
+-----------------------------------------
+Is PyPy a drop in replacement of CPython?
+-----------------------------------------
+
+Not completely yet. There are various areas where PyPy is lacking, such as
+threading_ and `extension modules`_. The language features (including built in
+types and functions) are very complete and well tested, though. That means that
+projects not using many extension modules can probably directly use PyPy. A
+project using extension modules might get some problems, though.
 
 ------------------------------
 On what platforms does it run?
@@ -63,6 +65,8 @@ features (such as decorators) but not the 2.5 features (with statement, ternary
 operators).  The 2.5 features will probably be eventually suported, the most
 important reasons why nobody is working on them is that we did not promise this
 to the EU and have currently enough other tasks.
+
+.. _threading:
 
 -------------------------------------------------
 Do threads work?  What are the modules that work?
@@ -92,12 +96,15 @@ list:
 
 .. _`stackless-like microthreads`: stackless.html
 
+
+.. _`extension modules`:
+
 ------------------------------------
 Can I use CPython extension modules?
 ------------------------------------
 
-No and there are no current plans to implement so. CPython extension modules
-relies heavily on CPython's C API which contains a lot of implementation details
+No and there are no current plans to support this. CPython extension modules
+rely heavily on CPython's C API which contains a lot of implementation details
 like reference counting, exact C-level objects implementations etc.
 
 Although if your module uses ctypes rather than C-level code, there is a hope.
