@@ -172,7 +172,12 @@ def access(space, path, mode):
     specified access to the path.  The mode argument can be F_OK to test
     existence, or the inclusive-OR of R_OK, W_OK, and X_OK.
     """
-    return space.wrap(os.access(path, mode))
+    try:
+        ok = os.access(path, mode)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    else:
+        return space.wrap(ok)
 access.unwrap_spec = [ObjSpace, str, int]
 
 def system(space, cmd):
@@ -397,11 +402,17 @@ def readlink(space, path):
 readlink.unwrap_spec = [ObjSpace, str]
 
 def fork(space):
-    pid = os.fork()
+    try:
+        pid = os.fork()
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
     return space.wrap(pid)
 
 def waitpid(space, pid, options):
-    pid, status = os.waitpid(pid, options)
+    try:
+        pid, status = os.waitpid(pid, options)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
     return space.newtuple([space.wrap(pid), space.wrap(status)])
 waitpid.unwrap_spec = [ObjSpace, int, int]
 
