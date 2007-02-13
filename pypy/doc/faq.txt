@@ -8,13 +8,19 @@ Frequently Asked Questions
 General
 ========================================================================
 
+-------------
+What is PyPy?
+-------------
+
+XXX
+
 -----------------------------------------
 Is PyPy a drop in replacement of CPython?
 -----------------------------------------
 
 No. It's more. For a list of new, unique, features see next questions.
-One of the example problems is limited thread support, while PyPy has
-perfectly working so called "green threads"
+For using it as an interpreter for existing projects, one of the
+example problems is limited thread support.
 
 ------------------------------------------------------
 Why a new implementation of Python?  What does it add?
