@@ -6,9 +6,9 @@ Garbage Collection in PyPy
 .. sectnum::
 
 
-**Warning**: The that was in this document was incomplete and outdated. A much
-more up-to-date view of garbage collection in PyPy can be found in the
-`EU-report on this topic`_.
+**Warning**: The text that was in this document was incomplete and
+outdated. A much more up-to-date view of garbage collection in PyPy
+can be found in the `EU-report on this topic`_.
 
 .. _`EU-report on this topic`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
