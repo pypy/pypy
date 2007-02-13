@@ -2,6 +2,9 @@ import py
 
 import os
 
+from pypy.tool.pytest.modcheck import skipimporterror
+skipimporterror("ctypes")
+
 from pypy.rpython.lltypesystem.module.ll_os_path import Implementation as impl
 from pypy.rpython.module.support import ll_strcpy
 from pypy.rpython.test.test_llinterp import interpret
