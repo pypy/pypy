@@ -8,6 +8,14 @@ Frequently Asked Questions
 General
 ========================================================================
 
+-----------------------------------------
+Is PyPy a drop in replacement of CPython?
+-----------------------------------------
+
+No. It's more. For a list of new, unique, features see next questions.
+One of the example problems is limited thread support, while PyPy has
+perfectly working so called "green threads"
+
 ------------------------------------------------------
 Why a new implementation of Python?  What does it add?
 ------------------------------------------------------
@@ -18,7 +26,11 @@ XXX
 What is the status of the project?  Can it be used in practice yet?
 -------------------------------------------------------------------
 
-XXX
+PyPy is a very broad project with varying level of a completion among
+parts. For example compiler toolchain is a relatively mature part,
+which is known of running several other projects (see: XXX).
+
+XXX finish that one
 
 ------------------------------
 On what platforms does it run?
@@ -165,6 +177,18 @@ an existing Python program is by chance RPython, mostly it has to be rewritten
 heavily.  To read more about RPython limitations read `RPython description`_
 
 .. _`RPython description`: coding-guide.html#restricted-python
+
+--------------------------------------------------------------------
+What do you mean by "being RPython always applies to a full program?
+--------------------------------------------------------------------
+
+XXX
+
+-----------------------------------------
+What does a "NOT_RPYTHON" docstring mean?
+-----------------------------------------
+
+XXX
 
 -------------------------------------------------------------------
 Couldn't we simply take a Python syntax tree and turn it into Lisp?
