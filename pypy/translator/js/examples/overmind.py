@@ -15,7 +15,7 @@ import os
 import py
 
 FUNCTION_LIST = ['launch_console']
-TIMEOUT = 10
+TIMEOUT = 300
 pids = []
 
 def launch_console_in_new_thread():
