@@ -116,3 +116,21 @@ class AppTestFile(object):
         assert res == "hello\n"
         assert type(res) is str
         f.close()
+
+
+def test_flush_at_exit():
+    from pypy import conftest
+    from pypy.tool.option import make_config, make_objspace
+    from pypy.tool.udir import udir
+
+    tmpfile = udir.join('test_flush_at_exit')
+    config = make_config(conftest.option)
+    space = make_objspace(config)
+    space.appexec([space.wrap(str(tmpfile))], """(tmpfile):
+        f = open(tmpfile, 'w')
+        f.write('42')
+        # no flush() and no close()
+        import sys; sys._keepalivesomewhereobscure = f
+    """)
+    space.finish()
+    assert tmpfile.read() == '42'

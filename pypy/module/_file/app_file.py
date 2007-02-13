@@ -1,5 +1,9 @@
 """NOT_RPYTHON"""
 
+import sys
+import _file
+
+
 class file(object):
     """file(name[, mode[, buffering]]) -> file object
 
@@ -22,32 +26,29 @@ Note:  open() is an alias for file().
     _closed = True   # Until the file is successfully opened
 
     def __init__(self, name, mode='r', buffering=-1):
-        import _file
-        self._name = name
-        self.softspace = 0    # Required according to file object docs
-        self.encoding = None  # This is not used internally by file objects
-        self._closed = False
-        self.stream = _file.open_file_as_stream(self._name, mode, buffering)
-        self._mode = mode
-        self.fd = self.stream.try_to_find_file_descriptor()
-        assert self.fd != -1
-        
+        stream = _file.open_file_as_stream(name, mode, buffering)
+        fd = stream.try_to_find_file_descriptor()
+        assert fd != -1
+        self._fdopenstream(fd, mode, buffering, name, stream)
+
     def fdopen(cls, fd, mode='r', buffering=-1):
         f = cls.__new__(cls)
-        f._fdopen(fd, mode, buffering, '<fdopen>')
+        stream = _file.fdopen_as_stream(fd, mode, buffering)
+        f._fdopenstream(fd, mode, buffering, '<fdopen>', stream)
         return f
     fdopen = classmethod(fdopen)
 
-    def _fdopen(self, fd, mode, buffering, name):
-        import _file
+    def _fdopenstream(self, fd, mode, buffering, name, stream):
         self.fd = fd
         self._name = name
         self.softspace = 0    # Required according to file object docs
         self.encoding = None  # This is not used internally by file objects
         self._closed = False
-        self.stream = _file.fdopen_as_stream(fd, mode, buffering)
+        self.stream = stream
         self._mode = mode
-        
+        if stream.flushable():
+            sys.pypy__exithandlers__[stream] = stream.flush
+
     def getnewlines(self):
         "end-of-line convention used in this file"
 
@@ -227,6 +228,7 @@ error.  Some kinds of file objects (for example, opened by popen())
 may return an exit status upon closing."""
         if not self._closed and hasattr(self, 'stream'):
             self._closed = True
+            sys.pypy__exithandlers__.pop(self.stream, None)
             self.stream.close()
 
     __del__ = close

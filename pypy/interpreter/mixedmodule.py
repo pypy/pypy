@@ -216,10 +216,10 @@ def testmodule(name, basepath='pypy.module'):
     else:
         appname = name
     mod = Module(space, space.wrap(appname))
-    moddict = space.unwrap(mod.getdict())
     res = new.module(appname)
-    res.__dict__.update(moddict)
     sys.modules[appname] = res
+    moddict = space.unwrap(mod.getdict())
+    res.__dict__.update(moddict)
     return res
 
 def compilemodule(name, interactive=False):

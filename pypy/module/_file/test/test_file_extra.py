@@ -1,4 +1,4 @@
-import os, random
+import os, random, sys
 from pypy.tool.udir import udir
 import py
 from pypy.interpreter.mixedmodule import testmodule
@@ -14,6 +14,9 @@ for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
 def setup_module(mod):
     mod._file = testmodule("_file")
     udir.join('sample').write(SAMPLE)
+    # workaround for testing _file on top of CPython
+    if not hasattr(sys, 'pypy_objspaceclass'):
+        sys.pypy__exithandlers__ = {}
 
 
 class BaseROTests:

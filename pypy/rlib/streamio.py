@@ -4,7 +4,8 @@ Based on sio.py from Guido van Rossum.
 
 - This module contains various stream classes which provide a subset of the
   classic Python I/O API: read(n), write(s), tell(), seek(offset, whence=0),
-  readall(), readline(), truncate(size), flush(), close(), peek().
+  readall(), readline(), truncate(size), flush(), close(), peek(),
+  flushable(), try_to_find_file_descriptor().
 
 - This is not for general usage:
   * read(n) may return less than n bytes, just like os.read().
@@ -13,6 +14,7 @@ Based on sio.py from Guido van Rossum.
     there is no __del__() closing the stream for you.
   * some methods may raise NotImplementedError.
   * peek() returns some (or no) characters that have already been read ahead.
+  * flushable() returns True/False if flushing that stream is useful/pointless.
 
 - A 'basis stream' provides I/O using a low-level API, like the os, mmap or
   socket modules.
@@ -197,6 +199,9 @@ class Stream(object):
     def flush(self):
         pass
 
+    def flushable(self):
+        return False
+
     def close(self):
         pass
 
@@ -338,6 +343,10 @@ class MMapFile(Stream):
     def flush(self):
         self.mm.flush()
 
+    def flushable(self):
+        import mmap
+        return self.access == mmap.ACCESS_WRITE
+
     def try_to_find_file_descriptor(self):
         return self.fd
 
@@ -352,6 +361,7 @@ STREAM_METHODS = dict([
     ("readline", []),
     ("truncate", [int]),
     ("flush", []),
+    ("flushable", []),
     ("close", []),
     ("peek", []),
     ("try_to_find_file_descriptor", []),
@@ -613,10 +623,10 @@ class BufferingInputStream(Stream):
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
+    flushable  = PassThrough("flushable", flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 
 class BufferingOutputStream(Stream):
@@ -669,9 +679,11 @@ class BufferingOutputStream(Stream):
     truncate   = PassThrough("truncate", flush_buffers=True)
     flush      = PassThrough("flush",    flush_buffers=True)
     close      = PassThrough("close",    flush_buffers=True)
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    def flushable(self):
+        return True
 
 
 class LineBufferingOutputStream(BufferingOutputStream):
@@ -687,9 +699,6 @@ class LineBufferingOutputStream(BufferingOutputStream):
         if p >= 0:
             self.do_write(self.buf[:p])
             self.buf = self.buf[p:]
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
 
 
 # ____________________________________________________________
@@ -720,10 +729,10 @@ class CRLFFilter(Stream):
         return data
 
     flush    = PassThrough("flush", flush_buffers=False)
+    flushable= PassThrough("flushable", flush_buffers=False)
     close    = PassThrough("close", flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 class TextInputFilter(Stream):
 
@@ -853,10 +862,10 @@ class TextInputFilter(Stream):
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
+    flushable  = PassThrough("flushable", flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 
 class TextOutputFilter(Stream):
@@ -879,10 +888,10 @@ class TextOutputFilter(Stream):
     readline   = PassThrough("readline",  flush_buffers=False)
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
+    flushable  = PassThrough("flushable", flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 
 # _________________________________________________
@@ -930,10 +939,10 @@ class DecodingInputFilter(Stream):
     write      = PassThrough("write",     flush_buffers=False)
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
+    flushable  = PassThrough("flushable", flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
 
 class EncodingOutputFilter(Stream):
 
@@ -958,8 +967,7 @@ class EncodingOutputFilter(Stream):
     readline   = PassThrough("readline",  flush_buffers=False)
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
+    flushable  = PassThrough("flushable", flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
-
-    def try_to_find_file_descriptor(self):
-        return self.base.try_to_find_file_descriptor()
-
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)

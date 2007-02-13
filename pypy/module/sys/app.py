@@ -26,6 +26,8 @@ exit status will be one (i.e., failure)."""
 def exitfunc():
     """Placeholder for sys.exitfunc(), which is called when PyPy exits."""
 
+pypy__exithandlers__ = {}
+
 #import __builtin__
 
 def getfilesystemencoding():
