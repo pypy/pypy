@@ -45,8 +45,8 @@ class Code(Wrappable):
             argcount += 1
         return argcount
 
-    def getdocstring(self):
-        return None
+    def getdocstring(self, space):
+        return space.w_None
 
     def funcrun(self, func, args):
         frame = func.space.createframe(self, func.w_func_globals,

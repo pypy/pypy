@@ -523,7 +523,7 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
     return space.wrap(flags)
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
-    w_docstring = space.wrap(code.getdocstring())
+    w_docstring = code.getdocstring(space)
     return space.newtuple([w_docstring])
 
 weakref_descr = GetSetProperty(descr_get_weakref)

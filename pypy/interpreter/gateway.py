@@ -441,8 +441,8 @@ class BuiltinCode(eval.Code):
     def signature(self):
         return self.sig
 
-    def getdocstring(self):
-        return self.docstring
+    def getdocstring(self, space):
+        return space.wrap(self.docstring)
 
     def funcrun(self, func, args):
         space = func.space

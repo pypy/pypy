@@ -185,6 +185,12 @@ class BaseTestCompiler:
         ex.normalize_exception(self.space)
         assert ex.match(self.space, self.space.w_UnicodeError)
 
+    def test_unicode_docstring(self):
+        space = self.space
+        code = self.compiler.compile('u"hello"\n', '<hello>', 'exec', 0)
+        assert space.eq_w(code.co_consts_w[0], space.wrap("hello"))
+        assert space.is_w(space.type(code.co_consts_w[0]), space.w_unicode)
+
     def test_argument_handling(self):
         for expr in 'lambda a,a:0', 'lambda a,a=1:0', 'lambda a=1,a=1:0':
             e = py.test.raises(OperationError, self.eval_string, expr)

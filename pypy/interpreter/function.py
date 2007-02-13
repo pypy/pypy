@@ -19,7 +19,7 @@ class Function(Wrappable):
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None, forcename=None):
         self.space = space
         self.name = forcename or code.co_name
-        self.w_doc = None   # lazily read and wrapped from code.getdocstring()
+        self.w_doc = None   # lazily read from code.getdocstring()
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
@@ -232,7 +232,7 @@ class Function(Wrappable):
 
     def fget_func_doc(space, self):
         if self.w_doc is None:
-            self.w_doc = space.wrap(self.code.getdocstring())
+            self.w_doc = self.code.getdocstring(space)
         return self.w_doc
 
     def fset_func_doc(space, self, w_doc):

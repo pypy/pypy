@@ -352,7 +352,7 @@ def get_docstring(builder,stmt):
         first_child = stmt.nodes[0]
         if isinstance(first_child, ast.Discard):
             expr = first_child.expr
-            if builder.is_string_const(expr):
+            if builder.is_basestring_const(expr):
                 # This *is* a docstring, remove it from stmt list
                 assert isinstance(expr, ast.Const)
                 del stmt.nodes[0]
@@ -1798,11 +1798,11 @@ class AstBuilder(BaseGrammarBuilder):
             f = space.builtin.get('float')
             return space.call_function(f, space.wrap(value))
 
-    def is_string_const(self, expr):
+    def is_basestring_const(self, expr):
         if not isinstance(expr,ast.Const):
             return False
         space = self.space
-        return space.is_true(space.isinstance(expr.value,space.w_str))
+        return space.is_true(space.isinstance(expr.value,space.w_basestring))
 
     def wrap_string(self, obj):
         if self.space:

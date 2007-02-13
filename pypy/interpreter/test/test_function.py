@@ -169,6 +169,12 @@ class AppTestFunction:
         raises(TypeError, len, s, some_unknown_keyword=s)
         raises(TypeError, len, s, s, some_unknown_keyword=s)
 
+    def test_unicode_docstring(self):
+        def f():
+            u"hi"
+        assert f.__doc__ == u"hi"
+        assert type(f.__doc__) is unicode
+
 class AppTestMethod: 
     def test_get(self):
         def func(self): return self

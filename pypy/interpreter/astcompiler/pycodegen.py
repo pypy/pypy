@@ -302,6 +302,7 @@ class CodeGenerator(ast.ASTVisitor):
         self.scope = node.scope
         self.emitop_int('SET_LINENO', 0)
         if not space.is_w(node.w_doc, space.w_None):
+            self.setDocstring(node.w_doc)
             self.set_lineno(node)
             self.emitop_obj('LOAD_CONST', node.w_doc)
             self.storeName('__doc__', node.lineno)

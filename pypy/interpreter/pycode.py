@@ -228,15 +228,11 @@ class PyCode(eval.Code):
     def getvarnames(self):
         return self.co_varnames
 
-    def getdocstring(self):
+    def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
-            const0_w = self.co_consts_w[0]
-            if const0_w is self.space.w_None:
-                return None
-            else:
-                return self.space.str_w(const0_w)
+            return self.co_consts_w[0]
         else:
-            return None
+            return space.w_None
 
     def getjoinpoints(self):
         """Compute the bytecode positions that are potential join points
