@@ -733,15 +733,12 @@ worked on sharing the backend external code with GenC.
 The Object-Oriented Backends
 ----------------------------
 
-All of the OO backends are less mature than the C or LLVM backends.
-None can compile all of PyPy yet, but all can compile small examples.
+The Object-Oriented backends target platforms that are less C-like and support
+classes, instance etc. If such a platform is targetted, the `OO type system` is
+used while rtyping. Of the OO backends, currently only genclr can translate the
+full PyPy, but the Java backend is getting close.
 
-As they are newer than the low-level backends, we can predict the needs of
-these backends slightly better, and this is enabling them to share significant
-amounts of code, such as the equivalent of the low-level database (XXX
-details).
-
-LoopFinder?
+.. _`oo type system`: rtyper.html#oo-type
 
 .. mention that pretty much all these backends are done by volunteers?
 
