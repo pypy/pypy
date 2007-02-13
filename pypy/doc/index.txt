@@ -74,7 +74,7 @@ PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
 
 `Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM (PowerPC machine).
 
-Nightly compliance test runs for compiled pypy-c: `all working ext-modules with threads build`_, `all working ext-modules stackless build`_.
+`Nightly compliance test runs for compiled pypy-c`_.
 
 `compliance test status`_ shows outcomes of compliance test runs
 against PyPy on top of CPython.
@@ -130,8 +130,7 @@ from our Python interpreter.
 .. _`sprint reports`: sprint-reports.html
 .. _`talks and related projects`: extradoc.html
 .. _`license`: ../../LICENSE
-.. _`all working ext-modules with threads build`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
-.. _`all working ext-modules stackless build`: http://www2.openend.se/~pedronis/pypy-c-test/slp/summary.html
+.. _`Nightly compliance test runs for compiled pypy-c`: http://www.strakt.com/~pedronis/pypy-c-test/
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`object spaces`: objspace.html 
