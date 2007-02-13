@@ -1543,6 +1543,16 @@ class BaseTestRPBC(BaseRtypingTest):
         assert self.ll_to_string(item0) == "hello"
         assert item1 == 623
 
+class TestLLtype(BaseTestRPBC, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestRPBC, OORtypeMixin):
+    pass
+
+# ____________________________________________________________
+
+class BaseTestRPBCExtra(BaseRtypingTest):
+    
     def test_folding_specialize_support(self):
 
         class S(object):
@@ -1594,11 +1604,11 @@ class BaseTestRPBC(BaseRtypingTest):
         assert res == 12
         res = self.interpret(f, [3, 5555], policy=p)
         assert res == 4
-        
-class TestLLtype(BaseTestRPBC, LLRtypeMixin):
+            
+class TestExtraLLtype(BaseTestRPBCExtra, LLRtypeMixin):
     pass
 
-class TestOOtype(BaseTestRPBC, OORtypeMixin):
+class TestExtraOOtype(BaseTestRPBCExtra, OORtypeMixin):
     pass
 
 # ____________________________________________________________
