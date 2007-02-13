@@ -52,16 +52,18 @@ class AppTestRange:
        assert range (-1, -12, -3) == [-1, -4, -7, -10]
 
    def test_range_decreasing_negativelargestep(self):
-      assert range(5, -2, -3) == [5, 2, -1]
+       assert range(5, -2, -3) == [5, 2, -1]
 
    def test_range_increasing_positivelargestep(self):
-      assert range(-5, 2, 3) == [-5, -2, 1]
+       assert range(-5, 2, 3) == [-5, -2, 1]
 
    def test_range_zerostep(self):
-      raises(ValueError, range, 1, 5, 0)
+       raises(ValueError, range, 1, 5, 0)
 
-"""
-   def test_range_float(self):
-      "How CPython does it - UGLY, ignored for now."
-      assert range(0.1, 2.0, 1.1) == [0, 1]
-      """
+   def DONT_test_range_float(self):
+       "How CPython does it - UGLY, ignored for now."
+       assert range(0.1, 2.0, 1.1) == [0, 1]
+
+   def test_range_wrong_type(self):
+       raises(TypeError, range, "42")
+

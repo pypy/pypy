@@ -78,11 +78,12 @@ get a list in decending order."""
         step = space.int_w(w_step)
         howmany = get_len_of_range(start, stop, step)
     except OperationError, e:
-        if not e.match(space.w_TypeError):
+        if not e.match(space, space.w_TypeError):
+            pass
+        else:
             raise
     except (ValueError, OverflowError):
         pass
-        return range_fallback(space, w_x, w_y, w_step)
     else:
         if (space.config.objspace.name == "std" and
             (space.config.objspace.std.withmultilist or
@@ -95,6 +96,7 @@ get a list in decending order."""
             res_w[idx] = space.wrap(v)
             v += step
         return space.newlist(res_w)
+    return range_fallback(space, w_x, w_y, w_step)
 range_int = range
 range_int.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 del range # don't hide the builtin one
