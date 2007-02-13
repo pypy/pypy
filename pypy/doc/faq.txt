@@ -129,10 +129,13 @@ I am getting strange errors while playing with PyPy, what should I do?
 
 It seems that a lot of strange, unexplainable problems can be magically
 solved by removing all the \*.pyc files from the PyPy source tree
-(script py.cleanup from py/bin will do that for you).
-Another thing you can do is removing the pypy/_cache
+(the script `py.cleanup`_ from py/bin will do that for you).
+Another thing you can do is removing the directory pypy/_cache
 completely. If the error is persistent and still annoys you after this
 treatment please send us a bug report (or even better, a fix :-)
+
+.. _`py.cleanup`: http://codespeak.net/py/current/doc/bin.html
+
 
 PyPy translation tool chain
 ========================================================================
@@ -141,15 +144,25 @@ PyPy translation tool chain
 What is this RPython language?
 ------------------------------
 
-RPython is a way of interpreting your python program, running already.
-This means that term *RPython* is about some part of your program,
-beggining from your entry point (function which you explicitely 
-specify) to whatever is called from that point, also across modules.
+RPython is a restricted subset of the Python language. The restrictions are to
+ensure that type inference (and eventually translation to other languages) of
+the program is possible. These restrictions only apply after the full import
+happened, so at import time arbitrary Python code can be executed. Another
+important point is that the property of "being RPython" always applies to a full
+program, not to single functions or modules (the translation tool chain does a
+full program analysis).
 
-It's a subset of Python which allows full type inference (ie. you can
-deduct at compile time what are arguments of certain function),
-which puts it a bit closer to C++ or Java. To read more about RPython
-limitations read `RPython description`_
+The restrictions that apply to programs to be RPython mostly limit the ability
+of mixing types in arbitrary ways. RPython does not allow the usage of two
+different types in the same variable. In this respect (and in some others) it
+feels a bit like Java. Other features not allowed in RPython are the usage of
+special methods (``__XXX__``) except ``__init__`` and ``__del__`` and reflection
+capabilities (e.g. ``__dict__`` and ``__class__``).
+
+Most existing standard library modules are not RPython, except for some
+functions in ``os``, ``math`` and ``time``. In general it is quite unlikely that
+an existing Python program is by chance RPython, mostly it has to be rewritten
+heavily.  To read more about RPython limitations read `RPython description`_
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
