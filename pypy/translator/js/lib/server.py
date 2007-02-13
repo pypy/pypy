@@ -118,7 +118,7 @@ class Static(object):
         return open(self.path).read()
 
 def create_server(server_address = ('', 8000), handler=TestHandler,
-                 timeout=None, server=HTTPServer):
+                 server=HTTPServer):
     """ Parameters:
     spawn - create new thread and return (by default it doesn't return)
     fork - do a real fork
@@ -127,16 +127,6 @@ def create_server(server_address = ('', 8000), handler=TestHandler,
     """
     patch_handler(handler)
     httpd = server(server_address, handler)
-    if timeout:
-        def f(httpd):
-            while 1:
-                time.sleep(.3)
-                if time.time() - httpd.last_activity > timeout:
-                    httpd.server_close()
-                    import os
-                    os.kill(os.getpid(), 15)
-        import thread
-        thread.start_new_thread(f, (httpd,))
     httpd.last_activity = time.time()
     print "Server started, listening on %s:%s" %\
           (httpd.server_address[0],httpd.server_port)
@@ -146,10 +136,21 @@ def start_server_in_new_thread(server):
     import thread
     thread.start_new_thread(server.serve_forever, ())
 
-def start_server_in_new_process(server):
+def start_server_in_new_process(server, timeout=None):
     pid = os.fork()
     if not pid:
-        httpd.server_forever()
+        if timeout:
+            def f(httpd):
+                while 1:
+                    time.sleep(.3)
+                    if time.time() - httpd.last_activity > timeout:
+                        httpd.server_close()
+                        import os
+                        os.kill(os.getpid(), 15)
+            import thread
+            thread.start_new_thread(f, (server,))
+
+        server.serve_forever()
         os._exit(0)
     return pid
 

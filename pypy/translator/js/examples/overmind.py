@@ -15,20 +15,17 @@ import os
 import py
 
 FUNCTION_LIST = ['launch_console']
-TIMEOUT = 100
+TIMEOUT = 10
 pids = []
 
 def launch_console_in_new_thread():
     from pypy.translator.js.examples import pythonconsole
     httpd = server.create_server(server_address=('', 0),
-                        handler=pythonconsole.RequestHandler, timeout=TIMEOUT,
+                        handler=pythonconsole.RequestHandler,
                         server=pythonconsole.Server)
     port = httpd.server_port
-    pid = os.fork()
-    if not pid:
-        pythonconsole.httpd = httpd
-        httpd.serve_forever()
-        os._exit(0)
+    pythonconsole.httpd = httpd
+    pid = server.start_server_in_new_process(httpd, timeout=TIMEOUT)
     del httpd
     pids.append(pid)
     return port

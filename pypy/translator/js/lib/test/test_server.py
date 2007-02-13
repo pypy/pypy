@@ -54,4 +54,3 @@ def test_static_page_implicit():
     assert URLopener().open("http://127.0.0.1:21213/index").read() == \
            "<html></html>"
 
-    
