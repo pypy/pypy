@@ -161,6 +161,11 @@ class W_GenericState(W_State):
     def unwrap_object(self):
         # cannot unwrap in the general case
         space = self.space
+        # some type-checking
+        if (space.lookup(self.w_string, '__getitem__') is None or
+            space.lookup(self.w_string, 'keys') is not None):
+            msg = "string or sequence of characters expected"
+            raise OperationError(space.w_TypeError, space.wrap(msg))
         return space.int_w(space.len(self.w_string))
 
     def get_char_ord(self, p):

@@ -419,6 +419,17 @@ class AppTestMMap:
 #         m = mmap(self.f.fileno(), 6)
 #         assert m[-3:7] == "bar"
 # 
+
+    def test_sequence_type(self):
+        from mmap import mmap
+        f = open(self.tmpname + "x", "w+")
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        import operator
+        assert operator.isSequenceType(m)
+        assert not operator.isMappingType(m)
+
     def test_all(self):
         # this is a global test, ported from test_mmap.py
         import mmap

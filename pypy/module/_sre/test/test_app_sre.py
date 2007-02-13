@@ -229,6 +229,11 @@ class AppTestSreMatch:
                                           'braced': None,
                                           'invalid': ''}
 
+    def test_sub_typecheck(self):
+        import re
+        KEYCRE = re.compile(r"%\(([^)]*)\)s|.")
+        raises(TypeError, KEYCRE.sub, "hello", {"%(": 1})
+
 
 class AppTestSreScanner:
 
