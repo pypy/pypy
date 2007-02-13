@@ -1,0 +1,2 @@
+Use the 'gc' module. 
+This module is expected to be fully working and is included by default.
