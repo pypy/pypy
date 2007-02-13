@@ -214,10 +214,11 @@ feels a bit like Java. Other features not allowed in RPython are the usage of
 special methods (``__XXX__``) except ``__init__`` and ``__del__`` and reflection
 capabilities (e.g. ``__dict__``).
 
-Most existing standard library modules are not RPython, except for some
-functions in ``os``, ``math`` and ``time``. In general it is quite unlikely that
-an existing Python program is by chance RPython, mostly it has to be rewritten
-heavily.  To read more about RPython limitations read `RPython description`_
+Most existing standard library modules are not RPython, except for
+some functions in ``os``, ``math`` and ``time`` that are natively
+supported. In general it is quite unlikely that an existing Python
+program is by chance RPython, mostly it has to be rewritten heavily.
+To read more about RPython limitations read `RPython description`_
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
