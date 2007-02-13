@@ -131,6 +131,22 @@ than CPython. In later versions, we increased the speed. CPython was about
 Note that the speed heavily depends on the enabled options at compile time.
 
 
+-----------------------------------------------------------------------
+What is this talk about a JavaScript and a Prolog interpreter in PyPy?
+-----------------------------------------------------------------------
+
+Since a Python interpreter is a rather large and intricate thing, our toolsuite
+became quite advanced to support it. Therefore people had the idea of using it
+to implement interpreters for other dynamic languages than Python and get a lot
+of things for free (translation to various languages, stackless features,
+garbage collection, implementation of various things like arbitraryly long
+integers). Therefore people started to implement a `JavaScript interpreter`_
+(Leonardo Santagada as his Summer of PyPy project) and a `Prolog interpreter`_
+(Carl Friedrich Bolz as his Masters thesis). Both projects are undocumented and
+unfinished, at the moment (the Prolog interpreter being less unfinished).
+
+.. _`JavaScript interpreter`: ../../pypy/lang/js
+.. _`Prolog interpreter`: ../../pypy/lang/prolog
 
 
 Development
@@ -140,7 +156,21 @@ Development
 How do I get into PyPy development?  Can I come to sprints?
 -----------------------------------------------------------
 
-XXX
+Sure you can come to sprints! We always welcome newcomers and try to help them
+get started in the project as much as possible (e.g. by providing tutorials and
+pairing them with experienced PyPy developers). Newcomers should have some
+Python experience and read some of the PyPy documentation before coming to a
+sprint.
+
+Coming to a sprint is usually also the best way to get into PyPy development.
+If you want to start on your own, take a look at the list of `project
+suggestions`_. If you get stuck or need advice, `contact us`_. Usually IRC is
+the most immediate mean to get feedback (at least during some parts of the day,
+many PyPy developers are in Europe) and the mailing list is better for long
+discussions.
+
+.. _`project suggestions`: project-ideas.html
+.. _`contact us`: contact.html
 
 ----------------------------------
 Why so many levels of abstraction?
@@ -242,6 +272,10 @@ which parts of PyPy itself are written.  XXX
 Which backends are there?
 -------------------------
 
+Backends that can actually translate all of PyPy:
+
+ * C_, LLVM_, CLI_
+
 Somewhat mature backends:
 
 * Low level backends: C_, LLVM_
@@ -250,6 +284,7 @@ Somewhat mature backends:
 Partially implemented backends:
 
 * Squeak_, `Common Lisp`_
+
 
 To learn more about backends take a look at the `translation document`_
 
