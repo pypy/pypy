@@ -1,13 +1,8 @@
 
 import py
-
-try:
-    import ctypes
-except ImportError:
-    ctypes = None
+from pypy.tool.pytest.modcheck import skipimporterror
 
 class Directory(py.test.collect.Directory):
     def run(self):
-        if ctypes is None:
-            py.test.skip("no ctypes module available")
+        skipimporterror("ctypes")
         return super(Directory, self).run()
