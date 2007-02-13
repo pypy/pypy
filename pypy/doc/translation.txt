@@ -448,7 +448,10 @@ The Optional Transformations
 ============================
 
 Between RTyping and C source generation there are two optional transforms:
-the "backend optimizations" and the "stackless transform".
+the "backend optimizations" and the "stackless transform". See also
+`D07.1 Massive Parallelism and Translation Aspects`_ for further details.
+
+.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
 Backend Optimizations
 ---------------------
@@ -548,7 +551,7 @@ mallocs which "escape" the current function, e.g. have references to them
 stored into a place where they can be accessed by something outside of the
 stack of frames starting with the frame where the malloc occured.
 
-For this we choose a naive, pessimistic approach (XXX reference). The analysis
+For this we choose a naive, pessimistic approach. The analysis
 assumes that an object escapes if one of the following situation occurs:
 
   * the object is returned
@@ -576,8 +579,6 @@ use.
 
 The Stackless Transform
 -----------------------
-
-(this section is very incomplete currently)
 
 The stackless transform converts functions into a form that knows how
 to save the execution point and active variables into a heap structure
@@ -645,11 +646,6 @@ For a quite detailed description of how memory management and garbage collection
 are performed in PyPy, see the `EU report`_ about this topic (section 4.2).
 
 .. _`EU report`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
-
-Building the Low-Level Database
--------------------------------
-
-XXX
 
 .. _C:
 .. _GenC:
