@@ -308,11 +308,13 @@ This means that it is not sufficient to simply create a chain of Python
 frame objects in the heap of a process before we can resume execution of
 these newly built frames.  We must recreate a corresponding chain of
 interpreter-level frames.  To this end, we have inserted a few *named
-resume points* (see XXX) in the Python interpreter of PyPy.  This is the
+resume points* (see 3.2.4, in `D07.1 Massive Parallelism and Translation Aspects`_) in the Python interpreter of PyPy.  This is the
 motivation for implementing the interpreter-level primitives
 ``resume_state_create()`` and ``resume_state_invoke()``, the powerful
 interface that allows an RPython program to artifically rebuild a chain
 of calls in a reflective way, completely from scratch, and jump to it.
+
+.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
 Example
 ~~~~~~~
