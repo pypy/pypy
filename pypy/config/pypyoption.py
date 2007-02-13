@@ -103,7 +103,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    default=False, cmdline='--with-transparent-proxy'),
 
         BoolOption("withsmallint", "use tagged integers",
-                   default=False),
+                   default=False,
+                   requires=[("translation.gc", "boehm")]),
 
         BoolOption("withprebuiltint", "prebuilt commonly used int objects",
                    default=False,
