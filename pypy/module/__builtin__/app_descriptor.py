@@ -30,8 +30,6 @@ It can be called either on the class (e.g. C.f()) or on an instance
     def __get__(self, obj, objtype=None):
         return self._f
 
-staticmethod.__module__ = None
-
 
 class classmethod(object):
     """classmethod(function) -> class method
@@ -65,7 +63,6 @@ object is passed as the implied first argument."""
 def dummy(): pass
 MethodType = type(dummy.__get__(42))
 del dummy
-classmethod.__module__ = None
 
 # It's difficult to have a class that has both a docstring and a slot called
 # '__doc__', but not impossible...
@@ -145,7 +142,6 @@ class C(object):
         self.fdel(obj)
 
 docstring.capture(property, 'slot__doc__')
-property.__module__ = None
 
 
 # super is a modified version from Guido's tutorial
