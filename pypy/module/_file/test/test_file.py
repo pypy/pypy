@@ -105,3 +105,14 @@ class AppTestFile(object):
         res = f.read()
         assert res == "\n"
         assert f.newlines == "\r\n"
+
+    def test_unicode(self):
+        import _file, os
+        f = _file.file(self.temppath, "w")
+        f.write(u"hello\n")
+        f.close()
+        f = _file.file(self.temppath, "r")
+        res = f.read()
+        assert res == "hello\n"
+        assert type(res) is str
+        f.close()

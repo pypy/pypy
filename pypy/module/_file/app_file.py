@@ -152,8 +152,6 @@ Note that due to buffering, flush() or close() may be needed before
 the file on disk reflects the data written."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
-        if not isinstance(data, str):
-            raise TypeError('write() argument must be a string (for now)')
         return self.stream.write(data)
 
     def writelines(self, sequence_of_strings):
@@ -164,9 +162,6 @@ producing strings. This is equivalent to calling write() for each string."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         for line in sequence_of_strings:
-            if not isinstance(line, str):
-                raise TypeError('writelines() argument must be a list '
-                                'of strings')
             self.stream.write(line)
 
     def tell(self):
