@@ -922,7 +922,7 @@ def _setitem_slice_helper(space, w_list, w_slice, impl2):
                 i -= 1
         else:
             # shrinking requires the careful memory management of _del_slice()
-            _del_slice(w_list, start, start-delta)
+            impl = _del_slice(w_list, start, start-delta)
     elif len2 != slicelength:  # No resize for extended slices
         raise OperationError(space.w_ValueError, space.wrap("attempt to "
               "assign sequence of size %d to extended slice of size %d" %
@@ -1015,7 +1015,8 @@ def _del_slice(w_list, ilow, ihigh):
     # keep a reference to the objects to be removed,
     # preventing side effects during destruction
     recycle = impl.getitem_slice(ilow, ihigh)
-    w_list.implementation = impl.i_delitem_slice(ilow, ihigh)
+    newimpl = w_list.implementation = impl.i_delitem_slice(ilow, ihigh)
+    return newimpl
 
 
 def list_pop__ListMulti_ANY(space, w_list, w_idx=-1):
