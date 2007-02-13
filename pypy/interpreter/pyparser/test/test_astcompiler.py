@@ -152,16 +152,16 @@ def to_code( rcode, space ):
     return code
 
 def check_compile(expr, target='exec', quiet=False, space=None):
-    if expr == "k[v,]":
-        py.test.skip('bug of the reference "stable compiler"')
     if not quiet:
         print "Compiling:", expr
 
     if space is None:
         space = std_space
 
-    sc_code = compile_with_testcompiler(expr, target=target)
     ac_code = compile_with_astcompiler(expr, target=target, space=space)
+    if expr == "k[v,]" or expr.startswith('"'):  # module-level docstring
+        py.test.skip('comparison skipped, bug in "reference stable compiler"')
+    sc_code = compile_with_testcompiler(expr, target=target)
     compare_code(ac_code, sc_code, space=space)
 
 ## def check_compile( expr ):

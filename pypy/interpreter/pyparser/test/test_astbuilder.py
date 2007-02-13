@@ -670,6 +670,7 @@ TARGET_DICT = {
 class FakeSpace:
     w_None = None
     w_str = str
+    w_basestring = basestring
     w_int = int
     
     def wrap(self,obj):
