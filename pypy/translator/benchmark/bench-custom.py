@@ -35,16 +35,24 @@ def main(options, args):
 
     refs = {}
 
-    exes = full_pythons+exes
+    exes = full_pythons + exes
 
     for i in range(int(options.runcount)):
-        for exe in full_pythons+exes:
+        for exe in exes:
             for b in benchmarks:
                 benchmark_result.result(exe).run_benchmark(b, verbose=True)
 
-    stats = ['stat:st_mtime', 'exe_name', 'bench:richards', 'pypy_rev', 'bench:pystone']
+    pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
+
+    stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
+    for b in benchmarks:
+        stats.append('bench:'+b.name)
+    if options.relto:
+        relto = options.relto
+    else:
+        relto = full_pythons[0]
     for row in benchmark_result.txt_summary(stats,
-                                            relto=full_pythons[0],
+                                            relto=relto,
                                             filteron=lambda r: r.exe_name in exes):
         print row
 
@@ -62,6 +70,10 @@ if __name__ == '__main__':
     parser.add_option(
         '--runcount', dest='runcount',
         default='1',
+        )
+    parser.add_option(
+        '--relto', dest='relto',
+        default=None,
         )
     options, args = parser.parse_args(sys.argv[1:])
     main(options, args)

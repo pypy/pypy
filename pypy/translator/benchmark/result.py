@@ -84,8 +84,11 @@ class BenchmarkResult(object):
         if self.run_counts.get(benchmark.name, 0) > self.max_results:
             return
         if verbose:
-            print 'running', benchmark.name, 'for', self.exe_name
+            print 'running', benchmark.name, 'for', self.exe_name,
+            sys.stdout.flush()
         new_result = benchmark.run(self.exe_name)
+        if verbose:
+            print new_result
         self.benchmarks.setdefault(benchmark.name, []).append(new_result)
         if benchmark.name in self.best_benchmarks:
             old_result = self.best_benchmarks[benchmark.name]
@@ -124,10 +127,11 @@ class BenchmarkResult(object):
             return time.ctime(statvalue), -1
         elif stat == 'exe_name':
             return os.path.basename(statvalue), -1
-        elif stat == 'bench:richards':
-            return "%8.2f%s"%(statvalue, 'ms'), 1
-        elif stat == 'bench:pystone':
-            return "%8.2f"%(statvalue,), 1
+        elif stat.startswith('bench:'):
+            from pypy.translator.benchmark import benchmarks
+            statkind, statdetail = stat.split(':', 1)
+            b = benchmarks.BENCHMARKS_BY_NAME[statdetail]
+            return "%8.2f%s"%(statvalue, b.units), 1
         elif stat == 'pypy_rev':
             return str(statvalue), 1
         else:
