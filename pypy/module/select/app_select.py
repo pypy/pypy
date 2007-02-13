@@ -36,7 +36,7 @@ that are ready.
 *** IMPORTANT NOTICE ***
 On Windows, only sockets are supported; on Unix, all file descriptors.
 """
-    from select import poll, POLLIN, POLLOUT, POLLPRI
+    from select import poll, POLLIN, POLLOUT, POLLPRI, POLLERR, POLLHUP
     fddict = {}
     polldict = {}
     fd = 0
@@ -63,9 +63,9 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
     else:
         ret = dict(p.poll())
 
-    iretd = [ f for f in iwtd if ret.get(fddict[id(f)], 0) & POLLIN]
+    iretd = [ f for f in iwtd if ret.get(fddict[id(f)], 0) & (POLLIN|POLLHUP)]
     oretd = [ f for f in owtd if ret.get(fddict[id(f)], 0) & POLLOUT]
-    eretd = [ f for f in ewtd if ret.get(fddict[id(f)], 0) & POLLPRI]
+    eretd = [ f for f in ewtd if ret.get(fddict[id(f)], 0) & (POLLERR|POLLPRI)]
 
     return iretd, oretd, eretd
     
