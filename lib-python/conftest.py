@@ -23,6 +23,8 @@ from pypy.tool.pytest.confpath import pypydir, libpythondir, \
 from pypy.tool.pytest.result import Result, ResultFromMime
 
 pypyexecpath = pypydir.join('bin', 'pypy-c')
+
+dist_rsync_roots = ['.', '../pypy', '../py']
     
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -77,8 +79,8 @@ def callex(space, func, *args, **kwargs):
         if appexcinfo.traceback: 
             print "appexcinfo.traceback:"
             py.std.pprint.pprint(appexcinfo.traceback)
-            raise py.test.Item.Failed(excinfo=appexcinfo) 
-        raise py.test.Item.Failed(excinfo=ilevelinfo) 
+            raise py.test.collect.Item.Failed(excinfo=appexcinfo) 
+        raise py.test.collect.Item.Failed(excinfo=ilevelinfo) 
 
 #
 # compliance modules where we invoke test_main() usually call into 
@@ -172,7 +174,7 @@ def collect_intercept(space, w_suites, w_doctestmodules):
     w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
     return w_namemethods, w_doctestlist 
 
-class SimpleRunItem(py.test.Item): 
+class SimpleRunItem(py.test.collect.Item): 
     """ Run a module file and compare its output 
         to the expected output in the output/ directory. 
     """ 
@@ -263,7 +265,7 @@ class InterceptedRunModule(py.test.collect.Module):
         except KeyError: 
             pass
 
-class AppDocTestModule(py.test.Item): 
+class AppDocTestModule(py.test.collect.Item): 
     def __init__(self, name, parent, w_module): 
         super(AppDocTestModule, self).__init__(name, parent) 
         self.w_module = w_module 
@@ -271,7 +273,7 @@ class AppDocTestModule(py.test.Item):
     def run(self): 
         py.test.skip("application level doctest modules not supported yet.")
     
-class AppTestCaseMethod(py.test.Item): 
+class AppTestCaseMethod(py.test.collect.Item): 
     def __init__(self, name, parent, w_method): 
         super(AppTestCaseMethod, self).__init__(name, parent) 
         self.space = gettestobjspace() 
@@ -871,7 +873,7 @@ import time
 import socket
 import getpass
 
-class ReallyRunFileExternal(py.test.Item): 
+class ReallyRunFileExternal(py.test.collect.Item): 
     _resultcache = None
     def haskeyword(self, keyword): 
         if keyword == 'core': 
