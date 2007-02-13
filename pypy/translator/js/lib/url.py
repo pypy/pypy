@@ -23,6 +23,9 @@ class URL(object):
     def __ne__(self, other):
         return not self == other
 
+    def __iter__(self):
+        return iter((self.path, self.vars))
+
 def parse_url(path):
     """ Parse a/b/c?q=a into ('a', 'b', 'c') {'q':'a'}
     """

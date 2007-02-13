@@ -54,3 +54,22 @@ def test_static_page_implicit():
     assert URLopener().open("http://127.0.0.1:21213/index").read() == \
            "<html></html>"
 
+
+def test_static_directory():
+    import thread
+    tmpdir = py.test.ensuretemp("server_static_dir")
+    tmpdir.ensure("a", dir=1)
+    tmpdir.join("a").ensure("a.txt").write("aaa")
+    tmpdir.join("a").ensure("b.txt").write("bbb")
+
+    class StaticDir(server.Handler):
+        static_dir = tmpdir
+        a_dir = server.StaticDir(tmpdir.join("a"))
+
+    httpd = server.HTTPServer(('127.0.0.1', 0), StaticDir)
+    port = httpd.server_port
+    thread.start_new_thread(httpd.serve_forever, ())
+    addr = "http://127.0.0.1:%d/" % port
+    assert URLopener().open(addr + "a_dir/a.txt").read() == "aaa"
+    assert URLopener().open(addr + "a_dir/b.txt").read() == "bbb"
+
