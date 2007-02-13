@@ -18,7 +18,7 @@ if __name__ == '__main__':
         if p in pypyoption.essential_modules:
             text.append("This module is essential, included by default and should not be removed.")
         elif p in pypyoption.default_modules:
-            text.append("This module is expected to be fully working and is included by default.")
+            text.append("This module is expected to be working and is included by default.")
         elif p in pypyoption.working_modules:
             text.append("This module is expected to be fully working.")
         text.append("")
