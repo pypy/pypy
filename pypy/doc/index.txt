@@ -112,9 +112,6 @@ process. This document is also part of the `EU reports`_.
 `parser`_ contains (outdated, unfinished) documentation about
 the parser.
 
-`garbage collection`_ contains documentation about
-garbage collection in PyPy.
-
 `rlib`_ describes some modules that can be used when implementing programs in
 RPython.
 
@@ -149,7 +146,6 @@ from our Python interpreter.
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
-.. _`garbage collection`: garbage_collection.html
 .. _`on Linux`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
 .. _`on Windows`: http://scottdial.com/pypytest/
 .. _`on built pypy-c`: http://wyvern.cs.uni-duesseldorf.de/~fijal/pypy-c-tests/
@@ -237,7 +233,7 @@ Directory                      explanation/links
 
 `rpython/ootypesystem/`_       the `object-oriented type system`_ for OO backends
 
-`rpython/memory/`_             experimental `garbage collector`_ construction
+`rpython/memory/`_             experimental garbage collector construction
                                framework
 
 `tool/`_                       various utilities and hacks used from various places 
@@ -310,7 +306,6 @@ Directory                      explanation/links
 .. _`CLI backend`: cli-backend.html
 .. _`Common Lisp backend`: translation.html#gencl
 .. _`Squeak backend`: translation.html#gensqueak
-.. _`garbage collector`: garbage_collection.html
 .. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
 .. _`translatorshell.py`: getting-started.html#try-out-the-translator

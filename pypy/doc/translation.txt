@@ -641,37 +641,10 @@ rate; this means that the memory management implementation is critical too the
 performance of the PyPy interpreter.  That said, work so far has many focussed
 on flexibility and robustness, not performance.
 
-Reference Counting
-++++++++++++++++++
+For a quite detailed description of how memory management and garbage collection
+are performed in PyPy, see the `EU report`_ about this topic (section 4.2).
 
-`Reference counting`_ is a well-known and conceptually simple approach to
-memory management.  An integer is stored at the front of each heap object that
-counts how many references exist to the object, and this count is updated as
-references are created and disposed of.
-
-Reference counting has some well known problems: it can be slow if you make
-frequent updates to the reference count, and unless you take special steps,
-cycles of objects will leak.  We make a little effort to reduce unnecessary
-reference counts, but not a great deal, and no efforts to avoid the problems
-with cyclic reference counts.  It is the worst performing of the three options.
-
-For these reasons and others, the reference counting option doesn't seem the
-most interesting at present.  It will be maintained, but probably not
-developed further.
-
-.. _`Reference counting`: http://en.wikipedia.org/wiki/Reference_counting
-
-Using the B-D-W collector
-+++++++++++++++++++++++++
-
-C with the addition of the Boehm collector actually has a very similar memory
-management model to that of RPython, so the BoehmGCTransformer is quite
-simple.  The Boehm GC performs somewhat better than the other options currently.
-
-Using our own collector
-+++++++++++++++++++++++
-
-XXX
+.. _`EU report`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
 Building the Low-Level Database
 -------------------------------

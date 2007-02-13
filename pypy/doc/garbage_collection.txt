@@ -5,12 +5,16 @@ Garbage Collection in PyPy
 .. contents::
 .. sectnum::
 
+
+**Warning**: The information below is incomplete and outdated (the reason we
+leave it there is that a report references it). For a more up-to-date
+description see the `EU-report on this topic`_.
+
+.. _`EU-report on this topic`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
+
+
 Current Situation and Objectives
 ================================
-
-XXX *Warning*: The information below is unfortunately incomplete. I describes
-the garbage collectors themselves, but not how they are actually used in PyPy
-(via the GC transformer)
 
 This document describes how garbage collectors are implemented in PyPy. Work on
 this began as a `Summer-of-Code-project`_ (many thanks to Google!) of Carl
