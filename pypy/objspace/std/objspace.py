@@ -58,19 +58,34 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         class StdObjSpaceFrame(pyframe.PyFrame):
             if self.config.objspace.std.optimized_int_add:
-                def BINARY_ADD(f, oparg, *ignored):
-                    from pypy.objspace.std.intobject import \
-                         W_IntObject, add__Int_Int
-                    w_2 = f.popvalue()
-                    w_1 = f.popvalue()
-                    if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
-                        try:
-                            w_result = add__Int_Int(f.space, w_1, w_2)
-                        except FailedToImplement:
+                if self.config.objspace.std.withsmallint:
+                    def BINARY_ADD(f, oparg, *ignored):
+                        from pypy.objspace.std.smallintobject import \
+                             W_SmallIntObject, add__SmallInt_SmallInt
+                        w_2 = f.popvalue()
+                        w_1 = f.popvalue()
+                        if type(w_1) is W_SmallIntObject and type(w_2) is W_SmallIntObject:
+                            try:
+                                w_result = add__SmallInt_SmallInt(f.space, w_1, w_2)
+                            except FailedToImplement:
+                                w_result = f.space.add(w_1, w_2)
+                        else:
                             w_result = f.space.add(w_1, w_2)
-                    else:
-                        w_result = f.space.add(w_1, w_2)
-                    f.pushvalue(w_result)
+                        f.pushvalue(w_result)
+                else:
+                    def BINARY_ADD(f, oparg, *ignored):
+                        from pypy.objspace.std.intobject import \
+                             W_IntObject, add__Int_Int
+                        w_2 = f.popvalue()
+                        w_1 = f.popvalue()
+                        if type(w_1) is W_IntObject and type(w_2) is W_IntObject:
+                            try:
+                                w_result = add__Int_Int(f.space, w_1, w_2)
+                            except FailedToImplement:
+                                w_result = f.space.add(w_1, w_2)
+                        else:
+                            w_result = f.space.add(w_1, w_2)
+                        f.pushvalue(w_result)
 
             def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
                 from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
