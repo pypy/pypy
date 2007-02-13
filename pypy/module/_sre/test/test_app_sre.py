@@ -194,7 +194,7 @@ class AppTestSreMatch:
         m = re.match('hel+', a)
         assert m.end() == 4
 
-    def test_group_bug(self):
+    def test_group_bugs(self):
         import re
         r = re.compile(r"""
             \&(?:
@@ -218,6 +218,16 @@ class AppTestSreMatch:
                                           'named': None,
                                           'braced': None,
                                           'invalid': None}
+        matches = list(r.finditer('&who likes &{what)'))   # note the ')'
+        assert len(matches) == 2
+        assert matches[0].groupdict() == {'escaped': None,
+                                          'named': 'who',
+                                          'braced': None,
+                                          'invalid': None}
+        assert matches[1].groupdict() == {'escaped': None,
+                                          'named': None,
+                                          'braced': None,
+                                          'invalid': ''}
 
 
 class AppTestSreScanner:
