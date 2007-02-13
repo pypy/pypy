@@ -227,7 +227,7 @@ class LazyObjSpaceGetter(object):
         return space
 
 
-class PyPyTestFunction(py.test.Function):
+class PyPyTestFunction(py.test.collect.Function):
     # All PyPy test items catch and display OperationErrors specially.
     #
     def execute_appex(self, space, target, *args):
