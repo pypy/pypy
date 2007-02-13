@@ -426,6 +426,6 @@ include all primitive types, list, tuples and instances.
 
 
 
-.. _`Standard Ecma 335`: http://www.ecma-international.org/\\publications/standards/Ecma-335.htm
+.. _`Standard Ecma 335`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`flow graph`: http://codespeak.net/pypy/dist/pypy/doc/translation.html#the-flow-model
 .. _`rtyper`: http://codespeak.net/pypy/dist/pypy/doc/rtyper.html
