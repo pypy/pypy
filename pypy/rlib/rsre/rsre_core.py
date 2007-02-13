@@ -69,7 +69,8 @@ class StateMixin(object):
         self.marks, self.lastindex = self.marks_stack.pop()
 
     def marks_pop_keep(self):
-        self.marks[:], self.lastindex = self.marks_stack[-1]
+        marks, self.lastindex = self.marks_stack[-1]
+        self.marks = marks[:]
 
     def marks_pop_discard(self):
         self.marks_stack.pop()
