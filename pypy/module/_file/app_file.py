@@ -87,6 +87,8 @@ Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
+        if not isinstance(n, (int, long)):
+            raise TypeError("an integer is required")
         if n < 0:
             return self.stream.readall()
         else:
@@ -107,6 +109,8 @@ number of bytes to return (an incomplete line may be returned then).
 Return an empty string at EOF."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
+        if not isinstance(size, (int, long)):
+            raise TypeError("an integer is required")
         if size < 0:
             return self.stream.readline()
         else:

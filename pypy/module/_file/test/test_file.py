@@ -16,9 +16,27 @@ class AppTestFile(object):
         finally:
             f.close()
         f = _file.file(self.temppath, "r")
+        raises(TypeError, f.read, None)
         try:
             s = f.read()
             assert s == "foo"
+        finally:
+            f.close()
+
+    def test_readline(self):
+        import _file
+        f = _file.file(self.temppath, "w")
+        try:
+            f.write("foo\nbar\n")
+        finally:
+            f.close()
+        f = _file.file(self.temppath, "r")
+        raises(TypeError, f.readline, None)
+        try:
+            s = f.readline()
+            assert s == "foo\n"
+            s = f.readline()
+            assert s == "bar\n"
         finally:
             f.close()
 
