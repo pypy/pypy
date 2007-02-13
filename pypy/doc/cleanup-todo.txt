@@ -12,4 +12,4 @@ translation toolchain
  - all backends should have more consistent interfaces
  - geninterp is a hack
  - keepalives need to die, finally
-
+ - change weakrefs to work together with the GC
