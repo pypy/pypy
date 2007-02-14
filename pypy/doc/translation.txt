@@ -731,7 +731,7 @@ The Object-Oriented Backends
 
 The Object-Oriented backends target platforms that are less C-like and support
 classes, instance etc. If such a platform is targetted, the `OO type system` is
-used while rtyping. Of the OO backends, currently only genclr can translate the
+used while rtyping. Of the OO backends, currently only gencli can translate the
 full PyPy, but the Java backend is getting close.
 
 .. _`oo type system`: rtyper.html#oo-type
