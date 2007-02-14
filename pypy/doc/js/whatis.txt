@@ -15,45 +15,34 @@ This document explains what pypy.js is and (just as important) what it is not.
 What is it?
 -----------
 
-Pypy.js is mostly RPython to javascript converter. Nothing more, nothing
-less. By `using`_ it you can write down RPython code (static enough subset
-of python) which get translated into JavaScript and then run it in a browser.
-As an addon you can get access to semi-transparent rendering of AJAX calls.
+Pypy.web is RPython to javascript converter and a set of tools which
+evolved during pypy developement. By `using`_ it you can write down RPython
+code (static enough subset of python) which get translated into JavaScript
+and then run it in a browser. As an addon you can get access to 
+semi-transparent rendering of AJAX calls.
 
-This means that you might expect python semantics: ie. when trying to get
-non-existing key from dictionary, you'll get KeyError, not undefined element.
-If you prefer JavaScript semantics there is no point in using pypy.js, if
-you instead prefer Python semantics this is a good point. Some of the
-errors might appear at compile time (such as wrong number of arguments
+This means that you might expect python semantics: ie. when you're trying to get
+non-existing key from a dictionary, you'll get a KeyError, not an undefined element.
+If you prefer JavaScript semantics there is no point in using pypy.web, if
+you instead prefer Python semantics this is a good point. Some of
+errors might appear at a compile time (such as wrong number of arguments
 to function, non-existing global variable, non-existing method call).
 
-This also means that you will get python features - such as multi-inheritance,
-exception handling etc. But you'll not get python dynamic features - modifying
-dict access etc.
+This also means that you will get some python features - such as exception handling
+, list comprehensions etc. But you'll not get python dynamic features - overloading
+operators, dynamic modifications of \_\_dict\_\_ and such.
 
 This also means that it is much easier to write code in pypy.js than in
-JavaScript itself. The whole b'n'b demo is just about 250 lines of code, with
+JavaScript itself. The whole `b'n'b demo`_ is just about 250 lines of code, with
 many AJAX calls. Imagine writing it in JavaScript.
 
-We can say that pypy.js extends Mochikit's motto ("Makes JavaScript suck 
-less"), by "Makes JavaScript suck less, by not using it".
+There are also facilities for testing your python code (about to be translated
+to a JavaScript) on top of Python. For further details see `testing`_
 
 .. _`using`: using.html
+.. _`b'n'b demo`: http://play1.codespeak.net:7070
+.. _`testing`: testing.html
 
 What is it not?
 ---------------
 
-Pypy.js is definitely not a browser-abstract library (with exceptions to
-the semi-transparent AJAX calls, which are trying to be browser-independent).
-Pypy.js is trying to expose the browser API as it comes, with all shortcomings.
-If you need something like that you can expose any existing JS library
-(there is an example with a few mochikit calls in modules). But it seems evident
-that writing such a library on top of pypy.js sounds more interesting.
-
-Pypy.js is not a browser for python. Right now you cannot run your DOM-dependent
-code on top of CPython (and this is unlikely to change in a future, because
-we don't want to have just-another-browser-problem, do we?). Altough because
-RPython is just subset of python, nothing stops you from separating code
-DOM-dependent from other and running other part on top of CPython. Or, if you
-really want to, from writing DOM library in CPython itself (just a library, no
-mangling with compiler at all) which will allow you to run that code.
