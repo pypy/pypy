@@ -32,6 +32,9 @@ Here is what we implemented so far, in historical order:
   regular built-in objects (list objects, traceback objects, etc.), but
   completely under the control of the application.
 
+Which object space to use can be chosen with :config:`objspace.name` option.
+
+.. _`Object Space`: objspace.html
 
 .. _thunk:
 
@@ -451,15 +454,17 @@ Transparent Proxy Implementation
 
 Among the unique features of PyPy, there is as well the possibility of
 having multiple implementations of builtin types. Multiple performance
-optimisations using this features are already implemented, some 
-hints are in the `Object Space`_ document.
+optimisations using this features are already implemented, see the document
+about `alternative object implementations`_.
 
 Transparent proxy are implementations of some (maybe all at some point)
 objects like functions, objects, lists etc. which forwards all
 operations performed on these object to app-level functions which have specific
 signatures.
 
-.. _`Object Space`: objspace.html#object-types
+To enable them, use the :config:`objspace.std.withtproxy` option.
+
+.. _`alternative object implementations`: object-optimizations.html
 
 Example:
 ---------
@@ -541,8 +546,8 @@ user created classes & functions, lists, dicts, exceptions, tracebacks and
 frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
-.. _`proxy_helpers.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxy_helpers.py
-.. _`proxyobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxyobject.py
-.. _`transparent.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/transparent.py
+.. _`proxy_helpers.py`: ../../pypy/objspace/std/proxy_helpers.py
+.. _`proxyobject.py`: ../../pypy/objspace/std/proxyobject.py
+.. _`transparent.py`: ../../pypy/objspace/std/transparent.py
 
 .. include:: _ref.txt
