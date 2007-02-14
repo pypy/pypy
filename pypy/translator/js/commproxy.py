@@ -19,7 +19,7 @@ GET_METHOD_BODY = """
             } else {
                 str += "&";
             }
-            str += i + "=" + data[i].toString();
+            str += escape(i) + "=" + escape(data[i].toString());
         }
     }
     //logDebug('%(call)s'+str);
@@ -45,7 +45,7 @@ POST_METHOD_BODY = """
             } else {
                 str += "&";
             }
-            str += i + "=" + data[i].toString();
+            str += escape(i) + "=" + escape(data[i].toString());
         }
     }
     //logDebug('%(call)s'+str);
