@@ -2,16 +2,15 @@
 """ xmlhttp controllers, usefull for testing
 """
 
-import turbogears
-import cherrypy
-from pypy.translator.js.demo.jsdemo.controllers import Root
+import py
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
 from pypy.translator.js.demo.jsdemo.servermessage import log, ServerMessage,\
     PMSG_INLINE_FRAME, PMSG_DEF_ICON
 from pypy.translator.js.demo.jsdemo.msgstruct import *
-from cherrypy import session
 from pypy.rpython.extfunc import _callable
+from pypy.translator.js.lib.support import callback
+from pypy.translator.js.lib import server
 
 import re, time, sys, os, urllib, socket, copy, md5, random
 
@@ -60,7 +59,6 @@ class SpriteManager(object):
         self.positions = copy.deepcopy(self.next_pos)
         self.next_pos = {}
         to_ret = []
-        #import pdb;pdb.set_trace()
         for ic, i in self.last_seen - self.seen:
             self.sprite_sets[ic].append(i)
             to_ret.append(i)
@@ -68,9 +66,7 @@ class SpriteManager(object):
         self.seen = set()
         return to_ret
 
-# Needed double inheritance for both server job
-# and semi-transparent communication proxy
-class BnbRoot(Root, BasicExternal):
+class ExportedMethods(server.ExportedMethods):
     _serverMessage = {}
     _spriteManagers = {}
 
@@ -84,30 +80,18 @@ class BnbRoot(Root, BasicExternal):
         log("ERROR: Connected to BnB server but unable to detect a running game")
         sys.exit()
     port = int(port[7:-1])
-    
-    _render_xmlhttp = True
-    
-    _methods = {
-        'get_message'  : MethodDesc( [('player_id', int), ('keys' , str), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
-        'add_player'   : MethodDesc( [('player_id', int), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
-        'remove_player': MethodDesc( [('player_id', int), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
-        'player_name'  : MethodDesc( [('player_id', int), ('name', str), ('callback', _callable([{str:[{str:str}]}]))] , {str:[{str:str}]}),
-#        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'initialize_session' : MethodDesc( [('callback', _callable([{str:str}]))], {str:str}),
-    }
-    
-    def add_player(self, player_id = 0):
-        return dict()
-    
-    def serverMessage(self):
-        self._closeIdleConnections()
-        sessionid = session['_id']
-        if sessionid not in self._serverMessage:
-            self._serverMessage[sessionid] = ServerMessage('static/images/')
-        return self._serverMessage[sessionid]
 
-    def sessionSocket(self, close=False):
-        sm = self.serverMessage()
+    #def _close(self, sessionid):
+    #    if sessionid in self._serverMessage:
+    #        sm = self.serverMessage()
+    #        if sm.socket is not None:
+    #            sm.socket.close()
+    #        del self._serverMessage[sessionid]
+    def get_sprite_manager(self, sessionid):
+        return self._spriteManagers[sessionid]
+
+    def sessionSocket(self, sessionid, close=False):
+        sm = self.serverMessage(sessionid)
         if sm.socket is None:
             player_id = 0 #XXX hardcoded for now
             sm.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -117,57 +101,10 @@ class BnbRoot(Root, BasicExternal):
             sm.socket.send(message(CMSG_ENABLE_MUSIC, 0))   #, has_music
             sm.socket.send(message(CMSG_UDP_PORT, "\\"))    #, port
             sm.socket.send(message(CMSG_PING))              #so server starts sending data
-            #sm.socket.send(message(CMSG_ADD_PLAYER, player_id))
-            #sm.socket.send(message(CMSG_PLAYER_NAME, player_id, 'PyPy'))
-            #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
-    def get_sprite_manager(self):
-        sessionid = session['_id']
-        return self._spriteManagers[sessionid]
-
-    @turbogears.expose(html="jsdemo.templates.bnb")
-    def index(self):
-        return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
-    
-    @turbogears.expose(format='json')
-    def player_name(self, player_id, name):
-        log("Changing player #%s name to %s" % (player_id, name))
-        self.sessionSocket().send(message(CMSG_PLAYER_NAME, int(player_id), name))
-        return dict()
-
-    @turbogears.expose(format='json')
-    def add_player(self, player_id):
-        log("Adding player " + player_id)
-        self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
-        return dict()
-
-    @turbogears.expose(format='json')
-    def remove_player(self, player_id):
-        log("Remove player " + player_id)
-        self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
-        return dict()
-
-##    @turbogears.expose(format='json')
-##    def key(self, player_id, keynum):
-##        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
-##        return dict()
-
-    @turbogears.expose(format='json')
-    def close(self):
-        self._close()
-        return dict()
-
-    def _close(self):
-        sessionid = session['_id']
-        if sessionid in self._serverMessage:
-            sm = self.serverMessage()
-            if sm.socket is not None:
-                sm.socket.close()
-            del self._serverMessage[sessionid]
-
     def _closeIdleConnections(self):
-        t = time.time() - 5.0 #5 seconds until considered idle
+        t = time.time() - 20.0 #20 seconds until considered idle
         for sessionid, sm in self._serverMessage.items():
             if sm.last_active < t:
                 log("Close connection with sessionid %s because it was idle for %.1f seconds" % (
@@ -176,23 +113,54 @@ class BnbRoot(Root, BasicExternal):
                     sm.socket.close()
                 del self._serverMessage[sessionid]
 
-    @turbogears.expose(format="json")
+    def serverMessage(self, sessionid):
+        self._closeIdleConnections()
+        if sessionid not in self._serverMessage:
+            self._serverMessage[sessionid] = ServerMessage('data/images')
+        return self._serverMessage[sessionid]
+
+    @callback(retval=None)
+    def player_name(self, player_id=0, name="", sessionid=""):
+        log("Changing player #%s name to %s" % (player_id, name))
+        socket = self.sessionSocket(sessionid)
+        socket.send(message(CMSG_PLAYER_NAME, int(player_id), name))
+
+    @callback(retval=None)
+    def add_player(self, player_id=0, sessionid=""):
+        log("Adding player " + player_id)
+        socket = self.sessionSocket(sessionid)
+        socket.send(message(CMSG_ADD_PLAYER, int(player_id)))
+
+    @callback(retval=None)
+    def remove_player(self, player_id=0, sessionid=""):
+        log("Remove player " + player_id)
+        socket = self.sessionSocket(sessionid)
+        socket.send(message(CMSG_REMOVE_PLAYER, int(player_id)))
+
+    @callback(retval=str)
     def initialize_session(self):
-        self._close()
-        #force new session id to restart a game!
-        session['_id'] = md5.md5(str(random.random())).hexdigest()
-        sessionid = session['_id']
-        sm = ServerMessage('static/images/')
+        sessionid = md5.md5(str(random.random())).hexdigest()
+        self._create_session(sessionid)
+        return sessionid
+
+    def _create_session(self, sessionid):
+        sm = ServerMessage('data/images/')
         self._serverMessage[sessionid] = sm
         self._spriteManagers[sessionid] = SpriteManager()
-        return dict()
+        return sessionid
 
-    @turbogears.expose(format="json")
-    def get_message(self, player_id, keys):
+    @callback(retval={str:[{str:str}]})
+    def get_message(self, sessionid="", player_id=0, keys=""):
+        """ This one is long, ugly and obscure
+        """
         #XXX hangs if not first sending CMSG_PING!
-        sm   = self.serverMessage()
+        try:
+            sm   = self.serverMessage(sessionid)
+        except KeyError:
+            self._create_session(sessionid)
+            sm   = self.serverMessage(sessionid)           
         data = sm.data
-        sock = self.sessionSocket()
+        sock = self.sessionSocket(sessionid)
         while True:
             try:
                 data += sock.recv(4096, socket.MSG_DONTWAIT)
@@ -216,36 +184,21 @@ class BnbRoot(Root, BasicExternal):
                 else:
                     messages.append(messageOutput)
         sm.data = data
-        #log('RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data))
 
         len_before = len(messages)
-        #XXX we could do better by not generating only the last inline_frame message anyway!
         inline_frames = [i for i,msg in enumerate(messages) if msg['type'] == PMSG_INLINE_FRAME]
         for i in reversed(inline_frames[:-1]):
             del messages[i]
 
-        #if messages:
-        #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
-        #        len_before, inline_frames, len(messages)))
         to_append = []
-        sprite_manager = self.get_sprite_manager()
+        sprite_manager = self.get_sprite_manager(sessionid)
 
         sm_restart = 0
-        #if inline_frames:
-        #    sm_restart = 1
-        #    sprite_manager.__init__()
-        #    to_append.append({'type':'begin_clean_sprites'})
-        #    log("server sm_restart")
-
-        
-##        def get_full_frame(next):
-##            new_sprite, s_num = sprite_manager.get_sprite(*next)
-##            to_append.append({'type':'show_sprite', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
-        
         if player_id != -1:
             if keys:
                 for i in keys.split(":"):
-                    self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(i)))
+                    self.sessionSocket(sessionid).\
+                         send(message(CMSG_KEY, int(player_id), int(i)))
                 
         def get_partial_frame(next, z_num):
             new_sprite, s_num = sprite_manager.get_sprite(*next)
@@ -277,8 +230,35 @@ class BnbRoot(Root, BasicExternal):
             for i in sprite_manager.end_frame():
                 to_append.append({'type':'ds', 's':str(i)})
         messages += to_append
-        #messages.append(to_append[0])
-        #log(len(messages))
         return dict(messages=messages, add_data=[{'n':sm.count(), 'sm_restart':sm_restart}])
 
-BnbRootInstance = BnbRoot()
+exported_methods = ExportedMethods()
+
+class BnbRoot(server.Handler):
+    """ BnB server handler
+    """
+    exported_methods = exported_methods
+    static_dir = py.path.local(__file__).dirpath().join("webdata")
+    
+    index = server.Static(static_dir.join("bnb.html"))
+    images = server.StaticDir("data/images", type="image/png")
+
+    def source_js(self):
+        return "text/javascript", self.server.source
+    source_js.exposed = True
+
+    MochiKit = server.StaticDir('MochiKit')
+    
+    #@turbogears.expose(format='json')
+
+    #@turbogears.expose(format='json')
+
+##    @turbogears.expose(format='json')
+##    def key(self, player_id, keynum):
+##        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
+##        return dict()
+
+    #@turbogears.expose(format='json')
+    def close(self):
+        self._close()
+        return dict()

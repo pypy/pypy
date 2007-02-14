@@ -1,5 +1,3 @@
-from turbogears import controllers, expose
-from cherrypy import session
 from msgstruct import *
 import PIL.Image
 from zlib import decompressobj, decompress
@@ -38,8 +36,8 @@ class ServerMessage:
     _md5_file       = {}
     _bitmap2hexdigits={}
     _def_icon_queue = {}
-    base_gfx_dir = 'testme/static/images/'
-    base_gfx_url = 'static/images/'
+    base_gfx_dir = 'data/images/'
+    base_gfx_url = '/images/'
     gfx_extension = 'png'
 
     def __init__(self, base_gfx_dir = None):
