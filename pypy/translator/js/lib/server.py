@@ -106,11 +106,15 @@ class Static(object):
 class StaticDir(object):
     exposed = True
 
-    def __init__(self, path):
+    def __init__(self, path, type=None):
         self.path = path
+        self.type = type
 
     def __call__(self, path):
-        return open(os.path.join(str(self.path), str(path))).read()
+        data = open(os.path.join(str(self.path), str(path))).read()
+        if self.type:
+            return self.type, data
+        return data
 
 def create_server(server_address = ('', 8000), handler=TestHandler,
                  server=HTTPServer):

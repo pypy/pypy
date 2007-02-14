@@ -31,7 +31,14 @@ def parse_url(path):
     """
     if '?' in path:
         path, var_str = path.split("?")
-        vars = cgi.parse_qs(var_str)
+        vars_orig = cgi.parse_qs(var_str)
+        # if vars has a list inside...
+        vars = {}
+        for i, v in vars_orig.items():
+            if isinstance(v, list):
+                vars[i] = v[0]
+            else:
+                vars[i] = v
     else:
         vars = {}
     parts = [urllib.unquote(i) for i in path.split("/") if i]
