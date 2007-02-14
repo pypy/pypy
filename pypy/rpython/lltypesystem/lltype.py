@@ -643,6 +643,11 @@ def typeOf(val):
             return Void   # maybe
         if tp is int:
             return Signed
+        if tp is long:
+            if -maxint-1 <= val <= maxint:
+                return Signed
+            else:
+                return SignedLongLong
         if tp is bool:
             return Bool
         if issubclass(tp, base_int):
