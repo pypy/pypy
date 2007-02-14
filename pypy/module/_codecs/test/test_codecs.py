@@ -34,7 +34,6 @@ class AppTestCodecs:
         raises( UnicodeDecodeError, unicode,'\\NSPACE}','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\NSPACE','unicode-escape')
         raises( UnicodeDecodeError, unicode,'\\N','unicode-escape')
-        raises( UnicodeDecodeError, unicode,'\\N{SpaCE}','unicode-escape')
         assert  unicode('\\N{SPACE}\\N{SPACE}','unicode-escape') == u"  " 
         assert  unicode('\\N{SPACE}a\\N{SPACE}','unicode-escape') == u" a " 
         assert "\\N{foo}xx".decode("unicode-escape", "ignore") == u"xx"
