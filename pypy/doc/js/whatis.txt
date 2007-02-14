@@ -15,34 +15,44 @@ This document explains what pypy.js is and (just as important) what it is not.
 What is it?
 -----------
 
-Pypy.web is RPython to javascript converter and a set of tools which
-evolved during pypy developement. By `using`_ it you can write down RPython
-code (static enough subset of python) which get translated into JavaScript
-and then run it in a browser. As an addon you can get access to 
-semi-transparent rendering of AJAX calls.
+Pypy.web is an RPython to JavaScript converter and a set of tools which
+evolved during PyPy developement. By `using`_ it you can write RPython
+code (a subset of Python static enough to compile), translate it into
+JavaScript and then run it in a browser. As an add-on you can 
+semi-transparently make 'AJAX' (JavaScript to server) calls.
 
-This means that you might expect python semantics: ie. when you're trying to get
-non-existing key from a dictionary, you'll get a KeyError, not an undefined element.
-If you prefer JavaScript semantics there is no point in using pypy.web, if
-you instead prefer Python semantics this is a good point. Some of
-errors might appear at a compile time (such as wrong number of arguments
-to function, non-existing global variable, non-existing method call).
+RPython to JavaScript
+---------------------
 
-This also means that you will get some python features - such as exception handling
-, list comprehensions etc. But you'll not get python dynamic features - overloading
-operators, dynamic modifications of \_\_dict\_\_ and such.
+When writing RPython you can expect full Python semantics from code you write:
+ie. when you're trying to get a non-existing key from a dictionary, you'll get
+a KeyError, not an undefined element. Also things like Python's
+object-orientation are fully supported. This in contrast to other efforts of
+getting Python converted to JavaScript, which usually provide only a very small
+subset of Python, and with JavaScript semantics.
 
-This also means that it is much easier to write code in pypy.js than in
-JavaScript itself. The whole `b'n'b demo`_ is just about 250 lines of code, with
-many AJAX calls. Imagine writing it in JavaScript.
+This means that you will get some Python features - such as exception handling,
+list comprehensions, etc., but do understand that you will _not_ get some of
+the more 'dynamic' features of Python - overloading operators, dynamic 
+modifications of \_\_dict\_\_ and such, because that will break RPython.
 
-There are also facilities for testing your python code (about to be translated
+Additional features
+-------------------
+
+It is much easier to write code in pypy.js than in JavaScript itself. The whole
+`b'n'b demo`_ is just about 250 lines of code, with many AJAX calls. Imagine
+writing it in JavaScript, it would easily exceed the number of lines, even with
+a nice library to handle the AJAX, and would almost certainly be less elegant
+and readable.
+
+Errors may appear already at compile time (such as providing the wrong number
+of arguments to a function, using a non-existing global variable, calling a
+non-existing method).
+
+There are some facilities for testing your Python code (about to be translated
 to a JavaScript) on top of Python. For further details see `testing`_
 
 .. _`using`: using.html
 .. _`b'n'b demo`: http://play1.codespeak.net:7070
 .. _`testing`: testing.html
-
-What is it not?
----------------
 
