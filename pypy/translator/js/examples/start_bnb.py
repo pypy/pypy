@@ -6,23 +6,17 @@ import autopath
 
 import py
 
-from pypy.translator.js import conftest
-
-conftest.option.tg = True
-conftest.option.browser = "default"
-
-from pypy.translator.js.test.runtest import compile_function
+from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.modules.dom import document
-from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane, logDebug
-from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
+from pypy.translator.js.modules.mochikit import log, logWarning,\
+     createLoggingPane, logDebug
+from pypy.translator.js.demo.jsdemo.bnb import exported_methods
 
 import time
 import os
-
-os.chdir("../demo/jsdemo")
+import sys
 
 def logKey(msg):
-    #log(msg)
     pass
 
 class Stats(object):
@@ -50,6 +44,7 @@ class Player(object):
     def __init__(self):
         self.id = -1
         self.prev_count = 0
+        self.sessionid = ""
 
 player = Player()
 
@@ -140,14 +135,15 @@ class KeyManager(object):
 km = KeyManager()
 
 def appendPlayfield(msg):
-    bgcolor = '#FFF'
+    bgcolor = '#000'
     document.body.setAttribute('bgcolor', bgcolor)
     div = document.createElement("div")
     div.setAttribute("id", "playfield")
     div.setAttribute('width', msg['width'])
     div.setAttribute('height', msg['height'])
     div.setAttribute('style', 'position:absolute; top:0px; left:0px')
-    document.body.childNodes.insert(0, div)
+    #document.body.childNodes.insert(0, div)
+    document.body.appendChild(div)
 
 def appendPlayfieldXXX():
     bgcolor = '#000000'
@@ -189,6 +185,10 @@ def process_message(msg):
         logWarning('unknown message type: ' + msg['type'])
 
 
+def ignore(arg):
+    pass
+ignore._annspecialcase_ = 'specialize:argtype(0)'
+
 def addPlayer(player_id):
     name  = "player no. " + str(player_id)
     #name  = "player no. %d" % player_id
@@ -197,13 +197,11 @@ def addPlayer(player_id):
     #    NotImplementedError: Type <StringBuilder>
     prev_player_id = player.id
     if player.id >= 0:
-        #log("removing " + name)
-        BnbRootInstance.remove_player(player.id, ignore_dispatcher)
+        exported_methods.remove_player(player.id, player.sessionid, ignore)
         player.id = -1
     if player_id != prev_player_id:
-        #log("adding " + name)
-        BnbRootInstance.add_player(player_id, ignore_dispatcher)
-        BnbRootInstance.player_name(player_id, name, ignore_dispatcher)
+        exported_methods.player_name(player_id, name, player.sessionid, ignore)
+        exported_methods.add_player(player_id, player.sessionid, ignore)
         player.id = player_id
 
 
@@ -231,32 +229,13 @@ def keyup(key):
     else:
         logWarning('unknown keyup: ' + str(c))
     
-def ignore_dispatcher(msgs):
-    pass
+#def ignore_dispatcher(msgs):
+#    pass
 
 def bnb_dispatcher(msgs):
-    #a = [str(i) for i in q]
-    #logDebug(str(a))
-    BnbRootInstance.get_message(player.id, ":".join([str(i) for i in km.get_keys()]), bnb_dispatcher)
-    #sm_restart = int(msgs['add_data'][0]['sm_restart'])
-    #if sm_restart == 123:
-    #    log("sm_restart")
-    #    stats.__init__()
-    #    sm.__init__()
-    #    sm.begin_clean_sprites()
-    #    playfield = document.getElementById("playfield")
-    #    document.body.removeChild(playfield)
-    #    appendPlayfieldXXX()
-
-##    count = int(msgs['add_data'][0]['n'])
-##    if count != player.prev_count + 1:
-##        logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
-##        sm.frames.append(msgs)
-##    player.prev_count = count
-##        #else:
-    #    player.prev_count = count
-    #    for i in sm.frames:
-    #        render_frame(i)
+    s = ":".join([str(i) for i in km.get_keys()])
+    exported_methods.get_message(player.sessionid, player.id, s,
+                                 bnb_dispatcher)
     render_frame(msgs)
 
 def render_frame(msgs):
@@ -265,22 +244,25 @@ def render_frame(msgs):
     stats.register_frame()
     document.title = str(stats.n_sprites) + " sprites " + str(stats.fps)
 
-def session_dispatcher(msgs):
-    BnbRootInstance.get_message(player.id, "", bnb_dispatcher)
+def session_dispatcher(sessionid):
+    player.sessionid = sessionid
+    document.onkeydown = keydown
+    document.onkeyup   = keyup
+    exported_methods.get_message(player.sessionid, player.id, "",
+                                 bnb_dispatcher)
 
-def run_bnb():
-    def bnb():
-        genjsinfo = document.getElementById("genjsinfo")
-        document.body.removeChild(genjsinfo)
-        createLoggingPane(True)
-        log("keys: [0-9] to select player, [wsad] to walk around")
-        BnbRootInstance.initialize_session(session_dispatcher)
-        document.onkeydown = keydown
-        document.onkeyup   = keyup
-    
+def bnb():
+    createLoggingPane(True)
+    log("keys: [0-9] to select player, [wsad] to walk around")
+    exported_methods.initialize_session(session_dispatcher)
+
+def run_bnb():    
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
-    fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)
-    fn()
+    from pypy.translator.js.lib import server
+    addr = ('', 7070)
+    httpd = server.create_server(handler=BnbRoot, server_address=addr)
+    httpd.source = rpython2javascript(sys.modules[__name__], ['bnb'])
+    httpd.serve_forever()
 
 if __name__ == '__main__':
     run_bnb()
