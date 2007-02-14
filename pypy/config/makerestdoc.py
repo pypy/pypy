@@ -1,6 +1,6 @@
 import py
 from py.__.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
-from py.__.rest.rst import Directive
+from py.__.rest.rst import Directive, Em
 
 from pypy.config.config import ChoiceOption, BoolOption, StrOption, IntOption
 from pypy.config.config import FloatOption, OptionDescription, Option, Config
@@ -140,13 +140,20 @@ class __extend__(OptionDescription):
         stack = []
         prefix = fullpath
         curr = content
-        for subpath in self.getpaths(include_groups=True):
-            subpath = fullpath + "." + subpath
+        config = Config(self)
+        for ending in self.getpaths(include_groups=True):
+            subpath = fullpath + "." + ending
             while not (subpath.startswith(prefix) and
                        subpath[len(prefix)] == "."):
                 curr, prefix = stack.pop()
-            print subpath, fullpath, curr
-            new = curr.add(ListItem(Link(subpath, subpath + ".html")))
+            print subpath, fullpath, ending, curr
+            sub, step = config._cfgimpl_get_home_by_path(ending)
+            doc = getattr(sub._cfgimpl_descr, step).doc
+            if doc:
+                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html"),
+                                        Em(doc)))
+            else:
+                new = curr.add(ListItem(Link(subpath + ":", subpath + ".html")))
             stack.append((curr, prefix))
             prefix = subpath
             curr = new
