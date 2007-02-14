@@ -1,5 +1,8 @@
 import py
 from py.__.doc.conftest import Directory, DoctestText, ReSTChecker
+from py.__.rest.directive import register_linkrole
+
+thisdir = py.magic.autopath().dirpath()
 
 Option = py.test.config.Option
 option = py.test.config.addoptions("pypy-doc options", 
@@ -41,3 +44,33 @@ class PyPyReSTChecker(ReSTChecker):
     
 class Directory(Directory): 
     ReSTChecker = PyPyReSTChecker 
+
+try:
+    from docutils.parsers.rst import directives, states, roles
+except ImportError:
+    pass
+else:
+    # enable :config: link role
+    def config_role(name, rawtext, text, lineno, inliner, options={},
+                    content=[]):
+        from docutils import nodes
+        txt = thisdir.join("config", text + ".txt")
+        html = thisdir.join("config", text + ".html")
+        assert txt.check()
+        assert name == "config"
+        sourcedir = py.path.local(inliner.document.settings._source).dirpath()
+        curr = sourcedir
+        prefix = ""
+        while 1:
+            relative = str(html.relto(curr))
+            if relative:
+                break
+            curr = curr.dirpath()
+            prefix += "../"
+        target = prefix + relative
+        print text, target
+        reference_node = nodes.reference(rawtext, text, name=text, refuri=target)
+        return [reference_node], []
+    config_role.content = True
+    config_role.options = {}
+    roles.register_canonical_role("config", config_role)

@@ -42,6 +42,7 @@ class Project(Project):
                     fullpath.split(".", 1)[1])
             descr = getattr(subconf._cfgimpl_descr, step)
         text = unicode(descr.make_rest_doc(path).text())
+        text += "\nDescription\n==========="
         if txtpath.check(file=True):
             return u"%s\n\n%s" % (text, unicode(txtpath.read(), encoding))
         return text
