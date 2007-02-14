@@ -14,7 +14,7 @@ from pypy.translator.js.main import rpython2javascript
 import os
 import py
 
-FUNCTION_LIST = ['launch_console']
+FUNCTION_LIST = ['launch_console', 'bnb_redirect']
 TIMEOUT = 300
 pids = []
 
@@ -59,6 +59,17 @@ class Handler(server.Handler):
             self.server.source = source
         return "text/javascript", source
     source_js.exposed = True
+
+    def bnb(self):
+        return '''
+        <html>
+           <head>
+              <script src="source.js"></script>
+           </head>
+           <body onload="bnb_redirect()">
+           </body>
+        </html>'''
+    bnb.exposed = True
 
 if __name__ == '__main__':
     try:
