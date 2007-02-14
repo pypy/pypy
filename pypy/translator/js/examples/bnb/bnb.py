@@ -5,9 +5,9 @@
 import py
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
-from pypy.translator.js.demo.jsdemo.servermessage import log, ServerMessage,\
+from pypy.translator.js.examples.bnb.servermessage import log, ServerMessage,\
     PMSG_INLINE_FRAME, PMSG_DEF_ICON
-from pypy.translator.js.demo.jsdemo.msgstruct import *
+from pypy.translator.js.examples.bnb.msgstruct import *
 from pypy.rpython.extfunc import _callable
 from pypy.translator.js.lib.support import callback
 from pypy.translator.js.lib import server
@@ -238,7 +238,7 @@ class BnbRoot(server.Handler):
     """ BnB server handler
     """
     exported_methods = exported_methods
-    static_dir = py.path.local(__file__).dirpath().join("webdata")
+    static_dir = py.path.local(__file__).dirpath().join("data")
     
     index = server.Static(static_dir.join("bnb.html"))
     images = server.StaticDir("data/images", type="image/png")

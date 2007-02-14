@@ -10,7 +10,7 @@ from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.modules.dom import document
 from pypy.translator.js.modules.mochikit import log, logWarning,\
      createLoggingPane, logDebug
-from pypy.translator.js.demo.jsdemo.bnb import exported_methods
+from pypy.translator.js.examples.bnb.bnb import exported_methods
 
 import time
 import os
@@ -257,7 +257,7 @@ def bnb():
     exported_methods.initialize_session(session_dispatcher)
 
 def run_bnb():    
-    from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
+    from pypy.translator.js.examples.bnb.bnb import BnbRoot
     from pypy.translator.js.lib import server
     addr = ('', 7070)
     httpd = server.create_server(handler=BnbRoot, server_address=addr)
