@@ -1193,7 +1193,6 @@ def slots():
     gc.collect()
     vereq(Counted.counter, 1)
     s = None
-    import gc
     gc.collect()
     gc.collect()
     gc.collect()
@@ -2962,7 +2961,6 @@ def subclasspropagation():
         raise TestFailed, "d.foo should be undefined now"
 
     # Test a nasty bug in recurse_down_subclasses()
-    import gc
     class A(object):
         pass
     class B(A):
@@ -3895,7 +3893,7 @@ def vicious_descriptor_nonsense():
 
     vereq(c.attr, 1)
     # this makes a crash more likely:
-    import gc; gc.collect()
+    gc.collect()
     vereq(hasattr(c, 'attr'), False)
 
 import warnings
