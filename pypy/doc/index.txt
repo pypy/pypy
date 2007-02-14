@@ -30,8 +30,10 @@ AJAX-based web pages.
 Status_ of the project.
 
 
-Meta-Documentation
+Project Documentation
 =====================================
+
+architecture_ gives a complete view of PyPy's basic design. 
 
 `coding guide`_ helps you to write code for PyPy (especially also describes
 coding in RPython a bit). 
@@ -50,7 +52,7 @@ into PyPy.
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
 introductions) that are available.
 
-`EU reports`_ is a page that contains links to the
+`Technical reports`_ is a page that contains links to the
 reports that we submitted to the European Union.
 
 `license`_ contains licensing details (basically a straight MIT-license). 
@@ -84,8 +86,6 @@ against PyPy on top of CPython.
 
 Source Code Documentation
 ===============================================
-
-architecture_ gives a complete view of PyPy's basic design. 
 
 `object spaces`_ discusses the object space interface 
 and several implementations. 
@@ -130,7 +130,7 @@ from our Python interpreter.
 .. _`sprint reports`: sprint-reports.html
 .. _`talks and related projects`: extradoc.html
 .. _`license`: ../../LICENSE
-.. _`Nightly compliance test runs for compiled pypy-c`: http://www.strakt.com/~pedronis/pypy-c-test/
+.. _`Nightly compliance test runs for compiled pypy-c`: http://www2.openend.se/~pedronis/pypy-c-test/
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`object spaces`: objspace.html 
@@ -145,6 +145,7 @@ from our Python interpreter.
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
+.. _`Technical reports`: index-report.html
 .. _`on Linux`: http://wyvern.cs.uni-duesseldorf.de/pypytest/summary.html
 .. _`on Windows`: http://scottdial.com/pypytest/
 .. _`on built pypy-c`: http://wyvern.cs.uni-duesseldorf.de/~fijal/pypy-c-tests/

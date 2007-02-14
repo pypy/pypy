@@ -643,9 +643,9 @@ performance of the PyPy interpreter.  That said, work so far has many focussed
 on flexibility and robustness, not performance.
 
 For a quite detailed description of how memory management and garbage collection
-are performed in PyPy, see the `EU report`_ about this topic (section 4.2).
+are performed in PyPy, see the `Technical report`_ about this topic (section 4.2).
 
-.. _`EU report`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
+.. _`Technical report`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
 .. _C:
 .. _GenC:
