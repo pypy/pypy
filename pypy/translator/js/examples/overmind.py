@@ -62,7 +62,9 @@ class Handler(server.Handler):
 
 if __name__ == '__main__':
     try:
-        server.create_server(handler=Handler).serve_forever()
+        addr = ('', 8008)
+        httpd = server.create_server(server_address=addr, handler=Handler)
+        httpd.serve_forever()
     except KeyboardInterrupt:
         for pid in pids:
             # eventually os.kill stuff
