@@ -11,6 +11,7 @@
 .. _`bin/`: ../../pypy/bin
 .. _`config/`: ../../pypy/config
 .. _`doc/`: ../../pypy/doc
+.. _`doc/config/`: ../../pypy/doc/config
 .. _`doc/discussion/`: ../../pypy/doc/discussion
 .. _`interpreter/`:
 .. _`pypy/interpreter`: ../../pypy/interpreter
@@ -32,6 +33,7 @@
 .. _`jit/`: ../../pypy/jit
 .. _`jit/codegen/`: ../../pypy/jit/codegen
 .. _`pypy/jit/codegen/model.py`: ../../pypy/jit/codegen/model.py
+.. _`jit/goal/`: ../../pypy/jit/goal
 .. _`jit/hintannotator/`: ../../pypy/jit/hintannotator
 .. _`jit/timeshifter/`: ../../pypy/jit/timeshifter
 .. _`pypy/jit/timeshifter/rvalue.py`: ../../pypy/jit/timeshifter/rvalue.py
@@ -41,8 +43,9 @@
 .. _`lang/prolog/`: ../../pypy/lang/prolog
 .. _`lib/`:
 .. _`pypy/lib/`: ../../pypy/lib
+.. _`lib/app_test/`: ../../pypy/lib/app_test
+.. _`lib/distributed/`: ../../pypy/lib/distributed
 .. _`pypy/lib/stackless.py`: ../../pypy/lib/stackless.py
-.. _`lib/test2/`:
 .. _`pypy/lib/test2`: ../../pypy/lib/test2
 .. _`module/`:
 .. _`pypy/module`:
@@ -56,6 +59,7 @@
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`objspace/`:
 .. _`pypy/objspace`: ../../pypy/objspace
+.. _`objspace/cpy/`:
 .. _`pypy/objspace/cpy`: ../../pypy/objspace/cpy
 .. _`objspace/dump.py`: ../../pypy/objspace/dump.py
 .. _`objspace/flow/`: ../../pypy/objspace/flow
@@ -69,7 +73,6 @@
 .. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
 .. _`pypy/rlib`:
 .. _`rlib/`: ../../pypy/rlib
-.. _`pypy/rlib/objectmodel.py`: ../../pypy/rlib/objectmodel.py
 .. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
 .. _`pypy/rlib/rctypes/rctypesobject.py`: ../../pypy/rlib/rctypes/rctypesobject.py
 .. _`pypy/rlib/rctypes/test/test_rctypesobject.py`: ../../pypy/rlib/rctypes/test/test_rctypesobject.py
@@ -83,10 +86,6 @@
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
-.. _`pypy/rpython/memory/gc.py`: ../../pypy/rpython/memory/gc.py
-.. _`pypy/rpython/memory/lladdress.py`: ../../pypy/rpython/memory/lladdress.py
-.. _`pypy/rpython/memory/simulator.py`: ../../pypy/rpython/memory/simulator.py
-.. _`pypy/rpython/memory/support.py`: ../../pypy/rpython/memory/support.py
 .. _`pypy/rpython/module/`: ../../pypy/rpython/module
 .. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
@@ -102,7 +101,6 @@
 .. _`tool/`: ../../pypy/tool
 .. _`tool/algo/`: ../../pypy/tool/algo
 .. _`tool/pytest/`: ../../pypy/tool/pytest
-.. _`tool/tb_server/`: ../../pypy/tool/tb_server
 .. _`pypy/translator`:
 .. _`translator/`: ../../pypy/translator
 .. _`translator/backendopt/`: ../../pypy/translator/backendopt

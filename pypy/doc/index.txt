@@ -170,7 +170,11 @@ Directory                      explanation/links
 
 `doc/`_                        text versions of PyPy developer documentation
 
+`doc/config/`_                 documentation for the numerous translation options
+
 `doc/discussion/`_             drafts of ideas and documentation
+
+``doc/*/``                     other specific documentation topics or tools
 
 `interpreter/`_                `bytecode interpreter`_ and related objects
                                (frames, functions, modules,...) 
@@ -183,6 +187,8 @@ Directory                      explanation/links
 `jit/`_                        the `just-in-time compiler generator`_
 
 `jit/codegen/`_                `jit backends`_ for different architectures
+
+`jit/goal/`_                   the translation targets that produce a PyPy with a JIT_
 
 `jit/hintannotator/`_          the `hint-annotator`_ that analyzes an interpreter
 
@@ -200,12 +206,14 @@ Directory                      explanation/links
 `lib/`_                        PyPy's wholesale reimplementations of CPython modules_
                                and experimental new application-level modules
 
-`lib/test2/`_                  tests running at interp-level against the reimplementations 
+`lib/app_test/`_               tests for the reimplementations, running on top of CPython
+
+`lib/distributed/`_            distributed execution prototype, based on `transparent proxies`_
 
 `module/`_                     contains `mixed modules`_ implementing core modules with 
                                both application and interpreter level code.
                                Not all are finished and working.  Use the ``--withmod-xxx``
-                               options of `translate.py`_.
+                               or ``--allworkingmodules`` translation options.
 
 `objspace/`_                   `object space`_ implementations
 
@@ -220,11 +228,13 @@ Directory                      explanation/links
 
 `objspace/logic.py`_           the `logic object space`_, providing Prolog-like logic variables
 
+`objspace/cpy/`_               an object space supporting the `extension compiler`_
+
 `objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
 
 `objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
 
-`rlib/`_                       a "standard library" for RPython_ programs
+`rlib/`_                       a `"standard library"`_ for RPython_ programs
 
 `rpython/`_                    the `RPython Typer`_ 
 
@@ -232,8 +242,7 @@ Directory                      explanation/links
 
 `rpython/ootypesystem/`_       the `object-oriented type system`_ for OO backends
 
-`rpython/memory/`_             experimental garbage collector construction
-                               framework
+`rpython/memory/`_             the garbage collector construction framework
 
 `tool/`_                       various utilities and hacks used from various places 
 
@@ -242,17 +251,12 @@ Directory                      explanation/links
 
 `tool/pytest/`_                support code for our `testing methods`_
 
-`tool/tb_server/`_             a somewhat outdated http-server for presenting 
-                               tracebacks in a helpful manner 
-
 `translator/`_                 translation_ backends and support code
 
 `translator/backendopt/`_      general optimizations that run before a backend generates code
 
 `translator/c/`_               the `GenC backend`_, producing C code from an
-                               RPython program (generally via the RTyper)
-
-`translator/lisp/`_            the `Common Lisp backend`_ (incomplete)
+                               RPython program (generally via the rtyper_)
 
 `translator/cli/`_             the `CLI backend`_ for `.NET`_ (Microsoft CLR or Mono_)
 
@@ -262,6 +266,8 @@ Directory                      explanation/links
 
 `translator/jvm/`_             the Java backend (in-progress)
 
+`translator/lisp/`_            the `Common Lisp backend`_ (incomplete)
+
 `translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
                                from fully annotated RPython programs 
 
@@ -269,7 +275,8 @@ Directory                      explanation/links
 
 `translator/stackless/`_       the `Stackless Transform`_
 
-`translator/tool/`_            helper tools for translation 
+`translator/tool/`_            helper tools for translation, including the Pygame
+                               `graph viewer`_
 
 ``*/test/``                    many directories have a test subdirectory containing test 
                                modules (see `Testing in PyPy`_) 
@@ -291,6 +298,7 @@ Directory                      explanation/links
 .. _`taint object space`: objspace-proxies.html#taint
 .. _`thunk object space`: objspace-proxies.html#thunk
 .. _`logic object space`: objspace-proxies.html#logic
+.. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`What PyPy can do for your objects`: objspace-proxies.html
 .. _`Stackless and coroutines`: stackless.html
 .. _StdObjSpace: objspace.html#the-standard-object-space 
@@ -308,6 +316,7 @@ Directory                      explanation/links
 .. _`extension compiler`: extcompiler.html
 .. _`py.py`: getting-started.html#main-entry-point
 .. _`translatorshell.py`: getting-started.html#try-out-the-translator
+.. _JIT: jit.html
 .. _`JIT Generation in PyPy`: jit.html
 .. _`just-in-time compiler generator`: jit.html
 .. _`jit backends`: jit.html#backends
@@ -321,6 +330,8 @@ Directory                      explanation/links
 .. _`translate.py`: getting-started.html#translating-the-pypy-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
+.. _`"standard library"`: rlib.html
+.. _`graph viewer`: getting-started.html#try-out-the-translator
 
 .. include:: _ref.txt
 
