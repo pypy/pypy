@@ -1,9 +1,9 @@
+import py
 from py.__.doc.confrest import *
 
 class PyPyPage(Page): 
-    def fill(self):
-        super(PyPyPage, self).fill()
-        self.menubar[:] = html.div(
+    def fill_menubar(self):
+        self.menubar = html.div(
             html.a("news", href="../news.html", class_="menu"), " ",
             html.a("doc", href="../index.html", class_="menu"), " ",
             html.a("contact", href="../contact.html", class_="menu"), " ", 
@@ -17,6 +17,7 @@ class PyPyPage(Page):
             " ", id="menubar")
 
 class Project(Project): 
+    mydir = py.magic.autopath().dirpath()
     title = "PyPy" 
     stylesheet = 'style.css'
     encoding = 'latin1' 
@@ -27,5 +28,8 @@ class Project(Project):
                      src="http://codespeak.net/pypy/img/py-web1.png", 
                      height=110, width=149)))
     Page = PyPyPage 
+
+    def get_docpath(self):
+        return self.mydir
 
 
