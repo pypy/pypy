@@ -139,7 +139,11 @@ number generator. It contains one class ``Random`` which most importantly has a
 ===========
 
 The rsocket_ module contains an RPython implementation of the functionality of
-the socket standard library with a slightly different interface.
+the socket standard library with a slightly different interface.  The
+difficulty with the Python socket API is that addresses are not "well-typed"
+objects: dependending on the address family they are tuples, or strings, and
+so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
+a hierarchy of Address classes, in a typical static-OO-programming style.
 
 .. _rsocket: ../../pypy/rlib/rsocket.py
 
