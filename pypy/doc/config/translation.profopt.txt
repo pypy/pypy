@@ -1,0 +1,3 @@
+Use GCCs profile-guided optimizations. This option specifies the the arguments
+with which to call pypy-c to gather profile data. Example:
+"-c 'from richards import main;main(); from test import pystone; pystone.main()'"
