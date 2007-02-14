@@ -179,7 +179,7 @@ class generally at app-level.
 
 This does not work, however, if you need special data attached to the
 instances of your class.  For this case, you need the second solution:
-write the class entierely at interp-level.  Such a class must inherit
+write the class entirely at interp-level.  Such a class must inherit
 from ``pypy.interpreter.baseobjspace.Wrappable``.  You can manipulate
 instances of such a class freely at interp-level.  Instances of
 subclasses of ``Wrappable`` are *not* wrapped; they are merely

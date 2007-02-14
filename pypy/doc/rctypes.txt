@@ -414,7 +414,7 @@ a family of RPython methods with names like:
 * ``getitem()`` and ``setitem()`` - called when the RPython program uses
   the ``[ ]`` notation to index the full Python object
 
-If necessary, the controller can also choose to entierely override the
+If necessary, the controller can also choose to entirely override the
 default annotating and rtyping behavior and insert its own.  This is
 useful for cases where the method cannot be implemented in RPython,
 e.g. in the presence of a polymorphic operation that would cause the

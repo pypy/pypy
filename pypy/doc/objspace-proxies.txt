@@ -123,7 +123,7 @@ consistency with logic programming terminology.  It is an "empty" object
 with no initial value at all.  It is possible to put a value into this
 object once, and only once, at any point in time.
 
-This is not entierely unrelated to a lazily-computed object, except that
+This is not entireely unrelated to a lazily-computed object, except that
 the object has no built-in knowledge about how it should compute itself.
 Trying to use such an object before it got a value results in a lock:
 the current thread is suspended, in the hope that another thread will
@@ -160,7 +160,7 @@ places that need to explicitly manipulate that sensitive data; all the
 other places merely pass it around, or do entirely unrelated things.
 
 Nevertheless, if a large application needs to be reviewed for security,
-it must be entierely carefully checked, because it is possible that a
+it must be entirely carefully checked, because it is possible that a
 bug at some apparently unrelated place could lead to a leak of sensitive
 information in a way that an external attacker could exploit.  For
 example, if any part of the application provides web services, an

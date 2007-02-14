@@ -133,7 +133,7 @@ Related projects
 
 * `GNU lightning`_ generates assembly language at runtime. 
 
-* Tunes_ is not entierely unrelated.  (See also the `review of
+* Tunes_ is not entirely unrelated.  (See also the `review of
   programming languages`_.)
 
 .. _`CLR under the hood`: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
