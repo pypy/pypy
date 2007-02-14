@@ -123,7 +123,7 @@ consistency with logic programming terminology.  It is an "empty" object
 with no initial value at all.  It is possible to put a value into this
 object once, and only once, at any point in time.
 
-This is not entireely unrelated to a lazily-computed object, except that
+This is not entirely unrelated to a lazily-computed object, except that
 the object has no built-in knowledge about how it should compute itself.
 Trying to use such an object before it got a value results in a lock:
 the current thread is suspended, in the hope that another thread will
