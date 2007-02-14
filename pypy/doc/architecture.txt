@@ -20,6 +20,10 @@ opposed to encoding low level details into the language implementation itself.
 Eventually, dynamic optimization techniques - implemented as another
 translation aspect - should become robust against language changes.
 
+As part of this process, we ended up developing a general
+framework for implementing dynamic languages and generating
+virtual machines for them `[VMC]_`.  As proof of concepts, we
+have a Prolog and an in-progress JavaScript interpreter.
 
 PyPy - an implementation of Python in Python
 ============================================
@@ -70,19 +74,28 @@ Python interpreter in Python, without many references to low-level
 details.  (Because of the nature of Python, this is already a
 complicated task, although not as much as writing it in - say - C.)
 Then we use this as a "language specification" and manipulate it to
-produce the more traditional interpreters that we want.  In the above
-sense, we are generating the concrete "mappings" of Python into
-lower-level target platforms.
+produce the more traditional interpreters that we want.  In other words,
+we are generating concrete interpreters, all able to execute normal
+Python code, but themselves running on a variety of lower-level
+target platforms.
 
-So far (autumn 2005), we have already succeeded in turning this "language
-specification" into reasonably efficient C-level code that performs
-basically the same job as CPython.  Memory management is inserted during
-this *translation* process.  It can be configured to use reference
-counting or not; thus we have already achieved two very different
-mappings of application Python code over C/Posix.  We have
-successfully also translated our Python interpreter into LLVM_ code,
-and we are working on targeting higher-level environments like
-Java and Squeak.
+So far (early 2007), we have already succeeded in turning this
+"language specification" into reasonably efficient C-level
+code that performs basically the same job as CPython (either
+by generating C source, or via LLVM_).  We can also generate a
+Python interpreter for .NET, and a Java (JVM) version is on
+its way.
+
+In addition to the platform diversity, we can generate very
+diverse interpreters for each platform.  Some of these
+differences come from the inclusion of optional language
+features or optimizations; but more fundamentally, and
+particularly when targetting C-level environments, many
+low-level details are inserted during this *translation*
+process - for example, memory management: the generated code
+can use the Boehm garbage collector, our custom collectors, or
+a simple reference counting scheme. These are all different
+concrete realisations of our "language specification".
 
 In some senses, PyPy project's central component is not its
 interpreter implementation, but its configurable translator.
@@ -180,11 +193,13 @@ is done in four steps:
   target platform;
 
 - the *code generator* which translates the resulting flow graph into
-  another language, currently C, LLVM_, Javascript (experimental).
+  another language, currently C, LLVM_, .NET, Javascript (in-progress)
+  or Java (JVM - in-progress).
 
-A more complete description of the phases of this process is out of the
-scope of the present introduction.  We will only give in the sequel a
-short overview.
+A more complete description of the phases of this process is
+out of the scope of the present introduction.  For more
+details, see the `translation document`_.  We will only give a
+short overview in the sequel.
 
 
 .. _`initialization time`:
@@ -241,45 +256,25 @@ Here is an overview of the translation process (`PDF color version`_):
 
     .. image:: image/translation-greyscale-small.png
 
-The complete translation process is described in more details in the
-`translation document`_.  You might also be interested in reading the
-more theoretically-oriented paper `Compiling dynamic language
-implementations`_.
 
-Status of the implementation (June 2006)
-========================================== 
+Further reading
+===============
 
-The work leading up to the pypy-0.9.0 release has concentrated on the
-features of the translation.  
+* `[VMC]`_ PyPy's approach to virtual machine construction
+  (Dynamic Languages Symposium 2006).
 
-We can now produce a pypy-c that `has the majority of the features`_
-of `Stackless Python`_.  We have integrated the mark and sweep garbage
-collector written in RPython by Carl Friedrich as part of Google's
-Summer of Code 2005 with the translation machinery, and can produce a
-pypy-c that uses it for memory management.
+* The `translation document`_ describes our translation process in detail.
+  You might also be interested in reading the more
+  theoretically-oriented paper `Compiling dynamic language
+  implementations`_.
 
-.. _`has the majority of the features`: stackless.html
-.. _`Stackless Python`: http://www.stackless.com/
+* All our `Technical reports`_.
 
-The self-contained PyPy version (single-threaded and using the
-`Boehm-Demers-Weiser garbage collector`_) now runs around 4-5 times
-slower than CPython, i.e. around 3 times faster than 0.8.0.
+* `Getting started`_ with PyPy.
 
-We have improved our CPython compatibility still further, and now pass
-around 95% of CPython's core tests, the main improvement over 0.8.0
-being the implementation of the _weakref module.
-
-Our rather complete and Python 2.4-compliant interpreter consists 
-of about 30,000-50,000 lines of code (depending on the way you
-count code borrowed and adapted from other sources), with
-another 14,000 lines of unit tests.  If we include the tools,
-the parts related to code analysis and generation, and the
-standard library modules ported from C, PyPy is now 230,000
-lines of code including 62,000 lines of tests. Refer to 
-the `statistics web page`_ for more detailed information. 
 
 .. _`statistics web page`: http://codespeak.net/~hpk/pypy-stat/
-.. _`very compliant`: http://codespeak.net/~hpk/pypy-testresult/
+.. _`very compliant`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
 .. _`RPython`: coding-guide.html#rpython
 .. _`abstract interpretation`: theory.html#abstract-interpretation
@@ -288,6 +283,8 @@ the `statistics web page`_ for more detailed information.
 .. _LLVM: http://llvm.org/
 .. _`PDF color version`: image/translation.pdf
 .. _`getting started`: getting-started.html
+.. _`[VMC]`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`Technical reports`: index-report.html
 
 .. include:: _ref.txt
 
