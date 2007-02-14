@@ -31,6 +31,8 @@ join object is needed, the addition is performed. This makes it possible to
 perform repeated string additions in a loop without using the
 ``"".join(list_of_strings)`` pattern.
 
+You can this feature enable with the :config:`objspace.std.withstrjoin` option.
+
 string-slice objects
 --------------------
 
@@ -46,6 +48,8 @@ use lazy slicing when the slice would be much shorter than the original
 string.  There is also a minimum number of characters below which being lazy
 is not saving any time over making the copy).
 
+You can this feature enable with the :config:`objspace.std.withstrslice` option.
+
 Integer optimizations
 =====================
 
@@ -57,6 +61,7 @@ objects to not have to allocate all the time when doing simple arithmetic. Every
 time a new integer object is created it is checked whether the integer is small
 enough to be retrieved from the cache.
 
+You can enable this feature with the :config:`objspace.std.withsmallint` option.
 
 integers as tagged pointers
 ---------------------------
@@ -82,6 +87,8 @@ is stored in the dict
 the whole information in the string-keyed dictionary is copied over into another
 RPython-dictionary, where arbitrary Python objects can be used as keys.
 
+You can enable this feature with the :config:`objspace.std.withstrdict` option.
+
 multi-dicts
 -----------
 
@@ -97,6 +104,9 @@ If you just enable multi-dicts, special representations for empty dictionaries,
 for string-keyed dictionaries and for small dictionaries are used (as well as a
 general representation that can store arbitrary keys). In addition there are
 more specialized dictionary implementations for various purposes (see below).
+
+You can enable this feature with the :config:`objspace.std.withmultidict`
+option.
 
 
 sharing dicts
@@ -115,6 +125,9 @@ values per instance. What sharing dicts do is store these common keys into a
 common structure object and thus save the space in the individual instance
 dicts:
 the representation of the instance dict contains only a list of values.
+
+You can enable this feature with the :config:`objspace.std.withsharingdict`
+option.
 
 
 builtin-shadowing
@@ -140,6 +153,10 @@ to see whether somebody replaced the real builtin with something else. In the
 common case, the program didn't do any of these; the proper builtin can then
 be called without using any dictionary lookup at all.
 
+You can enable this feature with the
+:config:`objspace.opcodes.CALL_LIKELY_BUILTIN` option.
+
+
 List optimizations
 ==================
 
@@ -155,6 +172,8 @@ and step of the range. Only when somebody mutates the list the actual list is
 created. This gives the memory and speed behaviour of ``xrange`` and the generality
 of use of ``range``, and makes ``xrange`` essentially useless.
 
+You can enable this feature with the :config:`objspace.std.withrangelist`
+option.
 
 multi-lists
 -----------
@@ -167,6 +186,9 @@ only strings and ranges again (the reason why range lists and multilists both
 implement the same optimization is that range lists came earlier and that
 multi-lists are not tested that much so far).
 
+You can enable this feature with the :config:`objspace.std.withmultilist`
+option.
+
 
 fast list slicing
 ------------------
@@ -178,6 +200,8 @@ seems wasteful to create a full copy of that portion of the list. Instead the
 list slice is only created lazily, that is when either the original list or
 the sliced list is mutated.
 
+You can enable this feature with the :config:`objspace.std.withfastslice`
+option.
 
 .. _`Neal Norwitz on pypy-dev`: http://codespeak.net/pipermail/pypy-dev/2005q4/002538.html
 
@@ -199,6 +223,9 @@ is found, the instance dictionary is then checked for instance attributes
 shadowing the class attribute. If we know that there is no shadowing (since
 instance dict tells us that) we can save this lookup on the instance dictionary.
 
+You can enable this feature with the :config:`objspace.std.withshadowtracking`
+option.
+
 
 Method caching
 --------------
@@ -212,3 +239,6 @@ the current program counter), and a special "version" of the type where the
 lookup happens (this version is incremented every time the type or one of its
 base classes is changed). On subsequent lookups the cached version can be used,
 as long as the instance did not shadow any of its classes attributes.
+
+You can enable this feature with the :config:`objspace.std.withmethodcache`
+option.
