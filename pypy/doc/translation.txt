@@ -850,7 +850,7 @@ External Function Calls
 
 *Warning* This approach while is still used at the moment by PyPy to
 expose native operations (like ``os.read``, ``os.write``) is going to be
-phased out. It has shown to be to cumbersome in practice. An approach
+phased out. It has shown to be too cumbersome in practice. An approach
 based on `rctypes`_ should replace it.
 
 .. _rctypes: rctypes.html
