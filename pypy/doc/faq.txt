@@ -20,15 +20,26 @@ Why a new implementation of Python?  What does it add?
 
 XXX
 
--------------------------------------------------------------------
-What is the status of the project?  Can it be used in practice yet?
--------------------------------------------------------------------
+-----------------------------------
+What is the status of the project? 
+-----------------------------------
 
-PyPy is a very broad project with varying level of a completion among
-parts. For example compiler toolchain is a relatively mature part,
-which is known of running several other projects (see: XXX).
+XXX status
 
-XXX finish that one
+
+--------------------------------
+ Can it be used in practice yet?
+--------------------------------
+
+PyPy is a very broad project and its various parts have different levels of
+maturity and of general applicability. For example our compiler toolchain is a
+relatively mature part and can be used in practice already (see the faq about
+`prolog and javascript`_). The Python interpreter that we have written is still
+slightly `slower than CPython`_ and not yet a `drop in replacement`_.
+In any case, our pygame graph viewer is *extremely* useful already!
+
+
+.. _`drop in replacement`:
 
 -----------------------------------------
 Is PyPy a drop in replacement of CPython?
@@ -116,6 +127,9 @@ How do I write extension modules for PyPy?
 
 XXX
 
+
+.. _`slower than CPython`:
+
 -----------------
 How fast is PyPy?
 -----------------
@@ -127,9 +141,11 @@ CPython, the version of PyPy that still runs on top of CPython is slower by
 a factor of 2000. The first translated version was roughly 300 times slower
 than CPython. In later versions, we increased the speed. CPython was about
 10-20 times as fast as version 0.8.0, 4-7 times as fast as version 0.9 and
-2.4 - 5 times as fast as the current version (1.0).
+2.4 - 5 times as fast as the current version (0.99).
 Note that the speed heavily depends on the enabled options at compile time.
 
+
+.. _`prolog and javascript`:
 
 -----------------------------------------------------------------------
 What is this talk about a JavaScript and a Prolog interpreter in PyPy?
