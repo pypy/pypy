@@ -1,0 +1,6 @@
+This options compiles LLVM code by using llc to convert it to C, then
+using gcc to compile this C instead of using LLVM's own code
+generators.  This generally results in better performance
+(particularly when using :config:`translation.profopt` to use gcc's
+profile-directed optimizations) but takes rather longer and uses more
+RAM.
