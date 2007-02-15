@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """ a web server that displays status info of the meta server and builds """
 
 import py
@@ -5,19 +7,20 @@ from pypy.tool.build import config
 from pypy.tool.build import execnetconference
 from pypy.tool.build.webserver import HTTPError, Resource, Collection, Handler
 
+mypath = py.magic.autopath().dirpath()
+
+class Template(object):
+    def __init__(self, path):
+        self.template = path.read()
+        
+    def render(self, context):
+        return self.template % context
+
 class IndexPage(Resource):
     """ the index page """
     def handle(self, handler, path, query):
-        return {'Content-Type': 'text/html'}, """\
-<html>
-  <head>
-    <title>Build meta server web interface (temp index page)</title>
-  </head>
-  <body>
-    <a href="/serverstatus">server status</a>
-  </body>
-</html>
-"""
+        template = Template(mypath.join('templates/index.html'))
+        return {'Content-Type': 'text/html'}, template.render({})
 
 class ServerStatus(Resource):
     """ a page displaying overall meta server statistics """
@@ -41,7 +44,9 @@ class ServerStatus(Resource):
     """
 
     def handle(self, handler, path, query):
-        return {'Content-Type': 'text/plain'}, str(self.get_status())
+        template = Template(mypath.join('templates/serverstatus.html'))
+        return ({'Content-Type': 'text/html; charset=UTF-8'},
+                template.render(self.get_status()))
 
     def get_status(self):
         if config.server in ['localhost', '127.0.0.1']:
