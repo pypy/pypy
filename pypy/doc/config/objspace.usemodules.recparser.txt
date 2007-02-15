@@ -1,2 +1,3 @@
 Use the 'recparser' module. 
-This module is expected to be working and is included by default.
+This is PyPy implementation of the standard library 'parser' module.
+It is enabled by default.
