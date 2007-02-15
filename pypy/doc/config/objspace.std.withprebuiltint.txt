@@ -1,6 +1,5 @@
 This option enables the caching of small integer objects (similar to what
-CPython does). The range of which integers are cached can be influenced with the
-`objspace.std.prebuiltintfrom`_ and `objspace.std.prebuiltintto`_ options.
+CPython does). The range of which integers are cached can be influenced with
+the :config:`objspace.std.prebuiltintfrom` and
+:config:`objspace.std.prebuiltintto` options.
 
-.. _`objspace.std.prebuiltintfrom`: objspace.std.prebuiltintfrom.html
-.. _`objspace.std.prebuiltintto`: objspace.std.prebuiltintto.html

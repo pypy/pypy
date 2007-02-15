@@ -1,5 +1,7 @@
-A variant of multilists_ that makes list slicing copy the list lazily (that is
-only when the original list or the slice are mutated.
+A variant of :config:`objspace.std.withmultilist` that makes list slicing copy
+the list lazily (that is only when the original list or the slice are mutated).
+This is not perfectly well tested.
 
+See the description of `object reimplementations`_ for more details.
 
-.. _multilists: objspace.std.withmultilist.html
+.. _`object reimplementations`: ../object-optimizations.html

@@ -1,11 +1,8 @@
 This enables "multilists". They are a different implementation of the Python
 ``list`` type, indistinguishable for the normal user (when using multilists, the
-normal implementation is not used at all). When the multilist implementation is
-used, a list can change its internal representation over its lifetime. If a list
-contains only strings, for example, the strings are stored directly without
-their wrapper (which gives a memory benefit on large lists).
+normal implementation is not used at all).
 
-Another special representation of lists that multilists support is the "range
-list", which is basically equivalent to what `objspace.std.withrangelist`_ does.
+See the page about `object reimplementations`_ for more details.
 
-.. _`objspace.std.withrangelist`: objspace.std.withrangelist.html
+.. _`object reimplementations`: ../object-optimizations.html
+

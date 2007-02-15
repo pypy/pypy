@@ -1,7 +1,7 @@
-Enable "string join" objects. They are a different implementation of the Python
-``str`` type, indistinguishable for the normal user. They represent the lazy
-addition of several strings without actually performing the addition (which
-involves copying etc.). When the actual value of the string join object is
-needed, the addition is performed. This makes it possible efficiently perform
-string additions in a loop without using the ``"".join(list_of_strings)``
-pattern.
+Enable "string join" objects.
+
+See the page about `object optimizations`_ for more details.
+
+.. _`object optimizations`: ../object-optimizations.html
+
+

@@ -1,1 +1,2 @@
-optimize the addition of two integers a bit. Gives small speedups.
+Optimize the addition of two integers a bit. Enabling this option gives small
+speedups.

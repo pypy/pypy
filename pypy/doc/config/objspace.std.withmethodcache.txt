@@ -1,3 +1,3 @@
-See the section "Method Caching" in `Alternative object
+Enable method caching. See the section "Method Caching" in `Alternative object
 implementations in the PyPy standard interpreter
 <../object-optimizations.html#method-caching>`__.

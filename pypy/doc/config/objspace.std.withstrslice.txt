@@ -1,8 +1,7 @@
-Enable "string slice" objects. They are a different implementation of the Python
-``str`` type, indistinguishable for the normal user. They represent the lazy
-slicing of a string without actually performing the slicing (which involves
-copying). This is only done for slices of step one.  When the actual value of
-the string slice object is needed, the slicing is done (although a lot of string
-methods don't make this necessary). This makes string slicing a very efficient
-operation. It also saves memory in some cases but can also lead to memory leaks,
-since the string slice retains a reference to the original string.
+Enable "string slice" objects.
+
+See the page about `object optimizations`_ for more details.
+
+.. _`object optimizations`: ../object-optimizations.html
+
+
