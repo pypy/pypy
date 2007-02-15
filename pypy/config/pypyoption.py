@@ -35,8 +35,8 @@ module_dependencies = { }
 if os.name == "posix":
     module_dependencies['rctime'] = [("objspace.usemodules.select", True),]
 
-                              
-pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
+
+pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
                  ["std", "flow", "logic", "thunk", "cpy", "dump", "taint"],
                  "std",
@@ -49,11 +49,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                  },
                  cmdline='--objspace -o'),
 
-    ChoiceOption("parser", "parser",
+    ChoiceOption("parser", "which parser to use for app-level code",
                  ["pypy", "cpython"], "pypy",
                  cmdline='--parser'),
 
-    ChoiceOption("compiler", "compiler",
+    ChoiceOption("compiler", "which compiler to use for app-level code",
                  ["cpython", "ast"], "ast",
                  cmdline='--compiler'),
 
@@ -106,7 +106,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    default=False,
                    requires=[("translation.gc", "boehm")]),
 
-        BoolOption("withprebuiltint", "prebuilt commonly used int objects",
+        BoolOption("withprebuiltint", "prebuild commonly used int objects",
                    default=False,
                    requires=[("objspace.std.withsmallint", False)]),
 
@@ -215,7 +215,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                              ("translation.backend", "llvm")],
                    cmdline="--llvm-faassen", negation=False),
      ]),
-    BoolOption("lowmem", "Try to use little memory during translation",
+    BoolOption("lowmem", "Try to use less memory during translation",
                default=False, cmdline="--lowmem",
                requires=[("objspace.geninterp", False)]),
 

@@ -11,7 +11,7 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
-    BoolOption("stackless", "compile stackless features in",
+    BoolOption("stackless", "enable stackless features during compilation",
                default=False, cmdline="--stackless",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
@@ -30,7 +30,7 @@ translation_optiondescription = OptionDescription(
                      "cl":     [("translation.type_system", "ootype")],
                      },
                  cmdline="-b --backend"),
-    BoolOption("llvm_via_c", "compile llvm bytecode via C",
+    BoolOption("llvm_via_c", "compile llvm via C",
                default=False, cmdline="--llvm-via-c",
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
@@ -53,7 +53,7 @@ translation_optiondescription = OptionDescription(
                cmdline=None),
 
     # misc
-    StrOption("cc", "Specify compiler", cmdline="--cc"),
+    StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
     BoolOption("debug_transform", "Perform the debug transformation",
@@ -63,9 +63,9 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline=None),
 
     ArbitraryOption("instrumentctl", "internal",
-               default=None),        
+               default=None),
     StrOption("output", "Output file name", cmdline="--output"),
-    
+
     # portability options
     BoolOption("vanilla",
                "Try to be as portable as possible, which is not much",
@@ -75,16 +75,23 @@ translation_optiondescription = OptionDescription(
     BoolOption("no__thread",
                "don't use __thread for implementing TLS",
                default=False, cmdline="--no__thread", negation=False),
-    StrOption("compilerflags", "Specify flags for the compiler", 
+    StrOption("compilerflags", "Specify flags for the C compiler",
                cmdline="--cflags"),
-    StrOption("linkerflags", "Specify flags for the linker",
+    StrOption("linkerflags", "Specify flags for the linker (C backend only)",
                cmdline="--ldflags"),
 
     # Flags of the TranslationContext:
     BoolOption("simplifying", "Simplify flow graphs", default=True),
-    BoolOption("builtins_can_raise_exceptions", "XXX", default=False,
+    BoolOption("builtins_can_raise_exceptions",
+               "When true, assume any call to a 'simple' builtin such as "
+               "'hex' can raise an arbitrary exception",
+               default=False,
                cmdline=None),
-    BoolOption("list_comprehension_operations", "XXX", default=False,
+    BoolOption("list_comprehension_operations",
+               "When true, look for and special-case the sequence of "
+               "operations that results from a list comprehension and "
+               "attempt to pre-allocate the list",
+               default=False,
                cmdline=None),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
@@ -102,13 +109,15 @@ translation_optiondescription = OptionDescription(
                   "for inlining",
                 default="pypy.translator.backendopt.inline.inlining_heuristic",
                 cmdline="--inline-heuristic"),
-        
+
         BoolOption("print_statistics", "Print statistics while optimizing",
                    default=False),
         BoolOption("merge_if_blocks", "Merge if ... elif chains",
                    cmdline="--if-block-merge", default=True),
         BoolOption("raisingop2direct_call",
-                   "Transform exception raising operations",
+                   "Transform operations that can implicitly raise an "
+                   "exception into calls to functions that explicitly "
+                   "raise exceptions",
                    default=False, cmdline="--raisingop2direct_call"),
         BoolOption("mallocs", "Remove mallocs", default=True),
         BoolOption("constfold", "Constant propagation",
@@ -133,7 +142,7 @@ translation_optiondescription = OptionDescription(
                 cmdline="--prof-based-inline-heuristic"),
         # control clever malloc removal
         BoolOption("clever_malloc_removal",
-                   "Drives inlining to remove  mallocs in a clever way",
+                   "Drives inlining to remove mallocs in a clever way",
                    default=False,
                    cmdline="--clever-malloc-removal"),
         FloatOption("clever_malloc_removal_threshold",
@@ -148,8 +157,9 @@ translation_optiondescription = OptionDescription(
                 cmdline="--clever-malloc-removal-heuristic"),
 
         BoolOption("remove_asserts",
-                   "Kill 'raise AssertionError', which lets the C "
-                   "optimizer remove the asserts", default=False),
+                   "Remove operations that look like 'raise AssertionError', "
+                   "which lets the C optimizer remove the asserts",
+                   default=False),
     ]),
 
     OptionDescription("cli", "GenCLI options", [
