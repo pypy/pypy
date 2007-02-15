@@ -97,12 +97,17 @@ list:
 Can I use CPython extension modules?
 ------------------------------------
 
-No and there are no current plans to support this. CPython extension modules
+No and there are no short-term plans to support this. CPython extension modules
 rely heavily on CPython's C API which contains a lot of implementation details
 like reference counting, exact C-level object implementation etc.
 
 Although if your module uses ctypes rather than C-level code, there is
 a hope -- you can try to write a mixed module (see next question).
+
+The long-term answer might be different.  In principle, it should be possible
+for PyPy to support the CPython C API (or at least a large subset of its
+official part).  It means that "in the fullness of time" you might be able to
+simply recompile existing CPython extension modules and use them with PyPy.
 
 ------------------------------------------
 How do I write extension modules for PyPy?
@@ -113,11 +118,11 @@ called because they can contain a mixture of compiled and interpreted
 Python code.  At the moment they all need to be translated together with the rest of PyPy.
 
 We have a proof concept of what we call the `extension compiler`_ and
-our support for a static variant of ctypes interface (`rctypes`_) to
+our support for a static variant of the ctypes interface (`rctypes`_) to
 help with their development. At the moment both have quite some rough
-edges, also cross compilation to CPython extensions, while possible,
-doesn't deliver completely satisfying results.  This area is going to
-improve over time.
+edges.  This can of module can even be cross-compiled to regular CPython
+extension modules, although this doesn't deliver completely satisfying
+results so far.  This area is going to improve over time.
 
 .. _`mixed modules`: coding-guide.html#mixed-module-mechanism
 .. _`extension compiler`: extcompiler.html
@@ -136,8 +141,8 @@ CPython, the version of PyPy that still runs on top of CPython is slower by
 a factor of 2000. The first translated version was roughly 300 times slower
 than CPython. In later versions, we increased the speed. CPython was about
 10-20 times as fast as version 0.8.0, 4-7 times as fast as version 0.9 and
-2 - 5 times as fast as the current version (0.99).
-Note that the speed heavily depends on the enabled options at compile time.
+2 to 4 times as fast as the current version (0.99).
+Note that the speed heavily depends on the options enabled at compile time.
 
 
 .. _`prolog and javascript`:
@@ -177,11 +182,12 @@ Coming to a sprint is usually also the best way to get into PyPy development.
 If you want to start on your own, take a look at the list of `project
 suggestions`_. If you get stuck or need advice, `contact us`_. Usually IRC is
 the most immediate way to get feedback (at least during some parts of the day;
-many PyPy developers are in Europe) and the mailing list is better for long
+many PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
 .. _`project suggestions`: project-ideas.html
 .. _`contact us`: contact.html
+.. _`mailing list`: contact.html
 
 ----------------------------------------------------------------------
 I am getting strange errors while playing with PyPy, what should I do?
@@ -216,14 +222,15 @@ The restrictions that apply to programs to be RPython mostly limit the ability
 of mixing types in arbitrary ways. RPython does not allow the usage of two
 different types in the same variable. In this respect (and in some others) it
 feels a bit like Java. Other features not allowed in RPython are the usage of
-special methods (``__XXX__``) except ``__init__`` and ``__del__`` and reflection
-capabilities (e.g. ``__dict__``).
+special methods (``__xxx__``) except ``__init__`` and ``__del__``, and the
+usage of reflection capabilities (e.g. ``__dict__``).
 
 Most existing standard library modules are not RPython, except for
 some functions in ``os``, ``math`` and ``time`` that are natively
 supported. In general it is quite unlikely that an existing Python
-program is by chance RPython, mostly it has to be rewritten heavily.
-To read more about RPython limitations read `RPython description`_
+program is by chance RPython; it is most likely that it would have to be
+heavily rewritten.
+To read more about the RPython limitations read the `RPython description`_.
 
 .. _`RPython description`: coding-guide.html#restricted-python
 
@@ -295,7 +302,7 @@ Partially implemented backends (both high-level):
 * Squeak_, `Common Lisp`_
 
 
-To learn more about backends take a look at the `translation document`_
+To learn more about backends take a look at the `translation document`_.
 
 .. _CLI: cli-backend.html
 .. _JavaScript: js/whatis.html
