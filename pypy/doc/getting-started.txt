@@ -183,7 +183,6 @@ To list the PyPy interpreter command line options, type::
     cd pypy/bin
     python py.py --help
 
-(this will give you a daunting list, so it is a good idea to use a pager).
 py.py supports most of the options that CPython supports too (in addition to a
 large amount of options that can be used to customize py.py).
 As an example of using PyPy from the command line, you could type::
@@ -194,6 +193,9 @@ Alternatively, as with regular Python, you can simply give a
 script name on the command line::
 
     python py.py ../../lib-python/2.4.1/test/pystone.py 10
+
+See our  `configuration sections`_ for details about what all the commandline
+options do.
 
 Special PyPy features 
 -------------------------- 
@@ -609,6 +611,9 @@ interesting options are:
      sweep collector, with two different approaches for finding roots
      (as we have seen Boehm's collector is the default).
 
+Find a more detailed description of the various options in our `configuration
+sections`_.
+
 You can also use the translate.py script to try out several smaller
 programs, e.g. a slightly changed version of Pystone::
 
@@ -616,6 +621,7 @@ programs, e.g. a slightly changed version of Pystone::
     python translate.py targetrpystonedalone
 
 
+.. _`configuration sections`: config/
 
 .. _`translate PyPy with the thunk object space`:
 

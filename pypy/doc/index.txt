@@ -118,6 +118,9 @@ the parser.
 `rlib`_ describes some modules that can be used when implementing programs in
 RPython.
 
+`configuration documentation`_ describes the various configuration options that
+allow you to customize PyPy.
+
 `CLI backend`_ describes the details of the .NET backend.
 
 `JIT Generation in PyPy`_ describes how we produce the Python Just-in-time Compiler
@@ -142,6 +145,7 @@ from our Python interpreter.
 .. _`dynamic-language translation`: dynamic-language-translation.html
 .. _`low-level encapsulation`: low-level-encapsulation.html
 .. _`translation aspects`: translation-aspects.html
+.. _`configuration documentation`: config/
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`JavaScript backend` : js/using.html
