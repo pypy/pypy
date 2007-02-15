@@ -145,7 +145,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
         BoolOption("withrangelist",
                    "enable special range list implementation that does not "
                    "actually create the full list until the resulting "
-                   "list is mutaged",
+                   "list is mutated",
                    default=False),
 
         BoolOption("withtypeversion",
