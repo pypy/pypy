@@ -99,7 +99,7 @@ Can I use CPython extension modules?
 
 No and there are no short-term plans to support this. CPython extension modules
 rely heavily on CPython's C API which contains a lot of implementation details
-like reference counting, exact C-level object implementation etc.
+like reference counting, exact C-level object implementation and layout etc.
 
 Although if your module uses ctypes rather than C-level code, there is
 a hope -- you can try to write a mixed module (see next question).
@@ -120,7 +120,7 @@ Python code.  At the moment they all need to be translated together with the res
 We have a proof concept of what we call the `extension compiler`_ and
 our support for a static variant of the ctypes interface (`rctypes`_) to
 help with their development. At the moment both have quite some rough
-edges.  This can of module can even be cross-compiled to regular CPython
+edges.  This kind of module can even be cross-compiled to regular CPython
 extension modules, although this doesn't deliver completely satisfying
 results so far.  This area is going to improve over time.
 
