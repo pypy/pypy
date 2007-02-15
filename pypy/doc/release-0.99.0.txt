@@ -30,22 +30,22 @@ dynamic languages and generating virtual machines for them.
 
 The Python Standard interpreter provides compliant CPython 
 semantics with a high flexibility for extending and
-amending it.  We belive that the main issue keeping it from
+amending it.  We believe that the main issue keeping it from
 being usable as a productive alternative is the 
 lack of extension module support.  This will likely be 
 an ongoing topic for 2007, as it is less of a research
 topic and has thus been of less priority to the core
-people involved with the EU project. 
+people involved with the European Union project. 
 
 The Compiler Framework allows for alternative frontends and
 for alternative backends, currently C, LLVM, and .NET.  For
-our main target "C", the Compiler can mixin different Garbage
-Collectors and threading models, including micro-threads aka
+our main target "C", the Compiler can "mix in" different Garbage
+Collectors and threading models, including micro-threads, aka
 "Stackless".  The inherent complexity that arises from this
-ambitious approach is mostly kept away from the standard
-interpreter implementation, the main frontend. 
+ambitious approach is mostly kept away from our Python
+interpreter implementation (our main frontend).
 
-If you want to compare PyPy-the-Compiler with something
+(If you want to compare PyPy-the-Compiler with something
 else,  please pick a compiler that shares these goals and
 don't forget to tell us about what you find out :) 
 
@@ -53,10 +53,10 @@ Socially, PyPy is a collaborative effort of many individuals,
 companies and universities, working together in a distributed
 and sprint-driven way since 2003. 
 
-Formally, many of us are involved in being a contract
-partner of an EU contract with the goal to explore and
-research new approaches to Language/Compiler development and
-software engeneering.  This contract's duration is about to
+Formally, many of us are involved as partners in an EU
+contract with the goal of exploring and researching new
+approaches to Language/Compiler development and
+software engineering.  This contract's duration is about to
 end March 2007 and we are working and preparing the according
 "final review" which is scheduled for May 2007.  
 
