@@ -73,13 +73,13 @@ class ExportedMethods(server.ExportedMethods):
     host = 'localhost'
     try:
         port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+        port = int(port[7:-1])
     except IOError:
         log("ERROR: Can't connect to BnB server on %s:8000" % host)
-        sys.exit()
+#        sys.exit()
     except IndexError:
         log("ERROR: Connected to BnB server but unable to detect a running game")
-        sys.exit()
-    port = int(port[7:-1])
+#        sys.exit()
 
     #def _close(self, sessionid):
     #    if sessionid in self._serverMessage:
