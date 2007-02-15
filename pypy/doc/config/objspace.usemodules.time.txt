@@ -1,1 +1,4 @@
 Use the 'time' module. 
+
+Obsolete; use ``--withmod-rctime`` for our up-to-date version
+of the application-level 'time' module.
