@@ -5,13 +5,17 @@ from pypy.config.pypyoption import get_pypy_config
 from pypy.config.config import Config, OptionDescription, to_optparse
 from py.compat import optparse
 
+extra_useage = """For detailed descriptions of all the options see
+http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"""
+
 def run_tb_server(option, opt, value, parser):
     from pypy.tool import tb_server
     tb_server.start()
 
 def get_standard_options():
     config = get_pypy_config()
-    parser = to_optparse(config, useoptions=["objspace.*"])
+    parser = to_optparse(config, useoptions=["objspace.*"],
+                         extra_useage=extra_useage)
     parser.add_option(
         '-H', action="callback",
         callback=run_tb_server,

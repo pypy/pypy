@@ -402,7 +402,8 @@ class OptionDescription(object):
         return paths
 
 
-class OptHelpFormatter(optparse.IndentedHelpFormatter):
+class OptHelpFormatter(optparse.TitledHelpFormatter):
+    extra_useage = None
 
     def expand_default(self, option):
         assert self.parser
@@ -445,6 +446,14 @@ class OptHelpFormatter(optparse.IndentedHelpFormatter):
             return option.help + ' [%s]' % choices 
 
         return option.help
+
+    def format_usage(self, usage):
+        # XXX bit of a hack
+        result = optparse.TitledHelpFormatter.format_usage(self, usage)
+        if self.extra_useage is not None:
+            return result + "\n" + self.extra_useage + "\n\n"
+        return result
+
 
 
 class ConfigUpdate(object):
@@ -492,7 +501,7 @@ class BoolConfigUpdate(ConfigUpdate):
 
 
 def to_optparse(config, useoptions=None, parser=None,
-                parserargs=None, parserkwargs=None):
+                parserargs=None, parserkwargs=None, extra_useage=None):
     grps = {}
     def get_group(name, doc):
         steps = name.split('.')
@@ -509,8 +518,10 @@ def to_optparse(config, useoptions=None, parser=None,
             parserargs = []
         if parserkwargs is None:
             parserkwargs = {}
+        formatter = OptHelpFormatter()
+        formatter.extra_useage = extra_useage
         parser = optparse.OptionParser(
-            formatter=OptHelpFormatter(),
+            formatter=formatter,
             *parserargs, **parserkwargs)
     if useoptions is None:
         useoptions = config.getpaths(include_groups=True)
