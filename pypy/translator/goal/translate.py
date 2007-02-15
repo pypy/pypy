@@ -166,6 +166,8 @@ def parse_options_and_load_target():
         if 'print_help' in targetspec_dic:
             print "\n\nTarget specific help:\n\n"
             targetspec_dic['print_help'](config)
+        print "\n\nFor detailed descriptions of the command line options see"
+        print "http://codespeak.net/pypy/dist/pypy/doc/config/commandline.html"
         sys.exit(0)
     
     return targetspec_dic, translateconfig, config, args
