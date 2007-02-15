@@ -1,6 +1,6 @@
-============================================
-What is pypy.js (JavaScript backend of pypy)
-============================================
+=============================================
+What is pypy.web (JavaScript backend of pypy)
+=============================================
 
 Author:
 =======
@@ -10,7 +10,7 @@ Maciej Fijalkowski, fijal@genesilico.pl
 Purpose:
 ========
 
-This document explains what pypy.js is and (just as important) what it is not.
+This document explains what pypy.web is and (just as important) what it is not.
 
 What is it?
 -----------
@@ -39,7 +39,7 @@ modifications of \_\_dict\_\_ and such, because that will break RPython.
 Additional features
 -------------------
 
-It is much easier to write code in pypy.js than in JavaScript itself. The whole
+It is much easier to write code in pypy.web than in JavaScript itself. The whole
 `b'n'b demo`_ is just about 250 lines of code, with many AJAX calls. Imagine
 writing it in JavaScript, it would easily exceed the number of lines, even with
 a nice library to handle the AJAX, and would almost certainly be less elegant

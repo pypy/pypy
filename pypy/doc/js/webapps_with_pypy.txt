@@ -25,7 +25,7 @@ PyPy features for web developers
 ---------------------------------
 
 Of course the 'killer feature' of PyPy for web application developers is the
-ability to convert somewhat restricted Python code (aka RPython) into
+ability to convert somewhat restricted Python code (aka `RPython`_) into
 JavaScript code. Unlike other libraries that perform similar functionality,
 PyPy really interprets the code, and produces 'lower level' JavaScript code,
 so it implements Python core language features like list comprehensions, and
@@ -40,9 +40,10 @@ client-side code, using XMLHttpRequest. This code lives in a module in
 pypy/translator/js/examples that's called 'server.py', and uses a library in
 pypy/translator/js called 'commproxy.py'.
 
-Note that the 'server.py' library currently is usable, but not complete: I
-assume there will be quite some development and refinement later. This may mean
-that certain things in this document are outdated.
+Note that the 'server.py' library currently is usable, but not complete nor
+stable: I assume there will be quite some development and refinement later.
+This may mean that certain things in this document are outdated. There
+might be even a strong API rewrite at some point.
 
 Layers
 -------
@@ -75,7 +76,7 @@ to write:
 
     exposed functions only support common datatypes (ints, strings, lists
     of ints, etc.) for arguments and return values, and have to have those
-    arguments and return values 'described' so that the rtyper system can
+    arguments and return values 'described' so that the annotator system can
     discover how they should be exposed, and so that the (transparently used)
     XMLHttpRequest handler and JSON serializer know how they should be treated
 
@@ -96,7 +97,7 @@ the transparent XMLHttpRequest stuff, I chose to do one that stays on-screen
 when adding a message, so there's no screen refresh, but apart from that it's
 a very basic, simple guestbook. Of course the script is still too much code to
 fit in this document nicely, so I placed it in some nice files: on for
-`the server-side code` and one for `the client-side`. Let's examine the
+`the server-side code`_ and one for `the client-side`_. Let's examine the
 server side first.
 
 guestbook.py
@@ -239,6 +240,6 @@ higher-level layers, and client-side widgets and such, but currently it's
 still 'work as usual', but with somewhat nicer (we hope ;) tools.
 
 .. _`RPython`: ../coding-guide.html#restricted-python
-.. _`the server-side code`: ../../translator/js/examples/guestbook.py
-.. _`the client-side`: ../../translator/js/examples/guestbook_client.py
+.. _`the server-side code`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/guestbook.py
+.. _`the client-side`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/guestbook_client.py
 
