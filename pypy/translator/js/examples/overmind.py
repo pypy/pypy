@@ -18,7 +18,7 @@ FUNCTION_LIST = ['launch_console', 'bnb_redirect']
 TIMEOUT = 300
 pids = []
 
-def launch_console_in_new_thread():
+def launch_console_in_new_prcess():
     from pypy.translator.js.examples import pythonconsole
     httpd = server.create_server(server_address=('', 0),
                         handler=pythonconsole.RequestHandler,
@@ -37,7 +37,7 @@ class ExportedMethods(server.ExportedMethods):
         if we want to make this multiplayer, we need additional locking
         XXX
         """
-        return launch_console_in_new_thread()
+        return launch_console_in_new_prcess()
 
 exported_methods = ExportedMethods()
 
