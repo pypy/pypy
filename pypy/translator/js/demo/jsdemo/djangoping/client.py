@@ -1,6 +1,7 @@
 """rpython javascript code"""
 
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc, described
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
+from pypy.translator.js.lib.support import callback
 
 from pypy.translator.js.modules import mochikit
 from pypy.translator.js.modules import dom
@@ -9,7 +10,7 @@ class PingHandler(BasicExternal):
     """Server side code which handles javascript calls"""
     _render_xmlhttp = True
         
-    @described(retval={"aa":"aa"})
+    @callback(retval={str:str})
     def ping(self, ping_str="aa"):
         """Simply returns the string prefixed with a PONG"""
         return dict(response="PONG: %s" % ping_str)
