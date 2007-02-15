@@ -515,6 +515,18 @@ Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
 does not show up at all (indeed the type is the only aspect of the instance that
 the controller cannot change).
 
+Provided API:
+-------------
+
+Transparent proxy provides two magic functions appearing in the pypymagic module.
+
+* `transparent_proxy` - a basic function to create proxy object.
+
+* `get_transparent_controller` - for some use-cases there is need to know
+  when an object is a transparent proxy. This function returns an original controller
+  (a callable) or None in case this is a normal Python object. This is
+  the only official way of distinguishing transparent objects from normal ones.
+
 Further points of interest:
 ---------------------------
 
