@@ -570,12 +570,15 @@ a loop. Both cases should be avoided because they make stack overflows more
 likely. Also objects that have a finalizer cannot be allocated on the stack,
 since the finalizer might resurrect the object.
 
-The resulting performance improvements by this optimization were quite
-poor. We think that this is due to the fact that the Boehm garbage
+The resulting performance improvements by this optimization were not as big
+we hoped. We think that this is due to the fact that the Boehm garbage
 collector becomes slower when the stack is bigger, thus compensating
 any speed improvement achieved by having faster allocation. We did not
 implement stack allocation with any of the other GCs that PyPy can
 use.
+
+Enable this optimization with :config:`translation.backendopt.mallocs`.
+
 
 The Stackless Transform
 -----------------------
@@ -586,6 +589,8 @@ and resume execution at that point.  This is used to implement
 coroutines as an RPython-level feature, which in turn are used to
 implement `coroutines, greenlets and tasklets`_ as an application
 level feature for the Standard Interpreter.
+
+Enable the stackless transformation with :config:`translation.stackless`.
 
 .. _`coroutines, greenlets and tasklets`: stackless.html
 
@@ -645,6 +650,9 @@ on flexibility and robustness, not performance.
 For a quite detailed description of how memory management and garbage collection
 are performed in PyPy, see the `Technical report`_ about this topic (section 4.2).
 
+You can choose which garbage collection strategy to use with
+:config:`translation.gc`.
+
 .. _`Technical report`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
 
 .. _C:
@@ -688,6 +696,8 @@ Other backends
 ==============
 
 .. _LLVM:
+
+Use the :config:`translation.backend` option to choose which backend to use.
 
 The LLVM Back-End
 -----------------
