@@ -45,7 +45,7 @@ links to more information.
 
 **external function**
     Functions that we don't want to implement in Python for various
-    reasons (e.g. if they need to make calls into the OS) and whose
+    reasons (e.g. they need to make calls into the OS) and whose
     implementation will be provided by the backend.
 
 .. _`garbage collection framework`:
@@ -67,12 +67,6 @@ links to more information.
 **jit**
   `just in time compiler`_.  Our jit now has `some draft documentation
   <jit.html>`__.
-
-.. _`l3interpreter`:
-
-**l3interpreter**
-   Piece of code that is able to interpret L3 flow graphs.  This code
-   is unfinished and its future is unclear.
 
 .. _llinterpreter:
 
