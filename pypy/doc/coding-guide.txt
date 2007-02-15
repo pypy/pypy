@@ -686,9 +686,12 @@ file containing specifications where each name in a module comes from.
 Only specified names will be exported to a Mixed Module's applevel
 namespace.
 
-Sometimes it is neccessary to really write some functions in C (or whatever
-target language). See the `external functions documentation`_ for details.
+Sometimes it is necessary to really write some functions in C (or
+whatever target language). See `rctypes`_ and `external functions
+documentation`_ for details. The latter approach is cumbersome and
+being phased out and former has currently quite a few rough edges.
 
+.. _`rctypes`: rctypes.html
 .. _`external functions documentation`: translation.html#extfunccalls
 
 application level definitions
