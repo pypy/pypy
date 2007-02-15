@@ -23,13 +23,10 @@ default_modules.update(dict.fromkeys(
 
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["rsocket", "unicodedata", "mmap", "fcntl", "rctime", "select", "bz2",
+    ["rsocket", "unicodedata", "mmap", "fcntl", "rctime", "select",
      "crypt", "signal",
     ]
 ))
-
-if platform.machine() == "x86_64" and sys.maxint != 2147483647:
-    del working_modules['bz2'] # not 64 bit ready
 
 module_dependencies = { }
 if os.name == "posix":
