@@ -58,6 +58,8 @@ The present document gives a description of the above object spaces.
 The sources of PyPy contain the various object spaces in the directory
 `objspace/`_.
 
+To choose which object space to use, use the :config:`objspace.name` option.
+
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 .. _`in another document`: translation.html
