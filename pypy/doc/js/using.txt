@@ -70,16 +70,6 @@ rpython2javascript::
 .. _`MochiKit`: http://www.mochikit.com/
 .. _`rpython2javascript`: 
 
-Web server integration:
------------------------
-
-There is an `example`_ of using this toolkit with BaseHTTPServer from
-the standard python library. Web server integration is simple - you can
-compile any RPython function at runtime and provide it to client as
-a JavaScript file.
-
-.. _`example`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/demo/jsdemo/example.py
-
 Easy AJAX:
 ----------
 
@@ -177,4 +167,4 @@ working copy on-line right now, sorry) and a simple example of JS a
 
 .. _`here`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/bnb/start_bnb.py
 .. _`console`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/console.py
-.. _`django ping example`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/demo/jsdemo/djangoping
+.. _`django ping example`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/djangoping
