@@ -30,8 +30,8 @@ HTML_PAGE = """
 <html>
 <head>
   <title>Example</title>
-  <script type="text/javascript" src="jssource"/>
-  <script src="http://mochikit.com/MochiKit/MochiKit.js" type="text/javascript"/>
+  <script type="text/javascript" src="jssource"></script>
+  <script src="http://mochikit.com/MochiKit/MochiKit.js" type="text/javascript"></script>
 </head>
 <body onload="setup_page()">
 <h3>Console</h3>
