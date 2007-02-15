@@ -1,2 +1,2 @@
-Use the '_file' module. 
-This module is essential, included by default and should not be removed.
+Use the '_file' module. It is an internal module that contains helper
+functionality for the builtin ``file`` type.
