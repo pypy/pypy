@@ -729,6 +729,7 @@ class Builder(GenBuilder):
             try:
                 funcsig = self.rgenop.funcsig[gv_fnptr.get_integer_value()]
             except KeyError:
+                funcsig = 'TODO: funcsig here'
                 py.test.skip('call an address directly not supported yet')
         args_gv2 = []
         for v in args_gv:
