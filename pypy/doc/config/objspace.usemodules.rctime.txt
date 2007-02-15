@@ -1,6 +1,6 @@
 Use the 'rctime' module. 
 
-'rctime' is our `rctypes`_ based implemenation of the builtin 'time' module.
+'rctime' is our `rctypes`_ based implementation of the builtin 'time' module.
 It supersedes the less complete config:`objspace.usemodules.time`,
 at least for C-like targets (the C and LLVM backends).
 
