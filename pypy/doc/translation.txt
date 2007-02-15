@@ -537,6 +537,7 @@ inlining has happened. Therefore we implemented an optimization which
 "explodes" objects and thus saves one allocation in this simple (but quite
 common) situation.
 
+
 Escape Analysis and Stack Allocation
 ++++++++++++++++++++++++++++++++++++
 
@@ -577,7 +578,7 @@ any speed improvement achieved by having faster allocation. We did not
 implement stack allocation with any of the other GCs that PyPy can
 use.
 
-Enable this optimization with :config:`translation.backendopt.mallocs`.
+Enable this optimization with :config:`translation.backendopt.heap2stack`.
 
 
 The Stackless Transform
