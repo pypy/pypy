@@ -49,6 +49,7 @@ class Handler(server.Handler):
     static_dir = str(py.path.local(__file__).dirpath().join("data"))
     index = server.Static()
     console = server.Static(os.path.join(static_dir, "launcher.html"))
+    terminal = server.Static(os.path.join(static_dir, "terminal.html"))
     exported_methods = exported_methods
 
     def source_js(self):

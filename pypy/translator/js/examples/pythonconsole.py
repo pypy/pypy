@@ -31,7 +31,7 @@ HTML_PAGE = """
 <head>
   <title>Example</title>
   <script type="text/javascript" src="jssource"/>
-  <script src="MochiKit/MochiKit.js" type="text/javascript"/>
+  <script src="http://mochikit.com/MochiKit/MochiKit.js" type="text/javascript"/>
 </head>
 <body onload="setup_page()">
 <h3>Console</h3>
