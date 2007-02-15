@@ -169,7 +169,7 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            llvm--_objspace-std-withstrdict
+            llvm--_objspace-std-withmultidict
             llvm--_objspace-opcodes-CALL_LIKELY_BUILTIN
             c
             c--gc=framework
