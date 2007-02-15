@@ -1,3 +1,3 @@
-Use the 'posix' module. 
-This module is essential, included by default and cannot be removed (Even when
-specified explicitly, option gets overriden later)
+Use the essential 'posix' module.
+This module is essential, included by default and cannot be removed (even when
+specified explicitly, the option gets overriden later).
