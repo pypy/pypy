@@ -875,7 +875,7 @@ import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item): 
     _resultcache = None
-    def haskeyword(self, keyword): 
+    def _haskeyword(self, keyword): 
         if keyword == 'core': 
             return self.parent.regrtest.core 
         if keyword not in ('error', 'ok', 'timeout'): 
