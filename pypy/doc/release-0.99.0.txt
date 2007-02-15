@@ -1,2 +1,123 @@
-pypy-0.99.0: ... 
-================================
+======================================================================
+pypy-0.99.0: new object spaces, optimizations, configuration ... 
+======================================================================
+
+Welcome to the PyPy 0.99.0 release - a major snapshot
+and milestone of the last 8 months of work and contributions 
+since PyPy-0.9.0 came out in June 2006!
+
+Main entry points: 
+
+    XXX getting-started
+    XXX downloads
+    XXX index 
+
+Further below you'll find notes on our current 
+project view, a list of 0.99.0 highlights, and 
+plans for PyPy 1.0 and beyond. 
+
+have fun, 
+    
+    XXX the release team 
+
+
+What and where is PyPy? 
+==========================
+
+XXX consider shortening and/or shifting to web place 
+
+Technically, PyPy is both a Python Interpreter implementation 
+and and advanced Compiler Framework.  
+
+The Python Standard interpreter provides compliant CPython 
+semantics with a high flexibility for extending and
+amending it.  We belive that the main issue keeping it from
+being usable as a productive alternative is the 
+lack of extension module support.  This will likely be 
+an ongoing topic for 2007, as it is less of a research
+topic and has thus been of less priority to the core
+people involved with the EU project. 
+
+The Compiler Framework allows for alternative frontends 
+(experimental contributions: Javascript or Prolog!) and for
+alternative compilation targets, currently C, LLVM, .NET 
+or Java, listed here with decreasing order of completeness.
+For our main target "C", the Compiler can mixin different 
+Garbage Collectors and threading models, including 
+micro-threads aka "Stackless". 
+
+The inherent complexity that arises from this ambitious
+Compiler approach is mostly kept away from the standard
+interpreter implementation, the main frontend. 
+If you want to compare PyPy-the-Compiler with something
+else,  please pick a compiler that shares these goals and
+don't forget to tell us about what you find out :) 
+
+Socially, PyPy is a collaborative effort of many individuals, 
+companies and universities, working together in a distributed
+and sprint-driven way since 2003. 
+
+Formally, many of us are involved in being a contract
+partner of an EU contract with the goal to explore and
+research new approaches to Language/Compiler development and
+software engeneering.  This contract's duration is about to
+end March 2007 and we are working and preparing the according
+"final review" which is scheduled for May 2007.  
+
+
+Key 0.99.0 Features 
+=====================
+
+* new object spaces:
+  - Tainting: a 150-line proxy object space tracking 
+    and boxing sensitive information within an application. 
+    A tainted object is completely barred from crossing 
+    an IO barrier, such as writing to files, databases
+    or sockets.  This allows to   to significantly reduce the 
+    effort of e.g. security reviews to the few places where 
+    objects are "declassified" in order to send information 
+    across IO barriers. 
+
+  - TProxy: Transparent distribution: XXX 
+ 
+* optimizations: 
+  - XXX
+  - speed up of 5-7 compared to 0.9, overall 2-3 slower than
+    CPython 
+
+* Demonstrations of Javascript-Backend / AJAX experiments: 
+  XXX play1 pointer? 
+
+* new configuration system: 
+  XXX 
+
+* improved documentation: 
+  XXX point to main new docs 
+
+
+What about 1.0? 
+======================
+
+In the last days leading up to the release, we decided
+to go for naming the release 0.99.0, mainly because
+we still have some efforts pending to integrate and complete 
+research and coding work: 
+
+* we'd like to get the JIT Compiler Generator to a state where 
+  it begings to meet the speed-expectations that many blogs and people 
+  out there have chosen as a main criterium for looking at PyPy.
+
+* we are to integrate new Syntax and Aspect-Oriented
+  extension capabilities and refine the Logic object 
+  space (provides Logic Variables within Python). 
+
+* we'd like to package and improve configurations and 
+  and testing, and actually ask for your help
+  on getting PyPy to become a sustained and interesting 
+  base for further developments
+
+IOW, PyPy 0.99 is the start for getting to 1.0 end of March 2007,
+which we intend to become a base for a longer (and more relaxed:) 
+time to come. 
+
+
