@@ -24,10 +24,9 @@ have fun,
 What and where is PyPy? 
 ==========================
 
-XXX consider shortening and/or shifting to web place 
-
 Technically, PyPy is both a Python Interpreter implementation 
-and and advanced Compiler Framework.  
+and an advanced Compiler, actually a framework for implementing 
+dynamic languages and generating virtual machines for them.
 
 The Python Standard interpreter provides compliant CPython 
 semantics with a high flexibility for extending and
@@ -38,17 +37,14 @@ an ongoing topic for 2007, as it is less of a research
 topic and has thus been of less priority to the core
 people involved with the EU project. 
 
-The Compiler Framework allows for alternative frontends 
-(experimental contributions: Javascript or Prolog!) and for
-alternative compilation targets, currently C, LLVM, .NET 
-or Java, listed here with decreasing order of completeness.
-For our main target "C", the Compiler can mixin different 
-Garbage Collectors and threading models, including 
-micro-threads aka "Stackless". 
-
-The inherent complexity that arises from this ambitious
-Compiler approach is mostly kept away from the standard
+The Compiler Framework allows for alternative frontends and
+for alternative backends, currently C, LLVM, and .NET.  For
+our main target "C", the Compiler can mixin different Garbage
+Collectors and threading models, including micro-threads aka
+"Stackless".  The inherent complexity that arises from this
+ambitious approach is mostly kept away from the standard
 interpreter implementation, the main frontend. 
+
 If you want to compare PyPy-the-Compiler with something
 else,  please pick a compiler that shares these goals and
 don't forget to tell us about what you find out :) 
