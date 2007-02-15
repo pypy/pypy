@@ -94,10 +94,12 @@ Then you need to set class instance's `_render_xmlhttp` to `True`, to
 tell the JS backend to render it using xmlhttp communication. Because
 the web server code does not need to be rpython, you have to supply some
 way of telling PyPy what types can be returned out of it. This is done
-using the decorator `@described(retval = <used type>)` from
+using the decorator `@callback(retval = <used type>)` from
 `bltregistry`_. For example you may provide::
 
-  @described(retval = {str:str})
+  from pypy.translator.js.lib.support import callback
+
+  @callback(retval = {str:str})
   def some_fun(self, some_arg = 3):
     ....
 
@@ -121,12 +123,13 @@ To create a simple javascript method which pings a server you need two parts, a 
 
 On the server side::
 
-  from pypy.rpython.ootypesystem.bltregistry import BasicExternal, described
+  from pypy.rpython.ootypesystem.bltregistry import BasicExternal
+  from pypy.translator.js.lib.support import callback
   
   class PingHandler(BasicExternal):
       _render_xmlhttp = True
 
-      @described(retval={str:str})
+      @callback(retval={str:str})
       def ping(self, ping_str="aa"):
           return dict(response="PONG: %s" % ping_str)
 
