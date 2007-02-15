@@ -1,2 +1,7 @@
 Use the 'rsocket' module. 
-This module is expected to be fully working.
+
+This is our implementation of '_socket', the Python builtin module
+exposing socket primitives, which is wrapped and used by the standard
+library 'socket.py' module. 'rsocket' is based on `rctypes`_.
+
+.. _`rctypes`: ../rctypes.html
