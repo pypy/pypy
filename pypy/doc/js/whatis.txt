@@ -39,11 +39,11 @@ modifications of \_\_dict\_\_ and such, because that will break RPython.
 Additional features
 -------------------
 
-It is much easier to write code in pypy.web than in JavaScript itself. The whole
-`b'n'b demo`_ is just about 250 lines of code, with many AJAX calls. Imagine
-writing it in JavaScript, it would easily exceed the number of lines, even with
-a nice library to handle the AJAX, and would almost certainly be less elegant
-and readable.
+It is much easier to write code in pypy.web than in JavaScript itself. The
+whole `b'n'b demo`_ is just about 250 lines of code, with many AJAX calls.
+Imagine writing it in JavaScript, it would easily exceed the number of lines,
+even with a nice library to handle the AJAX, and would almost certainly be less
+elegant and readable.
 
 Errors may appear already at compile time (such as providing the wrong number
 of arguments to a function, using a non-existing global variable, calling a

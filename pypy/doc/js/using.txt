@@ -16,7 +16,7 @@ programs.
 
 The JavaScript backend lets you write `RPython`_ source code which gets
 translated into JavaScript and executed in a browser. The resulting
-JavaScript code should not depend on a browser (this is backend
+JavaScript code should not depend on a browser (this is a backend
 responsibility) and should integrate as much as possible with a web
 server.
 
@@ -27,10 +27,10 @@ Getting started:
 ----------------
 
 You can use a JavaScript backend in many different ways. One of those is
-to simply run `jscompile`_ from bin directory with module name and a
-list of functions to get your functions compiled. Another way is to use
-rpython2javascript from `js.main`_ which allows your javascript to be
-generated on-the-fly (e.g. when serving a web page).
+to simply run `jscompile`_ from the 'bin' directory with a module name and a
+list of functions, this makes that the listed functions get compiled. Another
+way is to use the rpython2javascript function from `js.main`_ to generate
+your javascript on-the-fly (e.g. when serving a web page).
 
 .. _`jscompile`: http://codespeak.net/svn/pypy/dist/pypy/bin/jscompile.py
 .. _`js.main`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/main.py
@@ -88,14 +88,14 @@ communication over `XMLHttpRequest`_ without too much user intervention.
 To achieve this, you must tell PyPy that *these* particular method calls
 need to be rendered in this way.
 
-First you must subclass BasicExternal from `bltregistry`_ and provide
-instance of it to RPython code (as global variable or any other way).
-Then you need to set class instance's `_render_xmlhttp` to `True`, to
-tell the JS backend to render it using xmlhttp communication. Because
-the web server code does not need to be rpython, you have to supply some
-way of telling PyPy what types can be returned out of it. This is done
-using the decorator `@callback(retval = <used type>)` from
-`bltregistry`_. For example you may provide::
+To achieve this, first you must subclass BasicExternal from `bltregistry`_ and
+provide an instance of it to RPython code (for instance as global variable).
+Then you need to set class instance's `_render_xmlhttp` to `True`, to tell the
+JS backend to render it using xmlhttp communication. Because the web server
+code does not need to be rpython, you have to supply some way of telling PyPy
+what types can be returned out of it. This is done using the decorator
+`@callback(retval = <used type>)` from `bltregistry`_. For example you may
+provide::
 
   from pypy.translator.js.lib.support import callback
 
@@ -103,9 +103,9 @@ using the decorator `@callback(retval = <used type>)` from
   def some_fun(self, some_arg = 3):
     ....
 
-to tell compiler that this function will return mapping from string to
-string and will take integer as an argument. You can simply specify the
-arguments using keyword arguments with an example, or pass an args
+The decorator tells the compiler that this function will return mapping from
+string to string and will take integer as an argument. You can simply specify
+the arguments using keyword arguments with an example, or pass an args
 dictionary to the described decorator.
 
 Then you must supply a method which returns JSON data in the server
@@ -135,7 +135,9 @@ On the server side::
 
   ping_handler = PingHandler()    
 
-This uses the BasicExternal class and the described decorator to let PyPy know how to deal with the input and output of the methods. You then need an instance of the class to pass to other parts of the RPython code.
+This uses the BasicExternal class and the described decorator to let PyPy know
+how to deal with the input and output of the methods. Now you can use an
+instance of this class to pass to other parts of the RPython code.
 
 On the client you call the ping_handler.ping method with a callback::
 
