@@ -1,2 +1,5 @@
 Use the '_pickle_support' module. 
-This module is expected to be working and is included by default.
+Internal helpers for pickling runtime builtin types (frames, cells, etc)
+for `stackless`_ tasklet pickling support.
+
+.. _`stackless`: ../stackless.html
