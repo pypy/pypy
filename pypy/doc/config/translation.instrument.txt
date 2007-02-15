@@ -1,1 +1,1 @@
-internal option
+Internal option.

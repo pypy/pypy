@@ -1,1 +1,1 @@
-print some more information during translation
+Print some more information during translation.
