@@ -173,14 +173,14 @@ def main(backends=[]):
             llvm--_objspace-opcodes-CALL_LIKELY_BUILTIN
             c
             c--gc=framework
-            c--thread--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--thread--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
             c--stackless
             c--stackless--profopt='-c "from richards import *;main(iterations=1)"'
-            c--stackless--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--stackless--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
             c--profopt='-c "from richards import *;main(iterations=1)"'
             c--profopt='-c "from richards import *;main(iterations=1)"'--_objspace-opcodes-CALL_LIKELY_BUILTIN
-            c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
-            c--gc=framework--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--gc=framework--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
             cli
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
