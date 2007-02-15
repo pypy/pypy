@@ -1,2 +1,2 @@
-Use the '_weakref' module. 
+Use the '_weakref' module, necessary for the standard lib 'weakref' module.
 This module is expected to be working and is included by default.
