@@ -17,7 +17,7 @@ from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.rpython.extfunc import _callable
 
-from pypy.translator.js.demo.jsdemo import support
+from pypy.translator.js.lib import support
 from pypy.translator.js.lib import server
 
 commproxy.USE_MOCHIKIT = True
