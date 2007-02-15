@@ -1,1 +1,1 @@
-Do constant folding of operation and constant propagation on flowgraphs.
+Do constant folding of operations and constant propagation on flowgraphs.
