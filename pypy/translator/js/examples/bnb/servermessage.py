@@ -1,5 +1,4 @@
 from msgstruct import *
-import PIL.Image
 from zlib import decompressobj, decompress
 from urllib import quote
 from os.path import exists
@@ -93,6 +92,7 @@ class ServerMessage:
         return fn(bitmap_code, data_or_fileid, *rest)
 
     def def_bitmap1(self, bitmap_code, data, *rest):
+        import PIL.Image
         if len(rest) == 0:
             colorkey = None
         else:
@@ -163,6 +163,8 @@ class ServerMessage:
                 fileid, position, size, gfx_bitmap_filename))
 
     def def_icon(self, bitmap_code, icon_code, x,y,w,h, *rest):
+        import PIL.Image
+
         #log('def_icon bitmap_code=%s, icon_code=%s, x=%s, y=%s, w=%s, h=%s, alpha=%s' %\
         #    (bitmap_code, icon_code, x,y,w,h, rest) #ignore alpha (bubbles)
 
