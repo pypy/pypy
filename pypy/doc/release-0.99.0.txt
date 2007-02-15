@@ -99,9 +99,12 @@ to go for naming the release 0.99.0, mainly because
 we still have some efforts pending to integrate and complete 
 research and coding work: 
 
-* we'd like to get the JIT Compiler Generator to a state where 
-  it begings to meet the speed-expectations that many blogs and people 
-  out there have chosen as a main criterium for looking at PyPy.
+* the JIT Compiler Generator is ready, but not fully integrated
+  with the PyPy interpreter.  As a result, the JIT does not give
+  actual speed improvements yet, so we chose to leave it out of the
+  0.99 release: the result doesn't meet yet the speed expectations
+  that we set for ourselves (and which many blogs and people out
+  there have chosen as a main criterium for looking at PyPy).
 
 * we are to integrate new Syntax and Aspect-Oriented
   extension capabilities and refine the Logic object 
