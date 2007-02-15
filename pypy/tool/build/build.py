@@ -167,3 +167,9 @@ normalized_rev: %(normalized_rev)s
         return (self.normalized_rev >= comparerev - self.revrange and
                 self.normalized_rev <= comparerev + self.revrange)
 
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and repr(self) == repr(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+

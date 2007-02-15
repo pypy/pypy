@@ -50,6 +50,7 @@ class MetaServer(object):
 
         self._done = done
 
+        self._in_progress = [] # builds actually in progress
         self._queued = [] # no builders available
         self._waiting = [] # compilation already in progress for someone else
 
@@ -126,6 +127,7 @@ class MetaServer(object):
                 )
                 accepted = builder.compile(request)
                 if accepted:
+                    self._in_progress.append(request)
                     self._channel.send('compile job accepted')
                     return builder.hostname
                 else:
@@ -152,6 +154,7 @@ class MetaServer(object):
 
     def compilation_done(self, buildpath):
         """builder is done with compiling and sends data"""
+        self._in_progress.remove(buildpath.request)
         self._queuelock.acquire()
         try:
             self._channel.send('compilation done for %s, written to %s' % (
@@ -169,6 +172,13 @@ class MetaServer(object):
         finally:
             self._queuelock.release()
 
+    def status(self):
+        # XXX temporary
+        return {'in_progress': len(self._in_progress),
+                'queued': len(self._queued),
+                'waiting': len(self._waiting),
+                'done': len(self._done)}
+
     def _cleanup_builders(self):
         self._queuelock.acquire()
         try:
@@ -178,6 +188,7 @@ class MetaServer(object):
                     self._channel.send('build server %s disconnected' % (
                         builder,))
                     if builder.busy_on:
+                        self._in_progress.remove(builder.busy_on)
                         self._queued.append(builder.busy_on)
                     self._builders.remove(builder)
         finally:

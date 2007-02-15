@@ -75,6 +75,9 @@ class Collection(Resource):
             is a Resource type)
 
             if path equals '', a lookup for 'index' is done
+
+            can be overridden in subclasses to implement different path
+            handling (PATH_INFO-like stuff)
         """
         name = path.pop(0)
         if name == '':
@@ -143,11 +146,10 @@ class Handler(BaseHTTPRequestHandler):
         headers = {'Content-Type': 'text/plain'} # XXX need more headers here?
         if e.status in [301, 302]:
             headers['Location'] = e.data
-            self.response(e.status, e.message, headers,
-                          'Redirecting to %s' % (e.data,))
+            body = 'Redirecting to %s' % (e.data,)
         else:
-            self.response(e.status, e.message, headers,
-                          'Error: %s (%s)' % (e.status, e.message))
+            body = 'Error: %s (%s)' % (e.status, e.message)
+        return headers, body
     
     def response(self, status, headers, body):
         self.send_response(status)
