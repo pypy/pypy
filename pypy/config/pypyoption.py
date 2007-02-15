@@ -160,7 +160,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    requires=[("objspace.std.withmultidict", True),
                              ("objspace.std.withtypeversion", True)]),
         BoolOption("withmethodcache",
-                   "try to cache methods",
+                   "try to cache method lookups",
                    default=False,
                    requires=[("objspace.std.withshadowtracking", True)]),
         BoolOption("withmethodcachecounter",
