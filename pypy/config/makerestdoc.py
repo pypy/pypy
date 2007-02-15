@@ -1,6 +1,6 @@
 import py
 from py.__.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
-from py.__.rest.rst import Directive, Em
+from py.__.rest.rst import Directive, Em, Quote, Text
 
 from pypy.config.config import ChoiceOption, BoolOption, StrOption, IntOption
 from pypy.config.config import FloatOption, OptionDescription, Option, Config
@@ -13,7 +13,13 @@ def get_fullpath(opt, path):
     else:
         return opt._name
 
-   
+
+def get_cmdline(cmdline, fullpath):
+    if cmdline is DEFAULT_OPTION_NAME:
+        return '--%s' % (fullpath.replace('.', '-'),)
+    else:
+        return cmdline
+
 
 class __extend__(Option):
     def make_rest_doc(self, path=""):
@@ -26,10 +32,7 @@ class __extend__(Option):
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))
         if self.cmdline is not None:
-            if self.cmdline is DEFAULT_OPTION_NAME:
-                cmdline = '--%s' % (fullpath.replace('.', '-'),)
-            else:
-                cmdline = self.cmdline
+            cmdline = get_cmdline(self.cmdline, fullpath)
             result.add(ListItem(Strong("command-line:"), cmdline))
         return result
 
@@ -158,4 +161,26 @@ class __extend__(OptionDescription):
             prefix = subpath
             curr = new
         return content
+
+
+def make_cmdline_overview(descr):
+    content = Rest(
+        Title("Overwiew of Command Line Options for '%s'" % (descr._name, ),
+              abovechar="=", belowchar="="))
+    cmdlines = []
+    config = Config(descr)
+    for path in config.getpaths(include_groups=False):
+        subconf, step = config._cfgimpl_get_home_by_path(path)
+        fullpath = (descr._name + "." + path)
+        prefix = fullpath.rsplit(".", 1)[0]
+        subdescr = getattr(subconf._cfgimpl_descr, step)
+        cmdline = get_cmdline(subdescr.cmdline, fullpath)
+        if cmdline is not None:
+            cmdlines.append((cmdline, fullpath, subdescr))
+    cmdlines.sort(key=lambda t: t[0].strip("-"))
+    for cmdline, fullpath, subdescr in cmdlines:
+        content.add(ListItem(Link(cmdline + ":", fullpath + ".html"),
+                             Text(subdescr.doc)))
+    return content
+    
 

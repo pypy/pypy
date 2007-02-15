@@ -1,5 +1,5 @@
 from pypy.config.config import *
-import pypy.config.makerestdoc
+from pypy.config.makerestdoc import make_cmdline_overview
 
 from py.__.doc.conftest import restcheck
 
@@ -65,5 +65,19 @@ def test_bool_requires_suggests():
     result = generate_html(descr)
     assert "more doc" in result[""]
 
-
-
+def test_cmdline_overview():
+    descr = OptionDescription("foo", "doc", [
+            ChoiceOption("bar", "more doc", ["a", "b", "c"]),
+            OptionDescription("sub", "nope", [
+                ChoiceOption("subbar", "", ["d", "f"]),
+                BoolOption("boolean", "this is a boolean", default=False,
+                           cmdline="-b --with-b")
+                ]),
+            StrOption("str", "string option!", default="strange"),
+            IntOption("int", "integer option", default=42),
+            FloatOption("float", "float option", default=py.std.math.pi),
+            ArbitraryOption("surprise", "special", defaultfactory=int),
+            ])
+    generate_html(descr)
+    c = make_cmdline_overview(descr)
+    checkrest(c.text(), "index.txt")
