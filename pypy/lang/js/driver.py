@@ -5,6 +5,7 @@ from py import path
 import py
 import os
 import sys
+from subprocess import *
 
 pwd = path.local(__file__)
 shell = pwd.dirpath('test', 'ecma', 'shell.js')
@@ -22,10 +23,12 @@ if py.path.local.sysfind("js") is None:
 results = open('results.txt', 'w')
 for f in pwd.dirpath('test', 'ecma').visit(filter):
     print f.basename
-    stdout = os.popen('./js_interactive.py -n -f %s -f %s'%(shell.strpath,f.strpath), 'r')
+    cmd = './js_interactive.py -n -f %s -f %s'%(shell, f)
+    p = Popen(cmd, shell=True, stdout=PIPE)
+    
     passed = 0
     total = 0
-    for line in stdout.readlines():
+    for line in p.stdout.readlines():
         if "PASSED!" in line:
             passed += 1
             total += 1
@@ -34,6 +37,3 @@ for f in pwd.dirpath('test', 'ecma').visit(filter):
         
     results.write('%s passed %s of %s tests\n'%(f.basename, passed, total))
     results.flush()
-
-            
-            
