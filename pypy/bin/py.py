@@ -27,7 +27,7 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
     BoolOption("completer", "use readline commandline completer",
                default=False, cmdline="-C"),
     BoolOption("optimize",
-               "dummy optimization flag for compatibility with C Python",
+               "dummy optimization flag for compatibility with CPython",
                default=False, cmdline="-O"),
     StrOption("runmodule",
               "library module to be run as a script (terminates option list)",
