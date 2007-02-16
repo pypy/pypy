@@ -16,10 +16,10 @@ class PyPyPage(PyPyPage):
         self.menubar[:] = html.div(
             html.a("general documentation", href="../index.html",
                    class_="menu"), " ",
-            html.a("translation options", href="translation.html", 
-                   class_="menu"), 
-            html.a("standard interpreter options", href="objspace.html", 
-                   class_="menu"), 
+            html.a("config index", href="index.html",
+                   class_="menu"), " ",
+            html.a("command-line overview", href="commandline.html",
+                   class_="menu"), " ",
             " ", id="menubar")
 
 class Project(Project): 
