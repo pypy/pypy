@@ -11,7 +11,9 @@ CPYTHON_API_VERSION        = 1012
 PYPY_VERSION               = (0, 9, 0, "alpha", '?')
 # the last item is replaced by the svn revision ^^^
 
-SVN_URL = "$HeadURL: http://codespeak.net/svn/pypy/dist/pypy/module/sys/version.py $"[10:-28]
+SVN_URL = "$HeadURL$"[10:-28]
+
+REV = "$LastChangedRevision$"
 
 
 # ____________________________________________________________
