@@ -13,7 +13,7 @@ PYPY_VERSION               = (0, 9, 0, "alpha", '?')
 
 SVN_URL = "$HeadURL$"[10:-28]
 
-REV = "$LastChangedRevision$"
+REV = "$LastChangedRevision$"[22:-2]
 
 
 # ____________________________________________________________
@@ -64,7 +64,7 @@ def svn_revision():
     "Return the last-changed svn revision number."
     # NB. we hack the number directly out of the .svn directory to avoid
     # to depend on an external 'svn' executable in the path.
-    rev = 0
+    rev = int(REV)
     try:
         f = open(os.path.join(autopath.pypydir, '.svn', 'format'), 'r')
         format = int(f.readline().strip())
