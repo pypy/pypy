@@ -75,11 +75,12 @@ else:
         opt = getattr(h._cfgimpl_descr, n)
         # end horror
         cmdline = get_cmdline(opt.cmdline, text)
-        shortest_long_option = 'X'*1000
-        for cmd in cmdline.split():
-            if cmd.startswith('--') and len(cmd) < len(shortest_long_option):
-                shortest_long_option = cmd
-        text = shortest_long_option
+        if cmdline is not None:
+            shortest_long_option = 'X'*1000
+            for cmd in cmdline.split():
+                if cmd.startswith('--') and len(cmd) < len(shortest_long_option):
+                    shortest_long_option = cmd
+            text = shortest_long_option
         target = prefix + relative
         print text, target
         reference_node = nodes.reference(rawtext, text, name=text, refuri=target)
