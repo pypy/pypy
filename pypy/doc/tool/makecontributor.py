@@ -27,7 +27,7 @@ import uconf # http://codespeak.net/svn/uconf/dist/uconf
 
 # Authors that don't want to be listed
 excluded = set("anna gintas ignas".split())
-cutoff = 5 # cutoff for authors in the LICENS file
+cutoff = 5 # cutoff for authors in the LICENSE file
 mark = False
 for author, count in items: 
     user = uconf.system.User(author)
