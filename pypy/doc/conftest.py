@@ -54,6 +54,8 @@ else:
     def config_role(name, rawtext, text, lineno, inliner, options={},
                     content=[]):
         from docutils import nodes
+        from pypy.config.pypyoption import get_pypy_config
+        from pypy.config.makerestdoc import get_cmdline
         txt = thisdir.join("config", text + ".txt")
         html = thisdir.join("config", text + ".html")
         assert txt.check()
@@ -67,6 +69,17 @@ else:
                 break
             curr = curr.dirpath()
             prefix += "../"
+        config = get_pypy_config()
+        # begin horror
+        h, n = config._cfgimpl_get_home_by_path('objspace.std.withmethodcache');
+        opt = getattr(h._cfgimpl_descr, n)
+        # end horror
+        cmdline = get_cmdline(opt.cmdline, text)
+        shortest_long_option = 'X'*1000
+        for cmd in cmdline.split():
+            if cmd.startswith('--') and len(cmd) < len(shortest_long_option):
+                shortest_long_option = cmd
+        text = shortest_long_option
         target = prefix + relative
         print text, target
         reference_node = nodes.reference(rawtext, text, name=text, refuri=target)
