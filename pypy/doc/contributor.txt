@@ -6,48 +6,73 @@ Here is a list of developers who have committed to the PyPy source
 code base, ordered by number of commits (which is certainly not a very
 appropriate measure but it's something)::
 
-    Armin Rigo 
+    Armin Rigo
     Samuele Pedroni
-    Christian Tismer
-    Holger Krekel
     Michael Hudson
     Carl Friedrich Bolz
+    Christian Tismer
+    Holger Krekel
     Eric van Riet Paap
+    Antonio Cuni
     Anders Chrigstrom
+    Maciek Fijalkowski
     Richard Emslie
-    Anders Lehmann 
+    Aurelien Campeas
+    Anders Lehmann
+    Niklaus Haldimann
     Seo Sanghyeon
+    Lawrence Oluyede
     Alex Martelli
     Ludovic Aubry
     Adrien Di Mascio
+    Stephan Diehl
+    Guido Wesdorp
     Stefan Schwarzer
-    Tomek Meka 
+    Tomek Meka
     Patrick Maupin
+    Leonardo Santagada
     Bob Ippolito
-    Jacob Hallen 
     Laura Creighton
-    Marius Gedminas 
-    Niklaus Haldimann 
+    Jacob Hallen
+    Marius Gedminas
+    Niko Matsakis
     Amaury Forgeot d Arc
     Guido van Rossum
-    Stephan Diehl
+    Valentino Volonghi
+    Alexander Schremmer
+    Alexandre Fayolle
+    Wanja Saatkamp
+    Gerald Klix
+    Eugene Oden
     Dinu Gherman
     Guenter Jantzen
-    Rocco Moretti 
-    Boris Feigin 
+    Ben Young
+    Nicolas Chauvat
+    Michael Twomey
+    Rocco Moretti
+    Simon Burton
+    Boris Feigin
     Olivier Dormond
-    Valentino Volonghi
+    Gintautas Miliauskas
+    Stuart Williams
+    Jens-Uwe Mager
     Brian Dorsey
     Jonathan David Riehl
-    Andreas Friedge
-    Jens-Uwe Mager
-    Bert Freudenberg
-    Alan McIntyre
     Anders Qvist
+    Beatrice During
+    Andreas Friedge
+    Alan McIntyre
+    Bert Freudenberg
+    Pieter Zieschang
+    Jean-Paul Calderone
+    Jacob Oscarson
+    Ignas Mikalajunas
     Lutz Paelike
-    Jacek Generowicz
+    Christopher Armstrong
+    Yusei Tahara
     Andrew Thompson
-    Ben Young
-    Alexander Schremmer
+    Jacek Generowicz
+    Joshua Gilbert
+    Anna Ravencroft
+    Martin Blais
     Michael Chermside
-

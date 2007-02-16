@@ -25,9 +25,15 @@ items.sort(lambda x,y: -cmp(x[1], y[1]))
 
 import uconf # http://codespeak.net/svn/uconf/dist/uconf 
 
+# Authors that don't want to be listed
+excluded = set("anna gintas ignas".split())
+cutoff = 5 # cutoff for authors in the LICENS file
+mark = False
 for author, count in items: 
-    #user = uconf.system.User(author)
-    #realname = user.realname 
-    #print "%5d" % count, "   ", realname, "<%s>" % email 
-    print count, "   ", author 
-
+    user = uconf.system.User(author)
+    realname = user.realname.strip()
+    if not mark and count < cutoff:
+        mark = True
+	print '-'*60
+    print "   ", realname
+    #print count, "   ", author 

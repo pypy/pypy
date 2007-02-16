@@ -34,39 +34,63 @@ Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'pypy' directory are each
 copyrighted by one or more of the following people and organizations:    
 
-    Armin Rigo <arigo@tunes.org>
-    Samuele Pedroni <pedronis@strakt.com>
-    Holger Krekel <hpk@trillke.net>
-    Christian Tismer <tismer@tismer.com>
-    Michael Hudson <mwh@python.net>
-    Carl Friedrich Bolz <cfbolz@gmx.de>
-    Eric van Riet Paap <eric@vanrietpaap.nl>
-    Richard Emslie <rxe@ukshells.co.uk>
-    Anders Chrigstrom <ac@strakt.com>
-    Niklaus Haldimann <nhaldimann@gmx.ch>
-    Antonio Cuni <anto.cuni@gmail.com>
-    Maciek Fijalkowski <fijal@genesilico.pl>
-    Aurélien Campéas <aurelien.campeas@logilab.fr>
-    Seo Sanghyeon <sanxiyn@gmail.com>
-    Alex Martelli <aleaxit@yahoo.com>
-    Anders Lehmann <serendipity-soft@get2net.dk>
-    Stephan Diehl <stephan.diehl@gmx.net>
-    Patrick Maupin <pmaupin@gmail.com>
-    Ludovic Aubry <ludovic.aubry@logilab.fr>
-    Bob Ippolito <bob@redivi.com>
-    Adrien Di Mascio <adim@logilab.fr>
-    Jacob Hallen <jacob@strakt.com>
-    Laura Creighton <lac@strakt.com>
-    Marius Gedminas <mgedmin@b4net.lt>
-    Amaury Forgeot d Arc <amauryfa@gmail.com>
-    Boris Feigin <boria@fbg.uklinux.net>
-    Valentino Volonghi <dialtone@divmod.com>        
-    Bert Freudenberg <bert@impara.de>
-    Andrew Thompson <andrew.thompson@newhert.com>    
-    Jonathan David Riehl <jriehl@spaceship.com>
-    Amaury Forgeot D Arc <Amaury.Forgeotdarc@Ubitrade.Com>
-    Alexandre Fayolle <afayolle@debian.org>
-    Guido van Rossum <guido@python.org>
+    Armin Rigo
+    Samuele Pedroni
+    Michael Hudson
+    Carl Friedrich Bolz
+    Christian Tismer
+    Holger Krekel
+    Eric van Riet Paap
+    Antonio Cuni
+    Anders Chrigstrom
+    Maciek Fijalkowski
+    Richard Emslie
+    Aurelien Campeas
+    Anders Lehmann
+    Niklaus Haldimann
+    Seo Sanghyeon
+    Lawrence Oluyede
+    Alex Martelli
+    Ludovic Aubry
+    Adrien Di Mascio
+    Stephan Diehl
+    Guido Wesdorp
+    Stefan Schwarzer
+    Tomek Meka
+    Patrick Maupin
+    Leonardo Santagada
+    Bob Ippolito
+    Laura Creighton
+    Jacob Hallen
+    Marius Gedminas
+    Niko Matsakis
+    Amaury Forgeot d Arc
+    Guido van Rossum
+    Valentino Volonghi
+    Alexander Schremmer
+    Alexandre Fayolle
+    Wanja Saatkamp
+    Gerald Klix
+    Eugene Oden
+    Dinu Gherman
+    Guenter Jantzen
+    Ben Young
+    Nicolas Chauvat
+    Michael Twomey
+    Rocco Moretti
+    Simon Burton
+    Boris Feigin
+    Olivier Dormond
+    Gintautas Miliauskas
+    Stuart Williams
+    Jens-Uwe Mager
+    Brian Dorsey
+    Jonathan David Riehl
+    Anders Qvist
+    Beatrice During
+    Andreas Friedge
+    Alan McIntyre
+    Bert Freudenberg
 
     Heinrich-Heine University, Germany 
     AB Strakt, Sweden  
