@@ -9,7 +9,7 @@ options`_.
 
 There are two main entry points that accept options: ``py.py``, which
 implements Python on top of another Python interpreter and accepts all
-the `object space`_ options:
+the `object space options`_:
 
 .. parsed-literal::
 
@@ -23,7 +23,7 @@ point which takes arguments of this form:
     ./translate.py <`translation options`_> <target>
 
 For the common case of ``<target>`` being ``targetpypystandalone.py``,
-you can then pass the `object space`_ options after
+you can then pass the `object space options`_ after
 ``targetpypystandalone.py``, i.e. like this:
 
 .. parsed-literal::
@@ -41,7 +41,7 @@ do for your objects`_.
 
 .. _`configuration`: ../configuration.html
 .. _`objspace options`: commandline.html#overwiew-of-command-line-options-for-objspace
-.. _`object space`: commandline.html#overwiew-of-command-line-options-for-objspace
+.. _`object space options`: commandline.html#overwiew-of-command-line-options-for-objspace
 .. _`translation options`: commandline.html#overwiew-of-command-line-options-for-translation
 .. _`overview`: commandline.html
 .. _`Alternative object implementations in the PyPy standard interpreter`: ../object-optimizations.html
