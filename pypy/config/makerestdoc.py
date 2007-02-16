@@ -7,6 +7,8 @@ from pypy.config.config import FloatOption, OptionDescription, Option, Config
 from pypy.config.config import ArbitraryOption, DEFAULT_OPTION_NAME
 from pypy.config.config import _getnegation
 
+configdocdir = py.magic.autopath().dirpath().dirpath().join("doc", "config")
+
 def get_fullpath(opt, path):
     if path:
         return "%s.%s" % (path, opt._name)
@@ -163,6 +165,19 @@ class __extend__(OptionDescription):
         return content
 
 
+def _get_section_header(cmdline, fullpath, subdescr):
+    # XXX:  pypy specific hack
+    txtfile = configdocdir.join(fullpath + ".txt")
+    print txtfile,
+    if not txtfile.check():
+        print "not found"
+        return ""
+    print "found"
+    content = txtfile.read()
+    if ".. internal" in content:
+        return "Internal Options"
+    return ""
+
 def make_cmdline_overview(descr):
     content = Rest(
         Title("Overwiew of Command Line Options for '%s'" % (descr._name, ),
@@ -176,11 +191,18 @@ def make_cmdline_overview(descr):
         subdescr = getattr(subconf._cfgimpl_descr, step)
         cmdline = get_cmdline(subdescr.cmdline, fullpath)
         if cmdline is not None:
-            cmdlines.append((cmdline, fullpath, subdescr))
-    cmdlines.sort(key=lambda t: t[0].strip("-"))
-    for cmdline, fullpath, subdescr in cmdlines:
-        content.add(ListItem(Link(cmdline + ":", fullpath + ".html"),
-                             Text(subdescr.doc)))
+            header = _get_section_header(cmdline, fullpath, subdescr)
+            cmdlines.append((header, cmdline, fullpath, subdescr))
+    cmdlines.sort(key=lambda x: (x[0], x[1].strip("-")))
+    currheader = ""
+    curr = content
+    for header, cmdline, fullpath, subdescr in cmdlines:
+        if header != currheader:
+            content.add(Title(header, abovechar="", belowchar="="))
+            curr = content.add(Paragraph())
+            currheader = header
+        curr.add(ListItem(Link(cmdline + ":", fullpath + ".html"),
+                          Text(subdescr.doc)))
     return content
     
 
