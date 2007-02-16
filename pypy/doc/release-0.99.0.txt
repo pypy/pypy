@@ -74,7 +74,11 @@ Key 0.99.0 Features
     objects are "declassified" in order to send information 
     across IO barriers. 
 
-  - TProxy: Transparent distribution: XXX 
+  - TProxy: An object space hack, which allows you to create
+    objects of any type, with custom behavior, defined by your own
+    function. For details see
+    http://codespeak.net/pypy/dist/pypy/doc/proxy.html
+    XXX Move link to the bottom?
  
 * optimizations: 
   - XXX
