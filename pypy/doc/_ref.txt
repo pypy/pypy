@@ -112,6 +112,7 @@
 .. _`translator/cli/`: ../../pypy/translator/cli
 .. _`translator/goal/`: ../../pypy/translator/goal
 .. _`pypy/translator/goal/targetnopstandalone.py`: ../../pypy/translator/goal/targetnopstandalone.py
+.. _`pypy/translator/goal/targetprologstandalone.py`: ../../pypy/translator/goal/targetprologstandalone.py
 .. _`translator/js/`: ../../pypy/translator/js
 .. _`translator/jvm/`: ../../pypy/translator/jvm
 .. _`translator/lisp/`: ../../pypy/translator/lisp

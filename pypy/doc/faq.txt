@@ -331,8 +331,11 @@ typing::
 
 You can have a look at intermediate C source code, which is (at the
 moment) put in ``/tmp/usession-*/testing_1/testing_1.c``.  Of course,
-all the functions and stuff used directly and indirectly by your ``entry_point()``
-function has to be RPython_.
+all the functions and stuff used directly and indirectly by your
+``entry_point()`` function has to be RPython_. Another example you may
+want to look at is `pypy/translator/goal/targetprologstandalone.py`_,
+the target for the in-progress Prolog implementation; this target for
+example enables a stackless build programmatically.
 
 
 .. _`RPython`: coding-guide.html#rpython
