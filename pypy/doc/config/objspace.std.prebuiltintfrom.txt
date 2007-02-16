@@ -1,1 +1,1 @@
-see config:`objspace.std.withprebuiltint`.
+see :config:`objspace.std.withprebuiltint`.

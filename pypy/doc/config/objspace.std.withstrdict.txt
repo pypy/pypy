@@ -1,1 +1,1 @@
-Obsolete. See config:`objspace.std.withmultidict` instead.
+Obsolete. See :config:`objspace.std.withmultidict` instead.

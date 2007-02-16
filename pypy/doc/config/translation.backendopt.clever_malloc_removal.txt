@@ -1,5 +1,5 @@
 Try to inline flowgraphs based on whether doing so would enable malloc
-removal (config:`translation.backendopt.mallocs`.) by eliminating
+removal (:config:`translation.backendopt.mallocs`.) by eliminating
 calls that result in escaping. This is an experimental optimisation,
 also right now some eager inlining is necessary for helpers doing
 malloc itself to be inlined first for this to be effective.
