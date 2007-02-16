@@ -40,9 +40,9 @@ barely be imagined in CPython, which are documented in `What PyPy can
 do for your objects`_.
 
 .. _`configuration`: ../configuration.html
-.. _`object space`: objspace.html
+.. _`object space`: ../objspace.html
 .. _`objspace options`: objspace.html
-.. _`translation`: translation.html
+.. _`translation`: ../translation.html
 .. _`translation options`: translation.html
 .. _`overview`: commandline.html
 .. _`Alternative object implementations in the PyPy standard interpreter`: ../object-optimizations.html
