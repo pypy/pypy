@@ -4,7 +4,6 @@ A simple standalone target for the javascript interpreter.
 
 import sys
 from pypy.rlib.streamio import open_file_as_stream
-from pypy.lang.js.interpreter import Interpreter
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import ExecutionReturned
 
