@@ -65,7 +65,7 @@ Key 0.99.0 Features
 =====================
 
 * new object spaces:
-  - Tainting: a 150-line proxy object space tracking 
+  - Tainting: a 270-line proxy object space tracking 
     and boxing sensitive information within an application. 
     A tainted object is completely barred from crossing 
     an IO barrier, such as writing to files, databases
@@ -81,7 +81,8 @@ Key 0.99.0 Features
     XXX Move link to the bottom?
  
 * optimizations: 
-  - XXX
+  - experimental new optimized implementations for various built in Python
+    types (strings, dicts, lists)
   - speed up of 5-7 compared to 0.9, overall 2-3 slower than
     CPython 
 
