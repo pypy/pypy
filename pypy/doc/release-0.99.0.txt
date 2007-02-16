@@ -106,9 +106,13 @@ research and coding work:
   that we set for ourselves (and which many blogs and people out
   there have chosen as a main criterium for looking at PyPy).
 
-* we are to integrate new Syntax and Aspect-Oriented
-  extension capabilities and refine the Logic object 
-  space (provides Logic Variables within Python). 
+* the extension enabling runtime changes of the Python grammar is not
+  yet integrated. This will be used to provide Aspect-Oriented
+  Programming extensions and Design by Contract facilities in PyPy. 
+
+* the Logic object space, which provides Logic Variables in PyPy,
+  needs to undergo a bit more testing. A constraint problem solver
+  extension module is ready, and needs to be integrated in the codebase. 
 
 * we'd like to package and improve configurations and 
   and testing, and actually ask for your help
