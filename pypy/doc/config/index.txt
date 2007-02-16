@@ -4,8 +4,8 @@ Configuration Options for PyPy
 
 This directory contains documentation for the many `configuration`_
 options that can be used to affect PyPy's behaviour.  There are two
-main classes of option, `object space`_ options and `translation`_
-options.
+main classes of option, `object space options`_ and `translation
+options`_.
 
 There are two main entry points that accept options: ``py.py``, which
 implements Python on top of another Python interpreter and accepts all
@@ -40,10 +40,9 @@ barely be imagined in CPython, which are documented in `What PyPy can
 do for your objects`_.
 
 .. _`configuration`: ../configuration.html
-.. _`object space`: ../objspace.html
-.. _`objspace options`: objspace.html
-.. _`translation`: ../translation.html
-.. _`translation options`: translation.html
+.. _`objspace options`: commandline.html#overwiew-of-command-line-options-for-objspace
+.. _`object space`: commandline.html#overwiew-of-command-line-options-for-objspace
+.. _`translation options`: commandline.html#overwiew-of-command-line-options-for-translation
 .. _`overview`: commandline.html
 .. _`Alternative object implementations in the PyPy standard interpreter`: ../object-optimizations.html
 .. _`What PyPy can do for your objects`: ../objspace-proxies.html

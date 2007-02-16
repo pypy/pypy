@@ -1,1 +1,4 @@
-..  intentionally empty
+..  intentionally empty, but contains the following comment to fool py.test:
+    overwiew of command line options for objspace
+    overwiew of command line options for translation
+
