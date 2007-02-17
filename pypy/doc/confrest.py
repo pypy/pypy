@@ -1,7 +1,6 @@
 import py
 from py.__.doc.confrest import *
 
-#import docage
 
 
 class PyPyPage(Page): 
