@@ -224,7 +224,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
     some middle ground - thus increases the importance of feedback.
 
 
-.. _documentation: http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+.. _documentation: getting-started.html
 
 Can I join in?
 ++++++++++++++

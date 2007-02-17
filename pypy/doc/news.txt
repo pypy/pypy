@@ -5,7 +5,7 @@ Rumors have it that the secret goal is being faster-than-C which is
 nonsense, isn't it?  `more...`_
 
 .. _Python: http://www.python.org/doc/current/ref/ref.html
-.. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html#mission-statement 
+.. _`more...`: architecture.html#mission-statement 
 
 
 The following is a list of planned PyPy events, most of which 

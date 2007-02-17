@@ -140,7 +140,7 @@ documentation page but also a lot of new material not covered there. Note that
 all these documents are not approved by the European Union and therefore only
 preliminary. *(01/06/2006)*
 
-.. _`reports for the EU`: http://codespeak.net/pypy/dist/pypy/doc/index-report.html
+.. _`reports for the EU`: index-report.html
 
 
 PyPy Sprint in Göteborg 7th - 11th December 2005 
@@ -168,7 +168,7 @@ See the `release 0.8 announcement`_ for further details about the release and
 the `getting started`_ document for instructions about downloading it and
 trying it out.  There is also a short FAQ_.  *(11/03/2005)*
 
-.. _`release 0.8 announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.8.0.html
+.. _`release 0.8 announcement`: release-0.8.0.html
 
 PyPy Sprint in Paris 10th-16th October 2005 
 ========================================================
@@ -203,9 +203,9 @@ the `getting started`_ document for instructions about downloading it and
 trying it out.  We also have the beginning of a FAQ_.  *(08/28/2005)*
 
 .. _`pypy-0.7.0`: 
-.. _`release announcement`: http://codespeak.net/pypy/dist/pypy/doc/release-0.7.0.html
-.. _`getting started`: http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
-.. _FAQ: http://codespeak.net/pypy/dist/pypy/doc/faq.html
+.. _`release announcement`: release-0.7.0.html
+.. _`getting started`: getting-started.html
+.. _FAQ: faq.html
 
 PyPy Sprint in Heidelberg 22nd-29th August 2005
 ==========================================================
@@ -268,7 +268,7 @@ the LLVM backends and type inference in general.
 .. _`pypy-dev`: http://codespeak.net/mailman/listinfo/pypy-dev
 
 .. _EuroPython: http://europython.org 
-.. _`translation`: http://codespeak.net/pypy/dist/pypy/doc/translation.html 
+.. _`translation`: translation.html 
 .. _`sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-announcement.html
 .. _`list of people coming`: http://codespeak.net/pypy/extradoc/sprintinfo/EP2005-people.html
 

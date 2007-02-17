@@ -112,6 +112,6 @@ Visual Studio .NET 2003\Vc7\include``.
 
 
 .. _`Boehm collector suite`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc.tar.gz
-.. _gc_patch_windows.py:    http://codespeak.net/pypy/dist/pypy/translator/goal/win32/gc_patch_windows.py
+.. _gc_patch_windows.py:    ../../pypy/translator/goal/win32/gc_patch_windows.py
 
 .. _`gc-windows.zip`: http://codespeak.net/~antocuni/gc-windows.zip

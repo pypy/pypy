@@ -144,7 +144,7 @@ Related projects
 .. _`Croquet`: http://www.opencroquet.org/
 .. _`transparent dynamic optimization`: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
 .. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _testdesign: http://codespeak.net/pypy/dist/pypy/doc/coding-guide.html#test-design
+.. _testdesign: coding-guide.html#test-design
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _`GNU lightning`: http://www.gnu.org/software/lightning/lightning.html

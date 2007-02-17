@@ -20,7 +20,7 @@ Eventually, dynamic optimization techniques - implemented as another
 translation aspect - should become robust against language changes. `more...`_
 
 .. _Python: http://docs.python.org/ref
-.. _`more...`: http://codespeak.net/pypy/dist/pypy/doc/architecture.html
+.. _`more...`: architecture.html
 
 Just the facts 
 ============== 
@@ -792,7 +792,7 @@ separatedly announced and often happen around Python conferences such
 as EuroPython or Pycon. Take a look at the list of upcoming events_ to
 plan where to meet with us.
 
-.. _events: http://codespeak.net/pypy/dist/pypy/doc/events.html
+.. _events: news.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`contact possibilities`: contact.html
 
@@ -822,11 +822,11 @@ plan where to meet with us.
 .. _mixedmodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
 .. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
 .. _Standard object space:  objspace.html#the-standard-object-space
-.. _objspace.py:            http://codespeak.net/pypy/dist/pypy/objspace/std/objspace.py
-.. _thunk:                  http://codespeak.net/pypy/dist/pypy/objspace/thunk.py
-.. _trace:                  http://codespeak.net/pypy/dist/pypy/objspace/trace.py
-.. _flow:                   http://codespeak.net/pypy/dist/pypy/objspace/flow/
-.. _translator.py:          http://codespeak.net/pypy/dist/pypy/translator/translator.py
+.. _objspace.py:            ../../pypy/objspace/std/objspace.py
+.. _thunk:                  ../../pypy/objspace/thunk.py
+.. _trace:                  ../../pypy/objspace/trace.py
+.. _flow:                   ../../pypy/objspace/flow/
+.. _translator.py:          ../../pypy/translator/translator.py
 .. _mailing lists:          contact.html
 .. _documentation:          index.html 
 .. _unit tests:             coding-guide.html#test-design
