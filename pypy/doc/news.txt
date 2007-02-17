@@ -15,6 +15,18 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy 0.99.0
+==================================================================
+
+We are proud to release PyPy 0.99.0, our fifth public release.  See
+the `release announcement <release-0.99.0.html>`__ to read about the
+many new features in this release.  See also our detailed instructions on
+how to `get started`_. *(February 17th, 2007)*
+
+.. _`get started`: getting-started.html
+
+
+
 PyPy Trillke Sprints upcoming, 25-28th Feb and 1-5th March 2007
 ==================================================================
 
