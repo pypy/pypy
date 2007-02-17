@@ -20,7 +20,8 @@ Some todo list
 * Support bound methods as arguments for callbacks.
 
   - if you pass a bound method to a callback, this method is called
-      with previously bound self
+    with previously bound self
+
   - if you provide an unbound method for a callback, this is an error,
     unless class is proper to the callback object (or high level class
     apropriate for that DOM object), in which case a bound method is
