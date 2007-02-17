@@ -19,15 +19,15 @@ Some todo list
 
 * Support bound methods as arguments for callbacks.
 
-    - if you pass a bound method to a callback, this method is called
+  - if you pass a bound method to a callback, this method is called
       with previously bound self
-    - if you provide an unbound method for a callback, this is an error,
-      unless class is proper to the callback object (or high level class
-      apropriate for that DOM object), in which case a bound method is
-      called with apropriate self.
+  - if you provide an unbound method for a callback, this is an error,
+    unless class is proper to the callback object (or high level class
+    apropriate for that DOM object), in which case a bound method is
+    called with apropriate self.
 
-   I'm quite sure this can be done using RPython, but I'm totally unsure
-   how much effort this will require :-) (as usuall)
+  - I'm quite sure this can be done using RPython, but I'm totally unsure
+    how much effort this will require :-) (as usuall)
 
 * Cleanup of parent namespace (put all builtin functions into it's 
   own namespace?)
