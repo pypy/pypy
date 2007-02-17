@@ -34,6 +34,6 @@ for author, count in items:
     realname = user.realname.strip()
     if not mark and count < cutoff:
         mark = True
-	print '-'*60
+        print '-'*60
     print "   ", realname
     #print count, "   ", author 
