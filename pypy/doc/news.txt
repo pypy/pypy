@@ -15,7 +15,7 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
-PyPy 0.99.0
+PyPy 0.99.0: optimizations, backends, new object spaces and more
 ==================================================================
 
 We are proud to release PyPy 0.99.0, our fifth public release.  See
@@ -25,6 +25,14 @@ how to `get started`_. *(February 17th, 2007)*
 
 .. _`get started`: getting-started.html
 
+
+py lib 0.9.0: py.test, distributed execution, greenlets and more
+==================================================================
+
+Our development support and testing library was publically released, see the 
+`0.9 release announcement <http://codespeak.net/py/dist/release-0.9.0.html>`__
+and its extensive `online documentation <http://codespeak.net/py/dist/>`__. 
+(February 15th, 2007)
 
 
 PyPy Trillke Sprints upcoming, 25-28th Feb and 1-5th March 2007
