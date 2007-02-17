@@ -251,9 +251,9 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         if self._func is fn and self._ann == ann:
             return self._cli_func
         else:
+            self._cli_func = compile_function(fn, ann)
             self._func = fn
             self._ann = ann
-            self._cli_func = compile_function(fn, ann)
             return self._cli_func
 
     def _skip_win(self, reason):
