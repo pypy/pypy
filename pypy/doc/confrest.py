@@ -1,8 +1,6 @@
 import py
 from py.__.doc.confrest import *
 
-
-
 class PyPyPage(Page): 
     def fill_menubar(self):
         self.menubar = html.div(
