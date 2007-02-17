@@ -18,7 +18,7 @@ from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
 from pypy import conftest
-from pypy.translator.llvm.buildllvm import llvm_is_on_path
+from pypy.translator.llvm.buildllvm import llvm_is_on_path, postfix
 
 class GenLLVM(object):
     # see create_codewriter() below
@@ -119,6 +119,7 @@ class GenLLVM(object):
     def _set_wordsize(self, s):
         s = s.replace('UWORD', self.db.get_machine_uword())
         s = s.replace( 'WORD', self.db.get_machine_word())
+        s = s.replace('POSTFIX', postfix())
         return s
 
     def write_headers(self, codewriter):

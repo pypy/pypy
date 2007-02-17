@@ -11,8 +11,6 @@ from pypy.translator.llvm.buildllvm import llvm_gcc_version
 
 from pypy.tool.udir import udir
 
-_llvm_gcc_version = None
-
 support_functions = [
     "%raisePyExc_IOError",
     "%raisePyExc_ValueError",
@@ -40,7 +38,7 @@ def get_ll(ccode, function_names):
     plain = filename[:-2]
     includes = get_incdirs()
 
-    if llvm_gcc_version < 4.0:
+    if llvm_gcc_version() < 4.0:
         emit_llvm = ''
     else:
         emit_llvm = '-emit-llvm -O3'

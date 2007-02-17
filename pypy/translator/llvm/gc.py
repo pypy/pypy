@@ -5,11 +5,7 @@ from pypy.translator.c import gc
 from pypy.translator.llvm.log import log
 log = log.gc
 
-from pypy.translator.llvm.buildllvm import llvm_version
-if llvm_version >= 2.0:
-    postfix = '.i32'
-else:
-    postfix = ''
+from pypy.translator.llvm.buildllvm import postfix
 
 def have_boehm():
     import distutils.sysconfig
@@ -157,7 +153,7 @@ class RawGcPolicy(GcPolicy):
 
         # malloc_size is unsigned right now
         codewriter.malloc(targetvar, "sbyte", size)
-        codewriter.call(None, 'void', '%llvm.memset' + postfix,
+        codewriter.call(None, 'void', '%llvm.memset' + postfix(),
                         ['sbyte*', 'ubyte', uword, uword],
                         [targetvar, 0, size, boundary_size],
                         cconv='ccc')               
@@ -210,7 +206,7 @@ def GC_get_heap_size_wrapper():
         codewriter.call(targetvar, 'sbyte*', fnname, [word], [sizei])
 
         if atomic:
-            codewriter.call(None, 'void', '%llvm.memset' + postfix,
+            codewriter.call(None, 'void', '%llvm.memset' + postfix(),
                             ['sbyte*', 'ubyte', uword, uword],
                             [targetvar, 0, size, boundary_size],
                             cconv='ccc')        

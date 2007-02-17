@@ -1,8 +1,3 @@
-from pypy.translator.llvm.buildllvm import llvm_version
-if llvm_version >= 2.0:
-    postfix = '.i32'
-else:
-    postfix = ''
 
 extdeclarations = """
 %last_exception_type  = internal global %RPYTHON_EXCEPTION_VTABLE* null
@@ -12,7 +7,6 @@ declare ccc uint %strlen(sbyte*)
 declare ccc void %llvm.memsetPOSTFIX(sbyte*, ubyte, UWORD, UWORD)
 declare ccc void %llvm.memcpyPOSTFIX(sbyte*, sbyte*, UWORD, UWORD)
 """
-extdeclarations = extdeclarations.replace('POSTFIX', postfix)
 
 extfunctions = """
 internal fastcc sbyte* %RPyString_AsString(%RPyString* %structstring) {
@@ -84,7 +78,6 @@ return_block:
 }
 
 """
-extfunctions = extfunctions.replace('POSTFIX', postfix)
 
 from sys import maxint
 if maxint != 2**31-1:

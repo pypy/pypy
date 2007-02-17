@@ -32,15 +32,17 @@ def llvm_test():
     if not llvm_is_on_path():
         py.test.skip("could not find one of llvm-as or llvm-gcc")
         return False
-    if llvm_version < MINIMUM_LLVM_VERSION:
+    llvm_ver = llvm_version()
+    if llvm_ver < MINIMUM_LLVM_VERSION:
         py.test.skip("llvm version not up-to-date (found "
-                     "%.1f, should be >= %.1f)" % (llvm_version, MINIMUM_LLVM_VERSION))
+                     "%.1f, should be >= %.1f)" % (llvm_ver, MINIMUM_LLVM_VERSION))
         return False
     return True
 
 def gcc3_test():
-    if int(gcc_version) != 3:
-        py.test.skip("test required gcc version 3 (found version %.1f)" % gcc_version)
+    gcc_ver = gcc_version()
+    if int(gcc_ver) != 3:
+        py.test.skip("test required gcc version 3 (found version %.1f)" % gcc_ver)
         return False
     return True
 

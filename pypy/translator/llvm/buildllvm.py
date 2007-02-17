@@ -15,13 +15,23 @@ def llvm_is_on_path():
         return False 
     return True
 
-def _exe_version(exe):
-    v = os.popen(exe + ' -version 2>&1').read()
-    v = ''.join([c for c in v if c.isdigit()])
-    v = int(v) / 10.0
+def _exe_version(exe, cache={}):
+    try:
+        v =  cache[exe]
+    except KeyError:
+        v = os.popen(exe + ' -version 2>&1').read()
+        v = ''.join([c for c in v if c.isdigit()])
+        v = int(v) / 10.0
+        cache[exe] = v
     return v
 
-llvm_version = _exe_version('llvm-as')
+llvm_version = lambda: _exe_version('llvm-as')
+
+def postfix():
+    if llvm_version() >= 2.0:
+        return '.i32'
+    else:
+        return ''
 
 def _exe_version2(exe):
     v = os.popen(exe + ' --version 2>&1').read()
@@ -31,8 +41,8 @@ def _exe_version2(exe):
     v = float(major) + float(minor) / 10.0
     return v
 
-gcc_version = _exe_version2('gcc')
-llvm_gcc_version = _exe_version2('llvm-gcc')
+gcc_version = lambda: _exe_version2('gcc')
+llvm_gcc_version = lambda: _exe_version2('llvm-gcc')
 
 def optimizations(simple, use_gcc):
 
@@ -86,7 +96,7 @@ def make_module_from_llvm(genllvm, llvmfile,
     # run llvm assembler and optimizer
     simple_optimizations = not optimize
     opts = optimizations(simple_optimizations, use_gcc)
-    if llvm_version < 2.0:
+    if llvm_version() < 2.0:
         cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
     else: #we generate 1.x .ll files, so upgrade these first
         cmds = ["llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b)]
