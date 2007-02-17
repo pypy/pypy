@@ -4,7 +4,8 @@ from py.__.doc.confrest import *
 class PyPyPage(Page): 
     def fill_menubar(self):
         self.menubar = html.div(
-            html.a("news", href=self.get_doclink("news.html"),
+            html.a("news",
+                   href="http://codespeak.net/pypy/dist/pypy/doc/news.html",
                    class_="menu"), " ",
             html.a("getting-started",
                    href=self.get_doclink("getting-started.html"),
