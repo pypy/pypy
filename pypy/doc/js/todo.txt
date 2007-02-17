@@ -19,8 +19,6 @@ Some todo list
 
 * Support bound methods as arguments for callbacks.
 
-    Idea is to provide following:
-
     - if you pass a bound method to a callback, this method is called
       with previously bound self
     - if you provide an unbound method for a callback, this is an error,
