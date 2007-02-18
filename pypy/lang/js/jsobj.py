@@ -5,18 +5,20 @@ DEBUG = False
 class SeePage(NotImplementedError):
     pass
 
-class ExecutionReturned(Exception):
+class JsBaseExcept(Exception): pass
+
+class ExecutionReturned(JsBaseExcept):
     def __init__(self, type='normal', value=None, identifier=None):
         self.type = type
         self.value = value
         self.identifier = identifier
 
-class ThrowException(Exception):
+class ThrowException(JsBaseExcept):
     def __init__(self, exception):
         self.exception = exception
         self.args = self.exception
 
-class JsTypeError(Exception):
+class JsTypeError(JsBaseExcept):
     pass
 
 Infinity = 1e300 * 1e300
