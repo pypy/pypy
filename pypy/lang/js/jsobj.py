@@ -286,7 +286,6 @@ class W_Array(W_Builtin):
         self.array = []
         self.set_builtin_call(arraycallbi)
     
-    
     def Put(self, P, V):
         try:
             x = int(P)

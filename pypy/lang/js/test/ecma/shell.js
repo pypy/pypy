@@ -124,23 +124,23 @@ function startTest() {
 }
 
 function test() {
-  for ( tc=0; tc < testcases.length; tc++ ) {
-    // temporary hack to work around some unknown issue in 1.7
-    try
-    {
-    testcases[tc].passed = writeTestCaseResult(
-      testcases[tc].expect,
-      testcases[tc].actual,
-      testcases[tc].description +" = "+ testcases[tc].actual );
-    testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
-    }
-    catch(e)
-    {
-      print('test(): empty testcase for tc = ' + tc + ' ' + e);
-    }
-  }
-  stopTest();
-  return ( testcases );
+  // for ( tc=0; tc < testcases.length; tc++ ) {
+  //    // temporary hack to work around some unknown issue in 1.7
+  //    try
+  //    {
+  //    testcases[tc].passed = writeTestCaseResult(
+  //      testcases[tc].expect,
+  //      testcases[tc].actual,
+  //      testcases[tc].description +" = "+ testcases[tc].actual );
+  //    testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
+  //    }
+  //    catch(e)
+  //    {
+  //      print('test(): empty testcase for tc = ' + tc + ' ' + e);
+  //    }
+  //  }
+  //  stopTest();
+    return ( testcases );
 }
 
 /*
@@ -193,6 +193,18 @@ function getTestCaseResult( expect, actual ) {
  * document.write.
  */
 
+function run_test(testnr) {
+     try
+     {
+     getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
+     testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
+     return testcases[tc].passed? 1:0;
+     }
+     catch(e)
+     {
+        return -1
+     }
+}
 function writeTestCaseResult( expect, actual, string ) {
   var passed = getTestCaseResult( expect, actual );
   writeFormattedResult( expect, actual, string, passed );
