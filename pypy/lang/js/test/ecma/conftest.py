@@ -47,7 +47,7 @@ class JSTestFile(py.test.collect.Module):
         t = load_source(self.filepath.read())
         try:
             t.execute(self.interp.global_context)
-        except JsBaseExcept, JsSyntaxError:
+        except (JsBaseExcept, JsSyntaxError):
             py.test.fail("Could not load js file")
         testcases = self.interp.global_context.resolve_identifier('testcases')
         values = testcases.GetValue().array
