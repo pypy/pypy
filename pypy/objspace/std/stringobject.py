@@ -647,7 +647,6 @@ def str_zfill__String_ANY(space, w_self, w_width):
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
-    result = []
     buf = [' '] * width
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
         buf[0] = input[0]
