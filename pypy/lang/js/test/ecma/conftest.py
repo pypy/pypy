@@ -1,6 +1,6 @@
 import py
 from pypy.lang.js.interpreter import *
-from pypy.lang.js.jsobj import W_Array, JsBaseExcept
+from pypy.lang.js.jsobj import W_Array, JsTypeError
 from pypy.lang.js.jsparser import JsSyntaxError
 
 rootdir = py.magic.autopath().dirpath()
@@ -47,8 +47,8 @@ class JSTestFile(py.test.collect.Module):
         t = load_source(self.filepath.read())
         try:
             t.execute(self.interp.global_context)
-        except (JsBaseExcept, JsSyntaxError):
-            py.test.fail("Could not load js file")
+        except (JsTypeError, JsSyntaxError):
+            raise Failed(excinfo=py.code.ExceptionInfo())
         testcases = self.interp.global_context.resolve_identifier('testcases')
         values = testcases.GetValue().array
         testcases.PutValue(W_Array(), self.interp.global_context)
