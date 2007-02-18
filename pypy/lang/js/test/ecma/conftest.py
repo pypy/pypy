@@ -21,7 +21,7 @@ class JSDirectory(py.test.collect.Directory):
 
 
 
-class JSTestFile(py.test.collect.Collector):
+class JSTestFile(py.test.collect.Module):
     def init_interp(cls):
         cls.interp = Interpreter()
         ctx = cls.interp.global_context
@@ -38,6 +38,8 @@ class JSTestFile(py.test.collect.Collector):
     def run(self):
         if not option.ecma:
             py.test.skip("ECMA tests disabled, run with --ecma")
+        if option.collectonly:
+            return
         #actually run the file :)
         t = load_source(self.filepath.read())
         try:
