@@ -23,6 +23,8 @@ class JSDirectory(py.test.collect.Directory):
 
 class JSTestFile(py.test.collect.Module):
     def init_interp(cls):
+        if hasattr(cls, 'interp'):
+            return
         cls.interp = Interpreter()
         ctx = cls.interp.global_context
         shellpath = rootdir/'shell.js'
@@ -40,6 +42,7 @@ class JSTestFile(py.test.collect.Module):
             py.test.skip("ECMA tests disabled, run with --ecma")
         if option.collectonly:
             return
+        self.init_interp()
         #actually run the file :)
         t = load_source(self.filepath.read())
         try:
@@ -54,7 +57,7 @@ class JSTestFile(py.test.collect.Module):
     def join(self, name):
         return JSTestItem(name, parent = self)
 
-class JSTestItem(py.test.collect.Item):        
+class JSTestItem(py.test.collect.Function):        
     def __init__(self, name, parent=None):
         #super(JSTestItem, self).__init__(filepath, parent)
         self.name = name
