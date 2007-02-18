@@ -157,5 +157,5 @@ class MyCmd(cmd.Cmd):
 
 if __name__ == "__main__":
     import py
-    py.test.config.parse(sys.argv)
+    py.test.config.parse([])
     sys.exit(main())
