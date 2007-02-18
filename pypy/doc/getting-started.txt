@@ -386,6 +386,9 @@ you need to:
     `Dot Graphviz`_ that does not crash. This is only needed if you want to
     look at the flowgraphs.
 
+  * Use Python-2.4 for using translation tools because python2.5 
+    is (as of revision 39130) not fully supported. 
+
 To start the interactive translator shell do::
 
     cd pypy
