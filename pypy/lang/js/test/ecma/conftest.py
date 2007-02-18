@@ -1,6 +1,7 @@
 import py
 from pypy.lang.js.interpreter import *
-from pypy.lang.js.jsobj import W_Array
+from pypy.lang.js.jsobj import W_Array, JsBaseExcept
+from pypy.lang.js.jsparser import JsSyntaxError
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
@@ -37,16 +38,16 @@ class JSTestFile(py.test.collect.Module):
         self.filepath = filepath
     
     def run(self):
-        if not option.ecma:
+        if not py.test.config.option.ecma:
             py.test.skip("ECMA tests disabled, run with --ecma")
-        if option.collectonly:
+        if py.test.config.option.collectonly:
             return
         self.init_interp()
         #actually run the file :)
         t = load_source(self.filepath.read())
         try:
             t.execute(self.interp.global_context)
-        except:
+        except JsBaseExcept, JsSyntaxError:
             py.test.fail("Could not load js file")
         testcases = self.interp.global_context.resolve_identifier('testcases')
         values = testcases.GetValue().array
