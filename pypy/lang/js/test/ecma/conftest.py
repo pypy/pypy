@@ -59,9 +59,8 @@ class JSTestFile(py.test.collect.Module):
 
 class JSTestItem(py.test.collect.Function):        
     def __init__(self, name, parent=None):
-        #super(JSTestItem, self).__init__(filepath, parent)
+        super(JSTestItem, self).__init__(name, parent)
         self.name = name
-        self.parent = parent
     
     def startcapture(self): pass
     def stopcapture(self): pass
