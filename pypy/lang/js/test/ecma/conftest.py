@@ -1,7 +1,8 @@
 import py
 from pypy.lang.js.interpreter import *
-from pypy.lang.js.jsobj import W_Array, JsTypeError
+from pypy.lang.js.jsobj import W_Array, JsBaseExcept
 from pypy.lang.js.jsparser import JsSyntaxError
+from py.__.test.outcome import Failed
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
@@ -47,7 +48,7 @@ class JSTestFile(py.test.collect.Module):
         t = load_source(self.filepath.read())
         try:
             t.execute(self.interp.global_context)
-        except (JsTypeError, JsSyntaxError):
+        except (JsBaseExcept, JsSyntaxError):
             raise Failed(excinfo=py.code.ExceptionInfo())
         testcases = self.interp.global_context.resolve_identifier('testcases')
         values = testcases.GetValue().array
