@@ -189,7 +189,7 @@ class W_PrimitiveObject(W_Root):
         if self.Prototype is None: return False
         return self.Prototype.HasProperty(P) 
     
-    def Delete(P):
+    def Delete(self, P):
         if P in self.propdict:
             if self.propdict[P].dd: return False
             del self.propdict[P]

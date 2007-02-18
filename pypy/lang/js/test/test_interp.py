@@ -454,3 +454,11 @@ class TestInterp(object):
     
     def test_unary_plus(self):
         self.assert_prints("print(+1)", ['1'])
+
+    def test_delete(self):
+        self.assert_prints("""
+        var x = {}
+        x.y = 1;
+        delete x.y
+        print(x.y)
+        """, ['undefined'])

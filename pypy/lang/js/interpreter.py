@@ -511,6 +511,17 @@ class In(BinaryComparisonOp):
         name = op1.ToString()
         return W_Boolean(op2.HasProperty(name))
 
+class Delete(UnaryOp):
+    opcode = 'DELETE'
+    
+    def eval(self, ctx):
+        r1 = self.expr.eval(ctx)
+        if not isinstance(r1, W_Reference):
+            return W_Boolean(True)
+        r3 = r1.GetBase()
+        r4 = r1.GetPropertyName()
+        return r3.Delete(r4)
+
 class Increment(UnaryOp):
     opcode = 'INCREMENT'
         
