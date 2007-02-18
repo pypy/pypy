@@ -1,7 +1,6 @@
 import py
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Array
-from pypy.lang.js.conftest import option
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
