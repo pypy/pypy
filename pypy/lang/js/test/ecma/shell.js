@@ -193,17 +193,18 @@ function getTestCaseResult( expect, actual ) {
  * document.write.
  */
 
-function run_test(testnr) {
-     try
-     {
+function run_test(tc) {
+     // try
+     // {
+    print(tc)
      getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
      testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
      return testcases[tc].passed? 1:0;
-     }
-     catch(e)
-     {
-        return -1
-     }
+     // }
+     // catch(e)
+     // {
+     //    return -1
+     // }
 }
 function writeTestCaseResult( expect, actual, string ) {
   var passed = getTestCaseResult( expect, actual );
