@@ -1,10 +1,15 @@
-import autopath
-from rdflib import Graph, URIRef, BNode, Literal as rdflib_literal
-from logilab.constraint import  Repository
-from logilab.constraint.fd import  FiniteDomain as fd
+#import autopath
+try:
+    from cslib import Repository
+    from cslib.fd import  FiniteDomain as fd
+    print 'using pypy.lib.cslib'
+except ImportError: 
+    print 'using logilab.constraint'
+    from logilab.constraint import  Repository
+    from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
-       ConsistencyFailure
-from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
+     ConsistencyFailure
+from pyontology.sparql_grammar import SPARQLGrammar as SP # name clash ?
 from constraint_classes import *
 Solver = MySolver
 Expression = MyExpression
@@ -15,6 +20,9 @@ log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
 py.log.setconsumer("Pyontology", None)
 #py.log.setconsumer("Pyontology", ansi_log)
+
+from rdflib import Graph, URIRef, BNode, Literal as rdflib_literal
+
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
