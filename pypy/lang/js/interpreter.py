@@ -79,6 +79,17 @@ class BinaryComparisonOp(BinaryOp):
     def decision(self, ctx, op1, op2):
         raise NotImplementedError
 
+class BinaryBitwiseOp(BinaryOp):
+    def eval(self, ctx):
+        s5 = self.left.eval(ctx).GetValue().ToInt32()
+        s6 = self.right.eval(ctx).GetValue().ToInt32()
+        if DEBUG:
+            print "bitwisecomp, op1 and op2 ", s2, s4
+        return self.decision(ctx, s5, s6)
+    
+    def decision(self, ctx, op1, op2):
+        raise NotImplementedError
+
 class BinaryLogicOp(BinaryOp):
     pass
 
@@ -150,7 +161,7 @@ def versionjs(ctx, args, this):
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
-        w_Global = W_Object()
+        w_Global = W_Object(Class="global")
         ctx = global_context(w_Global)
 
         w_ObjPrototype = W_Object(Prototype=None, Class='Object')
@@ -174,6 +185,8 @@ class Interpreter(object):
         w_Global.Put('Math', w_math)
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
+        w_math.Put('E', W_Number(math.e))
+        w_math.Put('PI', W_Number(math.pi))
         
         w_Global.Put('String', W_Builtin(stringjs, Class='String'))
         
@@ -261,6 +274,24 @@ class Block(Statement):
                 return e.value
             else:
                 raise e
+
+class BitwiseAnd(BinaryBitwiseOp):
+    opcode = 'BITWISE_AND'
+    
+    def decision(self, ctx, op1, op2):
+        return W_Number(op1&op2)
+
+class BitwiseOR(BinaryBitwiseOp):
+    opcode = 'BITWISE_OR'
+    
+    def decision(self, ctx, op1, op2):
+        return W_Number(op1|op2)
+
+class BitwiseXOR(BinaryBitwiseOp):
+    opcode = 'BITWISE_XOR'
+    
+    def decision(self, ctx, op1, op2):
+        return W_Number(op1^op2)
 
 class Unconditional(Statement):
     def from_tree(self, t):
@@ -520,7 +551,7 @@ class Delete(UnaryOp):
             return W_Boolean(True)
         r3 = r1.GetBase()
         r4 = r1.GetPropertyName()
-        return r3.Delete(r4)
+        return W_Boolean(r3.Delete(r4))
 
 class Increment(UnaryOp):
     opcode = 'INCREMENT'
@@ -532,6 +563,18 @@ class Increment(UnaryOp):
         resl = Plus().mathop(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
         return val
+
+class Decrement(UnaryOp):
+    opcode = 'DECREMENT'
+        
+    def eval(self, ctx):
+        thing = self.expr.eval(ctx)
+        val = thing.GetValue()
+        x = val.ToNumber()
+        resl = Plus().mathop(ctx, W_Number(x), W_Number(-1))
+        thing.PutValue(resl, ctx)
+        return val
+
 
 class Index(BinaryOp):
     opcode = 'INDEX'

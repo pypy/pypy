@@ -3,6 +3,9 @@ from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Array, JsBaseExcept
 from pypy.lang.js.jsparser import JsSyntaxError
 from py.__.test.outcome import Failed
+import pypy.lang.js as js
+
+# js.jsobj.DEBUG = True
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
@@ -35,9 +38,9 @@ class JSTestFile(py.test.collect.Module):
     
     def __init__(self, fspath, parent=None):
         super(JSTestFile, self).__init__(fspath, parent)
-        self.name = fspath.purebasename + " JSFILE"
+        self.name = fspath.purebasename
         self.fspath = fspath
-    
+          
     def run(self):
         if not py.test.config.option.ecma:
             py.test.skip("ECMA tests disabled, run with --ecma")
@@ -48,29 +51,31 @@ class JSTestFile(py.test.collect.Module):
         t = load_source(self.fspath.read())
         try:
             t.execute(self.interp.global_context)
-        except (JsBaseExcept, JsSyntaxError):
-            raise Failed(excinfo=py.code.ExceptionInfo())
+        except JsSyntaxError:
+            raise Failed(msg="Syntax Error",excinfo=py.code.ExceptionInfo())
+        except JsBaseExcept:
+            raise Failed(msg="Javascript Error", excinfo=py.code.ExceptionInfo())
         testcases = self.interp.global_context.resolve_identifier('testcases')
-        values = testcases.GetValue().array
+        testcount = testcases.GetValue().Get('length').GetValue().ToNumber()
         self.testcases = testcases
-        result = [str(i) for i in range(len(values))]
-        return result
+        # result = [str(i) for i in range(len(values))]
+        return range(testcount)
 
-    def join(self, name):
-        return JSTestItem(name, parent = self)
+    def join(self, number):
+        return JSTestItem(number, parent = self)
 
     def teardown(self):
         self.testcases.PutValue(W_Array(), self.interp.global_context)
 
 class JSTestItem(py.test.collect.Item):        
-    def __init__(self, name, parent=None):
-        super(JSTestItem, self).__init__(name, parent)
-        self.name = name
+    def __init__(self, number, parent=None):
+        super(JSTestItem, self).__init__(str(number), parent)
+        self.number = number
         
     def run(self):
         ctx = JSTestFile.interp.global_context
         r3 = ctx.resolve_identifier('run_test').GetValue()
-        result = r3.Call(ctx=ctx, args=[W_Number(int(self.name)),]).ToNumber()
+        result = r3.Call(ctx=ctx, args=[W_Number(self.number),]).ToNumber()
         if result == 0:
             py.test.fail()
         elif result == -1:

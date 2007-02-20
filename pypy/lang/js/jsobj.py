@@ -61,6 +61,9 @@ class W_Root(object):
     def ToNumber(self):
         return NaN
     
+    def ToInt32(self):
+        return 0
+    
     def Get(self, P):
         raise NotImplementedError
     
@@ -394,6 +397,9 @@ class W_Number(W_Primitive):
 
     def type(self):
         return 'number'
+    
+    def ToInt32(self):
+        return int(self.floatval)
 
 class W_List(W_Root):
     def __init__(self, list_w):

@@ -50,7 +50,7 @@ var GLOBAL = "[object global]";
 var PASSED = " PASSED!"
 var FAILED = " FAILED! expected: ";
 
-var DEBUG = false;
+var DEBUG = true;
 
 var DESCRIPTION;
 var EXPECTED;
@@ -140,7 +140,7 @@ function test() {
   //    }
   //  }
   //  stopTest();
-    return ( testcases );
+    return testcases.length
 }
 
 /*
@@ -194,17 +194,14 @@ function getTestCaseResult( expect, actual ) {
  */
 
 function run_test(tc) {
-     // try
-     // {
-    print(tc)
-     getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
-     testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
-     return testcases[tc].passed? 1:0;
-     // }
-     // catch(e)
-     // {
-     //    return -1
-     // }
+    // try {
+        getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
+        testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
+        return testcases[tc].passed? 1:0;
+    // }
+    // catch(e) {
+    //     return -1;
+    // }
 }
 function writeTestCaseResult( expect, actual, string ) {
   var passed = getTestCaseResult( expect, actual );
