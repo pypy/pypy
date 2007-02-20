@@ -3,11 +3,6 @@ from py.__.misc.cmdline.countloc import get_loccount
 import datetime
 import time
 
-try: 
-    path = py.path.svnwc(py.std.sys.argv[1])
-except IndexError: 
-    path = py.path.svnwc()
-
 URL = "http://codespeak.net/svn/pypy/dist"
 
 tempdir = py.path.svnwc(py.test.ensuretemp("pypy-dist"))
