@@ -61,8 +61,7 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
                 pass
             setup_root_stack = staticmethod(setup_root_stack)
 
-            push_root = None
-            pop_root = None
+            need_root_stack = False
 
             def __init__(self):
                 frame = llmemory.cast_ptr_to_adr(stack_capture())
