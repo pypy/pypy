@@ -197,3 +197,14 @@ class AppTestDistributed(object):
             #assert tb.tb_next is None
         else:
             raise AssertionError("Did not raise")
+
+    def test_instantiate_remote_type(self):
+        py.test.skip("Land of infinite recursion")
+        from distributed import test_env
+
+        class C:
+            pass
+
+        protocol = test_env({'C':C})
+        xC = protocol.get_remote('C')
+        xC()

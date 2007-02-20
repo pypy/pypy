@@ -26,8 +26,6 @@ class ObjKeeper(object):
         return len(self.exported_objects) - 1
     
     def ignore(self, key, value):
-        #key not in ('__dict__', '__weakref__', '__class__', '__new__',
-        #        '__base__', '__flags__', '__mro__', '__bases__')]
         if key in ('__dict__', '__weakref__', '__class__', '__new__'):
             return True
         if isinstance(value, GetSetDescriptor):
@@ -39,8 +37,6 @@ class ObjKeeper(object):
             return self.exported_types[tp]
         except KeyError:
             print "Registering type %s as %s" % (tp, self.exported_types_id)
-            if str(tp).find('getset') != -1:
-                import pdb;pdb.set_trace()
             self.exported_types[tp] = self.exported_types_id
             tp_id = self.exported_types_id
             self.exported_types_id += 1
@@ -60,14 +56,11 @@ class ObjKeeper(object):
         if '__doc__' in _dict:
             d['__doc__'] = protocol.unwrap(_dict['__doc__'])
         tp = type(_name, (object,), d)
+        # Make sure we cannot instantiate the remote type
         self.remote_types[type_id] = tp
         for key, value in _dict.items():
             if key != '__doc__':
-                try:
-                    setattr(tp, key, protocol.unwrap(value))
-                except TypeError:
-                    # XXX this stays here for debugging reasons
-                    import pdb;pdb.set_trace()
+                setattr(tp, key, protocol.unwrap(value))
                     
     def get_type(self, id):
         return self.remote_types[id]
