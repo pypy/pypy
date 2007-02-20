@@ -6,6 +6,7 @@ options:
   -i           inspect interactively after running script
   -O           dummy optimization flag for compatibility with C Python
   -c CMD       program passed in as CMD (terminates option list)
+  -S           do not 'import site' on initialization
   -u           unbuffered binary stdout and stderr
   -h, --help   show this help message and exit
   --version    print the PyPy version
@@ -172,6 +173,7 @@ def entry_point(executable, argv):
 
     go_interactive = False
     run_command = False
+    import_site = True
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -198,6 +200,8 @@ def entry_point(executable, argv):
         elif arg == '-h' or arg == '--help':
             print_help()
             return 0
+        elif arg == '-S':
+            import_site = False
         elif arg == '--':
             i += 1
             break     # terminates option list
@@ -214,10 +218,11 @@ def entry_point(executable, argv):
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
-    try:
-        import site
-    except:
-        print >> sys.stderr, "import site' failed"
+    if import_site:
+        try:
+            import site
+        except:
+            print >> sys.stderr, "import site' failed"
 
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
