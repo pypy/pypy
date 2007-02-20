@@ -1,5 +1,5 @@
-from pypy.rlib.btree import BTreeNode
-from pypy.rlib.rdomain import BaseFiniteDomain, ConsistencyError
+from pypy.rlib.cslib.btree import BTreeNode
+from pypy.rlib.cslib.rdomain import BaseFiniteDomain, ConsistencyError
 
 
 class AbstractConstraint:

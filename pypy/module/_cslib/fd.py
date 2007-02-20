@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.intobject import W_IntObject
 
-from pypy.rlib import rdomain as rd
+from pypy.rlib.cslib import rdomain as rd
 
 class _FiniteDomain(rd.BaseFiniteDomain):
     """

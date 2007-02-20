@@ -1,7 +1,7 @@
 import os
 
-from pypy.rlib import rconstraint as rc, rdomain as rd
-from pypy.rlib import rpropagation as rp, rdistributor as rdist
+from pypy.rlib.cslib import rconstraint as rc, rdomain as rd
+from pypy.rlib.cslib import rpropagation as rp, rdistributor as rdist
 
 
 def debug(msg): 

@@ -1,5 +1,6 @@
-from pypy.rlib.rpropagation import Repository, Solver
-import pypy.rlib.rdistributor as rd
+from pypy.rlib.cslib.rpropagation import Repository, Solver
+import pypy.rlib.cslib.rdistributor as rd
+
 from pypy.module._cslib import fd
 from pypy.module._cslib.constraint import W_AbstractConstraint
 
@@ -8,7 +9,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import typedef, gateway, baseobjspace
 from pypy.interpreter.gateway import interp2app
 
-#from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.tupleobject import W_TupleObject

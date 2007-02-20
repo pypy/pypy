@@ -1,5 +1,5 @@
 """The code of the constraint propagation algorithms"""
-from pypy.rlib.rconstraint import AbstractConstraint, ConsistencyError
+from pypy.rlib.cslib.rconstraint import AbstractConstraint, ConsistencyError
 
 class Repository:
     """Stores variables, domains and constraints
