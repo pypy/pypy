@@ -5,7 +5,7 @@ from pypy.lang.js.jsparser import JsSyntaxError
 from py.__.test.outcome import Failed
 import pypy.lang.js as js
 
-# js.jsobj.DEBUG = True
+js.jsobj.DEBUG = True
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
