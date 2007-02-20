@@ -8,9 +8,15 @@ from ctypes import *
 
 class CConfig:
     _includes_ = ('unistd.h',)
-    cryptlib = ctypes_platform.Library('crypt')
+    if sys.platform != 'darwin':
+        cryptlib = ctypes_platform.Library('crypt')
 
 globals().update(ctypes_platform.configure(CConfig))
+
+if sys.platform == 'darwin':
+    dllname = find_library('c')
+    assert dllname is not None
+    cryptlib = cdll.LoadLibrary(dllname)
 
 c_crypt = cryptlib.crypt 
 c_crypt.argtypes = [c_char_p, c_char_p]
