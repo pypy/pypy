@@ -13,7 +13,7 @@ except ImportError:
 
 from pypy.tool import option
 from py.compat.optparse import make_option
-from pypy.interpreter import main, interactive, error
+from pypy.interpreter import main, interactive, error, gateway
 from pypy.config.config import OptionDescription, BoolOption, StrOption
 from pypy.config.config import Config, to_optparse
 import os, sys
@@ -37,6 +37,15 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
               default=None, cmdline="-c"),
     ])
 
+pypy_init = gateway.applevel('''
+def pypy_init():
+    try:
+        import site
+    except:
+        import sys
+        print >> sys.stderr, "import site' failed"
+
+''').interphook('pypy_init')
 def main_(argv=None):
     starttime = time.time()
     config, parser = option.get_standard_options()
@@ -90,6 +99,7 @@ def main_(argv=None):
     try:
         def do_start():
             space.startup()
+            pypy_init(space)
         if main.run_toplevel(space, do_start,
                              verbose=interactiveconfig.verbose):
             # compile and run it

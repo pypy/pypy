@@ -214,6 +214,12 @@ def entry_point(executable, argv):
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
+    try:
+        import site
+    except:
+        print >> sys.stderr, "import site' failed"
+
+
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available
     try:
