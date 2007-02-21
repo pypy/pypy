@@ -129,7 +129,7 @@ app_taint_atomic_function = gateway.interp2app(
     unwrap_spec=[gateway.ObjSpace, gateway.W_Root, 'args_w'])
 
 def taint_atomic(space, w_callable):
-    meth = Method(space, space.wrap(app_taint_atomic_function),
+    meth = Method(space, space.wrap(space.w_fn_taint_atomic_function),
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
 app_taint_atomic = gateway.interp2app(taint_atomic)
@@ -194,6 +194,7 @@ class TaintSpace(StdObjSpace):
                      self.wrap(app_is_tainted))
         self.setattr(w_pypymagic, self.wrap('untaint'),
                      self.wrap(app_untaint))
+        self.w_fn_taint_atomic_function = self.wrap(app_taint_atomic_function)
         self.setattr(w_pypymagic, self.wrap('taint_atomic'),
                      self.wrap(app_taint_atomic))
         self.setattr(w_pypymagic, self.wrap('TaintError'),
