@@ -10,7 +10,7 @@ from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.dictobject import W_DictObject
 
 from pypy.module._cslib.fd import _FiniteDomain
-from pypy.rlib import rconstraint as rc
+from pypy.rlib.cslib import rconstraint as rc
 
 class W_AbstractConstraint(baseobjspace.Wrappable):
     
