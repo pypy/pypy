@@ -199,7 +199,7 @@ class AppTestDistributed(object):
             raise AssertionError("Did not raise")
 
     def test_instantiate_remote_type(self):
-        py.test.skip("Land of infinite recursion")
+        skip("Land of infinite recursion")
         from distributed import test_env
 
         class C:
