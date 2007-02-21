@@ -232,12 +232,14 @@ class _fileobject(object):
     closed = property(_getclosed, doc="True if the file is closed")
 
     def close(self):
-        try:
-            if self._sock:
+        if self._sock:
+            try:
                 self.flush()
-                self._sock._drop()
-        finally:
-            self._sock = None
+            finally:
+                if self._sock:
+                    s = self._sock
+                    self._sock = None
+                    s._drop()
 
     def __del__(self):
         try:
