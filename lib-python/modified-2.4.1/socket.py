@@ -144,6 +144,8 @@ class _closedsocket(object):
         raise error(EBADF, 'Bad file descriptor')
     def _drop(self):
         pass
+    def _reuse(self):
+        pass
     send = recv = sendto = recvfrom = __getattr__ = _dummy
 
 class _socketobject(object):
@@ -188,6 +190,7 @@ class _socketobject(object):
 
         Return a regular file object corresponding to the socket.  The mode
         and bufsize arguments are as for the built-in open() function."""
+        self._sock._reuse()
         return _fileobject(self._sock, mode, bufsize)
 
     _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
@@ -232,6 +235,7 @@ class _fileobject(object):
         try:
             if self._sock:
                 self.flush()
+                self._sock._drop()
         finally:
             self._sock = None
 
