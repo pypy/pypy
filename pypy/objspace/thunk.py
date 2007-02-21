@@ -97,7 +97,7 @@ def become(space, w_target, w_source):
 app_become = gateway.interp2app(become)
 
 def lazy(space, w_callable):
-    meth = Method(space, space.wrap(app_thunk),
+    meth = Method(space, space.w_fn_thunk,
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
 app_lazy = gateway.interp2app(lazy)
@@ -173,8 +173,9 @@ def Space(*args, **kwds):
     space = std.Space(*args, **kwds)
     patch_space_in_place(space, 'thunk', proxymaker)
     w_pypymagic = space.getbuiltinmodule("pypymagic")
+    space.w_fn_thunk = space.wrap(app_thunk)
     space.setattr(w_pypymagic, space.wrap('thunk'),
-                  space.wrap(app_thunk))
+                  space.w_fn_thunk)
     space.setattr(w_pypymagic, space.wrap('is_thunk'),
                   space.wrap(app_is_thunk))
     space.setattr(w_pypymagic, space.wrap('become'),
