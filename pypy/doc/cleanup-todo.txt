@@ -14,12 +14,6 @@ translation toolchain
  - keepalives need to die, finally
  - change weakrefs to work together with the GC
 
-C backend
-~~~~~~~~~
-
- - check why .rodata section gets bigger when compiled with inlining
- - try to generate const struct {...} for contant rpython strings
-
 interpreter
 -----------
 
