@@ -16,8 +16,8 @@ FUNCTION_LIST = ["console_onload"]
 
 
 def js_source():
-    import console_client
-    return rpython2javascript(console_client, FUNCTION_LIST)
+    import client
+    return rpython2javascript(client, FUNCTION_LIST)
 
 def run_console(python):
     pipe = subprocess.Popen([python, "-u", "-i"], stdout=subprocess.PIPE,
