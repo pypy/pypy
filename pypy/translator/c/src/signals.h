@@ -54,12 +54,30 @@ static volatile int pypysig_flags[NSIG];
 
 void pypysig_ignore(int signum)
 {
+#ifdef SA_RESTART
+    /* assume sigaction exists */
+    struct sigaction context;
+    context.sa_handler = SIG_IGN;
+    sigemptyset(&context.sa_mask);
+    context.sa_flags = 0;
+    sigaction(signum, &context, NULL);
+#else
   signal(signum, SIG_IGN);
+#endif
 }
 
 void pypysig_default(int signum)
 {
+#ifdef SA_RESTART
+    /* assume sigaction exists */
+    struct sigaction context;
+    context.sa_handler = SIG_DFL;
+    sigemptyset(&context.sa_mask);
+    context.sa_flags = 0;
+    sigaction(signum, &context, NULL);
+#else
   signal(signum, SIG_DFL);
+#endif
 }
 
 static void signal_setflag_handler(int signum)
@@ -71,7 +89,16 @@ static void signal_setflag_handler(int signum)
 
 void pypysig_setflag(int signum)
 {
+#ifdef SA_RESTART
+    /* assume sigaction exists */
+    struct sigaction context;
+    context.sa_handler = signal_setflag_handler;
+    sigemptyset(&context.sa_mask);
+    context.sa_flags = 0;
+    sigaction(signum, &context, NULL);
+#else
   signal(signum, signal_setflag_handler);
+#endif
 }
 
 int pypysig_poll(void)
