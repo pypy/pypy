@@ -127,7 +127,7 @@ class W_PrimitiveObject(W_Root):
                  Value=w_Undefined, callfunc=None):
         self.propdict = {}
         self.propdict['prototype'] = Property('prototype', w_Undefined,
-                                              dd=True)
+                                              dd=True, de=True)
         self.Prototype = Prototype
         self.Class = Class
         self.callfunc = callfunc
@@ -242,7 +242,7 @@ class W_Object(W_PrimitiveObject):
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype,
                                    Class, Value, callfunc)
-        self.propdict['toString'] = Property('toString', W_Builtin(str_builtin))
+        self.propdict['toString'] = Property('toString', W_Builtin(str_builtin), de=True)
 
 
 class W_Builtin(W_PrimitiveObject):
@@ -286,12 +286,13 @@ class W_Array(W_Builtin):
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
         toString = W_Builtin(array_str_builtin)
-        self.Put('toString', toString)
+        self.Put('toString', toString, de=True)
         self.Put('length', W_Number(0))
         self.array = []
         self.set_builtin_call(arraycallbi)
-    
-    def Put(self, P, V):
+
+    def Put(self, P, V, dd=False,
+            ro=False, de=False, it=False):
         try:
             x = int(P)
             # print "puting", V, 'in', x
@@ -303,11 +304,7 @@ class W_Array(W_Builtin):
             self.array[x]= V
                     
         except ValueError:
-            if not self.CanPut(P): return
-            if P in self.propdict:
-                self.propdict[P].value = V
-            else:
-                self.propdict[P] = Property(P, V)
+            super(W_Array, self).Put(P, V, dd, ro, de, it)
 
     def Get(self, P):
         try:
@@ -500,6 +497,7 @@ class W_Reference(W_Root):
         if self.base is None:
             base = ctx.scope[-1]
         base.Put(self.property_name, w)
+        return w
 
     def GetBase(self):
         return self.base

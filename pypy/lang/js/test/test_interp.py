@@ -462,3 +462,11 @@ class TestInterp(object):
         delete x.y
         print(x.y)
         """, ['undefined'])
+
+    def test_forin(self):
+        self.assert_prints("""
+        var x = {a:5}
+        for(y in x){
+            print(y)
+        }
+        """, ['5',])

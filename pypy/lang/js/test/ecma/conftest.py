@@ -2,7 +2,7 @@ import py
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Array, JsBaseExcept
 from pypy.lang.js.jsparser import JsSyntaxError
-from py.__.test.outcome import Failed
+from py.__.test.outcome import Failed, ExceptionFailure
 import pypy.lang.js as js
 
 js.jsobj.DEBUG = True
@@ -77,7 +77,7 @@ class JSTestItem(py.test.collect.Item):
         r3 = ctx.resolve_identifier('run_test').GetValue()
         result = r3.Call(ctx=ctx, args=[W_Number(self.number),]).ToNumber()
         if result == 0:
-            py.test.fail()
+            raise Failed(msg="Results don't match")
         elif result == -1:
             py.test.skip()
 
@@ -85,5 +85,5 @@ class JSTestItem(py.test.collect.Item):
     def _getpathlineno(self):
         return self.parent.parent.fspath, 0 
 
-
-Directory = JSDirectory
+if py.test.config.option.ecma:
+    Directory = JSDirectory
