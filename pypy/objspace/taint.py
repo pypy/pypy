@@ -129,7 +129,7 @@ app_taint_atomic_function = gateway.interp2app(
     unwrap_spec=[gateway.ObjSpace, gateway.W_Root, 'args_w'])
 
 def taint_atomic(space, w_callable):
-    meth = Method(space, space.wrap(space.w_fn_taint_atomic_function),
+    meth = Method(space, space.w_fn_taint_atomic_function,
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
 app_taint_atomic = gateway.interp2app(taint_atomic)
