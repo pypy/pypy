@@ -1,7 +1,7 @@
 
 from pypy.translator.js.modules import dom
 from pypy.translator.js.modules.mochikit import log, createLoggingPane
-from pypy.translator.js.examples.console import exported_methods
+from pypy.translator.js.examples.console.console import exported_methods
 
 class Glob(object):
     pass

@@ -1,5 +1,5 @@
 
-from pypy.translator.js.examples import console
+from pypy.translator.js.examples.console import console
 
 def test_run_console():
     """ Check if we can read anything

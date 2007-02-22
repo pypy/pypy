@@ -27,6 +27,6 @@ def test_guestbook_build():
 
     
 def test_console_2_build():
-    from pypy.translator.js.examples import console, console_client
-    assert rpython2javascript(console_client, console.FUNCTION_LIST,
+    from pypy.translator.js.examples.console import console, client
+    assert rpython2javascript(client, console.FUNCTION_LIST,
                               use_pdb=False)
