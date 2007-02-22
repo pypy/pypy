@@ -73,16 +73,12 @@ class AppGreenlet(Coroutine):
     _get_state = staticmethod(_get_state)
 
     def hello(self):
-        print "hello  ", id(self), self.subctx.framestack.items
-        print syncstate.things_to_do, syncstate.temp_exc
         ec = self.space.getexecutioncontext()
         self.subctx.enter(ec)
 
     def goodbye(self):
         ec = self.space.getexecutioncontext()
         self.subctx.leave(ec)
-        print "goodbye", id(self), self.subctx.framestack.items
-        print syncstate.things_to_do, syncstate.temp_exc
 
     def w_getcurrent(space):
         return space.wrap(AppGreenlet._get_state(space).current)
