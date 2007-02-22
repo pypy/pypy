@@ -23,7 +23,7 @@ def run_console(python):
     pipe = subprocess.Popen([python, "-u", "-i"], stdout=subprocess.PIPE,
                             stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
                             close_fds=True, bufsize=0)
-    # a bit of POSIX voodoo
+    # a bit of a POSIX voodoo
     fcntl.fcntl(pipe.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
     return pipe
 
