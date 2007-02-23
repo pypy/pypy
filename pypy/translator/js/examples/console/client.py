@@ -9,7 +9,14 @@ class Glob(object):
 glob = Glob()
 
 def add_text(txt):
-    dom.document.getElementById("data").innerHTML += txt    
+    data_elem = dom.document.getElementById("data")
+    if data_elem.childNodes:
+        data = data_elem.childNodes[0].nodeValue + txt
+    else:
+        data = txt
+    while data_elem.childNodes:
+        data_elem.removeChild(data_elem.childNodes[0])
+    data_elem.appendChild(dom.document.createTextNode(data))
 
 def refresh_console(msg):
     inp_elem = dom.document.getElementById("inp")
