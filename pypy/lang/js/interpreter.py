@@ -1057,7 +1057,7 @@ def wrap_arguments(pyargs):
     "receives a list of arguments and wrap then in their js equivalents"
     res = []
     for arg in pyargs:
-        if isinstance(arg, W_Root)
+        if isinstance(arg, W_Root):
             res.append(arg)
         elif isinstance(arg, str):
             res.append(W_String(arg))
@@ -1065,4 +1065,4 @@ def wrap_arguments(pyargs):
             res.append(W_Number(arg))
         elif isinstance(arg, bool):
             res.append(W_Boolean(arg))
-        elif isinstance(arg, )
+    return res
