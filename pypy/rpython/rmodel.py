@@ -273,7 +273,7 @@ class IteratorRepr(Repr):
         return v_iter
 
     def rtype_method_next(self, hop):
-        return self.rtype_next(self, hop)
+        return self.rtype_next(hop)
 
 
 class __extend__(annmodel.SomeIterator):
