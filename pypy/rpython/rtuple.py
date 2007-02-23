@@ -22,6 +22,7 @@ class __extend__(annmodel.SomeTuple):
 
 
 _gen_eq_function_cache = {}
+_gen_cmp_function_cache = {}
 _gen_hash_function_cache = {}
 _gen_str_function_cache = {}
 
@@ -46,6 +47,49 @@ def gen_eq_function(items_r):
 
         _gen_eq_function_cache[key] = ll_eq
         return ll_eq
+import os
+def gen_cmp_function(items_r, op_funcs, eq_funcs, strict):
+    """generates <= and >= comparison ll_op for tuples
+    cmp_funcs is a tuple of (strict_comp, equality) functions
+    works for != with strict==True
+    """
+    cmp_funcs = zip(op_funcs,eq_funcs)
+    autounrolling_funclist = unrolling_iterable(enumerate(cmp_funcs))
+    key = tuple(cmp_funcs), strict
+    try:
+        return _gen_cmp_function_cache[key]
+    except KeyError:
+        def ll_cmp(t1, t2):
+            cmp_res = True
+            for i, (cmpfn, eqfn) in autounrolling_funclist:
+                attrname = 'item%d' % i
+                item1 = getattr(t1, attrname)
+                item2 = getattr(t2, attrname)
+                cmp_res = cmpfn(item1, item2)
+                if cmp_res:
+                    # a strict compare is true we shortcut
+                    return True
+                eq_res = eqfn(item1, item2)
+                if not eq_res:
+                    # not strict and not equal we fail
+                    return False
+            # Everything's equal here
+            if strict:
+                return False
+            else:
+                return True
+        _gen_cmp_function_cache[key] = ll_cmp
+        return ll_cmp
+
+def gen_gt_function(items_r, strict):
+    gt_funcs = [r_item.get_ll_gt_function() or operator.gt for r_item in items_r]
+    eq_funcs = [r_item.get_ll_eq_function() or operator.eq for r_item in items_r]
+    return gen_cmp_function( items_r, gt_funcs, eq_funcs, strict )
+
+def gen_lt_function(items_r, strict):
+    lt_funcs = [r_item.get_ll_lt_function() or operator.lt for r_item in items_r]
+    eq_funcs = [r_item.get_ll_eq_function() or operator.eq for r_item in items_r]
+    return gen_cmp_function( items_r, lt_funcs, eq_funcs, strict )
 
 def gen_hash_function(items_r):
     # based on CPython
@@ -166,8 +210,20 @@ class AbstractTupleRepr(Repr):
     def get_ll_eq_function(self):
         return gen_eq_function(self.items_r)
 
+    def get_ll_ge_function(self):
+        return gen_gt_function(self.items_r, False)
+
+    def get_ll_gt_function(self):
+        return gen_gt_function(self.items_r, True)
+
+    def get_ll_le_function(self):
+        return gen_lt_function(self.items_r, False)
+
+    def get_ll_lt_function(self):
+        return gen_lt_function(self.items_r, True)
+
     def get_ll_hash_function(self):
-        return gen_hash_function(self.items_r)    
+        return gen_hash_function(self.items_r)
 
     ll_str = property(gen_str_function)
 
@@ -240,6 +296,30 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
         v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
         ll_eq = r_tup1.get_ll_eq_function()
         return hop.gendirectcall(ll_eq, v_tuple1, v_tuple2)
+
+    def rtype_ge((r_tup1, r_tup2), hop):
+        # XXX assumes that r_tup2 is convertible to r_tup1
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        ll_ge = r_tup1.get_ll_ge_function()
+        return hop.gendirectcall(ll_ge, v_tuple1, v_tuple2)
+
+    def rtype_gt((r_tup1, r_tup2), hop):
+        # XXX assumes that r_tup2 is convertible to r_tup1
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        ll_gt = r_tup1.get_ll_gt_function()
+        return hop.gendirectcall(ll_gt, v_tuple1, v_tuple2)
+
+    def rtype_le((r_tup1, r_tup2), hop):
+        # XXX assumes that r_tup2 is convertible to r_tup1
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        ll_le = r_tup1.get_ll_le_function()
+        return hop.gendirectcall(ll_le, v_tuple1, v_tuple2)
+
+    def rtype_lt((r_tup1, r_tup2), hop):
+        # XXX assumes that r_tup2 is convertible to r_tup1
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        ll_lt = r_tup1.get_ll_lt_function()
+        return hop.gendirectcall(ll_lt, v_tuple1, v_tuple2)
 
     def rtype_ne(tup1tup2, hop):
         v_res = tup1tup2.rtype_eq(hop)

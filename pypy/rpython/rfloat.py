@@ -110,6 +110,10 @@ class __extend__(FloatRepr):
 
     def get_ll_eq_function(self):
         return None
+    get_ll_gt_function = get_ll_eq_function
+    get_ll_lt_function = get_ll_eq_function
+    get_ll_ge_function = get_ll_eq_function
+    get_ll_le_function = get_ll_eq_function
 
     def get_ll_hash_function(self):
         return ll_hash_float

@@ -222,6 +222,13 @@ class __extend__(IntegerRepr):
         raise TyperError("not an integer: %r" % (value,))
 
     def get_ll_eq_function(self):
+        return None
+    get_ll_gt_function = get_ll_eq_function
+    get_ll_lt_function = get_ll_eq_function
+    get_ll_ge_function = get_ll_eq_function
+    get_ll_le_function = get_ll_eq_function
+
+    def get_ll_ge_function(self):
         return None 
 
     def get_ll_hash_function(self):
