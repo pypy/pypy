@@ -283,6 +283,35 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(dummyfn, [])
         assert res == 25
 
+    def test_iterate_next(self):
+        def dummyfn():
+            total = 0
+            it = iter([1, 3, 5, 7, 9])
+            while 1:
+                try:
+                    x = it.next()
+                except StopIteration:
+                    break
+                total += x
+            return total
+        res = self.interpret(dummyfn, [])
+        assert res == 25
+        def dummyfn():
+            total = 0
+            l = [1, 3, 5, 7]
+            l.append(9)
+            it = iter(l)
+            while 1:
+                try:
+                    x = it.next()
+                except StopIteration:
+                    break
+                total += x
+            return total
+        res = self.interpret(dummyfn, [])
+        assert res == 25
+
+
     def test_recursive(self):
         def dummyfn(N):
             l = []

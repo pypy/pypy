@@ -443,6 +443,14 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.simple_iter, [list])
         assert isinstance(s, annmodel.SomeIterator)
         
+    def test_simple_iter_next(self):
+        def f(x):
+            i = iter(range(x))
+            return i.next()
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_simple_iter_dict(self):
         a = self.RPythonAnnotator()
         t = somedict(annmodel.SomeInteger(), annmodel.SomeInteger())

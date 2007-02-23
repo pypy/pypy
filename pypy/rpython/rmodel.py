@@ -272,6 +272,9 @@ class IteratorRepr(Repr):
         v_iter, = hop.inputargs(self)
         return v_iter
 
+    def rtype_method_next(self, hop):
+        return self.rtype_next(self, hop)
+
 
 class __extend__(annmodel.SomeIterator):
     # NOTE: SomeIterator is for iterators over any container, not just list

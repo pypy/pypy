@@ -506,6 +506,7 @@ class __extend__(SomeIterator):
     def next(itr):
         return itr.s_container.getanyitem(*itr.variant)
     next.can_only_throw = _can_only_throw
+    method_next = next
 
 
 class __extend__(SomeInstance):
