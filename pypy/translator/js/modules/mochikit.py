@@ -2,6 +2,8 @@
 """ mochikit wrappers
 """
 
+from pypy.rpython.extfunc import register_external
+
 def createLoggingPane(var):
     pass
 createLoggingPane.suggested_primitive = True
@@ -34,4 +36,5 @@ logFatal._annspecialcase_ = "specialize:argtype(0)"
 
 def escapeHTML(data):
     return data
-escapeHTML.suggested_primitive = True
+register_external(escapeHTML, args=[str], result=str)
+
