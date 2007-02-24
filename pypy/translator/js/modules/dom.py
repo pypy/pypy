@@ -715,12 +715,6 @@ KeyEvent._fields.update({
     'shiftKey': bool,
 })
 
-# XXX: Right now this is only way to get it rendered
-setTimeout.suggested_primitive = True
-
-# the following code wraps minidom nodes with Node classes, and makes
-# sure all methods on the nodes return wrapped nodes
-
 class _FunctionWrapper(object):
     """makes sure function return values are wrapped if appropriate"""
     def __init__(self, callable):
