@@ -14,6 +14,7 @@ from py.compat import optparse
 from pypy.config.config import OptionDescription, BoolOption, StrOption
 from pypy.config.config import Config, to_optparse
 import py
+import sys
 
 js_optiondescr = OptionDescription("jscompile", "", [
     BoolOption("view", "View flow graphs",
@@ -44,16 +45,29 @@ def get_arg_names(func_data):
         [:func_data.func_code.co_argcount])
 
 def rpython2javascript_main(argv, jsconfig):
-    if len(argv) < 2:
+    if len(argv) == 0:
         print "usage: module <function_names>"
-        import sys
         sys.exit(0)
     module_name = argv[0]
-    if module_name.endswith('.py'):
-        module_name = module_name[:-3]
-    function_names = argv[1:]
-    mod = __import__(module_name, None, None, ["Module"])
+    if not module_name.endswith('.py'):
+        module_name += ".py"
+    mod = py.path.local(module_name).pyimport()
+    if len(argv) == 1:
+        function_names = []
+        for function_name in dir(mod):
+            function = getattr(mod, function_name)
+            if callable(function) and getattr(function, '_client', False):
+                function_names.append( function_name )
+        if not function_names:
+            print "Cannot find any function with _client=True in %s"\
+                      % module_name
+            sys.exit(1)
+    else:
+        function_names = argv[1:]
     source = rpython2javascript(mod, function_names, jsconfig=jsconfig)
+    if not source:
+        print "Exiting, source not generated"
+        sys.exit(1)
     open(jsconfig.output, "w").write(source)
     print "Written file %s" % jsconfig.output
 
