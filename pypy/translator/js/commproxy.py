@@ -14,9 +14,7 @@ GET_METHOD_BODY = """
     str = ""
     for(i in data) {
         if (data[i]) {
-            if (str.length == 0) {
-                str += "?";
-            } else {
+            if (str.length != 0) {
                 str += "&";
             }
             str += escape(i) + "=" + escape(data[i].toString());
@@ -24,7 +22,7 @@ GET_METHOD_BODY = """
     }
     //logDebug('%(call)s'+str);
     x.open("GET", '%(call)s' + str, true);
-    //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     x.onreadystatechange = function () { %(real_callback)s(x, callback) };
     //x.setRequestHeader("Connection", "close");
     //x.send(data);
@@ -131,6 +129,8 @@ class XmlHttp(object):
         METHOD_BODY = globals()[self.method + "_METHOD_BODY"]
         if USE_MOCHIKIT and self.use_xml:
             assert 0, "Cannot use mochikit and xml requests at the same time"
+        if USE_MOCHIKIT and self.method == "POST":
+            assert 0, "Cannot use mochikit with POST method"
         if USE_MOCHIKIT:
             ilasm.codegenerator.write(MOCHIKIT_BODY % {'class':self.name, 'method':url,\
                 'args':','.join(real_args), 'data':data, 'call':method_name})
