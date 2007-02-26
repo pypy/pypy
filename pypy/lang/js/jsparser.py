@@ -15,11 +15,21 @@ DEBUG = False
 class JsSyntaxError(Exception):
     pass
 
-singlequote = re.compile(r"(?<!\\)'")
+SLASH = "\\"
 def read_js_output(code_string):
-    stripped_code = re.sub(r"\\(?!')",r"\\\\", code_string)
-    stripped_code = stripped_code.replace("\n", "\\n")
-    stripped_code = singlequote.sub(r"\'", stripped_code)
+    tmp = []
+    last = ""
+    for c in code_string:
+        if c == "'" and last != SLASH:
+            tmp.append("\\'")
+        else:
+            if c == SLASH:
+                tmp.append(SLASH*2)
+            elif c == "\n":
+                tmp.append("\\n")
+            else:
+                tmp.append(c)
+    stripped_code = "".join(tmp)
     if DEBUG:
         print "------ got:"
         print code_string

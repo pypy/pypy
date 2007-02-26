@@ -774,7 +774,7 @@ class Script(Statement):
             if isinstance(e, ExecutionReturned) and e.type == 'return':
                 return e.value
             else:
-                print "exeception in line: %s, %s - %s"%(node.lineno, node.value, self)
+                print "exeception in line: %s, on: %s"%(node.lineno, node.value)
                 raise
 
 class Semicolon(Statement):

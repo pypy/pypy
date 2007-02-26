@@ -304,7 +304,7 @@ class W_Array(W_Builtin):
             self.array[x]= V
                     
         except ValueError:
-            super(W_Array, self).Put(P, V, dd, ro, de, it)
+            W_Builtin.Put(self, P, V, dd=dd, ro=ro, de=de, it=it)
 
     def Get(self, P):
         try:

@@ -8,7 +8,7 @@ import autopath
 import sys
 import getopt
 from pypy.lang.js.interpreter import *
-from pypy.lang.js.jsobj import W_Builtin, W_String, ThrowException
+from pypy.lang.js.jsobj import W_Builtin, W_String, ThrowException, w_Undefined
 from pypy.lang.js import jsparser
 import os
 import cmd
@@ -93,7 +93,16 @@ def main(argv=None):
     interp.w_Global.Put('load', W_Builtin(loadjs))
     interp.w_Global.Put('trace', W_Builtin(tracejs))
     for filename in filenames:
-        loadjs(interp.global_context, [W_String(filename)], None)
+        try:
+            loadjs(interp.global_context, [W_String(filename)], None)
+            # XXX we should catch more stuff here, like not implemented
+            # and such
+        except (jsparser.JsSyntaxError, ThrowException), e:
+            if isinstance(e, jsparser.JsSyntaxError):
+                print "\nSyntax error!"
+            elif isinstance(e, ThrowException):
+                print "\nJS Exception thrown!"
+            return
 
     #while interactive:
     #    res = interp.run(load_source(raw_input("js-pypy> ")))
@@ -152,8 +161,8 @@ class MyCmd(cmd.Cmd):
                 return
         finally:
             self.reset()
-        if res is not None:
-            print res        
+        if res is not None or res is not w_Undefined:
+            print res.GetValue().ToString()
 
 if __name__ == "__main__":
     import py
