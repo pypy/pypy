@@ -5,7 +5,6 @@
 # except ImportError:
 # #    from pysymbol import sym_values
 #     from pytoken import tok_values
-
 from pypy.tool.uid import uid
 
 class AbstractSyntaxVisitor(object):

@@ -1,0 +1,7 @@
+Use the 'dyngram' module.
+
+The 'dyngram' module exports the 'insert_grammar_rule' function to
+application-level code. This function allows to modify dynamically
+the python the grammar.
+
+

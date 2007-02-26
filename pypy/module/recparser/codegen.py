@@ -54,7 +54,7 @@ class Block(object):
 
     def get_size(self):
         s = 0
-        for i in insns:
+        for i in self.insns:
             s += i.size()
         return s
 

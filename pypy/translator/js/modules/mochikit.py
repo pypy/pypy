@@ -6,32 +6,35 @@ from pypy.rpython.extfunc import register_external
 
 def createLoggingPane(var):
     pass
-register_external(createLoggingPane, args=[bool])
+createLoggingPane.suggested_primitive = True
 
 def log(data):
-    print data
-register_external(log, args=None)
+    pass
+log.suggested_primitive = True
+log._annspecialcase_ = "specialize:argtype(0)"
 
 def logDebug(data):
-    print "D:", data
-register_external(logDebug, args=None)
+    pass
+logDebug.suggested_primitive = True
+logDebug._annspecialcase_ = "specialize:argtype(0)"
 
 def logWarning(data):
-    print "Warning:", data
-register_external(logWarning, args=None)
+    pass
+logWarning.suggested_primitive = True
+logWarning._annspecialcase_ = "specialize:argtype(0)"
+
 
 def logError(data):
-    print "ERROR:", data
-register_external(logError, args=None)
+    pass
+logError.suggested_primitive = True
+logError._annspecialcase_ = "specialize:argtype(0)"
 
 def logFatal(data):
-    print "FATAL:", data
-register_external(logFatal, args=None)
+    pass
+logFatal.suggested_primitive = True
+logFatal._annspecialcase_ = "specialize:argtype(0)"
 
 def escapeHTML(data):
     return data
 register_external(escapeHTML, args=[str], result=str)
 
-def serializeJSON(data):
-    pass
-register_external(serializeJSON, args=None, result=str)
