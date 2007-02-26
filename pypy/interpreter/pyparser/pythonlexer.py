@@ -5,10 +5,10 @@ analyser in grammar.py
 import sys
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
-from pypy.interpreter.pyparser.grammar import TokenSource, Token, AbstractContext, Parser
+from pypy.interpreter.pyparser.grammar import TokenSource, Token
 from pypy.interpreter.pyparser.error import SyntaxError
-
 import pytoken
+from pytoken import NEWLINE
 
 # Don't import string for that ...
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
@@ -51,7 +51,7 @@ def match_encoding_declaration(comment):
 ################################################################################
 from pypy.interpreter.pyparser import pytoken
 from pytokenize import tabsize, whiteSpaceDFA, triple_quoted, endDFAs, \
-     single_quoted, pseudoDFA
+     single_quoted, pseudoDFA 
 import automata
 
 
@@ -62,7 +62,7 @@ class TokenError(SyntaxError):
         SyntaxError.__init__(self, msg, lineno, offset, line)
         self.token_stack = token_stack
 
-def generate_tokens( parser, lines, flags):
+def generate_tokens(lines, flags):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
     the original function is not RPYTHON (uses yield)
@@ -91,7 +91,6 @@ def generate_tokens( parser, lines, flags):
     #for line in lines:
     #    print repr(line)
     #print '------------------- flags=%s ---->' % flags
-    assert isinstance( parser, Parser )
     token_list = []
     lnum = parenlev = continued = 0
     namechars = NAMECHARS
@@ -121,7 +120,7 @@ def generate_tokens( parser, lines, flags):
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
-                tok = parser.build_token(parser.tokens['STRING'], contstr + line[:end])
+                tok = Token(pytoken.STRING, contstr + line[:end])
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
                 # token_list.append((STRING, contstr + line[:end],
@@ -130,7 +129,7 @@ def generate_tokens( parser, lines, flags):
                 contline = None
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
-                tok = parser.build_token(parser.tokens['ERRORTOKEN'], contstr + line)
+                tok = Token(pytoken.ERRORTOKEN, contstr + line)
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
                 # token_list.append((ERRORTOKEN, contstr + line,
@@ -156,10 +155,10 @@ def generate_tokens( parser, lines, flags):
 
             if line[pos] in '#\r\n':           # skip comments or blank lines
                 if line[pos] == '#':
-                    tok = parser.build_token(parser.tokens['COMMENT'], line[pos:])
+                    tok = Token(pytoken.COMMENT, line[pos:])
                     last_comment = line[pos:]
                 else:
-                    tok = parser.build_token(parser.tokens['NL'], line[pos:])
+                    tok = Token(pytoken.NL, line[pos:])
                     last_comment = ''
                 # XXX Skip NL and COMMENT Tokens
                 # token_list.append((tok, line, lnum, pos))
@@ -167,12 +166,12 @@ def generate_tokens( parser, lines, flags):
 
             if column > indents[-1]:           # count indents or dedents
                 indents.append(column)
-                tok = parser.build_token(parser.tokens['INDENT'], line[:pos])
+                tok = Token(pytoken.INDENT, line[:pos])
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
             while column < indents[-1]:
                 indents = indents[:-1]
-                tok = parser.build_token(parser.tokens['DEDENT'], '')
+                tok = Token(pytoken.DEDENT, '')
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
         else:                                  # continued statement
@@ -199,22 +198,22 @@ def generate_tokens( parser, lines, flags):
                 token, initial = line[start:end], line[start]
                 if initial in numchars or \
                    (initial == '.' and token != '.'):      # ordinary number
-                    tok = parser.build_token(parser.tokens['NUMBER'], token)
+                    tok = Token(pytoken.NUMBER, token)
                     token_list.append((tok, line, lnum, pos))
                     last_comment = ''
                 elif initial in '\r\n':
                     if parenlev > 0:
-                        tok = parser.build_token(parser.tokens['NL'], token)
+                        tok = Token(pytoken.NL, token)
                         last_comment = ''
                         # XXX Skip NL
                     else:
-                        tok = parser.build_token(parser.tokens['NEWLINE'], token)
+                        tok = Token(pytoken.NEWLINE, token)
                         # XXX YUCK !
                         tok.value = last_comment
                         token_list.append((tok, line, lnum, pos))
                         last_comment = ''
                 elif initial == '#':
-                    tok = parser.build_token(parser.tokens['COMMENT'], token)
+                    tok = Token(pytoken.COMMENT, token)
                     last_comment = token
                     # XXX Skip # token_list.append((tok, line, lnum, pos))
                     # token_list.append((COMMENT, token, spos, epos, line))
@@ -224,7 +223,7 @@ def generate_tokens( parser, lines, flags):
                     if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
-                        tok = parser.build_token(parser.tokens['STRING'], token)
+                        tok = Token(pytoken.STRING, token)
                         token_list.append((tok, line, lnum, pos))
                         last_comment = ''
                     else:
@@ -241,11 +240,11 @@ def generate_tokens( parser, lines, flags):
                         contline = line
                         break
                     else:                                  # ordinary string
-                        tok = parser.build_token(parser.tokens['STRING'], token)
+                        tok = Token(pytoken.STRING, token)
                         token_list.append((tok, line, lnum, pos))
                         last_comment = ''
                 elif initial in namechars:                 # ordinary name
-                    tok = parser.build_token(parser.tokens['NAME'], token)
+                    tok = Token(pytoken.NAME, token)
                     token_list.append((tok, line, lnum, pos))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
@@ -259,11 +258,10 @@ def generate_tokens( parser, lines, flags):
                         if parenlev < 0:
                             raise TokenError("unmatched '%s'" % initial, line,
                                              (lnum-1, 0), token_list)
-                    if token in parser.tok_values:
-                        punct = parser.tok_values[token]
-                        tok = parser.build_token(punct)
+                    if token in pytoken.tok_punct:
+                        tok = Token(pytoken.tok_punct[token])
                     else:
-                        tok = parser.build_token(parser.tokens['OP'], token)
+                        tok = Token(pytoken.OP, token)
                     token_list.append((tok, line, lnum, pos)) 
                     last_comment = ''
             else:
@@ -273,39 +271,33 @@ def generate_tokens( parser, lines, flags):
                 if start<max and line[start] in single_quoted:
                     raise TokenError("EOL while scanning single-quoted string", line,
                              (lnum, start), token_list)
-                tok = parser.build_token(parser.tokens['ERRORTOKEN'], line[pos])
+                tok = Token(pytoken.ERRORTOKEN, line[pos])
                 token_list.append((tok, line, lnum, pos))
                 last_comment = ''
                 pos = pos + 1
 
     lnum -= 1
     if not (flags & PyCF_DONT_IMPLY_DEDENT):
-        if token_list and token_list[-1][0].codename != parser.tokens['NEWLINE']:
-            token_list.append((parser.build_token(parser.tokens['NEWLINE'], ''), '\n', lnum, 0))
+        if token_list and token_list[-1][0].codename != pytoken.NEWLINE:
+            token_list.append((Token(pytoken.NEWLINE, ''), '\n', lnum, 0))
         for indent in indents[1:]:                 # pop remaining indent levels
-            tok = parser.build_token(parser.tokens['DEDENT'], '')
+            tok = Token(pytoken.DEDENT, '')
             token_list.append((tok, line, lnum, pos))
     #if token_list and token_list[-1][0].codename != pytoken.NEWLINE:
-    token_list.append((parser.build_token(parser.tokens['NEWLINE'], ''), '\n', lnum, 0))
+    token_list.append((Token(pytoken.NEWLINE, ''), '\n', lnum, 0))
 
-    tok = parser.build_token(parser.tokens['ENDMARKER'], '',)
+    tok = Token(pytoken.ENDMARKER, '',)
     token_list.append((tok, line, lnum, pos))
     #for t in token_list:
     #    print '%20s  %-25s %d' % (pytoken.tok_name.get(t[0].codename, '?'), t[0], t[-2])
     #print '----------------------------------------- pyparser/pythonlexer.py'
     return token_list
 
-
-class PythonSourceContext(AbstractContext):
-    def __init__(self, pos ):
-        self.pos = pos
-
 class PythonSource(TokenSource):
     """This source uses Jonathan's tokenizer"""
-    def __init__(self, parser, strings, flags=0):
+    def __init__(self, strings, flags=0):
         # TokenSource.__init__(self)
-        #self.parser = parser
-        tokens = generate_tokens( parser, strings, flags)
+        tokens = generate_tokens(strings, flags)
         self.token_stack = tokens
         self._current_line = '' # the current line (as a string)
         self._lineno = -1
@@ -325,7 +317,7 @@ class PythonSource(TokenSource):
         self._offset = pos
         return tok
 
-    def current_linesource(self):
+    def current_line(self):
         """Returns the current line being parsed"""
         return self._current_line
 
@@ -335,12 +327,11 @@ class PythonSource(TokenSource):
 
     def context(self):
         """Returns an opaque context object for later restore"""
-        return PythonSourceContext(self.stack_pos)
+        return self.stack_pos
 
     def restore(self, ctx):
         """Restores a context"""
-        assert isinstance(ctx, PythonSourceContext)
-        self.stack_pos = ctx.pos
+        self.stack_pos = ctx
 
     def peek(self):
         """returns next token without consuming it"""
@@ -372,8 +363,8 @@ class PythonSource(TokenSource):
         return (self._current_line, self._lineno)
         # return 'line %s : %s' % ('XXX', self._current_line)
 
-#NONE_LIST = [pytoken.ENDMARKER, pytoken.INDENT, pytoken.DEDENT]
-#NAMED_LIST = [pytoken.OP]
+NONE_LIST = [pytoken.ENDMARKER, pytoken.INDENT, pytoken.DEDENT]
+NAMED_LIST = [pytoken.OP]
 
 Source = PythonSource
 

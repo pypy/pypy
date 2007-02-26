@@ -15,8 +15,3 @@ class AppTestRecparser:
     def test_enc_minimal(self):
         import parser
         parser.suite("# -*- coding: koi8-u -*-*\ngreat()")
-        
-    def test_simple_ass_totuple(self):
-        import parser
-        parser.suite("a = 3").totuple()
-

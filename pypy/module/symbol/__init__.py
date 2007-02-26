@@ -12,19 +12,19 @@ import pypy.interpreter.pyparser.pythonparse
 
 
 class Module(MixedModule):
-    """Non-terminal symbols of Python grammar."""
-    appleveldefs = {}
-    interpleveldefs = {}     # see below
+     """Non-terminal symbols of Python grammar."""
+
+     appleveldefs = {}
+     interpleveldefs = {}     # see below
 
 
 # Export the values from our custom symbol module.
 # Skip negative values (the corresponding symbols are not visible in
 # pure Python).
-from pypy.interpreter.pyparser.pythonparse import make_pyparser
-parser = make_pyparser()
+from pypy.interpreter.pyparser.pythonparse import PYTHON_PARSER
 
 sym_name = {}
-for name, val in parser.symbols.items():
+for val, name in PYTHON_PARSER.symbols.sym_name.items():
     if val >= 0:
         Module.interpleveldefs[name] = 'space.wrap(%d)' % val
         sym_name[val] = name

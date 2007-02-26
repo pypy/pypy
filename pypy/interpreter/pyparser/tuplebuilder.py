@@ -1,5 +1,6 @@
 
-from grammar import AbstractBuilder, AbstractContext, Parser
+from grammar import AbstractBuilder, AbstractContext
+from pytoken import tok_name, tok_rpunct, NEWLINE, INDENT, DEDENT, ENDMARKER
 
 class StackElement:
     """wraps TupleBuilder's tuples"""
@@ -52,18 +53,16 @@ def expand_nodes(stack_elements):
 class TupleBuilderContext(AbstractContext):
     def __init__(self, stackpos ):
         self.stackpos = stackpos
-
+        
 class TupleBuilder(AbstractBuilder):
     """A builder that directly produce the AST"""
 
-    def __init__(self, parser, debug=0, lineno=True):
-        AbstractBuilder.__init__(self, parser, debug)
+    def __init__(self, rules=None, debug=0, lineno=True):
+        AbstractBuilder.__init__(self, rules, debug)
         # This attribute is here for convenience
         self.source_encoding = None
         self.lineno = lineno
         self.stack = []
-        self.space_token = ( self.parser.tokens['NEWLINE'], self.parser.tokens['INDENT'],
-                             self.parser.tokens['DEDENT'], self.parser.tokens['ENDMARKER'] )
 
     def context(self):
         """Returns the state of the builder to be restored later"""
@@ -81,7 +80,7 @@ class TupleBuilder(AbstractBuilder):
             nodes = expand_nodes( [self.stack[-1]] )
             self.stack[-1] = NonTerminal( rule.codename, nodes )
         return True
-
+            
     def sequence(self, rule, source, elts_number):
         """ """
         num = rule.codename
@@ -98,8 +97,8 @@ class TupleBuilder(AbstractBuilder):
     def token(self, codename, value, source):
         lineno = source._token_lnum
         if value is None:
-            if codename not in self.space_token:
-                value = self.parser.tok_rvalues.get(codename, "unknown op")
+            if codename not in ( NEWLINE, INDENT, DEDENT, ENDMARKER ):
+                value = tok_rpunct.get(codename, "unknown op")
             else:
                 value = ''
         self.stack.append( Terminal(codename, value, lineno) )

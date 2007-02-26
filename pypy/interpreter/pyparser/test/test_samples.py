@@ -6,12 +6,13 @@ from pprint import pprint
 import py.test
 
 from pypy.interpreter.pyparser.pythonutil import python_parsefile, \
-    pypy_parsefile, pypy_parse, python_parse, get_grammar_file, PYTHON_VERSION
+    pypy_parsefile, python_parse, pypy_parse
 from pypy.interpreter.pyparser import grammar
 from pypy.interpreter.pyparser.pythonlexer import TokenError
+from pypy.interpreter.pyparser.pythonparse import PYTHON_VERSION, PYPY_VERSION
 grammar.DEBUG = False
 
-_, PYPY_VERSION = get_grammar_file("2.4")
+
 # these samples are skipped if the native version of Python does not match
 # the version of the grammar we use
 GRAMMAR_MISMATCH = PYTHON_VERSION != PYPY_VERSION

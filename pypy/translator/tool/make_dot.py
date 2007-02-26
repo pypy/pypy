@@ -49,9 +49,9 @@ class DotGen:
     def leave_subgraph(self):
         self.emit("}")
 
-    def emit_edge(self, name1, name2, label="",
-                  style="dashed",
-                  color="black",
+    def emit_edge(self, name1, name2, label="", 
+                  style="dashed", 
+                  color="black", 
                   dir="forward",
                   weight="5",
                   ):

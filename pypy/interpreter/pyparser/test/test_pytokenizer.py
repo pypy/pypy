@@ -1,26 +1,17 @@
 from pypy.interpreter.pyparser.pythonlexer import Source, TokenError, \
      match_encoding_declaration
 from pypy.interpreter.pyparser.grammar import Token, GrammarElement
-from pypy.interpreter.pyparser.pythonparse import make_pyparser
+from pypy.interpreter.pyparser.pytoken import EQUAL, ENDMARKER, LSQB, MINUS, NAME, NEWLINE, NULLTOKEN, NUMBER, RSQB, STRING
 
-P = make_pyparser()
+from pypy.interpreter.pyparser.pytoken import tok_name, tok_punct
+GrammarElement.symbols = tok_name
 
-EQUAL = P.tokens['EQUAL']
-ENDMARKER = P.tokens['ENDMARKER']
-LSQB = P.tokens['LSQB']
-MINUS = P.tokens['MINUS']
-NAME = P.tokens['NAME']
-NEWLINE = P.tokens['NEWLINE']
-NULLTOKEN = P.tokens['NULLTOKEN']
-NUMBER = P.tokens['NUMBER']
-RSQB = P.tokens['RSQB']
-STRING = P.tokens['STRING']
 
 def parse_source(source):
     """returns list of parsed tokens"""
-    lexer = Source( P, source.splitlines(True))
+    lexer = Source(source.splitlines(True))
     tokens = []
-    last_token = Token( P, NULLTOKEN, None)
+    last_token = Token(NULLTOKEN, None)
     while last_token.codename != ENDMARKER:
         last_token = lexer.next()
         tokens.append(last_token)
@@ -58,24 +49,24 @@ def test_several_lines_list():
     s = """['a'
     ]"""
     tokens = parse_source(s)
-    assert tokens[:4] == [Token(P, LSQB, None), Token(P, STRING, "'a'"),
-                          Token(P, RSQB, None), Token(P, NEWLINE, '')]
+    assert tokens[:4] == [Token(LSQB, None), Token(STRING, "'a'"),
+                          Token(RSQB, None), Token(NEWLINE, '')]
 
 def test_numbers():
     """make sure all kind of numbers are correctly parsed"""
     for number in NUMBERS:
-        assert parse_source(number)[0] == Token(P, NUMBER, number)
+        assert parse_source(number)[0] == Token(NUMBER, number)
         neg = '-%s' % number
-        assert parse_source(neg)[:2] == [Token(P, MINUS, None), 
-                                         Token(P, NUMBER, number)]
+        assert parse_source(neg)[:2] == [Token(MINUS, None), 
+                                         Token(NUMBER, number)]
     for number in BAD_NUMBERS:
-        assert parse_source(number)[0] != Token(P, NUMBER, number)
+        assert parse_source(number)[0] != Token(NUMBER, number)
 
 def test_hex_number():
     """basic pasrse"""
     tokens = parse_source("a = 0x12L")
-    assert tokens[:4] == [Token(P, NAME, 'a'), Token(P, EQUAL, None),
-                          Token(P, NUMBER, '0x12L'), Token(P, NEWLINE, '')]
+    assert tokens[:4] == [Token(NAME, 'a'), Token(EQUAL, None),
+                          Token(NUMBER, '0x12L'), Token(NEWLINE, '')]
 
 def test_punct():
     """make sure each punctuation is correctly parsed"""
@@ -90,7 +81,7 @@ def test_punct():
             tokens = [tok for tok, _, _, _ in error.token_stack]
         if prefix:
             tokens.pop(0)
-        assert tokens[0].codename == P.tok_values[pstr]
+        assert tokens[0].codename == tok_punct[pstr]
 
 
 def test_encoding_declarations_match():

@@ -5,7 +5,6 @@ from pypy.interpreter.pyparser import symbol
 # important here
 
 class SymbolMapper(object):
-    """XXX dead"""
     def __init__(self, sym_name=None ):
         _anoncount = self._anoncount = -10
         _count = self._count = 0
@@ -23,7 +22,7 @@ class SymbolMapper(object):
             self._count = _count
 
     def add_symbol( self, sym ):
-        # assert isinstance(sym, str)
+        assert type(sym)==str
         if not sym in self.sym_values:
             self._count += 1
             val = self._count
@@ -33,7 +32,7 @@ class SymbolMapper(object):
         return self.sym_values[ sym ]
 
     def add_anon_symbol( self, sym ):
-        # assert isinstance(sym, str)
+        assert type(sym)==str
         if not sym in self.sym_values:
             self._anoncount -= 1
             val = self._anoncount
@@ -44,7 +43,7 @@ class SymbolMapper(object):
 
     def __getitem__(self, sym ):
         """NOT RPYTHON"""
-        # assert isinstance(sym, str)
+        assert type(sym)==str
         return self.sym_values[ sym ]
 
     def __contains__(self, sym):
@@ -57,12 +56,6 @@ _cpython_symbols = SymbolMapper( symbol.sym_name )
 # There is no symbol in this module until the grammar is loaded
 # once loaded the grammar parser will fill the mappings with the
 # grammar symbols
-
-# XXX: is this completly dead ?
-## # prepopulate symbol table from symbols used by CPython
-## for _value, _name in _cpython_symbols.sym_name.items():
-##     globals()[_name] = _value
-
 
 def gen_symbol_file(fname):
     """

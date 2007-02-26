@@ -3,8 +3,8 @@ it obeys the TokenSource interface defined for the grammar
 analyser in grammar.py
 """
 
-from grammar import TokenSource, Token, AbstractContext
-from ebnfgrammar import GRAMMAR_GRAMMAR as G
+from grammar import TokenSource, Token
+from ebnfgrammar import *
 
 
 def match_symbol( input, start, stop ):
@@ -14,12 +14,6 @@ def match_symbol( input, start, stop ):
             break
         idx+=1
     return idx
-
-
-class GrammarSourceContext(AbstractContext):
-    def __init__(self, pos, peek):
-        self.pos = pos
-        self.peek = peek
 
 class GrammarSource(TokenSource):
     """Fully RPython - see targetebnflexer.py
@@ -31,9 +25,8 @@ class GrammarSource(TokenSource):
     SYMBOL: a rule symbol usually appearing right of a SYMDEF
     tokens: '[', ']', '(' ,')', '*', '+', '|'
     """
-    def __init__(self, parser, inpstring):
-        # TokenSource.__init__(self)
-        self.parser = parser
+    def __init__(self, inpstring ):
+        TokenSource.__init__(self)
         self.input = inpstring
         self.pos = 0
         self.begin = 0
@@ -43,7 +36,7 @@ class GrammarSource(TokenSource):
     def context(self):
         """returns an opaque context object, used to backtrack
         to a well known position in the parser"""
-        return GrammarSourceContext( self.pos, self._peeked )
+        return self.pos, self._peeked
 
     def offset(self, ctx=None):
         """Returns the current parsing position from the start
@@ -51,16 +44,14 @@ class GrammarSource(TokenSource):
         if ctx is None:
             return self.pos
         else:
-            assert isinstance(ctx, GrammarSourceContext)
-            return ctx.pos
+            assert type(ctx)==int
+            return ctx
 
     def restore(self, ctx):
         """restore the context provided by context()"""
-        assert isinstance( ctx, GrammarSourceContext )
-        self.pos = ctx.pos
-        self._peeked = ctx.peek
+        self.pos, self._peeked = ctx
 
-    def current_linesource(self):
+    def current_line(self):
         pos = idx = self.begin
         inp = self.input
         end = len(inp)
@@ -73,6 +64,7 @@ class GrammarSource(TokenSource):
 
     def current_lineno(self):
         return self.current_line
+
 
     def skip_empty_lines(self, input, start, end ):
         idx = start
@@ -125,18 +117,17 @@ class GrammarSource(TokenSource):
         # means backtracking more than one token
         # will re-tokenize the stream (but this is the
         # grammar lexer so we don't care really!)
-        _p = self.parser
         if self._peeked is not None:
             peeked = self._peeked
             self._peeked = None
             return peeked
-
+        
         pos = self.pos
         inp = self.input
         end = len(self.input)
         pos = self.skip_empty_lines(inp,pos,end)
         if pos==end:
-            return _p.build_token( _p.EOF, None)
+            return Token(EOF, None)
 
         # at this point nextchar is not a white space nor \n
         nextchr = inp[pos]
@@ -148,22 +139,22 @@ class GrammarSource(TokenSource):
             self.pos = npos
             _endpos = npos - 1
             assert _endpos>=0
-            return _p.build_token( _p.TOK_STRING, inp[pos+1:_endpos])
+            return Token(TOK_STRING,inp[pos+1:_endpos])
         else:
             npos = match_symbol( inp, pos, end)
             if npos!=pos:
                 self.pos = npos
                 if npos!=end and inp[npos]==":":
                     self.pos += 1
-                    return _p.build_token( _p.TOK_SYMDEF, inp[pos:npos])
+                    return Token(TOK_SYMDEF,inp[pos:npos])
                 else:
-                    return _p.build_token( _p.TOK_SYMBOL, inp[pos:npos])
-
+                    return Token(TOK_SYMBOL,inp[pos:npos])
+        
         # we still have pos!=end here
         chr = inp[pos]
         if chr in "[]()*+|":
             self.pos = pos+1
-            return _p.build_token( _p.tok_values[chr], chr)
+            return Token(tok_rmap[chr], chr)
         self.RaiseError( "Unknown token" )
 
     def peek(self):
