@@ -57,7 +57,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 
-def register_external(function, args, result, export_name=None,
+def register_external(function, args, result=None, export_name=None,
                       llimpl=None, ooimpl=None):
     
     class FunEntry(ExtFuncEntry):
