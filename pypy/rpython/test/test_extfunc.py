@@ -1,5 +1,6 @@
 
-from pypy.rpython.extfunc import ExtFuncEntry, _callable, register_external
+from pypy.rpython.extfunc import ExtFuncEntry, _callable, register_external,\
+     is_external
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation.policy import AnnotatorPolicy
@@ -113,3 +114,28 @@ def test_register_external_tuple_args():
 
     # Not a very good assertion, but at least it means _something_ happened.
     assert isinstance(s, annmodel.SomeInteger)
+
+def function_withspecialcase(arg):
+    return repr(arg)
+register_external(function_withspecialcase, args=None, result=str)
+
+def test_register_external_specialcase():
+    def f():
+        x = function_withspecialcase
+        return x(33) + x("aaa") + x([]) + "\n"
+
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    a = RPythonAnnotator(policy=policy)
+    s = a.build_types(f, [])
+    assert isinstance(s, annmodel.SomeString)
+
+#def test_is_external():
+#    assert is_external(BTestFuncEntry)
+#    def f():
+#        pass
+#    assert not is_external(f)
+#    f.suggested_primitive = True
+#    assert is_external(f)
+#    f.suggested_primitive = False
+#    assert not is_external(f)

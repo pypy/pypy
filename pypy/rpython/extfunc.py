@@ -5,6 +5,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import unionof
 from pypy.annotation.signature import annotation
 from pypy.annotation import model as annmodel
+import py
 
 class _callable(object):
     """ A way to specify the callable annotation, but deferred until
@@ -25,16 +26,21 @@ class _ext_callable(ExtRegistryEntry):
 
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
-        assert len(args_s) == len(self.signature_args),\
-               "Argument number mismatch"
-        for arg, expected in zip(args_s, self.signature_args):
-            arg = unionof(arg, expected)
-            assert expected.contains(arg)
+        if self.signature_args is not None:
+            assert len(args_s) == len(self.signature_args),\
+                   "Argument number mismatch"
+            for arg, expected in zip(args_s, self.signature_args):
+                arg = unionof(arg, expected)
+                assert expected.contains(arg)
         return self.signature_result
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper
-        args_r = [rtyper.getrepr(s_arg) for s_arg in self.signature_args]
+        if self.signature_args is None:
+            iter_args = hop.args_s
+        else:
+            iter_args = self.signature_args
+        args_r = [rtyper.getrepr(s_arg) for s_arg in iter_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
         r_result = rtyper.getrepr(self.signature_result)
         ll_result = r_result.lowleveltype
@@ -56,7 +62,10 @@ def register_external(function, args, result, export_name=None,
     
     class FunEntry(ExtFuncEntry):
         _about_ = function
-        signature_args = [annotation(arg) for arg in args]
+        if args is None:
+            signature_args = None
+        else:
+            signature_args = [annotation(arg) for arg in args]
         signature_result = annotation(result)
         name=export_name
         if llimpl:
