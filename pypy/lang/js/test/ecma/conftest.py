@@ -5,14 +5,16 @@ from pypy.lang.js.jsparser import JsSyntaxError
 from py.__.test.outcome import Failed, ExceptionFailure
 import pypy.lang.js as js
 
-js.jsobj.DEBUG = True
+js.jsobj.DEBUG = False
 
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
 
 class JSDirectory(py.test.collect.Directory):
 
-    def filefilter(self, path): 
+    def filefilter(self, path):
+        if not py.test.config.option.ecma:
+            return False 
         if path.check(file=1):
             return (path.basename not in exclusionlist)  and (path.ext == '.js')
 
@@ -85,5 +87,4 @@ class JSTestItem(py.test.collect.Item):
     def _getpathlineno(self):
         return self.parent.parent.fspath, 0 
 
-if py.test.config.option.ecma:
-    Directory = JSDirectory
+Directory = JSDirectory

@@ -157,12 +157,15 @@ class MyCmd(cmd.Cmd):
                     if isinstance(e, jsparser.JsSyntaxError):
                         print "\nSyntax error!"
                     elif isinstance(e, ThrowException):
-                        print "\nJS Exception thrown!"
+                        print e.exception.ToString()
                 return
         finally:
             self.reset()
-        if res is not None or res is not w_Undefined:
-            print res.GetValue().ToString()
+        if (res is not None) and (res is not w_Undefined):
+            try:
+                print res.GetValue().ToString()
+            except ThrowException, e:
+                print e.exception.ToString()
 
 if __name__ == "__main__":
     import py
