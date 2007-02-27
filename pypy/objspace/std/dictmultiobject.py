@@ -806,7 +806,6 @@ class SharedKeyIteratorImplementation(IteratorImplementation):
         assert isinstance(implementation, SharedDictImplementation)
         for key, index in self.iterator:
             if index >= 0:
-                w_value = implementation.entries[index]
                 return self.space.wrap(key)
         else:
             return None
