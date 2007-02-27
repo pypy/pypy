@@ -745,6 +745,7 @@ class PyFlowGraph(FlowGraph):
     _convert_LOAD_GLOBAL = _convert_NAME
     _convert_STORE_GLOBAL = _convert_NAME
     _convert_DELETE_GLOBAL = _convert_NAME
+    _convert_LOOKUP_METHOD = _convert_NAME
 
     def _convert_DEREF(self, inst):
         assert isinstance(inst, InstrName)
@@ -938,6 +939,8 @@ def depth_CALL_FUNCTION_KW(argc):
     return depth_CALL_FUNCTION(argc)-1
 def depth_CALL_FUNCTION_VAR_KW(argc):
     return depth_CALL_FUNCTION(argc)-2
+def depth_CALL_METHOD(argc):
+    return -argc-1
 def depth_MAKE_FUNCTION(argc):
     return -argc
 def depth_MAKE_CLOSURE(argc):
@@ -1039,6 +1042,7 @@ class StackDepthTracker:
         'SETUP_FINALLY': 3,
         'FOR_ITER': 1,
         'WITH_CLEANUP': 3,
+        'LOOKUP_METHOD': 1,
         }
     # use pattern match
     patterns = [

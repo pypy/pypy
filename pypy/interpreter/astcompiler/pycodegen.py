@@ -1008,11 +1008,13 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('EXEC_STMT')
 
     def visitCallFunc(self, node):
+        self.set_lineno(node)
         if self.emit_builtin_call(node):
+            return
+        if self.emit_method_call(node):
             return
         pos = 0
         kw = 0
-        self.set_lineno(node)
         node.node.accept( self )
         for arg in node.args:
             arg.accept( self )
@@ -1029,18 +1031,20 @@ class CodeGenerator(ast.ASTVisitor):
         opcode = callfunc_opcode_info[ have_star*2 + have_dstar]
         self.emitop_int(opcode, kw << 8 | pos)
 
-    def emit_builtin_call(self, node):
-        if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
-            return False
+    def check_simple_call_args(self, node):
         if node.star_args is not None or node.dstar_args is not None:
             return False
-        pos = 0
         # check for kw args
         for arg in node.args:
             if isinstance(arg, ast.Keyword):
                 return False
-            else:
-                pos = pos + 1
+        return True
+
+    def emit_builtin_call(self, node):
+        if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
+            return False
+        if not self.check_simple_call_args(node):
+            return False
         func = node.node
         if not isinstance(func, ast.Name):
             return False
@@ -1054,9 +1058,24 @@ class CodeGenerator(ast.ASTVisitor):
             and index != -1):
             for arg in node.args:
                 arg.accept(self)
-            self.emitop_int("CALL_LIKELY_BUILTIN", index << 8 | pos)
+            self.emitop_int("CALL_LIKELY_BUILTIN", index << 8 | len(node.args))
             return True
         return False
+
+    def emit_method_call(self, node):
+        if not self.space.config.objspace.opcodes.CALL_METHOD:
+            return False
+        meth = node.node
+        if not isinstance(meth, ast.Getattr):
+            return False
+        if not self.check_simple_call_args(node):
+            return False
+        meth.expr.accept(self)
+        self.emitop('LOOKUP_METHOD', self.mangle(meth.attrname))
+        for arg in node.args:
+            arg.accept(self)
+        self.emitop_int('CALL_METHOD', len(node.args))
+        return True
 
     def visitPrint(self, node):
         self.set_lineno(node)
