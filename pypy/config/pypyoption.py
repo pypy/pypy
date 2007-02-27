@@ -193,6 +193,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "enable all thought-to-be-working optimizations",
                    default=False,
                    suggests=[("objspace.opcodes.CALL_LIKELY_BUILTIN", True),
+                             ("objspace.opcodes.CALL_METHOD", True),
                              ("translation.withsmallfuncsets", 5),
                              ("translation.profopt",
                               "-c 'from richards import main;main(); from test import pystone; pystone.main()'"),
