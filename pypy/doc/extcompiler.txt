@@ -11,9 +11,14 @@ compile a set of source code to a PyPy or a CPython extension module.
 
 **WARNING: this is beta software, APIs and details may change.**
 
-The documentation corresponds to release 0.9.  The extension compiler
+The documentation corresponds to release 0.99.  The extension compiler
 has not been extensively tested and polished so far, so bugs and rough
 edges are likely.
+
+The final version of the Technical Report D03.1 also describes the
+extension compiler's goals in more details and presents an overview of
+its implementation
+(http://codespeak.net/pypy/dist/pypy/doc/index-report.html).
 
 
 .. _introduction:
@@ -28,7 +33,8 @@ features, or raw performance - and an inconvenience.  In the context of
 PyPy the greatest drawback of hard-coded C external modules is that
 low-level details like multithreading (e.g. locks) and memory management
 must be explicitly written in such a language, which would prevent the
-same module from being used in several different versions of pypy-c.
+same module from being used in several differently-compiled versions of
+``pypy-c``.
 
 PyPy provides instead a generic way to write modules for all Python
 implementations: the so-called *mixed module* approach.  A single mixed
@@ -70,7 +76,7 @@ This means that you can do the following with a mixed module:
 * run it with PyPy on top of CPython.  Example::
 
     $ python pypy/bin/py.py --usemodules=_demo
-    PyPy 0.9.0 in StdObjSpace on top of Python 2.4.4c0 (startuptime: 2.47 secs)
+    PyPy 0.99.0 in StdObjSpace on top of Python 2.4.3
     >>>> import _demo
     >>>> _demo.measuretime(10000, long)
     [ignore output here]
@@ -81,11 +87,11 @@ This means that you can do the following with a mixed module:
 
     $ cd pypy/translator/goal
     $ python translate.py targetpypystandalone --usemodules=_demo
-    [wait for 1/2 to 1 hour]
+    [wait for 30 minutes]
     [translation:info] created: ./pypy-c
     (Pbd)
     $ ./pypy-c
-    Python 2.4.1 (pypy 0.9.0 build 28xxx) on linux2
+    Python 2.4.1 (pypy 0.9.0 build xxxxx) on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     (InteractiveConsole)
     >>>> import _demo
@@ -169,8 +175,22 @@ same number of arguments, and calling the built-in function from
 app-level will pass all the provided arguments as wrapped objects to the
 interp-level function.  Alternatively, the interp-level function can
 have an ``unwrap_spec`` attribute that declares what type of arguments
-it expects (XXX this is not documented in detail so far; grep for
-examples...).
+it expects.  The ``unwrap_spec`` is a list of specifiers, one per
+argument; the specifiers can be one of the following strings or objects
+(to be imported from `pypy/interpreter/gateway.py`_):
+
+* ``ObjSpace``: used to specify the space argument.
+* ``W_Root``: for wrapped arguments to keep wrapped.
+* ``str``: check that the argument is a string, and unwrap it.
+* ``int``: check that the argument is an integer, and unwrap it.
+* ``float``: check that the argument is a float, and unwrap it.
+* ``"self"``: for methods of Wrappable subclasses, the unwrapped self.
+* *Wrappable-subcls*: an instance of the given Wrappable subclass, unwrapped.
+* ``Arguments``: an instance of ``pypy.interpreter.argument.Arguments``
+  collecting the rest of the positional and keyword arguments.
+* ``"args_w"``: the rest of the positional arguments as list of wrapped objects.
+* ``"w_args"``: the rest of the positional arguments as a single wrapped tuple.
+* *(function, cls)*: use function to check/unwrap argument of type cls.
 
 There are two ways to export types.  The first is to write the type at
 app-level, as a regular class.  You can then call interp-level functions
@@ -270,12 +290,6 @@ you have troubles compiling the demo modules, check out our
 ctypes-specific `installation notes`_.
 
 .. _`installation notes`: rctypes.html#installation
-
-
-Implementation of the ext compiler
------------------------------------------------
-
-XXX no documentation available yet, see `pypy/objspace/cpy`_.
 
 
 .. include:: _ref.txt
