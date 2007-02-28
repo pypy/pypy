@@ -477,8 +477,6 @@ to make it more and more capable to produce full featured web applications.
 Please see the pypy/translator/js/test directory for example unittests.
 
 Here is a simple example to try::
-.. >>> from pypy.translator.interactive import Translation
-.. >>> from pypy.translator.test import snippet 
 
    >>> t = Translation(snippet.my_gcd)
    >>> a = t.annotate([int, int])
