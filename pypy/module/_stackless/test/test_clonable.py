@@ -165,3 +165,21 @@ class AppTestClonable:
         res = first_solution(example)
         assert res == [1, 1, 0, 1, 0]
 
+    def test_clone_before_start(self):
+        """Tests that a clonable coroutine can be
+        cloned before it is started
+        (this used to fail with a segmentation fault)
+        """
+        import _stackless
+
+        counter = [0]
+        def simple_coro():
+            print "hello"
+            counter[0] += 1
+
+        s = _stackless.clonable()
+        s.bind(simple_coro)
+        t = s.clone()
+        s.switch()
+        t.switch()
+        assert counter[0] == 2

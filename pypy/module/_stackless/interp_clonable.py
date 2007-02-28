@@ -1,10 +1,7 @@
-from pypy.module._stackless.interp_coroutine import AbstractThunk, BaseCoState, Coroutine
+from pypy.module._stackless.interp_coroutine import AbstractThunk, Coroutine
 from pypy.rlib.rgc import gc_swap_pool, gc_clone
 from pypy.rlib.objectmodel import we_are_translated
-
 from pypy.interpreter.error import OperationError
-
-from pypy.tool import stdlib_opcode as pythonopcode
 
 
 class InterpClonableMixin:
@@ -36,6 +33,7 @@ class InterpClonableMixin:
         # clone!
         data, copy.local_pool = gc_clone(data, self.local_pool)
         copy.frame, extradata = data
+        copy.thunk = self.thunk # in case we haven't switched to self yet
         return extradata
 
 

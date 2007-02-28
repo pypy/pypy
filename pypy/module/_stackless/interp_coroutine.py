@@ -207,7 +207,9 @@ class Coroutine(Wrappable):
         return chain
 
     def _bind(self):
+        state = self.costate
         incoming_frame = yield_current_frame_to_caller()
+        self = state.current
         return self._execute(incoming_frame)
 
     def _execute(self, incoming_frame):
