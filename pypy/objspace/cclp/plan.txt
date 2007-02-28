@@ -1,7 +1,0 @@
-* migrate most of the stuff in pypy/objspace/logic.py
-* remove references to object space if possible, if not write two versions
-* migrate constraints there (& constraints/applevel into pypy/lib)
-* make some comp. space class as in objspace/constraints
-* implement ask, clone, choose, commit interfaces
-* write some rpython tests
-* ...

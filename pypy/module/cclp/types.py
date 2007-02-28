@@ -1,8 +1,9 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 from pypy.interpreter.error import OperationError
+from pypy.module._stackless.clonable import AppClonableCoroutine
 
-from pypy.objspace.cclp.misc import w, AppCoroutine, get_current_cspace
-from pypy.objspace.cclp.global_state import sched
+from pypy.module.cclp.misc import w, AppCoroutine, get_current_cspace
+from pypy.module.cclp.global_state import sched
 
 from pypy.rlib.rgc import gc_swap_pool, gc_clone
 from pypy.rlib.objectmodel import we_are_translated
@@ -21,9 +22,9 @@ class W_Var(W_Root):
 
     def __repr__(w_self):
         if isinstance(w_self.w_bound_to, W_Var):
-            return '<?@%s>' % prettyfy_id(id(w_self))
-        return '<%s@%s>' % (w_self.w_bound_to,
-                            prettyfy_id(id(w_self)))
+            return '<?@%x>' % id(w_self)
+        return '<%s@%x>' % (w_self.w_bound_to,
+                            id(w_self))
 
     def _same_as(w_self, w_var):
         assert isinstance(w_var, W_Var)
@@ -124,48 +125,54 @@ class W_AbstractDistributor(baseobjspace.Wrappable):
 
 W_AbstractDistributor.typedef = typedef.TypeDef("W_AbstractDistributor")
 
-#-- Pool --------------------------------------------------
+#-- Space Coroutine ----------------------
 
-class Pool:
-    local_pool = None
 
-    def __init__(self, cspace=None):
-        self.cspace = cspace
+class SpaceCoroutine(AppClonableCoroutine):
+    def __init__(self, space, state=None):
+        AppClonableCoroutine.__init__(self, space, state)
+        self._cspace = None
+        self._next = self._prev = None
 
-    def hello_local_pool(self):
-        if we_are_translated():
-            w('hello_local_pool')
-            self.saved_pool = gc_swap_pool(self.local_pool)
-
-    def goodbye_local_pool(self):
-        if we_are_translated():
-            w('goodbye_local_pool')
-            self.local_pool = gc_swap_pool(self.saved_pool)
-            self.saved_pool = None
-
-    def clone(self):
-        copy = Pool()
-        self.clone_into(copy)
-        return copy
-
-    def clone_into(self, copy, extradata=None):
-        # blindly copied from interp_clonable
-        # all we need is love, after all ...
+    def _clone(self):
         if not we_are_translated():
             raise NotImplementedError
-        # cannot gc_clone() directly self, because it is not in its own
-        # local_pool.  Moreover, it has a __del__, which cloning doesn't
-        # support properly at the moment.
-        # the hello/goodbye pair has two purposes: it forces
-        # self.local_pool to be computed even if it was None up to now,
-        # and it puts the 'data' tuple in the correct pool to be cloned.
+
+        space = self.space
+        costate = self.costate
+        if costate.current is self:
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("clone() cannot clone the "
+                                            "current coroutine"
+                                            "; use fork() instead"))
+        copy = SpaceCoroutine(space, state=costate)
+
+        # This part is a copy of InterpClonableMixin.clone_into
+        # we can't use it because extradata as a different signature
+        # see the comments there for explanations
+        # ----------------------------------------------------------
+        copy.parent = self.parent
         self.hello_local_pool()
-        data = (self.cspace, extradata)
+        data = (self.frame, self.subctx, self._cspace)
         self.goodbye_local_pool()
         # clone!
         data, copy.local_pool = gc_clone(data, self.local_pool)
-        copy.cspace, extradata = data
-        return extradata
+        copy.frame, copy.subctx, copy._cspace = data
+        return copy
+
+    #XXX idea for future :
+    #    only call AppCoroutine.hello() there
+    #    do main_thread.hello|goodbye_local_pool when switching spaces
+    #    we will need to clone the other coros stackframes and
+    #    restuff these into fresh AppCoroutine shells
+    #    (because AppCoros have finalizers, hence are not cloned)
+    def hello(self):
+        w('Hello coro %d' % id(self) )
+        AppClonableCoroutine.hello(self)
+
+    def goodbye(self):
+        w('Bye coro %d' % id(self))
+        AppClonableCoroutine.goodbye(self)
 
 
 #-- Misc ---------------------------------------------------
@@ -190,9 +197,3 @@ def aliases(space, w_var):
         w_curr = w_next
     return al
 
-def prettyfy_id(an_int):
-    "gets the 3 lower digits of an int"
-    assert isinstance(an_int, int)
-    a_str = str(an_int)
-    l = len(a_str) - 1
-    return a_str[l-3:l]

@@ -8,8 +8,8 @@ from pypy.objspace.std.intobject import W_IntObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.cclp.types import W_AbstractDomain, W_Var, W_Root, ConsistencyError
-from pypy.objspace.cclp.interp_var import interp_bind, interp_free
+from pypy.module.cclp.types import W_AbstractDomain, W_Var, W_Root, ConsistencyError
+from pypy.module.cclp.interp_var import interp_bind, interp_free
 
 all_mms = {}
 

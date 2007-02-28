@@ -2,12 +2,12 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.constraint.domain import W_FiniteDomain
+from pypy.module.cclp.constraint.domain import W_FiniteDomain
 
-from pypy.objspace.cclp.types import deref, W_Var, W_CVar
-from pypy.objspace.cclp.variable import bind_mm, raise_unification_failure, _alias, \
+from pypy.module.cclp.types import deref, W_Var, W_CVar
+from pypy.module.cclp.variable import bind_mm, raise_unification_failure, _alias, \
      _assign_aliases, bind__Var_Root, bind__Var_Var
-from pypy.objspace.cclp.misc import w
+from pypy.module.cclp.misc import w
 
 W_Root = baseobjspace.W_Root
 

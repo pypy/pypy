@@ -22,12 +22,12 @@ class BaseFiniteDomain:
         "The implementation of remove_value should call this method"
         if self.size() == 0:
             raise ConsistencyError, "tried to make a domain empty"
+        self._changed = True
         
     def remove_value(self, value):
         """Remove value of domain and check for consistency"""
         del self._values[value]
         self._value_removed()
-        self._changed = True
 
     def remove_values(self, values):
         assert isinstance(values, list)
@@ -35,7 +35,6 @@ class BaseFiniteDomain:
             for val in values:
                 del self._values[val]
             self._value_removed()
-            self._changed = True
 
     def size(self):
         """computes the size of a finite domain"""

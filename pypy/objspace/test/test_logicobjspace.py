@@ -1,5 +1,5 @@
 try:
-    from pypy.conftest import gettestobjspace
+    from pypy.conftest import gettestobjspace, option
     from py.test import skip
 except ImportError:
     pass
@@ -15,7 +15,7 @@ except:
 class AppTest_Logic(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
+        cls.space = gettestobjspace('logic')
 
     def test_bind_var_val(self):
         X = newvar()
@@ -253,9 +253,11 @@ class AppTest_Logic(object):
 class AppTest_LogicFutures(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
+        cls.space = gettestobjspace('logic')
 
     def test_future_value(self):
+        from cclp import future
+        
         def poop(X):
             return X + 1
 
@@ -279,6 +281,7 @@ class AppTest_LogicFutures(object):
         bind(X, 42)
 
     def test_one_future_exception(self):
+        from cclp import future
         class FooException(Exception): pass
         
         def poop(X):
@@ -295,6 +298,7 @@ class AppTest_LogicFutures(object):
         assert False
 
     def test_exception_in_chain(self):
+        from cclp import future
         class FooException(Exception): pass
 
         def raise_foo():
@@ -318,6 +322,7 @@ class AppTest_LogicFutures(object):
         assert False
 
     def test_exception_in_group(self):
+        from cclp import future
         class FooException(Exception): pass
 
         def loop_or_raise(Canary, crit, Bomb_signal):
@@ -348,6 +353,7 @@ class AppTest_LogicFutures(object):
         """check that a wait nested in a tree of
            threads works correctly
         """
+        from cclp import future
         def sleep(X):
             wait(X)
             return X
@@ -363,6 +369,7 @@ class AppTest_LogicFutures(object):
         assert v == 42
 
     def test_wait_needed(self):
+        from cclp import future
         X = newvar()
 
         def binder(V):
@@ -379,6 +386,7 @@ class AppTest_LogicFutures(object):
         assert X == 42
 
     def test_eager_producer_consummer(self):
+        from cclp import stacklet
 
         def generate(n, limit, R):
             if n < limit:
@@ -402,8 +410,37 @@ class AppTest_LogicFutures(object):
         stacklet(generate, 0, 10, X)
         assert S == 45
 
+    def test_problematic_eager_producer_consummer(self):
+        """
+        straight from CRM
+        BUG:a way (not to) keep the generator live forever
+        """
+        from cclp import future
+
+        def generate(n, Xs):
+            Xr = newvar()
+            wait(Xs)
+            unify((n, Xr), Xs)
+            generate(n+1, Xr)
+
+        def sum(Xs, a, limit):
+            if limit > 0:
+                X, Xr = newvar(), newvar()
+                unify((X, Xr), Xs)
+                return sum(Xr, a+X, limit-1)
+            else:
+                unify(None, Xs) # -> to release the generator
+                                #    with a unification error
+                                # Oz code does not suffer from this
+                return a
+
+        Xs = newvar()
+        S = future(sum, Xs, 0, 10)
+        future(generate, 0, Xs)
+        assert S == 45
 
     def test_lazy_producer_consummer(self):
+        from cclp import future, stacklet, sched_info, reset_scheduler
 
         def lgenerate(n, L):
             """wait-needed version of generate"""
@@ -443,6 +480,7 @@ class AppTest_LogicFutures(object):
         assert len(sp_info['threads']) == 1
 
     def test_wait_two(self):
+        from cclp import future, sched_info
 
         def sleep(X, Barrier):
             wait(X)
@@ -468,6 +506,7 @@ class AppTest_LogicFutures(object):
         assert len(sp_info['threads']) == 1
         
     def test_fib(self):
+        from cclp import future
         def fib(X):
             if X<2:
                 return 1
@@ -481,6 +520,7 @@ class AppTest_LogicFutures(object):
         assert F == 89
 
     def test_stacklet(self):
+        from cclp import stacklet, sched_info, reset_scheduler
 
         reset_scheduler()
         count = [0]
@@ -508,37 +548,13 @@ class AppTest_LogicFutures(object):
             assert len(sp_info['threads']) == 1
             return
         assert False
-                
-    def test_nd_append(self):
-        skip("non determnistic choice: yet to come")
-        #from CTM p.639
-        #write me correctly...
-        """
-        def append(A, B, C):
-            choice:
-                unify(A, None)
-                unify(B, C)
-            or:
-                As, Bs, X = newvar(), newvar(), newvar()
-                unify(A, (X, As))
-                unify(C, (X, Cs))
-                append(As, B, Cs)
-        """
-        from solver import solve
-        X, Y, S = newvar(), newvar(), newvar()
-        unify((X, Y), S)
-        
-        for sol in solve(lambda : append(X, Y, [1, 2, 3])):
-            assert sol in ((None, [1, 2, 3]),
-                           ([1], [2, 3]),
-                           ([1, 2], [3]),
-                           ([1, 2, 3], None))
-                           
+                                           
 
     def test_stream_merger(self):
         """this is a little cheesy, due to threads not
         being preemptively scheduled
         """
+        from cclp import future, stacklet, schedule
         
         def _sleep(X, Barrier):
             wait(X)
@@ -592,6 +608,7 @@ class AppTest_LogicFutures(object):
         
 
     def test_digital_logic(self):
+        from cclp import stacklet, reset_scheduler
         
         def print_stream(S):
             elts = []
@@ -656,9 +673,10 @@ class AppTest_LogicFutures(object):
 class AppTest_CompSpace(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
+        cls.space = gettestobjspace('logic')
 
     def test_cvar(self):
+        from cclp import newspace
 
         def in_space(X):
             d = domain([1, 2, 4], '')
@@ -712,6 +730,7 @@ class AppTest_CompSpace(object):
         wait(X)
 
     def test_ask_choose(self):
+        from cclp import stacklet, newspace, choose
 
         def chooser(X):
             choice = choose(3)
@@ -728,6 +747,7 @@ class AppTest_CompSpace(object):
         assert X == 2
 
     def test_more_ask_choose(self):
+        from cclp import stacklet, newspace, choose, sched_info
 
         def chooser(vec, X):
             for v in vec:
@@ -753,7 +773,8 @@ class AppTest_CompSpace(object):
 
 
     def test_tell_ask_choose_commit(self):
-        from problem import conference_scheduling
+        from constraint.examples import conference_scheduling
+        from cclp import stacklet, newspace, choose, switch_debug_info
         
         def solve(spc, commitment, Sol):
             while 1:
@@ -772,67 +793,14 @@ class AppTest_CompSpace(object):
             s = newspace(conference_scheduling)
             Solution = newvar()
             stacklet(solve, s, commit_to, Solution)
-##             if commit_to == 1:
-##                 assert set(Solution) == set([('room A', 'day 1 AM'),
-##                                             ('room B', 'day 1 AM'),
-##                                             ('room B', 'day 2 PM'),
-##                                             ('room A', 'day 1 PM'),
-##                                             ('room A', 'day 2 AM'),
-##                                             ('room C', 'day 2 PM'),
-##                                             ('room C', 'day 2 AM'),
-##                                             ('room C', 'day 1 AM'),
-##                                             ('room C', 'day 1 PM'),
-##                                             ('room B', 'day 2 AM')])
-##             else:
-##                 assert set(Solution) == set([('room B', 'day 1 PM'),
-##                                              ('room A', 'day 1 PM'),
-##                                              ('room B', 'day 2 AM'),
-##                                              ('room B', 'day 1 AM'),
-##                                              ('room A', 'day 2 PM'),
-##                                              ('room C', 'day 2 AM'),
-##                                              ('room C', 'day 2 PM'),
-##                                              ('room C', 'day 1 PM'),
-##                                              ('room C', 'day 1 AM'),
-##                                              ('room B', 'day 2 PM')])
 
             # well, depending on dict key linear order, we get different
-            # results
-            print Solution
+            # results -- possibly failed spaces
+            assert len(Solution) == 10
         
-        
-    def test_default_solver(self):
-        if is_interpreted():
-            skip("will loop infinitely (bug in space.clone())")
-        else:
-            skip("clone segfaults")
-        from constraint.examples import conference_scheduling
-        from constraint import solver
-
-        s = newspace(conference_scheduling)
-        sols = set()
-        for sol in solver.solve(s):
-            sols.add(tuple(sol))
-            print sol
-        assert len(sols) == 64
-
-
-    def test_recomputing_solver(self):
-        skip("segfaulting")
-        if is_interpreted():
-            skip("interpreted clone support still missing")
-        from problem import conference_scheduling
-        from constraint import solver
-        import sys
-
-        s = newspace(conference_scheduling)
-
-        sols = set()
-        for sol in solver.solve_recomputing(s, sys.maxint):
-            sols.add(tuple(sol))
-            print sol
-        assert len(sols) == 64
 
     def test_logic_program(self):
+        from cclp import newspace, choose
         
         def soft():
             choice = choose(2)
@@ -929,9 +897,16 @@ class AppTest_CompSpace(object):
             assert len(sols) == 2
 
 
+
+class AppTest_CompSpaceCloning(object):
+
+    def setup_class(cls):
+        if not option.runappdirect:
+            skip('pure pypy-logic test (try with _test_logic_build)')
+        cls.space = gettestobjspace('logic')
+        
+
     def test_cloning_queens(self):
-        if is_interpreted():
-            skip("no cloning feature")
         from constraint.examples import queens1, queens2
         from constraint.solver import solve
 
@@ -944,3 +919,79 @@ class AppTest_CompSpace(object):
                 print sol
             #assert len(sols) == 2
 
+    
+    def test_full_logic_program(self):
+
+        from constraint.solver import solve
+        
+        def soft():
+            choice = choose(2)
+            if choice == 1:
+                return 'beige'
+            else:
+                return 'coral'
+
+        def hard():
+            choice = choose(2)
+            if choice == 1:
+                return 'mauve'
+            else:
+                return 'ochre'
+
+        def contrast(C1, C2):
+            choice = choose(2)
+            if choice == 1:
+                unify(C1, soft())
+                unify(C2, hard())
+            else:
+                unify(C1, hard())
+                unify(C2, soft())
+
+        def suit():
+            Shirt, Pants, Socks = newvar(), newvar(), newvar()
+            contrast(Shirt, Pants)
+            contrast(Pants, Socks)
+            if Shirt == Socks: fail()
+            return (Shirt, Pants, Socks)
+
+        s = newspace(suit)
+        for sol in solve(s):
+            print sol
+            
+    def test_recomputing_solver(self):
+        from problem import conference_scheduling
+        from constraint import solver
+        import sys
+
+        s = newspace(conference_scheduling)
+
+        sols = set()
+        for sol in solver.solve_recomputing(s, sys.maxint):
+            sols.add(tuple(sol))
+            print sol
+        assert len(sols) == 64
+
+    def test_nd_append(self):
+        skip('write me')
+        #from CTM p.639
+        #write me correctly...
+        """
+        def append(A, B, C):
+            choice:
+                unify(A, None)
+                unify(B, C)
+            or:
+                As, Bs, X = newvar(), newvar(), newvar()
+                unify(A, (X, As))
+                unify(C, (X, Cs))
+                append(As, B, Cs)
+        """
+        from solver import solve
+        X, Y, S = newvar(), newvar(), newvar()
+        unify((X, Y), S)
+        
+        for sol in solve(lambda : append(X, Y, [1, 2, 3])):
+            assert sol in ((None, [1, 2, 3]),
+                           ([1], [2, 3]),
+                           ([1, 2], [3]),
+                           ([1, 2, 3], None))

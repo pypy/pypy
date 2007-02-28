@@ -1,7 +1,7 @@
-from pypy.objspace.cclp.variable import wait__Var, _assign_aliases, _entail
-from pypy.objspace.cclp.types import W_Root, W_Var, W_CVar
-from pypy.objspace.cclp.global_state import sched
-from pypy.objspace.cclp.misc import w
+from pypy.module.cclp.variable import wait__Var, _assign_aliases, _entail
+from pypy.module.cclp.types import W_Root, W_Var, W_CVar
+from pypy.module.cclp.global_state import sched
+from pypy.module.cclp.misc import w
 
 
 def interp_free(w_var):

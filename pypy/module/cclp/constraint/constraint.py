@@ -9,14 +9,12 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.dictobject import W_DictObject
 
-from pypy.objspace.constraint.computationspace import W_ComputationSpace
-
-from pypy.objspace.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
+from pypy.module.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
      W_CVar as W_Variable
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.cclp.constraint.btree import BTree
+from pypy.module.cclp.constraint.btree import BTree
 #from pypy.objspace.constraint.util import sort
 
 all_mms = {}
@@ -219,14 +217,16 @@ W_Expression.typedef = typedef.TypeDef("W_Expression",
     
 
 
-def make_expression(o_space, w_variables, w_formula):
+def make_expression(space, w_variables, w_formula):
     """create a new constraint of type Expression or BinaryExpression
     The chosen class depends on the number of variables in the constraint"""
     assert isinstance(w_variables, W_ListObject)
     assert isinstance(w_formula, W_StringObject)
     assert len(w_variables.wrappeditems) > 0
-    return W_Expression(o_space, w_variables, w_formula)
-app_make_expression = gateway.interp2app(make_expression)
+    return W_Expression(space, w_variables, w_formula)
+make_expression.unwrap_spec = [baseobjspace.ObjSpace,
+                               baseobjspace.W_Root,
+                               baseobjspace.W_Root]
 
 
 class W_AllDistinct(W_AbstractConstraint):
@@ -313,4 +313,5 @@ def make_alldistinct(object_space, w_variables):
     assert isinstance(w_variables, W_ListObject)
     assert len(w_variables.wrappeditems) > 0
     return object_space.wrap(W_AllDistinct(object_space, w_variables))
-app_make_alldistinct = gateway.interp2app(make_alldistinct)
+make_alldistinct.unwrap_spec = [baseobjspace.ObjSpace,
+                               baseobjspace.W_Root]

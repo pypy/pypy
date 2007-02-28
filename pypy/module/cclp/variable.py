@@ -5,9 +5,9 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.misc import w, v, AppCoroutine
-from pypy.objspace.cclp.global_state import sched
-from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
+from pypy.module.cclp.misc import w, v, AppCoroutine
+from pypy.module.cclp.global_state import sched
+from pypy.module.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -16,7 +16,7 @@ all_mms = {}
 
 def newvar(space):
     w_v = W_Var(space)
-    w("VAR", str(w_v))
+    w("VAR", w_v.__repr__())
     return w_v
 app_newvar = gateway.interp2app(newvar)
 
@@ -30,7 +30,7 @@ def wait__Var(space, w_var):
     #w("###:wait", str(id(AppCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         sched.uler.unblock_byneed_on(w_var)
-        sched.uler.add_to_blocked_on(w_var, AppCoroutine.w_getcurrent(space))
+        sched.uler.add_to_blocked_on(w_var)
         sched.uler.schedule()
         assert space.is_true(space.is_bound(w_var))
     w_ret = w_var.w_bound_to
@@ -57,7 +57,7 @@ def wait_needed__Var(space, w_var):
     if space.is_true(space.is_free(w_var)):
         if w_var.needed:
             return
-        sched.uler.add_to_blocked_byneed(w_var, AppCoroutine.w_getcurrent(space))
+        sched.uler.add_to_blocked_byneed(w_var)
         sched.uler.schedule()
     else:
         raise OperationError(space.w_TypeError,

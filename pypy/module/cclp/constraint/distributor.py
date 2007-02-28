@@ -7,8 +7,8 @@ from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.types import W_AbstractDistributor, ConsistencyError
-from pypy.objspace.cclp.misc import w, get_current_cspace
+from pypy.module.cclp.types import W_AbstractDistributor, ConsistencyError
+from pypy.module.cclp.misc import w, get_current_cspace
 
 def distribute(space, w_strategy):
     assert isinstance(w_strategy, W_StringObject)
@@ -35,7 +35,8 @@ def distribute(space, w_strategy):
             if cspace._failed:
                 raise ConsistencyError
             break
-app_distribute = interp2app(distribute)
+distribute.unwrap_spec = [baseobjspace.ObjSpace,
+                          baseobjspace.W_Root]
 
 
 class W_Distributor(W_AbstractDistributor):

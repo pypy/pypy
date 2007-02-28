@@ -1,3 +1,4 @@
+from cclp import tell, distribute, make_expression, all_diff
 
 # Queens
 
