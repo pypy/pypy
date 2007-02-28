@@ -30,6 +30,7 @@ class Node(Wrappable):
     def __init__(self, lineno = -1):
         self.lineno = lineno
         self.filename = ""
+        self.parent = None
         #self.scope = None
         
     def getChildren(self):
@@ -61,6 +62,12 @@ class Node(Wrappable):
     def descr_repr( self, space ):
         return space.wrap( self.__repr__() )
     
+    def fget_parent(space, self):
+        return space.wrap(self.parent)
+
+    def fset_parent(space, self, w_parent):
+        self.parent = space.interp_w(Node, w_parent, can_be_None=False)
+
     def descr_getChildNodes( self, space ):
         lst = self.getChildNodes()
         return space.newlist( [ space.wrap( it ) for it in lst ] )
@@ -84,6 +91,7 @@ Node.typedef = TypeDef('ASTNode',
                        mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        lineno = interp_attrproperty('lineno', cls=Node),
                        filename = interp_attrproperty('filename', cls=Node),
+                       parent=GetSetProperty(Node.fget_parent, Node.fset_parent),
                        )
 
 Node.typedef.acceptable_as_base_class = False
@@ -363,6 +371,15 @@ class And(AbstractTest):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_And_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(And, w_subtype)
@@ -391,6 +408,8 @@ And.typedef = TypeDef('And', AbstractTest.typedef,
                      accept=interp2app(descr_And_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_And_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(And.fget_nodes, And.fset_nodes ),
+                     insert_after=interp2app(And.descr_insert_after.im_func, unwrap_spec=[ObjSpace, And, Node, W_Root]),
+                     insert_before=interp2app(And.descr_insert_before.im_func, unwrap_spec=[ObjSpace, And, Node, W_Root]),
                     )
 And.typedef.acceptable_as_base_class = False
 
@@ -536,6 +555,15 @@ class AssList(AssSeq):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_AssList_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(AssList, w_subtype)
@@ -564,6 +592,8 @@ AssList.typedef = TypeDef('AssList', AssSeq.typedef,
                      accept=interp2app(descr_AssList_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_AssList_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssList.fget_nodes, AssList.fset_nodes ),
+                     insert_after=interp2app(AssList.descr_insert_after.im_func, unwrap_spec=[ObjSpace, AssList, Node, W_Root]),
+                     insert_before=interp2app(AssList.descr_insert_before.im_func, unwrap_spec=[ObjSpace, AssList, Node, W_Root]),
                     )
 AssList.typedef.acceptable_as_base_class = False
 
@@ -671,6 +701,15 @@ class AssTuple(AssSeq):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_AssTuple_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(AssTuple, w_subtype)
@@ -699,6 +738,8 @@ AssTuple.typedef = TypeDef('AssTuple', AssSeq.typedef,
                      accept=interp2app(descr_AssTuple_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_AssTuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssTuple.fget_nodes, AssTuple.fset_nodes ),
+                     insert_after=interp2app(AssTuple.descr_insert_after.im_func, unwrap_spec=[ObjSpace, AssTuple, Node, W_Root]),
+                     insert_before=interp2app(AssTuple.descr_insert_before.im_func, unwrap_spec=[ObjSpace, AssTuple, Node, W_Root]),
                     )
 AssTuple.typedef.acceptable_as_base_class = False
 
@@ -820,6 +861,15 @@ class Assign(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -858,6 +908,8 @@ Assign.typedef = TypeDef('Assign', Node.typedef,
                      accept=interp2app(descr_Assign_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Assign_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Assign.fget_nodes, Assign.fset_nodes ),
+                     insert_after=interp2app(Assign.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Assign, Node, W_Root]),
+                     insert_before=interp2app(Assign.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Assign, Node, W_Root]),
                     expr=GetSetProperty(Assign.fget_expr, Assign.fset_expr ),
                     )
 Assign.typedef.acceptable_as_base_class = False
@@ -1100,6 +1152,15 @@ class Bitand(BitOp):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Bitand_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitand, w_subtype)
@@ -1128,6 +1189,8 @@ Bitand.typedef = TypeDef('Bitand', BitOp.typedef,
                      accept=interp2app(descr_Bitand_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Bitand_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitand.fget_nodes, Bitand.fset_nodes ),
+                     insert_after=interp2app(Bitand.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Bitand, Node, W_Root]),
+                     insert_before=interp2app(Bitand.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Bitand, Node, W_Root]),
                     )
 Bitand.typedef.acceptable_as_base_class = False
 
@@ -1166,6 +1229,15 @@ class Bitor(BitOp):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Bitor_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitor, w_subtype)
@@ -1194,6 +1266,8 @@ Bitor.typedef = TypeDef('Bitor', BitOp.typedef,
                      accept=interp2app(descr_Bitor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Bitor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitor.fget_nodes, Bitor.fset_nodes ),
+                     insert_after=interp2app(Bitor.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Bitor, Node, W_Root]),
+                     insert_before=interp2app(Bitor.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Bitor, Node, W_Root]),
                     )
 Bitor.typedef.acceptable_as_base_class = False
 
@@ -1232,6 +1306,15 @@ class Bitxor(BitOp):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Bitxor_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Bitxor, w_subtype)
@@ -1260,6 +1343,8 @@ Bitxor.typedef = TypeDef('Bitxor', BitOp.typedef,
                      accept=interp2app(descr_Bitxor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Bitxor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitxor.fget_nodes, Bitxor.fset_nodes ),
+                     insert_after=interp2app(Bitxor.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Bitxor, Node, W_Root]),
+                     insert_before=interp2app(Bitxor.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Bitxor, Node, W_Root]),
                     )
 Bitxor.typedef.acceptable_as_base_class = False
 
@@ -1834,6 +1919,15 @@ class Decorators(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Decorators_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Decorators, w_subtype)
@@ -1862,6 +1956,8 @@ Decorators.typedef = TypeDef('Decorators', Node.typedef,
                      accept=interp2app(descr_Decorators_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Decorators_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Decorators.fget_nodes, Decorators.fset_nodes ),
+                     insert_after=interp2app(Decorators.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Decorators, Node, W_Root]),
+                     insert_before=interp2app(Decorators.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Decorators, Node, W_Root]),
                     )
 Decorators.typedef.acceptable_as_base_class = False
 
@@ -3544,6 +3640,15 @@ class List(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_List_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(List, w_subtype)
@@ -3572,6 +3677,8 @@ List.typedef = TypeDef('List', Node.typedef,
                      accept=interp2app(descr_List_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_List_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(List.fget_nodes, List.fset_nodes ),
+                     insert_after=interp2app(List.descr_insert_after.im_func, unwrap_spec=[ObjSpace, List, Node, W_Root]),
+                     insert_before=interp2app(List.descr_insert_before.im_func, unwrap_spec=[ObjSpace, List, Node, W_Root]),
                     )
 List.typedef.acceptable_as_base_class = False
 
@@ -4172,6 +4279,15 @@ class Or(AbstractTest):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Or_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Or, w_subtype)
@@ -4200,6 +4316,8 @@ Or.typedef = TypeDef('Or', AbstractTest.typedef,
                      accept=interp2app(descr_Or_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Or_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Or.fget_nodes, Or.fset_nodes ),
+                     insert_after=interp2app(Or.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Or, Node, W_Root]),
+                     insert_before=interp2app(Or.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Or, Node, W_Root]),
                     )
 Or.typedef.acceptable_as_base_class = False
 
@@ -4350,6 +4468,15 @@ class Print(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
     def fget_dest( space, self):
         if self.dest is None:
             return space.w_None
@@ -4392,6 +4519,8 @@ Print.typedef = TypeDef('Print', Node.typedef,
                      accept=interp2app(descr_Print_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Print_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Print.fget_nodes, Print.fset_nodes ),
+                     insert_after=interp2app(Print.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Print, Node, W_Root]),
+                     insert_before=interp2app(Print.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Print, Node, W_Root]),
                     dest=GetSetProperty(Print.fget_dest, Print.fset_dest ),
                     )
 Print.typedef.acceptable_as_base_class = False
@@ -4439,6 +4568,15 @@ class Printnl(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
     def fget_dest( space, self):
         if self.dest is None:
             return space.w_None
@@ -4481,6 +4619,8 @@ Printnl.typedef = TypeDef('Printnl', Node.typedef,
                      accept=interp2app(descr_Printnl_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Printnl_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Printnl.fget_nodes, Printnl.fset_nodes ),
+                     insert_after=interp2app(Printnl.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Printnl, Node, W_Root]),
+                     insert_before=interp2app(Printnl.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Printnl, Node, W_Root]),
                     dest=GetSetProperty(Printnl.fget_dest, Printnl.fset_dest ),
                     )
 Printnl.typedef.acceptable_as_base_class = False
@@ -4856,6 +4996,15 @@ class Sliceobj(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Sliceobj_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Sliceobj, w_subtype)
@@ -4884,6 +5033,8 @@ Sliceobj.typedef = TypeDef('Sliceobj', Node.typedef,
                      accept=interp2app(descr_Sliceobj_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Sliceobj_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Sliceobj.fget_nodes, Sliceobj.fset_nodes ),
+                     insert_after=interp2app(Sliceobj.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Sliceobj, Node, W_Root]),
+                     insert_before=interp2app(Sliceobj.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Sliceobj, Node, W_Root]),
                     )
 Sliceobj.typedef.acceptable_as_base_class = False
 
@@ -4922,6 +5073,15 @@ class Stmt(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Stmt_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Stmt, w_subtype)
@@ -4950,6 +5110,8 @@ Stmt.typedef = TypeDef('Stmt', Node.typedef,
                      accept=interp2app(descr_Stmt_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Stmt_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Stmt.fget_nodes, Stmt.fset_nodes ),
+                     insert_after=interp2app(Stmt.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Stmt, Node, W_Root]),
+                     insert_before=interp2app(Stmt.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Stmt, Node, W_Root]),
                     )
 Stmt.typedef.acceptable_as_base_class = False
 
@@ -5352,6 +5514,15 @@ class Tuple(Node):
         del self.nodes[:]
         for w_itm in space.unpackiterable(w_arg):
             self.nodes.append( space.interp_w(Node, w_itm))
+    def descr_insert_after(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node) + 1
+        self.nodes[index:index] = added_nodes
+
+    def descr_insert_before(space, self, node, w_added_nodes):
+        added_nodes = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_added_nodes)]
+        index = self.nodes.index(node)
+        self.nodes[index:index] = added_nodes
 
 def descr_Tuple_new(space, w_subtype, w_nodes, lineno=-1):
     self = space.allocate_instance(Tuple, w_subtype)
@@ -5380,6 +5551,8 @@ Tuple.typedef = TypeDef('Tuple', Node.typedef,
                      accept=interp2app(descr_Tuple_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Tuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Tuple.fget_nodes, Tuple.fset_nodes ),
+                     insert_after=interp2app(Tuple.descr_insert_after.im_func, unwrap_spec=[ObjSpace, Tuple, Node, W_Root]),
+                     insert_before=interp2app(Tuple.descr_insert_before.im_func, unwrap_spec=[ObjSpace, Tuple, Node, W_Root]),
                     )
 Tuple.typedef.acceptable_as_base_class = False
 

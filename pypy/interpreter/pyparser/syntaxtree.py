@@ -8,6 +8,8 @@
 
 from pypy.tool.uid import uid
 
+from pypy.tool.uid import uid
+
 class AbstractSyntaxVisitor(object):
     def visit_syntaxnode( self, node ):
         pass

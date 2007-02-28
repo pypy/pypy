@@ -5,131 +5,77 @@
 
 N_TOKENS = 0
 
-tok_name = {}
-tok_values = {}
-
-def add_token(name, value=None):
-    global N_TOKENS
-    if value is None:
-        value = N_TOKENS
-        N_TOKENS += 1
-    _g = globals()
-    _g[name] = value
-    tok_name[value] = name
-    tok_values[name] = value
-
 # This is used to replace None
-add_token( 'NULLTOKEN', -1 )
+NULLTOKEN = -1
 
+tok_name = {-1 : 'NULLTOKEN'}
+tok_values = {'NULLTOKEN' : -1}
+
+# tok_rpunct = {}
+
+def setup_tokens( parser ):
+    # global tok_rpunct
 # For compatibility, this produces the same constant values as Python 2.4.
-add_token( 'ENDMARKER' )
-add_token( 'NAME' )
-add_token( 'NUMBER' )
-add_token( 'STRING' )
-add_token( 'NEWLINE' )
-add_token( 'INDENT' )
-add_token( 'DEDENT' )
-add_token( 'LPAR' )
-add_token( 'RPAR' )
-add_token( 'LSQB' )
-add_token( 'RSQB' )
-add_token( 'COLON' )
-add_token( 'COMMA' )
-add_token( 'SEMI' )
-add_token( 'PLUS' )
-add_token( 'MINUS' )
-add_token( 'STAR' )
-add_token( 'SLASH' )
-add_token( 'VBAR' )
-add_token( 'AMPER' )
-add_token( 'LESS' )
-add_token( 'GREATER' )
-add_token( 'EQUAL' )
-add_token( 'DOT' )
-add_token( 'PERCENT' )
-add_token( 'BACKQUOTE' )
-add_token( 'LBRACE' )
-add_token( 'RBRACE' )
-add_token( 'EQEQUAL' )
-add_token( 'NOTEQUAL' )
-add_token( 'LESSEQUAL' )
-add_token( 'GREATEREQUAL' )
-add_token( 'TILDE' )
-add_token( 'CIRCUMFLEX' )
-add_token( 'LEFTSHIFT' )
-add_token( 'RIGHTSHIFT' )
-add_token( 'DOUBLESTAR' )
-add_token( 'PLUSEQUAL' )
-add_token( 'MINEQUAL' )
-add_token( 'STAREQUAL' )
-add_token( 'SLASHEQUAL' )
-add_token( 'PERCENTEQUAL' )
-add_token( 'AMPEREQUAL' )
-add_token( 'VBAREQUAL' )
-add_token( 'CIRCUMFLEXEQUAL' )
-add_token( 'LEFTSHIFTEQUAL' )
-add_token( 'RIGHTSHIFTEQUAL' )
-add_token( 'DOUBLESTAREQUAL' )
-add_token( 'DOUBLESLASH' )
-add_token( 'DOUBLESLASHEQUAL' )
-add_token( 'AT' )
-add_token( 'OP' )
-add_token( 'ERRORTOKEN' )
+    parser.add_token( 'ENDMARKER' )
+    parser.add_token( 'NAME' )
+    parser.add_token( 'NUMBER' )
+    parser.add_token( 'STRING' )
+    parser.add_token( 'NEWLINE' )
+    parser.add_token( 'INDENT' )
+    parser.add_token( 'DEDENT' )
+    parser.add_token( 'LPAR',            "(" )
+    parser.add_token( 'RPAR',            ")" )
+    parser.add_token( 'LSQB',            "[" )
+    parser.add_token( 'RSQB',            "]" )
+    parser.add_token( 'COLON',           ":" )
+    parser.add_token( 'COMMA',           "," )
+    parser.add_token( 'SEMI',            ";" )
+    parser.add_token( 'PLUS',            "+" )
+    parser.add_token( 'MINUS',           "-" )
+    parser.add_token( 'STAR',            "*" )
+    parser.add_token( 'SLASH',           "/" )
+    parser.add_token( 'VBAR',            "|" )
+    parser.add_token( 'AMPER',           "&" )
+    parser.add_token( 'LESS',            "<" )
+    parser.add_token( 'GREATER',         ">" )
+    parser.add_token( 'EQUAL',           "=" )
+    parser.add_token( 'DOT',             "." )
+    parser.add_token( 'PERCENT',         "%" )
+    parser.add_token( 'BACKQUOTE',       "`" )
+    parser.add_token( 'LBRACE',          "{" )
+    parser.add_token( 'RBRACE',          "}" )
+    parser.add_token( 'EQEQUAL',         "==" )
+    ne = parser.add_token( 'NOTEQUAL',   "!=" )
+    parser.tok_values["<>"] = ne
+    parser.add_token( 'LESSEQUAL',       "<=" )
+    parser.add_token( 'GREATEREQUAL',    ">=" )
+    parser.add_token( 'TILDE',           "~" )
+    parser.add_token( 'CIRCUMFLEX',      "^" )
+    parser.add_token( 'LEFTSHIFT',       "<<" )
+    parser.add_token( 'RIGHTSHIFT',      ">>" )
+    parser.add_token( 'DOUBLESTAR',      "**" )
+    parser.add_token( 'PLUSEQUAL',       "+=" )
+    parser.add_token( 'MINEQUAL',        "-=" )
+    parser.add_token( 'STAREQUAL',       "*=" )
+    parser.add_token( 'SLASHEQUAL',      "/=" )
+    parser.add_token( 'PERCENTEQUAL',    "%=" )
+    parser.add_token( 'AMPEREQUAL',      "&=" )
+    parser.add_token( 'VBAREQUAL',       "|=" )
+    parser.add_token( 'CIRCUMFLEXEQUAL', "^=" )
+    parser.add_token( 'LEFTSHIFTEQUAL',  "<<=" )
+    parser.add_token( 'RIGHTSHIFTEQUAL', ">>=" )
+    parser.add_token( 'DOUBLESTAREQUAL', "**=" )
+    parser.add_token( 'DOUBLESLASH',     "//" )
+    parser.add_token( 'DOUBLESLASHEQUAL',"//=" )
+    parser.add_token( 'AT',              "@" )
+    parser.add_token( 'OP' )
+    parser.add_token( 'ERRORTOKEN' )
 
 # extra PyPy-specific tokens
-add_token( "COMMENT" )
-add_token( "NL" )
+    parser.add_token( "COMMENT" )
+    parser.add_token( "NL" )
 
-# a reverse mapping from internal tokens def to more pythonic tokens
-tok_punct = {
-    "&" : AMPER,
-    "&=" : AMPEREQUAL,
-    "`" : BACKQUOTE,
-    "^" : CIRCUMFLEX,
-    "^=" : CIRCUMFLEXEQUAL,
-    ":" : COLON,
-    "," : COMMA,
-    "." : DOT,
-    "//" : DOUBLESLASH,
-    "//=" : DOUBLESLASHEQUAL,
-    "**" : DOUBLESTAR,
-    "**=" : DOUBLESTAREQUAL,
-    "==" : EQEQUAL,
-    "=" : EQUAL,
-    ">" : GREATER,
-    ">=" : GREATEREQUAL,
-    "{" : LBRACE,
-    "}" : RBRACE,
-    "<<" : LEFTSHIFT,
-    "<<=" : LEFTSHIFTEQUAL,
-    "<" : LESS,
-    "<=" : LESSEQUAL,
-    "(" : LPAR,
-    "[" : LSQB,
-    "-=" : MINEQUAL,
-    "-" : MINUS,
-    "!=" : NOTEQUAL,
-    "<>" : NOTEQUAL,
-    "%" : PERCENT,
-    "%=" : PERCENTEQUAL,
-    "+" : PLUS,
-    "+=" : PLUSEQUAL,
-    ")" : RBRACE,
-    ">>" : RIGHTSHIFT,
-    ">>=" : RIGHTSHIFTEQUAL,
-    ")" : RPAR,
-    "]" : RSQB,
-    ";" : SEMI,
-    "/" : SLASH,
-    "/=" : SLASHEQUAL,
-    "*" : STAR,
-    "*=" : STAREQUAL,
-    "~" : TILDE,
-    "|" : VBAR,
-    "|=" : VBAREQUAL,
-    "@": AT,
-    }
-tok_rpunct = {}
-for string, value in tok_punct.items():
-    tok_rpunct[value] = string
-
+    # tok_rpunct = parser.tok_values.copy()
+    # for _name, _value in parser.tokens.items():
+    # globals()[_name] = _value
+    # setattr(parser, _name, _value)

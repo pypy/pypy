@@ -1,12 +1,17 @@
 """Compatibility layer for CPython's parser module"""
 
-from pythonparse import parse_python_source
-from pythonutil import PYTHON_PARSER
+from pypy.interpreter.pyparser.tuplebuilder import TupleBuilder
+from pythonparse import make_pyparser
+from pythonutil import pypy_parse
+import symbol # XXX use PYTHON_PARSER.symbols ?
 from compiler import transformer, compile as pycompile
+
+PYTHON_PARSER = make_pyparser()
 
 def suite( source ):
     strings = [line+'\n' for line in source.split('\n')]
-    builder = parse_python_source( strings, PYTHON_PARSER, "file_input" )
+    builder = TupleBuilder(PYTHON_PARSER)
+    PYTHON_PARSER.parse_source(source, 'exec', builder)
     nested_tuples = builder.stack[-1].as_tuple()
     if builder.source_encoding is not None:
         return (symbol.encoding_decl, nested_tuples, builder.source_encoding)
@@ -16,7 +21,8 @@ def suite( source ):
 
 def expr( source ):
     strings = [line+'\n' for line in source.split('\n')]
-    builder = parse_python_source( strings, PYTHON_PARSER, "eval_input" )
+    builder = TupleBuilder(PYTHON_PARSER)
+    PYTHON_PARSER.parse_source(source, 'eval', builder)
     nested_tuples = builder.stack[-1].as_tuple()
     if builder.source_encoding is not None:
         return (symbol.encoding_decl, nested_tuples, builder.source_encoding)

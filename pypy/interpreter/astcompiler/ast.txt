@@ -71,7 +71,7 @@ Getattr: expr, attrname*str
 CallFunc: node, args!, star_args& = None, dstar_args& = None
 Keyword: name*str, expr
 Subscript: expr, flags*int, sub
-Ellipsis:
+Ellipsis: 
 Sliceobj: nodes!
 Slice: expr, flags*int, lower&, upper&
 Assert: test, fail&
@@ -335,6 +335,31 @@ def descr_Compare_mutate(space, w_self, w_visitor):
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("ops"), w_newlist)
     return space.call_method(w_visitor, "visitCompare", w_self)
+
+
+def descr_Compare_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_list = space.getattr(w_self, space.wrap("ops"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_opname, w_node = space.unpackiterable(w_item, 2)
+        
+        w_node_mutate = space.getattr(w_node, space.wrap("mutate"))
+        w_node_mutate_args = Arguments(space, [ w_visitor ])
+        w_newnode = space.call_args(w_node_mutate, w_node_mutate_args)
+        
+        newlist_w.append(space.newtuple([w_opname, w_newnode]))
+    w_newlist = space.newlist(newlist_w)
+    space.setattr(w_self, space.wrap("ops"), w_newlist)
+    w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
+    w_visitCompare_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitCompare, w_visitCompare_args)
 
 
 def descr_Dict_new(space, w_subtype, w_items, lineno=-1):
