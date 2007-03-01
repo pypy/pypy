@@ -22,6 +22,17 @@ class Exchange(object):
             raise EOFError
         return marshal.loads(s)
 
+    def forceclose(self):
+        try:
+            self.out.close()
+        except:
+            pass
+
+        try:
+            self.inp.close()
+        except:
+            pass
+
 class SlaveProcess(object):
     _broken = False
     
@@ -40,6 +51,7 @@ class SlaveProcess(object):
     def close(self):
         if not self._broken:
              assert self.cmd(None) == 'done'
+        self.exchg.forceclose()
 
 class Slave(object):
 
