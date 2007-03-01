@@ -595,6 +595,44 @@ class Ne(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         return W_Boolean(not AEC(op1, op2))
 
+def SEC(x,y):
+    """
+    Implements the Strict Equality Comparison x === y
+    trying to be fully to the spec
+    """
+    type1 = x.type()
+    type2 = y.type()
+    if type1 != type2:
+        return False
+    if type1 == "undefined" or type1 == "null":
+        return True
+    if type1 == "number":
+        n1 = x.ToNumber()
+        n2 = y.ToNumber()
+        nan_string = str(NaN)
+        if str(n1) == nan_string or str(n2) == nan_string:
+            return False
+        if n1 == n2:
+            return True
+        return False
+    if type1 == "string":
+        return x.ToString() == y.ToString()
+    if type1 == "boolean":
+        return x.ToBoolean() == x.ToBoolean()
+    return x == y
+
+class StrictEq(BinaryComparisonOp):
+    opcode = 'STRICT_EQ'
+    
+    def decision(self, ctx, op1, op2):
+        return W_Boolean(SEC(op1, op2))
+
+class StrictNe(BinaryComparisonOp):
+    opcode = 'STRICT_NE'
+    
+    def decision(self, ctx, op1, op2):
+        return W_Boolean(not SEC(op1, op2))
+    
 
 class In(BinaryComparisonOp):
     opcode = 'IN'

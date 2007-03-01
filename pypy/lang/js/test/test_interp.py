@@ -470,3 +470,11 @@ class TestInterp(object):
             print(y)
         }
         """, ['5',])
+
+    def test_stricteq(self):
+        self.assert_prints("""
+        print(2 === 2)
+        print(2 === 3)
+        print(2 !== 3)
+        print(2 !== 2)    
+        """, ['true', 'false', 'true', 'false'])
