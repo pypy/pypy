@@ -20,7 +20,7 @@ def remote():
 
 def local():
     from distributed.socklayer import socket_connecter
-    send, receive = socket_connecter(('localhost', 12121))
+    send, receive = socket_connecter(('localhost', 12122))
     return RemoteProtocol(send, receive)
 
 import sys
