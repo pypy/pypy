@@ -69,38 +69,6 @@ class AppTestDistributed(object):
         assert isinstance(fun, types.FunctionType)
         assert fun(2, 3) == 5
 
-    def test_remote_protocol_call(self):
-        def f(x, y):
-            return x + y
-        
-        from distributed import test_env
-        protocol = test_env({"f": f})
-        fun = protocol.get_remote("f")
-        assert fun(2, 3) == 5
-
-    def test_callback(self):
-        def g():
-            return 8
-        
-        def f(x):
-            return x + g()
-        
-        from distributed import test_env
-        protocol = test_env({"f":f})
-        fun = protocol.get_remote("f")
-        assert fun(8) == 16
-    
-    def test_remote_dict(self):
-        #skip("Land of infinite recursion")
-        from distributed import test_env
-        d = {'a':3}
-        protocol = test_env({'d':d})
-        xd = protocol.get_remote('d')
-        #assert d['a'] == xd['a']
-        assert d.keys() == xd.keys()
-        assert d.values() == xd.values()
-        assert d == xd
-        
     def test_local_obj(self):
         class A:
             def __init__(self, x):
@@ -117,6 +85,44 @@ class AppTestDistributed(object):
         assert item.x == 3
         assert len(item) == 11
 
+class AppTestDistributedTasklets(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
+            "usemodules":("_stackless",)})
+        cls.w_test_env = cls.space.appexec([], """():
+        from distributed import test_env
+        return test_env
+        """)
+    
+    def test_remote_protocol_call(self):
+        def f(x, y):
+            return x + y
+        
+        protocol = self.test_env({"f": f})
+        fun = protocol.get_remote("f")
+        assert fun(2, 3) == 5
+
+    def test_callback(self):
+        def g():
+            return 8
+        
+        def f(x):
+            return x + g()
+        
+        protocol = self.test_env({"f":f})
+        fun = protocol.get_remote("f")
+        assert fun(8) == 16
+    
+    def test_remote_dict(self):
+        #skip("Land of infinite recursion")
+        d = {'a':3}
+        protocol = self.test_env({'d':d})
+        xd = protocol.get_remote('d')
+        #assert d['a'] == xd['a']
+        assert d.keys() == xd.keys()
+        assert d.values() == xd.values()
+        assert d == xd
+        
     def test_remote_obj(self):
         class A:
             def __init__(self, x):
@@ -126,8 +132,7 @@ class AppTestDistributed(object):
                 return self.x + 8
         a = A(3)
         
-        from distributed import test_env
-        protocol = test_env({'a':a})
+        protocol = self.test_env({'a':a})
         xa = protocol.get_remote("a")
         assert xa.x == 3
         assert len(xa) == 11
@@ -146,8 +151,7 @@ class AppTestDistributed(object):
         
         a = A()
         
-        from distributed import test_env
-        protocol = test_env({'a':a})
+        protocol = self.test_env({'a':a})
         xa = protocol.get_remote('a')
         assert xa.__class__.__doc__ == 'xxx'
         assert xa.meth(x) == 4
@@ -164,9 +168,8 @@ class AppTestDistributed(object):
             def __call__(self):
                 return [1,2,3]
         
-        from distributed import test_env
         a = A()
-        protocol = test_env({'a': a})
+        protocol = self.test_env({'a': a})
         xa = protocol.get_remote('a')
         xa.meth(B())
         assert xa.perform() == 4
@@ -174,20 +177,17 @@ class AppTestDistributed(object):
     def test_frame(self):
         #skip("Land of infinite recursion")
         import sys
-        from distributed import test_env
         f = sys._getframe()
-        protocol = test_env({'f':f})
+        protocol = self.test_env({'f':f})
         xf = protocol.get_remote('f')
         assert f.f_globals.keys() == xf.f_globals.keys()
         assert f.f_locals.keys() == xf.f_locals.keys()
 
     def test_remote_exception(self):
-        from distributed import test_env
-        
         def raising():
             1/0
         
-        protocol = test_env({'raising':raising})
+        protocol = self.test_env({'raising':raising})
         xr = protocol.get_remote('raising')
         try:
             xr()
@@ -200,11 +200,9 @@ class AppTestDistributed(object):
 
     def test_instantiate_remote_type(self):
         skip("Land of infinite recursion")
-        from distributed import test_env
-
         class C:
             pass
 
-        protocol = test_env({'C':C})
+        protocol = self.test_env({'C':C})
         xC = protocol.get_remote('C')
         xC()
