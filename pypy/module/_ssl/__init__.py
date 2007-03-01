@@ -1,6 +1,7 @@
-import py               # FINISHME - more thinking needed
-py.test.skip("The _ssl module is only usable when running on the exact "
-             "same platform from which the ssl.py was computed.")
+#import py               # FINISHME - more thinking needed
+raise ImportError
+#skip("The _ssl module is only usable when running on the exact "
+#     "same platform from which the ssl.py was computed.")
 
 # This module is imported by socket.py. It should *not* be used
 # directly.
