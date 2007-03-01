@@ -202,12 +202,12 @@ class W_PrimitiveObject(W_Root):
 
     def internal_def_value(self, ctx, tryone, trytwo):
         t1 = self.Get(tryone)
-        if isinstance(t1, W_Object):
+        if isinstance(t1, W_PrimitiveObject):
             val = t1.Call(ctx, this=self)
             if isinstance(val, W_Primitive):
                 return val
         t2 = self.Get(trytwo)
-        if isinstance(t2, W_Object):
+        if isinstance(t2, W_PrimitiveObject):
             val = t2.Call(ctx, this=self)
             if isinstance(val, W_Primitive):
                 return val

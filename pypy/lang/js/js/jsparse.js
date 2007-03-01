@@ -297,7 +297,7 @@ Np.toString = function () {
         }
         
         if(typeof a[i].value == 'string'){
-            val = a[i].value.replace(/'/g, "\\'")
+            val = a[i].value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
         } else {
             val = a[i].value+ "";
         }

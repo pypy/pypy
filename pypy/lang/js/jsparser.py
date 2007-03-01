@@ -44,12 +44,15 @@ def read_js_output(code_string):
     retval = pipe.read()
     if not retval.startswith("{"):
         raise JsSyntaxError(retval)
+    if DEBUG:
+        print "received back:"
+        print retval
     return retval
 
 def unquote(t):
     if isinstance(t, Symbol):
         if t.symbol == "QUOTED_STRING":
-            t.additional_info = t.additional_info.strip("'").replace("\\'", "'")
+            t.additional_info = t.additional_info[1:-1].replace("\\'", "'").replace("\\\\", "\\")
     else:
         for i in t.children:
             unquote(i)
@@ -68,7 +71,7 @@ def parse_bytecode(bytecode):
     return tree
 
 regexs, rules, ToAST = parse_ebnf(r"""
-    QUOTED_STRING: "'([^\']|\\\')*'";"""+"""
+    QUOTED_STRING: "'([^\\\']|\\[\\\'])*'";"""+"""
     IGNORE: " |\n";
     data: <dict> | <QUOTED_STRING> | <list>;
     dict: ["{"] (dictentry [","])* dictentry ["}"];

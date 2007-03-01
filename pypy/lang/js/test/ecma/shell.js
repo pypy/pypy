@@ -196,7 +196,8 @@ function getTestCaseResult( expect, actual ) {
 function run_test(tc) {
     // try {
         getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
-        testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
+        testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value expected: "
+                                +testcases[tc].expect+" but got: "+ testcases[tc].actual;
         return testcases[tc].passed? 1:0;
     // }
     // catch(e) {

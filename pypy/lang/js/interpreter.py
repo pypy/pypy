@@ -184,6 +184,7 @@ class Interpreter(object):
         #Math
         w_math = W_Object(Class='Math')
         w_Global.Put('Math', w_math)
+        w_math.Put('__proto__',  w_ObjPrototype)
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
         w_math.Put('E', W_Number(math.e))
@@ -528,8 +529,49 @@ class Lt(BinaryComparisonOp):
 def AEC(x, y):
     """
     Implements the Abstract Equality Comparison x == y
-    not following the specs yet
+    trying to be fully to the spec
     """
+    type1 = x.type()
+    type2 = y.type()
+    if type1 == type2:
+        if type1 == "undefined" or type1 == "null":
+            return True
+        if type1 == "number":
+            n1 = x.ToNumber()
+            n2 = y.ToNumber()
+            nan_string = str(NaN)
+            if str(n1) == nan_string or str(n2) == nan_string:
+                return False
+            if n1 == n2:
+                return True
+            return False
+        elif type1 == "string":
+            return x.ToString() == y.ToString()
+        elif type1 == "boolean":
+            return x.ToBoolean() == x.ToBoolean()
+        return x == y
+    else:
+        #step 14
+        if (type1 == "undefined" and type2 == "null") or \
+           (type1 == "null" and type2 == "undefined"):
+            return True
+        if type1 == "number" and type2 == "string":
+            return AEC(x, W_Number(y.ToNumber()))
+        if type1 == "string" and type2 == "number":
+            return AEC(W_Number(x.ToNumber()), y)
+        if type1 == "boolean":
+            return AEC(W_Number(x.ToNumber()), y)
+        if type2 == "boolean":
+            return AEC(x, W_Number(y.ToNumber()))
+        if (type1 == "string" or type1 == "number") and \
+            type2 == "object":
+            return AEC(x, y.ToPrimitive())
+        if (type2 == "string" or type2 == "number") and \
+            type1 == "object":
+            return AEC(x.ToPrimitive(), y)
+        return False
+            
+        
     objtype = x.GetValue().type()
     if objtype == y.GetValue().type():
         if objtype == "undefined" or objtype == "null":

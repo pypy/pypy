@@ -77,9 +77,13 @@ class JSTestItem(py.test.collect.Item):
     def run(self):
         ctx = JSTestFile.interp.global_context
         r3 = ctx.resolve_identifier('run_test').GetValue()
-        result = r3.Call(ctx=ctx, args=[W_Number(self.number),]).ToNumber()
+        w_test_array = ctx.resolve_identifier('testcases').GetValue()
+        w_test_number = W_Number(self.number)
+        result = r3.Call(ctx=ctx, args=[w_test_number,]).ToNumber()
         if result == 0:
-            raise Failed(msg="Results don't match")
+            w_test = w_test_array.Get(str(self.number)).GetValue()
+            w_reason = w_test.Get('reason').GetValue()
+            raise Failed(msg=w_reason.ToString())
         elif result == -1:
             py.test.skip()
 
