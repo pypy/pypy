@@ -12,13 +12,16 @@ from pypy.tool.option import make_objspace
 thisdir = py.magic.autopath().dirpath()
 app_basic_example_path = str(thisdir.join("app_basic_example.py"))
 
+DEBUG = False
+
 try:
     this_dir = os.path.dirname(__file__)
 except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
-def debug(msg): 
-    os.write(2, "debug: " + msg + '\n')
+def debug(msg):
+    if DEBUG:
+        os.write(2, "debug: " + msg + '\n')
 
 # __________  Entry point  __________
 
