@@ -30,12 +30,16 @@ class JSDirectory(py.test.collect.Directory):
 class JSTestFile(py.test.collect.Module):
     def init_interp(cls):
         if hasattr(cls, 'interp'):
-            return
+            cls.testcases.PutValue(W_Array(), cls.interp.global_context)
+            cls.tc.PutValue(W_Number(0), cls.interp.global_context)
+
         cls.interp = Interpreter()
         ctx = cls.interp.global_context
         shellpath = rootdir/'shell.js'
         t = load_source(shellpath.read())
         t.execute(ctx)
+        cls.testcases = cls.interp.global_context.resolve_identifier('testcases')
+        cls.tc = cls.interp.global_context.resolve_identifier('tc')
     init_interp = classmethod(init_interp)
     
     def __init__(self, fspath, parent=None):
@@ -58,18 +62,15 @@ class JSTestFile(py.test.collect.Module):
         except JsBaseExcept:
             raise Failed(msg="Javascript Error", excinfo=py.code.ExceptionInfo())
         testcases = self.interp.global_context.resolve_identifier('testcases')
+        self.tc = self.interp.global_context.resolve_identifier('tc')
         testcount = testcases.GetValue().Get('length').GetValue().ToNumber()
         self.testcases = testcases
-        # result = [str(i) for i in range(len(values))]
         return range(testcount)
 
     def join(self, number):
         return JSTestItem(number, parent = self)
 
-    def teardown(self):
-        self.testcases.PutValue(W_Array(), self.interp.global_context)
-
-class JSTestItem(py.test.collect.Item):        
+class JSTestItem(py.test.collect.Item):
     def __init__(self, number, parent=None):
         super(JSTestItem, self).__init__(str(number), parent)
         self.number = number
@@ -77,13 +78,10 @@ class JSTestItem(py.test.collect.Item):
     def run(self):
         ctx = JSTestFile.interp.global_context
         r3 = ctx.resolve_identifier('run_test').GetValue()
-        w_test_array = ctx.resolve_identifier('testcases').GetValue()
         w_test_number = W_Number(self.number)
-        result = r3.Call(ctx=ctx, args=[w_test_number,]).ToNumber()
-        if result == 0:
-            w_test = w_test_array.Get(str(self.number)).GetValue()
-            w_reason = w_test.Get('reason').GetValue()
-            raise Failed(msg=w_reason.ToString())
+        result = r3.Call(ctx=ctx, args=[w_test_number,]).GetValue().ToString()
+        if result != "passed":
+            raise Failed(msg=result)
         elif result == -1:
             py.test.skip()
 

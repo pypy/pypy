@@ -81,7 +81,8 @@ function TestCase( n, d, e, a ) {
 
   this.passed = getTestCaseResult( this.expect, this.actual );
   if ( DEBUG ) {
-    print( "added " + this.description + " wich expects " + this.expect);
+    print( "added " + this.description + " wich expects " + this.expect
+         + " nr "+tc);
   }
   /*
    * testcases are solely maintained in the TestCase
@@ -196,9 +197,9 @@ function getTestCaseResult( expect, actual ) {
 function run_test(tc) {
     // try {
         getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
-        testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value expected: "
+        testcases[tc].reason += ( testcases[tc].passed ) ? "passed" : "wrong value expected: "
                                 +testcases[tc].expect+" but got: "+ testcases[tc].actual;
-        return testcases[tc].passed? 1:0;
+        return testcases[tc].reason;
     // }
     // catch(e) {
     //     return -1;
