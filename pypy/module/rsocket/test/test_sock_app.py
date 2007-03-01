@@ -351,7 +351,6 @@ class AppTestSocket:
         import socket
         s = socket.socket()
 
-
     def test_getsetsockopt(self):
         import _socket as socket
         import struct
@@ -423,3 +422,21 @@ class AppTestSocketTCP:
             foo = self.serv.accept()
         raises(error, raise_error)
     
+
+class AppTestErrno:
+    def setup_class(cls):
+        cls.space = space
+
+    def test_errno(self):
+        from socket import socket, AF_INET, SOCK_STREAM, error
+        import errno
+        try:
+            s = socket(AF_INET, SOCK_STREAM)
+            import pypymagic
+            print pypymagic.pypy_repr(s)
+            s.accept()
+        except Exception, e:
+            assert len(e.args) == 2
+            assert e.args[0] == errno.EINVAL
+            assert isinstance(e.args[1], str)
+

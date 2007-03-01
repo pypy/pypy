@@ -443,9 +443,11 @@ def converted_error(space, e):
     message = e.get_msg()
     w_module = space.getbuiltinmodule('_socket')
     w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
-    w_exception = space.call_function(w_exception_class, space.wrap(message))
     if isinstance(e, SocketErrorWithErrno):
-        space.setattr(w_exception, space.wrap('errno'), space.wrap(e.errno))
+        w_exception = space.call_function(w_exception_class, space.wrap(e.errno),
+                                      space.wrap(message))
+    else:
+        w_exception = space.call_function(w_exception_class, space.wrap(message))
     return OperationError(w_exception_class, w_exception)
 
 # ____________________________________________________________
