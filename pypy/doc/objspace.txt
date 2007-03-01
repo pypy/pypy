@@ -289,7 +289,7 @@ the addition, between two wrapped objects w1 and w2, the Standard Object Space
 does some internal dispatching (similar to "Object/abstract.c" in CPython) and
 invokes a method of the proper W_XyzObject class that can do the
 operation. The operation itself is done with the primitives allowed by
-RestrictedPython. The result is constructed as a wrapped object again. For
+RPython. The result is constructed as a wrapped object again. For
 example, compare the following implementation of integer addition with the
 function "int_add()" in "Object/intobject.c": :: 
 
@@ -313,23 +313,15 @@ W_Object. But that makes the whole program more complicated. The equivalent in
 CPython would be to use PyObject* pointers all around except when the object is
 an integer (after all, integers are directly available in C too). You could
 represent small integers as odd-valuated pointers. But it puts extra burden on
-the whole C code, so the CPython team avoided it.
+the whole C code, so the CPython team avoided it.  (In our case it is an
+optimization that we eventually made, but not hard-coded at this level -
+see `object optimizations`_.)
 
-In our case it is a later optimization that we could make. We just don't want
-to make it now (and certainly not hard-coded at this level -- it could be
-introduced by the code generators at translation time). So in summary: wrapping
-integers as instances is the simple path, while using plain integers instead is
-the complex path, not the other way around.
-
-Note that the Standard Object Space implementation uses MultiMethod_ dispatch
-instead of the complex rules of "Object/abstract.c". This can probably be
-translated to a different low-level dispatch implementation that would be
-binary compatible with CPython's (basically the PyTypeObject structure and its
-function pointers). If compatibility is not required it will be more
-straightforwardly converted into some efficient multimethod code.
+So in summary: wrapping integers as instances is the simple path, while
+using plain integers instead is the complex path, not the other way
+around.
 
 .. _StdObjSpace: ../objspace/std/
-.. _MultiMethod: theory.html#multimethods
 
 
 Object types
@@ -358,24 +350,143 @@ defines ``__new__()`` to import the class ``W_TupleObject`` from
 "real" implementation of tuples: the way the data is stored in the
 ``W_TupleObject`` class, how the operations work, etc.
 
-The goal of the above module layout is to cleanly separate the Python type
-object, visible to the user, and the actual implementation of its instances.  It
-is possible to provide *several* implementations of the
-instances of the same Python type.  The ``__new__()`` method could decide to
-create one or the other.  From the user's point of view, they are still all
-instances of exactly the same type; the possibly multiple internal
-``W_XxxObject`` classes are not visible.  PyPy knows that (e.g.) the
-application-level type of its interpreter-level ``W_TupleObject`` instances is
-"tuple" because there is a ``typedef`` class attribute in ``W_TupleObject``
-which points back to the tuple type specification from `tupletype.py`_. For
-examples of having several implementations of the same type, see the `object
-optimizations`_ page.
+The goal of the above module layout is to cleanly separate the Python
+type object, visible to the user, and the actual implementation of its
+instances.  It is possible to provide *several* implementations of the
+instances of the same Python type, by writing several ``W_XxxObject``
+classes.  Every place that instantiates a new object of that Python type
+can decide which ``W_XxxObject`` class to instantiate.  For example, the
+regular string implementation is ``W_StringObject``, but we also have a
+``W_StringSliceObject`` class whose instances contain a string, a start
+index, and a stop index; it is used as the result of a string slicing
+operation to avoid the copy of all the characters in the slice into a
+new buffer.
+
+From the user's point of view, the multiple internal ``W_XxxObject``
+classes are not visible: they are still all instances of exactly the
+same Python type.  PyPy knows that (e.g.) the application-level type of
+its interpreter-level ``W_StringObject`` instances is "str" because
+there is a ``typedef`` class attribute in ``W_StringObject`` which
+points back to the string type specification from `stringtype.py`_; all
+other implementations of strings use the same ``typedef`` from
+`stringtype.py`_.
+
+For other examples of multiple implementations of the same Python type,
+see the `object optimizations`_ page.
 
 .. _`listtype.py`: ../objspace/std/listtype.py
+.. _`stringtype.py`: ../objspace/std/stringtype.py
 .. _`tupletype.py`: ../objspace/std/tupletype.py
 .. _`tupleobject.py`: ../objspace/std/tupleobject.py
 
 .. _`object optimizations`: object-optimizations.html
+
+
+Multimethods
+------------
+
+The Standard Object Space allows multiple object implementations per
+Python type - this is based on multimethods_, although the more precise
+picture spans several levels in order to emulate the exact Python
+semantics.
+
+Consider the example of the ``space.getitem(w_a, w_b)`` operation,
+corresponding to the application-level syntax ``a[b]``.  The Standard
+Object Space contains a corresponding ``getitem`` multimethod and a
+family of functions that implement the multimethod for various
+combination of argument classes - more precisely, for various
+combinations of the *interpreter-level* classes of the arguments.  Here
+are some examples of functions implementing the ``getitem``
+multimethod:
+
+* ``getitem__Tuple_ANY``: called when the first argument is a
+  W_TupleObject, this function converts its second argument to an
+  integer and performs tuple indexing.
+
+* ``getitem__Tuple_Slice``: called when the first argument is a
+  W_TupleObject and the second argument is a W_SliceObject.  This
+  version takes precedence over the previous one if the indexing is
+  done with a slice object, and performs tuple slicing instead.
+
+* ``getitem__String_Slice``: called when the first argument is a
+  W_StringObject and the second argument is a slice object.  When the
+  special string slices optimization is enabled, this returns an
+  instance of W_StringSliceObject.
+
+* ``getitem__StringSlice_ANY``: called when the first argument is a
+  W_StringSliceObject.  This implementation adds the provided index to
+  the original start of the slice stored in the W_StringSliceObject
+  instance.  This allows constructs like ``a = s[10:100]; print a[5]``
+  to return the 15th character of ``s`` without having to perform any
+  buffer copying.
+
+Note how the multimethod dispatch logic helps writing new object
+implementations without having to insert hooks into existing code.  Note
+first how we could have defined a regular method-based API that new
+object implementations must provide, and call these methods from the
+space operations.  The problem with this approach is that some Python
+operators are naturally binary or N-ary.  Consider for example the
+addition operation: for the basic string implementation it is a simple
+concatenation-by-copy, but it can have a rather more subtle
+implementation for strings done as ropes.  It is also likely that
+concatenating a basic string with a rope string could have its own
+dedicated implementation - and yet another implementation for a rope
+string with a basic string.  With multimethods, we can have an
+orthogonally-defined implementation for each combination.
+
+The multimethods mechanism also supports delegate functions, which are
+converters between two object implementations.  The dispatch logic knows
+how to insert calls to delegates if it encounters combinations of
+interp-level classes which is not directly implemented.  For example, we
+have no specific implementation for the concatenation of a basic string
+and a StringSlice object; when the user adds two such strings, then the
+StringSlice object is converted to a basic string (that is, a
+temporarily copy is built), and the concatenation is performed on the
+resulting pair of basic strings.  This is similar to the C++ method
+overloading resolution mechanism (but occurs at runtime).
+
+.. _multimethods: theory.html#multimethods
+
+
+Multimethod slicing
+-------------------
+
+The complete picture is more complicated because the Python object model
+is based on *descriptors*: the types ``int``, ``str``, etc. must have
+methods ``__add__``, ``__mul__``, etc. that take two arguments including
+the ``self``.  These methods must perform the operation or return
+``NotImplemented`` if the second argument is not of a type that it
+doesn't know how to handle.
+
+The Standard Object Space creates these methods by *slicing* the
+multimethod tables.  Each method is automatically generated from a
+subset of the registered implementations of the corresponding
+multimethod.  This slicing is performed on the first argument, in order
+to keep only the implementations whose first argument's
+interpreter-level class matches the declared Python-level type.
+
+For example, in a baseline PyPy, ``int.__add__`` is just calling the
+function ``add__Int_Int``, which is the only registered implementation
+for ``add`` whose first argument is an implementation of the ``int``
+Python type.  On the other hand, if we enable integers implemented as
+tagged pointers, then there is another matching implementation:
+``add__SmallInt_SmallInt``.  In this case, the Python-level method
+``int.__add__`` is implemented by trying to dispatch between these two
+functions based on the interp-level type of the two arguments.
+
+Similarly, the reverse methods (``__radd__`` and others) are obtained by
+slicing the multimethod tables to keep only the functions whose *second*
+argument has the correct Python-level type.
+
+Slicing is actually a good way to reproduce the details of the object
+model as seen in CPython: slicing is attempted for every Python types
+for every multimethod, but the ``__xyz__`` Python methods are only put
+into the Python type when the resulting slices are not empty.  This is
+how our ``int`` type has no ``__getitem__`` method, for example.
+Additionally, slicing ensures that ``5 .__add__(6L)`` correctly returns
+``NotImplemented`` (because this particular slice does not include
+``add__Long_Long`` and there is no ``add__Int_Long``), which leads to
+``6L.__radd__(5)`` being called, as in CPython.
 
 
 The Trace Object Space
