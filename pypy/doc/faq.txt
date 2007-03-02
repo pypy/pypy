@@ -12,12 +12,16 @@ General
 What is PyPy?
 -------------
 
-PyPy is both a Python reimplementation and a framework to implement
-interpreters and virtual machines for programming languages,
-especially dynamic ones. PyPy tries to find new answers about ease of
-creation, flexibility, maintainability and speed trade-offs for
-language implementations.  For further details see our `goal and
-architecture document`_ .
+PyPy is both:
+
+ - a reimplementation of Python in Python, and
+
+ - a framework for implementing interpreters and virtual machines for
+   programming languages, especially dynamic languages.
+
+PyPy tries to find new answers about ease of creation, flexibility,
+maintainability and speed trade-offs for language implementations.
+For further details see our `goal and architecture document`_ .
 
 .. _`goal and architecture document`: architecture.html
 
@@ -28,11 +32,16 @@ architecture document`_ .
 Is PyPy a drop in replacement for CPython?
 ------------------------------------------
 
-Not completely, at least not yet. There are various areas where PyPy is lacking, such as
-threading_ and `extension modules`_. The language features (including builtin
-types and functions) are very complete and well tested, though. This means that
-a project not using many extension modules can probably directly use PyPy. A
-project using extension modules might get some problems, though.
+Not completely, at least not yet.
+
+The mostly likely stumbling block for any given project is support for
+`extension modules`_.  PyPy supports a small but continually growing
+number of extension modules, so far mostly those found in the standard
+library.  The `threading` support is also not perfectly complete.
+
+The language features (including builtin types and functions) are very
+complete and well tested, so if your project does not use many
+extension modules there is a good chance that it will work with PyPy.
 
 --------------------------------
 On what platforms does PyPy run?
