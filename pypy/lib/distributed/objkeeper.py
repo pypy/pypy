@@ -14,12 +14,15 @@ except:
 class RemoteBase(object):
     pass
 
+from types import FunctionType
+
 class ObjKeeper(object):
     def __init__(self, exported_names = {}):
         self.exported_objects = [] # list of object that we've exported outside
         self.exported_names = exported_names # dictionary of visible objects
         self.exported_types = {} # dict of exported types
         self.remote_types = {}
+        self.reverse_remote_types = {}
         self.remote_objects = {}
         self.exported_types_id = 0 # unique id of exported types
         self.exported_types_reverse = {} # reverse dict of exported types
@@ -62,12 +65,16 @@ class ObjKeeper(object):
         if '__doc__' in _dict:
             d['__doc__'] = protocol.unwrap(_dict['__doc__'])
         tp = type(_name, (RemoteBase,), d)
-        tp.__metaremote__ = type_id
         # Make sure we cannot instantiate the remote type
         self.remote_types[type_id] = tp
+        self.reverse_remote_types[tp] = type_id
         for key, value in _dict.items():
             if key != '__doc__':
-                setattr(tp, key, protocol.unwrap(value))
+                v = protocol.unwrap(value)
+                if isinstance(v, FunctionType):
+                    setattr(tp, key, staticmethod(v))
+                else:
+                    setattr(tp, key, v)
             #elif key == '__new__':
             #    import pdb
             #    pdb.set_trace()

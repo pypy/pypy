@@ -132,10 +132,8 @@ class AbstractProtocol(object):
             id = self.keeper.register_object(obj)
             return (self.type_letters[tp], id)
         elif tp is type:
-            if isinstance(obj, RemoteBase):
-                import pdb
-                pdb.set_trace()
-                return "reg", obj.__metaremote__
+            if issubclass(obj, RemoteBase):
+                return "reg", self.keeper.reverse_remote_types[obj]
             try:
                 return self.type_letters[tp], self.type_letters[obj]
             except KeyError:
@@ -379,12 +377,12 @@ def test_env(exported_names):
     remote_protocol = RemoteProtocol(inp.send, out.receive, exported_names)
     t = tasklet(remote_loop)(remote_protocol)
     
-    def send_trace(data):
-        print "Sending %s" % (data,)
-        out.send(data)
+    #def send_trace(data):
+    #    print "Sending %s" % (data,)
+    #    out.send(data)
 
-    def receive_trace():
-        data = inp.receive()
-        print "Received %s" % (data,)
-        return data
-    return RemoteProtocol(send_trace, receive_trace)
+    #def receive_trace():
+    #    data = inp.receive()
+    #    print "Received %s" % (data,)
+    #    return data
+    return RemoteProtocol(out.send, inp.receive)

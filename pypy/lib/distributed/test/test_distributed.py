@@ -213,10 +213,16 @@ class AppTestDistributedTasklets(object):
         assert res == 8
 
     def test_instantiate_remote_type(self):
-        skip("Doesn't work yet")
+        #skip("Doesn't work yet")
         class C:
-            pass
+            def __init__(self, y):
+                self.y = y
+            
+            def x(self):
+                return self.y
 
         protocol = self.test_env({'C':C})
         xC = protocol.get_remote('C')
-        xC()
+        res = xC(3).x()
+        assert res == 3
+
