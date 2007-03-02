@@ -10,9 +10,9 @@ class Module(MixedModule):
     """Importing this module enables command line editing using GNU readline."""
     # the above line is the doc string of the translated module  
 
-    def init(self, space):
+    def setup_after_space_initialization(self):
         from pypy.module.readline import c_readline 
-        c_readline.setup_readline(space, self)
+        c_readline.setup_readline(self.space, self)
 
     interpleveldefs = {
         'readline'    : 'interp_readline.readline',
