@@ -860,7 +860,8 @@ class TestUsingFramework(AbstractGCTestClass):
         res = fn()
 
     def test_dict_segfault(self):
-        py.test.skip("some gc collect failing - somehow")
+        " was segfaulting at one point see rev 39665 for fix and details "
+
         class Element:
             pass
 
@@ -872,7 +873,6 @@ class TestUsingFramework(AbstractGCTestClass):
 
             for ii in elements:
                 reverse[ii] = ii
-        #        print reverse.get(ii, None)
 
             for jj in range(100):
                 e = l[-1]
@@ -881,8 +881,8 @@ class TestUsingFramework(AbstractGCTestClass):
 
         def f():
             for ii in range(100):
-                print ii
                 dostuff()
+            return 0
 
         fn = self.getcompiled(f)
         # the point is just not to segfault
