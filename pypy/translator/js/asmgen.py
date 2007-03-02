@@ -113,12 +113,13 @@ class AsmGen(object):
         real_args = ",".join(l)
         self.right_hand.append("%s ( %s )" % (func_name, real_args))
 
-    def branch_if(self, arg, exitcase):
+    def branch_if(self, exitcase):
         def mapping(exitc):
             if exitc in ['True', 'False']:
                 return exitc.lower()
             return exitc
-        
+
+        arg = self.right_hand.pop()
         if hasattr(arg,'name'):
             arg_name = self.subst_table.get(arg.name, arg.name)
         else:
@@ -153,6 +154,7 @@ class AsmGen(object):
         self.codegenerator.openblock()
     
     def branch_else(self):
+        self.right_hand.pop()
         self.codegenerator.closeblock()
         self.codegenerator.write("else")
         self.codegenerator.openblock()
@@ -163,10 +165,6 @@ class AsmGen(object):
     def label(self, *args):
         self.codegenerator.openblock()
 
-    def branch(self, *args):
-        #self . codegenerator . closeblock ()
-        pass
-    
     def change_name(self, from_name, to_name):
     #    if isinstance(from_name,Variable) and isinstance(to_name,Variable):
     #        self.subst_table[from_name.name] = to_name.name

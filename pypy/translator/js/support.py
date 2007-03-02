@@ -55,10 +55,8 @@ class JavascriptNameManager(NameManager):
         
         self.predefined = set(predefined_classes_and_objects)
 
-    def uniquename(self, name):
-        #if self.js.compress and name != self.js.functions[0].func_name and is_optimized_function(name) and name.startswith("ll_issubclass__object_vtablePtr_object_vtablePtr"):
-        #    name = 'f'
-        return NameManager.uniquename(self, name)
+    #def uniquename(self, name, lenmax=0):
+    #    return NameManager.uniquename(self, , lenmax)
 
     def ensure_non_reserved(self, name):
         while name in self.reserved:

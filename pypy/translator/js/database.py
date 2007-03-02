@@ -78,7 +78,7 @@ class LowLevelDatabase(object):
         try:
             return self.function_names[graph]
         except KeyError:
-            real_name = self.name_manager.uniquename(name)
+            real_name = self.name_manager.uniquename(name, lenmax=1111111)
             self.function_names[graph] = real_name
             return real_name
 

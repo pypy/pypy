@@ -63,7 +63,8 @@ class _Call(MicroInstruction):
 
     def _render_function(self, generator, graph, args):
         for func_arg in args[1:]: # push parameters
-            generator.load(func_arg)
+            if func_arg.concretetype is not ootype.Void:
+                generator.load(func_arg)
         generator.call_graph(graph)
     
     def _render_method(self, generator, method_name, args):

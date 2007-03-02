@@ -27,8 +27,11 @@ class JTS(object):
     def __init__(self, db):
         self.db = db
     
-    def __class(self, name):
-        return name.replace(".", "_")
+    #def __class(self, name):
+    #    return name.replace(".", "_")
+
+    def escape_name(self, name):
+        return name.replace('.', '_')
     
     def llvar_to_cts(self, var):
         return 'var ', var.name
@@ -36,7 +39,7 @@ class JTS(object):
     def lltype_to_cts(self, t):
         if isinstance(t, ootype.Instance):
             self.db.pending_class(t)
-            return self.__class(t._name)
+            return self.escape_name(t._name)
         elif isinstance(t, ootype.List):
             return "Array"
         elif isinstance(t, lltype.Primitive):
@@ -57,7 +60,8 @@ class JTS(object):
     def graph_to_signature(self, graph, is_method = False, func_name = None):
         func_name = func_name or self.db.get_uniquename(graph,graph.name)
         
-        args = graph.getargs()
+        args = [arg for arg in graph.getargs() if
+                arg.concretetype is not ootype.Void]
         if is_method:
             args = args[1:]
 
