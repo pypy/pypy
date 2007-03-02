@@ -129,3 +129,8 @@ class AppTest_SmartListObject(test_listobject.AppTestW_ListObject):
         for i in range(5):
             ls.insert(0, i)
         assert len(ls) == 12
+
+class AppTest_ChunkListObject(test_listobject.AppTestW_ListObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withchunklist": True})
+

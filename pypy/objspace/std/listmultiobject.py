@@ -184,6 +184,8 @@ class ListImplementation(object):
             impl = SmartResizableListImplementation(space)
             impl.extend(RListImplementation(space, list_w))
             return impl
+        if space.config.objspace.std.withchunklist:
+            return ChunkedListImplementation(space, list_w)
         if space.config.objspace.std.withfastslice:
             return SliceTrackingListImplementation(space, list_w)
         else:
@@ -255,6 +257,143 @@ class RListImplementation(ListImplementation):
     
     def __repr__(self):
         return "RListImplementation(%s)" % (self.list_w, )
+
+
+CHUNK_SIZE_BITS = 4
+CHUNK_SIZE = 2**CHUNK_SIZE_BITS
+
+class ChunkedListImplementation(ListImplementation):
+    """ A list of chunks that allow extend operations to be cheaper
+    because only a smaller list has to be resized.
+    Invariant: Every element of self.chunks is a list of wrapped objects.
+    Each of those lists has exactly CHUNK_SIZE elements.
+    """
+
+    def __init__(self, space, list_w=None, chunks=None, length=-1):
+        ListImplementation.__init__(self, space)
+        if list_w is not None:
+            self.chunks = []
+            self._length = 0
+            self._grow(len(list_w))
+            i = 0
+            for w_elem in list_w:
+                self.setitem(i, w_elem)
+                i += 1
+        else:
+            self.chunks = chunks
+            self._length = length
+
+    def _grow(self, how_much=1):
+        free_slots = -self._length % CHUNK_SIZE
+        if free_slots < how_much:
+            to_allocate = how_much - free_slots
+            for _ in range(0, (to_allocate / CHUNK_SIZE) + 1):
+                self.chunks.append([None] * CHUNK_SIZE)
+        self._length += how_much
+
+    def length(self):
+        return self._length
+
+    def getitem(self, i):
+        return self.chunks[i >> CHUNK_SIZE_BITS][i & (CHUNK_SIZE - 1)]
+
+    def _get_chunks_slice(self, start, stop):
+        assert start >= 0 and stop >= 0
+        current_chunk = [None] * CHUNK_SIZE
+        chunks = [current_chunk]
+        element_index = 0
+        for i in range(start, stop):
+            if element_index == CHUNK_SIZE:
+                current_chunk = [None] * CHUNK_SIZE
+                chunks.append(current_chunk)
+                element_index = 0
+            current_chunk[element_index] = self.getitem(i)
+            element_index += 1
+        return chunks
+        
+    def getitem_slice(self, start, stop):
+        assert start >= 0
+        assert stop >= 0
+        delta = stop - start
+        if start % CHUNK_SIZE == 0 and stop % CHUNK_SIZE == 0:
+            first_chunk = start >> CHUNK_SIZE_BITS
+            last_chunk = stop >> CHUNK_SIZE_BITS
+            chunks = [chunk[:] for chunk in self.chunks[first_chunk:last_chunk]]
+            return ChunkedListImplementation(self.space, chunks=chunks, length=delta)
+
+        return ChunkedListImplementation(self.space, chunks=self._get_chunks_slice(start, stop),
+                                         length=delta)
+
+
+    def delitem(self, i):
+        length = self._length
+        if length == 1:
+            return self.space.fromcache(State).empty_impl
+
+        assert i >= 0
+        for j in range(i + 1, length):
+            self.setitem(j - 1, self.getitem(j))
+
+        self._length -= 1
+        return self
+
+    def delitem_slice(self, start, stop):
+        length = self._length
+
+        if length == stop and start == 0:
+            return self.space.fromcache(State).empty_impl
+
+        assert start >= 0
+        assert stop >= 0
+
+        delta = stop - start
+        for j in range(start + delta, length):
+            self.setitem(j - delta, self.getitem(j))
+        first_unneeded_chunk = ((length - delta) >> CHUNK_SIZE) + 1
+        assert first_unneeded_chunk >= 0
+        del self.chunks[first_unneeded_chunk:]
+
+        self._length -= delta
+        return self
+    
+    def setitem(self, i, w_item):
+        assert i >= 0
+        chunk = self.chunks[i >> CHUNK_SIZE_BITS]
+        chunk[i & (CHUNK_SIZE - 1)] = w_item
+
+        return self
+
+    def insert(self, i, w_item):
+        assert i >= 0
+
+        self._grow()
+        for j in range(i, self._length):
+            self.setitem(j + 1, self.getitem(j))
+        self.setitem(i, w_item)
+
+        return self
+
+    def append(self, w_item):
+        self._grow()
+        self.setitem(self._length - 1, w_item)
+
+        return self
+
+    def extend(self, other):
+        other_length = other.length()
+        old_length = self._length
+        self._grow(other_length)
+        for idx in range(0, other_length):
+            self.setitem(old_length + idx, other.getitem(idx))
+        
+        return self
+
+    def get_list_w(self):
+        return [self.getitem(idx) for idx in range(0, self._length)]
+
+    def __repr__(self):
+        return "ChunkedListImplementation(%s)" % (self.get_list_w(), )
+
 
 class EmptyListImplementation(ListImplementation):
     def make_list_with_one_item(self, w_item):
@@ -678,7 +817,9 @@ def make_implementation(space, list_w):
             impl = SmartResizableListImplementation(space)
             impl.extend(RListImplementation(space, list_w))
             return impl
-        if space.config.objspace.std.withfastslice:
+        if space.config.objspace.std.withchunklist:
+            return ChunkedListImplementation(space, list_w)
+        elif space.config.objspace.std.withfastslice:
             impl = SliceTrackingListImplementation(space, list_w)
         else:
             w_type = space.type(list_w[0])
@@ -884,7 +1025,7 @@ def delitem__ListMulti_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(
         space, w_list.implementation.length())
 
-    if slicelength==0:
+    if slicelength == 0:
         return
 
     if step < 0:
