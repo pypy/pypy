@@ -12,8 +12,8 @@ class BenchmarkResultSet(object):
         self.benchmarks = {}
         self.max_results = max_results
 
-    def result(self, exe):
-        if exe in self.benchmarks:
+    def result(self, exe, allowcreate=False):
+        if exe in self.benchmarks or not allowcreate:
             return self.benchmarks[exe]
         else:
             r = self.benchmarks[exe] = BenchmarkResult(exe, self.max_results)
@@ -89,6 +89,9 @@ class BenchmarkResult(object):
         new_result = benchmark.run(self.exe_name)
         if verbose:
             print new_result
+        self.run_counts[benchmark.name] = self.run_counts.get(benchmark.name, 0) + 1
+        if new_result == '-FAILED-':
+            return
         self.benchmarks.setdefault(benchmark.name, []).append(new_result)
         if benchmark.name in self.best_benchmarks:
             old_result = self.best_benchmarks[benchmark.name]
@@ -97,7 +100,6 @@ class BenchmarkResult(object):
             else:
                 new_result = min(new_result, old_result)
         self.best_benchmarks[benchmark.name] = new_result
-        self.run_counts[benchmark.name] = self.run_counts.get(benchmark.name, 0) + 1
 
     def getstat(self, *args):
         # oh for supplied-p!

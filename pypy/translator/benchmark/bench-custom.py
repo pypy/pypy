@@ -40,7 +40,7 @@ def main(options, args):
     for i in range(int(options.runcount)):
         for exe in exes:
             for b in benchmarks:
-                benchmark_result.result(exe).run_benchmark(b, verbose=True)
+                benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=True)
 
     pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
 

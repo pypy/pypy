@@ -1,5 +1,8 @@
 import os, sys, time, pickle, re, py
 
+class BenchmarkFailed(Exception):
+    pass
+
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
 PYSTONE_ASCENDING_GOOD = True
@@ -13,17 +16,20 @@ def get_result(txt, pattern):
         if line.startswith(pattern):
             break
     else:
-        print repr(txt)
-        print 'warning: this is not valid output'
-        return 99999.0
+        raise BenchmarkFailed
     return float(line.split()[len(pattern.split())])
 
 class Benchmark(object):
     def __init__(self, name, runner, asc_good, units):
         self.name = name
-        self.run = runner
+        self._run = runner
         self.asc_good = asc_good
         self.units = units
+    def run(self, exe):
+        try:
+            return self._run(exe)
+        except BenchmarkFailed:
+            return '-FAILED-'
 
 def run_cmd(cmd):
     #print "running", cmd
@@ -47,15 +53,14 @@ def run_richards(executable='/usr/local/bin/python', n=5):
 
 def run_translate(executable='/usr/local/bin/python'):
     translate = py.magic.autopath().dirpath().dirpath().join('goal').join('translate.py')
-    argstr = 'sh -c "time %s %s --text --batch --backendopt --no-compile targetrpystonedalone.py > /dev/null 2>/dev/null" 2>&1 | grep real'
-    cmd = argstr%(executable, translate)
-    txt = run_cmd(cmd)
-    m = re.match('real\s+(?P<mins>\\d+)m(?P<secs>\\d+\\.\\d+)s', txt)
-    if not m:
-       print repr(txt)
-       print 'ow'
-       return 99999.0
-    return 1000*(float(m.group('mins'))*60 + float(m.group('secs')))
+    target = py.magic.autopath().dirpath().dirpath().join('goal').join('targetrpystonedalone.py')
+    argstr = '%s %s --text --batch --backendopt --no-compile %s > /dev/null 2> /dev/null'
+    T = time.time()
+    status = os.system(argstr%(executable, translate, target))
+    r = time.time() - T
+    if status:
+        raise BenchmarkFailed(status)
+    return r
 
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
