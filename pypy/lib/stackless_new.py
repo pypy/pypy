@@ -39,7 +39,9 @@ def _scheduler_append(value, normal=True):
     if normal:
         _squeue.append(value)
     else:
+        _squeue.rotate(-1)
         _squeue.appendleft(value)
+        _squeue.rotate(1)
 
 def _scheduler_contains(value):
     try:
@@ -50,11 +52,14 @@ def _scheduler_contains(value):
 
 def _scheduler_switch(current, next):
     global _last_task
+    prev = _last_task
+    if (_schedule_callback is not None and
+        prev is not next):
+        _schedule_callback(prev, next)
     _last_task = next
-    if _schedule_callback is not None:
-        _schedule_callback(current, next)
     assert not next.blocked
-    next.switch()
+    if next is not current:
+        next.switch()
     return current
 
 
@@ -78,7 +83,7 @@ class bomb(object):
         self.traceback = exp_traceback
 
     def raise_(self):
-        raise self.type(self.value)
+        raise self.type, self.value, self.traceback
 
 class channel(object):
     """
@@ -140,7 +145,10 @@ class channel(object):
             self.balance -= 1
             self.queue.append(receiver)
             receiver.blocked = True
-            schedule_remove()
+            _scheduler_remove(getcurrent())
+            schedule()
+            assert not receiver.blocked
+            
         msg = receiver.tempval
         if isinstance(msg, bomb):
             msg.raise_()
@@ -177,8 +185,10 @@ class channel(object):
             self.queue.append(sender)
             sender.blocked = True
             self.balance += 1
-            schedule_remove()
-
+            _scheduler_remove(getcurrent())
+            schedule()
+            assert not sender.blocked
+            
 class tasklet(coroutine):
     """
     A tasklet object represents a tiny task in a Python thread.
@@ -186,6 +196,7 @@ class tasklet(coroutine):
     New tasklets can be created with methods from the stackless
     module.
     """
+    tempval = None
     def __new__(cls, func=None, label=''):
         return super(tasklet,cls).__new__(cls)
 
@@ -195,7 +206,7 @@ class tasklet(coroutine):
 
     def _init(self, func=None, label=''):
         global _global_task_id
-        self.tempval = func
+        self.func = func
         self.alive = False
         self.blocked = False
         self._task_id = _global_task_id
@@ -220,7 +231,7 @@ class tasklet(coroutine):
         """
         if not callable(func):
             raise TypeError('tasklet function must be a callable')
-        self.tempval = func
+        self.func = func
 
     def kill(self):
         """
@@ -232,16 +243,28 @@ class tasklet(coroutine):
         """
         if not self.is_zombie:
             coroutine.kill(self)
+            _scheduler_remove(self)
             self.alive = False
 
     def setup(self, *argl, **argd):
         """
         supply the parameters for the callable
         """
-        if self.tempval is None:
+        if self.func is None:
             raise TypeError('cframe function must be callable')
-        coroutine.bind(self,self.tempval,*argl,**argd)
-        self.tempval = None
+        func = self.func
+        def _func():
+            try:
+                try:
+                    func(*argl, **argd)
+                except TaskletExit:
+                    pass
+            finally:
+                _scheduler_remove(self)
+                self.alive = False
+
+        self.func = None
+        coroutine.bind(self, _func)
         self.alive = True
         _scheduler_append(self)
         return self
@@ -274,6 +297,7 @@ def getcurrent():
     else:
         return curr
 
+_run_calls = []
 def run():
     """
     run_watchdog(timeout) -- run tasklets until they are all
@@ -287,12 +311,14 @@ def run():
 
     Please note that the 'timeout' feature is not yet implemented
     """
-    r = schedule_remove()
-    if _last_task and _schedule_callback is not None:
-        _schedule_callback(_last_task, getcurrent())
-    while _squeue:
-        r = schedule()
-    _scheduler_append(getcurrent())
+    curr = getcurrent()
+    _run_calls.append(curr)
+    _scheduler_remove(curr)
+    try:
+        schedule()
+        assert not _squeue
+    finally:
+        _scheduler_append(curr)
     
 def schedule_remove(retval=None):
     """
@@ -305,7 +331,8 @@ def schedule_remove(retval=None):
     r = schedule(retval)
     return r
 
-def schedule(retval=None, prev=None):
+
+def schedule(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
     The return value for this call is retval, with the current
@@ -314,40 +341,24 @@ def schedule(retval=None, prev=None):
     """
     mtask = getmain()
     curr = getcurrent()
-    if _squeue:
-        task = _squeue[0]
-        _squeue.rotate(-1)
-        if task is not curr and task.is_alive:
-            c = prev or curr
-            r = _scheduler_switch(c, task)
-            curr = getcurrent()
-            if not task.is_alive:
-                if _squeue:
-                    pt = _squeue.pop()
-                    if pt.is_alive:
-                        _scheduler_append(pt)
-                    else:
-                        coroutine.kill(task)
-                else:
-                    if curr is not mtask:
-                        r = _scheduler_switch(curr, mtask)
-                        return retval or r
-                r = schedule(prev=task)
-                return retval or r
-            return r
-        elif task is curr:
-            if len(_squeue) > 1:
-                if _squeue[0] is _squeue[-1]:
-                    _squeue.pop()
-                r = schedule()
-                return retval or r
-            return retval or curr
-        elif not task.is_alive:
-            _scheduler_remove(task)
-            if not _squeue:
-                _scheduler_append(mtask)
-            return retval or curr
-    return retval or curr
+    if retval is None:
+        retval = curr
+    while True:
+        if _squeue:
+            if _squeue[0] is curr:
+                # If the current is at the head, skip it.
+                _squeue.rotate(-1)
+                
+            task = _squeue[0]
+            #_squeue.rotate(-1)
+        elif _run_calls:
+            task = _run_calls.pop()
+        else:
+            raise RuntimeError('No runnable tasklets left.')
+        _scheduler_switch(curr, task)
+        if curr is _last_task:
+            # We are in the tasklet we want to resume at this point.
+            return retval
 
 def _init():
     global _main_tasklet
@@ -380,6 +391,7 @@ def _init():
         _main_coroutine = _main_tasklet
         _main_tasklet = TaskletProxy(_main_tasklet)
         assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
+    _last_task = _main_tasklet
     tasklet._init.im_func(_main_tasklet, label='main')
     _squeue = deque()
     _scheduler_append(_main_tasklet)
