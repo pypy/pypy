@@ -24,6 +24,6 @@ for its use (and indeed, this is one of the main reasons PyPy does its
 own inlining rather than relying on the C compilers).
 
 For much more information about this and other optimizations you can
-read section 4.1 of the `technical report on "Massive Parallelism and
-Translation Aspects"
-<http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf>`__.
+read section 4.1 of the technical report on "Massive Parallelism and
+Translation Aspects" which you can find on the `Technical reports page
+<../index-report.html>`__.
