@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.interpreter.error import OperationError
 

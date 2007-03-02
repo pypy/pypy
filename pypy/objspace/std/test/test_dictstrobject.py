@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std.dictstrobject import W_DictStrObject, setitem__DictStr_ANY_ANY, getitem__DictStr_ANY
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject

@@ -7,7 +7,6 @@ at:
 This file just contains some basic tests that make sure, the implementation
 is not too wrong.
 """
-import autopath
 import py.test
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.setobject import _initialize_set

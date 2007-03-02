@@ -1,4 +1,4 @@
-import autopath, sys
+import sys
 
 
 class AppTestUnicodeStringStdOnly:

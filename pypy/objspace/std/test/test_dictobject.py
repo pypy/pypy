@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std.dictobject import W_DictObject
 from pypy.conftest import gettestobjspace
 

@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.objspace import FailedToImplement
 import py

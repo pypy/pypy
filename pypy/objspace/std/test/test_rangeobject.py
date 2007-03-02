@@ -1,4 +1,4 @@
-import autopath, py
+import py
 
 from pypy.conftest import gettestobjspace
 

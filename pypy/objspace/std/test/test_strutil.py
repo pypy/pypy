@@ -1,4 +1,3 @@
-import autopath
 import py, random
 from pypy.objspace.std.strutil import *
 

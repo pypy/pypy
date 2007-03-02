@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.stringobject import W_StringObject
 

@@ -1,5 +1,4 @@
 #from __future__ import nested_scopes
-import autopath
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.interpreter.error import OperationError
 

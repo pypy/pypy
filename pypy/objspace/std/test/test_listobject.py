@@ -1,4 +1,4 @@
-import autopath, random
+import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 

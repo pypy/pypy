@@ -1,4 +1,3 @@
-import autopath
 import py
 from pypy.objspace.std import complexobject as cobj
 from pypy.objspace.std import complextype as cobjtype
@@ -60,7 +59,13 @@ class TestW_ComplexObject:
 
 class AppTestAppComplexTest:
     def setup_class(cls):
-        cls.w_helper = cls.space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (str(py.magic.autopath().dirpath()).replace('\\', '\\\\'), ))
+        cls.w_helper = cls.space.appexec([], """
+            ():
+                import sys
+                sys.path.append(%r)
+                import helper
+                return helper
+        """ % (str(py.magic.autopath().dirpath())))
 
     def test_div(self):
         h = self.helper

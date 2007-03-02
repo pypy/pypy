@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stdtypedef import *
 

@@ -1,4 +1,3 @@
-import autopath
 import py
 import sys
 from pypy.objspace.std import longobject as lobj

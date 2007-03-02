@@ -1,4 +1,3 @@
-import autopath
 
 
 class TestW_SliceObject:

@@ -1,4 +1,3 @@
-import autopath
 
 
 class AppTestStringObjectWithDict:

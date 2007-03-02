@@ -1,4 +1,3 @@
-import autopath
 from pypy.interpreter.error import OperationError
 
 

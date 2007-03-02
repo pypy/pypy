@@ -1,4 +1,3 @@
-import autopath
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \

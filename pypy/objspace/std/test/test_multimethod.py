@@ -1,4 +1,3 @@
-import autopath
 from py.test import raises
 
 from pypy.objspace.std import multimethod

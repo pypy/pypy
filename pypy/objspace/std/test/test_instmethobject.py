@@ -1,4 +1,3 @@
-import autopath
 
 # NB. instmethobject.py has been removed,
 # but the following tests still make sense

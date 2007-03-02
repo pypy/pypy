@@ -1,4 +1,3 @@
-import autopath
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.listmultiobject import W_ListMultiObject, \
     SliceTrackingListImplementation

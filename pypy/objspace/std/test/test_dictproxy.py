@@ -1,4 +1,3 @@
-import autopath
 
 
 class AppTestUserObject:

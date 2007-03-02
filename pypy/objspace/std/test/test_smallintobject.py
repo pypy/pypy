@@ -1,5 +1,4 @@
 import sys, py
-import autopath
 
 #from pypy.objspace.std.model import WITHSMALLINT
 #if not WITHSMALLINT:
