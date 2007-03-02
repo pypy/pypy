@@ -1,4 +1,3 @@
-import autopath
 import py
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.objspace.flow.model import flatten

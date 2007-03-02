@@ -1,5 +1,4 @@
 
-import autopath
 
 from py.test import raises
 from pypy.objspace.flow.model import *

@@ -1,5 +1,4 @@
 """Interp-level rsre tests."""
-import autopath
 import sys
 from py.test import raises
 from pypy.rlib.rsre.rsre import SimpleStringState, set_unicode_db

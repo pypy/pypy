@@ -1,4 +1,4 @@
-import autopath, inspect
+import inspect
 
 from pypy.objspace.flow.model import *
 

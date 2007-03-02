@@ -1,4 +1,3 @@
-import autopath
 import os, sys, new
 
 # WARNING: this is all nicely RPython, but there is no RPython code around
@@ -7,6 +6,12 @@ import os, sys, new
 #
 # XXX However it's not even clear how to get such prebuilt regexps...
 
+import rsre_core
+rsre_core_filename = rsre_core.__file__
+if rsre_core_filename[-1] in 'oc':
+    rsre_core_filename = rsre_core_filename[:-1]
+rsre_core_filename = os.path.abspath(rsre_core_filename)
+del rsre_core
 
 def insert_sre_methods(locals, name):
     """A hack that inserts the SRE entry point methods into the 'locals'
@@ -19,7 +24,7 @@ def insert_sre_methods(locals, name):
         start           - start position for searching and matching
         end             - end position for searching and matching
     """
-    filename = os.path.join(autopath.this_dir, 'rsre_core.py')
+    filename = rsre_core_filename 
     rsre_core = new.module('pypy.rlib.rsre.rsre_core_' + name)
     rsre_core.__file__ = filename
     execfile(filename, rsre_core.__dict__)

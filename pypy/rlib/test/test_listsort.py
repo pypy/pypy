@@ -1,4 +1,4 @@
-import autopath
+import py
 from pypy.rlib.listsort import TimSort
 import random, os
 
@@ -35,9 +35,7 @@ def test_v():
         sorttest(lst1)
 
 def test_file():
-    for fn in os.listdir(autopath.this_dir):
-        if fn.endswith('.py'):
-            f = open(os.path.join(autopath.this_dir, fn), 'r')
-            lines1 = f.readlines()
-            f.close()
+    for fn in py.magic.autopath().dirpath().listdir():
+        if fn.ext == '.py': 
+            lines1 = fn.readlines()
             sorttest(lines1)
