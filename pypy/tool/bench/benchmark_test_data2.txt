@@ -1,0 +1,406 @@
+
+--date 1152797466.0  pqm@pqm.ubuntu.com-20060713133105-7c8e508aaa4886e2
+ 1976ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 4056ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13964ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28435ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  209ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   53ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  335ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  397ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  696ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  101ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  110ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  274ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2279ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1108ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  507ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   31ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  384ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  361ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152797874.33  pqm@pqm.ubuntu.com-20060713133754-64c134fffd39fd99
+ 2588ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3467ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13637ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28816ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  207ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   54ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  340ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  396ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   54ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  691ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+   98ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  105ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  280ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2229ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1309ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  504ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   31ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  294ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  380ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+
+--date 1152818329.6  pqm@pqm.ubuntu.com-20060713191849-c0cbdf94d208fa69
+ 1982ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3748ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13696ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28351ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  207ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   53ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  334ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  397ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  692ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+   99ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  107ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  281ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2296ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1119ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  503ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   30ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  507ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  353ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977475.32  pqm@pqm.ubuntu.com-20060715153115-59f1601f31ecc38f
+ 1982ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3512ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13703ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28276ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  211ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   53ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  333ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  397ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   56ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  694ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  110ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  271ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2259ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1548ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  511ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   30ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  296ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  387ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977476.32  pqm@pqm.ubuntu.com-20060715153115-59f1601f31ecc38f
+ 1962ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3512ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13703ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28276ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  211ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   53ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  333ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  397ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   56ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  694ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  110ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  271ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2259ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1548ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  511ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   30ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  296ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  387ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977477.32  pqm@pqm.ubuntu.com-20060715153115-59f1601f31ecc38f
+ 1962 bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3512ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13703ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28276ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  211ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   53ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  333ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  397ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   56ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   41ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   26ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  694ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  110ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  271ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2259ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1548ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  511ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+   30ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    0ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  296ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+  387ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977577.32  pqm@pqm.ubuntu.com-20060625211758-dd63e738364eff83
+ 2750ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3420ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13702ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28117ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  151ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  326ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  377ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   40ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   27ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  724ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  103ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  278ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2337ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1093ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  515ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+  405ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    2ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  290ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+ 1048ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977578.32  pqm@pqm.ubuntu.com-20060625211758-dd63e738364eff83
+ 2750ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3420ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13702ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28117ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  151ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  326ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  377ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   40ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   27ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  724ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  103ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  278ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2337ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1093ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  515ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+  405ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    2ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  290ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+ 1048ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
+
+--date 1152977579.32  pqm@pqm.ubuntu.com-20060625211758-dd63e738364eff83
+ 2750ms bzrlib.benchmarks.bench_add.AddBenchmark.test_one_add_kernel_like_tree
+
+ 3420ms bzrlib.benchmarks.bench_bench.MakeKernelLikeTreeBenchmark.test_make_kernel_like_tree
+
+13702ms bzrlib.benchmarks.bench_checkout.CheckoutBenchmark.test_build_kernel_like_tree
+
+28117ms bzrlib.benchmarks.bench_commit.CommitBenchmark.test_commit_kernel_like_tree
+
+  151ms bzrlib.benchmarks.bench_inventory.InvBenchmark.test_make_10824_inv_entries
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log
+
+  326ms bzrlib.benchmarks.bench_log.LogBenchmark.test_cmd_log_subprocess
+
+  377ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log
+
+   55ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful
+
+   40ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_line
+
+   27ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_screenful_short
+
+  724ms bzrlib.benchmarks.bench_log.LogBenchmark.test_log_verbose
+
+  100ms bzrlib.benchmarks.bench_log.LogBenchmark.test_merge_log
+
+  103ms bzrlib.benchmarks.bench_osutils.WalkDirsBenchmark.test_walkdirs_kernel_like_tree
+
+  278ms bzrlib.benchmarks.bench_rocks.RocksBenchmark.test_rocks
+
+ 2337ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_changes_known_kernel_like_tree
+
+ 1093ms bzrlib.benchmarks.bench_status.StatusBenchmark.test_no_ignored_unknown_kernel_like_tree
+
+  515ms bzrlib.benchmarks.bench_transform.TransformBenchmark.test_canonicalize_path
+
+  405ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_10824_calls
+
+    2ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_is_ignored_single_call
+
+  290ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_kernel_like_tree
+
+ 1048ms bzrlib.benchmarks.bench_workingtree.WorkingTreeBenchmark.test_list_files_unknown_kernel_like_tree
