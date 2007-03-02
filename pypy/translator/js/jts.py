@@ -14,6 +14,7 @@ from pypy.rlib.objectmodel import Symbolic
 from pypy.translator.js.log import log
 
 from types import FunctionType
+from pypy.rpython.extfunc import is_external
 
 try:
     set
@@ -97,7 +98,7 @@ class JTS(object):
             # FIXME: It's not ok to use always empty list
             val = "[]"
         elif isinstance(_type,StaticMethod):
-            if hasattr(v, 'graph'):
+            if hasattr(v, 'graph') and not is_external(v):
                 self.db.pending_function(v.graph)
             else:
                 self.db.pending_abstract_function(v)
