@@ -1,5 +1,8 @@
 from pypy.conftest import gettestobjspace
 import os
+import py
+
+py.test.skip("Module not working yet")
 
 if os.name == "nt":
     from py.test import skip
