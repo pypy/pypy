@@ -29,9 +29,9 @@ class ExtFuncEntry(ExtRegistryEntry):
         if self.signature_args is not None:
             self.signature_args = [annotation(arg, self.bookkeeper)
                                    for arg in self.signature_args]
-            assert len(args_s) == len(signature_args),\
+            assert len(args_s) == len(self.signature_args),\
                    "Argument number mismatch"
-            for arg, expected in zip(args_s, signature_args):
+            for arg, expected in zip(args_s, self.signature_args):
                 arg = unionof(arg, expected)
                 assert expected.contains(arg)
         self.signature_result = \
