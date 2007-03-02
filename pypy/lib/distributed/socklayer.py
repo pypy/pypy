@@ -1,5 +1,6 @@
 
 from pypeers.pipe.gsocket import GreenSocket
+from pypeers.msgstruct import decodemessage, message
 from socket import socket, AF_INET, SOCK_STREAM
 import marshal
 import sys
@@ -9,29 +10,39 @@ def trace(msg):
     if TRACE:
         print >>sys.stderr, msg
 
-def receive(conn):
-    all = []
-    data = conn.recv(10000)
-    trace("received %s" % data)
-    return marshal.loads(data)
+class SocketWrapper(object):
+    def __init__(self, conn):
+        self.buffer = ""
+        self.conn = conn
 
-def send(conn, data):
-    trace("sending %s" % (data,))
-    conn.send(marshal.dumps(data))
-    trace("done")
+    def receive(self):
+        msg, self.buffer = decodemessage(self.buffer)
+        while msg is None:
+            self.buffer += self.conn.recv(8192)
+            msg, self.buffer = decodemessage(self.buffer)
+        assert msg[0] == 'c'
+        trace("received %s" % msg[1])
+        return marshal.loads(msg[1])
 
-def socket_listener(address=('', 12121)):
+    def send(self, data):
+        trace("sending %s" % (data,))
+        self.conn.sendall(message('c', marshal.dumps(data)))
+        trace("done")
+
+def socket_listener(address=('', 12122)):
     s = GreenSocket(AF_INET, SOCK_STREAM)
     s.bind(address)
     s.listen(1)
     print "Waiting for connection"
     conn, addr = s.accept()
-    
-    return lambda data : send(conn, data), lambda : receive(conn)
+
+    sw = SocketWrapper(conn)
+    return sw.send, sw.receive
 
 def socket_connecter(address):
     s = GreenSocket(AF_INET, SOCK_STREAM)
     print "Connecting %s" % (address,)
     s.connect(address)
 
-    return lambda data : send(s, data), lambda : receive(s)
+    sw = SocketWrapper(s)
+    return sw.send, sw.receive
