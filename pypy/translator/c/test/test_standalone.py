@@ -118,3 +118,37 @@ def test_prof_inline():
     out = py.process.cmdexec("%s 500" % exe)
     assert int(out) == 500*501/2
     
+
+def test_dict_segfault():
+    py.test.skip('segfaults :(')
+    class Element:
+        pass
+
+    elements = [Element() for ii in range(10000)]
+
+    def dostuff():
+        reverse = {}
+        l = elements[:]
+
+        for ii in elements:
+            reverse[ii] = ii#Element()
+
+        for jj in range(100):
+            e = l[-1]
+            del reverse[e]
+            l.remove(e)
+
+    def f(args):
+        for ii in range(100):
+            dostuff()
+        return 0
+
+    t = TranslationContext()
+    t.config.translation.gc = 'framework'
+    t.buildannotator().build_types(f, [s_list_of_strings])
+    t.buildrtyper().specialize()
+
+    cbuilder = CStandaloneBuilder(t, f, t.config)
+    cbuilder.generate_source()
+    cbuilder.compile()
+    data = cbuilder.cmdexec('')
