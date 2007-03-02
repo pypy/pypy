@@ -16,7 +16,7 @@ import sys
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
         return op.opname in ("malloc", "malloc_varsize", "gc__collect",
-                             "gc_x_become")
+                             "gc_x_become", "zero_malloc_varsize", "zero_malloc")
 
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 

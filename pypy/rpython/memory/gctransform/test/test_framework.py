@@ -1,5 +1,5 @@
 from pypy.rpython.memory.gctransform.test.test_transform import rtype
-from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
+from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, CollectAnalyzer
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.gc import FrameworkGcPolicy
 from pypy.translator.translator import TranslationContext, graphof
@@ -45,3 +45,11 @@ def test_framework_simple():
     res = llinterp.eval_graph(entrygraph, [ll_argv])
 
     assert ''.join(res.chars) == "2"
+
+def test_cancollect():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    def g():
+        lltype.malloc(S, zero=True)
+    t = rtype(g, [])
+    gg = graphof(t, g)
+    assert CollectAnalyzer(t).analyze_direct_call(gg)
