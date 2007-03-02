@@ -1,4 +1,5 @@
 # encoding: utf-8
+from pypy.rlib.rarithmetic import r_uint
 
 DEBUG = False
 
@@ -62,6 +63,9 @@ class W_Root(object):
     
     def ToInt32(self):
         return 0
+    
+    def ToUInt32(self):
+        return r_uint(0)
     
     def Get(self, P):
         raise NotImplementedError
@@ -368,7 +372,7 @@ class W_String(W_Primitive):
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
-        self.floatval = floatval
+        self.floatval = float(floatval)
 
     def ToString(self):
         if str(self.floatval) == str(NaN):
@@ -402,6 +406,15 @@ class W_Number(W_Primitive):
             return 0
            
         return int(self.floatval)
+    
+    def ToUInt32(self):
+        strval = str(self.floatval)
+        if strval == str(NaN) or \
+           strval == str(Infinity) or \
+           strval == str(-Infinity):
+            return r_uint(0)
+           
+        return r_uint(self.floatval)
 
 class W_List(W_Root):
     def __init__(self, list_w):

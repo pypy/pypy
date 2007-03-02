@@ -3,7 +3,6 @@ import math
 from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
-from pypy.rlib.rarithmetic import r_uint
 
 class Node(object):
     opcode = None
@@ -492,25 +491,25 @@ class Ursh(BinaryComparisonOp):
     opcode = 'URSH'
     
     def decision(self, ctx, op1, op2):
-        a = op1.ToInt32()
-        b = op2.ToInt32()
-        return W_Number(int(r_uint(a) >> (r_uint(b) & 0x1F)))
+        a = op1.ToUInt32()
+        b = op2.ToUInt32()
+        return W_Number(a >> (b & 0x1F))
 
 class Rsh(BinaryComparisonOp):
     opcode = 'RSH'
     
     def decision(self, ctx, op1, op2):
         a = op1.ToInt32()
-        b = op2.ToInt32()
-        return W_Number(a >> int(r_uint(b) & 0x1F))
+        b = op2.ToUInt32()
+        return W_Number(a >> int(b & 0x1F))
 
 class Lsh(BinaryComparisonOp):
     opcode = 'LSH'
     
     def decision(self, ctx, op1, op2):
         a = op1.ToInt32()
-        b = op2.ToInt32()
-        return W_Number(a << int(r_uint(b) & 0x1F))
+        b = op2.ToUInt32()
+        return W_Number(a << int(b & 0x1F))
 
 class Ge(BinaryComparisonOp):
     opcode = 'GE'
