@@ -65,7 +65,7 @@ def builtin_range(*args):
         if step == 0:
             raise Exception, "range() with step zero"
         if s_start.is_constant() and s_stop.is_constant():
-            if len(range(s_start.const, s_stop.const, step)) == 0:
+            if len(xrange(s_start.const, s_stop.const, step)) == 0:
                 empty = True
     if empty:
         s_item = s_ImpossibleValue
