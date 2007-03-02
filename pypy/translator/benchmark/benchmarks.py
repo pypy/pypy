@@ -120,9 +120,9 @@ BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms')
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
               Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD,
-                        'ms', check_docutils),
+                        's', check_docutils),
               Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
-                        'ms', check_templess),
+                        's', check_templess),
              ]
 
 BENCHMARKS_BY_NAME = {}
