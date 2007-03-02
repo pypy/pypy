@@ -1,5 +1,5 @@
 # tests for the Ontology class
-import autopath
+
 import py
 from pypy.conftest import gettestobjspace
 
