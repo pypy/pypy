@@ -11,18 +11,18 @@ except:
     _, _, tb = sys.exc_info()
     GetSetDescriptor = type(type(tb).tb_frame)
 
-class noninstantiabletype(object):
-    def __new__(cls, *args, **kwargs):
-        raise NotImplementedError("Cannot instantiate remote type")
+class RemoteBase(object):
+    pass
 
 class ObjKeeper(object):
     def __init__(self, exported_names = {}):
         self.exported_objects = [] # list of object that we've exported outside
         self.exported_names = exported_names # dictionary of visible objects
-        self.exported_types = {} # list of exported types
+        self.exported_types = {} # dict of exported types
         self.remote_types = {}
         self.remote_objects = {}
         self.exported_types_id = 0 # unique id of exported types
+        self.exported_types_reverse = {} # reverse dict of exported types
     
     def register_object(self, obj):
         # XXX: At some point it makes sense not to export them again and again...
@@ -30,7 +30,7 @@ class ObjKeeper(object):
         return len(self.exported_objects) - 1
     
     def ignore(self, key, value):
-        if key in ('__dict__', '__weakref__', '__class__', '__new__'):
+        if key in ('__dict__', '__weakref__', '__class__'):
             return True
         if isinstance(value, GetSetDescriptor):
             return True
@@ -42,6 +42,7 @@ class ObjKeeper(object):
         except KeyError:
             print "Registering type %s as %s" % (tp, self.exported_types_id)
             self.exported_types[tp] = self.exported_types_id
+            self.exported_types_reverse[self.exported_types_id] = tp
             tp_id = self.exported_types_id
             self.exported_types_id += 1
         
@@ -56,15 +57,21 @@ class ObjKeeper(object):
     def fake_remote_type(self, protocol, type_id, _name, _dict):
         print "Faking type %s as %s" % (_name, type_id)
         # create and register new type
-        d = dict([(key, None) for key in _dict if key != '__new__'])
+        d = dict([(key, None) for key in _dict])
+        # some stuff needs to go first...
         if '__doc__' in _dict:
             d['__doc__'] = protocol.unwrap(_dict['__doc__'])
-        tp = type(_name, (noninstantiabletype,), d)
+        tp = type(_name, (RemoteBase,), d)
+        tp.__metaremote__ = type_id
         # Make sure we cannot instantiate the remote type
         self.remote_types[type_id] = tp
         for key, value in _dict.items():
             if key != '__doc__':
                 setattr(tp, key, protocol.unwrap(value))
+            #elif key == '__new__':
+            #    import pdb
+            #    pdb.set_trace()
+            #    tp.new = value
                     
     def get_type(self, id):
         return self.remote_types[id]

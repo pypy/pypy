@@ -198,11 +198,25 @@ class AppTestDistributedTasklets(object):
         else:
             raise AssertionError("Did not raise")
 
+    def test_remote_classmethod(self):
+        class A:
+            z = 8
+
+            @classmethod
+            def x(cls):
+                return cls.z
+
+        a = A()
+        protocol = self.test_env({'a':a})
+        xa = protocol.get_remote("a")
+        res = xa.x()
+        assert res == 8
+
     def test_instantiate_remote_type(self):
-        #skip("Land of infinite recursion")
+        skip("Doesn't work yet")
         class C:
             pass
 
         protocol = self.test_env({'C':C})
         xC = protocol.get_remote('C')
-        raises(NotImplementedError, "xC()")
+        xC()

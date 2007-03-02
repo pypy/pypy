@@ -41,7 +41,7 @@ try:
 except ImportError:
     raise ImportError("Cannot work without transparent proxy functionality")
 
-from distributed.objkeeper import ObjKeeper
+from distributed.objkeeper import ObjKeeper, RemoteBase
 import sys
 
 # XXX We do not make any garbage collection. We'll need it at some point
@@ -91,6 +91,7 @@ class AbstractProtocol(object):
         'tp' : None,
         'fr' : types.FrameType,
         'tb' : types.TracebackType,
+        'reg' : RemoteBase
     }
     type_letters = dict([(value, key) for key, value in letter_types.items()])
     assert len(type_letters) == len(letter_types)
@@ -131,6 +132,10 @@ class AbstractProtocol(object):
             id = self.keeper.register_object(obj)
             return (self.type_letters[tp], id)
         elif tp is type:
+            if isinstance(obj, RemoteBase):
+                import pdb
+                pdb.set_trace()
+                return "reg", obj.__metaremote__
             try:
                 return self.type_letters[tp], self.type_letters[obj]
             except KeyError:
@@ -156,6 +161,8 @@ class AbstractProtocol(object):
         tp = self.letter_types[tp_letter]
         if tp is None:
             return self.keeper.get_object(obj_data)
+        elif tp is RemoteBase:
+            return self.keeper.exported_types_reverse[obj_data]
         elif tp in self.immutable_primitives:
             return obj_data # this is the object
         elif tp is tuple:
@@ -179,6 +186,9 @@ class AbstractProtocol(object):
             name = self.unwrap(w_name)
             self_ = self.unwrap(w_self)
             if self_:
+                if not tp:
+                    setattr(self_, name, classmethod(self.unwrap(w_func)))
+                    return getattr(self_, name)
                 return getattr(tp, name).__get__(self_, tp)
             func = self.unwrap(w_func)
             setattr(tp, name, func)
@@ -368,4 +378,13 @@ def test_env(exported_names):
     inp, out = channel(), channel()
     remote_protocol = RemoteProtocol(inp.send, out.receive, exported_names)
     t = tasklet(remote_loop)(remote_protocol)
-    return RemoteProtocol(out.send, inp.receive)
+    
+    def send_trace(data):
+        print "Sending %s" % (data,)
+        out.send(data)
+
+    def receive_trace():
+        data = inp.receive()
+        print "Received %s" % (data,)
+        return data
+    return RemoteProtocol(send_trace, receive_trace)
