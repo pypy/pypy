@@ -164,6 +164,11 @@ class Function(object):
             target_label = self._get_block_name(link.target)
             self.end_catch(target_label)
 
+        self.after_except_block()
+
+    def after_except_block():
+        pass
+
     def record_ll_meta_exc(self, ll_meta_exc):
         self.db.constant_generator.record_const(ll_meta_exc)
 
