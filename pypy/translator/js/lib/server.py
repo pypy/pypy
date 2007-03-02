@@ -68,7 +68,8 @@ class TestHandler(BaseHTTPRequestHandler):
             if exec_meth is None:
                 self.send_error(404, "File %s not found" % path)
             else:
-                self.serve_data('text/json', json.write(exec_meth(**args)))
+                self.serve_data('text/json', json.write(exec_meth(**args)),
+                                True)
         else:
             if rest:
                 outp = method_to_call(rest, **args)
@@ -87,12 +88,22 @@ class TestHandler(BaseHTTPRequestHandler):
     
     do_POST = do_GET
     
-    def serve_data(self, content_type, data):
+    def serve_data(self, content_type, data, nocache=False):
         self.send_response(200)
         self.send_header("Content-type", content_type)
         self.send_header("Content-length", len(data))
+        if nocache:
+            self.send_nocache_headers()
         self.end_headers()
         self.wfile.write(data)
+
+    def send_nocache_headers(self):
+        self.send_header('Expires', 'Mon, 26 Jul 1997 05:00:00 GMT')
+        self.send_header('Last-Modified',
+                         time.strftime("%a, %d %b %Y %H:%M:%S GMT"))
+        self.send_header('Cache-Control', 'no-cache, must-revalidate')
+        self.send_header('Cache-Control', 'post-check=0, pre-check=0')
+        self.send_header('Pragma', 'no-cache')
 
 class Static(object):
     exposed = True

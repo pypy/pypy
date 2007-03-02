@@ -49,11 +49,11 @@ function strcmp(s1, s2) {
 }
 
 function startswith(s1, s2) {
-    if (s1.length<s2.length) {
+    if (s1.length < s2.length) {
         return(false);
     }
     for (i = 0; i < s2.length; ++i){
-        if (s1[i]!=s2[i]) {
+        if (s1.charAt(i) != s2.charAt(i)) {
             return(false);
         }
     }
@@ -61,11 +61,11 @@ function startswith(s1, s2) {
 }
 
 function endswith(s1, s2) {
-    if (s2.length>s1.length) {
+    if (s2.length > s1.length) {
         return(false);
     }
-    for (i = s1.length-s2.length; i<s1.length; ++i) {
-        if (s1[i]!=s2[i-s1.length+s2.length]) {
+    for (i = s1.length-s2.length; i < s1.length; ++i) {
+        if (s1.charAt(i) != s2.charAt(i - s1.length + s2.length)) {
             return(false);
         }
     }
@@ -73,16 +73,16 @@ function endswith(s1, s2) {
 }
 
 function splitchr(s, ch) {
-    var i, lst;
+    var i, lst, next;
     lst = [];
     next = "";
     for (i = 0; i<s.length; ++i) {
-        if (s[i] == ch) {
+        if (s.charAt(i) == ch) {
             lst.length += 1;
             lst[lst.length-1] = next;
             next = "";
         } else {
-            next += s[i];
+            next += s.charAt(i);
         }
     }
     lst.length += 1;
@@ -134,7 +134,7 @@ StringBuilder.prototype.ll_append_char = function(s) {
 }
 
 StringBuilder.prototype.ll_append = function(s) {
-    this.l += s;
+    this.l.push(s);
 }
 
 StringBuilder.prototype.ll_allocate = function(t) {

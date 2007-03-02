@@ -12,7 +12,8 @@ import autopath
 
 import sys, os, cStringIO
 from cgi import parse_qs
-from pypy.translator.js.modules.dom import setTimeout, document
+from pypy.translator.js.modules.dom import setTimeout, document, window
+from pypy.translator.js.modules.mochikit import connect, disconnect
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.rpython.extfunc import _callable
@@ -38,7 +39,7 @@ HTML_PAGE = """
 <p>Note that a default timeout for the console is 5 minutes, after that time
 console just dies and stops responding</p>
 
-    <pre id="data"></pre>
+    <div id="data"></div>
 
     <input id="inp" size="100" type="text" autocomplete="off"/>
 
@@ -57,7 +58,13 @@ def callback(data):
 
 def add_text(text):
     data_elem = document.getElementById("data")
-    data_elem.appendChild(document.createTextNode(text))
+    lines = text.split('\n')
+    lines.pop()
+    for line in lines:
+        pre = document.createElement('pre')
+        pre.style.margin = '0px'
+        pre.appendChild(document.createTextNode(line))
+        data_elem.appendChild(pre)
 
 class Storage(object):
     def __init__(self):
@@ -67,7 +74,7 @@ class Storage(object):
 storage = Storage()
 
 def keypressed(key):
-    kc = key.keyCode
+    kc = key._event.keyCode
     if kc == ord("\r"):
         inp_elem = document.getElementById("inp")
         cmd = inp_elem.value
@@ -88,7 +95,7 @@ def keypressed(key):
                 storage.level = 0
 
 def setup_page():
-    document.onkeypress = keypressed
+    connect(document, 'onkeypress', keypressed)
     document.getElementById("inp").focus()
 
 class Server(HTTPServer, BasicExternal):
@@ -177,6 +184,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", content_type)
         self.send_header("Content-length", len(data))
+        self.send_header('Expires', 'Mon, 26 Jul 1997 05:00:00 GMT')
+        self.send_header('Last-Modified',
+                         time.strftime("%a, %d %b %Y %H:%M:%S GMT"))
+        self.send_header('Cache-Control', 'no-cache, must-revalidate')
+        self.send_header('Cache-Control', 'post-check=0, pre-check=0')
+        self.send_header('Pragma', 'no-cache')
         self.end_headers()
         self.wfile.write(data)
 

@@ -3,6 +3,7 @@
 """
 
 from pypy.rpython.extfunc import _callable, register_external
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.modules import dom
 
 # MochiKit.LoggingPane
@@ -47,9 +48,17 @@ register_external(serializeJSON, args=None, result=str)
 
 # MochiKit.Signal
 
+class Event(BasicExternal):
+    pass
+
+Event._fields = {
+    '_event': dom.KeyEvent,
+}
+
+
 def connect(src, signal, dest):
     print 'connecting event %s' % (event,)
-register_external(connect, args=[dom.EventTarget, str, _callable([dom.Event])],
+register_external(connect, args=[dom.EventTarget, str, _callable([Event])],
                   result=int)
 
 def disconnect(id):
