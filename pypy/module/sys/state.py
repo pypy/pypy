@@ -22,8 +22,8 @@ class State:
 
     def setinitialpath(self, space): 
         # Initialize the default path
-        from pypy.interpreter import autopath
-        srcdir = os.path.dirname(autopath.pypydir)
+        pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+        srcdir = os.path.dirname(pypydir)
         path = getinitialpath(srcdir)
         self.w_path = space.newlist([space.wrap(p) for p in path])
 

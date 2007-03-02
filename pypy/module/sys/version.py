@@ -2,7 +2,6 @@
 Version numbers exposed by PyPy through the 'sys' module.
 """
 import os
-from pypy.interpreter import autopath
 
 
 CPYTHON_VERSION            = (2, 4, 1, "alpha", 42)
@@ -15,6 +14,10 @@ SVN_URL = "$HeadURL$"[10:-28]
 
 REV = "$LastChangedRevision$"[22:-2]
 
+
+import pypy
+pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
+del pypy
 
 # ____________________________________________________________
 
@@ -66,11 +69,11 @@ def svn_revision():
     # to depend on an external 'svn' executable in the path.
     rev = int(REV)
     try:
-        f = open(os.path.join(autopath.pypydir, '.svn', 'format'), 'r')
+        f = open(os.path.join(pypydir, '.svn', 'format'), 'r')
         format = int(f.readline().strip())
         f.close()
         if format <= 6: # Old XML-format
-            f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
+            f = open(os.path.join(pypydir, '.svn', 'entries'), 'r')
             for line in f:
                 line = line.strip()
                 if line.startswith('committed-rev="') and line.endswith('"'):
@@ -78,7 +81,7 @@ def svn_revision():
                     break
             f.close()
         else: # New format
-            f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
+            f = open(os.path.join(pypydir, '.svn', 'entries'), 'r')
             format = int(f.readline().strip())
             for entry in f.read().split('\f'):
                 lines = entry.split('\n')
