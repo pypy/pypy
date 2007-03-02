@@ -178,6 +178,12 @@ class ListImplementation(object):
 
     def make_implementation(self, list_w):
         space = self.space
+        if space.config.objspace.std.withsmartresizablelist:
+            from pypy.objspace.std.smartresizablelist import \
+                SmartResizableListImplementation
+            impl = SmartResizableListImplementation(space)
+            impl.extend(RListImplementation(space, list_w))
+            return impl
         if space.config.objspace.std.withfastslice:
             return SliceTrackingListImplementation(space, list_w)
         else:
@@ -657,6 +663,7 @@ class SliceListImplementation(ListImplementation):
             self.listimpl, self.start, self.stop)
 
 
+
 def is_homogeneous(space, list_w, w_type):
     for i in range(len(list_w)):
         if not space.is_w(w_type, space.type(list_w[i])):
@@ -665,6 +672,12 @@ def is_homogeneous(space, list_w, w_type):
 
 def make_implementation(space, list_w):
     if list_w:
+        if space.config.objspace.std.withsmartresizablelist:
+            from pypy.objspace.std.smartresizablelist import \
+                SmartResizableListImplementation
+            impl = SmartResizableListImplementation(space)
+            impl.extend(RListImplementation(space, list_w))
+            return impl
         if space.config.objspace.std.withfastslice:
             impl = SliceTrackingListImplementation(space, list_w)
         else:

@@ -114,3 +114,7 @@ class TestSliceListImplementation(object):
         impl2 = impl2.setitem(2, 5)
         assert impl2.getitem(2) == 5
 
+class AppTest_SmartListObject(test_listobject.AppTestW_ListObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{
+            "objspace.std.withsmartresizablelist": True})
