@@ -37,7 +37,7 @@ Not completely, at least not yet.
 The mostly likely stumbling block for any given project is support for
 `extension modules`_.  PyPy supports a small but continually growing
 number of extension modules, so far mostly those found in the standard
-library.  The `threading` support is also not perfectly complete.
+library.  The `threading`_ support is also not perfectly complete.
 
 The language features (including builtin types and functions) are very
 complete and well tested, so if your project does not use many
