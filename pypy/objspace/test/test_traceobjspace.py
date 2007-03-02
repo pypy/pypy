@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace import trace 
 from pypy.tool import pydis
 from pypy.interpreter import gateway 
