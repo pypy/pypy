@@ -166,7 +166,7 @@ class Function(object):
 
         self.after_except_block()
 
-    def after_except_block():
+    def after_except_block(self):
         pass
 
     def record_ll_meta_exc(self, ll_meta_exc):
