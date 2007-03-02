@@ -20,20 +20,13 @@ def add_text(txt):
 
 def refresh_console(msg):
     inp_elem = dom.document.getElementById("inp")
-    inp_elem.disabled = False
+    #inp_elem.disabled = False
     inp_elem.scrollIntoView()
     log(msg[0])
     if msg[0] == "refresh":
         data = msg[1]
         log(data)
-        if data.endswith(">>> ") or data.endswith("... "):
-            # prove positive slice here
-            l = len(data) - 4
-            assert l >= 0
-            glob.prompt = data[l:]
-            data = data[:l]
-        else:
-            exported_methods.refresh_empty(glob.sess_id, refresh_console)
+        exported_methods.refresh_empty(glob.sess_id, refresh_console)
         add_text(data)
     elif msg[0] == 'disconnect':
         dom.document.getElementById("error").innerHTML = "ERROR! disconnected"
@@ -44,7 +37,7 @@ def set_sessid(sessid):
 
 def empty_callback(msg):
     inp_elem = dom.document.getElementById("inp")
-    inp_elem.disabled = False
+    #inp_elem.disabled = False
     inp_elem.scrollIntoView()
 
 def keypressed(key):
@@ -53,12 +46,11 @@ def keypressed(key):
         inp_elem = dom.document.getElementById("inp")
         cmd = inp_elem.value
         inp_elem.value = ''
-        inp_elem.disabled = True
-        add_text(glob.prompt + cmd + "\n")
+        add_text(cmd + "\n")
         #if not cmd:
         #    exported_methods.refresh(glob.sess_id, cmd, empty_callback)
         #else:
-        exported_methods.refresh(glob.sess_id, cmd, refresh_console)
+        exported_methods.refresh(glob.sess_id, cmd + "\n", refresh_console)
 
 def console_onload():
     createLoggingPane(True)

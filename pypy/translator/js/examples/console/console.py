@@ -9,6 +9,7 @@ from pypy.translator.js.lib import server
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.lib.support import callback
 from pypy.translator.js import commproxy
+from pypy.translator.js.examples.console.session import Interpreter
 
 commproxy.USE_MOCHIKIT = True
 
@@ -19,35 +20,18 @@ def js_source():
     import client
     return rpython2javascript(client, FUNCTION_LIST)
 
-def run_console(python):
-    pipe = subprocess.Popen([python, "-u", "-i"], stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            close_fds=True, bufsize=0)
-    # a bit of a POSIX voodoo
-    fcntl.fcntl(pipe.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
-    return pipe
-
-def interact(pipe, to_write=None):
-    if to_write is not None:
-        pipe.stdin.write(to_write + "\n")
-    try:
-        return pipe.stdout.read()
-    except IOError:
-        time.sleep(.1)
-        return ""
-
 class Sessions(object):
     def __init__(self):
         self.sessions = {}
 
     def new_session(self):
-        pipe = run_console("python")
-        self.sessions[pipe.pid] = pipe
-        return pipe.pid
+        ip = Interpreter("python")
+        self.sessions[ip.pid] = ip
+        return ip.pid
 
     def update_session(self, pid, to_write=None):
-        pipe = self.sessions[pid]
-        return interact(pipe, to_write)
+        ip = self.sessions[pid]
+        return ip.interact(to_write)
 
 # We hack here, cause in exposed methods we don't have global 'server'
 # state
@@ -61,6 +45,7 @@ class ExportedMethods(server.ExportedMethods):
 
     @callback(retval=[str])
     def refresh(self, pid=0, to_write=""):
+        print "Refresh %s" % to_write
         try:
             return ["refresh", sessions.update_session(int(pid), to_write)]
         except KeyError:
@@ -68,6 +53,7 @@ class ExportedMethods(server.ExportedMethods):
 
     @callback(retval=[str])
     def refresh_empty(self, pid=0):
+        print "Empty refresh"
         try:
             return ["refresh", sessions.update_session(int(pid), None)]
         except KeyError:
