@@ -27,15 +27,11 @@ class _ext_callable(ExtRegistryEntry):
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
         if self.signature_args is not None:
-            self.signature_args = [annotation(arg, self.bookkeeper)
-                                   for arg in self.signature_args]
             assert len(args_s) == len(self.signature_args),\
                    "Argument number mismatch"
             for arg, expected in zip(args_s, self.signature_args):
                 arg = unionof(arg, expected)
                 assert expected.contains(arg)
-        self.signature_result = \
-               annotation(self.signature_result, self.bookkeeper)
         return self.signature_result
 
     def specialize_call(self, hop):
@@ -69,8 +65,8 @@ def register_external(function, args, result=None, export_name=None,
         if args is None:
             signature_args = None
         else:
-            signature_args = args
-        signature_result = result
+            signature_args = [annotation(arg, None) for arg in args]
+        signature_result = annotation(result, None)
         name=export_name
         if llimpl:
             lltypeimpl = llimpl
