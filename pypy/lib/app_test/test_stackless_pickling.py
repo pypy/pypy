@@ -5,14 +5,9 @@ I'm not entirely sure, how to do that.
 from py.test import skip
 try:
     import stackless
-    stackless_c = True
-    if 'coroutine' in dir(stackless):
-        stackless_c = False
-        raise ImportError("We are running pypy-c")
 except ImportError:
-    stackless_c = False
     try:
-        from pypy.lib import stackless_new as stackless
+        from pypy.lib import stackless as stackless
     except ImportError, e:
         skip('cannot import stackless: %s' % (e,))
 

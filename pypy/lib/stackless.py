@@ -273,7 +273,7 @@ class tasklet(coroutine):
         one, two, three = coroutine.__reduce__(self)
         assert one is coroutine
         assert two == ()
-        return tasklet, () (three, self.alive, self.tempval)
+        return tasklet, (), (three, self.alive, self.tempval)
 
     def __setstate__(self, (coro_state, alive, tempval)):
         coroutine.__setstate__(self, coro_state)

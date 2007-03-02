@@ -7,14 +7,9 @@ These tests are supposed to run on the following platforms:
 from py.test import skip
 try:
     import stackless
-    stackless_c = True
-    if 'coroutine' in dir(stackless):
-        stackless_c = False
-        raise ImportError("We are running pypy-c")
 except ImportError:
-    stackless_c = False
     try:
-        from pypy.lib import stackless_new as stackless
+        from pypy.lib import stackless
     except ImportError, e:
         skip('cannot import stackless: %s' % (e,))
 
@@ -23,11 +18,6 @@ SHOW_STRANGE = False
 def dprint(txt):
     if SHOW_STRANGE:
         print txt
-
-def pypy_skip(txt):
-    "don't skip, if we are running with CStackless"
-    if not stackless_c:
-        skip(txt)
 
 class Test_Stackless:
 
