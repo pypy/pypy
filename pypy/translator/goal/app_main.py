@@ -15,6 +15,8 @@ options:
 
 import sys, os
 
+DEBUG = False       # dump exceptions before calling the except hook
+
 originalexcepthook = sys.__excepthook__
 
 def run_toplevel(f, *fargs, **fkwds):
@@ -61,9 +63,8 @@ def run_toplevel(f, *fargs, **fkwds):
     except:
         etype, evalue, etraceback = sys.exc_info()
         try:
-            # XXX extra debugging info in case the code below goes very wrong
-            # XXX (temporary)
-            if hasattr(sys, 'stderr'):
+            # extra debugging info in case the code below goes very wrong
+            if DEBUG and hasattr(sys, 'stderr'):
                 s = getattr(etype, '__name__', repr(etype))
                 print >> sys.stderr, "debug: exception-type: ", s
                 print >> sys.stderr, "debug: exception-value:", str(evalue)
