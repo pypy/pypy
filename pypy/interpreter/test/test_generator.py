@@ -1,5 +1,4 @@
 from __future__ import generators
-import autopath
 
 class AppTestGenerator:
 

@@ -1,5 +1,4 @@
 
-import autopath
 from pypy.interpreter import gateway
 from pypy.interpreter import argument
 import py

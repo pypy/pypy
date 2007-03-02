@@ -1,5 +1,4 @@
 
-import autopath
 import unittest
 from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode

@@ -1,5 +1,4 @@
 
-import autopath
 from pypy.interpreter.module import Module
 
 class TestModule: 

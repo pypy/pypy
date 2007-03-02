@@ -1,5 +1,4 @@
 import __future__
-import autopath
 import py, sys
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.pycode import PyCode

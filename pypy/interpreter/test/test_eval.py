@@ -1,5 +1,4 @@
 
-import autopath
 from pypy.interpreter.eval import Frame
 from pypy.interpreter.pycode import PyCode
 

@@ -1,4 +1,3 @@
-import autopath
 from cStringIO import StringIO
 
 import py 

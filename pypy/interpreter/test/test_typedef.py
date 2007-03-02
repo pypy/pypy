@@ -1,4 +1,3 @@
-import autopath
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*

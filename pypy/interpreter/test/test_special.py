@@ -1,5 +1,4 @@
 
-import autopath 
 
 class AppTestSpecialTestCase:
     def test_Ellipsis(self):

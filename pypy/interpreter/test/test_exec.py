@@ -2,7 +2,6 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
-import autopath
 from pypy.tool.udir import udir
 
 

@@ -1,4 +1,3 @@
-import autopath
 from py.test import raises
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
