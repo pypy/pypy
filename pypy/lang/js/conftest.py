@@ -1,7 +1,7 @@
 import py
 
-dist_hosts = ['localhost:/tmp/jspypy', 'localhost']
-dist_rsync_roots = ['../../../',]
+dist_hosts = ['localhost', 'localhost']
+# dist_rsync_roots = [,]
 # dist_remotepython = 'python2.4'
 dist_nicelevel = 10 
 dist_boxed = False
