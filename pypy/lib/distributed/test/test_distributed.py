@@ -199,10 +199,10 @@ class AppTestDistributedTasklets(object):
             raise AssertionError("Did not raise")
 
     def test_instantiate_remote_type(self):
-        skip("Land of infinite recursion")
+        #skip("Land of infinite recursion")
         class C:
             pass
 
         protocol = self.test_env({'C':C})
         xC = protocol.get_remote('C')
-        xC()
+        raises(NotImplementedError, "xC()")

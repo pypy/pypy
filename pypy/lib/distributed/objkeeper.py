@@ -11,6 +11,10 @@ except:
     _, _, tb = sys.exc_info()
     GetSetDescriptor = type(type(tb).tb_frame)
 
+class noninstantiabletype(object):
+    def __new__(cls, *args, **kwargs):
+        raise NotImplementedError("Cannot instantiate remote type")
+
 class ObjKeeper(object):
     def __init__(self, exported_names = {}):
         self.exported_objects = [] # list of object that we've exported outside
@@ -52,10 +56,10 @@ class ObjKeeper(object):
     def fake_remote_type(self, protocol, type_id, _name, _dict):
         print "Faking type %s as %s" % (_name, type_id)
         # create and register new type
-        d = dict([(key, None) for key in _dict])
+        d = dict([(key, None) for key in _dict if key != '__new__'])
         if '__doc__' in _dict:
             d['__doc__'] = protocol.unwrap(_dict['__doc__'])
-        tp = type(_name, (object,), d)
+        tp = type(_name, (noninstantiabletype,), d)
         # Make sure we cannot instantiate the remote type
         self.remote_types[type_id] = tp
         for key, value in _dict.items():
