@@ -80,7 +80,7 @@ class Test_Stackless:
             assert s == 's%s' % i
             assert r == 'r%s' % i
 
-    def test_counter(self):
+    def test_send_counter(self):
         import random
 
         numbers = range(20)
@@ -100,6 +100,31 @@ class Test_Stackless:
         rlist = []
         while ch.balance:
             rlist.append(ch.receive())
+
+        numbers.sort()
+        assert rlist == numbers
+
+    def test_receive_counter(self):
+        import random
+
+        numbers = range(20)
+        random.shuffle(numbers)
+
+        rlist = []
+        def counter(n, ch):
+            for i in xrange(n):
+                stackless.schedule()
+            ch.receive()
+            rlist.append(n)
+
+        ch = stackless.channel()
+        for each in numbers:
+            stackless.tasklet(counter)(each, ch)
+
+        stackless.run()
+
+        while ch.balance:
+            ch.send(None)
 
         numbers.sort()
         assert rlist == numbers
@@ -373,6 +398,7 @@ class Test_Stackless:
         maintask = stackless.getmain()
         stackless.run()
         assert res == ['A_1', 'A_2', 'B_1', 'B_2']
+        assert len(cb) == 5
         assert cb[0] == (maintask, t1)
         assert cb[1] == (t1, t2)
         assert cb[2] == (t2, t1)
@@ -491,13 +517,6 @@ class Test_Stackless:
         A tasklets/channels adaptation of the test_wait_two from the
         logic object space
         """
-        # there are still problems with scheduling. Apparently,
-        # some leftover tasklets in the queue are messing
-        # things up. This test runs fine, when being alone
-        # in a test file
-        if not SHOW_STRANGE:
-            pypy_skip("still problems with scheduling")
-
         def sleep(X, Y):
             dprint('twt_S ==== 1')
             value = X.receive()
@@ -534,23 +553,6 @@ class Test_Stackless:
         dprint('twt ==== 4')
         assert value == (2, 42)
         
-    def test_noop(self):
-        """
-        this test is from pypy/lib/test2.
-        Left it in for documentation purposes.
-        "switch" is not officially in the tasklet interface. It it just
-        an implementation detail, that tasklets are descendents from
-        coroutines, which do have a 'switch' method
-        """
-        skip("this test does not make sense at the moment")
-        main = stackless.getcurrent()
-
-        def switch_to_main():
-            main.switch()
-        
-        t = stackless.tasklet(switch_to_main)()
-        stackless.run()
-
 
 
 
