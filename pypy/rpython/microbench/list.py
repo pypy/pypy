@@ -1,6 +1,6 @@
 from pypy.rpython.microbench.microbench import MetaBench
 
-class ListAppend:
+class list__append:
     __metaclass__ = MetaBench
     def init():
         return []
@@ -8,7 +8,7 @@ class ListAppend:
     def loop(obj, i):
         obj.append(i)
     
-class ListGetItem:
+class list__get_item:
     __metaclass__ = MetaBench
     LOOPS = 100000000
     def init():
@@ -20,7 +20,7 @@ class ListGetItem:
     def loop(obj, i):
         return obj[i%1000]
 
-class ListSetItem:
+class list__set_item:
     __metaclass__ = MetaBench
     LOOPS = 100000000
     def init():
@@ -32,7 +32,7 @@ class ListSetItem:
     def loop(obj, i):
         obj[i%1000] = i
 
-class FixedListGetItem:
+class fixed_list__get_item:
     __metaclass__ = MetaBench
     LOOPS = 100000000
     def init():
@@ -41,7 +41,7 @@ class FixedListGetItem:
     def loop(obj, i):
         return obj[i%1000]
 
-class FixedListSetItem:
+class fixed_list__set_item:
     __metaclass__ = MetaBench
     LOOPS = 100000000
     def init():

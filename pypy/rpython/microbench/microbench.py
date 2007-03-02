@@ -90,7 +90,7 @@ def main():
     c_res = run_benchmark(c_exe)
     cli_res = run_benchmark(cli_exe)
 
-    print 'benchmark                       genc     gencli       ratio'
+    print 'benchmark                              genc     gencli       ratio'
     print
     for name, _ in benchmarks:
         c_time = c_res[name]
@@ -99,7 +99,7 @@ def main():
             ratio = '%10s' % '---'
         else:
             ratio = '%10.2f' % (cli_time/c_time)
-        print '%-25s %10.2f %10.2f %s' % (name, c_time, cli_time, ratio)
+        print '%-32s %10.2f %10.2f %s' % (name, c_time, cli_time, ratio)
 
 if __name__ == '__main__':
     main()
