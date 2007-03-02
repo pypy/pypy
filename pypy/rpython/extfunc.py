@@ -27,15 +27,16 @@ class _ext_callable(ExtRegistryEntry):
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
         if self.signature_args is not None:
-            signature_args = [annotation(arg, self.bookkeeper)
-                              for arg in self.signature_args]
+            self.signature_args = [annotation(arg, self.bookkeeper)
+                                   for arg in self.signature_args]
             assert len(args_s) == len(signature_args),\
                    "Argument number mismatch"
             for arg, expected in zip(args_s, signature_args):
                 arg = unionof(arg, expected)
                 assert expected.contains(arg)
-        signature_result = annotation(self.signature_result, self.bookkeeper)
-        return signature_result
+        self.signature_result = \
+               annotation(self.signature_result, self.bookkeeper)
+        return self.signature_result
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper
