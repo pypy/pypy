@@ -267,6 +267,8 @@ class base_int(long):
 class signed_int(base_int):
     SIGNED = True
     def __new__(klass, val=0):
+        if type(val) is float:
+            val = long(val)
         if val > klass.MASK>>1 or val < -(klass.MASK>>1)-1:
             raise OverflowError("%s does not fit in signed %d-bit integer"%(val, klass.BITS))
         if val < 0:
@@ -277,6 +279,8 @@ class signed_int(base_int):
 class unsigned_int(base_int):
     SIGNED = False
     def __new__(klass, val=0):
+        if type(val) is float:
+            val = long(val)
         return super(unsigned_int, klass).__new__(klass, val & klass.MASK)
     typemap = {}
 

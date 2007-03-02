@@ -139,6 +139,15 @@ class Test_r_uint:
                         res = res & mask
                     assert res == cmp
 
+    def test_from_float(self):
+        assert r_uint(2.3) == 2
+        assert r_uint(sys.maxint * 1.234) == long(sys.maxint * 1.234)
+
+    def test_to_float(self):
+        assert float(r_uint(2)) == 2.0
+        val = long(sys.maxint * 1.234)
+        assert float(r_uint(val)) == float(val)
+
 def test_mixed_types():
     types = [r_uint, r_ulonglong]
     for left in types:

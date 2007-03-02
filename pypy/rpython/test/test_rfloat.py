@@ -1,6 +1,8 @@
+import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.rlib.rarithmetic import r_uint
 
 class TestSnippet(object):
 
@@ -57,6 +59,25 @@ class BaseTestRfloat(BaseRtypingTest):
         assert type(res) is int 
         res = self.interpret(fn, [2.34])
         assert res == fn(2.34) 
+
+    def test_to_r_uint(self):
+        def fn(x):
+            return r_uint(x)
+
+        res = self.interpret(fn, [12.34])
+        assert res == 12
+        bigval = sys.maxint * 1.234
+        res = self.interpret(fn, [bigval])
+        assert long(res) == long(bigval)
+
+    def test_from_r_uint(self):
+        def fn(n):
+            return float(r_uint(n)) / 2
+
+        res = self.interpret(fn, [41])
+        assert res == 20.5
+        res = self.interpret(fn, [-9])
+        assert res == 0.5 * ((sys.maxint+1)*2 - 9)
 
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
