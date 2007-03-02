@@ -251,7 +251,7 @@ class RListImplementation(ListImplementation):
         return "RListImplementation(%s)" % (self.list_w, )
 
 class EmptyListImplementation(ListImplementation):
-    def make_impl(self, w_item):
+    def make_list_with_one_item(self, w_item):
         space = self.space
         if space.config.objspace.std.withfastslice:
             return SliceTrackingListImplementation(space, [w_item])
@@ -284,13 +284,13 @@ class EmptyListImplementation(ListImplementation):
         raise IndexError
 
     def insert(self, i, w_item):
-        return self.make_impl(w_item)
+        return self.make_list_with_one_item(w_item)
 
     def add(self, other):
         return other.copy()
 
     def append(self, w_item):
-        return self.make_impl(w_item)
+        return self.make_list_with_one_item(w_item)
 
     def extend(self, other):
         return other.copy()
