@@ -79,9 +79,11 @@ def register_external(function, args, result=None, export_name=None,
         FunEntry.__name__ = function.func_name
 
 def is_external(func):
-    if getattr(func.value._callable, 'suggested_primitive', False):
+    if hasattr(func, 'value'):
+        func = func.value
+    if getattr(func._callable, 'suggested_primitive', False):
         return True
-    if hasattr(func.value, '_entry'):
-        if isinstance(func.value._entry, ExtFuncEntry):
+    if hasattr(func, '_entry'):
+        if isinstance(func._entry, ExtFuncEntry):
             return True
     return False
