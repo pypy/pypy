@@ -1,6 +1,6 @@
 import os
 import py
-from benchmark_report import (
+from htmlreport import (
         PerfResult, PerfTable, PerfResultCollection,
         PerfResultDelta, Page
 )
