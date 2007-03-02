@@ -169,7 +169,7 @@ class SmartResizableListImplementation(ListImplementation):
 
     def insert(self, i, w_item):
         self.grow()
-        for x in range(self._length - 1, i - 1, -1):
+        for x in range(self._length - 2, i - 1, -1):
             self.setitem(x + 1, self.getitem(x))
         self.setitem(i, w_item)
         return self
