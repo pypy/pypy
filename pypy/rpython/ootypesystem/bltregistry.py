@@ -206,6 +206,8 @@ class Entry_basicexternal(ExtRegistryEntry):
     _type_ = BasicExternal.__metaclass__
     
     def compute_result_annotation(self):
+        if self.bookkeeper is None:
+            return annmodel.SomeExternalBuiltin(ExternalType(self.instance))
         return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc(self.instance))
     
     def specialize_call(self, hop):
