@@ -395,6 +395,12 @@ class W_Number(W_Primitive):
         return 'number'
     
     def ToInt32(self):
+        strval = str(self.floatval)
+        if strval == str(NaN) or \
+           strval == str(Infinity) or \
+           strval == str(-Infinity):
+            return 0
+           
         return int(self.floatval)
 
 class W_List(W_Root):

@@ -50,7 +50,7 @@ var GLOBAL = "[object global]";
 var PASSED = " PASSED!"
 var FAILED = " FAILED! expected: ";
 
-var DEBUG = true;
+var DEBUG = false;
 
 var DESCRIPTION;
 var EXPECTED;
@@ -218,7 +218,7 @@ function writeFormattedResult( expect, actual, string, passed ) {
 }
 
 function writeHeaderToLog( string ) {
-  print( string );
+  // print( string );
 }
 /* end of print functions */
 

@@ -3,6 +3,7 @@ import math
 from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
+from pypy.rlib.rarithmetic import r_uint
 
 class Node(object):
     opcode = None
@@ -156,6 +157,9 @@ def absjs(ctx, args, this):
 def floorjs(ctx, args, this):
     return W_Number(math.floor(args[0].ToNumber()))
 
+def powjs(ctx, args, this):
+    return W_Number(math.pow(args[0].ToNumber(), args[1].ToNumber()))
+    
 def versionjs(ctx, args, this):
     return w_Undefined
 
@@ -187,6 +191,7 @@ class Interpreter(object):
         w_math.Put('__proto__',  w_ObjPrototype)
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
+        w_math.Put('pow', W_Builtin(powjs, Class='function'))
         w_math.Put('E', W_Number(math.e))
         w_math.Put('PI', W_Number(math.pi))
         
@@ -351,6 +356,7 @@ class Call(BinaryOp):
             r7 = None
         else:
             r7 = r6
+        
         retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
         return retval
 
@@ -481,6 +487,30 @@ class And(BinaryLogicOp):
             return s2
         s4 = self.right.eval(ctx).GetValue()
         return s4
+
+class Ursh(BinaryComparisonOp):
+    opcode = 'URSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToInt32()
+        b = op2.ToInt32()
+        return W_Number(r_uint(a) >> (r_uint(b) & 0x1F))
+
+class Rsh(BinaryComparisonOp):
+    opcode = 'RSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToInt32()
+        b = op2.ToInt32()
+        return W_Number(a >> int(r_uint(b) & 0x1F))
+
+class Lsh(BinaryComparisonOp):
+    opcode = 'LSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToInt32()
+        b = op2.ToInt32()
+        return W_Number(a << int(r_uint(b) & 0x1F))
 
 class Ge(BinaryComparisonOp):
     opcode = 'GE'
@@ -842,6 +872,7 @@ class Script(Statement):
             ctx.variable.Put(var.name, w_Undefined)
         for fun in self.func_decl:
             ctx.variable.Put(fun.name, fun.eval(ctx))
+            
         
         node = self
 
