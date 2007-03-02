@@ -337,7 +337,7 @@ class StrListImplementation(ListImplementation):
         assert 0 <= start < len(self.strlist)
         assert 0 <= stop < len(self.strlist)
         assert slicelength > 0
-        res = [0] * slicelength
+        res = [""] * slicelength
         for i in range(slicelength):
             res[i] = self.strlist[start]
             start += step

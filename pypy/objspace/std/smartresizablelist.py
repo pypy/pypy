@@ -159,7 +159,6 @@ class SmartResizableListImplementation(ListImplementation):
         self.data_blocks[a][b] = value
 
     def getitem_slice(self, start, stop):
-        # XXX make default implementation?
         l = stop - start
         result = SmartResizableListImplementation(self.space)
         result.grow(l)
