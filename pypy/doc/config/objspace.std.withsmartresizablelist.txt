@@ -1,0 +1,4 @@
+Enable a list implementation that overallocates only O(sqrt(n)) elements
+instead of O(n) elements. See "Resizable Arrays in Optimal time and Space"
+Brodnik, Carlsson, Demaine, Munro, Sedgewick, 1999
+
