@@ -437,7 +437,7 @@ class ExecutionContext(object):
         self.variable = obj
     
     def pop_object(self):
-        """docstring for pop_object"""
+        """remove the last pushed object"""
         return self.scope.pop(0)
         
     def resolve_identifier(self, identifier):

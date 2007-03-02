@@ -969,6 +969,24 @@ class Void(UnaryOp):
         self.expr.eval(ctx)
         return w_Undefined
 
+class With(Statement):
+    opcode = "WITH"
+    
+    def from_tree(self, t):
+        self.object = get_obj(t, 'object')
+        self.body = get_obj(t, 'body')
+
+    def execute(self, ctx):
+        obj = self.object.eval(ctx).GetValue().ToObject()
+        ctx.push_object(obj)
+
+        try:
+            retval = self.body.execute(ctx)
+        finally:
+            ctx.pop_object()
+        return retval
+
+
 class WhileBase(Statement):
     def from_tree(self, t):
         self.condition = get_obj(t, 'condition')

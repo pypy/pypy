@@ -478,3 +478,21 @@ class TestInterp(object):
         print(2 !== 3)
         print(2 !== 2)    
         """, ['true', 'false', 'true', 'false'])
+    
+    def test_with(self):
+        self.assert_prints("""
+        var mock = {x:2}
+        var x=4
+        print(x)
+        try {
+            with(mock) {
+                print(x)
+                throw 3
+                print("not reacheable")
+            }
+        }
+        catch(y){
+            print(y)
+        }
+        print(x)
+        """, ['4', '2', '3', '4'])
