@@ -20,11 +20,12 @@ def get_result(txt, pattern):
     return float(line.split()[len(pattern.split())])
 
 class Benchmark(object):
-    def __init__(self, name, runner, asc_good, units):
+    def __init__(self, name, runner, asc_good, units, check=lambda:True):
         self.name = name
         self._run = runner
         self.asc_good = asc_good
         self.units = units
+        self.check = check
     def run(self, exe):
         try:
             return self._run(exe)
@@ -62,9 +63,39 @@ def run_translate(executable='/usr/local/bin/python'):
         raise BenchmarkFailed(status)
     return r
 
+def run_docutils(executable='/usr/local/bin/python'):
+    docutilssvnpathfile = py.magic.autopath().dirpath().join("docutilssvnpath")
+    docutilssvnpath = docutilssvnpathfile.read().strip()
+    translatetxt = py.magic.autopath().dirpath().dirpath().dirpath().join('doc').join('translation.txt')
+    command = """import sys
+sys.path[0:0] = ['%s', '%s/extras']
+from docutils.core import publish_cmdline
+publish_cmdline(writer_name='html')
+"""%(docutilssvnpath, docutilssvnpath)
+    T = time.time()
+    pid = os.fork()
+    if not pid:
+        davenull = os.open('/dev/null', os.O_RDWR)
+        os.dup2(davenull, 0)
+        os.dup2(davenull, 1)
+        os.dup2(davenull, 2)
+        status = os.spawnv(os.P_WAIT, executable, [executable, '-c', command, str(translatetxt)])
+        os._exit(status)
+    else:
+        status = os.waitpid(pid, 0)[1]
+    r = time.time() - T
+    if status:
+        raise BenchmarkFailed(status)
+    return r
+
+def check_docutils():
+    docutilssvnpathfile = py.magic.autopath().dirpath().join("docutilssvnpath")
+    return docutilssvnpathfile.check()
+
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
               Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
+              Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD, 'ms', check_docutils),
              ]
 
 BENCHMARKS_BY_NAME = {}
