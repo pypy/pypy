@@ -92,10 +92,37 @@ def check_docutils():
     docutilssvnpathfile = py.magic.autopath().dirpath().join("docutilssvnpath")
     return docutilssvnpathfile.check()
 
+def run_templess(executable='/usr/local/bin/python'):
+    """ run some script in the templess package
+
+        templess is some simple templating language, to check out use
+        'svn co http://johnnydebris.net/templess/trunk templess'
+    """
+    here = py.magic.autopath().dirpath()
+    pypath = py.__package__.getpath().dirpath()
+    templessdir = here.join('templess')
+    testscript = templessdir.join('test/oneshot.py')
+    command = 'PYTHONPATH="%s:%s" "%s" "%s" 100' % (here, pypath,
+                                                    executable, testscript)
+    txt = run_cmd(command)
+    try:
+        result = float([line for line in txt.split('\n') if line.strip()][-1])
+    except ValueError:
+        raise IOError(txt)
+    return result
+
+def check_templess():
+    templessdir = py.magic.autopath().dirpath().join('templess')
+    return templessdir.check()
+    
+
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
               Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
-              Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD, 'ms', check_docutils),
+              Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD,
+                        'ms', check_docutils),
+              Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
+                        'ms', check_templess),
              ]
 
 BENCHMARKS_BY_NAME = {}
