@@ -1,4 +1,3 @@
-import autopath
 from pypy.interpreter import module, eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode

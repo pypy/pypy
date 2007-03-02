@@ -1,5 +1,3 @@
-import autopath
-
 from pypy.interpreter import error
 from pypy.interpreter import baseobjspace, module, main
 import sys
