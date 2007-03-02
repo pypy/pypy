@@ -38,7 +38,7 @@ def run_cmd(cmd):
     r = pipe.read()
     status = pipe.close()
     if status:
-        print "warning: %r had exit status %s"%(cmd, status)
+        raise BenchmarkFailed(status)
     return r
 
 def run_pystone(executable='/usr/local/bin/python', n=''):
