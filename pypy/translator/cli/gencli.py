@@ -80,7 +80,11 @@ class GenCli(GenOO):
 
         ilasm = SDK.ilasm()
         tmpfile = self.tmpfile.strpath
-        self._exec_helper(ilasm, tmpfile, 'ilasm failed to assemble (%s):\n%s\n%s')
+        self._exec_helper(ilasm, tmpfile,
+                          'ilasm failed to assemble (%s):\n%s\n%s',
+                          timeout = 900)
+        # Mono's ilasm occasionally deadlocks.  We set a timer to avoid
+        # blocking automated test runs forever.
 
         exefile = tmpfile.replace('.il', '.exe')
         if getoption('verify'):
@@ -88,8 +92,14 @@ class GenCli(GenOO):
             self._exec_helper(peverify, exefile, 'peverify failed to verify (%s):\n%s\n%s')
         return exefile
 
-    def _exec_helper(self, helper, filename, msg):
-        proc = subprocess.Popen([helper, filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def _exec_helper(self, helper, filename, msg, timeout=None):
+        args = [helper, filename]
+        if timeout and not sys.platform.startswith('win'):
+            import os
+            from pypy.tool import autopath
+            watchdog = os.path.join(autopath.pypydir, 'tool', 'watchdog.py')
+            args[:0] = [sys.executable, watchdog, str(float(timeout))]
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         retval = proc.wait()
         assert retval == 0, msg % (filename, stdout, stderr)
