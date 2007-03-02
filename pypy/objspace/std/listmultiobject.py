@@ -343,11 +343,11 @@ class StrListImplementation(ListImplementation):
             start += step
         return StrListImplementation(self.space, res)
 
-    def delitem(self, index):
+    def delitem(self, i):
         assert 0 <= i < len(self.strlist)
         if len(self.strlist) == 1:
             return self.space.fromcache(State).empty_impl
-        del self.strlist[index]
+        del self.strlist[i]
         return self
 
     def delitem_slice(self, start, stop):

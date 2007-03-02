@@ -21,6 +21,11 @@ class AppTest_ListMultiObject(test_listobject.AppTestW_ListObject):
         l = ["1", "2", "3", "4", "5"]
         assert "StrListImplementation" in pypymagic.pypy_repr(l)
 
+    def test_strlist_delitem(self):
+        l = ["1", "2"]
+        del l[0]
+        assert l == ["2"]
+
     def test_strlist_append(self):
         import pypymagic
         l = []
