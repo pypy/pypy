@@ -494,7 +494,7 @@ class Ursh(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         a = op1.ToInt32()
         b = op2.ToInt32()
-        return W_Number(r_uint(a) >> (r_uint(b) & 0x1F))
+        return W_Number(int(r_uint(a) >> (r_uint(b) & 0x1F)))
 
 class Rsh(BinaryComparisonOp):
     opcode = 'RSH'
