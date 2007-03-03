@@ -46,3 +46,12 @@ def test_isinstance2():
         isinstance(1, int)
         isinstance("foo", basestring)
 
+def test_isinstance3():
+    b2 = baz()
+    for x in xrange(100000):
+        isinstance(b2, (bar, baz))
+        isinstance(b2, (bar, baz))
+        isinstance(b2, (bar, baz))
+        isinstance(b2, (bar, baz))
+        isinstance(b2, (bar, baz))
+
