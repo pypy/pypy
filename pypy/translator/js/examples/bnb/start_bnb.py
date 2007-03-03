@@ -7,9 +7,9 @@ import autopath
 import py
 
 from pypy.translator.js.main import rpython2javascript
-from pypy.translator.js.modules.dom import document
+from pypy.translator.js.modules.dom import document, window
 from pypy.translator.js.modules.mochikit import log, logWarning,\
-     createLoggingPane, logDebug
+     createLoggingPane, logDebug, connect
 from pypy.translator.js.examples.bnb.bnb import exported_methods
 from pypy.translator.js import commproxy
 
@@ -71,8 +71,11 @@ class SpriteManager(object):
         #except IndexError:
         stats.n_sprites += 1
         img = document.createElement("img")
-        img.setAttribute("src", self.filenames[icon_code])
-        img.setAttribute("style", 'position:absolute; left:'+x+'px; top:'+y+'px; visibility:visible')
+        img.src = self.filenames[icon_code]
+        img.style.position = 'absolute'
+        img.style.left = x + 'px'
+        img.style.top = y + 'px'
+        img.style.visibility = 'visible'
         document.getElementById("playfield").appendChild(img)
         try:
             self.sprites[s].style.visibility = "hidden"
@@ -138,24 +141,31 @@ class KeyManager(object):
 km = KeyManager()
 
 def appendPlayfield(msg):
+    body = document.getElementsByTagName('body')[0]
     bgcolor = '#000'
-    document.body.setAttribute('bgcolor', bgcolor)
+    body.style.backgroundColor = bgcolor
     div = document.createElement("div")
-    div.setAttribute("id", "playfield")
-    div.setAttribute('width', msg['width'])
-    div.setAttribute('height', msg['height'])
-    div.setAttribute('style', 'position:absolute; top:0px; left:0px')
+    div.id = 'playfield'
+    div.style.width = msg['width']
+    div.style.height = msg['height']
+    div.style.position = 'absolute'
+    div.style.top = '0px'
+    div.style.left = '0px'
+    div.appendChild(document.createTextNode('foobar?'))
+
     #document.body.childNodes.insert(0, div)
-    document.body.appendChild(div)
+    body.appendChild(div)
 
 def appendPlayfieldXXX():
     bgcolor = '#000000'
     document.body.setAttribute('bgcolor', bgcolor)
     div = document.createElement("div")
-    div.setAttribute("id", "playfield")
-    div.setAttribute('width', 500)
-    div.setAttribute('height', 250)
-    div.setAttribute('style', 'position:absolute; top:0px; left:0px')
+    div.id = 'playfield'
+    div.style.width = 500
+    div.style.height = 250
+    div.style.position = 'absolute'
+    div.style.top = '0px'
+    div.style.left = '0px'
     document.body.appendChild(div)
 
 def process_message(msg):
@@ -211,6 +221,7 @@ def addPlayer(player_id):
 def keydown(key):
     #c = chr(int(key.keyCode)).lower()
     #c = int(key.keyCode)
+    key = key._event
     try:
         c = key.keyCode
         if c > ord('0') and c < ord('9'):
@@ -224,6 +235,7 @@ def keydown(key):
         log(str(e))
 
 def keyup(key):
+    key = key._event
     c = key.keyCode
     if c > ord('0') and c < ord('9'):
         pass    #don't print warning
@@ -249,8 +261,8 @@ def render_frame(msgs):
 
 def session_dispatcher(sessionid):
     player.sessionid = sessionid
-    document.onkeydown = keydown
-    document.onkeyup   = keyup
+    connect(document, 'onkeydown', keydown)
+    connect(document, 'onkeyup', keyup)
     exported_methods.get_message(player.sessionid, player.id, "",
                                  bnb_dispatcher)
 
