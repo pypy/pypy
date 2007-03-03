@@ -68,6 +68,7 @@ def run_docutils(executable='/usr/local/bin/python'):
     docutilssvnpath = docutilssvnpathfile.read().strip()
     translatetxt = py.magic.autopath().dirpath().dirpath().dirpath().join('doc').join('translation.txt')
     command = """import sys
+sys.modules['unicodedata'] = sys # docutils need 'import unicodedata' to work, but no more...
 sys.path[0:0] = ['%s', '%s/extras']
 from docutils.core import publish_cmdline
 publish_cmdline(writer_name='html')
