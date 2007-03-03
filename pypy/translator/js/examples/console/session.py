@@ -13,25 +13,9 @@ after TIMEOUT
 import py
 import subprocess
 from Queue import Queue
-from pypeers.greensock2 import autogreenlet, sleep, wait, meetingpoint
+from pypeers.greensock2 import autogreenlet, Timer, wait, meetingpoint,\
+     Interrupted
 from pypeers.pipe.fd import FDInput
-
-def timeout_read(fd, timeout):
-    read = []
-    giver, accepter = meetingpoint()
-    
-    def timeout_fun():
-        sleep(timeout)
-        giver.give(None)
-        g_read.interrupt()
-
-    def read_fun():
-        giver.give(fd.recv(1024))
-        g_timer.interrupt()
-
-    g_timer = autogreenlet(timeout_fun)
-    g_read = autogreenlet(read_fun)
-    return accepter.accept()
     
 class Interpreter(object):
     def __init__(self, python, timeout=TIMEOUT):
@@ -43,10 +27,24 @@ class Interpreter(object):
         self.pid = pipe.pid
         self.timeout = timeout
 
+    def timeout_read(self, fd, timeout):
+        timer = Timer(timeout)
+        try:
+            data = fd.recv(1024)
+        except Interrupted:
+            data = None
+        else:
+            timer.stop()
+        return data
+
+    def write_only(self, to_write):
+        if to_write:
+            self.pipe.stdin.write(to_write)
+
     def interact(self, to_write=None):
         if to_write is not None:
             self.pipe.stdin.write(to_write)
-        return timeout_read(self.read_fd, self.timeout)
+        return self.timeout_read(self.read_fd, self.timeout)
 
     def close(self):
         self.pipe.stdin.close()

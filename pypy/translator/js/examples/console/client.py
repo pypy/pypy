@@ -53,7 +53,7 @@ def keypressed(key):
         exported_methods.refresh(glob.sess_id, cmd + "\n", refresh_console)
 
 def console_onload():
-    createLoggingPane(True)
+    #createLoggingPane(True)
     inp_elem = dom.document.getElementById("inp")
     inp_elem.focus()
     dom.document.onkeypress = keypressed
