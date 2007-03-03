@@ -42,10 +42,6 @@ class FuncNode(ConstantLLVMNode):
         self.graph = value.graph
         self.bad_switch_block = False
 
-        #XXX experimental
-        #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
-        #merge_mallocs(self.db.translator, self.graph, self.ref)
-
     def __str__(self):
         return "<FuncNode %r>" %(self.ref,)
 
