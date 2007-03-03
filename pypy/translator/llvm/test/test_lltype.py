@@ -386,6 +386,7 @@ def test_direct_arrayitems():
         assert res == 0 + 10 + 30 + 1000
 
 def test_direct_fieldptr():
+    gcc3_test()
     S = GcStruct('S', ('x', Signed), ('y', Signed))
     def llf(n):
         s = malloc(S)
@@ -393,7 +394,6 @@ def test_direct_fieldptr():
         a[0] = n
         return s.y
 
-    py.test.skip("wip")
     fn = compile_function(llf, [int])
     res = fn(34)
     assert res == 34
