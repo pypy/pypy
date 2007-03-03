@@ -196,8 +196,6 @@ def isinf(v):
 def isnan(v):
     return v != v*1.0 or (v == 1.0 and v == 2.0)
 
-from _float_formatting import flonum2digits
-
 class FloatFormatter(Formatter):
     def eDigits(self, ds):
         ds = ds[:self.prec + 1] + ['0'] * (self.prec + 1 - len(ds))
@@ -244,11 +242,6 @@ class FloatFFormatter(FloatFormatter):
             return FloatGFormatter('g', self.flags, self.width,
                                    self.prec, self.value).format()
         return self._formatd('f', v)
-        #ds, k = flonum2digits(v)
-        #digits = self.fDigits(ds, k)
-        #if  not self.flags.f_alt:
-        #    digits = digits.rstrip('.')
-        #return digits
 
 # system specific formatting. Linux does 3, Windows does 4...
 # XXX this works only when we use geninterp!
@@ -263,10 +256,6 @@ else:
 class FloatEFormatter(FloatFormatter):
     def _format(self, v):
         return self._formatd('e', v)
-        #ds, k = flonum2digits(v)
-        #digits = self.eDigits(ds)
-        #return "%%s%%c%%+0%dd" % _EF %(digits, self.char, k-1)
-
 
 class FloatGFormatter(FloatFormatter):
     # The description of %g in the Python documentation lies
@@ -275,23 +264,6 @@ class FloatGFormatter(FloatFormatter):
     # (One has to wonder who might care).
     def _format(self, v):
         return self._formatd('g', v)
-        ## the following is btw. correct for marshal, now:
-        #ds, k = flonum2digits(v)
-        #ds = ds[:self.prec] # XXX rounding!
-        #if -4 < k <= self.prec:
-        #    if k < 0:
-        #        self.prec -= k # grow prec for extra zeros
-        #    digits = self.fDigits(ds, k)
-        #    if not self.flags.f_alt:
-        #        digits = digits.rstrip('0').rstrip('.')
-        #    r = digits
-        #else:
-        #    digits = self.eDigits(ds)
-        #    if not self.flags.f_alt:
-        #        digits = digits.rstrip('0').rstrip('.')
-        #    r = "%%se%%+0%dd" % _EF %(digits, k-1)
-        #return r
-
 
 class HexFormatter(Formatter):
     # NB: this has 2.4 semantics wrt. negative values
