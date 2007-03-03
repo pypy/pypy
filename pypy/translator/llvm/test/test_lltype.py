@@ -352,6 +352,7 @@ def test_fnptr_with_fixedsizearray():
     assert res == -1
 
 def test_direct_arrayitems():
+    py.test.skip("wip")
     for a in [malloc(GcArray(Signed), 5),
               malloc(FixedSizeArray(Signed, 5), immortal=True)]:
         a[0] = 0
@@ -372,7 +373,6 @@ def test_direct_arrayitems():
             finally:
                 a[n] = saved
 
-        py.test.skip("wip")
         fn = compile_function(llf, [int])
         res = fn(0)
         assert res == 1000 + 10 + 30 + 40
@@ -398,8 +398,21 @@ def test_direct_fieldptr():
     res = fn(34)
     assert res == 34
 
+def test_prebuilt_simple_subarrays():
+    a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
+    a2[1] = 42
+    p2 = direct_ptradd(direct_arrayitems(a2), 1)
+    def llf():
+        a2[1] += 100
+        return p2[0]
+
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res == 142
+
 def test_prebuilt_subarrays():
-    a1 = malloc(GcArray(Signed), 5)
+    py.test.skip("wip")
+    a1 = malloc(GcArray(Signed), 5, zero=True)
     a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
     s  = malloc(GcStruct('S', ('x', Signed), ('y', Signed)))
     a1[3] = 7000
@@ -417,53 +430,7 @@ def test_prebuilt_subarrays():
         s.y   +=    1
         return p1[0] + p2[0] + p3[0] + p4[0]
 
-    py.test.skip("wip")
     fn = compile_function(llf, [])
     res = fn()
     assert res == 8765
 
-def test_pystruct():
-    PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed),
-                   hints = {'inline_head': True})
-    class mytype(object):
-        pass
-    mytype_ptr = pyobjectptr(mytype)
-    def llf():
-        p = malloc(PS1, flavor='cpy', extra_args=(mytype_ptr,))
-        return cast_pointer(Ptr(PyObject), p)
-
-    py.test.skip("wip")
-    fn = compile_function(llf)
-    res = fn()
-    assert type(res).__name__.endswith('mytype')
-
-def test_pystruct_prebuilt():
-    py.test.skip("wip")
-    PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed),
-                   hints = {'inline_head': True})
-    class mytype(object):
-        pass
-
-    def llsetup(phead):
-        "Called when the CPython ext module is imported."
-        p = cast_pointer(Ptr(PS1), phead)
-        p.x = 27
-
-    mytype_ptr = pyobjectptr(mytype)
-    p = malloc(PS1, flavor='cpy', extra_args=(mytype_ptr,))
-    p.x = -5   # overridden by llsetup()
-
-    def llf():
-        return p.x
-
-    def process(t):
-        rtyper = t.buildrtyper()
-        rtyper.specialize()
-        llsetup_ptr = rtyper.annotate_helper_fn(llsetup, [Ptr(PyObject)])
-        phead = cast_pointer(Ptr(PyObject), p)
-        phead._obj.setup_fnptr = llsetup_ptr
-
-    self.process = process
-    fn = compile_function(llf)
-    res = fn()
-    assert res == 27

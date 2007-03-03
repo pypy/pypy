@@ -59,8 +59,12 @@ class ConstantLLVMNode(LLVMNode):
     __slots__ = "".split()
 
     def get_ref(self):
-        """ Returns a reference as used for operations in blocks. """        
+        """ Returns a reference as used for operations in blocks for pbc. """        
         return self.ref
+
+    def get_childref(self, index):
+        """ Returns a reference as used for operations in blocks for internals of a pbc. """
+        raise AttributeError("Must be implemented in subclass")
 
     def get_pbcref(self, toptr):
         """ Returns a reference as a pointer used per pbc. """        

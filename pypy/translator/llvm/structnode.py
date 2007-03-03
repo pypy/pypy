@@ -51,6 +51,11 @@ class FixedSizeArrayTypeNode(StructTypeNode):
     def __str__(self):
         return "<FixedArrayTypeNode %r>" % self.ref
 
+    def setup(self):
+        fields = self._fields()
+        if fields:
+            self.db.prepare_type(fields[0])
+
     def writedatatypedecl(self, codewriter):
         codewriter.fixedarraydef(self.ref,
                                  self.struct.length,
@@ -186,24 +191,21 @@ class FixedSizeArrayNode(StructNode):
         return "%s [\n  %s\n  ]\n" % (self.get_typerepr(), all_values)
 
     def get_childref(self, index):
-        pos = 0
-        found = False
-        for name in self.structtype._names_without_voids():
-            if name == index:
-                found = True
-                break
-            pos += 1
-
-        return "getelementptr(%s* %s, int 0, int %s)" %(
+        ptr_type = self.db.repr_type(self.structtype.OF) + '*'
+        to_one_type = self.db.repr_type(lltype.FixedSizeArray(self.structtype.OF, 1)) + '*'
+        ptr = "getelementptr(%s* %s, int 0, int %s)" % (
             self.get_typerepr(),
             self.get_ref(),
-            pos)
+            index) 
+        return "cast(%s %s to %s)" % (ptr_type, ptr, to_one_type)
 
     def setup(self):
         if isinstance(self.value, lltype._subarray):
-            return
-        super(FixedSizeArrayNode, self).setup()
-
+            p, c = lltype.parentlink(self.value)
+            if p is not None:
+                self.db.prepare_constant(lltype.typeOf(p), p)
+        else:
+            super(FixedSizeArrayNode, self).setup()
 
 class StructVarsizeNode(StructNode):
     """ A varsize struct constant.  Can simply contain
