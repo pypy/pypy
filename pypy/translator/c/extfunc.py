@@ -5,12 +5,11 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_math, ll_os
+from pypy.rpython.module import ll_time, ll_os
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import WAITPID_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
-from pypy.rpython.lltypesystem.module import ll_math as ll_math2
 from pypy.rpython.lltypesystem.module import ll_strtod
 from pypy.rlib import ros
 
@@ -64,13 +63,6 @@ EXTERNALS = {
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
-    ll_math.ll_math_pow:   'LL_math_pow',
-    ll_math2.Implementation.ll_math_frexp.im_func: 'LL_math_frexp',
-    ll_math.ll_math_atan2: 'LL_math_atan2',
-    ll_math.ll_math_fmod : 'LL_math_fmod',
-    ll_math.ll_math_ldexp: 'LL_math_ldexp',
-    ll_math2.Implementation.ll_math_modf.im_func:  'LL_math_modf',
-    ll_math.ll_math_hypot: 'LL_math_hypot',
     ll_strtod.Implementation.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
     ll_strtod.Implementation.ll_strtod_formatd:
@@ -93,13 +85,20 @@ if ll_thread: EXTERNALS.update({
 #______________________________________________________
 # insert 'simple' math functions into EXTERNALs table:
 
-simple_math_functions = [
+# XXX: messy, messy, messy
+# this interacts in strange ways with node.select_function_code_generators,
+# because it fakes to be an ll_* function.
+
+math_functions = [
     'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh',
+    'frexp', 'pow', 'atan2', 'fmod', 'ldexp', 'modf', 'hypot'
     ]
 
-for name in simple_math_functions:
-    EXTERNALS[getattr(ll_math, 'll_math_%s' % name)] = 'LL_math_%s' % name
+import math
+for name in math_functions:
+    EXTERNALS['ll_math.ll_math_%s' % name] = 'LL_math_%s' % name
+
 
 #______________________________________________________
 
@@ -110,13 +109,14 @@ def find_list_of_str(rtyper):
     return None
 
 def predeclare_common_types(db, rtyper):
+    from pypy.rpython.lltypesystem.module import ll_math
     # Common types
     yield ('RPyString', STR)
     LIST_OF_STR = find_list_of_str(rtyper)
     if LIST_OF_STR is not None:
         yield ('RPyListOfString', LIST_OF_STR)
-    yield ('RPyFREXP_RESULT', ll_math2.FREXP_RESULT)
-    yield ('RPyMODF_RESULT', ll_math2.MODF_RESULT)
+    yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
+    yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
     yield ('RPySTAT_RESULT', STAT_RESULT)
     yield ('RPyPIPE_RESULT', PIPE_RESULT)
     yield ('RPyWAITPID_RESULT', WAITPID_RESULT)

@@ -1,10 +1,9 @@
-
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import unionof
 from pypy.annotation.signature import annotation
-from pypy.annotation import model as annmodel
+
 import py
 
 class _callable(object):
@@ -20,12 +19,15 @@ class _ext_callable(ExtRegistryEntry):
     # we defer a bit annotation here
 
     def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
         return annmodel.SomeGenericCallable([annotation(i, self.bookkeeper)
                                              for i in self.instance.args],
                            annotation(self.instance.result, self.bookkeeper))
 
 class ExtFuncEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
+        if hasattr(self, 'ann_hook'):
+            self.ann_hook()
         if self.signature_args is not None:
             assert len(args_s) == len(self.signature_args),\
                    "Argument number mismatch"
@@ -46,20 +48,33 @@ class ExtFuncEntry(ExtRegistryEntry):
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
         method_name = rtyper.type_system.name[:2] + 'typeimpl'
+        fake_method_name = rtyper.type_system.name[:2] + 'typefakeimpl'
         impl = getattr(self, method_name, None)
+        fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl.im_func, self.signature_args, self.signature_result)
         else:
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
-                                 name, _entry=self, _callable=self.instance)
+                                 name, _entry=self, _callable=fakeimpl)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 
 def register_external(function, args, result=None, export_name=None,
-                      llimpl=None, ooimpl=None):
-    
+                      llimpl=None, ooimpl=None,
+                      llfakeimpl=None, oofakeimpl=None,
+                      annotation_hook=None):
+    """
+    function: the RPython function that will be rendered as an external function (e.g.: math.floor)
+    args: a list containing the annotation of the arguments
+    result: surprisingly enough, the annotation of the result
+    export_name: the name of the function as it will be seen by the backends
+    llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
+    llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
+    annotationhook: optional; a callable that is called during annotation, useful for genc hacks
+    """
+
     class FunEntry(ExtFuncEntry):
         _about_ = function
         if args is None:
@@ -72,6 +87,12 @@ def register_external(function, args, result=None, export_name=None,
             lltypeimpl = llimpl
         if ooimpl:
             ootypeimpl = ooimpl
+        if llfakeimpl:
+            lltypefakeimpl = llfakeimpl
+        if oofakeimpl:
+            ootypefakeimpl = oofakeimpl
+        if annotation_hook:
+            ann_hook = staticmethod(annotation_hook)
 
     if export_name:
         FunEntry.__name__ = export_name

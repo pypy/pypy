@@ -7,7 +7,7 @@ from pypy.translator.c.extfunc import EXTERNALS
 from pypy.rlib import ros
 
 def test_all_suggested_primitives():
-    for modulename in ['ll_math', 'll_os', 'll_os_path', 'll_time']:
+    for modulename in ['ll_os', 'll_os_path', 'll_time']:
         mod = __import__('pypy.rpython.module.%s' % modulename,
                          None, None, ['__doc__'])
         for func in mod.__dict__.values():

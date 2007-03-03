@@ -173,18 +173,6 @@ def waitpidannotation(*args):
                 'OS_WAITPID')
     return SomeTuple((SomeInteger(),)*2)
 
-def frexpannotation(*args):
-    from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
-    from pypy.rpython.lltypesystem.module.ll_math import ll_frexp_result
-    record_call(ll_frexp_result, (SomeFloat(), SomeInteger()), 'MATH_FREXP')
-    return SomeTuple((SomeFloat(), SomeInteger()))
-
-def modfannotation(*args):
-    from pypy.annotation.model import SomeTuple, SomeFloat
-    from pypy.rpython.lltypesystem.module.ll_math import ll_modf_result
-    record_call(ll_modf_result, (SomeFloat(), SomeFloat()), 'MATH_MODF')
-    return SomeTuple((SomeFloat(), SomeFloat()))
-
 def strnullannotation(*args):
     from pypy.annotation.model import SomeString
     return SomeString(can_be_None=True)
@@ -242,28 +230,6 @@ declare(os.path.isdir, bool         , 'll_os_path/isdir')
 declare(time.time   , float         , 'll_time/time')
 declare(time.clock  , float         , 'll_time/clock')
 declare(time.sleep  , noneannotation, 'll_time/sleep')
-
-# ___________________________
-# math functions
-
-declare(math.frexp  , frexpannotation, 'll_math/frexp')
-declare(math.atan2  , float         , 'll_math/atan2')
-declare(math.fmod   , float         ,  'll_math/fmod')
-declare(math.floor  , float         ,  'll_math/floor')
-declare(math.ldexp  , float         ,  'll_math/ldexp')
-declare(math.modf   , modfannotation, 'll_math/modf')
-declare(math.hypot  , float         , 'll_math/hypot')
-declare(math.pow    , float         , 'll_math/pow')
-
-# the following functions all take one float, return one float
-# and are part of math.h
-simple_math_functions = [
-    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
-    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
-    ]
-
-for name in simple_math_functions:
-    declare(getattr(math, name), float, 'll_math/%s' % name)
 
 # ___________________________________________________________
 # win/NT hack: patch ntpath.isabs() to be RPythonic
@@ -325,3 +291,54 @@ standardexceptions = {
     AssertionError   : True,
     RuntimeError     : True,
     }
+
+
+
+# ______________________________________________________________
+# this declarations use the new interface for external functions
+# all the above declaration should me moved here at some point.
+
+from extfunc import register_external
+
+# ___________________________
+# math functions
+
+from pypy.rpython.lltypesystem.module import ll_math
+from pypy.rpython.ootypesystem.module import ll_math as oo_math
+
+# the following functions all take one float, return one float
+# and are part of math.h
+simple_math_functions = [
+    'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
+    'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
+    ]
+for name in simple_math_functions:
+    register_external(getattr(math, name), [float], float, "ll_math.ll_math_%s" % name)
+
+def frexp_hook():
+    from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
+    from pypy.rpython.lltypesystem.module.ll_math import ll_frexp_result
+    record_call(ll_frexp_result, (SomeFloat(), SomeInteger()), 'MATH_FREXP')
+
+def modf_hook():
+    from pypy.annotation.model import SomeTuple, SomeFloat
+    from pypy.rpython.lltypesystem.module.ll_math import ll_modf_result
+    record_call(ll_modf_result, (SomeFloat(), SomeFloat()), 'MATH_MODF')
+
+complex_math_functions = [
+    ('frexp', [float],        (float, int),   frexp_hook),
+    ('atan2', [float],        float,          None),
+    ('fmod',  [float, float], float,          None),
+    ('ldexp', [float, int],   float,          None),
+    ('modf',  [float],        (float, float), modf_hook),
+    ('hypot', [float, float], float,          None),
+    ('pow',   [float, float], float,          None),
+    ]
+
+for name, args, res, hook in complex_math_functions:
+    func = getattr(math, name)
+    llfake = getattr(ll_math, 'll_math_%s' % name, None)
+    oofake = getattr(oo_math, 'll_math_%s' % name, None)
+    register_external(func, args, res, 'll_math.ll_math_%s' % name,
+                      llfakeimpl=llfake, oofakeimpl=oofake,
+                      annotation_hook = hook)
