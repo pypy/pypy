@@ -112,12 +112,6 @@ class Builder(object):
             raise
 
     def make_module(self):
-        # use pyrex to create module for CPython
-        postfix = ''
-        basename = self.genllvm.filename.purebasename + '_wrapper' + postfix + '.pyx'
-        pyxfile = self.genllvm.filename.new(basename = basename)
-        write_pyx_wrapper(self.genllvm, pyxfile)
-
         llvmfile = self.genllvm.filename
 
         # change into dirpath and store current path to change back
@@ -130,31 +124,39 @@ class Builder(object):
         # generate the llvm bytecode from ll file
         self.compile_bytecode(b)
 
-        object_files = ["-L/sw/lib"]
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
         gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
+        object_files = ["-L/sw/lib"]
         if sys.platform == 'darwin':
-            libdir = '/sw/' + "/lib"
+            libdir = '/sw/lib'
             gc_libs_path = '-L%s -ldl' % libdir
         else:
             gc_libs_path = '-static'
 
-        modname = pyxfile.purebasename
-        source_files = ["%s.c" % modname]
-
-        use_gcc = True #self.genllvm.config.translation.llvm_via_c
+        use_gcc = False #self.genllvm.config.translation.llvm_via_c
         if not use_gcc:
-            self.cmds.append("llc %s.bc -f -o %s.s" % (b, b))
+            self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (b, b))
             self.cmds.append("as %s.s -o %s.o" % (b, b))
             object_files.append("%s.o" % b)
         else:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
-            source_files.append("%s.c" % b)
+            self.cmds.append("gcc %s.c -c -O2" % b)
+            object_files.append("%s.o" % b)
 
         try:
             self.execute_cmds()
+
+            # use pyrex to create module for CPython
+            basename = self.genllvm.filename.purebasename + '_wrapper.pyx'
+            pyxfile = self.genllvm.filename.new(basename = basename)
+            write_pyx_wrapper(self.genllvm, pyxfile)
+
+            modname = pyxfile.purebasename
+            source_files = ["%s.c" % modname]
+
             make_c_from_pyxfile(pyxfile)
+
             compile_module(modname, source_files, object_files, library_files)
 
         finally:
@@ -162,7 +164,7 @@ class Builder(object):
 
         return modname, str(dirpath)
 
-    def make_standalone(self, exe_name):
+    def make_standalone(self, exename):
         llvmfile = self.genllvm.filename
 
         # change into dirpath and store current path to change back
@@ -174,7 +176,6 @@ class Builder(object):
 
         # generate the llvm bytecode from ll file
         self.compile_bytecode(b)
-        #compile_objects(b)
 
         object_files = ["-L/sw/lib"]
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
@@ -194,7 +195,7 @@ class Builder(object):
             self.cmds.append("llc %s.bc -f -o %s.s" % (b, b))
             self.cmds.append("as %s.s -o %s.o" % (b, b))
 
-            cmd = "gcc -O3 %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+            cmd = "gcc -O3 %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exename)
             self.cmds.append(cmd)
             object_files.append("%s.o" % b)
         else:
@@ -203,17 +204,17 @@ class Builder(object):
                 cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (b, b)
                 self.cmds.append(cmd)
                 cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \
-                      (b, gc_libs_path, gc_libs, exe_name)
+                      (b, gc_libs_path, gc_libs, exename)
                 self.cmds.append(cmd)
-                self.cmds.append("./%s_gen %s"%(exe_name, self.genllvm.config.translation.profopt))
+                self.cmds.append("./%s_gen %s" % (exename, self.genllvm.config.translation.profopt))
                 cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
                 self.cmds.append(cmd)
                 cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
-                      (b, gc_libs_path, gc_libs, exe_name)
+                      (b, gc_libs_path, gc_libs, exename)
             else:
                 cmd = "gcc %s.c -c -O3 -pipe -fomit-frame-pointer" % b
                 self.cmds.append(cmd)
-                cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+                cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exename)
             self.cmds.append(cmd)
             source_files.append("%s.c" % b)
 
@@ -222,4 +223,4 @@ class Builder(object):
         finally:
             lastdir.chdir()
 
-        return str(llvmfile.dirpath().join(exe_name))
+        return str(dirpath.join(exename))
