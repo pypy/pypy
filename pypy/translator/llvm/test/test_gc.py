@@ -21,7 +21,7 @@ def test_GC_malloc():
     n = 5000
     result = tuple_getitem(n)
     assert f(n) == result
-    get_heap_size = getattr(mod, "GC_get_heap_size_wrapper")
+    get_heap_size = mod.GC_get_heap_size_wrapper
     heap_size_start = get_heap_size()
     for i in range(0,25):
         assert f(n) == result
@@ -41,7 +41,6 @@ def test_nogc():
     assert f(5000) == tuple_getitem(5000)
 
 def test_ref(): 
-    py.test.skip("broken by r32613, partially fixed by r32619 but not really")
     def tuple_getitem(n): 
         x = 666
         i = 0
