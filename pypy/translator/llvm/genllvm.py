@@ -4,7 +4,6 @@ from pypy.tool.isolate import Isolate
 
 from pypy.translator.llvm import buildllvm
 from pypy.translator.llvm.database import Database 
-from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
@@ -48,6 +47,7 @@ class GenLLVM(object):
 
         self._checkpoint('done')
         codewriter.close()
+
         return self.filename
 
     def setup(self, func):
@@ -221,13 +221,8 @@ class GenLLVM(object):
     def compile_module(self):
         assert not self.standalone
 
-        # use pyrex to create module for CPython
-        postfix = ''
-        basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
-        pyxfile = self.filename.new(basename = basename)
-        write_pyx_wrapper(self, pyxfile)    
-        info = buildllvm.make_module_from_llvm(self, self.filename, pyxfile=pyxfile)
-        mod, wrap_fun = self.get_module(*info)
+        modname, dirpath = buildllvm.build_module(self)
+        mod, wrap_fun = self.get_module(modname, dirpath)
         return mod, wrap_fun
 
     def get_module(self, modname, dirpath):
@@ -242,8 +237,7 @@ class GenLLVM(object):
 
     def compile_standalone(self, exe_name):
         assert self.standalone
-        return buildllvm.make_module_from_llvm(self, self.filename,
-                                               exe_name=exe_name)
+        return buildllvm.build_standalone(self, exe_name)
 
     def _checkpoint(self, msg=None):
         if not self.config.translation.llvm.logging:

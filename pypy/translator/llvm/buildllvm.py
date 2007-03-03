@@ -4,6 +4,7 @@ import sys
 import py
 
 from pypy.translator.llvm.log import log
+from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
 from pypy.translator.tool import stdoutcapture
 from pypy.translator.tool.cbuild import make_c_from_pyxfile
 
@@ -77,6 +78,18 @@ def compile_module(module, source_files, object_files, library_files):
     log.build(cmd)
     py.process.cmdexec(cmd)
 
+
+def build_module(genllvm):
+    # use pyrex to create module for CPython
+    postfix = ''
+    basename = genllvm.filename.purebasename + '_wrapper' + postfix + '.pyx'
+    pyxfile = genllvm.filename.new(basename = basename)
+    write_pyx_wrapper(genllvm, pyxfile)
+    return make_module_from_llvm(genllvm, genllvm.filename, pyxfile=pyxfile)
+
+def build_standalone(genllvm, exename):
+    return make_module_from_llvm(genllvm, genllvm.filename, exe_name=exename)
+
 def make_module_from_llvm(genllvm, llvmfile,
                           pyxfile=None, optimize=True, exe_name=None,
                           profile=False, cleanup=False, use_gcc=True):
@@ -101,12 +114,12 @@ def make_module_from_llvm(genllvm, llvmfile,
     else: #we generate 1.x .ll files, so upgrade these first
         cmds = ["llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b)]
 
-    object_files = ["-L%s/lib" % distutils.sysconfig.EXEC_PREFIX]
+    object_files = ["-L/sw/lib"]
     library_files = genllvm.db.gcpolicy.gc_libraries()
     gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
     if sys.platform == 'darwin':
-        libdir = distutils.sysconfig.EXEC_PREFIX + "/lib"
+        libdir = '/sw/' + "/lib"
         gc_libs_path = '-L%s -ldl' % libdir
     else:
         gc_libs_path = '-static'
@@ -122,7 +135,7 @@ def make_module_from_llvm(genllvm, llvmfile,
         cmds.append("as %s.s -o %s.o" % (b, b))
 
         if exe_name:
-            cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+            cmd = "gcc -O3 %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
             cmds.append(cmd)
         object_files.append("%s.o" % b)
     else:
