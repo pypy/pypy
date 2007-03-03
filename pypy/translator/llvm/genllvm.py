@@ -24,7 +24,7 @@ class GenLLVM(object):
     function_count = {}
 
     def __init__(self, translator, standalone,
-                 debug=False, logging=True, stackless=False):
+                 debug=True, logging=True, stackless=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
@@ -35,12 +35,10 @@ class GenLLVM(object):
         self.config = translator.config
         self.stackless = stackless
 
-        # the debug flag is for creating comments of every operation
-        # that may be executed
-        self.debug = debug 
+        # the debug flag is for creating comments of every operation that may be executed
+        self.debug = debug
 
-        # the logging flag is for logging information statistics in the build
-        # process
+        # the logging flag is for logging information statistics in the build process
         self.logging = logging
 
         self.source_generated = False

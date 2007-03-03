@@ -53,15 +53,9 @@ def gcc3_test():
 
 def genllvm_compile(function,
                     annotation,
-
-                    # genllvm options
-                    gcpolicy=None,
-                    standalone=False,
-                    stackless=False,
                     
                     # debug options
-                    view=False,
-                    debug=False,
+                    debug=True,
                     logging=False,
                     log_source=False,
 
@@ -95,19 +89,15 @@ def genllvm_compile(function,
                               constfold=False)
 
     # note: this is without stackless and policy transforms
-    if view or conftest.option.view:
+    if conftest.option.view:
         translator.view()
 
-    if stackless:
-        from pypy.translator.transform import insert_ll_stackcheck
-        insert_ll_stackcheck(translator)
-
     # create genllvm
+    standalone = False
     gen = GenLLVM(translator,
                   standalone,
                   debug=debug,
-                  logging=logging,
-                  stackless=stackless)
+                  logging=logging)
 
     filename = gen.gen_llvm_source(function)
     
@@ -130,7 +120,7 @@ def compile_test(function, annotation, isolate=True, **kwds):
         _cleanup(leave=3)
         optimize = kwds.pop('optimize', optimize_tests)
         mod, fn = genllvm_compile(function, annotation, optimize=optimize,
-                                  logging=False, isolate=isolate, **kwds)
+                                  isolate=isolate, **kwds)
         if isolate:
             ext_modules.append(mod)
         return mod, fn

@@ -128,7 +128,10 @@ class OpWriter(object):
             meth = getattr(self, op.opname, None)
             if not meth:
                 raise Exception, "operation %s not found" % op.opname
-            self.codewriter.comment(str(op))
+
+            # XXX bit unclean
+            if self.db.genllvm.debug:
+                self.codewriter.comment(str(op))
             meth(opr)            
     
     def _generic_pow(self, opr, onestr): 
