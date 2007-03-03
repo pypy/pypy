@@ -14,8 +14,8 @@ from pypy.jit.codegen.ppc import instruction as insn
 from pypy.jit.codegen.ppc.regalloc import RegisterAllocation
 from pypy.jit.codegen.ppc.emit_moves import emit_moves, emit_moves_safe
 
-from pypy.translator.asm.ppcgen.rassemblermaker import make_rassembler
-from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
+from pypy.jit.codegen.ppc.ppcgen.rassemblermaker import make_rassembler
+from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import MyPPCAssembler
 
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
 
@@ -1246,7 +1246,7 @@ class RPPCGenOp(AbstractRGenOp):
             return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
-##         from pypy.translator.asm.ppcgen.asmfunc import get_ppcgen
+##         from pypy.jit.codegen.ppc.ppcgen.asmfunc import get_ppcgen
 ##         print '!!!!', cast(mc._data, c_void_p).value
 ##         print '!!!!', mc._data.contents[0]
 ##         get_ppcgen().flush2(cast(mc._data, c_void_p).value,

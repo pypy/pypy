@@ -1,5 +1,5 @@
-from pypy.translator.asm.ppcgen.field import Field
-from pypy.translator.asm.ppcgen import regname
+from pypy.jit.codegen.ppc.ppcgen.field import Field
+from pypy.jit.codegen.ppc.ppcgen import regname
 
 fields = { # bit margins are *inclusive*! (and bit 0 is
            # most-significant, 31 least significant)

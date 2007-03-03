@@ -1,7 +1,7 @@
-from pypy.translator.asm.ppcgen.ppc_form import PPCForm as Form
-from pypy.translator.asm.ppcgen.ppc_field import ppc_fields
-from pypy.translator.asm.ppcgen.assembler import Assembler
-from pypy.translator.asm.ppcgen.symbol_lookup import lookup
+from pypy.jit.codegen.ppc.ppcgen.ppc_form import PPCForm as Form
+from pypy.jit.codegen.ppc.ppcgen.ppc_field import ppc_fields
+from pypy.jit.codegen.ppc.ppcgen.assembler import Assembler
+from pypy.jit.codegen.ppc.ppcgen.symbol_lookup import lookup
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -808,7 +808,7 @@ def b(n):
     r.reverse()
     return ''.join(map(str, r))
 
-from pypy.translator.asm.ppcgen.regname import *
+from pypy.jit.codegen.ppc.ppcgen.regname import *
 
 def main():
 

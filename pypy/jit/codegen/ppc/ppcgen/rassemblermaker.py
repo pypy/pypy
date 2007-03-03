@@ -1,6 +1,6 @@
 from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import r_uint
-from pypy.translator.asm.ppcgen.form import IDesc, IDupDesc
+from pypy.jit.codegen.ppc.ppcgen.form import IDesc, IDupDesc
 
 ##     "opcode": ( 0,  5),
 ##     "rA":     (11, 15, 'unsigned', regname._R),

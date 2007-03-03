@@ -1,5 +1,5 @@
-from pypy.translator.asm.ppcgen.form import Form
-from pypy.translator.asm.ppcgen.ppc_field import ppc_fields
+from pypy.jit.codegen.ppc.ppcgen.form import Form
+from pypy.jit.codegen.ppc.ppcgen.ppc_field import ppc_fields
 
 class PPCForm(Form):
     fieldmap = ppc_fields

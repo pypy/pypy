@@ -1,6 +1,6 @@
-from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
-from pypy.translator.asm.ppcgen.symbol_lookup import lookup
-from pypy.translator.asm.ppcgen.regname import *
+from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import MyPPCAssembler
+from pypy.jit.codegen.ppc.ppcgen.symbol_lookup import lookup
+from pypy.jit.codegen.ppc.ppcgen.regname import *
 
 def load_arg(code, argi, typecode):
     rD = r3+argi

@@ -1,11 +1,11 @@
 import py
 import random, sys, os
 
-from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
-from pypy.translator.asm.ppcgen.symbol_lookup import lookup
-from pypy.translator.asm.ppcgen.func_builder import make_func
-from pypy.translator.asm.ppcgen import form, func_builder
-from pypy.translator.asm.ppcgen.regname import *
+from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import MyPPCAssembler
+from pypy.jit.codegen.ppc.ppcgen.symbol_lookup import lookup
+from pypy.jit.codegen.ppc.ppcgen.func_builder import make_func
+from pypy.jit.codegen.ppc.ppcgen import form, func_builder
+from pypy.jit.codegen.ppc.ppcgen.regname import *
 
 class TestFuncBuilderTest(object):
     def setup_class(cls):
@@ -78,7 +78,7 @@ class TestFuncBuilderTest(object):
         f = make_func(a, "O", "O")
         assert f(1) == 1
         b = MyPPCAssembler()
-        from pypy.translator.asm.ppcgen import util
+        from pypy.jit.codegen.ppc.ppcgen import util
         # eurgh!:
         b.load_word(r0, util.access_at(id(f.code), 8) + f.FAST_ENTRY_LABEL)
         b.mtctr(r0)

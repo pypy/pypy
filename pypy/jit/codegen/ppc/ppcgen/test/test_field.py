@@ -1,6 +1,6 @@
 import autopath
 
-from pypy.translator.asm.ppcgen.field import Field
+from pypy.jit.codegen.ppc.ppcgen.field import Field
 from py.test import raises
 
 import random

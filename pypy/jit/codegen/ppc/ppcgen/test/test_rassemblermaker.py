@@ -1,5 +1,5 @@
-from pypy.translator.asm.ppcgen.rassemblermaker import make_rassembler
-from pypy.translator.asm.ppcgen.ppc_assembler import PPCAssembler
+from pypy.jit.codegen.ppc.ppcgen.rassemblermaker import make_rassembler
+from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import PPCAssembler
 
 RPPCAssembler = make_rassembler(PPCAssembler)
 

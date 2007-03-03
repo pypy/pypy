@@ -1,10 +1,10 @@
 import py
 import random, sys, os
 
-from pypy.translator.asm.ppcgen.ppc_assembler import BasicPPCAssembler, MyPPCAssembler
-from pypy.translator.asm.ppcgen.symbol_lookup import lookup
-from pypy.translator.asm.ppcgen.regname import *
-from pypy.translator.asm.ppcgen import form, pystructs
+from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import BasicPPCAssembler, MyPPCAssembler
+from pypy.jit.codegen.ppc.ppcgen.symbol_lookup import lookup
+from pypy.jit.codegen.ppc.ppcgen.regname import *
+from pypy.jit.codegen.ppc.ppcgen import form, pystructs
 
 
 class TestDisassemble(object):
