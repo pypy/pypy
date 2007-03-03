@@ -205,6 +205,27 @@ class TaintSpace(StdObjSpace):
                      self.wrap(app_taint_look))
         patch_space_in_place(self, 'taint', proxymaker)
 
+        # XXX may leak info, perfomance hit
+        from pypy.objspace.std.typeobject import W_TypeObject
+
+        def taint_lookup(w_obj, name):
+            if isinstance(w_obj, W_Tainted):
+                w_obj = w_obj.w_obj
+            w_type = self.type(w_obj)
+            assert isinstance(w_type, W_TypeObject)
+            return w_type.lookup(name)
+
+        def taint_lookup_in_type_where(w_obj, name):
+            if isinstance(w_obj, W_Tainted):
+                w_type = w_obj.w_obj
+            else:
+                w_type = w_obj
+            assert isinstance(w_type, W_TypeObject)
+            return w_type.lookup_where(name)
+
+        self.lookup = taint_lookup
+        self.lookup_in_type_where = taint_lookup_in_type_where
+
 
 Space = TaintSpace
 
