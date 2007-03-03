@@ -24,17 +24,11 @@ class GenLLVM(object):
     # see create_codewriter() below
     function_count = {}
 
-    def __init__(self, translator, gcpolicy, standalone,
+    def __init__(self, translator, standalone,
                  debug=False, logging=True, stackless=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
-
-        if gcpolicy is None:
-            gcpolicy = "boehm"
-        
-        self.gcpolicy = gcpolicy
-        
 
         self.standalone = standalone
         self.translator = translator
@@ -76,15 +70,16 @@ class GenLLVM(object):
             create ll file for c file
             create codewriter """
 
-        # please dont ask!
+        # XXX please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
-        from pypy.translator.c import gc
         cbuild = CStandaloneBuilder(self.translator, func, config=self.config)
         cbuild.stackless = self.stackless
         c_db = cbuild.generate_graphs_for_llinterp()
 
         self.db = Database(self, self.translator)
-        self.db.gcpolicy = GcPolicy.new(self.db, self.gcpolicy)
+
+        # XXX hardcoded for now
+        self.db.gcpolicy = GcPolicy.new(self.db, 'boehm')
 
         # get entry point
         entry_point = self.get_entry_point(func)
@@ -354,7 +349,6 @@ def genllvm_compile(function,
 
     # create genllvm
     gen = GenLLVM(translator,
-                  gcpolicy,
                   standalone,
                   debug=debug,
                   logging=logging,

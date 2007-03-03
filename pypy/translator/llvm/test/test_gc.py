@@ -1,8 +1,10 @@
 import sys
 
 import py
-
 from pypy.translator.llvm.test.runtest import *
+
+def setup_module(mod):
+    py.test.skip('skipping somewhat futile tests')
 
 def test_GC_malloc(): 
     def tuple_getitem(n): 
