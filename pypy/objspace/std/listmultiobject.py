@@ -1,8 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
@@ -40,7 +38,7 @@ class ListImplementation(object):
 ##         pass
 
 ##     def get_list_w(self):
-##         pass
+##         => returns an RPython list of all wrapped items
 
 
 # The following operations return the list implementation that should
@@ -49,27 +47,27 @@ class ListImplementation(object):
 # the operation it can return None for the following ones:
 
     def setitem(self, i, w_item):
-        pass
+        return None
 
     def insert(self, i, w_item):
-        pass
+        return None
 
     def delitem(self, index):
-        pass
+        return None
 
     def delitem_slice(self, start, stop):
-        pass
+        return None
 
     def append(self, w_item):
-        pass
+        return None
 
     def extend(self, other):
-        pass
+        return None
 
     # special case
 
     def add(self, other):
-        pass
+        return None
 
 # Default implementations, can (but don't have to be) overridden:
 
