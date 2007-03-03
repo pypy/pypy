@@ -514,7 +514,6 @@ class AppTestW_ListObject:
         assert l[-1::-5] == l
         l.extend(['a', 'b'])
         assert l[::-1] == ['b', 'a', '']
-        assert l[:-1:-1] == ['b', 'a', '']
 
     def test_delall(self):
         l = l0 = [1,2,3]

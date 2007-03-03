@@ -472,7 +472,7 @@ class StrListImplementation(ListImplementation):
 
     def getitem_slice_step(self, start, stop, step, slicelength):
         assert 0 <= start < len(self.strlist)
-        # stop is -1 e.g. for [2:-1:-1]
+        # stop is -1 e.g. for [2::-1]
         assert -1 <= stop <= len(self.strlist)
         assert slicelength > 0
         res = [""] * slicelength
