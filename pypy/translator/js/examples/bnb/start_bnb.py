@@ -11,6 +11,9 @@ from pypy.translator.js.modules.dom import document
 from pypy.translator.js.modules.mochikit import log, logWarning,\
      createLoggingPane, logDebug
 from pypy.translator.js.examples.bnb.bnb import exported_methods
+from pypy.translator.js import commproxy
+
+commproxy.USE_MOCHIKIT = True
 
 import time
 import os
