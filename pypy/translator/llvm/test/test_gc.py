@@ -5,10 +5,6 @@ import py
 from pypy.translator.llvm.test.runtest import *
 
 def test_GC_malloc(): 
-    #XXX how to get to gcpolicy?
-    #if not use_boehm_gc:
-    #    py.test.skip("test_GC_malloc skipped because Boehm collector library was not found")
-    #    return
     def tuple_getitem(n): 
         x = 666
         i = 0
