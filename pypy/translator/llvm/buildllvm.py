@@ -92,6 +92,25 @@ class Builder(object):
             # we generate 1.x .ll files, so upgrade these first
             self.cmds.append("llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b))
 
+    def execute_cmds(self):
+        c = stdoutcapture.Capture(mixed_out_err=True)
+        log.build("working in", py.path.local())
+        try:
+            try:
+                for cmd in self.cmds:
+                    log.build(cmd)
+                    py.process.cmdexec(cmd)
+
+            finally:
+                foutput, ferror = c.done()
+        except:
+            data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
+            fdump = open("%s.errors" % modname, "w")
+            fdump.write(data)
+            fdump.close()
+            log.build(data)
+            raise
+
     def make_module(self):
         # use pyrex to create module for CPython
         postfix = ''
@@ -134,27 +153,12 @@ class Builder(object):
             source_files.append("%s.c" % b)
 
         try:
-            c = stdoutcapture.Capture(mixed_out_err = True)
-            log.build("working in", py.path.local())
-            try:
-                try:
-                    for cmd in self.cmds:
-                        log.build(cmd)
-                        py.process.cmdexec(cmd)
-                    make_c_from_pyxfile(pyxfile)
-                    compile_module(modname, source_files, object_files, library_files)
+            self.execute_cmds()
+            make_c_from_pyxfile(pyxfile)
+            compile_module(modname, source_files, object_files, library_files)
 
-                finally:
-                    foutput, ferror = c.done()
-            except:
-                data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
-                fdump = open("%s.errors" % modname, "w")
-                fdump.write(data)
-                fdump.close()
-                log.build(data)
-                raise
         finally:
-            os.chdir(str(lastdir))
+            lastdir.chdir()
 
         return modname, str(dirpath)
 
@@ -214,19 +218,7 @@ class Builder(object):
             source_files.append("%s.c" % b)
 
         try:
-            c = stdoutcapture.Capture(mixed_out_err = True)
-            log.build("working in", py.path.local())
-            try:
-                try:
-                    for cmd in self.cmds:
-                        log.build(cmd)
-                        py.process.cmdexec(cmd)
-                finally:
-                    foutput, ferror = c.done()
-            except:
-                data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
-                log.build(data)
-                raise
+            self.execute_cmds()
         finally:
             lastdir.chdir()
 
