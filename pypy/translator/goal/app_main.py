@@ -9,6 +9,7 @@ options:
   -S           do not 'import site' on initialization
   -u           unbuffered binary stdout and stderr
   -h, --help   show this help message and exit
+  -m           library module to be run as a script (terminates option list)
   --version    print the PyPy version
   --info       print translation information about this PyPy executable
 """
@@ -176,6 +177,7 @@ def entry_point(executable, argv):
     run_command = False
     import_site = True
     i = 0
+    run_module = False
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -183,7 +185,7 @@ def entry_point(executable, argv):
         if arg == '-i':
             go_interactive = True
         elif arg == '-c':
-            if i >= len(argv):
+            if i+1 >= len(argv):
                 print_error('Argument expected for the -c option')
                 return 2
             run_command = True
@@ -203,6 +205,13 @@ def entry_point(executable, argv):
             return 0
         elif arg == '-S':
             import_site = False
+        elif arg == '-m':
+            i += 1
+            if i >= len(argv):
+                print_error('Argument expected for the -m option')
+                return 2
+            run_module = True
+            break
         elif arg == '--':
             i += 1
             break     # terminates option list
@@ -245,6 +254,11 @@ def entry_point(executable, argv):
                 cmd = sys.argv.pop(1)
                 def run_it():
                     exec cmd in mainmodule.__dict__
+                success = run_toplevel(run_it)
+            elif run_module:
+                def run_it():
+                    import runpy
+                    runpy.run_module(sys.argv[0], None, '__main__', True)
                 success = run_toplevel(run_it)
             else:
                 scriptdir = resolvedirof(sys.argv[0])
