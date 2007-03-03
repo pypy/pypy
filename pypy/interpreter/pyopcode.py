@@ -507,7 +507,8 @@ class __extend__(pyframe.PyFrame):
         w_compile_flags = f.space.wrap(flags)
         w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog,
                                      w_globals, w_locals,
-                                     w_compile_flags, f.space.wrap(f.builtin),
+                                     w_compile_flags,
+                                     f.space.wrap(f.get_builtin()),
                                      f.space.gettypeobject(PyCode.typedef))
         w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
@@ -541,7 +542,7 @@ class __extend__(pyframe.PyFrame):
         w_name        = f.popvalue()
         w_metaclass = find_metaclass(f.space, w_bases,
                                      w_methodsdict, f.w_globals,
-                                     f.space.wrap(f.builtin)) 
+                                     f.space.wrap(f.get_builtin())) 
         w_newclass = f.space.call_function(w_metaclass, w_name,
                                            w_bases, w_methodsdict)
         f.pushvalue(w_newclass)
@@ -607,7 +608,7 @@ class __extend__(pyframe.PyFrame):
         w_value = f.space.finditem(f.w_globals, w_varname)
         if w_value is None:
             # not in the globals, now look in the built-ins
-            w_value = f.builtin.getdictvalue(f.space, w_varname)
+            w_value = f.get_builtin().getdictvalue(f.space, w_varname)
             if w_value is None:
                 varname = f.space.str_w(w_varname)
                 message = "global name '%s' is not defined" % varname
@@ -697,7 +698,7 @@ class __extend__(pyframe.PyFrame):
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
         w_fromlist = f.popvalue()
-        w_import = f.builtin.getdictvalue_w(f.space, '__import__')
+        w_import = f.get_builtin().getdictvalue_w(f.space, '__import__')
         if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))

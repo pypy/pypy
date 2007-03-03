@@ -95,9 +95,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 assert isinstance(w_globals, W_DictMultiObject)
                 w_value = w_globals.implementation.get_builtin_indexed(num)
                 if w_value is None:
-                    w_builtins = f.builtin
-                    assert isinstance(w_builtins, Module)
-                    w_builtin_dict = w_builtins.w_dict
+                    builtins = f.get_builtin()
+                    assert isinstance(builtins, Module)
+                    w_builtin_dict = builtins.w_dict
                     assert isinstance(w_builtin_dict, W_DictMultiObject)
                     w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
         ##                 if w_value is not None:

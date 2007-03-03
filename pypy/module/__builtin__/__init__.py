@@ -135,6 +135,8 @@ class Module(MixedModule):
 
     def pick_builtin(self, w_globals):
        "Look up the builtin module to use from the __builtins__ global"
+       # pick the __builtins__ roughly in the same way CPython does it
+       # this is obscure and slow
        space = self.space
        try:
            w_builtin = space.getitem(w_globals, space.wrap('__builtins__'))

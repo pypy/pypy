@@ -99,6 +99,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     BoolOption("usepycfiles", "Write and read pyc files when importing",
                default=True),
    
+    BoolOption("honor__builtins__",
+               "Honor the __builtins__ key of a module dictionary",
+               default=False),
+
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
                    default=False, cmdline='--with-transparent-proxy'),

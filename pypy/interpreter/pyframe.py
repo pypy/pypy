@@ -52,12 +52,19 @@ class PyFrame(eval.Frame):
         self.valuestack_w = [None] * code.co_stacksize
         self.valuestackdepth = 0
         self.blockstack = []
-        self.builtin = space.builtin.pick_builtin(w_globals)
+        if space.config.objspace.honor__builtins__:
+            self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(closure)
         self.fastlocals_w = [None]*self.numlocals
         self.f_lineno = self.pycode.co_firstlineno
+
+    def get_builtin(self):
+        if self.space.config.objspace.honor__builtins__:
+            return self.builtin
+        else:
+            return self.space.builtin
         
     def initialize_frame_scopes(self, closure): 
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
@@ -187,7 +194,7 @@ class PyFrame(eval.Frame):
         
         tup_state = [
             w(self.f_back),
-            w(self.builtin),
+            w(self.get_builtin()),
             w(self.pycode),
             w_valuestack,
             w_blockstack,
@@ -441,7 +448,7 @@ class PyFrame(eval.Frame):
         return pytraceback.offset2lineno(self.pycode, self.last_instr)
 
     def fget_f_builtins(space, self):
-        return self.builtin.getdict()
+        return self.get_builtin().getdict()
 
     def fget_f_back(space, self):
         return self.space.wrap(self.f_back)
@@ -490,7 +497,9 @@ class PyFrame(eval.Frame):
         return space.w_None
          
     def fget_f_restricted(space, self):
-        return space.wrap(self.builtin is not space.builtin)
+        if space.config.objspace.honor__builtins__:
+            return space.wrap(self.builtin is not space.builtin)
+        return space.w_False
 
 # ____________________________________________________________
 
