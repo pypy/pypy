@@ -10,6 +10,8 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.model import lltype_to_annotation
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.checkvirtual import check_virtual_methods
+from pypy.rpython.ootypesystem import ootype
 
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
@@ -163,16 +165,17 @@ def _build_gen(func, annotation, graph=None, backend_opt={}):
        t.view()
 
     t.buildrtyper(type_system="ootype").specialize()
+    check_virtual_methods(ootype.ROOT)
     backend_opt_default = dict(
         raisingop2direct_call=False,
-        inline_threshold=0,
-        mallocs=False,
-        merge_if_blocks=False,
+        inline_threshold=1,
+        mallocs=True,
+        merge_if_blocks=True,
         constfold=True,
         heap2stack=False,
         clever_malloc_removal=False)
     backend_opt_default.update(backend_opt)
-    backend_optimizations(t, **backend_opt_default)
+    #backend_optimizations(t, **backend_opt_default)
     
     main_graph = t.graphs[0]
 
@@ -190,7 +193,7 @@ class CliFunctionWrapper(object):
     def __init__(self, exe_name):
         self._exe = exe_name
 
-    def __call__(self, *args):
+    def run(self, *args):
         if self._exe is None:
             py.test.skip("Compilation disabled")
 
@@ -204,8 +207,11 @@ class CliFunctionWrapper(object):
                                 stderr=subprocess.PIPE, env=env)
         stdout, stderr = mono.communicate()
         retval = mono.wait()
-        assert retval == 0, stderr
+        return stdout, stderr, retval
 
+    def __call__(self, *args):
+        stdout, stderr, retval = self.run(*args)
+        assert retval == 0, stderr
         res = eval(stdout.strip())
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
