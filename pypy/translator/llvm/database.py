@@ -269,11 +269,7 @@ class Database(object):
             if isinstance(type_, lltype.Primitive):
                 return self.primitives[type_]
             elif isinstance(type_, lltype.Ptr):
-                if isinstance(type_.TO, lltype.FixedSizeArray):
-                    # hack copied from genc
-                    return self.repr_type(type_.TO.OF) + '*'
-                else:
-                    return self.repr_type(type_.TO) + '*'
+                return self.repr_type(type_.TO) + '*'
             else: 
                 raise TypeError("cannot represent %r" %(type_,))
             

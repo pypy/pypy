@@ -333,41 +333,33 @@ class OpWriter(object):
                                    op.args[0].concretetype.TO)
             assert index != -1
             tmpvar = self._tmp()
-            STRUCTTYPE = op.args[0].concretetype.TO
-            getptr = not isinstance(STRUCTTYPE, lltype.FixedSizeArray)
-            if not getptr:
-                self.codewriter.comment("HERE HERE")
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                          opr.argrefs[0], [("uint", index)], getptr=getptr)
+                                          opr.argrefs[0], [("uint", index)])
             self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
             self._skipped(opr)
 
     def direct_fieldptr(self, opr):
-        self.codewriter.comment("begin argh")
         op = opr.op
         assert opr.rettype != "void"
         index = getindexhelper(op.args[1].value,
                                op.args[0].concretetype.TO)
         assert index != -1
-        #import pdb; pdb.set_trace()
-        self.codewriter.getelementptr(opr.retref, opr.argtypes[0],
-                                      opr.argrefs[0], [("uint", index), ("int", 0)], getptr=False)
-        self.codewriter.comment("end argh")
+        tmpvar = self._tmp()
+        self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
+                                      opr.argrefs[0], [("uint", index)])
+        # get element ptr gets a pointer to the right type, except the generated code really expected 
+        # an array of size 1... so we just cast it
+        element_type = self.db.repr_type(op.result.concretetype.TO.OF)+'*'
+        self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
     def getsubstruct(self, opr): 
         index = getindexhelper(opr.op.args[1].value,
                                opr.op.args[0].concretetype.TO)
         assert opr.rettype != "void"
-        STRUCTTYPE = opr.op.args[0].concretetype.TO
-        getptr = not isinstance(STRUCTTYPE, lltype.FixedSizeArray)
         indices = [("uint", index)]
-        RETTYPE = opr.op.result.concretetype.TO
-        if isinstance(RETTYPE, lltype.FixedSizeArray):
-            indices.append(("int", 0))
-        #import pdb; pdb.set_trace()
         self.codewriter.getelementptr(opr.retref, opr.argtypes[0],
-                                      opr.argrefs[0], indices, getptr=getptr)
+                                      opr.argrefs[0], indices)
 
     def setfield(self, opr): 
         op = opr.op
@@ -375,12 +367,8 @@ class OpWriter(object):
             tmpvar = self._tmp()
             index = getindexhelper(op.args[1].value,
                                    op.args[0].concretetype.TO)
-            STRUCTTYPE = op.args[0].concretetype.TO
-            getptr = not isinstance(STRUCTTYPE, lltype.FixedSizeArray)
-            if not getptr:
-                self.codewriter.comment("HERE HERE")
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                          opr.argrefs[0], [("uint", index)], getptr=getptr)
+                                          opr.argrefs[0], [("uint", index)])
             self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
         else:
             self._skipped(opr)
@@ -397,28 +385,21 @@ class OpWriter(object):
         tmpvar = self._tmp()
 
         indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        getptr = not isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-        self.codewriter.getelementptr(tmpvar, arraytype, array, indices, getptr=getptr)
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
     def direct_arrayitems(self, opr):
         array, index = opr.argrefs
         arraytype, indextype = opr.argtypes
         indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
-        self.codewriter.getelementptr(opr.retref, arraytype, array, inices)
+        self.codewriter.getelementptr(opr.retref, arraytype, array, indices)
 
     def getarraysubstruct(self, opr):        
         array, index = opr.argrefs
         arraytype, indextype = opr.argtypes
 
         indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        getptr = not isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-        RETTYPE = opr.op.result.concretetype.TO
-        if isinstance(RETTYPE, lltype.FixedSizeArray):
-            indices.append(("int", 0))
-        self.codewriter.getelementptr(opr.retref, arraytype, array, indices, getptr=getptr)
+        self.codewriter.getelementptr(opr.retref, arraytype, array, indices)
 
     def setarrayitem(self, opr):
         array, index, valuevar = opr.argrefs
@@ -430,9 +411,7 @@ class OpWriter(object):
             return
 
         indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        getptr = not isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-        self.codewriter.getelementptr(tmpvar, arraytype, array, indices, getptr=getptr)
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
         self.codewriter.store(valuetype, valuevar, tmpvar) 
     bare_setarrayitem = setarrayitem
 
