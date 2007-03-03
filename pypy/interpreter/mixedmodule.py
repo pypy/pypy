@@ -20,6 +20,15 @@ class MixedModule(Module):
         self.lazy = True 
         self.__class__.buildloaders()
 
+    def get_applevel_name(cls):
+        """ NOT_RPYTHON """
+        if cls.applevel_name is not None:
+            return cls.applevel_name
+        else:
+            pkgroot = cls.__module__
+            return pkgroot.split('.')[-1]
+    get_applevel_name = classmethod(get_applevel_name)
+
     def get(self, name):
         space = self.space
         w_value = self.getdictvalue_w(space, name) 
@@ -80,10 +89,11 @@ class MixedModule(Module):
             # applevel/interplevel definitions 
             cls.loaders = loaders = {}
             pkgroot = cls.__module__
+            appname = cls.get_applevel_name()
             for name, spec in cls.interpleveldefs.items(): 
                 loaders[name] = getinterpevalloader(pkgroot, spec) 
             for name, spec in cls.appleveldefs.items(): 
-                loaders[name] = getappfileloader(pkgroot, spec) 
+                loaders[name] = getappfileloader(pkgroot, appname, spec)
             assert '__file__' not in loaders 
             if cls.expose__file__attribute:
                 loaders['__file__'] = cls.get__file__
@@ -169,7 +179,7 @@ def getinterpevalloader(pkgroot, spec):
     return ifileloader 
         
 applevelcache = {}
-def getappfileloader(pkgroot, spec):
+def getappfileloader(pkgroot, appname, spec):
     """ NOT_RPYTHON """ 
     # hum, it's a bit more involved, because we usually 
     # want the import at applevel
@@ -186,7 +196,7 @@ def getappfileloader(pkgroot, spec):
         file.close()
         if fn.endswith('.pyc') or fn.endswith('.pyo'):
             fn = fn[:-1]
-        app = gateway.applevel(source, filename=fn)
+        app = gateway.applevel(source, filename=fn, modname=appname)
         applevelcache[impbase] = app
 
     def afileloader(space): 
@@ -211,10 +221,7 @@ def testmodule(name, basepath='pypy.module'):
     fullname = "%s.%s" % (basepath, name) 
     Module = __import__(fullname, 
                         None, None, ["Module"]).Module
-    if Module.applevel_name is not None:
-        appname = Module.applevel_name
-    else:
-        appname = name
+    appname = Module.get_applevel_name()
     mod = Module(space, space.wrap(appname))
     res = new.module(appname)
     sys.modules[appname] = res
