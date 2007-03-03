@@ -45,22 +45,6 @@ def _exe_version2(exe):
 gcc_version = lambda: _exe_version2('gcc')
 llvm_gcc_version = lambda: _exe_version2('llvm-gcc')
 
-def optimizations(simple, use_gcc):
-
-    if simple:
-        opts = "-globaldce -adce -deadtypeelim -simplifycfg -raiseallocs " \
-               "-simplifycfg -mem2reg -simplifycfg -verify "
-    else:
-#         opts = """-verify -lowersetjmp -funcresolve -raiseallocs -simplifycfg -mem2reg -globalopt -globaldce -ipconstprop -deadargelim -instcombine -simplifycfg -basiccg -prune-eh -inline -simplify-libcalls -basiccg -argpromotion -raise -tailduplicate -simplifycfg -scalarrepl -instcombine -break-crit-edges -condprop -tailcallelim -simplifycfg -reassociate -loopsimplify -licm -lcssa -loop-unswitch -instcombine -indvars -loop-unroll -instcombine -lowerswitch -instcombine -load-vn -gcse -sccp -instcombine -break-crit-edges -condprop -dse -mergereturn -adce -simplifycfg -deadtypeelim -constmerge -verify"""
-        cmd = "gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1"
-        gccas_output = os.popen(cmd)
-        opts = gccas_output.read()[17:-1] + " "
-        opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
-                "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
-                "-gcse -instcombine -simplifycfg -globaldce "
-        #opts += "-inline-threshold=200 "   #default: 200
-    return opts
-
 def compile_module(module, source_files, object_files, library_files):
 
     open("%s_setup.py" % module, "w").write(str(py.code.Source(
@@ -78,127 +62,172 @@ def compile_module(module, source_files, object_files, library_files):
     log.build(cmd)
     py.process.cmdexec(cmd)
 
+class Builder(object):
 
-def build_module(genllvm):
-    # use pyrex to create module for CPython
-    postfix = ''
-    basename = genllvm.filename.purebasename + '_wrapper' + postfix + '.pyx'
-    pyxfile = genllvm.filename.new(basename = basename)
-    write_pyx_wrapper(genllvm, pyxfile)
-    return make_module_from_llvm(genllvm, genllvm.filename, pyxfile=pyxfile)
+    def __init__(self, genllvm):
+        self.genllvm = genllvm
+        self.cmds = []
 
-def build_standalone(genllvm, exename):
-    return make_module_from_llvm(genllvm, genllvm.filename, exe_name=exename)
+    def optimizations(self):
+        cmd = "gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1"
+        gccas_output = os.popen(cmd)
+        opts = gccas_output.read()[17:-1] + " "
 
-def make_module_from_llvm(genllvm, llvmfile,
-                          pyxfile=None, optimize=True, exe_name=None,
-                          profile=False, cleanup=False, use_gcc=True):
+        # these were added by Chris Lattner for some old verison of llvm
+        #    opts += "-globalopt -constmerge -ipsccp -deadargelim -inline " \
+        #            "-instcombine -scalarrepl -globalsmodref-aa -licm -load-vn " \
+        #            "-gcse -instcombine -simplifycfg -globaldce "
 
-    if exe_name:
-        use_gcc = genllvm.config.translation.llvm_via_c
+        # added try to reduce the amount of excessive inlining by us, llvm and gcc
+        #    opts += "-inline-threshold=175 "   #default: 200
+        return opts
 
-    # where we are building
-    dirpath = llvmfile.dirpath()
+    def compile_bytecode(self, b):
+        # run llvm assembler and optimizer
+        opts = self.optimizations()
 
-    # change into dirpath and store current path to change back
-    lastdir = str(py.path.local())
-    os.chdir(str(dirpath))
+        if llvm_version() < 2.0:
+            self.cmds.append("llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b))
+        else:
+            # we generate 1.x .ll files, so upgrade these first
+            self.cmds.append("llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b))
 
-    b = llvmfile.purebasename
+    def make_module(self):
+        # use pyrex to create module for CPython
+        postfix = ''
+        basename = self.genllvm.filename.purebasename + '_wrapper' + postfix + '.pyx'
+        pyxfile = self.genllvm.filename.new(basename = basename)
+        write_pyx_wrapper(self.genllvm, pyxfile)
 
-    # run llvm assembler and optimizer
-    simple_optimizations = not optimize
-    opts = optimizations(simple_optimizations, use_gcc)
-    if llvm_version() < 2.0:
-        cmds = ["llvm-as < %s.ll | opt %s -f -o %s.bc" % (b, opts, b)]
-    else: #we generate 1.x .ll files, so upgrade these first
-        cmds = ["llvm-upgrade < %s.ll | llvm-as | opt %s -f -o %s.bc" % (b, opts, b)]
+        llvmfile = self.genllvm.filename
 
-    object_files = ["-L/sw/lib"]
-    library_files = genllvm.db.gcpolicy.gc_libraries()
-    gc_libs = ' '.join(['-l' + lib for lib in library_files])
+        # change into dirpath and store current path to change back
+        dirpath = llvmfile.dirpath()
+        lastdir = py.path.local()
+        dirpath.chdir()
 
-    if sys.platform == 'darwin':
-        libdir = '/sw/' + "/lib"
-        gc_libs_path = '-L%s -ldl' % libdir
-    else:
-        gc_libs_path = '-static'
+        b = llvmfile.purebasename
 
-    if pyxfile:
+        # generate the llvm bytecode from ll file
+        self.compile_bytecode(b)
+
+        object_files = ["-L/sw/lib"]
+        library_files = self.genllvm.db.gcpolicy.gc_libraries()
+        gc_libs = ' '.join(['-l' + lib for lib in library_files])
+
+        if sys.platform == 'darwin':
+            libdir = '/sw/' + "/lib"
+            gc_libs_path = '-L%s -ldl' % libdir
+        else:
+            gc_libs_path = '-static'
+
         modname = pyxfile.purebasename
         source_files = ["%s.c" % modname]
-    else:
-        source_files = []
 
-    if not use_gcc:
-        cmds.append("llc %s.bc -f -o %s.s" % (b, b))
-        cmds.append("as %s.s -o %s.o" % (b, b))
+        use_gcc = True #self.genllvm.config.translation.llvm_via_c
+        if not use_gcc:
+            self.cmds.append("llc %s.bc -f -o %s.s" % (b, b))
+            self.cmds.append("as %s.s -o %s.o" % (b, b))
+            object_files.append("%s.o" % b)
+        else:
+            self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
+            source_files.append("%s.c" % b)
 
-        if exe_name:
-            cmd = "gcc -O3 %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
-            cmds.append(cmd)
-        object_files.append("%s.o" % b)
-    else:
-        cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
-        if exe_name:
-            if genllvm.config.translation.profopt is not None:
-                cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (b, b)
-                cmds.append(cmd)
-                cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \
-                      (b, gc_libs_path, gc_libs, exe_name)
-                cmds.append(cmd)
-                cmds.append("./%s_gen %s"%(exe_name, genllvm.config.translation.profopt))
-                cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
-                cmds.append(cmd)
-                cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
-                      (b, gc_libs_path, gc_libs, exe_name)
-            else:
-                cmd = "gcc %s.c -c -O3 -pipe" % b
-                if profile:
-                    cmd += ' -pg'
-                else:
-                    cmd += ' -fomit-frame-pointer'
-                cmds.append(cmd)
-                cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
-                if profile:
-                    cmd += ' -pg'
-            cmds.append(cmd)
-        source_files.append("%s.c" % b)
-
-    if cleanup and exe_name and not profile:
-        cmds.append('strip ' + exe_name)
-        upx = os.popen('which upx 2>&1').read()
-        # compress file
-        if upx and not upx.startswith('which'): 
-            cmds.append('upx ' + exe_name)
-
-    try:
-        c = stdoutcapture.Capture(mixed_out_err = True)
-        log.build("working in", py.path.local())
         try:
+            c = stdoutcapture.Capture(mixed_out_err = True)
+            log.build("working in", py.path.local())
             try:
-                for cmd in cmds:
-                    log.build(cmd)
-                    py.process.cmdexec(cmd)
-                if pyxfile:
+                try:
+                    for cmd in self.cmds:
+                        log.build(cmd)
+                        py.process.cmdexec(cmd)
                     make_c_from_pyxfile(pyxfile)
                     compile_module(modname, source_files, object_files, library_files)
-            finally:
-                foutput, ferror = c.done()
-        except:
-            data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
-            if pyxfile:
+
+                finally:
+                    foutput, ferror = c.done()
+            except:
+                data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
                 fdump = open("%s.errors" % modname, "w")
                 fdump.write(data)
                 fdump.close()
-            log.build(data)
-            raise
-    finally:
-        os.chdir(str(lastdir))
+                log.build(data)
+                raise
+        finally:
+            os.chdir(str(lastdir))
 
-    if pyxfile:
         return modname, str(dirpath)
 
-    if exe_name:
-        exe_path = str(llvmfile.dirpath().join(exe_name))
-        return exe_path
+    def make_standalone(self, exe_name):
+        llvmfile = self.genllvm.filename
+
+        # change into dirpath and store current path to change back
+        dirpath = llvmfile.dirpath()
+        lastdir = py.path.local()
+        dirpath.chdir()
+
+        b = llvmfile.purebasename
+
+        # generate the llvm bytecode from ll file
+        self.compile_bytecode(b)
+        #compile_objects(b)
+
+        object_files = ["-L/sw/lib"]
+        library_files = self.genllvm.db.gcpolicy.gc_libraries()
+        gc_libs = ' '.join(['-l' + lib for lib in library_files])
+
+        if sys.platform == 'darwin':
+            libdir = '/sw/' + "/lib"
+            gc_libs_path = '-L%s -ldl' % libdir
+        else:
+            gc_libs_path = '-static'
+
+        source_files = []
+
+        use_gcc = self.genllvm.config.translation.llvm_via_c
+
+        if not use_gcc:
+            self.cmds.append("llc %s.bc -f -o %s.s" % (b, b))
+            self.cmds.append("as %s.s -o %s.o" % (b, b))
+
+            cmd = "gcc -O3 %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+            self.cmds.append(cmd)
+            object_files.append("%s.o" % b)
+        else:
+            self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
+            if self.genllvm.config.translation.profopt is not None:
+                cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (b, b)
+                self.cmds.append(cmd)
+                cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \
+                      (b, gc_libs_path, gc_libs, exe_name)
+                self.cmds.append(cmd)
+                self.cmds.append("./%s_gen %s"%(exe_name, self.genllvm.config.translation.profopt))
+                cmd = "gcc -fprofile-use %s.c -c -O3 -pipe -o %s.o" % (b, b)
+                self.cmds.append(cmd)
+                cmd = "gcc -fprofile-use %s.o %s %s -lm -pipe -o %s" % \
+                      (b, gc_libs_path, gc_libs, exe_name)
+            else:
+                cmd = "gcc %s.c -c -O3 -pipe -fomit-frame-pointer" % b
+                self.cmds.append(cmd)
+                cmd = "gcc %s.o %s %s -lm -pipe -o %s" % (b, gc_libs_path, gc_libs, exe_name)
+            self.cmds.append(cmd)
+            source_files.append("%s.c" % b)
+
+        try:
+            c = stdoutcapture.Capture(mixed_out_err = True)
+            log.build("working in", py.path.local())
+            try:
+                try:
+                    for cmd in self.cmds:
+                        log.build(cmd)
+                        py.process.cmdexec(cmd)
+                finally:
+                    foutput, ferror = c.done()
+            except:
+                data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
+                log.build(data)
+                raise
+        finally:
+            lastdir.chdir()
+
+        return str(llvmfile.dirpath().join(exe_name))

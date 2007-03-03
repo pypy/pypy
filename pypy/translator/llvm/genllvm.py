@@ -220,8 +220,8 @@ class GenLLVM(object):
 
     def compile_module(self):
         assert not self.standalone
-
-        modname, dirpath = buildllvm.build_module(self)
+        
+        modname, dirpath = buildllvm.Builder(self).make_module()
         mod, wrap_fun = self.get_module(modname, dirpath)
         return mod, wrap_fun
 
@@ -237,7 +237,7 @@ class GenLLVM(object):
 
     def compile_standalone(self, exe_name):
         assert self.standalone
-        return buildllvm.build_standalone(self, exe_name)
+        return buildllvm.Builder(self).make_standalone(exe_name)
 
     def _checkpoint(self, msg=None):
         if not self.config.translation.llvm.logging:
