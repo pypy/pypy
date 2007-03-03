@@ -41,7 +41,8 @@ def main(options, args):
 
     refs = {}
 
-    exes = full_pythons + exes
+    if not options.nocpython:
+        exes = full_pythons + exes
 
     for i in range(int(options.runcount)):
         for exe in exes:
@@ -80,6 +81,14 @@ if __name__ == '__main__':
         )
     parser.add_option(
         '--relto', dest='relto',
+        default=None,
+        )
+    parser.add_option(
+        '-v', '--verbose', action='store_true', dest='verbose',
+        default=None,
+        )
+    parser.add_option(
+        '--no-cpython', action='store_true', dest='nocpython',
         default=None,
         )
     options, args = parser.parse_args(sys.argv[1:])
