@@ -124,7 +124,23 @@ class AppTest_SmartListObject(test_listobject.AppTestW_ListObject):
         cls.space = gettestobjspace(**{
             "objspace.std.withsmartresizablelist": True})
 
+
+def _set_chunk_size_bits(bits):
+    from pypy.conftest import option
+    if not option.runappdirect:
+        from pypy.objspace.std import listmultiobject
+        old_value = listmultiobject.CHUNK_SIZE_BITS
+        listmultiobject.CHUNK_SIZE_BITS = bits
+        listmultiobject.CHUNK_SIZE = 2**bits
+        return old_value
+    return -1
+
 class AppTest_ChunkListObject(test_listobject.AppTestW_ListObject):
+
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withchunklist": True})
+        cls.chunk_size_bits = _set_chunk_size_bits(2)
+
+    def teardown_class(cls):
+        _set_chunk_size_bits(cls.chunk_size_bits)
 

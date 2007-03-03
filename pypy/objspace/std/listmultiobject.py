@@ -283,14 +283,16 @@ class ChunkedListImplementation(ListImplementation):
         free_slots = -self._length % CHUNK_SIZE
         if free_slots < how_much:
             to_allocate = how_much - free_slots
-            for _ in range(0, (to_allocate / CHUNK_SIZE) + 1):
+            while to_allocate > 0:
                 self.chunks.append([None] * CHUNK_SIZE)
+                to_allocate -= CHUNK_SIZE
         self._length += how_much
 
     def length(self):
         return self._length
 
     def getitem(self, i):
+        assert i < self._length
         return self.chunks[i >> CHUNK_SIZE_BITS][i & (CHUNK_SIZE - 1)]
 
     def _get_chunks_slice(self, start, stop):
@@ -343,9 +345,10 @@ class ChunkedListImplementation(ListImplementation):
         assert stop >= 0
 
         delta = stop - start
+
         for j in range(start + delta, length):
             self.setitem(j - delta, self.getitem(j))
-        first_unneeded_chunk = ((length - delta) >> CHUNK_SIZE) + 1
+        first_unneeded_chunk = ((length - delta) >> CHUNK_SIZE_BITS) + 1
         assert first_unneeded_chunk >= 0
         del self.chunks[first_unneeded_chunk:]
 
@@ -361,9 +364,10 @@ class ChunkedListImplementation(ListImplementation):
 
     def insert(self, i, w_item):
         assert i >= 0
+        length = self._length
 
         self._grow()
-        for j in range(i, self._length):
+        for j in range(length - 1, 0, -1):
             self.setitem(j + 1, self.getitem(j))
         self.setitem(i, w_item)
 
