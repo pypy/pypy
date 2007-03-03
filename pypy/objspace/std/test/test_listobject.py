@@ -383,12 +383,18 @@ class AppTestW_ListObject:
         assert l is l0
         assert l == [1,2]
         l = ['a']
+        l.extend(('b',))
+        assert l == ['a', 'b']
 
     def test_extend_iterable(self):
         l = l0 = [1]
         l.extend(iter([1, 2, 3, 4]))
         assert l is l0
         assert l == [1, 1, 2, 3, 4]
+        l = l0 = ['a']
+        l.extend(iter(['b', 'c', 'd']))
+        assert l == ['a', 'b', 'c', 'd']
+        assert l is l0
 
     def test_sort(self):
         l = l0 = [1, 5, 3, 0]
@@ -452,6 +458,11 @@ class AppTestW_ListObject:
         assert l[-2] == 6
         raises(IndexError, "l[len(l)]")
         raises(IndexError, "l[-len(l)-1]")
+        l = ['a', 'b', 'c']
+        assert l[0] == 'a'
+        assert l[-1] == 'c'
+        assert l[-2] == 'b'
+        raises(IndexError, "l[len(l)]")
 
     def test_delitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
@@ -463,9 +474,24 @@ class AppTestW_ListObject:
         assert l == [2, 3, 4, 6]
         raises(IndexError, "del l[len(l)]")
         raises(IndexError, "del l[-len(l)-1]")
+        
+        l = l0 = ['a', 'b', 'c']
+        del l[0]
+        assert l == ['b', 'c']
+        del l[-1]
+        assert l == ['b']
+        del l[-1]
+        assert l == []
+        assert l is l0
+        raises(IndexError, "del l[0]")
+
+        l = range(10)
+        del l[5]
+        assert l == [0, 1, 2, 3, 4, 6, 7, 8, 9]
 
     def test_getitem_slice(self):
         l = range(10)
+        assert l[::] == l
         del l[::2]
         assert l == [1,3,5,7,9]
         l[-2::-1] = l[:-1]
@@ -474,18 +500,32 @@ class AppTestW_ListObject:
         assert l == [7,5,3]
         del l[:2]
         assert l == [3]
-
-        l = [0]
         assert l[1:] == []
         assert l[1::2] == []
+        assert l[::] == l
+        assert l[0::-2] == l
+        assert l[-1::-5] == l
+        
         l = ['']
         assert l[1:] == []
         assert l[1::2] == []
+        assert l[::] == l
+        assert l[0::-5] == l
+        assert l[-1::-5] == l
+        l.extend(['a', 'b'])
+        assert l[::-1] == ['b', 'a', '']
+        assert l[:-1:-1] == ['b', 'a', '']
 
     def test_delall(self):
         l = l0 = [1,2,3]
         del l[:]
         assert l is l0
+        assert l == []
+        l = ['a', 'b']
+        del l[:]
+        assert l == []
+        l = range(5)
+        del l[:]
         assert l == []
 
     def test_iadd(self):
@@ -493,6 +533,14 @@ class AppTestW_ListObject:
         l += [4,5]
         assert l is l0
         assert l == [1,2,3,4,5]
+
+        l = l0 = ['a', 'b', 'c']
+        l1 = l[:]
+        l += ['d']
+        assert l is l0
+        assert l == ['a', 'b', 'c', 'd']
+        l1 += [0]
+        assert l1 == ['a', 'b', 'c', 0]
 
     def test_iadd_iterable(self):
         l = l0 = [1,2,3]
@@ -512,8 +560,27 @@ class AppTestW_ListObject:
         l *= (-1)
         assert l is l0
         assert l == []
+        
+        l = l0 = ['a', 'b']
+        l *= 2
+        assert l is l0
+        assert l == ['a', 'b', 'a', 'b']
+        l *= 0
+        assert l is l0
+        assert l == []
+        l = ['a']
+        l *= -5
+        assert l == []
+
+        l = range(2)
+        l *= 2
+        assert l == [0, 1, 0, 1]
 
     def test_index(self):
+        c = range(10)
+        assert c.index(0) == 0
+        raises(ValueError, c.index, 10)
+        
         c = list('hello world')
         assert c.index('l') == 2
         raises(ValueError, c.index, '!')
@@ -529,6 +596,10 @@ class AppTestW_ListObject:
         raises(TypeError, c.index, 'c', 0, 4.3)
         raises(TypeError, c.index, 'c', 1.0, 5.6)
 
+        c = [0, 2, 4]
+        assert c.index(0) == 0
+        raises(ValueError, c.index, 3)
+
     def test_ass_slice(self):
         l = range(6)
         l[1:3] = 'abc'
@@ -539,6 +610,27 @@ class AppTestW_ListObject:
         l = range(6)
         l[:] = []
         assert l == []
+
+        l = l0 = ['a', 'b']
+        l[1:1] = ['ae']
+        assert l == ['a', 'ae', 'b']
+        l[1:100] = ['B']
+        assert l == ['a', 'B']
+        l[:] = []
+        assert l == []
+        assert l is l0
+
+    def test_ass_extended_slice(self):
+        l = l0 = ['a', 'b', 'c']
+        l[::-1] = ['a', 'b', 'c']
+        assert l == ['c', 'b', 'a']
+        l[::-2] = [0, 1]
+        assert l == [1, 'b', 0]
+        l[-1:5:2] = [2]
+        assert l == [1, 'b', 2]
+        l[:-1:2] = [0]
+        assert l == [0, 'b', 2]
+        assert l is l0
 
     def test_recursive_repr(self):
         l = []
@@ -554,6 +646,17 @@ class AppTestW_ListObject:
         l.append('Z')
         assert l == ['X', 'Y', 'Z']
 
+        l = []
+        l.append(0)
+        assert l == [0]
+        for x in range(1, 5):
+            l.append(x)
+        assert l == range(5)
+
+        l = range(4)
+        l.append(4)
+        assert l == range(5)
+
     def test_count(self):
         c = list('hello')
         assert c.count('l') == 2
@@ -568,7 +671,7 @@ class AppTestW_ListObject:
         c.insert(-2, 'Z')
         assert ''.join(c) == 'XhYello worZld'
 
-        ls = [1,2,3,4,5,6,7]
+        ls = [1, 2, 3, 4, 5, 6, 7]
         for i in range(5):
             ls.insert(0, i)
         assert len(ls) == 12
@@ -582,6 +685,10 @@ class AppTestW_ListObject:
         raises(IndexError, c.pop)
         assert len(c) == 0
 
+        l = range(10)
+        l.pop()
+        assert l == range(9)
+
     def test_remove(self):
         c = list('hello world')
         c.remove('l')
@@ -592,6 +699,12 @@ class AppTestW_ListObject:
         assert ''.join(c) == 'heo word'
         raises(ValueError, c.remove, 'l')
         assert ''.join(c) == 'heo word'
+
+        l = range(5)
+        l.remove(2)
+        assert l == [0, 1, 3, 4]
+        l = [0, 3, 5]
+        raises(ValueError, c.remove, 2)
 
     def test_reverse(self):
         c = list('hello world')
