@@ -105,7 +105,7 @@ class Builder(object):
                 foutput, ferror = c.done()
         except:
             data = 'OUTPUT:\n' + foutput.read() + '\n\nERROR:\n' + ferror.read()
-            fdump = open("%s.errors" % modname, "w")
+            fdump = open("%s.errors" % self.genllvm.filename, "w")
             fdump.write(data)
             fdump.close()
             log.build(data)
@@ -134,7 +134,7 @@ class Builder(object):
         else:
             gc_libs_path = '-static'
 
-        use_gcc = False #self.genllvm.config.translation.llvm_via_c
+        use_gcc = True #self.genllvm.config.translation.llvm_via_c
         if not use_gcc:
             self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (b, b))
             self.cmds.append("as %s.s -o %s.o" % (b, b))
