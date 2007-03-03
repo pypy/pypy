@@ -15,9 +15,11 @@ class StacklessTest(object):
             os.write(1, str(fn()) + "\n")
             return 0
 
-        exe_path = genllvm_compile(entry_point, [s_list_of_strings], optimize=False,
-                                   exe_name="stacktest", standalone=True,
-                                   stackless=True, logging=False)
+        # XXX run this with interactive
+        #exe_path = genllvm_compile(entry_point, [s_list_of_strings], optimize=False,
+        #                           exe_name="stacktest", standalone=True,
+        #                           stackless=True, logging=False)
+
         res = os.system(exe_path)
         return int(res.strip())
 

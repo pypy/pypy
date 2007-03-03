@@ -17,7 +17,6 @@ from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
 from pypy.translator.llvm.log import log
-from pypy import conftest
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, postfix
 
 class GenLLVM(object):
@@ -294,70 +293,3 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-#______________________________________________________________________________
-
-def genllvm_compile(function,
-                    annotation,
-
-                    # genllvm options
-                    gcpolicy=None,
-                    standalone=False,
-                    stackless=False,
-                    
-                    # debug options
-                    view=False,
-                    debug=False,
-                    logging=False,
-                    log_source=False,
-
-                    # pass to compile
-                    optimize=True,
-                    **kwds):
-
-    """ helper for genllvm """
-
-    assert llvm_is_on_path()
-    
-    # annotate/rtype
-    from pypy.translator.translator import TranslationContext
-    from pypy.translator.backendopt.all import backend_optimizations
-    from pypy.config.pypyoption import get_pypy_config
-    config = get_pypy_config(translating=True)
-    config.translation.gc = 'boehm'
-    translator = TranslationContext(config=config)
-    translator.buildannotator().build_types(function, annotation)
-    translator.buildrtyper().specialize()
-
-    # use backend optimizations?
-    if optimize:
-        backend_optimizations(translator, raisingop2direct_call=True)
-    else:
-        backend_optimizations(translator,
-                              raisingop2direct_call=True,
-                              inline_threshold=0,
-                              mallocs=False,
-                              merge_if_blocks=False,
-                              constfold=False)
-
-    # note: this is without stackless and policy transforms
-    if view or conftest.option.view:
-        translator.view()
-
-    if stackless:
-        from pypy.translator.transform import insert_ll_stackcheck
-        insert_ll_stackcheck(translator)
-
-    # create genllvm
-    gen = GenLLVM(translator,
-                  standalone,
-                  debug=debug,
-                  logging=logging,
-                  stackless=stackless)
-
-    filename = gen.gen_llvm_source(function)
-    
-    log_source = kwds.pop("log_source", False)
-    if log_source:
-        log(open(filename).read())
-
-    return gen.compile_llvm_source(optimize=optimize, **kwds)
