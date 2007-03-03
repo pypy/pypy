@@ -7,3 +7,8 @@ class TestRender(object):
         def x():
             escapeHTML("xxx") + "xxx"
         assert js_source([x], use_pdb=False).find("escapeHTML (") != -1
+
+    def test_serialize_json(self):
+        def x():
+            return serializeJSON(3) + serializeJSON("aaa") + serializeJSON([1])
+        assert js_source([x])
