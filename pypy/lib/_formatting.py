@@ -19,16 +19,9 @@ class _Flags(object):
     f_zero = 0
 
 
-def value_next(valueiter):
-    try:
-        return valueiter.next()
-    except StopIteration:
-        raise TypeError('not enough arguments for format string')
-
-
-def peel_num(c, fmtiter, valueiter):
+def peel_num(c, fmtiter, valuebox):
     if c == '*':
-        v = value_next(valueiter)
+        v = valuebox.next()
         if not isinstance(v, int):
             raise TypeError, "* wants int"
         return fmtiter.next(), v
@@ -61,9 +54,9 @@ def peel_flags(c, fmtiter):
     return c, flags
 
 
-def parse_fmt(fmtiter, valueiter, valuedict):
+def parse_fmt(fmtiter, valuebox):
     """return (char, flags, width, prec, value)
-    partially consumes fmtiter & valueiter"""
+    partially consumes fmtiter & valuebox"""
     c = fmtiter.next()
     value = None
     gotvalue = False
@@ -79,13 +72,13 @@ def parse_fmt(fmtiter, valueiter, valuedict):
             elif c == '(':
                 pcount += 1
             n += c
-        value = valuedict[n]
+        value = valuebox.getitem(n)
         gotvalue = True
         c = fmtiter.next()
     c, flags = peel_flags(c, fmtiter)
-    c, width = peel_num(c, fmtiter, valueiter)
+    c, width = peel_num(c, fmtiter, valuebox)
     if c == '.':
-        c, prec = peel_num(fmtiter.next(), fmtiter, valueiter)
+        c, prec = peel_num(fmtiter.next(), fmtiter, valuebox)
     else:
         prec = None
     if c in 'hlL':
@@ -100,7 +93,7 @@ def parse_fmt(fmtiter, valueiter, valuedict):
             value = '%'
             c = 's'
         else:
-            value = value_next(valueiter)
+            value = valuebox.next()
     return (c, flags, width, prec, value)
 
 
@@ -472,18 +465,20 @@ class FmtIter(object):
 
 
 def format(fmt, values, valuedict=None, do_unicode=False):
+    vb = ValueGetter(values, valuedict)
+    return _format(fmt, vb, do_unicode)
+
+def _format(fmt, valuebox, do_unicode=False):
     if do_unicode:
         format_registry = unicode_format_registry
     else:
         format_registry = str_format_registry
-        
-    valueiter = iter(values)
     fmtiter = FmtIter(fmt)
     r = []
     for c in fmtiter: 
         if c == '%':
             try:
-                t = parse_fmt(fmtiter, valueiter, valuedict)
+                t = parse_fmt(fmtiter, valuebox)
             except StopIteration:
                 raise ValueError, "incomplete format"
             try:
@@ -513,15 +508,34 @@ def format(fmt, values, valuedict=None, do_unicode=False):
         else:
             # efficiency hack:
             r.append(c + fmtiter.skip_to_fmt())
-    try:
-        valueiter.next()
-    except StopIteration:
-        pass
-    else:
-        if valuedict is None:
-            raise TypeError('not all arguments converted '
-                            'during string formatting')
+    valuebox.check_consumed()
+   
     if do_unicode:
         return u''.join(r)
     return ''.join(r)
+
+
+class ValueGetter:
+    """ statefull accesstor to Interpolation Values. """
+
+    def __init__(self, values, valuedict):
+        self._values = values
+        self._valuedict = valuedict
+        self._valueindex = 0
+
+    def check_consumed(self):
+        if (self._valueindex < len(self._values) and 
+            self._valuedict is None):
+            raise TypeError('not all arguments converted '
+                            'during string formatting')
+
+    def next(self):
+        if self._valueindex >= len(self._values):
+            raise TypeError('not enough arguments for format string')
+        val = self._values[self._valueindex]
+        self._valueindex += 1
+        return val
+
+    def getitem(self, key):
+        return self._valuedict[key]
 
