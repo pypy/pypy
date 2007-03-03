@@ -30,7 +30,7 @@ class Interpreter(object):
     def timeout_read(self, fd, timeout):
         timer = Timer(timeout)
         try:
-            data = fd.recv(1024)
+            data = fd.recv(10024)
         except Interrupted:
             data = None
         else:

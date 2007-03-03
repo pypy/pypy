@@ -14,7 +14,7 @@ from pypeers.httpserver import GreenHTTPServer
 
 commproxy.USE_MOCHIKIT = True
 
-FUNCTION_LIST = ["console_onload"]
+FUNCTION_LIST = ["load_console", "console_onload"]
 
 class Ignore(Exception):
     pass
@@ -23,13 +23,26 @@ def js_source():
     import client
     return rpython2javascript(client, FUNCTION_LIST)
 
+def line_split(ret, max_len):
+    to_ret = []
+    for line in ret.split("\n"):
+        if len(line) > max_len:
+            to_ret += [line[i*max_len:(i+1)*max_len] for i in
+                       range(len(line)/max_len - 1)]
+            i += 1
+        else:
+            i = 0
+        to_ret.append(line[i*max_len:])
+    return "\n".join(to_ret)
+
+
 class Sessions(object):
     def __init__(self):
         self.sessions = {}
         self.updating = {}
 
-    def new_session(self):
-        ip = Interpreter("python")
+    def new_session(self, python="python"):
+        ip = Interpreter(python)
         self.sessions[ip.pid] = ip
         self.updating[ip.pid] = False
         return ip.pid
@@ -44,16 +57,23 @@ class Sessions(object):
         self.updating[pid] = False
         if not ret:
             return ""
-        return ret
+        MAX_LEN = 80
+        return line_split(ret, MAX_LEN)
+
+    def kill_session(self, pid):
+        ip = self.sessions[pid]
+        ip.pipe.stdin.close()
+        del self.sessions[pid]
+        del self.updating[pid]
 
 # We hack here, cause in exposed methods we don't have global 'server'
 # state
 sessions = Sessions()
 
 class ExportedMethods(server.ExportedMethods):
-    @callback(retval=int)
-    def get_console(self):
-        retval = sessions.new_session()
+    @callback(args=[str], retval=int)
+    def get_console(self, python="python"):
+        retval = sessions.new_session(python)
         return retval
 
     @callback(retval=[str])
@@ -76,22 +96,33 @@ class ExportedMethods(server.ExportedMethods):
         except Ignore:
             return ["ignore"]
 
+    @callback()
+    def kill_console(self, pid=0):
+        sessions.kill_session(int(pid))
+
 exported_methods = ExportedMethods()
 
-class Handler(server.Handler):
+static_dir = py.path.local(__file__).dirpath().join("data")
+
+class Root(server.Collection):
     exported_methods = exported_methods
-    static_dir = py.path.local(__file__).dirpath().join("data")
-    index = server.Static(static_dir.join("console.html"))
+    #index = server.Static(static_dir.join("console.html"))
+    index = server.FsFile(static_dir.join("console.html"))
     MochiKit = server.StaticDir('MochiKit')
 
     def source_js(self):
-        if hasattr(self.server, 'source'):
-            source = self.server.source
+        if hasattr(self.server, 'source_console'):
+            source = self.server.source_console
         else:
             source = js_source()
-            self.server.source = source
+            self.server.source_console = source
         return "text/javascript", source
     source_js.exposed = True
+
+class Handler(server.NewHandler):
+    application = Root()
+    application.some = Root()
+    application.other = Root()
 
 if __name__ == '__main__':
     addr = ('', 8007)

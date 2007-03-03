@@ -7,9 +7,18 @@
    </style>
 </head>
 <body onload="console_onload()">
-   <h3>Python console</h3>
-   <pre id="data"></pre>
-   &gt;&gt;&gt; <input id="inp" size="80" type="text" autocomplete="off"/>
-   <p id="error"></p>
+   <div style="visibility:visible" id="navbar">
+     <ul>
+       <li><a href="javascript:load_console('python')">Plain CPython console</a></li>
+       <li><a href="javascript:load_console('pypy-c')">pypy-c</a></li>
+       <li><a href="javascript:cleanup_console()">kill console</a></li>
+     </ul>
+   </div>
+   <div style="visibility:hidden" id="main">
+     <h3>Python console</h3>
+     <pre id="data"></pre>
+     &gt;&gt;&gt; <input id="inp" size="80" type="text" autocomplete="off"/>
+     <p id="error"></p>
+   </div>
 </body>
 </html>

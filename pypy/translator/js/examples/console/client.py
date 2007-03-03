@@ -4,7 +4,8 @@ from pypy.translator.js.modules.mochikit import log, createLoggingPane
 from pypy.translator.js.examples.console.console import exported_methods
 
 class Glob(object):
-    pass
+    def __init__(self):
+        self.console_running = False
 
 glob = Glob()
 
@@ -18,12 +19,17 @@ def add_text(txt):
         data_elem.removeChild(data_elem.childNodes[0])
     data_elem.appendChild(dom.document.createTextNode(data))
 
+def set_text(txt):
+    data_elem = dom.document.getElementById("data")
+    while data_elem.childNodes:
+        data_elem.removeChild(data_elem.childNodes[0])
+    data_elem.appendChild(dom.document.createTextNode(txt))    
+
 def refresh_console(msg):
     inp_elem = dom.document.getElementById("inp")
     #inp_elem.disabled = False
-    inp_elem.scrollIntoView()
-    log(msg[0])
     if msg[0] == "refresh":
+        inp_elem.scrollIntoView()
         data = msg[1]
         log(data)
         exported_methods.refresh_empty(glob.sess_id, refresh_console)
@@ -52,10 +58,30 @@ def keypressed(key):
         #else:
         exported_methods.refresh(glob.sess_id, cmd + "\n", refresh_console)
 
+def nothing(msg):
+    pass
+
+def cleanup_console():
+    inp_elem = dom.document.getElementById("inp")
+    inp_elem.disabled = True
+    set_text("")
+    exported_methods.kill_console(glob.sess_id, nothing)
+
+def load_console(python="python"):
+    if glob.console_running:
+        cleanup_console()
+    inp_elem = dom.document.getElementById("inp")
+    main = dom.document.getElementById("main")
+    main.style.visibility = "visible"
+    inp_elem.disabled = False
+    inp_elem.focus()
+    glob.console_running = True
+    exported_methods.get_console(python, set_sessid)
+
 def console_onload():
     #createLoggingPane(True)
-    inp_elem = dom.document.getElementById("inp")
-    inp_elem.focus()
+    #inp_elem = dom.document.getElementById("inp")
+    #inp_elem.focus()
     dom.document.onkeypress = keypressed
-    exported_methods.get_console(set_sessid)
+    #exported_methods.get_console("python", set_sessid)
 
