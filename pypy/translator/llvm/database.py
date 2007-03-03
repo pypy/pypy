@@ -27,7 +27,6 @@ class Database(object):
         self._pendingsetup = []
         self._tmpcount = 1
         self.helper2ptr = {}
-        self.externalfuncs = {}
 
         self.primitives = Primitives(self)
     
@@ -59,7 +58,9 @@ class Database(object):
         if isinstance(type_, lltype.FuncType):
             if getattr(value._callable, "suggested_primitive", False):
                 node = ExternalFuncNode(self, value)
-                self.externalfuncs[node.callable] = value
+            elif hasattr(value, '_entry'):
+                node = ExternalFuncNode(self, value, value._entry.name)
+
             elif getattr(value, 'external', None) == 'C':
                 node = SimplerExternalFuncNode(self, value)
             else:

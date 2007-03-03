@@ -51,14 +51,18 @@ class SimplerExternalFuncNode(ConstantLLVMNode):
 
 class ExternalFuncNode(ConstantLLVMNode):
 
-    def __init__(self, db, value):
+    def __init__(self, db, value, extname=None):
         self.db = db
         self.value = value
         name = value._callable.__name__
-        assert name.startswith("ll")
+        #assert name.startswith("ll")
 
         self.callable = value._callable
-        mapped_name = EXTERNALS[self.callable]
+        if extname is not None:
+            mapped_name = EXTERNALS[extname]
+        else:
+            mapped_name = EXTERNALS[self.callable]
+
         self.ref = self.make_ref("%", mapped_name)
         
     def setup(self):
