@@ -42,10 +42,11 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, typer, heap=llheap, tracing=True):
+    def __init__(self, typer, heap=llheap, tracing=True, exc_data_ptr=None):
         self.bindings = {}
         self.typer = typer
         self.heap = heap  #module that provides malloc, etc for lltypes
+        self.exc_data_ptr = exc_data_ptr
         self.active_frame = None
         # XXX hack: set gc to None because
         # prepare_graphs_and_create_gc might already use the llinterpreter!
@@ -149,6 +150,13 @@ class LLInterpreter(object):
         finally:
             self.active_frame = old_active_frame
         raise ValueError, "couldn't match exception"
+
+    def get_transformed_exc_data(self, graph):
+        if hasattr(graph, 'exceptiontransformed'):
+            return graph.exceptiontransformed
+        if getattr(graph, 'rgenop', False):
+            return self.exc_data_ptr
+        return None
 
 
 def checkptr(ptr):
@@ -284,18 +292,16 @@ class LLFrame(object):
                 raise LLException(etype, evalue)
             resultvar, = block.getvariables()
             result = self.getval(resultvar)
-            if hasattr(self.graph, 'exceptiontransformed'):
+            exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
+            if exc_data:
                 # re-raise the exception set by this graph, if any
-                exc_data = self.graph.exceptiontransformed
-                etype = rclass.fishllattr(exc_data, 'exc_type')
+                etype = exc_data.exc_type
                 if etype:
-                    evalue = rclass.fishllattr(exc_data, 'exc_value')
+                    evalue = exc_data.exc_value
                     if tracer:
                         tracer.dump('raise')
-                    rclass.feedllattr(exc_data, 'exc_type',
-                                      lltype.typeOf(etype)._defl())
-                    rclass.feedllattr(exc_data, 'exc_value',
-                                      lltype.typeOf(evalue)._defl())
+                    exc_data.exc_type  = lltype.typeOf(etype )._defl()
+                    exc_data.exc_value = lltype.typeOf(evalue)._defl()
                     from pypy.translator.c import exceptiontransform
                     T = resultvar.concretetype
                     errvalue = exceptiontransform.error_value(T)
@@ -554,13 +560,13 @@ class LLFrame(object):
         try:
             return self.perform_call(f, FTYPE.ARGS, args)
         except LLException, e:
-            if hasattr(self.graph, 'exceptiontransformed'):
+            exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
+            if exc_data:
                 # store the LLException into the exc_data used by this graph
-                exc_data = self.graph.exceptiontransformed
                 etype = e.args[0]
                 evalue = e.args[1]
-                rclass.feedllattr(exc_data, 'exc_type', etype)
-                rclass.feedllattr(exc_data, 'exc_value', evalue)
+                exc_data.exc_type  = etype
+                exc_data.exc_value = evalue
                 from pypy.translator.c import exceptiontransform
                 return exceptiontransform.error_value(FTYPE.RESULT)
             raise

@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython import rtyper
 from pypy.rpython import rclass
+from pypy.rpython.rmodel import inputconst
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
@@ -45,25 +46,25 @@ class ExceptionTransformer(object):
         mixlevelannotator = MixLevelHelperAnnotator(translator.rtyper)
         l2a = annmodel.lltype_to_annotation
 
-        class ExcData(object):
-            pass
-            #exc_type = lltype.nullptr(self.exc_data.lltype_of_exception_type.TO)
-            #exc_value = lltype.nullptr(self.exc_data.lltype_of_exception_value.TO)
+        EXCDATA = lltype.Struct('ExcData',
+            ('exc_type',  self.lltype_of_exception_type),
+            ('exc_value', self.lltype_of_exception_value))
+        self.EXCDATA = EXCDATA
 
-        exc_data = ExcData()
+        exc_data = lltype.malloc(EXCDATA, immortal=True)
         null_type = lltype.nullptr(self.lltype_of_exception_type.TO)
         null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
         
         def rpyexc_occured():
             exc_type = exc_data.exc_type
-            return exc_type is not null_type
+            return bool(exc_type)
 
         # XXX tmp HACK for genllvm
         # llvm is strongly typed between bools and ints, which means we have no way of
         # calling rpyexc_occured() from c code with lltype.Bool
         def _rpyexc_occured():
             exc_type = exc_data.exc_type
-            return exc_type is not null_type
+            return bool(exc_type)
 
         def rpyexc_fetch_type():
             return exc_data.exc_type
@@ -143,17 +144,23 @@ class ExceptionTransformer(object):
 
         mixlevelannotator.finish()
 
-        ExcDataDef = translator.annotator.bookkeeper.getuniqueclassdef(ExcData)
-        self.ExcData_repr = rclass.getinstancerepr(translator.rtyper, ExcDataDef)
-        self.exc_data_ptr = self.ExcData_repr.convert_const(exc_data)
-        self.cexcdata = Constant(self.exc_data_ptr,
-                                 self.ExcData_repr.lowleveltype)
+        self.exc_data_ptr = exc_data
+        self.cexcdata = Constant(exc_data, lltype.Ptr(EXCDATA))
         
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         p = lltype.nullptr(self.lltype_of_exception_type.TO)
         self.c_null_etype = Constant(p, self.lltype_of_exception_type)
         p = lltype.nullptr(self.lltype_of_exception_value.TO)
         self.c_null_evalue = Constant(p, self.lltype_of_exception_value)
+
+    def gen_getfield(self, name, llops):
+        c_name = inputconst(lltype.Void, name)
+        return llops.genop('getfield', [self.cexcdata, c_name],
+                           resulttype = getattr(self.EXCDATA, name))
+
+    def gen_setfield(self, name, v_value, llops):
+        c_name = inputconst(lltype.Void, name)
+        llops.genop('setfield', [self.cexcdata, c_name, v_value])
 
     def transform_completely(self):
         for graph in self.translator.graphs:
@@ -288,11 +295,10 @@ class ExceptionTransformer(object):
         excblock = Block([])
 
         llops = rtyper.LowLevelOpList(None)
-        r = self.ExcData_repr
-        var_value = r.getfield(self.cexcdata, 'exc_value', llops)
-        var_type  = r.getfield(self.cexcdata, 'exc_type',  llops)
-        r.setfield(self.cexcdata, 'exc_value', self.c_null_evalue, llops)
-        r.setfield(self.cexcdata, 'exc_type',  self.c_null_etype,  llops)
+        var_value = self.gen_getfield('exc_value', llops)
+        var_type  = self.gen_getfield('exc_type' , llops)
+        self.gen_setfield('exc_value', self.c_null_evalue, llops)
+        self.gen_setfield('exc_type',  self.c_null_etype,  llops)
         excblock.operations[:] = llops
         newgraph.exceptblock.inputargs[0].concretetype = self.lltype_of_exception_type
         newgraph.exceptblock.inputargs[1].concretetype = self.lltype_of_exception_value
@@ -327,7 +333,7 @@ class ExceptionTransformer(object):
             var_exc_occured = llops.genop('ptr_iszero', [spaceop.result],
                                           lltype.Bool)            
         else:
-            v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
+            v_exc_type = self.gen_getfield('exc_type', llops)
             var_exc_occured = llops.genop('ptr_nonzero', [v_exc_type],
                                           lltype.Bool)
 
@@ -374,7 +380,6 @@ class ExceptionTransformer(object):
             if normalafterblock is None:
                 normalafterblock = insert_empty_block(None, l0)
             llops = rtyper.LowLevelOpList(None)
-            r = self.ExcData_repr
-            r.setfield(self.cexcdata, 'exc_value', self.c_null_evalue, llops)
-            r.setfield(self.cexcdata, 'exc_type',  self.c_null_etype,  llops)
+            self.gen_setfield('exc_value', self.c_null_evalue, llops)
+            self.gen_setfield('exc_type',  self.c_null_etype,  llops)
             normalafterblock.operations[:0] = llops
