@@ -242,6 +242,13 @@ class TestDotnetRtyping(CliTest):
             return unbox(x[0], ootype.Signed) + unbox(x[1], ootype.Signed)
         assert self.interpret(fn, []) == 42+43
 
+    def test_array_setitem_None(self):
+        def fn():
+            x = init_array(System.Object, box(42), box(43))
+            x[0] = None
+            return x[0]
+        assert self.interpret(fn, []) is None
+
     def test_array_length(self):
         def fn():
             x = init_array(System.Object, box(42), box(43))
