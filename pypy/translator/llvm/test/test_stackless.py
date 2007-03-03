@@ -4,9 +4,9 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.rlib.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rlib.rstack import yield_current_frame_to_caller
 
-from pypy.translator.llvm.genllvm import genllvm_compile
 import py
 py.test.skip("not there yet!")
+from pypy.translator.llvm.genllvm import genllvm_compile
 
 
 class StacklessTest(object):
