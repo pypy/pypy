@@ -476,7 +476,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         self.llvmgen = genllvm.GenLLVM(translator, self.standalone)
 
-        llvm_filename = self.llvmgen.gen_llvm_source(self.entry_point)
+        llvm_filename = self.llvmgen.gen_source(self.entry_point)
         self.log.info("written: %s" % (llvm_filename,))
     #
     task_source_llvm = taskdef(task_source_llvm, 
@@ -487,10 +487,10 @@ class TranslationDriver(SimpleTaskEngine):
         gen = self.llvmgen
         if self.standalone:
             exe_name = (self.exe_name or 'testing') % self.get_info()
-            self.c_entryp = gen.compile_llvm_source(exe_name=exe_name)
+            self.c_entryp = gen.compile_standalone(exe_name)
             self.create_exe()
         else:
-            self.c_module, self.c_entryp = gen.compile_llvm_source()
+            self.c_module, self.c_entryp = gen.compile_module()
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
                                 ['source_llvm'], 

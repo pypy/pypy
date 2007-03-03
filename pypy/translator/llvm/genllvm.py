@@ -33,9 +33,7 @@ class GenLLVM(object):
         
         self.config = translator.config
 
-        self.source_generated = False
-
-    def gen_llvm_source(self, func):
+    def gen_source(self, func):
         self._checkpoint()
 
         codewriter = self.setup(func)
@@ -48,7 +46,6 @@ class GenLLVM(object):
         # write bottom part of llvm file
         self.write_implementations(codewriter)
 
-        self.source_generated = True
         self._checkpoint('done')
         codewriter.close()
         return self.filename
@@ -221,29 +218,17 @@ class GenLLVM(object):
         codewriter.ret("sbyte*", "null")
         codewriter.closefunc()
 
-    def compile_llvm_source(self, optimize=True, exe_name=None):
-        assert self.source_generated
+    def compile_module(self):
+        assert not self.standalone
 
-        assert hasattr(self, "filename")
-        if exe_name is not None:
-            assert self.standalone
-            return buildllvm.make_module_from_llvm(self, self.filename,
-                                                   optimize=optimize,
-                                                   exe_name=exe_name)
-        else:
-            assert not self.standalone
-
-            # use pyrex to create module for CPython
-            postfix = ''
-            basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
-            pyxfile = self.filename.new(basename = basename)
-            write_pyx_wrapper(self, pyxfile)    
-            info = buildllvm.make_module_from_llvm(self, self.filename,
-                                                   pyxfile=pyxfile,
-                                                   optimize=optimize)
-
-            mod, wrap_fun = self.get_module(*info)
-            return mod, wrap_fun
+        # use pyrex to create module for CPython
+        postfix = ''
+        basename = self.filename.purebasename + '_wrapper' + postfix + '.pyx'
+        pyxfile = self.filename.new(basename = basename)
+        write_pyx_wrapper(self, pyxfile)    
+        info = buildllvm.make_module_from_llvm(self, self.filename, pyxfile=pyxfile)
+        mod, wrap_fun = self.get_module(*info)
+        return mod, wrap_fun
 
     def get_module(self, modname, dirpath):
         if self.config.translation.llvm.isolate:
@@ -254,6 +239,11 @@ class GenLLVM(object):
 
         wrap_fun = getattr(mod, 'pypy_' + self.entry_func_name + "_wrapper")
         return mod, wrap_fun
+
+    def compile_standalone(self, exe_name):
+        assert self.standalone
+        return buildllvm.make_module_from_llvm(self, self.filename,
+                                               exe_name=exe_name)
 
     def _checkpoint(self, msg=None):
         if not self.config.translation.llvm.logging:
