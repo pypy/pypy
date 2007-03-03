@@ -199,6 +199,11 @@ class FixedSizeArrayNode(StructNode):
             self.get_ref(),
             pos)
 
+    def setup(self):
+        if isinstance(self.value, lltype._subarray):
+            return
+        super(FixedSizeArrayNode, self).setup()
+
 
 class StructVarsizeNode(StructNode):
     """ A varsize struct constant.  Can simply contain
