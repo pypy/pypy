@@ -58,8 +58,8 @@ class Database(object):
         if isinstance(type_, lltype.FuncType):
             if getattr(value._callable, "suggested_primitive", False):
                 node = ExternalFuncNode(self, value)
-            elif hasattr(value, '_entry'):
-                node = ExternalFuncNode(self, value, value._entry.name)
+            elif hasattr(value, '_external_name'):
+                node = ExternalFuncNode(self, value, value._external_name)
 
             elif getattr(value, 'external', None) == 'C':
                 node = SimplerExternalFuncNode(self, value)

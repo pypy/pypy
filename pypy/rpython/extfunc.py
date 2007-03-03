@@ -56,7 +56,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                 impl.im_func, self.signature_args, self.signature_result)
         else:
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
-                                 name, _entry=self, _callable=fakeimpl)
+                                 name, _external_name=self.name, _callable=fakeimpl)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
@@ -84,13 +84,13 @@ def register_external(function, args, result=None, export_name=None,
         signature_result = annotation(result, None)
         name=export_name
         if llimpl:
-            lltypeimpl = llimpl
+            lltypeimpl = staticmethod(llimpl)
         if ooimpl:
-            ootypeimpl = ooimpl
+            ootypeimpl = staticmethd(ooimpl)
         if llfakeimpl:
-            lltypefakeimpl = llfakeimpl
+            lltypefakeimpl = staticmethod(llfakeimpl)
         if oofakeimpl:
-            ootypefakeimpl = oofakeimpl
+            ootypefakeimpl = staticmethod(oofakeimpl)
         if annotation_hook:
             ann_hook = staticmethod(annotation_hook)
 
@@ -104,7 +104,6 @@ def is_external(func):
         func = func.value
     if getattr(func._callable, 'suggested_primitive', False):
         return True
-    if hasattr(func, '_entry'):
-        if isinstance(func._entry, ExtFuncEntry):
-            return True
+    if hasattr(func, '_external_name'):
+        return True
     return False

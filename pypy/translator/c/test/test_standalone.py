@@ -118,3 +118,20 @@ def test_prof_inline():
     out = py.process.cmdexec("%s 500" % exe)
     assert int(out) == 500*501/2
     
+def test_frexp():
+    import math
+    def entry_point(argv):
+        m, e = math.frexp(0)
+        x, y = math.frexp(0)
+        print m, x
+        return 0
+
+    t = TranslationContext()
+    t.buildannotator().build_types(entry_point, [s_list_of_strings])
+    t.buildrtyper().specialize()
+
+    cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+    cbuilder.generate_source()
+    cbuilder.compile()
+    data = cbuilder.cmdexec('hi there')
+    assert map(float, data.split()) == [0.0, 0.0]

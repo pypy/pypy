@@ -688,8 +688,8 @@ class FuncNode(ContainerNode):
         funcgen.implementation_end()
 
 def select_function_code_generators(fnobj, db, functionname):
-    if hasattr(fnobj, '_entry'):
-        db.externalfuncs[fnobj._entry.name] = fnobj
+    if hasattr(fnobj, '_external_name'):
+        db.externalfuncs[fnobj._external_name] = fnobj
         return []
     elif fnobj._callable in extfunc.EXTERNALS:
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
