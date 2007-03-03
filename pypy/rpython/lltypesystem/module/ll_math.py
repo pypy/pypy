@@ -16,10 +16,10 @@ def ll_modf_result(fracpart, intpart):
     tup.item1 = intpart
     return tup
 
-def ll_math_frexp(cls, x):
+def ll_math_frexp(x):
     mantissa, exponent = math.frexp(x)
     return ll_frexp_result(mantissa, exponent)
 
-def ll_math_modf(cls, x):
+def ll_math_modf(x):
     fracpart, intpart = math.modf(x)
     return ll_modf_result(fracpart, intpart)
