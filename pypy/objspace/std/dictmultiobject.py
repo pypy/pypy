@@ -143,7 +143,8 @@ class EmptyDictImplementation(DictImplementation):
             return StrDictImplementation(self.space).setitem_str(w_key, w_value)
             #return SmallStrDictImplementation(self.space, w_key, w_value)
         else:
-            return RDictImplementation(self.space).setitem(w_key, w_value)
+            space = self.space
+            return space.DefaultDictImpl(space).setitem(w_key, w_value)
         #return SmallDictImplementation(self.space, w_key, w_value)
     def setitem_str(self, w_key, w_value, shadows_type=True):
         return StrDictImplementation(self.space).setitem_str(w_key, w_value)
@@ -205,7 +206,7 @@ class SmallDictImplementation(DictImplementation):
             i += 1
 
     def _convert_to_rdict(self):
-        newimpl = RDictImplementation(self.space)
+        newimpl = self.space.DefaultDictImpl(self.space)
         i = 0
         while 1:
             entry = self.entries[i]
@@ -296,13 +297,13 @@ class SmallStrDictImplementation(DictImplementation):
             i += 1
 
     def _convert_to_rdict(self):
-        newimpl = RDictImplementation(self.space)
+        newimpl = self.space.DefaultDictImpl(self.space)
         i = 0
         while 1:
             entry = self.entries[i]
             if entry.w_value is None:
                 break
-            newimpl.content[self.space.wrap(entry.key)] = entry.w_value
+            newimpl.setitem(self.space.wrap(entry.key), entry.w_value)
             i += 1
         return newimpl
 
@@ -450,7 +451,7 @@ class StrDictImplementation(DictImplementation):
 
 
     def _as_rdict(self):
-        newimpl = RDictImplementation(self.space)
+        newimpl = self.space.DefaultDictImpl(self.space)
         for k, w_v in self.content.items():
             newimpl.setitem(self.space.wrap(k), w_v)
         return newimpl
@@ -762,7 +763,7 @@ class SharedDictImplementation(DictImplementation):
         if as_strdict:
             newimpl = StrDictImplementation(self.space)
         else:
-            newimpl = RDictImplementation(self.space)
+            newimpl = self.space.DefaultDictImpl(self.space)
         for k, i in self.structure.keys.items():
             if i >= 0:
                 newimpl.setitem_str(self.space.wrap(k), self.entries[i])

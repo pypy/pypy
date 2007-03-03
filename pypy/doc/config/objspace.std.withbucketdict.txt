@@ -1,0 +1,2 @@
+Implement general dictionaries as a hash table whose collision
+resolution is via chained lists instead of open addressing.

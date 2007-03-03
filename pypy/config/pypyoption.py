@@ -143,6 +143,12 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.std.withmultidict", True)]),
 
+        BoolOption("withbucketdict",
+                   "use dictionaries with chained hash tables "
+                   "(default is open addressing)",
+                   default=False,
+                   requires=[("objspace.std.withmultidict", True)]),
+
         BoolOption("withrangelist",
                    "enable special range list implementation that does not "
                    "actually create the full list until the resulting "

@@ -127,6 +127,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.objspace.std import dictmultiobject
             self.DictObjectCls = dictmultiobject.W_DictMultiObject
             self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)
+            if self.config.objspace.std.withbucketdict:
+                from pypy.objspace.std import dictbucket
+                self.DefaultDictImpl = dictbucket.BucketDictImplementation
+            else:
+                self.DefaultDictImpl = dictmultiobject.RDictImplementation
         else:
             from pypy.objspace.std import dictobject
             self.DictObjectCls = dictobject.W_DictObject
