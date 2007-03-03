@@ -14,7 +14,9 @@ GET_METHOD_BODY = """
     str = ""
     for(i in data) {
         if (data[i]) {
-            if (str.length != 0) {
+            if (str.length == 0) {
+                str += "?";
+            } else {
                 str += "&";
             }
             str += escape(i) + "=" + escape(data[i].toString());
@@ -38,9 +40,7 @@ POST_METHOD_BODY = """
     str = ""
     for(i in data) {
         if (data[i]) {
-            if (str.length == 0) {
-                str += "?";
-            } else {
+            if (str.length != 0) {
                 str += "&";
             }
             str += escape(i) + "=" + escape(data[i].toString());
