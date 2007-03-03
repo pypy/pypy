@@ -1,6 +1,6 @@
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.stringobject import W_StringObject
-
+from pypy.conftest import gettestobjspace
 
 
 class TestW_StringObject:
@@ -624,3 +624,17 @@ class AppTestStringObject:
         assert type(s.lstrip()) is str
         assert type(s.center(3)) is str
         assert type(s.splitlines()[0]) is str
+
+
+class AppTestPrebuilt(AppTestStringObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})
+
+class AppTestShare(AppTestStringObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.sharesmallstr": True})
+
+class AppTestPrebuiltShare(AppTestStringObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True,
+                                       "objspace.std.sharesmallstr": True})

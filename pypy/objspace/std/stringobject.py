@@ -11,7 +11,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
-from pypy.objspace.std.stringtype import sliced, joined
+from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar
 
 
 class W_StringObject(W_Object):
@@ -27,8 +27,11 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
-
 registerimplementation(W_StringObject)
+
+W_StringObject.EMPTY = W_StringObject('')
+W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
+del i
 
 
 def _is_generic(space, w_self, fun): 
@@ -336,7 +339,7 @@ def str_join__String_ANY(space, w_self, w_list):
             l.append(space.str_w(w_s))
         return space.wrap(self.join(l))
     else:
-        return space.wrap("")
+        return W_StringObject.EMPTY
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
@@ -532,7 +535,7 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     else:
         u_centered = u_self
 
-    return W_StringObject(u_centered)
+    return wrapstr(space, u_centered)
 
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
     u_self  = w_self._value
@@ -610,7 +613,7 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
             u_expanded += " " * _tabindent(oldtoken,u_tabsize) + token
             oldtoken = token
             
-    return W_StringObject(u_expanded)        
+    return wrapstr(space, u_expanded)        
  
  
 def str_splitlines__String_ANY(space, w_self, w_keepends):
@@ -736,7 +739,7 @@ def getitem__String_ANY(space, w_str, w_index):
         exc = space.call_function(space.w_IndexError,
                                   space.wrap("string index out of range"))
         raise OperationError(space.w_IndexError, exc)
-    return W_StringObject(str[ival])
+    return wrapchar(space, str[ival])
 
 def getitem__String_Slice(space, w_str, w_slice):
     w = space.wrap
@@ -744,13 +747,13 @@ def getitem__String_Slice(space, w_str, w_slice):
     length = len(s)
     start, stop, step, sl = w_slice.indices4(space, length)
     if sl == 0:
-        str = ""
+        return W_StringObject.EMPTY
     elif step == 1:
         assert start >= 0 and stop >= 0
         return sliced(space, s, start, stop)
     else:
         str = "".join([s[start + i*step] for i in range(sl)])
-    return W_StringObject(str)
+    return wrapstr(space, str)
 
 def mul_string_times(space, w_str, w_times):
     try:
@@ -760,7 +763,7 @@ def mul_string_times(space, w_str, w_times):
             raise FailedToImplement
         raise
     if mul <= 0:
-        return space.wrap('')
+        return W_StringObject.EMPTY
     input = w_str._value
     input_len = len(input)
     try:
@@ -789,7 +792,7 @@ def len__String(space, w_str):
 def str__String(space, w_str):
     if type(w_str) is W_StringObject:
         return w_str
-    return W_StringObject(w_str._value)
+    return wrapstr(space, w_str._value)
 
 def iter__String(space, w_list):
     from pypy.objspace.std import iterobject
@@ -805,7 +808,7 @@ def ord__String(space, w_str):
     return space.wrap(ord(u_str))
 
 def getnewargs__String(space, w_str):
-    return space.newtuple([W_StringObject(w_str._value)])
+    return space.newtuple([wrapstr(space, w_str._value)])
 
 def repr__String(space, w_str):
     s = w_str._value

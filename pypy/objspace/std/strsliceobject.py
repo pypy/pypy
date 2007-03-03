@@ -5,6 +5,8 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.inttype import wrapint
 
+from pypy.objspace.std.stringtype import wrapstr, wrapchar
+
 
 class W_StringSliceObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -33,10 +35,10 @@ registerimplementation(W_StringSliceObject)
 
 
 def delegate_slice2str(space, w_strslice):
-    return W_StringObject(w_strslice.force())
+    return wrapstr(space, w_strslice.force())
 
 def delegate_slice2unicode(space, w_strslice):
-    w_str = W_StringObject(w_strslice.force())
+    w_str = wrapstr(space, w_strslice.force())
     return delegate_String2Unicode(space, w_str)
 
 # ____________________________________________________________
@@ -118,14 +120,14 @@ def getitem__StringSlice_ANY(space, w_str, w_index):
         exc = space.call_function(space.w_IndexError,
                                   space.wrap("string index out of range"))
         raise OperationError(space.w_IndexError, exc)
-    return W_StringObject(w_str.str[w_str.start + ival])
+    return wrapchar(space, w_str.str[w_str.start + ival])
 
 def getitem__StringSlice_Slice(space, w_str, w_slice):
     w = space.wrap
     length = w_str.stop - w_str.start
     start, stop, step, sl = w_slice.indices4(space, length)
     if sl == 0:
-        str = ""
+        return W_StringObject.EMPTY
     else:
         s = w_str.str
         start = w_str.start + start
@@ -135,7 +137,7 @@ def getitem__StringSlice_Slice(space, w_str, w_slice):
             return W_StringSliceObject(s, start, stop)
         else:
             str = "".join([s[start + i*step] for i in range(sl)])
-    return W_StringObject(str)
+    return wrapstr(space, str)
 
 def len__StringSlice(space, w_str):
     return space.wrap(w_str.stop - w_str.start)

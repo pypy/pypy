@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 
-from pypy.objspace.std.stringtype import joined
+from pypy.objspace.std.stringtype import joined, wrapstr
 
 class W_StringJoinObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -32,10 +32,10 @@ class W_StringJoinObject(W_Object):
 registerimplementation(W_StringJoinObject)
 
 def delegate_join2str(space, w_strjoin):
-    return W_StringObject(w_strjoin.force())
+    return wrapstr(space, w_strjoin.force())
 
 def delegate_join2unicode(space, w_strjoin):
-    w_str = W_StringObject(w_strjoin.force())
+    w_str = wrapstr(space, w_strjoin.force())
     return delegate_String2Unicode(space, w_str)
 
 def len__StringJoin(space, w_self):

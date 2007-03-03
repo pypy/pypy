@@ -3,26 +3,44 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
 
+def wrapstr(space, s):
+    from pypy.objspace.std.stringobject import W_StringObject
+    if space.config.objspace.std.sharesmallstr:
+        if space.config.objspace.std.withprebuiltchar:
+            # share characters and empty string
+            if len(s) <= 1:
+                if len(s) == 0:
+                    return W_StringObject.EMPTY
+                else:
+                    s = s[0]     # annotator hint: a single char
+                    return wrapchar(space, s)
+        else:
+            # only share the empty string
+            if len(s) == 0:
+                return W_StringObject.EMPTY
+    return W_StringObject(s)
+
+def wrapchar(space, c):
+    from pypy.objspace.std.stringobject import W_StringObject
+    if space.config.objspace.std.withprebuiltchar:
+        return W_StringObject.PREBUILT[ord(c)]
+    else:
+        return W_StringObject(c)
+
 def sliced(space, s, start, stop):
     if space.config.objspace.std.withstrslice:
         from pypy.objspace.std.strsliceobject import W_StringSliceObject
-        from pypy.objspace.std.stringobject import W_StringObject
         # XXX heuristic, should be improved!
         if (stop - start) > len(s) * 0.20 + 40:
             return W_StringSliceObject(s, start, stop)
-        else:
-            return W_StringObject(s[start:stop])
-    else:
-        from pypy.objspace.std.stringobject import W_StringObject
-        return W_StringObject(s[start:stop])
+    return wrapstr(space, s[start:stop])
 
 def joined(space, strlist):
     if space.config.objspace.std.withstrjoin:
         from pypy.objspace.std.strjoinobject import W_StringJoinObject
         return W_StringJoinObject(strlist)
     else:
-        from pypy.objspace.std.stringobject import W_StringObject
-        return W_StringObject("".join(strlist))
+        return wrapstr(space, "".join(strlist))
 
 str_join    = SMM('join', 2,
                   doc='S.join(sequence) -> string\n\nReturn a string which is'

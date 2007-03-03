@@ -123,6 +123,15 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withstrslice", "use strings optimized for slicing",
                    default=False),
 
+        BoolOption("withprebuiltchar",
+                   "use prebuilt single-character string objects",
+                   default=False),
+
+        BoolOption("sharesmallstr",
+                   "always reuse the prebuilt string objects "
+                   "(the empty string and potentially single-char strings)",
+                   default=False),
+
         BoolOption("withstrdict",
                    "use dictionaries optimized for string keys",
                    default=False),

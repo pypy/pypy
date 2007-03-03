@@ -340,7 +340,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            return W_StringObject(x)
+            from pypy.objspace.std.stringtype import wrapstr
+            return wrapstr(self, x)
         if isinstance(x, unicode):
             return W_UnicodeObject([unichr(ord(u)) for u in x]) # xxx
         if isinstance(x, float):
@@ -473,7 +474,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         except ValueError:  # chr(out-of-range)
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
-        return W_StringObject(''.join(chars))
+        return self.wrap(''.join(chars))
 
     def newunicode(self, chars):
         try:

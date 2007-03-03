@@ -303,11 +303,11 @@ def marshal_w__String(space, w_str, m):
         m.atom_str(TYPE_STRING, s)
 
 def unmarshal_String(space, u, tc):
-    return W_StringObject(u.get_str())
+    return space.wrap(u.get_str())
 register(TYPE_STRING, unmarshal_String)
 
 def unmarshal_interned(space, u, tc):
-    w_ret = W_StringObject(u.get_str())
+    w_ret = space.wrap(u.get_str())
     u.stringtable_w.append(w_ret)
     w_intern = space.builtin.get('intern')
     space.call_function(w_intern, w_ret)
@@ -495,7 +495,7 @@ app = gateway.applevel(r'''
 string_to_buffer = app.interphook('string_to_buffer')
 
 def unmarshal_buffer(space, u, tc):
-    w_s = W_StringObject(u.get_str())
+    w_s = space.wrap(u.get_str())
     return string_to_buffer(space, w_s)
 register(TYPE_UNKNOWN, unmarshal_buffer)
 
