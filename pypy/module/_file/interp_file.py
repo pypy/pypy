@@ -1,11 +1,13 @@
 import py
 from pypy.rlib import streamio
+from errno import EINTR
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.miscutils import Action
 
 import os
 
@@ -13,6 +15,14 @@ import os
 def wrap_oserror_as_ioerror(space, e):
     assert isinstance(e, OSError)
     errno = e.errno
+    if errno == EINTR:
+        # A signal was sent to the process and interupted
+        # a systemcall. We want to trigger running of
+        # any installed interrupt handlers.
+        # XXX: is there a better way?
+        ec = space.getexecutioncontext()
+        Action.perform_actions(space.pending_actions)
+        Action.perform_actions(ec.pending_actions)
     try:
         msg = os.strerror(errno)
     except ValueError:
