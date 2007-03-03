@@ -5,9 +5,10 @@ from pypy.rpython.rmodel import Repr, HalfConcreteWrapper
 from pypy.rpython.extfunctable import typetable
 from pypy.rpython import rbuiltin
 from pypy.rpython.module.support import init_opaque_object
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython import extregistry
 from pypy.annotation.signature import annotation
+from pypy.annotation.pairtype import pairtype
 
 class __extend__(annmodel.SomeExternalObject):
 
@@ -136,3 +137,14 @@ class ExternalObjRepr(Repr):
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
+
+class __extend__(pairtype(ExternalBuiltinRepr, ExternalBuiltinRepr)):
+    def convert_from_to((from_, to), v, llops):
+        type_from = from_.knowntype._class_
+        type_to = to.knowntype._class_
+        if issubclass(type_from, type_to):
+            v.concretetype=to.knowntype
+            return v
+        return NotImplemented
+    
+        

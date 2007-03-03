@@ -7,10 +7,11 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
 import exceptions
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType, MethodDesc
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType, MethodDesc, described
 from pypy.rpython.ootypesystem.ootype import Signed, _static_meth, StaticMethod, Void
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.signature import annotation
+from pypy.translator.translator import TranslationContext
 
 class C(BasicExternal):
     pass
@@ -166,3 +167,28 @@ def test_callback_field_bound_method():
     assert isinstance(res, float)
     res = interpret(callback_field, [0], type_system="ootype")
     assert res == 8.3
+
+def test_mixed_classes():
+    from pypy.rpython.extfunc import register_external
+    class One(BasicExternal):
+        pass
+
+    class Two(One):
+        pass
+
+    def g(one):
+        return 3
+    register_external(g, args=[One], result=int)
+    
+    def f(x):
+        if x:
+            return g(One())
+        return g(Two())
+
+    t = TranslationContext()
+    a = t.buildannotator()
+    s = a.build_types(f, [bool])
+    a.simplify()
+    typer = t.buildrtyper(type_system="ootype")
+    typer.specialize()
+    #res = interpret(f, [True], type_system="ootype")
