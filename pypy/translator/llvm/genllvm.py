@@ -23,8 +23,7 @@ class GenLLVM(object):
     # see create_codewriter() below
     function_count = {}
 
-    def __init__(self, translator, standalone,
-                 debug=True, logging=True, stackless=False):
+    def __init__(self, translator, standalone):
     
         # reset counters
         LLVMNode.nodename_count = {}    
@@ -33,13 +32,6 @@ class GenLLVM(object):
         self.translator = translator
         
         self.config = translator.config
-        self.stackless = stackless
-
-        # the debug flag is for creating comments of every operation that may be executed
-        self.debug = debug
-
-        # the logging flag is for logging information statistics in the build process
-        self.logging = logging
 
         self.source_generated = False
 
@@ -70,7 +62,7 @@ class GenLLVM(object):
         # XXX please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
         cbuild = CStandaloneBuilder(self.translator, func, config=self.config)
-        cbuild.stackless = self.stackless
+        #cbuild.stackless = self.stackless
         c_db = cbuild.generate_graphs_for_llinterp()
 
         self.db = Database(self, self.translator)
@@ -229,13 +221,12 @@ class GenLLVM(object):
         codewriter.ret("sbyte*", "null")
         codewriter.closefunc()
 
-    def compile_llvm_source(self, optimize=True, exe_name=None, isolate=False):
+    def compile_llvm_source(self, optimize=True, exe_name=None):
         assert self.source_generated
 
         assert hasattr(self, "filename")
         if exe_name is not None:
             assert self.standalone
-            assert not isolate
             return buildllvm.make_module_from_llvm(self, self.filename,
                                                    optimize=optimize,
                                                    exe_name=exe_name)
@@ -251,11 +242,11 @@ class GenLLVM(object):
                                                    pyxfile=pyxfile,
                                                    optimize=optimize)
 
-            mod, wrap_fun = self.get_module(isolate=isolate, *info)
+            mod, wrap_fun = self.get_module(*info)
             return mod, wrap_fun
 
-    def get_module(self, modname, dirpath, isolate=False):
-        if isolate:
+    def get_module(self, modname, dirpath):
+        if self.config.translation.llvm.isolate:
             mod = Isolate((dirpath, modname))
         else:
             from pypy.translator.tool.cbuild import import_module_from_directory
@@ -265,7 +256,7 @@ class GenLLVM(object):
         return mod, wrap_fun
 
     def _checkpoint(self, msg=None):
-        if not self.logging:
+        if not self.config.translation.llvm.logging:
             return
         if msg:
             t = (time.time() - self.starttime)
@@ -276,7 +267,7 @@ class GenLLVM(object):
 
     def _print_node_stats(self):
         # disable node stats output
-        if not self.logging: 
+        if not self.config.translation.llvm.logging: 
             return 
 
         nodecount = {}

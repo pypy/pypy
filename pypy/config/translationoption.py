@@ -167,6 +167,12 @@ translation_optiondescription = OptionDescription(
                              ('translation.backendopt.constfold', False)])
     ]),
 
+    OptionDescription("llvm", "GenLLVM options", [
+        BoolOption("debug", "Include the llops in the source as comments", default=False),
+        BoolOption("logging", "Log how long the various parts of llvm generation take", default=False),
+        BoolOption("isolate", "Peform an isolated import", default=True),
+    ]),
+
     OptionDescription("cli", "GenCLI options", [
         BoolOption("trace_calls", "Trace function calls", default=False,
                    cmdline="--cli-trace-calls")

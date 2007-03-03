@@ -130,7 +130,7 @@ class OpWriter(object):
                 raise Exception, "operation %s not found" % op.opname
 
             # XXX bit unclean
-            if self.db.genllvm.debug:
+            if self.db.genllvm.config.translation.llvm.debug:
                 self.codewriter.comment(str(op))
             meth(opr)            
     

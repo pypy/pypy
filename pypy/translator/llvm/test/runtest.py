@@ -34,13 +34,10 @@ def teardown_module(mod):
 def llvm_test():
     if not llvm_is_on_path():
         py.test.skip("could not find one of llvm-as or llvm-gcc")
-        return False
     llvm_ver = llvm_version()
     if llvm_ver < MINIMUM_LLVM_VERSION:
         py.test.skip("llvm version not up-to-date (found "
                      "%.1f, should be >= %.1f)" % (llvm_ver, MINIMUM_LLVM_VERSION))
-        return False
-    return True
 
 def gcc3_test():
     gcc_ver = gcc_version()
@@ -57,73 +54,57 @@ def genllvm_compile(function,
                     # debug options
                     debug=True,
                     logging=False,
-                    log_source=False,
+                    isolate=True,
 
                     # pass to compile
                     optimize=True,
-                    **kwds):
+                    extra_opts={}):
 
     """ helper for genllvm """
 
-    assert llvm_is_on_path()
-    
-    # annotate/rtype
-    from pypy.translator.translator import TranslationContext
-    from pypy.translator.backendopt.all import backend_optimizations
+    from pypy.translator.driver import TranslationDriver
     from pypy.config.pypyoption import get_pypy_config
-    config = get_pypy_config(translating=True)
-    config.translation.gc = 'boehm'
-    translator = TranslationContext(config=config)
-    translator.buildannotator().build_types(function, annotation)
-    translator.buildrtyper().specialize()
-
-    # use backend optimizations?
-    if optimize:
-        backend_optimizations(translator, raisingop2direct_call=True)
-    else:
-        backend_optimizations(translator,
-                              raisingop2direct_call=True,
-                              inline_threshold=0,
-                              mallocs=False,
-                              merge_if_blocks=False,
-                              constfold=False)
-
-    # note: this is without stackless and policy transforms
+    config = get_pypy_config({}, translating=True)
+    options = {
+        'translation.backend': 'llvm',
+        'translation.llvm.debug': debug,
+        'translation.llvm.logging': logging,
+        'translation.llvm.isolate': isolate,
+        'translation.backendopt.none': not optimize,
+        'translation.gc': 'boehm',
+        }
+    options.update(extra_opts)
+    config.set(**options)
+    driver = TranslationDriver(config=config)
+    driver.setup(function, annotation)
+    driver.annotate()
     if conftest.option.view:
         translator.view()
-
-    # create genllvm
-    standalone = False
-    gen = GenLLVM(translator,
-                  standalone,
-                  debug=debug,
-                  logging=logging)
-
-    filename = gen.gen_llvm_source(function)
-    
-    log_source = kwds.pop("log_source", False)
-    if log_source:
-        log(open(filename).read())
-
-    return gen.compile_llvm_source(optimize=optimize, **kwds)
+    driver.rtype()
+    if conftest.option.view:
+        translator.view()
+    driver.compile() 
+    if conftest.option.view:
+        translator.view()
+    return driver.c_module, driver.c_entryp
 
 def compile_test(function, annotation, isolate=True, **kwds):
     " returns module and compiled function "    
-    if llvm_test():
-        if run_isolated_only and not isolate:
-            py.test.skip("skipping not isolated test")
+    llvm_test()
+    if run_isolated_only and not isolate:
+        py.test.skip("skipping not isolated test")
 
-        # turn off isolation?
-        isolate = isolate and not do_not_isolate
-            
-        # maintain only 3 isolated process (if any)
-        _cleanup(leave=3)
-        optimize = kwds.pop('optimize', optimize_tests)
-        mod, fn = genllvm_compile(function, annotation, optimize=optimize,
-                                  isolate=isolate, **kwds)
-        if isolate:
-            ext_modules.append(mod)
-        return mod, fn
+    # turn off isolation?
+    isolate = isolate and not do_not_isolate
+
+    # maintain only 3 isolated process (if any)
+    _cleanup(leave=3)
+    optimize = kwds.pop('optimize', optimize_tests)
+    mod, fn = genllvm_compile(function, annotation, optimize=optimize,
+                              isolate=isolate, **kwds)
+    if isolate:
+        ext_modules.append(mod)
+    return mod, fn
 
 def compile_function(function, annotation, isolate=True, **kwds):
     " returns compiled function "
