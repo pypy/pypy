@@ -447,16 +447,16 @@ del funcFormatter # don't irritate flow space
 class FmtIter(object):
     def __init__(self, fmt):
         self.fmt = fmt
+        self._fmtlength = len(fmt)
         self.i = 0
 
     def __iter__(self):
         return self
 
     def next(self):
-        try:
-            c = self.fmt[self.i]
-        except IndexError:
-            raise StopIteration
+        if self.i >= self._fmtlength: 
+            raise StopIteration 
+        c = self.fmt[self.i]
         self.i += 1
         return c
 
@@ -477,41 +477,42 @@ def format(fmt, values, valuedict=None, do_unicode=False):
     else:
         format_registry = str_format_registry
         
-    fmtiter = FmtIter(fmt)
     valueiter = iter(values)
+    fmtiter = FmtIter(fmt)
     r = []
-    try:
-        for c in fmtiter:
-            if c == '%':
+    for c in fmtiter: 
+        if c == '%':
+            try:
                 t = parse_fmt(fmtiter, valueiter, valuedict)
-                try:
-                    f = format_registry[t[0]]
-                except KeyError:
-                    char = t[0]
-                    if isinstance(char, unicode):
-                        char = char.encode(sys.getdefaultencoding(), 'replace')
-                    raise ValueError("unsupported format character "
-                                     "'%s' (0x%x) at index %d"
-                                     % (char, ord(t[0]), fmtiter.i - 1))
-                # Trying to translate this using the flow space.
-                # Currently, star args give a problem there,
-                # so let's be explicit about the args:
-                # r.append(f(*t).format())
-                char, flags, width, prec, value = t
-                try:
-                    r.append(f(char, flags, width, prec, value).format())
-                except NeedUnicodeFormattingError:
-                    # Switch to using the unicode formatters and retry.
-                    do_unicode = True
-                    format_registry = unicode_format_registry
-                    f = format_registry[t[0]]
-                    r.append(f(char, flags, width, prec, value).format())
- 
+            except StopIteration:
+                raise ValueError, "incomplete format"
+            try:
+                f = format_registry[t[0]]
+            except KeyError:
+                char = t[0]
+                if isinstance(char, unicode):
+                    char = char.encode(sys.getdefaultencoding(), 'replace')
+                raise ValueError("unsupported format character "
+                                 "'%s' (0x%x) at index %d"
+                                 % (char, ord(t[0]), fmtiter.i - 1))
+            # Trying to translate this using the flow space.
+            # Currently, star args give a problem there,
+            # so let's be explicit about the args:
+            # r.append(f(*t).format())
+            char, flags, width, prec, value = t
+            try:
+                result = f(char, flags, width, prec, value).format()
+            except NeedUnicodeFormattingError:
+                # Switch to using the unicode formatters and retry.
+                do_unicode = True
+                format_registry = unicode_format_registry
+                f = format_registry[t[0]]
+                r.append(f(char, flags, width, prec, value).format())
             else:
-                # efficiency hack:
-                r.append(c + fmtiter.skip_to_fmt())
-    except StopIteration:
-        raise ValueError, "incomplete format"
+                r.append(result)
+        else:
+            # efficiency hack:
+            r.append(c + fmtiter.skip_to_fmt())
     try:
         valueiter.next()
     except StopIteration:
