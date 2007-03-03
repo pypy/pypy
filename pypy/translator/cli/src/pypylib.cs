@@ -509,13 +509,11 @@ namespace pypy.runtime
         public bool ll_contains() { return false; }
         public void ll_clear() { }
 
-        //XXX ll_get_items_iterator is not supported, yet
-        /*
-        public DictVoidVoidItemsIterator ll_get_items_iterator()
+        public DictItemsIterator<int, int> ll_get_items_iterator()
         {
-            return new DictVoidVoidItemsIterator();
+            List<KeyValuePair<int, int>> foo = new List<KeyValuePair<int, int>>();
+            return new DictItemsIterator<int, int>(foo.GetEnumerator());
         }
-        */
     }
 
     public class DictItemsIterator<TKey, TValue>

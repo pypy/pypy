@@ -259,6 +259,8 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
+            if v.concretetype is ootype.Void:
+                return # ignore it
             if v.name in self.argset:
                 selftype, selfname = self.args[0]
                 if self.is_method and v.name == selfname:

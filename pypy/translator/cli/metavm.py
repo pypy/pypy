@@ -85,8 +85,10 @@ class _Call(MicroInstruction):
             # be a value on the stack, and we need to explicitly pop
             # it.
             if isinstance(this.concretetype, ootype.DictItemsIterator) and \
-               this.concretetype._VALUETYPE is ootype.Void and \
-               method_name == 'll_current_value':
+                   ((this.concretetype._VALUETYPE is ootype.Void and \
+                     method_name == 'll_current_value') or \
+                    (this.concretetype._KEYTYPE is ootype.Void and \
+                     method_name == 'll_current_key')):
                 generator.ilasm.pop()
 
     def _render_primitive_function(self, generator, callee, op):

@@ -356,6 +356,8 @@ class _New(MicroInstruction):
             op.args[0].value._hints['_suggested_external']
             generator.ilasm.new(op.args[0].value._name.split('.')[-1])
         except (KeyError, AttributeError):
+            if op.args[0].value is ootype.Void:
+                return
             generator.new(op.args[0].value)
 
 class BranchUnconditionally(MicroInstruction):

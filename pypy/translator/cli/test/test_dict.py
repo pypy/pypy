@@ -11,8 +11,7 @@ class TestCliDict(CliTest, oodict.BaseTestDict):
 
 
 class TestCliEmptyDict(CliTest, oodict.BaseTestEmptyDict):
-    def test_iterate_over_empty_dict(self):
-        py.test.skip("Iteration over empty dict is not supported, yet")
+    pass
 
 class TestCliConstantDict(CliTest, oodict.BaseTestConstantDict):
     pass

@@ -28,7 +28,6 @@ PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
 PYPY_DICT_OF_VOID = '[pypylib]pypy.runtime.DictOfVoid`2<%s, int32>'
 PYPY_DICT_VOID_VOID = '[pypylib]pypy.runtime.DictVoidVoid'
 PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
-PYPY_DICT_VOID_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictOfVoidItemsIterator`1<%s>'
 PYPY_STRING_BUILDER = '[pypylib]pypy.runtime.StringBuilder'
 
 _lltype_to_cts = {
@@ -177,10 +176,9 @@ class CTS(object):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
             if key_type == 'void':
-                assert False, 'iteration on dicts with void keys is not supported, yet'
+                key_type = 'int32' # placeholder
             if value_type == 'void':
                 value_type = 'int32' # placeholder
-
             return self.__class(PYPY_DICT_ITEMS_ITERATOR % (key_type, value_type), include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
@@ -248,8 +246,13 @@ class CTS(object):
             else:
                 METH = oopspec.get_method(TYPE, name)                
             class_name = self.lltype_to_cts(TYPE)
-            ret_type = self.lltype_to_cts(METH.RESULT)
-            ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
+            if isinstance(TYPE, ootype.Dict) and TYPE._KEYTYPE is ootype.Void and \
+                   TYPE._VALUETYPE is ootype.Void and name_or_desc == 'll_get_items_iterator':
+                # ugly, ugly special case
+                ret_type = 'class ' + PYPY_DICT_ITEMS_ITERATOR % ('int32', 'int32')
+            else:
+                ret_type = self.lltype_to_cts(METH.RESULT)
+                ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
             generic_types = getattr(TYPE, '_generic_types', {})
             arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if
                          arg is not ootype.Void and \
