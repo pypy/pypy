@@ -1,11 +1,12 @@
 
+import py
+py.test.skip("XXX")
+
 from pypy.translator.js.examples.console import console
 
 def test_run_console():
     """ Check if we can read anything
     """
-    import py
-    py.test.skip("XXX")
     pipe = console.run_console("python")
     pipe.stdin.close()
     t = False

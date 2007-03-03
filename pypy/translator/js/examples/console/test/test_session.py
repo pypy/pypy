@@ -2,10 +2,14 @@
 """ Various tests around interpreter in a subprocess
 """
 
-from pypeers.greensock2 import autogreenlet, wait, sleep, ConnexionClosed
-from pypeers.pipe.fd import FDInput
-from pypy.translator.js.examples.console.session import Interpreter
 import py
+
+try:
+    from pypeers.greensock2 import autogreenlet, wait, sleep, ConnexionClosed
+    from pypeers.pipe.fd import FDInput
+except ImportError:
+    py.test.skip("greensock wasn't found")
+from pypy.translator.js.examples.console.session import Interpreter
 
 def test_greensock_reader_timeouter():
     i = Interpreter("python", timeout=3)

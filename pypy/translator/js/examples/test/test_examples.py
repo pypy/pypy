@@ -27,6 +27,10 @@ def test_guestbook_build():
 
     
 def test_console_2_build():
-    from pypy.translator.js.examples.console import console, client
+    try:
+        from pypy.translator.js.examples.console import console, client
+    except ImportError:
+        py.test.skip("greensock wasn't found")
+
     assert rpython2javascript(client, console.FUNCTION_LIST,
                               use_pdb=False)
