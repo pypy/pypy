@@ -9,12 +9,26 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import TimSort
 
 
+# ListImplementations
+
+# An empty list always is an EmptyListImplementation.
+#
+# RDictImplementation -- standard implementation
+# StrListImplementation -- lists consisting only of strings
+# ChunkedListImplementation -- when having set the withchunklist option
+# SmartResizableListImplementation -- when having set the
+#                                     withsmartresizablelist option
+# RangeImplementation -- constructed by range()
+# SliceTrackingListImplementation -- when having set the withfastslice option
+# SliceListImplementation -- slices of a SliceTrackingListImplementation
+
+
 class ListImplementation(object):
 
     def __init__(self, space):
         self.space = space
 
-# A list implementation should implement the following methods:
+# A list implementation must implement the following methods:
 
 ##     def length(self):
 ##         pass
@@ -25,9 +39,12 @@ class ListImplementation(object):
 ##     def getitem_slice(self, start, stop):
 ##         pass
 
+##     def get_list_w(self):
+##         pass
 
-# the following operations return the list implementation that should
-# be used after the call
+
+# The following operations return the list implementation that should
+# be used after the call.
 # If it turns out that the list implementation cannot really perform
 # the operation it can return None for the following ones:
 
@@ -49,16 +66,12 @@ class ListImplementation(object):
     def extend(self, other):
         pass
 
-
-# special cases:
+    # special case
 
     def add(self, other):
         pass
 
-##     def get_list_w(self):
-##         pass
-
-# default implementations, can (but don't have to be) overridden:
+# Default implementations, can (but don't have to be) overridden:
 
     def reverse(self):
         l = self.length()
@@ -122,7 +135,7 @@ class ListImplementation(object):
             list_w = self.get_list_w()
             assert i >= 0 and i < len(list_w)
             list_w[i] = w_item
-            return self.make_implementation(list_w)
+            return make_implementation(self.space, list_w)
         return impl
 
     def i_insert(self, i, w_item):
@@ -131,7 +144,7 @@ class ListImplementation(object):
             list_w = self.get_list_w()
             assert i >= 0 and i <= len(list_w)
             list_w.insert(i, w_item)
-            return self.make_implementation(list_w)
+            return make_implementation(self.space, list_w)
         return impl
 
     def i_append(self, w_item):
@@ -139,7 +152,7 @@ class ListImplementation(object):
         if impl is None: # failed to implement
             list_w = self.get_list_w()
             list_w.append(w_item)
-            return self.make_implementation(list_w)
+            return make_implementation(self.space, list_w)
         return impl
 
     def i_add(self, other):
@@ -147,7 +160,7 @@ class ListImplementation(object):
         if impl is None:
             list_w1 = self.get_list_w()
             list_w2 = other.get_list_w()
-            return self.make_implementation(list_w1 + list_w2)
+            return make_implementation(self.space, list_w1 + list_w2)
         return impl
 
     def i_extend(self, other):
@@ -155,7 +168,7 @@ class ListImplementation(object):
         if impl is None:
             list_w1 = self.get_list_w()
             list_w2 = other.get_list_w()
-            return self.make_implementation(list_w1 + list_w2)
+            return make_implementation(self.space, list_w1 + list_w2)
         return impl
 
     def i_delitem(self, i):
@@ -163,7 +176,7 @@ class ListImplementation(object):
         if impl is None:
             list_w = self.get_list_w()
             del list_w[i]
-            return self.make_implementation(list_w)
+            return make_implementation(self.space, list_w)
         return impl
 
     def i_delitem_slice(self, start, stop):
@@ -173,23 +186,8 @@ class ListImplementation(object):
             assert 0 <= start < len(list_w)
             assert 0 <= stop <= len(list_w)
             del list_w[start:stop]
-            return self.make_implementation(list_w)
+            return make_implementation(self.space, list_w)
         return impl
-
-    def make_implementation(self, list_w):
-        space = self.space
-        if space.config.objspace.std.withsmartresizablelist:
-            from pypy.objspace.std.smartresizablelist import \
-                SmartResizableListImplementation
-            impl = SmartResizableListImplementation(space)
-            impl.extend(RListImplementation(space, list_w))
-            return impl
-        if space.config.objspace.std.withchunklist:
-            return ChunkedListImplementation(space, list_w)
-        if space.config.objspace.std.withfastslice:
-            return SliceTrackingListImplementation(space, list_w)
-        else:
-            return RListImplementation(space, list_w)
 
 
 class RListImplementation(ListImplementation):
@@ -474,7 +472,7 @@ class StrListImplementation(ListImplementation):
 
     def getitem_slice_step(self, start, stop, step, slicelength):
         assert 0 <= start < len(self.strlist)
-        assert 0 <= stop < len(self.strlist)
+        assert 0 <= stop <= len(self.strlist)
         assert slicelength > 0
         res = [""] * slicelength
         for i in range(slicelength):
@@ -810,31 +808,33 @@ def is_homogeneous(space, list_w, w_type):
     return True
 
 def make_implementation(space, list_w):
-    if list_w:
-        if space.config.objspace.std.withsmartresizablelist:
-            from pypy.objspace.std.smartresizablelist import \
-                SmartResizableListImplementation
-            impl = SmartResizableListImplementation(space)
-            impl.extend(RListImplementation(space, list_w))
-            return impl
-        if space.config.objspace.std.withchunklist:
-            return ChunkedListImplementation(space, list_w)
-        elif space.config.objspace.std.withfastslice:
-            impl = SliceTrackingListImplementation(space, list_w)
-        else:
-            w_type = space.type(list_w[0])
-            if (space.is_w(w_type, space.w_str) and
-                is_homogeneous(space, list_w, w_type)):
-                strlist = [space.str_w(w_i) for w_i in list_w]
-                impl = StrListImplementation(space, strlist)
-            else:
-                impl = RListImplementation(space, list_w)
+    if not list_w:
+        return space.fromcache(State).empty_impl
+    if space.config.objspace.std.withsmartresizablelist:
+        from pypy.objspace.std.smartresizablelist import \
+            SmartResizableListImplementation
+        impl = SmartResizableListImplementation(space)
+        impl.extend(RListImplementation(space, list_w))
+        return impl
+    if space.config.objspace.std.withchunklist:
+        return ChunkedListImplementation(space, list_w)
+    elif space.config.objspace.std.withfastslice:
+        return SliceTrackingListImplementation(space, list_w)
     else:
-        impl = space.fromcache(State).empty_impl
-    return impl
+        # check if it's strings only
+        w_type = space.type(list_w[0])
+        if (space.is_w(w_type, space.w_str) and
+            is_homogeneous(space, list_w, w_type)):
+            strlist = [space.str_w(w_i) for w_i in list_w]
+            return StrListImplementation(space, strlist)
+        else:
+            return RListImplementation(space, list_w)
 
 def convert_list_w(space, list_w):
-    impl = make_implementation(space, list_w)
+    if not list_w:
+        impl = space.fromcache(State).empty_impl
+    else:
+        impl = make_implementation(space, list_w)
     return W_ListMultiObject(space, impl)
 
 
@@ -898,6 +898,8 @@ def getitem__ListMulti_Slice(space, w_list, w_slice):
     length = w_list.implementation.length()
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
+    if slicelength == 0:
+        return W_ListMultiObject(space)
     if step == 1 and 0 <= start <= stop:
         return W_ListMultiObject(
             space,
@@ -940,6 +942,8 @@ def mul_list_times(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
+    if times <= 0:
+        return W_ListMultiObject(space)
     return W_ListMultiObject(space, w_list.implementation.mul(times))
 
 def mul__ListMulti_ANY(space, w_list, w_times):
@@ -955,8 +959,11 @@ def inplace_mul__ListMulti_ANY(space, w_list, w_times):
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
         raise
-    # XXX could be more efficient?
-    w_list.implementation = w_list.implementation.mul(times)
+    if times <= 0:
+        w_list.implementation = space.fromcache(State).empty_impl
+    else:
+        # XXX could be more efficient?
+        w_list.implementation = w_list.implementation.mul(times)
     return w_list
 
 def eq__ListMulti_ListMulti(space, w_list1, w_list2):
@@ -1018,15 +1025,22 @@ def delitem__ListMulti_ANY(space, w_list, w_idx):
     idx = space.int_w(w_idx)
     length = w_list.implementation.length()
     idx = _adjust_index(space, idx, length, "list deletion index out of range")
-    w_list.implementation = w_list.implementation.i_delitem(idx)
+    if length == 1:
+        w_list.implementation = space.fromcache(State).empty_impl
+    else:
+        w_list.implementation = w_list.implementation.i_delitem(idx)
     return space.w_None
 
 def delitem__ListMulti_Slice(space, w_list, w_slice):
-    start, stop, step, slicelength = w_slice.indices4(
-        space, w_list.implementation.length())
+    length = w_list.implementation.length()
+    start, stop, step, slicelength = w_slice.indices4(space, length)
 
     if slicelength == 0:
         return
+
+    if slicelength == length:
+        w_list.implementation = space.fromcache(State).empty_impl
+        return space.w_None
 
     if step < 0:
         start = start + step * (slicelength-1)

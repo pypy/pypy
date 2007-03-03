@@ -124,12 +124,6 @@ class AppTest_SmartListObject(test_listobject.AppTestW_ListObject):
         cls.space = gettestobjspace(**{
             "objspace.std.withsmartresizablelist": True})
 
-    def test_insert_some(self):
-        ls = [1,2,3,4,5,6,7]
-        for i in range(5):
-            ls.insert(0, i)
-        assert len(ls) == 12
-
 class AppTest_ChunkListObject(test_listobject.AppTestW_ListObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withchunklist": True})

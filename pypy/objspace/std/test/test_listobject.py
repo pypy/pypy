@@ -340,6 +340,7 @@ class TestW_ListObject:
         assert self.space.eq_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
+
 class AppTestW_ListObject:
     def test_call_list(self):
         assert list('') == []
@@ -347,27 +348,41 @@ class AppTestW_ListObject:
         assert list((1, 2)) == [1, 2]
         l = []
         assert list(l) is not l
+        assert list(range(10)) == range(10)
 
     def test_explicit_new_init(self):
         l = l0 = list.__new__(list)
         l.__init__([1,2])
         assert l is l0
-        assert l ==[1,2]
-        list.__init__(l,[1,2,3])
+        assert l == [1,2]
+        list.__init__(l, [1,2,3])
         assert l is l0
-        assert l ==[1,2,3]
-        
+        assert l == [1,2,3]
+        list.__init__(l, ['a', 'b', 'c'])
+        assert l is l0
+        assert l == ['a', 'b', 'c']
+
     def test_extend_list(self):
         l = l0 = [1]
         l.extend([2])
         assert l is l0
         assert l == [1,2]
+        l = ['a']
+        l.extend('b')
+        assert l == ['a', 'b']
+        l = ['a']
+        l.extend([0])
+        assert l == ['a', 0]
+        l = range(10)
+        l.extend([10])
+        assert l == range(11)
 
     def test_extend_tuple(self):
         l = l0 = [1]
         l.extend((2,))
         assert l is l0
         assert l == [1,2]
+        l = ['a']
 
     def test_extend_iterable(self):
         l = l0 = [1]
@@ -412,7 +427,7 @@ class AppTestW_ListObject:
         l = [ 'a' ]
         l.sort(key = lower)
         assert l == [ 'a' ]
-        
+
     def test_sort_reversed(self):
         l = range(10)
         l.sort(reverse = True)
@@ -429,7 +444,7 @@ class AppTestW_ListObject:
         l = ['a', 'C', 'b']
         l.sort(reverse = True, key = lower)
         assert l == ['C', 'b', 'a']
-    
+
     def test_getitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
         assert l[0] == 1
@@ -449,16 +464,23 @@ class AppTestW_ListObject:
         raises(IndexError, "del l[len(l)]")
         raises(IndexError, "del l[-len(l)-1]")
 
-    def test_extended_slice(self):
+    def test_getitem_slice(self):
         l = range(10)
         del l[::2]
-        assert l ==[1,3,5,7,9]
+        assert l == [1,3,5,7,9]
         l[-2::-1] = l[:-1]
-        assert l ==[7,5,3,1,9]
+        assert l == [7,5,3,1,9]
         del l[-1:2:-1]
-        assert l ==[7,5,3]
+        assert l == [7,5,3]
         del l[:2]
-        assert l ==[3]
+        assert l == [3]
+
+        l = [0]
+        assert l[1:] == []
+        assert l[1::2] == []
+        l = ['']
+        assert l[1:] == []
+        assert l[1::2] == []
 
     def test_delall(self):
         l = l0 = [1,2,3]
@@ -545,6 +567,11 @@ class AppTestW_ListObject:
         c.insert(2, 'Y')
         c.insert(-2, 'Z')
         assert ''.join(c) == 'XhYello worZld'
+
+        ls = [1,2,3,4,5,6,7]
+        for i in range(5):
+            ls.insert(0, i)
+        assert len(ls) == 12
 
     def test_pop(self):
         c = list('hello world')

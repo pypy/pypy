@@ -45,7 +45,7 @@ class FreeList(object):
         self.freelist = {}
 
     def alloc(self, size):
-        l = self.freelist.get(size)
+        l = self.freelist.get(size, None)
         if l is not None and l:
             return l.pop()
         return [None] * size
@@ -58,6 +58,8 @@ class FreeList(object):
             self.freelist[size].append(l)
         else:
             self.freelist[size] = [l]
+
+freelist = FreeList()
 
 class SmartResizableListImplementation(ListImplementation):
     def __init__(self, space):
@@ -96,7 +98,7 @@ class SmartResizableListImplementation(ListImplementation):
                 self.size_datablock *= 2
             self.last_superblock_filled = 0
         if len(data_blocks) == self.num_datablocks:
-            data_blocks.append([None] * self.size_datablock)
+            data_blocks.append(freelist.alloc(self.size_datablock))
         self.last_superblock_filled += 1
         self.num_datablocks += 1
         self.index_last = 0
@@ -124,7 +126,7 @@ class SmartResizableListImplementation(ListImplementation):
         data_blocks = self.data_blocks
         if len(data_blocks) > self.num_datablocks:
             assert len(data_blocks) - self.num_datablocks == 1
-            data_blocks.pop()
+            freelist.dealloc(data_blocks.pop())
         for i in range(self.index_last): #XXX consider when not to do this
             idx = self.num_datablocks - 1
             assert idx >= 0
