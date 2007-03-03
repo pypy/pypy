@@ -327,7 +327,7 @@ def modf_hook():
 
 complex_math_functions = [
     ('frexp', [float],        (float, int),   frexp_hook),
-    ('atan2', [float],        float,          None),
+    ('atan2', [float, float], float,          None),
     ('fmod',  [float, float], float,          None),
     ('ldexp', [float, int],   float,          None),
     ('modf',  [float],        (float, float), modf_hook),
