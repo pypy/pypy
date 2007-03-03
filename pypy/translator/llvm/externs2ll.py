@@ -41,9 +41,12 @@ def get_ll(ccode, function_names):
     if llvm_gcc_version() < 4.0:
         emit_llvm = ''
     else:
-        emit_llvm = '-emit-llvm -O3'
-    cmd = "llvm-gcc %s %s -S %s.c -o %s.ll 2>&1" % (
-        includes, emit_llvm, plain, plain)
+        emit_llvm = '-emit-llvm -O0'
+        
+    # XXX localize this
+    include_path = '-I/sw/include'
+    cmd = "llvm-gcc %s %s %s -S %s.c -o %s.ll 2>&1" % (
+        include_path, includes, emit_llvm, plain, plain)
 
     os.system(cmd)
     llcode = open(plain + '.ll').read()
@@ -70,7 +73,7 @@ def get_ll(ccode, function_names):
         line = line.rstrip()
 
         # find function names, declare them with the default calling convertion
-        if line[-1:] == '{':
+        if '(' in  line and line[-1:] == '{':
            returntype, s = line.split(' ', 1)
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
@@ -114,10 +117,7 @@ def setup_externs(c_db, db):
     rtyper = db.translator.rtyper
     from pypy.translator.c.extfunc import predeclare_all
 
-    # hacks to make predeclare_all work
-    # XXX Rationalise this
-    db.standalone = True
-    
+    # hacks to make predeclare_all work    
     decls = list(predeclare_all(c_db, rtyper))
 
     for c_name, obj in decls:
