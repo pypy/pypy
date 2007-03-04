@@ -329,6 +329,7 @@ class UNIXAddress(Address):
             sun.sun_path[len(path)] = 0
         for i in range(len(path)):
             sun.sun_path[i] = ord(path[i])
+        self.sun = sun
         self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
         self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
 
@@ -375,6 +376,7 @@ if 'AF_NETLINK' in constants:
             addr = _c.sockaddr_nl(nl_family = AF_NETLINK)
             addr.nl_pid = pid
             addr.nl_groups = groups
+            self._addr_keepalive_netlink = addr
             self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
             self.addrlen = sizeof(addr)
 
@@ -416,7 +418,7 @@ def make_address(addrptr, addrlen, result=None):
         result = instantiate(familyclass(family))
     elif result.family != family:
         raise RSocketError("address family mismatched")
-    paddr = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
+    paddr = result._addr_keepalive0 = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
     result.addr = cast(paddr, _c.sockaddr_ptr).contents
     result.addrlen = addrlen
     return result
@@ -429,6 +431,7 @@ def makeipv4addr(s_addr, result=None):
     sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
     sin.sin_addr.s_addr = s_addr
     paddr = cast(pointer(sin), _c.sockaddr_ptr)
+    result._addr_keepalive1 = sin
     result.addr = paddr.contents
     result.addrlen = sizeof(_c.sockaddr_in)
     return result
@@ -437,6 +440,7 @@ def make_null_address(family):
     klass = familyclass(family)
     buf = create_string_buffer(klass.maxlen)
     result = instantiate(klass)
+    result._addr_keepalive2 = buf
     result.addr = cast(buf, _c.sockaddr_ptr).contents
     result.addrlen = 0
     return result, len(buf)
