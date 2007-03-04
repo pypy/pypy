@@ -1,6 +1,6 @@
 import os
 import py
-from htmlreport import (
+from pypy.tool.bench.htmlreport import (
         PerfResult, PerfTable, PerfResultCollection,
         PerfResultDelta, Page
 )
