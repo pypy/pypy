@@ -1,0 +1,11 @@
+* Thunk objspace - lazy evaluation in demo/fibonacci2 or sth
+
+* Taint objspace - examples in the documentation
+
+* Transparent proxy
+
+* Stackless - examples in a docs of stackless/WP7
+
+* pypymagic.pypy_repr - --faassen, ropes
+
+* changing grammar at the runtime
