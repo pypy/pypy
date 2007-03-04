@@ -202,13 +202,12 @@ class FixedSizeArrayNode(StructNode):
         if p is None:
             ref = self.ref
         else:
-            assert isinstance(self.value, lltype._subarray)
             ref = self.db.get_childref(p, c)
-
-            # ptr -> array of len 1
-            ref = "cast(%s* %s to %s*)" % (self.db.repr_type(self.arraytype),
-                                           ref,
-                                           self.db.repr_type(lltype.typeOf(self.value)))
+            if isinstance(self.value, lltype._subarray):
+                # ptr -> array of len 1
+                ref = "cast(%s* %s to %s*)" % (self.db.repr_type(self.arraytype),
+                                               ref,
+                                               self.db.repr_type(lltype.typeOf(self.value)))
         return ref
 
     def get_childref(self, index):

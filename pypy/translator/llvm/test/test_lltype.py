@@ -432,3 +432,56 @@ def test_prebuilt_subarrays():
     res = fn()
     assert res == 8765
 
+def test_pointer2fixedsizearray():
+    A = FixedSizeArray(Signed, 1)
+    EmbedS = GcStruct('S', ('data', A))
+    S = GcStruct('S', ('c_data', Ptr(A)))
+                 
+    e = malloc(EmbedS, zero=True)
+    s = malloc(S, zero=True)
+    c_data = s.c_data = e.data
+    c_data[0] = 42
+
+    def llf():
+        return s.c_data[0]
+
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res == 42
+
+def test_rctypes_array_access():
+    from ctypes import ARRAY, c_int
+    c_int_1 = ARRAY(c_int, 1)
+    
+    my_array = c_int_1()
+    
+    def llf():
+        my_array[0] = 42
+        return my_array[0]
+
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res == 42
+
+def test_rctypes_char_array_value():
+    from ctypes import c_char
+    A = c_char * 3
+
+    def llf(n):
+        a = A()
+        a[n+0] = 'x'
+        a[n+1] = 'y'
+        return a.value == 'xy'
+
+    fn = compile_function(llf, [int])
+    res = fn(0)
+    assert res
+
+def test_rctypes_variants():
+    py.test.skip("wip")
+    from pypy.rpython.rctypes.test import test_rarray
+    llf, expected = test_rarray.maketest()
+
+    fn = compile_function(llf, [])
+    res = fn()
+    assert res == expected
