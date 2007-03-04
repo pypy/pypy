@@ -406,15 +406,18 @@ class ContainerNode(object):
             self.ptrname = '((%s)(void*)%s)' % (cdecl(ptrtypename, ''),
                                                 self.ptrname)
 
+    def is_thread_local(self):
+        return hasattr(self.T, "_hints") and self.T._hints.get('thread_local')
+
     def forward_declaration(self):
         yield '%s;' % (
             forward_cdecl(self.implementationtypename,
-                self.name, self.db.standalone))
+                self.name, self.db.standalone, self.is_thread_local()))
 
     def implementation(self):
         lines = list(self.initializationexpr())
         lines[0] = '%s = %s' % (
-            cdecl(self.implementationtypename, self.name),
+            cdecl(self.implementationtypename, self.name, self.is_thread_local()),
             lines[0])
         lines[-1] += ';'
         return lines

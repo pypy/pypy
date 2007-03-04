@@ -18,7 +18,7 @@ class ErrorValue:
 #
 # helpers
 #
-def cdecl(ctype, cname):
+def cdecl(ctype, cname, is_thread_local=False):
     """
     Produce a C declaration from a 'type template' and an identifier.
     The type template must contain a '@' sign at the place where the
@@ -26,10 +26,17 @@ def cdecl(ctype, cname):
     """
     # the (@) case is for functions, where if there is a plain (@) around
     # the function name, we don't need the very confusing parenthesis
-    return ctype.replace('(@)', '@').replace('@', cname).strip()
+    __thread = ""
+    if is_thread_local:
+        __thread = "__thread "
+    return __thread + ctype.replace('(@)', '@').replace('@', cname).strip()
 
-def forward_cdecl(ctype, cname, standalone):
-    cdecl_str = cdecl(ctype, cname)
+def forward_cdecl(ctype, cname, standalone, is_thread_local=False):
+    __thread = ""
+    if is_thread_local:
+        __thread = "__thread "
+
+    cdecl_str = __thread + cdecl(ctype, cname)
     if standalone:
         return 'extern ' + cdecl_str
     else:
