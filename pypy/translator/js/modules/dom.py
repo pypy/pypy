@@ -280,6 +280,10 @@ class Location(BasicExternal):
         'toString' : MethodDesc([], str),
     }
 
+class Navigator(BasicExternal):
+    def __init__(self):
+        self.appName = 'Netscape'
+
 class Window(EventTarget):
     def __init__(self, html=('<html><head><title>Untitled document</title>'
                              '</head><body></body></html>'), parent=None):
@@ -303,6 +307,8 @@ class Window(EventTarget):
         self._location = 'about:blank'
 
         self._original = self # for EventTarget interface (XXX a bit nasty)
+
+        self.navigator = Navigator()
 
     def __getattr__(self, name):
         return globals()[name]
@@ -538,6 +544,7 @@ Window._fields.update({
     'status' : str,
     'top' : Window,
     'window' : Window,
+    'navigator': Navigator,
 })
 
 Window._methods = Node._methods.copy()
@@ -716,6 +723,12 @@ Event._methods = {
 KeyEvent._methods = Event._methods.copy()
 
 KeyEvent._fields = Event._fields.copy()
+
+Navigator._methods = {
+}
+Navigator._fields = {
+    'appName': str,
+}
 
 class _FunctionWrapper(object):
     """makes sure function return values are wrapped if appropriate"""

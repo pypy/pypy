@@ -61,11 +61,15 @@ Event._methods = {
 
 
 def connect(src, signal, dest):
-    print 'connecting event %s' % (event,)
+    print 'connecting signal %s' % (signal,)
 register_external(connect, args=[dom.EventTarget, str, _callable([Event])],
                   result=int)
 
 def disconnect(id):
     pass
 register_external(disconnect, args=[int])
+
+def disconnectAll(src, signal):
+    print 'disconnecting all handlers for signal: %s' % (signal,)
+register_external(disconnectAll, args=[dom.EventTarget, str])
 

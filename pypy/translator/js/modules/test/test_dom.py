@@ -379,3 +379,7 @@ def test_build():
             assert rpython2javascript(sys.modules[__name__], [var], use_pdb=True)
     
     TRANSLATING = False
+
+def test_navigator():
+    window = get_window()
+    assert window.navigator.appName == 'Netscape'
