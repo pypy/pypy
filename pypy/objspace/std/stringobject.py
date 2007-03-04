@@ -335,7 +335,8 @@ def str_join__String_ANY(space, w_self, w_list):
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("sequence item %d: expected string, %s "
-                               "found" % (i, space.type(w_s).name)))
+                               "found" % (i,
+                                          space.type(w_s).getname(space, '?'))))
             l.append(space.str_w(w_s))
         return space.wrap(self.join(l))
     else:

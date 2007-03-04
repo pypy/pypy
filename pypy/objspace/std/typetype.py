@@ -52,7 +52,8 @@ def _precheck_for_new(space, w_type):
     from pypy.objspace.std.typeobject import W_TypeObject
     if not isinstance(w_type, W_TypeObject):
         raise OperationError(space.w_TypeError,
-                             space.wrap("X is not a type object (%s)" % (space.type(w_type).name)))
+                             space.wrap("X is not a type object (%s)" %
+                                     (space.type(w_type).getname(space, '?'))))
     return w_type
 
 def _check(space, w_type, msg=None):
@@ -144,8 +145,10 @@ def descr_set__bases__(space, w_type, w_value):
                                         w_type.name))
     if not space.is_true(space.isinstance(w_value, space.w_tuple)):
         raise OperationError(space.w_TypeError,
-                             space.wrap("can only assign tuple to %s.__bases__, not %s"%
-                                        (w_type.name, space.type(w_value).name)))
+                             space.wrap("can only assign tuple"
+                                        " to %s.__bases__, not %s"%
+                                     (w_type.name,
+                                      space.type(w_value).getname(space, '?'))))
     if space.int_w(space.len(w_value)) == 0:
         raise OperationError(space.w_TypeError,
                              space.wrap("can only assign non-empty tuple to %s.__bases__, not ()"%
@@ -156,8 +159,11 @@ def descr_set__bases__(space, w_type, w_value):
             w_typ = space.type(w_base)
             if not space.is_w(w_typ, space.w_classobj):
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("%s.__bases__ must be tuple of old- or new-style classes, not '%s'"%
-                                                (w_type.name, w_typ.name)))
+                                     space.wrap("%s.__bases__ must be tuple "
+                                                "of old- or new-style classes"
+                                                ", not '%s'"%
+                                                (w_type.name,
+                                                 w_typ.getname(space, '?'))))
         else:
             new_newstyle_bases.append(w_base)
             if space.is_true(space.issubtype(w_base, w_type)):

@@ -420,8 +420,11 @@ class Member(Wrappable):
     def typecheck(self, space, w_obj):
         if not space.is_true(space.isinstance(w_obj, self.w_cls)):
             raise OperationError(space.w_TypeError,
-                                 space.wrap("descriptor '%s' for '%s' objects doesn't apply to '%s' object" %
-                                            (self.name, self.w_cls.name, space.type(w_obj).name)))
+                              space.wrap("descriptor '%s' for '%s'"
+                              " objects doesn't apply to '%s' object" %
+                                   (self.name,
+                                    self.w_cls.name,
+                                    space.type(w_obj).getname(space, '?'))))
     
     def descr_member_get(space, member, w_obj, w_w_cls=None):
         """member.__get__(obj[, type]) -> value

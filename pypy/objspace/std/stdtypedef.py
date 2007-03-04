@@ -173,7 +173,7 @@ def sliced_typeorders(typeorder, multimethod, typedef, i, local=False):
     return prefix, list_of_typeorders
 
 def typeerrormsg(space, operatorsymbol, args_w):
-    type_names = [ space.type(w_arg).name for w_arg in args_w ]
+    type_names = [ space.type(w_arg).getname(space, '?') for w_arg in args_w ]
     if len(args_w) > 1:
         plural = 's'
     else:

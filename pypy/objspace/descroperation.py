@@ -8,10 +8,11 @@ from pypy.tool.sourcetools import compile2, func_with_new_name
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
+    typename = w_type.getname(space, '?')
     if w_descr is None:
-        msg = "'%s' object has no attribute '%s'" %(w_type.name, name)
+        msg = "'%s' object has no attribute '%s'" % (typename, name)
     else:
-        msg = "'%s' object attribute '%s' is read-only" %(w_type.name, name)
+        msg = "'%s' object attribute '%s' is read-only" % (typename, name)
     raise OperationError(space.w_AttributeError, space.wrap(msg))
 
 class Object:

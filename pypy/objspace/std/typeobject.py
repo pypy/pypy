@@ -347,7 +347,7 @@ class W_TypeObject(W_Object):
         if not isinstance(w_subtype, W_TypeObject):
             raise OperationError(space.w_TypeError,
                 space.wrap("X is not a type object (%s)" % (
-                    space.type(w_subtype).name)))
+                    space.type(w_subtype).getname(space, '?'))))
         if not space.is_true(space.issubtype(w_subtype, w_self)):
             raise OperationError(space.w_TypeError,
                 space.wrap("%s.__new__(%s): %s is not a subtype of %s" % (
