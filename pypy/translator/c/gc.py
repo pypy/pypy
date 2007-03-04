@@ -216,21 +216,12 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def pre_pre_gc_code(self):
         if sys.platform == "linux2":
-            if self.thread_enabled or True:
-                yield "#define _REENTRANT 1"
-                yield "#define GC_LINUX_THREADS 1"
-                yield "#define GC_REDIRECT_TO_LOCAL 1"
-                yield "#define GC_I_HIDE_POINTERS 1"
-                yield '#include <gc/gc_local_alloc.h>'
-                yield '#define USING_BOEHM_GC'
-            else:
-                yield "#define GC_I_HIDE_POINTERS 1"
-                yield '#include <gc/gc.h>'
-                yield '#define USING_BOEHM_GC'
-        else:
-            yield "#define GC_I_HIDE_POINTERS 1"
-            yield '#include <gc/gc.h>'
-            yield '#define USING_BOEHM_GC'
+            yield "#define _REENTRANT 1"
+            yield "#define GC_LINUX_THREADS 1"
+        yield "#define GC_I_HIDE_POINTERS 1"
+        yield "#define GC_REDIRECT_TO_LOCAL 1"
+        yield '#include <gc/gc.h>'
+        yield '#define USING_BOEHM_GC'
 
     def pre_gc_code(self):
         return []
