@@ -137,19 +137,25 @@ class Config(object):
             if isinstance(child, Option):
                 yield child._name, getattr(self, child._name)
 
-    def __str__(self):
-        result = "[%s]\n" % (self._cfgimpl_descr._name, )
-        for child in self._cfgimpl_descr._children:
-            if isinstance(child, Option):
-                if self._cfgimpl_value_owners[child._name] == 'default':
-                    continue
-                result += "    %s = %s\n" % (
-                    child._name, getattr(self, child._name))
+    def __str__(self, indent=""):
+        lines = []
+        children = [(child._name, child)
+                    for child in self._cfgimpl_descr._children]
+        children.sort()
+        for name, child in children:
+            if self._cfgimpl_value_owners.get(name, None) == 'default':
+                continue
+            value = getattr(self, name)
+            if isinstance(value, Config):
+                substr = value.__str__(indent + "    ")
             else:
-                substr = str(getattr(self, child._name))
-                substr = "    " + substr[:-1].replace("\n", "\n    ") + "\n"
-                result += substr
-        return result
+                substr = "%s    %s = %s" % (indent, name, value)
+            if substr:
+                lines.append(substr)
+        if indent and not lines:
+            return ''   # hide subgroups with all default values
+        lines.insert(0, "%s[%s]" % (indent, self._cfgimpl_descr._name,))
+        return '\n'.join(lines)
 
     def getpaths(self, include_groups=False):
         """returns a list of all paths in self, recursively
