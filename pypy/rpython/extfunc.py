@@ -53,7 +53,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
             obj = rtyper.getannmixlevel().delayedfunction(
-                impl.im_func, self.signature_args, self.signature_result)
+                impl, self.signature_args, self.signature_result)
         else:
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
                                  name, _external_name=self.name, _callable=fakeimpl)
