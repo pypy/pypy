@@ -9,6 +9,13 @@ class TestCliDict(CliTest, oodict.BaseTestDict):
     def test_recursive(self):
         py.test.skip("CLI doesn't support recursive dicts")
 
+    def test_dict_of_void_special_case(self):
+        def fn(n):
+            d = {}
+            for i in xrange(n):
+                d[i] = None
+            return d[0]
+        assert self.interpret(fn, [2]) is None
 
 class TestCliEmptyDict(CliTest, oodict.BaseTestEmptyDict):
     pass

@@ -31,4 +31,11 @@ class TestLLtype(BaseTestRemptydict, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRemptydict, OORtypeMixin):
-    pass
+    def test_almost_empty_dict(self):
+        def f(flag):
+            d = {}
+            if flag:
+                d[None] = None
+            return None in d
+        assert self.interpret(f, [True]) is True
+        assert self.interpret(f, [False]) is False

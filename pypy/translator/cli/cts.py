@@ -244,15 +244,22 @@ class CTS(object):
             if isinstance(TYPE, ootype.StaticMethod):
                 METH = TYPE
             else:
-                METH = oopspec.get_method(TYPE, name)                
+                METH = oopspec.get_method(TYPE, name)
             class_name = self.lltype_to_cts(TYPE)
-            if isinstance(TYPE, ootype.Dict) and TYPE._KEYTYPE is ootype.Void and \
-                   TYPE._VALUETYPE is ootype.Void and name_or_desc == 'll_get_items_iterator':
-                # ugly, ugly special case
-                ret_type = 'class ' + PYPY_DICT_ITEMS_ITERATOR % ('int32', 'int32')
+            if isinstance(TYPE, ootype.Dict):
+                KEY = TYPE._KEYTYPE
+                VALUE = TYPE._VALUETYPE
+                name = name_or_desc
+                if KEY is ootype.Void and VALUE is ootype.Void and name == 'll_get_items_iterator':
+                    # ugly, ugly special case
+                    ret_type = 'class ' + PYPY_DICT_ITEMS_ITERATOR % ('int32', 'int32')
+                elif VALUE is ootype.Void and METH.RESULT is ootype.Dict.VALUETYPE_T:
+                    ret_type = 'void'
+                else:
+                    ret_type = self.lltype_to_cts(METH.RESULT)
+                    ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
             else:
                 ret_type = self.lltype_to_cts(METH.RESULT)
-                ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
             generic_types = getattr(TYPE, '_generic_types', {})
             arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if
                          arg is not ootype.Void and \
