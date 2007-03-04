@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import autopath
 from time import clock
