@@ -39,16 +39,6 @@ class OpReprInvoke(OpReprCall):
         else:
             self.functionref = '%pypyop_' + op.opname
 
-def arrayindices(arg):
-    ARRAYTYPE = arg.concretetype.TO
-    if isinstance(ARRAYTYPE, lltype.Array):
-        # skip the length field
-        indices = [("uint", 1)]
-    else:
-        assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-        indices = []        
-    return indices
-
 class OpWriter(object):            
     
     binary_operations = {
@@ -102,6 +92,16 @@ class OpWriter(object):
         else:
             return [self.db.repr_tmpvar() for ii in range(count)]
         
+    def _arrayindices(self, arg):
+        ARRAYTYPE = arg.concretetype.TO
+        if isinstance(ARRAYTYPE, lltype.Array):
+            # skip the length field
+            indices = [(self.uword, 1)]
+        else:
+            assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
+            indices = []        
+        return indices
+
     def write_operation(self, op):
         #log(op)
 
@@ -350,17 +350,17 @@ class OpWriter(object):
         assert index != -1
         tmpvar = self._tmp()
         self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                      opr.argrefs[0], [("uint", index)])
+                                      opr.argrefs[0], [(self.uword, index)])
         # get element ptr gets a pointer to the right type, except the generated code really expected 
         # an array of size 1... so we just cast it
-        element_type = self.db.repr_type(op.result.concretetype.TO.OF)+'*'
+        element_type = self.db.repr_type(op.result.concretetype.TO.OF) + '*'
         self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
 
     def getsubstruct(self, opr): 
         index = getindexhelper(opr.op.args[1].value,
                                opr.op.args[0].concretetype.TO)
         assert opr.rettype != "void"
-        indices = [("uint", index)]
+        indices = [(self.uword, index)]
         self.codewriter.getelementptr(opr.retref, opr.argtypes[0],
                                       opr.argrefs[0], indices)
 
@@ -371,7 +371,7 @@ class OpWriter(object):
             index = getindexhelper(op.args[1].value,
                                    op.args[0].concretetype.TO)
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                          opr.argrefs[0], [("uint", index)])
+                                          opr.argrefs[0], [(self.uword, index)])
             self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
         else:
             self._skipped(opr)
@@ -387,21 +387,41 @@ class OpWriter(object):
         arraytype, indextype = opr.argtypes
         tmpvar = self._tmp()
 
-        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        indices = self._arrayindices(opr.op.args[0]) + [(self.word, index)]
         self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
     def direct_arrayitems(self, opr):
-        array, index = opr.argrefs
-        arraytype, indextype = opr.argtypes
-        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
-        self.codewriter.getelementptr(opr.retref, arraytype, array, indices)
+        assert opr.rettype != "void"
 
+        array = opr.argrefs[0]
+        arraytype = opr.argtypes[0]
+        indices = self._arrayindices(opr.op.args[0]) + [(self.word, 0)]
+        tmpvar = self._tmp()
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
+
+        # get element ptr gets a pointer to the right type, except the generated code really expected 
+        # an array of size 1... so we just cast it
+        element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
+        self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
+
+    def direct_ptradd(self, opr):
+        array, incr = opr.argrefs
+        arraytype, _ = opr.argtypes
+        
+        tmpvar = self._tmp()
+        self.codewriter.getelementptr(tmpvar, arraytype, array, [(self.word, incr)])
+
+        # get element ptr gets a pointer to the right type, except the generated code really expected 
+        # an array of size 1... so we just cast it
+        element_type = self.db.repr_type(opr.op.result.concretetype.TO.OF) + '*'
+        self.codewriter.cast(opr.retref, element_type, tmpvar, opr.rettype)
+        
     def getarraysubstruct(self, opr):        
         array, index = opr.argrefs
         arraytype, indextype = opr.argtypes
 
-        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        indices = self._arrayindices(opr.op.args[0]) + [(self.word, index)]
         self.codewriter.getelementptr(opr.retref, arraytype, array, indices)
 
     def setarrayitem(self, opr):
@@ -413,7 +433,7 @@ class OpWriter(object):
             self._skipped(opr)
             return
 
-        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        indices = self._arrayindices(opr.op.args[0]) + [(self.word, index)]
         self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
         self.codewriter.store(valuetype, valuevar, tmpvar) 
     bare_setarrayitem = setarrayitem
@@ -423,7 +443,7 @@ class OpWriter(object):
         assert isinstance(ARRAYTYPE, lltype.Array)
         tmpvar = self._tmp()
         self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
-                                      opr.argrefs[0], [("uint", 0)])
+                                      opr.argrefs[0], [(self.uword, 0)])
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
     def adr_delta(self, opr):

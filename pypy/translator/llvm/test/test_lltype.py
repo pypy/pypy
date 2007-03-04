@@ -352,7 +352,6 @@ def test_fnptr_with_fixedsizearray():
     assert res == -1
 
 def test_direct_arrayitems():
-    py.test.skip("wip")
     for a in [malloc(GcArray(Signed), 5),
               malloc(FixedSizeArray(Signed, 5), immortal=True)]:
         a[0] = 0
@@ -411,7 +410,6 @@ def test_prebuilt_simple_subarrays():
     assert res == 142
 
 def test_prebuilt_subarrays():
-    py.test.skip("wip")
     a1 = malloc(GcArray(Signed), 5, zero=True)
     a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
     s  = malloc(GcStruct('S', ('x', Signed), ('y', Signed)))
