@@ -299,7 +299,6 @@ def ll_dict_update(d1, d2):
 
 
 def ll_dict_getitem(d, key):
-    # TODO: this is inefficient because it does two lookups
     if d.ll_contains(key):
         return d.ll_get(key)
     else:
@@ -310,7 +309,6 @@ def ll_dict_delitem(d, key):
         raise KeyError
 
 def ll_dict_get(d, key, default):
-    # TODO: this is inefficient because it does two lookups
     if d.ll_contains(key):
         return d.ll_get(key)
     else:
@@ -339,7 +337,7 @@ def ll_dict_kvi(d, LIST, func):
             r.item1 = it.ll_current_value()
             result.ll_setitem_fast(i, r)
         i += 1
-    #assert i == length
+    assert i == length
     return result
 
 

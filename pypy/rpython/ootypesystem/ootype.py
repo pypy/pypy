@@ -499,6 +499,9 @@ class Dict(BuiltinADTType):
             self.VALUETYPE_T: self._VALUETYPE
             })
 
+        # ll_get() is always used just after a call to ll_contains(),
+        # always with the same key, so backends can optimize/cache the
+        # result
         self._GENERIC_METHODS = frozendict({
             "ll_length": Meth([], Signed),
             "ll_get": Meth([self.KEYTYPE_T], self.VALUETYPE_T),
@@ -1188,15 +1191,17 @@ class _dict(_builtin_type):
         self._TYPE = DICT
         self._dict = {}
         self._stamp = 0
+        self._last_key = object() # placeholder != to everything else
 
     def ll_length(self):
         # NOT_RPYTHON
         return len(self._dict)
 
     def ll_get(self, key):
-        # NOT_RPYTHON        
+        # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
         assert key in self._dict
+        assert key == self._last_key
         return self._dict[key]
 
     def ll_set(self, key, value):
@@ -1219,6 +1224,7 @@ class _dict(_builtin_type):
     def ll_contains(self, key):
         # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
+        self._last_key = key
         return key in self._dict
 
     def ll_clear(self):

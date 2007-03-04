@@ -17,6 +17,7 @@ def test_setitem_getitem():
     DT = Dict(Signed, Float)
     d = new(DT)
     d.ll_set(42, 123.45)
+    assert d.ll_contains(42)
     assert d.ll_get(42) == 123.45
 
 def test_iteritems():
@@ -49,3 +50,10 @@ def test_recursive_str_hash():
     assert isinstance(str(DT), str)
     assert isinstance(hash(DT), int)
 
+def test_invalid_cache():
+    DT = Dict(Signed, Signed)
+    d = new(DT)
+    py.test.raises(AssertionError, d.ll_get, 0)
+    d.ll_set(42, 1)
+    d.ll_contains(43)
+    py.test.raises(AssertionError, d.ll_get, 42)

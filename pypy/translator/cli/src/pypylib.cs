@@ -440,6 +440,8 @@ namespace pypy.runtime
     public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
         IEqualityComparer<TKey> comparer = null;
+        TValue cache;
+
         public Dict() {}
         public Dict(IEqualityComparer<TKey> comparer): base(comparer) 
         { 
@@ -447,10 +449,10 @@ namespace pypy.runtime
         }
 
         public int ll_length() { return this.Count; }
-        public TValue ll_get(TKey key) { return this[key]; }
+        public TValue ll_get(TKey key) { return cache; }
         public void ll_set(TKey key, TValue value) { this[key] = value; }
         public bool ll_remove(TKey key) { return this.Remove(key); }
-        public bool ll_contains(TKey key) { return this.ContainsKey(key); }
+        public bool ll_contains(TKey key) { return this.TryGetValue(key, out cache); }
         public void ll_clear() { this.Clear(); }
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
@@ -484,6 +486,7 @@ namespace pypy.runtime
         public void ll_set(TKey key) { this[key] = default(TValue); }
         public bool ll_remove(TKey key) { return this.Remove(key); }
         public bool ll_contains(TKey key) { return this.ContainsKey(key); }
+        public void ll_contains_get() { }
         public void ll_clear() { this.Clear(); }
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
@@ -502,16 +505,26 @@ namespace pypy.runtime
 
     public class DictVoidVoid
     {
-        public int ll_length() { return 0; }
+        private int length = 0;
+
+        public int ll_length() { return length; }
         public void ll_get() { }
-        public void ll_set() { }
-        public bool ll_remove() { return false; } // should it be true?
-        public bool ll_contains() { return false; }
-        public void ll_clear() { }
+        public void ll_set() { length = 1; }
+        public bool ll_remove() { 
+            if (length == 0)
+                return false;
+            length = 0;
+            return true;
+        }
+        public bool ll_contains() { return length != 0; }
+        public void ll_contains_get() { }
+        public void ll_clear() { length = 0; }
 
         public DictItemsIterator<int, int> ll_get_items_iterator()
         {
             List<KeyValuePair<int, int>> foo = new List<KeyValuePair<int, int>>();
+            if (length == 1)
+                foo.Add(new KeyValuePair<int, int>(0, 0));
             return new DictItemsIterator<int, int>(foo.GetEnumerator());
         }
     }
