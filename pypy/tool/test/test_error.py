@@ -3,7 +3,7 @@
 """
 
 from pypy.translator.translator import TranslationContext
-from pypy.tool.error import FlowingError, AnnotatorError
+from pypy.tool.error import FlowingError, AnnotatorError, NoSuchAttrError
 from pypy.annotation.policy import BasicAnnotatorPolicy
 
 import py
@@ -68,3 +68,19 @@ def test_eval_someobject():
     exec("def f(n):\n if n == 2:\n  return 'a'\n else:\n  return 3")
     
     py.test.raises(AnnotatorError, compile_function, f, [int])
+
+def test_basicexternal_attribute():
+    from pypy.rpython.ootypesystem.bltregistry import BasicExternal
+
+    class A(BasicExternal):
+        pass
+    
+    def f():
+        return A().f
+
+    py.test.raises(NoSuchAttrError, compile_function, f, [])
+
+    def g():
+        return A().g()
+
+    py.test.raises(NoSuchAttrError, compile_function, g, [])

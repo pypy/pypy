@@ -67,6 +67,9 @@ class FlowingError(Exception):
 class AnnotatorError(Exception):
     pass
 
+class NoSuchAttrError(Exception):
+    pass
+
 def gather_error(annotator, block, graph):
     msg = [""]
     msg.append('-+' * 30)
