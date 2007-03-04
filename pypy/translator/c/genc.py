@@ -871,7 +871,7 @@ debug_mem:
 \tmake CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
 
 profile:
-\tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
+\tmake CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 
 profopt:
 \tmake CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"

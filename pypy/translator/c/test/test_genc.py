@@ -40,6 +40,8 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
     # XXX fish
     t.driver.config.translation.countmallocs = True
     compiled_fn = t.compile_c()
+    if conftest.option.view:
+        t.view()
     # XXX fish fish fish some more
     module = t.driver.cbuilder.c_ext_module
     def checking_fn(*args, **kwds):
