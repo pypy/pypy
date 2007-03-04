@@ -4,7 +4,7 @@ from pypy.conftest import gettestobjspace
 class TestW_DictObject:
 
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withstrdict": False})
+        cls.space = gettestobjspace()
 
     def test_empty(self):
         space = self.space

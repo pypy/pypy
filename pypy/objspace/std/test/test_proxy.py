@@ -120,5 +120,5 @@ class AppTestDictProxy(AppProxyBasic):
 
 class AppTestDictStrProxy(AppTestDictProxy):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withstrdict": True,
+        cls.space = gettestobjspace(**{"objspace.std.withmultidict": True,
                                        "objspace.std.withtproxy": True})

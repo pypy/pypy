@@ -120,10 +120,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.FrameClass = StdObjSpaceFrame
 
         # XXX store the dict class on the space to access it in various places
-        if self.config.objspace.std.withstrdict:
-            from pypy.objspace.std import dictstrobject
-            self.DictObjectCls = dictstrobject.W_DictStrObject
-        elif self.config.objspace.std.withmultidict:
+        if self.config.objspace.std.withmultidict:
             from pypy.objspace.std import dictmultiobject
             self.DictObjectCls = dictmultiobject.W_DictMultiObject
             self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)

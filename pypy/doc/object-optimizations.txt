@@ -77,28 +77,14 @@ time and memory.
 Dictionary optimizations
 ========================
 
-string-keyed dictionaries
--------------------------
-
-String-keyed dictionaries are an alternate implementation of the ``dict`` type.
-These dictionaries are optimized for string keys, which is obviously a big win
-for all but the most contrived Python programs. As soon as one non-string key
-is stored in the dict
-the whole information in the string-keyed dictionary is copied over into another
-RPython-dictionary, where arbitrary Python objects can be used as keys.
-
-You can enable this feature with the :config:`objspace.std.withstrdict` option.
-
 multi-dicts
 -----------
 
-Multi-dicts are another special implementation of dictionaries. While
-implementing the string-keyed dictionaries it became clear that it is very
-useful to *change* the internal representation of an object during its lifetime.
-String-keyed dictionaries already do that in a limited way (changing the
-representation from a string-to-object mapping to an object-to-object mapping).
-Multi-Dicts are way more general: they provide generic support for such
-switching of representations for dicts.
+Multi-dicts are a special implementation of dictionaries.  It became clear that
+it is very useful to *change* the internal representation of an object during
+its lifetime.  Multi-Dicts are a general way to do that for dictionaries: they
+provide generic support for the switching of internal representations for
+dicts.
 
 If you just enable multi-dicts, special representations for empty dictionaries,
 for string-keyed dictionaries and for small dictionaries are used (as well as a

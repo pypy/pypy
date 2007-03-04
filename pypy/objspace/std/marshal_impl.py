@@ -26,7 +26,6 @@ from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.dictobject    import W_DictObject
 from pypy.objspace.std.dictmultiobject    import W_DictMultiObject
-from pypy.objspace.std.dictstrobject import W_DictStrObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject
@@ -358,18 +357,6 @@ def marshal_w__DictMulti(space, w_dict, m):
         w_key, w_value = space.unpacktuple(w_tuple, 2)
         m.put_w_obj(w_key)
         m.put_w_obj(w_value)
-    m.atom(TYPE_NULL)
-
-def marshal_w__DictStr(space, w_dict, m):
-    m.start(TYPE_DICT)
-    if w_dict.content is not None:
-        for w_key, w_value in w_dict.content.iteritems():
-            m.put_w_obj(w_key)
-            m.put_w_obj(w_value)
-    else:
-        for key, w_value in w_dict.content_str.iteritems():
-            m.put_w_obj(space.wrap(key))
-            m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
 
 def unmarshal_Dict(space, u, tc):

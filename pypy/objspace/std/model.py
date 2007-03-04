@@ -12,8 +12,6 @@ option_to_typename = {
     "withsmallint"   : ["smallintobject.W_SmallIntObject"],
     "withstrslice"   : ["strsliceobject.W_StringSliceObject"],
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
-    "withstrdict"    : ["dictstrobject.W_DictStrObject",
-                        "dictstrobject.W_DictStrIterObject"],
     "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
                         "dictmultiobject.W_DictMultiIterObject"],
     "withmultilist"  : ["listmultiobject.W_ListMultiObject"],
@@ -64,7 +62,6 @@ class StdTypeModel:
         from pypy.objspace.std import tupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
-        from pypy.objspace.std import dictstrobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import listmultiobject
         from pypy.objspace.std import stringobject
@@ -125,8 +122,7 @@ class StdTypeModel:
                     else:
                         imported_but_not_registered[implcls] = True
 
-        if (config.objspace.std.withstrdict or
-            config.objspace.std.withmultidict):
+        if config.objspace.std.withmultidict:
             del self.typeorder[dictobject.W_DictObject]
             del self.typeorder[dictobject.W_DictIterObject]
 

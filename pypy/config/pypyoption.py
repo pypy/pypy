@@ -136,14 +136,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "(the empty string and potentially single-char strings)",
                    default=False),
 
-        BoolOption("withstrdict",
-                   "use dictionaries optimized for string keys",
-                   default=False),
-
         BoolOption("withmultidict",
                    "use dictionaries optimized for flexibility",
-                   default=False,
-                   requires=[("objspace.std.withstrdict", False)]),
+                   default=False),
 
         BoolOption("withsharingdict",
                    "use dictionaries that share the keys part",

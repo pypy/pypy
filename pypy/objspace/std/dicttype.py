@@ -183,11 +183,6 @@ def descr_dictiter__reduce__(w_self, space):
         raise OperationError(
             space.w_RuntimeError,
             space.wrap("cannot pickle dictiters with multidicts"))
-    if space.config.objspace.std.withstrdict:
-        from pypy.objspace.std.dictstrobject import \
-            W_DictStrIter_Keys as W_DictIter_Keys, \
-            W_DictStrIter_Values as W_DictIter_Values, \
-            W_DictStrIter_Items as W_DictIter_Items
     else:
         from pypy.objspace.std.dictobject import \
             W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
@@ -204,8 +199,6 @@ def descr_dictiter__reduce__(w_self, space):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     w_clone.space = space
     w_clone.content = w_self.content
-    if space.config.objspace.std.withstrdict:
-        w_clone.content_str = w_self.content_str
     w_clone.len = w_self.len
     w_clone.pos = 0
     w_clone.setup_iterator()
