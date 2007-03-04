@@ -12,6 +12,7 @@ class ResultDB(object):
         for id in id2numrun:
             besttime = id2bestspeed[id]
             numruns = id2numrun[id]
+            print id
             bench = BenchResult(id, besttime, numruns)
             self.benchmarks.append(bench)
 
@@ -28,10 +29,30 @@ class BenchResult(object):
         self._id = id 
         if id.startswith("./"):
             id = id[2:]
-        parts = id.split("-")
-        self.name = parts.pop(-1)
-        self.backend = parts[1]
-        self.revision = int(parts[2])
-        self.executable = "-".join(parts)
+        if id.startswith("pypy"):
+            parts = id.rsplit("_", 1)
+            self.executable = parts[0]
+            self.name = parts[1]
+            parts = self.executable.split("-")
+            self.backend = parts[1]
+            try:
+                self.revision = int(parts[2])
+            except ValueError:
+                self.revision = None
+        else: # presumably cpython
+            version, name = id.split("_", 1)
+            self.name = name
+            self.backend = None
+            self.revision = version
+            self.executable = "cpython"
         self.besttime = besttime
         self.numruns = numruns
+    def __repr__(self):
+        return "<BenchResult %r>" %(self._id, )
+            
+
+if __name__ == "__main__":
+    x = py.magic.autopath().dirpath("bench-unix.benchmark_result")
+    db = ResultDB()
+    db.parsepickle(x)
+    

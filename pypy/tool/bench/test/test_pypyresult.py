@@ -1,7 +1,7 @@
 
 import py
 
-from pypy.tool.bench.pypyresult import ResultDB
+from pypy.tool.bench.pypyresult import ResultDB, BenchResult
 import pickle
 
 def setup_module(mod):
@@ -23,12 +23,25 @@ def test_unpickle():
     db = ResultDB()
     db.parsepickle(pp)
     assert len(db.benchmarks) == 1
-    l = db.getbenchmarks(name="c_richards")
+    l = db.getbenchmarks(name="richards")
     assert len(l) == 1
     bench = l[0]
-    assert bench.executable == "pypy-llvm-39474-faassen"
-    assert bench.name == "c_richards"
-    assert bench.revision == 39474
-    assert bench.numruns == 5
-    assert bench.besttime == 42.0
-    
+    l = db.getbenchmarks(name="xyz")
+    assert not l
+
+def test_BenchResult_cpython():
+    res = BenchResult("2.3.5_pystone", besttime=2.0, numruns=3)
+    assert res.executable == "cpython"
+    assert res.revision == "2.3.5"
+    assert res.name == "pystone"
+    assert res.numruns == 3
+    assert res.besttime == 2.0
+
+def test_BenchResult_pypy():
+    res = BenchResult("pypy-llvm-39474-faassen-c_richards",
+                      besttime=2.0, numruns=3)
+    assert res.executable == "pypy-llvm-39474-faassen-c"
+    assert res.revision == 39474
+    assert res.name == "richards"
+    assert res.numruns == 3
+    assert res.besttime == 2.0
