@@ -1,5 +1,6 @@
 import autopath
 import py
+import sys
 from pypy.translator.c.node import PyObjectNode, PyObjHeadNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
@@ -241,6 +242,8 @@ class CStandaloneBuilder(CBuilder):
         assert self.c_source_filename
         assert not self._compiled
         compiler = self.getccompiler(extra_includes=[str(self.targetdir)])
+        if sys.platform == 'darwin':
+            compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:
             compiler.compile_extra.append(self.config.translation.compilerflags)
         if self.config.translation.linkerflags:
@@ -265,6 +268,8 @@ class CStandaloneBuilder(CBuilder):
                 prefix = ' ' * len(prefix)
 
         compiler = self.getccompiler(extra_includes=['.'])
+        if sys.platform == 'darwin':
+            compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:
             compiler.compile_extra.append(self.config.translation.compilerflags)
         if self.config.translation.linkerflags:
