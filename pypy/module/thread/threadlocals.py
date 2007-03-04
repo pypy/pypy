@@ -56,3 +56,7 @@ class OSThreadLocals:
     def atthreadexit(self, space, exit_func, w_obj):
         ec = space.getexecutioncontext()
         ec.thread_exit_funcs.append((exit_func, w_obj))
+
+    def getGIL(self):
+        return None
+
