@@ -79,13 +79,13 @@ def genllvm_compile(function,
     driver.setup(function, annotation)
     driver.annotate()
     if conftest.option.view:
-        translator.view()
+        driver.translator.view()
     driver.rtype()
     if conftest.option.view:
-        translator.view()
+        driver.translator.view()
     driver.compile() 
     if conftest.option.view:
-        translator.view()
+        driver.translator.view()
     return driver.c_module, driver.c_entryp
 
 def compile_test(function, annotation, isolate=True, **kwds):
