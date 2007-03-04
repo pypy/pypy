@@ -429,6 +429,8 @@ Element._fields.update({
     # XXX: From HTMLInputElement to make pythonconsole work.
     'value': str,
     'checked': bool,
+    # IMG specific
+    'src': str,
 })
 
 Element._methods = Node._methods.copy()
@@ -696,6 +698,13 @@ Event._fields = {
     'relatedTarget': Element,
     'target': Element,
     'type': str,
+    'returnValue': bool,
+    'which': int,
+    'keyCode' : int,
+    'charCode': int,
+    'altKey'  : bool,
+    'ctrlKey' : bool,
+    'shiftKey': bool,
 }
 
 Event._methods = {
@@ -707,13 +716,6 @@ Event._methods = {
 KeyEvent._methods = Event._methods.copy()
 
 KeyEvent._fields = Event._fields.copy()
-KeyEvent._fields.update({
-    'keyCode' : int,
-    'charCode': int,
-    'altKey'  : bool,
-    'ctrlKey' : bool,
-    'shiftKey': bool,
-})
 
 class _FunctionWrapper(object):
     """makes sure function return values are wrapped if appropriate"""

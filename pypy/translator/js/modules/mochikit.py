@@ -52,7 +52,11 @@ class Event(BasicExternal):
     pass
 
 Event._fields = {
-    '_event': dom.KeyEvent,
+    '_event': dom.Event,
+}
+
+Event._methods = {
+    'preventDefault': MethodDesc([]),
 }
 
 
