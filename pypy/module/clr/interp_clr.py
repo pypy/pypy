@@ -125,6 +125,7 @@ def get_properties(space, b_type):
         b_prop = b_propertyinfos[i]
         get_name = None
         set_name = None
+        is_static = False
         if b_prop.get_CanRead():
             get_meth = b_prop.GetGetMethod()
             get_name = get_meth.get_Name()
