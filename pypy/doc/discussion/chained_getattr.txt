@@ -1,0 +1,56 @@
+
+
+"chained getattr/module global lookup" optimization
+(discussion during trillke-sprint 2007, anto/holger, 
+a bit of samuele and cf earlier on)  
+
+random example: 
+
+    code: 
+        import os.path
+        normed = [os.path.normpath(p) for p in somelist]
+    bytecode: 
+        [...]
+         LOAD_GLOBAL              (os)
+         LOAD_ATTR                (path)
+         LOAD_ATTR                (normpath)
+         LOAD_FAST                (p)
+         CALL_FUNCTION            1
+
+    would be turned by pypy-compiler into: 
+
+         LOAD_CHAINED_GLOBAL      (os,path,normpath)
+         LOAD_FAST                (p)
+         CALL_FUNCTION            1
+       
+    now for the LOAD_CHAINED_GLOBAL bytecode implementation:
+
+        Module dicts have a special implemnetation, providing: 
+        - an extra "fastlookup" rpython-list serving as a cache for
+          LOAD_CHAINED_GLOBAL places within the modules
+        - LOAD_CHAINED_GLOBAL has an index pointing into the
+          rpython-list 
+        - the fastlookup list contains e.g. tuple entries:
+          ([obj1, obj2, obj3], [verglobals, ver1, ver2])
+          "verglobals" refers to the version of the module globals 
+          at which the initial 'os' global lookup was done. 
+          "ver1" refer to the version of the globals of "os"
+          "ver2" refer to the version of the globals of "os.path"
+          "obj3" is the resulting "normpath" function 
+
+        - after the fastlookup entry is filled for a given
+          LOAD_CHAINED_GLOBAL index, the following checks need
+          to be performed in the bytecode implementation: 
+    
+          objects, versions = f_globals.fastlookup[chained_global_index]
+          if getver(f_globals) != versions[0]:
+             return do_full_lookup()
+          i = 0
+          while i < len(objects) - 1:
+              curobj = objects[i]
+              lastversion = versions[i+1]
+              currentversion = getver(curobj)
+              if currentversion != lastversion:
+                 return do_full_lookup() # can be more clever 
+              i += 1
+          return objects[i]
