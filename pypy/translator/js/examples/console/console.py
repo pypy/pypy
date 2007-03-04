@@ -36,12 +36,19 @@ def line_split(ret, max_len):
     return "\n".join(to_ret)
 
 
+STATIC_DIR = py.path.local(__file__)
+for x in range(6):
+    STATIC_DIR = STATIC_DIR.dirpath()
+STATIC_DIR = STATIC_DIR.join("compiled")
+
 class Sessions(object):
     def __init__(self):
         self.sessions = {}
         self.updating = {}
 
     def new_session(self, python="python"):
+        if not py.path.local().sysfind(python):
+            python = str(STATIC_DIR.join(python))
         ip = Interpreter(python)
         self.sessions[ip.pid] = ip
         self.updating[ip.pid] = False
@@ -81,7 +88,7 @@ class ExportedMethods(server.ExportedMethods):
         #print "Refresh %s %d" % (to_write, int(pid))
         try:
             return ["refresh", sessions.update_session(int(pid), to_write)]
-        except KeyError:
+        except (KeyError, IOError):
             return ["disconnected"]
         except Ignore:
             return ["ignore"]
@@ -91,7 +98,7 @@ class ExportedMethods(server.ExportedMethods):
         #print "Empty refresh %d" % int(pid)
         try:
             return ["refresh", sessions.update_session(int(pid), None)]
-        except KeyError:
+        except (KeyError, IOError):
             return ["disconnected"]
         except Ignore:
             return ["ignore"]
