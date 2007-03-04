@@ -385,6 +385,22 @@ class AppTestSocket:
         assert s.getsockname() == s2.getsockname()
     
 
+    def test_buffer(self):
+        # Test that send/sendall/sendto accept a buffer as argument
+        import _socket, os
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # XXX temporarily we use codespeak to test, will have more robust tests in
+        # the absence of a network connection later when mroe parts of the socket
+        # API are implemented.
+        s.connect(("codespeak.net", 80))
+        s.send(buffer(''))
+        s.sendall(buffer(''))
+        s.close()
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
+        s.sendto(buffer(''), ('localhost', 9)) # Send to discard port.
+        s.close()
+        
+
 class AppTestSocketTCP:
     def setup_class(cls):
         cls.space = space
