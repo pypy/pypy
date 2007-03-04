@@ -186,6 +186,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 
+        # HACK HACK HACK
+        from pypy.objspace.std.typeobject import _HEAPTYPE
+        old_flags = self.w_dict.__flags__
+        self.w_dict.__flags__ |= _HEAPTYPE
         self.appexec([self.w_dict], """
             (dict): 
                 def fromkeys(cls, seq, value=None):
@@ -195,6 +199,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return r
                 dict.fromkeys = classmethod(fromkeys)
         """)
+        self.w_dict.__flags__ = old_flags
 
         if self.config.objspace.std.oldstyle:
             self.enable_old_style_classes_as_default_metaclass()

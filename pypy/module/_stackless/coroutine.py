@@ -263,12 +263,20 @@ def w_descr__framestack(space, self):
 
 def makeStaticMethod(module, classname, funcname):
     space = module.space
-    space.appexec(map(space.wrap, (module, classname, funcname)), """
-        (module, klassname, funcname):
-            klass = getattr(module, klassname)
+    w_klass = space.getattr(space.wrap(module), space.wrap(classname))
+    # HACK HACK HACK
+    # make the typeobject mutable for a while
+    from pypy.objspace.std.typeobject import _HEAPTYPE, W_TypeObject
+    assert isinstance(w_klass, W_TypeObject)
+    old_flags = w_klass.__flags__
+    w_klass.__flags__ |= _HEAPTYPE
+    
+    space.appexec([w_klass, space.wrap(funcname)], """
+        (klass, funcname):
             func = getattr(klass, funcname)
             setattr(klass, funcname, staticmethod(func.im_func))
     """)
+    w_klass.__flags__ = old_flags
 
 def post_install(module):
     makeStaticMethod(module, 'coroutine', 'getcurrent')
