@@ -43,6 +43,7 @@ class CTestFuncEntry(ExtFuncEntry):
 
     def lltypeimpl(y, x):
         return y + x
+    lltypeimpl = staticmethod(lltypeimpl)
 
 def test_interp_c():
     def f():
