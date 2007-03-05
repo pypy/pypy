@@ -52,7 +52,9 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
     def visit__object(self, el):
         convertermap = {int: 'int_w',
                         str: 'str_w',
-                        float: 'float_w'}
+                        float: 'float_w',
+                        "index": 'getindex_w'
+                        }
         argname = self.orig_arg()
         assert not argname.startswith('w_')
         self.inputargs.append(argname)
@@ -61,6 +63,9 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
                                 convertermap[el],
                                 argname))
         self.passedargs.append(argname)
+
+    def visit_index(self, el):
+        self.visit__object("index")
 
     def visit_args_w(self, el):
         argname = self.orig_arg()

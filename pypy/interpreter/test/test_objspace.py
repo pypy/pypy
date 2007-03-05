@@ -1,6 +1,7 @@
 from py.test import raises
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
+import sys
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -138,6 +139,23 @@ class TestObjSpace:
         self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(None))
         res = self.space.interp_w(Function, w(None), can_be_None=True)
         assert res is None
+
+    def test_getindex_w(self):
+        w_instance1 = self.space.appexec([], """():
+            class X(object):
+                def __index__(self): return 42
+            return X()""")
+        w_instance2 = self.space.appexec([], """():
+            class Y(object):
+                def __index__(self): return 2**70
+            return Y()""")
+        first = self.space.getindex_w(w_instance1)
+        assert first == 42
+        second = self.space.getindex_w(w_instance2)
+        assert second == sys.maxint
+        self.space.raises_w(self.space.w_IndexError,
+                            self.space.getindex_w, w_instance2, self.space.w_IndexError)
+
 
 class TestModuleMinimal: 
     def test_sys_exists(self):

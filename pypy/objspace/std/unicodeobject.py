@@ -3,6 +3,7 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
 
@@ -203,7 +204,12 @@ def len__Unicode(space, w_uni):
     return space.wrap(len(w_uni._value))
 
 def getitem__Unicode_ANY(space, w_uni, w_index):
-    ival = space.int_w(w_index)
+    if not space.lookup(w_index, '__index__'):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("string indices must be integers, not %s" %
+                       space.type(w_index).getname(space, '?')))
+    ival = space.getindex_w(w_index, space.w_IndexError)
     uni = w_uni._value
     ulen = len(uni)
     if ival < 0:
@@ -230,7 +236,7 @@ def getitem__Unicode_Slice(space, w_uni, w_slice):
 def mul__Unicode_ANY(space, w_uni, w_times):
     chars = w_uni._value
     charlen = len(chars)
-    times = space.int_w(w_times)
+    times = space.getindex_w(w_times, space.w_OverflowError)
     if times <= 0 or charlen == 0:
         return W_UnicodeObject([])
     if times == 1:
@@ -860,15 +866,44 @@ def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
                         type(retval).__name__)
     return retval
 
-def repr__Unicode(unistr):
-    import _codecs
-    return ''.join(_codecs.unicodeescape_string(unistr,len(unistr),True))
+# XXX: These should probably be written on interplevel 
+
+def unicode_partition__Unicode_Unicode(unistr, unisub):
+    pos = unistr.find(unisub)
+    if pos == -1:
+        return (unistr, u'', u'')
+    else:
+        return (unistr[:pos], unisub, unistr[pos+len(unisub):])
+
+def unicode_rpartition__Unicode_Unicode(unistr, unisub):
+    pos = unistr.rfind(unisub)
+    if pos == -1:
+        return (u'', u'', unistr)
+    else:
+        return (unistr[:pos], unisub, unistr[pos+len(unisub):])
+
+def unicode_startswith__Unicode_Tuple_ANY_ANY(unistr, prefixes, start, end):
+    for prefix in prefixes:
+        if unistr.startswith(prefix):
+            return True
+    return False
+
+def unicode_endswith__Unicode_Tuple_ANY_ANY(unistr, suffixes, start, end):
+    for suffix in suffixes:
+        if unistr.endswith(suffix):
+            return True
+    return False
 
 ''')
+
+mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
 unicode_expandtabs__Unicode_ANY = app.interphook('unicode_expandtabs__Unicode_ANY')
 unicode_translate__Unicode_ANY = app.interphook('unicode_translate__Unicode_ANY')
-mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
 unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
+unicode_partition__Unicode_Unicode = app.interphook('unicode_partition__Unicode_Unicode')
+unicode_rpartition__Unicode_Unicode = app.interphook('unicode_rpartition__Unicode_Unicode')
+unicode_startswith__Unicode_Tuple_ANY_ANY = app.interphook('unicode_startswith__Unicode_Tuple_ANY_ANY')
+unicode_endswith__Unicode_Tuple_ANY_ANY = app.interphook('unicode_endswith__Unicode_Tuple_ANY_ANY')
 
 # Move this into the _codecs module as 'unicodeescape_string (Remember to cater for quotes)'
 def repr__Unicode(space, w_unicode):

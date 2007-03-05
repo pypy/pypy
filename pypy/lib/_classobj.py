@@ -399,6 +399,14 @@ class instance(object):
 """, {"op": op})
     del op
 
+    def __index__(self):
+        func = instance_getattr1(self, '__index__', False)
+        if func:
+            return func()
+        else:
+            raise AttributeError('object cannot be interpreted as an index')
+
+
     # coerce
     def __coerce__(self, other):
         func = instance_getattr1(self, '__coerce__', False)

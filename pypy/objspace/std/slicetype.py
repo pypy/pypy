@@ -15,17 +15,19 @@ slice_indices = SMM('indices', 2,
 
 # utility functions
 def _Eval_SliceIndex(space, w_int):
-    try:
-        x = space.int_w(w_int)
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-        cmp = space.is_true(space.ge(w_int, space.wrap(0)))
-        if cmp:
-            x = sys.maxint
-        else:
-            x = -sys.maxint
-    return x
+    return space.getindex_w(w_int) # clamp if long integer is too large
+    # This is done by getindex_w already.
+    #try:
+    #    x = space.getindex_w(w_int)
+    #except OperationError, e:
+    #    if not e.match(space, space.w_OverflowError):
+    #        raise
+    #    cmp = space.is_true(space.ge(w_int, space.wrap(0)))
+    #    if cmp:
+    #        x = sys.maxint
+    #    else:
+    #        x = -sys.maxint
+    #return x
 
 def adapt_bound(space, w_index, w_size):
     if not (space.is_true(space.isinstance(w_index, space.w_int)) or

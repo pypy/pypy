@@ -350,7 +350,7 @@ class W_MMap(Wrappable):
                 self.space.wrap("seek out of range"))
         
         self.pos = where
-    seek.unwrap_spec = ['self', int, int]
+    seek.unwrap_spec = ['self', 'index', int]
     
     def tell(self):
         self.check_valid()
@@ -679,7 +679,7 @@ if _POSIX:
         m.setdata(res, map_size)
 
         return space.wrap(m)
-    mmap.unwrap_spec = [ObjSpace, int, int, int, int, int]
+    mmap.unwrap_spec = [ObjSpace, int, 'index', int, int, int]
 elif _MS_WINDOWS:
     def mmap(space, fileno, length, tagname="", access=_ACCESS_DEFAULT):
         # check size boundaries
@@ -771,4 +771,4 @@ elif _MS_WINDOWS:
 
         raise OperationError(space.w_EnvironmentError,
                              space.wrap(os.strerror(dwErr)))
-    mmap.unwrap_spec = [ObjSpace, int, int, str, int]
+    mmap.unwrap_spec = [ObjSpace, int, 'index', str, int]

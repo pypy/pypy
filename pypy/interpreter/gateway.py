@@ -106,7 +106,17 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
 
     def visit_self(self, cls, app_sig):
         self.visit__Wrappable(cls, app_sig)
-        
+
+    def checked_space_method(self, typ, app_sig):
+        argname = self.orig_arg()
+        assert not argname.startswith('w_'), (
+            "unwrapped %s argument %s of built-in function %r should "
+            "not start with 'w_'" % (typ.__name__, argname, self.func))
+        app_sig.append(argname)
+
+    def visit_index(self, index, app_sig):
+        self.checked_space_method(index, app_sig)
+
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
         argname = self.orig_arg()
@@ -154,11 +164,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit__object(self, typ, app_sig):
         if typ not in (int, str, float):
             assert False, "unsupported basic type in unwrap_spec"
-        argname = self.orig_arg()
-        assert not argname.startswith('w_'), (
-            "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (typ.__name__, argname, self.func))
-        app_sig.append(argname)        
+        self.checked_space_method(typ, app_sig)
 
 
 class UnwrapSpec_EmitRun(UnwrapSpecEmit):
@@ -206,6 +212,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             assert False, "unsupported basic type in uwnrap_spec"
         self.run_args.append("space.%s_w(%s)" %
                              (typ.__name__, self.scopenext()))
+
+    def visit_index(self, typ):
+        self.run_args.append("space.getindex_w(%s)" % (self.scopenext(), ))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -315,6 +324,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             assert False, "unsupported basic type in uwnrap_spec"
         self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
                                                self.nextarg()))
+
+    def visit_index(self, typ):
+        self.unwrap.append("space.getindex_w(%s)" % (self.nextarg()), )
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()

@@ -207,6 +207,19 @@ unicode_zfill      = SMM('zfill', 2,
                              ' string x with zeros on the left, to fill a'
                              ' field\nof the specified width. The string x is'
                              ' never truncated.')
+unicode_partition  = SMM('partition', 2,
+                         doc='S.partition(sep) -> (head, sep, tail)\n\nSearches'
+                         ' for the separator sep in S, and returns the part before'
+                         ' it,\nthe separator itself, and the part after it.  If'
+                         ' the separator is not\nfound, returns S and two empty'
+                         ' strings.')
+unicode_rpartition = SMM('rpartition', 2,
+                     doc='S.rpartition(sep) -> (tail, sep, head)\n\nSearches'
+                         ' for the separator sep in S, starting at the end of S,'
+                         ' and returns\nthe part before it, the separator itself,'
+                         ' and the part after it.  If the\nseparator is not found,'
+                         ' returns two empty strings and S.')
+
 
 # ____________________________________________________________
 

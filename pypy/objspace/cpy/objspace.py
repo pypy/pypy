@@ -148,6 +148,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     repr    = staticmethod(PyObject_Repr)
     id      = staticmethod(PyLong_FromVoidPtr_PYOBJ)
 
+    def index(self, w_obj):
+        # XXX we do not support 2.5 yet, so we just do some
+        # hack here to have index working
+        return self.wrap(self.int_w(w_obj))
+
     def bigint_w(self, w_obj):
         if self.is_true(self.isinstance(w_obj, self.w_long)):
             sign = _PyLong_Sign(w_obj)

@@ -5,7 +5,7 @@ from pypy.conftest import gettestobjspace
 
 class TestW_StringObject:
 
-    def teardown_method(self,method):
+    def teardown_method(self, method):
         pass
 
 ##    def test_order_rich(self):
@@ -334,6 +334,18 @@ class AppTestStringObject:
         assert 'abc'.startswith('bc', 1, 2) is False
         assert 'abc'.startswith('c', -1, 4) is True
 
+    def test_startswith_tuples(self):
+        assert 'hello'.startswith(('he', 'ha'))
+        assert not 'hello'.startswith(('lo', 'llo'))
+        assert 'hello'.startswith(('hellox', 'hello'))
+        assert not 'hello'.startswith(())
+        assert 'helloworld'.startswith(('hellowo', 'rld', 'lowo'), 3)
+        assert not 'helloworld'.startswith(('hellowo', 'ello', 'rld'), 3)
+        assert 'hello'.startswith(('lo', 'he'), 0, -1)
+        assert not 'hello'.startswith(('he', 'hel'), 0, 1)
+        assert 'hello'.startswith(('he', 'hel'), 0, 2)
+        raises(TypeError, 'hello'.startswith, (42,))
+    
     def test_endswith(self):
         assert 'ab'.endswith('ab') is True
         assert 'ab'.endswith('b') is True
@@ -350,7 +362,19 @@ class AppTestStringObject:
         assert 'abc'.endswith('bc', 1) is True
         assert 'abc'.endswith('bc', 2) is False
         assert 'abc'.endswith('b', -3, -1) is True
-      
+
+    def test_endswith_tuple(self):
+        assert not 'hello'.endswith(('he', 'ha'))
+        assert 'hello'.endswith(('lo', 'llo'))
+        assert 'hello'.endswith(('hellox', 'hello'))
+        assert not 'hello'.endswith(())
+        assert 'helloworld'.endswith(('hellowo', 'rld', 'lowo'), 3)
+        assert not 'helloworld'.endswith(('hellowo', 'ello', 'rld'), 3, -1)
+        assert 'hello'.endswith(('hell', 'ell'), 0, -1)
+        assert not 'hello'.endswith(('he', 'hel'), 0, 1)
+        assert 'hello'.endswith(('he', 'hell'), 0, 4)
+        raises(TypeError, 'hello'.endswith, (42,))
+
     def test_expandtabs(self):
         assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
         assert 'abc\rab\tdef\ng\thi'.expandtabs(8) ==   'abc\rab      def\ng       hi'
@@ -435,6 +459,36 @@ class AppTestStringObject:
         raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', 0, 0.0)
         raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', -10.0, 30)
 
+
+    def test_partition(self):
+
+        assert ('this is the par', 'ti', 'tion method') == \
+            'this is the partition method'.partition('ti')
+
+        # from raymond's original specification
+        S = 'http://www.python.org'
+        assert ('http', '://', 'www.python.org') == S.partition('://')
+        assert ('http://www.python.org', '', '') == S.partition('?')
+        assert ('', 'http://', 'www.python.org') == S.partition('http://')
+        assert ('http://www.python.', 'org', '') == S.partition('org')
+
+        raises(ValueError, S.partition, '')
+        raises(TypeError, S.partition, None)
+
+    def test_rpartition(self):
+
+        assert ('this is the rparti', 'ti', 'on method') == \
+            'this is the rpartition method'.rpartition('ti')
+
+        # from raymond's original specification
+        S = 'http://www.python.org'
+        assert ('http', '://', 'www.python.org') == S.rpartition('://')
+        assert ('', '', 'http://www.python.org') == S.rpartition('?')
+        assert ('', 'http://', 'www.python.org') == S.rpartition('http://')
+        assert ('http://www.python.', 'org', '') == S.rpartition('org')
+
+        raises(ValueError, S.rpartition, '')
+        raises(TypeError, S.rpartition, None)
 
     def test_split_maxsplit(self):
         assert "/a/b/c".split('/', 2) == ['','a','b/c']

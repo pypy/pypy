@@ -23,6 +23,9 @@ def new_style_type(x):
 def do_int(x):
     return x.__int__()
 
+def do_index(x):
+    return x.__index__()
+
 def do_float(x):
     return x.__float__()
 
@@ -162,6 +165,7 @@ Table = [
     ('divmod',          divmod),
     ('pow',             pow),
     ('int',             do_int),
+    ('index',           do_index),
     ('float',           do_float),
     ('long',            do_long),
     ('inplace_add',     inplace_add),

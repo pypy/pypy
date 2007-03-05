@@ -41,6 +41,15 @@ class W_DictObject(W_Object):
     def get(w_dict, w_lookup, w_default):
         return w_dict.content.get(w_lookup, w_default)
 
+    def missing_method(w_dict, space, w_key):
+        if not space.is_w(space.type(w_dict), space.w_dict):
+            w_missing = space.lookup(w_dict, "__missing__")
+            if w_missing is None:
+                return None
+            return space.call_function(w_missing, w_dict, w_key)
+        else:
+            return None
+
     def set_str_keyed_item(w_dict, w_key, w_value, shadows_type=True):
         w_dict.content[w_key] = w_value
 
@@ -73,7 +82,11 @@ def getitem__Dict_ANY(space, w_dict, w_lookup):
     try:
         return w_dict.content[w_lookup]
     except KeyError:
-        raise OperationError(space.w_KeyError, w_lookup)
+        w_missing_item = w_dict.missing_method(space, w_lookup)
+        if w_missing_item is None:
+            raise OperationError(space.w_KeyError, w_lookup)
+        else:
+            return w_missing_item
 
 def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
     w_dict.content[w_newkey] = w_newvalue

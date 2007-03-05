@@ -111,7 +111,7 @@ def lt__Slice_Slice(space, w_slice1, w_slice2):
 # indices impl
 
 def slice_indices__Slice_ANY(space, w_slice, w_length):
-    length = space.int_w(w_length)
+    length = space.getindex_w(w_length, space.w_OverflowError)
     start, stop, step = w_slice.indices3(space, length)
     return space.newtuple([space.wrap(start), space.wrap(stop),
                            space.wrap(step)])

@@ -326,6 +326,9 @@ def int__Int(space, w_int1):
     a = w_int1.intval
     return wrapint(space, a)
 
+def index__Int(space, w_int1):
+    return int__Int(space, w_int1)
+
 def float__Int(space, w_int1):
     a = w_int1.intval
     x = float(a)

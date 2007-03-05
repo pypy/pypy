@@ -138,6 +138,7 @@ class EmptyDictImplementation(DictImplementation):
 
     def get(self, w_lookup):
         return None
+
     def setitem(self, w_key, w_value):
         if _is_str(self.space, w_key):
             return StrDictImplementation(self.space).setitem_str(w_key, w_value)
@@ -1010,6 +1011,15 @@ class W_DictMultiObject(W_Object):
             result[key] = val
         return result
 
+    def missing_method(w_dict, space, w_key):
+        if not space.is_w(space.type(w_dict), space.w_dict):
+            w_missing = space.lookup(w_dict, "__missing__")
+            if w_missing is None:
+                return None
+            return space.call_function(w_missing, w_dict, w_key)
+        else:
+            return None
+
     def len(w_self):
         return w_self.implementation.length()
 
@@ -1054,6 +1064,11 @@ def getitem__DictMulti_ANY(space, w_dict, w_lookup):
     w_value = w_dict.implementation.get(w_lookup)
     if w_value is not None:
         return w_value
+
+    w_missing_item = w_dict.missing_method(space, w_lookup)
+    if w_missing_item is not None:
+        return w_missing_item
+
     raise OperationError(space.w_KeyError, w_lookup)
 
 def setitem__DictMulti_ANY_ANY(space, w_dict, w_newkey, w_newvalue):

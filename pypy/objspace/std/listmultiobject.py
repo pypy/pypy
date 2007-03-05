@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject
 
 from pypy.objspace.std import slicetype
@@ -892,7 +893,7 @@ def len__ListMulti(space, w_list):
     return wrapint(space, result)
 
 def getitem__ListMulti_ANY(space, w_list, w_index):
-    idx = space.int_w(w_index)
+    idx = get_list_index(space, w_index)
     idx = _adjust_index(space, idx, w_list.implementation.length(),
                         "list index out of range")
     return w_list.implementation.getitem(idx)
@@ -940,7 +941,7 @@ def inplace_add__ListMulti_ListMulti(space, w_list1, w_list2):
 
 def mul_list_times(space, w_list, w_times):
     try:
-        times = space.int_w(w_times)
+        times = space.getindex_w(w_times, space.w_OverflowError)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
@@ -957,7 +958,7 @@ def mul__ANY_ListMulti(space, w_times, w_list):
 
 def inplace_mul__ListMulti_ANY(space, w_list, w_times):
     try:
-        times = space.int_w(w_times)
+        times = space.getindex_w(w_times, space.w_OverflowError)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
@@ -1025,7 +1026,7 @@ def gt__ListMulti_ListMulti(space, w_list1, w_list2):
         w_list2.implementation)
 
 def delitem__ListMulti_ANY(space, w_list, w_idx):
-    idx = space.int_w(w_idx)
+    idx = get_list_index(space, w_idx)
     length = w_list.implementation.length()
     idx = _adjust_index(space, idx, length, "list deletion index out of range")
     if length == 1:
@@ -1059,7 +1060,7 @@ def delitem__ListMulti_Slice(space, w_list, w_slice):
     return space.w_None
 
 def setitem__ListMulti_ANY_ANY(space, w_list, w_index, w_any):
-    idx = space.int_w(w_index)
+    idx = get_list_index(space, w_index)
     idx = _adjust_index(space, idx, w_list.implementation.length(),
                         "list index out of range")
     w_list.implementation = w_list.implementation.i_setitem(idx, w_any)

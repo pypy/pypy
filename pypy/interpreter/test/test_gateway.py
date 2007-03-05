@@ -33,6 +33,12 @@ class TestBuiltinCode:
                                                    gateway.Arguments])
         assert code.signature() == (['x', 'y'], 'args', 'keywords')
 
+        def f(space, index):
+            pass
+        code = gateway.BuiltinCode(f, unwrap_spec=[gateway.ObjSpace, "index"])
+        assert code.signature() == (["index"], None, None)
+
+
     def test_call(self):
         def c(space, w_x, w_y, hello_w):
             u = space.unwrap
@@ -49,6 +55,15 @@ class TestBuiltinCode:
         args = argument.Arguments(self.space, [w(123), w(23), w(0), w(True)])
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(102))
+
+    def test_call_index(self):
+        def c(space, index):
+            assert type(index) is int
+        code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
+                                                   "index"])
+        w = self.space.wrap
+        args = argument.Arguments(self.space, [w(123)])
+        code.funcrun(FakeFunc(self.space, "c"), args)
 
     def test_call_args(self):
         def c(space, w_x, w_y, __args__):

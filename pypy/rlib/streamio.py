@@ -356,7 +356,7 @@ STREAM_METHODS = dict([
     ("read", [int]),
     ("write", [str]),
     ("tell", []),
-    ("seek", [int, int]),
+    ("seek", ["index", int]),
     ("readall", []),
     ("readline", []),
     ("truncate", [int]),

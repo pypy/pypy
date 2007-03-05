@@ -78,7 +78,7 @@ def len__RangeList(space, w_rangelist):
 def getitem__RangeList_ANY(space, w_rangelist, w_index):
     if w_rangelist.w_list is not None:
         return space.getitem(w_rangelist.w_list, w_index)
-    idx = space.int_w(w_index)
+    idx = space.getindex_w(w_index, space.w_IndexError)
     try:
         return wrapint(space, w_rangelist.getitem(idx))
     except IndexError:

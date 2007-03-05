@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
@@ -42,9 +43,8 @@ def len__List(space, w_list):
     return wrapint(space, result)
 
 def getitem__List_ANY(space, w_list, w_index):
-    idx = space.int_w(w_index)
     try:
-        return w_list.wrappeditems[idx]
+        return w_list.wrappeditems[get_list_index(space, w_index)]
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
@@ -92,7 +92,7 @@ def inplace_add__List_List(space, w_list1, w_list2):
 
 def mul_list_times(space, w_list, w_times):
     try:
-        times = space.int_w(w_times)
+        times = space.getindex_w(w_times, space.w_OverflowError)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
@@ -107,7 +107,7 @@ def mul__ANY_List(space, w_times, w_list):
 
 def inplace_mul__List_ANY(space, w_list, w_times):
     try:
-        times = space.int_w(w_times)
+        times = space.getindex_w(w_times, space.w_OverflowError)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
@@ -171,7 +171,7 @@ def gt__List_List(space, w_list1, w_list2):
         w_list2.wrappeditems)
 
 def delitem__List_ANY(space, w_list, w_idx):
-    idx = space.int_w(w_idx)
+    idx = get_list_index(space, w_idx)
     try:
         del w_list.wrappeditems[idx]
     except IndexError:
@@ -227,7 +227,7 @@ def delitem__List_Slice(space, w_list, w_slice):
     return space.w_None
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
-    idx = space.int_w(w_index)
+    idx = get_list_index(space, w_index)
     try:
         w_list.wrappeditems[idx] = w_any
     except IndexError:

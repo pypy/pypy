@@ -28,13 +28,18 @@ def len__Tuple(space, w_tuple):
     return wrapint(space, result)
 
 def getitem__Tuple_ANY(space, w_tuple, w_index):
-    items = w_tuple.wrappeditems
+    if not space.lookup(w_index, '__index__'):
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("tuple indices must be integers, not %s" %
+                       space.type(w_index).getname(space, '?')))
     try:
-        w_item = items[space.int_w(w_index)]
+        # XXX: getindex_w should get a second argument space.w_IndexError,
+        #      but that doesn't exist the first time this is called.
+        return w_tuple.wrappeditems[space.getindex_w(w_index)]
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
-    return w_item
 
 def getitem__Tuple_Slice(space, w_tuple, w_slice):
     items = w_tuple.wrappeditems
@@ -64,7 +69,7 @@ def add__Tuple_Tuple(space, w_tuple1, w_tuple2):
 
 def mul_tuple_times(space, w_tuple, w_times):
     try:
-        times = space.int_w(w_times)
+        times = space.getindex_w(w_times, space.w_OverflowError)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement

@@ -50,6 +50,9 @@ class W_LongObject(W_Object):
     def is_odd(self):
         return self.num.is_odd()
 
+    def get_sign(self):
+        return self.num.sign
+
 registerimplementation(W_LongObject)
 
 # bool-to-long
@@ -78,6 +81,9 @@ def int__Long(space, w_value):
         return space.newint(w_value.num.toint())
     except OverflowError:
         return long__Long(space, w_value)
+
+def index__Long(space, w_value):
+    return long__Long(space, w_value)
 
 def float__Long(space, w_longobj):
     try:
