@@ -267,7 +267,14 @@ def entry_point(executable, argv):
         else: 
             sys.argv.append('')
             go_interactive = True
+            
         if go_interactive or os.environ.get('PYTHONINSPECT'):
+            python_startup = os.environ.get('PYTHONSTARTUP')
+            if python_startup:
+                try:
+                    execfile(python_startup, mainmodule.__dict__)
+                except:
+                    pass
             print >> sys.stderr, "debug: importing code" 
             import code
             print >> sys.stderr, "debug: calling code.interact()"

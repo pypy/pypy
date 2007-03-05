@@ -46,8 +46,18 @@ def pypy_init(import_site):
             import site
         except:
             import sys
-            print >> sys.stderr, "import site' failed"
+            print >> sys.stderr, "import site\' failed"
 ''').interphook('pypy_init')
+
+def getenv_w(space, name):
+    w_os = space.getbuiltinmodule('os')
+    w_environ = space.getattr(w_os, space.wrap('environ'))
+    w_v = space.call_method(w_environ, 'get', space.wrap(name))
+    try:
+        return space.str_w(w_v)
+    except:
+        return None
+
 
 def main_(argv=None):
     starttime = time.time()
@@ -111,7 +121,14 @@ def main_(argv=None):
                 exit_status = 1
 
             # start the interactive console
-            if go_interactive:
+            if go_interactive or getenv_w(space, 'PYTHONINSPECT'):
+                python_startup = getenv_w(space, 'PYTHONSTARTUP')
+                if python_startup:
+                    try:
+                        main.run_file(python_startup, space=space)
+                    except:
+                        pass
+                    
                 con = interactive.PyPyConsole(
                     space, verbose=interactiveconfig.verbose,
                     completer=interactiveconfig.completer)
