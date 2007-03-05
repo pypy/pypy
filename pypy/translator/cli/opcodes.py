@@ -223,7 +223,7 @@ opcodes = {
     'cast_uint_to_int':         DoNothing,
     'cast_uint_to_float':       [PushAllArgs, 'conv.u8', 'conv.r8'],
     'cast_float_to_int':        'conv.i4',
-    'cast_float_to_uint':       'conv.i4',
+    'cast_float_to_uint':       'conv.u4',
     'truncate_longlong_to_int': 'conv.i4',
 }
 
