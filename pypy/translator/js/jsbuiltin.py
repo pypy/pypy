@@ -23,7 +23,7 @@ class _Builtins(object):
             #'alert' : CallBuiltin('alert'),
             'seval' : CallBuiltin('seval'),
             'date': NewBuiltin('Date'),
-            'll_math_fmod' : InstructionList([PushAllArgs, '%']),
+            'll_math.ll_math_fmod' : InstructionList([PushAllArgs, '%']),
             'll_time_time' : CallBuiltin('time'),
             'll_time_clock' : CallBuiltin('clock'),
             'll_os_write' : CallBuiltin('print'),
