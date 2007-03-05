@@ -785,14 +785,14 @@ class ObjSpace(object):
             step  = 0
         return start, stop, step
 
-    def getindex_w(self, w_obj, exception=None):
+    def getindex_w(self, w_obj, w_exception=None):
         w_index = self.index(w_obj)
         try:
             index = self.int_w(w_index)
         except OperationError, err:
             if not err.match(self, self.w_OverflowError):
                 raise
-            if not exception:
+            if not w_exception:
                 # w_index is a long object
                 if w_index.get_sign() < 0:
                     return -sys.maxint-1
@@ -800,7 +800,7 @@ class ObjSpace(object):
                     return sys.maxint
             else:
                 raise OperationError(
-                    exception, self.wrap(
+                    w_exception, self.wrap(
                     "cannot fit '%s' into an index-sized "
                     "integer" % self.type(w_obj).getname(self, '?')))
         else:

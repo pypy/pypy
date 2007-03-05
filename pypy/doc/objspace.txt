@@ -110,6 +110,11 @@ semantic - they directly correspond to language-level constructs:
 ``call(w_callable, w_args, w_kwds):``
   Call a function with the given args and keywords.
 
+``index(w_obj):``
+  Implements the index lookup (new in CPython 2.5) on 'w_obj'. Will return a
+  wrapped integer or long, or raise a TypeError if the object doesn't have an
+  ``__index__`` special method.
+
 ``is_(w_x, w_y):``
   Implements 'w_x is w_y'. (Returns a wrapped result too!)
 
@@ -214,16 +219,28 @@ Conversions from Application Level to Interpreter Level
   value of the wrapped object w_x.
 
 ``int_w(w_x):``
-  If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
+  If w_x is an application-level integer or long which can be converted without
+  overflow to an integer, return an interpreter-level integer.
+  Otherwise raise TypeError or OverflowError.
 
 ``bigint_w(w_x):``
-  If w_x is an application-level integer or long, return an interpreter-level rbigint. Otherwise raise TypeError.
+  If w_x is an application-level integer or long, return an interpreter-level rbigint.
+  Otherwise raise TypeError.
 
 ``str_w(w_x):``
-  If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
+  If w_x is an application-level string, return an interpreter-level string.
+  Otherwise raise TypeError.
 
 ``float_w(w_x):``
-  If w_x is an application-level float, integer or long, return interpreter-level float.  Otherwise raise TypeError or OverflowError in case of very large longs.
+  If w_x is an application-level float, integer or long, return interpreter-level float.
+  Otherwise raise TypeError or OverflowError in case of very large longs.
+
+``getindex_w(w_obj, w_exception=None):``
+  Call `index(w_obj)`. If the resulting integer or long object can be converted
+  to an interpreter-level int, return that. If not, return a clamped result if
+  `w_exception` is None, otherwise raise that exception on application-level.
+  (If w_obj can't be converted to an index, `index()` will raise an
+  application-level TypeError.)
 
 ``interp_w(RequiredClass, w_x, can_be_None=False):``
   If w_x is a wrapped instance of the given bytecode interpreter class,
