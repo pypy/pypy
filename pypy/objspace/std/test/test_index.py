@@ -51,6 +51,13 @@ class AppTest_IndexProtocol:
         check_slc = slice(2, 2, 2)
         assert slc.indices(self.n) == check_slc.indices(2)
 
+    def test_in_methods(self):
+        self.o.ind = 5
+        self.n.ind = 10
+        s = "abcdefghijklmno"
+        assert s.find("a", self.o, self.n) == -1
+        assert s.find("f", self.o, self.n) == 5
+
     def test_wrappers(self):
         self.o.ind = 4
         self.n.ind = 5

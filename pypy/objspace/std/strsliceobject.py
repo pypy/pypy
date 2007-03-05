@@ -55,11 +55,9 @@ def contains__StringSlice_String(space, w_self, w_sub):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     length = w_self.stop - w_self.start
     sub = w_sub._value
-    w_start = slicetype.adapt_bound(space, w_start, space.wrap(length))
-    w_end = slicetype.adapt_bound(space, w_end, space.wrap(length))
+    start = slicetype.adapt_bound(space, length, w_start)
+    end = slicetype.adapt_bound(space, length, w_end)
 
-    start = space.int_w(w_start)
-    end = space.int_w(w_end)
     assert start >= 0
     assert end >= 0
 
@@ -67,7 +65,7 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
 
 
 def str_find__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    (self, sub, start, end) = _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = self.find(sub, start, end)
     if res >= 0:
         return space.wrap(res - w_self.start)

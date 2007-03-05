@@ -1218,10 +1218,8 @@ def list_remove__ListMulti_ANY(space, w_list, w_any):
 def list_index__ListMulti_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
     length = w_list.implementation.length()
-    w_start = slicetype.adapt_bound(space, w_start, space.wrap(length))
-    w_stop = slicetype.adapt_bound(space, w_stop, space.wrap(length))
-    i = space.int_w(w_start)
-    stop = space.int_w(w_stop)
+    i = slicetype.adapt_bound(space, length, w_start)
+    stop = slicetype.adapt_bound(space, length, w_stop)
     while i < stop and i < w_list.implementation.length():
         if space.eq_w(w_list.implementation.getitem(i), w_any):
             return space.wrap(i)

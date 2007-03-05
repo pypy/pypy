@@ -786,6 +786,10 @@ class ObjSpace(object):
         return start, stop, step
 
     def getindex_w(self, w_obj, w_exception=None):
+        # shortcut for int objects
+        if self.is_w(self.type(w_obj), self.w_int):
+            return self.int_w(w_obj)
+
         w_index = self.index(w_obj)
         try:
             index = self.int_w(w_index)

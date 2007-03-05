@@ -15,32 +15,24 @@ slice_indices = SMM('indices', 2,
 
 # utility functions
 def _Eval_SliceIndex(space, w_int):
-    return space.getindex_w(w_int) # clamp if long integer is too large
-    # This is done by getindex_w already.
-    #try:
-    #    x = space.getindex_w(w_int)
-    #except OperationError, e:
-    #    if not e.match(space, space.w_OverflowError):
-    #        raise
-    #    cmp = space.is_true(space.ge(w_int, space.wrap(0)))
-    #    if cmp:
-    #        x = sys.maxint
-    #    else:
-    #        x = -sys.maxint
-    #return x
-
-def adapt_bound(space, w_index, w_size):
-    if not (space.is_true(space.isinstance(w_index, space.w_int)) or
-            space.is_true(space.isinstance(w_index, space.w_long))):
+    try:
+        return space.getindex_w(w_int) # clamp if long integer is too large
+    except OperationError, err:
+        if not err.match(space, space.w_TypeError):
+            raise
         raise OperationError(space.w_TypeError,
-                             space.wrap("slice indices must be integers"))
-    if space.is_true(space.lt(w_index, space.wrap(0))):
-        w_index = space.add(w_index, w_size)
-        if space.is_true(space.lt(w_index, space.wrap(0))):
-            w_index = space.wrap(0)
-    if space.is_true(space.gt(w_index, w_size)):
-        w_index = w_size
-    return w_index
+                             space.wrap("slice indices must be integers or "
+                                        "None or have an __index__ method"))
+
+def adapt_bound(space, size, w_index):
+    index = _Eval_SliceIndex(space, w_index)
+    if index < 0:
+        index = index + size
+        if index < 0:
+            index = 0
+    if index > size:
+        index = size
+    return index
 
 register_all(vars(), globals())
 

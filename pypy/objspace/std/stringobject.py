@@ -377,11 +377,9 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     self = w_self._value
     sub = w_sub._value
-    w_start = slicetype.adapt_bound(space, w_start, space.wrap(len(self)))
-    w_end = slicetype.adapt_bound(space, w_end, space.wrap(len(self)))
+    start = slicetype.adapt_bound(space, len(self), w_start)
+    end = slicetype.adapt_bound(space, len(self), w_end)
 
-    start = space.int_w(w_start)
-    end = space.int_w(w_end)
     assert start >= 0
     assert end >= 0
 
@@ -562,15 +560,8 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     return wrapstr(space, u_centered)
 
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
-    u_self  = w_self._value
-    u_arg   = w_arg._value
-
-    w_start = slicetype.adapt_bound(space, w_start, space.wrap(len(u_self)))
-    w_end = slicetype.adapt_bound(space, w_end, space.wrap(len(u_self)))
-    u_start = space.int_w(w_start)
-    u_end = space.int_w(w_end)
-    assert u_start >= 0
-    assert u_end >= 0
+    u_self, u_arg, u_start, u_end = _convert_idx_params(space, w_self, w_arg,
+                                                        w_start, w_end)
     return wrapint(space, u_self.count(u_arg, u_start, u_end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):

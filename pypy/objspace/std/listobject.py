@@ -390,10 +390,8 @@ def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
     items = w_list.wrappeditems
     size = len(items)
-    w_start = slicetype.adapt_bound(space, w_start, space.wrap(size))
-    w_stop = slicetype.adapt_bound(space, w_stop, space.wrap(size))
-    i = space.int_w(w_start)
-    stop = space.int_w(w_stop)
+    i = slicetype.adapt_bound(space, size, w_start)
+    stop = slicetype.adapt_bound(space, size, w_stop)
     while i < stop and i < len(items):
         if space.eq_w(items[i], w_any):
             return space.wrap(i)
