@@ -118,7 +118,7 @@ def test_opendir_readdir():
 
 if hasattr(os, 'execv'):
     from pypy.rpython.extregistry import lookup
-    os_execv = lookup(os.execv).lltypeimpl.im_func
+    os_execv = lookup(os.execv).lltypeimpl
     
     def test_execv():
         filename = str(udir.join('test_execv_ctypes.txt'))
@@ -137,7 +137,7 @@ if hasattr(os, 'execv'):
 
 def test_dup():
     from pypy.rpython.extregistry import lookup
-    os_dup = lookup(os.dup).lltypeimpl.im_func
+    os_dup = lookup(os.dup).lltypeimpl
     testf = udir.join('test.txt')
     testf.write("foo")
     path = testf.strpath
