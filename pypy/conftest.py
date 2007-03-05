@@ -105,6 +105,15 @@ class TinyObjSpace(object):
     def newdict(self):
         return {}
 
+    def newtuple(self, iterable):
+        return tuple(iterable)
+
+    def newlist(self, iterable):
+        return list(iterable)
+
+    def call_function(self, func, *args, **kwds):
+        return func(*args, **kwds)
+
 def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
