@@ -457,59 +457,73 @@ having multiple implementations of builtin types. Multiple performance
 optimisations using this features are already implemented, see the document
 about `alternative object implementations`_.
 
-Transparent proxy are implementations of some (maybe all at some point)
-objects like functions, objects, lists etc. which forwards all
-operations performed on these object to app-level functions which have specific
-signatures.
+Transparent proxies are implementation of types which sends every performed
+operation on an object to a provided callable. From an application level
+it looks like an instance of arbitrary type, but all operations are directly
+calling a provided callable with an apropriate arguments.
 
-To enable them, use the :config:`objspace.std.withtproxy` option.
+Suppose we have a need of having a list instance which added to anything
+will provide 42. Than we create transparent proxy for int::
+
+   $ py.py --with-transparent-proxy
+   >>>> from pypymagic import transparent_proxy
+   >>>> def f(operation, *args, **kwargs):
+   >>>>    if operation == '__add__':
+   >>>>         return 42
+   >>>>    raise AttributeError
+   >>>>
+   >>>> i = transparent_proxy(list, f)
+
+And now::
+
+   >>> type(i)
+   list
+   >>> i + 3
+   42
 
 .. _`alternative object implementations`: object-optimizations.html
 
-Example:
----------
+More sophisticated example:
+---------------------------
 
 Suppose we want to have list which stores all operations performed on
 it for later analysis. So we create an apropriate controller::
 
-    from pypymagic import transparent_proxy
-   
-    class Controller(object):
-        def __init__(self, l):
-            self.l = l
-            self.history = []
-        def perform(self, name, *args, **kwargs):
-            self.history.append(name)
-            return getattr(self.l, name)(*args, **kwargs)
-    l = []
-    c = Controller(l)
-    lst = transparent_proxy(list, c.perform)
+    >>>> from pypymagic import transparent_proxy
+    >>>> class Controller(object):
+    >>>>    def __init__(self, l):
+    >>>>        self.l = l
+    >>>>        self.history = []
+    >>>>    def perform(self, name, *args, **kwargs):
+    >>>>        self.history.append(name)
+    >>>>        return getattr(self.l, name)(*args, **kwargs)
+    >>>> l = []
+    >>>> c = Controller(l)
+    >>>> lst = transparent_proxy(list, c.perform)
 
-Here, we've created original list, some random class and called a magic
-``transparent_proxy`` function, which takes an type and a function which will be
-called on every operation on the result of the ``transparent_proxy`` call.
-The arguments of such a call are the operation name and additional 
-arguments.
+Now we can perform::
 
-The important bit is that we do not need some existing object to perform
-operations on, it can do whatever we like. And of course 
-``type(lst) is type(l)`` and ``lst is not l`` (well, the latter is not
-"of course", but actually it's true).
-
-Now we can access all the history of operations on the list in ``c.history``.
-Example::
-
-    >>>> lst
-    []
-    >>>> type(lst)
-    <type 'list'>
     >>>> lst.append(3)
-    >>>> lst
+    >>>> len(lst)
+    1
+    >>>> l
     [3]
-    >>>> lst[-1]
-    3
     >>>> c.history
-    ['__repr__', '__getattribute__', '__repr__', '__getitem__']
+    [__getattribute__, __len__]
+    >>>> type(lst) is type(l)
+    True
+
+So what happened:
+
+* We've create transparent proxy of type list with controller c.perform
+
+* When performing lst.append, it calls lst.__getattribute__ which returns
+  bound method append of l (so append did not show up)
+
+* we call len
+
+* we call type, which does not show up at all (indeed the type is the only
+  aspect of the instance that the controller cannot change).
 
 Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
 does not show up at all (indeed the type is the only aspect of the instance that
