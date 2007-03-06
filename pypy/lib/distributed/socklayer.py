@@ -1,6 +1,7 @@
 
-from pypeers.pipe.gsocket import GreenSocket
-from pypeers.msgstruct import decodemessage, message
+#from pypeers.pipe.gsocket import GreenSocket
+from socket import socket
+from py.__.net.msgstruct import decodemessage, message
 from socket import socket, AF_INET, SOCK_STREAM
 import marshal
 import sys
@@ -30,7 +31,7 @@ class SocketWrapper(object):
         trace("done")
 
 def socket_listener(address=('', 12122)):
-    s = GreenSocket(AF_INET, SOCK_STREAM)
+    s = socket(AF_INET, SOCK_STREAM)
     s.bind(address)
     s.listen(1)
     print "Waiting for connection"
@@ -40,7 +41,7 @@ def socket_listener(address=('', 12122)):
     return sw.send, sw.receive
 
 def socket_connecter(address):
-    s = GreenSocket(AF_INET, SOCK_STREAM)
+    s = socket(AF_INET, SOCK_STREAM)
     print "Connecting %s" % (address,)
     s.connect(address)
 
