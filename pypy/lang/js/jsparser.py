@@ -47,8 +47,20 @@ def read_js_output(code_string):
     f = open_file_as_stream(fname, 'w')
     f.write(jsdefs+jsparse+"print(parse('%s'));\n" % stripped_code)
     f.close()
-    pipe = os.popen("js -f "+fname, 'r')
-    retval = pipe.read()
+    c2pread, c2pwrite = os.pipe()
+    if os.fork() == 0:
+        #child
+        os.dup2(c2pwrite, 1)
+        for i in range(3, 256):
+            try:
+                os.close(i)
+            except OSError:
+                pass
+        cmd = ['/bin/sh', '-c', 'js -f '+fname]
+        os.execvp(cmd[0], cmd)
+    os.close(c2pwrite)
+    retval = os.read(c2pread, -1)
+    os.close(c2pread)
     if not retval.startswith("{"):
         raise JsSyntaxError(retval)
     if DEBUG:
