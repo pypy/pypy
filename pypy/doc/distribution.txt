@@ -1,0 +1,66 @@
+
+========================
+lib/distributed features
+========================
+
+Stuff & things. mostly
+
+Distributed library is an attempt to build a transparent, lazy
+access to remote objects. This is accomplished using
+the `transparent proxy`_ approach and build on application
+level (pure python module).
+
+The main idea is to provide kind-of-RPC protocol, which
+accesses only necessary parts of objects (not whole objects)
+and also not to rely on objects being picklable nor having
+the same source code on both sides.
+
+In order to provide this, only necessary parts of remote objects
+are retrieved for every call, keeping remote references to objects
+which are not needed yet.
+
+Imagine remote object, which is locally available under name `x`.
+Let's call::
+
+    >>>> x.foo(1, [1,2,3], y)
+
+Where y is some instance of local, user-created class. So, what
+is really called, is a call to x.__getattribute__ with argument ('foo')
+which is copied, so remote side replies with a bound method. Locally
+this bound method appears as a remote reference which is again called
+with a remote reference to x as self, 1 (which is copied as a primitive type),
+reference to a list and refence to y. Remote side receives call to bound
+method x.foo, with x being resolved as local object, 1 as a immutable
+primitive, [1,2,3] as a reference to mutable primitive and y as a reference
+to remote object. If type of y is not known on remote side, the type of
+y is faked, given enough shape to be able to perform operations. The contents
+of a list are not retrieved as long as thei're not needed.
+
+This approach transfers minimal data over network, but tends to send
+tones of small packages to remote side. This might be improved at some
+point in future. Also this approach allows to have remote references to
+internal interpreter types, like frames, code objects and tracebacks. In
+a demo directory there is an example of using this to attach pdb.post\_mortem()
+to a remote traceback.
+
+Distributed lib is build with an abstract network layer, which means you
+can provide it any possible communication channel which can
+send/receive marshallable objects (no pickle needed!) via
+two functions - send and receive.
+
+Exact rules of copying
+----------------------
+
+- Immutable primitives are always transfered
+
+- Mutable primitives are transfered as reference, but several operations
+  (like iter()) force them to appear
+
+- Builtin exceptions are transfered by name
+
+- User objects are always faked on the other side, with enough shape
+  transfered
+
+XXX finish, basic interface, example, build some stuff on top of greenlets
+
+.. _`transparent proxy`: objspace-proxies.html#tproxy
