@@ -289,6 +289,31 @@ def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
     self.lineno = lineno
     return space.wrap(self)
 
+def descr_Function_new(space, w_subtype, w_decorators, w_name, w_argnames, w_defaults, w_flags, w_doc, w_code, lineno=-1):
+    self = space.allocate_instance(Function, w_subtype)
+    decorators = space.interp_w(Node, w_decorators, can_be_None=True)
+    self.decorators = decorators
+    name = space.str_w(w_name)
+    self.name = name
+    argnames = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_argnames)]
+    self.argnames = argnames
+    defaults = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_defaults)]
+    self.defaults = defaults
+    flags = space.int_w(w_flags)
+    self.flags = flags    
+    self.w_doc = w_doc
+    code = space.interp_w(Node, w_code, can_be_None=False)
+    self.code = code
+    self.lineno = lineno
+
+    self.varargs = 0
+    self.kwargs = 0
+    if flags & CO_VARARGS:
+        self.varargs = 1
+    if flags & CO_VARKEYWORDS:
+        self.kwargs = 1
+    return space.wrap(self)
+
 def descr_Import_new(space, w_subtype, w_names, lineno=-1):
     self = space.allocate_instance(Import, w_subtype)
     names = []
@@ -335,32 +360,6 @@ def descr_Compare_mutate(space, w_self, w_visitor):
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("ops"), w_newlist)
     return space.call_method(w_visitor, "visitCompare", w_self)
-
-
-def descr_Compare_mutate(space, w_self, w_visitor): 
-    w_expr = space.getattr(w_self, space.wrap("expr"))
-    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
-    w_mutate_expr_args = Arguments(space, [ w_visitor ])
-    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
-    space.setattr(w_self, space.wrap("expr"), w_new_expr)
-
-    w_list = space.getattr(w_self, space.wrap("ops"))
-    list_w = space.unpackiterable(w_list)
-    newlist_w = []
-    for w_item in list_w:
-        w_opname, w_node = space.unpackiterable(w_item, 2)
-        
-        w_node_mutate = space.getattr(w_node, space.wrap("mutate"))
-        w_node_mutate_args = Arguments(space, [ w_visitor ])
-        w_newnode = space.call_args(w_node_mutate, w_node_mutate_args)
-        
-        newlist_w.append(space.newtuple([w_opname, w_newnode]))
-    w_newlist = space.newlist(newlist_w)
-    space.setattr(w_self, space.wrap("ops"), w_newlist)
-    w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
-    w_visitCompare_args = Arguments(space, [ w_self ])
-    return space.call_args(w_visitCompare, w_visitCompare_args)
-
 
 def descr_Dict_new(space, w_subtype, w_items, lineno=-1):
     self = space.allocate_instance(Dict, w_subtype)

@@ -297,27 +297,6 @@ class NodeInfo:
         print >> buf, "    def accept(self, visitor):"
         print >> buf, "        return visitor.visit%s(self)" % self.name
 
-    def _gen_mutate(self, buf):
-        print >> buf, "    def mutate(self, visitor):"
-        if len(self.argnames) != 0:
-            for argname in self.argnames:
-                if argname in self.mutate_nodes:
-                    for line in self.mutate_nodes[argname]:
-                        if line.strip():
-                            print >> buf, '    ' + line
-                elif self.argprops[argname] == P_NODE:
-                    print >> buf, "        self.%s = self.%s.mutate(visitor)" % (argname,argname)
-                elif self.argprops[argname] == P_NONE:
-                    print >> buf, "        if self.%s is not None:" % (argname,)
-                    print >> buf, "            self.%s = self.%s.mutate(visitor)" % (argname,argname)
-                elif self.argprops[argname] == P_NESTED:
-                    print >> buf, "        newlist = []"
-                    print >> buf, "        for n in self.%s:"%(argname)
-                    print >> buf, "            item = n.mutate(visitor)"
-                    print >> buf, "            if item is not None:"
-                    print >> buf, "                newlist.append(item)"
-                    print >> buf, "        self.%s[:] = newlist"%(argname)
-        print >> buf, "        return visitor.visit%s(self)" % self.name
 
     def _gen_insertnodes_func(self, buf):
         print >> buf, "    def descr_insert_after(space, self, node, w_added_nodes):"

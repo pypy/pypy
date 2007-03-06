@@ -1709,7 +1709,6 @@ def descr_Compare_mutate(space, w_self, w_visitor):
 
 
 
-
 Compare.typedef = TypeDef('Compare', Node.typedef, 
                      __new__ = interp2app(descr_Compare_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Compare_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
@@ -2653,7 +2652,7 @@ class Function(AbstractFunction):
     def fset_code( space, self, w_arg):
         self.code = space.interp_w(Node, w_arg, can_be_None=False)
 
-def descr_Function_new(space, w_subtype, w_decorators, w_name, w_argnames, w_defaults, w_flags, w_w_doc, w_code, lineno=-1):
+def descr_Function_new(space, w_subtype, w_decorators, w_name, w_argnames, w_defaults, w_flags, w_doc, w_code, lineno=-1):
     self = space.allocate_instance(Function, w_subtype)
     decorators = space.interp_w(Node, w_decorators, can_be_None=True)
     self.decorators = decorators
@@ -2664,14 +2663,21 @@ def descr_Function_new(space, w_subtype, w_decorators, w_name, w_argnames, w_def
     defaults = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_defaults)]
     self.defaults = defaults
     flags = space.int_w(w_flags)
-    self.flags = flags
-    # This dummy assingment is auto-generated, astgen.py should be fixed to avoid that
-    w_doc = w_w_doc
+    self.flags = flags    
     self.w_doc = w_doc
     code = space.interp_w(Node, w_code, can_be_None=False)
     self.code = code
     self.lineno = lineno
+
+    self.varargs = 0
+    self.kwargs = 0
+    if flags & CO_VARARGS:
+        self.varargs = 1
+    if flags & CO_VARKEYWORDS:
+        self.kwargs = 1
     return space.wrap(self)
+
+
 
 def descr_Function_accept( space, w_self, w_visitor):
     return space.call_method(w_visitor, 'visitFunction', w_self)
