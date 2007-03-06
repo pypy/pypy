@@ -115,14 +115,23 @@ Return an empty string at EOF."""
         if size < 0:
             return self.stream.readline()
         else:
-            # XXX slow
-            chars = []
-            for i in xrange(size):
-                char = self.stream.read(1)
-                chars.append(char)
-                if char == '' or char == '\n':
+            # very inefficient unless there is a peek()
+            result = []
+            while size > 0:
+                # "peeks" on the underlying stream to see how many characters
+                # we can safely read without reading past an end-of-line
+                peeked = self.stream.peek()
+                pn = peeked.find("\n", 0, size)
+                if pn < 0:
+                    pn = min(size-1, len(peeked))
+                c = self.stream.read(pn + 1)
+                if not c:
                     break
-            return ''.join(chars)
+                result.append(c)
+                if c.endswith('\n'):
+                    break
+                size -= len(c)
+            return ''.join(result)
 
     def readlines(self, size=-1):
         """readlines([size]) -> list of strings, each a line from the file.
