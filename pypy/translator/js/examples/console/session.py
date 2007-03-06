@@ -13,8 +13,7 @@ after TIMEOUT
 import py
 import subprocess
 from Queue import Queue
-from py.__.net.greensock2 import autogreenlet, Timer, wait, meetingpoint,\
-     Interrupted
+from py.__.net.greensock2 import autogreenlet, Timer, Interrupted
 from py.__.net.pipe.fd import FDInput
     
 class Interpreter(object):
@@ -23,7 +22,7 @@ class Interpreter(object):
                             stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
                             close_fds=True, bufsize=0)
         self.pipe = pipe
-        self.read_fd = FDInput(self.pipe.stdout.fileno())
+        self.read_fd = FDInput(self.pipe.stdout.fileno(), close=False)
         self.pid = pipe.pid
         self.timeout = timeout
 

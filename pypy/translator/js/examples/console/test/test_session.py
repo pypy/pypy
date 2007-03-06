@@ -4,7 +4,7 @@
 
 import py
 
-from py.__.net.greensock2 import autogreenlet, wait, sleep, ConnexionClosed
+from py.__.net.greensock2 import allof
 from py.__.net.pipe.fd import FDInput
 from pypy.translator.js.examples.console.session import Interpreter
 
@@ -22,16 +22,12 @@ def test_two_interpreters():
         pass
     while not i2.interact().endswith(">>> "):
         pass
-    l = []
 
     def f():
-        l.append(i.interact("import time;time.sleep(1)\n"))
+        return i.interact("import time;time.sleep(1)\n")
     def g():
-        l.append(i2.interact("a\n"))
+        return i2.interact("a\n")
 
-    g_f = autogreenlet(f)
-    g_g = autogreenlet(g)
-    wait(g_g)
-    wait(g_f)
-    assert len(l) == 2
-    assert l[1].startswith(">>")
+    one, two = allof(g, f)
+    assert two.startswith(">>")
+    assert one.startswith("Traceback")
