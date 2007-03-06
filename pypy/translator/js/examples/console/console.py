@@ -10,7 +10,7 @@ from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.lib.support import callback
 from pypy.translator.js import commproxy
 from pypy.translator.js.examples.console.session import Interpreter
-from pypeers.httpserver import GreenHTTPServer
+from py.__.net.server.httpserver import GreenHTTPServer
 
 commproxy.USE_MOCHIKIT = True
 

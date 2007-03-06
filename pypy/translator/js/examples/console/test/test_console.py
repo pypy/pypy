@@ -1,11 +1,6 @@
 
 def test_line_skip():
-    try:
-        from pypy.translator.js.examples.console.console import line_split
-    except ImportError:
-        import py
-        py.test.skip("cannot import greensock")
-
+    from pypy.translator.js.examples.console.console import line_split
     assert line_split("asdf", 80) == "asdf"
     assert line_split("a b c d", 3) == "a b\n c d"
     assert line_split("a b c d e f g h i j", 3) == "a b\n c \nd e\n f \ng h\n i j"

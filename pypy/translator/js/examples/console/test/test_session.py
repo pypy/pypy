@@ -4,11 +4,8 @@
 
 import py
 
-try:
-    from pypeers.greensock2 import autogreenlet, wait, sleep, ConnexionClosed
-    from pypeers.pipe.fd import FDInput
-except ImportError:
-    py.test.skip("greensock wasn't found")
+from py.__.net.greensock2 import autogreenlet, wait, sleep, ConnexionClosed
+from py.__.net.pipe.fd import FDInput
 from pypy.translator.js.examples.console.session import Interpreter
 
 def test_greensock_reader_timeouter():
@@ -34,6 +31,7 @@ def test_two_interpreters():
 
     g_f = autogreenlet(f)
     g_g = autogreenlet(g)
-    wait()
+    wait(g_g)
+    wait(g_f)
     assert len(l) == 2
     assert l[1].startswith(">>")

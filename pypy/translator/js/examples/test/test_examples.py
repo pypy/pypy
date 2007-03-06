@@ -16,12 +16,7 @@ def test_bnb_build():
     assert rpython2javascript(start_bnb, ['bnb'], use_pdb=False)
 
 def test_overmind_build():
-    try:
-        from pypy.translator.js.examples import overmind, over_client
-    except ImportError:
-        import py
-        py.test.skip("greensock wasn't found")
-        
+    from pypy.translator.js.examples import overmind, over_client
     assert rpython2javascript(over_client, overmind.FUNCTION_LIST,
                               use_pdb=False)
 
@@ -32,11 +27,6 @@ def test_guestbook_build():
 
     
 def test_console_2_build():
-    try:
-        from pypy.translator.js.examples.console import console, client
-    except ImportError:
-        import py
-        py.test.skip("greensock wasn't found")
-
+    from pypy.translator.js.examples.console import console, client
     assert rpython2javascript(client, console.FUNCTION_LIST,
                               use_pdb=False)

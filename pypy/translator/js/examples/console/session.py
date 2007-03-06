@@ -13,9 +13,9 @@ after TIMEOUT
 import py
 import subprocess
 from Queue import Queue
-from pypeers.greensock2 import autogreenlet, Timer, wait, meetingpoint,\
+from py.__.net.greensock2 import autogreenlet, Timer, wait, meetingpoint,\
      Interrupted
-from pypeers.pipe.fd import FDInput
+from py.__.net.pipe.fd import FDInput
     
 class Interpreter(object):
     def __init__(self, python, timeout=TIMEOUT):
