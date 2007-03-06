@@ -5,10 +5,11 @@
 # TODO Should be replaced by a real parser
 
 import os
-import py
+import os.path as path
 import re
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.ebnfparse import Symbol
+from pypy.rlib.streamio import open_file_as_stream
 
 DEBUG = False
 
@@ -35,12 +36,18 @@ def read_js_output(code_string):
         print code_string
         print "------ put:"
         print stripped_code
-    jsdir = py.path.local(__file__).dirpath().join("js")
-    jsdefs = jsdir.join("jsdefs.js").read()
-    jsparse = jsdir.join("jsparse.js").read()
-    f = py.test.ensuretemp("jsinterp").join("tobeparsed.js")
+    jsdir = path.join(path.dirname(__file__),"js")
+    f_jsdefs = open_file_as_stream(path.join(jsdir, "jsdefs.js")) 
+    jsdefs = f_jsdefs.readall()
+    f_jsdefs.close()
+    f_jsparse = open_file_as_stream(path.join(jsdir, "jsparse.js"))
+    jsparse = f_jsparse.readall()
+    f_jsparse.close()
+    fname = path.join(path.dirname(__file__) ,"tobeparsed.js")
+    f = open_file_as_stream(fname, 'w')
     f.write(jsdefs+jsparse+"print(parse('%s'));\n" % stripped_code)
-    pipe = os.popen("js -f "+str(f), 'r')
+    f.close()
+    pipe = os.popen("js -f "+fname, 'r')
     retval = pipe.read()
     if not retval.startswith("{"):
         raise JsSyntaxError(retval)

@@ -42,7 +42,7 @@ class Node(object):
                 self.end = 0
             self.from_tree(t)
 
-    def from_tree(t):
+    def from_tree(self, t):
         """
         Initializes the content from the AST specific for each node type
         """
@@ -444,7 +444,7 @@ class Lt(BinaryComparisonOp):
         else:
             return W_Boolean(s5)
 
-def AEC(x, y):
+def AEC(ctx, x, y):
     """
     Implements the Abstract Equality Comparison x == y
     trying to be fully to the spec
@@ -474,19 +474,19 @@ def AEC(x, y):
            (type1 == "null" and type2 == "undefined"):
             return True
         if type1 == "number" and type2 == "string":
-            return AEC(x, W_Number(y.ToNumber()))
+            return AEC(ctx, x, W_Number(y.ToNumber()))
         if type1 == "string" and type2 == "number":
-            return AEC(W_Number(x.ToNumber()), y)
+            return AEC(ctx, W_Number(x.ToNumber()), y)
         if type1 == "boolean":
-            return AEC(W_Number(x.ToNumber()), y)
+            return AEC(ctx, W_Number(x.ToNumber()), y)
         if type2 == "boolean":
-            return AEC(x, W_Number(y.ToNumber()))
+            return AEC(ctx, x, W_Number(y.ToNumber()))
         if (type1 == "string" or type1 == "number") and \
             type2 == "object":
-            return AEC(x, y.ToPrimitive())
+            return AEC(ctx, x, y.ToPrimitive(ctx))
         if (type2 == "string" or type2 == "number") and \
             type1 == "object":
-            return AEC(x.ToPrimitive(), y)
+            return AEC(ctx, x.ToPrimitive(ctx), y)
         return False
             
         
@@ -505,13 +505,13 @@ class Eq(BinaryComparisonOp):
     opcode = 'EQ'
     
     def decision(self, ctx, op1, op2):
-        return W_Boolean(AEC(op1, op2))
+        return W_Boolean(AEC(ctx, op1, op2))
 
 class Ne(BinaryComparisonOp):
     opcode = 'NE'
     
     def decision(self, ctx, op1, op2):
-        return W_Boolean(not AEC(op1, op2))
+        return W_Boolean(not AEC(ctx, op1, op2))
 
 def SEC(x,y):
     """
@@ -773,7 +773,7 @@ class Script(Statement):
             if isinstance(e, ExecutionReturned) and e.type == 'return':
                 return e.value
             else:
-                print "exeception in line: %s, on: %s"%(node.lineno, node.value)
+                print "exception in line: %s, on: %s"%(node.lineno, node.value)
                 raise
 
 class Semicolon(Statement):
