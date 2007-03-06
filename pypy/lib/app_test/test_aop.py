@@ -1,13 +1,14 @@
 from pypy.conftest import gettestobjspace
 
+
 class AppTestAop(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{'objspace.usepycfiles':False})
 
-    def test_init(self):
+    def _test_init(self):
         import aop
 
-    def test_static_dynamic_advice_and_pointcut(self):
+    def _test_static_dynamic_advice_and_pointcut(self):
         from  aop import PointCut, introduce, before, around, after
 
         dyn_pc = PointCut('foo').call()
@@ -27,7 +28,7 @@ class AppTestAop(object):
             adv = advice(dyn_pc)
             assert adv is not None
 
-    def test_is_aop(self):
+    def _test_is_aop(self):
         from aop import is_aop_call
         import parser
         func = """
@@ -40,24 +41,80 @@ def f():
         result = [is_aop_call(n) for n in funcast.code.nodes]
         assert result == [True, False, True]
 
-    def test_simple_aspect(self):
+    def _test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_before_execution')
         
         class AspectTest:
             __metaclass__ = Aspect 
             def __init__(self):
                 self.executed = False
             @before(PointCut('foo').execution())
-            def advice_before_excecution(self, tjp):
+            def advice_before_execution(self, tjp):
                 self.executed = True
 
         assert __aop__.advices == []
         aspect = AspectTest()
-        assert __aop__.advices == [(aspect, AspectTest.advice_before_excecution)] 
+        assert __aop__.advices == [(aspect, AspectTest.advice_before_execution)] 
         assert not aspect.executed
 
+        from app_test import aop_before_execution
+        assert  aspect.executed == 0
+        aop_before_execution.foo(1,2)
+        assert aspect.executed == 1
+        sample_aop_code.clean_module('aop_before_execution')
+
+    def _test_simple_aspect_after_execution(self):
+        from  aop import PointCut, Aspect, after
         from app_test import sample_aop_code
-        assert not aspect.executed
-        sample_aop_code.foo(1,2)
-        assert aspect.executed
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_after_execution')
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed = 0
+            @after(PointCut('foo').execution())
+            def advice_after_execution(self, tjp):
+                self.executed += 1
 
+        assert __aop__.advices == []
+        aspect = AspectTest()
+        assert __aop__.advices == [(aspect, AspectTest.advice_after_execution)] 
+        assert not aspect.executed
+        from app_test import aop_after_execution
+        assert aspect.executed == 0
+        aop_after_execution.foo(1,2)
+        assert aspect.executed == 1
+        sample_aop_code.clean_module('aop_after_execution')
+
+    def test_simple_aspect_around_execution(self):
+        from  aop import PointCut, Aspect, around
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_around_execution')
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed_before = 0
+                self.executed_after = 0
+            @around(PointCut('foo').execution())
+            def advice_around_execution(self, tjp):
+                print '>>>in'
+                self.executed_before += 1
+                tjp.proceed()
+                self.executed_after += 1
+                self.result = tjp.result()
+                print '<<<out'
+        
+        aspect = AspectTest()
+        from app_test import aop_around_execution
+        assert aspect.executed_before == 0
+        assert aspect.executed_after == 0
+        aop_around_execution.foo(1,2)
+        assert aspect.executed_before == 1
+        assert aspect.executed_after == 1
+        assert aspect.result == 47
+        sample_aop_code.clean_module('aop_around_execution')
+        

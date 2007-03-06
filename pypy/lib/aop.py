@@ -17,11 +17,24 @@ class Debug(parser.ASTVisitor):
         self.offset = 0
     def default(self, node):
         print ' '*self.offset+str(node)
-        self.offset += 2
+        self.offset += 4
         for child in node.getChildNodes():
             child.accept(self)
-        self.offset -= 2
+        self.offset -= 4
         return node
+
+    def visitFunction(self, func):
+        print " "*self.offset+'def %s:' % (func.name)
+        self.offset += 4
+        for node in func.code.nodes:
+            node.accept(self)
+        self.offset -= 4
+    def visitReturn(self, ret):
+        print ' '*self.offset+'return ',
+        for child in ret.getChildNodes():
+            child.accept(self)
+
+    
 
 DEBUGGER= Debug()
 
@@ -46,8 +59,8 @@ class Advice(parser.ASTVisitor):
 
     def visitFunction(self, node):
         if self.pointcut.match(node):
-            self.weave_at_pointcut(node,
-                                   self.pointcut.joinpoint(node))
+            node = self.weave_at_pointcut(node,
+                                          self.pointcut.joinpoint(node))
         return node
 
     def vistClass(self, node):
@@ -56,17 +69,23 @@ class Advice(parser.ASTVisitor):
         return node
         
 
-def make_aop_call(id):
+def make_aop_call(id, targetname=None, discard=True):
     """return an AST for a call to a woven function
     id is the integer returned when the advice was stored in the registry"""
     p = parser
-    return p.ASTDiscard(p.ASTCallFunc(p.ASTName('__aop__'),
-                                      [p.ASTConst(id),], # arguments
+    arguments = [p.ASTConst(id),]
+    if targetname is not None:
+        arguments.append(p.ASTName(targetname))
+    if discard:
+        returnclass = p.ASTDiscard
+    else:
+        returnclass = p.ASTReturn
+    return returnclass(p.ASTCallFunc(p.ASTName('__aop__'),
+                                      arguments,
                                       None, # *args
                                       None # *kwargs
                                       )
                         )
-                     
 
 def is_aop_call(node):
     p = parser
@@ -78,21 +97,39 @@ class around(Advice):
     """specify code to be run instead of the pointcut"""
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE around!!!"
-        pass # XXX WRITEME
-
+        p = parser
+        print 'original func:'
+        node.accept(DEBUGGER)
+        print '+++', self.function
+        id = __aop__.register_joinpoint(self.function, tjp)
+        statement = node.code
+        newname = '__aoptarget_%s_%s__' % (node.name, id)
+        newcode = p.ASTStmt([p.ASTFunction(node.decorators,
+                                           newname,
+                                           node.argnames,
+                                           node.defaults,
+                                           node.flags,
+                                           node.w_doc,
+                                           node.code,
+                                           node.lineno),                             
+                             make_aop_call(id, targetname=newname, discard=False),
+                             ])
+        
+        node.decorators = None
+        node.code = newcode
+        print 'weaving produced:'
+        node.accept(DEBUGGER)
+        return node
+    
 class before(Advice):
     """specify code to be run before the pointcut"""
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE before!!!"
         id = __aop__.register_joinpoint(self.function, tjp)
         statement_list = node.code.nodes
-        for idx, stmt in enumerate(statement_list):
-            if is_aop_call(stmt):
-                continue
-            else:
-                break
-        statement_list.insert(idx, make_aop_call(id))
+        statement_list.insert(0, make_aop_call(id))
         node.code.nodes = statement_list
+        return node
         
             
 
@@ -100,7 +137,11 @@ class after(Advice):
     """specify code to be run after the pointcut"""
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE after!!!"
-        pass # XXX WRITEME
+        id = __aop__.register_joinpoint(self.function, tjp)
+        statement = node.code
+        tryfinally = parser.ASTTryFinally(statement, make_aop_call(id))
+        node.code = tryfinally
+        return node
 
 class introduce(Advice):
     """insert new code in the pointcut
@@ -109,6 +150,7 @@ class introduce(Advice):
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE introduce!!!"
         pass # XXX WRITEME
+        return node
 
     
         
@@ -197,38 +239,46 @@ class PointCut:
         """return a dynamic pointcut representing places where the pointcut is called"""
         # XXX may be difficult to implement ?
         self.isdynamic = True
+        self.mode = 'call'
         #raise NotImplementedError('call')
         return self
 
     def execution(self):
         """return a dynamic pointcut representing places where the pointcut is executed"""
         self.isdynamic = True
+        self.mode = 'execution'
         return self
 
     def initialization(self):
         """return a dynamic pointcut representing places where the pointcut is instantiated"""
         self.isdynamic = True
+        self.mode = 'initializartion'
         #raise NotImplementedError('initialization')
         return self
     
     def destruction(self):
         """return a dynamic pointcut representing places where the pointcut is destroyed"""
         self.isdynamic = True
+        self.mode = 'destruction'
         #raise NotImplementedError('destruction')
 
         return self
 
     def match(self, astnode):
         # FIXME !!! :-)
-        try:
-            return astnode.name == self.pointcutdef
-        except AttributeError:
-            return False
+        if self.mode == 'execution':
+            try:
+                return astnode.name == self.pointcutdef
+            except AttributeError:
+                return False
 
     def joinpoint(self, node):
         """returns a join point instance for the node"""
         assert self.match(node)
-        return JoinPoint()
+        if self.mode == 'execution':
+##             stnode = parser.STType(node)
+##             target = getattr(stnode.compile(), node.name)
+            return JoinPoint()
 
 ### make these class methods of PointCut ?
 def within(pointcutstring):
@@ -272,6 +322,10 @@ class Weaver:
         self._curr_aspect = None
         return ast
 
+    def _clear_all(self):
+        self.advices = []
+        self.joinpoints = {}
+
     def _next_id(self):
         try:
             return self._id
@@ -281,12 +335,15 @@ class Weaver:
     def register_joinpoint(self, callable, *args):
         assert self._curr_aspect is not None
         id = self._next_id()
+        print "register joinpoint with id %d" % id
         args = (self._curr_aspect,) + args
         self.joinpoints[id] = callable, args
         return id
 
-    def __call__(self, id):
+    def __call__(self, id, target=None):
         callable, args = self.joinpoints[id]
+        print args
+        args[-1].target = target
         callable(*args)
 
 import __builtin__
