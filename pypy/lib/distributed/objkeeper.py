@@ -43,7 +43,7 @@ class ObjKeeper(object):
         try:
             return self.exported_types[tp]
         except KeyError:
-            print "Registering type %s as %s" % (tp, self.exported_types_id)
+            #print "Registering type %s as %s" % (tp, self.exported_types_id)
             self.exported_types[tp] = self.exported_types_id
             self.exported_types_reverse[self.exported_types_id] = tp
             tp_id = self.exported_types_id
@@ -58,7 +58,7 @@ class ObjKeeper(object):
         return tp_id
     
     def fake_remote_type(self, protocol, type_id, _name, _dict):
-        print "Faking type %s as %s" % (_name, type_id)
+        #print "Faking type %s as %s" % (_name, type_id)
         # create and register new type
         d = dict([(key, None) for key in _dict])
         # some stuff needs to go first...
