@@ -5,9 +5,9 @@ PyPy - Overview over the EU-reports
 
 We have written several reports for the EU of which some are also quite useful
 as documentation. The ones not so useful as documentation mostly contain text
-that can also be found in the regular documentation section. All these
-documents are not approved by the European Union and therefore only
-preliminary.
+that can also be found in the regular documentation section.  All of these
+documents are preliminary versions, none of them have been approved by the
+European Union. 
 
 Reports of 2007
 ===============
