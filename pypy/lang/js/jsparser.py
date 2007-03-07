@@ -17,6 +17,11 @@ class JsSyntaxError(Exception):
     pass
 
 SLASH = "\\"
+jsdir = path.join(path.dirname(__file__),"js")
+jsdefspath = path.join(jsdir, "jsdefs.js")
+jsparsepath = path.join(jsdir, "jsparse.js")
+fname = path.join(path.dirname(__file__) ,"tobeparsed.js")
+
 def read_js_output(code_string):
     tmp = []
     last = ""
@@ -36,14 +41,12 @@ def read_js_output(code_string):
         print code_string
         print "------ put:"
         print stripped_code
-    jsdir = path.join(path.dirname(__file__),"js")
-    f_jsdefs = open_file_as_stream(path.join(jsdir, "jsdefs.js")) 
+    f_jsdefs = open_file_as_stream(jsdefspath) 
     jsdefs = f_jsdefs.readall()
     f_jsdefs.close()
-    f_jsparse = open_file_as_stream(path.join(jsdir, "jsparse.js"))
+    f_jsparse = open_file_as_stream(jsparsepath)
     jsparse = f_jsparse.readall()
     f_jsparse.close()
-    fname = path.join(path.dirname(__file__) ,"tobeparsed.js")
     f = open_file_as_stream(fname, 'w')
     f.write(jsdefs+jsparse+"print(parse('%s'));\n" % stripped_code)
     f.close()
@@ -75,7 +78,17 @@ def unquote(t):
             stop = len(t.additional_info)-1
             if stop < 0:
                 stop = 0
-            t.additional_info = t.additional_info[1:].replace("\\'", "'").replace("\\\\", "\\")
+            t.additional_info = t.additional_info[1:stop]
+            temp = []
+            last = ""
+            for char in t.additional_info:
+                if last == SLASH:
+                    if char == SLASH:
+                        temp.append(SLASH)
+                if char != SLASH:        
+                    temp.append(char)
+                last = char
+            t.additional_info = ''.join(temp)
     else:
         for i in t.children:
             unquote(i)

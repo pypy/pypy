@@ -1,5 +1,5 @@
 # encoding: utf-8
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 DEBUG = False
 
@@ -75,7 +75,8 @@ class W_Root(object):
         raise NotImplementedError
     
     def PutValue(self, w, ctx):
-        print self, w.ToString(), w.__class__, ctx
+        if DEBUG:
+            print self, w.ToString(), w.__class__, ctx
         raise NotImplementedError
     
     def Call(self, ctx, args=[], this=None):
@@ -321,7 +322,7 @@ class W_Array(W_Builtin):
             return W_PrimitiveObject.Get(self, P)
     
     def ToString(self):
-        return ','.join(self.array)
+        return ','.join([item.ToString() for item in self.array])
 
 def array_str_builtin(ctx, args, this):
     return W_String(this.ToString())

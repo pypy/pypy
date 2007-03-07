@@ -6,7 +6,7 @@ Implements the javascript operations nodes for the interpretation tree
 
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
-
+from pypy.rlib.rarithmetic import r_uint, intmask
 
 class Node(object):
     """
@@ -336,6 +336,12 @@ class Group(UnaryOp):
     def eval(self, ctx):
         return self.expr.eval(ctx)
 
+##############################################################################
+#
+# Binary logic comparison ops and suporting abstract operation
+#
+##############################################################################
+
 def ARC(ctx, x, y):
     """
     Implements the Abstract Relational Comparison x < y
@@ -375,30 +381,6 @@ class And(BinaryLogicOp):
             return s2
         s4 = self.right.eval(ctx).GetValue()
         return s4
-
-class Ursh(BinaryComparisonOp):
-    opcode = 'URSH'
-    
-    def decision(self, ctx, op1, op2):
-        a = op1.ToUInt32()
-        b = op2.ToUInt32()
-        return W_Number(a >> (b & 0x1F))
-
-class Rsh(BinaryComparisonOp):
-    opcode = 'RSH'
-    
-    def decision(self, ctx, op1, op2):
-        a = op1.ToInt32()
-        b = op2.ToUInt32()
-        return W_Number(a >> int(b & 0x1F))
-
-class Lsh(BinaryComparisonOp):
-    opcode = 'LSH'
-    
-    def decision(self, ctx, op1, op2):
-        a = op1.ToInt32()
-        b = op2.ToUInt32()
-        return W_Number(a << int(b & 0x1F))
 
 class Ge(BinaryComparisonOp):
     opcode = 'GE'
@@ -443,6 +425,44 @@ class Lt(BinaryComparisonOp):
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
+
+
+##############################################################################
+#
+# Bitwise shifts
+#
+##############################################################################
+
+class Ursh(BinaryComparisonOp):
+    opcode = 'URSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToUInt32()
+        b = op2.ToUInt32()
+        return W_Number(a >> (b & 0x1F))
+
+class Rsh(BinaryComparisonOp):
+    opcode = 'RSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToInt32()
+        b = op2.ToUInt32()
+        return W_Number(a >> intmask(b & 0x1F))
+
+class Lsh(BinaryComparisonOp):
+    opcode = 'LSH'
+    
+    def decision(self, ctx, op1, op2):
+        a = op1.ToInt32()
+        b = op2.ToUInt32()
+        return W_Number(a << intmask(b & 0x1F))
+
+##############################################################################
+#
+# Equality and unequality (== and !=)
+#
+##############################################################################
+
 
 def AEC(ctx, x, y):
     """
@@ -513,6 +533,14 @@ class Ne(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         return W_Boolean(not AEC(ctx, op1, op2))
 
+
+##############################################################################
+#
+# Strict Equality and unequality, usually means same place in memory
+# or equality for primitive values
+#
+##############################################################################
+
 def SEC(x,y):
     """
     Implements the Strict Equality Comparison x === y
@@ -553,6 +581,9 @@ class StrictNe(BinaryComparisonOp):
     
 
 class In(BinaryComparisonOp):
+    """
+    The in operator, eg: "property in object"
+    """
     opcode = 'IN'
     
     def decision(self, ctx, op1, op2):
@@ -562,6 +593,9 @@ class In(BinaryComparisonOp):
         return W_Boolean(op2.HasProperty(name))
 
 class Delete(UnaryOp):
+    """
+    the delete op, erases properties from objects
+    """
     opcode = 'DELETE'
     
     def eval(self, ctx):
@@ -573,6 +607,9 @@ class Delete(UnaryOp):
         return W_Boolean(r3.Delete(r4))
 
 class Increment(UnaryOp):
+    """
+    ++value (prefix) and value++ (postfix)
+    """
     opcode = 'INCREMENT'
         
     def eval(self, ctx):
@@ -588,6 +625,9 @@ class Increment(UnaryOp):
         
 
 class Decrement(UnaryOp):
+    """
+    same as increment --value and value --
+    """
     opcode = 'DECREMENT'
         
     def eval(self, ctx):
@@ -616,64 +656,12 @@ class List(ListOp):
     def eval(self, ctx):
         return W_List([node.eval(ctx).GetValue() for node in self.list])
 
-class Minus(BinaryComparisonOp):
-    opcode = 'MINUS'
-    
-    def decision(self, ctx, op1, op2):
-        x = op1.ToNumber()
-        y = op2.ToNumber()
-        return W_Number(x - y)
 
-class New(UnaryOp):
-    opcode = 'NEW'
-
-    def eval(self, ctx):
-        x = self.expr.eval(ctx).GetValue()
-        if not isinstance(x, W_PrimitiveObject):
-            raise TypeError()
-        
-        return x.Construct(ctx=ctx)
-
-class NewWithArgs(BinaryOp):
-    opcode = 'NEW_WITH_ARGS'
-    
-    def eval(self, ctx):
-        x = self.left.eval(ctx).GetValue()
-        if not isinstance(x, W_PrimitiveObject):
-            raise TypeError()
-        args = self.right.eval(ctx).get_args()
-        return x.Construct(ctx=ctx, args=args)
-
-class Null(Expression):
-    opcode = 'NULL'
-    
-    def from_tree(self, t):
-        pass
-    
-    def eval(self, ctx):
-        return w_Null            
-
-class Number(Expression):
-    opcode = 'NUMBER'
-    
-    def from_tree(self, t):
-        self.num = float(get_string(t, 'value'))
-
-    def eval(self, ctx):
-        return W_Number(self.num)
-
-class ObjectInit(ListOp):
-    opcode = 'OBJECT_INIT'
-
-    def eval(self, ctx):
-        w_obj = W_Object()
-        for prop in self.list:
-            if DEBUG:
-                print prop.left
-            name = prop.left.value
-            w_expr = prop.right.eval(ctx).GetValue()
-            w_obj.Put(name, w_expr)
-        return w_obj
+##############################################################################
+#
+# Math Ops
+#
+##############################################################################
 
 class BinaryNumberOp(BinaryOp):
     def eval(self, ctx):
@@ -683,7 +671,7 @@ class BinaryNumberOp(BinaryOp):
         if DEBUG:
             print self.left, nleft, self.opcode, self.right, nright, '=', result
         return result
-        
+
 class Plus(BinaryNumberOp):
     opcode = 'PLUS'
     
@@ -713,7 +701,6 @@ class Mod(BinaryNumberOp):
         fright = nright.ToInt32()
         return W_Number(fleft % fright)
 
-
 class Div(BinaryNumberOp):
     opcode = 'DIV'
     
@@ -731,7 +718,87 @@ class Minus(BinaryNumberOp):
         return W_Number(fleft - fright)
 
 
+
+class Null(Expression):
+    opcode = 'NULL'
+    
+    def from_tree(self, t):
+        pass
+    
+    def eval(self, ctx):
+        return w_Null            
+
+
+##############################################################################
+#
+# Value and object creation
+#
+##############################################################################
+
+class New(UnaryOp):
+    opcode = 'NEW'
+
+    def eval(self, ctx):
+        x = self.expr.eval(ctx).GetValue()
+        if not isinstance(x, W_PrimitiveObject):
+            raise TypeError()
+        
+        return x.Construct(ctx=ctx)
+
+class NewWithArgs(BinaryOp):
+    opcode = 'NEW_WITH_ARGS'
+    
+    def eval(self, ctx):
+        x = self.left.eval(ctx).GetValue()
+        if not isinstance(x, W_PrimitiveObject):
+            raise TypeError()
+        args = self.right.eval(ctx).get_args()
+        return x.Construct(ctx=ctx, args=args)
+
+class Number(Expression):
+    opcode = 'NUMBER'
+    
+    def from_tree(self, t):
+        self.num = float(get_string(t, 'value'))
+
+    def eval(self, ctx):
+        return W_Number(self.num)
+
+class String(Expression):
+    opcode = 'STRING'
+    
+    def from_tree(self, t):
+        self.strval = get_string(t, 'value')
+
+    def eval(self, ctx):
+        return W_String(self.strval)
+    
+    def get_literal(self):
+        return W_String(self.strval).ToString()
+
+class ObjectInit(ListOp):
+    opcode = 'OBJECT_INIT'
+
+    def eval(self, ctx):
+        w_obj = W_Object()
+        for prop in self.list:
+            if DEBUG:
+                print prop.left
+            name = prop.left.value
+            w_expr = prop.right.eval(ctx).GetValue()
+            w_obj.Put(name, w_expr)
+        return w_obj
+
+##############################################################################
+#
+# Script and semicolon, the most important part of the interpreter probably
+#
+##############################################################################
+
 class Script(Statement):
+    """
+    Script nodes are found on each function declaration and in global code
+    """
     opcode = 'SCRIPT'
 
     def from_tree(self, t):
@@ -773,6 +840,7 @@ class Script(Statement):
             if isinstance(e, ExecutionReturned) and e.type == 'return':
                 return e.value
             else:
+                # TODO: proper exception handling
                 print "exception in line: %s, on: %s"%(node.lineno, node.value)
                 raise
 
@@ -786,18 +854,6 @@ class Semicolon(Statement):
         if self.expr is None:
             return w_Undefined
         return self.expr.execute(ctx)
-
-class String(Expression):
-    opcode = 'STRING'
-    
-    def from_tree(self, t):
-        self.strval = get_string(t, 'value')
-
-    def eval(self, ctx):
-        return W_String(self.strval)
-    
-    def get_literal(self):
-        return W_String(self.strval).ToString()
 
 class Return(Statement):
     opcode = 'RETURN'
