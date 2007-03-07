@@ -304,7 +304,6 @@ class CharFormatter(Formatter):
             v = self.valuebox.str()
             if len(v) != 1:
                 raise TypeError, "%c requires int or char"
-        
         elif self.valuebox.isunicode():
             raise NeedUnicodeFormattingError
         else:
@@ -507,6 +506,8 @@ class ValueBox:
 
     def isint(self):
         return isinstance(self._value, int)
+    def isstr(self):
+        return isinstance(self._value, str)
     def isunicode(self):
         return isinstance(self._value, unicode)
 
