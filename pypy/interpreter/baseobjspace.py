@@ -797,8 +797,8 @@ class ObjSpace(object):
             if not err.match(self, self.w_OverflowError):
                 raise
             if not w_exception:
-                # w_index is a long object
-                if w_index.get_sign() < 0:
+                # w_index should be a long object, but can't be sure of that
+                if self.is_true(self.lt(w_index, self.wrap(0))):
                     return -sys.maxint-1
                 else:
                     return sys.maxint
