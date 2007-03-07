@@ -1,5 +1,5 @@
 
-#from pypeers.pipe.gsocket import GreenSocket
+import py
 from socket import socket
 from py.__.net.msgstruct import decodemessage, message
 from socket import socket, AF_INET, SOCK_STREAM
@@ -30,7 +30,7 @@ class SocketWrapper(object):
         self.conn.sendall(message('c', marshal.dumps(data)))
         trace("done")
 
-def socket_listener(address=('', 12122)):
+def socket_listener(address=('', 12122), socket=socket):
     s = socket(AF_INET, SOCK_STREAM)
     s.bind(address)
     s.listen(1)
@@ -40,10 +40,22 @@ def socket_listener(address=('', 12122)):
     sw = SocketWrapper(conn)
     return sw.send, sw.receive
 
-def socket_connecter(address):
+def socket_connecter(address, socket=socket):
     s = socket(AF_INET, SOCK_STREAM)
     print "Connecting %s" % (address,)
     s.connect(address)
 
     sw = SocketWrapper(s)
     return sw.send, sw.receive
+
+def spawn_remote_side(code, gw):
+    """ A very simple wrapper around greenexecnet to allow
+    spawning a remote side of lib/distributed
+    """
+    from distributed import RemoteProtocol
+    extra = str(py.code.Source("""
+    from distributed import remote_loop, RemoteProtocol
+    remote_loop(RemoteProtocol(channel.send, channel.receive, globals()))
+    """))
+    channel = gw.remote_exec(code + "\n" + extra)
+    return RemoteProtocol(channel.send, channel.receive)
