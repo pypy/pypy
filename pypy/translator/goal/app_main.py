@@ -268,13 +268,17 @@ def entry_point(executable, argv):
             sys.argv.append('')
             go_interactive = True
             
-        if go_interactive or os.environ.get('PYTHONINSPECT'):
-            python_startup = os.environ.get('PYTHONSTARTUP')
+        if go_interactive or os.getenv('PYTHONINSPECT'):
+            python_startup = os.getenv('PYTHONSTARTUP')
             if python_startup:
                 try:
-                    execfile(python_startup, mainmodule.__dict__)
-                except:
+                    startup = open(python_startup).read()
+                except IOError:
                     pass
+                else:
+                    def run_it():
+                        exec startup in mainmodule.__dict__
+                    run_toplevel(run_it)
             print >> sys.stderr, "debug: importing code" 
             import code
             print >> sys.stderr, "debug: calling code.interact()"
