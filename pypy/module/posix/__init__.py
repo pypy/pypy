@@ -90,6 +90,10 @@ corresponding Unix manual entries for more information on calls."""
         if config.translating and config.translation.backend == "llvm":
             space.delattr(self, space.wrap("execv"))
 
+    def startup(self, space):
+        from pypy.module.posix import interp_posix
+        interp_posix.get(space).startup(space)
+        
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:

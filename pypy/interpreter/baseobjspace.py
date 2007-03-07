@@ -197,7 +197,17 @@ class ObjSpace(object):
 
     def startup(self):
         # To be called before using the space
-        pass
+
+        # Initialize all builtin modules
+        from pypy.interpreter.module import Module
+        for modname in self._builtinmodule_list:
+            try:
+                mod = self.getbuiltinmodule(modname)
+            except OperationError:
+                # Not found, ignore it.
+                continue
+            if isinstance(mod, Module):
+                mod.startup(self)
 
     def finish(self):
         w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')

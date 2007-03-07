@@ -20,6 +20,11 @@ class Module(Wrappable):
         """NOT_RPYTHON: to allow built-in modules to do some more setup
         after the space is fully initialized."""
 
+    def startup(self, space):
+        """This is called at runtime before the space gets uses to allow
+        the module to do initialization at runtime.
+        """
+        
     def getdict(self):
         return self.w_dict
 
