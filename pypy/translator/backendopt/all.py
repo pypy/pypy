@@ -64,10 +64,14 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print "after no-op removal:"
         print_statistics(translator.graphs[0], translator)
 
-    if config.inline and config.inline_threshold != 0:
+    if config.inline or config.mallocs:
         heuristic = get_function(config.inline_heuristic)
+        if config.inline:
+            threshold = config.inline_threshold
+        else:
+            threshold = 0
         inline_malloc_removal_phase(config, translator, graphs,
-                                    config.inline_threshold,
+                                    threshold,
                                     inline_heuristic=heuristic)
 
     if config.clever_malloc_removal:
@@ -131,12 +135,12 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                                 call_count_pred=None):
 
     type_system = translator.rtyper.type_system.name
-    log.inlining("phase with threshold factor: %s" % inline_threshold)
-    log.inlining("heuristic: %s.%s" % (inline_heuristic.__module__,
-                                       inline_heuristic.__name__))
-
     # inline functions in each other
     if inline_threshold:
+        log.inlining("phase with threshold factor: %s" % inline_threshold)
+        log.inlining("heuristic: %s.%s" % (inline_heuristic.__module__,
+                                           inline_heuristic.__name__))
+
         inline.auto_inline_graphs(translator, graphs, inline_threshold,
                                   heuristic=inline_heuristic,
                                   call_count_pred=call_count_pred)
