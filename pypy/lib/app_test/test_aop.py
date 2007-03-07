@@ -5,10 +5,10 @@ class AppTestAop(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{'objspace.usepycfiles':False})
 
-    def _test_init(self):
+    def test_init(self):
         import aop
 
-    def _test_static_dynamic_advice_and_pointcut(self):
+    def test_static_dynamic_advice_and_pointcut(self):
         from  aop import PointCut, introduce, before, around, after
 
         dyn_pc = PointCut('foo').call()
@@ -28,7 +28,7 @@ class AppTestAop(object):
             adv = advice(dyn_pc)
             assert adv is not None
 
-    def _test_is_aop(self):
+    def test_is_aop(self):
         from aop import is_aop_call
         import parser
         func = """
@@ -41,7 +41,7 @@ def f():
         result = [is_aop_call(n) for n in funcast.code.nodes]
         assert result == [True, False, True]
 
-    def _test_simple_aspect_before_execution(self):
+    def test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
         __aop__._clear_all()
@@ -54,6 +54,8 @@ def f():
             @before(PointCut('foo').execution())
             def advice_before_execution(self, tjp):
                 self.executed = True
+                self.argnames = tjp._argnames
+                self.flags = tjp._flags
 
         assert __aop__.advices == []
         aspect = AspectTest()
@@ -62,11 +64,14 @@ def f():
 
         from app_test import aop_before_execution
         assert  aspect.executed == 0
-        aop_before_execution.foo(1,2)
+        answ = aop_before_execution.foo(1,2)
         assert aspect.executed == 1
+        assert aspect.argnames == ['b', 'c']
+        assert aspect.flags == 0
+        assert answ == 47
         sample_aop_code.clean_module('aop_before_execution')
 
-    def _test_simple_aspect_after_execution(self):
+    def test_simple_aspect_after_execution(self):
         from  aop import PointCut, Aspect, after
         from app_test import sample_aop_code
         __aop__._clear_all()
@@ -85,8 +90,9 @@ def f():
         assert not aspect.executed
         from app_test import aop_after_execution
         assert aspect.executed == 0
-        aop_after_execution.foo(1,2)
+        answ = aop_after_execution.foo(1,2)
         assert aspect.executed == 1
+        assert answ == 47
         sample_aop_code.clean_module('aop_after_execution')
 
     def test_simple_aspect_around_execution(self):
@@ -101,20 +107,23 @@ def f():
                 self.executed_after = 0
             @around(PointCut('foo').execution())
             def advice_around_execution(self, tjp):
-                print '>>>in'
+                print '>>>in', tjp.arguments()
                 self.executed_before += 1
-                tjp.proceed()
+                args, kwargs = tjp.arguments()
+                tjp.proceed(*args, **kwargs)
                 self.executed_after += 1
                 self.result = tjp.result()
                 print '<<<out'
+                return tjp.result()
         
         aspect = AspectTest()
         from app_test import aop_around_execution
         assert aspect.executed_before == 0
         assert aspect.executed_after == 0
-        aop_around_execution.foo(1,2)
+        answ = aop_around_execution.foo(1,2)
         assert aspect.executed_before == 1
         assert aspect.executed_after == 1
         assert aspect.result == 47
+        assert answ == 47
         sample_aop_code.clean_module('aop_around_execution')
         

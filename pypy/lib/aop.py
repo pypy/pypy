@@ -10,34 +10,6 @@ import parser
 
 # advices
 # -------
-
-
-class Debug(parser.ASTVisitor):
-    def __init__(self):
-        self.offset = 0
-    def default(self, node):
-        print ' '*self.offset+str(node)
-        self.offset += 4
-        for child in node.getChildNodes():
-            child.accept(self)
-        self.offset -= 4
-        return node
-
-    def visitFunction(self, func):
-        print " "*self.offset+'def %s:' % (func.name)
-        self.offset += 4
-        for node in func.code.nodes:
-            node.accept(self)
-        self.offset -= 4
-    def visitReturn(self, ret):
-        print ' '*self.offset+'return ',
-        for child in ret.getChildNodes():
-            child.accept(self)
-
-    
-
-DEBUGGER= Debug()
-
 class Advice(parser.ASTVisitor):
     requires_dynamic_pointcut=True
     def __init__(self, pointcut):
@@ -47,12 +19,8 @@ class Advice(parser.ASTVisitor):
         
     def __call__(self, function):
         print 'wrapping advice %s on %s' % (self.pointcut, function.__name__)
-        self.function = function
+        self.woven_code = function
         return self
-
-##     def decorated(self,*args, **kwargs):
-##         print 'calling aspectized function %s (with %s)' % (self.function.__name__, self.pointcut)
-##         return self.function(*args, **kwargs)
 
     def weave(self, ast, enc):
         return ast.accept(self)
@@ -76,6 +44,12 @@ def make_aop_call(id, targetname=None, discard=True):
     arguments = [p.ASTConst(id),]
     if targetname is not None:
         arguments.append(p.ASTName(targetname))
+    else:
+        arguments.append(p.ASTConst(None))
+    arguments.append(p.ASTCallFunc(p.ASTName('locals'),
+                                   [], None, None)
+                     )
+                         
     if discard:
         returnclass = p.ASTDiscard
     else:
@@ -98,10 +72,7 @@ class around(Advice):
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE around!!!"
         p = parser
-        print 'original func:'
-        node.accept(DEBUGGER)
-        print '+++', self.function
-        id = __aop__.register_joinpoint(self.function, tjp)
+        id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement = node.code
         newname = '__aoptarget_%s_%s__' % (node.name, id)
         newcode = p.ASTStmt([p.ASTFunction(node.decorators,
@@ -112,20 +83,19 @@ class around(Advice):
                                            node.w_doc,
                                            node.code,
                                            node.lineno),                             
-                             make_aop_call(id, targetname=newname, discard=False),
+                             make_aop_call(id, targetname=newname,
+                                           discard=False),
                              ])
         
         node.decorators = None
         node.code = newcode
-        print 'weaving produced:'
-        node.accept(DEBUGGER)
         return node
     
 class before(Advice):
     """specify code to be run before the pointcut"""
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE before!!!"
-        id = __aop__.register_joinpoint(self.function, tjp)
+        id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement_list = node.code.nodes
         statement_list.insert(0, make_aop_call(id))
         node.code.nodes = statement_list
@@ -137,7 +107,7 @@ class after(Advice):
     """specify code to be run after the pointcut"""
     def weave_at_pointcut(self, node, tjp):
         print "WEAVE after!!!"
-        id = __aop__.register_joinpoint(self.function, tjp)
+        id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement = node.code
         tryfinally = parser.ASTTryFinally(statement, make_aop_call(id))
         node.code = tryfinally
@@ -164,29 +134,29 @@ class JoinPoint:
     def signature(self):
         """return: string representation of the signature of the joint
         point"""
-        return self.signature
+        return self._signature
 
     def that(self):
         """return: a reference on the object initiating the call, or
         None if it is a static method or a global function"""
-        return self.that
+        return self._that
     
     def target(self):
         """return: reference the object that is the target of a call
         or None if it is a static method or a global function"""
-        return self.target
+        return self._target
 
     def result(self):
         """return: reference on result value or None"""
-        return self.result
+        return self._result
 
     def arguments(self):
         """return: the (args, kwargs) of the join point"""
-        return self.arguments
+        return self._arguments
 
     def proceed(self, *args, **kwargs):
         """execute the original code in an around advice"""
-        self.result = self.func(*args, **kwargs)
+        self._result = self.func(*args, **kwargs)
 
     def action(self):
         """return: the runtime action object containing the execution
@@ -194,11 +164,13 @@ class JoinPoint:
         pass
 
     def __init__(self, signature=None, that=None, target=None, result=None, arguments=None, func=None):
-        self.signature = signature
-        self.that = that
-        self.target = target
-        self.result = result
-        self.arguments = arguments
+        self._signature = signature
+        self._that = that
+        self._target = target
+        self._result = result
+        if arguments is None:
+            arguments = (), {}
+        self._arguments = arguments
         self.func = func
     
 
@@ -237,48 +209,60 @@ class PointCut:
 
     def call(self):
         """return a dynamic pointcut representing places where the pointcut is called"""
-        # XXX may be difficult to implement ?
-        self.isdynamic = True
-        self.mode = 'call'
-        #raise NotImplementedError('call')
-        return self
-
+        return CallPointCut(self)
     def execution(self):
         """return a dynamic pointcut representing places where the pointcut is executed"""
-        self.isdynamic = True
-        self.mode = 'execution'
-        return self
+        return ExecutionPointCut(self)
 
     def initialization(self):
         """return a dynamic pointcut representing places where the pointcut is instantiated"""
-        self.isdynamic = True
-        self.mode = 'initializartion'
-        #raise NotImplementedError('initialization')
-        return self
+        return InitializationPointCut(self)
     
     def destruction(self):
         """return a dynamic pointcut representing places where the pointcut is destroyed"""
-        self.isdynamic = True
-        self.mode = 'destruction'
-        #raise NotImplementedError('destruction')
-
-        return self
-
+        return DestructionPointCut(self)
+    
     def match(self, astnode):
-        # FIXME !!! :-)
-        if self.mode == 'execution':
-            try:
-                return astnode.name == self.pointcutdef
-            except AttributeError:
-                return False
+        raise NotImplementedError
+    
+    def joinpoint(self, node):
+        """returns a join point instance for the node"""
+        assert self.match(node)
+        return JoinPoint()
+
+
+class AbstractDynamicPointCut(PointCut):
+    def __init__(self, pointcut):
+        PointCut.__init__(self, pointcut)
+        self.isdynamic = True
+
+        
+class ExecutionPointCut(AbstractDynamicPointCut):
+    def match(self, astnode):
+        try:
+            return astnode.name == self.pointcutdef
+        except AttributeError:
+            return False
 
     def joinpoint(self, node):
         """returns a join point instance for the node"""
         assert self.match(node)
-        if self.mode == 'execution':
-##             stnode = parser.STType(node)
-##             target = getattr(stnode.compile(), node.name)
-            return JoinPoint()
+        jp = JoinPoint()
+        jp._flags = node.flags
+        jp._argnames = [a.name for a in node.argnames]
+        jp._defaultargvalues = [d.value for d in node.defaults]
+        
+        return jp
+
+class CallPointCut(AbstractDynamicPointCut):
+    pass
+
+class DestructionPointCut(AbstractDynamicPointCut):
+    pass
+
+class InitializationPointCut(AbstractDynamicPointCut):
+    pass
+
 
 ### make these class methods of PointCut ?
 def within(pointcutstring):
@@ -332,19 +316,21 @@ class Weaver:
         finally:
             self._id += 1
     
-    def register_joinpoint(self, callable, *args):
+    def register_joinpoint(self, woven_code, joinpoint,  *args):
         assert self._curr_aspect is not None
         id = self._next_id()
         print "register joinpoint with id %d" % id
-        args = (self._curr_aspect,) + args
-        self.joinpoints[id] = callable, args
+        arguments = self._curr_aspect, joinpoint, args
+        self.joinpoints[id] = woven_code, arguments
         return id
 
-    def __call__(self, id, target=None):
-        callable, args = self.joinpoints[id]
-        print args
-        args[-1].target = target
-        callable(*args)
+    def __call__(self, id, target=None, target_locals = None):
+        woven_code, (aspect, joinpoint, arguments) = self.joinpoints[id]
+        joinpoint.func = target
+        if target_locals is not None:
+            joinpoint._arguments = (), dict([(n, target_locals[n]) for n in joinpoint._argnames])
+        args = (aspect, joinpoint,) + arguments
+        return woven_code(*args)
 
 import __builtin__
 __builtin__.__aop__ = Weaver()
@@ -369,3 +355,18 @@ class Aspect(type):
         return instance
 
 
+# debugging visitor
+class Debug(parser.ASTVisitor):
+    def __init__(self):
+        self.offset = 0
+    def default(self, node):
+        print ' '*self.offset+str(node)
+        self.offset += 4
+        for child in node.getChildNodes():
+            child.accept(self)
+        self.offset -= 4
+        return node
+
+    
+
+DEBUGGER= Debug()
