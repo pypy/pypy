@@ -122,13 +122,6 @@ def main_(argv=None):
 
             # start the interactive console
             if go_interactive or getenv_w(space, 'PYTHONINSPECT'):
-                python_startup = getenv_w(space, 'PYTHONSTARTUP')
-                if python_startup:
-                    try:
-                        main.run_file(python_startup, space=space)
-                    except:
-                        pass
-                    
                 con = interactive.PyPyConsole(
                     space, verbose=interactiveconfig.verbose,
                     completer=interactiveconfig.completer)
