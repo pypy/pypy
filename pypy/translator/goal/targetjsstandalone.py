@@ -14,12 +14,12 @@ interp = Interpreter()
 def entry_point(argv):
     if len(argv) == 2:
         f = open_file_as_stream(argv[1])
-        interp.run(load_bytecode(f.readall()))
+        interp.run(load_source(f.readall()))
         return 0
     elif argv[0] == 'foo':
         raise ExecutionReturned(None)
     else:
-        print "Usage: %s bytecodefile" % argv[0]
+        print "Usage: %s jsourcefile" % argv[0]
         return 1
 
 # _____ Define and setup target ___
