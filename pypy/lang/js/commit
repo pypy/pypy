@@ -1,0 +1,1 @@
+py.test -x --tb=no|grep -q "1 failed" || svn commit
