@@ -3,7 +3,7 @@
 class partial:
     """
     partial(func, *args, **keywords) - new function with partial application
-	of the given arguments and keywords.
+    of the given arguments and keywords.
     """
     __slots__ = ['func', 'args', 'keywords']
 
