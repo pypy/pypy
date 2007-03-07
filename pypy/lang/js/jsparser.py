@@ -9,7 +9,7 @@ import os.path as path
 import re
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.ebnfparse import Symbol
-from pypy.rlib.streamio import open_file_as_stream
+from pypy.rlib.streamio import open_file_as_stream, fdopen_as_stream
 
 DEBUG = False
 
@@ -57,10 +57,11 @@ def read_js_output(code_string):
             except OSError:
                 pass
         cmd = ['/bin/sh', '-c', 'js -f '+fname]
-        os.execvp(cmd[0], cmd)
+        os.execv(cmd[0], cmd)
     os.close(c2pwrite)
-    retval = os.read(c2pread, -1)
-    os.close(c2pread)
+    f = fdopen_as_stream(c2pread, 'r', 0)
+    retval = f.readall()
+    f.close()
     if not retval.startswith("{"):
         raise JsSyntaxError(retval)
     if DEBUG:
@@ -71,7 +72,10 @@ def read_js_output(code_string):
 def unquote(t):
     if isinstance(t, Symbol):
         if t.symbol == "QUOTED_STRING":
-            t.additional_info = t.additional_info[1:-1].replace("\\'", "'").replace("\\\\", "\\")
+            stop = len(t.additional_info)-1
+            if stop < 0:
+                stop = 0
+            t.additional_info = t.additional_info[1:].replace("\\'", "'").replace("\\\\", "\\")
     else:
         for i in t.children:
             unquote(i)

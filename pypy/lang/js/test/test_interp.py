@@ -496,3 +496,10 @@ class TestInterp(object):
         }
         print(x)
         """, ['4', '2', '3', '4'])
+    
+    def test_bitops(self):
+        self.assert_prints("""
+        print(2 ^ 2)
+        print(2 & 3)
+        print(2 | 3)
+        """, ['0', '2', '3'])

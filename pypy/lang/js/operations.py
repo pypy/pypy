@@ -14,7 +14,7 @@ class Node(object):
     is used to match the AST operation to the efective execution node.
     """
     opcode = None
-    def __init__(self, t=None, type='', value='', lineno=0, start=0, end=0):
+    def __init__(self, t=None, type_='', value='', lineno=0, start=0, end=0):
         """
         Not to be overriden by subclasses, this method thakes the basic node
         information from the AST needed for tracing and debuging. if you want
@@ -22,7 +22,7 @@ class Node(object):
         call.
         """
         if t is None:
-            self.type = type
+            self.type = type_
             self.value = value
             self.lineno = lineno
             self.start = start
@@ -152,11 +152,11 @@ class Assign(BinaryOp):
         elif op == "%":
             val = Mod().mathop(ctx, v1.GetValue(), v3)
         elif op == "&":
-            val = BitwiseAnd().mathop(ctx, v1.GetValue(), v3)
+            val = BitwiseAnd().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
         elif op == "|":
-            val = BitwiseOR().mathop(ctx, v1.GetValue(), v3)
+            val = BitwiseOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
         elif op == "^":
-            val = BitwiseXOR().mathop(ctx, v1.GetValue(), v3)
+            val = BitwiseXOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
         else:
             print op
             raise NotImplementedError()
@@ -709,8 +709,8 @@ class Mod(BinaryNumberOp):
     opcode = 'MOD'
     
     def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToNumber()
-        fright = nright.ToNumber()
+        fleft = nleft.ToInt32()
+        fright = nright.ToInt32()
         return W_Number(fleft % fright)
 
 
@@ -718,8 +718,8 @@ class Div(BinaryNumberOp):
     opcode = 'DIV'
     
     def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToNumber()
-        fright = nright.ToNumber()
+        fleft = nleft.ToInt32()
+        fright = nright.ToInt32()
         return W_Number(fleft / fright)
 
 class Minus(BinaryNumberOp):

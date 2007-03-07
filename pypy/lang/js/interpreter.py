@@ -22,10 +22,11 @@ def evaljs(ctx, args, this):
     return load_source(code.ToString()).execute(ctx)
 
 def functionjs(ctx, args, this):
-    if len(args) >= 1:
-        fbody  = args[-1].GetValue().ToString()
+    tam = len(args)
+    if tam >= 1:
+        fbody  = args[tam-1].GetValue().ToString()
         argslist = []
-        for i in range(len(args)-1):
+        for i in range(tam-1):
             argslist.append(args[i].GetValue().ToString())
         fargs = ','.join(argslist)
         functioncode = "__anon__ = function (%s) {%s}"%(fargs, fbody)
