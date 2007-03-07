@@ -519,9 +519,10 @@ class BaseTestInline:
                 tot += item
             return tot
 
-        eval_func, t = self.check_auto_inlining(f, [])
+        eval_func, t = self.check_auto_inlining(f, [], checkvirtual=True)
         f_graph = graphof(t, f)
-        assert len(collect_called_graphs(f_graph, t)) == 0
+        called_graphs = collect_called_graphs(f_graph, t, include_oosend=False)
+        assert len(called_graphs) == 0
 
         result = eval_func([])
         assert result == 6
@@ -649,6 +650,3 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         eval_func, t = self.check_auto_inlining(fn5, [], checkvirtual=True)
         res = eval_func([])
         assert res == 42
-
-    def test_list_iteration(self):
-        py.test.skip('fixme!')

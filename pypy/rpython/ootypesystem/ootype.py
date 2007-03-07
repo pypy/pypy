@@ -292,20 +292,23 @@ class Record(BuiltinType):
 
 class BuiltinADTType(BuiltinType):
 
-    def _setup_methods(self, generic_types):
+    def _setup_methods(self, generic_types, can_raise=[]):
         methods = {}
         for name, meth in self._GENERIC_METHODS.iteritems():
             args = [self._specialize_type(arg, generic_types) for arg in meth.ARGS]
             result = self._specialize_type(meth.RESULT, generic_types)
             methods[name] = Meth(args, result)
         self._METHODS = frozendict(methods)
+        self._can_raise = tuple(can_raise)
 
     def _lookup(self, meth_name):
         METH = self._METHODS.get(meth_name)
         meth = None
         if METH is not None:
             cls = self._get_interp_class()
-            meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name))
+            can_raise = meth_name in self._can_raise
+            meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name), _can_raise=can_raise)
+            meth._virtual = False
         return self, meth
 
 
@@ -600,8 +603,7 @@ class DictItemsIterator(BuiltinADTType):
             "ll_current_key": Meth([], self.KEYTYPE_T),
             "ll_current_value": Meth([], self.VALUETYPE_T),
         })
-
-        self._setup_methods(generic_types)
+        self._setup_methods(generic_types, can_raise=['ll_go_next'])
 
     def __str__(self):
         return '%s%s' % (self.__class__.__name__,

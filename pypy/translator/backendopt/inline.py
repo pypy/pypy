@@ -30,7 +30,11 @@ def get_meth_from_oosend(op):
     else:
         return meth
 
-def collect_called_graphs(graph, translator):
+class CanRaise:
+    def __init__(self, can_raise):
+        self.can_raise = can_raise
+
+def collect_called_graphs(graph, translator, include_oosend=True):
     graphs_or_something = {}
     for block in graph.iterblocks():
         for op in block.operations:
@@ -47,9 +51,14 @@ def collect_called_graphs(graph, translator):
                 else:
                     for graph in graphs:
                         graphs_or_something[graph] = True
-            if op.opname == 'oosend':
+            if op.opname == 'oosend' and include_oosend:
                 meth = get_meth_from_oosend(op)
-                key = getattr(meth, 'graph', op.args[0])
+                if hasattr(meth, 'graph'):
+                    key = meth.graph
+                elif hasattr(meth, '_can_raise'):
+                    key = CanRaise(meth._can_raise)
+                else:
+                    key = op.args[0]
                 graphs_or_something[key] = True
     return graphs_or_something
 
@@ -144,11 +153,15 @@ def does_raise_directly(graph, raise_analyzer):
     return False
 
 def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
-    for graph in collect_called_graphs(from_graph, translator):
-        if not isinstance(graph, FunctionGraph):
-            return True     # conservatively
-        if does_raise_directly(graph, raise_analyzer):
-            return True
+    for graph_or_something in collect_called_graphs(from_graph, translator):
+        if isinstance(graph_or_something, FunctionGraph):
+            if does_raise_directly(graph_or_something, raise_analyzer):
+                return True
+        elif isinstance(graph_or_something, CanRaise):
+            if graph_or_something.can_raise:
+                return True
+        else:
+            return True # conservatively
     return False
 
 class BaseInliner(object):
@@ -435,7 +448,7 @@ class BaseInliner(object):
         assert afterblock.operations[n].opname == self.op.opname
         self.op = afterblock.operations.pop(n)
         #vars that need to be passed through the blocks of the inlined function
-        linktoinlined = splitlink 
+        linktoinlined = splitlink
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
         copiedstartblock.isstartblock = False
         #find args passed to startblock of inlined function

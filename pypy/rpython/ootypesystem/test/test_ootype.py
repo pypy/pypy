@@ -443,3 +443,11 @@ def test_subclasses():
     assert not B._subclasses
     assert C in A._subclasses
     assert D in C._subclasses
+
+def test_canraise():
+    LT = List(Signed)
+    _, meth = LT._lookup('ll_length')
+    assert meth._can_raise == False
+    DT = DictItemsIterator(String, Signed)
+    _, meth = DT._lookup('ll_go_next')
+    assert meth._can_raise == True
