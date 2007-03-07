@@ -50,7 +50,7 @@ class fixed_list__set_item:
     def loop(obj, i):
         obj[i%1000] = i
 
-class list__iteration:
+class list__iteration__int:
     __metaclass__ = MetaBench
     LOOPS = 100000
     def init():
@@ -62,4 +62,18 @@ class list__iteration:
         tot = 0
         for item in obj:
             tot += item
+        return tot
+
+class list__iteration__string:
+    __metaclass__ = MetaBench
+    LOOPS = 100000
+    def init():
+        obj = ['foo']*1000
+        obj[0] = 'bar'
+        return obj
+    args = ['obj']
+    def loop(obj):
+        tot = 0
+        for item in obj:
+            tot += len(item)
         return tot
