@@ -200,12 +200,10 @@ class ObjSpace(object):
 
         # Initialize all builtin modules
         from pypy.interpreter.module import Module
-        for modname in self._builtinmodule_list:
-            try:
-                mod = self.getbuiltinmodule(modname)
-            except OperationError:
-                # Not found, ignore it.
-                continue
+        for w_modname in self.unpackiterable(
+                                self.sys.get('builtin_module_names')):
+            modname = self.str_w(w_modname)
+            mod = self.getbuiltinmodule(modname)
             if isinstance(mod, Module):
                 mod.startup(self)
 
