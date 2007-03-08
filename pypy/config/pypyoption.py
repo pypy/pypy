@@ -128,8 +128,8 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False),
 
         BoolOption("withprebuiltchar",
-                   default=False,
-                   "use prebuilt single-character string objects"),
+                   "use prebuilt single-character string objects",
+                   default=False),
 
         BoolOption("sharesmallstr",
                    "always reuse the prebuilt string objects "
