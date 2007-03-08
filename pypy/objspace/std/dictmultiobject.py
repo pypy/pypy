@@ -767,7 +767,7 @@ class SharedDictImplementation(DictImplementation):
 
     def items(self):
         space = self.space
-        return [(space.wrap(key), self.entries[item])
+        return [space.newtuple([space.wrap(key), self.entries[item]])
                     for (key, item) in self.structure.keys.iteritems()
                         if item >= 0]
 
