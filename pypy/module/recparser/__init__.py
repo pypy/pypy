@@ -54,3 +54,10 @@ class Module(MixedModule):
 from pypy.interpreter.astcompiler.ast import nodeclasses
 for klass_name in nodeclasses:
      Module.interpleveldefs['AST' + klass_name] = 'pypy.interpreter.astcompiler.ast.%s' % klass_name
+
+from pypy.interpreter.astcompiler import consts
+for name in dir(consts):
+    if name.startswith('__') or name in Module.interpleveldefs:
+        continue
+    Module.interpleveldefs[name] = ("space.wrap(%s)" %
+                                    (getattr(consts, name), ))
