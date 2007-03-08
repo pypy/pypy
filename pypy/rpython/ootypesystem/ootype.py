@@ -573,7 +573,7 @@ class CustomDict(Dict):
         HASH_FUNC = StaticMethod([self.KEYTYPE_T], Signed)
         self._GENERIC_METHODS['ll_set_functions'] = Meth([EQ_FUNC, HASH_FUNC], Void)
         self._GENERIC_METHODS['ll_copy'] = Meth([], self.SELFTYPE_T)
-        self._setup_methods(self._generic_types)
+        self._setup_methods(self._generic_types, can_raise=['ll_get', 'll_set', 'll_remove', 'll_contains'])
 
     def _get_interp_class(self):
         return _custom_dict
