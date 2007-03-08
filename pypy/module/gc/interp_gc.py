@@ -9,10 +9,12 @@ def collect(space):
     
 collect.unwrap_spec = [ObjSpace]
 
+import sys
+platform = sys.platform
+
 def estimate_heap_size(space):
-    import sys
     # XXX should be done with the help of the GCs
-    if sys.platform == "linux2":
+    if platform == "linux2":
         import os
         pid = os.getpid()
         try:
