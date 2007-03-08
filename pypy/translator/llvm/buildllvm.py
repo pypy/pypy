@@ -200,7 +200,8 @@ class Builder(object):
             object_files.append("%s.o" % b)
         else:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
-            if self.genllvm.config.translation.profopt is not None:
+            if (self.genllvm.config.translation.profopt is not None and
+                not self.genllvm.config.translation.noprofopt):
                 cmd = "gcc -fprofile-generate %s.c -c -O3 -pipe -o %s.o" % (b, b)
                 self.cmds.append(cmd)
                 cmd = "gcc -fprofile-generate %s.o %s %s -lm -pipe -o %s_gen" % \

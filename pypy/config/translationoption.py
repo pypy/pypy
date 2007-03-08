@@ -56,6 +56,8 @@ translation_optiondescription = OptionDescription(
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),
     StrOption("profopt", "Specify profile based optimization script",
               cmdline="--profopt"),
+    BoolOption("noprofopt", "Don't use profile based optimization",
+               default=False, cmdline="--no-profopt", negation=False),
     BoolOption("instrument", "internal: turn instrumentation on",
                default=False, cmdline=None),
 

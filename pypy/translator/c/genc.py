@@ -229,7 +229,7 @@ class CStandaloneBuilder(CBuilder):
             profbased = self.config.translation.instrumentctl
         else:
             profopt = self.config.translation.profopt
-            if profopt is not None:
+            if profopt is not None and not self.config.translation.noprofopt:
                 profbased = (ProfOpt, profopt)
 
         return CCompiler(

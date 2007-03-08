@@ -135,3 +135,32 @@ def test_frexp():
     cbuilder.compile()
     data = cbuilder.cmdexec('hi there')
     assert map(float, data.split()) == [0.0, 0.0]
+
+def test_profopt():
+    if sys.platform == 'win32':
+        py.test.skip("instrumentation support is unix only for now")
+    def add(a,b):
+        return a + b - b + b - b + b - b + b - b + b - b + b - b + b
+    def entry_point(argv):
+        tot =  0
+        x = int(argv[1])
+        while x > 0:
+            tot = add(tot, x)
+            x -= 1
+        os.write(1, str(tot))
+        return 0
+    from pypy.translator.interactive import Translation
+    # XXX this is mostly a "does not crash option"
+    t = Translation(entry_point, backend='c', standalone=True, profopt="")
+    # no counters
+    t.backendopt()
+    exe = t.compile()
+    out = py.process.cmdexec("%s 500" % exe)
+    assert int(out) == 500*501/2
+    t = Translation(entry_point, backend='c', standalone=True, profopt="",
+                    noprofopt=True)
+    # no counters
+    t.backendopt()
+    exe = t.compile()
+    out = py.process.cmdexec("%s 500" % exe)
+    assert int(out) == 500*501/2
