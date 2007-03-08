@@ -289,6 +289,26 @@ def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
     self.lineno = lineno
     return space.wrap(self)
 
+
+def descr_Lambda_new(space, w_subtype, w_argnames, w_defaults, w_flags, w_code, lineno=-1):
+    self = space.allocate_instance(Lambda, w_subtype)
+    argnames = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_argnames)]
+    self.argnames = argnames
+    defaults = [space.interp_w(Node, w_node) for w_node in space.unpackiterable(w_defaults)]
+    self.defaults = defaults
+    flags = space.int_w(w_flags)
+    self.flags = flags
+    code = space.interp_w(Node, w_code, can_be_None=False)
+    self.code = code
+    self.lineno = lineno
+    self.varargs = 0
+    self.kwargs = 0
+    if flags & CO_VARARGS:
+        self.varargs = 1
+    if flags & CO_VARKEYWORDS:
+        self.kwargs = 1
+    return space.wrap(self)
+
 def descr_Function_new(space, w_subtype, w_decorators, w_name, w_argnames, w_defaults, w_flags, w_doc, w_code, lineno=-1):
     self = space.allocate_instance(Function, w_subtype)
     decorators = space.interp_w(Node, w_decorators, can_be_None=True)

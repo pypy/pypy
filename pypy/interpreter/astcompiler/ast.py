@@ -85,7 +85,7 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
-                       #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
+                       __repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
                        getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
                        accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
@@ -2538,6 +2538,7 @@ def descr_From_new(space, w_subtype, w_modname, w_names, lineno=-1):
 
 
 
+
 def descr_From_accept( space, w_self, w_visitor):
     return space.call_method(w_visitor, 'visitFrom', w_self)
 
@@ -3505,7 +3506,15 @@ def descr_Lambda_new(space, w_subtype, w_argnames, w_defaults, w_flags, w_code, 
     code = space.interp_w(Node, w_code, can_be_None=False)
     self.code = code
     self.lineno = lineno
+    self.varargs = 0
+    self.kwargs = 0
+    if flags & CO_VARARGS:
+        self.varargs = 1
+    if flags & CO_VARKEYWORDS:
+        self.kwargs = 1
     return space.wrap(self)
+
+
 
 def descr_Lambda_accept( space, w_self, w_visitor):
     return space.call_method(w_visitor, 'visitLambda', w_self)
