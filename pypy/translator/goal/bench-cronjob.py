@@ -151,6 +151,7 @@ def get_load():
 
 def benchmark():
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
+    uname = os.popen('uname -a', 'r').read()
     startload = get_load()
     result = run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
     endload = get_load()
@@ -158,6 +159,7 @@ def benchmark():
         f = open('benchmark.html', 'w')
         print >> f, "<html><body>"
         print >> f, "<pre>"
+        print >> f, "uname -a:", uname
         print >> f, "Benchmark started:", startload
         print >> f, "            ended:", endload
         print >> f
