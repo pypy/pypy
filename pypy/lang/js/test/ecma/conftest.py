@@ -36,7 +36,7 @@ class JSTestFile(py.test.collect.Module):
         cls.interp = Interpreter()
         ctx = cls.interp.global_context
         shellpath = rootdir/'shell.js'
-        t = load_source(shellpath.read())
+        t = load_file(str(shellpath))
         t.execute(ctx)
         cls.testcases = cls.interp.global_context.resolve_identifier('testcases')
         cls.tc = cls.interp.global_context.resolve_identifier('tc')
@@ -54,7 +54,7 @@ class JSTestFile(py.test.collect.Module):
             return
         self.init_interp()
         #actually run the file :)
-        t = load_source(self.fspath.read())
+        t = load_file(str(self.fspath))
         try:
             t.execute(self.interp.global_context)
         except JsSyntaxError:

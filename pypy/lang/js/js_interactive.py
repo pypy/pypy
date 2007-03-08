@@ -41,9 +41,7 @@ class Usage(Exception):
 
 def loadjs(ctx, args, this):
     filename = args[0]
-    f = open(filename.ToString())
-    t = load_source(f.read())
-    f.close()
+    t = load_file(filename.ToString())
     return t.execute(ctx)
 
 def tracejs(ctx, args, this):

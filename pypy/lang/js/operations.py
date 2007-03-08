@@ -127,7 +127,6 @@ class Array(ListOp):
     opcode = 'ARRAY_INIT'
     
     def eval(self, ctx):
-        #d = dict(enumerate(self.items))
         array = W_Array()
         for i in range(len(self.list)):
             array.Put(str(i), self.list[i].eval(ctx).GetValue())

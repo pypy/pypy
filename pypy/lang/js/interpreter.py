@@ -2,6 +2,8 @@
 import math
 from pypy.lang.js.jsparser import parse, parse_bytecode
 from pypy.lang.js.operations import *
+from pypy.rlib.objectmodel import we_are_translated
+
 
 def writer(x):
     print x
@@ -13,6 +15,26 @@ def load_source(script_source):
 def load_bytecode(bytecode):
     temp_tree = parse_bytecode(bytecode)
     return from_tree(temp_tree)
+
+def load_file(filename):
+    # NOT RPYTHON
+    import cPickle as pickle
+    import os.path
+    base, ext = os.path.splitext(filename)
+    jscname = base+".jsc"
+    if os.path.isfile(jscname):
+        jsc = open(jscname, 'r')
+        t = pickle.load(jsc)
+        jsc.close()
+    else:
+        f = open(filename)
+        t = parse(f.read())
+        f.close()
+        jsc = open(jscname, 'w')
+        pickle.dump(t, jsc, protocol=2)
+        jsc.close()
+    return from_tree(t)
+    
 
 def evaljs(ctx, args, this):
     if len(args) >= 1:
