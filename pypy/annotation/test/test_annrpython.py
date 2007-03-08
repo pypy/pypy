@@ -325,7 +325,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.flow_type_info,
                           [annmodel.SomeInteger(nonneg=True)])
-        # this checks that isinstance(i, int) didn't loose the
+        # this checks that isinstance(i, int) didn't lose the
         # actually more precise information that i is non-negative
         assert s == annmodel.SomeInteger(nonneg=True)
 

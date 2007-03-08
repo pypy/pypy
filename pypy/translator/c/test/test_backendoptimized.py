@@ -49,7 +49,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         res = f(5)
         assert res == 5
         res = fn(5)
-        # translated function looses its last reference earlier
+        # translated function loses its last reference earlier
         assert res == 6
     
     def test_del_inheritance(self):

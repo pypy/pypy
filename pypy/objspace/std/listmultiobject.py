@@ -734,7 +734,7 @@ class SliceListImplementation(ListImplementation):
         if self.detached_impl is None:
             self.detached_impl = self.listimpl.getitem_true_slice(
                 self.start, self.stop)
-            self.listimpl = None # loose the reference
+            self.listimpl = None # lose the reference
 
     def detach_and_unregister(self):
         if self.detached_impl is None:

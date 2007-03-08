@@ -99,7 +99,7 @@
 #define OP_INT_LSHIFT_OVF(x,y,r) \
 	OP_INT_LSHIFT(x,y,r); \
 	if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
-		FAIL_OVF("x<<y loosing bits or changing sign")
+		FAIL_OVF("x<<y losing bits or changing sign")
 
 /* the safe value-checking version of the above macros */
 

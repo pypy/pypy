@@ -85,11 +85,11 @@ def int_lshift_ovf(x, y):
     '''#define OP_INT_LSHIFT_OVF(x,y,r,err) \
         OP_INT_LSHIFT(x,y,r,err); \
         if ((x) != Py_ARITHMETIC_RIGHT_SHIFT(long, r, (y))) \
-                FAIL_OVF(err, "x<<y loosing bits or changing sign")
+                FAIL_OVF(err, "x<<y losing bits or changing sign")
     '''
     r = x << y
     if x != _Py_ARITHMETIC_RIGHT_SHIFT(r, y):
-        raise OverflowError("x<<y loosing bits or changing sign")
+        raise OverflowError("x<<y losing bits or changing sign")
     else:
         return r
 

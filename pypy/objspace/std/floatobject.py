@@ -120,7 +120,7 @@ def ge__Float_Float(space, w_float1, w_float2):
 
 # for overflowing comparisons between longs and floats
 # XXX we might have to worry (later) about eq__Float_Int, for the case
-#     where int->float conversion may loose precision :-(
+#     where int->float conversion may lose precision :-(
 def eq__Float_Long(space, w_float1, w_long2):
     # XXX naive implementation
     x = w_float1.floatval
