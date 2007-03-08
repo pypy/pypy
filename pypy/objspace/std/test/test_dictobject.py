@@ -144,14 +144,14 @@ class AppTest_DictObject:
         assert d == dd
         assert not d is dd
         
-    def tooslow_test_get(self):
+    def test_get(self):
         d = {1:2, 3:4}
         assert d.get(1) == 2
         assert d.get(1,44) == 2
         assert d.get(33) == None
         assert d.get(33,44) == 44
 
-    def tooslow_test_pop(self):
+    def test_pop(self):
         d = {1:2, 3:4}
         dd = d.copy()
         result = dd.pop(1)
