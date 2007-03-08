@@ -8,4 +8,5 @@ class Module(MixedModule):
     }
     interpleveldefs = {
         'collect': 'interp_gc.collect',
+        'estimate_heap_size': 'interp_gc.estimate_heap_size',
     }
