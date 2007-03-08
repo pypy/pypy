@@ -299,7 +299,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec = ObjSpace.createexecutioncontext(self)
         ec._py_repr = self.newdict()
         if self.config.objspace.std.withmethodcache:
-            SIZE = self.config.objspace.std.methodcachesize
+            SIZE = 2 ** self.config.objspace.std.methodcachesizeexp
             ec.method_cache_versions = [None] * SIZE
             ec.method_cache_names = [None] * SIZE
             ec.method_cache_lookup_where = [(None, None)] * SIZE

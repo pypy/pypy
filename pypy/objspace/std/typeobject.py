@@ -320,8 +320,8 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        SIZE = space.config.objspace.std.methodcachesize
-        method_hash = (id(version_tag) ^ position_hash ^ hash(name)) % SIZE
+        MASK = 2 ** space.config.objspace.std.methodcachesizeexp - 1
+        method_hash = (id(version_tag) ^ position_hash ^ hash(name)) & MASK
         cached_version_tag = ec.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = ec.method_cache_names[method_hash]
