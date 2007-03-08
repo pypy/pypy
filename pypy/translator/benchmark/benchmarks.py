@@ -116,10 +116,12 @@ def check_templess():
     templessdir = py.magic.autopath().dirpath().join('templess')
     return templessdir.check()
     
+def check_translate():
+    return False
 
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
-              Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms'),
+              Benchmark('translate', run_translate, RICHARDS_ASCENDING_GOOD, 'ms', check_translate),
               Benchmark('docutils', run_docutils, RICHARDS_ASCENDING_GOOD,
                         's', check_docutils),
               Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
