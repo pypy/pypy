@@ -157,6 +157,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # hack to avoid imports in the time-critical functions below
         for cls in self.model.typeorder:
             globals()[cls.__name__] = cls
+        for cls in self.model.imported_but_not_registered:
+            globals()[cls.__name__] = cls
 
         # singletons
         self.w_None  = W_NoneObject()

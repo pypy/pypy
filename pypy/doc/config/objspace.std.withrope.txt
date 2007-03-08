@@ -1,0 +1,3 @@
+Implement the Python ``str`` types using *ropes*, described in the paper
+"Ropes: an Alternative to Strings" by Hans-J. Boehm, Russ Atkinson and Michael
+Plass.

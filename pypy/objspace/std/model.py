@@ -15,6 +15,8 @@ option_to_typename = {
     "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
                         "dictmultiobject.W_DictMultiIterObject"],
     "withmultilist"  : ["listmultiobject.W_ListMultiObject"],
+    "withrope"       : ["ropeobject.W_RopeObject",
+                        "ropeobject.W_RopeIterObject"],
     "withrangelist"  : ["rangeobject.W_RangeListObject",
                         "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
@@ -65,6 +67,7 @@ class StdTypeModel:
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import listmultiobject
         from pypy.objspace.std import stringobject
+        from pypy.objspace.std import ropeobject
         from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import strjoinobject
         from pypy.objspace.std import typeobject
@@ -108,10 +111,11 @@ class StdTypeModel:
         self.typeorder[setobject.W_FrozensetObject] = []
         self.typeorder[setobject.W_SetIterObject] = []
 
-        imported_but_not_registered = {
+        self.imported_but_not_registered = {
             dictobject.W_DictObject: True,
             dictobject.W_DictIterObject: True,
             listobject.W_ListObject: True,
+            stringobject.W_StringObject: True,
         }
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
@@ -120,7 +124,7 @@ class StdTypeModel:
                     if value:
                         self.typeorder[implcls] = []
                     else:
-                        imported_but_not_registered[implcls] = True
+                        self.imported_but_not_registered[implcls] = True
 
         if config.objspace.std.withmultidict:
             del self.typeorder[dictobject.W_DictObject]
@@ -128,12 +132,14 @@ class StdTypeModel:
 
         if config.objspace.std.withmultilist:
             del self.typeorder[listobject.W_ListObject]
+        if config.objspace.std.withrope:
+            del self.typeorder[stringobject.W_StringObject]
 
         #check if we missed implementations
         from pypy.objspace.std.objspace import _registered_implementations
         for implcls in _registered_implementations:
             assert (implcls in self.typeorder or
-                    implcls in imported_but_not_registered), (
+                    implcls in self.imported_but_not_registered), (
                 "please add %r in StdTypeModel.typeorder" % (implcls,))
 
 
@@ -175,9 +181,14 @@ class StdTypeModel:
             (complexobject.W_ComplexObject, 
                     complexobject.delegate_Float2Complex),
             ]
-        self.typeorder[stringobject.W_StringObject] += [
-         (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-            ]
+        if not config.objspace.std.withrope:
+            self.typeorder[stringobject.W_StringObject] += [
+             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
+                ]
+        else:
+            self.typeorder[ropeobject.W_RopeObject] += [
+             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
+                ]
 
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [
