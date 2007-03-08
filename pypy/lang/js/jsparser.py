@@ -21,6 +21,7 @@ jsdir = path.join(path.dirname(__file__),"js")
 jsdefspath = path.join(jsdir, "jsdefs.js")
 jsparsepath = path.join(jsdir, "jsparse.js")
 fname = path.join(path.dirname(__file__) ,"tobeparsed.js")
+command = 'js -f %s -f %s -f %s'%(jsdefspath, jsparsepath, fname)
 
 def read_js_output(code_string):
     tmp = []
@@ -41,14 +42,8 @@ def read_js_output(code_string):
         print code_string
         print "------ put:"
         print stripped_code
-    f_jsdefs = open_file_as_stream(jsdefspath) 
-    jsdefs = f_jsdefs.readall()
-    f_jsdefs.close()
-    f_jsparse = open_file_as_stream(jsparsepath)
-    jsparse = f_jsparse.readall()
-    f_jsparse.close()
     f = open_file_as_stream(fname, 'w')
-    f.write(jsdefs+jsparse+"print(parse('%s'));\n" % stripped_code)
+    f.write("print(parse('%s'));\n" % stripped_code)
     f.close()
     c2pread, c2pwrite = os.pipe()
     if os.fork() == 0:
@@ -59,7 +54,7 @@ def read_js_output(code_string):
                 os.close(i)
             except OSError:
                 pass
-        cmd = ['/bin/sh', '-c', 'js -f '+fname]
+        cmd = ['/bin/sh', '-c', command]
         os.execv(cmd[0], cmd)
     os.close(c2pwrite)
     f = fdopen_as_stream(c2pread, 'r', 0)
