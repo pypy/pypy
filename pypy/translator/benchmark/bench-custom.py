@@ -44,24 +44,25 @@ def main(options, args):
     if not options.nocpython:
         exes = full_pythons + exes
 
-    for i in range(int(options.runcount)):
-        for exe in exes:
-            for b in benchmarks:
-                benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=True)
+    for i in range(int(options.runcount)) + [None]:
+        if i is not None:
+            for exe in exes:
+                for b in benchmarks:
+                    benchmark_result.result(exe, allowcreate=True).run_benchmark(b, verbose=True)
 
-    pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
+        pickle.dump(benchmark_result, open(options.picklefile, 'wb'))
 
-    stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
-    for b in benchmarks:
-        stats.append('bench:'+b.name)
-    if options.relto:
-        relto = options.relto
-    else:
-        relto = full_pythons[0]
-    for row in benchmark_result.txt_summary(stats,
-                                            relto=relto,
-                                            filteron=lambda r: r.exe_name in exes):
-        print row
+        stats = ['stat:st_mtime', 'exe_name', 'pypy_rev']
+        for b in benchmarks:
+            stats.append('bench:'+b.name)
+        if options.relto:
+            relto = options.relto
+        else:
+            relto = full_pythons[0]
+        for row in benchmark_result.txt_summary(stats,
+                                                relto=relto,
+                                                filteron=lambda r: r.exe_name in exes):
+            print row
 
 if __name__ == '__main__':
     from optparse import OptionParser
