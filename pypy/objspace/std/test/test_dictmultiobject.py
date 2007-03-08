@@ -46,6 +46,15 @@ class AppTest_DictSharing(test_dictobject.AppTest_DictObject):
         l[0] = 24
         assert a.abc == 12
 
+class TestW_DictSmall(test_dictobject.TestW_DictObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withsmalldicts": True})
+
+class AppTest_DictSmall(test_dictobject.AppTest_DictObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withsmalldicts": True})
+
+class C: pass
 
 class FakeSpace(test_dictobject.FakeSpace):
     def str_w(self, string):

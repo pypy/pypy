@@ -140,13 +140,17 @@ class EmptyDictImplementation(DictImplementation):
         return None
 
     def setitem(self, w_key, w_value):
-        if _is_str(self.space, w_key):
-            return StrDictImplementation(self.space).setitem_str(w_key, w_value)
-            #return SmallStrDictImplementation(self.space, w_key, w_value)
+        space = self.space
+        if _is_str(space, w_key):
+            if space.config.objspace.std.withsmalldicts:
+                return SmallStrDictImplementation(space, w_key, w_value)
+            else:
+                return StrDictImplementation(space).setitem_str(w_key, w_value)
         else:
-            space = self.space
-            return space.DefaultDictImpl(space).setitem(w_key, w_value)
-        #return SmallDictImplementation(self.space, w_key, w_value)
+            if space.config.objspace.std.withsmalldicts:
+                return SmallDictImplementation(space, w_key, w_value)
+            else:
+                return space.DefaultDictImpl(space).setitem(w_key, w_value)
     def setitem_str(self, w_key, w_value, shadows_type=True):
         return StrDictImplementation(self.space).setitem_str(w_key, w_value)
         #return SmallStrDictImplementation(self.space, w_key, w_value)
@@ -241,12 +245,17 @@ class SmallDictImplementation(DictImplementation):
                 return self.space.emptydictimpl
             return self
         else:
-            raise KeyError        
-    
+            entry.w_key = None
+            raise KeyError
+
     def length(self):
         return self.valid
     def get(self, w_lookup):
-        return self._lookup(w_lookup).w_value
+        entry = self._lookup(w_lookup)
+        val = entry.w_value
+        if val is None:
+            entry.w_key = None
+        return val
 
     def iteritems(self):
         return self._convert_to_rdict().iteritems()
@@ -266,7 +275,6 @@ class SmallDictImplementation(DictImplementation):
 
 class StrEntry(object):
     def __init__(self):
-        self.hash = 0
         self.key = None
         self.w_value = None
     def __repr__(self):
@@ -274,12 +282,11 @@ class StrEntry(object):
 
 class SmallStrDictImplementation(DictImplementation):
     # XXX document the invariants here!
-    
+
     def __init__(self, space, w_key, w_value):
         self.space = space
         self.entries = [StrEntry(), StrEntry(), StrEntry(), StrEntry(), StrEntry()]
         key = space.str_w(w_key)
-        self.entries[0].hash = hash(key)
         self.entries[0].key = key
         self.entries[0].w_value = w_value
         self.valid = 1
@@ -289,11 +296,10 @@ class SmallStrDictImplementation(DictImplementation):
         _hash = hash(key)
         i = 0
         last = self.entries[self.valid]
-        last.hash = _hash
         last.key = key
         while 1:
             look_entry = self.entries[i]
-            if look_entry.hash == _hash and look_entry.key == key:
+            if hash(look_entry.key) == _hash and look_entry.key == key:
                 return look_entry
             i += 1
 
@@ -326,7 +332,7 @@ class SmallStrDictImplementation(DictImplementation):
         if not _is_str(self.space, w_key):
             return self._convert_to_rdict().setitem(w_key, w_value)
         return self.setitem_str(w_key, w_value)
-    
+
     def setitem_str(self, w_key, w_value, shadows_type=True):
         entry = self._lookup(self.space.str_w(w_key))
         if entry.w_value is None:
@@ -351,20 +357,25 @@ class SmallStrDictImplementation(DictImplementation):
                     return self.space.emptydictimpl
                 return self
             else:
+                entry.key = None
                 raise KeyError
         elif _is_sane_hash(self.space, w_key_type):
             raise KeyError
         else:
             return self._convert_to_rdict().delitem(w_key)
-        
+
     def length(self):
         return self.valid
-    
+
     def get(self, w_lookup):
         space = self.space
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
-            return self._lookup(space.str_w(w_lookup)).w_value
+            entry = self._lookup(space.str_w(w_lookup))
+            val = entry.w_value
+            if val is None:
+                entry.key = None
+            return val
         elif _is_sane_hash(self.space, w_lookup_type):
             return None
         else:

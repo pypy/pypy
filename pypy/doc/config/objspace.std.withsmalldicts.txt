@@ -1,0 +1,1 @@
+Use a specialized implementation for small (<5 elements) dictionaries.
