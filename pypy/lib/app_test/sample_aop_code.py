@@ -2,12 +2,13 @@ code = """
 def foo(b,c):
     print 'foo'
     a = 2
-    d = bar()
+    d = bar(a)
+    print d
     return b+a+c+d
 
 
-def bar():
-    print 'bar'
+def bar(val):
+    print 'bar', val
     return 42
 
 def baz(b,c):

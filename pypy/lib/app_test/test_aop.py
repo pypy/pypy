@@ -28,18 +28,6 @@ class AppTestAop(object):
             adv = advice(dyn_pc)
             assert adv is not None
 
-    def test_is_aop(self):
-        from aop import is_aop_call
-        import parser
-        func = """
-def f():
-    __aop__(1)
-    g(12)
-    __aop__(12)
-"""
-        funcast = parser.source2ast(func).node.nodes[0]
-        result = [is_aop_call(n) for n in funcast.code.nodes]
-        assert result == [True, False, True]
 
     def test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
@@ -127,3 +115,62 @@ def f():
         assert answ == 47
         sample_aop_code.clean_module('aop_around_execution')
         
+
+    def test_simple_aspect_before_call(self):
+        from  aop import PointCut, Aspect, before
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_before_call')
+        
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed = False
+            @before(PointCut('bar').call())
+            def advice_before_call(self, tjp):
+                print "IN advice before call"
+                self.executed = True
+                self.arguments = tjp._arguments
+                print "OUT advice before call"
+
+        assert __aop__.advices == []
+        aspect = AspectTest()
+        assert __aop__.advices == [(aspect, AspectTest.advice_before_call)] 
+        assert not aspect.executed
+
+        from app_test import aop_before_call
+        assert  aspect.executed == 0
+        answ = aop_before_call.foo(1,2)
+        assert aspect.executed == 1
+        assert answ == 47
+        sample_aop_code.clean_module('aop_before_call')
+
+    def test_simple_aspect_after_call(self):
+        from  aop import PointCut, Aspect, after
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_after_call')
+        
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed = False
+            @after(PointCut('bar').call())
+            def advice_after_call(self, tjp):
+                print "IN advice after call"
+                self.executed = True
+                self.arguments = tjp._arguments
+                print "OUT advice after call"
+
+        assert __aop__.advices == []
+        aspect = AspectTest()
+        assert __aop__.advices == [(aspect, AspectTest.advice_after_call)] 
+        assert not aspect.executed
+
+        from app_test import aop_after_call
+        assert  aspect.executed == 0
+        answ = aop_after_call.foo(1,2)
+        assert aspect.executed == 1
+        assert answ == 47
+        sample_aop_code.clean_module('aop_after_call')
+
