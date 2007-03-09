@@ -13,6 +13,7 @@ translation toolchain
  - geninterp is a hack
  - keepalives need to die, finally
  - change weakrefs to work together with the GC
+ - delegate finding type stuff like vtables etc to GC
 
 interpreter
 -----------
