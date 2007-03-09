@@ -106,7 +106,7 @@ def mro_subclasses(space, w_type, temp):
 def mro_internal(space, w_type):
     if not space.is_w(space.type(w_type), space.w_type):
         #w_type.mro_w = []
-        mro_func = space.type(w_type).lookup('mro')
+        mro_func = space.lookup(w_type, 'mro')
         mro_func_args = Arguments(space, [w_type])
         w_mro = space.call_args(mro_func, mro_func_args)
         w_type.mro_w = space.unpackiterable(w_mro)

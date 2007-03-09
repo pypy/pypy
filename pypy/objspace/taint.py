@@ -205,7 +205,7 @@ class TaintSpace(StdObjSpace):
                      self.wrap(app_taint_look))
         patch_space_in_place(self, 'taint', proxymaker)
 
-        # XXX may leak info, perfomance hit
+        # XXX may leak info, perfomance hit, what about taint bombs?
         from pypy.objspace.std.typeobject import W_TypeObject
 
         def taint_lookup(w_obj, name):

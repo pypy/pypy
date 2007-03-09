@@ -204,7 +204,7 @@ class W_TypeObject(W_Object):
                 if space.config.objspace.std.withtypeversion:
                     w_self.version_tag = None
                 w_self.mro_w = []
-                mro_func = w_type.lookup('mro')
+                mro_func = space.lookup(w_self, 'mro')
                 mro_func_args = Arguments(space, [w_self])
                 w_mro = space.call_args(mro_func, mro_func_args)
                 w_self.mro_w = space.unpackiterable(w_mro)
