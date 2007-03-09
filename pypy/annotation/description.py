@@ -351,6 +351,7 @@ class ClassDesc(Desc):
     knowntype = type
     instance_level = False
     all_enforced_attrs = None   # or a set
+    settled = False
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, basedesc=None, classdict=None,
@@ -399,6 +400,9 @@ class ClassDesc(Desc):
             self.add_sources_for_class(cls)
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
+
+            if '_settled_' in cls.__dict__:
+                self.settled = bool(cls.__dict__['_settled_'])
 
             if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
                 attrs = {}

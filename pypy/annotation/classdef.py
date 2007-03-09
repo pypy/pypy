@@ -112,12 +112,21 @@ class Attribute:
         # check for method demotion and after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
             attr = self.name
-            if not s_newvalue.isNone() and s_newvalue.getKind() == description.MethodDesc:
-                if homedef.classdesc.read_attribute(attr, None) is None: # is method
+            if (not s_newvalue.isNone() and
+                s_newvalue.getKind() == description.MethodDesc):
+                # is method
+                if homedef.classdesc.read_attribute(attr, None) is None:
                     if not homedef.check_missing_attribute_update(attr):
                         for desc in s_newvalue.descriptions:
                             if desc.selfclassdef is None:
-                                self.bookkeeper.warning("demoting method %s to base class %s" % 
+                                if homedef.classdesc.settled:
+                                    raise Exception("demoting method %s "
+                                                    "to settled class %s not "
+                                                    "allowed" %
+                                                    (self.name, homedef)
+                                                    )
+                                self.bookkeeper.warning("demoting method %s "
+                                                        "to base class %s" % 
                                                         (self.name, homedef))
                                 break
 

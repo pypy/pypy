@@ -2559,6 +2559,44 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [bool])
 
+    def test_enforce_settled(self):
+        class A(object):
+            _settled_ = True
+
+            def m(self):
+                raise NotImplementedError
+
+        class B(A):
+
+            def m(self):
+                return 1
+
+            def n(self):
+                return 1
+
+        def fun(x):
+            if x:
+                a = A()
+            else:
+                a = B()
+
+            return a.m()
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [bool])
+        assert s.knowntype == int
+
+        def fun(x):
+            if x:
+                a = A()
+            else:
+                a = B()
+
+            return a.n()
+
+        a = self.RPythonAnnotator()
+        py.test.raises(Exception, a.build_types, fun, [bool])
+
     def test_float_cmp(self):
         def fun(x, y):
             return (x < y,

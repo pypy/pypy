@@ -14,6 +14,7 @@ class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ()
+    _settled_ = True
 
     def getdict(self):
         return None
@@ -115,6 +116,7 @@ class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
     __slots__ = ()
+    _settled_ = True
 
     def __spacebind__(self, space):
         return self
