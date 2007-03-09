@@ -1,4 +1,4 @@
-"""SQL injection example
+"""SQL injection example with holes fixed using the taint space.
 
    Needs gadfly (sf.net/projects/gadfly) to be on the python path.
 
@@ -10,10 +10,11 @@
    for the user with the password since including that month
    are shown.
 
-   Works with an --allworkingmodules --oldstyle pypy-c .
+   Works with a -otaint --allworkingmodules --oldstyle pypy-c .
 """
 
 import sys
+import pypymagic
 
 import gadfly
 
@@ -59,9 +60,14 @@ row = "<tr>"+"<td>%s</td>"*6 +"</tr>"
 def do_query(query):
     conn = gadfly.gadfly("db0", "DBS")
     cursor = conn.cursor()
-    pwd = md5.new(query['pwd'][0]).hexdigest()
-    q = query['query'][0]
 
+    pwd = pypymagic.untaint(str, query['pwd'][0])
+    pwd = md5.new(pwd).hexdigest()
+
+    q = pypymagic.untaint(str, query['query'][0])
+    if not q.isdigit():
+        return "Wrong query!"
+    
     sel = ("""select user,month,year,product,qty,amount from purchases
                       where pwd='%s' and month>=%s
                    """ % (pwd, q))
@@ -89,6 +95,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             query = None
 
         if query is not None:
+            query = pypymagic.taint(query)
             results = do_query(query)
         else:
             results = "no query"
