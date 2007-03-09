@@ -382,7 +382,7 @@ new buffer.
 From the user's point of view, the multiple internal ``W_XxxObject``
 classes are not visible: they are still all instances of exactly the
 same Python type.  PyPy knows that (e.g.) the application-level type of
-its interpreter-level ``W_StringObject`` instances is "str" because
+its interpreter-level ``W_StringObject`` instances is str because
 there is a ``typedef`` class attribute in ``W_StringObject`` which
 points back to the string type specification from `stringtype.py`_; all
 other implementations of strings use the same ``typedef`` from
