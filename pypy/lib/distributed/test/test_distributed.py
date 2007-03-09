@@ -30,6 +30,13 @@ class AppTestDistributed(object):
         
         assert type(protocol.unwrap(protocol.wrap(f))) is type(f)
 
+    def test_method_of_false_obj(self):
+        from distributed.protocol import AbstractProtocol
+        protocol = AbstractProtocol()
+        lst = []
+        m = lst.append
+        assert type(protocol.unwrap(protocol.wrap(m))) is type(m)
+
     def test_protocol_run(self):
         l = [1,2,3]
         from distributed.protocol import LocalProtocol

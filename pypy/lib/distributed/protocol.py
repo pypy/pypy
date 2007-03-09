@@ -183,8 +183,8 @@ class AbstractProtocol(object):
             tp = self.unwrap(w_class)
             name = self.unwrap(w_name)
             self_ = self.unwrap(w_self)
-            if self_:
-                if not tp:
+            if self_ is not None:
+                if tp is None:
                     setattr(self_, name, classmethod(self.unwrap(w_func)))
                     return getattr(self_, name)
                 return getattr(tp, name).__get__(self_, tp)
