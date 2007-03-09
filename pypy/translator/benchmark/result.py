@@ -1,11 +1,16 @@
 import os, pickle, sys, time, re
 
-stat2title = {
+STAT2TITLE = {
     'stat:st_mtime':  "date",
     'exe_name':       "executable",
-    'bench:richards': "richards",
-    'bench:pystone':  "pystone",
 }
+
+def stat2title(s):
+    if s.startswith('bench:'):
+        return s[6:]
+    else:
+        return STAT2TITLE.get(s, s)
+
 
 class BenchmarkResultSet(object):
     def __init__(self, max_results=10):
@@ -27,7 +32,7 @@ class BenchmarkResultSet(object):
             filteron = kw['filteron']
             lst = [r for r in lst if filteron(r)]
         relto = kw.get('relto', None)
-        table = [[(stat2title.get(s,s),0) for s in stats]]
+        table = [[(stat2title(s),0) for s in stats]]
         for r in lst:
             row = []
             for stat in stats:
