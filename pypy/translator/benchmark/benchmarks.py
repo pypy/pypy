@@ -32,6 +32,18 @@ class Benchmark(object):
         except BenchmarkFailed:
             return '-FAILED-'
 
+def external_dependency(dirname, svnurl, revision):
+    """Check out (if necessary) a given fixed revision of a svn url."""
+    dirpath = py.magic.autopath().dirpath().join(dirname)
+    if not dirpath.check():
+        CMD = "svn co -r%d %s@%d %s" % (revision, svnurl, revision, dirpath)
+        print >> sys.stderr, CMD
+        err = os.system(CMD)
+        if err != 0:
+            print >> sys.stderr, "* checkout failed, skipping this benchmark"
+            return False
+    return True
+
 def run_cmd(cmd):
     #print "running", cmd
     pipe = os.popen(cmd + ' 2>&1')
@@ -64,8 +76,7 @@ def run_translate(executable='/usr/local/bin/python'):
     return r
 
 def run_docutils(executable='/usr/local/bin/python'):
-    docutilssvnpathfile = py.magic.autopath().dirpath().join("docutilssvnpath")
-    docutilssvnpath = docutilssvnpathfile.read().strip()
+    docutilssvnpath = 'docutils'    # subdir of the local dir
     translatetxt = py.magic.autopath().dirpath().dirpath().dirpath().join('doc').join('translation.txt')
     command = """import sys
 sys.modules['unicodedata'] = sys # docutils need 'import unicodedata' to work, but no more...
@@ -90,14 +101,15 @@ publish_cmdline(writer_name='html')
     return r
 
 def check_docutils():
-    docutilssvnpathfile = py.magic.autopath().dirpath().join("docutilssvnpath")
-    return docutilssvnpathfile.check()
+    return external_dependency('docutils',
+                               'svn://svn.berlios.de/docutils/trunk/docutils',
+                               4821)
 
 def run_templess(executable='/usr/local/bin/python'):
     """ run some script in the templess package
 
         templess is some simple templating language, to check out use
-        'svn co http://johnnydebris.net/templess/trunk templess'
+        'svn co -r100 http://johnnydebris.net/templess/trunk templess'
     """
     here = py.magic.autopath().dirpath()
     pypath = py.__package__.getpath().dirpath()
@@ -113,11 +125,12 @@ def run_templess(executable='/usr/local/bin/python'):
     return result
 
 def check_templess():
-    templessdir = py.magic.autopath().dirpath().join('templess')
-    return templessdir.check()
-    
+    return external_dependency('templess',
+                               'http://johnnydebris.net/templess/trunk',
+                               100)
+
 def check_translate():
-    return False
+    return False   # XXX what should we do about the dependency on ctypes?
 
 BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms'),
               Benchmark('pystone', run_pystone, PYSTONE_ASCENDING_GOOD, ''),
