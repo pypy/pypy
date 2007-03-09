@@ -18,6 +18,7 @@ class Module(MixedModule):
      appleveldefs = {
          'ParserError'  : 'app_class.ParserError',
          'ASTVisitor': 'app_class.ASTVisitor',
+         'ASTMutator': 'app_class.ASTMutator',
          }
      interpleveldefs = {
          '__name__'     : '(space.wrap("parser"))', 

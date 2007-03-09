@@ -20,11 +20,8 @@ class ASTVisitor(object):
 
     def visitExpression(self, node):
         return self.default(node)
-
     def visitEmptyNode(self, node):
         return self.default(node)
-
-
     def visitAbstractFunction(self, node):
         return self.default( node )
     def visitAbstractTest(self, node):
@@ -183,3 +180,11 @@ class ASTVisitor(object):
         return self.default( node )
     def visitYield(self, node):
         return self.default( node )
+
+class ASTMutator(ASTVisitor):
+    """This class is similar to ASTVisitor, but will call
+    node.mutate(self) instead of node.accept(self). The visitXXX
+    methods of derived class should return the mutated node"""
+    def default(self, node):
+        return node
+
