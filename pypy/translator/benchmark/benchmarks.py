@@ -109,7 +109,7 @@ def run_templess(executable='/usr/local/bin/python'):
     try:
         result = float([line for line in txt.split('\n') if line.strip()][-1])
     except ValueError:
-        raise IOError(txt)
+        raise BenchmarkFailed
     return result
 
 def check_templess():
