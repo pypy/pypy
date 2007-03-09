@@ -223,6 +223,7 @@ class W_TypeObject(W_Object):
             w_self.version_tag = VersionTag()
             subclasses_w = w_self.get_subclasses()
             for w_subclass in subclasses_w:
+                assert isinstance(w_subclass, W_TypeObject)
                 w_subclass.mutated()
 
     def ready(w_self):
