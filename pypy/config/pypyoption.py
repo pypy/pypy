@@ -232,6 +232,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                              ("translation.withsmallfuncsets", 5),
                              ("translation.profopt",
                               "-c 'from richards import main;main(); from test import pystone; pystone.main()'"),
+                             ("objspace.std.withmultidict", True),
                              ("objspace.std.withstrjoin", True),
                              ("objspace.std.withshadowtracking", True),
                              ("objspace.std.withstrslice", True),
