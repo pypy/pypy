@@ -204,13 +204,12 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                 # only used by descr_set___class__
                 self.w__class__ = w_subtype
                 if space.config.objspace.std.withshadowtracking:
-                    self.w__dict__.implementation.shadows_anything = True
+                    self.w__dict__.implementation.set_shadows_anything()
 
             def getdictvalue_attr_is_in_class(self, space, w_name):
                 w_dict = self.w__dict__
                 if space.config.objspace.std.withshadowtracking:
-                    if (not w_dict.implementation.shadows_anything and
-                        self.w__class__.version_tag is not None):
+                    if not w_dict.implementation.shadows_anything():
                         return None
                 return space.finditem(w_dict, w_name)
             
