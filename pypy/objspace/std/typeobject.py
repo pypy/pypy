@@ -312,21 +312,22 @@ class W_TypeObject(W_Object):
         space = w_self.space
         assert space.config.objspace.std.withmethodcache
         ec = space.getexecutioncontext()
-        try:
-            frame = ec.framestack.top()
-            position_hash = frame.last_instr ^ id(frame.pycode)
-        except IndexError:
-            position_hash = 0
+        #try:
+        #    frame = ec.framestack.top()
+        #    position_hash = frame.last_instr ^ id(frame.pycode)
+        #except IndexError:
+        #    position_hash = 0
         version_tag = w_self.version_tag
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
         MASK = 1 << space.config.objspace.std.methodcachesizeexp - 1
-        method_hash = (id(version_tag) ^ position_hash ^ hash(name)) & MASK
+        #method_hash = (id(version_tag) ^ position_hash ^ hash(name)) & MASK
+        method_hash = ((id(version_tag) >> 3) ^ hash(name)) & MASK
         cached_version_tag = ec.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = ec.method_cache_names[method_hash]
-            if cached_name == name:
+            if cached_name is name:
                 tup = ec.method_cache_lookup_where[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     ec.method_cache_hits[name] = \
