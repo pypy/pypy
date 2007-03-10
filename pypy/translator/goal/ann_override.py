@@ -122,7 +122,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         if s_name.is_constant():
             attr = s_name.const
             def builder(translator, func):
-                print "LOOKUP", attr
+                #print "LOOKUP", attr
                 pol.consider_lookup(funcdesc.bookkeeper, attr)
                 d = {}
                 exec CACHED_LOOKUP % {'attr': attr} in d
@@ -137,7 +137,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         if s_name.is_constant():
             attr = s_name.const
             def builder(translator, func):
-                print "LOOKUP_IN_TYPE_WHERE", attr
+                #print "LOOKUP_IN_TYPE_WHERE", attr
                 pol.consider_lookup_in_type_where(funcdesc.bookkeeper, attr)
                 d = {}
                 exec CACHED_LOOKUP_IN_TYPE_WHERE % {'attr': attr} in d
@@ -153,7 +153,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             from pypy.annotation.classdef import InstanceSource
             clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
             pol.pypytypes[x] = True
-            print "TYPE", x
+            #print "TYPE", x
             for attr in pol.lookups:
                 if attr and pol.attach_lookup(x, attr):
                     cached = "cached_%s" % attr

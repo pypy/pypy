@@ -31,6 +31,8 @@ class Translation(object):
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
 
+        self.config.translation.verbose = True # enable messages
+
     def view(self):
         self.context.view()
 

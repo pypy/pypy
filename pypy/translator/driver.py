@@ -197,11 +197,9 @@ class TranslationDriver(SimpleTaskEngine):
         self.extra = extra
 
         if empty_translator:
-            # set verbose flags
-            empty_translator.config.translation.verbose = True
             translator = empty_translator
         else:
-            translator = TranslationContext(config=self.config, verbose=True)
+            translator = TranslationContext(config=self.config)
 
         self.entry_point = entry_point
         self.translator = translator
