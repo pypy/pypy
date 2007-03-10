@@ -126,6 +126,7 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
         cache_counter = pypymagic.method_cache_counter("f")
+        assert cache_counter[0] >= 15
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
 
@@ -149,6 +150,7 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
         cache_counter = pypymagic.method_cache_counter("f")
+        assert cache_counter[0] >= 9
         assert cache_counter[1] >= 2 # should be (18, 2)
         assert sum(cache_counter) == 20
  
@@ -180,6 +182,32 @@ class AppTestMethodCaching(AppTestShadowTracking):
         for i, a in enumerate(l):
             assert a.f() == 42 + (i % 3 == 1)
         cache_counter = pypymagic.method_cache_counter("f")
+        assert cache_counter[0] >= 15
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
   
+    def test_many_names(self):
+        import pypymagic
+        class A(object):
+            foo = 5
+            bar = 6
+            baz = 7
+            xyz = 8
+            stuff = 9
+            a = 10
+            foobar = 11
+
+        a = A()
+        names = [name for name in A.__dict__.keys()
+                      if not name.startswith('_')]
+        names_repeated = names * 10
+        result = []
+        pypymagic.reset_method_cache_counter()
+        for name in names_repeated:
+            result.append(getattr(a, name))
+        append_counter = pypymagic.method_cache_counter("append")
+        names_counters = [pypymagic.method_cache_counter(name)
+                          for name in names]
+        assert append_counter[0] >= 5 * len(names)
+        for name, count in zip(names, names_counters):
+            assert count >= 5
