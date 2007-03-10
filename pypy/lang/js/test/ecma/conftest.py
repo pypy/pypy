@@ -61,6 +61,8 @@ class JSTestFile(py.test.collect.Module):
             raise Failed(msg="Syntax Error",excinfo=py.code.ExceptionInfo())
         except JsBaseExcept:
             raise Failed(msg="Javascript Error", excinfo=py.code.ExceptionInfo())
+        except:
+            raise Failed(excinfo=py.code.ExceptionInfo())
         testcases = self.interp.global_context.resolve_identifier('testcases')
         self.tc = self.interp.global_context.resolve_identifier('tc')
         testcount = testcases.GetValue().Get('length').GetValue().ToInt32()

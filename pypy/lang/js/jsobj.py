@@ -303,6 +303,7 @@ class W_Array(W_Builtin):
             if x > self.Get('length').ToNumber() - 1:
                 currsize = len(self.array)
                 self.propdict['length'].value = W_Number(x+1)
+                print x+1
                 for i in range(x-(currsize-1)):
                     self.array.append(w_Undefined)
             self.array[x]= V

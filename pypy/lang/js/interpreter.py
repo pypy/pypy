@@ -16,10 +16,11 @@ def load_bytecode(bytecode):
     temp_tree = parse_bytecode(bytecode)
     return from_tree(temp_tree)
 
+import cPickle as pickle
+import os.path
+
 def load_file(filename):
     # NOT RPYTHON
-    import cPickle as pickle
-    import os.path
     base, ext = os.path.splitext(filename)
     jscname = base+".jsc"
     if os.path.isfile(jscname):
