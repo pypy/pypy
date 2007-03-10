@@ -115,6 +115,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         malloc_to_stack(translator)
 
     if config.merge_if_blocks:
+        log.mergeifblocks("starting to merge if blocks")
         for graph in graphs:
             merge_if_blocks(graph, translator.config.translation.verbose)
 
