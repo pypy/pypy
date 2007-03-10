@@ -124,6 +124,8 @@ class DescrOperation:
     def getattr(space, w_obj, w_name):
         w_descr = space.lookup(w_obj, '__getattribute__')
         try:
+            if w_descr is None:   # obscure case
+                raise OperationError(space.w_AttributeError, space.w_None)
             return space.get_and_call_function(w_descr, w_obj, w_name)
         except OperationError, e:
             if not e.match(space, space.w_AttributeError):
