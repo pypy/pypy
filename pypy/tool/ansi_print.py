@@ -7,6 +7,7 @@ import sys
 from py.__.misc.terminal_helper import ansi_print
 
 class AnsiLog:
+    wrote_dot = False # XXX sharing state with all instances
 
     KW_TO_COLOR = {
         # color supress
@@ -47,7 +48,11 @@ class AnsiLog:
         elif 'dot' in keywords:
             if tty:
                 sys.stderr.write(".")
+                AnsiLog.wrote_dot = True
                 return
+        if AnsiLog.wrote_dot:
+            AnsiLog.wrote_dot = False
+            sys.stderr.write("\n")
         esc = tuple(esc)
         for line in msg.content().splitlines():
             ansi_print("[%s] %s" %(":".join(keywords), line), esc, 

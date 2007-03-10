@@ -218,6 +218,7 @@ class RPythonTyper(object):
             else:
                 tracking = lambda block: None
 
+            previous_percentage = 0
             # specialize all blocks in the 'pending' list
             for block in pending:
                 tracking(block)
@@ -228,12 +229,15 @@ class RPythonTyper(object):
                 n = len(self.already_seen)
                 if n % 100 == 0:
                     total = len(self.annotator.annotated)
-                    if self.typererror_count:
-                        error_report = " but %d errors" % self.typererror_count
-                    else:
-                        error_report = ''
-                    self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
-                                   (n, total, 100 * n // total, error_report))
+                    percentage = 100 * n // total
+                    if percentage >= previous_percentage + 5:
+                        previous_percentage = percentage
+                        if self.typererror_count:
+                            error_report = " but %d errors" % self.typererror_count
+                        else:
+                            error_report = ''
+                        self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
+                                       (n, total, percentage, error_report))
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
