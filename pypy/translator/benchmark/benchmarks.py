@@ -101,9 +101,11 @@ publish_cmdline(writer_name='html')
     return r
 
 def check_docutils():
-    return external_dependency('docutils',
-                               'svn://svn.berlios.de/docutils/trunk/docutils',
-                               4821)
+    return False     # useless benchmark - I've seen 15% of difference
+                     # between two successive runs on the same machine!
+    #return external_dependency('docutils',
+    #                           'svn://svn.berlios.de/docutils/trunk/docutils',
+    #                           4821)
 
 def run_templess(executable='/usr/local/bin/python'):
     """ run some script in the templess package
