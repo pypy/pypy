@@ -44,6 +44,10 @@ class AnsiLog:
             if tty:
                 print >> sys.stderr
                 return
+        elif 'dot' in keywords:
+            if tty:
+                sys.stderr.write(".")
+                return
         esc = tuple(esc)
         for line in msg.content().splitlines():
             ansi_print("[%s] %s" %(":".join(keywords), line), esc, 

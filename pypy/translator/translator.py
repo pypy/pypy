@@ -81,6 +81,8 @@ class TranslationContext(object):
                 simplify.detect_list_comprehension(graph)
             if self.config.translation.verbose:
                 log.done(func.__name__)
+            else:
+                log.dot()
             self.graphs.append(graph)   # store the graph in our list
         return graph
 
