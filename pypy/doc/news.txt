@@ -15,6 +15,27 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy Trillke Sprints (25-28th Feb and 1-5th March 2007) finished, 
+==================================================================
+
+Both of the sprints that mark the end of the EU period are over. There were very
+good results, both on a `report level`_ as well as on a `technical level`_.
+The sprint also had a good discussion about the future of PyPy after the EU
+project ends, see the `mail Armin wrote`_ and `the meeting's minutes`_. You can
+also look at the pictures that `Carl Friedrich`_ and that `Lene took`_ during
+the sprint or read the `sprint announcement`_. *(March 10th, 2007)*
+
+.. _`sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/announcement.html
+.. _`report level`: http://codespeak.net/pipermail/pypy-dev/2007q1/003578.html 
+.. _`technical level`: http://codespeak.net/pipermail/pypy-dev/2007q1/003579.html
+.. _`Carl Friedrich`: http://codespeak.net/~cfbolz/hildesheim3-sprint-pictures/
+.. _`Lene took`: http://codespeak.net/~lene/trillke-sprint-web/Page1.html
+.. _`mail Armin wrote`: http://codespeak.net/pipermail/pypy-dev/2007q1/003577.html
+.. _`the meeting's minutes`: http://codespeak.net/svn/pypy/extradoc/minute/post-eu-structure.txt
+
+
+
+
 PyPy 0.99.0: optimizations, backends, new object spaces and more
 ==================================================================
 
@@ -32,19 +53,8 @@ py lib 0.9.0: py.test, distributed execution, greenlets and more
 Our development support and testing library was publically released, see the 
 `0.9 release announcement <http://codespeak.net/py/dist/release-0.9.0.html>`__
 and its extensive `online documentation <http://codespeak.net/py/dist/>`__. 
-(February 15th, 2007)
+*(February 15th, 2007)*
 
-
-PyPy Trillke Sprints upcoming, 25-28th Feb and 1-5th March 2007
-==================================================================
-
-The end of the EU project period is nearing and we are going
-for two sprints, one on particular EU related issues and
-one for public coding and discussing the time ahead. 
-Read the `full announcement here`_ and `people known to come`_ already. 
-
-.. _`full announcement here`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/announcement.html
-.. _`people known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/people.html
 
 
 Leysin Winter Sports Sprint, 8th - 14th January 2007
