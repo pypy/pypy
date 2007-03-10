@@ -13,6 +13,13 @@ like: (on the left, without the new bytecodes; on the right, with them)
 from pypy.interpreter import pyframe, function
 
 
+def object_getattribute(space):
+    w_src, w_getattribute = space.lookup_in_type_where(space.w_object,
+                                                       '__getattribute__')
+    return w_getattribute
+object_getattribute._annspecialcase_ = 'specialize:memo'
+
+
 class __extend__(pyframe.PyFrame):
 
     def LOOKUP_METHOD(f, nameindex, *ignored):
@@ -27,18 +34,16 @@ class __extend__(pyframe.PyFrame):
         space = f.space
         w_obj = f.popvalue()
         w_name = f.getname_w(nameindex)
-        w_typ = space.type(w_obj)
-        w_src, w_dummy = space.lookup_in_type_where(w_typ, '__getattribute__')
         w_value = None
-        if space.is_w(w_src, space.w_object):
+        w_getattribute = space.lookup(w_obj, '__getattribute__')
+        if w_getattribute is object_getattribute(space):
             name = space.str_w(w_name)
             w_descr = space.lookup(w_obj, name)
-            descr = space.interpclass_w(w_descr)
-            if descr is None:
+            if w_descr is None:
                 # this handles directly the common case
                 #   module.function(args..)
                 w_value = w_obj.getdictvalue(space, w_name)
-            elif type(descr) is function.Function:
+            elif type(w_descr) is function.Function:
                 w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
                 if w_value is None:
                     # fast method path: a function object in the class,
