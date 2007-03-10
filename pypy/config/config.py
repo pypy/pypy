@@ -83,7 +83,7 @@ class Config(object):
         if oldvalue != value and oldowner not in ("default", "suggested"):
             if who in ("default", "suggested"):
                 return
-            raise ValueError('cannot override value %s for option %s' %
+            raise ValueError('cannot override value to %s for option %s' %
                                 (value, name))
         child.setoption(self, value, who)
         self._cfgimpl_value_owners[name] = who
