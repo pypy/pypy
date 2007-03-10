@@ -29,6 +29,9 @@ class BaseMallocRemover(object):
     SUBSTRUCT_ACCESS = {}
     CHECK_ARRAY_INDEX = {}
 
+    def __init__(self, verbose=True):
+        self.verbose = verbose
+
     def get_STRUCT(self, TYPE):
         raise NotImplementedError
 
@@ -301,7 +304,10 @@ class BaseMallocRemover(object):
         while True:
             count = self.remove_mallocs_once(graph)
             if count:
-                log.malloc('%d simple mallocs removed in %r' % (count, graph.name))
+                if self.verbose:
+                    log.malloc('%d simple mallocs removed in %r' % (count, graph.name))
+                else:
+                    log.dot()
                 tot += count
             else:
                 break
@@ -597,11 +603,11 @@ class OOTypeMallocRemover(BaseMallocRemover):
     def insert_keepalives(self, newvars):
         pass
 
-def remove_simple_mallocs(graph, type_system='lltypesystem'):
+def remove_simple_mallocs(graph, type_system='lltypesystem', verbose=True):
     if type_system == 'lltypesystem':
-        remover = LLTypeMallocRemover()
+        remover = LLTypeMallocRemover(verbose)
     else:
-        remover = OOTypeMallocRemover()
+        remover = OOTypeMallocRemover(verbose)
     return remover.remove_simple_mallocs(graph)
 
 
@@ -610,7 +616,7 @@ def remove_mallocs(translator, graphs=None, type_system="lltypesystem"):
         graphs = translator.graphs
     tot = 0
     for graph in graphs:
-        count = remove_simple_mallocs(graph, type_system=type_system)
+        count = remove_simple_mallocs(graph, type_system=type_system, verbose=translator.config.translation.verbose)
         if count:
             # remove typical leftovers from malloc removal
             removenoops.remove_same_as(graph)

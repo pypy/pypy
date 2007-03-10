@@ -116,7 +116,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
 
     if config.merge_if_blocks:
         for graph in graphs:
-            merge_if_blocks(graph)
+            merge_if_blocks(graph, translator.config.translation.verbose)
 
     if config.print_statistics:
         print "after if-to-switch:"
@@ -151,6 +151,7 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
 
     # vaporize mallocs
     if config.mallocs:
+        log.malloc("starting malloc removal")
         remove_mallocs(translator, graphs, type_system)
 
         if config.print_statistics:

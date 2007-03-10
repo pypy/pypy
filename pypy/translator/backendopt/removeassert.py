@@ -32,7 +32,8 @@ def remove_asserts(translator, graphs):
         if count:
             # now melt away the (hopefully) dead operation that compute
             # the condition
-            log.removeassert("removed %d asserts in %s" % (count, graph.name))
+            if translator.config.translation.verbose:
+                log.removeassert("removed %d asserts in %s" % (count, graph.name))
             checkgraph(graph)
             transform_dead_op_vars(graph, translator)
 

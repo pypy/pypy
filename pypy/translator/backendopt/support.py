@@ -8,8 +8,10 @@ from pypy.translator.unsimplify import split_block, copyvar, insert_empty_block
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem import lltype
 
+
 log = py.log.Producer("backendopt")
 py.log.setconsumer("backendopt", ansi_log)
+
 
 def graph_operations(graph):
     for block in graph.iterblocks():

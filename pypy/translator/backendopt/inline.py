@@ -704,7 +704,10 @@ def auto_inlining(translator, threshold=None,
 
         heappop(heap)
         if callers[graph]:
-            log.inlining('%7.2f %50s' % (weight, graph.name))
+            if translator.config.translation.verbose:
+                log.inlining('%7.2f %50s' % (weight, graph.name))
+            else:
+                log.dot()
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue

@@ -96,8 +96,9 @@ def remove_duplicate_casts(graph, translator):
                 else:
                     for arg in op.args:
                         used[arg] = True
-        log.removecasts(
-            "removed %s cast_pointers in %s" % (num_removed, graph.name))
+        if translator.config.translation.verbose:
+            log.removecasts(
+                "removed %s cast_pointers in %s" % (num_removed, graph.name))
     return num_removed
 
 def remove_superfluous_keep_alive(graph):

@@ -105,9 +105,12 @@ def merge_if_blocks_once(graph):
     checkgraph(graph)
     return True
 
-def merge_if_blocks(graph):
+def merge_if_blocks(graph, verbose=True):
     merge = False
     while merge_if_blocks_once(graph):
         merge = True
     if merge:
-        log("merging blocks in %s" % (graph.name, ))
+        if verbose:
+            log("merging blocks in %s" % (graph.name, ))
+        else:
+            log.dot()
