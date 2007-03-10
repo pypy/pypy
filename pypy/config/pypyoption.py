@@ -189,7 +189,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withmethodcache",
                    "try to cache method lookups",
                    default=False,
-                   requires=[("objspace.std.withshadowtracking", True)]),
+                   requires=[("objspace.std.withtypeversion", True)]),
         BoolOption("withmethodcachecounter",
                    "try to cache methods and provide a counter in pypymagic. "
                    "for testing purposes only.",
