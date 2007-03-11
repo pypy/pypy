@@ -55,6 +55,10 @@ if __name__ == '__main__':
             
     somelist = [1,2,3]
     newlist = PersistentListController(somelist, storage).proxy 
+
+    # here we may call into application code which can 
+    # not detect easily that it is dealing with a persistent
+    # object 
     work_with_list(newlist)
     del somelist, newlist 
 
