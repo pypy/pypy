@@ -155,6 +155,29 @@ def check_gadfly():
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/gadflyZip',
               40225)
 
+def run_mako(executable='/usr/local/bin/python'):
+    """ run some tests in the mako templating system """
+    here = py.magic.autopath().dirpath()
+    mako = here.join('mako')
+    testscript = mako.join('examples', 'bench', 'basic.py')
+    command = 'PYTHONPATH="%s" "%s" "%s" mako' % (mako.join('lib'),
+                                                  executable, testscript)
+    txt = run_cmd(command)
+    lines = [line for line in txt.split('\n') if line.strip()]
+    words = lines[-1].split()
+    if words[0] != 'Mako:':
+        raise BenchmarkFailed
+    try:
+        result = float(words[1])
+    except ValueError:
+        raise BenchmarkFailed
+    return result
+
+def check_mako():
+    return external_dependency('mako',
+              'http://codespeak.net/svn/user/arigo/hack/pypy-hack/mako',
+              40235)
+
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?
 
@@ -167,6 +190,8 @@ BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms')
                         's', check_templess),
               Benchmark('gadfly', run_gadfly, RICHARDS_ASCENDING_GOOD,
                         's', check_gadfly),
+              Benchmark('mako', run_mako, RICHARDS_ASCENDING_GOOD,
+                        's', check_mako),
              ]
 
 BENCHMARKS_BY_NAME = {}
