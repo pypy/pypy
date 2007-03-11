@@ -8,8 +8,8 @@ from pypymagic import transparent_proxy, get_transparent_controller
 from types import MethodType
 
 class PersistentListController(object):
-    _changeops = ('__iadd__ __imul__ __delitem__ __setitem__ __delslice__ '
-                  '__imul__ __init__ __setslice__ '
+    _changeops = ('__iadd__ __imul__ __delitem__ __setitem__ '
+                  '__delslice__ __setslice__ __init__ '
                   'append extend insert pop remove reverse sort').split()
 
     def __init__(self, obj, storage): 
