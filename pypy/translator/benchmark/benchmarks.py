@@ -131,6 +131,30 @@ def check_templess():
                                'http://johnnydebris.net/templess/trunk',
                                100)
 
+def run_gadfly(executable='/usr/local/bin/python'):
+    """ run some tests in the gadfly pure Python database """
+    here = py.magic.autopath().dirpath()
+    gadfly = here.join('gadfly')
+    testscript = gadfly.join('test', 'testsubset.py')
+    command = 'PYTHONPATH="%s" "%s" "%s"' % (gadfly, executable, testscript)
+    txt = run_cmd(command)
+    lines = [line for line in txt.split('\n') if line.strip()]
+    if lines[-1].strip() != 'OK':
+        raise BenchmarkFailed
+    lastword = lines[-2].split()[-1]
+    if not lastword.endswith('s'):
+        raise BenchmarkFailed
+    try:
+        result = float(lastword[:-1])
+    except ValueError:
+        raise BenchmarkFailed
+    return result
+
+def check_gadfly():
+    return external_dependency('gadfly',
+              'http://codespeak.net/svn/user/arigo/hack/pypy-hack/gadflyZip',
+              40225)
+
 def check_translate():
     return False   # XXX what should we do about the dependency on ctypes?
 
@@ -141,6 +165,8 @@ BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms')
                         's', check_docutils),
               Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
                         's', check_templess),
+              Benchmark('gadfly', run_gadfly, RICHARDS_ASCENDING_GOOD,
+                        's', check_gadfly),
              ]
 
 BENCHMARKS_BY_NAME = {}
