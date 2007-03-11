@@ -85,5 +85,27 @@ Python, some of them are listed below:
 
   - Remote calls usually invokes new threads
 
+* XMLRPC - There are several implementations of xmlrpc protocol in Python,
+  one even in the standard library. Xmlrpc is cross-language, cross-platform
+  protocol of communication, which implies great flexibility of tools to
+  choose, but also implies several limitations, like:
+
+  - No remote tracebacks
+
+  - Only simple types to be passed as function arguments
+
+* Twisted Perspective Broker
+
+  - involves twisted, which ties user to network stack/programming style
+
+  - event driven programming (might be good, might be bad, but it's fixed)
+
+  - copies object (by pickling), but provides sophisticated layer of
+    caching to avoid multiple copies of the same object.
+
+  - two way RPC (unlike Pyro)
+
+  - also heavy restrictions on objects - they must sublcass certain class
+
 .. _`Pyro`: http://pyro.sourceforge.net/
 .. _`transparent proxies`: objspace-proxies.html#tproxy
