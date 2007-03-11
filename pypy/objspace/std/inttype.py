@@ -20,11 +20,18 @@ def wrapint(space, x):
         from pypy.objspace.std.intobject import W_IntObject
         lower = space.config.objspace.std.prebuiltintfrom
         upper =  space.config.objspace.std.prebuiltintto
+        # use r_uint to perform a single comparison (this whole function
+        # is getting inlined into every caller so keeping the branching
+        # to a minimum is a good idea)
         index = r_uint(x - lower)
         if index >= r_uint(upper - lower):
             w_res = instantiate(W_IntObject)
         else:
             w_res = W_IntObject.PREBUILT[index]
+        # obscure hack to help the CPU cache: we store 'x' even into
+        # a prebuilt integer's intval.  This makes sure that the intval
+        # field is present in the cache in the common case where it is
+        # quickly reused.  (we could use a prefetch hint if we had that)
         w_res.intval = x
         return w_res
     else:
