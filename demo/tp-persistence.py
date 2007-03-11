@@ -44,17 +44,20 @@ class PersistentListController(object):
         obj = storage.load()
         return cls(obj, storage) 
 
+def work_with_list(mylist):
+    assert isinstance(mylist, list)
+    mylist.append(4) 
+    mylist += [5,6,7]
+
 if __name__ == '__main__': 
     import py 
     storage = py.path.local("/tmp/mystorage")
             
     somelist = [1,2,3]
     newlist = PersistentListController(somelist, storage).proxy 
-    newlist.append(4) 
-    newlist += [5,6,7]
-    assert isinstance(newlist, list)
-    #call_some_function(newlist) # will see a regular list
+    work_with_list(newlist)
     del somelist, newlist 
+
     restoredlist = PersistentListController.load(storage).proxy
     print "restored list", restoredlist
     print restoredlist == [1,2,3,4,5,6,7]
