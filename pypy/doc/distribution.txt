@@ -3,8 +3,6 @@
 lib/distributed features
 ========================
 
-Stuff & things. mostly
-
 The 'distributed' library is an attempt to provide transparent, lazy
 access to remote objects. This is accomplished using
 `transparent proxies`_ and in application level code (so as a pure
