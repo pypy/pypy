@@ -2,6 +2,8 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.strutil import string_to_int, string_to_w_long, ParseStringError, ParseStringOverflowError
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.objectmodel import instantiate
 
 # ____________________________________________________________
 
@@ -18,11 +20,13 @@ def wrapint(space, x):
         from pypy.objspace.std.intobject import W_IntObject
         lower = space.config.objspace.std.prebuiltintfrom
         upper =  space.config.objspace.std.prebuiltintto
-        index = x - lower
-        if 0 <= index < upper - lower:
-            return W_IntObject.PREBUILT[index]
+        index = r_uint(x - lower)
+        if index >= r_uint(upper - lower):
+            w_res = instantiate(W_IntObject)
         else:
-            return W_IntObject(x)
+            w_res = W_IntObject.PREBUILT[index]
+        w_res.intval = x
+        return w_res
     else:
         from pypy.objspace.std.intobject import W_IntObject
         return W_IntObject(x)
