@@ -263,6 +263,8 @@ str_encode     = SMM('encode', 3, defaults=(None, None),
 # ____________________________________________________________
 
 def descr__new__(space, w_stringtype, w_object=''):
+    # NB. the default value of w_object is really a *wrapped* empty string:
+    #     there is gateway magic at work
     from pypy.objspace.std.stringobject import W_StringObject
     w_obj = space.str(w_object)
     if space.is_w(w_stringtype, space.w_str):

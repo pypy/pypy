@@ -274,6 +274,8 @@ def unicode_from_string(space, w_str):
 
 
 def descr__new__(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):
+    # NB. the default value of w_string is really a *wrapped* empty string:
+    #     there is gateway magic at work
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     w_obj = w_string
     w_obj_type = space.type(w_obj)
