@@ -221,12 +221,7 @@ def len__Unicode(space, w_uni):
     return space.wrap(len(w_uni._value))
 
 def getitem__Unicode_ANY(space, w_uni, w_index):
-    if not space.lookup(w_index, '__index__'):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("string indices must be integers, not %s" %
-                       space.type(w_index).getname(space, '?')))
-    ival = space.getindex_w(w_index, space.w_IndexError)
+    ival = space.getindex_w(w_index, space.w_IndexError, "string index")
     uni = w_uni._value
     ulen = len(uni)
     if ival < 0:
@@ -251,9 +246,14 @@ def getitem__Unicode_Slice(space, w_uni, w_slice):
     return W_UnicodeObject(r)
 
 def mul__Unicode_ANY(space, w_uni, w_times):
+    try:
+        times = space.getindex_w(w_times, space.w_OverflowError)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
     chars = w_uni._value
     charlen = len(chars)
-    times = space.getindex_w(w_times, space.w_OverflowError)
     if times <= 0 or charlen == 0:
         return W_UnicodeObject([])
     if times == 1:
@@ -273,7 +273,7 @@ def mul__Unicode_ANY(space, w_uni, w_times):
     return W_UnicodeObject(result)
 
 def mul__ANY_Unicode(space, w_times, w_uni):
-    return space.mul(w_uni, w_times)
+    return mul__Unicode_ANY(space, w_uni, w_times)
 
 def _isspace(uchar):
     return unicodedb.isspace(ord(uchar))

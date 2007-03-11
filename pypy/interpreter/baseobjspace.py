@@ -795,12 +795,23 @@ class ObjSpace(object):
             step  = 0
         return start, stop, step
 
-    def getindex_w(self, w_obj, w_exception=None):
+    def getindex_w(self, w_obj, w_exception, objdescr=None):
+        """Return w_obj.__index__() as an RPython int.
+        If w_exception is None, silently clamp in case of overflow;
+        else raise w_exception.
+        """
         # shortcut for int objects
         if self.is_w(self.type(w_obj), self.w_int):
             return self.int_w(w_obj)
 
-        w_index = self.index(w_obj)
+        try:
+            w_index = self.index(w_obj)
+        except OperationError, err:
+            if objdescr is None or not err.match(self, self.w_TypeError):
+                raise
+            msg = "%s must be an integer, not %s" % (
+                objdescr, self.type(w_obj).getname(self, '?'))
+            raise OperationError(self.w_TypeError, self.wrap(msg))
         try:
             index = self.int_w(w_index)
         except OperationError, err:

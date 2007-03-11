@@ -1,4 +1,5 @@
 from py.test import raises
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
 import sys
@@ -149,12 +150,19 @@ class TestObjSpace:
             class Y(object):
                 def __index__(self): return 2**70
             return Y()""")
-        first = self.space.getindex_w(w_instance1)
+        first = self.space.getindex_w(w_instance1, None)
         assert first == 42
-        second = self.space.getindex_w(w_instance2)
+        second = self.space.getindex_w(w_instance2, None)
         assert second == sys.maxint
         self.space.raises_w(self.space.w_IndexError,
                             self.space.getindex_w, w_instance2, self.space.w_IndexError)
+        try:
+            self.space.getindex_w(self.space.w_tuple, None, "foobar")
+        except OperationError, e:
+            assert e.match(self.space, self.space.w_TypeError)
+            assert "foobar" in e.errorstr(self.space)
+        else:
+            assert 0, "should have raised"
 
 
 class TestModuleMinimal: 

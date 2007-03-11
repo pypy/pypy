@@ -749,12 +749,7 @@ def ge__String_String(space, w_str1, w_str2):
         return space.w_False
 
 def getitem__String_ANY(space, w_str, w_index):
-    if not space.lookup(w_index, '__index__'):
-        raise OperationError(
-            space.w_TypeError,
-            space.wrap("string indices must be integers, not %s" %
-                       space.type(w_index).getname(space, '?')))
-    ival = space.getindex_w(w_index, space.w_IndexError)
+    ival = space.getindex_w(w_index, space.w_IndexError, "string index")
     str = w_str._value
     slen = len(str)
     if ival < 0:

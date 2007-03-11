@@ -627,7 +627,7 @@ def old_slice_range(space, w_obj, w_start, w_stop):
     if space.is_w(w_start, space.w_None):
         w_start = space.wrap(0)
     else:
-        w_start = space.wrap(space.getindex_w(w_start))
+        w_start = space.wrap(space.getindex_w(w_start, None))
         if space.is_true(space.lt(w_start, space.wrap(0))):
             w_start = space.add(w_start, space.len(w_obj))
             # NB. the language ref is inconsistent with the new-style class
@@ -636,7 +636,7 @@ def old_slice_range(space, w_obj, w_start, w_stop):
     if space.is_w(w_stop, space.w_None):
         w_stop = space.wrap(slice_max)
     else:
-        w_stop = space.wrap(space.getindex_w(w_stop))
+        w_stop = space.wrap(space.getindex_w(w_stop, None))
         if space.is_true(space.lt(w_stop, space.wrap(0))):
             w_stop = space.add(w_stop, space.len(w_obj))
     return w_start, w_stop

@@ -53,7 +53,6 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
         convertermap = {int: 'int_w',
                         str: 'str_w',
                         float: 'float_w',
-                        "index": 'getindex_w'
                         }
         argname = self.orig_arg()
         assert not argname.startswith('w_')
@@ -65,7 +64,14 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
         self.passedargs.append(argname)
 
     def visit_index(self, el):
-        self.visit__object("index")
+        argname = self.orig_arg()
+        assert not argname.startswith('w_')
+        self.inputargs.append(argname)
+        self.wrappings.append('%s = ___space.getindex_w(___W_Object(%s),'
+                              ' ___space.w_OverflowError)' %
+                               (argname,
+                                argname))
+        self.passedargs.append(argname)
 
     def visit_args_w(self, el):
         argname = self.orig_arg()

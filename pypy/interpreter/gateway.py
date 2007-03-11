@@ -107,11 +107,11 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_self(self, cls, app_sig):
         self.visit__Wrappable(cls, app_sig)
 
-    def checked_space_method(self, typ, app_sig):
+    def checked_space_method(self, typname, app_sig):
         argname = self.orig_arg()
         assert not argname.startswith('w_'), (
             "unwrapped %s argument %s of built-in function %r should "
-            "not start with 'w_'" % (typ.__name__, argname, self.func))
+            "not start with 'w_'" % (typname, argname, self.func))
         app_sig.append(argname)
 
     def visit_index(self, index, app_sig):
@@ -164,7 +164,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit__object(self, typ, app_sig):
         if typ not in (int, str, float):
             assert False, "unsupported basic type in unwrap_spec"
-        self.checked_space_method(typ, app_sig)
+        self.checked_space_method(typ.__name__, app_sig)
 
 
 class UnwrapSpec_EmitRun(UnwrapSpecEmit):
@@ -214,7 +214,8 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                              (typ.__name__, self.scopenext()))
 
     def visit_index(self, typ):
-        self.run_args.append("space.getindex_w(%s)" % (self.scopenext(), ))
+        self.run_args.append("space.getindex_w(%s, space.w_OverflowError)"
+                             % (self.scopenext(), ))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -326,7 +327,8 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                                                self.nextarg()))
 
     def visit_index(self, typ):
-        self.unwrap.append("space.getindex_w(%s)" % (self.nextarg()), )
+        self.unwrap.append("space.getindex_w(%s, space.w_OverflowError)"
+                           % (self.nextarg()), )
 
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
