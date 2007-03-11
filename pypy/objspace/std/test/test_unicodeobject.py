@@ -258,3 +258,9 @@ class AppTestUnicodeString:
         a = x.__getnewargs__()
         assert a == (u"foo\u1234",)
         assert type(a[0]) is unicode
+
+    def test_call_unicode(self):
+        assert unicode() == u''
+        assert unicode(None) == u'None'
+        assert unicode(123) == u'123'
+        assert unicode([2, 3]) == u'[2, 3]'
