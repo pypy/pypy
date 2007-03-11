@@ -19,7 +19,7 @@ class PersistentListController(object):
         self.proxy = transparent_proxy(list, self.perform)
 
     def persist(self):
-        self._storage.pickle(self._obj) 
+        self._storage.dump(self._obj) 
 
     def perform(self, operation, *args, **kwargs):
         result = getattr(self._obj, operation)(*args, **kwargs)
@@ -41,28 +41,18 @@ class PersistentListController(object):
 
     @classmethod
     def load(cls, storage):
-        obj = storage.unpickle(storage)
+        obj = storage.load()
         return cls(obj, storage) 
 
-
-class Storage:
-    def __init__(self, path): 
-        self.path = py.path.local(path)
-
-    def pickle(self, obj): 
-        self.path.dump(obj) 
-
-    def unpickle(self, storage): 
-        return self.path.load()
-    
 if __name__ == '__main__': 
     import py 
-    storage = Storage("/tmp/mystorage")
+    storage = py.path.local("/tmp/mystorage")
             
     somelist = [1,2,3]
     newlist = PersistentListController(somelist, storage).proxy 
     newlist.append(4) 
     newlist += [5,6,7]
+    assert isinstance(newlist, list)
     #call_some_function(newlist) # will see a regular list
     del somelist, newlist 
     restoredlist = PersistentListController.load(storage).proxy
