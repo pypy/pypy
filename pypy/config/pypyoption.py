@@ -196,7 +196,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.std.withmethodcache", True)]),
         IntOption("methodcachesizeexp",
-                  "2 ** methodcachesizeexp is the size of the of the method cache ",
+                  " 2 ** methodcachesizeexp is the size of the of the method cache ",
                   default=11),
         BoolOption("withmultilist",
                    "use lists optimized for flexibility",
