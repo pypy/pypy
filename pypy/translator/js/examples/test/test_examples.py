@@ -1,7 +1,8 @@
 
 """ Various build tests
 """
-
+import py
+py.test.skip("Skip this till pylib trunk->dist merge")
 from pypy.translator.js.main import rpython2javascript
 
 def test_console_build():

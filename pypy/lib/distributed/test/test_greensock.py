@@ -1,4 +1,6 @@
 
+import py
+py.test.skip("Skip this till pylib trunk->dist merge")
 from pypy.conftest import gettestobjspace
 
 class AppTestDistributedGreensock(object):

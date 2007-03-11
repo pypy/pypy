@@ -1,4 +1,6 @@
 
+py.test.skip("Skip this till pylib trunk->dist merge")
+
 def test_line_skip():
     from pypy.translator.js.examples.console.console import line_split
     assert line_split("asdf", 80) == "asdf"
