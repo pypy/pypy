@@ -206,7 +206,7 @@ def create_trace_space(space):
         
         # XXX Rename
         def reset_trace(self):
-            """ Returns the class to it's original form. """
+            """ Returns the class to its original form. """
             space.__class__ = space.__oldclass__
             del space.__oldclass__
 

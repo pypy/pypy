@@ -195,7 +195,7 @@ compiler implementation
 -----------------------
 
 For now we are working at translating the existing compiler module without
-changing it's design too much. That means we won't have enough flexibility
+changing its design too much. That means we won't have enough flexibility
 to be able to handle new AST nodes at runtime.
 
 parser module

@@ -6,7 +6,7 @@ from pypy.rpython.rmodel import IntegerRepr
 from pypy.rpython.lltypesystem.lltype import Ptr, Char, UniChar
 from pypy.rpython.ootypesystem import ootype
 
-# TODO: investigate if it's possibile and it's worth to concatenate a
+# TODO: investigate if it's possible and it's worth to concatenate a
 # String and a Char directly without passing to Char-->String
 # conversion
 

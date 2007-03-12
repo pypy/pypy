@@ -66,7 +66,7 @@ class Test:
         call of .run().
 
         If you change a test in some way, don't forget to increase
-        it's version number.
+        its version number.
 
     """
     operations = 1      # number of operations done per test()-call

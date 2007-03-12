@@ -90,7 +90,7 @@ Some ideas on concrete steps for benchmarking:
 * do benchmark runs to see how much speedup the currently written
   optimizations give
 
-* profile pypy-c and it's variants with these benchmarks, identify slow areas
+* profile pypy-c and its variants with these benchmarks, identify slow areas
 
 * try to come up with optimized implementations for these slow areas
 

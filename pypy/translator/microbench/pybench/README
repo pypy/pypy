@@ -5,7 +5,7 @@ Micro-Manual
 ------------
 
 Run 'pybench.py -h' to see the help screen.
-Run 'pybench.py' to just let the benchmark suite do it's thing and
+Run 'pybench.py' to just let the benchmark suite do its thing and
 'pybench.py -f <file>' to have it store the results in a file too.
 
 Change list

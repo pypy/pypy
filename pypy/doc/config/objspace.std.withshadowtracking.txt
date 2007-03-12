@@ -1,7 +1,7 @@
 Enable "shadow tracking". This means a special dict representation is used
 together with `multidicts`_. This dict representation is used only for instance
 dictionaries. The instance dictionary tracks whether an instance attribute
-shadows an attribute of it's class. This makes method calls slightly faster in
+shadows an attribute of its class. This makes method calls slightly faster in
 the following way: When calling a method the first thing that is checked is the
 class dictionary to find descriptors. Usually, when a method is found, the
 instance dictionary is then checked for instance attributes shadowing the class
