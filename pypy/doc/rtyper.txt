@@ -23,7 +23,7 @@ operations, along the lines of reading or writing from or to a field of a
 structure.
 
 In theory, this step is optional; some code generators might be able to read
-directly the high-level types.  However, we expect that case to be the
+the high-level types directly.  However, we expect that case to be the
 exception.  "Compiling" high-level types into low-level ones is rather more
 messy than one would expect.  This was the motivation for making this step
 explicit and isolated in a single place.  After Typing, the graphs can only
@@ -34,7 +34,8 @@ simpler.
 Example: Integer operations
 ---------------------------
 
-Integer operations are the easiest.  Assume a graph containing the following operation::
+Integer operations are the easiest.  Assume a graph containing the following
+operation::
 
     v3 = add(v1, v2)
 
@@ -495,14 +496,14 @@ Static vs. dynamic typing
 The target platform is assumed to be **statically typed**, i.e.  the
 type of each object is known at compile time.
 
-As usual, it is possibile to convert an object from type to type only
-under certain conditions; there is a number of predefined conversion
+As usual, it is possible to convert an object from type to type only
+under certain conditions; there is a number of predefined conversions
 between primitive types such as from ``Bool`` to ``Signed`` or from
 ``Signed`` to ``Float``. For each one of these conversions there is a
 corresponding low level operation, such as ``cast_bool_to_int`` and
 ``cast_int_to_float``.
 
-Moreover it is possibile to cast instances of a class up and down the
+Moreover it is possible to cast instances of a class up and down the
 inheritance hierarchy with the ``ooupcast`` and ``oodowncast`` low
 level operations. Implicit upcasting is not allowed, so you really
 need to do a ``ooupcast`` for converting from a subclass to a
@@ -518,8 +519,8 @@ Object model
 ++++++++++++
 
 The object model implemented by ootype is quite Java-like. The
-following is a list of key feature of the ootype object model which
-have a direct correspondence in the Java or .NET object:
+following is a list of key features of the ootype object model which
+have a direct correspondence in the Java or .NET object model:
 
   - classes have a static set of strongly typed methods and
     attributes;
@@ -528,7 +529,7 @@ have a direct correspondence in the Java or .NET object:
     (i.e., can be overridden); methods can be "abstract" (i.e., need
     to be overridden in subclasses);
 
-  - classes support single inheritance; all classes inherits directly
+  - classes support single inheritance; all classes inherit directly
     or indirectly from the ROOT class;
 
   - there is some support for method overloading. This feature is not
@@ -541,10 +542,10 @@ have a direct correspondence in the Java or .NET object:
     accessibility rules;
 
   - classes and functions are first-class order objects: this feature
-    can be easly simulated by backends for platform on which it is not
+    can be easily simulated by backends for platforms on which it is not
     a native feature;
 
-  - there is a set of `built-in types`_ offering standard features;
+  - there is a set of `built-in types`_ offering standard features.
 
 Exception handling
 ++++++++++++++++++
