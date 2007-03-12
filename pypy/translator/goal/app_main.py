@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # App-level version of py.py.
-# XXX this is probably still incomplete.
+# See test/test_app_main.
 """
 options:
   -i           inspect interactively after running script
@@ -261,6 +261,7 @@ def entry_point(executable, argv):
                     runpy.run_module(sys.argv[0], None, '__main__', True)
                 success = run_toplevel(run_it)
             else:
+                mainmodule.__file__ = sys.argv[0]
                 scriptdir = resolvedirof(sys.argv[0])
                 sys.path.insert(0, scriptdir)
                 success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
@@ -319,5 +320,5 @@ if __name__ == '__main__':
     from pypy.module.sys.version import PYPY_VERSION
     sys.pypy_version_info = PYPY_VERSION
     sys.pypy_initial_path = pypy_initial_path
-    #sys.exit(entry_point(sys.argv[0], sys.argv[1:]))
-    sys.exit(entry_point('app_main.py', sys.argv[1:]))
+    sys.exit(entry_point(sys.argv[0], sys.argv[1:]))
+    #sys.exit(entry_point('app_main.py', sys.argv[1:]))
