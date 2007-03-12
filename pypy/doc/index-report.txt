@@ -12,22 +12,25 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
-`Interim D12.1 High-Level-Backends and Feature Prototypes`_ is an interim
-version of a report about XXX add a nice description here. The report is still
-a draft, all feedback for it is welcome. *(2007-03-12)*
+`Interim D12.1 High-Level-Backends and Feature Prototypes`_ is an
+interim version of a report about our high-level backends and our
+several validation prototypes: an information flow security prototype,
+a distribution prototype and a persistence proof-of-concept. The
+report is still non-final, all feedback for it is
+welcome. *(2007-03-12)*
 
-`Interim D01.2-4 Project Organization`_ is an interim version of a report about
-the management activities within the PyPy project PyPy development process. The
-report is still a draft, all feedback for it is welcome. *(2007-03-12)*
+`Interim D01.2-4 Project Organization`_ is an interim version of a
+report about the management activities within the PyPy project and
+PyPy development process. The report is still non-final, all feedback
+for it is welcome. *(2007-03-12)*
 
 `Interim D02.1 Development Tools and Website`_ is an interim version of a report
 about the codespeak_ development environment and aditional tool support for the
-PyPy development process. The report is still a
-draft, all feedback for it is welcome. *(2007-03-12)*
+PyPy development process. The report is still non-final, all feedback for it is welcome. *(2007-03-12)*
 
 `Interim D02.3 Testing Tool`_ is an interim version of a report about the
-`py.test`_ testing tool which is part of the `py-lib`_. The report is still a
-draft, all feedback for it is welcome. *(2007-03-12)*
+`py.test`_ testing tool which is part of the `py-lib`_. The report is still 
+non-final, all feedback for it is welcome. *(2007-03-12)*
 
 `D07.1 Massive Parallelism and Translation Aspects`_ is a report about
 PyPy's optimization efforts, garbage collectors and massive parallelism
