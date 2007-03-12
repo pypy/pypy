@@ -15,12 +15,29 @@ def test_executable():
 
 def test_prefix():
     """Make sure py.py sys.prefix and exec_prefix are the same as C Python's"""
-    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.prefix" ''' %
-                                 (sys.executable, pypypath) )
-    assert output.splitlines()[-1] == sys.prefix
-    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.exec_prefix" ''' %
-                                 (sys.executable, pypypath) )
+    cmd = "import sys;print sys.prefix;print sys.exec_prefix"
+    output = py.process.cmdexec( '''"%s" "%s" -c "%s" ''' %
+                                 (sys.executable, pypypath, cmd) )
+    assert output.splitlines()[-2] == sys.prefix
     assert output.splitlines()[-1] == sys.exec_prefix
+
+def test_special_names():
+    """Test the __name__ and __file__ special global names"""
+    cmd = "print __name__; print '__file__' in globals()"
+    output = py.process.cmdexec( '''"%s" "%s" -c "%s" ''' %
+                                 (sys.executable, pypypath, cmd) )
+    assert output.splitlines()[-2] == '__main__'
+    assert output.splitlines()[-1] == 'False'
+
+    tmpfilepath = str(udir.join("test_py_script_1.py"))
+    tmpfile = file( tmpfilepath, "w" )
+    tmpfile.write("print __name__; print __file__\n")
+    tmpfile.close()
+
+    output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
+                                 (sys.executable, pypypath, tmpfilepath) )
+    assert output.splitlines()[-2] == '__main__'
+    assert output.splitlines()[-1] == str(tmpfilepath)
 
 def test_argv_command():
     """Some tests on argv"""
@@ -91,16 +108,3 @@ def test_tb_normalization():
         pass
     assert e," expected failure"
     assert e.err.splitlines()[-1] == 'KeyError: <normalized>'
-
-
-def test_no__file__in_main():
-    tmpfilepath = udir.join("test_py_script.py")
-    tmpfilepath.write(str(py.code.Source("""
-        try:
-            print __file__
-        except NameError:
-            print 'no __file__.'
-    """)))
-    output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
-                                 (sys.executable, pypypath, tmpfilepath) )
-    assert 'no __file__.\n' in output

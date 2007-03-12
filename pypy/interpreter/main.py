@@ -36,12 +36,14 @@ def _run_eval_string(source, filename, space, eval):
 
         w = space.wrap
 
-        pycode = compilecode(space, source, filename, cmd)
+        pycode = compilecode(space, source, filename or '<string>', cmd)
 
         mainmodule = ensure__main__(space)
         w_globals = mainmodule.w_dict
 
         space.setitem(w_globals, w('__builtins__'), space.builtin)
+        if filename is not None:
+            space.setitem(w_globals, w('__file__'), w(filename))
 
         retval = pycode.exec_code(space, w_globals, w_globals)
         if eval:
@@ -53,10 +55,10 @@ def _run_eval_string(source, filename, space, eval):
         operationerr.record_interpreter_traceback()
         raise
 
-def run_string(source, filename='<string>', space=None):
+def run_string(source, filename=None, space=None):
     _run_eval_string(source, filename, space, False)
 
-def eval_string(source, filename='<string>', space=None):
+def eval_string(source, filename=None, space=None):
     return _run_eval_string(source, filename, space, True)
 
 def run_file(filename, space=None):
