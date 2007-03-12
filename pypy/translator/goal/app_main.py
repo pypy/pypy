@@ -268,10 +268,25 @@ def entry_point(executable, argv):
             success = run_toplevel(run_it)
         elif run_stdin:
             if sys.stdin.isatty():
+                print_banner()
+                python_startup = os.getenv('PYTHONSTARTUP')
+                if python_startup:
+                    try:
+                        startup = open(python_startup).read()
+                    except IOError:
+                        pass
+                    else:
+                        def run_it():
+                            co_python_startup = compile(startup,
+                                                        python_startup,
+                                                        'exec')
+                            exec co_python_startup in mainmodule.__dict__
+                        run_toplevel(run_it)
                 go_interactive = True
             else:
                 def run_it():
-                    exec sys.stdin.read() in mainmodule.__dict__
+                    co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
+                    exec co_stdin in mainmodule.__dict__
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
@@ -281,20 +296,7 @@ def entry_point(executable, argv):
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
             
         if go_interactive or os.getenv('PYTHONINSPECT'):
-            python_startup = os.getenv('PYTHONSTARTUP')
-            if python_startup:
-                try:
-                    startup = open(python_startup).read()
-                except IOError:
-                    pass
-                else:
-                    def run_it():
-                        exec startup in mainmodule.__dict__
-                    run_toplevel(run_it)
-            print >> sys.stderr, "debug: importing code" 
-            import code
-            print >> sys.stderr, "debug: calling code.interact()"
-            success = run_toplevel(code.interact, local=mainmodule.__dict__)
+            success = run_toplevel(interactive_console, mainmodule)
     except SystemExit, e:
         return e.code
     else:
@@ -315,10 +317,47 @@ def resolvedirof(filename):
             return resolvedirof(os.path.join(dirname, link))
     return dirname
 
+def print_banner():
+    print 'Python %s on %s' % (sys.version, sys.platform)
+    print ('Type "help", "copyright", "credits" or '
+           '"license" for more information.')
+
+def interactive_console(mainmodule):
+    # some parts of code.py are copied here because it seems to be impossible
+    # to start an interactive console without printing at least one line
+    # of banner
+    import code
+    console = code.InteractiveConsole(mainmodule.__dict__)
+    try:
+        import readline
+    except ImportError:
+        pass
+    more = 0
+    while 1:
+        try:
+            if more:
+                prompt = sys.ps2
+            else:
+                prompt = sys.ps1
+            try:
+                line = raw_input(prompt)
+            except EOFError:
+                console.write("\n")
+                break
+            else:
+                more = console.push(line)
+        except KeyboardInterrupt:
+            console.write("\nKeyboardInterrupt\n")
+            console.resetbuffer()
+            more = 0
+
+
 if __name__ == '__main__':
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+    sys.ps1 = '>>>> '
+    sys.ps2 = '.... '
 
     # debugging only
     def pypy_initial_path(s):

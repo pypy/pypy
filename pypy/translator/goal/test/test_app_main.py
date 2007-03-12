@@ -14,13 +14,18 @@ import sys
 print 'Exec:', sys.executable
 print 'Argv:', sys.argv
 print 'goodbye'
+myvalue = 6*7
 """
 
 CRASHING_DEMO_SCRIPT = """
-print 'hello'
+print 'Hello2'
+myvalue2 = 11
 ooups
-print 'goodbye'   # should not be reached
+myvalue2 = 22
+print 'Goodbye2'   # should not be reached
 """
+
+banner = sys.version.splitlines()[0]
 
 def relpath(path):
     # force 'path' to be a relative path, for testing purposes
@@ -60,7 +65,9 @@ class TestInteraction:
             py.test.skip(str(e))
         kwds.setdefault('timeout', 10)
         print 'SPAWN:', args, kwds
-        return pexpect.spawn(*args, **kwds)
+        child = pexpect.spawn(*args, **kwds)
+        child.logfile = sys.stdout
+        return child
 
     def spawn(self, argv):
         return self._spawn(sys.executable, [app_main] + argv)
@@ -105,6 +112,100 @@ class TestInteraction:
         child = self.spawn(['xxx-no-such-file-xxx'])
         child.expect(re.escape(msg))
 
+    def test_option_i(self):
+        argv = [demo_script, 'foo', 'bar']
+        child = self.spawn(['-i'] + argv)
+        idx = child.expect(['hello', re.escape(banner)])
+        assert idx == 0      # no banner
+        child.expect(re.escape('File: ' + demo_script))
+        child.expect(re.escape('Argv: ' + repr(argv)))
+        child.expect('goodbye')
+        idx = child.expect(['>>> ', re.escape(banner)])
+        assert idx == 0      # prompt, but still no banner
+        child.sendline('myvalue * 102')
+        child.expect('4284')
+        child.sendline('__name__')
+        child.expect('__main__')
+
+    def test_option_i_crashing(self):
+        argv = [crashing_demo_script, 'foo', 'bar']
+        child = self.spawn(['-i'] + argv)
+        idx = child.expect(['Hello2', re.escape(banner)])
+        assert idx == 0      # no banner
+        child.expect('NameError')
+        child.sendline('myvalue2 * 1001')
+        child.expect('11011')
+        child.sendline('import sys; sys.argv')
+        child.expect(re.escape(repr(argv)))
+        child.sendline('sys.last_type.__name__')
+        child.expect(re.escape(repr('NameError')))
+
+    def test_options_i_c(self):
+        child = self.spawn(['-i', '-c', 'x=555'])
+        idx = child.expect(['>>> ', re.escape(banner)])
+        assert idx == 0      # prompt, but no banner
+        child.sendline('x')
+        child.expect('555')
+        child.sendline('__name__')
+        child.expect('__main__')
+        child.sendline('import sys; sys.argv')
+        child.expect(re.escape("['-c']"))
+
+    def test_options_i_c_crashing(self):
+        child = self.spawn(['-i', '-c', 'x=666;foobar'])
+        child.expect('NameError')
+        idx = child.expect(['>>> ', re.escape(banner)])
+        assert idx == 0      # prompt, but no banner
+        child.sendline('x')
+        child.expect('666')
+        child.sendline('__name__')
+        child.expect('__main__')
+        child.sendline('import sys; sys.argv')
+        child.expect(re.escape("['-c']"))
+        child.sendline('sys.last_type.__name__')
+        child.expect(re.escape(repr('NameError')))
+
+    def test_atexit(self):
+        child = self.spawn([])
+        child.expect('>>> ')
+        child.sendline('def f(): print "foobye"')
+        child.sendline('')
+        child.sendline('import atexit; atexit.register(f)')
+        child.sendline('6*7')
+        child.expect('42')
+        # pexpect's sendeof() is confused by py.test capturing, though
+        # I think that it is a bug of sendeof()
+        old = sys.stdin
+        try:
+            sys.stdin = child
+            child.sendeof()
+        finally:
+            sys.stdin = old
+        child.expect('foobye')
+
+    def test_pythonstartup(self):
+        old = os.environ['PYTHONSTARTUP']
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            child = self.spawn([])
+            child.expect(re.escape(banner))
+            child.expect('Traceback')
+            child.expect('NameError')
+            child.expect('>>> ')
+            child.sendline('[myvalue2]')
+            child.expect(re.escape('[11]'))
+            child.expect('>>> ')
+
+            child = self.spawn(['-i', demo_script])
+            for line in ['hello', 'goodbye', '>>> ']:
+                idx = child.expect([line, 'Hello2'])
+                assert idx == 0    # no PYTHONSTARTUP run here
+            child.sendline('myvalue2')
+            child.expect('Traceback')
+            child.expect('NameError')
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
+
 
 class TestNonInteractive:
 
@@ -115,7 +216,7 @@ class TestNonInteractive:
         child_in.close()
         data = child_out_err.read()
         child_out_err.close()
-        assert sys.version not in data     # no banner
+        assert banner not in data          # no banner
         assert '>>> ' not in data          # no prompt
         return data
 
@@ -135,12 +236,27 @@ class TestNonInteractive:
 
     def test_run_crashing_script(self):
         data = self.run('"%s"' % (crashing_demo_script,))
-        assert 'hello' in data
+        assert 'Hello2' in data
         assert 'NameError' in data
-        assert 'goodbye' not in data
+        assert 'Goodbye2' not in data
 
     def test_crashing_script_on_stdin(self):
         data = self.run(' < "%s"' % (crashing_demo_script,))
-        assert 'hello' in data
+        assert 'Hello2' in data
         assert 'NameError' in data
-        assert 'goodbye' not in data
+        assert 'Goodbye2' not in data
+
+    def test_option_c(self):
+        data = self.run('-c "print 6**5"')
+        assert '7776' in data
+
+    def test_no_pythonstartup(self):
+        old = os.environ['PYTHONSTARTUP']
+        try:
+            os.environ['PYTHONSTARTUP'] = crashing_demo_script
+            data = self.run('"%s"' % (demo_script,))
+            assert 'Hello2' not in data
+            data = self.run('-c pass')
+            assert 'Hello2' not in data
+        finally:
+            os.environ['PYTHONSTARTUP'] = old
