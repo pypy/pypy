@@ -206,6 +206,33 @@ class TestInteraction:
         finally:
             os.environ['PYTHONSTARTUP'] = old
 
+    def test_unbuffered(self):
+        line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
+        child = self.spawn(['-u', '-c', line])
+        child.expect('789')    # expect to see it before the timeout hits
+        child.sendline('X')
+
+    def test_options_i_m(self):
+        p = os.path.join(autopath.this_dir, 'mymodule.py')
+        p = os.path.abspath(p)
+        child = self.spawn(['-i',
+                            '-m', 'pypy.translator.goal.test.mymodule',
+                            'extra'])
+        child.expect('mymodule running')
+        child.expect('Name: __main__')
+        child.expect(re.escape('File: ' + p))
+        child.expect(re.escape('Argv: ' + repr([p, 'extra'])))
+        child.expect('>>> ')
+        #XXX the following doesn't work on CPython 2.5 either
+        #child.sendline('somevalue')
+        #child.expect(re.escape(repr("foobar")))
+        #child.expect('>>> ')
+        child.sendline('import sys')
+        child.sendline('"pypy.translator.goal.test" in sys.modules')
+        child.expect('True')
+        child.sendline('"pypy.translator.goal.test.mymodule" in sys.modules')
+        child.expect('False')
+
 
 class TestNonInteractive:
 
@@ -260,3 +287,12 @@ class TestNonInteractive:
             assert 'Hello2' not in data
         finally:
             os.environ['PYTHONSTARTUP'] = old
+
+    def test_option_m(self):
+        p = os.path.join(autopath.this_dir, 'mymodule.py')
+        p = os.path.abspath(p)
+        data = self.run('-m pypy.translator.goal.test.mymodule extra')
+        assert 'mymodule running' in data
+        assert 'Name: __main__' in data
+        assert ('File: ' + p) in data
+        assert ('Argv: ' + repr([p, 'extra'])) in data

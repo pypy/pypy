@@ -239,7 +239,7 @@ def entry_point(executable, argv):
         try:
             import site
         except:
-            print >> sys.stderr, "import site' failed"
+            print >> sys.stderr, "'import site' failed"
 
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
@@ -353,6 +353,7 @@ def interactive_console(mainmodule):
 
 
 if __name__ == '__main__':
+    import autopath
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
