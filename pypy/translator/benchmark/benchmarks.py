@@ -51,6 +51,7 @@ def external_dependency(dirname, svnurl, revision):
         print >> sys.stderr, "* checkout failed, skipping this benchmark"
         return False
     revtag.write(str(revision))
+    return True
 
 def run_cmd(cmd):
     #print "running", cmd
@@ -196,7 +197,7 @@ BENCHMARKS = [Benchmark('richards', run_richards, RICHARDS_ASCENDING_GOOD, 'ms')
                         's', check_docutils),
               Benchmark('templess', run_templess, RICHARDS_ASCENDING_GOOD,
                         's', check_templess),
-              Benchmark('gadfly', run_gadfly, RICHARDS_ASCENDING_GOOD,
+              Benchmark('gadfly2', run_gadfly, RICHARDS_ASCENDING_GOOD,
                         's', check_gadfly),
               Benchmark('mako', run_mako, RICHARDS_ASCENDING_GOOD,
                         's', check_mako),
