@@ -12,6 +12,10 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
+`Interim D01.2-4 Project Organization`_ is an interim version of a report about
+the management activities within the PyPy project PyPy development process. The
+report is still a draft, all feedback for it is welcome. *(2007-03-12)*
+
 `Interim D02.1 Development Tools and Website`_ is an interim version of a report
 about the codespeak_ development environment and aditional tool support for the
 PyPy development process. The report is still a
@@ -108,6 +112,7 @@ project during the first year of EU funding (December 2004 - December 2005)
 .. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`D03.1 Extension Compiler`: http://codespeak.net/pypy/extradoc/eu-report/D03.1_Extension_Compiler-interim-2007-02-28.pdf
 .. _`Interim D02.3 Testing Tool`: http://codespeak.net/pypy/extradoc/eu-report/D02.3_Testing_Framework-interim-2007-03-12.pdf
+.. _`Interim D01.2-4 Project Organization`: http://codespeak.net/pypy/extradoc/eu-report/D01.2-4_Project_Organization-interim-2007-03-12.pdf
 .. _`Interim D02.1 Development Tools and Website`: http://codespeak.net/pypy/extradoc/eu-report/D02.1_Development_Tools_and_Website-interim-2007-03-12.pdf
 .. _`Draft D08.2 JIT Compiler Architecture`: http://codespeak.net/pypy/extradoc/eu-report/D08.2_JIT_Compiler_Architecture-interim-2007-01-28.pdf
 .. _`Draft D13.1 Build and Configuration Tool`: http://codespeak.net/pypy/extradoc/eu-report/D13.1_Build-_and_Configuration_Tool-interim-2006-02-01.pdf
