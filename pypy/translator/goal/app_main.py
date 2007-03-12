@@ -178,6 +178,7 @@ def entry_point(executable, argv):
     import_site = True
     i = 0
     run_module = False
+    run_stdin = False
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -205,6 +206,9 @@ def entry_point(executable, argv):
             return 0
         elif arg == '-S':
             import_site = False
+        elif arg == '-':
+            run_stdin = True
+            break     # not an option but a file name representing stdin
         elif arg == '-m':
             i += 1
             if i >= len(argv):
@@ -220,6 +224,9 @@ def entry_point(executable, argv):
             return 2
         i += 1
     sys.argv = argv[i:]
+    if not sys.argv:
+        sys.argv.append('')
+        run_stdin = True
 
     # with PyPy in top of CPython we can only have around 100 
     # but we need more in the translated PyPy for the compiler package 
@@ -249,25 +256,29 @@ def entry_point(executable, argv):
     success = True
 
     try:
-        if sys.argv:
-            if run_command:
-                cmd = sys.argv.pop(1)
-                def run_it():
-                    exec cmd in mainmodule.__dict__
-                success = run_toplevel(run_it)
-            elif run_module:
-                def run_it():
-                    import runpy
-                    runpy.run_module(sys.argv[0], None, '__main__', True)
-                success = run_toplevel(run_it)
+        if run_command:
+            cmd = sys.argv.pop(1)
+            def run_it():
+                exec cmd in mainmodule.__dict__
+            success = run_toplevel(run_it)
+        elif run_module:
+            def run_it():
+                import runpy
+                runpy.run_module(sys.argv[0], None, '__main__', True)
+            success = run_toplevel(run_it)
+        elif run_stdin:
+            if sys.stdin.isatty():
+                go_interactive = True
             else:
-                mainmodule.__file__ = sys.argv[0]
-                scriptdir = resolvedirof(sys.argv[0])
-                sys.path.insert(0, scriptdir)
-                success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
-        else: 
-            sys.argv.append('')
-            go_interactive = True
+                def run_it():
+                    exec sys.stdin.read() in mainmodule.__dict__
+                mainmodule.__file__ = '<stdin>'
+                success = run_toplevel(run_it)
+        else:
+            mainmodule.__file__ = sys.argv[0]
+            scriptdir = resolvedirof(sys.argv[0])
+            sys.path.insert(0, scriptdir)
+            success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
             
         if go_interactive or os.getenv('PYTHONINSPECT'):
             python_startup = os.getenv('PYTHONSTARTUP')
