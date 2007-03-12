@@ -35,14 +35,22 @@ class Benchmark(object):
 def external_dependency(dirname, svnurl, revision):
     """Check out (if necessary) a given fixed revision of a svn url."""
     dirpath = py.magic.autopath().dirpath().join(dirname)
-    if not dirpath.check():
-        CMD = "svn co -r%d %s@%d %s" % (revision, svnurl, revision, dirpath)
-        print >> sys.stderr, CMD
-        err = os.system(CMD)
-        if err != 0:
-            print >> sys.stderr, "* checkout failed, skipping this benchmark"
-            return False
-    return True
+    revtag = dirpath.join('-svn-rev-')
+    if dirpath.check():
+        if not revtag.check() or int(revtag.read()) != revision:
+            print >> sys.stderr, ("Out-of-date benchmark checkout!"
+                                  " I won't update it automatically.")
+            print >> sys.stderr, ("To continue, move away or remove the "
+                                  "%r directory." % (dirname,))
+            sys.exit(1)
+        return True
+    CMD = "svn co -r%d %s@%d %s" % (revision, svnurl, revision, dirpath)
+    print >> sys.stderr, CMD
+    err = os.system(CMD)
+    if err != 0:
+        print >> sys.stderr, "* checkout failed, skipping this benchmark"
+        return False
+    revtag.write(str(revision))
 
 def run_cmd(cmd):
     #print "running", cmd
@@ -153,7 +161,7 @@ def run_gadfly(executable='/usr/local/bin/python'):
 def check_gadfly():
     return external_dependency('gadfly',
               'http://codespeak.net/svn/user/arigo/hack/pypy-hack/gadflyZip',
-              40225)
+              40406)
 
 def run_mako(executable='/usr/local/bin/python'):
     """ run some tests in the mako templating system """
