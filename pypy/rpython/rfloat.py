@@ -1,7 +1,7 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import \
-     Signed, Unsigned, Bool, Float, Void, pyobjectptr
+     Signed, Unsigned, SignedLongLong, Bool, Float, Void, pyobjectptr
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import FloatRepr
 from pypy.rpython.rmodel import IntegerRepr, BoolRepr
@@ -173,6 +173,9 @@ class __extend__(pairtype(IntegerRepr, FloatRepr)):
         if r_from.lowleveltype == Signed and r_to.lowleveltype == Float:
             log.debug('explicit cast_int_to_float')
             return llops.genop('cast_int_to_float', [v], resulttype=Float)
+        if r_from.lowleveltype == SignedLongLong and r_to.lowleveltype == Float:
+            log.debug('explicit cast_longlong_to_float')
+            return llops.genop('cast_longlong_to_float', [v], resulttype=Float)
         return NotImplemented
 
 class __extend__(pairtype(FloatRepr, IntegerRepr)):

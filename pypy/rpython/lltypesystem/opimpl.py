@@ -183,6 +183,13 @@ def op_cast_uint_to_float(u):
     assert type(u) is r_uint
     return float(u)
 
+def op_cast_longlong_to_float(i):
+    assert type(i) is r_longlong
+    # take first 31 bits
+    li = float(int(i & r_longlong(0x7fffffff)))
+    ui = float(int(i >> 31)) * float(0x80000000)
+    return ui + li
+
 def op_cast_int_to_char(b):
     assert type(b) is int
     return chr(b)
