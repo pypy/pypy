@@ -8,6 +8,8 @@ from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 from pypy.rlib.rarithmetic import r_uint, intmask
 
+SLASH = "\\"
+
 class Node(object):
     """
     Node is the base class for all the other nodes, the opcode parameter
@@ -763,17 +765,58 @@ class Number(Expression):
     def eval(self, ctx):
         return W_Number(self.num)
 
+
+
 class String(Expression):
     opcode = 'STRING'
     
     def from_tree(self, t):
-        self.strval = get_string(t, 'value')
+        self.strval = self.string_unquote(get_string(t, 'value'))
 
     def eval(self, ctx):
         return W_String(self.strval)
     
     def get_literal(self):
         return W_String(self.strval).ToString()
+
+    escapedict = { 
+        r'\n' : '\n',
+        r'\t' : '\t',
+	r"\'" : "'",
+        r'\"' : '"',
+        r'\\' : '\\'
+    }
+    def string_unquote(self, string):
+        temp = []
+        stop = len(string)-1
+        last = ""
+    
+        #removing the begining quotes (" or \')
+        if string.startswith('"'):
+            singlequote = False
+            if stop < 0:
+                print stop
+                raise JsSyntaxError()
+            internalstring = string[1:stop]
+        else:
+            singlequote = True
+            stop -= 1
+            if stop < 0:
+                print stop
+                raise JsSyntaxError()
+            internalstring = string[2:stop]
+    
+        for c in internalstring:
+            if last == SLASH:
+                escapeseq = self.escapedict[last+c]
+                temp.append(escapeseq)
+                last = escapeseq
+                continue
+            if c != SLASH:        
+                temp.append(c)
+            last = c
+        return ''.join(temp)
+
 
 class ObjectInit(ListOp):
     opcode = 'OBJECT_INIT'

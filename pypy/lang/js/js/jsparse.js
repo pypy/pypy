@@ -159,7 +159,7 @@ Tokenizer.prototype = {
             token.value = id;
         } else if ((match = /^"(?:\\.|[^"])*"|^'(?:[^']|\\.)*'/(input))) { //"){
             token.type = STRING;
-            token.value = eval(match[0]);
+            token.value = match[0];
         } else if (this.scanOperand &&
                    (match = /^\/((?:\\.|[^\/])+)\/([gi]*)/(input))) {
             token.type = REGEXP;
@@ -297,7 +297,7 @@ Np.toString = function () {
         }
         
         if(typeof a[i].value == 'string'){
-            val = a[i].value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+	  val = a[i].value.replace(/\'/g,"\\'")
         } else {
             val = a[i].value+ "";
         }

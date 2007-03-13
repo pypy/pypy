@@ -27,15 +27,15 @@ def read_js_output(code_string):
     tmp = []
     last = ""
     for c in code_string:
-        if c == "'" and last != SLASH:
+        if c == "'":
             tmp.append("\\'")
+        elif c == SLASH:
+            tmp.append(SLASH*2)
+        elif c == "\n":
+            tmp.append("\\n")
         else:
-            if c == SLASH:
-                tmp.append(SLASH*2)
-            elif c == "\n":
-                tmp.append("\\n")
-            else:
-                tmp.append(c)
+            tmp.append(c)
+        last = c
     stripped_code = "".join(tmp)
     if DEBUG:
         print "------ got:"
@@ -71,19 +71,9 @@ def unquote(t):
     if isinstance(t, Symbol):
         if t.symbol == "QUOTED_STRING":
             stop = len(t.additional_info)-1
-            if stop < 0:
-                stop = 0
+            if stop < 1:
+                raise JsSyntaxError()
             t.additional_info = t.additional_info[1:stop]
-            temp = []
-            last = ""
-            for char in t.additional_info:
-                if last == SLASH:
-                    if char == SLASH:
-                        temp.append(SLASH)
-                if char != SLASH:        
-                    temp.append(char)
-                last = char
-            t.additional_info = ''.join(temp)
     else:
         for i in t.children:
             unquote(i)
@@ -102,7 +92,7 @@ def parse_bytecode(bytecode):
     return tree
 
 regexs, rules, ToAST = parse_ebnf(r"""
-    QUOTED_STRING: "'([^\\\']|\\[\\\'])*'";"""+"""
+    QUOTED_STRING: "'([^\']|\\')*'";"""+"""
     IGNORE: " |\n";
     data: <dict> | <QUOTED_STRING> | <list>;
     dict: ["{"] (dictentry [","])* dictentry ["}"];

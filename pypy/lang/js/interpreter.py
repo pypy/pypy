@@ -55,7 +55,8 @@ def functionjs(ctx, args, this):
         functioncode = "__anon__ = function (%s) {%s}"%(fargs, fbody)
     else:
         functioncode = "__anon__ = function () {}"
-    print functioncode
+    if DEBUG:
+        print functioncode
     return evaljs(ctx, [W_String(functioncode),], this)
 
 def printjs(ctx, args, this):
