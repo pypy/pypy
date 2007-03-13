@@ -336,7 +336,14 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.class_name(res) == 'A'
         res = self.interpret(f, [2])
         assert self.class_name(res) == 'B'
-        
+
+    def test_os_path_join(self):
+        self._skip_oo('os.path.join oofakeimpl')
+        import os.path
+        def fn(a, b):
+            return os.path.join(a, b)
+        res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
+        assert res == os.path.join('a', 'b')
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
     from pypy.rpython.lltypesystem.module import ll_os

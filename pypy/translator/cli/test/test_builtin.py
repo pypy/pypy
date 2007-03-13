@@ -124,3 +124,10 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
 
     # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
     # they are implemented
+
+    def test_os_path_join(self):
+        import os.path
+        def fn(a, b):
+            return os.path.join(a, b)
+        res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
+        assert res == os.path.join('a', 'b')
