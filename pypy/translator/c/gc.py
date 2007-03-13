@@ -218,8 +218,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         if sys.platform == "linux2":
             yield "#define _REENTRANT 1"
             yield "#define GC_LINUX_THREADS 1"
+        if sys.platform != "win32":
+            # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
+            yield "#define GC_REDIRECT_TO_LOCAL 1"
         yield "#define GC_I_HIDE_POINTERS 1"
-        yield "#define GC_REDIRECT_TO_LOCAL 1"
         yield '#include <gc/gc.h>'
         yield '#define USING_BOEHM_GC'
 
