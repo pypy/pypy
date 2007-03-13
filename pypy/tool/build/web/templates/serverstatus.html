@@ -1,0 +1,22 @@
+<html>
+  <head>
+    <title>Build meta server status page</title>
+    <link rel="stylesheet" type="text/css" href="/style" />
+  </head>
+  <body>
+    <ul class="sidebar">
+      <li><a href="/serverstatus">server status</a></li>
+      <li><a href="/buildersinfo">connected build servers</a></li>
+      <li><a href="/builds">builds (both in-progress and done)</a></li>
+    </ul>
+    <h2>Server status</h2>
+    <ul>
+      <li>Connected build servers: %(builders)s</li>
+      <li>Currently running builds: %(running)s</li>
+      <li>Builds done: %(done)s</li>
+      <li>Clients waiting for a build: %(waiting)s</li>
+      <li>Builds for which no suitable server is available: %(queued)s</li>
+    </ul>
+  </body>
+</html>
+
