@@ -42,9 +42,10 @@ class StandaloneEntryPoint(BaseEntryPoint):
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
         ilasm.new('instance void class [pypylib]pypy.runtime.List`1<string>::.ctor()')
 
-        # fake argv[0]        
+        # fake argv[0]
         ilasm.opcode('dup')
-        ilasm.opcode('ldstr ""')
+        ilasm.call('class [mscorlib]System.Reflection.Assembly class [mscorlib]System.Reflection.Assembly::GetEntryAssembly()')
+        ilasm.call_method('string class [mscorlib]System.Reflection.Assembly::get_Location()', True)
         ilasm.call_method('void class [mscorlib]System.Collections.Generic.List`1<string>::Add(!0)', True)
 
         # add real argv
