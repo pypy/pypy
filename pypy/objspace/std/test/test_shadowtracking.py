@@ -210,4 +210,4 @@ class AppTestMethodCaching(AppTestShadowTracking):
                           for name in names]
         assert append_counter[0] >= 5 * len(names)
         for name, count in zip(names, names_counters):
-            assert count >= 5
+            assert count[0] >= 5
