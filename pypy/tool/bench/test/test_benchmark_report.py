@@ -1,5 +1,11 @@
 import os
 import py
+
+try:
+    import Image
+except ImportError, e:
+    py.test.skip(str(e))
+
 from pypy.tool.bench.htmlreport import (
         PerfResult, PerfTable, PerfResultCollection,
         PerfResultDelta, Page
