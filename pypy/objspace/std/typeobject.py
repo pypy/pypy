@@ -7,6 +7,7 @@ from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE
 
@@ -312,18 +313,12 @@ class W_TypeObject(W_Object):
         space = w_self.space
         assert space.config.objspace.std.withmethodcache
         ec = space.getexecutioncontext()
-        #try:
-        #    frame = ec.framestack.top()
-        #    position_hash = frame.last_instr ^ id(frame.pycode)
-        #except IndexError:
-        #    position_hash = 0
         version_tag = w_self.version_tag
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
-        MASK = (1 << space.config.objspace.std.methodcachesizeexp) - 1
-        #method_hash = (id(version_tag) ^ position_hash ^ hash(name)) & MASK
-        method_hash = ((id(version_tag) >> 3) ^ hash(name)) & MASK
+        SHIFT = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
+        method_hash = r_uint(intmask(id(version_tag) * hash(name))) >> SHIFT
         cached_version_tag = ec.method_cache_versions[method_hash]
         if cached_version_tag is version_tag:
             cached_name = ec.method_cache_names[method_hash]
