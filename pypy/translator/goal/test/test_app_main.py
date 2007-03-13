@@ -184,7 +184,7 @@ class TestInteraction:
         child.expect('foobye')
 
     def test_pythonstartup(self):
-        old = os.environ['PYTHONSTARTUP']
+        old = os.environ.get('PYTHONSTARTUP', '')
         try:
             os.environ['PYTHONSTARTUP'] = crashing_demo_script
             child = self.spawn([])
@@ -278,7 +278,7 @@ class TestNonInteractive:
         assert '7776' in data
 
     def test_no_pythonstartup(self):
-        old = os.environ['PYTHONSTARTUP']
+        old = os.environ.get('PYTHONSTARTUP', '')
         try:
             os.environ['PYTHONSTARTUP'] = crashing_demo_script
             data = self.run('"%s"' % (demo_script,))
