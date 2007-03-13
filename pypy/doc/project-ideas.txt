@@ -8,11 +8,6 @@ of experiments that the core developers have not had time to perform
 yet and also do not require too much in depth knowledge to get started
 with.
 
-If you are a student, maybe you will be inspired to make a proposal for our
-`Summer of PyPy`_ campaign: you will have an experienced PyPy developer as a
-mentor and be invited to attend one or two of our sprints, with travel and
-accomodation costs refunded.
-
 Feel free to suggest new ideas and discuss them in #pypy on the freenode IRC
 network or the pypy-dev mailing list (see the contact_ page).
 
