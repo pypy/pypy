@@ -39,38 +39,13 @@ As examples, we've got working implementations of things like:
 
 * dictionaries which use a different strategy when very small.
 
-* in-progress: caching the lookups of builtin names (by special forms of
+* caching the lookups of builtin names (by special forms of
   dictionaries that can invalidate the caches when they are written to)
-
-
 
 Things we've thought about but not yet implemented include:
 
-* try out things like lists of integers and lists of strings to save memory.
-  This might be based on (boringly) implementing "multilists" in the same
-  spirit as multidicts. 
-
-* neal norwitz in an old post to pypy-dev: "list slices are
-  often used for iteration.  It would be nice if we didn't need to make
-  a copy of the list.  This becomes difficult since the list could
-  change during iteration.  But we could make a copy in that case at the
-  time it was modified.  I'm not sure if that would be easy or difficult
-  to implement." This would probably be easy to implement in pypy and could be
-  based on multilists (see previous item).
-
 * create multiple representations of Unicode string that store the character
   data in narrower arrays when they can.
-
-* introduce a "call method" bytecode that is used for calls of the form
-  "a.b(...)".  This should allow us to shortcut argument passing, and most
-  importantly avoid the creation of the bound method object.  To be based
-  on the method shadowing detection optimization already implemented.
-
-* experiment with optimized global/builtin lookups by e.g. using
-  callback-on-modify-dictionaries for Module dicts, might be 
-  done using the multidicts.  Note however that CALL_LIKELY_BUILTIN already 
-  covers the case of calls to common builtins, so this should probably 
-  focus on global lookups.
 
 Experiments of this kind are really experiments in the sense that we do not know
 whether they will work well or not and the only way to find out is to try.  A
@@ -84,18 +59,15 @@ Some ideas on concrete steps for benchmarking:
 
 * do benchmark runs to see how much speedup the currently written
   optimizations give
-
 * profile pypy-c and its variants with these benchmarks, identify slow areas
 
 * try to come up with optimized implementations for these slow areas
 
-
-
 Start or improve a back-end
 ---------------------------
 
-PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and partial
-backends for JavaScript, Common Lisp, Squeak and the JVM.  It would be an
+PyPy has complete, or nearly so, back-ends for C, LLVM, CLI/.NET and JVM and partial
+backends for JavaScript, Common Lisp, Squeak.  It would be an
 interesting project to improve either of these partial backends, or start one
 for another platform (Objective C comes to mind as one that should not be too
 terribly hard).
@@ -114,14 +86,18 @@ ideas might be:
 * Improve the facilities for testing RPython intended to be translated to
   JavaScript on top of CPython, mostly by improving existing DOM interface.
 
+* Write down the mochikit bindings (or any other interesting JS effects library),
+  including tests
+
+* Write down better object layer over DOM in RPython to make writing applications
+  easier
+
 Improve one of the JIT back-ends
 --------------------------------
 
 PyPy's Just-In-Time compiler relies on two assembler backends for actual code
-generation, one for PowerPC and the other for i386. Those two backends so far
-are mostly working, but only some effort has been made to make them produce
-efficient code. This is an area where significant improvements could be made,
-hopefully without having to understand the full intricacies of the JIT.
+generation, one for PowerPC and the other for i386. Idea would be start a new backend
+for ie. mobile device.
 
 Another idea in a similar vein would be to use LLVM to re-compile functions that
 are executed particularly frequently (LLVM cannot be used for *all* code
