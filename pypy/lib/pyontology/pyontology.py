@@ -9,7 +9,7 @@ except ImportError:
     from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
      ConsistencyFailure
-from pyontology.sparql_grammar import SPARQLGrammar as SP # name clash ?
+from sparql_grammar import SPARQLGrammar as SP # name clash ?
 from constraint_classes import *
 Solver = MySolver
 Expression = MyExpression
