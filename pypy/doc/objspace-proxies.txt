@@ -489,17 +489,36 @@ More sophisticated example:
 Suppose we want to have list which stores all operations performed on
 it for later analysis. So we create an apropriate controller::
 
-    >>>> from pypymagic import transparent_proxy
-    >>>> class Controller(object):
-    >>>>    def __init__(self, l):
-    >>>>        self.l = l
-    >>>>        self.history = []
-    >>>>    def perform(self, name, *args, **kwargs):
-    >>>>        self.history.append(name)
-    >>>>        return getattr(self.l, name)(*args, **kwargs)
-    >>>> l = []
-    >>>> c = Controller(l)
-    >>>> lst = transparent_proxy(list, c.perform)
+   from pypymagic import transparent_proxy, get_transparent_controller
+   from types import MethodType
+
+   class ListController(object):
+       def __init__(self, l):
+           assert isinstance(l, list)
+           self.l = l
+           self.history = []
+           self.proxy = transparent_proxy(list, self.perform)
+
+       def perform(self, operation, *args, **kwargs):
+           self.history.append(operation) # remember the operation performed
+           # perform the operation on the proxied object
+           result = getattr(self.l, operation)(*args, **kwargs)
+           if result is self.l:
+               # If the result is the proxied list
+               # return the proxy instead.
+               result = self.proxy
+           elif (isinstance(result, MethodType) and
+                 result.im_self is self.l):
+               # Convert methods bound to the proxied list
+               # to methods bound to the proxy.
+               # This is to have calls to the method become calls
+               # to perform.
+               result = MethodType(result.im_func, self.proxy, result.im_class)
+           return result
+
+   >>>> l = []
+   >>>> c = Controller(l)
+   >>>> lst = c.proxy
 
 Now we can perform::
 
@@ -509,7 +528,7 @@ Now we can perform::
     >>>> l
     [3]
     >>>> c.history
-    [__getattribute__, __len__]
+    [__getattribute__, append, __len__]
     >>>> type(lst) is type(l)
     True
 
