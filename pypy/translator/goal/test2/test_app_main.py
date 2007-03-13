@@ -216,7 +216,7 @@ class TestInteraction:
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
         child = self.spawn(['-i',
-                            '-m', 'pypy.translator.goal.test.mymodule',
+                            '-m', 'pypy.translator.goal.test2.mymodule',
                             'extra'])
         child.expect('mymodule running')
         child.expect('Name: __main__')
@@ -228,9 +228,9 @@ class TestInteraction:
         #child.expect(re.escape(repr("foobar")))
         #child.expect('>>> ')
         child.sendline('import sys')
-        child.sendline('"pypy.translator.goal.test" in sys.modules')
+        child.sendline('"pypy.translator.goal.test2" in sys.modules')
         child.expect('True')
-        child.sendline('"pypy.translator.goal.test.mymodule" in sys.modules')
+        child.sendline('"pypy.translator.goal.test2.mymodule" in sys.modules')
         child.expect('False')
 
 
@@ -291,7 +291,7 @@ class TestNonInteractive:
     def test_option_m(self):
         p = os.path.join(autopath.this_dir, 'mymodule.py')
         p = os.path.abspath(p)
-        data = self.run('-m pypy.translator.goal.test.mymodule extra')
+        data = self.run('-m pypy.translator.goal.test2.mymodule extra')
         assert 'mymodule running' in data
         assert 'Name: __main__' in data
         assert ('File: ' + p) in data
