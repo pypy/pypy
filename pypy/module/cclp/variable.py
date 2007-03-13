@@ -289,7 +289,7 @@ def _assign_entailed(space, w_var, w_val):
 def _assign(space, w_var, w_val):
     assert isinstance(w_var, W_Var)
     if isinstance(w_var, W_CVar):
-        if not w_val in w_var.w_dom._values.content:
+        if not w_val in space.unpackiterable(w_var.w_dom._values):
             raise_unification_failure(space, "assignment out of domain")
     w_var.w_bound_to = w_val
 
@@ -402,7 +402,7 @@ def unify__Dict_Dict(space, w_m1, w_m2):
     assert isinstance(w_m1, W_DictObject)
     assert isinstance(w_m2, W_DictObject)
     #print " :unify mappings", w_m1, w_m2
-    for w_xk in w_m1.content.keys():
+    for w_xk in space.unpackiterable(w_m1):
         w_xi = space.getitem(w_m1, w_xk)
         w_yi = space.getitem(w_m2, w_xk)
         if space.is_true(space.is_nb_(w_xi, w_yi)):

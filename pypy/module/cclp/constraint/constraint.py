@@ -10,7 +10,7 @@ from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.dictobject import W_DictObject
 
 from pypy.module.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
-     W_CVar as W_Variable
+     W_Var, W_CVar as W_Variable
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
@@ -30,6 +30,7 @@ class W_AbstractConstraint(W_Constraint):
                                                   self._space.newint(1)))
         self._names_to_vars = {}
         for var in w_variables.wrappeditems:
+            assert isinstance(var, W_Var)
             self._names_to_vars[var.name_w()] = var
         self._variables = w_variables.wrappeditems #unwrap once ...
 
@@ -57,10 +58,12 @@ def make_filter__List_String(object_space, w_variables, w_formula):
     assert isinstance(w_variables, W_ListObject)
     assert isinstance(w_formula, W_StringObject)
     items = object_space.unpackiterable(w_variables)
+    lst = []
     for it in items:
         assert isinstance(it, W_Variable)
-    var_ids = ','.join([var.name_w()
-                        for var in items]) 
+        lst.append(it.name_w())
+    var_ids = ','.join(lst) #[var.name_w()
+                        # for var in items]) 
     func_head = 'lambda ' + var_ids + ':'
     expr = func_head + object_space.str_w(w_formula)
     func_obj = ev(object_space, object_space.wrap(expr), object_space.newdict(),
@@ -103,7 +106,7 @@ class W_Expression(W_AbstractConstraint):
         result_cache = self._space.newdict()
         for var in self._variables:
             assert isinstance(var, W_Variable)
-            result_cache.content[var.w_name()] = self._space.newdict()
+            self._space.setitem(result_cache, var.w_name(), self._space.newdict())
         return result_cache
 
     def _assign_values(self):

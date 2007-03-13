@@ -24,7 +24,7 @@ app_domain = gateway.interp2app(domain)
 def bind__CVar_Root(space, w_cvar, w_obj):
     #XXX we should (want to) be able to test membership
     #    in a wrapped against wrappeds into a non-wrapped dict
-    if [True for elt in w_cvar.w_dom._values.content
+    if [True for elt in space.unpackiterable(w_cvar.w_dom._values)
         if space.is_true(space.eq(w_obj, elt))]:
         return bind__Var_Root(space, w_cvar, w_obj)
     raise_unification_failure(space, "value not in variable domain")

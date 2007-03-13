@@ -75,7 +75,7 @@ class W_FiniteDomain(W_AbstractDomain):
     def remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
         assert isinstance(w_value, baseobjspace.W_Root)
-        del self._values.content[w_value]
+        self._space.delitem(self._values, w_value)
         self._value_removed()
 
     def w_remove_values(self, w_values):
@@ -91,7 +91,7 @@ class W_FiniteDomain(W_AbstractDomain):
         assert isinstance(values, list)
         if len(values) > 0:
             for w_val in values:
-                del self._values.content[w_val]
+                self._space.delitem(self._values,w_val)
             self._value_removed()
 
     def w_size(self):
@@ -110,7 +110,7 @@ class W_FiniteDomain(W_AbstractDomain):
         return self._space.newlist(self.get_values())
 
     def get_values(self):
-        return [x for x in self._values.content.keys()]
+        return [x for x in self._space.unpackiterable(self._values)]
         
     def __repr__(self):
         return '<FD %s>' % str(self.w_get_values())
@@ -143,8 +143,8 @@ app_intersection = gateway.interp2app(intersection)
 
 
 def intersection__FiniteDomain_FiniteDomain(space, w_fd1, w_fd2):
-    w_v1 = w_fd1._values.content
-    res = [w_v for w_v in w_fd2._values.content
+    w_v1 = space.unpackiterable(w_fd1._values)
+    res = [w_v for w_v in space.unpackiterable(w_fd2._values)
              if w_v in w_v1]
     return make_fd(space, space.newlist(res))
 
