@@ -1,4 +1,4 @@
-import types
+import types, sys
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.capi import _PyType_Lookup
 from pypy.objspace.cpy.capi import _PyLong_Sign, _PyLong_NumBits, _PyLong_AsByteArray
@@ -152,6 +152,28 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         # XXX we do not support 2.5 yet, so we just do some
         # hack here to have index working
         return self.wrap(self.int_w(w_obj))
+
+    def getindex_w(self, w_obj, w_exception, objdescr=None):
+        # XXX mess with type(w_obj).getname() in the baseobjspace,
+        # XXX give a simplified naive version
+        w_index = w_obj
+        try:
+            index = self.int_w(w_index)
+        except OperationError, err:
+            if not err.match(self, self.w_OverflowError):
+                raise
+            if not w_exception:
+                # w_index should be a long object, but can't be sure of that
+                if self.is_true(self.lt(w_index, self.wrap(0))):
+                    return -sys.maxint-1
+                else:
+                    return sys.maxint
+            else:
+                raise OperationError(
+                    w_exception, self.wrap(
+                    "cannot fit number into an index-sized integer"))
+        else:
+            return index
 
     def bigint_w(self, w_obj):
         if self.is_true(self.isinstance(w_obj, self.w_long)):
