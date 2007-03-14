@@ -37,5 +37,5 @@ reading this ;).
 Questions, remarks, etc.
 ------------------------
 
-For questions, remarks, etc. about this product, mail guido@merlinux.de.
+For questions, remarks, etc. about this program, mail guido@merlinux.de.
 
