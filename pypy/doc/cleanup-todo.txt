@@ -15,6 +15,7 @@ translation toolchain
  - change weakrefs to work together with the GC
  - delegate finding type stuff like vtables etc to GC
  - clean up the tangle of including headers in the C backend
+ - make approach for loading modules more sane
 
 interpreter
 -----------
