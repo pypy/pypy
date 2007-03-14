@@ -73,12 +73,12 @@ class ServerPage(object):
             gw = py.execnet.SshGateway(self.config.server)
         return gw
 
-class ServerStatusPage(ServerPage):
+class MetaServerStatusPage(ServerPage):
     """ a page displaying overall meta server statistics """
 
     def __call__(self, handler, path, query):
         template = templesser.template(
-            mypath.join('templates/serverstatus.html').read())
+            mypath.join('templates/metaserverstatus.html').read())
         return (get_headers(), fix_html(template.unicode(self.get_status())))
 
     def get_status(self):
@@ -221,7 +221,7 @@ class Application(Collection):
     """ the application root """
     def __init__(self, config):
         self.style = FsFile(mypath.join('theme/style.css'), 'text/css')
-        self.index = self.serverstatus = ServerStatusPage(config)
+        self.index = self.metaserverstatus = MetaServerStatusPage(config)
         self.buildersinfo = BuildersInfoPage(config)
         self.builds = Builds(config)
     
@@ -239,19 +239,19 @@ class AppHandler(Handler):
 
 class MetaServerAccessor(object):
     def __init__(self, ms):
-        self.server = ms
+        self.metaserver = ms
 
     def status(self):
-        running = len([b for b in self.server._builders if b.busy_on])
-        return {'builders': len(self.server._builders),
+        running = len([b for b in self.metaserver._builders if b.busy_on])
+        return {'builders': len(self.metaserver._builders),
                 'running': running,
-                'queued': len(self.server._queued),
-                'waiting': len(self.server._waiting) + running,
-                'done': len(self.server._done)}
+                'queued': len(self.metaserver._queued),
+                'waiting': len(self.metaserver._waiting) + running,
+                'done': len(self.metaserver._done)}
 
     def buildersinfo(self):
         ret = []
-        for b in self.server._builders:
+        for b in self.metaserver._builders:
             ret.append({
                 'hostname': b.hostname,
                 'sysinfo': b.sysinfo,
@@ -269,7 +269,7 @@ class MetaServerAccessor(object):
                 return r.serialize()
 
     def buildpathinfo(self, requestid):
-        for bp in self.server._done:
+        for bp in self.metaserver._done:
             if bp.request.id() == requestid:
                 return {
                     'log': str(bp.log),
@@ -277,14 +277,14 @@ class MetaServerAccessor(object):
                 }
 
     def buildurl(self, id):
-        for r in self.server._done:
+        for r in self.metaserver._done:
             if r.request.id() == id:
-                return self.server.config.path_to_url(r)
+                return self.metaserver.config.path_to_url(r)
 
     def _all_requests(self):
-        running = [b.busy_on for b in self.server._builders if b.busy_on]
-        done = [b.request for b in self.server._done]
-        return self.server._queued + self.server._waiting + running + done
+        running = [b.busy_on for b in self.metaserver._builders if b.busy_on]
+        done = [b.request for b in self.metaserver._done]
+        return self.metaserver._queued + self.metaserver._waiting + running + done
 
 if __name__ == '__main__':
     from pypy.tool.build.web.server import run_server

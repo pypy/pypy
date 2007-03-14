@@ -77,9 +77,9 @@ class TestIndexPage(object):
         assert html.strip().endswith('</html>')
         html_validate(html)
 
-class TestServerStatusPage(object):
+class TestMetaServerStatusPage(object):
     def test_get_status(self):
-        p = ServerStatusPage(config, gateway)
+        p = MetaServerStatusPage(config, gateway)
         status = p.get_status()
         assert status == {'builders': 0,
                           'running': 0,
@@ -99,8 +99,8 @@ class TestServerStatusPage(object):
                           'waiting': 0}
 
     def test_call(self):
-        p = ServerStatusPage(config, gateway)
-        headers, html = p(None, '/serverstatus', '')
+        p = MetaServerStatusPage(config, gateway)
+        headers, html = p(None, '/metaserverstatus', '')
         assert headers['Content-Type'] == 'text/html; charset=UTF-8'
         assert html.strip().startswith('<!DOCTYPE html')
         assert html.strip().endswith('</html>')
