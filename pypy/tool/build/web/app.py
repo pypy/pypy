@@ -132,32 +132,12 @@ class BuildPage(ServerPage):
                 fix_html(template.unicode(self.get_info())))
 
     def get_info(self):
-        br = BuildRequest.fromstring(self.call_method('buildrequest',
-                                                      '"%s"' % (
-                                                       self._buildid,)))
-        buildurl = None
-        log = None
-        error = None
-        if br.build_start_time:
-            if br.build_end_time:
-                buildurl = self.call_method('buildurl',
-                                            '"%s"' % (self._buildid,))
-                info = self.call_method('buildpathinfo',
-                                        '"%s"' % (self._buildid,))
-                log = info['log']
-                error = info['error']
-                if error == 'None':
-                    error = None
-                if error:
-                    status = 'failed'
-                else:
-                    status = 'done'
-            else:
-                status = 'in progress'
-        else:
-            status = 'waiting'
+        bpinfo, brstr = self.call_method('buildrequest', '"%s"' % (self._buildid,))
+        br = BuildRequest.fromstring(brstr)
+        if bpinfo == None:
+            bpinfo = {}
         return {
-            'url': buildurl,
+            'url': bpinfo['buildurl'],
             'id': br.id(),
             'email': br.email,
             'svnurl': br.svnurl,
@@ -169,8 +149,9 @@ class BuildPage(ServerPage):
                         sorted(br.sysinfo.items())],
             'compileinfo': [{'key': k, 'value': v} for (k, v) in
                             sorted(br.compileinfo.items())],
-            'status': status,
-            'error': error,
+            'status': bpinfo['status'],
+            'statusclass': bpinfo['status'].replace(' ', '_'),
+            'error': bpinfo['error'],
         }
 
 class BuildsIndexPage(ServerPage):
@@ -183,9 +164,9 @@ class BuildsIndexPage(ServerPage):
                 fix_html(template.unicode({'builds': self.get_builds()})))
 
     def get_builds(self):
-        buildrequests = [BuildRequest.fromstring(b) for b in
+        data = [(i, BuildRequest.fromstring(b)) for(i, b) in
                          self.call_method('buildrequests')]
-        buildrequests.sort(lambda a, b: cmp(a.request_time, b.request_time))
+        data.sort(lambda a, b: cmp(b[1].request_time, a[1].request_time))
         return [{'id': b.id(),
                  'href': '/builds/%s' % (b.id(),),
                  'email': b.email,
@@ -193,8 +174,11 @@ class BuildsIndexPage(ServerPage):
                  'svnrev': b.normalized_rev,
                  'request_time': format_time(b.request_time),
                  'build_start_time': format_time(b.build_start_time) or '-',
-                 'build_end_time': format_time(b.build_end_time) or '-'}
-                for b in buildrequests]
+                 'build_end_time': format_time(b.build_end_time) or '-',
+                 'status': i['status'],
+                 'statusclass': i['status'].replace(' ', '_'),
+                 'error': i.get('error', '')}
+                for (i, b) in data]
 
 class Builds(Collection):
     """ container for BuildsIndexPage and BuildPage """
@@ -260,20 +244,22 @@ class MetaServerAccessor(object):
         return ret
 
     def buildrequests(self):
-        ret = [b.serialize() for b in self._all_requests()]
+        ret = [(self._getinfo(b), b.serialize()) for b in
+               self._all_requests()]
         return ret
 
     def buildrequest(self, id):
         for r in self._all_requests():
             if r.id() == id:
-                return r.serialize()
+                return (self._getinfo(r), r.serialize())
 
     def buildpathinfo(self, requestid):
         for bp in self.metaserver._done:
             if bp.request.id() == requestid:
                 return {
-                    'log': str(bp.log),
+                    #'log': str(bp.log),
                     'error': str(bp.error),
+                    'buildurl': self.metaserver.config.path_to_url(bp),
                 }
 
     def buildurl(self, id):
@@ -285,6 +271,19 @@ class MetaServerAccessor(object):
         running = [b.busy_on for b in self.metaserver._builders if b.busy_on]
         done = [b.request for b in self.metaserver._done]
         return self.metaserver._queued + self.metaserver._waiting + running + done
+
+    def _getinfo(self, br):
+        status = 'waiting'
+        info = self.buildpathinfo(br.id()) or {}
+        if br.build_end_time:
+            if info['error'] and info['error'] != 'None':
+                status = 'failed'
+            else:
+                status = 'done'
+        elif br.build_start_time:
+            status = 'in progress'
+        info.update({'status': status})
+        return info
 
 if __name__ == '__main__':
     from pypy.tool.build.web.server import run_server

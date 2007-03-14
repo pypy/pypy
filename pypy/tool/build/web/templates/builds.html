@@ -22,6 +22,7 @@
           <th>requested</th>
           <th>started</th>
           <th>ended</th>
+          <th>status</th>
         </tr>
       </thead>
       <tbody>
@@ -31,6 +32,7 @@
             <td>%(request_time)s</td>
             <td>%(build_start_time)s</td>
             <td>%(build_end_time)s</td>
+            <td class="%(statusclass)s">%(status)s</td>
           </tr>
         %(builds)]b
       </tbody>

@@ -25,3 +25,19 @@ td {
   text-align: center;
 }
 
+.failed {
+  color: red;
+}
+
+.done {
+  color: blue;
+}
+
+.in_progress {
+  color: green;
+}
+
+.waiting {
+  color: yellow;
+}
+

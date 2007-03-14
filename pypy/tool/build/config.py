@@ -3,7 +3,7 @@ import py
 packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
 
 # general settings, used by both server and client
-server = 'codespeak.net'
+server = 'localhost'
 webserver = ''
 port = 12321
 testport = 32123

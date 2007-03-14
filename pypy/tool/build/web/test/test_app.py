@@ -222,7 +222,8 @@ class TestMetaServerAccessor(object):
     def test_buildrequests(self):
         temppath = py.test.ensuretemp(
             'TestMetaServerAccessor.test_buildersinfo')
-        config = fake.Container(projectname='test', buildpath=temppath)
+        config = fake.Container(projectname='test', buildpath=temppath,
+                                path_to_url=lambda p: 'file:///foo')
         svr = metaserver.MetaServer(config, fake.FakeChannel())
         s = MetaServerAccessor(svr)
         req = build.BuildRequest('foo@bar.com', {'foo': 'bar'}, {},
@@ -231,13 +232,18 @@ class TestMetaServerAccessor(object):
         svr._queued.append(req)
         brs = s.buildrequests()
         assert len(brs) == 1
-        assert brs[0] == req.serialize()
+        assert brs[0][0] == {'status': 'waiting'}
+        assert brs[0][1] == req.serialize()
         svr._queued = []
         assert len(s.buildrequests()) == 0
-        svr._done.append(fake.Container(request=req))
+        req.build_start_time = py.std.time.time()
+        req.build_end_time = py.std.time.time()
+        svr._done.append(fake.Container(request=req, error=None))
         brs = s.buildrequests()
         assert len(brs) == 1
-        assert brs[0] == req.serialize()
+        assert brs[0][0] == {'status': 'done', 'error': 'None',
+                             'buildurl': 'file:///foo'}
+        assert brs[0][1] == req.serialize()
 
     def test_buildrequest(self):
         temppath = py.test.ensuretemp(
@@ -250,7 +256,8 @@ class TestMetaServerAccessor(object):
         req._nr = '10'
         svr._queued.append(req)
         br = s.buildrequest(req.id())
-        assert br == req.serialize()
+        assert br[0] == {'status': 'waiting'}
+        assert br[1] == req.serialize()
 
     def test_buildurl(self):
         temppath = py.test.ensuretemp(
