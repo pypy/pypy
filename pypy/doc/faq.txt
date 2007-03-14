@@ -215,6 +215,27 @@ treatment please send us a bug report (or even better, a fix :-)
 PyPy translation tool chain
 ========================================================================
 
+----------------------------------------
+Can PyPy compile normal Python programs?
+----------------------------------------
+
+No, PyPy is not a Python compiler.
+
+In Python, it is mostly impossible to *prove* anything about the types
+that a program will manipulate by doing a static analysis.  It should be
+clear if you are familiar with Python, but if in doubt see [BRETT]_.
+
+What could be attempted is static "soft typing", where you would use a
+whole bunch of heuristics to guess what types are probably going to show
+up where.  In this way, you could compile the program into two copies of
+itself: a "fast" version and a "slow" version.  The former would contain
+many guards that allow it to fall back to the latter if needed.  That
+would be a wholly different project than PyPy, though.
+
+.. [BRETT] Brett Cannon,
+           Localized Type Inference of Atomic Types in Python,
+           http://www.ocf.berkeley.edu/~bac/thesis.pdf
+
 ------------------------------
 What is this RPython language?
 ------------------------------
