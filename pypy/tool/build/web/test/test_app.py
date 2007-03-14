@@ -122,7 +122,8 @@ class TestBuildersInfoPage(object):
     def test_call(self):
         class TestPage(BuildersInfoPage):
             def get_buildersinfo(self):
-                b = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+                b = build.BuildRequest('foo@bar.com', {},
+                                       {'translation.gc': 'framework'},
                                        'http://codespeak.net/svn/pypy/dist',
                                        10, 2, 123456789)
                 binfo = b.todict()
@@ -155,7 +156,8 @@ class TestBuildersInfoPage(object):
 
 class TestBuildPage(object):
     def test_get_info(self):
-        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+        br = build.BuildRequest('foo@bar.com', {},
+                                {'objspace.std.withrope': True},
                                 'http://codespeak.net/svn/pypy/dist',
                                 10, 2, 123456789)
         server_channel.send(('add_queued', br.serialize()))
@@ -166,7 +168,8 @@ class TestBuildPage(object):
         assert info['id'] == br.id()
         
     def test_call(self):
-        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+        br = build.BuildRequest('foo@bar.com', {},
+                                {'objspace.std.withmultidict': True},
                                 'http://codespeak.net/svn/pypy/dist',
                                 10, 2, 123456789)
         server_channel.send(('add_queued', br.serialize()))
@@ -180,7 +183,8 @@ class TestBuildPage(object):
 
 class TestBuildsIndexPage(object):
     def test_get_builds(self):
-        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+        br = build.BuildRequest('foo@bar.com', {},
+                                {'objspace.std.withmultidict': True},
                                 'http://codespeak.net/svn/pypy/dist',
                                 10, 2, 123456789)
         server_channel.send(('add_queued', br.serialize()))
