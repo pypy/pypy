@@ -392,60 +392,74 @@ namespace pypy.builtin
 
         public static void ll_os__exit(int x)
         {
+            Console.Error.WriteLine("WARNING: ll_os__exit has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static void ll_os_chdir(string s)
         {
+            Console.Error.WriteLine("WARNING: ll_os_chdir has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static void ll_os_chmod(string s, int x)
         {
+            Console.Error.WriteLine("WARNING: ll_os_chmod has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static int ll_os_dup(int x)
         {
+            Console.Error.WriteLine("WARNING: ll_os_dup has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
             return -1;
         }
 
         public static void ll_os_dup2(int x, int y)
         {
+            Console.Error.WriteLine("WARNING: ll_os_dup2 has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static int ll_os_fork()
         {
+            Console.Error.WriteLine("WARNING: ll_os_fork has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
             return -1;
         }
 
         public static void ll_os_ftruncate(int x, int y)
         {
+            Console.Error.WriteLine("WARNING: ll_os_ftruncate has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static int ll_os_getpid()
         {
+            Console.Error.WriteLine("WARNING: ll_os_getpid has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
             return -1;
         }
 
         public static bool ll_os_isatty(int x)
         {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-            return false;
+            // XXX: this is not the right behaviour, but it's needed
+            // to have the interactive interpreter working
+            if (x == 0 || x == 1 || x == 2)
+                return true;
+            else
+                return false;
         }
 
         public static void ll_os_link(string s1, string s2)
         {
+            Console.Error.WriteLine("WARNING: ll_os_link has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static void ll_os_mkdir(string s, int x)
         {
+            Console.Error.WriteLine("WARNING: ll_os_mkdir has been called, but it's only a stub");
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
