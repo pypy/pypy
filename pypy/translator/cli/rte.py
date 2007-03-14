@@ -76,18 +76,10 @@ class MainStub(Target):
         return SDK.ilasm()
     get_COMPILER = classmethod(get_COMPILER)
     
-class FrameworkDLL(Target):
+class PyPyLibDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os.cs', 'll_os_path.cs', 'errno.cs', 'll_math.cs']
     OUTPUT = 'pypylib.dll'
-    ALIAS = 'pypylib-framework.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
-    DEPENDENCIES = [MainStub]
-
-class UnixDLL(Target):
-    SOURCES = ['pypylib.cs', 'll_os-unix.cs', 'll_math.cs']
-    OUTPUT = 'pypylib.dll'
-    ALIAS = 'pypylib-unix.dll'
-    FLAGS = ['/t:library', '/unsafe', '/r:Mono.Posix', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
 class Query(Target):
@@ -109,12 +101,7 @@ class Support(Target):
     FLAGS = ['/t:library']
 
 def get_pypy_dll():
-    if os.environ.get('PYPYLIB', '').lower() == 'unix':
-        DLL = UnixDLL
-    else:
-        DLL = FrameworkDLL
-    return DLL.get()
-
+    return PyPyLibDLL.get()
 
 if __name__ == '__main__':
     get_pypy_dll()
