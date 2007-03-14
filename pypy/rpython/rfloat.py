@@ -186,6 +186,9 @@ class __extend__(pairtype(FloatRepr, IntegerRepr)):
         if r_from.lowleveltype == Float and r_to.lowleveltype == Signed:
             log.debug('explicit cast_float_to_int')
             return llops.genop('cast_float_to_int', [v], resulttype=Signed)
+        if r_from.lowleveltype == Float and r_to.lowleveltype == SignedLongLong:
+            log.debug('explicit cast_float_to_longlong')
+            return llops.genop('cast_float_to_longlong', [v], resulttype=SignedLongLong)
         return NotImplemented
 
 class __extend__(pairtype(BoolRepr, FloatRepr)):

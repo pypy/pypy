@@ -210,6 +210,14 @@ def op_cast_float_to_uint(f):
     assert type(f) is float
     return r_uint(int(f))
 
+def op_cast_float_to_longlong(f):
+    assert type(f) is float
+    r = float(0x100000000)
+    small = f / r
+    high = int(small)
+    truncated = int((small - high) * r)
+    return r_longlong(high) * 0x100000000 + truncated
+
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1
     return ord(b)

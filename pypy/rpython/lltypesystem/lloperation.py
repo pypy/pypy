@@ -296,6 +296,7 @@ LL_OPERATIONS = {
     'cast_longlong_to_float':LLOp(canfold=True),
     'cast_float_to_int':    LLOp(canraise=(OverflowError,)),
     'cast_float_to_uint':   LLOp(canfold=True),
+    'cast_float_to_longlong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
 
     # __________ pointer operations __________

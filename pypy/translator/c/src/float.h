@@ -37,3 +37,7 @@
 #define OP_CAST_UINT_TO_FLOAT(x,r)   r = (double)(x)
 #define OP_CAST_LONGLONG_TO_FLOAT(x,r) r = (double)(x)
 #define OP_CAST_BOOL_TO_FLOAT(x,r)   r = (double)(x)
+
+#ifdef HAVE_LONG_LONG
+#define OP_CAST_FLOAT_TO_LONGLONG(x,r) r = (long long)(x)
+#endif

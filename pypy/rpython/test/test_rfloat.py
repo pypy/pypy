@@ -2,7 +2,7 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_longlong
 
 class TestSnippet(object):
 
@@ -59,6 +59,21 @@ class BaseTestRfloat(BaseRtypingTest):
         assert type(res) is int 
         res = self.interpret(fn, [2.34])
         assert res == fn(2.34) 
+
+    def test_longlong_conversion(self):
+        def fn(f):
+            return r_longlong(f)
+
+        res = self.interpret(fn, [1.0])
+        assert res == 1
+        assert type(res) is r_longlong 
+        res = self.interpret(fn, [2.34])
+        assert res == fn(2.34) 
+        big = float(0x7fffffffffffffff)
+        x = big - 1.e10
+        assert x != big
+        y = fn(x)
+        assert fn(x) == 9223372026854775808
 
     def test_to_r_uint(self):
         def fn(x):
