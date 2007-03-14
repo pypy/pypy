@@ -180,7 +180,16 @@ class TestBuildPage(object):
 
 class TestBuildsIndexPage(object):
     def test_get_builds(self):
-        pass
+        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+                                'http://codespeak.net/svn/pypy/dist',
+                                10, 2, 123456789)
+        server_channel.send(('add_queued', br.serialize()))
+        server_channel.receive()
+        p = BuildsIndexPage(config, gateway)
+        builds = p.get_builds()
+        assert isinstance(builds, list)
+        assert isinstance(builds[-1], dict)
+        assert builds[-1]['id'] == br.id()
 
     def test_call(self):
         p = BuildsIndexPage(config, gateway)
