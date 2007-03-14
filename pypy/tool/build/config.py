@@ -58,6 +58,6 @@ def svnpath_to_url(p):
 
 # create an URL from a path, the URL is used in emails
 def path_to_url(p):
-    return 'http://codespeak.net/pypy/%s' % (
+    return 'http://codespeak.net/pypy/%s/data.zip' % (
                 p.relto(py.magic.autopath().dirpath()),)
 
