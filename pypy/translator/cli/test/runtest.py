@@ -23,7 +23,7 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.entrypoint import BaseEntryPoint
 from pypy.translator.cli.support import patch, unpatch
 
-FLOAT_PRECISION = 8
+FLOAT_PRECISION = 10
 
 def check(func, annotation, args):
     mono = compile_function(func, annotation)
@@ -287,7 +287,8 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
             assert False, 'function did raise no exception at all'
 
     def float_eq(self, x, y):
-        return round(x, FLOAT_PRECISION) == round(y, FLOAT_PRECISION)        
+        diff = abs(x-y)
+        return diff/x < 10**-FLOAT_PRECISION
 
     def ll_to_string(self, s):
         return s

@@ -224,6 +224,7 @@ opcodes = {
     'cast_uint_to_float':       [PushAllArgs, 'conv.u8', 'conv.r8'],
     'cast_float_to_int':        'conv.i4',
     'cast_float_to_uint':       'conv.u4',
+    'cast_longlong_to_float':   'conv.r8',
     'truncate_longlong_to_int': 'conv.i4',
 }
 

@@ -166,7 +166,7 @@ class BaseTestRint(BaseRtypingTest):
         assert res == 100000000.
         res = self.interpret(f, [r_longlong(1234567890123456789)])
         assert type(res) is float
-        assert res == 1.2345678901234568e+18
+        assert self.float_eq(res, 1.2345678901234568e+18)
 
     def test_float_conversion_implicit(self):
         def f(ii):
@@ -176,7 +176,7 @@ class BaseTestRint(BaseRtypingTest):
         assert res == 100000001.
         res = self.interpret(f, [r_longlong(1234567890123456789)])
         assert type(res) is float
-        assert res == 1.2345678901234568e+18
+        assert self.float_eq(res, 1.2345678901234568e+18)
 
     def test_rarithmetic(self):
         inttypes = [int, r_uint, r_longlong, r_ulonglong]
