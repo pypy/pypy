@@ -30,14 +30,14 @@ td {
 }
 
 .done {
-  color: blue;
-}
-
-.in_progress {
   color: green;
 }
 
-.waiting {
+.in_progress {
   color: yellow;
+}
+
+.waiting {
+  color: orange;
 }
 

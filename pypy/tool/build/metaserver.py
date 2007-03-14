@@ -25,9 +25,6 @@ def issubdict(d1, d2):
             return False
     return True
 
-def make_id(build):
-    """ generate a unique, but predictable id for a build """
-
 class MetaServer(object):
     """ the build meta-server
 

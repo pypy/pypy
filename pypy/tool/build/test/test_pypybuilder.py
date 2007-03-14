@@ -139,9 +139,9 @@ def test_functional():
 
     # then we request a compilation for sysinfo foo=1, obviously this can not
     # be fulfilled yet
-    ispath, data = compile(foo=1)
-    assert not ispath
-    assert 'no suitable build server' in data
+    data = compile(foo=1)
+    assert not data.get('path')
+    assert 'no suitable build server' in data['message']
     queued = get_info('_queued')
     assert len(queued) == 1
 
@@ -157,9 +157,9 @@ def test_functional():
         # 4 * SLEEP_INTERVAL seconds to fake the compilation... here we should
         # (if all is well) still be compiling
         
-        ispath, data = compile(foo=1)
-        assert not ispath
-        assert 'in progress' in data
+        data = compile(foo=1)
+        assert not data.get('path')
+        assert 'in progress' in data['message']
 
         waiting = get_info('_waiting')
         assert len(waiting) == 1
@@ -177,8 +177,8 @@ def test_functional():
 
         # now a new request for the same build should return in a path being
         # returned
-        ispath, data = compile(foo=1)
-        assert ispath
+        data = compile(foo=1)
+        assert data['path']
 
         queued = get_info('_queued')
         assert len(queued) == 0

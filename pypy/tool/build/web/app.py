@@ -34,6 +34,7 @@ class ServerPage(object):
     """ base class for pages that communicate with the server
     """
     exposed = True
+    _channel_holder = []
 
     def __init__(self, config, gateway=None):
         self.config = config
@@ -45,27 +46,49 @@ class ServerPage(object):
 
         from pypy.tool.build import metaserver_instance
         from pypy.tool.build.web.app import MetaServerAccessor
-        ret = MetaServerAccessor(metaserver_instance).%s(%s)
-        channel.send(ret)
+        msi = MetaServerAccessor(metaserver_instance)
+        while 1:
+            try:
+                methodname, args = channel.receive()
+                ret = getattr(msi, methodname)(*args)
+                channel.send(ret)
+            except IOError: # XXX anything else?
+                break
         channel.close()
     """
 
-    def call_method(self, methodname, args=''):
+    def call_method(self, methodname, args=()):
         """ calls a method on the server
         
             methodname is the name of the method to call, args is a string
             which is _interpolated_ into the method call (so if you want to
             pass the integers 1 and 2 as arguments, 'args' will become '1, 2')
         """
-        conference = execnetconference.conference(self.gateway,
-                                                  self.config.port, False)
-        channel = conference.remote_exec(self.remote_code % (self.config.path,
-                                                             methodname,
-                                                             args))
-        ret = channel.receive()
-        channel.close()
+        performed = False
+        if self._channel_holder:
+            channel = self._channel_holder[0]
+            try:
+                channel.send((methodname, args))
+                ret = channel.receive()
+            except:
+                exc, e, tb = py.std.sys.exc_info()
+                del tb
+                print ('exception occurred when calling %s(%s): '
+                       '%s - %s' % (methodname, args, exc, e))
+            else:
+                performed = True
+        if not performed:
+            conference = execnetconference.conference(self.gateway,
+                                                      self.config.port, False)
+            channel = conference.remote_exec(self.remote_code % (
+                                             self.config.path,))
+            channel.send((methodname, args))
+            ret = channel.receive()
+            while self._channel_holder:
+                self._channel_holder.pop()
+            self._channel_holder.append(channel)
         return ret
-
+    
     def init_gateway(self):
         if self.config.server in ['localhost', '127.0.0.1']:
             gw = py.execnet.PopenGateway()
@@ -132,7 +155,7 @@ class BuildPage(ServerPage):
                 fix_html(template.unicode(self.get_info())))
 
     def get_info(self):
-        bpinfo, brstr = self.call_method('buildrequest', '"%s"' % (self._buildid,))
+        bpinfo, brstr = self.call_method('buildrequest', (self._buildid,))
         br = BuildRequest.fromstring(brstr)
         if bpinfo == None:
             bpinfo = {}

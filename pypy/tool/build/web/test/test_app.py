@@ -273,3 +273,26 @@ class TestMetaServerAccessor(object):
         url = s.buildurl(req.id())
         assert url == 'http://foo/bar'
 
+class TestServerPage(object):
+    def test_call_method_simple(self):
+        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
+                       py.execnet.PopenGateway())
+        ret = p.call_method('status', [])
+        assert ret
+
+    def test_call_method_reconnect(self):
+        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
+                       py.execnet.PopenGateway())
+        ret = p.call_method('status', [])
+        assert len(p._channel_holder) == 1
+        channel = p._channel_holder[0]
+        
+        ret = p.call_method('status', [])
+        assert len(p._channel_holder) == 1
+        assert p._channel_holder[0] is channel
+        channel.close()
+
+        ret = p.call_method('status', [])
+        assert len(p._channel_holder) == 1
+        assert p._channel_holder is not channel
+
