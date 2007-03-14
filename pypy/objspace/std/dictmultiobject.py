@@ -39,24 +39,31 @@ def _is_sane_hash(space, w_lookup_type):
 
 class DictImplementation(object):
     
-##     def get(self, w_lookup):
-##         return w_value or None
-##     def setitem_str(self,  w_key, w_value, shadows_type=True):
-##         return implementation
-##     def setitem(self,  w_key, w_value):
-##         return implementation
-##     def delitem(self, w_key):
-##         return implementation
-    
-##     def length(self):
-##         pass
+    def get(self, w_lookup):
+        #return w_value or None
+        raise NotImplementedError("abstract base class")
 
-##     def iteritems(self):
-##         pass
-##     def iterkeys(self):
-##         pass
-##     def itervalues(self):
-##         pass
+    def setitem_str(self,  w_key, w_value, shadows_type=True):
+        #return implementation
+        raise NotImplementedError("abstract base class")
+
+    def setitem(self,  w_key, w_value):
+        #return implementation
+        raise NotImplementedError("abstract base class")
+
+    def delitem(self, w_key):
+        #return implementation
+        raise NotImplementedError("abstract base class")
+ 
+    def length(self):
+        raise NotImplementedError("abstract base class")
+
+    def iteritems(self):
+        raise NotImplementedError("abstract base class")
+    def iterkeys(self):
+        raise NotImplementedError("abstract base class")
+    def itervalues(self):
+        raise NotImplementedError("abstract base class")
 
 
     def keys(self):
