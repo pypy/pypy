@@ -221,7 +221,7 @@ class Application(Collection):
     """ the application root """
     def __init__(self, config):
         self.style = FsFile(mypath.join('theme/style.css'), 'text/css')
-        self.index = ServerStatusPage(config)
+        self.index = self.serverstatus = ServerStatusPage(config)
         self.buildersinfo = BuildersInfoPage(config)
         self.builds = Builds(config)
     
