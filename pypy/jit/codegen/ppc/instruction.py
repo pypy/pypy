@@ -6,6 +6,8 @@ rSP = r1
 rFP = r2 # the ABI doesn't specify a frame pointer.  however, we want one
 
 class AllocationSlot(object):
+    offset = 0
+    number = 0
     def __init__(self):
         # The field alloc points to a singleton used by the register
         # allocator to detect conflicts.  No two AllocationSlot
@@ -127,6 +129,8 @@ class Insn(object):
         _insn_index[0] += 1
     def __repr__(self):
         return "<%s %d>" % (self.__class__.__name__, self._magic_index)
+    def emit(self, asm):
+        pass
 
 class Insn_GPR__GPR_GPR(Insn):
     def __init__(self, methptr, result, args):
