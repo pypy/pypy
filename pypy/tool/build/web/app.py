@@ -34,7 +34,10 @@ class ServerPage(object):
     """ base class for pages that communicate with the server
     """
     exposed = True
+    _calllock = py.std.thread.allocate_lock()
     _channel_holder = []
+    _result_cache = {}
+    MAX_CACHE_TIME = 30 # seconds
 
     def __init__(self, config, gateway=None):
         self.config = config
@@ -56,38 +59,50 @@ class ServerPage(object):
                 break
         channel.close()
     """
-
     def call_method(self, methodname, args=()):
         """ calls a method on the server
         
-            methodname is the name of the method to call, args is a string
-            which is _interpolated_ into the method call (so if you want to
-            pass the integers 1 and 2 as arguments, 'args' will become '1, 2')
+            methodname is the name of the method to call, args is a tuple
+
+            careful with args, as it's used as dict key for caching (and
+            also sent over the wire) so should be fairly simple
         """
-        performed = False
-        if self._channel_holder:
-            channel = self._channel_holder[0]
+        self._calllock.acquire()
+        try:
             try:
+                time, value = self._result_cache[(methodname, args)]
+            except KeyError:
+                pass
+            else:
+                if time > py.std.time.time() - self.MAX_CACHE_TIME:
+                    return value
+            performed = False
+            if self._channel_holder:
+                channel = self._channel_holder[0]
+                try:
+                    channel.send((methodname, args))
+                    ret = channel.receive()
+                except:
+                    exc, e, tb = py.std.sys.exc_info()
+                    del tb
+                    print ('exception occurred when calling %s(%s): '
+                           '%s - %s' % (methodname, args, exc, e))
+                else:
+                    performed = True
+            if not performed:
+                conference = execnetconference.conference(self.gateway,
+                                                          self.config.port, False)
+                channel = conference.remote_exec(self.remote_code % (
+                                                 self.config.path,))
                 channel.send((methodname, args))
                 ret = channel.receive()
-            except:
-                exc, e, tb = py.std.sys.exc_info()
-                del tb
-                print ('exception occurred when calling %s(%s): '
-                       '%s - %s' % (methodname, args, exc, e))
-            else:
-                performed = True
-        if not performed:
-            conference = execnetconference.conference(self.gateway,
-                                                      self.config.port, False)
-            channel = conference.remote_exec(self.remote_code % (
-                                             self.config.path,))
-            channel.send((methodname, args))
-            ret = channel.receive()
-            while self._channel_holder:
-                self._channel_holder.pop()
-            self._channel_holder.append(channel)
-        return ret
+                while self._channel_holder:
+                    self._channel_holder.pop()
+                self._channel_holder.append(channel)
+            self._result_cache[(methodname, args)] = (py.std.time.time(), ret)
+            return ret
+        finally:
+            self._calllock.release()
     
     def init_gateway(self):
         if self.config.server in ['localhost', '127.0.0.1']:
@@ -158,9 +173,9 @@ class BuildPage(ServerPage):
         bpinfo, brstr = self.call_method('buildrequest', (self._buildid,))
         br = BuildRequest.fromstring(brstr)
         if bpinfo == None:
-            bpinfo = {}
+            bpinfo = {'status': 'waiting'}
         return {
-            'url': bpinfo['buildurl'],
+            'url': bpinfo.get('buildurl', None),
             'id': br.id(),
             'email': br.email,
             'svnurl': br.svnurl,
@@ -174,7 +189,7 @@ class BuildPage(ServerPage):
                             sorted(br.compileinfo.items())],
             'status': bpinfo['status'],
             'statusclass': bpinfo['status'].replace(' ', '_'),
-            'error': bpinfo['error'],
+            'error': bpinfo.get('error', None),
         }
 
 class BuildsIndexPage(ServerPage):

@@ -63,6 +63,7 @@ def setup_module(mod):
     mod.server_channel = init_fake_metaserver(TESTPORT, path)
     mod.config = fake.Container(port=TESTPORT, path=path, server='localhost')
     mod.gateway = py.execnet.PopenGateway()
+    ServerPage.MAX_CACHE_TIME = -1
 
 def teardown_module(mod):
     mod.server_channel.send('quit')
@@ -153,8 +154,29 @@ class TestBuildersInfoPage(object):
         html_validate(html)
 
 class TestBuildPage(object):
+    def test_get_info(self):
+        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+                                'http://codespeak.net/svn/pypy/dist',
+                                10, 2, 123456789)
+        server_channel.send(('add_queued', br.serialize()))
+        server_channel.receive()
+        p = BuildPage(br.id(), config, gateway)
+        info = p.get_info()
+        assert isinstance(info, dict)
+        assert info['id'] == br.id()
+        
     def test_call(self):
-        pass
+        br = build.BuildRequest('foo@bar.com', {}, {'foo': 'bar'},
+                                'http://codespeak.net/svn/pypy/dist',
+                                10, 2, 123456789)
+        server_channel.send(('add_queued', br.serialize()))
+        server_channel.receive()
+        p = BuildPage(br.id(), config, gateway)
+        headers, html = p(None, '/build/', '')
+        assert headers['Content-Type'] == 'text/html; charset=UTF-8'
+        assert html.strip().startswith('<!DOCTYPE html')
+        assert html.strip().endswith('</html>')
+        html_validate(html)
 
 class TestBuildsIndexPage(object):
     def test_get_builds(self):
@@ -277,22 +299,35 @@ class TestServerPage(object):
     def test_call_method_simple(self):
         p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
                        py.execnet.PopenGateway())
-        ret = p.call_method('status', [])
+        ret = p.call_method('status', ())
         assert ret
 
     def test_call_method_reconnect(self):
         p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
                        py.execnet.PopenGateway())
-        ret = p.call_method('status', [])
+        ret = p.call_method('status', ())
         assert len(p._channel_holder) == 1
         channel = p._channel_holder[0]
         
-        ret = p.call_method('status', [])
+        ret = p.call_method('status', ())
         assert len(p._channel_holder) == 1
         assert p._channel_holder[0] is channel
         channel.close()
 
-        ret = p.call_method('status', [])
+        ret = p.call_method('status', ())
         assert len(p._channel_holder) == 1
         assert p._channel_holder is not channel
+
+    def test_call_method_cache(self):
+        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
+                       py.execnet.PopenGateway())
+        p._result_cache = {}
+        p.MAX_CACHE_TIME = 1000
+        try:
+            ret = p.call_method('status', ())
+            assert len(p._result_cache) == 1
+            cached = p._result_cache.get(('status', ()))
+            assert cached[1] is ret
+        finally:
+            p.MAX_CACHE_TIME = -1
 
