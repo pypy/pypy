@@ -391,8 +391,9 @@ class Entry(ExtRegistryEntry):
         TYPE = type_s.const
         if isinstance(TYPE, (type, types.ClassType)):
             # it's a user-defined class, so we return SomeInstance
+            # can_be_None == True because it can always return None, if it fails
             classdef = self.bookkeeper.getuniqueclassdef(TYPE)
-            return SomeInstance(classdef, can_be_None=x_s.can_be_None)
+            return SomeInstance(classdef, can_be_None=True)
         else:
             assert TYPE in BOXABLE_TYPES
             return OverloadingResolver.lltype_to_annotation(TYPE)

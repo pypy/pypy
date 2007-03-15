@@ -94,6 +94,17 @@ class TestDotnetAnnotation(object):
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_unbox_can_be_None(self):
+        class Foo:
+            pass
+        def fn():
+            x = box(42)
+            return unbox(x, Foo)
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.can_be_None
+
     def test_array(self):
         def fn():
             x = ArrayList()
