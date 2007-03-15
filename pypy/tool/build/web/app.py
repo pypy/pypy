@@ -35,37 +35,39 @@ def format_compileinfo(compileinfo):
     from pypy.config.pypyoption import get_pypy_config
     from pypy.config.config import Config
     from pypy.translator.driver import DEFAULTS
-    config1 = get_pypy_config(DEFAULTS, translating=True)
-    config2 = get_pypy_config(DEFAULTS, translating=True)
-    config1.set(**compileinfo)
-    def add(c1, c2, path_upto_here="", outermost=False):
+    config = get_pypy_config(DEFAULTS, translating=True)
+    def add(config, path_upto_here="", outermost=False):
         items = []
         children = [(child._name, child)
-                    for child in c1._cfgimpl_descr._children]
+                    for child in config._cfgimpl_descr._children]
         children.sort()
         for name, child in children:
-            value = getattr(c1, name)
-            if isinstance(value, Config):
-                if path_upto_here:
-                    subpath = path_upto_here + "." + name
-                else:
-                    subpath = name
-                substr = add(value, getattr(c2, name), subpath)
+            value_default = getattr(config, name)
+            if path_upto_here:
+                subpath = path_upto_here + "." + name
+            else:
+                subpath = name
+            if isinstance(value_default, Config):
+                substr = add(value_default, subpath)
                 if substr:
                     items.append("<li> [%s] <ul>" % (name, ))
                     items.append("  " + substr.replace("\n", "\n  "))
                     items.append("</ul> </li>")
-            elif value == getattr(c2, name):
-                continue
             else:
+                try:
+                    value = compileinfo[subpath]
+                except KeyError:
+                    continue
+                if value == value_default:
+                    continue
                 url = "http://codespeak.net/pypy/dist/pypy/doc/config/"
-                url += path_upto_here + "." + name + ".html"
+                url += subpath + ".html"
                 items.append('<li> <a href="%s"> %s </a> = %s </li>' % (
                     url, name, value))
         if outermost and not lines:
             return ""
         return "\n  ".join(items)
-    return "<ul> %s </ul>" % (add(config1, config2, outermost=False), )
+    return "<ul> %s </ul>" % (add(config, outermost=False), )
 
 
 class ServerPage(object):
