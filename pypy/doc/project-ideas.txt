@@ -141,14 +141,14 @@ Experiment with distribution and persistence
 One of the advantages of PyPy's implementation is that the Python-level type
 of an object and its implementation are completely independent.  This should
 allow a much more intuitive interface to, for example, objects that are backed
-by a persistent store, or whose implementation lives on a remote server.
+by a persistent store.
 
-The recently added `transparent proxy`_ objects are a key step in this
+The `transparent proxy`_ objects are a key step in this
 direction; now all that remains is to implement the interesting bits :-)
 
 An example project might be to implement functionality akin to the `ZODB's
 Persistent class`_, without the need for the _p_changed hacks, and in pure
-Python code.
+Python code (should be relatively easy on top of transparent proxy).
 
 Numeric/NumPy/numarray support
 ------------------------------
@@ -164,7 +164,7 @@ Extension modules
 -----------------
 
 Rewrite one or several CPython extension modules to be based on **ctypes**
-(newly integrated in Python 2.5): this is generally useful for Python
+(integrated in Python 2.5): this is generally useful for Python
 developers, and it is now the best path to write extension modules that are
 compatible with both CPython and PyPy.  This is done with the `extension
 compiler`_ component of PyPy, which will likely require some attention as
@@ -180,9 +180,10 @@ Modules where some work is already done:
   (http://codespeak.net/svn/user/rhymes/).
 
 You are free to pick any other CPython module, either standard or third-party
-(if relatively well-known).  Note that some modules exist in a ctypes version
+(if relatively well-known, like gtk bindings).
+Note that some modules exist in a ctypes version
 already, which would be a good start for porting them to PyPy's extension
-compiler.  We'd particularly appreciate ``readline`` :-)
+compiler.
 
 Extend py.execnet to a peer-to-peer model
 -----------------------------------------
@@ -197,9 +198,6 @@ Extend py.execnet to a peer-to-peer model
 
 Or else...
 ----------
-
-* Improve `py.test`_ to contain benchmarking and/or better reporting
-  (e.g. cool html or PDF reports).
 
 * Constraint programming: `efficient propagators for specialized
   finite domains`_ (like numbers, sets, intervals).
