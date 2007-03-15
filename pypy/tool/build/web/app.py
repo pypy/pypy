@@ -69,19 +69,46 @@ def format_compileinfo(compileinfo):
         return "\n  ".join(items)
     return "<ul> %s </ul>" % (add(config, outermost=False), )
 
-
 class ServerPage(object):
     """ base class for pages that communicate with the server
     """
     exposed = True
-    _calllock = py.std.thread.allocate_lock()
-    _channel_holder = []
-    _result_cache = {}
     MAX_CACHE_TIME = 30 # seconds
+    _shared = {
+        'lock': py.std.thread.allocate_lock(),
+        'channel': None,
+        'gateway': None,
+        'result_cache': {},
+        'initialized': False,
+    }
 
     def __init__(self, config, gateway=None):
         self.config = config
-        self.gateway = gateway or self.init_gateway()
+        self.gateway = gateway
+        self._shared['lock'].acquire()
+        try:
+            self._init_shared(gateway)
+        finally:
+            self._shared['lock'].release()
+
+    def _init_shared(self, gateway=None):
+        if self._shared['initialized']:
+            return self._shared['channel']
+        self._shared['gateway'] = gateway = gateway or self.init_gateway()
+        self._shared['conference'] = conf = \
+            execnetconference.conference(gateway, self.config.port, False)
+        self._shared['channel'] = chan = conf.remote_exec(self.remote_code % (
+                                                          self.config.path,))
+        self._shared['initialized'] = True
+        return chan
+
+    def _cleanup_shared(self):
+        self._shared['channel'].close()
+        self._shared['gateway'].exit()
+        self._shared['channel'] = None
+        self._shared['gateway'] = None
+        self._shared['initialized'] = False
+        self.gateway = None
 
     remote_code = """
         import sys
@@ -89,11 +116,11 @@ class ServerPage(object):
 
         from pypy.tool.build import metaserver_instance
         from pypy.tool.build.web.app import MetaServerAccessor
-        msi = MetaServerAccessor(metaserver_instance)
+        msa = MetaServerAccessor(metaserver_instance)
         while 1:
             try:
                 methodname, args = channel.receive()
-                ret = getattr(msi, methodname)(*args)
+                ret = getattr(msa, methodname)(*args)
                 channel.send(ret)
             except IOError: # XXX anything else?
                 break
@@ -107,18 +134,18 @@ class ServerPage(object):
             careful with args, as it's used as dict key for caching (and
             also sent over the wire) so should be fairly simple
         """
-        self._calllock.acquire()
+        self._shared['lock'].acquire()
         try:
             try:
-                time, value = self._result_cache[(methodname, args)]
+                ctime, value = self._shared['result_cache'][(methodname, args)]
             except KeyError:
                 pass
             else:
-                if time > py.std.time.time() - self.MAX_CACHE_TIME:
+                if ctime > time.time() - self.MAX_CACHE_TIME:
                     return value
             performed = False
-            if self._channel_holder:
-                channel = self._channel_holder[0]
+            if self._shared['channel']:
+                channel = self._shared['channel']
                 try:
                     channel.send((methodname, args))
                     ret = channel.receive()
@@ -127,22 +154,22 @@ class ServerPage(object):
                     del tb
                     print ('exception occurred when calling %s(%s): '
                            '%s - %s' % (methodname, args, exc, e))
+                    try:
+                        self._cleanup_shared()
+                    except:
+                        exc, e, tb = sys.exc_info()
+                        print 'errors during cleanup: %s - %s' % (exc, e)
                 else:
                     performed = True
             if not performed:
-                conference = execnetconference.conference(self.gateway,
-                                                          self.config.port, False)
-                channel = conference.remote_exec(self.remote_code % (
-                                                 self.config.path,))
+                channel = self._init_shared(self.gateway)
                 channel.send((methodname, args))
                 ret = channel.receive()
-                while self._channel_holder:
-                    self._channel_holder.pop()
-                self._channel_holder.append(channel)
-            self._result_cache[(methodname, args)] = (py.std.time.time(), ret)
+            self._shared['result_cache'][(methodname, args)] = (time.time(),
+                                                                ret)
             return ret
         finally:
-            self._calllock.release()
+            self._shared['lock'].release()
     
     def init_gateway(self):
         if self.config.server in ['localhost', '127.0.0.1']:

@@ -294,18 +294,12 @@ initcode = """
 
             server.serve_forever()
         except:
-            try:
-                import sys, traceback
-                exc, e, tb = sys.exc_info()
-                channel.send(str(exc) + ' - ' + str(e))
-                for line in traceback.format_tb(tb):
-                    channel.send(line[:1])
-                del tb
-            except:
-                try:
-                    channel.close()
-                except:
-                    pass
+            import sys, traceback
+            exc, e, tb = sys.exc_info()
+            channel.send(str(exc) + ' - ' + str(e))
+            for line in traceback.format_tb(tb):
+                channel.send(line[:1])
+            del tb
     finally:
         channel.close()
 """

@@ -310,36 +310,37 @@ class TestMetaServerAccessor(object):
 
 class TestServerPage(object):
     def test_call_method_simple(self):
-        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
-                       py.execnet.PopenGateway())
+        p = ServerPage(fake.Container(port=build_config.testport,
+                                      path=str(path)),
+                       gateway)
         ret = p.call_method('status', ())
         assert ret
 
     def test_call_method_reconnect(self):
-        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
-                       py.execnet.PopenGateway())
+        p = ServerPage(fake.Container(port=build_config.testport,
+                                      path=str(path), server='127.0.0.1'))
         ret = p.call_method('status', ())
-        assert len(p._channel_holder) == 1
-        channel = p._channel_holder[0]
+        channel = p._shared['channel']
+        assert channel is not None
         
         ret = p.call_method('status', ())
-        assert len(p._channel_holder) == 1
-        assert p._channel_holder[0] is channel
+        assert p._shared['channel'] is channel
         channel.close()
 
         ret = p.call_method('status', ())
-        assert len(p._channel_holder) == 1
-        assert p._channel_holder is not channel
+        assert p._shared['channel'] is not None
+        assert p._shared['channel'] is not channel
 
     def test_call_method_cache(self):
-        p = ServerPage(fake.Container(port=build_config.testport, path=str(path)),
-                       py.execnet.PopenGateway())
-        p._result_cache = {}
+        p = ServerPage(fake.Container(port=build_config.testport,
+                                      path=str(path)),
+                       gateway)
+        p._shared['result_cache'] = {}
         p.MAX_CACHE_TIME = 1000
         try:
             ret = p.call_method('status', ())
-            assert len(p._result_cache) == 1
-            cached = p._result_cache.get(('status', ()))
+            assert len(p._shared['result_cache']) == 1
+            cached = p._shared['result_cache'].get(('status', ()))
             assert cached[1] is ret
         finally:
             p.MAX_CACHE_TIME = -1

@@ -27,39 +27,41 @@ def compile(wc, compileinfo, buildpath):
         sys.stderr = outbuffer
         try:
             try:
-                from pypy.interpreter.error import OperationError
-                from pypy.translator.goal import targetpypystandalone
-                from pypy.translator.driver import TranslationDriver
-                from pypy.config import pypyoption
-                from pypy.tool.udir import udir
+                try:
+                    from pypy.interpreter.error import OperationError
+                    from pypy.translator.goal import targetpypystandalone
+                    from pypy.translator.driver import TranslationDriver
+                    from pypy.config import pypyoption
+                    from pypy.tool.udir import udir
 
-                config = pypyoption.get_pypy_config()
-                config.override(compileinfo)
+                    config = pypyoption.get_pypy_config()
+                    config.override(compileinfo)
 
-                driver = TranslationDriver.from_targetspec(
-                            targetpypystandalone.__dict__, config=config,
-                            default_goal='compile')
-                driver.proceed(['compile'])
-            except Exception, e:
-                # XXX we may want to check
-                exception_occurred = True
-                exc, e, tb = sys.exc_info()
-                print '=' * 79
-                print 'Exception during compilation:'
-                print '%%s: %%s' %% (exc, e)
-                print
-                print '\\n'.join(traceback.format_tb(tb))
-                print '=' * 79
-                del tb
-                channel.send(None)
-            else:
-                channel.send(str(udir))
+                    driver = TranslationDriver.from_targetspec(
+                                targetpypystandalone.__dict__, config=config,
+                                default_goal='compile')
+                    driver.proceed(['compile'])
+                except Exception, e:
+                    # XXX we may want to check
+                    exception_occurred = True
+                    exc, e, tb = sys.exc_info()
+                    print '=' * 79
+                    print 'Exception during compilation:'
+                    print '%%s: %%s' %% (exc, e)
+                    print
+                    print '\\n'.join(traceback.format_tb(tb))
+                    print '=' * 79
+                    del tb
+                    channel.send(None)
+                else:
+                    channel.send(str(udir))
+            finally:
+                sys.stdout = sys.__stdout__
+                sys.stderr = sys.__stderr__
+                log.close()
+            channel.send(outbuffer.getvalue())
         finally:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
-            log.close()
-        channel.send(outbuffer.getvalue())
-        channel.close()
+            channel.close()
     """
     gw = PopenGateway()
     interpolated = py.code.Source(outputbuffer,
