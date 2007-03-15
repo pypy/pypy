@@ -223,8 +223,11 @@ class BuildersInfoPage(ServerPage):
 
     def get_buildersinfo(self):
         infos = self.call_method('buildersinfo')
+        ret = []
         # some massaging of the data for Templess
-        for binfo in infos:
+        for bi in infos:
+            binfo = bi.copy()
+            ret.append(binfo)
             binfo['sysinfo'] = [binfo['sysinfo']]
             binfo['not_busy'] = not binfo['busy_on']
             if binfo['busy_on']:
@@ -244,7 +247,7 @@ class BuildersInfoPage(ServerPage):
                 binfo['busy_on'] = [d]
             else:
                 binfo['busy_on'] = []
-        return infos
+        return ret
 
 class BuildPage(ServerPage):
     """ display information for one build """
