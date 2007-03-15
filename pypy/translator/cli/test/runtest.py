@@ -23,7 +23,7 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.entrypoint import BaseEntryPoint
 from pypy.translator.cli.support import patch, unpatch
 
-FLOAT_PRECISION = 10
+FLOAT_PRECISION = 8
 
 def check(func, annotation, args):
     mono = compile_function(func, annotation)
@@ -50,7 +50,7 @@ class TestEntryPoint(BaseEntryPoint):
     This class produces a 'main' method that converts its arguments
     to int32, pass them to another method and prints out the result.
     """
-    
+
     def __init__(self, graph_to_call, wrap_exceptions=False):
         self.graph = graph_to_call
         self.wrap_exceptions = wrap_exceptions
@@ -289,6 +289,9 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
     def float_eq(self, x, y):
         diff = abs(x-y)
         return diff/x < 10**-FLOAT_PRECISION
+
+    def is_of_type(self, x, type_):
+        return True # we can't really test the type
 
     def ll_to_string(self, s):
         return s

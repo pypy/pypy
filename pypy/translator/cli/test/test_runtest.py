@@ -26,7 +26,7 @@ class TestRunTest(CliTest):
     def test_float(self):
         x = 10/3.0
         res = self.interpret(ident, [x])
-        assert round(x, FLOAT_PRECISION) == round(res, FLOAT_PRECISION)
+        assert self.float_eq(x, res)
 
     def test_char(self):
         assert self.interpret(ident, ['a']) == 'a'

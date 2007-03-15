@@ -66,7 +66,7 @@ class BaseTestRfloat(BaseRtypingTest):
 
         res = self.interpret(fn, [1.0])
         assert res == 1
-        assert type(res) is r_longlong 
+        assert self.is_of_type(res, r_longlong)
         res = self.interpret(fn, [2.34])
         assert res == fn(2.34) 
         big = float(0x7fffffffffffffff)
