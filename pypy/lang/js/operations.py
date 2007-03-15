@@ -781,8 +781,13 @@ class String(Expression):
 
     escapedict = { 
         r'\n' : '\n',
+        r'\r' : '\r',
+        r'\f' : '\f',
+        r'\v' : '\v',
+        r'\ ' : '\ ',
         r'\t' : '\t',
-        r"\'" : "'",
+	    r"\'" : "'",
+	    r"\b" : "\b",
         r'\"' : '"',
         r'\\' : '\\'
     }

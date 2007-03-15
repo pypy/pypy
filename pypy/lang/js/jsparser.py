@@ -11,7 +11,7 @@ from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.ebnfparse import Symbol
 from pypy.rlib.streamio import open_file_as_stream, fdopen_as_stream
 
-DEBUG = False
+DEBUG = True
 
 class JsSyntaxError(Exception):
     pass
@@ -23,16 +23,38 @@ jsparsepath = path.join(jsdir, "jsparse.js")
 fname = path.join(path.dirname(__file__) ,"tobeparsed.js")
 command = 'js -f %s -f %s -f %s'%(jsdefspath, jsparsepath, fname)
 
+escapes = [
+    r'\n',
+    r'\r',
+    r'\f',
+    r'\v',
+    r'\ ',
+    r'\t',
+    r"\'",
+    r'\b',
+    r'\"',
+    r'\\']
+
+codes = [
+    '\n',
+    '\r',
+    '\f',
+    '\v',
+    '\ ',
+    '\t',
+    "'",
+    "\b",
+    '"',
+    '\\']
+
+escapedict = dict(zip(codes,escapes))
+
 def read_js_output(code_string):
     tmp = []
     last = ""
     for c in code_string:
-        if c == "'":
-            tmp.append("\\'")
-        elif c == SLASH:
-            tmp.append(SLASH*2)
-        elif c == "\n":
-            tmp.append("\\n")
+        if c in escapedict:
+            tmp.append(escapedict[c])
         else:
             tmp.append(c)
         last = c

@@ -157,7 +157,7 @@ Tokenizer.prototype = {
             var id = match[0];
             token.type = keywords[id] || IDENTIFIER;
             token.value = id;
-        } else if ((match = /^"(?:\\.|[^"])*"|^'(?:[^']|\\.)*'/(input))) { //"){
+        } else if ((match = /^"(?:\\.|[^"])*"|^'(?:\\.|[^'])*'/(input))) { //"){
             token.type = STRING;
             token.value = match[0];
         } else if (this.scanOperand &&
