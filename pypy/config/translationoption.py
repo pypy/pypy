@@ -15,7 +15,13 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--stackless",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
-                 ["lltype", "ootype"], cmdline=None),
+                 ["lltype", "ootype"], cmdline=None,
+                 requires={
+                     "ootype": [("translation.backendopt.raisingop2direct_call", False),
+                                ("translation.backendopt.constfold", False),
+                                ("translation.backendopt.heap2stack", False),
+                                ("translation.backendopt.clever_malloc_removal", False)]
+                     }),
     ChoiceOption("backend", "Backend to use for code generation",
                  ["c", "llvm", "cli", "jvm", "js", "squeak", "cl"],
                  requires={
