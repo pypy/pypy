@@ -121,6 +121,15 @@ class ServerPage(object):
         self._shared['initialized'] = False
         self.gateway = None
 
+    def _cleanup_cache(self):
+        mintime = time.time() - self.MAX_CACHE_TIME
+        topop = []
+        for key, (ctime, data) in self._shared['result_cache'].items():
+            if ctime < mintime:
+                topop.append(key)
+        for key in topop:
+            del self._shared['result_cache'][key]
+
     remote_code = """
         import sys
         sys.path += %r
@@ -147,6 +156,8 @@ class ServerPage(object):
         """
         self._shared['lock'].acquire()
         try:
+            # XXX should we perhaps do this only once ever X times?
+            self._cleanup_cache()
             try:
                 ctime, value = self._shared['result_cache'][(methodname, args)]
             except KeyError:
