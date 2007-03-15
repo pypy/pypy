@@ -85,6 +85,19 @@ class TestDotnetAnnotation(object):
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._name == '[mscorlib]System.Object'
+        assert not s.can_be_None
+
+    def test_box_can_be_None(self):
+        def fn(flag):
+            if flag:
+                return box(42)
+            else:
+                return box(None)
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [bool])
+        assert isinstance(s, annmodel.SomeOOInstance)
+        assert s.ootype._name == '[mscorlib]System.Object'
+        assert s.can_be_None
 
     def test_unbox(self):
         def fn():

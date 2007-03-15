@@ -366,7 +366,8 @@ class Entry(ExtRegistryEntry):
     _about_ = box
 
     def compute_result_annotation(self, x_s):
-        return SomeOOInstance(CLR.System.Object._INSTANCE)
+        can_be_None = getattr(x_s, 'can_be_None', False)
+        return SomeOOInstance(CLR.System.Object._INSTANCE, can_be_None=can_be_None)
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
