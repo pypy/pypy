@@ -19,6 +19,17 @@ def fix_html(html):
             '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">\n%s' % (
             html.strip().encode('UTF-8'),))
 
+def get_nav(context):
+    template = templesser.template(mypath.join('templates/nav.html').read())
+    return template.unicode(context)
+
+def get_base_context():
+    context = {
+        'vhostroot': config.vhostroot,
+    }
+    context['nav'] = get_nav(context)
+    return context
+
 def format_time(t):
     if t is None:
         return None
@@ -184,7 +195,9 @@ class MetaServerStatusPage(ServerPage):
     def __call__(self, handler, path, query):
         template = templesser.template(
             mypath.join('templates/metaserverstatus.html').read())
-        return (get_headers(), fix_html(template.unicode(self.get_status())))
+        context = get_base_context()
+        context.update(self.get_status())
+        return (get_headers(), fix_html(template.unicode(context)))
 
     def get_status(self):
         return self.call_method('status')
@@ -193,8 +206,9 @@ class BuildersInfoPage(ServerPage):
     def __call__(self, handler, path, query):
         template = templesser.template(
             mypath.join('templates/buildersinfo.html').read())
-        return (get_headers(), fix_html(template.unicode(
-                                  {'builders': self.get_buildersinfo()})))
+        context = get_base_context()
+        context.update({'builders': self.get_buildersinfo()})
+        return (get_headers(), fix_html(template.unicode(context)))
 
     def get_buildersinfo(self):
         infos = self.call_method('buildersinfo')
@@ -231,8 +245,9 @@ class BuildPage(ServerPage):
     def __call__(self, handler, path, query):
         template = templesser.template(
             mypath.join('templates/build.html').read())
-        return (get_headers(),
-                fix_html(template.unicode(self.get_info())))
+        context = get_base_context()
+        context.update(self.get_info())
+        return (get_headers(), fix_html(template.unicode(context)))
 
     def get_info(self):
         bpinfo, brstr = self.call_method('buildrequest', (self._buildid,))
@@ -262,8 +277,9 @@ class BuildsIndexPage(ServerPage):
     def __call__(self, handler, path, query):
         template = templesser.template(
             mypath.join('templates/builds.html').read())
-        return (get_headers(),
-                fix_html(template.unicode({'builds': self.get_builds()})))
+        context = get_base_context()
+        context.update({'builds': self.get_builds()})
+        return (get_headers(), fix_html(template.unicode(context)))
 
     def get_builds(self):
         data = [(i, BuildRequest.fromstring(b)) for(i, b) in
@@ -314,8 +330,7 @@ class Application(Collection):
     def index(self, handler, path, query):
         template = templesser.template(
             mypath.join('templates/index.html').read())
-        return (get_headers(),
-                fix_html(template.unicode({})))
+        return (get_headers(), fix_html(template.unicode(get_base_context())))
     index.exposed = True
 
 class AppHandler(Handler):

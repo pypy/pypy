@@ -4,11 +4,14 @@ packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
 
 # general settings, used by both server and client
 server = 'codespeak.net'
-webserver = ''
 port = 12321
 testport = 32123
-webport = 8080
 path = [str(packageparent)]
+
+# options for webserver
+webserver = ''
+vhostroot = ''
+webport = 8080
 
 # configuration of options for client and startcompile
 from pypy.config.config import Config

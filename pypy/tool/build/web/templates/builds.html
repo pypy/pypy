@@ -1,14 +1,10 @@
 <html>
   <head>
     <title>Build meta server builds page</title>
-    <link rel="stylesheet" type="text/css" href="/style" />
+    <link rel="stylesheet" type="text/css" href="%(vhostroot)s/style" />
   </head>
   <body>
-    <ul class="sidebar">
-      <li><a href="/metaserverstatus">meta server status</a></li>
-      <li><a href="/buildersinfo">connected build servers</a></li>
-      <li><a href="/builds">builds (both in-progress and done)</a></li>
-    </ul>
+    %(nav)s
     <h2>Overview of builds</h2>
     <p>
       Here you see an overview of all builds, both completed (and available
