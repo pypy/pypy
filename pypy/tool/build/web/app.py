@@ -306,7 +306,8 @@ class BuildsIndexPage(ServerPage):
                  'build_end_time': format_time(b.build_end_time) or '-',
                  'status': i['status'],
                  'statusclass': i['status'].replace(' ', '_'),
-                 'error': i.get('error', '')}
+                 'error': i.get('error', ''),
+                 'vhostroot': config.vhostroot}
                 for (i, b) in data]
 
 class Builds(Collection):
