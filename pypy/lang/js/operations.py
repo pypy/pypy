@@ -7,8 +7,7 @@ Implements the javascript operations nodes for the interpretation tree
 from pypy.lang.js.jsobj import *
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 from pypy.rlib.rarithmetic import r_uint, intmask
-
-SLASH = "\\"
+from constants import unescapedict, SLASH
 
 class Node(object):
     """
@@ -765,8 +764,6 @@ class Number(Expression):
     def eval(self, ctx):
         return W_Number(self.num)
 
-
-
 class String(Expression):
     opcode = 'STRING'
     
@@ -779,18 +776,6 @@ class String(Expression):
     def get_literal(self):
         return W_String(self.strval).ToString()
 
-    escapedict = { 
-        r'\n' : '\n',
-        r'\r' : '\r',
-        r'\f' : '\f',
-        r'\v' : '\v',
-        r'\ ' : '\ ',
-        r'\t' : '\t',
-	    r"\'" : "'",
-	    r"\b" : "\b",
-        r'\"' : '"',
-        r'\\' : '\\'
-    }
     def string_unquote(self, string):
         temp = []
         stop = len(string)-1
@@ -813,9 +798,9 @@ class String(Expression):
     
         for c in internalstring:
             if last == SLASH:
-                escapeseq = self.escapedict[last+c]
-                temp.append(escapeseq)
-                last = escapeseq
+                unescapeseq = unescapedict[last+c]
+                temp.append(unescapeseq)
+                last = unescapeseq
                 continue
             if c != SLASH:        
                 temp.append(c)
