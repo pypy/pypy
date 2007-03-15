@@ -283,6 +283,7 @@ class BuildPage(ServerPage):
             'status': bpinfo['status'],
             'statusclass': bpinfo['status'].replace(' ', '_'),
             'error': bpinfo.get('error', None),
+            'isdone': bpinfo.has_key('error'),
         }
 
 class BuildsIndexPage(ServerPage):
@@ -334,6 +335,39 @@ class Builds(Collection):
         # be found, this page will raise an exception)
         return BuildPage(name, self.config, self.gateway)
 
+class Logs(Collection):
+    def __init__(self, config, gateway=None):
+        self.config = config
+        self.gateway = gateway
+    
+    def traverse(self, path, orgpath):
+        """ generate a BuildPage on the fly """
+        # next element of the path is the id of the build '/<collection>/<id>'
+        name = path.pop()
+        if name == '':
+            # we don't have an index
+            raise HTTPError(404)
+        if len(path):
+            # no Collection type children here...
+            raise HTTPError(404)
+        # we have a name for a build, let's build a page for it (if it can't
+        # be found, this page will raise an exception)
+        return LogPage(name, self.config, self.gateway)
+
+
+class LogPage(ServerPage):
+    def __init__(self, buildid, config, gateway=None):
+        super(LogPage, self).__init__(config, gateway)
+        self._buildid = buildid
+
+    def __call__(self, handler, path, query):
+        headers = get_headers()
+        headers['Content-Type'] = 'text/plain; charset=UTF-8'
+        return (headers, self.get_log())
+
+    def get_log(self):
+        return self.call_method('log', (self._buildid,))
+
 class Application(Collection):
     """ the application root """
     def __init__(self, config):
@@ -341,6 +375,7 @@ class Application(Collection):
         self.index = self.metaserverstatus = MetaServerStatusPage(config)
         self.buildersinfo = BuildersInfoPage(config)
         self.builds = Builds(config)
+        self.logs = Logs(config)
     
     def index(self, handler, path, query):
         template = templesser.template(
@@ -394,6 +429,14 @@ class MetaServerAccessor(object):
                     'buildurl': self.metaserver.config.path_to_url(bp),
                 }
 
+    def log(self, requestid):
+        ids = []
+        for bp in self.metaserver._done:
+            ids.append(bp.request.id())
+            if bp.request.id() == requestid:
+                return str(bp.log)
+        raise Exception('not %s not found in %s' % (requestid, ids))
+
     def buildurl(self, id):
         for r in self.metaserver._done:
             if r.request.id() == id:
@@ -402,7 +445,8 @@ class MetaServerAccessor(object):
     def _all_requests(self):
         running = [b.busy_on for b in self.metaserver._builders if b.busy_on]
         done = [b.request for b in self.metaserver._done]
-        return self.metaserver._queued + self.metaserver._waiting + running + done
+        return (self.metaserver._queued + self.metaserver._waiting +
+                running + done)
 
     def _getinfo(self, br):
         status = 'waiting'

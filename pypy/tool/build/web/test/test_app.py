@@ -30,7 +30,7 @@ _metaserver_init = """
     sys.path += %r
 
     from pypy.tool.build.web.test.test_app import FakeMetaServer
-    from pypy.tool.build.build import BuildRequest
+    from pypy.tool.build.build import BuildRequest, BuildPath
     from pypy.tool.build.test import fake
     from pypy.tool import build
     build.metaserver_instance = s = FakeMetaServer()
@@ -46,6 +46,13 @@ _metaserver_init = """
             elif command == 'add_builder':
                 info, compile_info = data
                 s._builders.append(fake.FakeBuildserver(info, compile_info))
+            elif command == 'add_done':
+                path, br, log = data
+                br = BuildRequest.fromstring(br)
+                bp = BuildPath(path)
+                bp.log = log
+                bp.request = br
+                s._done.append(bp)
             channel.send(None)
     finally:
         channel.close()
@@ -211,6 +218,23 @@ class TestBuilds(object):
         assert isinstance(p.traverse(['foo'], '/builds/foo'), BuildPage)
         py.test.raises(HTTPError,
                        "p.traverse(['foo', 'bar'], '/builds/foo/bar')")
+
+class TestLogPage(object):
+    def test_get_log(self):
+        temppath = py.test.ensuretemp('TestLogPage.test_get_log')
+        br = build.BuildRequest('foo@bar.com', {},
+                                {'objspace.std.withrope': True},
+                                'http://codespeak.net/svn/pypy/dist',
+                                10, 2, 123456789)
+        br.build_start_date = 123456790
+        br.build_end_date = 123456791
+        path = temppath.ensure('buildpath', dir=True)
+        server_channel.send(('add_done', (str(path), br.serialize(), 'log')))
+        server_channel.receive()
+        p = LogPage(br.id(), config, gateway)
+        log = p.get_log()
+        assert isinstance(log, str)
+        assert log == 'log'
 
 class TestMetaServerAccessor(object):
     def test_status(self):
