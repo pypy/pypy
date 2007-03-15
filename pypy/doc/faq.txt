@@ -232,6 +232,14 @@ itself: a "fast" version and a "slow" version.  The former would contain
 many guards that allow it to fall back to the latter if needed.  That
 would be a wholly different project than PyPy, though.
 
+What PyPy contains is, on the one hand, an non-soft static type
+inferencer for RPython, which is a sublanguage that we defined just so
+that it's possible and not too hard to do that; and on the other hand,
+for the full Python language, we have an interpreter, and a JIT
+generator which can produce a Just-In-Time Compiler from the
+interpreter.  The resulting JIT works for the full Python language in a
+way that doesn't need type inference at all.
+
 .. [BRETT] Brett Cannon,
            Localized Type Inference of Atomic Types in Python,
            http://www.ocf.berkeley.edu/~bac/thesis.pdf
