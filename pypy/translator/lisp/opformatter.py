@@ -49,7 +49,7 @@ class OpFormatter:
     op_int_add = make_binary_op("+")
     op_int_sub = make_binary_op("-")
     op_int_mul = make_binary_op("*")
-    op_int_floordiv = make_binary_op("floor")
+    op_int_floordiv = make_binary_op("truncate")
     op_int_eq = make_binary_op("=")
     op_int_gt = make_binary_op(">")
     op_int_ge = make_binary_op(">=")

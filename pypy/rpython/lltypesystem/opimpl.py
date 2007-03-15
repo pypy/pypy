@@ -166,6 +166,21 @@ def op_int_mul(x, y):
     assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x * y)
 
+def op_int_floordiv(x, y):
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    r = x/y
+    if x^y < 0 and x%y != 0:
+        r += 1
+    return r
+
+def op_int_mod(x, y):
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    r = x%y
+    if x^y < 0 and x%y != 0:
+        r -= y
+    return r
 
 def op_same_as(x):
     return x

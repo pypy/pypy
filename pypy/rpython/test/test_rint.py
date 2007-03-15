@@ -218,6 +218,29 @@ class BaseTestRint(BaseRtypingTest):
             assert res == 1
             res = self.interpret(f, [r_longlong(-1)<<(r_longlong.BITS-1)])
             assert res == 0
+
+    def test_div_mod(self):
+        import random
+
+        def d(x, y):
+            return x/y
+
+        for i in range(1000):
+            x = random.randint(-100000, 100000)
+            y = random.randint(-100000, 100000)
+            if not y: continue
+            res = self.interpret(d, [x, y])
+            assert res == d(x, y)
+
+        def m(x, y):
+            return x%y
+
+        for i in range(1000):
+            x = random.randint(-100000, 100000)
+            y = random.randint(-100000, 100000)
+            if not y: continue
+            res = self.interpret(m, [x, y])
+            assert res == m(x, y)
             
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):

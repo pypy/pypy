@@ -190,10 +190,55 @@ def _rtype_template(hop, func, implicit_excs=[]):
         repr = r_result
     vlist = hop.inputargs(repr, repr)
     hop.exception_is_here()
-    v_res = hop.genop(repr.opprefix+func, vlist, resulttype=repr)
+
+    prefix = repr.opprefix
+
+    v_res = hop.genop(prefix+func, vlist, resulttype=repr)
+    bothnonneg = hop.args_s[0].nonneg and hop.args_s[1].nonneg
+    if prefix in ('int_', 'llong_') and not bothnonneg:
+
+        # cpython, and rpython, assumed that integer division truncates
+        # towards -infinity.  however, in C99 and most (all?) other
+        # backends, integer division truncates towards 0.  so assuming
+        # that, we can generate scary code that applies the necessary
+        # correction in the right cases.
+        # paper and pencil are encouraged for this :)
+
+        if func in ('floordiv', 'floordiv_ovf'):
+            # return (x/y) - (((x^y)<0)&((x%y)!=0));
+            v_xor = hop.genop(prefix + 'xor', vlist,
+                            resulttype=repr)
+            v_xor_le = hop.genop(prefix + 'le', [v_xor, inputconst(repr.lowleveltype, 0)],
+                                 resulttype=Bool)
+            v_xor_le = hop.genop('cast_primitive', [v_xor_le], resulttype=repr)
+            v_mod = hop.genop(prefix + 'mod', vlist,
+                            resulttype=repr)
+            v_mod_ne = hop.genop(prefix + 'ne', [v_mod, inputconst(repr.lowleveltype, 0)],
+                               resulttype=Bool)
+            v_mod_ne = hop.genop('cast_primitive', [v_mod_ne], resulttype=repr)
+            v_corr = hop.genop(prefix + 'and', [v_xor_le, v_mod_ne],
+                             resulttype=repr)
+            v_res = hop.genop(prefix + 'sub', [v_res, v_corr],
+                              resulttype=repr)
+        elif func in ('mod', 'mod_ovf'):
+            # return r + y*(((x^y)<0)&(r!=0));
+            v_xor = hop.genop(prefix + 'xor', vlist,
+                            resulttype=repr)
+            v_xor_le = hop.genop(prefix + 'le', [v_xor, inputconst(repr.lowleveltype, 0)],
+                               resulttype=Bool)
+            v_xor_le = hop.genop('cast_primitive', [v_xor_le], resulttype=repr)
+            v_mod_ne = hop.genop(prefix + 'ne', [v_res, inputconst(repr.lowleveltype, 0)],
+                               resulttype=Bool)
+            v_mod_ne = hop.genop('cast_primitive', [v_mod_ne], resulttype=repr)
+            v_corr1 = hop.genop(prefix + 'and', [v_xor_le, v_mod_ne],
+                             resulttype=repr)
+            v_corr = hop.genop(prefix + 'mul', [v_corr1, vlist[1]],
+                             resulttype=repr)
+            v_res = hop.genop(prefix + 'add', [v_res, v_corr],
+                              resulttype=repr)
     v_res = hop.llops.convertvar(v_res, repr, r_result)
     return v_res
-    
+
 
 #Helper functions for comparisons
 

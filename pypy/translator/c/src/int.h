@@ -139,9 +139,9 @@
 
 /* floor division */
 
-#define OP_INT_FLOORDIV(x,y,r)    r = op_divmod_adj(x, y, NULL)
+#define OP_INT_FLOORDIV(x,y,r)    r = (x) / (y)
 #define OP_UINT_FLOORDIV(x,y,r)   r = (x) / (y)
-#define OP_LLONG_FLOORDIV(x,y,r)  r = op_llong_divmod_adj(x, y, NULL)
+#define OP_LLONG_FLOORDIV(x,y,r)  r = (x) / (y)
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 
 #define OP_INT_FLOORDIV_OVF(x,y,r) \
@@ -168,9 +168,9 @@
 
 /* modulus */
 
-#define OP_INT_MOD(x,y,r)     op_divmod_adj(x, y, &r)
+#define OP_INT_MOD(x,y,r)     r = (x) % (y)
 #define OP_UINT_MOD(x,y,r)    r = (x) % (y)
-#define OP_LLONG_MOD(x,y,r)   op_llong_divmod_adj(x, y, &r)
+#define OP_LLONG_MOD(x,y,r)   r = (x) % (y)
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
 
 #define OP_INT_MOD_OVF(x,y,r) \
@@ -271,58 +271,7 @@ op_int_mul_ovf(long a, long b, long *longprod)
 
 #endif /* HAVE_LONG_LONG */
 
-/* XXX we might probe the compiler whether it does what we want */
-
-/* prototypes */
-
-long op_divmod_adj(long x, long y, long *p_rem);
-PY_LONG_LONG op_llong_divmod_adj(PY_LONG_LONG x, PY_LONG_LONG y,
-                                 PY_LONG_LONG *p_rem);
-
 /* implementations */
-
-#ifndef PYPY_NOT_MAIN_FILE
-
-long op_divmod_adj(long x, long y, long *p_rem)
-{
-	long xdivy = x / y;
-	long xmody = x - xdivy * y;
-	/* If the signs of x and y differ, and the remainder is non-0,
-	 * C89 doesn't define whether xdivy is now the floor or the
-	 * ceiling of the infinitely precise quotient.  We want the floor,
-	 * and we have it iff the remainder's sign matches y's.
-	 */
-	if (xmody && ((y ^ xmody) < 0) /* i.e. and signs differ */) {
-		xmody += y;
-		--xdivy;
-		assert(xmody && ((y ^ xmody) >= 0));
-	}
-	if (p_rem)
-		*p_rem = xmody;
-	return xdivy;
-}
-
-PY_LONG_LONG op_llong_divmod_adj(PY_LONG_LONG x, PY_LONG_LONG y,
-				 PY_LONG_LONG *p_rem)
-{
-	PY_LONG_LONG xdivy = x / y;
-	PY_LONG_LONG xmody = x - xdivy * y;
-	/* If the signs of x and y differ, and the remainder is non-0,
-	 * C89 doesn't define whether xdivy is now the floor or the
-	 * ceiling of the infinitely precise quotient.  We want the floor,
-	 * and we have it iff the remainder's sign matches y's.
-	 */
-	if (xmody && ((y ^ xmody) < 0) /* i.e. and signs differ */) {
-		xmody += y;
-		--xdivy;
-		assert(xmody && ((y ^ xmody) >= 0));
-	}
-	if (p_rem)
-		*p_rem = xmody;
-	return xdivy;
-}
-
-#endif /* PYPY_NOT_MAIN_FILE */
 
 #define OP_UINT_IS_TRUE OP_INT_IS_TRUE
 #define OP_UINT_INVERT OP_INT_INVERT

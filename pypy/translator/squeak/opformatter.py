@@ -46,7 +46,7 @@ class OpFormatter:
         'sub':       '-',
         'eq':        '=',
         'mul':       '*',
-        'floordiv':  '//',
+        'floordiv':  'quo',
         'truediv':   '/ asFloat',
         'mod':       r'\\',
         'eq':        '=',
