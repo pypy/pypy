@@ -205,7 +205,8 @@ def _rtype_template(hop, func, implicit_excs=[]):
         # paper and pencil are encouraged for this :)
 
         from pypy.rpython.rbool import bool_repr
-        c_zero = inputconst(repr.lowleveltype, hop.args_s[0].knowntype(0))
+        assert isinstance(repr.lowleveltype, Number)
+        c_zero = inputconst(repr.lowleveltype, repr.lowleveltype._default)
 
         if func in ('floordiv', 'floordiv_ovf'):
             # return (x/y) - (((x^y)<0)&((x%y)!=0));
