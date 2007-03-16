@@ -44,8 +44,11 @@ class __extend__(pairtype(BoolRepr, IntegerRepr)):
             log.debug('explicit cast_bool_to_uint')
             return llops.genop('cast_bool_to_uint', [v], resulttype=Unsigned)
         if r_from.lowleveltype == Bool and r_to.lowleveltype == Signed:
-            log.debug('explicit cast_bool_to_int')
             return llops.genop('cast_bool_to_int', [v], resulttype=Signed)
+        if r_from.lowleveltype == Bool:
+            from pypy.rpython.rint import signed_repr
+            v_int = llops.genop('cast_bool_to_int', [v], resulttype=Signed)
+            return llops.convertvar(v_int, signed_repr, r_to)
         return NotImplemented
 
 class __extend__(pairtype(IntegerRepr, BoolRepr)):

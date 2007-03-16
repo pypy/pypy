@@ -231,6 +231,8 @@ class BaseTestRint(BaseRtypingTest):
             if not y: continue
             res = self.interpret(d, [x, y])
             assert res == d(x, y)
+            res = self.interpret(d, [r_longlong(x), r_longlong(y)])
+            assert res == d(x, y)
 
         def m(x, y):
             return x%y
@@ -241,7 +243,9 @@ class BaseTestRint(BaseRtypingTest):
             if not y: continue
             res = self.interpret(m, [x, y])
             assert res == m(x, y)
-            
+            res = self.interpret(m, [r_longlong(x), r_longlong(y)])
+            assert res == m(x, y)
+
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
