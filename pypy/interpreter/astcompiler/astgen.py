@@ -734,6 +734,7 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
                        #__repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
+                       __repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
                        getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
                        accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
