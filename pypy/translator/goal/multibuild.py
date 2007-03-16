@@ -1,3 +1,4 @@
+import autopath
 from pypy.config.pypyoption import get_pypy_config
 from pypy.translator.goal import translate
 from pypy.translator.goal import targetpypystandalone
