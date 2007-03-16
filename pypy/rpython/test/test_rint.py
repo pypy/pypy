@@ -219,32 +219,31 @@ class BaseTestRint(BaseRtypingTest):
             res = self.interpret(f, [r_longlong(-1)<<(r_longlong.BITS-1)])
             assert res == 0
 
+    div_mod_iteration_count = 1000
     def test_div_mod(self):
         import random
 
-        def d(x, y):
-            return x/y
+        for inttype in (int, r_longlong):
 
-        for i in range(1000):
-            x = random.randint(-100000, 100000)
-            y = random.randint(-100000, 100000)
-            if not y: continue
-            res = self.interpret(d, [x, y])
-            assert res == d(x, y)
-            res = self.interpret(d, [r_longlong(x), r_longlong(y)])
-            assert res == d(x, y)
+            def d(x, y):
+                return x/y
 
-        def m(x, y):
-            return x%y
+            for i in range(self.div_mod_iteration_count):
+                x = inttype(random.randint(-100000, 100000))
+                y = inttype(random.randint(-100000, 100000))
+                if not y: continue
+                res = self.interpret(d, [x, y])
+                assert res == d(x, y)
 
-        for i in range(1000):
-            x = random.randint(-100000, 100000)
-            y = random.randint(-100000, 100000)
-            if not y: continue
-            res = self.interpret(m, [x, y])
-            assert res == m(x, y)
-            res = self.interpret(m, [r_longlong(x), r_longlong(y)])
-            assert res == m(x, y)
+            def m(x, y):
+                return x%y
+
+            for i in range(self.div_mod_iteration_count):
+                x = inttype(random.randint(-100000, 100000))
+                y = inttype(random.randint(-100000, 100000))
+                if not y: continue
+                res = self.interpret(m, [x, y])
+                assert res == m(x, y)
 
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
