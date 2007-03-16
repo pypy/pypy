@@ -103,8 +103,6 @@ class CodeWriter(object):
                      % (cond, blockname_true, blockname_false))
 
     def switch(self, intty, cond, defaultdest, value_labels):
-        if not defaultdest:
-            raise TypeError('switches must have a default case.') 
         labels = ''
         for value, label in value_labels:
             labels += ' %s %s, label %%%s' % (intty, value, label)
