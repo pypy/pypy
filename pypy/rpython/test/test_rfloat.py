@@ -94,6 +94,13 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [-9])
         assert res == 0.5 * ((sys.maxint+1)*2 - 9)
 
+    def test_float_constant_conversions(self):
+        DIV = r_longlong(10 ** 10)
+        def fn():
+            return 420000000000.0 / DIV
+
+        res = self.interpret(fn, [])
+        assert res == 42.0
 
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 

@@ -9,6 +9,8 @@ from pypy.rpython.rstr import AbstractStringRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import log
 
+from pypy.rlib.rarithmetic import base_int
+
 import math
 
 class __extend__(annmodel.SomeFloat):
@@ -104,7 +106,7 @@ def _rtype_compare_template(hop, func):
 class __extend__(FloatRepr):
 
     def convert_const(self, value):
-        if not isinstance(value, (int, float)):  # can be bool too
+        if not isinstance(value, (int, base_int, float)):  # can be bool too
             raise TyperError("not a float: %r" % (value,))
         return float(value)
 
