@@ -76,8 +76,6 @@ def build_pypy_with_options(basedir, opts):
 
     exe_name = os.path.join(basedir, exe_name_from_options(config, opts))
 
-    return exe_name, 'postponed'
-
     print exe_name,
     sys.stdout.flush()
 
