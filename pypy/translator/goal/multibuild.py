@@ -30,7 +30,7 @@ def exe_name_from_options(config, opts):
 
     for opt, v in opts.iteritems():
         if opt == 'translation.backend':
-            continue
+            backend = v
         optname = longoptfromname(config, opt).strip('-')
         if v is False:
             optname = 'no-' + optname
@@ -40,10 +40,31 @@ def exe_name_from_options(config, opts):
 
     suffix = ''
     if nameparts:
-        nameparts.sort()
+        def k(s):
+            if s.startswith('no-'):
+                return s[3:]
+            else:
+                return s
+        nameparts.sort(key=k)
         suffix = '-' + '-'.join(nameparts)
 
     return 'pypy-%s-%d%s'%(backend, rev, suffix)
+
+def _build(config, exe_name):
+    try:
+        driver = TranslationDriver.from_targetspec(
+            targetpypystandalone.__dict__,
+            config=config)
+        driver.exe_name = exe_name
+        driver.compile()
+    except (SystemExit, KeyboardInterrupt):
+        traceback.print_exc()
+        raise
+    except:
+        traceback.print_exc()
+        return "failed"
+    else:
+        return "worked"
 
 def build_pypy_with_options(basedir, opts):
     config = get_pypy_config(translate.OVERRIDES, translating=True)
@@ -51,28 +72,51 @@ def build_pypy_with_options(basedir, opts):
     try:
         config.set(**opts)
     except:
-        return "didn't configure"
+        return exe_name_from_options(config, opts), "didn't configure"
 
-    driver = TranslationDriver.from_targetspec(
-        targetpypystandalone.__dict__,
-        config=config)
-    driver.exe_name = os.path.join(basedir, exe_name_from_options(config, opts))
+    exe_name = os.path.join(basedir, exe_name_from_options(config, opts))
+
+    return exe_name, 'postponed'
+
+    print exe_name,
+    sys.stdout.flush()
+
     se = sys.stderr
     so = sys.stdout
     try:
-        sys.stderr = sys.stdout = open(driver.exe_name + '-log', 'w')
-        try:
-            driver.compile()
-        except (SystemExit, KeyboardInterrupt):
-            traceback.print_exc()
-            raise
-        except:
-            traceback.print_exc()
-            return "failed"
-        else:
-            return "worked"
+        sys.stderr = sys.stdout = open(exe_name + '-log', 'w')
+        r = _build(config, exe_name)
     finally:
         sys.stderr = se
         sys.stdout = so
 
-print build_pypy_with_options('', {'translation.stackless':True})
+    print r
+    return exe_name, r
+
+def get_options(fname):
+    def gen_opts(sofar, remaining):
+        if not remaining:
+            yield sofar
+        else:
+            for (k, v) in remaining[0]:
+                d2 = sofar.copy()
+                d2[k] = v
+                for d in gen_opts(d2, remaining[1:]):
+                    yield d
+    options = []
+    for line in open(fname):
+        l = []
+        optname, options_ = line.split(':')
+        options.append([(optname.strip(), eval(optval.strip())) for optval in options_.split(',')])
+    return gen_opts({}, options)
+
+
+if __name__ == '__main__':
+    basedir = sys.argv[1]
+    optionsfile = sys.argv[2]
+    results = []
+    for opts in get_options(optionsfile):
+        results.append(build_pypy_with_options(basedir, opts))
+    out = open(os.path.join(basedir, 'results'), 'w')
+    for exe, r in results:
+        print >>out, exe, r
