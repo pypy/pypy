@@ -139,9 +139,10 @@ class TimSort:
                     lastofs = ofs
                     try:
                         ofs = ovfcheck_lshift(ofs, 1)
-                        ofs = ovfcheck(ofs + 1)
                     except OverflowError:
                         ofs = maxofs
+                    else:
+                        ofs = ofs + 1
                 else:  # key <= a[hint + ofs]
                     break
 
@@ -163,9 +164,10 @@ class TimSort:
                     lastofs = ofs
                     try:
                         ofs = ovfcheck_lshift(ofs, 1)
-                        ofs = ovfcheck(ofs + 1)                        
                     except OverflowError:
                         ofs = maxofs
+                    else:
+                        ofs = ofs + 1
             if ofs > maxofs:
                 ofs = maxofs
             # Translate back to positive offsets relative to a.
