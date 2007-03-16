@@ -71,7 +71,7 @@ else:
             prefix += "../"
         config = get_pypy_config()
         # begin horror
-        h, n = config._cfgimpl_get_home_by_path(text);
+        h, n = config._cfgimpl_get_home_by_path(text)
         opt = getattr(h._cfgimpl_descr, n)
         # end horror
         cmdline = get_cmdline(opt.cmdline, text)
