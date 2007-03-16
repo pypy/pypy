@@ -83,11 +83,12 @@ def build_pypy_with_options(basedir, opts):
     se = sys.stderr
     so = sys.stdout
     try:
-        sys.stderr = sys.stdout = open(exe_name + '-log', 'w')
+        logfile = sys.stderr = sys.stdout = open(exe_name + '-log', 'w')
         r = _build(config, exe_name)
     finally:
         sys.stderr = se
         sys.stdout = so
+        logfile.close()
 
     print r
     return exe_name, r
