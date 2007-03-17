@@ -82,12 +82,12 @@ def build_pypy_with_options(basedir, opts):
         try:
             try:
                 r = _build(config, exe_name)
-            except:
-                os._exit(1)
-            else:
-                os._exit(0)
-        finally:
-            logfile.close()
+            finally:
+                logfile.close()
+        except:
+            os._exit(1)
+        else:
+            os._exit(0)
     else:
         pid, status = os.waitpid(pid, 0)
         if status:
