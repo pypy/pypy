@@ -3,7 +3,7 @@ from pypy.config.pypyoption import get_pypy_config
 from pypy.translator.goal import translate
 from pypy.translator.goal import targetpypystandalone
 from pypy.translator.driver import TranslationDriver
-import os, sys, traceback
+import os, sys, traceback, random
 
 def longoptfromname(config, name):
     from pypy.config.makerestdoc import get_cmdline
@@ -52,20 +52,11 @@ def exe_name_from_options(config, opts):
     return 'pypy-%s-%d%s'%(backend, rev, suffix)
 
 def _build(config, exe_name):
-    try:
-        driver = TranslationDriver.from_targetspec(
-            targetpypystandalone.__dict__,
-            config=config)
-        driver.exe_name = exe_name
-        driver.compile()
-    except (SystemExit, KeyboardInterrupt):
-        traceback.print_exc()
-        raise
-    except:
-        traceback.print_exc()
-        return "failed"
-    else:
-        return "worked"
+    driver = TranslationDriver.from_targetspec(
+        targetpypystandalone.__dict__,
+        config=config)
+    driver.exe_name = exe_name
+    driver.compile()
 
 def build_pypy_with_options(basedir, opts):
     config = get_pypy_config(translate.OVERRIDES, translating=True)
@@ -80,18 +71,31 @@ def build_pypy_with_options(basedir, opts):
     print exe_name,
     sys.stdout.flush()
 
-    se = sys.stderr
-    so = sys.stdout
-    try:
-        logfile = sys.stderr = sys.stdout = open(exe_name + '-log', 'w')
-        r = _build(config, exe_name)
-    finally:
-        sys.stderr = se
-        sys.stdout = so
-        logfile.close()
+    pid = os.fork()
 
-    print r
-    return exe_name, r
+    if pid == 0:
+        logfile = open(exe_name + '-log', 'w')
+        davenull = os.open('/dev/null', os.O_RDONLY)
+        os.dup2(davenull, 0)
+        os.dup2(logfile.fileno(), 1)
+        os.dup2(logfile.fileno(), 2)
+        try:
+            try:
+                r = _build(config, exe_name)
+            except:
+                os._exit(1)
+            else:
+                os._exit(0)
+        finally:
+            logfile.close()
+    else:
+        pid, status = os.waitpid(pid, 0)
+        if status:
+            r = 'failed'
+        else:
+            r = 'succeeded'
+        print r
+        return exe_name, r
 
 def get_options(fname):
     def gen_opts(sofar, remaining):
@@ -115,7 +119,9 @@ if __name__ == '__main__':
     basedir = sys.argv[1]
     optionsfile = sys.argv[2]
     results = []
-    for opts in get_options(optionsfile):
+    options = list(get_options(optionsfile))
+    random.shuffle(options)
+    for opts in options:
         results.append(build_pypy_with_options(basedir, opts))
     out = open(os.path.join(basedir, 'results'), 'w')
     for exe, r in results:
