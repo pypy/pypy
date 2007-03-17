@@ -3,6 +3,19 @@ import py
 
 # app-level testing of coroutine pickling
 
+
+class AppTestBasic:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('_stackless',))
+
+    def test_pickle_main(self):
+        import _stackless, pickle
+        main = _stackless.coroutine.getcurrent()
+        s = pickle.dumps(main)
+        c = pickle.loads(s)
+        assert c is main
+
+
 class AppTestPickle:
 
     def setup_class(cls):

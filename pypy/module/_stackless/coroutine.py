@@ -148,7 +148,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         ec = self.space.getexecutioncontext()
 
         if self is self.costate.main:
-            return nt([mod2.get('return_main'), nt([])])
+            return nt([mod.get('_return_main'), nt([])])
 
         thunk = self.thunk
         if isinstance(thunk, _AppThunk):
@@ -317,3 +317,7 @@ class AppCoState(BaseCoState):
     def post_install(self):
         self.current = self.main = AppCoroutine(self.space, state=self)
         self.main.subctx.framestack = None    # wack
+
+def return_main(space):
+    return AppCoroutine._get_state(space).main
+return_main.unwrap_spec = [ObjSpace]

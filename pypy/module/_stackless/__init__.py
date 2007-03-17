@@ -16,6 +16,7 @@ class Module(MixedModule):
         'coroutine'  : 'coroutine.AppCoroutine',
         'greenlet'   : 'interp_greenlet.AppGreenlet',
         'usercostate': 'composable_coroutine.W_UserCoState',
+        '_return_main' : 'coroutine.return_main',
     }
 
     def setup_after_space_initialization(self):
