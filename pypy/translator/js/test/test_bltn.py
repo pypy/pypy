@@ -6,6 +6,7 @@ import py
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
 from pypy.rpython.extfunc import _callable
+from pypy.translator.js import commproxy
 
 # check rendering dom.document
 def test_simple_builtin():
@@ -33,11 +34,16 @@ class SomeNode(BasicExternal):
 SomeProxyInstance = SomeProxy()
 
 def test_simple_proxy():
-    def simple_proxy():
-        retval = SomeProxyInstance.some_method()
-    
-    fn = compile_function(simple_proxy, [])
-    assert check_source_contains(fn, "loadJSONDoc\('some_method'")
+    try:
+        oldproxy = commproxy.USE_MOCHIKIT
+        commproxy.USE_MOCHIKIT = True
+        def simple_proxy():
+            retval = SomeProxyInstance.some_method()
+            
+        fn = compile_function(simple_proxy, [])
+        assert check_source_contains(fn, "loadJSONDoc\('some_method'")
+    finally:
+        commproxy.USE_MOCHIKIT = oldproxy
 
 SomeNodeInstance = SomeNode()
 SomeNodeInstance._render_name = 's'
