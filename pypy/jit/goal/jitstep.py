@@ -3,6 +3,7 @@ from pypy.module.pypyjit.interp_jit import PORTAL
 
 from pypy.objspace.flow.model import checkgraph
 from pypy.translator.translator import graphof
+from pypy.annotation.specialize import getuniquenondirectgraph
 from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
 from pypy.jit.hintannotator.model import OriginFlags, SomeLLAbstractConstant
 
@@ -25,6 +26,12 @@ class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
             return True
         mod = func.__module__ or '?'
         if mod.startswith('pypy.objspace'):
+            return False
+        if mod.startswith('pypy._cache'):
+            return False
+        if mod.startswith('pypy.interpreter.astcompiler'):
+            return False
+        if mod.startswith('pypy.interpreter.pyparser'):
             return False
         if mod.startswith('pypy.module.'):
             if not mod.startswith('pypy.module.pypyjit.'):
@@ -87,19 +94,25 @@ def graphs_on_the_path_to(translator, startgraph, targetgraphs):
         targetgraphs.keys(),))
 
 
-def timeshift_graphs(t, portal_graph):
+def timeshift_graphs(t, portal_graph, log):
     result_graphs = {}
+
+    bk = t.annotator.bookkeeper
 
     def _graph(func):
         func = getattr(func, 'im_func', func)
-        return graphof(t, func)
+        desc = bk.getdesc(func)
+        return getuniquenondirectgraph(desc)
 
     def seefunc(fromfunc, *tofuncs):
         targetgraphs = {}
         for tofunc in tofuncs:
             targetgraphs[_graph(tofunc)] = True
         graphs = graphs_on_the_path_to(t, _graph(fromfunc), targetgraphs)
-        result_graphs.update(graphs)
+        for graph in graphs:
+            if graph not in result_graphs:
+                log('including graph %s' % (graph,))
+            result_graphs[graph] = True
 
     def seepath(*path):
         for i in range(1, len(path)):
@@ -173,14 +186,15 @@ def hintannotate(drv):
     t = drv.translator
     portal_graph = graphof(t, PORTAL)
 
-    POLICY = PyPyHintAnnotatorPolicy(timeshift_graphs(t, portal_graph))
+    POLICY = PyPyHintAnnotatorPolicy(timeshift_graphs(t, portal_graph,
+                                                      drv.log))
 
-    graphnames = [str(_g) for _g in POLICY.timeshift_graphs]
-    graphnames.sort()
-    print '-' * 20
-    for graphname in graphnames:
-        print graphname
-    print '-' * 20
+##    graphnames = [str(_g) for _g in POLICY.timeshift_graphs]
+##    graphnames.sort()
+##    print '-' * 20
+##    for graphname in graphnames:
+##        print graphname
+##    print '-' * 20
 
     hannotator = HintAnnotator(base_translator=t, policy=POLICY)
     hs = hannotator.build_types(portal_graph,

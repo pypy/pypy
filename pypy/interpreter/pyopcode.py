@@ -234,9 +234,6 @@ class __extend__(pyframe.PyFrame):
 
     ### accessor functions ###
 
-    def getcode(self):
-        return hint(hint(self.pycode, promote=True), deepfreeze=True)
-
     def getlocalvarname(self, index):
         return self.getcode().co_varnames[index]
 

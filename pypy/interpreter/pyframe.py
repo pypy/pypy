@@ -46,6 +46,7 @@ class PyFrame(eval.Frame):
     instr_prev               = -1
 
     def __init__(self, space, code, w_globals, closure):
+        self = hint(self, access_directly=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
         eval.Frame.__init__(self, space, w_globals, code.co_nlocals)
@@ -320,8 +321,8 @@ class PyFrame(eval.Frame):
         return self.pycode.hidden_applevel
 
     def getcode(self):
-        return self.pycode
-        
+        return hint(hint(self.pycode, promote=True), deepfreeze=True)
+
     def getfastscope(self):
         "Get the fast locals as a list."
         return self.fastlocals_w

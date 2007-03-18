@@ -29,6 +29,7 @@ class __extend__(PyFrame):
         if pycode.jit_enable:
             return self.dispatch_jit(pycode, next_instr, ec)
         else:
+            self = hint(self, access_directly=True)
             return super_dispatch(self, pycode, next_instr, ec)
             
     def dispatch_jit(self, pycode, next_instr, ec):
