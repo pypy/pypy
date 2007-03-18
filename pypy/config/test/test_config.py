@@ -471,3 +471,15 @@ def test_suggests():
     assert c.opt
     assert not c.toplevel
 
+def test_delattr():
+    descr = OptionDescription("opt", "", [
+    OptionDescription("s1", "", [
+        BoolOption("a", "", default=False)]),
+    IntOption("int", "", default=42)])
+    c = Config(descr)
+    c.int = 45
+    assert c.int == 45
+    del c.int
+    assert c.int == 42
+    c.int = 45
+    assert c.int == 45

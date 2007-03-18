@@ -74,6 +74,18 @@ class Config(object):
                                  (self.__class__, name))
         return self._cfgimpl_values[name]
 
+    def __delattr__(self, name):
+        # XXX if you use delattr you are responsible for all bad things
+        # happening
+        if name.startswith('_cfgimpl_'):
+            del self.__dict__[name]
+            return
+        self._cfgimpl_value_owners[name] = 'default'
+        opt = getattr(self._cfgimpl_descr, name)
+        if isinstance(opt, OptionDescription):
+            raise AttributeError("can't option subgroup")
+        self._cfgimpl_values[name] = getattr(opt, 'default', None)
+
     def setoption(self, name, value, who):
         if name not in self._cfgimpl_values:
             raise AttributeError('unknown option %s' % (name,))
