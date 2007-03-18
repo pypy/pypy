@@ -841,28 +841,7 @@ class Builder(GenBuilder):
                                           commutative=True)
 
     def op_int_floordiv(self, gv_x, gv_y):
-        # grumble, the powerpc handles division when the signs of x
-        # and y differ the other way to how cpython wants it.  this
-        # crawling horror is a branch-free way of computing the right
-        # remainder in all cases.  it's probably not optimal.
-
-        # we need to adjust the result iff the remainder is non-zero
-        # and the signs of x and y differ.  in the standard-ish PPC
-        # way, we compute boolean values as either all-bits-0 or
-        # all-bits-1 and "and" them together, resulting in either
-        # adding 0 or -1 as needed in the final step.
-
-        gv_dividend = self._arg_arg_op(gv_x, gv_y, _PPC.divw)
-        gv_remainder = self.op_int_sub(gv_x, self.op_int_mul(gv_dividend, gv_y))
-
-        gv_t = self._arg_arg_op(gv_y, gv_x, _PPC.xor)
-        gv_signs_differ = self._arg_simm_op(gv_t, self.rgenop.genconst(31), _PPC.srawi)
-
-        gv_foo = self._arg_simm_op(gv_remainder, self.rgenop.genconst(0), _PPC.subfic)
-        gv_remainder_non_zero = self._arg_arg_op(gv_foo, gv_foo, _PPC.subfe)
-
-        gv_b = self._arg_arg_op(gv_remainder_non_zero, gv_signs_differ, _PPC.and_)
-        return self._arg_arg_op(gv_dividend, gv_b, _PPC.add)
+        return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
 
     ## def op_int_floordiv_zer(self, gv_x, gv_y):
 
