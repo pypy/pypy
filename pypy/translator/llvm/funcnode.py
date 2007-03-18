@@ -158,9 +158,18 @@ class FuncNode(ConstantLLVMNode):
         cond, condtype = self.db.repr_argwithtype(block.exitswitch)
         if block.exitswitch.concretetype == lltype.Bool:
             assert len(block.exits) == 2
+            if block.exits[0].llexitcase == False:
+                assert block.exits[1].llexitcase == True
+                false_case = block.exits[0].target
+                true_case = block.exits[1].target
+            else:
+                assert block.exits[0].llexitcase == True
+                assert block.exits[1].llexitcase == False
+                false_case = block.exits[1].target
+                true_case = block.exits[0].target
             codewriter.br(cond,
-                          self.block_to_name[block.exits[0].target],
-                          self.block_to_name[block.exits[1].target])
+                          self.block_to_name[false_case],
+                          self.block_to_name[true_case])
 
         elif block.exitswitch.concretetype in \
             (lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
