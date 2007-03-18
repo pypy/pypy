@@ -32,14 +32,18 @@ class_map = { 'Call' : Call,
 opcodes = {'int_mul': '*',
     'int_add': '+',
     'int_sub': '-',
+    'int_sub_ovf': '-', # XXX overflow
     'int_floordiv': '/',
     'int_mod': '%',
+    'int_mod_ovf': '%', # XXX: what's that?
     'int_mod_zer': '%', # XXX: fix zero stuff
     'int_and': '&',
     'int_or': '|',
     'int_xor': '^',
     'int_lshift': '<<',
+    'int_lshift_ovf': '<<', # XXX overflow
     'int_rshift': '>>',
+    'int_rshift_ovf': '>>', # XXX overflow
     'int_lt': '<',
     'int_le': '<=',
     'int_eq': '==',
@@ -147,6 +151,7 @@ opcodes = {'int_mul': '*',
     'truncate_longlong_to_int': CopyName,
     
     'debug_assert' : DoNothing,
+    'resume_point' : DoNothing,
 }
 
 for key, value in opcodes.iteritems():
