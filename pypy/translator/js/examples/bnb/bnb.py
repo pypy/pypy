@@ -234,7 +234,7 @@ class ExportedMethods(server.ExportedMethods):
 
 exported_methods = ExportedMethods()
 
-class BnbRoot(server.Handler):
+class BnbHandler(server.Collection):
     """ BnB server handler
     """
     exported_methods = exported_methods
@@ -262,3 +262,7 @@ class BnbRoot(server.Handler):
     def close(self):
         self._close()
         return dict()
+
+class BnbRoot(server.NewHandler):
+    application = BnbHandler()
+
