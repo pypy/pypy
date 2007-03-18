@@ -19,18 +19,6 @@ FUNCTION_LIST = ['bnb_redirect']
 TIMEOUT = 300
 pids = []
 
-#def launch_console_in_new_prcess():
-#    from pypy.translator.js.examples import pythonconsole
-#    httpd = server.create_server(server_address=('', 0),
-#                        handler=pythonconsole.RequestHandler,
-#                        server=pythonconsole.Server)
-#    port = httpd.server_port
-#    pythonconsole.httpd = httpd
-#    pid = server.start_server_in_new_process(httpd, timeout=TIMEOUT)
-#    del httpd
-#    pids.append(pid)
-#    return port
-
 def js_source(function_list):
     import over_client
     return rpython2javascript(over_client, FUNCTION_LIST)
@@ -38,6 +26,7 @@ def js_source(function_list):
 class Root(server.Collection):
     static_dir = py.path.local(__file__).dirpath().join("data")
     index = server.FsFile(static_dir.join("index.html"))
+    style_css = server.FsFile(static_dir.join("style.css"))
     terminal = server.Static(static_dir.join("terminal.html"))
     console = console.Root()
 
