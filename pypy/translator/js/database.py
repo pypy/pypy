@@ -112,9 +112,12 @@ class LowLevelDatabase(object):
                 self.consts[const]
                 return self.reverse_consts[self.consts[const]]
         except KeyError:
-            log("New const:%r"%value)
-            if isinstance(value, ootype._string):
-                log(value._str)
+            if self.genoo.config.translation.verbose:
+                log("New const:%r"%value)
+                if isinstance(value, ootype._string):
+                    log(value._str)
+            else:
+                log.dot()
             name = const.get_name()
             if name in self.const_names:
                 name += '__%d' % len(self.consts)
@@ -164,12 +167,14 @@ class LowLevelDatabase(object):
                             all_c.append(i)
                         dep_ok.add(const)
 
-        log("Consts: %r"%self.consts)
         # We need to keep track of fields to make sure
         # our items appear earlier than us
         to_init = []
         for const, name in generate_constants(self.consts):
-            log("Recording %r %r"%(const,name))
+            if self.genoo.config.translation.verbose:
+                log("Recording %r %r"%(const,name))
+            else:
+                log.dot()
             ilasm.load_local(self.const_var)
             const.init(ilasm)
             ilasm.set_field(None, name)
