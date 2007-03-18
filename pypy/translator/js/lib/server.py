@@ -246,7 +246,7 @@ class StaticDir(Collection):
     def traverse(self, path, orgpath):
         data = open(os.path.join(str(self.path), *path)).read()
         if self.type:
-            return lambda : self.type, data
+            return lambda : (self.type, data)
         return lambda : data
 
 def create_server(server_address = ('', 8000), handler=TestHandler,
