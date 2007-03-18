@@ -13,6 +13,8 @@ To Do Right Now
 
 - basic docs and examples
 
+- check that --jit works with --faassen
+
 Longer-term
 ------------------
 
