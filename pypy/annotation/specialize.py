@@ -6,12 +6,12 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.objspace.flow.model import Block, Link, Variable, SpaceOperation
 from pypy.objspace.flow.model import Constant, checkgraph
+from pypy.annotation import model as annmodel
 
 def default_specialize(funcdesc, args_s):
     argnames, vararg, kwarg = funcdesc.signature
     assert not kwarg, "functions with ** arguments are not supported"
     if vararg:
-        from pypy.annotation import model as annmodel
         # calls to *arg functions: create one version per number of args
         assert len(args_s) == len(argnames) + 1
         s_tuple = args_s[-1]
@@ -20,6 +20,8 @@ def default_specialize(funcdesc, args_s):
         s_len = s_tuple.len()
         assert s_len.is_constant(), "calls require known number of args"
         nb_extra_args = s_len.const
+        flattened_s = list(args_s[:-1])
+        flattened_s.extend(s_tuple.items)
         
         def builder(translator, func):
             # build a hacked graph that doesn't take a *arg any more, but
@@ -46,13 +48,42 @@ def default_specialize(funcdesc, args_s):
                 graph.defaults = None   # shouldn't be used in this case
             checkgraph(graph)
             return graph
-        
-        return funcdesc.cachedgraph(nb_extra_args,
-                                    alt_name='%s_star%d' % (funcdesc.name,
-                                                            nb_extra_args),
+
+        key, name_suffix = access_direct_key(nb_extra_args, flattened_s)
+        return funcdesc.cachedgraph(key,
+                                    alt_name='%s_star%d%s' % (funcdesc.name,
+                                                              nb_extra_args,
+                                                              name_suffix),
                                     builder=builder)
     else:
-        return funcdesc.cachedgraph(None)
+        key, name_suffix = access_direct_key(None, args_s)
+        if name_suffix:
+            alt_name = '%s%s' % (funcdesc.name, name_suffix)
+        else:
+            alt_name = None
+        return funcdesc.cachedgraph(key, alt_name=alt_name)
+
+def access_direct_key(key, args_s):
+    for s_obj in args_s:
+        if (isinstance(s_obj, annmodel.SomeInstance) and
+            'access_directly' in s_obj.flags):
+            return (AccessDirect, key), '_AccessDirect'
+    return key, ''
+
+class AccessDirect(object):
+    """marker for specialization: set when any arguments is a SomeInstance
+    which has the 'access_directly' flag set."""
+
+def getuniquenondirectgraph(desc):
+    result = []
+    for key, graph in desc._cache.items():
+        if (type(key) is tuple and len(key) == 2 and
+            key[0] is AccessDirect):
+            continue
+        result.append(graph)
+    assert len(result) == 1
+    return result[0]
+        
 
 # ____________________________________________________________________________
 # specializations

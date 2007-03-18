@@ -519,13 +519,16 @@ class Bookkeeper:
             self.pbctypes[cls] = True
         return result
 
-    def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name):
-        key = funcdesc, originclassdef, selfclassdef, name
+    def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
+                      flags={}):
+        flagskey = flags.items()
+        flagskey.sort()
+        key = funcdesc, originclassdef, selfclassdef, name, tuple(flagskey)
         try:
             return self.methoddescs[key]
         except KeyError:
             result = description.MethodDesc(self, funcdesc, originclassdef,
-                                            selfclassdef, name)
+                                            selfclassdef, name, flags)
             self.methoddescs[key] = result
             return result
 

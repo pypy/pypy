@@ -297,10 +297,11 @@ class SomeIterator(SomeObject):
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
 
-    def __init__(self, classdef, can_be_None=False):
+    def __init__(self, classdef, can_be_None=False, flags={}):
         self.classdef = classdef
         self.knowntype = classdef or object
         self.can_be_None = can_be_None
+        self.flags = flags
 
     def fmt_knowntype(self, kt):
         return None
@@ -309,6 +310,11 @@ class SomeInstance(SomeObject):
             return 'object'
         else:
             return cdef.name
+    def fmt_flags(self, flags):
+        if flags:
+            return repr(flags)
+        else:
+            return None
 
     def can_be_none(self):
         return self.can_be_None

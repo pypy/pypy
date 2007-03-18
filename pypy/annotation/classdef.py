@@ -333,7 +333,7 @@ class ClassDef:
                     return None
         return None
 
-    def lookup_filter(self, pbc, name=None):
+    def lookup_filter(self, pbc, name=None, flags={}):
         """Selects the methods in the pbc that could possibly be seen by
         a lookup performed on an instance of 'self', removing the ones
         that cannot appear.
@@ -365,10 +365,10 @@ class ClassDef:
                     continue # not matching
                 # bind the method by giving it a selfclassdef.  Use the
                 # more precise subclass that it's coming from.
-                desc = desc.bind_self(methclassdef)
+                desc = desc.bind_self(methclassdef, flags)
             d.append(desc)
         if uplookup is not None:            
-            d.append(updesc.bind_self(self))
+            d.append(updesc.bind_self(self, flags))
 
         if d or pbc.can_be_None:
             return SomePBC(d, can_be_None=pbc.can_be_None)

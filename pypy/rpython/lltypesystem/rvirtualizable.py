@@ -126,9 +126,10 @@ class VirtualizableInstanceRepr(InstanceRepr):
         return ll_setter
    
 
-    def getfield(self, vinst, attr, llops, force_cast=False):
+    def getfield(self, vinst, attr, llops, force_cast=False, flags={}):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
-        if attr in self.my_redirected_fields:
+        if (attr in self.my_redirected_fields
+            and not flags.get('access_directly')):
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
@@ -137,9 +138,11 @@ class VirtualizableInstanceRepr(InstanceRepr):
         else:
             return InstanceRepr.getfield(self, vinst, attr, llops, force_cast)
 
-    def setfield(self, vinst, attr, vvalue, llops, force_cast=False, opname='setfield'):
+    def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
+                 opname='setfield', flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
-        if attr in self.my_redirected_fields:
+        if (attr in self.my_redirected_fields
+            and not flags.get('access_directly')):
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)

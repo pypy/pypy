@@ -676,12 +676,13 @@ class MethodDesc(Desc):
     knowntype = types.MethodType
 
     def __init__(self, bookkeeper, funcdesc, originclassdef, 
-                 selfclassdef, name):
+                 selfclassdef, name, flags={}):
         super(MethodDesc, self).__init__(bookkeeper)
         self.funcdesc = funcdesc
         self.originclassdef = originclassdef
         self.selfclassdef = selfclassdef
         self.name = name
+        self.flags = flags
 
     def __repr__(self):
         if self.selfclassdef is None:
@@ -696,7 +697,7 @@ class MethodDesc(Desc):
         from pypy.annotation.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
-        s_instance = SomeInstance(self.selfclassdef)
+        s_instance = SomeInstance(self.selfclassdef, flags = self.flags)
         args = args.prepend(s_instance)
         return self.funcdesc.pycall(schedule, args, s_previous_result)
 
@@ -704,12 +705,13 @@ class MethodDesc(Desc):
         self.bookkeeper.warning("rebinding an already bound %r" % (self,))
         return self.funcdesc.bind_under(classdef, name)
 
-    def bind_self(self, newselfclassdef):
+    def bind_self(self, newselfclassdef, flags={}):
         return self.bookkeeper.getmethoddesc(self.funcdesc,
                                              self.originclassdef,
                                              newselfclassdef,
-                                             self.name)
-    
+                                             self.name,
+                                             flags)
+
     def consider_call_site(bookkeeper, family, descs, args, s_result):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
         funcdescs = [methoddesc.funcdesc for methoddesc in descs]

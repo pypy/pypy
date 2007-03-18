@@ -90,7 +90,7 @@ class TaggedInstanceRepr(InstanceRepr):
         else:
             return cunboxedcls
 
-    def getfield(self, vinst, attr, llops, force_cast=False):
+    def getfield(self, vinst, attr, llops, force_cast=False, flags={}):
         if not self.is_parent and attr == self.specialfieldname:
             return self.getvalue_from_unboxed(llops, vinst)
         elif attr == '__class__':

@@ -1,6 +1,8 @@
 import py
+from pypy.objspace.flow.model import summary
+from pypy.rlib.objectmodel import hint
 from pypy.rpython.lltypesystem import lltype, rclass
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.error import TyperError
 
@@ -200,3 +202,95 @@ def test_void_fields():
     res = interpret(f, [42])
     assert res.item1 == 42
     
+
+def test_access_directly():
+    def g(b):
+        return b.v0
+
+    def f(n):
+        b = B(n)
+        b = hint(b, access_directly=True)
+        return g(b)
+
+    interp, graph = get_interpreter(f, [23])
+    g_graph = interp.typer.annotator.translator._graphof(g)
+    assert summary(g_graph) == {'getfield': 1}
+
+    res = interp.eval_graph(graph, [23])
+    assert res == 23
+
+
+def test_access_directly_specialized():
+    def g(b):
+        return b.v0
+
+    def f(n):
+        b = B(n)
+        x = g(b)
+        y = g(hint(b, access_directly=True))
+        return x + y
+
+    interp, graph = get_interpreter(f, [23])
+    desc = interp.typer.annotator.bookkeeper.getdesc(g)
+    g_graphs = desc._cache.values()
+    assert len(g_graphs) == 2
+    summaries = map(summary, g_graphs)
+    summaries.sort()
+    assert summaries == [{'direct_call': 1},
+                         {'getfield': 1}]
+
+    res = interp.eval_graph(graph, [23])
+    assert res == 46
+
+
+def test_access_directly_escape():
+    class Global:
+        pass
+    glob = Global()
+
+    def g(b):
+        glob.b = b
+
+    def h(b):
+        return b.v0
+
+    def f(n):
+        b = B(n)
+        g(b)
+        g(hint(b, access_directly=True))
+        return h(glob.b)
+
+    interp, graph = get_interpreter(f, [23])
+    desc = interp.typer.annotator.bookkeeper.getdesc(g)
+    g_graphs = desc._cache.values()
+    assert len(g_graphs) == 2
+    summaries = map(summary, g_graphs)
+    summaries.sort()
+    assert summaries == [{'setfield': 1},
+                         {'setfield': 1}]
+    h_graph = interp.typer.annotator.translator._graphof(h)
+    assert summary(h_graph) == {'direct_call': 1}
+
+    res = interp.eval_graph(graph, [23])
+    assert res == 23
+
+
+def test_access_directly_method():
+    class A(B):
+        def meth1(self, x):
+            return self.g(x+1)
+
+        def g(self, y):
+            return self.v0 * y
+
+    def f(n):
+        a = A(n)
+        a = hint(a, access_directly=True)
+        return a.meth1(100)
+
+    interp, graph = get_interpreter(f, [23])
+    g_graph = interp.typer.annotator.translator._graphof(A.g.im_func)
+    assert summary(g_graph) == {'getfield': 1, 'int_mul': 1}
+
+    res = interp.eval_graph(graph, [23])
+    assert res == 2323

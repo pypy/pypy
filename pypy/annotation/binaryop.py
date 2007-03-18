@@ -617,7 +617,15 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             if basedef is None:
                 # print warning?
                 return SomeObject()
-        return SomeInstance(basedef, can_be_None=ins1.can_be_None or ins2.can_be_None)
+        flags = ins1.flags
+        if flags:
+            flags = flags.copy()
+            for key, value in flags.items():
+                if key not in ins2.flags or ins2.flags[key] != value:
+                    del flags[key]
+        return SomeInstance(basedef,
+                            can_be_None=ins1.can_be_None or ins2.can_be_None,
+                            flags=flags)
 
     def improve((ins1, ins2)):
         if ins1.classdef is None:

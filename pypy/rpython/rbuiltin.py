@@ -616,23 +616,6 @@ def rtype_keepalive_until_here(hop):
 
 BUILTIN_TYPER[objectmodel.keepalive_until_here] = rtype_keepalive_until_here
 
-# hint
-
-def rtype_hint(hop, **kwds_i):
-    hints = {}
-    for key, index in kwds_i.items():
-        s_value = hop.args_s[index]
-        if not s_value.is_constant():
-            raise TyperError("hint %r is not constant" % (key,))
-        assert key.startswith('i_')
-        hints[key[2:]] = s_value.const
-    v = hop.inputarg(hop.args_r[0], arg=0)
-    c_hint = hop.inputconst(lltype.Void, hints)
-    hop.exception_cannot_occur()
-    return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
-
-BUILTIN_TYPER[objectmodel.hint] = rtype_hint
-
 def rtype_cast_ptr_to_adr(hop):
     vlist = hop.inputargs(hop.args_r[0])
     assert isinstance(vlist[0].concretetype, lltype.Ptr)

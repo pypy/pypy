@@ -469,7 +469,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 raise MissingRTypeAttribute(attr)
             return self.rbase.getfieldrepr(attr)
 
-    def getfield(self, vinst, attr, llops, force_cast=False):
+    def getfield(self, vinst, attr, llops, force_cast=False, flags={}):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
@@ -480,9 +480,11 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            return self.rbase.getfield(vinst, attr, llops, force_cast=True)
+            return self.rbase.getfield(vinst, attr, llops, force_cast=True,
+                                       flags=flags)
 
-    def setfield(self, vinst, attr, vvalue, llops, force_cast=False, opname='setfield'):
+    def setfield(self, vinst, attr, vvalue, llops, force_cast=False,
+                 opname='setfield', flags={}):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
         if attr in self.fields:
             mangled_name, r = self.fields[attr]
@@ -494,7 +496,8 @@ class InstanceRepr(AbstractInstanceRepr):
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
-            self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True, opname=opname)
+            self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True,
+                                opname=opname, flags=flags)
 
     def new_instance(self, llops, classcallhop=None, v_cpytype=None):
         """Build a new instance, without calling __init__."""
@@ -533,8 +536,8 @@ class InstanceRepr(AbstractInstanceRepr):
                 if value is not None:
                     cvalue = inputconst(r.lowleveltype,
                                         r.convert_desc_or_const(value))
-                    self.setfield(vptr, fldname, cvalue, llops)
-
+                    self.setfield(vptr, fldname, cvalue, llops,
+                                  {'access_directly': True})
         return vptr
 
     def rtype_type(self, hop):
@@ -555,7 +558,8 @@ class InstanceRepr(AbstractInstanceRepr):
             [desc] = hop.s_result.descriptions
             return hop.inputconst(Void, desc.pyobj)
         if attr in self.allinstancefields:
-            return self.getfield(vinst, attr, hop.llops)
+            return self.getfield(vinst, attr, hop.llops,
+                                 flags=hop.args_s[0].flags)
         elif attr in self.rclass.allmethods:
             # special case for methods: represented as their 'self' only
             # (see MethodsPBCRepr)
@@ -569,7 +573,8 @@ class InstanceRepr(AbstractInstanceRepr):
         attr = hop.args_s[1].const
         r_value = self.getfieldrepr(attr)
         vinst, vattr, vvalue = hop.inputargs(self, Void, r_value)
-        self.setfield(vinst, attr, vvalue, hop.llops)
+        self.setfield(vinst, attr, vvalue, hop.llops,
+                      flags=hop.args_s[0].flags)
 
     def rtype_is_true(self, hop):
         vinst, = hop.inputargs(self)

@@ -806,11 +806,15 @@ class AbstractMethodsPBCRepr(Repr):
         mdescs = s_pbc.descriptions.keys()
         methodname = mdescs[0].name
         classdef = mdescs[0].selfclassdef
+        flags    = mdescs[0].flags
         for mdesc in mdescs[1:]:
             if mdesc.name != methodname:
                 raise TyperError("cannot find a unique name under which the "
                                  "methods can be found: %r" % (
                         mdescs,))
+            if mdesc.flags != flags:
+                raise TyperError("inconsistent 'flags': %r versus %r" % (
+                    mdesc.flags, flags))
             classdef = classdef.commonbase(mdesc.selfclassdef)
             if classdef is None:
                 raise TyperError("mixing methods coming from instances of "
@@ -819,7 +823,7 @@ class AbstractMethodsPBCRepr(Repr):
         self.methodname = methodname
         self.classdef = classdef.locate_attribute(methodname)
         # the low-level representation is just the bound 'self' argument.
-        self.s_im_self = annmodel.SomeInstance(self.classdef)
+        self.s_im_self = annmodel.SomeInstance(self.classdef, flags=flags)
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
         self.lowleveltype = self.r_im_self.lowleveltype
 
