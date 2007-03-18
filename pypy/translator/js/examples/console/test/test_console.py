@@ -1,6 +1,5 @@
 
 import py
-py.test.skip("Skip this till pylib trunk->dist merge")
 
 def test_line_skip():
     from pypy.translator.js.examples.console.console import line_split

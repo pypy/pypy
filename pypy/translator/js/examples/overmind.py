@@ -57,7 +57,7 @@ class Handler(server.NewHandler):
 if __name__ == '__main__':
     try:
         addr = ('', 8008)
-        from py.__.net.server.httpserver import GreenHTTPServer
+        from py.__.green.server.httpserver import GreenHTTPServer
         httpd = server.create_server(server_address=addr, handler=Handler,
                                      server=GreenHTTPServer)
         httpd.serve_forever()

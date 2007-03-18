@@ -3,10 +3,9 @@
 """
 
 import py
-py.test.skip("Skip this till pylib trunk->dist merge")
 
-from py.__.net.greensock2 import allof
-from py.__.net.pipe.fd import FDInput
+from py.__.green.greensock2 import allof
+from py.__.green.pipe.fd import FDInput
 from pypy.translator.js.examples.console.session import Interpreter
 
 def test_greensock_reader_timeouter():
