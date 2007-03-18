@@ -53,8 +53,6 @@ class HintRTyper(RPythonTyper):
     py.log.setconsumer("timeshifter", ansi_log)
 
     def __init__(self, hannotator, rtyper, RGenOp):
-        import py; py.test.skip("PENDING MERGE FROM THE BRANCH")
-        
         RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)
         self.rtyper = rtyper
