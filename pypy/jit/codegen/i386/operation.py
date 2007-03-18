@@ -281,7 +281,12 @@ class MulOrDivOp(Op2):
                 mc.CDQ()
 
         op2 = allocator.grab_operand(self.y)
-        self.generate2(allocator, op2)
+        try:
+            self.generate2(allocator, op2)
+        except FailedToImplement:
+            tmp = allocator.create_scratch_reg(op2)
+            self.generate2(allocator, tmp)
+            allocator.end_clobber(tmp)
 
         allocator.end_clobber(eax)
         allocator.end_clobber(edx)
@@ -290,102 +295,107 @@ class MulOrDivOp(Op2):
         # the target register should still be free, see clobber2()
         allocator.create_exactly_at(self, self.reg_containing_result)
 
-class OpIntFloorDiv(MulOrDivOp):
-    opname = 'int_floordiv'
-    input_is_64bits = True
-    reg_containing_result = eax
-    unsigned = False
+## __________ logic for Python-like division and modulo _________
+##
+## (disabled for now, as int_floordiv and int_mod have CPU-like
+## semantics at the moment)
 
-    def generate2(self, allocator, op2):
-        # from the PPC backend which has the same problem:
-        # 
-        #   grumble, the powerpc handles division when the signs of x
-        #   and y differ the other way to how cpython wants it.  this
-        #   crawling horror is a branch-free way of computing the right
-        #   remainder in all cases.  it's probably not optimal.
-        #
-        #   we need to adjust the result iff the remainder is non-zero
-        #   and the signs of x and y differ.  in the standard-ish PPC
-        #   way, we compute boolean values as either all-bits-0 or
-        #   all-bits-1 and "and" them together, resulting in either
-        #   adding 0 or -1 as needed in the final step.
-        #
-        #                 Python    i386
-        #    20/3    =     6, 2     6, 2
-        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
-        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
-        # (-20)/(-3) =     6,-2     6,-2
-        #
-        tmp = allocator.create_scratch_reg()
-        mc = allocator.mc
-        if isinstance(op2, IMM32):
-            # if op2 is an immediate, we do an initial adjustment of operand 1
-            # so that we get directly the correct answer
-            if op2.value >= 0:
-                # if op1 is negative, subtract (op2-1)
-                mc.MOV(tmp, edx)       # -1 if op1 is negative, 0 otherwise
-                mc.AND(tmp, imm(op2.value-1))
-                mc.SUB(eax, tmp)
-                mc.SBB(edx, imm8(0))
-            else:
-                # if op1 is positive (or null), add (|op2|-1)
-                mc.MOV(tmp, edx)
-                mc.NOT(tmp)            # -1 if op1 is positive, 0 otherwise
-                mc.AND(tmp, imm(-op2.value-1))
-                mc.ADD(eax, tmp)
-                mc.ADC(edx, imm8(0))
-            mc.MOV(tmp, op2)
-            mc.IDIV(tmp)
-        else:
-            # subtract 1 to the result if the operand signs differ and
-            # the remainder is not zero
-            mc.MOV(tmp, eax)
-            mc.IDIV(op2)
-            mc.XOR(tmp, op2)
-            mc.SAR(tmp, imm8(31)) # -1 if signs differ, 0 otherwise
-            mc.AND(tmp, edx)      # nonnull if signs differ and edx != 0
-            mc.CMP(tmp, imm8(1))  # no carry flag iff signs differ and edx != 0
-            mc.ADC(eax, imm8(-1)) # subtract 1 iff no carry flag
-        allocator.end_clobber(tmp)
+##class OpIntFloorDiv(MulOrDivOp):
+##    opname = 'int_floordiv'
+##    input_is_64bits = True
+##    reg_containing_result = eax
+##    unsigned = False
 
-class OpIntMod(MulOrDivOp):
-    opname = 'int_mod'
-    input_is_64bits = True
-    reg_containing_result = edx
-    unsigned = False
+##    def generate2(self, allocator, op2):
+##        # from the PPC backend which has the same problem:
+##        # 
+##        #   grumble, the powerpc handles division when the signs of x
+##        #   and y differ the other way to how cpython wants it.  this
+##        #   crawling horror is a branch-free way of computing the right
+##        #   remainder in all cases.  it's probably not optimal.
+##        #
+##        #   we need to adjust the result iff the remainder is non-zero
+##        #   and the signs of x and y differ.  in the standard-ish PPC
+##        #   way, we compute boolean values as either all-bits-0 or
+##        #   all-bits-1 and "and" them together, resulting in either
+##        #   adding 0 or -1 as needed in the final step.
+##        #
+##        #                 Python    i386
+##        #    20/3    =     6, 2     6, 2
+##        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
+##        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
+##        # (-20)/(-3) =     6,-2     6,-2
+##        #
+##        tmp = allocator.create_scratch_reg()
+##        mc = allocator.mc
+##        if isinstance(op2, IMM32):      XXX
+##            # if op2 is an immediate, we do an initial adjustment of operand 1
+##            # so that we get directly the correct answer
+##            if op2.value >= 0:
+##                # if op1 is negative, subtract (op2-1)
+##                mc.MOV(tmp, edx)       # -1 if op1 is negative, 0 otherwise
+##                mc.AND(tmp, imm(op2.value-1))
+##                mc.SUB(eax, tmp)
+##                mc.SBB(edx, imm8(0))
+##            else:
+##                # if op1 is positive (or null), add (|op2|-1)
+##                mc.MOV(tmp, edx)
+##                mc.NOT(tmp)            # -1 if op1 is positive, 0 otherwise
+##                mc.AND(tmp, imm(-op2.value-1))
+##                mc.ADD(eax, tmp)
+##                mc.ADC(edx, imm8(0))
+##            mc.MOV(tmp, op2)
+##            mc.IDIV(tmp)
+##        else:
+##            # subtract 1 to the result if the operand signs differ and
+##            # the remainder is not zero
+##            mc.MOV(tmp, eax)
+##            mc.IDIV(op2)
+##            mc.XOR(tmp, op2)
+##            mc.SAR(tmp, imm8(31)) # -1 if signs differ, 0 otherwise
+##            mc.AND(tmp, edx)      # nonnull if signs differ and edx != 0
+##            mc.CMP(tmp, imm8(1))  # no carry flag iff signs differ and edx != 0
+##            mc.ADC(eax, imm8(-1)) # subtract 1 iff no carry flag
+##        allocator.end_clobber(tmp)
 
-    def generate2(self, allocator, op2):
-        #                 Python    i386
-        #    20/3    =     6, 2     6, 2
-        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
-        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
-        # (-20)/(-3) =     6,-2     6,-2
-        #
-        tmp = allocator.create_scratch_reg()
-        mc = allocator.mc
-        if isinstance(op2, IMM32):
-            mc.MOV(tmp, op2)
-            mc.IDIV(tmp)
-            # adjustment needed:
-            #   if op2 > 0: if the result is negative, add op2 to it
-            #   if op2 < 0: if the result is > 0, subtract |op2| from it
-            mc.MOV(tmp, edx)
-            if op2.value < 0:
-                mc.NEG(tmp)
-            mc.SAR(tmp, imm8(31))
-            mc.AND(tmp, imm(op2.value))
-            mc.ADD(edx, tmp)
-        else:
-            # if the operand signs differ and the remainder is not zero,
-            # add operand2 to the result
-            mc.MOV(tmp, eax)
-            mc.IDIV(op2)
-            mc.XOR(tmp, op2)
-            mc.SAR(tmp, imm8(31)) # -1 if signs differ, 0 otherwise
-            mc.AND(tmp, edx)      # nonnull if signs differ and edx != 0
-            mc.CMOVNZ(tmp, op2)   # == op2  if signs differ and edx != 0
-            mc.ADD(edx, tmp)
-        allocator.end_clobber(tmp)
+##class OpIntMod(MulOrDivOp):
+##    opname = 'int_mod'
+##    input_is_64bits = True
+##    reg_containing_result = edx
+##    unsigned = False
+
+##    def generate2(self, allocator, op2):
+##        #                 Python    i386
+##        #    20/3    =     6, 2     6, 2
+##        # (-20)/3    =    -7, 1    -6,-2      # operand signs differ
+##        #    20/(-3) =    -7,-1    -6, 2      # operand signs differ
+##        # (-20)/(-3) =     6,-2     6,-2
+##        #
+##        tmp = allocator.create_scratch_reg()
+##        mc = allocator.mc
+##        if isinstance(op2, IMM32):   XXX
+##            mc.MOV(tmp, op2)
+##            mc.IDIV(tmp)
+##            # adjustment needed:
+##            #   if op2 > 0: if the result is negative, add op2 to it
+##            #   if op2 < 0: if the result is > 0, subtract |op2| from it
+##            mc.MOV(tmp, edx)
+##            if op2.value < 0:
+##                mc.NEG(tmp)
+##            mc.SAR(tmp, imm8(31))
+##            mc.AND(tmp, imm(op2.value))
+##            mc.ADD(edx, tmp)
+##        else:
+##            # if the operand signs differ and the remainder is not zero,
+##            # add operand2 to the result
+##            mc.MOV(tmp, eax)
+##            mc.IDIV(op2)
+##            mc.XOR(tmp, op2)
+##            mc.SAR(tmp, imm8(31)) # -1 if signs differ, 0 otherwise
+##            mc.AND(tmp, edx)      # nonnull if signs differ and edx != 0
+##            mc.CMOVNZ(tmp, op2)   # == op2  if signs differ and edx != 0
+##            mc.ADD(edx, tmp)
+##        allocator.end_clobber(tmp)
 
 class OpUIntMul(MulOrDivOp):
     opname = 'uint_mul'
@@ -410,6 +420,22 @@ class OpUIntMod(MulOrDivOp):
     unsigned = True
     def generate2(self, allocator, op2):
         allocator.mc.DIV(op2)
+
+class OpIntFloorDiv(MulOrDivOp):
+    opname = 'int_floordiv'
+    input_is_64bits = True
+    reg_containing_result = eax
+    unsigned = False
+    def generate2(self, allocator, op2):
+        allocator.mc.IDIV(op2)
+
+class OpIntMod(MulOrDivOp):
+    opname = 'int_mod'
+    input_is_64bits = True
+    reg_containing_result = edx
+    unsigned = False
+    def generate2(self, allocator, op2):
+        allocator.mc.IDIV(op2)
 
 class OpShift(Op2):
     side_effects = False

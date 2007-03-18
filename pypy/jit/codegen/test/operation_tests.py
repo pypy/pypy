@@ -339,6 +339,11 @@ class OperationTests(object):
                 for operand1 in range(-33, 34):
                     res = fp(operand1)
                     assert res == eval(op, {'x': operand1, 'y': constant})
+                fp = self.rgen(fn, [r_uint], r_uint)
+                for operand1 in range(-33, 34):
+                    res = r_uint(fp(r_uint(operand1)))
+                    assert res == eval(op, {'x': r_uint(operand1),
+                                            'y': r_uint(constant)})
 
     def test_constants_in_divmod(self):
         for op in ['x // y', 'x % y']:
@@ -348,6 +353,11 @@ class OperationTests(object):
                 for operand1 in range(-32, 33):
                     res = fp(operand1)
                     assert res == eval(op, {'x': operand1, 'y': constant})
+                fp = self.rgen(fn, [r_uint], r_uint)
+                for operand1 in range(-32, 33):
+                    res = r_uint(fp(r_uint(operand1)))
+                    assert res == eval(op, {'x': r_uint(operand1),
+                                            'y': r_uint(constant)})
 
     def test_ptr_comparison(self):
         S = lltype.GcStruct('S')
