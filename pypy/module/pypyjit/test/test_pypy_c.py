@@ -103,7 +103,7 @@ def app_test_factorialrec():
 def app_test_richards():
     run_source('''
         import sys; sys.path[:] = %r
-        import richards
+        from pypy.translator.goal import richards
         
         def main():
             return richards.main(iterations = 1)
