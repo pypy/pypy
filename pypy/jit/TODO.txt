@@ -6,9 +6,6 @@ To Do Right Now
 
 - improve is_true()
 
-- make jit builds not horribly slower than regular builds
-  when running non-jitted code
-
 - some --jit option for translate.py
 
 - basic docs and examples
