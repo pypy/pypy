@@ -1,10 +1,11 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
+from pypy.jit.hintannotator.annotator import StopAtXPolicy
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.objectmodel import hint, we_are_jitted
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.backendopt.inline import auto_inlining
@@ -338,6 +339,16 @@ def test_make_a_list():
         return [x, y]
     hs = hannotate(ll_function, [int, int], policy=P_OOPSPEC)
     assert isinstance(hs, SomeLLAbstractContainer)
+
+def test_frozen_list():
+    lst = [5, 7, 9]
+    def ll_function(x):
+        mylist = hint(lst, deepfreeze=True)
+        z = mylist[x]
+        hint(z, concrete=True)
+        return z
+    hs = hannotate(ll_function, [int], policy=P_OOPSPEC_NOVIRTUAL)
+    assert hs.is_green()
 
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
@@ -728,3 +739,145 @@ def test_cast_pointer_keeps_deepfreeze():
 
     hs = hannotate(ll_function, [int], policy=P_NOVIRTUAL)
     assert hs.deepfrozen
+
+
+def test_concrete_fnptr_for_green_call():
+
+    def h1(n):
+        return n * 10
+
+    def h2(n):
+        return n + 20
+
+    lst = [h1, h2]
+
+    def ll_function(n, m):
+        h = hint(lst, deepfreeze=True)[m]
+        res = h(n)
+        hint(res, concrete=True)   # so 'h' gets green, so 'm' gets green
+        return m
+
+    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+    assert hs.is_green()
+
+
+def test_indirect_yellow_call():
+
+    def h1(n):
+        return 123
+
+    def h2(n):
+        return 456
+
+    lst = [h1, h2]
+
+    def ll_function(n, m):
+        h = hint(lst, deepfreeze=True)[m]
+        return h(n)
+
+    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+    assert not hs.is_green()
+
+
+def test_indirect_sometimes_residual_pure_red_call():
+    def h1(x):
+        return x-2
+    def h2(x):
+        return x*4
+    l = [h1, h2]
+    def f(n, x):
+        frozenl = hint(l, deepfreeze=True)
+        h = frozenl[n&1]
+        return h(x)
+
+    P = StopAtXPolicy(h1)
+    P.oopspec = True
+    P.entrypoint_returns_red = False
+    hs, hannotator = hannotate(f, [int, int], policy=P, annotator=True)
+    assert not hs.is_green()
+    assert isinstance(hs, SomeLLAbstractConstant)
+
+    tsgraph = graphof(hannotator.translator, h2)
+    hs = hannotator.binding(tsgraph.getargs()[0])
+    assert not hs.is_green()
+
+
+def test_indirect_sometimes_residual_red_call():
+    class Stuff:
+        pass
+    stuff = Stuff()
+    def h1(x):
+        stuff.hello = 123
+        return x-2
+    def h2(x):
+        return x*4
+    l = [h1, h2]
+    def f(n, x):
+        frozenl = hint(l, deepfreeze=True)
+        h = frozenl[n&1]
+        return h(x)
+
+    P = StopAtXPolicy(h1)
+    P.oopspec = True
+    P.entrypoint_returns_red = False
+    hs, hannotator = hannotate(f, [int, int], policy=P, annotator=True)
+    assert not hs.is_green()
+
+    tsgraph = graphof(hannotator.translator, h2)
+    hs = hannotator.binding(tsgraph.getargs()[0])
+    assert not hs.is_green()
+
+
+def test_indirect_sometimes_residual_pure_but_fixed_red_call():
+    def h1(x):
+        return x-2
+    def h2(x):
+        return x*4
+    l = [h1, h2]
+    def f(n, x):
+        frozenl = hint(l, deepfreeze=True)
+        h = frozenl[n&1]
+        z = h(x)
+        hint(z, concrete=True)
+        return z
+
+    P = StopAtXPolicy(h1)
+    P.oopspec = True
+    P.entrypoint_returns_red = False
+    hs, hannotator = hannotate(f, [int, int], policy=P, annotator=True)
+    assert hs.is_green()
+
+    #tsgraph = graphof(hannotator.translator, h2)
+    #hs = hannotator.binding(tsgraph.getargs()[0])
+    #assert hs.is_green()
+
+    tsgraph = graphof(hannotator.translator, f)
+    hs = hannotator.binding(tsgraph.getargs()[0])
+    assert hs.is_green()
+    hs = hannotator.binding(tsgraph.getargs()[1])
+    assert hs.is_green()
+
+def test_ignore_nonjitted_path():
+    def f(n):
+        if we_are_jitted():
+            return 5
+        else:
+            return n
+    hs = hannotate(f, [int])
+    assert hs.is_green()
+
+    def g(n):
+        if not we_are_jitted():
+            return n
+        else:
+            return 5
+    hs = hannotate(g, [int])
+    assert hs.is_green()
+
+    def g(n):
+        if not we_are_jitted():
+            return n
+        else:
+            return 5
+    hs = hannotate(g, [int], backendoptimize=True)
+    assert hs.is_green()

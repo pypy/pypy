@@ -128,6 +128,9 @@ class BaseGenerator(object):
         self.load(item)
         self.ilasm.list_getitem()
 
+    def push_primitive_constant(self, TYPE, value):
+        self.db.load_const(TYPE, value, self.ilasm)        
+
     def branch_unconditionally(self, target_label):
         self.ilasm.jump_block(self.block_map[target_label])
 

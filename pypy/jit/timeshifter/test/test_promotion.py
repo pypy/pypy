@@ -1,10 +1,11 @@
 import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
+from pypy.jit.timeshifter.test.test_timeshift import StopAtXPolicy
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 from pypy.rlib.objectmodel import hint
-
+from pypy.rpython.module.support import LLSupport
 
 class TestPromotion(TimeshiftingTests):
 
@@ -275,3 +276,133 @@ class TestPromotion(TimeshiftingTests):
         assert res == 6
         self.check_oops(**{'newlist': 1, 'list.len': 1})
             
+    def test_promote_bug_1(self):
+        def ll_function(x, y, z):
+            a = 17
+            while True:
+                hint(None, global_merge_point=True)
+                y += 1
+
+                if a != 17:
+                    z = -z
+                
+                if z > 0:
+                    b = 1 - z
+                else:
+                    b = 2
+                y = -y
+                if b == 2:
+                    hint(z, promote=True)
+                    return y + z + a
+                a += z
+
+        assert ll_function(1, 5, 8) == 22
+        res = self.timeshift(ll_function, [1, 5, 8], [],
+                             policy=P_NOVIRTUAL)
+        assert res == 22
+
+    def test_raise_result_mixup(self):
+        def w(x):
+            pass
+        class E(Exception):
+            def __init__(self, x):
+                self.x = x
+        def o(x):
+            if x < 0:
+                e = E(x)
+                w(e)
+                raise e                
+            return x
+        def ll_function(c, x):
+            i = 0
+            while True:
+                hint(None, global_merge_point=True)
+                op = c[i]
+                hint(op, concrete=True)
+                if op == 'e':
+                    break
+                elif op == 'o':
+                    x = o(x)
+                    x = hint(x, promote=True)
+                    i = x
+            r = hint(i, variable=True)
+            return r
+        ll_function.convert_arguments = [LLSupport.to_rstr, int]
+        
+        assert ll_function("oe", 1) == 1
+
+        res = self.timeshift(ll_function, ["oe", 1], [],
+                             policy=StopAtXPolicy(w))
+        res == 1
+
+    def test_raise_result_mixup_some_more(self):
+        def w(x):
+            if x > 1000:
+                return None
+            else:
+                return E(x)
+        class E(Exception):
+            def __init__(self, x):
+                self.x = x
+        def o(x):
+            if x < 0:
+                e = w(x)
+                raise e                
+            return x
+        def ll_function(c, x):
+            i = 0
+            while True:
+                hint(None, global_merge_point=True)
+                op = c[i]
+                hint(op, concrete=True)
+                if op == 'e':
+                    break
+                elif op == 'o':
+                    x = o(x)
+                    x = hint(x, promote=True)
+                    i = x
+            r = hint(i, variable=True)
+            return r
+        ll_function.convert_arguments = [LLSupport.to_rstr, int]
+        
+        assert ll_function("oe", 1) == 1
+
+        res = self.timeshift(ll_function, ["oe", 1], [],
+                             policy=StopAtXPolicy(w))
+        res == 1
+
+    def test_promote_in_yellow_call(self):
+        def ll_two(n):
+            n = hint(n, promote=True)
+            return n + 2
+            
+        def ll_function(n):
+            hint(None, global_merge_point=True)
+            c = ll_two(n)
+            return hint(c, variable=True)
+
+        res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
+        assert res == 6
+        self.check_insns(int_add=0)
+
+    def test_two_promotions_in_call(self):
+        def ll_two(n, m):
+            if n < 1:
+                return m
+            else:
+                return n
+
+        def ll_one(n, m):
+            n = ll_two(n, m)
+            n = hint(n, promote=True)
+            m = hint(m, promote=True)
+            return hint(n + m, variable=True)
+
+        def ll_function(n, m):
+            hint(None, global_merge_point=True)
+            c = ll_one(n, m)
+            return c
+
+        res = self.timeshift(ll_function, [4, 7], [], policy=P_NOVIRTUAL)
+        assert res == 11
+        self.check_insns(int_add=0)

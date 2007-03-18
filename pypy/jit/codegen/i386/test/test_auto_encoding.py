@@ -198,6 +198,8 @@ def rec_test_all(instrname, modes, args=[]):
             if ((args[1][1] in (i386.eax, i386.al))
                 and args[0][1].assembler().lstrip('-').isdigit()):
                 return []   # MOV [constant-address], accum
+            if args[1][1].__class__ == i386.IMM16:
+                return []   # MOV mod/rm, imm16
         if instrname == "LEA":
             if (args[1][1].__class__ != i386.MODRM or
                 args[1][1].is_register()):

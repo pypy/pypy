@@ -1,7 +1,7 @@
 import py, os
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llvm import llvmjit
@@ -862,6 +862,10 @@ class RLLVMGenOp(AbstractRGenOp):
     # attached later constPrebuiltGlobal = global_rgenop.genconst
 
     @staticmethod
+    def genzeroconst(kind):
+        return zero_consts[kind]
+
+    @staticmethod
     @specialize.memo()
     def kindToken(T):
         # turn the type T into the llvm approximation that we'll use here
@@ -944,3 +948,11 @@ class RLLVMGenOp(AbstractRGenOp):
 global_rgenop = RLLVMGenOp()
 RLLVMGenOp.constPrebuiltGlobal = global_rgenop.genconst
 
+zero_consts = {
+    pi8: AddrConst(llmemory.NULL),
+    i1:  BoolConst(False),
+    i8:  CharConst('\x00'),
+    u32: UIntConst(r_uint(0)),
+    f64: FloatConst(0.0),
+    i32: IntConst(0),
+    }

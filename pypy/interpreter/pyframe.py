@@ -6,7 +6,7 @@ from pypy.interpreter import eval, baseobjspace, pycode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 import opcode
-from pypy.rlib.objectmodel import we_are_translated, instantiate
+from pypy.rlib.objectmodel import we_are_translated, instantiate, hint
 from pypy.rlib import rstack # for resume points
 
 
@@ -95,12 +95,12 @@ class PyFrame(eval.Frame):
         executioncontext.enter(self)
         try:
             executioncontext.call_trace(self)
-            code = self.pycode.co_code
             # Execution starts just after the last_instr.  Initially,
             # last_instr is -1.  After a generator suspends it points to
             # the YIELD_VALUE instruction.
             next_instr = self.last_instr + 1
-            w_exitvalue = self.dispatch(code, next_instr, executioncontext)
+            w_exitvalue = self.dispatch(self.pycode, next_instr,
+                                        executioncontext)
             rstack.resume_point("execute_frame", self, executioncontext, returns=w_exitvalue)
             executioncontext.return_trace(self, w_exitvalue)
             # on exit, we try to release self.last_exception -- breaks an
@@ -125,6 +125,47 @@ class PyFrame(eval.Frame):
         self.valuestackdepth = depth
         return w_object
 
+    def popstrdictvalues(self, n):
+        dic_w = {}
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            w_value = self.popvalue()
+            w_key   = self.popvalue()
+            key = self.space.str_w(w_key)
+            dic_w[key] = w_value
+        return dic_w
+
+    def popvalues(self, n):
+        values_w = [None] * n
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            values_w[n] = self.popvalue()
+        return values_w
+
+    def pushrevvalues(self, n, values_w): # n should be len(values_w)
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            self.pushvalue(values_w[n])
+
+    def dupvalues(self, n):
+        delta = n-1
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            w_value = self.peekvalue(delta)
+            self.pushvalue(w_value)
+        
     def peekvalue(self, index_from_top=0):
         index = self.valuestackdepth + ~index_from_top
         assert index >= 0, "peek past the bottom of the stack"

@@ -7,7 +7,8 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_pointer
                       direct_call
                       indirect_call
-                      int_is_true int_neg int_invert bool_not
+                      int_is_true int_neg int_abs int_invert bool_not
+                      int_neg_ovf int_abs_ovf
                       uint_is_true
                       cast_int_to_char
                       cast_int_to_uint
@@ -16,10 +17,13 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_bool_to_int
                       ptr_nonzero
                       ptr_iszero
+                      is_early_constant
                       """.split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
                        int_lshift int_floordiv int_xor int_or
+                       int_add_ovf int_sub_ovf int_mul_ovf int_mod_ovf
+                       int_floordiv_ovf int_lshift_ovf
                        uint_add uint_sub uint_mul uint_mod uint_and
                        uint_lshift uint_rshift uint_floordiv
                        char_gt char_lt char_le char_ge char_eq char_ne
@@ -83,6 +87,11 @@ class CallOpOriginFlags(OriginFlags):
             args = self.spaceop.args[1:]
         elif self.spaceop.opname == 'indirect_call':
             args = self.spaceop.args[1:-1]
+            # indirect_call with a red callable must return a red
+            # (see test_indirect_yellow_call)
+            v_callable = self.spaceop.args[0]
+            retdeps = greenorigindependencies.setdefault(self, [])
+            retdeps.append(v_callable)
         else:
             raise AssertionError(self.spaceop.opname)
 
@@ -145,6 +154,11 @@ class SomeLLAbstractValue(annmodel.SomeObject):
     def is_green(self):
         return False
 
+    def clone(self):
+        c = object.__new__(self.__class__)
+        c.__dict__.update(self.__dict__)
+        return c
+
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
     " color: dont know yet.. "
@@ -182,11 +196,11 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         for o in self.origins:
             if not o.fixed:
                 return False
-        return True
+        return self.concretetype is not lltype.Void
 
     def is_green(self):
-        return (self.is_fixed() or self.eager_concrete or
-                self.concretetype is lltype.Void or
+        return (self.concretetype is lltype.Void or
+                self.is_fixed() or self.eager_concrete or
                 (self.myorigin is not None and self.myorigin.greenargs))
 
     def annotationcolor(self):
@@ -281,11 +295,8 @@ def originalconcretetype(hs):
 
 def deepunfreeze(hs):
     if hs.deepfrozen:
-        hs1 = annmodel.SomeObject()
-        hs1.__class__ = hs.__class__
-        hs1.__dict__ = hs.__dict__.copy()
-        hs1.deepfrozen = False
-        hs = hs1
+        hs = hs.clone()
+        hs.deepfrozen = False
     return hs
 
 # ____________________________________________________________
@@ -307,12 +318,18 @@ class __extend__(SomeLLAbstractValue):
             hs_concrete = SomeLLAbstractConstant(hs_v1.concretetype, {})
             #hs_concrete.eager_concrete = True
             return hs_concrete 
+        if hs_flags.const.get('deepfreeze', False):
+            hs_clone = hs_v1.clone()
+            hs_clone.deepfrozen = True
+            return hs_clone
         for name in ["reverse_split_queue", "global_merge_point"]:
             if hs_flags.const.get(name, False):
                 return
 
         raise HintError("hint %s makes no sense on %r" % (hs_flags.const,
                                                           hs_v1))
+    def is_early_constant(hs_v1):
+        return SomeLLAbstractConstant(lltype.Bool, {})
 
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
@@ -336,20 +353,17 @@ class __extend__(SomeLLAbstractValue):
         args_hs = args_hs[:-1]
         assert hs_graph_list.is_constant()
         graph_list = hs_graph_list.const
+        if graph_list is None:
+            # cannot follow indirect calls to unknown targets
+            return variableoftype(hs_v1.concretetype.TO.RESULT)
 
         bookkeeper = getbookkeeper()
-        if not bookkeeper.annotator.policy.look_inside_graphs(graph_list):
-            # cannot follow
-            return cannot_follow_call(bookkeeper, graph_list,
-                                      (hs_v1,) + args_hs,
-                                      hs_v1.concretetype.TO.RESULT)
-
         myorigin = bookkeeper.myorigin()
         myorigin.__class__ = CallOpOriginFlags     # thud
         fixed = myorigin.read_fixed()
         tsgraphs_accum = []
         hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs,
-                                              tsgraphs_accum)
+                                              tsgraphs_accum, hs_v1)
         myorigin.any_called_graph = tsgraphs_accum[0]
 
         if isinstance(hs_res, SomeLLAbstractConstant):
@@ -378,10 +392,6 @@ class __extend__(SomeLLAbstractConstant):
         if hs_flags.const.get('forget', False):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
-        if hs_flags.const.get('deepfreeze', False):
-            return SomeLLAbstractConstant(hs_c1.concretetype,
-                                          hs_c1.origins,
-                                          deepfrozen = True)
         return SomeLLAbstractValue.hint(hs_c1, hs_flags)
 
     def direct_call(hs_f1, *args_hs):
@@ -403,7 +413,7 @@ class __extend__(SomeLLAbstractConstant):
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
         if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
-            return cannot_follow_call(bookkeeper, [fnobj.graph], args_hs,
+            return cannot_follow_call(bookkeeper, fnobj.graph, args_hs,
                                       lltype.typeOf(fnobj).RESULT)
 
         # recursive call from the entry point to itself: ignore them and
@@ -618,11 +628,6 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 # ____________________________________________________________
 
 def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
-    if bookkeeper.annotator.policy.novirtualcontainer:
-        # "blue variables" disabled, we just return a red var all the time.
-        RESULT = bookkeeper.current_op_concretetype()
-        return variableoftype(RESULT)
-
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
     assert args.endswith(')')
@@ -639,6 +644,24 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
         args_hs.append(hs)
     # end of rather XXX'edly hackish parsing
 
+    if bookkeeper.annotator.policy.novirtualcontainer:
+        # "blue variables" disabled, we just return a red var all the time.
+        # Exception: an operation on a frozen container is constant-foldable.
+        RESULT = bookkeeper.current_op_concretetype()
+        if '.' in operation_name and args_hs[0].deepfrozen:
+            for hs_v in args_hs:
+                if not isinstance(hs_v, SomeLLAbstractConstant):
+                    break
+            else:
+                myorigin = bookkeeper.myorigin()
+                d = newset({myorigin: True}, *[hs_c.origins
+                                               for hs_c in args_hs])
+                return SomeLLAbstractConstant(RESULT, d,
+                                              eager_concrete = False,   # probably
+                                              myorigin = myorigin)
+        return variableoftype(RESULT)
+
+    # --- the code below is not used any more except by test_annotator.py ---
     if operation_name == 'newlist':
         from pypy.jit.hintannotator.vlist import oop_newlist
         handler = oop_newlist
@@ -660,25 +683,24 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     hs_result = handler(*args_hs)   # which may raise NotImplementedError
     return hs_result
 
-def cannot_follow_call(bookkeeper, graph_list, args_hs, RESTYPE):
+def cannot_follow_call(bookkeeper, graph, args_hs, RESTYPE):
     # the policy prevents us from following the call
-    if not graph_list:       # no known target, give up
-        return variableoftype(RESTYPE)
-    for graph in graph_list:
-        if not bookkeeper.is_pure_graph(graph):
-            # it's not calling pure graphs either, so the result
-            # is entierely unknown
-            return variableoftype(RESTYPE)
+    pure_call = bookkeeper.is_pure_graph(graph)
     # when calling pure graphs, consider the call as an operation.
     for hs in args_hs:
         if not isinstance(hs, SomeLLAbstractConstant):
-            return variableoftype(RESTYPE)
-    # if all arguments are SomeLLAbstractConstant, so can the result be.
-    origin = bookkeeper.myorigin()
-    d = newset({origin: True}, *[hs_c.origins for hs_c in args_hs])
-    return SomeLLAbstractConstant(RESTYPE, d,
-                                  eager_concrete = False,   # probably
-                                  myorigin = origin)
+            pure_call = False
+            break
+    if pure_call:
+        # if all arguments are SomeLLAbstractConstant, so can the result be.
+        myorigin = bookkeeper.myorigin()
+        d = newset({myorigin: True}, *[hs_c.origins for hs_c in args_hs])
+        h_res = SomeLLAbstractConstant(RESTYPE, d,
+                                       eager_concrete = False,   # probably
+                                       myorigin = myorigin)
+    else:
+        h_res = variableoftype(RESTYPE)
+    return h_res
 
 # ____________________________________________________________
 #
@@ -692,36 +714,49 @@ def var_binary((hs_v1, hs_v2), *rest_hs):
     RESTYPE = getbookkeeper().current_op_concretetype()
     return SomeLLAbstractVariable(RESTYPE)
 
-def const_unary(hs_c1):
+def const_unary(llop, hs_c1):
     #XXX unsure hacks
     bk = getbookkeeper()
     origin = bk.myorigin()
     d = setadd(hs_c1.origins, origin)
     RESTYPE = bk.current_op_concretetype()
-    return SomeLLAbstractConstant(RESTYPE, d,
-                                  eager_concrete = hs_c1.eager_concrete,
-                                  myorigin = origin)
+    hs_res = SomeLLAbstractConstant(RESTYPE, d,
+                                    eager_concrete = hs_c1.eager_concrete,
+                                    myorigin = origin)
+    if hs_c1.is_constant():
+        try:
+            hs_res.const = llop(RESTYPE, hs_c1.const)
+        except Exception:   # XXX not too nice
+            pass
+    return hs_res
 
-def const_binary((hs_c1, hs_c2)):
+def const_binary(llop, (hs_c1, hs_c2)):
     #XXX unsure hacks
     bk = getbookkeeper()
     origin = bk.myorigin()
     d = newset(hs_c1.origins, hs_c2.origins, {origin: True})
     RESTYPE = bk.current_op_concretetype()
-    return SomeLLAbstractConstant(RESTYPE, d,
-                                  eager_concrete = hs_c1.eager_concrete or
-                                                   hs_c2.eager_concrete,
-                                  myorigin = origin)
+    hs_res = SomeLLAbstractConstant(RESTYPE, d,
+                                    eager_concrete = hs_c1.eager_concrete or
+                                                     hs_c2.eager_concrete,
+                                    myorigin = origin)
+    if hs_c1.is_constant() and hs_c2.is_constant():
+        try:
+            hs_res.const = llop(RESTYPE, hs_c1.const, hs_c2.const)
+        except Exception:   # XXX not too nice
+            pass
+    return hs_res
 
 def setup(oplist, ValueCls, var_fn, ConstantCls, const_fn):
     for name in oplist:
         llop = getattr(lloperation.llop, name)
-        if not llop.sideeffects:
+        if not llop.sideeffects or llop.tryfold:
             if name not in ValueCls.__dict__:
                 setattr(ValueCls, name, var_fn)
-            if llop.canfold:
+            if llop.canfold or llop.tryfold:
                 if name not in ConstantCls.__dict__:
-                    setattr(ConstantCls, name, const_fn)
+                    setattr(ConstantCls, name,
+                            lambda s, llop=llop: const_fn(llop, s))
 setup(UNARY_OPERATIONS,
       SomeLLAbstractValue, var_unary,
       SomeLLAbstractConstant, const_unary)

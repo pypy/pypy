@@ -267,7 +267,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     def and_((int1, int2)):
         knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
-        return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
+        return SomeInteger(nonneg=int1.nonneg or int2.nonneg,
                            knowntype=knowntype)
     and_.can_only_throw = []
 

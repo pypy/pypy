@@ -562,3 +562,8 @@ class OpWriter(object):
 
     def hint(self, opr):
         self.same_as(opr)
+
+    def is_early_constant(self, opr):
+        # If it gets this far it is always false
+        self.codewriter.cast(opr.retref, 'bool',
+                             'false', opr.rettype)

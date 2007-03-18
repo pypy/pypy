@@ -1543,6 +1543,29 @@ class BaseTestRPBC(BaseRtypingTest):
         assert self.ll_to_string(item0) == "hello"
         assert item1 == 623
 
+    def test_always_raising_methods(self):
+        class Base:
+            def m(self):
+                raise NotImplementedError
+        class A(Base):
+            def m(self):
+                return 42
+        class B(Base):
+            pass
+        def f(n):
+            if n > 3:
+                o = A()
+            else:
+                o = B()
+            try:
+                o.m()
+            except NotImplementedError:
+                pass
+            return B().m()
+
+        self.interpret_raises(NotImplementedError, f, [7])
+
+
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
 

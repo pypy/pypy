@@ -107,24 +107,20 @@ def split_block_with_keepalive(block, index_operation,
     afterblock.operations[pos:pos] = generate_keepalive(keep_alive_vars)
     return splitlink
 
-def calculate_call_graph(translator):
-    calls = {}
-    for graph in translator.graphs:
-        if getattr(getattr(graph, "func", None), "suggested_primitive", False):
-            continue
-        calls[graph] = {}
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if op.opname == "direct_call":
-                    called_graph = get_graph(op.args[0], translator)
-                    if called_graph is not None:
-                        calls[graph][called_graph] = block
-                if op.opname == "indirect_call":
-                    graphs = op.args[-1].value
-                    if graphs is not None:
-                        for called_graph in graphs:
-                            calls[graph][called_graph] = block
-    return calls
+def find_calls_from(translator, graph):
+    if getattr(getattr(graph, "func", None), "suggested_primitive", False):
+        return
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname == "direct_call":
+                called_graph = get_graph(op.args[0], translator)
+                if called_graph is not None:
+                    yield block, called_graph
+            if op.opname == "indirect_call":
+                graphs = op.args[-1].value
+                if graphs is not None:
+                    for called_graph in graphs:
+                        yield block, called_graph
 
 def find_backedges(graph, block=None, seen=None, seeing=None):
     """finds the backedges in the flow graph"""

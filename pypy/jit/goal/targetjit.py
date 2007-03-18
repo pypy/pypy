@@ -12,7 +12,9 @@ class __extend__(TranslationDriver):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator,
                               inline_threshold=0,
-                              merge_if_blocks=False)
+                              merge_if_blocks=False,
+                              constfold=True,
+                              remove_asserts=True)
     #
     task_prehannotatebackendopt = taskdef(task_prehannotatebackendopt,
                                          [TranslationDriver.RTYPE],
@@ -44,9 +46,12 @@ class PyPyJITTarget(targetpypystandalone.PyPyTarget):
         return super(PyPyJITTarget, self).target(driver, args)
 
     def handle_config(self, config):
+        super(PyPyJITTarget, self).handle_config(config)
         config.translation.fork_before = 'hintannotate'
+        config.translation.backendopt.inline_threshold = 20.1
 
     def handle_translate_config(self, translateconfig):
+        super(PyPyJITTarget, self).handle_translate_config(translateconfig)
         translateconfig.goals = ['timeshift']
 
 

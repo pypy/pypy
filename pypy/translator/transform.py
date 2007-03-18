@@ -180,7 +180,7 @@ def insert_stackcheck(ann):
         caller_block.operations.insert(0, unwind_op)
 
 def insert_ll_stackcheck(translator):
-    from pypy.translator.backendopt.support import calculate_call_graph
+    from pypy.translator.backendopt.support import find_calls_from
     from pypy.rpython.module.ll_stack import ll_stack_check
     from pypy.tool.algo.graphlib import Edge, make_edge_dict, break_cycles
     rtyper = translator.rtyper
@@ -188,12 +188,11 @@ def insert_ll_stackcheck(translator):
     rtyper.specialize_more_blocks()
     stack_check_ptr = rtyper.getcallable(graph)
     stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))
-    call_graph = calculate_call_graph(translator)
     edges = []
     graphs_to_patch = {}
     insert_in = {}
-    for caller, all_callees in call_graph.iteritems():
-        for callee, block in all_callees.iteritems():
+    for caller in translator.graphs:
+        for block, callee in find_calls_from(translator, caller):
             if getattr(getattr(callee, 'func', None),
                        'insert_stack_check_here', False):
                 insert_in[callee.startblock] = True

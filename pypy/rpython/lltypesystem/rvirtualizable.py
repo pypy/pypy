@@ -45,13 +45,17 @@ class VirtualizableInstanceRepr(InstanceRepr):
             redirected_fields = list(rbase.ACCESS.redirected_fields)
         name = self.lowleveltype.TO._name
         TOPPTR = self.get_top_virtualizable_type()
+        self.my_redirected_fields = my_redirected_fields = {}
         for name, (mangled_name, r) in self.fields.items():
             T = r.lowleveltype
+            if T is lltype.Void:
+                continue
             GETTER = lltype.Ptr(lltype.FuncType([TOPPTR], T))
             SETTER = lltype.Ptr(lltype.FuncType([TOPPTR, T], lltype.Void))
             accessors.append(('get_'+mangled_name, GETTER))
             accessors.append(('set_'+mangled_name, SETTER))
             redirected_fields.append(mangled_name)
+            my_redirected_fields[name] = None
         ACCESS.become(lltype.Struct(name+'_access',
                                     hints = {'immutable': True},
                                     adtmeths = {'redirected_fields': tuple(redirected_fields)},
@@ -124,7 +128,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
 
     def getfield(self, vinst, attr, llops, force_cast=False):
         """Read the given attribute (or __class__ for the type) of 'vinst'."""
-        if attr in self.fields:
+        if attr in self.my_redirected_fields:
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
@@ -135,7 +139,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
 
     def setfield(self, vinst, attr, vvalue, llops, force_cast=False, opname='setfield'):
         """Write the given attribute (or __class__ for the type) of 'vinst'."""
-        if attr in self.fields:
+        if attr in self.my_redirected_fields:
             mangled_name, r = self.fields[attr]
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)

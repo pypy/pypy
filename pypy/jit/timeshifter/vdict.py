@@ -133,7 +133,7 @@ class DictTypeDesc(object):
 
     def factory(self):
         vdict = self.VirtualDict(self)
-        box = rvalue.PtrRedBox(self.ptrkind)
+        box = rvalue.PtrRedBox(self.ptrkind, known_nonzero=True)
         box.content = vdict
         vdict.ownbox = box
         return box
@@ -208,7 +208,7 @@ class AbstractVirtualDict(VirtualContainer):
         gv_dict = builder.genop_call(typedesc.tok_ll_newdict,
                                      typedesc.gv_ll_newdict,
                                      args_gv)
-        self.ownbox.genvar = gv_dict
+        self.ownbox.setgenvar_hint(gv_dict, known_nonzero=True)
         self.ownbox.content = None
         for gv_key, valuebox, hash in items:
             gv_hash = builder.rgenop.genconst(hash)

@@ -20,12 +20,21 @@ class HintAnnotatorPolicy(policy.AnnotatorPolicy):
     def look_inside_graph(self, graph):
         return True
 
-    def look_inside_graphs(self, graph_list):
-        if not graph_list:
-            return False   # cannot follow indirect call with no known targets
-        for graph in graph_list:
-            if not self.look_inside_graph(graph):
+
+class StopAtXPolicy(HintAnnotatorPolicy):
+    """Useful for tests."""
+
+    def __init__(self, *funcs):
+        HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
+                                     oopspec=True)
+        self.funcs = funcs
+
+    def look_inside_graph(self, graph):
+        try:
+            if graph.func in self.funcs:
                 return False
+        except AttributeError:
+            pass
         return True
 
 

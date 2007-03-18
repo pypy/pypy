@@ -3,7 +3,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.codegen import graph2rgenop
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask, ovfcheck
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int, c_float
 from pypy import conftest
 

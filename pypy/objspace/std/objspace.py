@@ -13,7 +13,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, hint
 import sys
 import os
 import __builtin__
@@ -492,6 +492,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_SeqIterObject(w_obj)
 
     def type(self, w_obj):
+        hint(w_obj.__class__, promote=True)
         return w_obj.getclass(self)
 
     def lookup(self, w_obj, name):

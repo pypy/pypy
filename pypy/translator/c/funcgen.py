@@ -750,5 +750,7 @@ class FunctionCodeGenerator(object):
         counter_label = self.expr(op.args[1])
         return 'INSTRUMENT_COUNT(%s);' % counter_label
             
-
+    def OP_IS_EARLY_CONSTANT(self, op):
+        return self.expr(op.result)  + ' = 0;' # Allways false
+    
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

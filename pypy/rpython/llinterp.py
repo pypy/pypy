@@ -4,7 +4,7 @@ from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic, CDefinedIntSymbolic
 
 import sys, os
 import math
@@ -382,7 +382,21 @@ class LLFrame(object):
                                 break
                         else:
                             raise TypeError("the operation %s is not expected to raise %s" % (operation, exc))
-                raise
+
+                # for exception-transformed graphs, store the LLException
+                # into the exc_data used by this graph
+                exc_data = self.llinterpreter.get_transformed_exc_data(
+                    self.graph)
+                if exc_data:
+                    etype = e.args[0]
+                    evalue = e.args[1]
+                    exc_data.exc_type  = etype
+                    exc_data.exc_value = evalue
+                    from pypy.translator.c import exceptiontransform
+                    retval = exceptiontransform.error_value(
+                        operation.result.concretetype)
+                else:
+                    raise
         self.setvar(operation.result, retval)
         if tracer:
             if retval is None:
@@ -481,6 +495,9 @@ class LLFrame(object):
     def op_hint(self, x, hints):
         return x
 
+    def op_is_early_constant(self, x):
+        return False
+
     def op_resume_point(self, *args):
         pass
 
@@ -557,19 +574,7 @@ class LLFrame(object):
 
     def op_direct_call(self, f, *args):
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
-        try:
-            return self.perform_call(f, FTYPE.ARGS, args)
-        except LLException, e:
-            exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
-            if exc_data:
-                # store the LLException into the exc_data used by this graph
-                etype = e.args[0]
-                evalue = e.args[1]
-                exc_data.exc_type  = etype
-                exc_data.exc_value = evalue
-                from pypy.translator.c import exceptiontransform
-                return exceptiontransform.error_value(FTYPE.RESULT)
-            raise
+        return self.perform_call(f, FTYPE.ARGS, args)
 
     def op_indirect_call(self, f, *args):
         graphs = args[-1]
@@ -870,6 +875,13 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
+    def op_int_is_true(self, x):
+        # special case
+        if type(x) is CDefinedIntSymbolic:
+            x = x.default
+        assert isinstance(x, int)
+        return bool(x)
+
     # read frame var support
 
     def op_get_frame_base(self):
@@ -878,7 +890,18 @@ class LLFrame(object):
     def op_frame_info(self, *vars):
         pass
     op_frame_info.specialform = True
- 
+
+    # hack for jit.codegen.llgraph
+
+    def op_check_and_clear_exc(self):
+        exc_data = self.llinterpreter.get_transformed_exc_data(self.graph)
+        assert exc_data
+        etype  = exc_data.exc_type
+        evalue = exc_data.exc_value
+        exc_data.exc_type  = lltype.typeOf(etype )._defl()
+        exc_data.exc_value = lltype.typeOf(evalue)._defl()
+        return bool(etype)
+
     #Operation of ootype
 
     def op_new(self, INST):

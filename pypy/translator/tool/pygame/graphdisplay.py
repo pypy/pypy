@@ -333,7 +333,8 @@ class GraphDisplay(Display):
     def highlight_found_item(self):
         item = self.searchresults[self.searchpos]
         self.sethighlight(obj=item)
-        msg = 'Found %%s containing %s (%d/%d)' % (self.searchstr,
+        msg = 'Found %%s containing %s (%d/%d)' % (
+                        self.searchstr.replace('%', '%%'),
                         self.searchpos+1, len(self.searchresults))
         if isinstance(item, Node):
             self.setstatusbar(msg % 'node')

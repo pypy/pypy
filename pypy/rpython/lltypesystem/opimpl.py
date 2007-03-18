@@ -2,7 +2,6 @@ import sys
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import opimpls
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -26,10 +25,6 @@ type_by_name = {
     'llong': r_longlong,
     'ullong': r_ulonglong,
     }
-
-# this is just a flag, when we should check for
-# CDefinedSymbolicInt
-ops_to_check = {'is_true':True}
 
 def no_op(x):
     return x
@@ -63,16 +58,7 @@ def get_primitive_op_src(fullopname):
             fullopname,)
         argtype = type_by_name[typname]
 
-        if opname in ops_to_check:
-            def op_function(x):
-                # is instead of isinstance for performance
-                if type(x) is CDefinedIntSymbolic:
-                    x = x.default
-                if not isinstance(x, argtype):
-                    raise TypeError("%r arg must be %s, got %r instead" % (
-                        fullopname, typname, type(x).__name__))
-                return adjust_result(func(x))
-        elif opname in ops_unary:
+        if opname in ops_unary:
             def op_function(x):
                 if not isinstance(x, argtype):
                     raise TypeError("%r arg must be %s, got %r instead" % (

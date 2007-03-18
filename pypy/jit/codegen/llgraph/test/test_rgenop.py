@@ -9,6 +9,10 @@ from pypy.rpython.test.test_llinterp import gengraph, interpret
 class TestLLGraphRGenop(AbstractRGenOpTests):
     RGenOp = RGenOp
 
+    def setup_method(self, meth):
+        if 'ovfcheck' in meth.__name__:
+            py.test.skip("no chance (the llinterpreter has no rtyper)")
+
     def getcompiled(self, runner, argtypes, annotatorpolicy):
         def quasi_compiled_runner(*args):
             return interpret(runner, args, policy=annotatorpolicy)

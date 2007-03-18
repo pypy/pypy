@@ -15,6 +15,9 @@ class TestRDumpGenop(AbstractRGenOpTests):
     def compile(self, runner, argtypes):
         py.test.skip("cannot compile tests for now")
 
+    # for the individual tests see
+    # ====> ../../test/rgenop_tests.py
+
 
 class Whatever(object):
     def __eq__(self, other):

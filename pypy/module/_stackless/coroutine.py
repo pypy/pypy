@@ -212,8 +212,11 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             # ("execute_frame", self, executioncontext, returns=w_exitvalue)
             chain = resume_state_create(chain, "execute_frame", frame, ec)
             code = frame.pycode.co_code
-            # ("dispatch", self, co_code, ec, returns=w_result)
+            # ("dispatch", self, co_code, ec, returns=next_instr)
             chain = resume_state_create(chain, "dispatch", frame, code, ec)
+            # ("handle_bytecode", self, co_code, ec, returns=next_instr)
+            chain = resume_state_create(chain, "handle_bytecode", frame, code,
+                                        ec)
             instr = frame.last_instr
             opcode = ord(code[instr])
             assert opcode == pythonopcode.opmap['CALL_FUNCTION']

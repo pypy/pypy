@@ -19,6 +19,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
+from pypy.rlib.objectmodel import hint
 
 # internal non-translatable parts: 
 import py
@@ -534,6 +535,7 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
 
 class BuiltinCode0(BuiltinCode):
     def fastcall_0(self, space, w_func):
+        self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_0(space)
         except KeyboardInterrupt: 
@@ -549,6 +551,7 @@ class BuiltinCode0(BuiltinCode):
 
 class BuiltinCode1(BuiltinCode):
     def fastcall_1(self, space, w_func, w1):
+        self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_1(space, w1)
         except KeyboardInterrupt: 
@@ -569,6 +572,7 @@ class BuiltinCode1(BuiltinCode):
 
 class BuiltinCode2(BuiltinCode):
     def fastcall_2(self, space, w_func, w1, w2):
+        self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_2(space, w1, w2)
         except KeyboardInterrupt: 
@@ -589,6 +593,7 @@ class BuiltinCode2(BuiltinCode):
 
 class BuiltinCode3(BuiltinCode):
     def fastcall_3(self, space, func, w1, w2, w3):
+        self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_3(space, w1, w2, w3)
         except KeyboardInterrupt: 
@@ -609,6 +614,7 @@ class BuiltinCode3(BuiltinCode):
 
 class BuiltinCode4(BuiltinCode):
     def fastcall_4(self, space, func, w1, w2, w3, w4):
+        self = hint(self, deepfreeze=True)
         try:
             w_result = self.fastfunc_4(space, w1, w2, w3, w4)
         except KeyboardInterrupt: 

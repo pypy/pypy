@@ -99,3 +99,15 @@ def test_translate():
 
     res = interpret(f, [])
     assert ''.join(res.chars) == '\x29\xCE\x89\x4D\x13'
+
+
+def test_unpack_compiled():
+    from pypy.translator.c.test.test_genc import compile
+
+    def f(n):
+        return mem(ebp, n).ofs_relative_to_ebp()
+
+    fn = compile(f, [int])
+    for i in [0, 4, 44, 124, 128, 132, 252, 256, 10000000,
+              -4, -44, -124, -128, -132, -252, -256, -10000000]:
+        assert fn(i) == i

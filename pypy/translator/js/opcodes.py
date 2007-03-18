@@ -2,7 +2,7 @@
 """
 
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, SetField, GetField, MicroInstruction, RuntimeNew
+    InstructionList, New, SetField, GetField, MicroInstruction, RuntimeNew, PushPrimitive
      
 from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispatcher, \
     _CallDispatcher, _MethodDispatcher
@@ -12,6 +12,7 @@ from pypy.translator.js.metavm import SameAs, IsInstance, Call, CallMethod, Copy
     IndirectCall, CallExternalObject, SetExternalField, _CastMethod, _LoadConst
 
 from pypy.translator.js.jsbuiltin import Builtins
+from pypy.rpython.ootypesystem import ootype
 
 DoNothing = [PushAllArgs]
 
@@ -153,6 +154,7 @@ opcodes = {'int_mul': '*',
     
     'debug_assert' : DoNothing,
     'resume_point' : DoNothing,
+    'is_early_constant': [PushPrimitive(ootype.Bool, False)],
 }
 
 for key, value in opcodes.iteritems():

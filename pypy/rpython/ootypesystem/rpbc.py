@@ -1,4 +1,4 @@
-from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
+from pypy.rpython.rmodel import CanBeNull, Repr, inputconst, impossible_repr
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
         AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
         AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
@@ -132,7 +132,10 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         assert meth is not None, 'Missing method %s in class %s'\
                % (derived_mangled, self.r_im_self.lowleveltype)
         v = hop.genop("oosend", [cname]+vlist, resulttype=rresult)
-        return hop.llops.convertvar(v, rresult, hop.r_result)
+        if hop.r_result is impossible_repr:
+            return None      # see test_always_raising_methods
+        else:
+            return hop.llops.convertvar(v, rresult, hop.r_result)
 
     def _get_shape_index_callfamily(self, opname, s_pbc, args_s):
         bk = self.rtyper.annotator.bookkeeper

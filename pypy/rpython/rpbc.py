@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.lltype import \
      typeOf, Void, Bool, nullptr, frozendict, Ptr, Struct, malloc
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, HalfConcreteWrapper, CanBeNull, \
-        mangle, inputdesc, warning
+        mangle, inputdesc, warning, impossible_repr
 from pypy.rpython import rclass
 from pypy.rpython import robject
 
@@ -330,7 +330,10 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
         else:
             vlist.append(hop.inputconst(Void, row_of_graphs.values()))
             v = hop.genop('indirect_call', vlist, resulttype = rresult)
-        return hop.llops.convertvar(v, rresult, hop.r_result)
+        if hop.r_result is impossible_repr:
+            return None      # see test_always_raising_methods
+        else:
+            return hop.llops.convertvar(v, rresult, hop.r_result)
 
 class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
         def convert_from_to((r_fpbc1, r_fpbc2), v, llops):

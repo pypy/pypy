@@ -312,6 +312,23 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
         res = self.interpret(f, [])
         assert res == 1
 
+    def test_is_early_constant(self):
+        from pypy.rlib import objectmodel
+        def f(x):
+            if objectmodel._is_early_constant(x):
+                return 42
+            return 0
+
+        assert f(3) == 0
+        res = self.interpret(f, [5])
+        assert res == 0
+
+        def g():
+            return f(88)
+        
+        res = self.interpret(g, [])
+        assert res == 42
+
 
 class TestOOtype(BaseTestObjectModel, OORtypeMixin):
     pass

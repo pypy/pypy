@@ -3,8 +3,9 @@ from pypy.translator.cli.metavm import  Call, CallMethod, \
      CastWeakAdrToPtr, MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
-    New, RuntimeNew, CastTo
+    New, RuntimeNew, CastTo, PushPrimitive
 from pypy.translator.cli.cts import WEAKREF
+from pypy.rpython.ootypesystem import ootype
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
@@ -227,6 +228,7 @@ opcodes = {
     'cast_longlong_to_float':   'conv.r8',
     'cast_float_to_longlong':   'conv.i8',
     'truncate_longlong_to_int': 'conv.i4',
+    'is_early_constant':        [PushPrimitive(ootype.Bool, False)]
 }
 
 for key, value in opcodes.iteritems():

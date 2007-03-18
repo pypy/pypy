@@ -4,6 +4,7 @@ The rest, dealing with variables in optimized ways, is in
 pyfastscope.py and pynestedscope.py.
 """
 
+import sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
 from pypy.interpreter import gateway, function, eval
@@ -11,7 +12,7 @@ from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated, hint
+from pypy.rlib.objectmodel import we_are_translated, hint, we_are_jitted
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
@@ -40,45 +41,54 @@ def binaryoperation(operationname):
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
 
-BYTECODE_TRACE_ENABLED = True   # see also pypy.module.pypyjit
-
-
 class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
     
     ### opcode dispatch ###
 
-    def dispatch(self, co_code, next_instr, ec):
-        while True:
-            try:
-                w_result = self.dispatch_bytecode(co_code, next_instr, ec)
-                rstack.resume_point("dispatch", self, co_code, ec,
-                                    returns=w_result)
-                return w_result
-            except OperationError, operr:
-                next_instr = self.handle_operation_error(ec, operr)
-            except Reraise:
-                operr = self.last_exception
-                next_instr = self.handle_operation_error(ec, operr,
-                                                         attach_tb=False)
-            except KeyboardInterrupt:
-                next_instr = self.handle_asynchronous_error(ec,
-                    self.space.w_KeyboardInterrupt)
-            except MemoryError:
-                next_instr = self.handle_asynchronous_error(ec,
-                    self.space.w_MemoryError)
-            except RuntimeError, e:
-                if we_are_translated():
-                    # stack overflows should be the only kind of RuntimeErrors
-                    # in translated PyPy
-                    msg = "internal error (stack overflow?)"
-                else:
-                    msg = str(e)
-                next_instr = self.handle_asynchronous_error(ec,
-                    self.space.w_RuntimeError,
-                    self.space.wrap(msg))
+    def dispatch(self, pycode, next_instr, ec):
+        # For the sequel, force 'next_instr' to be unsigned for performance
+        next_instr = r_uint(next_instr)
+        co_code = pycode.co_code
 
+        try:
+            while True:
+                next_instr = self.handle_bytecode(co_code, next_instr, ec)
+                rstack.resume_point("dispatch", self, co_code, ec,
+                                    returns=next_instr)
+        except ExitFrame:
+            return self.popvalue()
+
+    def handle_bytecode(self, co_code, next_instr, ec):
+        try:
+            next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
+            rstack.resume_point("handle_bytecode", self, co_code, ec,
+                                returns=next_instr)
+        except OperationError, operr:
+            next_instr = self.handle_operation_error(ec, operr)
+        except Reraise:
+            operr = self.last_exception
+            next_instr = self.handle_operation_error(ec, operr,
+                                                     attach_tb=False)
+        except KeyboardInterrupt:
+            next_instr = self.handle_asynchronous_error(ec,
+                self.space.w_KeyboardInterrupt)
+        except MemoryError:
+            next_instr = self.handle_asynchronous_error(ec,
+                self.space.w_MemoryError)
+        except RuntimeError, e:
+            if we_are_translated():
+                # stack overflows should be the only kind of RuntimeErrors
+                # in translated PyPy
+                msg = "internal error (stack overflow?)"
+            else:
+                msg = str(e)
+            next_instr = self.handle_asynchronous_error(ec,
+                self.space.w_RuntimeError,
+                self.space.wrap(msg))
+        return next_instr
+        
     def handle_asynchronous_error(self, ec, w_type, w_value=None):
         # catch asynchronous exceptions and turn them
         # into OperationErrors
@@ -92,7 +102,7 @@ class __extend__(pyframe.PyFrame):
         if attach_tb:
             pytraceback.record_application_traceback(
                 self.space, operr, self, self.last_instr)
-            if BYTECODE_TRACE_ENABLED:
+            if not we_are_jitted():
                 ec.exception_trace(self, operr)
 
         block = self.unrollstack(SApplicationException.kind)
@@ -111,15 +121,11 @@ class __extend__(pyframe.PyFrame):
             return next_instr
 
     def dispatch_bytecode(self, co_code, next_instr, ec):
-        hint(None, global_merge_point=True)
-        next_instr = hint(r_uint(next_instr), promote=True)
         space = self.space
         while True:
-            hint(None, global_merge_point=True)
             self.last_instr = intmask(next_instr)
-            if BYTECODE_TRACE_ENABLED:
+            if not we_are_jitted():
                 ec.bytecode_trace(self)
-                # For the sequel, force 'next_instr' to be unsigned for performance
                 next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
@@ -151,17 +157,16 @@ class __extend__(pyframe.PyFrame):
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
-                    return w_returnvalue
+                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    raise Return
                 else:
                     unroller = SReturnValue(w_returnvalue)
                     next_instr = block.handle(self, unroller)
-                    next_instr = hint(next_instr, promote=True)
-                    continue    # now inside a 'finally' block
+                    return next_instr    # now inside a 'finally' block
 
             if opcode == opcodedesc.YIELD_VALUE.index:
                 #self.last_instr = intmask(next_instr - 1) XXX clean up!
-                w_yieldvalue = self.popvalue()
-                return w_yieldvalue
+                raise Yield
 
             if opcode == opcodedesc.END_FINALLY.index:
                 unroller = self.end_finally()
@@ -169,11 +174,12 @@ class __extend__(pyframe.PyFrame):
                     # go on unrolling the stack
                     block = self.unrollstack(unroller.kind)
                     if block is None:
-                        return unroller.nomoreblocks()
+                        w_result = unroller.nomoreblocks()
+                        self.pushvalue(w_result)
+                        raise Return
                     else:
                         next_instr = block.handle(self, unroller)
-                        next_instr = hint(next_instr, promote=True)
-                continue
+                return next_instr
 
             if we_are_translated():
                 for opdesc in unrolling_opcode_descs:
@@ -194,7 +200,6 @@ class __extend__(pyframe.PyFrame):
                         # Instead, it's constant-folded to either True or False
                         if res is not None:
                             next_instr = res
-                            next_instr = hint(next_instr, promote=True)
                         break
                 else:
                     self.MISSING_OPCODE(oparg, next_instr)
@@ -204,11 +209,17 @@ class __extend__(pyframe.PyFrame):
                 res = getattr(self, methodname)(oparg, next_instr)
                 if res is not None:
                     next_instr = res
-                    next_instr = hint(next_instr, promote=True)
+
+            if we_are_jitted():
+                return next_instr
 
     def unrollstack(self, unroller_kind):
-        while len(self.blockstack) > 0:
+        n = len(self.blockstack)
+        n = hint(n, promote=True)
+        while n > 0:
             block = self.blockstack.pop()
+            n -= 1
+            hint(n, concrete=True)
             if (block.handling_mask & unroller_kind) != 0:
                 return block
             block.cleanupstack(self)
@@ -223,17 +234,20 @@ class __extend__(pyframe.PyFrame):
 
     ### accessor functions ###
 
+    def getcode(self):
+        return hint(hint(self.pycode, promote=True), deepfreeze=True)
+
     def getlocalvarname(self, index):
-        return self.pycode.co_varnames[index]
+        return self.getcode().co_varnames[index]
 
     def getconstant_w(self, index):
-        return self.pycode.co_consts_w[index]
+        return self.getcode().co_consts_w[index]
 
     def getname_u(self, index):
-        return self.space.str_w(self.pycode.co_names_w[index])
+        return self.space.str_w(self.getcode().co_names_w[index])
 
     def getname_w(self, index):
-        return self.pycode.co_names_w[index]
+        return self.getcode().co_names_w[index]
 
 
     ################################################################
@@ -262,6 +276,7 @@ class __extend__(pyframe.PyFrame):
 
     def STORE_FAST(f, varindex, *ignored):
         w_newvalue = f.popvalue()
+        assert w_newvalue is not None
         f.fastlocals_w[varindex] = w_newvalue
         #except:
         #    print "exception: got index error"
@@ -306,9 +321,7 @@ class __extend__(pyframe.PyFrame):
 
     def DUP_TOPX(f, itemcount, *ignored):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
-        for i in range(itemcount):
-            w_1 = f.peekvalue(itemcount-1)
-            f.pushvalue(w_1)
+        f.dupvalues(itemcount)
 
     UNARY_POSITIVE = unaryoperation("pos")
     UNARY_NEGATIVE = unaryoperation("neg")
@@ -569,9 +582,7 @@ class __extend__(pyframe.PyFrame):
             items = f.space.unpackiterable(w_iterable, itemcount)
         except UnpackValueError, e:
             raise OperationError(f.space.w_ValueError, f.space.wrap(e.msg))
-        items.reverse()
-        for item in items:
-            f.pushvalue(item)
+        f.pushrevvalues(itemcount, items)
 
     def STORE_ATTR(f, nameindex, *ignored):
         "obj.attributename = newvalue"
@@ -628,14 +639,12 @@ class __extend__(pyframe.PyFrame):
         
 
     def BUILD_TUPLE(f, itemcount, *ignored):
-        items = [f.popvalue() for i in range(itemcount)]
-        items.reverse()
+        items = f.popvalues(itemcount)
         w_tuple = f.space.newtuple(items)
         f.pushvalue(w_tuple)
 
     def BUILD_LIST(f, itemcount, *ignored):
-        items = [f.popvalue() for i in range(itemcount)]
-        items.reverse()
+        items = f.popvalues(itemcount)
         w_list = f.space.newlist(items)
         f.pushvalue(w_list)
 
@@ -686,8 +695,9 @@ class __extend__(pyframe.PyFrame):
     def COMPARE_OP(f, testnum, *ignored):
         w_2 = f.popvalue()
         w_1 = f.popvalue()
+        table = hint(f.compare_dispatch_table, deepfreeze=True)
         try:
-            testfn = f.compare_dispatch_table[testnum]
+            testfn = table[testnum]
         except IndexError:
             raise BytecodeCorruption, "bad COMPARE_OP oparg"
         w_result = testfn(f, w_1, w_2)
@@ -805,15 +815,8 @@ class __extend__(pyframe.PyFrame):
         n_keywords = (oparg>>8) & 0xff
         keywords = None
         if n_keywords:
-            keywords = {}
-            for i in range(n_keywords):
-                w_value = f.popvalue()
-                w_key   = f.popvalue()
-                key = f.space.str_w(w_key)
-                keywords[key] = w_value
-        arguments = [None] * n_arguments
-        for i in range(n_arguments - 1, -1, -1):
-            arguments[i] = f.popvalue()
+            keywords = f.popstrdictvalues(n_keywords)
+        arguments = f.popvalues(n_arguments)
         args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
         w_function  = f.popvalue()
         w_result = f.space.call_args(w_function, args)
@@ -822,7 +825,7 @@ class __extend__(pyframe.PyFrame):
         
     def CALL_FUNCTION(f, oparg, *ignored):
         # XXX start of hack for performance
-        if (oparg >> 8) & 0xff == 0:
+        if not we_are_jitted() and (oparg >> 8) & 0xff == 0:
             # Only positional arguments
             nargs = oparg & 0xff
             w_function = f.peekvalue(nargs)
@@ -853,8 +856,7 @@ class __extend__(pyframe.PyFrame):
     def MAKE_FUNCTION(f, numdefaults, *ignored):
         w_codeobj = f.popvalue()
         codeobj = f.space.interp_w(PyCode, w_codeobj)
-        defaultarguments = [f.popvalue() for i in range(numdefaults)]
-        defaultarguments.reverse()
+        defaultarguments = f.popvalues(numdefaults)
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
         f.pushvalue(f.space.wrap(fn))
 
@@ -913,6 +915,14 @@ class __extend__(pyframe.PyFrame):
 class Reraise(Exception):
     """Signal an application-level OperationError that should not grow
     a new traceback entry nor trigger the trace hook."""
+
+class ExitFrame(Exception):
+    pass
+
+class Return(ExitFrame):
+    """Obscure."""
+class Yield(ExitFrame):
+    """Obscure."""
 
 class BytecodeCorruption(Exception):
     """Detected bytecode corruption.  Never caught; it's an error."""
@@ -1032,13 +1042,17 @@ class FrameBlock:
         return space.newtuple([w(self._opname), w(self.handlerposition),
                                w(self.valuestackdepth)])
 
+    def handle(self, frame, unroller):
+        next_instr = self.really_handle(frame, unroller)   # JIT hack
+        return hint(next_instr, promote=True)
+
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
     _opname = 'SETUP_LOOP'
     handling_mask = SBreakLoop.kind | SContinueLoop.kind
 
-    def handle(self, frame, unroller):
+    def really_handle(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
             # re-push the loop block without cleaning up the value stack,
             # and jump to the beginning of the loop, stored in the
@@ -1057,7 +1071,7 @@ class ExceptBlock(FrameBlock):
     _opname = 'SETUP_EXCEPT'
     handling_mask = SApplicationException.kind
 
-    def handle(self, frame, unroller):
+    def really_handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
         # exception handler (the code after the except:)
         self.cleanupstack(frame)
@@ -1091,7 +1105,7 @@ class FinallyBlock(FrameBlock):
         frame.pushvalue(frame.space.w_None)
         frame.pushvalue(frame.space.w_None)
 
-    def handle(self, frame, unroller):
+    def really_handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
         # see comments in cleanup().

@@ -168,6 +168,10 @@ def genop(block, opname, vars_gv, gv_RESULT_TYPE):
     return to_opaque_object(erasedvar(v, block))
 
 def guess_result_type(opname, opvars):
+    if opname.endswith('_zer'):   # h
+        opname = opname[:-4]      # a
+    if opname.endswith('_ovf'):   # c
+        opname = opname[:-4]      # k
     op = getattr(llop, opname)
     need_result_type = getattr(op.fold, 'need_result_type', False)
     assert not need_result_type, ("cannot guess the result type of %r"
@@ -197,6 +201,13 @@ def genconst(llvalue):
     if v.concretetype == lltype.Void: # XXX genconst should not really be used for Void constants
         assert not isinstance(llvalue, str) and not isinstance(llvalue, lltype.LowLevelType)
     return to_opaque_object(v)
+
+def genzeroconst(gv_TYPE):
+    TYPE = from_opaque_object(gv_TYPE).value
+    TYPE = lltype.erasedType(TYPE)
+    c = flowmodel.Constant(TYPE._defl())
+    c.concretetype = TYPE
+    return to_opaque_object(c)
 
 def _generalcast(T, value):
     if isinstance(T, lltype.Ptr):
@@ -550,6 +561,7 @@ setannotation(getinputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(end, None)
 setannotation(genconst, s_ConstOrVar)
+setannotation(genzeroconst, s_ConstOrVar)
 setannotation(cast, s_ConstOrVar)
 setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
                                                   s_T.const))

@@ -167,3 +167,16 @@ def test_vararray():
     assert fn(21) == 42
 
 
+
+def test_is_early_constant():
+    from pypy.rlib import objectmodel
+    def f(x):
+        if objectmodel._is_early_constant(x):
+            return 42
+        return 0
+    
+
+    fn = compile_function(f, [int])
+    res = fn(5)
+    assert res == 0
+    

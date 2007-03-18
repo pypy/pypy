@@ -6,8 +6,10 @@ from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.model import ReplayBuilder, dummy_var
 from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.i386.operation import *
-from pypy.jit.codegen.i386.regalloc import RegAllocator, StorageInStack, Place
-from pypy.jit.codegen.i386.regalloc import DEBUG_STACK
+from pypy.jit.codegen.i386.regalloc import RegAllocator, DEBUG_STACK
+from pypy.jit.codegen.i386.regalloc import gv_frame_base, StorageInStack
+from pypy.jit.codegen.i386.regalloc import Place, OpAbsorbPlace, OpTouch
+from pypy.jit.codegen.i386.regalloc import write_stack_reserve, write_stack_adj
 from pypy.jit.codegen import conftest
 from pypy.rpython.annlowlevel import llhelper
 
@@ -82,18 +84,20 @@ def cast_adr_to_whatever(T, addr):
 # ____________________________________________________________
 
 class FlexSwitch(CodeGenSwitch):
-    REG = eax
 
-    def __init__(self, rgenop, inputargs_gv, inputoperands):
+    def __init__(self, rgenop, graphctx, reg, inputargs_gv, inputoperands):
         self.rgenop = rgenop
+        self.graphctx = graphctx
+        self.reg = reg
         self.inputargs_gv = inputargs_gv
         self.inputoperands = inputoperands
         self.defaultcaseaddr = 0
 
     def initialize(self, mc):
+        self.graphctx.write_stack_adj(mc, initial=False)
         self._reserve(mc)
-        default_builder = Builder(self.rgenop, self.inputargs_gv,
-                                  self.inputoperands)
+        default_builder = Builder(self.rgenop, self.graphctx,
+                                  self.inputargs_gv, self.inputoperands)
         start = self.nextfreepos
         end   = self.endfreepos
         fullmc = self.rgenop.InMemoryCodeBuilder(start, end)
@@ -123,8 +127,8 @@ class FlexSwitch(CodeGenSwitch):
         
     def add_case(self, gv_case):
         rgenop = self.rgenop
-        targetbuilder = Builder(self.rgenop, self.inputargs_gv,
-                                self.inputoperands)
+        targetbuilder = Builder(self.rgenop, self.graphctx,
+                                self.inputargs_gv, self.inputoperands)
         try:
             self._add_case(gv_case, targetbuilder)
         except CodeBlockOverflow:
@@ -138,7 +142,7 @@ class FlexSwitch(CodeGenSwitch):
         end   = self.endfreepos
         mc = self.rgenop.InMemoryCodeBuilder(start, end)
         value = gv_case.revealconst(lltype.Signed)
-        mc.CMP(FlexSwitch.REG, imm(value))
+        mc.CMP(self.reg, imm(value))
         targetbuilder.set_coming_from(mc, Conditions['E'])
         pos = mc.tell()
         assert self.defaultcaseaddr != 0
@@ -205,45 +209,41 @@ def poke_word_into(addr, value):
 
 class Builder(GenBuilder):
     coming_from = 0
-    operations = None
     update_defaultcaseaddr_of = None
-    force_in_stack = None
+    paused_alive_gv = None
+    order_dependency = None
+    keepalives_gv = None
 
-    def __init__(self, rgenop, inputargs_gv, inputoperands):
+    def __init__(self, rgenop, graphctx, inputargs_gv, inputoperands):
         self.rgenop = rgenop
+        self.graphctx = graphctx
         self.inputargs_gv = inputargs_gv
         self.inputoperands = inputoperands
-
-    def start_writing(self):
-        assert self.operations is None
         self.operations = []
 
-    def generate_block_code(self, final_vars_gv, force_vars=[],
-                                                 force_operands=[],
-                                                 renaming=True,
-                                                 minimal_stack_depth=0):
-        allocator = RegAllocator()
-        if self.force_in_stack is not None:
-            allocator.force_stack_storage(self.force_in_stack)
-        allocator.set_final(final_vars_gv)
+    def start_writing(self):
+        self.paused_alive_gv = None
+
+    def generate_block_code(self, final_vars_gv, final_operands=None,
+                                                 renaming=True):
+        self.insert_keepalives()
+        if self.order_dependency is not None:
+            self.order_dependency.force_generate_code()
+            self.order_dependency = None
+        allocator = RegAllocator(self.operations)
+        allocator.set_final(final_vars_gv, final_operands)
         if not renaming:
-            final_vars_gv = allocator.var2loc.keys()  # unique final vars
-        allocator.allocate_locations(self.operations)
-        allocator.force_var_operands(force_vars, force_operands,
-                                     at_start=False)
-        allocator.force_var_operands(self.inputargs_gv, self.inputoperands,
-                                     at_start=True)
-        allocator.allocate_registers()
-        if allocator.required_frame_depth < minimal_stack_depth:
-            allocator.required_frame_depth = minimal_stack_depth
+            assert final_operands is None
+            final_vars_gv = allocator.varsused()  # unique final vars
+        allocator.compute_lifetimes()
+        allocator.init_reg_alloc(self.inputargs_gv, self.inputoperands)
         mc = self.start_mc()
-        allocator.mc = mc
-        allocator.generate_initial_moves()
-        allocator.generate_operations()
-        if self.force_in_stack is not None:
-            allocator.save_storage_places(self.force_in_stack)
-            self.force_in_stack = None
-        self.operations = None
+        allocator.generate_operations(mc)
+        if final_operands is not None:
+            allocator.generate_final_moves(final_vars_gv, final_operands)
+        #print 'NSTACKMAX==============>', allocator.nstackmax
+        self.graphctx.ensure_stack_vars(allocator.nstackmax)
+        del self.operations[:]
         if renaming:
             self.inputargs_gv = [GenVar() for v in final_vars_gv]
         else:
@@ -252,18 +252,19 @@ class Builder(GenBuilder):
         self.inputoperands = [allocator.get_operand(v) for v in final_vars_gv]
         return mc
 
+    def insert_keepalives(self):
+        if self.keepalives_gv is not None:
+            self.operations.append(OpTouch(self.keepalives_gv))
+            self.keepalives_gv = None
+
     def enter_next_block(self, kinds, args_gv):
-##        mc = self.generate_block_code(args_gv)
-##        assert len(self.inputargs_gv) == len(args_gv)
-##        args_gv[:len(args_gv)] = self.inputargs_gv
-##        self.set_coming_from(mc)
-##        self.rgenop.close_mc(mc)
-##        self.start_writing()
+        # we get better register allocation if we write a single large mc block
+        self.insert_keepalives()
         for i in range(len(args_gv)):
             op = OpSameAs(args_gv[i])
             args_gv[i] = op
             self.operations.append(op)
-        lbl = Label()
+        lbl = Label(self)
         lblop = OpLabel(lbl, args_gv)
         self.operations.append(lblop)
         return lbl
@@ -272,7 +273,7 @@ class Builder(GenBuilder):
         self.coming_from_cond = insncond
         self.coming_from = mc.tell()
         insnemit = EMIT_JCOND[insncond]
-        insnemit(mc, rel32(0))
+        insnemit(mc, rel32(-1))
         self.coming_from_end = mc.tell()
 
     def start_mc(self):
@@ -301,57 +302,61 @@ class Builder(GenBuilder):
             self.coming_from = 0
         return mc
 
-    def _jump_if(self, gv_condition, args_for_jump_gv, negate):
-        newbuilder = Builder(self.rgenop, list(args_for_jump_gv), None)
-        # if the condition does not come from an obvious comparison operation,
-        # e.g. a getfield of a Bool or an input argument to the current block,
-        # then insert an OpIntIsTrue
-        if gv_condition.cc_result < 0 or gv_condition not in self.operations:
-            gv_condition = OpIntIsTrue(gv_condition)
-            self.operations.append(gv_condition)
-        self.operations.append(JumpIf(gv_condition, newbuilder, negate=negate))
+    def _jump_if(self, cls, gv_condition, args_for_jump_gv):
+        newbuilder = Builder(self.rgenop, self.graphctx,
+                             list(args_for_jump_gv), None)
+        newbuilder.order_dependency = self
+        self.operations.append(cls(gv_condition, newbuilder))
         return newbuilder
 
     def jump_if_false(self, gv_condition, args_for_jump_gv):
-        return self._jump_if(gv_condition, args_for_jump_gv, True)
+        return self._jump_if(JumpIfNot, gv_condition, args_for_jump_gv)
 
     def jump_if_true(self, gv_condition, args_for_jump_gv):
-        return self._jump_if(gv_condition, args_for_jump_gv, False)
+        return self._jump_if(JumpIf, gv_condition, args_for_jump_gv)
 
     def finish_and_goto(self, outputargs_gv, targetlbl):
         operands = targetlbl.inputoperands
         if operands is None:
-            # this occurs when jumping back to the same currently-open block;
-            # close the block and re-open it
+            # jumping to a label in a builder whose code has not been
+            # generated yet - this builder could be 'self', in the case
+            # of a tight loop
             self.pause_writing(outputargs_gv)
+            targetlbl.targetbuilder.force_generate_code()
             self.start_writing()
             operands = targetlbl.inputoperands
             assert operands is not None
-        mc = self.generate_block_code(outputargs_gv, outputargs_gv, operands,
-                              minimal_stack_depth = targetlbl.targetstackdepth)
+        mc = self.generate_block_code(outputargs_gv, operands)
         mc.JMP(rel32(targetlbl.targetaddr))
         mc.done()
         self.rgenop.close_mc(mc)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
-        mc = self.generate_block_code([gv_returnvar], [gv_returnvar], [eax])
+        gvs = [gv_returnvar]
+        mc = self.generate_block_code(gvs, [eax])
         # --- epilogue ---
-        mc.LEA(esp, mem(ebp, -12))
+        mc.MOV(esp, ebp)
+        mc.POP(ebp)
         mc.POP(edi)
         mc.POP(esi)
         mc.POP(ebx)
-        mc.POP(ebp)
         mc.RET()
         # ----------------
         mc.done()
         self.rgenop.close_mc(mc)
 
     def pause_writing(self, alive_gv):
-        mc = self.generate_block_code(alive_gv, renaming=False)
-        self.set_coming_from(mc)
-        mc.done()
-        self.rgenop.close_mc(mc)
+        self.paused_alive_gv = alive_gv
         return self
+
+    def force_generate_code(self):
+        alive_gv = self.paused_alive_gv
+        if alive_gv is not None:
+            self.paused_alive_gv = None
+            mc = self.generate_block_code(alive_gv, renaming=False)
+            self.set_coming_from(mc)
+            mc.done()
+            self.rgenop.close_mc(mc)
 
     def end(self):
         pass
@@ -366,11 +371,29 @@ class Builder(GenBuilder):
         return op
 
     @specialize.arg(1)
+    def genraisingop1(self, opname, gv_arg):
+        cls = getopclass1(opname)
+        op = cls(gv_arg)
+        self.operations.append(op)
+        op_excflag = OpFetchCC(op.ccexcflag)
+        self.operations.append(op_excflag)
+        return op, op_excflag
+
+    @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         cls = getopclass2(opname)
         op = cls(gv_arg1, gv_arg2)
         self.operations.append(op)
         return op
+
+    @specialize.arg(1)
+    def genraisingop2(self, opname, gv_arg1, gv_arg2):
+        cls = getopclass2(opname)
+        op = cls(gv_arg1, gv_arg2)
+        self.operations.append(op)
+        op_excflag = OpFetchCC(op.ccexcflag)
+        self.operations.append(op_excflag)
+        return op, op_excflag
 
     def genop_ptr_iszero(self, kind, gv_ptr):
         cls = getopclass1('ptr_iszero')
@@ -464,10 +487,11 @@ class Builder(GenBuilder):
         return op
 
     def flexswitch(self, gv_exitswitch, args_gv):
-        reg = FlexSwitch.REG
-        mc = self.generate_block_code(args_gv, [gv_exitswitch], [reg],
-                                      renaming=False)
-        result = FlexSwitch(self.rgenop, self.inputargs_gv, self.inputoperands)
+        op = OpGetExitSwitch(gv_exitswitch)
+        self.operations.append(op)
+        mc = self.generate_block_code(args_gv, renaming=False)
+        result = FlexSwitch(self.rgenop, self.graphctx, op.reg,
+                            self.inputargs_gv, self.inputoperands)
         default_builder = result.initialize(mc)
         mc.done()
         self.rgenop.close_mc(mc)
@@ -481,42 +505,77 @@ class Builder(GenBuilder):
         # XXX re-do this somehow...
 
     def genop_get_frame_base(self):
-        op = OpGetFrameBase()
-        self.operations.append(op)
-        return op
+        return gv_frame_base
 
     def get_frame_info(self, vars_gv):
-        if self.force_in_stack is None:
-            self.force_in_stack = []
         result = []
         for v in vars_gv:
             if not v.is_const:
-                place = StorageInStack()
-                self.force_in_stack.append((v, place))
-                v = place
+                if self.keepalives_gv is None:
+                    self.keepalives_gv = []
+                self.keepalives_gv.append(v)
+                sis = StorageInStack(v)
+                self.operations.append(sis)
+                v = sis
             result.append(v)
         return result
 
-    def alloc_frame_place(self, kind, gv_initial_value):
-        if self.force_in_stack is None:
-            self.force_in_stack = []
-        v = OpSameAs(gv_initial_value)
-        self.operations.append(v)
-        place = Place()
-        place.stackvar = v
-        self.force_in_stack.append((v, place))
+    def alloc_frame_place(self, kind, gv_initial_value=None):
+        place = Place(gv_initial_value)
+        self.operations.append(place)
         return place
 
     def genop_absorb_place(self, kind, place):
-        v = place.stackvar
-        place.stackvar = None  # break reference to potentially lots of memory
+        v = OpAbsorbPlace(place)
+        self.operations.append(v)
         return v
 
 
 class Label(GenLabel):
     targetaddr = 0
-    targetstackdepth = 0
     inputoperands = None
+
+    def __init__(self, targetbuilder):
+        self.targetbuilder = targetbuilder
+
+
+class GraphCtx:
+    # keep this in sync with the generated function prologue:
+    # how many extra words are initially pushed (including the
+    # return value, pushed by the caller)
+    PROLOGUE_FIXED_WORDS = 5
+
+    def __init__(self, rgenop):
+        self.rgenop = rgenop
+        self.initial_addr = 0   # position where there is the initial ADD ESP
+        self.adj_addrs = []     # list of positions where there is a LEA ESP
+        self.reserved_stack_vars = 0
+
+    def write_stack_adj(self, mc, initial):
+        if initial:
+            addr = write_stack_reserve(mc, self.reserved_stack_vars)
+            self.initial_addr = addr
+        else:
+            addr = write_stack_adj(mc, self.reserved_stack_vars)
+            self.adj_addrs.append(addr)
+
+    def ensure_stack_vars(self, n):
+        if CALL_ALIGN > 1:
+            # align the stack to a multiple of CALL_ALIGN words
+            stack_words = GraphCtx.PROLOGUE_FIXED_WORDS + n
+            stack_words = (stack_words + CALL_ALIGN-1) & ~ (CALL_ALIGN-1)
+            n = stack_words - GraphCtx.PROLOGUE_FIXED_WORDS
+        # patch all the LEA ESP if the requested amount has grown
+        if n > self.reserved_stack_vars:
+            addr = self.initial_addr
+            patchmc = self.rgenop.InMemoryCodeBuilder(addr, addr+99)
+            write_stack_reserve(patchmc, n)
+            patchmc.done()
+            for addr in self.adj_addrs:
+                patchmc = self.rgenop.InMemoryCodeBuilder(addr, addr+99)
+                write_stack_adj(patchmc, n)
+                patchmc.done()
+            self.reserved_stack_vars = n
 
 # ____________________________________________________________
 
@@ -530,39 +589,38 @@ class RI386GenOp(AbstractRGenOp):
         MC_SIZE *= 16
 
     def __init__(self):
-        self.mcs = []   # machine code blocks where no-one is currently writing
+        self.allocated_mc = None
         self.keepalive_gc_refs = [] 
-        self.total_code_blocks = 0
 
     def open_mc(self):
-        if self.mcs:
-            # XXX think about inserting NOPS for alignment
-            return self.mcs.pop()
-        else:
-            # XXX supposed infinite for now
-            self.total_code_blocks += 1
+        # XXX supposed infinite for now
+        mc = self.allocated_mc
+        if mc is None:
             return self.MachineCodeBlock(self.MC_SIZE)
+        else:
+            self.allocated_mc = None
+            return mc
 
     def close_mc(self, mc):
-        # an open 'mc' is ready for receiving code... but it's also ready
-        # for being garbage collected, so be sure to close it if you
-        # want the generated code to stay around :-)
-        self.mcs.append(mc)
+        assert self.allocated_mc is None
+        self.allocated_mc = mc
 
     def check_no_open_mc(self):
-        assert len(self.mcs) == self.total_code_blocks
+        pass
 
     def newgraph(self, sigtoken, name):
+        graphctx = GraphCtx(self)
         # --- prologue ---
         mc = self.open_mc()
         entrypoint = mc.tell()
         if DEBUG_TRAP:
             mc.BREAKPOINT()
-        mc.PUSH(ebp)
-        mc.MOV(ebp, esp)
         mc.PUSH(ebx)
         mc.PUSH(esi)
         mc.PUSH(edi)
+        mc.PUSH(ebp)
+        mc.MOV(ebp, esp)
+        graphctx.write_stack_adj(mc, initial=True)
         # ^^^ pushed 5 words including the retval ( == PROLOGUE_FIXED_WORDS)
         # ----------------
         numargs = sigtoken     # for now
@@ -570,8 +628,9 @@ class RI386GenOp(AbstractRGenOp):
         inputoperands = []
         for i in range(numargs):
             inputargs_gv.append(GenVar())
-            inputoperands.append(mem(ebp, WORD * (2+i)))
-        builder = Builder(self, inputargs_gv, inputoperands)
+            ofs = WORD * (GraphCtx.PROLOGUE_FIXED_WORDS+i)
+            inputoperands.append(mem(ebp, ofs))
+        builder = Builder(self, graphctx, inputargs_gv, inputoperands)
         # XXX this makes the code layout in memory a bit obscure: we have the
         # prologue of the new graph somewhere in the middle of its first
         # caller, all alone...
@@ -600,8 +659,12 @@ class RI386GenOp(AbstractRGenOp):
             return AddrConst(lladdr)
         else:
             assert 0, "XXX not implemented"
-    
+
     # attached later constPrebuiltGlobal = global_rgenop.genconst
+
+    @staticmethod
+    def genzeroconst(kind):
+        return zero_const
 
     @staticmethod
     @specialize.memo()
@@ -694,5 +757,6 @@ class RI386GenOp(AbstractRGenOp):
 
 global_rgenop = RI386GenOp()
 RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst
+zero_const = AddrConst(llmemory.NULL)
 
 MALLOC_SIGTOKEN = RI386GenOp.sigToken(GC_MALLOC.TO)

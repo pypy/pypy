@@ -167,3 +167,36 @@ def test_parent_has_attrs_failure():
         AA(3)
 
     py.test.raises(TyperError, interpret, f, [])
+
+def test_read_not_redirected_field():
+    class V(object):
+        _virtualizable_ = True
+
+        def __init__(self, v):
+            self.v = v
+    def f(v):
+        vinst = V(v)
+        return vinst, vinst.v, vinst.__class__
+    res = interpret(f, [42])
+    assert res.item1 == 42
+    
+
+def test_void_fields():
+    class F(object):
+        def _freeze_(self):
+            return True
+
+    f = F()
+    
+    class V(object):
+        _virtualizable_ = True
+
+        def __init__(self, v):
+            self.v = v
+            self.f = f
+    def f(v):
+        vinst = V(v)
+        return vinst, vinst.v, vinst.f
+    res = interpret(f, [42])
+    assert res.item1 == 42
+    

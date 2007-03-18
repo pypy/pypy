@@ -1,16 +1,22 @@
+from pypy.rlib.rarithmetic import intmask
 
 
 class OPERAND(object):
+    _attrs_ = []
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.assembler())
 
 class REG(OPERAND):
     width = 4
-    lowest8bits = None
     def __repr__(self):
         return '<%s>' % self.__class__.__name__.lower()
     def assembler(self):
         return '%' + self.__class__.__name__.lower()
+    def lowest8bits(self):
+        if self.op < 4:
+            return registers8[self.op]
+        else:
+            raise ValueError
 
 class REG8(OPERAND):
     width = 1
@@ -46,11 +52,18 @@ class IMM32(OPERAND):
     def assembler(self):
         return '$%d' % (self.value,)
 
+    def lowest8bits(self):
+        val = self.value & 0xFF
+        if val > 0x7F:
+            val -= 0x100
+        return IMM8(val)
+
 class IMM8(IMM32):
     width = 1
 
 class IMM16(OPERAND):  # only for RET
     width = 2
+    value = 0      # annotator hack
 
     def __init__(self, value):
         self.value = value
@@ -63,6 +76,9 @@ class MODRM(OPERAND):
     def __init__(self, byte, extradata):
         self.byte = byte
         self.extradata = extradata
+
+    def lowest8bits(self):
+        return MODRM8(self.byte, self.extradata)
 
     def assembler(self):
         mod = self.byte & 0xC0
@@ -185,13 +201,12 @@ ch = CH()
 dh = DH()
 bh = BH()
 
-eax.lowest8bits = al
-ecx.lowest8bits = cl
-edx.lowest8bits = dl
-ebx.lowest8bits = bl
-
 registers = [eax, ecx, edx, ebx, esp, ebp, esi, edi]
 registers8 = [al, cl, dl, bl, ah, ch, dh, bh]
+
+for r in registers + registers8:
+    r.bitmask = 1 << r.op
+del r
 
 imm32 = IMM32
 imm8 = IMM8
@@ -256,6 +271,9 @@ def _SIBencode(cls, base, index, scaleshift, offset):
     else:
         return cls(0x84, SIB + packimm32(offset))
 
+def fixedsize_ebp_ofs(offset):
+    return MODRM(0x80 | EBP.op, packimm32(offset))
+
 def single_byte(value):
     return -128 <= value < 128
 
@@ -276,15 +294,19 @@ def packimm16(i):
 
 def unpack(s):
     assert len(s) in (1, 2, 4)
-    result = 0
-    shift = 0
-    char = '\x00'      # flow space workaround
-    for char in s:
-        result |= ord(char) << shift
-        shift += 8
-    if ord(char) >= 0x80:
-        result -= 1 << shift
-    return result
+    if len(s) == 1:
+        a = ord(s[0])
+        if a > 0x7f:
+            a -= 0x100
+    else:
+        a = ord(s[0]) | (ord(s[1]) << 8)
+        if len(s) == 2:
+            if a > 0x7fff:
+                a -= 0x10000
+        else:
+            a |= (ord(s[2]) << 16) | (ord(s[3]) << 24)
+            a = intmask(a)
+    return a
 
 missing = MISSING()
 

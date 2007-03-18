@@ -111,11 +111,30 @@ class LLBuilder(GenBuilder):
         return LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
 
     @specialize.arg(1)
+    def genraisingop1(self, opname, gv_arg):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genraisingop1: bad currently_writing")
+        gv_res = LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
+        gv_exc = LLVar(llimpl.genop(self.b, "check_and_clear_exc", [],
+                                    gv_Bool.v))
+        return gv_res, gv_exc
+
+    @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop2: bad currently_writing")
         return LLVar(llimpl.genop(self.b, opname, [gv_arg1, gv_arg2],
                                   llimpl.guess))
+
+    @specialize.arg(1)
+    def genraisingop2(self, opname, gv_arg1, gv_arg2):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genraisingop2: bad currently_writing")
+        gv_res = LLVar(llimpl.genop(self.b, opname, [gv_arg1, gv_arg2],
+                                    llimpl.guess))
+        gv_exc = LLVar(llimpl.genop(self.b, "check_and_clear_exc", [],
+                                    gv_Bool.v))
+        return gv_res, gv_exc
 
     def genop_call(self, (ARGS_gv, gv_RESULT, _), gv_callable, args_gv):
         debug_assert(self.rgenop.currently_writing is self,
@@ -326,9 +345,11 @@ class LLBuilder(GenBuilder):
                      "get_frame_info: bad currently_writing")
         return llimpl.get_frame_info(self.b, vars)
 
-    def alloc_frame_place(self, gv_TYPE, gv_initial_value):
+    def alloc_frame_place(self, gv_TYPE, gv_initial_value=None):
         debug_assert(self.rgenop.currently_writing is self,
                      "alloc_frame_place: bad currently_writing")
+        if gv_initial_value is None:
+            gv_initial_value = self.rgenop.genzeroconst(gv_TYPE)
         gv_initial_value = llimpl.cast(self.b, gv_TYPE.v, gv_initial_value.v)
         v = LLVar(llimpl.genop(self.b, 'same_as', [gv_initial_value],
                                gv_TYPE.v))
@@ -403,6 +424,10 @@ class RGenOp(AbstractRGenOp):
                 gv_TYPE(FUNCTYPE))
 
     constPrebuiltGlobal = genconst
+
+    @staticmethod
+    def genzeroconst(gv_TYPE):
+        return LLConst(llimpl.genzeroconst(gv_TYPE.v))
 
     def replay(self, label, kinds):
         builder = LLBuilder(self, label.g, llimpl.nullblock)

@@ -38,7 +38,7 @@ def test_simple_melting_away():
     graph, t = get_graph(fn, [int])
     assert summary(graph) == {'int_ge': 1, 'int_sub': 1}
     remove_asserts(t, [graph])
-    assert summary(graph) == {'int_sub': 1}
+    assert summary(graph) == {'int_ge': 1, 'debug_assert': 1, 'int_sub': 1}
     check_graph(graph, [1], 0, t)
 
 def test_and():

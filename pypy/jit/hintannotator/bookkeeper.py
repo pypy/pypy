@@ -1,17 +1,22 @@
 import py
 from pypy.tool.tls import tlsobject
 from pypy.tool.ansi_print import ansi_log
+from pypy.rlib import objectmodel
 from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
+from pypy.objspace.flow.model import Variable, Block, Link, FunctionGraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.translator.backendopt import graphanalyze
+from pypy.translator.unsimplify import copyvar
 
 TLS = tlsobject()
 
 log = py.log.Producer("hintannotate")
 py.log.setconsumer("hintannotate", ansi_log)
 
+TIMESHIFTMAP = {Constant(objectmodel._we_are_jitted):
+                Constant(1, lltype.Signed)}
 
 class GraphDesc(object):
 
@@ -42,7 +47,12 @@ class GraphDesc(object):
             return self._cache[key]
         except KeyError:
             bk = self.bookkeeper
-            graph = copygraph(self.origgraph)
+            if bk.annotator.policy.look_inside_graph(self.origgraph):
+                graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
+                log(str(graph))
+            else:
+                graph = self.build_callback_graph(self.origgraph)
+                log.stub(str(graph))
             graph.tag = 'timeshifted'
             try:
                 etrafo = bk.annotator.exceptiontransformer
@@ -55,8 +65,21 @@ class GraphDesc(object):
                 graph.name = alt_name
             self._cache[key] = graph
             self.bookkeeper.annotator.translator.graphs.append(graph)
-            log(str(graph))
             return graph
+
+    def build_callback_graph(self, graph):
+        args_v = [copyvar(None, v) for v in graph.getargs()]
+        v_res = copyvar(None, graph.getreturnvar())
+        rtyper = self.bookkeeper.annotator.base_translator.rtyper  # fish
+        fnptr = rtyper.getcallable(graph)
+        v_ptr = Constant(fnptr, lltype.typeOf(fnptr))
+        newstartblock = Block(args_v)
+        newstartblock.operations.append(
+            SpaceOperation('direct_call', [v_ptr] + args_v, v_res))
+        newgraph = FunctionGraph(graph.name, newstartblock)
+        newgraph.getreturnvar().concretetype = v_res.concretetype
+        newstartblock.closeblock(Link([v_res], newgraph.returnblock))
+        return newgraph
 
 
 class TsGraphCallFamily:
@@ -317,7 +340,8 @@ class HintBookkeeper(object):
         graph = desc.specialize(args_hs, key=key, alt_name=alt_name)
         return graph
 
-    def graph_call(self, graph, fixed, args_hs, tsgraph_accum=None):
+    def graph_call(self, graph, fixed, args_hs,
+                   tsgraph_accum=None, hs_callable=None):
         input_args_hs = list(args_hs)
         graph = self.get_graph_for_call(graph, fixed, input_args_hs)
         if tsgraph_accum is not None:
@@ -337,27 +361,34 @@ class HintBookkeeper(object):
                                               input_args_hs)
         # look on which input args the hs_res result depends on
         if isinstance(hs_res, hintmodel.SomeLLAbstractConstant):
-            deps_hs = []
-            for hs_inputarg, hs_arg in zip(input_args_hs, args_hs):
-                if isinstance(hs_inputarg, hintmodel.SomeLLAbstractConstant):
-                    assert len(hs_inputarg.origins) == 1
-                    [o] = hs_inputarg.origins.keys()
-                    if o in hs_res.origins:
-                        deps_hs.append(hs_arg)
-            if fixed:
-                deps_hs.append(hs_res)
-            hs_res = hintmodel.reorigin(hs_res, *deps_hs)
+            if (hs_callable is not None and
+                not isinstance(hs_callable, hintmodel.SomeLLAbstractConstant)):
+                hs_res = hintmodel.variableoftype(hs_res.concretetype,
+                                                  hs_res.deepfrozen)
+            else:
+                deps_hs = []
+                for hs_inputarg, hs_arg in zip(input_args_hs, args_hs):
+                    if isinstance(hs_inputarg,
+                                  hintmodel.SomeLLAbstractConstant):
+                        assert len(hs_inputarg.origins) == 1
+                        [o] = hs_inputarg.origins.keys()
+                        if o in hs_res.origins:
+                            deps_hs.append(hs_arg)
+                if fixed:
+                    deps_hs.append(hs_res)
+                hs_res = hintmodel.reorigin(hs_res, hs_callable, *deps_hs)
         return hs_res
 
     def graph_family_call(self, graph_list, fixed, args_hs,
-                          tsgraphs_accum=None):
+                          tsgraphs_accum=None, hs_callable=None):
         if tsgraphs_accum is None:
             tsgraphs = []
         else:
             tsgraphs = tsgraphs_accum
         results_hs = []
         for graph in graph_list:
-            results_hs.append(self.graph_call(graph, fixed, args_hs, tsgraphs))
+            results_hs.append(self.graph_call(graph, fixed, args_hs,
+                                              tsgraphs, hs_callable))
         # put the tsgraphs in the same call family
         call_families = self.tsgraph_maximal_call_families
         _, rep, callfamily = call_families.find(tsgraphs[0])

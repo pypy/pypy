@@ -464,11 +464,13 @@ ll_copy.oopspec = 'list.copy(l)'
 def ll_len(l):
     return l.ll_length()
 ll_len.oopspec = 'list.len(l)'
+ll_len.oopargcheck = lambda l: bool(l)
 
 def ll_list_is_true(l):
     # check if a list is True, allowing for None
     return bool(l) and l.ll_length() != 0
 ll_list_is_true.oopspec = 'list.nonzero(l)'
+ll_list_is_true.oopargcheck = lambda l: True
 
 def ll_append(l, newitem):
     length = l.ll_length()
@@ -601,6 +603,8 @@ def ll_getitem_nonneg(func, l, index):
         debug_assert(index < l.ll_length(), "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem_nonneg.oopspec = 'list.getitem(l, index)'
+ll_getitem_nonneg.oopargcheck = lambda l, index: (bool(l) and
+                                                  0 <= index < l.ll_length())
 
 def ll_getitem(func, l, index):
     length = l.ll_length()
@@ -614,6 +618,8 @@ def ll_getitem(func, l, index):
         debug_assert(index < length, "list getitem index out of bound")
     return l.ll_getitem_fast(index)
 ll_getitem.oopspec = 'list.getitem(l, index)'
+ll_getitem.oopargcheck = lambda l, index: (bool(l) and -l.ll_length() <=
+                                                       index < l.ll_length())
 
 def ll_setitem_nonneg(func, l, index, newitem):
     debug_assert(index >= 0, "unexpectedly negative list setitem index")

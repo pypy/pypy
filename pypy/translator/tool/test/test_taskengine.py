@@ -99,3 +99,50 @@ def test_execute():
     assert test(['B', 'A'], ['C']) == trace(['B', 'A'])
     assert test(['B', 'A', 'C']) == trace(['B', 'C', 'A'])
     assert test(['B', 'A', 'C'], ['C']) == trace(['B', 'C', 'A'])
+
+def test_driver():
+    class Drv(SimpleTaskEngine):
+
+        def task_A():
+            pass
+        task_A.task_deps = []
+
+        def task_R():
+            pass
+        task_R.task_deps = ['A']
+
+        def task_b():
+            pass
+        task_b.task_deps = ['R']
+
+        def task_H():
+            pass
+        task_H.task_deps = ['b']
+
+        def task_T():
+            pass
+        task_T.task_deps = ['H']
+
+        def task_B():
+            pass
+        task_B.task_deps = ['R', '??T']
+
+        def task_D():
+            pass
+        task_D.task_deps = ['R', '?B', '?A', '??T']
+
+    drv = Drv()
+    assert drv._plan(['R']) == ['A', 'R']
+    assert drv._plan(['B']) == ['A', 'R', 'B']
+    assert drv._plan(['D']) == ['A', 'R', 'B', 'D']
+    assert drv._plan(['D'], skip=['B']) == ['A', 'R', 'D']
+    assert drv._plan(['D', 'R']) == ['A', 'R', 'B', 'D']
+
+
+    assert drv._plan(['H', 'R']) == ['A', 'R', 'b', 'H']
+    assert drv._plan(['H']) == ['A', 'R', 'b', 'H']
+    assert drv._plan(['T', 'B']) == ['A', 'R', 'b', 'H', 'T', 'B']
+    assert drv._plan(['D', 'T']) == ['A', 'R', 'b', 'H', 'T', 'B', 'D']
+    assert drv._plan(['D', 'T', 'R']) == ['A', 'R', 'b', 'H', 'T', 'B', 'D']
+    assert drv._plan(['D', 'T']) == ['A', 'R', 'b', 'H', 'T', 'B', 'D']
+    assert drv._plan(['D', 'T'], skip=['B']) == ['A', 'R', 'b', 'H', 'T', 'D']

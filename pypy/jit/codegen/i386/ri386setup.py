@@ -273,6 +273,10 @@ MOV.mode2(REG8,  REG8,  ['\x88', register(2,8,'b'), register(1,1,'b'), '\xC0'])
 MOV.mode2(MODRM8,REG8,  ['\x88', register(2,8,'b'), modrm(1,'b')])
 MOV.mode2(REG8,  MODRM8,['\x8A', register(1,8,'b'), modrm(2,'b')])
 
+# special modes for writing explicit 16-bit immediates (must also use o16!)
+MOV.mode2(REG,   IMM16, [register(1), '\xB8', immediate(2,'h')])
+MOV.mode2(MODRM, IMM16, ['\xC7', orbyte(0<<3), modrm(1), immediate(2,'h')])
+
 ADD = Instruction()
 ADD.common_modes(0)
 

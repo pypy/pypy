@@ -1,4 +1,5 @@
 import py
+import sys
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException, log
@@ -563,3 +564,22 @@ def test_half_exceptiontransformed_graphs():
     assert res == 6
     res = interp.eval_graph(graph, [3, -9831])
     assert res == 7
+
+def test_exceptiontransformed_add_ovf():
+    from pypy.translator.c import exceptiontransform
+    def f(x, y):
+        try:
+            return ovfcheck(x + y)
+        except OverflowError:
+            return -42
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int, int])
+    t.buildrtyper().specialize()
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    graph = graphof(t, f)
+    etrafo.create_exception_handling(graph)
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graph, [1, -64])
+    assert res == -63
+    res = interp.eval_graph(graph, [1, sys.maxint])
+    assert res == -42

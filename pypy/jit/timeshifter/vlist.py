@@ -3,6 +3,9 @@ from pypy.jit.timeshifter.rcontainer import VirtualContainer, FrozenContainer
 from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue, rvirtualizable
 
+from pypy.rpython.lltypesystem import lloperation
+debug_print = lloperation.llop.debug_print
+
 
 class ItemDesc(object):
     __metaclass__ = cachedtype
@@ -72,7 +75,7 @@ class ListTypeDesc(object):
 
     def factory(self, length, itembox):
         vlist = VirtualList(self, length, itembox)
-        box = rvalue.PtrRedBox(self.ptrkind)
+        box = rvalue.PtrRedBox(self.ptrkind, known_nonzero=True)
         box.content = vlist
         vlist.ownbox = box
         return box
@@ -151,7 +154,7 @@ class VirtualList(VirtualContainer):
 
     def setforced(self, gv_forced):
         self.item_boxes = None
-        self.ownbox.genvar = gv_forced
+        self.ownbox.setgenvar_hint(gv_forced, known_nonzero=True)
         self.ownbox.content = None        
 
     def force_runtime_container(self, jitstate):
@@ -160,6 +163,7 @@ class VirtualList(VirtualContainer):
         boxes = self.item_boxes
         self.item_boxes = None
 
+        debug_print(lltype.Void, "FORCE LIST (%d items)" % (len(boxes),))
         args_gv = [builder.rgenop.genconst(len(boxes))]
         gv_list = builder.genop_call(typedesc.tok_ll_newlist,
                                      typedesc.gv_ll_newlist,
@@ -217,10 +221,10 @@ class VirtualList(VirtualContainer):
         memo.containers[self] = vrti
 
         builder = jitstate.curbuilder
-        place = builder.alloc_frame_place(typedesc.ptrkind,
-                                          typedesc.gv_null)
-        gv_forced = builder.genop_absorb_place(typedesc.ptrkind, place)
+        place = builder.alloc_frame_place(typedesc.ptrkind)
         vrti.forced_place = place
+        forced_box = rvalue.PtrRedBox(typedesc.ptrkind)
+        memo.forced_boxes.append((forced_box, place))
 
         vars_gv = memo.framevars_gv
         varindexes = vrti.varindexes
@@ -239,9 +243,7 @@ class VirtualList(VirtualContainer):
                 vrtis.append(content.make_rti(jitstate, memo))
                 j -= 1
 
-        self.item_boxes.append(rvalue.PtrRedBox(typedesc.ptrkind,
-                                                   gv_forced))
-                
+        self.item_boxes.append(forced_box)
         return vrti
 
     def reshape(self, jitstate, shapemask, memo):
@@ -284,19 +286,23 @@ def oop_list_copy(jitstate, oopspecdesc, selfbox):
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox])
 
-def oop_list_len(jitstate, oopspecdesc, selfbox):
+def oop_list_len(jitstate, oopspecdesc, deepfrozen, selfbox):
     content = selfbox.content
     if isinstance(content, VirtualList):
         return rvalue.ll_fromvalue(jitstate, len(content.item_boxes))
     else:
-        return oopspecdesc.residual_call(jitstate, [selfbox])
+        return oopspecdesc.residual_call(jitstate, [selfbox],
+                                         deepfrozen=deepfrozen)
+oop_list_len.couldfold = True
 
-def oop_list_nonzero(jitstate, oopspecdesc, selfbox):
+def oop_list_nonzero(jitstate, oopspecdesc, deepfrozen, selfbox):
     content = selfbox.content
     if isinstance(content, VirtualList):
         return rvalue.ll_fromvalue(jitstate, bool(content.item_boxes))
     else:
-        return oopspecdesc.residual_call(jitstate, [selfbox])
+        return oopspecdesc.residual_call(jitstate, [selfbox],
+                                         deepfrozen=deepfrozen)
+oop_list_nonzero.couldfold = True
 
 def oop_list_append(jitstate, oopspecdesc, selfbox, itembox):
     content = selfbox.content
@@ -356,7 +362,7 @@ def oop_list_reverse(jitstate, oopspecdesc, selfbox):
     else:
         oopspecdesc.residual_call(jitstate, [selfbox])
 
-def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
+def oop_list_getitem(jitstate, oopspecdesc, deepfrozen, selfbox, indexbox):
     content = selfbox.content
     if isinstance(content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
@@ -365,7 +371,9 @@ def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
         except IndexError:
             return oopspecdesc.residual_exception(jitstate, IndexError)
     else:
-        return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])
+        return oopspecdesc.residual_call(jitstate, [selfbox, indexbox],
+                                         deepfrozen=deepfrozen)
+oop_list_getitem.couldfold = True
 
 def oop_list_setitem(jitstate, oopspecdesc, selfbox, indexbox, itembox):
     content = selfbox.content

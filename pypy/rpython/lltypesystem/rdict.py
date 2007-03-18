@@ -397,6 +397,7 @@ def ll_dict_getitem(d, key):
     else: 
         raise KeyError 
 ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
+ll_dict_getitem.oopargcheck = lambda d, key: bool(d)
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
@@ -736,3 +737,4 @@ def ll_contains(d, key):
     entry = ll_dict_lookup(d, key, d.keyhash(key))
     return entry.valid()
 ll_contains.oopspec = 'dict.contains(d, key)'
+ll_contains.oopargcheck = lambda d, key: bool(d)

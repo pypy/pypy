@@ -29,7 +29,11 @@ class SimpleTaskEngine(object):
         def subgoals(task_name):
             taskcallable, deps = self.tasks[task_name]
             for dep in deps:
-                if dep.startswith('?'):
+                if dep.startswith('??'): # optional
+                    dep = dep[2:]
+                    if dep not in goals:
+                        continue                
+                if dep.startswith('?'): # suggested
                     dep = dep[1:]
                     if dep in skip:
                         continue

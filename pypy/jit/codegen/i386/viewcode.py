@@ -232,24 +232,29 @@ class World(object):
                     break
         # hack hack hacked
 
-    def show(self):
-        g1 = Graph('codedump')
+    def show(self, showtext=True, showgraph=True):
+        if showgraph:
+            g1 = Graph('codedump')
         self.ranges.sort()
         for r in self.ranges:
             disassembled = r.disassemble()
-            print disassembled
-            text, width = tab2columns(disassembled)
-            text = '0x%x\n\n%s' % (r.addr, text)
-            g1.emit_node('N_%x' % r.addr, shape="box", label=text,
-                         width=str(width*0.1125))
-            for lineno, targetaddr, final in r.findjumps():
-                if final:
-                    color = "black"
-                else:
-                    color = "red"
-                g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr, color=color)
+            if showtext:
+                print disassembled
+            if showgraph:
+                text, width = tab2columns(disassembled)
+                text = '0x%x\n\n%s' % (r.addr, text)
+                g1.emit_node('N_%x' % r.addr, shape="box", label=text,
+                             width=str(width*0.1125))
+                for lineno, targetaddr, final in r.findjumps():
+                    if final:
+                        color = "black"
+                    else:
+                        color = "red"
+                    g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr, 
+                                 color=color)
         sys.stdout.flush()
-        g1.display()
+        if showgraph:
+            g1.display()
 
 
 def tab2columns(text):
@@ -341,10 +346,15 @@ class _PageContent:
 # ____________________________________________________________
 
 if __name__ == '__main__':
+    if '--text' in sys.argv:
+        sys.argv.remove('--text')
+        showgraph = False
+    else:
+        showgraph = True
     if len(sys.argv) == 1:
         f = sys.stdin
     else:
         f = open(sys.argv[1], 'r')
     world = World()
     world.parse(f)
-    world.show()
+    world.show(showtext=True, showgraph=showgraph)

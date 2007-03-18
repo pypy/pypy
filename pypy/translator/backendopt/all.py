@@ -37,7 +37,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     # merge_if_blocks, constfold, heap2stack
     # clever_malloc_removal, remove_asserts
 
-    config = translator.config.translation.backendopt.copy()
+    config = translator.config.translation.backendopt.copy(as_default=True)
     config.set(**kwds)
 
     if graphs is None:
@@ -73,6 +73,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         inline_malloc_removal_phase(config, translator, graphs,
                                     threshold,
                                     inline_heuristic=heuristic)
+        constfold(config, graphs)
 
     if config.clever_malloc_removal:
         threshold = config.clever_malloc_removal_threshold
@@ -106,6 +107,7 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
                                     threshold,
                                     inline_heuristic=heuristic,
                                     call_count_pred=call_count_pred)
+    constfold(config, graphs)
 
     if config.remove_asserts:
         remove_asserts(translator, graphs)
@@ -158,6 +160,3 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
         if config.print_statistics:
             print "after malloc removal:"
             print_statistics(translator.graphs[0], translator)    
-
-    constfold(config, graphs)
-

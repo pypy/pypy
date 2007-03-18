@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import Constant, checkgraph, c_last_exception
+from pypy.rpython.rtyper import LowLevelOpList, inputconst
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
-from pypy.translator.simplify import transform_dead_op_vars
+#from pypy.translator.simplify import transform_dead_op_vars
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rclass
 from pypy.translator.backendopt.support import log
@@ -35,7 +36,7 @@ def remove_asserts(translator, graphs):
             if translator.config.translation.verbose:
                 log.removeassert("removed %d asserts in %s" % (count, graph.name))
             checkgraph(graph)
-            transform_dead_op_vars(graph, translator)
+            #transform_dead_op_vars(graph, translator)
 
 
 def kill_assertion_link(graph, link):
@@ -50,6 +51,20 @@ def kill_assertion_link(graph, link):
     else:
         if block.exitswitch.concretetype is not lltype.Bool:   # a switch
             remove_condition = False
+        else:
+            # common case: if <cond>: raise AssertionError
+            # turn it into a debug_assert operation
+            assert remove_condition
+            newops = LowLevelOpList()
+            if link.exitcase:
+                v = newops.genop('bool_not', [block.exitswitch],
+                                 resulttype = lltype.Bool)
+            else:
+                v = block.exitswitch
+            msg = "assertion failed in %s" % (graph.name,)
+            c_msg = inputconst(lltype.Void, msg)
+            newops.genop('debug_assert', [v, c_msg])
+            block.operations.extend(newops)
 
     exits.remove(link)
     if remove_condition:

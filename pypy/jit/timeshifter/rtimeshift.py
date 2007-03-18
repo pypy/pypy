@@ -8,11 +8,11 @@ from pypy.rpython.annlowlevel import cachedtype, base_ptr_lltype
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
-FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
-
-FOLDABLE_GREEN_OPS = FOLDABLE_OPS.copy()
+FOLDABLE_GREEN_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 FOLDABLE_GREEN_OPS['getfield'] = None
 FOLDABLE_GREEN_OPS['getarrayitem'] = None
+
+NULL_OBJECT = base_ptr_lltype()._defl()
 
 debug_view = lloperation.llop.debug_view
 debug_print = lloperation.llop.debug_print
@@ -28,7 +28,8 @@ class OpDesc(object):
     that can be passed around to low level helpers
     to inform op generation
     """
-    
+    canraise = False
+
     def _freeze_(self):
         return True
 
@@ -40,8 +41,14 @@ class OpDesc(object):
         self.ARGS = ARGS
         self.RESULT = RESULT
         self.result_kind = RGenOp.kindToken(RESULT)
+        self.whatever_result = RESULT._defl()
         self.redboxcls = rvalue.ll_redboxcls(RESULT)
-        self.canfold = opname in FOLDABLE_OPS
+        self.canfold = self.llop.canfold
+        self.tryfold = self.llop.tryfold
+        if self.tryfold and self.llop.canraise:
+            self.canraise = True
+            self.gv_True  = RGenOp.constPrebuiltGlobal(True)
+            self.gv_False = RGenOp.constPrebuiltGlobal(False)
 
     def __getattr__(self, name): # .ARGx -> .ARGS[x]
         if name.startswith('ARG'):
@@ -71,12 +78,27 @@ def ll_gen1(opdesc, jitstate, argbox):
     ARG0 = opdesc.ARG0
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if opdesc.canfold and argbox.is_constant():
+    if opdesc.tryfold and argbox.is_constant():
         arg = rvalue.ll_getvalue(argbox, ARG0)
-        res = opdesc.llop(RESULT, arg)
+        if not opdesc.canraise:
+            res = opdesc.llop(RESULT, arg)
+        else:
+            try:
+                res = opdesc.llop(RESULT, arg)
+            except Exception:   # shouldn't raise anything unexpected
+                res = opdesc.whatever_result
+                gv_flag = opdesc.gv_True
+            else:
+                gv_flag = opdesc.gv_False
+            jitstate.greens.append(gv_flag)
         return rvalue.ll_fromvalue(jitstate, res)
     gv_arg = argbox.getgenvar(jitstate)
-    genvar = jitstate.curbuilder.genop1(opdesc.opname, gv_arg)
+    if not opdesc.canraise:
+        genvar = jitstate.curbuilder.genop1(opdesc.opname, gv_arg)
+    else:
+        genvar, gv_raised = jitstate.curbuilder.genraisingop1(opdesc.opname,
+                                                              gv_arg)
+        jitstate.greens.append(gv_raised)    # for split_raisingop()
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
 def ll_gen2(opdesc, jitstate, argbox0, argbox1):
@@ -84,28 +106,49 @@ def ll_gen2(opdesc, jitstate, argbox0, argbox1):
     ARG1 = opdesc.ARG1
     RESULT = opdesc.RESULT
     opname = opdesc.name
-    if opdesc.canfold and argbox0.is_constant() and argbox1.is_constant():
+    if opdesc.tryfold and argbox0.is_constant() and argbox1.is_constant():
         # const propagate
         arg0 = rvalue.ll_getvalue(argbox0, ARG0)
         arg1 = rvalue.ll_getvalue(argbox1, ARG1)
-        res = opdesc.llop(RESULT, arg0, arg1)
+        if not opdesc.canraise:
+            res = opdesc.llop(RESULT, arg0, arg1)
+        else:
+            try:
+                res = opdesc.llop(RESULT, arg0, arg1)
+            except Exception:   # shouldn't raise anything unexpected
+                res = opdesc.whatever_result
+                gv_flag = opdesc.gv_True
+            else:
+                gv_flag = opdesc.gv_False
+            jitstate.greens.append(gv_flag)
         return rvalue.ll_fromvalue(jitstate, res)
     gv_arg0 = argbox0.getgenvar(jitstate)
     gv_arg1 = argbox1.getgenvar(jitstate)
-    genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
+    if not opdesc.canraise:
+        genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
+    else:
+        genvar, gv_raised = jitstate.curbuilder.genraisingop2(opdesc.opname,
+                                                              gv_arg0, gv_arg1)
+        jitstate.greens.append(gv_raised)    # for split_raisingop()
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
 def ll_genmalloc_varsize(jitstate, contdesc, sizebox):
+    # the specialized by contdesc is not useful, unify paths
+    return genmalloc_varsize(jitstate, contdesc, sizebox)
+
+def genmalloc_varsize(jitstate, contdesc, sizebox):
     gv_size = sizebox.getgenvar(jitstate)
     alloctoken = contdesc.varsizealloctoken
     genvar = jitstate.curbuilder.genop_malloc_varsize(alloctoken, gv_size)
-    return rvalue.PtrRedBox(contdesc.ptrkind, genvar)
+    # XXX MemoryError handling
+    return rvalue.PtrRedBox(contdesc.ptrkind, genvar, known_nonzero=True)
 
 def ll_gengetfield(jitstate, deepfrozen, fielddesc, argbox):
     if (fielddesc.immutable or deepfrozen) and argbox.is_constant():
-        res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
-                      fielddesc.fieldname)
-        return rvalue.ll_fromvalue(jitstate, res)
+        ptr = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
+        if ptr:    # else don't constant-fold the segfault...
+            res = getattr(ptr, fielddesc.fieldname)
+            return rvalue.ll_fromvalue(jitstate, res)
     return argbox.op_getfield(jitstate, fielddesc)
 
 def ll_gensetfield(jitstate, fielddesc, destbox, valuebox):
@@ -113,17 +156,20 @@ def ll_gensetfield(jitstate, fielddesc, destbox, valuebox):
 
 def ll_gengetsubstruct(jitstate, fielddesc, argbox):
     if argbox.is_constant():
-        res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
-                      fielddesc.fieldname)
-        return rvalue.ll_fromvalue(jitstate, res)
+        ptr = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
+        if ptr:    # else don't constant-fold - we'd get a bogus pointer
+            res = getattr(ptr, fielddesc.fieldname)
+            return rvalue.ll_fromvalue(jitstate, res)
     return argbox.op_getsubstruct(jitstate, fielddesc)
 
 def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
     if ((fielddesc.immutable or deepfrozen) and argbox.is_constant()
                                             and indexbox.is_constant()):
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
-        res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
-        return rvalue.ll_fromvalue(jitstate, res)
+        index = rvalue.ll_getvalue(indexbox, lltype.Signed)
+        if array and 0 <= index < len(array):  # else don't constant-fold
+            res = array[index]
+            return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarrayitem(
         fielddesc.arraytoken,
         argbox.getgenvar(jitstate),
@@ -134,8 +180,10 @@ def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
 def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
     if argbox.is_constant() and indexbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
-        res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
-        return rvalue.ll_fromvalue(jitstate, res)
+        index = rvalue.ll_getvalue(indexbox, lltype.Signed)
+        if array and 0 <= index < len(array):  # else don't constant-fold
+            res = array[index]
+            return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarraysubstruct(
         fielddesc.arraytoken,
         argbox.getgenvar(jitstate),
@@ -155,8 +203,9 @@ def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
 def ll_gengetarraysize(jitstate, fielddesc, argbox):
     if argbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
-        res = len(array)
-        return rvalue.ll_fromvalue(jitstate, res)
+        if array:    # else don't constant-fold the segfault...
+            res = len(array)
+            return rvalue.ll_fromvalue(jitstate, res)
     genvar = jitstate.curbuilder.genop_getarraysize(
         fielddesc.arraytoken,
         argbox.getgenvar(jitstate))
@@ -167,14 +216,14 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
         addr = rvalue.ll_getvalue(argbox, llmemory.Address)
         return rvalue.ll_fromvalue(jitstate, bool(addr) ^ reverse)
     builder = jitstate.curbuilder
-    if argbox.content is None:
+    if argbox.known_nonzero:
+        gv_res = builder.rgenop.genconst(True ^ reverse)
+    else:
         gv_addr = argbox.getgenvar(jitstate)
         if reverse:
             gv_res = builder.genop_ptr_iszero(argbox.kind, gv_addr)
         else:
             gv_res = builder.genop_ptr_nonzero(argbox.kind, gv_addr)
-    else:
-        gv_res = builder.rgenop.genconst(True ^ reverse)
     return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Bool), gv_res)
 
 def ll_genptreq(jitstate, argbox0, argbox1, reverse):
@@ -201,6 +250,7 @@ def enter_next_block(jitstate, incoming):
     linkargs = []
     kinds = []
     for redbox in incoming:
+        assert not redbox.genvar.is_const
         linkargs.append(redbox.genvar)
         kinds.append(redbox.kind)
     newblock = jitstate.curbuilder.enter_next_block(kinds, linkargs)
@@ -208,7 +258,7 @@ def enter_next_block(jitstate, incoming):
         incoming[i].genvar = linkargs[i]
     return newblock
 
-def return_marker(jitstate):
+def return_marker(jitstate, resuming):
     raise AssertionError("shouldn't get here")
 
 def start_new_block(states_dic, jitstate, key, global_resumer, index=-1):
@@ -226,13 +276,16 @@ def start_new_block(states_dic, jitstate, key, global_resumer, index=-1):
         states_dic[key][index] = (frozen, newblock)
         
     if global_resumer is not None and global_resumer is not return_marker:
+        assert jitstate.get_resuming() is None
         jitstate.curbuilder.log('start_new_block %s' % (key,))
         greens_gv = jitstate.greens
         rgenop = jitstate.curbuilder.rgenop
         node = PromotionPathRoot(greens_gv, rgenop,
                                  frozen, newblock,
                                  global_resumer)
-        jitstate.frame.dispatchqueue.mergecounter = 0
+        dispatchqueue = jitstate.frame.dispatchqueue
+        assert dispatchqueue.split_chain is None
+        dispatchqueue.clearlocalcaches()
         jitstate.promotion_path = PromotionPathMergesToSee(node, 0)
         #debug_print(lltype.Void, "PROMOTION ROOT")
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
@@ -267,9 +320,10 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
         # redboxes from outgoingvarboxes, by making them variables.
         # Then we make a new block based on this new state.
         cleanup_partial_data(memo.partialdatamatch)
+        forget_nonzeroness = memo.forget_nonzeroness
         replace_memo = rvalue.copy_memo()
         for box in outgoingvarboxes:
-            box.forcevar(jitstate, replace_memo)
+            box.forcevar(jitstate, replace_memo, box in forget_nonzeroness)
         if replace_memo.boxes:
             jitstate.replace(replace_memo)
         start_new_block(states_dic, jitstate, key, global_resumer, index=i)
@@ -292,7 +346,7 @@ def cleanup_partial_data(partialdatamatch):
             box.content = content.cleanup_partial_data(keep)
 
 def merge_generalized(jitstate):
-    resuming = jitstate.resuming
+    resuming = jitstate.get_resuming()
     if resuming is None:
         node = jitstate.promotion_path
         while not node.cut_limit:
@@ -320,26 +374,72 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
     if exitgvar.is_const:
         return exitgvar.revealconst(lltype.Bool)
     else:
-        resuming = jitstate.resuming
-        if resuming is not None and resuming.mergesleft == 0:
-            node = resuming.path.pop()
-            assert isinstance(node, PromotionPathSplit)
-            return node.answer
-        false_gv = jitstate.get_locals_gv() # alive gvs on the false path
-        later_builder = jitstate.curbuilder.jump_if_false(exitgvar, false_gv)
-        jitstate2 = jitstate.split(later_builder, resumepoint, list(greens_gv))
-        if resuming is None:
-            node = jitstate.promotion_path
-            jitstate2.promotion_path = PromotionPathNo(node)
-            jitstate .promotion_path = PromotionPathYes(node)
-        return True
+        return split_nonconstantcase(jitstate, exitgvar, resumepoint,
+                                     None, False, list(greens_gv))
+
+def split_ptr_nonzero(jitstate, switchredbox, resumepoint,
+                      ptrbox, reverse, *greens_gv):
+    exitgvar = switchredbox.getgenvar(jitstate)
+    if exitgvar.is_const:
+        return exitgvar.revealconst(lltype.Bool)
+    else:
+        return split_nonconstantcase(jitstate, exitgvar, resumepoint,
+                                     ptrbox, reverse, list(greens_gv))
+
+def split_nonconstantcase(jitstate, exitgvar, resumepoint,
+                          ptrbox, reverse, greens_gv, ll_evalue=NULL_OBJECT):
+    resuming = jitstate.get_resuming()
+    if resuming is not None and resuming.mergesleft == 0:
+        node = resuming.path.pop()
+        assert isinstance(node, PromotionPathSplit)
+        if ptrbox is not None:
+            ok = ptrbox.learn_nonzeroness(jitstate,
+                                          nonzeroness = node.answer ^ reverse)
+            assert ok
+        return node.answer
+    later_gv = jitstate.get_locals_gv() # alive gvs on the later path
+    if ll_evalue:    # special case - we want jump_if_true in split_raisingop
+        later_builder = jitstate.curbuilder.jump_if_true(exitgvar, later_gv)
+    else:
+        later_builder = jitstate.curbuilder.jump_if_false(exitgvar, later_gv)
+    memo = rvalue.copy_memo()
+    jitstate2 = jitstate.split(later_builder, resumepoint, greens_gv, memo)
+    if ptrbox is not None:
+        ok = ptrbox.learn_nonzeroness(jitstate, nonzeroness = True ^ reverse)
+        assert ok
+        try:
+            copybox = memo.boxes[ptrbox]
+        except KeyError:
+            pass
+        else:
+            ok = copybox.learn_nonzeroness(jitstate2, nonzeroness = reverse)
+            assert ok
+    if ll_evalue:
+        jitstate2.residual_ll_exception(ll_evalue)
+    if resuming is None:
+        node = jitstate.promotion_path
+        jitstate2.promotion_path = PromotionPathNo(node)
+        jitstate .promotion_path = PromotionPathYes(node)
+    return True
+
+def split_raisingop(jitstate, resumepoint, ll_evalue, *greens_gv):
+    exitgvar = jitstate.greens.pop()   # pushed here by the raising op
+    if exitgvar.is_const:
+        gotexc = exitgvar.revealconst(lltype.Bool)
+    else:
+        gotexc = not split_nonconstantcase(jitstate, exitgvar, resumepoint,
+                                           None, False, list(greens_gv),
+                                           ll_evalue)
+    if gotexc:
+        jitstate.residual_ll_exception(ll_evalue)
 
 def collect_split(jitstate_chain, resumepoint, *greens_gv):
+    # YYY split to avoid over-specialization
     # assumes that the head of the jitstate_chain is ready for writing,
     # and all the other jitstates in the chain are paused
     greens_gv = list(greens_gv)
     pending = jitstate_chain
-    resuming = jitstate_chain.resuming
+    resuming = jitstate_chain.get_resuming()
     if resuming is not None and resuming.mergesleft == 0:
         node = resuming.path.pop()
         assert isinstance(node, PromotionPathCollectSplit)
@@ -382,7 +482,7 @@ def reverse_split_queue(dispatchqueue):
         newchain = jitstate
     dispatchqueue.split_chain = newchain
 
-def dispatch_next(oldjitstate, dispatchqueue):
+def dispatch_next(dispatchqueue):
     if dispatchqueue.split_chain is not None:
         jitstate = dispatchqueue.split_chain
         dispatchqueue.split_chain = jitstate.next
@@ -394,17 +494,13 @@ def dispatch_next(oldjitstate, dispatchqueue):
         jitstate.curbuilder.start_writing()
         return jitstate
     else:
-        oldjitstate.resumepoint = -1
-        return oldjitstate
+        return None
 
 def getresumepoint(jitstate):
-    return jitstate.resumepoint
-
-def pickjitstate(oldjitstate, newjitstate):
-    if newjitstate is not None:
-        return newjitstate
+    if jitstate is None:
+        return -1    # done
     else:
-        return oldjitstate
+        return jitstate.resumepoint
 
 def save_locals(jitstate, *redboxes):
     redboxes = list(redboxes)
@@ -437,12 +533,24 @@ def setexctypebox(jitstate, box):
 def setexcvaluebox(jitstate, box):
     jitstate.exc_value_box = box
 
+def setexception(jitstate, typebox, valuebox):
+    ok1 = typebox .learn_nonzeroness(jitstate, True)
+    ok2 = valuebox.learn_nonzeroness(jitstate, True)
+    assert ok1 & ok2       # probably... maybe it's false but it would be
+                           # nice to see what kind of contrieved code can
+                           # make this fail :-)
+    jitstate.exc_type_box = typebox
+    jitstate.exc_value_box = valuebox
+
 def save_return(jitstate):
     # add 'jitstate' to the chain of return-jitstates
     jitstate.pause()
     dispatchqueue = jitstate.frame.dispatchqueue
     jitstate.next = dispatchqueue.return_chain
     dispatchqueue.return_chain = jitstate
+
+def ll_learn_nonzeroness(jitstate, ptrbox, nonzeroness):
+    ptrbox.learn_nonzeroness(jitstate, nonzeroness)
 
 ##def ll_gvar_from_redbox(jitstate, redbox):
 ##    return redbox.getgenvar(jitstate)
@@ -458,11 +566,24 @@ class CallDesc:
         self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
         # xxx what if the result is virtualizable?
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
+        whatever_return_value = FUNCTYPE.RESULT._defl()
+        def green_call(jitstate, fnptr, *args):
+            try:
+                result = fnptr(*args)
+            except Exception, e:
+                jitstate.residual_exception(e)
+                result = whatever_return_value
+            return result
+        self.green_call = green_call
 
     def _freeze_(self):
         return True
 
 def ll_gen_residual_call(jitstate, calldesc, funcbox):
+    # specialization is not useful here, we can unify the calldescs
+    return gen_residual_call(jitstate, calldesc, funcbox)
+
+def gen_residual_call(jitstate, calldesc, funcbox):
     builder = jitstate.curbuilder
     gv_funcbox = funcbox.getgenvar(jitstate)
     argboxes = jitstate.frame.local_boxes
@@ -471,12 +592,39 @@ def ll_gen_residual_call(jitstate, calldesc, funcbox):
     gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
     return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
 
-def after_residual_call(jitstate):
-    return jitstate.after_residual_call()
+def ll_after_residual_call(jitstate, exceptiondesc, check_forced):
+    builder = jitstate.curbuilder
+    if check_forced:
+        gv_flags = jitstate.check_forced_after_residual_call()
+    else:
+        gv_flags = None
+    if exceptiondesc:
+        if exceptiondesc.lazy_exception_path:
+            gv_occurred = exceptiondesc.gen_exc_occurred(builder)
+            gv_flag = builder.genop1("cast_bool_to_int", gv_occurred)
+            if gv_flags is None:
+                gv_flags = gv_flag
+            else:
+                gv_flags = builder.genop2("int_or", gv_flags, gv_flag)
+        else:
+            assert gv_flags is None
+            exceptiondesc.fetch_global_excdata(jitstate)
+    if gv_flags is None:
+        gv_flags = builder.rgenop.constPrebuiltGlobal(0)
+    return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Signed), gv_flags)
 
-def reshape(jitstate, shapebox):
-    shapemask = rvalue.ll_getvalue(shapebox, lltype.Signed)
-    jitstate.reshape(shapemask)
+def residual_fetch(jitstate, exceptiondesc, check_forced, flagsbox):
+    flags = rvalue.ll_getvalue(flagsbox, lltype.Signed)
+    if flags & 1:   # an exception occurred
+        exceptiondesc.fetch_global_excdata(jitstate, known_occurred=True)
+    if check_forced:
+        shapemask = flags & ~ 1
+        jitstate.reshape(shapemask)
+
+def oopspec_was_residual(jitstate):
+    res = jitstate.generated_oop_residual_can_raise
+    jitstate.generated_oop_residual_can_raise = False
+    return res
 
 
 class ResumingInfo(object):
@@ -538,13 +686,13 @@ class PromotionPathRoot(AbstractPromotionPath):
         kinds = [box.kind for box in incoming]
         builder, vars_gv = self.rgenop.replay(self.replayableblock, kinds)
         for i in range(len(incoming)):
+            assert incoming[i].genvar is None
             incoming[i].genvar = vars_gv[i]
         jitstate.curbuilder = builder
         jitstate.greens = self.greens_gv
-        jitstate.resuming = resuminginfo
         assert jitstate.frame.backframe is None
         resuminginfo.merges_to_see()
-        self.global_resumer(jitstate)
+        self.global_resumer(jitstate, resuminginfo)
         builder.show_incremental_progress()
 
 class PromotionPathNode(AbstractPromotionPath):
@@ -596,7 +744,7 @@ MC_CALL_NOT_TAKEN      = -2
 
 
 class PromotionDesc:
-    __metatype__ = cachedtype
+    __metaclass__ = cachedtype
 
     def __init__(self, ERASED, hrtyper):
         state = hrtyper.portalstate
@@ -621,6 +769,7 @@ class PromotionDesc:
              annmodel.lltype_to_annotation(ERASED)],
             annmodel.s_None, needtype=True)
         RGenOp = hrtyper.RGenOp
+        self.exceptiondesc = hrtyper.exceptiondesc
         self.gv_continue_compilation = RGenOp.constPrebuiltGlobal(fnptr)
         self.sigtoken = RGenOp.sigToken(lltype.typeOf(fnptr).TO)
 ##        self.PROMOTION_POINT = r_PromotionPoint.lowleveltype
@@ -629,6 +778,10 @@ class PromotionDesc:
         return True
 
 def ll_promote(jitstate, promotebox, promotiondesc):
+    # the specialization by promotiondesc is not useful here, so unify paths
+    return promote(jitstate, promotebox, promotiondesc)
+
+def promote(jitstate, promotebox, promotiondesc):
     builder = jitstate.curbuilder
     gv_switchvar = promotebox.getgenvar(jitstate)
     if gv_switchvar.is_const:
@@ -640,7 +793,8 @@ def ll_promote(jitstate, promotebox, promotiondesc):
         incoming_gv = [box.genvar for box in incoming]
         flexswitch, default_builder = builder.flexswitch(gv_switchvar,
                                                          incoming_gv)
-        if jitstate.resuming is None:
+        resuming = jitstate.get_resuming()
+        if resuming is None:
             jitstate.curbuilder = default_builder
             # default case of the switch:
             pm = PromotionPoint(flexswitch, incoming_gv,
@@ -649,9 +803,18 @@ def ll_promote(jitstate, promotebox, promotiondesc):
             ll_pm = cast_instance_to_base_ptr(pm)
             gv_pm = default_builder.rgenop.genconst(ll_pm)
             gv_switchvar = promotebox.genvar
+            exceptiondesc = promotiondesc.exceptiondesc
+            gv_exc_type  = exceptiondesc.genop_get_exc_type (default_builder)
+            gv_exc_value = exceptiondesc.genop_get_exc_value(default_builder)
+            exceptiondesc.genop_set_exc_type (default_builder,
+                                              exceptiondesc.gv_null_exc_type )
+            exceptiondesc.genop_set_exc_value(default_builder,
+                                              exceptiondesc.gv_null_exc_value)
             default_builder.genop_call(promotiondesc.sigtoken,
                                promotiondesc.gv_continue_compilation,
                                [gv_pm, gv_switchvar])
+            exceptiondesc.genop_set_exc_type (default_builder, gv_exc_type )
+            exceptiondesc.genop_set_exc_value(default_builder, gv_exc_value)
             linkargs = []
             for box in incoming:
                 linkargs.append(box.getgenvar(jitstate))
@@ -659,7 +822,6 @@ def ll_promote(jitstate, promotebox, promotiondesc):
             return True
         else:
             assert jitstate.promotion_path is None
-            resuming = jitstate.resuming
             if resuming.mergesleft != 0:
                 default_builder.pause_writing([])
                 return True
@@ -679,15 +841,16 @@ def ll_promote(jitstate, promotebox, promotiondesc):
             if len(resuming.path) == 0:
                 incoming_gv = pm.incoming_gv
                 for i in range(len(incoming)):
+                    assert not incoming[i].genvar.is_const
                     incoming[i].genvar = incoming_gv[i]
                 flexswitch = pm.flexswitch
-                promotebox.genvar = promotenode.gv_value
-                jitstate.resuming = None
+                promotebox.setgenvar(promotenode.gv_value)
+                jitstate.clear_resuming()
                 node = PromotionPathMergesToSee(promotenode, 0)
                 jitstate.promotion_path = node
             else:
                 resuming.merges_to_see()
-                promotebox.genvar = promotenode.gv_value
+                promotebox.setgenvar(promotenode.gv_value)
                 
             newbuilder = flexswitch.add_case(promotenode.gv_value)
             jitstate.curbuilder = newbuilder
@@ -696,11 +859,15 @@ def ll_promote(jitstate, promotebox, promotiondesc):
 # ____________________________________________________________
 
 class BaseDispatchQueue(object):
+    resuming = None
 
     def __init__(self):
         self.split_chain = None
         self.global_merge_chain = None
         self.return_chain = None
+        self.clearlocalcaches()
+
+    def clearlocalcaches(self):
         self.mergecounter = 0
 
     def clear(self):
@@ -711,8 +878,8 @@ def build_dispatch_subclass(attrnames):
         return BaseDispatchQueue
     attrnames = unrolling_iterable(attrnames)
     class DispatchQueue(BaseDispatchQueue):
-        def __init__(self):
-            BaseDispatchQueue.__init__(self)
+        def clearlocalcaches(self):
+            BaseDispatchQueue.clearlocalcaches(self)
             for name in attrnames:
                 setattr(self, name, {})     # the new dicts have various types!
     return DispatchQueue
@@ -761,6 +928,14 @@ class FrozenJITState(object):
     #fz_virtualizables = ...  set by freeze()
 
     def exactmatch(self, jitstate, outgoingvarboxes, memo):
+        if not memo.force_merge:
+            null1 = self.fz_exc_type_box.is_constant_nullptr()
+            box = jitstate.exc_type_box
+            null2 = (box.is_constant() and
+                     not rvalue.ll_getvalue(box, llmemory.Address))
+            if null1 != null2:
+                raise rvalue.DontMerge # a jit-with-exc. and a jit-without-exc.
+
         fullmatch = True
         if not self.fz_frame.exactmatch(jitstate.frame,
                                         outgoingvarboxes,
@@ -829,20 +1004,32 @@ class VirtualFrame(object):
 
 
 class JITState(object):
+    _attrs_ = """curbuilder frame
+                 exc_type_box exc_value_box
+                 greens
+                 returnbox
+                 promotion_path
+                 resumepoint resuming
+                 next
+                 virtualizables
+                 shape_place
+                 forced_boxes
+                 generated_oop_residual_can_raise
+              """.split()
+
     returnbox = None
     next      = None   # for linked lists
     promotion_path = None
+    generated_oop_residual_can_raise = False
 
     def __init__(self, builder, frame, exc_type_box, exc_value_box,
-                 resumepoint=-1, newgreens=[], resuming=None,
-                 virtualizables=None):
+                 resumepoint=-1, newgreens=[], virtualizables=None):
         self.curbuilder = builder
         self.frame = frame
         self.exc_type_box = exc_type_box
         self.exc_value_box = exc_value_box
         self.resumepoint = resumepoint
         self.greens = newgreens
-        self.resuming = resuming   # None or a ResumingInfo
 
         # XXX can not be adictionary
         # it needs to be iterated in a deterministic order.
@@ -855,8 +1042,7 @@ class JITState(object):
         if virtualizable_box not in self.virtualizables:
             self.virtualizables.append(virtualizable_box)
 
-    def split(self, newbuilder, newresumepoint, newgreens):
-        memo = rvalue.copy_memo()
+    def split(self, newbuilder, newresumepoint, newgreens, memo):
         virtualizables = []
         for virtualizable_box in self.virtualizables:
             new_virtualizable_box = virtualizable_box.copy(memo)
@@ -868,7 +1054,6 @@ class JITState(object):
                                   self.exc_value_box.copy(memo),
                                   newresumepoint,
                                   newgreens,
-                                  self.resuming,
                                   virtualizables)
         # add the later_jitstate to the chain of pending-for-dispatch_next()
         dispatchqueue = self.frame.dispatchqueue
@@ -902,12 +1087,15 @@ class JITState(object):
         if virtualizables:
             builder = self.curbuilder
             memo = rvalue.make_vrti_memo()
-            memo.bitcount = 0
+            memo.bitcount = 1
             memo.frameindex = 0
             memo.framevars_gv = []
+            memo.forced_boxes = forced_boxes = []
+            
             shape_kind = builder.rgenop.kindToken(lltype.Signed)
             gv_zero = builder.rgenop.genconst(0)
             self.shape_place = builder.alloc_frame_place(shape_kind, gv_zero)
+            self.forced_boxes = forced_boxes
             
             vable_rtis = []
             for virtualizable_box in virtualizables:
@@ -928,29 +1116,35 @@ class JITState(object):
                 assert isinstance(content, rcontainer.VirtualizableStruct)
                 content.prepare_for_residual_call(self, gv_base, vable_rti)
                 
-    def after_residual_call(self):
+    def check_forced_after_residual_call(self):
         virtualizables = self.virtualizables
         builder = self.curbuilder
         if virtualizables:
             for virtualizable_box in virtualizables:
                 content = virtualizable_box.content
                 assert isinstance(content, rcontainer.VirtualizableStruct)
-                content.after_residual_call(self)
+                content.check_forced_after_residual_call(self)
             shape_kind = builder.rgenop.kindToken(lltype.Signed)
+
+            for forced_box, forced_place in self.forced_boxes:
+                gv_forced = builder.genop_absorb_place(forced_box.kind, forced_place)
+                forced_box.setgenvar(gv_forced)
+            self.forced_boxes = None
+
             gv_shape = builder.genop_absorb_place(shape_kind,
                                                   self.shape_place)
             self.shape_place = None
+            
+            return gv_shape
         else:
-            gv_shape = builder.rgenop.genconst(0)
-        return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Signed),
-                                gv_shape)
+            return None
 
     def reshape(self, shapemask):
         virtualizables = self.virtualizables
         builder = self.curbuilder
         if virtualizables:
             memo = rvalue.make_vrti_memo()
-            memo.bitcount = 0
+            memo.bitcount = 1
             if shapemask:
                 memo.forced = []
             else:
@@ -1012,7 +1206,17 @@ class JITState(object):
 
     def residual_exception(self, e):
         self.residual_ll_exception(cast_instance_to_base_ptr(e))
-        
+
+
+    def get_resuming(self):
+        return self.frame.dispatchqueue.resuming
+
+    def clear_resuming(self):
+        f = self.frame
+        while f is not None:
+            f.dispatchqueue.resuming = None
+            f = f.backframe
+
 
 def start_writing(jitstate=None, prevopen=None):
     if jitstate is not prevopen:
@@ -1027,18 +1231,22 @@ def ensure_queue(jitstate, DispatchQueueClass):
 ensure_queue._annspecialcase_ = 'specialize:arg(1)'
 
 def replayable_ensure_queue(jitstate, DispatchQueueClass):
-    resuming = jitstate.resuming
-    if resuming is None:
+    if jitstate.frame is None:    # common case
         return DispatchQueueClass()
     else:
+        # replaying
         dispatchqueue = jitstate.frame.dispatchqueue
         assert isinstance(dispatchqueue, DispatchQueueClass)
         return dispatchqueue
 replayable_ensure_queue._annspecialcase_ = 'specialize:arg(1)'
 
 def enter_frame(jitstate, dispatchqueue):
+    if jitstate.frame:
+        resuming = jitstate.get_resuming()
+        dispatchqueue.resuming = resuming
+    else:
+        resuming = None
     jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
-    resuming = jitstate.resuming
     if resuming is None:
         node = PromotionPathCall(jitstate.promotion_path)
         node = PromotionPathMergesToSee(node, 0)
@@ -1055,7 +1263,7 @@ def enter_frame(jitstate, dispatchqueue):
                 parent_mergesleft = MC_CALL_NOT_TAKEN
         dispatchqueue.mergecounter = parent_mergesleft
 
-def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
+def merge_returning_jitstates(dispatchqueue, force_merge=False):
     return_chain = dispatchqueue.return_chain
     return_cache = {}
     still_pending = None
@@ -1094,10 +1302,12 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     start_writing(still_pending, opened)
     return still_pending
 
-def leave_graph_red(jitstate, dispatchqueue, is_portal):
-    resuming = jitstate.resuming
-    return_chain = merge_returning_jitstates(jitstate, dispatchqueue,
+def leave_graph_red(dispatchqueue, is_portal):
+    resuming = dispatchqueue.resuming
+    return_chain = merge_returning_jitstates(dispatchqueue,
                                              force_merge=is_portal)
+    if is_portal:
+        assert return_chain is None or return_chain.next is None
     if resuming is not None:
         resuming.leave_call(dispatchqueue)
     jitstate = return_chain
@@ -1109,9 +1319,9 @@ def leave_graph_red(jitstate, dispatchqueue, is_portal):
         jitstate = jitstate.next
     return return_chain
 
-def leave_graph_gray(jitstate, dispatchqueue):
-    resuming = jitstate.resuming
-    return_chain = merge_returning_jitstates(jitstate, dispatchqueue)
+def leave_graph_gray(dispatchqueue):
+    resuming = dispatchqueue.resuming
+    return_chain = merge_returning_jitstates(dispatchqueue)
     if resuming is not None:
         resuming.leave_call(dispatchqueue)
     jitstate = return_chain
@@ -1123,10 +1333,11 @@ def leave_graph_gray(jitstate, dispatchqueue):
     return return_chain
 
 def leave_frame(jitstate):
+    resuming = jitstate.get_resuming()
     myframe = jitstate.frame
     backframe = myframe.backframe
     jitstate.frame = backframe    
-    if jitstate.resuming is None:
+    if resuming is None:
         #debug_view(jitstate)
         node = jitstate.promotion_path
         while not node.cut_limit:
@@ -1139,16 +1350,17 @@ def leave_frame(jitstate):
         jitstate.promotion_path = node
 
 
-def leave_graph_yellow(jitstate, mydispatchqueue):
-    resuming = jitstate.resuming
+def leave_graph_yellow(mydispatchqueue):
+    resuming = mydispatchqueue.resuming
     if resuming is not None:
         resuming.leave_call(mydispatchqueue)
     return_chain = mydispatchqueue.return_chain
-    jitstate = return_chain
-    while jitstate is not None:
-        leave_frame(jitstate)
-        jitstate = jitstate.next
-    # return the jitstate which is the head of the chain,
-    # ready for further writing
-    return_chain.curbuilder.start_writing()
+    if return_chain is not None:
+        jitstate = return_chain
+        while jitstate is not None:
+            leave_frame(jitstate)
+            jitstate = jitstate.next
+        # return the jitstate which is the head of the chain,
+        # ready for further writing
+        return_chain.curbuilder.start_writing()
     return return_chain

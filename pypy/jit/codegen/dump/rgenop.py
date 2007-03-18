@@ -293,13 +293,17 @@ class Builder(GenBuilder):
             self.rgenop.vlistname(vars_gv)))
         return info
 
-    def alloc_frame_place(self, kind, gv_initial_value):
+    def alloc_frame_place(self, kind, gv_initial_value=None):
         place = self.llbuilder.alloc_frame_place(kind, gv_initial_value)
+        if gv_initial_value is None:
+            s = 'None'
+        else:
+            s = self.rgenop.vname(gv_initial_value)
         self.dump("%s = %s.alloc_frame_place(%s, %s)" % (
             place,
             self.name,
             self.rgenop.kindtokenname(kind),
-            self.rgenop.vname(gv_initial_value)))
+            s))
         return place
 
     def genop_absorb_place(self, kind, place):

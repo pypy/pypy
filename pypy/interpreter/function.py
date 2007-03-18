@@ -34,28 +34,32 @@ class Function(Wrappable):
 
     def call_args(self, args):
         return self.code.funcrun(self, args) # delegate activation to code
+
+    def getcode(self):
+        return self.code
     
     def funccall(self, *args_w): # speed hack
+        code = self.getcode() # hook for the jit
         if len(args_w) == 0:
-            w_res = self.code.fastcall_0(self.space, self)
+            w_res = code.fastcall_0(self.space, self)
             if w_res is not None:
                 return w_res
         elif len(args_w) == 1:
-            w_res = self.code.fastcall_1(self.space, self, args_w[0])
+            w_res = code.fastcall_1(self.space, self, args_w[0])
             if w_res is not None:
                 return w_res
         elif len(args_w) == 2:
-            w_res = self.code.fastcall_2(self.space, self, args_w[0],
+            w_res = code.fastcall_2(self.space, self, args_w[0],
                                            args_w[1])
             if w_res is not None:
                 return w_res
         elif len(args_w) == 3:
-            w_res = self.code.fastcall_3(self.space, self, args_w[0],
+            w_res = code.fastcall_3(self.space, self, args_w[0],
                                            args_w[1], args_w[2])
             if w_res is not None:
                 return w_res
         elif len(args_w) == 4:
-            w_res = self.code.fastcall_4(self.space, self, args_w[0],
+            w_res = code.fastcall_4(self.space, self, args_w[0],
                                            args_w[1], args_w[2], args_w[3])
             if w_res is not None:
                 return w_res

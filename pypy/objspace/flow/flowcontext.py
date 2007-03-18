@@ -262,7 +262,7 @@ class FlowExecutionContext(ExecutionContext):
                 self.framestack.push(frame)
                 self.crnt_frame = frame
                 try:
-                    w_result = frame.dispatch(frame.pycode.co_code,
+                    w_result = frame.dispatch(frame.pycode,
                                               frame.last_instr,
                                               self)
                 finally:

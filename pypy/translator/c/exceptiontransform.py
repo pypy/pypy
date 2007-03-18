@@ -139,7 +139,9 @@ class ExceptionTransformer(object):
         self.rpyexc_raise_ptr = Constant(lltype.functionptr(
             RPYEXC_RAISE, "RPyRaiseException",
             graph=rpyexc_raise_graph,
-            exception_policy="exc_helper"),
+            exception_policy="exc_helper",
+            jitcallkind='rpyexc_raise',   # for the JIT
+            ),
             lltype.Ptr(RPYEXC_RAISE))
 
         mixlevelannotator.finish()
@@ -330,23 +332,23 @@ class ExceptionTransformer(object):
                     
         if alloc_shortcut:
             T = spaceop.result.concretetype
-            var_exc_occured = llops.genop('ptr_iszero', [spaceop.result],
-                                          lltype.Bool)            
+            var_no_exc = llops.genop('ptr_nonzero', [spaceop.result],
+                                     lltype.Bool)            
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
-            var_exc_occured = llops.genop('ptr_nonzero', [v_exc_type],
-                                          lltype.Bool)
+            var_no_exc = llops.genop('ptr_iszero', [v_exc_type],
+                                     lltype.Bool)
 
         block.operations.extend(llops)
         
-        block.exitswitch = var_exc_occured
+        block.exitswitch = var_no_exc
         #exception occurred case
         l = Link([error_constant(returnblock.inputargs[0].concretetype)], returnblock)
-        l.exitcase = l.llexitcase = True
+        l.exitcase = l.llexitcase = False
 
         #non-exception case
         l0 = block.exits[0]
-        l0.exitcase = l0.llexitcase = False
+        l0.exitcase = l0.llexitcase = True
 
         block.recloseblock(l0, l)
 

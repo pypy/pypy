@@ -419,36 +419,57 @@ class TestVirtualizableExplicit(PortalTest):
         assert res == 42
         self.check_insns(getfield=0, malloc=2)
 
-    def test_late_residual_red_call(self):
-        def g(e):
-            xy = e.xy
-            y = xy_get_y(xy)
-            e.w = y
+    def test_residual_doing_nothing(self):
+        def g(xy):
+            pass
 
-        def f(e):
+        def f(xy):
             hint(None, global_merge_point=True)
-            xy = e.xy
-            y = xy_get_y(xy)
-            newy = 2*y
-            xy_set_y(xy, newy)
-            if y:
-                dummy = 0
-            else:
-                dummy = 1
-            g(e)
-            return dummy
+            g(xy)
+            return xy.x + 1
             
         def main(x, y):
             xy = lltype.malloc(XY)
             xy.vable_access = lltype.nullptr(XY_ACCESS)
             xy.x = x
             xy.y = y
+            v = f(xy)
+            return v
+
+        res = self.timeshift_from_portal(main, f, [2, 20],
+                                         policy=StopAtXPolicy(g))
+        assert res == 3
+
+    def test_late_residual_red_call(self):
+        def g(e):
+            xy = e.xy
+            y = xy_get_y(xy)
+            e.w = y
+
+        def f(e, z):
+            hint(None, global_merge_point=True)
+            xy = e.xy
+            y = xy_get_y(xy)
+            newy = 2*y
+            xy_set_y(xy, newy)
+            if y:
+                dummy = z*2
+            else:
+                dummy = z*3
+            g(e)
+            return dummy
+            
+        def main(x, y, z):
+            xy = lltype.malloc(XY)
+            xy.vable_access = lltype.nullptr(XY_ACCESS)
+            xy.x = x
+            xy.y = y
             e = lltype.malloc(E)
             e.xy = xy
-            f(e)
+            f(e, z)
             return e.w
 
-        res = self.timeshift_from_portal(main, f, [0, 21],
+        res = self.timeshift_from_portal(main, f, [0, 21, 11],
                                          policy=StopAtXPolicy(g))
         assert res == 42
 
@@ -1208,3 +1229,133 @@ class TestVirtualizableImplicit(PortalTest):
         assert res == 42
         self.check_oops(newlist=0)
 
+
+    def test_recursive(self):
+
+        class XY(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x, back):
+                self.x = x
+                self.back = back
+   
+        def f(xy):
+            return xy.x
+
+        def main(x, y):
+            xyy = XY(y, None)
+            xy = XY(x, xyy)
+            return f(xy)
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
+        assert res == 20
+        self.check_insns(getfield=0)
+
+
+    def test_recursive_load_from(self):
+
+        class W(object):
+            def __init__(self, xy):
+                self.xy = xy
+
+        class XY(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x, back):
+                self.x = x
+                self.back = back
+   
+        def f(w):
+            xy = w.xy
+            return xy.x
+
+        def main(x, y):
+            xyy = XY(y, None)
+            xy = XY(x, xyy)
+            return f(W(xy))
+
+        res = self.timeshift_from_portal(main, f, [20, 22], policy=P_OOPSPEC)
+        assert res == 20
+
+    def test_string_in_virtualizable(self):
+        class S(object):
+            def __init__(self, s):
+                self.s = s
+
+        class XY(object):
+            _virtualizable_ = True
+            
+            def __init__(self, x, s):
+                self.x = x
+                self.s = s
+        def g(xy):
+            xy.x = 19 + len(xy.s.s)
+   
+        def f(x, n):
+            hint(None, global_merge_point=True)
+            s = S('2'*n)
+            xy = XY(x, s)
+            g(xy)
+            return xy.s
+
+        def main(x, y):
+            return int(f(x, y).s)
+
+        res = self.timeshift_from_portal(main, f, [20, 3],
+                                         policy=StopAtXPolicy(g))
+        assert res == 222
+
+    def test_type_bug(self):
+        class V(object):
+            _virtualizable_ = True
+
+            def __init__(self, v):
+                self.v = v
+
+        def f(x, v):
+            if x:
+                v.v = 0
+            else:
+                pass
+            return x*2, v
+
+        def main(x,y):
+            v = V(y)
+            r, _ = f(x, v)
+            return r
+
+        res = self.timeshift_from_portal(main, f, [20, 3], policy=P_OOPSPEC)
+        assert res == 40
+
+    def test_indirect_residual_call(self):
+        class V(object):
+            _virtualizable_ = True
+
+            def __init__(self, v):
+                self.v = v
+
+        def g(v, n):
+            v.v.append(n)      # force the virtualizable arg here
+        def h1(v, n):
+            g(v, n)
+            return n * 6
+        def h2(v, n):
+            return n * 8
+
+        l = [h2, h1]
+
+        def f(n):
+            hint(None, global_merge_point=True)
+            v = V([100])
+            h = l[n & 1]
+            n += 10
+            res = h(v, n)
+            return res - v.v.pop()
+
+        P = StopAtXPolicy(g)
+
+        assert f(-3) == 35
+        res = self.timeshift_from_portal(f, f, [-3], policy=P)
+        assert res == 35
+        res = self.timeshift_from_portal(f, f, [4], policy=P)
+        assert res == 12

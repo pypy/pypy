@@ -1,9 +1,15 @@
-- fix the XXXs in codegen
 
-- IN-PROGRESS: [] (getitem) used inside complex try/except ends up using the bound
-  checking version: transformation after flowgraphing that marks op
-  with implicit exceptions only if they are inside a precise
-  try:except:
+To Do Right Now
+------------------
+
+- see the inplace-version of the arithmetic operators
+
+- improve is_true()
+
+Longer-term
+------------------
+
+- don't follow eagerly the exception path of 'int_xxx_ovf'.
 
 - global merge point and portal should delegate their cache impl.
   to the application (to allow keeping things alive correctly)
@@ -23,16 +29,11 @@ Open issues
 Improvements
 -------------
 
-- make frames virtual
-
 - promotions for "python dispatching"
 
 - do something correct about bytecode_trace
 
 - floats
-
-- improve backends (reg. allocation, produce code more lazily in larger units and avoid for example
-   many open machine blocks at the same time without resorting to many jumps...)
 
 - jit-friendlier interpreter (whatever, as needed)
 
@@ -46,3 +47,6 @@ Improvements
 
 - share code between the machine code backends (MachineCodeBlock,
   possibly register allocation)
+
+- more green vars in the hintannotator: for y=hint(x, deepfreeze=True)
+  if x is green

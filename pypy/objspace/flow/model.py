@@ -507,24 +507,24 @@ def mkentrymap(funcgraph):
         lst.append(link)
     return result
 
-def copygraph(graph, shallow=False):
+def copygraph(graph, shallow=False, varmap={}):
     "Make a copy of a flow graph."
     blockmap = {}
-    varmap = {}
+    varmap = varmap.copy()
 
     def copyvar(v):
         if shallow:
             return v
-        if isinstance(v, Variable):
-            try:
-                return varmap[v]
-            except KeyError:
+        try:
+            return varmap[v]
+        except KeyError:
+            if isinstance(v, Variable):
                 v2 = varmap[v] = Variable(v)
                 if hasattr(v, 'concretetype'):
                     v2.concretetype = v.concretetype
                 return v2
-        else:
-            return v
+            else:
+                return v
 
     def copyblock(block):
         newblock = Block([copyvar(v) for v in block.inputargs])

@@ -190,3 +190,12 @@ class BaseTestOperations(object):
         def fn(x, y):
             return bool(x)
         self._check_all(fn)
+
+    def test_is_early_constant(self):
+        from pypy.rlib import objectmodel
+        def f(x):
+            if objectmodel._is_early_constant(x):
+                return 42
+            return 0
+        assert self.interpret(f, [5]) == 0
+

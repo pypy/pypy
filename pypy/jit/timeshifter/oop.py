@@ -4,7 +4,11 @@ from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue, rtimeshift
 from pypy.translator.c import exceptiontransform
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.tool.sourcetools import func_with_new_name
 
+
+class SegfaultException(Exception):
+    "Signals a run-time segfault detected at compile-time."
 
 class Index:
     def __init__(self, n):
@@ -16,10 +20,12 @@ class OopSpecDesc:
 
     do_call = None
 
-    def __init__(self, hrtyper, fnobj):
+    def __init__(self, hrtyper, fnobj, can_raise):
         ll_func = fnobj._callable
         FUNCTYPE = lltype.typeOf(fnobj)
         nb_args = len(FUNCTYPE.ARGS)
+
+        self.can_raise = can_raise
 
         # parse the oopspec and fill in the arguments
         operation_name, args = ll_func.oopspec.split('(', 1)
@@ -32,10 +38,15 @@ class OopSpecDesc:
         self.argtuple = eval(args, d)
         # end of rather XXX'edly hackish parsing
 
+        OOPARGTYPES = []
         arg_llsig_to_oopsig = {}
         for i, obj in enumerate(self.argtuple):
             if isinstance(obj, Index):
                 arg_llsig_to_oopsig[obj.n] = i
+                OOPARG = FUNCTYPE.ARGS[obj.n]
+            else:
+                OOPARG = lltype.typeOf(obj)
+            OOPARGTYPES.append(OOPARG)
 
         self.residualargsources = []
         for i in range(nb_args):
@@ -79,18 +90,23 @@ class OopSpecDesc:
         self.ll_handler = getattr(vmodule, method)
         self.couldfold = getattr(self.ll_handler, 'couldfold', False)
 
-        # exception handling
-        graph = fnobj.graph
-        etrafo = hrtyper.etrafo
-        self.can_raise = etrafo.raise_analyzer.analyze_direct_call(graph)
-        self.fetch_global_excdata = hrtyper.fetch_global_excdata
-
         if self.couldfold:
+            oopargcheck = ll_func.oopargcheck    # required if couldfold=True
+            # make a copy of the function, for specialization purposes
+            oopargcheck = func_with_new_name(oopargcheck,
+                                             'argcheck_%s' % (method,))
             ARGS = FUNCTYPE.ARGS
             residualargsources = self.residualargsources
             unrolling_ARGS = unrolling_iterable(ARGS)
+            unrolling_OOPARGS = unrolling_iterable(enumerate(OOPARGTYPES))
 
             def do_call(jitstate, argboxes):
+                oopargs = ()
+                for i, ARG in unrolling_OOPARGS:
+                    v = rvalue.ll_getvalue(argboxes[i], ARG)
+                    oopargs += (v,)
+                if not oopargcheck(*oopargs):
+                    raise SegfaultException
                 args = ()
                 j = 0
                 for ARG in unrolling_ARGS:
@@ -99,7 +115,7 @@ class OopSpecDesc:
                     else:
                         argsrc = residualargsources[j]
                         j = j + 1
-                        v = rvalue.ll_getvalue(argboxes[argsrc], ARG)
+                        v = oopargs[argsrc]
                     args += (v,)
                 result = fnptr(*args)
                 if FUNCTYPE.RESULT == lltype.Void:
@@ -129,7 +145,7 @@ class OopSpecDesc:
                 return self.errorbox
         gv_result = builder.genop_call(self.sigtoken, self.gv_fnptr, args_gv)
         if self.can_raise:
-            self.fetch_global_excdata(jitstate)
+            jitstate.generated_oop_residual_can_raise = True
         return self.redboxbuilder(self.result_kind, gv_result)
 
     def residual_exception(self, jitstate, ExcCls):

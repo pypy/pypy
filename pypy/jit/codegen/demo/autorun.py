@@ -11,5 +11,8 @@ from pypy.jit.codegen.demo import conftest as demo_conftest
 
 def test_many_times():
     for i in range(80):
-        demo_conftest.option.randomseed = random.randrange(0, 100000)
-        test_random.test_random_function()
+        yield run_test_once, random.randrange(0, 100000)
+
+def run_test_once(seed):
+    demo_conftest.option.randomseed = seed
+    test_random.test_random_function()

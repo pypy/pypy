@@ -1132,6 +1132,10 @@ class RPPCGenOp(AbstractRGenOp):
 ##     @specialize.genconst(0)
 ##     def constPrebuiltGlobal(llvalue):
 
+    @staticmethod
+    def genzeroconst(kind):
+        return zero_const
+
     def replay(self, label, kinds):
         return ReplayBuilder(self), [dummy_var] * len(kinds)
 
@@ -1355,3 +1359,5 @@ def poke_word_into(addr, value):
         from ctypes import cast, c_void_p, c_int, POINTER
         p = cast(c_void_p(addr), POINTER(c_int))
         p[0] = value
+
+zero_const = AddrConst(llmemory.NULL)

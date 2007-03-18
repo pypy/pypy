@@ -1,5 +1,6 @@
-import random
+import random, sys
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy, llhelper
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.c.test import test_boehm
@@ -13,6 +14,7 @@ FUNC  = lltype.FuncType([lltype.Signed], lltype.Signed)
 FUNC2 = lltype.FuncType([lltype.Signed]*2, lltype.Signed)
 FUNC3 = lltype.FuncType([lltype.Signed]*3, lltype.Signed)
 FUNC5 = lltype.FuncType([lltype.Signed]*5, lltype.Signed)
+FUNC27= lltype.FuncType([lltype.Signed]*27, lltype.Signed)
 
 def make_adder(rgenop, n):
     # 'return x+n'
@@ -642,6 +644,10 @@ def make_read_frame_var(rgenop, get_reader):
     info = builder.get_frame_info([gv_y])
     gv_reader = rgenop.constPrebuiltGlobal(get_reader(info))
     gv_z = builder.genop_call(readertoken, gv_reader, [gv_base])
+
+    args_gv = [gv_y, gv_z]
+    builder.enter_next_block([signed_kind]*2, args_gv)
+    [gv_y, gv_z] = args_gv
     builder.finish_and_return(sigtoken, gv_z)
     builder.end()
 
@@ -666,10 +672,13 @@ class FramePlaceWriter:
         def writer(base, value):
             if value > 5:
                 RGenOp.write_frame_place(lltype.Signed, base,
-                                         self.place, value * 7)
+                                         self.place1, value * 7)
+            RGenOp.write_frame_place(lltype.Signed, base,
+                                     self.place2, value * 10)
         self.writer = writer
-    def get_writer(self, place):
-        self.place = place
+    def get_writer(self, place1, place2):
+        self.place1 = place1
+        self.place2 = place2
         return llhelper(self.FUNC, self.writer)
 
 def make_write_frame_place(rgenop, get_writer):
@@ -682,11 +691,14 @@ def make_write_frame_place(rgenop, get_writer):
 
     gv_base = builder.genop_get_frame_base()
     gv_k = rgenop.genconst(-100)
-    place = builder.alloc_frame_place(signed_kind, gv_initial_value=gv_k)
-    gv_writer = rgenop.constPrebuiltGlobal(get_writer(place))
+    place1 = builder.alloc_frame_place(signed_kind, gv_initial_value=gv_k)
+    place2 = builder.alloc_frame_place(signed_kind)
+    gv_writer = rgenop.constPrebuiltGlobal(get_writer(place1, place2))
     builder.genop_call(writertoken, gv_writer, [gv_base, gv_x])
-    gv_y = builder.genop_absorb_place(signed_kind, place)
-    builder.finish_and_return(sigtoken, gv_y)
+    gv_y = builder.genop_absorb_place(signed_kind, place1)
+    gv_z = builder.genop_absorb_place(signed_kind, place2)
+    gv_diff = builder.genop2("int_sub", gv_y, gv_z)
+    builder.finish_and_return(sigtoken, gv_diff)
     builder.end()
 
     return gv_f
@@ -728,6 +740,7 @@ def make_read_frame_place(rgenop, get_reader):
     gv_base = builder.genop_get_frame_base()
     gv_reader = rgenop.constPrebuiltGlobal(get_reader(place))
     gv_z = builder.genop_call(readertoken, gv_reader, [gv_base])
+    builder.genop_absorb_place(signed_kind, place)   # mark end of use
     builder.finish_and_return(sigtoken, gv_z)
     builder.end()
 
@@ -744,6 +757,29 @@ def get_read_frame_place_runner(RGenOp):
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
     return read_frame_place_runner
+
+def make_ovfcheck_adder(rgenop, n):
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, gv_fn, [gv_x] = rgenop.newgraph(sigtoken, "ovfcheck_adder")
+    builder.start_writing()
+    gv_result, gv_flag = builder.genraisingop2("int_add_ovf", gv_x,
+                                               rgenop.genconst(n))
+    gv_flag = builder.genop1("cast_bool_to_int", gv_flag)
+    gv_result = builder.genop2("int_lshift", gv_result, rgenop.genconst(1))
+    gv_result = builder.genop2("int_or", gv_result, gv_flag)
+    builder.finish_and_return(sigtoken, gv_result)
+    builder.end()
+    return gv_fn
+
+def get_ovfcheck_adder_runner(RGenOp):
+    def runner(x, y):
+        rgenop = RGenOp()
+        gv_add_x = make_ovfcheck_adder(rgenop, x)
+        add_x = gv_add_x.revealconst(lltype.Ptr(FUNC))
+        res = add_x(y)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return runner
 
 
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
@@ -1329,9 +1365,10 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 60
 
     def test_write_frame_place_direct(self):
-        def get_writer(place):
+        def get_writer(place1, place2):
             fvw = FramePlaceWriter(self.RGenOp)
-            fvw.place = place
+            fvw.place1 = place1
+            fvw.place2 = place2
             writer_ptr = self.directtesthelper(fvw.FUNC, fvw.writer)
             return writer_ptr
 
@@ -1339,16 +1376,16 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         gv_callable = make_write_frame_place(rgenop, get_writer)
         fnptr = self.cast(gv_callable, 1)
         res = fnptr(3)
-        assert res == -100
+        assert res == -100 - 30
         res = fnptr(6)
-        assert res == 42
+        assert res == 42 - 60
 
     def test_write_frame_place_compile(self):
         fn = self.compile(get_write_frame_place_runner(self.RGenOp), [int])
         res = fn(-42)
-        assert res == -100
+        assert res == -100 - (-420)
         res = fn(606)
-        assert res == 4242
+        assert res == 4242 - 6060
 
     def test_read_frame_place_direct(self):
         def get_reader(place):
@@ -1366,6 +1403,38 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     def test_read_frame_place_compile(self):
         fn = self.compile(get_read_frame_place_runner(self.RGenOp), [int])
         res = fn(-1)
+        assert res == 42
+
+    def test_frame_vars_like_the_frontend_direct(self):
+        rgenop = self.RGenOp()
+        sigtoken = rgenop.sigToken(FUNC3)
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        # ------------------------------------------
+        builder0, gv_callable, [v0, v1, v2] = rgenop.newgraph(sigtoken,
+                                                              'fvltf')
+        builder0.start_writing()
+        builder1 = builder0.pause_writing([v1, v0, v2])
+        builder1.start_writing()
+        args_gv = [v1, v0, v2]
+        label0 = builder1.enter_next_block([signed_kind]*3, args_gv)
+        [v3, v4, v5] = args_gv
+        place = builder1.alloc_frame_place(signed_kind, rgenop.genconst(0))
+        v6 = builder1.genop_get_frame_base()
+        c_seven = rgenop.genconst(7)
+        frameinfo = builder1.get_frame_info([v3, v4, c_seven, v5])
+        # here would be a call
+        v8 = builder1.genop_absorb_place(signed_kind, place)
+        args_gv = [v3, v4, v5, v8]
+        label1 = builder1.enter_next_block([signed_kind]*4, args_gv)
+        [v9, v10, v11, v12] = args_gv
+        flexswitch0, builder2 = builder1.flexswitch(v12, [v9, v10, v12])
+        v13 = builder2.genop2("int_add", v9, v10)
+        v14 = builder2.genop2("int_add", v13, v12)
+        builder2.finish_and_return(sigtoken, v14)
+        builder0.end()
+
+        fnptr = self.cast(gv_callable, 3)
+        res = fnptr(40, 2, 8168126)
         assert res == 42
 
     def test_unaliasing_variables_direct(self):
@@ -1662,3 +1731,242 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
 
         res = fnptr(10, 29, 12)
         assert res == 29
+
+    def test_from_random_5_direct(self):
+##        def dummyfn(counter, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z):
+##          while True:
+
+##              if b:
+##                  pass
+
+##              g = q and j
+##              d = intmask(s - y) #    d <esi>
+##                                 #    t <0x64(%ebp)>
+
+##              e = y != f         #    e <ebx>
+##              j = c or j
+##              o = d or t         #    d <edx>   o <esi>
+##              t = l >  o         #    t <ecx>
+##              if e:
+##                  pass
+
+##              counter -= 1
+##              if not counter: break
+
+##          return intmask(a*-468864544+b*-340864157+c*-212863774+d*-84863387+e*43136996+f*171137383+g*299137766+h*427138153+i*555138536+j*683138923+k*811139306+l*939139693+m*1067140076+n*1195140463+o*1323140846+p*1451141233+q*1579141616+r*1707142003+s*1835142386+t*1963142773+u*2091143156+v*-2075823753+w*-1947823370+x*-1819822983+y*-1691822600+z*-1563822213)
+
+        rgenop = self.RGenOp()
+        signed_kind = rgenop.kindToken(lltype.Signed)
+        bool_kind = rgenop.kindToken(lltype.Bool)
+
+        builder0, gv_callable, [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26] = rgenop.newgraph(rgenop.sigToken(FUNC27), 'compiled_dummyfn')
+        builder0.start_writing()
+        args_gv = [v0, v1, v2, v3, v6, v8, v9, v10, v11, v12, v13, v14, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26]
+        label0 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49] = args_gv
+        v50 = builder0.genop1('int_is_true', v29)
+        builder1 = builder0.jump_if_true(v50, [v48, v38, v27, v30, v32, v34, v47, v40, v28, v41, v43, v45, v37, v46, v31, v33, v35, v39, v36, v42, v49, v44, v29])
+        args_gv = [v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49]
+        label1 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v51, v52, v53, v54, v55, v56, v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73] = args_gv
+        v74 = builder0.genop1('int_is_true', v64)
+        builder2 = builder0.jump_if_true(v74, [v54, v52, v65, v58, v60, v62, v64, v68, v56, v69, v71, v51, v73, v53, v67, v57, v55, v59, v61, v63, v66, v70, v72])
+        args_gv = [v51, v52, v53, v54, v55, v64, v56, v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73]
+        label2 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v75, v76, v77, v78, v79, v80, v81, v82, v83, v84, v85, v86, v87, v88, v89, v90, v91, v92, v93, v94, v95, v96, v97, v98] = args_gv
+        v99 = builder0.genop2('int_sub', v91, v97)
+        v100 = builder0.genop2('int_ne', v97, v79)
+        v101 = builder0.genop1('int_is_true', v78)
+        builder3 = builder0.jump_if_true(v101, [v85, v93, v94, v87, v91, v97, v89, v98, v80, v82, v78, v86, v84, v99, v88, v100, v90, v92, v96, v75, v95, v76, v77, v79, v81])
+        args_gv = [v75, v76, v77, v78, v99, v100, v79, v80, v81, v82, v83, v84, v85, v86, v87, v88, v89, v90, v91, v92, v93, v94, v95, v96, v97, v98]
+        label3 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, bool_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v102, v103, v104, v105, v106, v107, v108, v109, v110, v111, v112, v113, v114, v115, v116, v117, v118, v119, v120, v121, v122, v123, v124, v125, v126, v127] = args_gv
+        v128 = builder0.genop1('int_is_true', v106)
+        builder4 = builder0.jump_if_false(v128, [v114, v111, v116, v113, v118, v122, v110, v124, v103, v125, v105, v127, v107, v112, v121, v109, v115, v117, v119, v123, v102, v120, v104, v126, v106, v108])
+        args_gv = [v102, v103, v104, v105, v106, v107, v108, v109, v110, v111, v112, v113, v114, v115, v116, v106, v117, v118, v119, v120, v122, v123, v124, v125, v126, v127]
+        label4 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, bool_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v129, v130, v131, v132, v133, v134, v135, v136, v137, v138, v139, v140, v141, v142, v143, v144, v145, v146, v147, v148, v149, v150, v151, v152, v153, v154] = args_gv
+        v155 = builder0.genop2('int_gt', v141, v144)
+        builder5 = builder0.jump_if_false(v134, [v149, v148, v141, v143, v145, v147, v151, v139, v152, v132, v154, v134, v136, v130, v140, v138, v142, v155, v144, v146, v150, v129, v137, v131, v153, v133, v135])
+        args_gv = [v130, v131, v132, v133, v134, v135, v136, v137, v138, v139, v140, v141, v142, v143, v144, v145, v146, v147, v148, v155, v149, v150, v151, v152, v153, v154, v129]
+        label5 = builder0.enter_next_block([signed_kind, signed_kind, signed_kind, signed_kind, bool_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, bool_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind, signed_kind], args_gv)
+        [v156, v157, v158, v159, v160, v161, v162, v163, v164, v165, v166, v167, v168, v169, v170, v171, v172, v173, v174, v175, v176, v177, v178, v179, v180, v181, v182] = args_gv
+        v183 = builder0.genop2('int_sub', v182, rgenop.genconst(1))
+        v184 = builder0.genop1('int_is_true', v183)
+        builder6 = builder0.jump_if_true(v184, [v177, v166, v169, v171, v183, v173, v156, v165, v179, v158, v180, v168, v164, v178, v176, v172, v174, v167, v157, v175, v181, v161, v163])
+        v185 = builder0.genop2('int_mul', v156, rgenop.genconst(-468864544))
+        v186 = builder0.genop2('int_mul', v157, rgenop.genconst(-340864157))
+        v187 = builder0.genop2('int_add', v185, v186)
+        v188 = builder0.genop2('int_mul', v158, rgenop.genconst(-212863774))
+        v189 = builder0.genop2('int_add', v187, v188)
+        v190 = builder0.genop2('int_mul', v159, rgenop.genconst(-84863387))
+        v191 = builder0.genop2('int_add', v189, v190)
+        v192 = builder0.genop1('cast_bool_to_int', v160)
+        v193 = builder0.genop2('int_mul', v192, rgenop.genconst(43136996))
+        v194 = builder0.genop2('int_add', v191, v193)
+        v195 = builder0.genop2('int_mul', v161, rgenop.genconst(171137383))
+        v196 = builder0.genop2('int_add', v194, v195)
+        v197 = builder0.genop2('int_mul', v162, rgenop.genconst(299137766))
+        v198 = builder0.genop2('int_add', v196, v197)
+        v199 = builder0.genop2('int_mul', v163, rgenop.genconst(427138153))
+        v200 = builder0.genop2('int_add', v198, v199)
+        v201 = builder0.genop2('int_mul', v164, rgenop.genconst(555138536))
+        v202 = builder0.genop2('int_add', v200, v201)
+        v203 = builder0.genop2('int_mul', v165, rgenop.genconst(683138923))
+        v204 = builder0.genop2('int_add', v202, v203)
+        v205 = builder0.genop2('int_mul', v166, rgenop.genconst(811139306))
+        v206 = builder0.genop2('int_add', v204, v205)
+        v207 = builder0.genop2('int_mul', v167, rgenop.genconst(939139693))
+        v208 = builder0.genop2('int_add', v206, v207)
+        v209 = builder0.genop2('int_mul', v168, rgenop.genconst(1067140076))
+        v210 = builder0.genop2('int_add', v208, v209)
+        v211 = builder0.genop2('int_mul', v169, rgenop.genconst(1195140463))
+        v212 = builder0.genop2('int_add', v210, v211)
+        v213 = builder0.genop2('int_mul', v170, rgenop.genconst(1323140846))
+        v214 = builder0.genop2('int_add', v212, v213)
+        v215 = builder0.genop2('int_mul', v171, rgenop.genconst(1451141233))
+        v216 = builder0.genop2('int_add', v214, v215)
+        v217 = builder0.genop2('int_mul', v172, rgenop.genconst(1579141616))
+        v218 = builder0.genop2('int_add', v216, v217)
+        v219 = builder0.genop2('int_mul', v173, rgenop.genconst(1707142003))
+        v220 = builder0.genop2('int_add', v218, v219)
+        v221 = builder0.genop2('int_mul', v174, rgenop.genconst(1835142386))
+        v222 = builder0.genop2('int_add', v220, v221)
+        v223 = builder0.genop1('cast_bool_to_int', v175)
+        v224 = builder0.genop2('int_mul', v223, rgenop.genconst(1963142773))
+        v225 = builder0.genop2('int_add', v222, v224)
+        v226 = builder0.genop2('int_mul', v176, rgenop.genconst(2091143156))
+        v227 = builder0.genop2('int_add', v225, v226)
+        v228 = builder0.genop2('int_mul', v177, rgenop.genconst(-2075823753))
+        v229 = builder0.genop2('int_add', v227, v228)
+        v230 = builder0.genop2('int_mul', v178, rgenop.genconst(-1947823370))
+        v231 = builder0.genop2('int_add', v229, v230)
+        v232 = builder0.genop2('int_mul', v179, rgenop.genconst(-1819822983))
+        v233 = builder0.genop2('int_add', v231, v232)
+        v234 = builder0.genop2('int_mul', v180, rgenop.genconst(-1691822600))
+        v235 = builder0.genop2('int_add', v233, v234)
+        v236 = builder0.genop2('int_mul', v181, rgenop.genconst(-1563822213))
+        v237 = builder0.genop2('int_add', v235, v236)
+        builder0.finish_and_return(rgenop.sigToken(FUNC27), v237)
+        builder2.start_writing()
+        builder2.finish_and_goto([v51, v52, v53, v54, v55, v58, v56, v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73], label2)
+        builder4.start_writing()
+        builder4.finish_and_goto([v102, v103, v104, v105, v106, v107, v108, v109, v110, v111, v112, v113, v114, v115, v116, v121, v117, v118, v119, v120, v122, v123, v124, v125, v126, v127], label4)
+        builder3.start_writing()
+        builder3.finish_and_goto([v75, v76, v77, v78, v99, v100, v79, v80, v81, v82, v78, v84, v85, v86, v87, v88, v89, v90, v91, v92, v93, v94, v95, v96, v97, v98], label3)
+        builder1.start_writing()
+        builder1.finish_and_goto([v27, v28, v29, v30, v31, v32, v33, v34, v35, v36, v37, v38, v39, v40, v41, v42, v43, v44, v45, v46, v47, v48, v49], label1)
+        builder5.start_writing()
+        builder5.finish_and_goto([v130, v131, v132, v133, v134, v135, v136, v137, v138, v139, v140, v141, v142, v143, v144, v145, v146, v147, v148, v155, v149, v150, v151, v152, v153, v154, v129], label5)
+        builder6.start_writing()
+        v238 = builder6.genop1('cast_bool_to_int', v175)
+        builder6.finish_and_goto([v183, v156, v157, v158, v161, v163, v164, v165, v166, v167, v168, v169, v171, v172, v173, v174, v238, v176, v177, v178, v179, v180, v181], label0)
+        builder6.end()
+
+        fnptr = self.cast(gv_callable, 27)
+
+        res = fnptr(*([5]*27))
+        assert res == 967746338
+
+    def test_genzeroconst(self):
+        RGenOp = self.RGenOp
+        gv = RGenOp.genzeroconst(RGenOp.kindToken(lltype.Signed))
+        assert gv.revealconst(lltype.Signed) == 0
+        P = lltype.Ptr(lltype.Struct('S'))
+        gv = RGenOp.genzeroconst(RGenOp.kindToken(P))
+        assert gv.revealconst(llmemory.Address) == llmemory.NULL
+
+    def test_ovfcheck_adder_direct(self):
+        rgenop = self.RGenOp()
+        gv_add_5 = make_ovfcheck_adder(rgenop, 5)
+        fnptr = self.cast(gv_add_5, 1)
+        res = fnptr(37)
+        assert res == (42 << 1) | 0
+        res = fnptr(sys.maxint-2)
+        assert (res & 1) == 1
+
+    def test_ovfcheck_adder_compile(self):
+        fn = self.compile(get_ovfcheck_adder_runner(self.RGenOp), [int, int])
+        res = fn(9080983, -9080941)
+        assert res == (42 << 1) | 0
+        res = fn(-sys.maxint, -10)
+        assert (res & 1) == 1
+
+    def test_ovfcheck1_direct(self):
+        yield self.ovfcheck1_direct, "int_neg_ovf", [(18, -18),
+                                                     (-18, 18),
+                                                     (sys.maxint, -sys.maxint),
+                                                     (-sys.maxint, sys.maxint),
+                                                     (-sys.maxint-1, None)]
+        yield self.ovfcheck1_direct, "int_abs_ovf", [(18, 18),
+                                                     (-18, 18),
+                                                     (sys.maxint, sys.maxint),
+                                                     (-sys.maxint, sys.maxint),
+                                                     (-sys.maxint-1, None)]
+
+    def ovfcheck1_direct(self, opname, testcases):
+        rgenop = self.RGenOp()
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_fn, [gv_x] = rgenop.newgraph(sigtoken, "ovfcheck1")
+        builder.start_writing()
+        gv_result, gv_flag = builder.genraisingop1(opname, gv_x)
+        gv_flag = builder.genop1("cast_bool_to_int", gv_flag)
+        gv_result = builder.genop2("int_lshift", gv_result, rgenop.genconst(1))
+        gv_result = builder.genop2("int_or", gv_result, gv_flag)
+        builder.finish_and_return(sigtoken, gv_result)
+        builder.end()
+
+        fnptr = self.cast(gv_fn, 1)
+        for x, expected in testcases:
+            res = fnptr(x)
+            if expected is None:
+                assert (res & 1) == 1
+            else:
+                assert res == intmask(expected << 1) | 0
+
+    def test_ovfcheck2_direct(self):
+        yield self.ovfcheck2_direct, "int_sub_ovf", [(18, 25, -7),
+                                                     (sys.maxint, -1, None),
+                                                     (-2, sys.maxint, None)]
+        yield self.ovfcheck2_direct, "int_mul_ovf", [(6, 7, 42),
+                                                     (sys.maxint-100, 2, None),
+                                                    (-2, sys.maxint-100, None)]
+        # XXX the rest in-progress
+        # XXX also missing the _zer versions
+##        yield self.ovfcheck2_direct, "int_mod_ovf", [
+##            (100, 8, 4),
+##            (-sys.maxint-1, 1, 0),
+##            (-sys.maxint-1, -1, None)]
+##        yield self.ovfcheck2_direct, "int_floordiv_ovf", [
+##            (100, 2, 50),
+##            (-sys.maxint-1, 1, -sys.maxint-1),
+##            (-sys.maxint-1, -1, None)]
+##        yield self.ovfcheck2_direct, "int_lshift_ovf", [
+##            (1, 30, 1<<30),
+##            (1, 31, None),
+##            (0xf23c, 14, 0xf23c << 14),
+##            (0xf23c, 15, None),
+##            (-1, 31, (-1) << 31),
+##            (-2, 31, None),
+##            (-3, 31, None),
+##            (-sys.maxint-1, 0, -sys.maxint-1)]
+
+    def ovfcheck2_direct(self, opname, testcases):
+        rgenop = self.RGenOp()
+        sigtoken = rgenop.sigToken(FUNC2)
+        builder, gv_fn, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "ovfcheck2")
+        builder.start_writing()
+        gv_result, gv_flag = builder.genraisingop2(opname, gv_x, gv_y)
+        gv_flag = builder.genop1("cast_bool_to_int", gv_flag)
+        gv_result = builder.genop2("int_lshift", gv_result, rgenop.genconst(1))
+        gv_result = builder.genop2("int_or", gv_result, gv_flag)
+        builder.finish_and_return(sigtoken, gv_result)
+        builder.end()
+
+        fnptr = self.cast(gv_fn, 1)
+        for x, y, expected in testcases:
+            res = fnptr(x, y)
+            if expected is None:
+                assert (res & 1) == 1
+            else:
+                assert res == intmask(expected << 1) | 0
