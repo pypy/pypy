@@ -1,15 +1,19 @@
 #! /usr/bin/env python
 
+import os
+homedir = os.getenv('HOME')
+os.environ['PATH'] += ':/usr/local/bin:/usr/local/llvm/cfrontend/ppc/llvm-gcc/bin:'+homedir+'/bin'
+
 import autopath
 import py
 import time, os, sys, stat
-from pypy.translator.llvm.buildllvm import optimizations
+from pypy.translator.llvm.buildllvm import Builder
 
 os.umask(022)      # allow everyone to read/execute the produced pypy-c's
 
-homedir = os.getenv('HOME')
+
 tmpdir  = py.std.tempfile.gettempdir() + '/usession-' + os.environ['USER'] + '/'
-cflags  = "-mtune=pentium4 -O3 -fomit-frame-pointer"
+cflags  = "-O3"
 lflags  = "-lgc -lm -lpthread"
 
 dry_run = False
@@ -24,7 +28,7 @@ def run(cmd):
 
 def update_pypy():
     os.chdir(homedir + '/projects/pypy-dist')
-    run('svn up 2>&1')
+    run('/usr/local/bin/svn up 2>&1')
 
 def update_llvm():
     os.chdir(homedir + '/projects/llvm')
@@ -34,7 +38,7 @@ def update_llvm():
 def compile_llvm_variants(revision, features):
     ll2bc(revision, features)
     bc2c_exe(revision, features, 'from richards import *;main(iterations=1)')
-    bc2x86_exe(revision, features, 'x86')
+    bc2x86_exe(revision, features, 'llvm')
 
 def ll2bc(revision, features):
     if features:
@@ -42,7 +46,7 @@ def ll2bc(revision, features):
     cmd = 'cp %spypy.ll pypy/translator/goal/archive/pypy%s-%s.ll' % (tmpdir, features, revision)
     run(cmd)
 
-    opts = optimizations(simple=False, use_gcc=False)
+    opts = Builder(None).optimizations()
     cmd  = '~/bin/llvm-as < %spypy.ll | ~/bin/opt %s -f -o %spypy.bc' % (
         tmpdir, opts, tmpdir)
     run(cmd)
@@ -153,7 +157,8 @@ def benchmark():
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     uname = os.popen('uname -a', 'r').read()
     startload = get_load()
-    result = run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
+#    result = run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
+    result = run('/usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
     endload = get_load()
     if not dry_run and result == 0:
         f = open('benchmark.html', 'w')
@@ -171,18 +176,16 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            llvm--_objspace-std-withmultidict
-            llvm--_objspace-opcodes-CALL_LIKELY_BUILTIN
+            llvm--_faassen
             c
-            c--gc=framework
-            c--thread--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
-            c--stackless
-            c--stackless--profopt='-c "from richards import *;main(iterations=1)"'
-            c--stackless--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
-            c--profopt='-c "from richards import *;main(iterations=1)"'
-            c--profopt='-c "from richards import *;main(iterations=1)"'--_objspace-opcodes-CALL_LIKELY_BUILTIN
-            c--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
-            c--gc=framework--_objspace-std-withmultidict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--stackless--_faassen
+            c--_faassen
+            c--thread
+            c--_objspace=taint
+            c--_allworkingmodules
+            c--_with-transparent-proxy--_faassen
+            c--gc=framework--_faassen
+            c--_objspace-std-withrope
             cli
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
