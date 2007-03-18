@@ -201,8 +201,9 @@ def hintannotate(drv):
                                 [SomeLLAbstractConstant(v.concretetype,
                                                         {OriginFlags(): True})
                                  for v in portal_graph.getargs()])
-    drv.log.info('Hint-annotated %d graphs.' % (
-        len(hannotator.translator.graphs),))
+    count = hannotator.bookkeeper.nonstubgraphcount
+    drv.log.info('Hint-annotated %d graphs (plus %d stubs).' % (
+        count, len(hannotator.translator.graphs) - count))
     n = len(list(hannotator.translator.graphs[0].iterblocks()))
     drv.log.info("portal has %d blocks" % n)
     drv.hannotator = hannotator

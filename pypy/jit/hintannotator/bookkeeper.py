@@ -49,6 +49,7 @@ class GraphDesc(object):
             bk = self.bookkeeper
             if bk.annotator.policy.look_inside_graph(self.origgraph):
                 graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
+                bk.nonstubgraphcount += 1
                 log(str(graph))
             else:
                 graph = self.build_callback_graph(self.origgraph)
@@ -115,6 +116,7 @@ class HintBookkeeper(object):
         self.tsgraph_maximal_call_families = UnionFind(TsGraphCallFamily)
         self.annotator = hannotator
         self.tsgraphsigs = {}
+        self.nonstubgraphcount = 0
         if hannotator is not None:     # for tests
             t = hannotator.base_translator
             self.impurity_analyzer = ImpurityAnalyzer(t)
