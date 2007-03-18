@@ -113,8 +113,9 @@ static_dir = py.path.local(__file__).dirpath().join("data")
 
 class Root(server.Collection):
     exported_methods = exported_methods
-    #index = server.Static(static_dir.join("console.html"))
     index = server.FsFile(static_dir.join("console.html"))
+    style_css = server.FsFile(static_dir.dirpath().dirpath().join("data").
+                              join("style.css"))
     MochiKit = server.StaticDir('MochiKit')
 
     def source_js(self):

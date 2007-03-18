@@ -1,12 +1,13 @@
 <html>
 <head>
    <script type="text/javascript" src="source.js"></script>
-   <script src="http://mochikit.com/MochiKit/MochiKit.js" type="text/javascript"></script>
+   <script src="MochiKit/MochiKit.js" type="text/javascript"></script>
+   <script src="source.js"></script>
+   <link href="style.css" media="screen" rel="stylesheet" type="text/css"/>
    <title>Console</title>
-   <style>
-   </style>
 </head>
 <body onload="console_onload()">
+   <a><img alt="PyPy" height="110" id="pyimg" src="http://codespeak.net/pypy/img/py-web1.png" width="149"/></a>
    <div style="visibility:visible" id="navbar">
      <ul>
        <li><a href="javascript:load_console('python')">Plain CPython console</a></li>
@@ -15,9 +16,11 @@
      </ul>
    </div>
    <div style="visibility:hidden" id="main">
-     <h3>Python console</h3>
-     <pre id="data"></pre>
-     &gt;&gt;&gt; <input id="inp" size="80" type="text" autocomplete="off"/>
+     <fieldset>
+       <legend><b>Python console</b></legend>
+       <pre id="data"></pre>
+       &gt;&gt;&gt; <input id="inp" size="80" type="text" autocomplete="off"/>
+     </fieldset>
      <p id="error"></p>
    </div>
    <div id="help" style="visibility:visible; position:absolute; top:30px; right:30px; background:#E3E3E3; border-width:10px">
