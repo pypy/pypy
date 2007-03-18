@@ -1963,7 +1963,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         builder.finish_and_return(sigtoken, gv_result)
         builder.end()
 
-        fnptr = self.cast(gv_fn, 1)
+        fnptr = self.cast(gv_fn, 2)
         for x, y, expected in testcases:
             res = fnptr(x, y)
             if expected is None:

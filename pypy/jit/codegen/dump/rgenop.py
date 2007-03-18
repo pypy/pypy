@@ -110,6 +110,17 @@ class Builder(GenBuilder):
         return v
 
     @specialize.arg(1)
+    def genraisingop1(self, opname, gv_arg):
+        v1, v2 = self.llbuilder.genraisingop1(opname, gv_arg)
+        self.dump("%s, %s = %s.genraisingop1('%s', %s)" % (
+            self.rgenop.vname(v1),
+            self.rgenop.vname(v2),
+            self.name,
+            opname,
+            self.rgenop.vname(gv_arg)))
+        return v1, v2
+
+    @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
         v = self.llbuilder.genop2(opname, gv_arg1, gv_arg2)
         self.dump("%s = %s.genop2('%s', %s, %s)" % (
@@ -119,6 +130,18 @@ class Builder(GenBuilder):
             self.rgenop.vname(gv_arg1),
             self.rgenop.vname(gv_arg2)))
         return v
+
+    @specialize.arg(1)
+    def genraisingop2(self, opname, gv_arg1, gv_arg2):
+        v1, v2 = self.llbuilder.genraisingop2(opname, gv_arg1, gv_arg2)
+        self.dump("%s, %s = %s.genraisingop2('%s', %s, %s)" % (
+            self.rgenop.vname(v1),
+            self.rgenop.vname(v2),
+            self.name,
+            opname,
+            self.rgenop.vname(gv_arg1),
+            self.rgenop.vname(gv_arg2)))
+        return v1, v2
 
     def genop_ptr_iszero(self, kind, gv_ptr):
         v = self.llbuilder.genop_ptr_iszero(kind, gv_ptr)

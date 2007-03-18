@@ -12,6 +12,7 @@ class TestLLGraphRGenop(AbstractRGenOpTests):
     def setup_method(self, meth):
         if 'ovfcheck' in meth.__name__:
             py.test.skip("no chance (the llinterpreter has no rtyper)")
+        AbstractRGenOpTests.setup_method(self, meth)
 
     def getcompiled(self, runner, argtypes, annotatorpolicy):
         def quasi_compiled_runner(*args):

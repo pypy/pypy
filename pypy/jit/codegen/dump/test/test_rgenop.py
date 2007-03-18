@@ -24,3 +24,5 @@ class Whatever(object):
         return True
     def __ne__(self, other):
         return False
+    def __and__(self, other):
+        return Whatever()      # for test_ovfcheck_adder_direct
