@@ -52,7 +52,7 @@ class PyPyJITTarget(targetpypystandalone.PyPyTarget):
 
     def handle_translate_config(self, translateconfig):
         super(PyPyJITTarget, self).handle_translate_config(translateconfig)
-        translateconfig.goals = ['timeshift']
+        translateconfig.goals = translateconfig.goals or ['timeshift']
 
 
 PyPyJITTarget().interface(globals())
