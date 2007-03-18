@@ -37,7 +37,7 @@ class AppTestDistributedGreensock(object):
 
     def test_remote_call(self):
         from distributed import socklayer
-        from py.__.net.greenexecnet import PopenGateway
+        from py.__.green.greenexecnet import PopenGateway
         gw = PopenGateway()
         rp = socklayer.spawn_remote_side(self.remote_side_code, gw)
         a = rp.get_remote("a")
@@ -45,8 +45,8 @@ class AppTestDistributedGreensock(object):
     
     def test_remote_counting(self):
         from distributed import socklayer
-        from py.__.net.greensock2 import allof
-        from py.__.net.greenexecnet import PopenGateway
+        from py.__.green.greensock2 import allof
+        from py.__.green.greenexecnet import PopenGateway
         gws = [PopenGateway() for i in range(3)]
         rps = [socklayer.spawn_remote_side(self.remote_side_code, gw)
                for gw in gws]
