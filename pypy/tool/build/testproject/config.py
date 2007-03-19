@@ -63,3 +63,5 @@ def path_to_url(p):
     return 'http://localhost/testproject/%s/data.zip' % (
                 p.relto(py.magic.autopath().dirpath()),)
 
+configpath = 'pypy.tool.build.testproject.config'
+
