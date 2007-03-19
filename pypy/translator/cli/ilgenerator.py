@@ -262,7 +262,8 @@ class IlasmGenerator(object):
     def flush(self):
         pass
 
-DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
+DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED': 1,
+                         '0 /* we are not jitted here */': 0}
 
 class CLIBaseGenerator(Generator):
     
