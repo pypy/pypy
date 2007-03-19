@@ -1,7 +1,7 @@
 <html>
 <head>
    <script type="text/javascript" src="source.js"></script>
-   <script src="MochiKit/MochiKit.js" type="text/javascript"></script>
+   <script src="http://mochikit.com/MochiKit/MochiKit.js" type="text/javascript"></script>
    <script src="source.js"></script>
    <link href="style.css" media="screen" rel="stylesheet" type="text/css"/>
    <title>Console</title>
@@ -12,6 +12,7 @@
      <ul>
        <li><a href="javascript:load_console('python')">Plain CPython console</a></li>
        <li><a href="javascript:load_console('pypy-c')">pypy-c</a></li>
+       <li><a href="javascript:load_console('pypy-c-thunk')">pypy-c with thunk objspace</a></li>
        <li><a href="javascript:cleanup_console()">kill console</a></li>
      </ul>
    </div>
