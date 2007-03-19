@@ -1,7 +1,7 @@
 
 import py
 from socket import socket
-from py.__.net.msgstruct import decodemessage, message
+from py.__.green.msgstruct import decodemessage, message
 from socket import socket, AF_INET, SOCK_STREAM
 import marshal
 import sys
