@@ -94,17 +94,15 @@ class PythonParser(grammar.Parser):
     def __init__(self): # , predefined_symbols=None):
         grammar.Parser.__init__(self)
         pytoken.setup_tokens(self)
+        # remember how many tokens were loaded
+        self._basetokens_count = self._sym_count
         # if predefined_symbols:
         #     self.load_symbols(predefined_symbols)
         self.keywords = []
-        
-        # XXX (adim): this is trunk's keyword management
-        # self.with_grammar = None
-        # self.keywords = dict.fromkeys(grammar_builder.keywords)
-        # # Only when with_statement is enabled
-        # self.keywords.pop('with', None)
-        # self.keywords.pop('as', None)
-        
+
+    def is_base_token(self, tokvalue):
+        return tokvalue < 0 or tokvalue >= self._basetokens_count
+            
     def parse_source(self, textsrc, mode, builder, flags=0):
         """Parse a python source according to goal"""
         goal = self.targets[mode]
@@ -126,7 +124,6 @@ class PythonParser(grammar.Parser):
 
 
     def parse_lines(self, lines, goal, builder, flags=0):
-        # XXX (adim): this is trunk's keyword management
         # builder.keywords = self.keywords.copy()
         # if flags & CO_FUTURE_WITH_STATEMENT:
         #     builder.enable_with()

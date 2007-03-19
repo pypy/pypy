@@ -183,11 +183,9 @@ ast2tuple.unwrap_spec = [ObjSpace, STType, int]
 
 def unwrap_syntax_tree( space, w_sequence ):
     items = space.unpackiterable( w_sequence )
+    parser = space.default_compiler.parser
     nodetype = space.int_w( items[0] )
-    is_syntax = True
-    if nodetype>=0 and nodetype < pytoken.N_TOKENS:
-        is_syntax = False
-    if is_syntax:
+    if parser.is_base_token(nodetype):
         nodes = []
         for w_node in items[1:]:
             node = unwrap_syntax_tree( space, w_node )
