@@ -734,7 +734,7 @@ class Unspill(AllocTimeInsn):
         self.reg = reg
         self.stack = stack
         if not isinstance(self.reg, GPR):
-            assert isinstance(self.reg, CRF)
+            assert isinstance(self.reg, CRF) or isinstance(self.reg, CTR)
             self.moveinsn = self.reg.move_from_gpr(None, 0)
         else:
             self.moveinsn = None
