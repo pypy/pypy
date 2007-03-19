@@ -509,7 +509,8 @@ class Builder(GenBuilder):
         result = FlexSwitch(self.rgenop, switch_mc,
                             allocator.loc_of(gv_exitswitch),
                             allocator.loc_of(crresult),
-                            allocator.var2loc)
+                            allocator.var2loc,
+                            allocator.spill_offset)
         return result, result.add_default()
 
     def start_writing(self):
@@ -1300,11 +1301,12 @@ class FlexSwitch(CodeGenSwitch):
     # a fair part of this code could likely be shared with the i386
     # backend.
 
-    def __init__(self, rgenop, mc, switch_reg, crf, var2loc):
+    def __init__(self, rgenop, mc, switch_reg, crf, var2loc, initial_spill_offset):
         self.rgenop = rgenop
         self.crf = crf
         self.switch_reg = switch_reg
         self.var2loc = var2loc
+        self.initial_spill_offset = initial_spill_offset
         self.asm = RPPCAssembler()
         self.asm.mc = mc
         self.default_target_addr = 0
@@ -1313,6 +1315,7 @@ class FlexSwitch(CodeGenSwitch):
         targetbuilder = self.rgenop.newbuilder()
         targetbuilder._open()
         targetbuilder.initial_var2loc = self.var2loc
+        targetbuilder.initial_spill_offset = self.initial_spill_offset
         target_addr = targetbuilder.asm.mc.tell()
         p = self.asm.mc.getpos()
         # that this works depends a bit on the fixed length of the
@@ -1349,6 +1352,7 @@ class FlexSwitch(CodeGenSwitch):
         targetbuilder = self.rgenop.newbuilder()
         targetbuilder._open()
         targetbuilder.initial_var2loc = self.var2loc
+        targetbuilder.initial_spill_offset = self.initial_spill_offset
         self.default_target_addr = targetbuilder.asm.mc.tell()
         self._write_default()
         return targetbuilder
