@@ -98,7 +98,7 @@ class PyPyTarget(object):
             multimethod.Installer = multimethod.InstallerVersion1
 
     def handle_translate_config(self, translateconfig):
-        pass
+        self.translateconfig = translateconfig
 
     def print_help(self, config):
         self.opt_parser(config).print_help()
@@ -128,6 +128,11 @@ class PyPyTarget(object):
         elif config.objspace.usemodules._stackless:
             config.translation.stackless = True
 
+        if self.translateconfig.goal_options.jit:
+            config.objspace.usemodules.pypyjit = True
+        elif config.objspace.usemodules.pypyjit:
+            self.translateconfig.goal_options.jit = True
+
         config.objspace.nofaking = True
         config.objspace.compiler = "ast"
         config.translating = True
@@ -143,6 +148,10 @@ class PyPyTarget(object):
 
         return self.get_entry_point(config)
 
+    def portal(self, driver):
+        from pypy.module.pypyjit.portal import get_portal
+        return get_portal(driver)
+    
     def get_entry_point(self, config):
         space = make_objspace(config)
 
@@ -164,7 +173,7 @@ class PyPyTarget(object):
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',
-                     'handle_translate_config',
+                     'handle_translate_config', 'portal',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
 

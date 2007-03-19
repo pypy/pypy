@@ -78,7 +78,7 @@ class ProfInstrument(object):
 
 class TranslationDriver(SimpleTaskEngine):
 
-    def __init__(self, setopts=None, default_goal=None, extra_goals=[],
+    def __init__(self, setopts=None, default_goal=None,
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
@@ -109,7 +109,7 @@ class TranslationDriver(SimpleTaskEngine):
                 default_goal = None
         
         self.default_goal = default_goal
-        self.extra_goals = extra_goals
+        self.extra_goals = []
         self.exposed = []
 
         # expose tasks
@@ -147,7 +147,10 @@ class TranslationDriver(SimpleTaskEngine):
                             expose_task(explicit_task)
                     else:
                         expose_task(explicit_task)
-    
+
+    def set_extra_goals(self, goals):
+        self.extra_goals = goals
+
     def get_info(self): # XXX more?
         d = {'backend': self.config.translation.backend}
         return d
@@ -703,13 +706,12 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
     def from_targetspec(targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
-                        default_goal=None,
-                        extra_goals=[]):
+                        default_goal=None):
         if args is None:
             args = []
 
         driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   extra_goals=extra_goals, disable=disable)
+                                   disable=disable)
         # patch some attributes of the os module to make sure they
         # have the same value on every platform.
         backend, ts = driver.get_backend_and_type_system()

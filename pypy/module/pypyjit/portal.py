@@ -1,14 +1,7 @@
-import types
 from pypy.module.pypyjit.interp_jit import PORTAL
-
-from pypy.objspace.flow.model import checkgraph
 from pypy.translator.translator import graphof
 from pypy.annotation.specialize import getuniquenondirectgraph
-from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
-from pypy.jit.hintannotator.model import OriginFlags, SomeLLAbstractConstant
-
-PORTAL = getattr(PORTAL, 'im_func', PORTAL)
-
+from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 
 class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
 
@@ -182,48 +175,11 @@ def timeshift_graphs(t, portal_graph, log):
     return result_graphs
 
 
-def hintannotate(drv):
+def get_portal(drv):
     t = drv.translator
-    portal_graph = graphof(t, PORTAL)
+    portal = getattr(PORTAL, 'im_func', PORTAL)
+    portal_graph = graphof(t, portal)
 
-    POLICY = PyPyHintAnnotatorPolicy(timeshift_graphs(t, portal_graph,
+    policy = PyPyHintAnnotatorPolicy(timeshift_graphs(t, portal_graph,
                                                       drv.log))
-
-##    graphnames = [str(_g) for _g in POLICY.timeshift_graphs]
-##    graphnames.sort()
-##    print '-' * 20
-##    for graphname in graphnames:
-##        print graphname
-##    print '-' * 20
-
-    hannotator = HintAnnotator(base_translator=t, policy=POLICY)
-    hs = hannotator.build_types(portal_graph,
-                                [SomeLLAbstractConstant(v.concretetype,
-                                                        {OriginFlags(): True})
-                                 for v in portal_graph.getargs()])
-    count = hannotator.bookkeeper.nonstubgraphcount
-    drv.log.info('Hint-annotated %d graphs (plus %d stubs).' % (
-        count, len(hannotator.translator.graphs) - count))
-    n = len(list(hannotator.translator.graphs[0].iterblocks()))
-    drv.log.info("portal has %d blocks" % n)
-    drv.hannotator = hannotator
-    #import pdb; pdb.set_trace()
-
-def timeshift(drv):
-    from pypy.tool.udir import udir
-    udir.ensure(dir=1)    # fork-friendly hack
-    udir.join('.lock').ensure()
-    from pypy.jit.timeshifter.hrtyper import HintRTyper
-    #from pypy.jit.codegen.llgraph.rgenop import RGenOp
-    from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
-    RGenOp.MC_SIZE = 32 * 1024 * 1024     # 32MB - but supposed infinite!
-
-    ha = drv.hannotator
-    t = drv.translator
-    # make the timeshifted graphs
-    hrtyper = HintRTyper(ha, t.rtyper, RGenOp)
-    origportalgraph = graphof(t, PORTAL)
-    hrtyper.specialize(origportalgraph=origportalgraph, view=False)
-        
-    # XXX temp
-    drv.source()
+    return portal, policy

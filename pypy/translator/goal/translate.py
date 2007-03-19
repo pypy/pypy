@@ -260,16 +260,16 @@ def main():
 
         pdb_plus_show.start(tb, server_setup, graphic=not translateconfig.text)
 
-    log_config(translateconfig, "translate.py configuration")
-    extra_goals = []
-    if translateconfig.goal_options.jit:
-        extra_goals.append('timeshift')
     try:
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, args,
                                                        empty_translator=t,
                                                        disable=translateconfig.skipped_goals,
-                                                       default_goal='compile',
-                                                       extra_goals=extra_goals)
+                                                       default_goal='compile')
+        log_config(translateconfig, "translate.py configuration")
+        if translateconfig.goal_options.jit:
+            if 'portal' not in targetspec_dic:
+               raise Exception('target has no portal defined.') 
+            drv.set_extra_goals(['timeshift'])
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
