@@ -270,6 +270,18 @@ class Builder(GenBuilder):
         #print '->', id(r)
         return r
 
+    @specialize.arg(1)
+    def genraisingop2(self, opname, gv_arg1, gv_arg2):
+        genmethod = getattr(self, 'raisingop_' + opname)
+        r = genmethod(gv_arg1, gv_arg2)
+        return r
+
+    @specialize.arg(1)
+    def genraisingop1(self, opname, gv_arg):
+        genmethod = getattr(self, 'raisingop_' + opname)
+        r = genmethod(gv_arg)
+        return r
+
     def genop_ptr_iszero(self, kind, gv_ptr):
         return self.op_ptr_iszero(gv_ptr)
 
@@ -810,6 +822,16 @@ class Builder(GenBuilder):
 
         return targetbuilder
 
+    def _ov(self):
+        # mfxer rFOO
+        # extrwi rBAR, rFOO, 1, 1
+        gv_xer = Var()
+        self.insns.append(
+            insn.Insn_GPR(_PPC.mfxer, gv_xer))
+        gv_ov = Var()
+        self.insns.append(insn.Extrwi(gv_ov, gv_xer, 1, 1))
+        return gv_ov
+
     def op_bool_not(self, gv_arg):
         return self._arg_uimm_op(gv_arg, self.rgenop.genconst(1), RPPCAssembler.xori)
 
@@ -819,14 +841,21 @@ class Builder(GenBuilder):
     def op_int_neg(self, gv_arg):
         return self._arg_op(gv_arg, _PPC.neg)
 
-    ## op_int_neg_ovf(self, gv_arg) XXX
+    def raisingop_int_neg_ovf(self, gv_arg):
+        gv_result = self._arg_op(gv_arg, _PPC.nego)
+        gv_ov = self._ov()
+        return (gv_result, gv_ov)
 
     def op_int_abs(self, gv_arg):
         gv_sign = self._arg_uimm_op(gv_arg, self.rgenop.genconst(31), _PPC.srawi)
         gv_maybe_inverted = self._arg_arg_op(gv_arg, gv_sign, _PPC.xor)
         return self._arg_arg_op(gv_sign, gv_maybe_inverted, _PPC.subf)
 
-    ## op_int_abs_ovf(self, gv_arg):
+    def raisingop_int_abs_ovf(self, gv_arg):
+        gv_sign = self._arg_uimm_op(gv_arg, self.rgenop.genconst(31), _PPC.srawi)
+        gv_maybe_inverted = self._arg_arg_op(gv_arg, gv_sign, _PPC.xor)
+        gv_result = self._arg_arg_op(gv_sign, gv_maybe_inverted, _PPC.subfo)
+        return (gv_result, self._ov())
 
     def op_int_invert(self, gv_arg):
         return self._arg_op(gv_arg, _PPC.not_)
@@ -835,12 +864,27 @@ class Builder(GenBuilder):
         return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.add, _PPC.addi,
                                           commutative=True)
 
+    def raisingop_int_add_ovf(self, gv_x, gv_y):
+        gv_result = self._arg_arg_op(gv_x, gv_y, _PPC.addo)
+        gv_ov = self._ov()
+        return (gv_result, gv_ov)
+
     def op_int_sub(self, gv_x, gv_y):
         return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.sub, _PPC.subi)
+
+    def raisingop_int_sub_ovf(self, gv_x, gv_y):
+        gv_result = self._arg_arg_op(gv_x, gv_y, _PPC.subo)
+        gv_ov = self._ov()
+        return (gv_result, gv_ov)
 
     def op_int_mul(self, gv_x, gv_y):
         return self._arg_arg_op_with_simm(gv_x, gv_y, _PPC.mullw, _PPC.mulli,
                                           commutative=True)
+
+    def raisingop_int_mul_ovf(self, gv_x, gv_y):
+        gv_result = self._arg_arg_op(gv_x, gv_y, _PPC.mullwo)
+        gv_ov = self._ov()
+        return (gv_result, gv_ov)
 
     def op_int_floordiv(self, gv_x, gv_y):
         return self._arg_arg_op(gv_x, gv_y, _PPC.divw)
