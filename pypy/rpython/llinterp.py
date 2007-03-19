@@ -226,6 +226,16 @@ class LLFrame(object):
                 assert False, "type error: %r val from %r var/const" % (lltype.typeOf(val), varorconst.concretetype)
         return val
 
+    def getval_or_subop(self, varorsubop):
+        from pypy.translator.oosupport.treebuilder import SubOperation
+        if isinstance(varorsubop, SubOperation):
+            self.eval_operation(varorsubop.op)
+            resultval = self.getval(varorsubop.op.result)
+            del self.bindings[varorsubop.op.result] # XXX hack
+            return resultval
+        else:
+            return self.getval(varorsubop)
+
     # _______________________________________________________
     # other helpers
     def getoperationhandler(self, opname):
@@ -365,7 +375,7 @@ class LLFrame(object):
         if getattr(ophandler, 'specialform', False):
             retval = ophandler(*operation.args)
         else:
-            vals = [self.getval(x) for x in operation.args]
+            vals = [self.getval_or_subop(x) for x in operation.args]
             if getattr(ophandler, 'need_result_type', False):
                 vals.insert(0, operation.result.concretetype)
             try:
