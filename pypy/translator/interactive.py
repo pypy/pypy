@@ -7,6 +7,7 @@ from pypy.translator import driver
 DEFAULTS = {
   'translation.backend': None,
   'translation.type_system': None,
+  'translation.verbose': True,
 }
 
 class Translation(object):
