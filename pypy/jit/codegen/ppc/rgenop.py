@@ -392,8 +392,10 @@ class Builder(GenBuilder):
                 result.append(None)
         return result
 
-    def alloc_frame_place(self, kind, gv_initial_value):
+    def alloc_frame_place(self, kind, gv_initial_value=None):
         place = StackInfo()
+        if gv_initial_value is None:
+            gv_initial_value = AddrConst(llmemory.NULL)
         self.insns.append(insn.CopyIntoStack(place, gv_initial_value))
         return place
 
