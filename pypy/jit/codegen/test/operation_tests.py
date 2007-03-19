@@ -148,6 +148,12 @@ class OperationTests(object):
                        ('int(x != y)', lambda x, y: int(x != y)),
                        ('int(x >  y)', lambda x, y: int(x >  y)),
                        ('int(x >= y)', lambda x, y: int(x >= y)),
+                       ('int(12 <  y)', lambda x, y: int(12 <  y)),
+                       ('int(12 <= y)', lambda x, y: int(12 <= y)),
+                       ('int(12 == y)', lambda x, y: int(12 == y)),
+                       ('int(12 != y)', lambda x, y: int(12 != y)),
+                       ('int(12 >  y)', lambda x, y: int(12 >  y)),
+                       ('int(12 >= y)', lambda x, y: int(12 >= y)),
                        ]:
             fp = self.rgen(fn, [r_uint, r_uint])
             print op

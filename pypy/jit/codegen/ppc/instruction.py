@@ -464,7 +464,7 @@ class CMPWI(CMPInsn):
         #print "CMPWI", asm.mc.tell()
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
 
-class CMPWLI(CMPW):
+class CMPWLI(CMPWI):
     def emit(self, asm):
         asm.cmplwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
 
