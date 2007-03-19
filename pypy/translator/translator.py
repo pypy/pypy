@@ -57,7 +57,7 @@ class TranslationContext(object):
                 pypy_optiondescription, self.config, translating=True)
         self.flowconfig.objspace.name = "flow"
 
-    def buildflowgraph(self, func):
+    def buildflowgraph(self, func, mute_dot=False):
         """Get the flow graph for a function."""
         if not isinstance(func, types.FunctionType):
             raise TypeError("buildflowgraph() expects a function, "
@@ -81,7 +81,7 @@ class TranslationContext(object):
                 simplify.detect_list_comprehension(graph)
             if self.config.translation.verbose:
                 log.done(func.__name__)
-            else:
+            elif not mute_dot:
                 log.dot()
             self.graphs.append(graph)   # store the graph in our list
         return graph

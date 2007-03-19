@@ -1152,7 +1152,7 @@ else:
 
     def gen_rpyfunction(self, func):
         try:
-            graph = self.translator.buildflowgraph(func)
+            graph = self.translator.buildflowgraph(func, True)
         except Exception, e:
             print 20*"*", e
             print func
