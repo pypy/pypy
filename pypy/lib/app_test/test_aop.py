@@ -220,3 +220,34 @@ class AppTestWeavingAtCall(object):
         sample_aop_code.clean_module('aop_after_call')
 
     
+    def test_simple_aspect_around_call(self):
+        from  aop import PointCut, Aspect, around
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_around_call')
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed_before = 0
+                self.executed_after = 0
+            @around(PointCut(func='bar').call())
+            def advice_around_call(self, tjp):
+                print '>>>in', tjp.arguments()
+                self.executed_before += 1
+                args, kwargs = tjp.arguments()
+                tjp.proceed(*args, **kwargs)
+                self.executed_after += 1
+                self.result = tjp.result()
+                print '<<<out'
+                return tjp.result()
+        
+        aspect = AspectTest()
+        from app_test import aop_around_call
+        assert aspect.executed_before == 0
+        assert aspect.executed_after == 0
+        answ = aop_around_call.foo(1,2)
+        assert aspect.executed_before == 1
+        assert aspect.executed_after == 1
+        assert aspect.result == 42
+        assert answ == 47
+        sample_aop_code.clean_module('aop_around_call')

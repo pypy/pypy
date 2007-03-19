@@ -97,14 +97,14 @@ class around(Advice):
     def weave_at_execution(self, node, tjp):
         """weaving around a function execution moves the body of the
         function to an inner function called
-        __aoptarget_<funcname>_<id>, and generate the following code:
-        return __aop__(id, __aoptarget_<funcname>_<id>)
+        __aoptarget_<id>__, and generate the following code:
+        return __aop__(id, __aoptarget_<id>__)
         """
         debug("WEAVE around execution")
         p = parser
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement = node.code
-        newname = '__aoptarget_%s_%s__' % (node.name, id)
+        newname = '__aoptarget_%s__' % (id)
         newcode = p.ASTStmt([p.ASTFunction(node.decorators,
                                            newname,
                                            node.argnames,
@@ -119,11 +119,21 @@ class around(Advice):
         
         node.decorators = None
         node.code = newcode
+        debug('newnode: %s', node)
         return node
     
     def weave_at_call(self, node, tjp):
-        debug("WEAVE around execution")
-        raise NotImplementedError("abstract method")
+        debug("WEAVE around call")
+        p = parser
+        id = __aop__.register_joinpoint(self.woven_code, tjp)
+        newnode = make_aop_call_for_around_call(id,
+                                                node.node.varname,
+                                                node.args,
+                                                node.star_args,
+                                                node.dstar_args
+                                                )
+        debug('newnode: %s', newnode)
+        return newnode
     
     def weave_at_initialization(self, node, tjp):
         raise NotImplementedError("abstract method")
@@ -142,6 +152,7 @@ class before(Advice):
         statement_list = node.code.nodes
         statement_list.insert(0, make_aop_call(id))
         node.code.nodes = statement_list
+        debug('newnode: %s', node)
         return node
         
     @log_exc
@@ -171,7 +182,7 @@ class before(Advice):
         newnode = p.ASTSubscript(call,
                                  p.OP_APPLY,
                                  p.ASTConst(1))
-        debug('%r', newnode)
+        debug('newnode: %s', newnode)
         return newnode
     
     def weave_at_initialization(self, node, tjp):
@@ -192,6 +203,7 @@ class after(Advice):
         statement = node.code
         tryfinally = parser.ASTTryFinally(statement, make_aop_call(id))
         node.code = tryfinally
+        debug('newnode: %s', node)
         return node
 
     @log_exc
@@ -222,6 +234,7 @@ class introduce(Advice):
     def weave_at_static(self, node, tjp):
         debug("WEAVE introduce!!!")
         pass # XXX WRITEME
+        debug('newnode: %s', node)
         return node
 
     
@@ -516,8 +529,10 @@ class Weaver:
         woven_code, (aspect, joinpoint, arguments) = self.joinpoints[id]
         joinpoint.func = target
         debug('target_locals = %s', target_locals)
-        if target_locals is not None:
+        if type(target_locals) is dict: 
             joinpoint._arguments = (), dict([(n, target_locals[n]) for n in joinpoint._argnames or ()])
+        elif type(target_locals) is tuple:
+            joinpoint._arguments = target_locals, {}
         if result is not _UndefinedResult:
             joinpoint._result = result
         args = (aspect, joinpoint,) + arguments
@@ -548,7 +563,21 @@ class Aspect(type):
 # helper functions 
 def make_aop_call(id, targetname=None, discard=True, resultcallfuncnode=None):
     """return an AST for a call to a woven function
-    id is the integer returned when the advice was stored in the registry"""
+    
+    id is the integer returned when the advice was stored in the
+    registry
+
+    targetname is the name of the function that will be run when
+    jointpoint.proceed() is called by the advice
+
+    if discard is True, the call is wrapped in an ASTDiscard node,
+    otherwise an ASTReturn node is used
+
+    If resultcallfuncnode is not None, it is expected to be an
+    ASTCallFunc node which will be inserted as an argument in the aop
+    call, so that the function is called and its return value is
+    passed to the __aop__ instance.
+    """
     p = parser
     arguments = [p.ASTConst(id),]
     if targetname is not None:
@@ -573,6 +602,38 @@ def make_aop_call(id, targetname=None, discard=True, resultcallfuncnode=None):
                                       None # *kwargs
                                       )
                         )
+def make_aop_call_for_around_call(id, targetname, target_args, target_starargs, target_dstar_args):
+    """return an AST for a call to a woven function
+    
+    id is the integer returned when the advice was stored in the
+    registry
+
+    targetname is the name of the function that will be run when
+    jointpoint.proceed() is called by the advice
+
+    target_args, target_starargs, target_dstar_args are the values of the original ASTCallFunc 
+    """
+    debug('make... %s %s %s %s %s', id, targetname, target_args, target_starargs, target_dstar_args)
+    p = parser
+    arguments = [p.ASTConst(id),]
+    if targetname is not None:
+        arguments.append(p.ASTName(targetname))
+    else:
+        arguments.append(p.ASTName('None'))
+
+    callargs = [p.ASTList(target_args)]
+        
+    
+    arguments.append(p.ASTTuple(callargs))
+                     
+                         
+    debug('arguments: %s', arguments)
+    return p.ASTCallFunc(p.ASTName('__aop__'),
+                         arguments,
+                         None, # *args
+                         None # *kwargs
+                         )
+                        
 
 # debugging visitor
 class Debug(parser.ASTVisitor):
