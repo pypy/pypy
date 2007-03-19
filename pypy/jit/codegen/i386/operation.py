@@ -59,8 +59,9 @@ class OpIntInvert(UnaryOp):
     emit = staticmethod(I386CodeBuilder.NOT)
 
 class OpIntAbs(Op1):
-    opname = 'int_abs'
+    opname = 'int_abs', 'int_abs_ovf'
     side_effects = False
+    ccexcflag = Conditions['L']
     def mark_used_vars(self, allocator):
         allocator.using(self.x)
     def generate(self, allocator):
@@ -76,14 +77,6 @@ class OpIntAbs(Op1):
         mc.SBB(tmpop, tmpop)
         mc.XOR(dstop, tmpop)
         allocator.end_clobber(tmpop)
-
-class OpIntAbsOvf(OpIntAbs):
-    opname = 'int_abs_ovf'
-    ccexcflag = Conditions['E']
-    def generate(self, allocator):
-        OpIntAbs.generate(self, allocator)
-        mc = allocator.mc
-        mc.CMP(allocator.var2loc[self], imm(-sys.maxint-1))
 
 class OpSameAs(Op1):
     clobbers_cc = False    # special handling of the cc
@@ -1015,7 +1008,7 @@ load_into_cc_gt = load_into_cc_ne
 load_into_cc_ge = load_into_cc_eq
 
 ccflag_o  = CCFLAG('O',  load_into_cc_o)
-ccflag_no = CCFLAG('O',  load_into_cc_no)
+ccflag_no = CCFLAG('NO', load_into_cc_no)
 
 ccflag_lt = CCFLAG('L',  load_into_cc_lt)
 ccflag_le = CCFLAG('LE', load_into_cc_le)
