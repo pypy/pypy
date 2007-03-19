@@ -1,6 +1,11 @@
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.objectmodel import hint, we_are_jitted
+
+def jitted():
+    print "jitted"
 
 def compute(x, y):
+    if we_are_jitted():
+        jitted()
     hint(x, concrete=True)
     r = x + y
     return r
@@ -20,4 +25,16 @@ def target(*args):
     return entry_point, None
 
 def portal(drv):
-    return compute, None
+    from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
+    class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
+        
+        def __init__(self):
+            HintAnnotatorPolicy.__init__(self, oopspec=True,
+                                         novirtualcontainer=True)
+            
+        def look_inside_graph(self, graph):
+            if graph.func is jitted:
+                return False
+            return True
+        
+    return compute, MyHintAnnotatorPolicy()
