@@ -10,7 +10,8 @@ To Do Right Now
 
 - basic docs and examples
 
-- check that --jit works with --faassen
+- check that --jit works with --faassen; don't stop at
+  BINARY_ADD!
 
 Longer-term
 ------------------
