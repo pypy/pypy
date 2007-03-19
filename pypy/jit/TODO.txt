@@ -6,8 +6,6 @@ To Do Right Now
 
 - improve is_true()
 
-- some --jit option for translate.py
-
 - basic docs and examples
 
 - check that --jit works with --faassen; don't stop at

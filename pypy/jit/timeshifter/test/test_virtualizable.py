@@ -759,6 +759,43 @@ class TestVirtualizableImplicit(PortalTest):
         assert res == 42
         self.check_insns(getfield=0)
 
+    def test_simple__class__(self):
+        class V(object):
+            _virtualizable_ = True
+            def __init__(self, a):
+                self.a = a
+
+        class V1(V):
+            def __init__(self, b):
+                V.__init__(self, 1)
+                self.b = b
+
+        class V2(V):
+            def __init__(self):
+                V.__init__(self, 2)
+
+        def f(v):
+            hint(None, global_merge_point=True)
+            #V1(0).b
+            return v.__class__
+
+        def main(x, y):
+            if x:
+                v = V1(42)
+            else:
+                v = V2()
+            if y:
+                c = None
+            else:
+                c = f(v)
+            V2()
+            return c is not None
+
+        res = self.timeshift_from_portal(main, f, [0, 1], policy=P_OOPSPEC)
+        assert not res
+        res = self.timeshift_from_portal(main, f, [1, 0], policy=P_OOPSPEC)
+        assert res
+
     def test_simple_inheritance(self):
 
         class X(object):

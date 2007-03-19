@@ -200,12 +200,13 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
     VirtualStructCls = None # patched later with VirtualizableStruct
 
     _attrs_  =  """redirected_fielddescs
-                    base_desc rti_desc access_desc
-                    gv_access
-                    touch_update
-                    gv_access_is_null_ptr access_is_null_token
-                    get_rti set_rti
-                 """.split()
+                   redirected
+                   base_desc rti_desc access_desc
+                   gv_access
+                   touch_update
+                   gv_access_is_null_ptr access_is_null_token
+                   get_rti set_rti
+                """.split()
 
     def __init__(self, hrtyper, TYPE):
         RGenOp = hrtyper.RGenOp
@@ -213,10 +214,12 @@ class VirtualizableStructTypeDesc(StructTypeDesc):
         ACCESS = self.TYPE.ACCESS
         redirected_fields = ACCESS.redirected_fields
         self.redirected_fielddescs = []
+        self.redirected = {}
         i = 0
         for fielddesc in self.fielddescs:
             if fielddesc.fieldname in redirected_fields:
                 self.redirected_fielddescs.append((fielddesc, i))
+                self.redirected[i] = None
             i += 1
         self.base_desc = self.getfielddesc('vable_base')
         self.rti_desc = self.getfielddesc('vable_rti')
@@ -804,6 +807,28 @@ class VirtualizableStruct(VirtualStruct):
                         continue
                 boxes[i] = fielddesc.generate_get(jitstate, gv_outside)
 
+    def op_getfield(self, jitstate, fielddesc):
+        typedesc = self.typedesc
+        assert isinstance(typedesc, VirtualizableStructTypeDesc)        
+        fieldindex = fielddesc.fieldindex
+        if fieldindex in typedesc.redirected:
+            return self.content_boxes[fielddesc.fieldindex]
+        else:
+            gv_ptr = self.getgenvar(jitstate)
+            box = fielddesc.generate_get(jitstate, gv_ptr)
+            return box
+        
+    def op_setfield(self, jitstate, fielddesc, valuebox):
+        typedesc = self.typedesc
+        assert isinstance(typedesc, VirtualizableStructTypeDesc)
+        fieldindex = fielddesc.fieldindex
+        if fieldindex in typedesc.redirected:
+            self.content_boxes[fielddesc.fieldindex] = valuebox
+        else:
+            gv_ptr = self.getgenvar(jitstate)
+            fielddesc.generate_set(jitstate, gv_ptr,
+                                   valuebox.getgenvar(jitstate))
+            
 
 # patching VirtualStructCls
 StructTypeDesc.VirtualStructCls = VirtualStruct
