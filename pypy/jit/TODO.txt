@@ -3,6 +3,7 @@ To Do Right Now
 ------------------
 
 - see the inplace-version of the arithmetic operators
+  and some obvious unary ones: - ...
 
 - improve is_true()
 
