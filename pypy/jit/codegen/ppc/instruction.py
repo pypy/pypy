@@ -67,7 +67,7 @@ class FPR(Register):
         Register.__init__(self)
         self.number = number
 
-fprs = map(GPR, range(32))
+fprs = map(FPR, range(32))
 
 class BaseCRF(Register):
     """ These represent condition registers; however, we never actually
