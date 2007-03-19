@@ -1,7 +1,22 @@
 body {
+  font: Verdana, Helvetica, Arial, sans-serif;
   background-color: white;
   color: black;
-  font: Times New Roman;
+}
+
+.sidebar {
+  width: 150px;
+  padding: 0px;
+  list-style-type: none;
+  position: absolute;
+}
+
+.sidebar a {
+  text-decoration: none;
+}
+
+#main {
+  padding-left: 170px;
 }
 
 .infoblock {
@@ -18,7 +33,6 @@ body {
 
 .sub div {
   margin-left: 1em;
-  font-size: 0.8em;
 }
 
 td {

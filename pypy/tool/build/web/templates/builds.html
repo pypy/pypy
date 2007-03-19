@@ -4,35 +4,40 @@
     <link rel="stylesheet" type="text/css" href="%(vhostroot)s/style" />
   </head>
   <body>
-    %(nav)s
+    <div id="logo">
+      <img alt="PyPy" height="110" id="pyimg" src="http://codespeak.net/pypy/img/py-web1.png" width="149"/>
+    </div>
     <h2>Overview of builds</h2>
-    <p>
-      Here you see an overview of all builds, both completed (and available
-      for download) and waiting or in-progress ones, ordered by date. Click
-      on the build to get more information.
-    </p>
-    <table>
-      <thead>
-        <tr>
-          <th>id (link)</th>
-          <th>requested</th>
-          <th>started</th>
-          <th>ended</th>
-          <th>status</th>
-        </tr>
-      </thead>
-      <tbody>
-        %(builds)[b
+    %(nav)s
+    <div id="main">
+      <p>
+        Here you see an overview of all builds, both completed (and available
+        for download) and waiting or in-progress ones, ordered by date. Click
+        on the build to get more information.
+      </p>
+      <table>
+        <thead>
           <tr>
-            <td><a href="%(vhostroot)s%(href)s">%(id)s</a></td>
-            <td>%(request_time)s</td>
-            <td>%(build_start_time)s</td>
-            <td>%(build_end_time)s</td>
-            <td class="%(statusclass)s">%(status)s</td>
+            <th>id (link)</th>
+            <th>requested</th>
+            <th>started</th>
+            <th>ended</th>
+            <th>status</th>
           </tr>
-        %(builds)]b
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          %(builds)[b
+            <tr>
+              <td><a href="%(vhostroot)s%(href)s">%(id)s</a></td>
+              <td>%(request_time)s</td>
+              <td>%(build_start_time)s</td>
+              <td>%(build_end_time)s</td>
+              <td class="%(statusclass)s">%(status)s</td>
+            </tr>
+          %(builds)]b
+        </tbody>
+      </table>
+    </div>
   </body>
 </html>
 

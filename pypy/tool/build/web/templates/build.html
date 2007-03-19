@@ -4,9 +4,12 @@
     <link rel="stylesheet" type="text/css" href="%(vhostroot)s/style" />
   </head>
   <body>
-    %(nav)s
+    <div id="logo">
+      <img alt="PyPy" height="110" id="pyimg" src="http://codespeak.net/pypy/img/py-web1.png" width="149"/>
+    </div>
     <h2>Build %(id)s</h2>
-    <div class="infoblock">
+    %(nav)s
+    <div id="main" class="infoblock">
       %(url)[c
         <div>
           <span class="title">url:</span>

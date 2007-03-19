@@ -4,9 +4,12 @@
     <link rel="stylesheet" type="text/css" href="%(vhostroot)s/style" />
   </head>
   <body>
-    %(nav)s
+    <div id="logo">
+      <img alt="PyPy" height="110" id="pyimg" src="http://codespeak.net/pypy/img/py-web1.png" width="149"/>
+    </div>
     <h2>Connected build servers</h2>
-    <div class="builders">
+    %(nav)s
+    <div id="main" class="builders">
       %(builders)[b
         <div class="builder">
           <h3>%(hostname)s</h3>
