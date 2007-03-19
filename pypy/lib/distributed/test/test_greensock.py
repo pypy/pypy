@@ -1,9 +1,11 @@
 
 import py
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 class AppTestDistributedGreensock(object):
     def setup_class(cls):
+        if not option.runappdirect:
+            py.test.skip("Cannot run this on top of py.py because of PopenGateway")
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
                                        "usemodules":("_stackless",)})
         cls.w_remote_side_code = cls.space.appexec([], """():
