@@ -1592,3 +1592,48 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [42], policy=P_NOVIRTUAL)
         assert res == -7
+
+    def test_switch(self):
+        def g(n):
+            if n == 0:
+                return 12
+            elif n == 1:
+                return 34
+            elif n == 3:
+                return 56
+            elif n == 7:
+                return 78
+            else:
+                return 90
+        def f(n, m):
+            x = g(n)   # gives a red switch
+            y = g(hint(m, concrete=True))   # gives a green switch
+            return x - y
+
+        res = self.timeshift(f, [7, 2], backendoptimize=True)
+        assert res == 78 - 90
+        res = self.timeshift(f, [8, 1], backendoptimize=True)
+        assert res == 90 - 34
+
+    def test_switch_char(self):
+        def g(n):
+            n = chr(n)
+            if n == '\x00':
+                return 12
+            elif n == '\x01':
+                return 34
+            elif n == '\x02':
+                return 56
+            elif n == '\x03':
+                return 78
+            else:
+                return 90
+        def f(n, m):
+            x = g(n)   # gives a red switch
+            y = g(hint(m, concrete=True))   # gives a green switch
+            return x - y
+
+        res = self.timeshift(f, [3, 0], backendoptimize=True)
+        assert res == 78 - 12
+        res = self.timeshift(f, [2, 4], backendoptimize=True)
+        assert res == 56 - 90

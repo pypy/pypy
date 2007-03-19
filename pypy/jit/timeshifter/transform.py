@@ -1,3 +1,4 @@
+import sys
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, mkentrymap
 from pypy.annotation        import model as annmodel
@@ -267,12 +268,19 @@ class HintGraphTransformer(object):
 
     def insert_splits(self):
         hannotator = self.hannotator
-        for block in self.graph.iterblocks():
-            if block.exitswitch is not None:
-                assert isinstance(block.exitswitch, Variable)
-                hs_switch = hannotator.binding(block.exitswitch)
-                if not hs_switch.is_green():
-                    self.insert_split_handling(block)
+        retry = True
+        while retry:
+            retry = False
+            for block in list(self.graph.iterblocks()):
+                if block.exitswitch is not None:
+                    assert isinstance(block.exitswitch, Variable)
+                    hs_switch = hannotator.binding(block.exitswitch)
+                    if not hs_switch.is_green():
+                        if block.exitswitch.concretetype is lltype.Bool:
+                            self.insert_split_handling(block)
+                        else:
+                            self.insert_switch_handling(block)
+                            retry = True
 
     def trace_back_bool_var(self, block, v):
         """Return the (opname, arguments) that created the exitswitch of
@@ -325,6 +333,117 @@ class HintGraphTransformer(object):
                         [v_redswitch, c_resumepoint] + split_extras + greens,
                         resulttype = lltype.Bool)
         block.exitswitch = v_flag
+
+    def insert_switch_handling(self, block):
+        v_redswitch = block.exitswitch
+        T = v_redswitch.concretetype
+        range_start = -sys.maxint-1
+        range_stop  = sys.maxint+1
+        if T is not lltype.Signed:
+            if T is lltype.Char:
+                opcast = 'cast_char_to_int'
+                range_start = 0
+                range_stop = 256
+            elif T is lltype.UniChar:
+                opcast = 'cast_unichar_to_int'
+                range_start = 0
+            elif T is lltype.Unsigned:
+                opcast = 'cast_uint_to_int'
+            else:
+                raise AssertionError(T)
+            v_redswitch = self.genop(block, opcast, [v_redswitch],
+                                     resulttype=lltype.Signed, red=True)
+            block.exitswitch = v_redswitch
+        # for now, we always turn the switch back into a chain of tests
+        # that perform a binary search
+        blockset = {block: True}   # reachable from outside
+        cases = {}
+        defaultlink = None
+        for link in block.exits:
+            if link.exitcase == 'default':
+                defaultlink = link
+                blockset[link.target] = False   # not reachable from outside
+            else:
+                assert lltype.typeOf(link.exitcase) == T
+                intval = lltype.cast_primitive(lltype.Signed, link.exitcase)
+                cases[intval] = link
+                link.exitcase = None
+                link.llexitcase = None
+        self.insert_integer_search(block, cases, defaultlink, blockset,
+                                   range_start, range_stop)
+        SSA_to_SSI(blockset, self.hannotator)
+
+    def insert_integer_search(self, block, cases, defaultlink, blockset,
+                              range_start, range_stop):
+        # fix the exit of the 'block' to check for the given remaining
+        # 'cases', knowing that if we get there then the value must
+        # be contained in range(range_start, range_stop).
+        if not cases:
+            assert defaultlink is not None
+            block.exitswitch = None
+            block.recloseblock(Link(defaultlink.args, defaultlink.target))
+        elif len(cases) == 1 and (defaultlink is None or
+                                  range_start == range_stop-1):
+            block.exitswitch = None
+            block.recloseblock(cases.values()[0])
+        else:
+            intvalues = cases.keys()
+            intvalues.sort()
+            if len(intvalues) <= 3:
+                # not much point in being clever with no more than 3 cases
+                intval = intvalues[-1]
+                remainingcases = cases.copy()
+                link = remainingcases.pop(intval)
+                c_intval = inputconst(lltype.Signed, intval)
+                v = self.genop(block, 'int_eq', [block.exitswitch, c_intval],
+                               resulttype=lltype.Bool, red=True)
+                link.exitcase = True
+                link.llexitcase = True
+                falseblock = Block([])
+                falseblock.exitswitch = block.exitswitch
+                blockset[falseblock] = False
+                falselink = Link([], falseblock)
+                falselink.exitcase = False
+                falselink.llexitcase = False
+                block.exitswitch = v
+                block.recloseblock(falselink, link)
+                if defaultlink is None or intval == range_stop-1:
+                    range_stop = intval
+                self.insert_integer_search(falseblock, remainingcases,
+                                           defaultlink, blockset,
+                                           range_start, range_stop)
+            else:
+                intval = intvalues[len(intvalues) // 2]
+                c_intval = inputconst(lltype.Signed, intval)
+                v = self.genop(block, 'int_ge', [block.exitswitch, c_intval],
+                               resulttype=lltype.Bool, red=True)
+                falseblock = Block([])
+                falseblock.exitswitch = block.exitswitch
+                trueblock  = Block([])
+                trueblock.exitswitch = block.exitswitch
+                blockset[falseblock] = False
+                blockset[trueblock]  = False
+                falselink = Link([], falseblock)
+                falselink.exitcase = False
+                falselink.llexitcase = False
+                truelink = Link([], trueblock)
+                truelink.exitcase = True
+                truelink.llexitcase = True
+                block.exitswitch = v
+                block.recloseblock(falselink, truelink)
+                falsecases = {}
+                truecases = {}
+                for intval1, link1 in cases.items():
+                    if intval1 < intval:
+                        falsecases[intval1] = link1
+                    else:
+                        truecases[intval1] = link1
+                self.insert_integer_search(falseblock, falsecases,
+                                           defaultlink, blockset,
+                                           range_start, intval)
+                self.insert_integer_search(trueblock, truecases,
+                                           defaultlink, blockset,
+                                           intval, range_stop)
 
     def get_resume_point_link(self, block):
         try:
