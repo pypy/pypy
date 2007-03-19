@@ -595,7 +595,7 @@ class AppTestOptimizer:
                         return parser.ASTConst(left.value + right.value)
                 return node
 
-        def hook(ast, enc):
+        def hook(ast, enc, filename):
             return ast.mutate(Folder())
         
         parser.install_compiler_hook(hook)

@@ -2,7 +2,7 @@ class AppTest_CompilerHooks:
 
     def test_basic_hook(self):
         # define the hook
-        def threebecomestwo(ast, enc):
+        def threebecomestwo(ast, enc, filename):
             class ChangeConstVisitor:
                 def visitConst(self, node):
                     if node.value == 3:
@@ -28,14 +28,14 @@ class AppTest_CompilerHooks:
         assert d['a'] == 2 # well, yes ...
 
     def test_removal_of_broken_hooks(self):
-        def hook(ast, enc):
+        def hook(ast, enc, filename):
             1/0
         import parser
         parser.install_compiler_hook(hook)
         raises(ZeroDivisionError, "eval('1')")
         assert eval("1") == 1
 
-        def hook2(ast, enc):
+        def hook2(ast, enc, filename):
             return 1
         parser.install_compiler_hook(hook2)
         raises(TypeError, "eval('2')")
@@ -46,7 +46,7 @@ class AppTest_CompilerHooks:
 class DISABLEDAppTest_GlobalsAsConsts:
     def test_ast_parser(self):
         # define the hook
-        def change_globals(ast, enc):
+        def change_globals(ast, enc, filename):
             class ChangeGlobalsVisitor:
                 def visitConst(self, node):
                     pass
