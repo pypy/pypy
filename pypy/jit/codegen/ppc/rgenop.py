@@ -1142,10 +1142,10 @@ class RPPCGenOp(AbstractRGenOp):
     @specialize.genconst(1)
     def genconst(self, llvalue):
         T = lltype.typeOf(llvalue)
-        if isinstance(T, lltype.Primitive):
-            return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
-        elif T is llmemory.Address:
+        if T is llmemory.Address:
             return AddrConst(llvalue)
+        elif isinstance(T, lltype.Primitive):
+            return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
             lladdr = llmemory.cast_ptr_to_adr(llvalue)
             if T.TO._gckind == 'gc':
@@ -1339,8 +1339,8 @@ class FlexSwitch(CodeGenSwitch):
 
     def _add_case(self, gv_case, target_addr):
         asm = self.asm
-        assert isinstance(gv_case, IntConst)
-        asm.load_word(rSCRATCH, gv_case.value)
+        assert isinstance(gv_case, GenConst)
+        gv_case.load_now(asm, insn.gprs[0])
         asm.cmpw(self.crf.number, rSCRATCH, self.switch_reg.number)
         asm.load_word(rSCRATCH, target_addr)
         asm.mtctr(rSCRATCH)
