@@ -244,6 +244,7 @@ class BuildersInfoPage(ServerPage):
                     if d[key]:
                         d[key] = time.strftime('%Y/%m/%d %H:%M:%S',
                                                time.gmtime(d[key]))
+                d['vhostroot'] = config.vhostroot
                 binfo['busy_on'] = [d]
             else:
                 binfo['busy_on'] = []
