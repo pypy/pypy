@@ -671,9 +671,19 @@ class VirtualizableStruct(VirtualStruct):
                                           known_nonzero = True)
             self.content_boxes[-1] = outsidebox
             jitstate.add_virtualizable(self.ownbox)
-            access_token = typedesc.access_desc.fieldtoken            
-            gv_access_null = typedesc.access_desc.gv_default
-            builder.genop_setfield(access_token, gv_outside, gv_access_null)
+            #access_token = typedesc.access_desc.fieldtoken            
+            #gv_access_null = typedesc.access_desc.gv_default
+            #builder.genop_setfield(access_token, gv_outside, gv_access_null)
+            # write all non-redirected fields
+            boxes = self.content_boxes
+            fielddescs = typedesc.fielddescs
+            redirected = typedesc.redirected
+            for i in range(len(fielddescs)):
+                if i not in redirected:
+                    fielddesc = fielddescs[i]
+                    box = boxes[i]
+                    fielddesc.generate_set(jitstate, gv_outside,
+                                           box.getgenvar(jitstate))
         return gv_outside
 
     def store_back(self, jitstate):
@@ -809,10 +819,12 @@ class VirtualizableStruct(VirtualStruct):
 
     def op_getfield(self, jitstate, fielddesc):
         typedesc = self.typedesc
-        assert isinstance(typedesc, VirtualizableStructTypeDesc)        
+        assert isinstance(typedesc, VirtualizableStructTypeDesc)
+        gv_outside = self.content_boxes[-1].genvar
         fieldindex = fielddesc.fieldindex
-        if fieldindex in typedesc.redirected:
-            return self.content_boxes[fielddesc.fieldindex]
+        if (gv_outside is typedesc.gv_null or
+            fieldindex in typedesc.redirected):
+            return self.content_boxes[fieldindex]
         else:
             gv_ptr = self.getgenvar(jitstate)
             box = fielddesc.generate_get(jitstate, gv_ptr)
@@ -822,7 +834,9 @@ class VirtualizableStruct(VirtualStruct):
         typedesc = self.typedesc
         assert isinstance(typedesc, VirtualizableStructTypeDesc)
         fieldindex = fielddesc.fieldindex
-        if fieldindex in typedesc.redirected:
+        gv_outside = self.content_boxes[-1].genvar
+        if (gv_outside is typedesc.gv_null or
+            fieldindex in typedesc.redirected):
             self.content_boxes[fielddesc.fieldindex] = valuebox
         else:
             gv_ptr = self.getgenvar(jitstate)
