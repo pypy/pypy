@@ -61,7 +61,7 @@ def frame_new(space, __args__):
     w_pycode, = args_w
     pycode = space.interp_w(PyCode, w_pycode)
     w = space.wrap
-    new_frame = instantiate(PyFrame)
+    new_frame = instantiate(space.FrameClass)   # XXX fish
     return space.wrap(new_frame)
 frame_new.unwrap_spec = [ObjSpace, Arguments]
 
