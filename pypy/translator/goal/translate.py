@@ -17,21 +17,30 @@ from pypy.config.translationoption import get_combined_translation_config
 GOALS= [
         ("annotate", "do type inference", "-a --annotate", ""),
         ("rtype", "do rtyping", "-t --rtype", ""),
+        ("prehannotatebackendopt", "backend optimize before hint-annotating",
+         "--prehannotatebackendopt", ""),
+        ("hintannotate", "hint-annotate", "--hintannotate", ""),
+        ("timeshift", "timeshift (jit generation)", "--timeshift", ""),
         ("backendopt", "do backend optimizations", "--backendopt", ""),
         ("source", "create source", "-s --source", ""),
         ("compile", "compile", "-c --compile", " (default goal)"),
+        ("?jit", "generate JIT", "--jit", ""),
         ("run", "run the resulting binary", "--run", ""),
         ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
        ]
-
 def goal_options():
     result = []
     for name, doc, cmdline, extra in GOALS:
+        optional = False
+        if name.startswith('?'):
+            optional = True
+            name = name[1:]
         yesdoc = doc[0].upper()+doc[1:]+extra
         result.append(BoolOption(name, yesdoc, default=False, cmdline=cmdline,
                                  negation=False))
-        result.append(BoolOption("no_%s" % name, "Don't "+doc, default=False,
-                                 cmdline="--no-"+name, negation=False))
+        if not optional:
+            result.append(BoolOption("no_%s" % name, "Don't "+doc, default=False,
+                                     cmdline="--no-"+name, negation=False))
     return result
 
 translate_optiondescr = OptionDescription("translate", "XXX", [
@@ -116,6 +125,8 @@ def parse_options_and_load_target():
     # set goals and skipped_goals
     reset = False
     for name, _, _, _ in GOALS:
+        if name.startswith('?'):
+            continue
         if getattr(translateconfig.goal_options, name):
             if name not in translateconfig.goals:
                 translateconfig.goals.append(name)
@@ -250,12 +261,15 @@ def main():
         pdb_plus_show.start(tb, server_setup, graphic=not translateconfig.text)
 
     log_config(translateconfig, "translate.py configuration")
-
+    extra_goals = []
+    if translateconfig.goal_options.jit:
+        extra_goals.append('timeshift')
     try:
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, args,
                                                        empty_translator=t,
                                                        disable=translateconfig.skipped_goals,
-                                                       default_goal='compile')
+                                                       default_goal='compile',
+                                                       extra_goals=extra_goals)
         log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 

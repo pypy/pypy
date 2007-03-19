@@ -1,6 +1,6 @@
 import sys, os
 
-from pypy.translator.translator import TranslationContext
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.tool.taskengine import SimpleTaskEngine
 from pypy.translator.goal import query
 from pypy.annotation import model as annmodel
@@ -78,7 +78,8 @@ class ProfInstrument(object):
 
 class TranslationDriver(SimpleTaskEngine):
 
-    def __init__(self, setopts=None, default_goal=None, disable=[],
+    def __init__(self, setopts=None, default_goal=None, extra_goals=[],
+                 disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
         SimpleTaskEngine.__init__(self)
@@ -108,7 +109,7 @@ class TranslationDriver(SimpleTaskEngine):
                 default_goal = None
         
         self.default_goal = default_goal
-
+        self.extra_goals = extra_goals
         self.exposed = []
 
         # expose tasks
@@ -129,7 +130,9 @@ class TranslationDriver(SimpleTaskEngine):
                     expose_task(task)
             else:
                 task, postfix = parts
-                if task in ('rtype', 'backendopt', 'llinterpret'):
+                if task in ('rtype', 'backendopt', 'llinterpret',
+                            'prehannotatebackendopt', 'hintannotate',
+                            'timeshift'):
                     if ts:
                         if ts == postfix:
                             expose_task(task, explicit_task)
@@ -328,12 +331,75 @@ class TranslationDriver(SimpleTaskEngine):
     task_rtype_ootype = taskdef(task_rtype_ootype, ['annotate'], "ootyping")
     OOTYPE = 'rtype_ootype'
 
+    def task_prehannotatebackendopt_lltype(self):
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(self.translator,
+                              inline_threshold=0,
+                              merge_if_blocks=False,
+                              constfold=True,
+                              remove_asserts=True)
+    #
+    task_prehannotatebackendopt_lltype = taskdef(
+        task_prehannotatebackendopt_lltype,
+        [RTYPE],
+        "Backendopt before Hint-annotate")
+
+    def task_hintannotate_lltype(self):
+        from pypy.jit.hintannotator.annotator import HintAnnotator
+        from pypy.jit.hintannotator.model import OriginFlags
+        from pypy.jit.hintannotator.model import SomeLLAbstractConstant
+
+        get_portal = self.extra['portal']
+        PORTAL, POLICY = get_portal(self)
+        t = self.translator
+        self.portal_graph = graphof(t, PORTAL)
+
+        hannotator = HintAnnotator(base_translator=t, policy=POLICY)
+        hs = hannotator.build_types(self.portal_graph,
+                                    [SomeLLAbstractConstant(v.concretetype,
+                                                            {OriginFlags(): True})
+                                     for v in self.portal_graph.getargs()])
+        count = hannotator.bookkeeper.nonstubgraphcount
+        self.log.info('Hint-annotated %d graphs (plus %d stubs).' % (
+            count, len(hannotator.translator.graphs) - count))
+        n = len(list(hannotator.translator.graphs[0].iterblocks()))
+        self.log.info("portal has %d blocks" % n)
+        self.hannotator = hannotator
+    #
+    task_hintannotate_lltype = taskdef(task_hintannotate_lltype,
+                                       ['prehannotatebackendopt_lltype'],
+                                       "Hint-annotate")
+
+    def task_timeshift_lltype(self):
+        from pypy.jit.timeshifter.hrtyper import HintRTyper
+        from pypy.jit.codegen import detect_cpu
+        cpu = detect_cpu.autodetect()
+        if cpu == 'i386':
+            from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
+            RGenOp.MC_SIZE = 32 * 1024 * 1024
+        elif cpu == 'ppc':
+            from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
+        else:
+            raise Exception('Unsuported cpu %r'%cpu)
+
+        ha = self.hannotator
+        t = self.translator
+        # make the timeshifted graphs
+        hrtyper = HintRTyper(ha, t.rtyper, RGenOp)
+        hrtyper.specialize(origportalgraph=self.portal_graph, view=False)
+    #
+    task_timeshift_lltype = taskdef(task_timeshift_lltype,
+                             ["hintannotate_lltype"],
+                             "Timeshift")
+
     def task_backendopt_lltype(self):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator)
     #
     task_backendopt_lltype = taskdef(task_backendopt_lltype,
-                                        [RTYPE], "lltype back-end optimisations")
+                                     [RTYPE,
+                                      '??timeshift_lltype'],
+                                     "lltype back-end optimisations")
     BACKENDOPT = 'backendopt_lltype'
 
     def task_backendopt_ootype(self):
@@ -630,18 +696,20 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
                 return
         elif isinstance(goals, str):
             goals = [goals]
+        goals.extend(self.extra_goals)
         goals = self.backend_select_goals(goals)
         return self._execute(goals, task_skip = self._maybe_skip())
 
     def from_targetspec(targetspec_dic, config=None, args=None,
                         empty_translator=None,
                         disable=[],
-                        default_goal=None):
+                        default_goal=None,
+                        extra_goals=[]):
         if args is None:
             args = []
 
         driver = TranslationDriver(config=config, default_goal=default_goal,
-                                   disable=disable)
+                                   extra_goals=extra_goals, disable=disable)
         # patch some attributes of the os module to make sure they
         # have the same value on every platform.
         backend, ts = driver.get_backend_and_type_system()
