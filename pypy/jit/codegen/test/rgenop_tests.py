@@ -715,6 +715,53 @@ def get_write_frame_place_runner(RGenOp):
         return res
     return write_frame_place_runner
 
+class ManyFramePlaceWriter:
+    FUNC = lltype.Ptr(lltype.FuncType([llmemory.Address, lltype.Signed],
+                                      lltype.Void))
+    def __init__(self, RGenOp):
+        def writer(base, value):
+            i = 0
+            for p in self.places:
+                RGenOp.write_frame_place(lltype.Signed, base, p, value + i)
+                i += 1
+        self.writer = writer
+    def get_writer(self, places):
+        self.places = places
+        return llhelper(self.FUNC, self.writer)
+
+def make_write_lots_of_frame_places(rgenop, get_writer):
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    writertoken = rgenop.sigToken(FramePlaceWriter.FUNC.TO)
+
+    builder, gv_f, [gv_x] = rgenop.newgraph(sigtoken, "f")
+    builder.start_writing()
+
+    gv_base = builder.genop_get_frame_base()
+    places = [builder.alloc_frame_place(signed_kind) for i in range(100)]
+    gv_writer = rgenop.constPrebuiltGlobal(get_writer(places))
+    builder.genop_call(writertoken, gv_writer, [gv_base, gv_x])
+    gv_sum = rgenop.genconst(0)
+    for p in places:
+        gv_i = builder.genop_absorb_place(signed_kind, p)
+        gv_sum = builder.genop2("int_add", gv_sum, gv_i)
+    builder.finish_and_return(sigtoken, gv_sum)
+    builder.end()
+
+    return gv_f
+
+def get_write_lots_of_frame_places_runner(RGenOp):
+    fvw = ManyFramePlaceWriter(RGenOp)
+
+    def write_lots_of_frame_places_runner(x):
+        rgenop = RGenOp()
+        gv_f = make_write_lots_of_frame_places(rgenop, fvw.get_writer)
+        fn = gv_f.revealconst(lltype.Ptr(FUNC))
+        res = fn(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return write_lots_of_frame_places_runner
+
 
 class FramePlaceReader:
     FUNC = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Signed))
@@ -1386,6 +1433,21 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == -100 - (-420)
         res = fn(606)
         assert res == 4242 - 6060
+
+    def test_write_lots_of_frame_places_direct(self):
+        def get_writer(places):
+            fvw = ManyFramePlaceWriter(self.RGenOp)
+            fvw.places = places
+            writer_ptr = self.directtesthelper(fvw.FUNC, fvw.writer)
+            return writer_ptr
+
+        rgenop = self.RGenOp()
+        gv_callable = make_write_lots_of_frame_places(rgenop, get_writer)
+        fnptr = self.cast(gv_callable, 1)
+        res = fnptr(3)
+        assert res == sum(range(3, 103))
+        res = fnptr(6)
+        assert res == sum(range(6, 106))
 
     def test_read_frame_place_direct(self):
         def get_reader(place):
