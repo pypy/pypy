@@ -69,7 +69,7 @@ class ProfInstrument(object):
         from py.compat import subprocess
         env = os.environ.copy()
         env['_INSTRUMENT_COUNTERS'] = str(self.datafile)
-        subprocess.call([exe, args], env=env)
+        subprocess.call("'%s' %s" % (exe, args), env=env, shell=True)
         
     def after(self):
         # xxx

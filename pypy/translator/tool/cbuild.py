@@ -270,9 +270,10 @@ class ProfOpt(object):
         self.build('-fprofile-generate')
 
     def probe(self, exe, args):
-        from py.compat import subprocess
-        subprocess.call([exe, args])
-        
+        # 'args' is a single string typically containing spaces
+        # and quotes, which represents several arguments.
+        os.system("'%s' %s" % (exe, args))
+
     def after(self):
         self.build('-fprofile-use')
 
