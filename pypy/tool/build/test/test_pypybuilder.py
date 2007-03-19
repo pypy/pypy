@@ -44,7 +44,7 @@ def setup_module(mod):
     cfg = Container(projectname='pypytest', server='localhost',
                     port=config.testport,
                     path=config.testpath, buildpath=temppath,
-                    mailhost=None)
+                    mailhost=None, configpath='pypy.tool.build.config')
     
     mod.sc = sc = metaserver.init(sgw, cfg)
 

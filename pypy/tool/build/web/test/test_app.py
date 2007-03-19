@@ -137,7 +137,8 @@ class TestBuildersInfoPage(object):
                 binfo.update({'href': 'file:///foo',
                               'log': 'everything went well',
                               'error': None,
-                              'id': 'somebuild'})
+                              'id': 'somebuild',
+                              'vhostroot': ''})
                 return [
                     {'hostname': 'host1',
                      'sysinfo': [{

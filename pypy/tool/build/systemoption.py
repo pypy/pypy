@@ -1,6 +1,6 @@
 import py
 from pypy.config.config import OptionDescription, BoolOption, IntOption
-from pypy.config.config import ChoiceOption, to_optparse, Config
+from pypy.config.config import ChoiceOption, Config
 
 import sys
 system_optiondescription = OptionDescription('system', '', [

@@ -29,6 +29,10 @@ compile_config = get_pypy_config()
 compile_config.override({'translation.backend': 'c',
                          'translation.gc': 'boehm'})
 
+# svn path and revision, etc.
+from pypy.tool.build.tooloption import tool_optiondescription
+tool_config = Config(tool_optiondescription)
+
 # settings for the server
 projectname = 'pypy'
 buildpath = packageparent.ensure('/pypy/tool/build/builds', dir=True)
@@ -63,4 +67,8 @@ def svnpath_to_url(p):
 def path_to_url(p):
     return 'http://codespeak.net/pypy/%s/data.zip' % (
                 p.relto(py.magic.autopath().dirpath()),)
+
+# this should contain the dotted name of the package where 'config'
+# can be found on the metaserver (used for remote imports)
+configpath = 'pypy.tool.build.config'
 

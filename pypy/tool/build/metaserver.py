@@ -85,18 +85,33 @@ class MetaServer(object):
         for bp in self._done:
             if request.has_satisfying_data(bp.request):
                 path = str(bp)
-                self._channel.send('already a build for this info available')
-                return {'path': path, 'id': requestid, 'isbuilding': True,
+                self._channel.send(
+                    'already a build for this info available as %s' % (
+                        bp.request.id(),))
+                return {'path': path, 'id': bp.request.id(),
+                        'isbuilding': True,
                         'message': 'build is already available'}
         for builder in self._builders:
-            if builder.busy_on and request.has_satisfying_data(builder.busy_on):
+            if (builder.busy_on and
+                    request.has_satisfying_data(builder.busy_on)):
+                id = builder.busy_on.id()
                 self._channel.send(
-                    "build for %s currently in progress on '%s'" % (
-                        request, builder.hostname))
+                    "build for %s currently in progress on '%s' as %s" % (
+                        request.id(), builder.hostname, id))
                 self._waiting.append(request)
-                return {'path': None, 'id': requestid, 'isbuilding': True,
+                return {'path': None, 'id': id, 'isbuilding': True,
                         'message': "this build is already in progress "
                                    "on '%s'" % (builder.hostname,)}
+        for br in self._waiting + self._queued:
+            if br.has_satisfying_data(request):
+                id = br.id()
+                self.channel.send(
+                    'build for %s already queued as %s' % (
+                        request.id(), id))
+                return {'path': None, 'id': id, 'isbuilding': False,
+                        'message': ('no suitable server found, and a '
+                                    'similar request was already queued '
+                                    'as %s' % (id,))}
         # we don't have a build for this yet, find a builder to compile it
         hostname = self.run(request)
         if hostname is not None:
@@ -247,9 +262,11 @@ class MetaServer(object):
         if self.config.mailhost is not None:
             try:
                 if buildpath.error:
+                    excname = str(buildpath.error)
+                    if hasattr(buildpath.error, '__class__'):
+                        excname = buildpath.error.__class__.__name__
                     subject = '%s - %s during compilation' % (
-                                self.config.projectname,
-                                buildpath.error.__class__.__name__)
+                                self.config.projectname, excname)
                     body = ('There was an error during the compilation you '
                             'requested. The log can be found below.'
                             '\n\n%s' % (buildpath.log,))
@@ -284,7 +301,7 @@ initcode = """
     try:
         try:
             from pypy.tool.build.metaserver import MetaServer
-            from pypy.tool.build import config
+            import %s as config
             server = MetaServer(config, channel)
 
             # make the metaserver available to build servers as
@@ -307,6 +324,25 @@ def init(gw, config):
     from pypy.tool.build import execnetconference
     
     conference = execnetconference.conference(gw, config.port, True)
-    channel = conference.remote_exec(initcode % (config.path,))
+    channel = conference.remote_exec(initcode % (config.path,
+                                                 config.configpath))
     return channel
+
+def main(config):
+    from py.execnet import SshGateway, PopenGateway
+    from pypy.tool.build.metaserver import init
+
+    if config.server in ['localhost', '127.0.0.1']:
+        gw = PopenGateway()
+    else:
+        gw = SshGateway(config.server)
+    channel = init(gw, config)
+
+    try:
+        while 1:
+            data = channel.receive()
+            print data
+    finally:
+        channel.close()
+        gw.exit()
 
