@@ -7,36 +7,38 @@ class AppTestDistributedGreensock(object):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
                                        "usemodules":("_stackless",)})
         cls.w_remote_side_code = cls.space.appexec([], """():
-        import py
-        remote_side_code = str(py.code.Source('''
-        class A:
-            def __init__(self, x):
-                self.x = x
+        import sys
+        sys.path.insert(0, '%s')
+        remote_side_code = '''
+class A:
+   def __init__(self, x):
+       self.x = x
             
-            def __len__(self):
-                return self.x + 8
+   def __len__(self):
+       return self.x + 8
 
-            def raising(self):
-                1/0
+   def raising(self):
+       1/0
 
-            def method(self, x):
-                return x() + self.x
+   def method(self, x):
+       return x() + self.x
 
-        a = A(3)
+a = A(3)
 
-        def count():
-            x = 10
-            # naive counting :)
-            result = 1
-            for i in range(x):
-                result += 1
-            return result
-        '''))
+def count():
+    x = 10
+    # naive counting :)
+    result = 1
+    for i in range(x):
+        result += 1
+    return result
+'''
         return remote_side_code
-        """)
+        """ % str(py.path.local(__file__).dirpath().dirpath().dirpath().dirpath()))
 
     def test_remote_call(self):
         from distributed import socklayer
+        import sys
         from py.__.green.greenexecnet import PopenGateway
         gw = PopenGateway()
         rp = socklayer.spawn_remote_side(self.remote_side_code, gw)
