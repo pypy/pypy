@@ -3,9 +3,10 @@ from pypy.jit.codegen import detect_cpu
 
 #XXX Should check here if llvm supports a JIT for this platform (perhaps using lli?)
 
-#class Directory(py.test.collect.Directory):
-#
-#    def run(self):
+class Directory(py.test.collect.Directory):
+
+    def run(self):
+        py.test.skip("skipping jit.codegen.llvm for now")
 #        try:
 #            processor = detect_cpu.autodetect()
 #        except detect_cpu.ProcessorAutodetectError, e:
@@ -13,8 +14,8 @@ from pypy.jit.codegen import detect_cpu
 #        else:
 #            if processor != 'i386':
 #                py.test.skip('detected a %r CPU' % (processor,))
-#
-#        return super(Directory, self).run()
+
+        return super(Directory, self).run()
 
 Option = py.test.config.Option
 
