@@ -602,55 +602,6 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
 
     # ____________________________________________________________
 
-    def test_stress(self):
-        from pypy.annotation.dictdef import DictKey, DictValue
-        from pypy.annotation import model as annmodel
-        dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
-                                  DictKey(None, annmodel.SomeInteger()),
-                                  DictValue(None, annmodel.SomeInteger()))
-        dictrepr.setup()
-        l_dict = rdict.ll_newdict(dictrepr.DICT)
-        referencetable = [None] * 400
-        referencelength = 0
-        value = 0
-
-        def complete_check():
-            for n, refvalue in zip(range(len(referencetable)), referencetable):
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert refvalue is None
-                else:
-                    assert gotvalue == refvalue
-
-        for x in not_really_random():
-            n = int(x*100.0)    # 0 <= x < 400
-            op = repr(x)[-1]
-            if op <= '2' and referencetable[n] is not None:
-                rdict.ll_dict_delitem(l_dict, n)
-                referencetable[n] = None
-                referencelength -= 1
-            elif op <= '6':
-                rdict.ll_dict_setitem(l_dict, n, value)
-                if referencetable[n] is None:
-                    referencelength += 1
-                referencetable[n] = value
-                value += 1
-            else:
-                try:
-                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
-                except KeyError:
-                    assert referencetable[n] is None
-                else:
-                    assert gotvalue == referencetable[n]
-            if 1.38 <= x <= 1.39:
-                complete_check()
-                print 'current dict length:', referencelength
-            assert l_dict.num_items == referencelength
-        complete_check()
-
-    # ____________________________________________________________
-
     def test_opt_nullkeymarker(self):
         def f():
             d = {"hello": None}
@@ -759,3 +710,120 @@ class TestOOtype(BaseTestRdict, OORtypeMixin):
             except RuntimeError:
                 return False
         assert self.interpret(func, []) == False
+
+    # ____________________________________________________________
+
+class TestStress:
+
+    def test_stress(self):
+        from pypy.annotation.dictdef import DictKey, DictValue
+        from pypy.annotation import model as annmodel
+        dictrepr = rdict.DictRepr(None, rint.signed_repr, rint.signed_repr,
+                                  DictKey(None, annmodel.SomeInteger()),
+                                  DictValue(None, annmodel.SomeInteger()))
+        dictrepr.setup()
+        l_dict = rdict.ll_newdict(dictrepr.DICT)
+        referencetable = [None] * 400
+        referencelength = 0
+        value = 0
+
+        def complete_check():
+            for n, refvalue in zip(range(len(referencetable)), referencetable):
+                try:
+                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
+                except KeyError:
+                    assert refvalue is None
+                else:
+                    assert gotvalue == refvalue
+
+        for x in not_really_random():
+            n = int(x*100.0)    # 0 <= x < 400
+            op = repr(x)[-1]
+            if op <= '2' and referencetable[n] is not None:
+                rdict.ll_dict_delitem(l_dict, n)
+                referencetable[n] = None
+                referencelength -= 1
+            elif op <= '6':
+                rdict.ll_dict_setitem(l_dict, n, value)
+                if referencetable[n] is None:
+                    referencelength += 1
+                referencetable[n] = value
+                value += 1
+            else:
+                try:
+                    gotvalue = rdict.ll_dict_getitem(l_dict, n)
+                except KeyError:
+                    assert referencetable[n] is None
+                else:
+                    assert gotvalue == referencetable[n]
+            if 1.38 <= x <= 1.39:
+                complete_check()
+                print 'current dict length:', referencelength
+            assert l_dict.num_items == referencelength
+        complete_check()
+
+    def test_stress_2(self):
+        yield self.stress_combination, True,  False
+        yield self.stress_combination, False, True
+        yield self.stress_combination, False, False
+        yield self.stress_combination, True,  True
+
+    def stress_combination(self, key_can_be_none, value_can_be_none):
+        from pypy.rpython.lltypesystem.rstr import string_repr
+        from pypy.annotation.dictdef import DictKey, DictValue
+        from pypy.annotation import model as annmodel
+
+        print
+        print "Testing combination with can_be_None: keys %s, values %s" % (
+            key_can_be_none, value_can_be_none)
+
+        class PseudoRTyper:
+            cache_dummy_values = {}
+        dictrepr = rdict.DictRepr(PseudoRTyper(), string_repr, string_repr,
+                       DictKey(None, annmodel.SomeString(key_can_be_none)),
+                       DictValue(None, annmodel.SomeString(value_can_be_none)))
+        dictrepr.setup()
+        print dictrepr.lowleveltype
+        for key, value in dictrepr.DICTENTRY._adtmeths.items():
+            print '    %s = %s' % (key, value)
+        l_dict = rdict.ll_newdict(dictrepr.DICT)
+        referencetable = [None] * 400
+        referencelength = 0
+        values = not_really_random()
+        keytable = [string_repr.convert_const("foo%d" % n)
+                    for n in range(len(referencetable))]
+
+        def complete_check():
+            for n, refvalue in zip(range(len(referencetable)), referencetable):
+                try:
+                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
+                except KeyError:
+                    assert refvalue is None
+                else:
+                    assert gotvalue == refvalue
+
+        for x in not_really_random():
+            n = int(x*100.0)    # 0 <= x < 400
+            op = repr(x)[-1]
+            if op <= '2' and referencetable[n] is not None:
+                rdict.ll_dict_delitem(l_dict, keytable[n])
+                referencetable[n] = None
+                referencelength -= 1
+            elif op <= '6':
+                ll_value = string_repr.convert_const(str(values.next()))
+                rdict.ll_dict_setitem(l_dict, keytable[n], ll_value)
+                if referencetable[n] is None:
+                    referencelength += 1
+                referencetable[n] = ll_value
+            else:
+                try:
+                    gotvalue = rdict.ll_dict_getitem(l_dict, keytable[n])
+                except KeyError:
+                    assert referencetable[n] is None
+                else:
+                    assert gotvalue == referencetable[n]
+            if 1.38 <= x <= 1.39:
+                complete_check()
+                print 'current dict length:', referencelength
+            assert l_dict.num_items == referencelength
+        complete_check()

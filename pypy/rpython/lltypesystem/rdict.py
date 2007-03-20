@@ -92,30 +92,47 @@ class DictRepr(AbstractDictRepr):
             s_value = self.dictvalue.s_value
             nullkeymarker = not self.key_repr.can_ll_be_null(s_key)
             nullvaluemarker = not self.value_repr.can_ll_be_null(s_value)
+            dummykeyobj = self.key_repr.get_ll_dummyval_obj(self.rtyper,
+                                                            s_key)
+            dummyvalueobj = self.value_repr.get_ll_dummyval_obj(self.rtyper,
+                                                                s_value)
 
-            if nullkeymarker:
+            # * the state of the entry - trying to encode it as dummy objects
+            if nullkeymarker and dummykeyobj:
+                # all the state can be encoded in the key
                 entrymeths['everused'] = ll_everused_from_key
-            elif nullvaluemarker:
-                entrymeths['everused'] = ll_everused_from_value
-            else:
-                entryfields.append(("f_everused", lltype.Bool))
-                entrymeths['everused'] = ll_everused_from_flag
-
-            # * if the key or the value can also contain a "dummy" non-null
-            #   marker, we use it for deleted entries.
-            rtyper = self.rtyper
-            dummy_obj = self.key_repr.get_ll_dummyval_obj(rtyper, s_key)
-            if dummy_obj:
-                entrymeths['dummy_obj'] = dummy_obj
+                entrymeths['dummy_obj'] = dummykeyobj
                 entrymeths['valid'] = ll_valid_from_key
                 entrymeths['mark_deleted'] = ll_mark_deleted_in_key
                 # the key is overwritten by 'dummy' when the entry is deleted
                 entrymeths['must_clear_key'] = False
+
+            elif nullvaluemarker and dummyvalueobj:
+                # all the state can be encoded in the value
+                entrymeths['everused'] = ll_everused_from_value
+                entrymeths['dummy_obj'] = dummyvalueobj
+                entrymeths['valid'] = ll_valid_from_value
+                entrymeths['mark_deleted'] = ll_mark_deleted_in_value
+                # value is overwritten by 'dummy' when entry is deleted
+                entrymeths['must_clear_value'] = False
+
             else:
-                dummy_obj = self.value_repr.get_ll_dummyval_obj(rtyper,
-                                                                s_value)
-                if dummy_obj:
-                    entrymeths['dummy_obj'] = dummy_obj
+                # we need a flag to know if the entry was ever used
+                # (we cannot use a NULL as a marker for this, because
+                # the key and value will be reset to NULL to clear their
+                # reference)
+                entryfields.append(("f_everused", lltype.Bool))
+                entrymeths['everused'] = ll_everused_from_flag
+
+                # can we still rely on a dummy obj to mark deleted entries?
+                if dummykeyobj:
+                    entrymeths['dummy_obj'] = dummykeyobj
+                    entrymeths['valid'] = ll_valid_from_key
+                    entrymeths['mark_deleted'] = ll_mark_deleted_in_key
+                    # key is overwritten by 'dummy' when entry is deleted
+                    entrymeths['must_clear_key'] = False
+                elif dummyvalueobj:
+                    entrymeths['dummy_obj'] = dummyvalueobj
                     entrymeths['valid'] = ll_valid_from_value
                     entrymeths['mark_deleted'] = ll_mark_deleted_in_value
                     # value is overwritten by 'dummy' when entry is deleted
