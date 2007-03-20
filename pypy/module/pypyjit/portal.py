@@ -20,7 +20,7 @@ class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
         mod = func.__module__ or '?'
         if mod.startswith('pypy.objspace'):
             return False
-        if mod.startswith('pypy._cache'):
+        if '_geninterp_' in func.func_globals # skip all geninterped stuff
             return False
         if mod.startswith('pypy.interpreter.astcompiler'):
             return False

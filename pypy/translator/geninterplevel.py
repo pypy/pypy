@@ -72,7 +72,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.22'  # bump this for substantial changes
+GI_VERSION = '1.1.23'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -1399,6 +1399,8 @@ else:
     RPY_SEP = "#*************************************************************"
 
     RPY_INIT_HEADER = RPY_SEP + '''
+#__name__ = %(modname)r
+_geninterp_ = True
 
 def init%(modname)s(space):
   """NOT_RPYTHON"""
