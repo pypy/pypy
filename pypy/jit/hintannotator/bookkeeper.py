@@ -43,6 +43,7 @@ class GraphDesc(object):
         return graph
 
     def cachedgraph(self, key, alt_name=None):
+        verbose = self.bookkeeper.annotator.translator.config.translation.verbose
         try:
             return self._cache[key]
         except KeyError:
@@ -50,10 +51,16 @@ class GraphDesc(object):
             if bk.annotator.policy.look_inside_graph(self.origgraph):
                 graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
                 bk.nonstubgraphcount += 1
-                log(str(graph))
+                if verbose:
+                    log(str(graph))
+                else:
+                    log.dot()
             else:
                 graph = self.build_callback_graph(self.origgraph)
-                log.stub(str(graph))
+                if verbose:
+                    log.stub(str(graph))
+                else:
+                    log.dot()
             graph.tag = 'timeshifted'
             try:
                 etrafo = bk.annotator.exceptiontransformer
