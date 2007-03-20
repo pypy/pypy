@@ -197,8 +197,6 @@ Directory                      explanation/links
 
 `jit/codegen/`_                `jit backends`_ for different architectures
 
-`jit/goal/`_                   the translation targets that produce a PyPy with a JIT_
-
 `jit/hintannotator/`_          the `hint-annotator`_ that analyzes an interpreter
 
 `jit/timeshifter/`_            the `timeshifter`_ that turns an interpreter into a JIT compiler
