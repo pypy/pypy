@@ -968,6 +968,10 @@ class Vars(Statement):
     def execute(self, ctx):
         for var in self.nodes:
             var.execute(ctx)
+        return W_String(self.nodes[-1].get_literal())
+
+    def eval(self, ctx):
+        return self.execute(ctx)
 
 class Void(UnaryOp):
     opcode = 'VOID'

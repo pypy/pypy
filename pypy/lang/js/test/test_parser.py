@@ -6,5 +6,5 @@ js_is_on_path()
 
 
 def test_quoting():
-    read_js_output('x = "\'"')
+    read_js_output("x = '\\''")
     read_js_output('x = "\\\\"')

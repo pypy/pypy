@@ -292,38 +292,42 @@ class W_Array(W_Builtin):
         toString = W_Builtin(array_str_builtin)
         self.Put('toString', toString, de=True)
         self.Put('length', W_Number(0))
-        self.array = []
+        self.length = r_uint(0)
         self.set_builtin_call(arraycallbi)
 
     def Put(self, P, V, dd=False,
             ro=False, de=False, it=False):
-        try:
-            x = int(P)
-            # print "puting", V, 'in', x
-            if x > self.Get('length').ToNumber() - 1:
-                currsize = len(self.array)
-                self.propdict['length'].value = W_Number(x+1)
-                print x+1
-                for i in range(x-(currsize-1)):
-                    self.array.append(w_Undefined)
-            self.array[x]= V
-                    
-        except ValueError:
-            W_Builtin.Put(self, P, V, dd=dd, ro=ro, de=de, it=it)
-
-    def Get(self, P):
-        try:
-            x = int(P)
-            if x > (len(self.array)-1):
-                return w_Undefined
+        
+        if not self.CanPut(P): return
+        if P in self.propdict:
+            if P == 'length':
+                try:
+                    res = V.ToUInt32()
+                    if V.ToNumber() < 0:
+                        raise RangeError()
+                    self.propdict['length'].value = W_Number(res)
+                    self.length = res
+                    return
+                except ValueError:
+                    raise RangeError('invalid array length')
             else:
-                # print "returning", self.array[x], 'in', x
-                return self.array[x]
+                self.propdict[P].value = V
+        else:
+            self.propdict[P] = Property(P, V,
+            dd = dd, ro = ro, it = it)
+
+        try:
+            index = r_uint(float(P))
         except ValueError:
-            return W_PrimitiveObject.Get(self, P)
+            return
+        if index < self.length:
+            return
+        self.length = index+1
+        self.propdict['length'].value = W_Number(index+1)
+        return
     
     def ToString(self):
-        return ','.join([item.ToString() for item in self.array])
+        return ','.join([self.Get(str(index)).ToString() for index in range(self.length)])
 
 def array_str_builtin(ctx, args, this):
     return W_String(this.ToString())
@@ -439,6 +443,7 @@ class ExecutionContext(object):
         self.scope = []
         self.this = None
         self.variable = None
+        self.debug = False
         self.property = Property('',w_Undefined) #Attribute flags for new vars
     
     def assign(self, name, value):

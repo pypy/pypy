@@ -503,3 +503,9 @@ class TestInterp(object):
         print(2 & 3)
         print(2 | 3)
         """, ['0', '2', '3'])
+
+    def test_for_strange(self):
+        self.assert_prints("""
+        for (var arg = "", i = 0; i < 2; i++) { print(i)}
+        """, ['0', '1'])
+
