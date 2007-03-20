@@ -6,6 +6,8 @@ def pypy_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
 def isfake(space, w_obj):
+    """Return whether the argument is faked (stolen from CPython). This is
+    always False after translation."""
     if we_are_translated():
         return space.w_False
     return space.wrap(bool(w_obj.typedef.fakedcpytype))
@@ -19,6 +21,8 @@ def interp_pdb(space):
     pdb.set_trace()
 
 def method_cache_counter(space, name):
+    """Return a tuple (method_cache_hits, method_cache_misses) for calls to
+    methods with the name."""
     assert space.config.objspace.std.withmethodcachecounter
     ec = space.getexecutioncontext()
     return space.newtuple([space.newint(ec.method_cache_hits.get(name, 0)),
@@ -26,6 +30,7 @@ def method_cache_counter(space, name):
 method_cache_counter.unwrap_spec = [ObjSpace, str]
 
 def reset_method_cache_counter(space):
+    """Reset the method cache counter to zero for all method names."""
     assert space.config.objspace.std.withmethodcachecounter
     ec = space.getexecutioncontext()
     ec.method_cache_misses = {}
