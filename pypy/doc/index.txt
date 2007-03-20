@@ -94,7 +94,7 @@ and several implementations.
 of the bytecode interpreter and virtual machine. 
 
 `object optimizations`_ describes various alternative object implementations
-(for strings, dicts and lists) in the standard object space.
+(for strings, dictionaries and lists) in the standard object space.
 
 `translation`_ is a detailed overview of our translation process.  The
 rtyper_ is the largest component of our translation process.
