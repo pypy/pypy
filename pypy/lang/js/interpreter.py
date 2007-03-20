@@ -39,7 +39,10 @@ def load_file(filename):
 
 def evaljs(ctx, args, this):
     if len(args) >= 1:
-        code = args[0]
+        if  isinstance(args[0],W_String):
+            code = args[0]
+        else:
+            return args[0]
     else:
         code = W_String('')
     return load_source(code.ToString()).execute(ctx)
@@ -59,6 +62,36 @@ def functionjs(ctx, args, this):
         print functioncode
     return evaljs(ctx, [W_String(functioncode),], this)
 
+def parseIntjs(ctx, args, this):
+    if len(args) < 1:
+        return W_Number(NaN)
+    s = args[0].ToString().strip()
+    if len(args) > 1:
+        radix = args[1].ToInt32()
+    else:
+        radix = 10
+    if len(s) >= 2 and (s.startswith('0x') or s.startswith('0X')) :
+        radix = 16
+        s = s[2:]
+    if s == '' or radix < 2 or radix > 36:
+        return W_Number(NaN)
+    try:
+        n = int(s, radix)
+    except ValueError:
+        n = NaN
+    return W_Number(n)
+
+def parseFloatjs(ctx, args, this):
+    if len(args) < 1:
+        return W_Number(NaN)
+    s = args[0].ToString().strip()
+    try:
+        n = float(s)
+    except ValueError:
+        n = NaN
+    return W_Number(n)
+    
+
 def printjs(ctx, args, this):
     writer(",".join([i.GetValue().ToString() for i in args]))
     return w_Undefined
@@ -67,7 +100,18 @@ def objectconstructor(ctx, args, this):
     return W_Object()
 
 def isnanjs(ctx, args, this):
+    if len(args) < 1:
+        return W_Boolean(True)
     return W_Boolean(args[0].ToNumber() == NaN)
+
+def isfinitejs(ctx, args, this):
+    if len(args) < 1:
+        return W_Boolean(True)
+    n = args[0].ToNumber()
+    if n == Infinity or n == -Infinity or n == NaN:
+        return W_Boolean(False)
+    else:
+        return W_Boolean(True)
 
 def booleanjs(ctx, args, this):
     if len(args) > 0:
@@ -140,16 +184,16 @@ class Interpreter(object):
         w_Number.Put('NaN', W_Number(NaN))
         w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
         w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
-        
         w_Global.Put('Number', w_Number)
+        
+        w_Global.Put('Boolean', W_Builtin(booleanjs, Class="Boolean"))
+
         w_Global.Put('eval', W_Builtin(evaljs))
         w_Global.Put('print', W_Builtin(printjs))
         w_Global.Put('isNaN', W_Builtin(isnanjs))
-        
-        w_Boolean = W_Builtin(booleanjs, Class="Boolean")
-        w_Global.Put('Boolean', W_Builtin(booleanjs, Class="Boolean"))
-        
-
+        w_Global.Put('isFinite', W_Builtin(isnanjs))            
+        w_Global.Put('parseFloat', W_Builtin(parseFloatjs))
+        w_Global.Put('parseInt', W_Builtin(parseIntjs))
         w_Global.Put('NaN', W_Number(NaN))
         w_Global.Put('Infinity', W_Number(Infinity))
         w_Global.Put('undefined', w_Undefined)
