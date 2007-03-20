@@ -726,10 +726,34 @@ class MethodDesc(Desc):
         return self.funcdesc
     
     def simplify_desc_set(descs):
-        # if two MethodDescs in the set differ only in their selfclassdefs,
-        # and if one of the selfclassdefs is a subclass of the other, then
-        # we can remove the former.  This is not just an optimization but
-        # needed to make contains() happy on SomePBC.
+        # Some hacking needed to make contains() happy on SomePBC: if the
+        # set of MethodDescs contains some "redundant" ones, i.e. ones that
+        # are less general than others already in the set, then kill them.
+        # This ensures that if 'a' is less general than 'b', then
+        # SomePBC({a}) union SomePBC({b}) is again SomePBC({b}).
+        #
+        # Two cases:
+        # 1. if two MethodDescs differ in their selfclassdefs, and if one
+        #    of the selfclassdefs is a subclass of the other;
+        # 2. if two MethodDescs differ in their flags, take the intersection.
+
+        # --- case 2 ---
+        # only keep the intersection of all the flags, that's good enough
+        lst = list(descs)
+        commonflags = lst[0].flags.copy()
+        for key, value in commonflags.items():
+            for desc in lst[1:]:
+                if key not in desc.flags or desc.flags[key] != value:
+                    del commonflags[key]
+                    break
+        for desc in lst:
+            if desc.flags != commonflags:
+                desc.bookkeeper.getmethoddesc(desc.funcdesc,
+                                              desc.originclassdef,
+                                              desc.selfclassdefs,
+                                              desc.name,
+                                              flags)
+        # --- case 1 ---
         groups = {}
         for desc in descs:
             if desc.selfclassdef is not None:
