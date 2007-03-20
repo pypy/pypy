@@ -749,11 +749,14 @@ class MethodDesc(Desc):
                     break
         for desc in lst:
             if desc.flags != commonflags:
-                desc.bookkeeper.getmethoddesc(desc.funcdesc,
-                                              desc.originclassdef,
-                                              desc.selfclassdefs,
-                                              desc.name,
-                                              flags)
+                newdesc = desc.bookkeeper.getmethoddesc(desc.funcdesc,
+                                                        desc.originclassdef,
+                                                        desc.selfclassdefs,
+                                                        desc.name,
+                                                        flags)
+                del descs[desc]
+                descs[newdesc] = True
+
         # --- case 1 ---
         groups = {}
         for desc in descs:
