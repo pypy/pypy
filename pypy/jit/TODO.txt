@@ -12,6 +12,9 @@ To Do Right Now
 - check that --jit works with --faassen; don't stop at
   BINARY_ADD!
 
+- why does the timeshifter finds very different number of
+  graphs every time we run it?
+
 Longer-term
 ------------------
 
