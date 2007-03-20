@@ -2,18 +2,12 @@
 To Do Right Now
 ------------------
 
-- see the inplace-version of the arithmetic operators
-  and some obvious unary ones: - ...
-
 - improve is_true()
 
 - basic docs and examples
 
 - check that --jit works with --faassen; don't stop at
   BINARY_ADD!
-
-- why does the timeshifter finds very different number of
-  graphs every time we run it?
 
 Longer-term
 ------------------
