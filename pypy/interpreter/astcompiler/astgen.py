@@ -399,6 +399,7 @@ class NodeInfo:
                     print >> buf, '    if not space.is_w(w_%s, space.w_None):' % (argname,)
                 else:
                     indent = ''
+                print >> buf, indent+'    space.setattr(w_%s, space.wrap("parent"), w_self)' % (argname,)
                 print >> buf, indent+'    w_new_%s = space.call_method(w_%s, "mutate", w_visitor)'% (argname,
                                                                                                      argname)
                 print >> buf, indent+'    space.setattr(w_self, space.wrap("%s"), w_new_%s)' % ( argname,
@@ -409,6 +410,7 @@ class NodeInfo:
                 print >> buf, '    list_w = space.unpackiterable(w_list)'
                 print >> buf, '    newlist_w = []'
                 print >> buf, '    for w_item in list_w:'
+                print >> buf, '        space.setattr(w_item, space.wrap("parent"), w_self)'
                 print >> buf, '        w_newitem = space.call_method(w_item, "mutate", w_visitor)'
                 print >> buf, '        if not space.is_w(w_newitem, space.w_None):'
                 print >> buf, '            newlist_w.append(w_newitem)'
@@ -735,7 +737,6 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
                        #__repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
-                       #__repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
                        getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
                        accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
@@ -789,6 +790,7 @@ def descr_expression_accept(space, w_self, w_visitor):
 
 def descr_expression_mutate(space, w_self, w_visitor):
     w_node = space.getattr(w_self, space.wrap("node"))
+    space.setattr(w_node, space.wrap('parent'), w_self)
     w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 

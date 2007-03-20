@@ -87,7 +87,6 @@ def descr_Node_new(space, w_subtype, lineno=-1):
 Node.typedef = TypeDef('ASTNode',
                        __new__ = interp2app(descr_Node_new, unwrap_spec=[ObjSpace, W_Root, int]),
                        #__repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
-                       #__repr__ = interp2app(Node.descr_repr, unwrap_spec=['self', ObjSpace] ),
                        getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
                        accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
@@ -141,6 +140,7 @@ def descr_expression_accept(space, w_self, w_visitor):
 
 def descr_expression_mutate(space, w_self, w_visitor):
     w_node = space.getattr(w_self, space.wrap("node"))
+    space.setattr(w_node, space.wrap('parent'), w_self)
     w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 
@@ -320,10 +320,12 @@ def descr_Add_accept( space, w_self, w_visitor):
 
 def descr_Add_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -398,6 +400,7 @@ def descr_And_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -468,6 +471,7 @@ def descr_AssAttr_accept( space, w_self, w_visitor):
 
 def descr_AssAttr_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -582,6 +586,7 @@ def descr_AssList_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -728,6 +733,7 @@ def descr_AssTuple_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -803,11 +809,13 @@ def descr_Assert_accept( space, w_self, w_visitor):
 
 def descr_Assert_mutate(space, w_self, w_visitor): 
     w_test = space.getattr(w_self, space.wrap("test"))
+    space.setattr(w_test, space.wrap("parent"), w_self)
     w_new_test = space.call_method(w_test, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
     w_fail = space.getattr(w_self, space.wrap("fail"))
     if not space.is_w(w_fail, space.w_None):
+        space.setattr(w_fail, space.wrap("parent"), w_self)
         w_new_fail = space.call_method(w_fail, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("fail"), w_new_fail)
 
@@ -894,12 +902,14 @@ def descr_Assign_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -970,10 +980,12 @@ def descr_AugAssign_accept( space, w_self, w_visitor):
 
 def descr_AugAssign_mutate(space, w_self, w_visitor): 
     w_node = space.getattr(w_self, space.wrap("node"))
+    space.setattr(w_node, space.wrap("parent"), w_self)
     w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -1067,6 +1079,7 @@ def descr_Backquote_accept( space, w_self, w_visitor):
 
 def descr_Backquote_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -1179,6 +1192,7 @@ def descr_Bitand_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -1256,6 +1270,7 @@ def descr_Bitor_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -1333,6 +1348,7 @@ def descr_Bitxor_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -1479,6 +1495,7 @@ def descr_CallFunc_accept( space, w_self, w_visitor):
 
 def descr_CallFunc_mutate(space, w_self, w_visitor): 
     w_node = space.getattr(w_self, space.wrap("node"))
+    space.setattr(w_node, space.wrap("parent"), w_self)
     w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 
@@ -1486,6 +1503,7 @@ def descr_CallFunc_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -1493,11 +1511,13 @@ def descr_CallFunc_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("args"), w_newlist)
     w_star_args = space.getattr(w_self, space.wrap("star_args"))
     if not space.is_w(w_star_args, space.w_None):
+        space.setattr(w_star_args, space.wrap("parent"), w_self)
         w_new_star_args = space.call_method(w_star_args, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("star_args"), w_new_star_args)
 
     w_dstar_args = space.getattr(w_self, space.wrap("dstar_args"))
     if not space.is_w(w_dstar_args, space.w_None):
+        space.setattr(w_dstar_args, space.wrap("parent"), w_self)
         w_new_dstar_args = space.call_method(w_dstar_args, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("dstar_args"), w_new_dstar_args)
 
@@ -1594,12 +1614,14 @@ def descr_Class_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("bases"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
+    space.setattr(w_code, space.wrap("parent"), w_self)
     w_new_code = space.call_method(w_code, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("code"), w_new_code)
 
@@ -1775,14 +1797,17 @@ def descr_CondExpr_accept( space, w_self, w_visitor):
 
 def descr_CondExpr_mutate(space, w_self, w_visitor): 
     w_test = space.getattr(w_self, space.wrap("test"))
+    space.setattr(w_test, space.wrap("parent"), w_self)
     w_new_test = space.call_method(w_test, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
     w_true_expr = space.getattr(w_self, space.wrap("true_expr"))
+    space.setattr(w_true_expr, space.wrap("parent"), w_self)
     w_new_true_expr = space.call_method(w_true_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("true_expr"), w_new_true_expr)
 
     w_false_expr = space.getattr(w_self, space.wrap("false_expr"))
+    space.setattr(w_false_expr, space.wrap("parent"), w_self)
     w_new_false_expr = space.call_method(w_false_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("false_expr"), w_new_false_expr)
 
@@ -1945,6 +1970,7 @@ def descr_Decorators_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -2090,6 +2116,7 @@ def descr_Discard_accept( space, w_self, w_visitor):
 
 def descr_Discard_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -2150,10 +2177,12 @@ def descr_Div_accept( space, w_self, w_visitor):
 
 def descr_Div_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -2280,16 +2309,19 @@ def descr_Exec_accept( space, w_self, w_visitor):
 
 def descr_Exec_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_locals = space.getattr(w_self, space.wrap("locals"))
     if not space.is_w(w_locals, space.w_None):
+        space.setattr(w_locals, space.wrap("parent"), w_self)
         w_new_locals = space.call_method(w_locals, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("locals"), w_new_locals)
 
     w_globals = space.getattr(w_self, space.wrap("globals"))
     if not space.is_w(w_globals, space.w_None):
+        space.setattr(w_globals, space.wrap("parent"), w_self)
         w_new_globals = space.call_method(w_globals, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("globals"), w_new_globals)
 
@@ -2352,10 +2384,12 @@ def descr_FloorDiv_accept( space, w_self, w_visitor):
 
 def descr_FloorDiv_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -2448,19 +2482,23 @@ def descr_For_accept( space, w_self, w_visitor):
 
 def descr_For_mutate(space, w_self, w_visitor): 
     w_assign = space.getattr(w_self, space.wrap("assign"))
+    space.setattr(w_assign, space.wrap("parent"), w_self)
     w_new_assign = space.call_method(w_assign, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("assign"), w_new_assign)
 
     w_list = space.getattr(w_self, space.wrap("list"))
+    space.setattr(w_list, space.wrap("parent"), w_self)
     w_new_list = space.call_method(w_list, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("list"), w_new_list)
 
     w_body = space.getattr(w_self, space.wrap("body"))
+    space.setattr(w_body, space.wrap("parent"), w_self)
     w_new_body = space.call_method(w_body, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
+        space.setattr(w_else_, space.wrap("parent"), w_self)
         w_new_else_ = space.call_method(w_else_, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("else_"), w_new_else_)
 
@@ -2688,6 +2726,7 @@ def descr_Function_accept( space, w_self, w_visitor):
 def descr_Function_mutate(space, w_self, w_visitor): 
     w_decorators = space.getattr(w_self, space.wrap("decorators"))
     if not space.is_w(w_decorators, space.w_None):
+        space.setattr(w_decorators, space.wrap("parent"), w_self)
         w_new_decorators = space.call_method(w_decorators, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("decorators"), w_new_decorators)
 
@@ -2695,6 +2734,7 @@ def descr_Function_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -2704,12 +2744,14 @@ def descr_Function_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("defaults"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
+    space.setattr(w_code, space.wrap("parent"), w_self)
     w_new_code = space.call_method(w_code, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("code"), w_new_code)
 
@@ -2772,6 +2814,7 @@ def descr_GenExpr_accept( space, w_self, w_visitor):
 
 def descr_GenExpr_mutate(space, w_self, w_visitor): 
     w_code = space.getattr(w_self, space.wrap("code"))
+    space.setattr(w_code, space.wrap("parent"), w_self)
     w_new_code = space.call_method(w_code, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("code"), w_new_code)
 
@@ -2858,10 +2901,12 @@ def descr_GenExprFor_accept( space, w_self, w_visitor):
 
 def descr_GenExprFor_mutate(space, w_self, w_visitor): 
     w_assign = space.getattr(w_self, space.wrap("assign"))
+    space.setattr(w_assign, space.wrap("parent"), w_self)
     w_new_assign = space.call_method(w_assign, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("assign"), w_new_assign)
 
     w_iter = space.getattr(w_self, space.wrap("iter"))
+    space.setattr(w_iter, space.wrap("parent"), w_self)
     w_new_iter = space.call_method(w_iter, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("iter"), w_new_iter)
 
@@ -2869,6 +2914,7 @@ def descr_GenExprFor_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -2925,6 +2971,7 @@ def descr_GenExprIf_accept( space, w_self, w_visitor):
 
 def descr_GenExprIf_mutate(space, w_self, w_visitor): 
     w_test = space.getattr(w_self, space.wrap("test"))
+    space.setattr(w_test, space.wrap("parent"), w_self)
     w_new_test = space.call_method(w_test, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
@@ -2998,6 +3045,7 @@ def descr_GenExprInner_accept( space, w_self, w_visitor):
 
 def descr_GenExprInner_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -3005,6 +3053,7 @@ def descr_GenExprInner_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -3067,6 +3116,7 @@ def descr_Getattr_accept( space, w_self, w_visitor):
 
 def descr_Getattr_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -3350,6 +3400,7 @@ def descr_Invert_accept( space, w_self, w_visitor):
 
 def descr_Invert_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -3409,6 +3460,7 @@ def descr_Keyword_accept( space, w_self, w_visitor):
 
 def descr_Keyword_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -3526,6 +3578,7 @@ def descr_Lambda_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -3535,12 +3588,14 @@ def descr_Lambda_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
     space.setattr(w_self, space.wrap("defaults"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
+    space.setattr(w_code, space.wrap("parent"), w_self)
     w_new_code = space.call_method(w_code, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("code"), w_new_code)
 
@@ -3604,10 +3659,12 @@ def descr_LeftShift_accept( space, w_self, w_visitor):
 
 def descr_LeftShift_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -3682,6 +3739,7 @@ def descr_List_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -3759,6 +3817,7 @@ def descr_ListComp_accept( space, w_self, w_visitor):
 
 def descr_ListComp_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -3766,6 +3825,7 @@ def descr_ListComp_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -3852,10 +3912,12 @@ def descr_ListCompFor_accept( space, w_self, w_visitor):
 
 def descr_ListCompFor_mutate(space, w_self, w_visitor): 
     w_assign = space.getattr(w_self, space.wrap("assign"))
+    space.setattr(w_assign, space.wrap("parent"), w_self)
     w_new_assign = space.call_method(w_assign, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("assign"), w_new_assign)
 
     w_list = space.getattr(w_self, space.wrap("list"))
+    space.setattr(w_list, space.wrap("parent"), w_self)
     w_new_list = space.call_method(w_list, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("list"), w_new_list)
 
@@ -3863,6 +3925,7 @@ def descr_ListCompFor_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -3919,6 +3982,7 @@ def descr_ListCompIf_accept( space, w_self, w_visitor):
 
 def descr_ListCompIf_mutate(space, w_self, w_visitor): 
     w_test = space.getattr(w_self, space.wrap("test"))
+    space.setattr(w_test, space.wrap("parent"), w_self)
     w_new_test = space.call_method(w_test, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
@@ -3979,10 +4043,12 @@ def descr_Mod_accept( space, w_self, w_visitor):
 
 def descr_Mod_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -4044,6 +4110,7 @@ def descr_Module_accept( space, w_self, w_visitor):
 
 def descr_Module_mutate(space, w_self, w_visitor): 
     w_node = space.getattr(w_self, space.wrap("node"))
+    space.setattr(w_node, space.wrap("parent"), w_self)
     w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 
@@ -4105,10 +4172,12 @@ def descr_Mul_accept( space, w_self, w_visitor):
 
 def descr_Mul_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -4248,6 +4317,7 @@ def descr_Not_accept( space, w_self, w_visitor):
 
 def descr_Not_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -4321,6 +4391,7 @@ def descr_Or_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -4424,10 +4495,12 @@ def descr_Power_accept( space, w_self, w_visitor):
 
 def descr_Power_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -4519,6 +4592,7 @@ def descr_Print_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -4526,6 +4600,7 @@ def descr_Print_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
     if not space.is_w(w_dest, space.w_None):
+        space.setattr(w_dest, space.wrap("parent"), w_self)
         w_new_dest = space.call_method(w_dest, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("dest"), w_new_dest)
 
@@ -4619,6 +4694,7 @@ def descr_Printnl_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -4626,6 +4702,7 @@ def descr_Printnl_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
     if not space.is_w(w_dest, space.w_None):
+        space.setattr(w_dest, space.wrap("parent"), w_self)
         w_new_dest = space.call_method(w_dest, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("dest"), w_new_dest)
 
@@ -4721,16 +4798,19 @@ def descr_Raise_accept( space, w_self, w_visitor):
 def descr_Raise_mutate(space, w_self, w_visitor): 
     w_expr1 = space.getattr(w_self, space.wrap("expr1"))
     if not space.is_w(w_expr1, space.w_None):
+        space.setattr(w_expr1, space.wrap("parent"), w_self)
         w_new_expr1 = space.call_method(w_expr1, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("expr1"), w_new_expr1)
 
     w_expr2 = space.getattr(w_self, space.wrap("expr2"))
     if not space.is_w(w_expr2, space.w_None):
+        space.setattr(w_expr2, space.wrap("parent"), w_self)
         w_new_expr2 = space.call_method(w_expr2, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("expr2"), w_new_expr2)
 
     w_expr3 = space.getattr(w_self, space.wrap("expr3"))
     if not space.is_w(w_expr3, space.w_None):
+        space.setattr(w_expr3, space.wrap("parent"), w_self)
         w_new_expr3 = space.call_method(w_expr3, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("expr3"), w_new_expr3)
 
@@ -4793,6 +4873,7 @@ def descr_Return_accept( space, w_self, w_visitor):
 def descr_Return_mutate(space, w_self, w_visitor): 
     w_value = space.getattr(w_self, space.wrap("value"))
     if not space.is_w(w_value, space.w_None):
+        space.setattr(w_value, space.wrap("parent"), w_self)
         w_new_value = space.call_method(w_value, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("value"), w_new_value)
 
@@ -4853,10 +4934,12 @@ def descr_RightShift_accept( space, w_self, w_visitor):
 
 def descr_RightShift_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -4952,16 +5035,19 @@ def descr_Slice_accept( space, w_self, w_visitor):
 
 def descr_Slice_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_lower = space.getattr(w_self, space.wrap("lower"))
     if not space.is_w(w_lower, space.w_None):
+        space.setattr(w_lower, space.wrap("parent"), w_self)
         w_new_lower = space.call_method(w_lower, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("lower"), w_new_lower)
 
     w_upper = space.getattr(w_self, space.wrap("upper"))
     if not space.is_w(w_upper, space.w_None):
+        space.setattr(w_upper, space.wrap("parent"), w_self)
         w_new_upper = space.call_method(w_upper, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("upper"), w_new_upper)
 
@@ -5038,6 +5124,7 @@ def descr_Sliceobj_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -5115,6 +5202,7 @@ def descr_Stmt_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -5179,10 +5267,12 @@ def descr_Sub_accept( space, w_self, w_visitor):
 
 def descr_Sub_mutate(space, w_self, w_visitor): 
     w_left = space.getattr(w_self, space.wrap("left"))
+    space.setattr(w_left, space.wrap("parent"), w_self)
     w_new_left = space.call_method(w_left, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("left"), w_new_left)
 
     w_right = space.getattr(w_self, space.wrap("right"))
+    space.setattr(w_right, space.wrap("parent"), w_self)
     w_new_right = space.call_method(w_right, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("right"), w_new_right)
 
@@ -5251,10 +5341,12 @@ def descr_Subscript_accept( space, w_self, w_visitor):
 
 def descr_Subscript_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_sub = space.getattr(w_self, space.wrap("sub"))
+    space.setattr(w_sub, space.wrap("parent"), w_self)
     w_new_sub = space.call_method(w_sub, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("sub"), w_new_sub)
 
@@ -5478,10 +5570,12 @@ def descr_TryFinally_accept( space, w_self, w_visitor):
 
 def descr_TryFinally_mutate(space, w_self, w_visitor): 
     w_body = space.getattr(w_self, space.wrap("body"))
+    space.setattr(w_body, space.wrap("parent"), w_self)
     w_new_body = space.call_method(w_body, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_final = space.getattr(w_self, space.wrap("final"))
+    space.setattr(w_final, space.wrap("parent"), w_self)
     w_new_final = space.call_method(w_final, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("final"), w_new_final)
 
@@ -5556,6 +5650,7 @@ def descr_Tuple_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
+        space.setattr(w_item, space.wrap("parent"), w_self)
         w_newitem = space.call_method(w_item, "mutate", w_visitor)
         if not space.is_w(w_newitem, space.w_None):
             newlist_w.append(w_newitem)
@@ -5612,6 +5707,7 @@ def descr_UnaryAdd_accept( space, w_self, w_visitor):
 
 def descr_UnaryAdd_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -5664,6 +5760,7 @@ def descr_UnarySub_accept( space, w_self, w_visitor):
 
 def descr_UnarySub_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
@@ -5745,15 +5842,18 @@ def descr_While_accept( space, w_self, w_visitor):
 
 def descr_While_mutate(space, w_self, w_visitor): 
     w_test = space.getattr(w_self, space.wrap("test"))
+    space.setattr(w_test, space.wrap("parent"), w_self)
     w_new_test = space.call_method(w_test, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
     w_body = space.getattr(w_self, space.wrap("body"))
+    space.setattr(w_body, space.wrap("parent"), w_self)
     w_new_body = space.call_method(w_body, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
+        space.setattr(w_else_, space.wrap("parent"), w_self)
         w_new_else_ = space.call_method(w_else_, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("else_"), w_new_else_)
 
@@ -5837,15 +5937,18 @@ def descr_With_accept( space, w_self, w_visitor):
 
 def descr_With_mutate(space, w_self, w_visitor): 
     w_expr = space.getattr(w_self, space.wrap("expr"))
+    space.setattr(w_expr, space.wrap("parent"), w_self)
     w_new_expr = space.call_method(w_expr, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_body = space.getattr(w_self, space.wrap("body"))
+    space.setattr(w_body, space.wrap("parent"), w_self)
     w_new_body = space.call_method(w_body, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_var = space.getattr(w_self, space.wrap("var"))
     if not space.is_w(w_var, space.w_None):
+        space.setattr(w_var, space.wrap("parent"), w_self)
         w_new_var = space.call_method(w_var, "mutate", w_visitor)
         space.setattr(w_self, space.wrap("var"), w_new_var)
 
@@ -5900,6 +6003,7 @@ def descr_Yield_accept( space, w_self, w_visitor):
 
 def descr_Yield_mutate(space, w_self, w_visitor): 
     w_value = space.getattr(w_self, space.wrap("value"))
+    space.setattr(w_value, space.wrap("parent"), w_self)
     w_new_value = space.call_method(w_value, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("value"), w_new_value)
 
