@@ -4,6 +4,7 @@ from pypy.interpreter import gateway
 import pypy.interpreter.pycode
 from pypy.tool.udir import udir
 from pypy.rlib import streamio
+from pypy.conftest import gettestobjspace
 import sys, os
 import tempfile, marshal
 
@@ -281,7 +282,7 @@ class TestPycStuff:
         space = self.space
         pathname = "whatever"
         mtime = 12345
-        cpathname = _testfile(importing.pyc_magic, mtime)
+        cpathname = _testfile(importing.get_pyc_magic(space), mtime)
         ret = importing.check_compiled_module(space,
                                               pathname,
                                               mtime,
@@ -297,7 +298,7 @@ class TestPycStuff:
         os.remove(cpathname)
 
         # check for wrong version
-        cpathname = _testfile(importing.pyc_magic+1, mtime)
+        cpathname = _testfile(importing.get_pyc_magic(space)+1, mtime)
         ret = importing.check_compiled_module(space,
                                               pathname,
                                               mtime,
@@ -319,7 +320,7 @@ class TestPycStuff:
         pathname = "whatever"
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
-        cpathname = _testfile(importing.pyc_magic, mtime, co)
+        cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
         stream = streamio.open_file_as_stream(cpathname, "r")
         try:
             stream.seek(8, 0)
@@ -340,7 +341,7 @@ class TestPycStuff:
         pathname = "whatever"
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
-        cpathname = _testfile(importing.pyc_magic, mtime, co)
+        cpathname = _testfile(importing.get_pyc_magic(space), mtime, co)
         w_modulename = space.wrap('somemodule')
         stream = streamio.open_file_as_stream(cpathname, "r")
         try:
@@ -459,6 +460,37 @@ class TestPycStuff:
         w_ret = space.getitem(w_dic, space.wrap('x'))
         ret = space.int_w(w_ret)
         assert ret == 42
+
+    def test_pyc_magic_changes(self):
+        # test that the pyc files produced by a space are not reimportable
+        # from another, if they differ in what opcodes they support
+        allspaces = [self.space]
+        for opcodename in self.space.config.objspace.opcodes.getpaths():
+            key = 'objspace.opcodes.' + opcodename
+            space2 = gettestobjspace(**{key: True})
+            allspaces.append(space2)
+        for space1 in allspaces:
+            for space2 in allspaces:
+                if space1 is space2:
+                    continue
+                pathname = "whatever"
+                mtime = 12345
+                co = compile('x = 42', '?', 'exec')
+                cpathname = _testfile(importing.get_pyc_magic(space1),
+                                      mtime, co)
+                w_modulename = space2.wrap('somemodule')
+                stream = streamio.open_file_as_stream(cpathname, "r")
+                try:
+                    w_mod = space2.wrap(Module(space2, w_modulename))
+                    space2.raises_w(space2.w_ImportError,
+                                    importing.load_compiled_module,
+                                    space2,
+                                    w_modulename,
+                                    w_mod,
+                                    cpathname,
+                                    stream)
+                finally:
+                    stream.close()
 
 
 def test_PYTHONPATH_takes_precedence(space): 

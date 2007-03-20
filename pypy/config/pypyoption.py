@@ -58,11 +58,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
         BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
                    default=False,
-                   requires=[("objspace.usepycfiles", False),
-                             ("objspace.std.withmultidict", True)]),
+                   requires=[("objspace.std.withmultidict", True)]),
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
-                   default=False,
-                   requires=[("objspace.usepycfiles", False)]),
+                   default=False),
         ]),
 
     BoolOption("nofaking", "disallow faking in the object space",

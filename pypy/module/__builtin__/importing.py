@@ -327,14 +327,27 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 """
 
 # we decided to use the magic of 2.4.1
+#
+# In addition, for now, the presence of special bytecodes bumps the
+# magic number:
+#
+#  * CALL_LIKELY_BUILTIN    +2
+#  * CALL_METHOD            +4
+#
+# this is a bit of a hack waiting for a nicer general solution.
+# Adding another bytecode is already a problem: if we bump the
+# number by a total of +10 we collide with CPython's own magic
+# number for 2.5a0.
+#
 MAGIC = 62061 | (ord('\r')<<16) | (ord('\n')<<24)
 
-"""Magic word as global; note that _PyImport_Init() can change the
-   value of this global to accommodate for alterations of how the
-   compiler works which are enabled by command line switches.
-"""
-
-pyc_magic = MAGIC
+def get_pyc_magic(space):
+    result = MAGIC
+    if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
+        result += 2
+    if space.config.objspace.opcodes.CALL_METHOD:
+        result += 4
+    return result
 
 
 def parse_source_module(space, pathname, stream):
@@ -408,7 +421,7 @@ def check_compiled_module(space, pathname, mtime, cpathname):
     stream = streamio.open_file_as_stream(cpathname, "rb")
     magic = _r_long(stream)
     try:
-        if magic != pyc_magic:
+        if magic != get_pyc_magic(space):
             # XXX what to do about Py_VerboseFlag ?
             # PySys_WriteStderr("# %s has bad magic\n", cpathname);
             return -1
@@ -441,7 +454,7 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, stream):
     """
     w = space.wrap
     magic = _r_long(stream)
-    if magic != pyc_magic:
+    if magic != get_pyc_magic(space):
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
     _r_long(stream) # skip time stamp
@@ -492,7 +505,7 @@ def write_compiled_module(space, co, cpathname, mtime):
 
             # should be ok (XXX or should call os.fsync() to be sure?)
             stream.seek(0, 0)
-            _w_long(stream, pyc_magic)
+            _w_long(stream, get_pyc_magic(space))
             _w_long(stream, mtime)
         finally:
             stream.close()
