@@ -362,9 +362,10 @@ class TranslationDriver(SimpleTaskEngine):
                                     [SomeLLAbstractConstant(v.concretetype,
                                                             {OriginFlags(): True})
                                      for v in self.portal_graph.getargs()])
-        count = hannotator.bookkeeper.nonstubgraphcount
-        self.log.info('Hint-annotated %d graphs (plus %d stubs).' % (
-            count, len(hannotator.translator.graphs) - count))
+        count = hannotator.bookkeeper.nonstuboriggraphcount
+        stubcount = hannotator.bookkeeper.stuboriggraphcount
+        self.log.info("The hint-annotator saw %d graphs"
+                      " (and made stubs for %d graphs)." % (count, stubcount))
         n = len(list(hannotator.translator.graphs[0].iterblocks()))
         self.log.info("portal has %d blocks" % n)
         self.hannotator = hannotator

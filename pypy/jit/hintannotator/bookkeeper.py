@@ -50,13 +50,16 @@ class GraphDesc(object):
             bk = self.bookkeeper
             if bk.annotator.policy.look_inside_graph(self.origgraph):
                 graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
-                bk.nonstubgraphcount += 1
+                if not self._cache:
+                    bk.nonstuboriggraphcount += 1
                 if verbose:
                     log(str(graph))
                 else:
                     log.dot()
             else:
                 graph = self.build_callback_graph(self.origgraph)
+                if not self._cache:
+                    bk.stuboriggraphcount += 1                
                 if verbose:
                     log.stub(str(graph))
                 else:
@@ -123,7 +126,8 @@ class HintBookkeeper(object):
         self.tsgraph_maximal_call_families = UnionFind(TsGraphCallFamily)
         self.annotator = hannotator
         self.tsgraphsigs = {}
-        self.nonstubgraphcount = 0
+        self.nonstuboriggraphcount = 0
+        self.stuboriggraphcount = 0
         if hannotator is not None:     # for tests
             t = hannotator.base_translator
             self.impurity_analyzer = ImpurityAnalyzer(t)
