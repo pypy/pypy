@@ -8,7 +8,8 @@ To Do Right Now
 
 - check that --jit works with --faassen; don't stop at
   BINARY_ADD!
-   we explode in reg alloc for f(sys.maxint) (of test_pypy_c) ...!
+   - we explode in reg alloc for f(sys.maxint) (of test_pypy_c) ...!
+   - CALL_LIKELY_BUILTIN uses call_valuestack => bad
 
 Longer-term
 ------------------
