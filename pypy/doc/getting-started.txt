@@ -324,6 +324,31 @@ Read more about `Logic Object space features`_.
 .. _`Logic Object space features`: howto-logicobjspace-0.9.html
 
 
+Aspect Oriented Programming
++++++++++++++++++++++++++++
+
+PyPy provides some `Aspect Oriented Programming` facilities. 
+
+Try it out::
+
+ cd pypy
+ python bin/py.py
+
+ >>>> from aop import Aspect, before, PointCut
+ >>>> class DemoAspect:
+ ....     __metaclass__ = Aspect
+ ....     @before(PointCut(func="^open$").call())
+ ....     def before_open(self, joinpoint):
+ ....         print "opening", joinpoint.arguments()
+ .... 
+ >>>> aspect = DemoAspect()
+ >>>> f = open("/tmp/toto.txt", 'w')
+
+To read more about this, try the `aop module documentation`_.
+
+.. _`Aspect Oriented Programming`: http://aosd.net
+.. _`aop module documentation`: aspect_oriented_programming.html
+
 Running the tests
 +++++++++++++++++
 
