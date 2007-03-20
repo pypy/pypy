@@ -6,10 +6,14 @@ To Do Right Now
 
 - basic docs and examples
 
+- we are promoting inside space.type, there are other uses of it    
+  beyond dispatching, it may not be the best idea in general
+
 - check that --jit works with --faassen; don't stop at
   BINARY_ADD!
    - we explode in reg alloc for f(sys.maxint) (of test_pypy_c) ...!
-   - CALL_LIKELY_BUILTIN uses call_valuestack => bad
+     it seems we are in a flexswitch after a promote to be precise
+   - CALL_LIKELY_BUILTIN uses call_valuestack => bad       
 
 Longer-term
 ------------------
