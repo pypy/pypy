@@ -53,6 +53,8 @@ class BuildServer(object):
                     # end of data is marked by sending a None
                     if chunk is None:
                         break
+                    else:
+                        self.channel.send(None)
                     gotdata = True
                     fp.write(chunk)
             finally:
@@ -118,6 +120,7 @@ class ChannelWrapper(object):
     def write(self, data):
         self.loc += len(data)
         self.channel.send(data)
+        self.channel.receive() # to make sure stuff is only sent when required
 
     def close(self):
         self.channel.send(None)
@@ -169,76 +172,73 @@ def main(config, path, compilefunc):
 
     print 'connected'
     try:
-        try:
-            while 1:
-                # receive compile requests
-                request = channel.receive()
-                if not isinstance(request, str):
-                    raise ValueError(
-                        'received wrong unexpected data of type %s' % (
-                                type(request),)
-                    )
-                try:
-                    request = build.BuildRequest.fromstring(request)
-                except (KeyError, SyntaxError), e:
-                    print ('exception occurred when trying to '
-                           'interpret the following request:')
-                    print request
-                    print
-                    print 'going to continue'
-                    continue
-                accepting = True
-                for checker in config.client_checkers:
-                    if not checker(request):
-                        if hasattr(checker, 'im_func'):
-                            name = '%s.%s' % (checker.im_class.__name__,
-                                              checker.im_func.func_name)
-                        else:
-                            name = checker.func_name
-                        print 'request refused by checker', name
-                        accepting = False
-                        break
-                channel.send(accepting)
-                if not accepting:
-                    print 'refusing compilation'
-                    continue
-
-                print 'compilation requested for %s' % (request,)
-
-                # subversion checkout
-                print 'checking out %s@%s' % (request.svnurl,
-                                              request.normalized_rev)
-                temp = tempdir()
-                svnwc = py.path.svnwc(temp)
-                svnwc.checkout(request.svnurl)
-                svnwc.update(request.normalized_rev)
-
-                try:
-                    print 'starting compilation'
-                    upath, log = compilefunc(svnwc, request.compileinfo,
-                                             temp)
-                except (SystemExit, KeyboardInterrupt):
-                    print 'quitting...'
+        while 1:
+            # receive compile requests
+            request = channel.receive()
+            if not isinstance(request, str):
+                raise ValueError(
+                    'received wrong unexpected data of type %s' % (
+                            type(request),)
+                )
+            try:
+                request = build.BuildRequest.fromstring(request)
+            except (KeyError, SyntaxError), e:
+                print ('exception occurred when trying to '
+                       'interpret the following request:')
+                print request
+                print
+                print 'going to continue'
+                continue
+            accepting = True
+            for checker in config.client_checkers:
+                if not checker(request):
+                    if hasattr(checker, 'im_func'):
+                        name = '%s.%s' % (checker.im_class.__name__,
+                                          checker.im_func.func_name)
+                    else:
+                        name = checker.func_name
+                    print 'request refused by checker', name
+                    accepting = False
                     break
+            channel.send(accepting)
+            if not accepting:
+                print 'refusing compilation'
+                continue
 
-                if upath:
-                    # send over zip data, end with a None
-                    print 'compilation successful, sending to server'
-                    wrapper = ChannelWrapper(channel)
-                    zip_dir(py.path.local(upath), wrapper)
-                    wrapper.close()
-                else:
-                    print 'compilation failed, notifying server'
-                    # just send the None
-                    channel.send(None)
-                
-                # send over logs
-                print 'sending log'
-                channel.send(log)
-                
-                print 'done with compilation, waiting for next'
-        except EOFError:
-            py.std.sys.exit()
+            print 'compilation requested for %s' % (request,)
+
+            # subversion checkout
+            print 'checking out %s@%s' % (request.svnurl,
+                                          request.normalized_rev)
+            temp = tempdir()
+            svnwc = py.path.svnwc(temp)
+            svnwc.checkout(request.svnurl)
+            svnwc.update(request.normalized_rev)
+
+            try:
+                print 'starting compilation'
+                upath, log = compilefunc(svnwc, request.compileinfo,
+                                         temp)
+            except (SystemExit, KeyboardInterrupt):
+                print 'quitting...'
+                break
+
+            if upath:
+                # send over zip data, end with a None
+                print 'compilation successful, sending to server'
+                wrapper = ChannelWrapper(channel)
+                zip_dir(py.path.local(upath), wrapper)
+                wrapper.close()
+            else:
+                print 'compilation failed, notifying server'
+                # just send the None
+                channel.send(None)
+            
+            # send over logs
+            print 'sending log'
+            channel.send(log)
+            
+            print 'done with compilation, waiting for next'
     finally:
         channel.close()
         gw.exit()

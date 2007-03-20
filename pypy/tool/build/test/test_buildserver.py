@@ -59,10 +59,18 @@ def test_compile():
 
 def test_channelwrapper():
     class FakeChannel(object):
+        i = 0
         def __init__(self):
             self.buffer = []
         def send(self, data):
             self.buffer.append(data)
+        def receive(self):
+            import time
+            while len(self.buffer) < self.i:
+                time.sleep(0.1)
+            ret = self.buffer[self.i]
+            self.i += 1
+            return ret
     c = FakeChannel()
     cw = buildserver.ChannelWrapper(c)
     assert cw.tell() == 0

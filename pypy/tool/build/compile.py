@@ -103,6 +103,7 @@ zipcode = """
                     while 1:
                         data = fp.read(bufsize)
                         channel.send(data)
+                        channel.receive()
                         if len(data) < bufsize:
                             channel.send(None)
                             break
@@ -123,6 +124,7 @@ def savezip(config, id, path, port, savepath):
             try:
                 while 1:
                     data = channel.receive()
+                    channel.send(None)
                     if data is None:
                         break
                     fp.write(data)

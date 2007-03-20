@@ -1,3 +1,4 @@
+import time
 from pypy.tool.build.build import BuildPath
 
 class FakeChannel(object):

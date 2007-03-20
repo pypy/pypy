@@ -55,7 +55,7 @@ class MetaServer(object):
 
         self._queuelock = thread.allocate_lock()
         self._namelock = thread.allocate_lock()
-        
+
     def register(self, builder):
         """ register a builder (instance) """
         self._builders.append(builder)
@@ -161,10 +161,29 @@ class MetaServer(object):
         """this keeps the script from dying, and re-tries jobs"""
         self._channel.send('going to serve')
         while 1:
-            time.sleep(self.retry_interval)
-            self._cleanup_builders()
-            self._test_waiting()
-            self._try_queued()
+            quit = False
+            try:
+                command = self._channel.receive()
+            except EOFError:
+                quit = True
+            else:
+                if command == 'quit':
+                    quit = True
+            if quit:
+                self._cleanup()
+                break
+            else:
+                self._cleanup_builders()
+                self._test_waiting()
+                self._try_queued()
+
+    def _cleanup(self):
+        for builder in self._builders:
+            try:
+                builder.channel.close()
+            except EOFError:
+                pass
+        self._channel.close()
 
     def get_new_buildpath(self, request):
         path = BuildPath(str(self._buildroot / self._create_filename()))
@@ -338,10 +357,24 @@ def main(config):
         gw = SshGateway(config.server)
     channel = init(gw, config)
 
-    try:
+    def main():
         while 1:
-            data = channel.receive()
-            print data
+            try:
+                data = channel.receive()
+            except EOFError:
+                break
+            else:
+                print data
+
+    thread.start_new_thread(main, ())
+
+    try:
+        try:
+            while 1:
+                channel.send(None) # ping
+                time.sleep(1)
+        except (SystemExit, KeyboardInterrupt):
+            channel.send('quit')
     finally:
         channel.close()
         gw.exit()
