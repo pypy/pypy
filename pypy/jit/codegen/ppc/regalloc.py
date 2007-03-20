@@ -68,7 +68,7 @@ class RegisterAllocation:
         self.forget(argtospill, reg)
         spillslot = self.spill_slot()
         if reg.regclass != GP_REGISTER:
-            self.insns.append(reg.move_to_gpr(self, 0))
+            self.insns.append(reg.move_to_gpr(0))
             reg = gprs[0]
         self.insns.append(Spill(argtospill, reg, spillslot))
         self.set(argtospill, spillslot)
@@ -181,13 +181,13 @@ class RegisterAllocation:
                         else:
                             gpr = rSCRATCH
                         self.insns.append(
-                            argloc.move_to_gpr(self, gpr))
+                            argloc.move_to_gpr(gpr))
                     else:
                         gpr = argloc.number
                     if argcls != GP_REGISTER:
                         newargloc = self._allocate_reg(argcls, arg)
                         self.insns.append(
-                            newargloc.move_from_gpr(self, gpr))
+                            newargloc.move_from_gpr(gpr))
                 else:
                     if DEBUG_PRINT:
                         print "it was in ", argloc

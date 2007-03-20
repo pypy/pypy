@@ -146,7 +146,7 @@ class JumpPatchupGenerator(object):
                 emit(insn.Move(tarloc, srcloc))
             else:
                 assert isinstance(srcloc, insn.CRF)
-                emit(srcloc.move_to_gpr(self.allocator, tarloc.number))
+                emit(srcloc.move_to_gpr(tarloc.number))
         elif tarloc.is_register and not srcloc.is_register:
             emit(insn.Unspill(srcvar, tarloc, srcloc))
         elif not tarloc.is_register and srcloc.is_register:
@@ -174,9 +174,9 @@ def prepare_for_jump(insns, sourcevars, src2loc, target, allocator):
     targetlocs = target.arg_locations
     tarvars = []
 
-    if DEBUG_PRINT:
-        print targetlocs
-        print allocator.var2loc
+##     if DEBUG_PRINT:
+##         print targetlocs
+##         print allocator.var2loc
 
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]

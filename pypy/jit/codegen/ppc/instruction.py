@@ -97,10 +97,10 @@ class CRF(Register):
     def make_loc(self):
         # should never call this on a CRF, only a BaseCRF
         raise NotImplementedError
-    def move_to_gpr(self, allocator, gpr):
+    def move_to_gpr(self, gpr):
         bit, negated = self.info
         return _CRF2GPR(gpr, self.alloc.number*4 + bit, negated)
-    def move_from_gpr(self, allocator, gpr):
+    def move_from_gpr(self, gpr):
         # cmp2info['ne']
         self.set_info((2, 1))
         return _GPR2CRF(self, gpr)
@@ -109,7 +109,7 @@ class CRF(Register):
 
 class CTR(Register):
     regclass = CT_REGISTER
-    def move_from_gpr(self, allocator, gpr):
+    def move_from_gpr(self, gpr):
         return _GPR2CTR(gpr)
 
 ctr = CTR()
@@ -552,7 +552,7 @@ class Label(Insn):
                 allocator.freeregs[loc.regclass].append(loc.alloc)
                 new_loc = allocator._allocate_reg(GP_REGISTER, gv)
                 allocator.lru.append(gv)
-                allocator.insns.append(loc.move_to_gpr(allocator, new_loc.number))
+                allocator.insns.append(loc.move_to_gpr(new_loc.number))
                 loc = new_loc
         self.label.arg_locations = []
         for gv in self.label.args_gv:
@@ -735,7 +735,7 @@ class Unspill(AllocTimeInsn):
         self.stack = stack
         if not isinstance(self.reg, GPR):
             assert isinstance(self.reg, CRF) or isinstance(self.reg, CTR)
-            self.moveinsn = self.reg.move_from_gpr(None, 0)
+            self.moveinsn = self.reg.move_from_gpr(0)
         else:
             self.moveinsn = None
     def __repr__(self):
@@ -770,7 +770,7 @@ class Spill(AllocTimeInsn):
             r = self.reg.number
         else:
             assert isinstance(self.reg, CRF)
-            self.reg.move_to_gpr(None, 0).emit(asm)
+            self.reg.move_to_gpr(0).emit(asm)
             r = 0
         #print 'spilling to', self.stack.offset
         asm.stw(r, rFP, self.stack.offset)
