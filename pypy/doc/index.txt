@@ -93,7 +93,7 @@ and several implementations.
 `bytecode interpreter`_ explains the basic mechanisms 
 of the bytecode interpreter and virtual machine. 
 
-`object optimizations`_ describer various alternative object implementations
+`object optimizations`_ describes various alternative object implementations
 (for strings, dicts and lists) in the standard object space.
 
 `translation`_ is a detailed overview of our translation process.  The
