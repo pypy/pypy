@@ -79,9 +79,9 @@ emulates frames but not at 100%).
 How to compile a pypy-c with a JIT
 ==================================
 
-Go to ``pypy/jit/goal/`` and run::
+Go to ``pypy/translator/goal/`` and run::
 
-    ../../translator/goal/translate.py  targetjit.py
+    ./translate.py --jit targetpypystandalone
 
 Please first read the warning_ above.  This only works for Intel
 386-compatible machines yet.  **This is not going to speed up your

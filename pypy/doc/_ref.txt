@@ -33,7 +33,6 @@
 .. _`jit/`: ../../pypy/jit
 .. _`jit/codegen/`: ../../pypy/jit/codegen
 .. _`pypy/jit/codegen/model.py`: ../../pypy/jit/codegen/model.py
-.. _`jit/goal/`: ../../pypy/jit/goal
 .. _`jit/hintannotator/`: ../../pypy/jit/hintannotator
 .. _`jit/timeshifter/`: ../../pypy/jit/timeshifter
 .. _`pypy/jit/timeshifter/rvalue.py`: ../../pypy/jit/timeshifter/rvalue.py
