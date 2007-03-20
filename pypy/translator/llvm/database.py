@@ -16,6 +16,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib import objectmodel
 
 log = log.database 
 
@@ -505,7 +506,12 @@ class Primitives(object):
             # force the ComputedIntSymbolic to become a real integer value now
             repr = '%d' % value.compute_fn()
         elif isinstance(value, CDefinedIntSymbolic):
-            repr = CDEFINED_VALUE[value.expr]
+            if value is objectmodel.malloc_zero_filled:
+                repr = '1'
+            elif value is objectmodel._we_are_jitted:
+                repr = '0'
+            else:
+                raise NotImplementedError("CDefinedIntSymbolic: %r" % (value,))
         else:
             raise NotImplementedError("symbolic: %r" % (value,))
         
@@ -556,8 +562,3 @@ class Primitives(object):
             raise Exception("unsupported offset")
 
         return from_, indices, to    
-
-# reprs for specific CDefinedIntSymbolic constants
-CDEFINED_VALUE = {
-    'MALLOC_ZERO_FILLED': '1',
-    }

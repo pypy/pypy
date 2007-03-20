@@ -179,4 +179,19 @@ def test_is_early_constant():
     fn = compile_function(f, [int])
     res = fn(5)
     assert res == 0
-    
+
+def test_we_are_jitted():
+    from pypy.rlib import objectmodel
+    def f():
+        return objectmodel.we_are_jitted()
+    fn = compile_function(f, [])
+    res = fn()
+    assert res == False
+
+def test_malloc_zero_filled():
+    from pypy.rlib import objectmodel
+    def f():
+        return objectmodel.malloc_zero_filled
+    fn = compile_function(f, [])
+    res = fn()
+    assert res in [True, False]
