@@ -24,10 +24,16 @@ def baz(b,c):
 class Mumble:
     def __init__(self, param):
         self.p = param
-    def frobble(self):
-        return 3 * self.p
+    def frobble(self, b):
+        return 3 * self.p  + b
     def __del__(self):
-        print 'poof'
+        print 'Mumble goes poof'
+
+def truc():
+    m = Mumble(2)
+    r = m.frobble(1)
+    print 'truc', r, 'expected 7'
+    return r
 """
 import os
 import os.path as osp
@@ -38,10 +44,15 @@ def _make_filename(name):
     return osp.join(osp.dirname(__file__), name)
 
 def write_module(name):
+    clean_module(name)
     f = open(_make_filename(name), 'w')
     f.write(code)
     f.close()
 
 def clean_module(name):
-    os.unlink(_make_filename(name))
+    name = _make_filename(name)
+    if os.path.isfile(name):
+        os.unlink(name)
+    if os.path.isfile(name+'c'):
+        os.unlink(name+'c')
 

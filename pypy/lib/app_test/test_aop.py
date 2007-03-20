@@ -60,11 +60,93 @@ class AppTestPointCut(object):
         assert pc.match_module('logilab.common')
         assert not pc.match_module('logilab')
         assert not pc.match_module('common.logilab')
+
+    def test_static_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction
+        pc = PointCut(klass="Mumble")
+        assert pc.match(ASTClass('Mumble', [], None, ASTPass()))
+        assert pc.match(ASTClass('MumblesALot', [], None, ASTPass()))
+        f = ASTFunction(None, 'MumblesALot', [], [], 0, '', ASTPass())
+        f.parent = ASTClass('MumblesALot', [], None, ASTPass())
+        assert not pc.match(f)
+
+    def test_exec_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction
+        pc = PointCut(klass="Mumble", func='frobble').execution()
+        f = ASTFunction(None, 'frobble', [], [], 0, '', ASTPass())
+        f.parent = ASTClass('MumblesALot', [], None, ASTPass())
+        assert pc.match(f)
+        f.parent.name = 'Babble'
+        assert not pc.match(f)
+        c = ASTClass('frobbles_a_bit', [], None, ASTPass())
+        c.parent = ASTClass('MumblesALot', [], None, ASTPass())
+        assert not pc.match(c)
+        
+    def test_call_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction, ASTName, ASTCallFunc
+        pc = PointCut(klass="Mumble", func='frobble').call()
+        cf = ASTCallFunc( ASTName('frobble'), [], None, None)
+        c = ASTClass('MumblesALot', [], None, ASTPass())
+        cf.parent = c
+        assert pc.match(cf)
+        f = ASTFunction(None, 'frobble', [], [], 0, '', ASTPass())
+        f.parent = c
+        assert not pc.match(f)
+        c2 = ASTClass('frobbles_a_bit', [], None, ASTPass())
+        c2.parent = c
+        assert not pc.match(c2)
+        c.name = 'Babble'
+        assert not pc.match(cf)
+
+    def test_init_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction
+        pc = PointCut(klass="Mumble").initialization()
+        init = ASTFunction(None, '__init__', [], [], 0, '', ASTPass())
+        c = ASTClass('MumblesALot', [], None, ASTPass())
+        init.parent = c
+        assert pc.match(init)
+        c2 = ASTClass('__init__', [], None, ASTPass())
+        c2.parent = c
+        assert not pc.match(c2)
+        init.name = 'frobble'
+        assert not pc.match(init)
+        
+    def test_destruction_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction, ASTCallFunc, ASTName
+        pc = PointCut(klass="Mumble").destruction()
+        delete = ASTFunction(None, '__del__', [], [], 0, '', ASTPass())
+        c = ASTClass('MumblesALot', [], None, ASTPass())
+        delete.parent = c
+        assert pc.match(delete)
+        c2 = ASTClass('__del__', [], None, ASTPass())
+        c2.parent = c
+        assert not pc.match(c2)
+        delete.name = 'frobble'
+        assert not pc.match(delete)
+        
+
+    def test_and_compound_pointcut_match(self):
+        from aop import PointCut
+        from parser import ASTClass, ASTPass, ASTFunction, ASTCallFunc, ASTName
+        pc1 = PointCut(klass="Mumble")
+        pc2 = PointCut(func="frobble")
+        pc = (pc1 & pc2).execution()
+        f = ASTFunction(None, 'frobble', [], [], 0, '', ASTPass())
+        f.parent = ASTClass('MumblesALot', [], None, ASTPass())
+        assert pc.match(f)
+        f.parent.name = 'Babble'
+        assert not pc.match(f)
+        c = ASTClass('frobbles_a_bit', [], None, ASTPass())
+        c.parent = ASTClass('MumblesALot', [], None, ASTPass())
+        assert not pc.match(c)
+        
             
 class AppTestWeavingAtExecution(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{'objspace.usepycfiles':False})
-
     def test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
@@ -94,6 +176,36 @@ class AppTestWeavingAtExecution(object):
         assert aspect.flags == 0
         assert answ == 47
         sample_aop_code.clean_module('aop_before_execution')
+
+    def test_aspect_before_meth_execution(self):
+        from  aop import PointCut, Aspect, before
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_before_meth_execution')
+        
+        class AspectTest:
+            __metaclass__ = Aspect 
+            def __init__(self):
+                self.executed = False
+            @before(PointCut(func='frobble', klass='Mumble').execution())
+            def advice_before_meth_execution(self, tjp):
+                self.executed = True
+                self.argnames = tjp._argnames
+                self.flags = tjp._flags
+
+        assert __aop__.advices == []
+        aspect = AspectTest()
+        assert __aop__.advices == [(aspect, AspectTest.advice_before_meth_execution)] 
+        assert not aspect.executed
+
+        from app_test import aop_before_meth_execution
+        assert  aspect.executed == 0
+        answ = aop_before_meth_execution.truc()
+        assert aspect.executed == 1
+        assert aspect.argnames == ['self', 'b']
+        assert aspect.flags == 0
+        assert answ == 7
+        sample_aop_code.clean_module('aop_before_meth_execution')
 
     def test_simple_aspect_after_execution(self):
         from  aop import PointCut, Aspect, after
@@ -153,9 +265,6 @@ class AppTestWeavingAtExecution(object):
         
 
 class AppTestWeavingAtCall(object):
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{'objspace.usepycfiles':False})
-
     def test_simple_aspect_before_call(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
@@ -251,3 +360,27 @@ class AppTestWeavingAtCall(object):
         assert aspect.result == 42
         assert answ == 47
         sample_aop_code.clean_module('aop_around_call')
+
+
+
+class AppTestWeavingIntroduce(object):
+    def test_introduce(self):
+        from  aop import PointCut, Aspect, introduce
+        from app_test import sample_aop_code
+        __aop__._clear_all()
+        sample_aop_code.write_module('aop_introduce')
+        class AspectTest:
+            __metaclass__ = Aspect 
+            @introduce(PointCut(klass='Mumble'))
+            def newmethod(self, it, a, b):
+                return it.p*a+b
+            
+        aspect = AspectTest()
+        from app_test import aop_introduce
+        c = aop_introduce.Mumble(2)
+        try:
+            answ = c.newmethod(1,3)
+        except Exception, exc:
+            print exc.__class__.__name__, exc
+            assert False
+        assert answ == 5
