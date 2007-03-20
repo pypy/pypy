@@ -689,9 +689,10 @@ class MethodDesc(Desc):
             return '<unbound MethodDesc %r of %r>' % (self.name,
                                                       self.originclassdef)
         else:
-            return '<MethodDesc %r of %r bound to %r>' % (self.name,
+            return '<MethodDesc %r of %r bound to %r %r>' % (self.name,
                                                           self.originclassdef,
-                                                          self.selfclassdef)
+                                                          self.selfclassdef,
+                                                          self.flags)
 
     def pycall(self, schedule, args, s_previous_result):
         from pypy.annotation.model import SomeInstance
