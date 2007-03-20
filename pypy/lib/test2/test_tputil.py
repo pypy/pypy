@@ -3,34 +3,39 @@ from pypy.conftest import gettestobjspace
 class AppTestTPListproxy:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
-        cls.w_BaseDispatcher = cls.space.appexec([],"""
-            (): 
-                from tputil import BaseDispatcher
-                return BaseDispatcher 
-        """)
        
     def test_listproxy_basic(self):
-        x = []
-        wrapper = self.BaseDispatcher(x)
-        assert wrapper.realobj is x 
-        l = wrapper.proxyobj
-        assert type(l) is list
+        from tputil import make_proxy 
+        record = []
+        def func(invocation):
+            record.append(invocation)
+            return invocation.perform()
+        l = make_proxy([], func) 
         l.append(1)
-        l.extend([2,3])
-        assert l == [1,2,3]
-        assert x == l
-    
-    def test_listproxy_getattribute(self):
-        disp = self.BaseDispatcher([])
-        meth = disp.proxyobj.append 
-        assert meth.im_self == disp.proxyobj
-        meth = disp.proxyobj.__getattribute__
-        assert meth.im_self == disp.proxyobj
+        assert len(record) == 2
+        i1, i2 = record 
+        assert i1.opname == '__getattribute__'
+        assert i2.opname == 'append' 
 
-    def test_listproxy_hook(self):
-        class MyBaseDispatcher(self.BaseDispatcher):
-            def op___getitem__(self, *args, **kwargs):
-                return 42 
-        l = MyBaseDispatcher([]).proxyobj
-        assert l[0] == 42
-        assert l[-1] == 42
+    def test_proxy_double(self): 
+        from tputil import make_proxy 
+        r1 = []
+        r2 = []
+        def func1(invocation):
+            r1.append(invocation)
+            return invocation.perform()
+        def func2(invocation):
+            r2.append(invocation)
+            return invocation.perform()
+            
+        l = make_proxy([], func1) 
+        l2 = make_proxy(l, func2) 
+        assert not r1 and not r2
+        l2.append
+        assert len(r2) == 1
+        assert r2[0].opname == '__getattribute__'
+        assert len(r1) == 2 
+        assert r1[0].opname == '__getattribute__'
+        assert r1[0].args[0] == '__getattribute__'
+        assert r1[1].opname == '__getattribute__'
+        assert r1[1].args[0] == 'append' 

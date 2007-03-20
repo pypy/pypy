@@ -10,30 +10,32 @@ the proxied object.
 from pypymagic import transparent_proxy 
 from types import MethodType
 
-class BaseDispatcher(object):
-    def __init__(self, realobj, typ=None):
+def make_proxy(instance, invokefunc=None, typ=None): 
+    if typ is None:
+        typ = type(instance) 
+    def perform(opname, *args, **kwargs):
+        invocation = Invocation(tp, instance, opname, args, kwargs)
+        return invokefunc(invocation) 
+    tp = transparent_proxy(typ, perform) 
+    return tp 
+
+class Invocation(object):
+    def __init__(self, proxyobj, realobj, opname, args, kwargs):
+        self.proxyobj = proxyobj
         self.realobj = realobj 
-        if typ is None:
-            typ = type(realobj) 
-        self.proxyobj = transparent_proxy(typ, self.invoke)
+        self.opname = opname 
+        self.args = args
+        self.kwargs = kwargs
+        self.realmethod = getattr(realobj, opname) 
 
-    def invoke(self, operation, *args, **kwargs):
-        """ return result from dispatching to proxied operation. """
-        realmethod = getattr(self.realobj, operation) 
-        print "operation", operation
-        dispmethod = getattr(self, "op_" + operation, None)
-        if dispmethod is None:
-            dispmethod = self.op_default 
-        res = dispmethod(realmethod, *args, **kwargs)
-        return res
+    def perform(self):
+        res = self.realmethod(*self.args, **self.kwargs)
+        if self.opname == "__getattribute__": 
+            if (isinstance(res, MethodType) and
+                res.im_self is self.realobj):
+                res = MethodType(res.im_func, self.proxyobj, res.im_class)
+        return res 
 
-    def op___getattribute__(self, realmethod, *args, **kwargs):
-        res = realmethod(*args, **kwargs)
-        if (isinstance(res, MethodType) and
-             res.im_self is self.realobj):
-            res= MethodType(res.im_func, self.proxyobj, res.im_class)
-        return res
-        
-    def op_default(self, realmethod, *args, **kwargs):
-        return realmethod(*args, **kwargs)
-
+    def __repr__(self):
+        return "<Invocation %s(*%r, **%r)" %(self.realmethod, 
+                                             self.args, self.kwargs)
