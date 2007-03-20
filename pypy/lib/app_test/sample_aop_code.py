@@ -1,5 +1,9 @@
 code = """
-def foo(b,c):
+def foo(b, c):
+    '''
+    pre:
+        b < c
+    '''
     print 'foo'
     a = 2
     d = bar(a)

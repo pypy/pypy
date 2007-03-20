@@ -91,6 +91,7 @@ class Advice(parser.ASTMutator):
     def weave_at_static(self, node, tjp):
         raise NotImplementedError("abstract method")
 
+
 class around(Advice):
     """specify code to be run instead of the pointcut"""
     @log_exc
