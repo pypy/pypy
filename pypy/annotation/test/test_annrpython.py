@@ -2696,6 +2696,46 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [bool])
         assert isinstance(s, annmodel.SomeExternalBuiltin)        
 
+    def test_instance_with_flags(self):
+        from pypy.rlib.objectmodel import hint
+
+        class A:
+            _virtualizable_ = True
+        class B(A):
+            def meth(self):
+                return self
+        class C(A): 
+            def meth(self):
+                return self
+
+        def f(n):
+            x = B()
+            x = hint(x, access_directly=True)
+            m = x.meth
+            for i in range(n):
+                x = C()
+                m = x.meth
+            return x, m, m()
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [a.bookkeeper.immutablevalue(0)])
+        assert isinstance(s.items[0], annmodel.SomeInstance)
+        assert s.items[0].flags == {'access_directly': True}
+        assert isinstance(s.items[1], annmodel.SomePBC)
+        assert len(s.items[1].descriptions) == 1
+        assert s.items[1].descriptions.keys()[0].flags == {'access_directly':
+                                                           True}
+        assert isinstance(s.items[2], annmodel.SomeInstance)
+        assert s.items[2].flags == {'access_directly': True}
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s.items[0], annmodel.SomeInstance)
+        assert s.items[0].flags == {}
+        assert isinstance(s.items[1], annmodel.SomePBC)
+        assert isinstance(s.items[2], annmodel.SomeInstance)
+        assert s.items[2].flags == {}
+
 def g(n):
     return [0,1,2,n]
 

@@ -751,9 +751,9 @@ class MethodDesc(Desc):
             if desc.flags != commonflags:
                 newdesc = desc.bookkeeper.getmethoddesc(desc.funcdesc,
                                                         desc.originclassdef,
-                                                        desc.selfclassdefs,
+                                                        desc.selfclassdef,
                                                         desc.name,
-                                                        flags)
+                                                        commonflags)
                 del descs[desc]
                 descs[newdesc] = True
 
