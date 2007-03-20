@@ -5,7 +5,7 @@ import sys, os
 
 def setup_module(mod):
     if option.pypy_c is None:
-        py.test.skip("pass --pypy_c!")
+        py.test.skip("pass --pypy-c!")
     mod.tmpdir = udir.join('pypy-jit')
     mod.tmpdir.ensure(dir=1)
     mod.counter = 0
