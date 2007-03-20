@@ -9,12 +9,121 @@ from pypy.tool.build import execnetconference
 
 POLLTIME = 5 # for --foreground polling
 
-def get_gateway(config):
-    if config.server in ['localhost', '127.0.0.1']:
-        gw = py.execnet.PopenGateway()
-    else:
-        gw = py.execnet.SshGateway(config.server)
-    return gw
+class ServerAccessor(object):
+    remote_code = """
+        import sys
+        sys.path += %r
+
+        from pypy.tool.build import metaserver_instance
+        from pypy.tool.build.build import BuildRequest
+
+        def getbp(ms, id):
+            for bp in ms._done:
+                if bp.request.id() == id:
+                    return bp
+        
+        chunksize = 1024
+
+        try:
+            while 1:
+                cmd, data = channel.receive()
+                if cmd == 'compile':
+                    ret = metaserver_instance.compile(
+                            BuildRequest.fromstring(data))
+                elif cmd == 'check':
+                    ret = False
+                    bp = getbp(metaserver_instance, data)
+                    if bp:
+                        ret = str(bp.error)
+                elif cmd == 'zip':
+                    bp = getbp(metaserver_instance, data)
+                    zipfp = bp.zipfile.open('rb')
+                    try:
+                        while 1:
+                            chunk = zipfp.read(chunksize)
+                            channel.send(chunk)
+                            channel.receive()
+                            if len(chunk) < chunksize:
+                                channel.send(None)
+                                break
+                    finally:
+                        zipfp.close()
+                channel.send(ret)
+        finally:
+            channel.close()
+    """
+    def __init__(self, config):
+        self.config = config
+        self.requestid = None
+        self._connect()
+
+    def _send_twice(self, data):
+        try:
+            self.channel.send(data)
+        except EOFError:
+            print 'error during send: %s, retrying' % (e,)
+            self.close()
+            self._connect()
+            self.channel.send(data)
+
+    def _receive_twice(self):
+        try:
+            ret = self.channel.receive()
+        except EOFError, e:
+            print 'error during receive: %s, retrying' % (e,)
+            self.close()
+            self._connect()
+            ret = self.channel.receive()
+        if isinstance(ret, Exception):
+            raise ret.__class__, ret # tb?
+        return ret
+
+    def _try_twice(self, command, data):
+        self._send_twice((command, data))
+        return self._receive_twice()
+
+    def start_compile(self, request):
+        req = request.serialize()
+        ret = self._try_twice('compile', req)
+        if isinstance(ret, dict):
+            self.requestid = ret['id']
+        return ret
+        
+    def check_in_progress(self):
+        return self._try_twice('check', self.requestid)
+
+    def save_zip(self, path):
+        self._send_twice(('zip', self.requestid))
+        fp = path.open('w')
+        try:
+            while 1:
+                chunk = self.channel.receive()
+                if chunk is None:
+                    break
+                fp.write(chunk)
+                self.channel.send(None)
+        finally:
+            fp.close()
+
+    def close(self):
+        try:
+            self.channel.close()
+        except EOFError:
+            pass
+        self.gateway.exit()
+        
+    def _connect(self):
+        self.gateway = gw = self._get_gateway()
+        conference = execnetconference.conference(gw, self.config.port, False)
+        self.channel = conference.remote_exec(self.remote_code % (
+                                               self.config.path,))
+
+    def _get_gateway(self):
+        if self.config.server in ['localhost', '127.0.0.1']:
+            gw = py.execnet.PopenGateway()
+        else:
+            gw = py.execnet.SshGateway(config.server)
+        return gw
 
 def parse_options(config, args=None):
     # merge system + compile options into one optionparser
@@ -36,105 +145,6 @@ def parse_options(config, args=None):
 
     return optparser, options, args
 
-initcode = """
-    import sys
-    import time
-    sys.path += %r
-    bufsize = 1024
-
-    try:
-        try:
-            from pypy.tool.build import metaserver_instance
-            from pypy.tool.build import build
-            ret = metaserver_instance.compile(%r)
-            channel.send(ret)
-        except Exception, e:
-            channel.send(str(e))
-    finally:
-        channel.close()
-"""
-def init(gw, request, path, port):
-    conference = execnetconference.conference(gw, port, False)
-    channel = conference.remote_exec(initcode % (path, request))
-    return channel
-
-checkcode = """
-    import sys
-    sys.path += %r
-    bufsize = 1024
-    try:
-        reqid = channel.receive()
-        from pypy.tool.build import metaserver_instance
-        from pypy.tool.build import build
-        for tb in metaserver_instance._done:
-            if tb.request.id() == reqid:
-                channel.send({'error': str(tb.error)})
-        else:
-            channel.send(None)
-    finally:
-        channel.close()
-"""
-def check_server(config, id, path, port):
-    gw = get_gateway(config)
-    try:
-        conference = execnetconference.conference(gw, port, False)
-        channel = conference.remote_exec(checkcode % (path,))
-        try:
-            channel.send(id)
-            ret = channel.receive()
-        finally:
-            channel.close()
-    finally:
-        gw.exit()
-    return ret
-
-zipcode = """
-    import sys
-    sys.path += %r
-    bufsize = 1024
-    try:
-        reqid = channel.receive()
-        from pypy.tool.build import metaserver_instance
-        from pypy.tool.build import build
-        for tb in metaserver_instance._done:
-            if tb.request.id() == reqid:
-                fp = tb.zipfile.open('rb')
-                try:
-                    while 1:
-                        data = fp.read(bufsize)
-                        channel.send(data)
-                        channel.receive()
-                        if len(data) < bufsize:
-                            channel.send(None)
-                            break
-                finally:
-                    fp.close()
-    finally:
-        channel.close()
-"""
-def savezip(config, id, path, port, savepath):
-    gw = get_gateway(config)
-    savepath = py.path.local(savepath)
-    try:
-        conference = execnetconference.conference(gw, port, False)
-        channel = conference.remote_exec(zipcode % (path,))
-        try:
-            channel.send(id)
-            fp = savepath.open('wb')
-            try:
-                while 1:
-                    data = channel.receive()
-                    channel.send(None)
-                    if data is None:
-                        break
-                    fp.write(data)
-            finally:
-                fp.close()
-        finally:
-            channel.close()
-    finally:
-        gw.exit()
-
 def getrequest(config, args=None):
     from pypy.config.config import make_dict
 
@@ -151,55 +161,40 @@ def getrequest(config, args=None):
     return buildrequest, options.foreground
 
 def main(config, request, foreground=False):
-    gateway = get_gateway(config)
-
     inprogress = False
-    try:
-        print 'going to start compile job with info:'
-        for k, v in request.sysinfo.items():
-            print '%s: %r' % (k, v)
-        print
-        print config.compile_config
 
-        channel = init(gateway, request, config.path, port=config.port)
-        try:
-            data = channel.receive()
-            if type(data) == str:
-                print data
-                for line in channel:
-                    print line
-            elif type(data) != dict:
-                raise ValueError, 'invalid data returned: %r' % (data,)
-            else:
-                if data['path']:
-                    print ('a suitable result is already available, you can '
-                           'find it at "%s" on %s' % (data['path'],
-                                                      config.server))
-                else:
-                    print data['message']
-                    print 'the id of this build request is: %s' % (data['id'],)
-                    inprogress = True
-        finally:
-            channel.close()
-    finally:
-        gateway.exit()
+    print 'going to start compile job with info:'
+    for k, v in request.sysinfo.items():
+        print '%s: %r' % (k, v)
+    print
+    print config.compile_config
+
+    msa = ServerAccessor(config)
+    print 'going to start compile'
+    ret = msa.start_compile(request)
+    if ret['path']:
+        print ('a suitable result is already available, you can '
+               'find it at "%s" on %s' % (ret['path'],
+                                          config.server))
+    else:
+        print ret['message']
+        print 'the id of this build request is: %s' % (ret['id'],)
+        inprogress = True
 
     if foreground and inprogress:
         print 'waiting until it\'s done'
         error = None
         while 1:
-            ret = check_server(config, request.id(), config.path,
-                               config.port)
-            if ret is not None:
-                error = ret['error']
+            ret = msa.check_in_progress()
+            if ret is not False:
+                error = ret
                 break
             time.sleep(POLLTIME)
         if error and error != 'None':
             print 'error:', error
         else:
             zipfile = py.path.local('data.zip')
-            savezip(config, request.id(), config.path,
-                    config.port, zipfile)
+            msa.save_zip(zipfile)
             print 'done, the result can be found in "data.zip"'
     elif inprogress:
         print 'you will be mailed once it\'s ready'

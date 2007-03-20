@@ -2,7 +2,7 @@ import py
 import threading
 from pypy.tool.build import execnetconference
 from pypy.tool.build import config
-from pypy.tool.build.compile import main
+from pypy.tool.build.compile import main, ServerAccessor
 from pypy.tool.build.test import fake
 from pypy.tool.build import build
 from py.__.path.svn.testing import svntestbase
@@ -103,16 +103,20 @@ def get_test_config():
         svnpath_to_url=lambda p: 'file://%s' % (p,),
     )
 
-def test_compile():
-    # functional test, sorry :|
-    if not option.functional:
-        py.test.skip('skipping functional test, use --functional to run it')
-
+def create_test_repo_file(name):
     repo, wc = svntestbase.getrepowc('test_compile')
-    temp = py.test.ensuretemp('test_compile.buildpath')
+    temp = py.test.ensuretemp('test_compile.%s' % (name,))
     wc.ensure('foo', dir=True)
     wc.commit('added foo')
     path = repo + '/foo'
+    return path
+
+def test_blocking():
+    # functional test, sorry :|
+    if not option.functional:
+        py.test.skip('skipping functional test, use --functional to run it')
+    path = create_test_repo_file('test_blocking')
+
     gw = py.execnet.PopenGateway()
     s = FakeServer()
     try:
@@ -152,4 +156,102 @@ def test_compile():
             gw.exit()
         except IOError:
             pass
+
+class TestServerAccessor(object):
+    initcode = """
+        import sys
+        sys.path += %r
+
+        import py
+        from pypy.tool.build.build import BuildPath, BuildRequest
+
+        class FakeMetaServer(object):
+            def __init__(self):
+                self._done = []
+                self._compilation_requested = []
+
+            def compile(self, request):
+                self._compilation_requested.append(request)
+                return {'id': request.id(), 'path': None,
+                        'message': 'compilation started'}
+        
+        ms = FakeMetaServer()
+        from pypy.tool import build
+        old_metaserver_instance = getattr(build, 'metaserver_instance', None)
+        build.metaserver_instance = ms
+        try:
+            while 1:
+                command, data = channel.receive()
+                if command == 'quit':
+                    break
+                elif command == 'compilation_done':
+                    for req in ms._compilation_requested:
+                        if req.id() == data:
+                            temp = py.test.ensuretemp(
+                                'test_compile.TestServerAccessor').join(data)
+                            ms._compilation_requested.remove(req)
+                            bp = BuildPath(temp.join(data))
+                            bp.request = req
+                            bp.zipfile = 'foo'
+                            ms._done.append(bp)
+                            break
+                    channel.send(None)
+                elif command == 'done':
+                    channel.send([bp.request.id() for bp in ms._done])
+                elif command == 'requesting':
+                    channel.send([br.id() for br in ms._compilation_requested])
+        finally:
+            channel.close()
+            build.metaserver_instance = old_metaserver_instance
+    """
+    
+    def setup(self, method):
+        self.gw = gw = py.execnet.PopenGateway()
+        conference = execnetconference.conference(gw, config.testport, True)
+        self.channel = conference.remote_exec(self.initcode % (config.path,))
+
+    def teardown_method(self, method):
+        self.channel.close()
+        self.gw.exit()
+
+    def test_compilation(self):
+        # another functional one, although not too bad because it uses
+        # a mock meta server
+        if not option.functional:
+            py.test.skip('skipping functional test, use --functional to run it')
+        path = create_test_repo_file('TestServerAccessor.start_compile')
+        req = build.BuildRequest('foo@bar.com', {'foo': 'bar'}, {}, path, 1, 1)
+        reqid = req.id()
+        self.channel.send(('requesting', None))
+        ret = self.channel.receive()
+        assert ret == []
+
+        sa = ServerAccessor(fake.Container(server='localhost',
+                                           port=config.testport,
+                                           path=config.testpath))
+        sa.start_compile(req)
+        self.channel.send(('requesting', None))
+        ret = self.channel.receive()
+        assert ret == [req.id()]
+
+        ret = sa.check_in_progress()
+        assert not ret
+
+        self.channel.send(('done', None))
+        ret = self.channel.receive()
+        assert ret == []
+
+        self.channel.send(('compilation_done', req.id()))
+        assert self.channel.receive() is None
+        self.channel.send(('done', None))
+        ret = self.channel.receive()
+        assert ret == [req.id()]
+        self.channel.send(('requesting', None))
+        ret = self.channel.receive()
+        assert ret == []
+
+        temppath = py.test.ensuretemp('test_compile.TestServerAccessor.zip')
+        zippath = temppath.join('data.zip')
+        sa.save_zip(zippath)
+        assert zippath.read() == 'foo'
 

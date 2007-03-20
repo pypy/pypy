@@ -105,7 +105,7 @@ class MetaServer(object):
         for br in self._waiting + self._queued:
             if br.has_satisfying_data(request):
                 id = br.id()
-                self.channel.send(
+                self._channel.send(
                     'build for %s already queued as %s' % (
                         request.id(), id))
                 return {'path': None, 'id': id, 'isbuilding': False,
