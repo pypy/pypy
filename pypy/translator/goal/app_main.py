@@ -267,7 +267,7 @@ def entry_point(executable, argv):
                 runpy.run_module(sys.argv[0], None, '__main__', True)
             success = run_toplevel(run_it)
         elif run_stdin:
-            if sys.stdin.isatty():
+            if go_interactive or sys.stdin.isatty():
                 print_banner()
                 python_startup = os.getenv('PYTHONSTARTUP')
                 if python_startup:
