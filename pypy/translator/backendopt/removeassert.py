@@ -12,6 +12,7 @@ def remove_asserts(translator, graphs):
     clsdef = translator.annotator.bookkeeper.getuniqueclassdef(AssertionError)
     r_AssertionError = rclass.getclassrepr(rtyper, clsdef)
     ll_AssertionError = r_AssertionError.convert_const(AssertionError)
+    total_count = [0, 0]
 
     for graph in graphs:
         count = 0
@@ -29,14 +30,18 @@ def remove_asserts(translator, graphs):
                         morework = True
                         break
                     else:
-                        log.removeassert("cannot remove an assert from %s" % (graph.name,))
+                        total_count[0] += 1
+                        if translator.config.translation.verbose:
+                            log.removeassert("cannot remove an assert from %s" % (graph.name,))
         if count:
             # now melt away the (hopefully) dead operation that compute
             # the condition
+            total_count[1] += count
             if translator.config.translation.verbose:
                 log.removeassert("removed %d asserts in %s" % (count, graph.name))
             checkgraph(graph)
             #transform_dead_op_vars(graph, translator)
+    log.removeassert("Could not remove %d asserts, but removed %d asserts." % tuple(total_count))
 
 
 def kill_assertion_link(graph, link):
