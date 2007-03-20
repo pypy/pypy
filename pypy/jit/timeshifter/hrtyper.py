@@ -65,6 +65,7 @@ class HintRTyper(RPythonTyper):
         self.timeshift_mapping = {}
         self.sigs = {}
         self.dispatchsubclasses = {}
+        self.old_percentage = 0
 
         (self.s_JITState,
          self.r_JITState)      = self.s_r_instanceof(rtimeshift.JITState)
@@ -425,9 +426,12 @@ class HintRTyper(RPythonTyper):
             self.specialize_block(block)
             self.blockcount += 1
             if self.blockcount % 100 == 0:
-                self.log.event("Timeshifted ops in %d blocks, %d/%d graphs" %
-                               (self.blockcount, self.graphcount,
-                                self.ngraphs))
+                percentage = 100 * self.graphcount / self.ngraphs
+                if percentage >= self.old_percentage + 5:
+                    self.old_percentage = percentage
+                    self.log.event("Timeshifted ops in %d blocks, %d/%d graphs (%d %%)" %
+                                   (self.blockcount, self.graphcount,
+                                    self.ngraphs, percentage))
         self.graphcount += 1                
         # "normalize" the graphs by putting an explicit v_jitstate variable
         # everywhere
