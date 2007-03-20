@@ -738,7 +738,8 @@ def make_write_lots_of_frame_places(rgenop, get_writer):
     builder.start_writing()
 
     gv_base = builder.genop_get_frame_base()
-    places = [builder.alloc_frame_place(signed_kind) for i in range(100)]
+    gv_sources = [builder.genop2('int_add', gv_x, rgenop.genconst(i)) for i in range(100)]
+    places = [builder.alloc_frame_place(signed_kind, gv_s) for gv_s in gv_sources]
     gv_writer = rgenop.constPrebuiltGlobal(get_writer(places))
     builder.genop_call(writertoken, gv_writer, [gv_base, gv_x])
     gv_sum = rgenop.genconst(0)
