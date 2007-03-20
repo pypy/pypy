@@ -296,3 +296,24 @@ class TestNonInteractive:
         assert 'Name: __main__' in data
         assert ('File: ' + p) in data
         assert ('Argv: ' + repr([p, 'extra'])) in data
+
+def test_option_u():
+    py.test.skip("Failing")
+    import subprocess
+    from py.__.green.greensock2 import autogreenlet, Timer, Interrupted
+    from py.__.green.pipe.fd import FDInput
+    python = "python"
+    pipe = subprocess.Popen([python, app_main, "-u", "-i"],
+                            stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            bufsize=0, close_fds=True)
+    read_fd = FDInput(pipe.stdout.fileno(), close=False)
+    timeout = 5
+    timer = Timer(timeout)
+    try:
+        data = read_fd.recv(10024)
+    except Interrupted:
+        py.test.fail("Timed out reading")
+    else:
+        timer.stop()
+
