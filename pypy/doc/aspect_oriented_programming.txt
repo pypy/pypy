@@ -116,7 +116,7 @@ regular expression which can match a package/module, a class or a
 function/method. 
 
 Point cuts can be combined using the python binary operators & and
-|, which will produce a new PointCut representing respectively the
+\|, which will produce a new PointCut representing respectively the
 intersection and the union of the join points of the original point
 cuts. 
 
@@ -144,18 +144,18 @@ Example
 
 The following code can be used to implement a logging aspect::
 
-in file ``logging_aspect.py``::
+    in file ``logging_aspect.py``:
 
- from aop import Aspect, before, PointCut
+     from aop import Aspect, before, PointCut
 
- class LoggingAspect:
-     __metaclass__=Aspect
+     class LoggingAspect:
+         __metaclass__=Aspect
 
-     # We weave in all methods and functions, except if the name of
-     # the method starts with an underscore
-     @before(PointCut(module='.*', klass='.*', func='[^_].*').execution())
-     def logStartMethod(self, joinpoint):
-         print 'in', joinpoint.name()
+         # We weave in all methods and functions, except if the name of
+         # the method starts with an underscore
+         @before(PointCut(module='.*', klass='.*', func='[^_].*').execution())
+         def logStartMethod(self, joinpoint):
+             print 'in', joinpoint.name()
 
 
 In the startup code of the application, before all other imports::
