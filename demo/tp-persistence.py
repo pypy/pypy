@@ -5,39 +5,26 @@ mechanism on top of PyPy's transparent proxies.
 
 """
 from pypymagic import transparent_proxy, get_transparent_controller
-from types import MethodType
+from tputil import BaseDispatcher
 
-class PersistentListController(object):
+class PListDispatcher(BaseDispatcher):
     _changeops = ('__iadd__ __imul__ __delitem__ __setitem__ '
-                  '__delslice__ __setslice__ __init__ '
+                  '__delslice__ __setslice__ '
                   'append extend insert pop remove reverse sort').split()
 
-    def __init__(self, obj, storage): 
-        self._obj = obj 
+    def __init__(self, realobj, storage):
+        parent = super(PListDispatcher, self)
+        parent.__init__(realobj, list) 
         self._storage = storage 
-        self.persist()
-        self.proxy = transparent_proxy(list, self.perform)
+
+    def op_default(self, realmethod, *args, **kwargs):
+        res = realmethod(*args, **kwargs) 
+        if realmethod.__name__ in self._changeops: 
+            self.persist()
+        return res 
 
     def persist(self):
-        self._storage.dump(self._obj) 
-
-    def perform(self, operation, *args, **kwargs):
-        result = getattr(self._obj, operation)(*args, **kwargs)
-        if operation in self._changeops: 
-            # state was modified, do maximally eager checkpointing 
-            self.persist()
-        if result is self._obj:
-            # If the result is the proxied list
-            # return the proxy instead.
-            result = self.proxy
-        elif (isinstance(result, MethodType) and
-             result.im_self is self._obj):
-            # Convert methods bound to the proxied list
-            # to methods bound to the proxy.
-            # This is to have calls to the method become calls
-            # to perform.
-            result = MethodType(result.im_func, self.proxy, result.im_class)
-        return result
+        self._storage.dump(self.realobj) 
 
     @classmethod
     def load(cls, storage):
@@ -46,6 +33,7 @@ class PersistentListController(object):
 
 def work_with_list(mylist):
     assert isinstance(mylist, list)
+    assert mylist.__class__ is list 
     mylist.append(4) 
     mylist += [5,6,7]
 
@@ -54,7 +42,7 @@ if __name__ == '__main__':
     storage = py.path.local("/tmp/mystorage")
             
     somelist = [1,2,3]
-    newlist = PersistentListController(somelist, storage).proxy 
+    newlist = PListDispatcher(somelist, storage).proxyobj
 
     # here we may call into application code which can 
     # not detect easily that it is dealing with a persistent
@@ -62,6 +50,12 @@ if __name__ == '__main__':
     work_with_list(newlist)
     del somelist, newlist 
 
-    restoredlist = PersistentListController.load(storage).proxy
+    restoredlist = PListDispatcher.load(storage).proxyobj
     print "restored list", restoredlist
-    print restoredlist == [1,2,3,4,5,6,7]
+    assert restoredlist == [1,2,3,4,5,6,7]
+    restoredlist *= 2
+    del restoredlist 
+    restoredlist = PListDispatcher.load(storage).proxyobj
+    print "restored list 2", restoredlist
+    assert restoredlist == [1,2,3,4,5,6,7] * 2
+    
