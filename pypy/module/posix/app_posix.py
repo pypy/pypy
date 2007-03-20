@@ -1,5 +1,6 @@
 # NOT_RPYTHON
 
+import os
 from _structseq import structseqtype, structseqfield
 
 error = OSError
@@ -28,3 +29,65 @@ def fdopen(fd, mode='r', buffering=-1):
 
     return file.fdopen(fd, mode, buffering)
 
+
+# __________ only if we have os.fork() __________
+
+class popenfile(file):
+    _childpid = None
+
+    def close(self):
+        file.close(self)
+        pid = self._childpid
+        if pid is not None:
+            self._childpid = None
+            os.waitpid(pid, 0)
+    __del__ = close     # as in CPython, __del__ may call os.waitpid()
+
+def try_close(fd):
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+def popen(command, mode='r', bufsize=-1):
+    """popen(command [, mode='r' [, bufsize]]) -> pipe
+    
+    Open a pipe to/from a command returning a file object."""
+
+    from popen2 import MAXFD
+
+    if not mode.startswith('r') and not mode.startswith('w'):
+        raise ValueError("invalid mode %r" % (mode,))
+    read_end, write_end = os.pipe()
+    try:
+        childpid = os.fork()
+        if childpid == 0:
+            # in the child
+            try:
+                if mode.startswith('r'):
+                    os.dup2(write_end, 1)
+                    os.close(read_end)
+                else:
+                    os.dup2(read_end, 0)
+                    os.close(write_end)
+                for i in range(3, MAXFD):
+                    try_close(i)
+                cmd = ['/bin/sh', '-c', command]
+                os.execvp(cmd[0], cmd)
+            finally:
+                os._exit(1)
+
+        if mode.startswith('r'):
+            os.close(write_end)
+            fd = read_end
+        else:
+            os.close(read_end)
+            fd = write_end
+        g = popenfile.fdopen(fd, mode, bufsize)
+        g._childpid = childpid
+        return g
+
+    except Exception, e:
+        try_close(write_end)
+        try_close(read_end)
+        raise Exception, e     # bare 'raise' does not work here :-(

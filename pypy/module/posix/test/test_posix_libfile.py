@@ -23,3 +23,30 @@ class AppTestPosix:
         f = posix.fdopen(fd, "r")
         result = f.read()
         assert result == "this is a test"
+
+    def test_popen(self):
+        import sys
+        if sys.platform.startswith('win'):
+            skip("unix specific")
+        path2 = self.path + '2'
+        posix = self.posix
+
+        f = posix.popen("echo hello")
+        data = f.read()
+        f.close()
+        assert data == 'hello\n'
+
+        f = posix.popen("cat > '%s'" % (path2,), 'w')
+        f.write('123\n')
+        f.close()
+        f = open(path2, 'r')
+        data = f.read()
+        f.close()
+        assert data == '123\n'
+
+        import time
+        start_time = time.time()
+        f = posix.popen("sleep 2")
+        f.close()   # should wait here
+        end_time = time.time()
+        assert end_time - start_time >= 1.9
