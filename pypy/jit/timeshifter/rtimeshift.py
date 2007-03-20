@@ -228,6 +228,8 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
 
 def ll_genptreq(jitstate, argbox0, argbox1, reverse):
     builder = jitstate.curbuilder
+    # XXX this assumption is not completely valid in the presence
+    # of virtualizable
     if argbox0.content is not None or argbox1.content is not None:
         equal = argbox0.content is argbox1.content
         return rvalue.ll_fromvalue(jitstate, equal ^ reverse)
