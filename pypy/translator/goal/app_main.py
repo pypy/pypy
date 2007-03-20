@@ -253,6 +253,9 @@ def entry_point(executable, argv):
         if hasattr(signal, "SIGPIPE"):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
+    def is_interactive():
+        return go_interactive or os.getenv('PYTHONINSPECT')
+
     success = True
 
     try:
@@ -267,7 +270,7 @@ def entry_point(executable, argv):
                 runpy.run_module(sys.argv[0], None, '__main__', True)
             success = run_toplevel(run_it)
         elif run_stdin:
-            if go_interactive or sys.stdin.isatty():
+            if is_interactive() or sys.stdin.isatty():
                 print_banner()
                 python_startup = os.getenv('PYTHONSTARTUP')
                 if python_startup:
@@ -295,7 +298,7 @@ def entry_point(executable, argv):
             sys.path.insert(0, scriptdir)
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
             
-        if go_interactive or os.getenv('PYTHONINSPECT'):
+        if is_interactive():
             success = run_toplevel(interactive_console, mainmodule)
     except SystemExit, e:
         return e.code

@@ -246,6 +246,20 @@ class TestInteraction:
         data = os.read(pipe.stdout.fileno(), 1024)
         assert data.startswith('Python')
 
+    def test_options_u_PYTHONINSPECT(self):
+        import subprocess, select, os
+        python = sys.executable
+        pipe = subprocess.Popen([python, app_main, "-u"],
+                                stdout=subprocess.PIPE,
+                                stdin=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                bufsize=0, close_fds=True,
+                                env={'PYTHONINSPECT': '1'})
+        iwtd, owtd, ewtd = select.select([pipe.stdout], [], [], 5)
+        assert iwtd    # else we timed out
+        data = os.read(pipe.stdout.fileno(), 1024)
+        assert data.startswith('Python')
+
 
 class TestNonInteractive:
 
