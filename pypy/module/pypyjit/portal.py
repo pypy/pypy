@@ -88,6 +88,7 @@ def graphs_on_the_path_to(translator, startgraph, targetgraphs):
 
 
 def timeshift_graphs(t, portal_graph, log):
+    import pypy
     result_graphs = {}
 
     bk = t.annotator.bookkeeper
@@ -114,59 +115,62 @@ def timeshift_graphs(t, portal_graph, log):
     def dontsee(func):
         result_graphs[_graph(func)] = False
 
+    def seebinary(opname):
+        name2 = name1 = opname[:3].lower()
+        if name1 in ('and', 'or'):
+            name1 += '_'
+        descr_impl = getattr(pypy.objspace.descroperation.DescrOperation, name1)
+        obj_impl = getattr(pypy.objspace.std.intobject, name2 + '__Int_Int')
+        seepath(getattr(pypy.interpreter.pyframe.PyFrame, 'BINARY_'+ opname),
+                descr_impl,
+                obj_impl)
+        seepath(descr_impl,
+                pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
+        descr_impl = getattr(pypy.objspace.descroperation.DescrOperation,
+                             'inplace_' + name2)
+        seepath(getattr(pypy.interpreter.pyframe.PyFrame, 'INPLACE_'+ opname),
+                descr_impl,
+                obj_impl)
+        seepath(descr_impl,
+                pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
+        
+    def seeunary(opname, name=None):
+        if name is None:
+            name = opname.lower()
+        descr_impl = getattr(pypy.objspace.descroperation.DescrOperation, name)
+        seepath(getattr(pypy.interpreter.pyframe.PyFrame, 'UNARY_' + opname),
+                descr_impl,
+                getattr(pypy.objspace.std.intobject, name + '__Int'))
+        seepath(descr_impl,
+                pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
+
+    def seecmp(name):
+        descr_impl = getattr(pypy.objspace.descroperation.DescrOperation, name)
+        seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
+                descr_impl,
+                getattr(pypy.objspace.std.intobject, name +'__Int_Int'))
+        seepath(descr_impl,
+                pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
+
     # --------------------
-    import pypy
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_ADD,
-            pypy.objspace.descroperation.DescrOperation.add,
-            pypy.objspace.std.intobject.add__Int_Int,
-            pypy.objspace.std.inttype.wrapint,
-            pypy.objspace.std.intobject.W_IntObject.__init__)
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_SUBTRACT,
-            pypy.objspace.descroperation.DescrOperation.sub,
-            pypy.objspace.std.intobject.sub__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_MULTIPLY,
-            pypy.objspace.descroperation.DescrOperation.mul,
-            pypy.objspace.std.intobject.mul__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_AND,
-            pypy.objspace.descroperation.DescrOperation.and_,
-            pypy.objspace.std.intobject.and__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_OR,
-            pypy.objspace.descroperation.DescrOperation.or_,
-            pypy.objspace.std.intobject.or__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.BINARY_XOR,
-            pypy.objspace.descroperation.DescrOperation.xor,
-            pypy.objspace.std.intobject.xor__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.lt,
-            pypy.objspace.std.intobject.lt__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.le,
-            pypy.objspace.std.intobject.le__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.eq,
-            pypy.objspace.std.intobject.eq__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.ne,
-            pypy.objspace.std.intobject.ne__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.gt,
-            pypy.objspace.std.intobject.gt__Int_Int)
-    seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
-            pypy.objspace.descroperation.DescrOperation.ge,
-            pypy.objspace.std.intobject.ge__Int_Int)
+    for binop in 'ADD SUBTRACT MULTIPLY AND OR XOR'.split():
+        seebinary(binop)
+    for cmpname in 'lt le eq ne ge gt'.split():
+        seecmp(cmpname)
+    seepath(pypy.interpreter.pyframe.PyFrame.UNARY_NOT,
+            pypy.objspace.std.Space.not_)
+    seeunary('INVERT')
+    seeunary('POSITIVE', 'pos')
+    seeunary('NEGATIVE', 'neg')
+
     seepath(pypy.objspace.descroperation._invoke_binop,
             pypy.objspace.descroperation._check_notimplemented)
+    seepath(pypy.objspace.std.intobject.add__Int_Int,
+            pypy.objspace.std.inttype.wrapint,
+            pypy.objspace.std.intobject.W_IntObject.__init__)
     seepath(pypy.objspace.descroperation.DescrOperation.add,
             pypy.objspace.std.Space.type,
             pypy.objspace.std.Space.gettypeobject)
-    #seepath(pypy.objspace.descroperation.DescrOperation.xxx,
-    #        pypy.objspace.std.typeobject.W_TypeObject.lookup,
-    #        pypy.objspace.std.typeobject.W_TypeObject.getdictvalue_w)
-    seepath(pypy.objspace.descroperation.DescrOperation.add,
-            pypy.objspace.std.typeobject.W_TypeObject.lookup_where,
-            pypy.objspace.std.typeobject.W_TypeObject.getdictvalue_w)
-    seepath(pypy.objspace.std.typeobject.W_TypeObject.lookup_where,
-            pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
     seepath(pypy.objspace.descroperation.DescrOperation.add,
             pypy.objspace.std.Space.is_w)
     dontsee(pypy.interpreter.pyframe.PyFrame.execute_frame)

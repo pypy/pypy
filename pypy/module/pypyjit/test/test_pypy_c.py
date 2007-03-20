@@ -109,3 +109,15 @@ def app_test_richards():
             return richards.main(iterations = 1)
     ''' % (sys.path,),
                [([], 42)])
+
+def app_test_inplace_op():
+    run_source('''
+        def main(x, y):
+            r = 5
+            r += x
+            r += -y
+            return r
+    ''', [([17, 3], 19),
+          ([sys.maxint-3, 5], long(sys.maxint - 3)),
+          ([17, -sys.maxint - 1], sys.maxint + 23)
+          ])
