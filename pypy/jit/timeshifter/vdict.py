@@ -183,7 +183,7 @@ class AbstractFrozenVirtualDict(FrozenContainer):
 
 
 class AbstractVirtualDict(VirtualContainer):
-    _attrs_ = ('typedesc', 'ownbox')     # and no item_boxes
+    _attrs_ = ('typedesc',)     # and no item_boxes
 
     FrozenVirtualDict = AbstractFrozenVirtualDict    # overridden in subclasses
 

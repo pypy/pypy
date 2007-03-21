@@ -12,7 +12,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rlib.objectmodel import hint, keepalive_until_here, debug_assert
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.annlowlevel import PseudoHighLevelCallable, cachedtype
 from pypy.rpython.module.support import LLSupport
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
@@ -22,6 +22,17 @@ from pypy.jit.conftest import Benchmark
 from pypy.jit.codegen.llgraph.rgenop import RGenOp as LLRGenOp
 
 P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True)
+
+
+class Whatever(object):
+    """To cheat in the tests that have no way to do the right thing."""
+    def __eq__(self, other):
+        return True
+    def __ne__(self, other):
+        return False
+    def __and__(self, other):
+        return Whatever()     # for test_ovfcheck_adder_direct in codegen.dump
+
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
@@ -1640,11 +1651,20 @@ class TestTimeshift(TimeshiftingTests):
 
     def test_substitute_graph(self):
 
-        def h(jitstate, mbox):
-            from pypy.jit.timeshifter.rvalue import IntRedBox
-            builder = jitstate.curbuilder
-            gv_result = builder.genop1("int_neg", mbox.getgenvar(jitstate))
-            return IntRedBox(mbox.kind, gv_result)
+        class MetaG:
+            __metaclass__ = cachedtype
+
+            def __init__(self, hrtyper):
+                pass
+
+            def _freeze_(self):
+                return True
+
+            def metafunc(self, jitstate, mbox):
+                from pypy.jit.timeshifter.rvalue import IntRedBox
+                builder = jitstate.curbuilder
+                gv_result = builder.genop1("int_neg", mbox.getgenvar(jitstate))
+                return IntRedBox(mbox.kind, gv_result)
 
         def g(m):
             return m + 17
@@ -1655,7 +1675,7 @@ class TestTimeshift(TimeshiftingTests):
         class MyPolicy(HintAnnotatorPolicy):
             def look_inside_graph(self, graph):
                 if graph.func is g:
-                    return h     # replaces g with a meta-call to h...
+                    return MetaG   # replaces g with a meta-call to metafunc()
                 else:
                     return True
 

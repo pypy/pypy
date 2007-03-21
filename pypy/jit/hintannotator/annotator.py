@@ -9,13 +9,19 @@ from pypy.rpython.lltypesystem import lltype
 
 
 class HintAnnotatorPolicy(policy.AnnotatorPolicy):
+    novirtualcontainer     = False
+    oopspec                = False
+    entrypoint_returns_red = True
 
-    def __init__(self, novirtualcontainer     = False,
-                       oopspec                = False,
-                       entrypoint_returns_red = True):
-        self.novirtualcontainer     = novirtualcontainer
-        self.oopspec                = oopspec
-        self.entrypoint_returns_red = entrypoint_returns_red
+    def __init__(self, novirtualcontainer     = None,
+                       oopspec                = None,
+                       entrypoint_returns_red = None):
+        if novirtualcontainer is not None:
+            self.novirtualcontainer = novirtualcontainer
+        if oopspec is not None:
+            self.oopspec = oopspec
+        if entrypoint_returns_red is not None:
+            self.entrypoint_returns_red = entrypoint_returns_red
 
     def look_inside_graph(self, graph):
         return True
@@ -23,10 +29,10 @@ class HintAnnotatorPolicy(policy.AnnotatorPolicy):
 
 class StopAtXPolicy(HintAnnotatorPolicy):
     """Useful for tests."""
+    novirtualcontainer = True
+    oopspec = True
 
     def __init__(self, *funcs):
-        HintAnnotatorPolicy.__init__(self, novirtualcontainer=True,
-                                     oopspec=True)
         self.funcs = funcs
 
     def look_inside_graph(self, graph):

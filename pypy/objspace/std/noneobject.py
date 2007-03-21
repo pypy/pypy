@@ -14,6 +14,8 @@ class W_NoneObject(W_Object):
 
 registerimplementation(W_NoneObject)
 
+W_NoneObject.w_None = W_NoneObject()
+
 def nonzero__None(space, w_none):
     return space.w_False
 

@@ -26,12 +26,16 @@ class AbstractContainer(object):
 
 
 class VirtualContainer(AbstractContainer):
-    _attrs_ = []
+    _attrs_ = ('ownbox',)
 
     allowed_in_virtualizable = False
 
     def setforced(self, _):
         raise NotImplementedError
+
+    def op_ptreq(self, jitstate, otherbox, reverse):
+        equal = self is otherbox.content
+        return rvalue.ll_fromvalue(jitstate, equal ^ reverse)
 
 
 class FrozenContainer(AbstractContainer):
@@ -465,7 +469,7 @@ class FrozenVirtualStruct(FrozenContainer):
         #self.fz_content_boxes initialized later
 
     def exactmatch(self, vstruct, outgoingvarboxes, memo):
-        assert isinstance(vstruct, VirtualStruct)
+        assert isinstance(vstruct, VirtualContainer)
         contmemo = memo.containers
         if self in contmemo:
             ok = vstruct is contmemo[self]
@@ -476,7 +480,8 @@ class FrozenVirtualStruct(FrozenContainer):
             assert contmemo[vstruct] is not self
             outgoingvarboxes.append(vstruct.ownbox)
             return False
-        if self.typedesc is not vstruct.typedesc:
+        if (not isinstance(vstruct, VirtualStruct)
+            or self.typedesc is not vstruct.typedesc):
             if not memo.force_merge:
                 raise rvalue.DontMerge
             outgoingvarboxes.append(vstruct.ownbox)
@@ -511,7 +516,7 @@ class FrozenVirtualStruct(FrozenContainer):
 
 
 class VirtualStruct(VirtualContainer):
-    _attrs_ = "typedesc content_boxes ownbox".split()
+    _attrs_ = "typedesc content_boxes".split()
 
     allowed_in_virtualizable = True
     
@@ -842,7 +847,17 @@ class VirtualizableStruct(VirtualStruct):
             gv_ptr = self.getgenvar(jitstate)
             fielddesc.generate_set(jitstate, gv_ptr,
                                    valuebox.getgenvar(jitstate))
-            
+
+    def op_ptreq(self, jitstate, otherbox, reverse):
+        if self is otherbox.content:
+            answer = True
+        else:
+            gv_outside = self.content_boxes[-1].genvar
+            if gv_outside is self.typedesc.gv_null:
+                answer = False
+            else:
+                return None   # fall-back
+        return rvalue.ll_fromvalue(jitstate, answer ^ reverse)
 
 # patching VirtualStructCls
 StructTypeDesc.VirtualStructCls = VirtualStruct

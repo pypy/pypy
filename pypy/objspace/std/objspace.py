@@ -166,9 +166,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             globals()[cls.__name__] = cls
 
         # singletons
-        self.w_None  = W_NoneObject()
-        self.w_False = W_BoolObject(False)
-        self.w_True  = W_BoolObject(True)
+        self.w_None  = W_NoneObject.w_None
+        self.w_False = W_BoolObject.w_False
+        self.w_True  = W_BoolObject.w_True
         from pypy.interpreter.special import NotImplemented, Ellipsis
         self.w_NotImplemented = self.wrap(NotImplemented(self))  
         self.w_Ellipsis = self.wrap(Ellipsis(self))  

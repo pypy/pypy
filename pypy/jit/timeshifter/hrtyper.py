@@ -685,7 +685,9 @@ class HintRTyper(RPythonTyper):
         args_r = [self.getredrepr(originalconcretetype(hs))
                   for hs in hop.args_s[1:]]
         vlist = hop.inputargs(lltype.Void, *args_r)
-        metafunc = vlist[0].value
+        metadesccls = vlist[0].value
+        metadesc = metadesccls(self)
+        metafunc = metadesc.metafunc
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(metafunc,
                             [self.s_JITState] + [self.s_RedBox] * nb_args,

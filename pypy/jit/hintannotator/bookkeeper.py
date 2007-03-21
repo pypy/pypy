@@ -97,13 +97,13 @@ class GraphDesc(object):
         newstartblock.closeblock(Link([v_res], newgraph.returnblock))
         return newgraph
 
-    def build_metacall_graph(self, origgraph, metafunc):
+    def build_metacall_graph(self, origgraph, metadesccls):
         args_v = [copyvar(None, v) for v in origgraph.getargs()]
         v_res = copyvar(None, origgraph.getreturnvar())
-        v_metafunc = Constant(metafunc, lltype.Void)
+        v_metadesccls = Constant(metadesccls, lltype.Void)
         newstartblock = Block(args_v)
         newstartblock.operations.append(
-            SpaceOperation('ts_metacall', [v_metafunc] + args_v, v_res))
+            SpaceOperation('ts_metacall', [v_metadesccls] + args_v, v_res))
         newgraph = FunctionGraph('%s_ts_metacall' % (origgraph.name,),
                                  newstartblock)
         newgraph.getreturnvar().concretetype = v_res.concretetype

@@ -228,15 +228,18 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
 
 def ll_genptreq(jitstate, argbox0, argbox1, reverse):
     builder = jitstate.curbuilder
-    # XXX this assumption is not completely valid in the presence
-    # of virtualizable
-    if argbox0.content is not None or argbox1.content is not None:
-        equal = argbox0.content is argbox1.content
-        return rvalue.ll_fromvalue(jitstate, equal ^ reverse)
-    elif argbox0.is_constant() and argbox1.is_constant():
+    if argbox0.is_constant() and argbox1.is_constant():
         addr0 = rvalue.ll_getvalue(argbox0, llmemory.Address)
         addr1 = rvalue.ll_getvalue(argbox1, llmemory.Address)
         return rvalue.ll_fromvalue(jitstate, (addr0 == addr1) ^ reverse)
+    if argbox0.content is not None:
+        resultbox = argbox0.content.op_ptreq(jitstate, argbox1, reverse)
+        if resultbox is not None:
+            return resultbox
+    if argbox1.content is not None:
+        resultbox = argbox1.content.op_ptreq(jitstate, argbox0, reverse)
+        if resultbox is not None:
+            return resultbox
     gv_addr0 = argbox0.getgenvar(jitstate)
     gv_addr1 = argbox1.getgenvar(jitstate)
     if reverse:

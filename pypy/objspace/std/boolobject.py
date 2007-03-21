@@ -20,6 +20,9 @@ class W_BoolObject(W_Object):
 
 registerimplementation(W_BoolObject)
 
+W_BoolObject.w_False = W_BoolObject(False)
+W_BoolObject.w_True  = W_BoolObject(True)
+
 # bool-to-int delegation requires translating the .boolvar attribute
 # to an .intval one
 def delegate_Bool2IntObject(space, w_bool):
