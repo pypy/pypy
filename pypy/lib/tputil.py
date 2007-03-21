@@ -1,10 +1,6 @@
 """
 
 application level support module for transparent proxies. 
-This currently contains a BaseDispatcher class
-whose subclasses may define "op_METH" where METH 
-is the original method operation name for 
-the proxied object. 
 
 """
 from __pypy__ import tproxy 
