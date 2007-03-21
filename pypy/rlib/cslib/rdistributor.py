@@ -45,7 +45,7 @@ class AbstractDistributor:
         doms1 = make_new_domains(domains)
         doms2 = make_new_domains(domains)
         for modified_domain in self._distribute(doms1,doms2):
-            modified_domain._changed = False
+            modified_domain._changed = False 
         return [doms1,doms2]
         
 class AllOrNothingDistributor(AbstractDistributor):
@@ -53,25 +53,39 @@ class AllOrNothingDistributor(AbstractDistributor):
     The first new domain has a size of one,
     and the second has all the other values"""
 
+    def _distribute_on_choice(self, dom, choice):
+        if choice == 1:
+            dom.remove_values(dom.get_values()[1:])
+        else:
+            dom.remove_value(dom.get_values()[0])
+            
     def _distribute(self, doms1, doms2):
         """See AbstractDistributor"""
         variable = self.find_smallest_domain(doms1)
         values = doms1[variable].get_values()
-        doms1[variable].remove_values(values[1:])
-        doms2[variable].remove_value(values[0])
+        self._distribute_on_choice(doms1[variable], 1)
+        self._distribute_on_choice(doms2[variable], 2)
         return [doms1[variable], doms2[variable]]
 
 class DichotomyDistributor(AbstractDistributor):
     """distributes domains by splitting the smallest domain in
     two equal parts or as equal as possible."""
-    
+
+    def _distribute_on_choice(self, dom, choice):
+        values = dom.get_values()
+        middle = len(values)/2
+        if choice == 1:
+            dom.remove_values(values[:middle])
+        else:
+            dom.remove_values(values[middle:])
+
     def _distribute(self, doms1, doms2):
         """See AbstractDistributor"""
         variable = self.find_smallest_domain(doms1)
         values = doms1[variable].get_values()
         middle = len(values)/2
-        doms1[variable].remove_values(values[:middle])
-        doms2[variable].remove_values(values[middle:])
+        self._distribute_on_choice(doms1[variable], 1)
+        self._distribute_on_choice(doms2[variable], 2)
         return [doms1[variable], doms2[variable]]
 
 DefaultDistributor = DichotomyDistributor

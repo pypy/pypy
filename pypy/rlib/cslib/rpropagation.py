@@ -10,9 +10,9 @@ class Repository:
         self._variables = domains.keys()   # list of variable names
         self._domains = domains    # maps variable name to domain object
         self._constraints = [] # list of constraint objects
-        self._variableListeners = {}
+        self._varconst = {}
         for var in self._variables:
-            self._variableListeners[var] = []
+            self._varconst[var] = []
         for constr in constraints:
             self.add_constraint( constr )
 
@@ -30,17 +30,17 @@ class Repository:
         else:
             self._constraints.append(constraint)
             for var in constraint._variables:
-                self._variableListeners[var].append(constraint)
+                self._varconst[var].append(constraint)
         
     def _remove_constraint(self, constraint):
         self._constraints.remove(constraint)
         for var in constraint._variables:
             try:
-                self._variableListeners[var].remove(constraint)
+                self._varconst[var].remove(constraint)
             except ValueError:
                 raise ValueError('Error removing constraint from listener',
                                  var,
-                                 self._variableListeners[var],
+                                 self._varconst[var],
                                  constraint)
 
     def get_domains(self):
@@ -82,7 +82,7 @@ class Repository:
                 dom = self._domains[var]
                 if not dom._changed: # XXX
                     continue
-                for constr in self._variableListeners[var]:
+                for constr in self._varconst[var]:
                     if constr is not constraint:
                         _affected_constraints[constr] = True
                 dom._changed = False
