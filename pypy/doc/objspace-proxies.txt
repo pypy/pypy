@@ -450,16 +450,15 @@ returns at line 3164.  All the rest is start-up, printing, and shutdown.
 
 .. _tproxy:
 
-Transparent Proxy Implementation
+Transparent Proxies
 ================================
 
 PyPy's Transparent Proxies allow to route operations to objects 
 to a callable.  Application level code can customize e.g. list
 and dictionary objects without interfering with the type system, 
-for example ``type(proxy_list) is list`` can be true but you 
-you have full control on all operations that are performed on the
-``proxy_list``.  
-
+i.e. ``type(proxied_list) is list`` holds true while still
+giving you full control on all operations that are performed on the
+``proxied_list``.  
 
 Example of the core mechanism 
 -------------------------------------------
@@ -486,11 +485,8 @@ return ``42`` on any add operation to the list::
 Example of recording all operations on builtins
 ----------------------------------------------------
 
-XXX describe tputil.py's "Invocation" object somewhere 
-XXX this is work in progress
-
 Suppose we want to have list which stores all operations performed on
-it for later analysis.  We use a small `tputil.py`_ module that helps
+it for later analysis.  We use a small `tputil`_ module that helps
 with transparently proxying builtin instances::
 
    from tputil import make_instance_proxy
@@ -509,7 +505,7 @@ with transparently proxying builtin instances::
    >>>> len(history)
    4
    
-So what happened:
+So what happened (XXX):
 
 * We've create transparent proxy of type list with controller c.perform
 
@@ -525,22 +521,38 @@ Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
 does not show up at all (indeed the type is the only aspect of the instance that
 the controller cannot change).
 
+.. _`transparent proxy builtins`: 
 
-Basic and tputil.py API 
------------------------------
+Transparent Proxy PyPy Builtins
+--------------------------------------
 
-XXX (hpk) refactor/amend/refine 
+If you are using the `--with-transparent-proxies` option 
+the `pypymagic`_ module provides the following builtins: 
 
-Transparent proxy provides two functions in the pypymagic module.
+* ``tproxy(type, controller)``: returns a proxy object 
+  representing the given type and forwarding all operations 
+  on this type to the controller.  On each such operation
+  ``controller(opname, *args, **kwargs)`` is invoked. 
 
-* `tproxy` - a basic function to create proxy object.
+* ``get_tproxy_controller(obj)``:  returns the responsible 
+  controller for a given object.  For non-proxied objects
+  ``None`` is returned.  
 
-* `get_tproxy_controller` - for some use-cases there is need to know
-  when an object is a transparent proxy. This function returns an original controller
-  (a callable) or None in case this is a normal Python object. This is
-  the only official way of distinguishing transparent objects from normal ones.
+.. _pypymagic:  
 
-Further points of interest:
+.. _tputil: 
+
+tputil help module 
+----------------------------
+
+The `tputil.py`_ module helps writing programs that
+make use of transparent proxies.  Apart from the 
+`transparent proxy builtins`_ it provides
+the following functionality: 
+
+XXX 
+
+Further points of interest
 ---------------------------
 
 A lot of tasks could be performed using transparent proxies. Including,
@@ -556,7 +568,7 @@ but not limited to:
   objects. (Of course some operations on them could raise exceptions, but it's
   purely done in application level, so it's not real problem)
 
-Implementation Note
+Implementation Notes
 -----------------------------
 
 PyPy's standard object space allows to internally have multiple
