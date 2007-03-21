@@ -25,6 +25,7 @@ class RPPCAssembler(make_rassembler(MyPPCAssembler)):
 
 _PPC = RPPCAssembler
 
+
 NSAVEDREGISTERS = 19
 
 DEBUG_TRAP = option.trap
@@ -1123,6 +1124,7 @@ class RPPCGenOp(AbstractRGenOp):
         insn.CR_FIELD:insn.crfs,
         insn.CT_REGISTER:[insn.ctr]}
     DEBUG_SCRIBBLE = option.debug_scribble
+    MC_SIZE = 65536
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
@@ -1273,7 +1275,7 @@ class RPPCGenOp(AbstractRGenOp):
         if self.mcs:
             return self.mcs.pop()
         else:
-            return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
+            return self.MachineCodeBlock(self.MC_SIZE)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
 ##         from pypy.jit.codegen.ppc.ppcgen.asmfunc import get_ppcgen

@@ -383,6 +383,7 @@ class TranslationDriver(SimpleTaskEngine):
             RGenOp.MC_SIZE = 32 * 1024 * 1024
         elif cpu == 'ppc':
             from pypy.jit.codegen.ppc.rgenop import RPPCGenOp as RGenOp
+            RGenOp.MC_SIZE = 32 * 1024 * 1024
         else:
             raise Exception('Unsuported cpu %r'%cpu)
 
