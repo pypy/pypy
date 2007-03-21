@@ -16,7 +16,7 @@ class AppProxy(object):
             def perform(self, name, *args, **kwargs):
                 return getattr(self.obj, name)(*args, **kwargs)
         def get_proxy(f):
-            from pypymagic import transparent_proxy as proxy
+            from pypymagic import tproxy as proxy
             return proxy(type(f), Controller(f).perform)
         return get_proxy
         """)
@@ -71,7 +71,7 @@ class AppTestProxyTracebackController(AppProxy):
         import traceback
         
         def get_proxy(f):
-            from pypymagic import transparent_proxy as proxy
+            from pypymagic import tproxy as proxy
             return proxy(type(f), Controller(f).perform)
         
         class FakeTb(object):
@@ -115,12 +115,12 @@ class AppTestProxyTracebackController(AppProxy):
         assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])
     
     def test_proxy_get(self):
-        from pypymagic import transparent_proxy, get_transparent_controller
+        from pypymagic import tproxy, get_tproxy_controller
         l = [1,2,3]
         def f(name, *args, **kwargs):
             return getattr(l, name)(*args, **kwargs)
-        lst = transparent_proxy(list, f)
-        assert get_transparent_controller(lst) is f
+        lst = tproxy(list, f)
+        assert get_tproxy_controller(lst) is f
 
 class DONTAppTestProxyType(AppProxy):
     def test_filetype(self):

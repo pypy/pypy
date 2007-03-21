@@ -5,12 +5,12 @@ class AppTestTPListproxy:
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
        
     def test_listproxy_basic(self):
-        from tputil import make_proxy 
+        from tputil import make_instance_proxy 
         record = []
         def func(invocation):
             record.append(invocation)
             return invocation.perform()
-        l = make_proxy([], func) 
+        l = make_instance_proxy([], func) 
         l.append(1)
         assert len(record) == 2
         i1, i2 = record 
@@ -18,7 +18,7 @@ class AppTestTPListproxy:
         assert i2.opname == 'append' 
 
     def test_proxy_double(self): 
-        from tputil import make_proxy 
+        from tputil import make_instance_proxy 
         r1 = []
         r2 = []
         def func1(invocation):
@@ -28,8 +28,8 @@ class AppTestTPListproxy:
             r2.append(invocation)
             return invocation.perform()
             
-        l = make_proxy([], func1) 
-        l2 = make_proxy(l, func2) 
+        l = make_instance_proxy([], func1) 
+        l2 = make_instance_proxy(l, func2) 
         assert not r1 and not r2
         l2.append
         assert len(r2) == 1

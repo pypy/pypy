@@ -468,13 +468,13 @@ The following example proxies a list and will
 return ``42`` on any add operation to the list:: 
 
    $ py.py --with-transparent-proxy
-   >>>> from pypymagic import transparent_proxy
+   >>>> from pypymagic import tproxy
    >>>> def f(operation, *args, **kwargs):
    >>>>    if operation == '__add__':
    >>>>         return 42
    >>>>    raise AttributeError
    >>>>
-   >>>> i = transparent_proxy(list, f)
+   >>>> i = tproxy(list, f)
    >>>> type(i)
    list
    >>>> i + 3
@@ -493,14 +493,14 @@ Suppose we want to have list which stores all operations performed on
 it for later analysis.  We use a small `tputil.py`_ module that helps
 with transparently proxying builtin instances::
 
-   from tputil import make_proxy
+   from tputil import make_instance_proxy
 
    history = []
    def recorder(invocation):
        history.append(invocation) 
        return invocation.perform()
 
-   >>>> l = make_proxy([], recorder)
+   >>>> l = make_instance_proxy([], recorder)
    >>>> type(l)
    list
    >>>> l.append(3)
@@ -533,9 +533,9 @@ XXX (hpk) refactor/amend/refine
 
 Transparent proxy provides two functions in the pypymagic module.
 
-* `transparent_proxy` - a basic function to create proxy object.
+* `tproxy` - a basic function to create proxy object.
 
-* `get_transparent_controller` - for some use-cases there is need to know
+* `get_tproxy_controller` - for some use-cases there is need to know
   when an object is a transparent proxy. This function returns an original controller
   (a callable) or None in case this is a normal Python object. This is
   the only official way of distinguishing transparent objects from normal ones.

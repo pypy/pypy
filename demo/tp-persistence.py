@@ -4,8 +4,8 @@ This small example implements a basic orthogonal persistence
 mechanism on top of PyPy's transparent proxies. 
 
 """
-from pypymagic import transparent_proxy, get_transparent_controller
-from tputil import make_proxy 
+from pypymagic import tproxy, get_tproxy_controller
+from tputil import make_instance_proxy 
 
 list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ '
                      '__delslice__ __setslice__ '
@@ -17,7 +17,7 @@ def make_plist(instance, storage):
         if invocation.opname in list_changeops: 
             storage.dump(instance) 
         return res
-    return make_proxy(instance, perform, typ=list) 
+    return make_instance_proxy(instance, perform, typ=list) 
 
 def get_plist(storage):
     obj = storage.load()

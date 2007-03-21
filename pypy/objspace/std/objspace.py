@@ -215,9 +215,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_pypymagic = self.getbuiltinmodule("pypymagic")
             from pypy.objspace.std.transparent import app_proxy, app_proxy_controller
         
-            self.setattr(w_pypymagic, self.wrap('transparent_proxy'),
+            self.setattr(w_pypymagic, self.wrap('tproxy'),
                           self.wrap(app_proxy))
-            self.setattr(w_pypymagic, self.wrap('get_transparent_controller'),
+            self.setattr(w_pypymagic, self.wrap('get_tproxy_controller'),
                           self.wrap(app_proxy_controller))
 
     def enable_old_style_classes_as_default_metaclass(self):

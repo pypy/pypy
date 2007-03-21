@@ -36,8 +36,8 @@ Remote side:
 """
 
 try:
-    from pypymagic import transparent_proxy as proxy
-    from pypymagic import get_transparent_controller
+    from pypymagic import tproxy as proxy
+    from pypymagic import get_tproxy_controller
 except ImportError:
     raise ImportError("Cannot work without transparent proxy functionality")
 
@@ -112,7 +112,7 @@ class AbstractProtocol(object):
                 return False
         
         tp = type(obj)
-        ctrl = get_transparent_controller(obj)
+        ctrl = get_tproxy_controller(obj)
         if ctrl:
             return "tp", self.keeper.get_remote_object(ctrl)
         elif obj is None:

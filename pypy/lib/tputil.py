@@ -7,16 +7,16 @@ is the original method operation name for
 the proxied object. 
 
 """
-from pypymagic import transparent_proxy 
+from pypymagic import tproxy 
 from types import MethodType
 
-def make_proxy(instance, invokefunc=None, typ=None): 
+def make_instance_proxy(instance, invokefunc=None, typ=None): 
     if typ is None:
         typ = type(instance) 
     def perform(opname, *args, **kwargs):
         invocation = Invocation(tp, instance, opname, args, kwargs)
         return invokefunc(invocation) 
-    tp = transparent_proxy(typ, perform) 
+    tp = tproxy(typ, perform) 
     return tp 
 
 class Invocation(object):

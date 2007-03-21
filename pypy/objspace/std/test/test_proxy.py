@@ -19,8 +19,8 @@ class AppProxyBasic(object):
         return Controller
         """)
         self.w_proxy = self.space.appexec([], """():
-        from pypymagic import transparent_proxy
-        return transparent_proxy
+        from pypymagic import tproxy
+        return tproxy
         """)
 
 class AppTestListProxy(AppProxyBasic):
