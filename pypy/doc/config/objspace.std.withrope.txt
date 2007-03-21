@@ -1,3 +1,7 @@
-Implement the Python ``str`` types using *ropes*, described in the paper
-"Ropes: an Alternative to Strings" by Hans-J. Boehm, Russ Atkinson and Michael
-Plass.
+Enable ropes to be the default string implementation.
+
+See the page about `object optimizations`_ for more details.
+
+.. _`object optimizations`: ../object-optimizations.html
+
+
