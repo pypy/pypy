@@ -15,6 +15,24 @@ from py.__.green.server.httpserver import GreenHTTPServer
 commproxy.USE_MOCHIKIT = True
 
 FUNCTION_LIST = ["load_console", "console_onload"]
+HELP = {'python':"just python, play as you like :)",
+        'pypy-c':
+'''
+This is the PyPy standart interpreter translated to C with following features:
+<ul>
+   <li><b>Stackless</b> - You can use full stackless features including
+   tasklets, channels, coroutines and greenlets, full list of examples
+   and niceties can be found <a href="http://codespeak.net/pypy/dist/pypy/doc/stackless.html">on a stackless docs</a>
+   </li>
+   <li><b>Transparent proxy</b> - This is a unique PyPy interpreter feature,
+   which allows you to provide application-level controller for every possible
+   object. Details and snippets can be found on <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#tproxy">a transparent proxy doc</a></li>
+</ul>
+''',
+        'pypy-c-thunk':'''the PyPy standart interpreter compiled to C with
+        a <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-thunk-object-space">thunk object space</a>''',
+        'pypy-c-taint':'''the PyPy standart interpreter compiled to C with
+        a <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-taint-object-space">taint object space</a>'''}
 
 class Ignore(Exception):
     pass
@@ -78,10 +96,10 @@ class Sessions(object):
 sessions = Sessions()
 
 class ExportedMethods(server.ExportedMethods):
-    @callback(args=[str], retval=int)
+    @callback(args=[str], retval=[str])
     def get_console(self, python="python"):
         retval = sessions.new_session(python)
-        return retval
+        return [str(retval), HELP[python]]
 
     @callback(retval=[str])
     def refresh(self, pid=0, to_write=""):

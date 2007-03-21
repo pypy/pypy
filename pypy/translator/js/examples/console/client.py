@@ -31,14 +31,16 @@ def refresh_console(msg):
     if msg[0] == "refresh":
         inp_elem.scrollIntoView()
         data = msg[1]
-        log(data)
         exported_methods.refresh_empty(glob.sess_id, refresh_console)
         add_text(data)
     elif msg[0] == 'disconnect':
         dom.document.getElementById("error").innerHTML = "ERROR! disconnected"
 
-def set_sessid(sessid):
+def set_sessid(data):
+    sessid = int(data[0])
+    help_msg = data[1]
     glob.sess_id = sessid
+    dom.document.getElementById("helpcontents").innerHTML = help_msg
     exported_methods.refresh_empty(sessid, refresh_console)
 
 def empty_callback(msg):
