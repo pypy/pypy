@@ -3,3 +3,36 @@ body,body.editor,body.body {
     background: White;
     color: Black;
 }
+
+div#main {
+    position: absolute;
+    top: 130px;
+    left: 170px;
+    margin-right: 5px;
+}
+
+.menubar {
+    font-weight: bold;
+    float: left;
+  	font: 120% Verdana, Helvetica, Arial, sans-serif;
+    text-decoration: none;
+    padding-right: 0.3em;
+
+}
+
+.title{
+  /*border-spacing: 20px;*/
+  font: 160% Verdana, Helvetica, Arial, sans-serif;
+  color: #3ba6ec; 
+  vertical-align: center;
+  padding-bottom: 0.3em;
+}
+
+div#metaspace {
+    position: absolute;
+    top: 40px;
+    left: 170px;
+}
+
+.main {
+}
