@@ -34,6 +34,8 @@ class Invocation(object):
             if (isinstance(res, MethodType) and
                 res.im_self is self.realobj):
                 res = MethodType(res.im_func, self.proxyobj, res.im_class)
+        if res is self.realobj:
+            return self.proxyobj
         return res 
 
     def __repr__(self):

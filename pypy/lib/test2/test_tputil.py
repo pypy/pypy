@@ -39,3 +39,15 @@ class AppTestTPListproxy:
         assert r1[0].args[0] == '__getattribute__'
         assert r1[1].opname == '__getattribute__'
         assert r1[1].args[0] == 'append' 
+
+    def test_proxy_inplace_add(self):
+        r = []
+        from tputil import make_instance_proxy 
+        def func1(invocation):
+            r.append(invocation)
+            return invocation.perform()
+
+        l2 = make_instance_proxy([], func1)
+        l = l2
+        l += [3]
+        assert l is l2
