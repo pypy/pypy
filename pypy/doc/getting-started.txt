@@ -716,16 +716,12 @@ Trying the experimental .NET integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can also try the still very experimental ``clr`` module that
-enables integration with the surrounding .NET environment.  First, you
-have to tell translate.py to include the ``clr`` module::
+enables integration with the surrounding .NET environment.
 
-    ./translate.py --text --batch --backend=cli targetpypystandalone.py --withmod-clr
-
-Then, you can dynamically load .NET classes using the
-``clr.load_cli_class`` method. After a class has been loaded, you can
-instantiate and use it as it were a normal Python class. Special
-methods such as indexers and properties are supported using the usual
-Python syntax::
+You can dynamically load .NET classes using the ``clr.load_cli_class``
+method. After a class has been loaded, you can instantiate and use it
+as it were a normal Python class. Special methods such as indexers and
+properties are supported using the usual Python syntax::
 
     >>>> import clr
     >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
