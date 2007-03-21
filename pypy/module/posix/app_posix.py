@@ -1,6 +1,5 @@
 # NOT_RPYTHON
 
-import os
 from _structseq import structseqtype, structseqfield
 
 error = OSError
@@ -36,6 +35,7 @@ class popenfile(file):
     _childpid = None
 
     def close(self):
+        import os
         file.close(self)
         pid = self._childpid
         if pid is not None:
@@ -43,18 +43,19 @@ class popenfile(file):
             os.waitpid(pid, 0)
     __del__ = close     # as in CPython, __del__ may call os.waitpid()
 
-def try_close(fd):
-    try:
-        os.close(fd)
-    except OSError:
-        pass
-
 def popen(command, mode='r', bufsize=-1):
     """popen(command [, mode='r' [, bufsize]]) -> pipe
     
     Open a pipe to/from a command returning a file object."""
 
     from popen2 import MAXFD
+    import os
+
+    def try_close(fd):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
 
     if not mode.startswith('r') and not mode.startswith('w'):
         raise ValueError("invalid mode %r" % (mode,))
