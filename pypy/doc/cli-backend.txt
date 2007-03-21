@@ -85,9 +85,15 @@ Runtime         ...      mono
 =============== ======== ======
 
 The code that handles these differences is located in the sdk.py
-module: it defines an abstract class exposing some methods returning
-the name of the helpers and one subclass for each of the two supported
-platforms.
+module: it defines an abstract class which exposes some methods
+returning the name of the helpers and one subclass for each of the two
+supported platforms.
+
+Since Microfost ``ilasm`` is not capable of compiling the PyPy
+standard interpreter due to its size, on Windows machines we also look
+for an existing Mono installation: if present, we use CLR for
+everything except the assembling phase, for which we use Mono's
+``ilasm2``.
 
 
 Targeting the CLI Virtual Machine
