@@ -11,6 +11,19 @@ div#main {
     margin-right: 5px;
 }
 
+div#contents {
+    float: left;
+    width: 160px;
+}
+
+#inp {
+    font: 90% fixed;
+}
+
+#help {
+    background: #EEE;
+}
+
 .menubar {
     font-weight: bold;
     float: left;
