@@ -66,6 +66,7 @@ class W_TaintBomb(baseobjspace.W_Root):
 
 
 def taint(w_obj):
+    """Return a tainted version of the argument."""
     if w_obj is None or isinstance(w_obj, W_Tainted):
         return w_obj
     else:
@@ -74,11 +75,15 @@ taint.unwrap_spec = [gateway.W_Root]
 app_taint = gateway.interp2app(taint)
 
 def is_tainted(space, w_obj):
+    """Return whether the argument is tainted."""
     res = isinstance(w_obj, W_Tainted) or isinstance(w_obj, W_TaintBomb)
     return space.wrap(res)
 app_is_tainted = gateway.interp2app(is_tainted)
 
 def untaint(space, w_expectedtype, w_obj):
+    """untaint(expectedtype, tainted_obj) -> obj
+Untaint untainted_obj and return it. If the result is not of expectedtype,
+raise a type error."""
     if (isinstance(w_expectedtype, W_Tainted) or
         isinstance(w_expectedtype, W_TaintBomb)):
         raise OperationError(space.w_TypeError,
@@ -129,6 +134,10 @@ app_taint_atomic_function = gateway.interp2app(
     unwrap_spec=[gateway.ObjSpace, gateway.W_Root, 'args_w'])
 
 def taint_atomic(space, w_callable):
+    """decorator to make a callable "taint-atomic": if the function is called
+with tainted arguments, those are untainted. The result of the function is
+tainted again.  All exceptions that the callable raises are turned into
+taint bombs."""
     meth = Method(space, space.w_fn_taint_atomic_function,
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
@@ -139,11 +148,16 @@ app_taint_atomic = gateway.interp2app(taint_atomic)
 executioncontext.ExecutionContext.taint_debug = 0
 
 def taint_debug(space, level):
+    """Set the debug level. If the debug level is greater than 0, the creation
+of taint bombs will print debug information. For debugging purposes
+only!"""
     space.getexecutioncontext().taint_debug = level
 app_taint_debug = gateway.interp2app(taint_debug,
                                      unwrap_spec=[gateway.ObjSpace, int])
 
 def taint_look(space, w_obj):
+    """Print some info about the taintedness of an object. For debugging
+purposes only!"""
     if isinstance(w_obj, W_Tainted):
         info = space.type(w_obj.w_obj).getname(space, '?')
         msg = space.str_w(w_obj.w_obj.getrepr(space, info))
@@ -182,11 +196,16 @@ class TaintSpace(StdObjSpace):
 
     def __init__(self, *args, **kwds):
         StdObjSpace.__init__(self, *args, **kwds)
+        w_dict = self.newdict()
+        self.setitem(w_dict, self.wrap("__doc__"), self.wrap("""\
+Exception that is raised when an operation revealing information on a tainted
+object is performed."""))
         self.w_TaintError = self.call_function(
             self.w_type,
             self.wrap("TaintError"),
             self.newtuple([self.w_Exception]),
-            self.newdict())
+            w_dict
+            )
         w_pypymagic = self.getbuiltinmodule("pypymagic")
         self.setattr(w_pypymagic, self.wrap('taint'),
                      self.wrap(app_taint))
