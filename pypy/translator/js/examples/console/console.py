@@ -31,10 +31,11 @@ This is the PyPy standard interpreter translated to C with the following feature
    <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#tproxy">transparent proxy documentation</a>.</li>
 </ul>
 ''',
-        'pypy-c-thunk':'''the PyPy standard interpreter compiled to C using
+        'pypy-c-thunk':'''The PyPy standard interpreter compiled to C using
         the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-thunk-object-space">thunk object space</a>''',
-        'pypy-c-taint':'''the PyPy standard interpreter compiled to C using
-        the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-taint-object-space">taint object space</a>'''}
+        'pypy-c-taint':'''The PyPy standard interpreter compiled to C using
+        the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-taint-object-space">taint object space</a>''',
+        'pypy-cli':'''The PyPy standard interpreter compiled to CLI'''}
 
 class Ignore(Exception):
     pass
