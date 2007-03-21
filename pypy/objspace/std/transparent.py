@@ -10,7 +10,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 
 def proxy(space, w_type, w_controller):
     """tproxy(typ, controller) -> obj
-Return something that looks like it is of type typ. It's behaviour is
+Return something that looks like it is of type typ. Its behaviour is
 completely controlled by the controller."""
     from pypy.interpreter.typedef import Function, PyTraceback, PyFrame, \
         PyCode, GeneratorIterator
