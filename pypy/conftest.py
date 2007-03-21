@@ -160,7 +160,7 @@ class Module(py.test.collect.Module):
     def accept_regular_test(self):
         if option.runappdirect:
             # only collect regular tests if we are in an 'app_test' directory
-            return self.fspath.dirpath().basename == 'app_test'
+            return "app_test" in self.listnames()
         else:
             return True
 
