@@ -81,7 +81,9 @@ PyPy's own tests, daily updated, `on Linux`_, `on Windows`_
 `compliance test status`_ shows outcomes of compliance test runs
 against PyPy on top of CPython.
 
-`PyPy statistics`_ shows LOC statistics about PyPy.
+`PyPy LOC statistics`_ shows LOC statistics about PyPy.
+
+`PyPy statistics`_ is a page with various statistics about the PyPy project.
 
 
 Source Code Documentation
@@ -138,7 +140,8 @@ from our Python interpreter.
 .. _`license`: ../../LICENSE
 .. _`Nightly compliance test runs for compiled pypy-c`: http://www2.openend.se/~pedronis/pypy-c-test/
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
-.. _`PyPy statistics`: http://codespeak.net/~hpk/pypy-stat/
+.. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
+.. _`PyPy statistics`: http://codespeak.net/pypy/dist/pypy/doc/statistic
 .. _`object spaces`: objspace.html 
 .. _`object optimizations`: object-optimizations.html 
 .. _`translation`: translation.html 
