@@ -5,7 +5,6 @@ The source of the RTE is in the src/ directory.
 
 import os
 import os.path
-import platform
 import shutil
 
 import py
