@@ -1,0 +1,61 @@
+=======================
+The ``__pypy__`` module
+=======================
+
+The ``__pypy__`` module contains special PyPy-specific functionality. Its
+contents varies greatly, depending on which `configuration options`_ are used.
+
+.. _`configuration options`: config/index.html
+
+
+Generally available functionality
+=================================
+
+ - ``internal_repr(obj)``: return the interpreter-level representation of an
+   object.
+
+Functionality available on py.py
+================================
+
+ - ``isfake(obj)``: returns True if ``obj`` is faked.
+
+ - ``interp_pdb()``: start a pdb at interpreter-level.
+
+
+Thunk Object Space Functionality
+================================
+
+When the thunk object space is used (choose with :config:`objspace.name`),
+the following functions are put into ``__pypy__``:
+
+ - ``thunk(f, *args, **kwargs)``: returns something that behaves like the result
+   of the call ``f(*args, **kwargs)`` but the call is done lazily.
+
+ - ``is_thunk(obj)``: return True if ``obj`` is a thunk that is not computed
+   yet.
+
+ - ``become(obj1, obj2)``: globally replace ``obj1`` with ``obj2``.
+
+ - ``lazy(callable)``: Should be used as a function decorator. The decorated
+   function behaves lazily: all calls to it return a thunk object.
+
+For explanations and examples see the `thunk object space docs`_.
+
+.. _`thunk object space docs`: objspace-proxies.html#thunk
+
+Transparent Proxy Functionality
+===============================
+
+If `transparent proxies`_ are enabled (with :config:`objspace.std.withtproxy`)
+the following functions are put into ``__pypy__``:
+
+ - ``tproxy(typ, controller)``: Return something that looks like it is of type
+   typ. Its behaviour is completely controlled by the controller. See the docs
+   about `transparent proxies`_ for detail.
+
+ - ``get_tproxy_controller(obj)``: If obj is really a transparent proxy, return
+   its controller. Otherwise return None.
+
+.. _`transparent proxies`: objspace-proxies.html#tproxy
+
+XXX missing taint obj space docs
