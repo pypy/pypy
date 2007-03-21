@@ -338,7 +338,7 @@ class TranslationDriver(SimpleTaskEngine):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator,
                               inline_threshold=0,
-                              merge_if_blocks=False,
+                              merge_if_blocks=True,
                               constfold=True,
                               remove_asserts=True)
     #
