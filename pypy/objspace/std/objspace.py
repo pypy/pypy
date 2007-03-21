@@ -2,6 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter import pyframe
 from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
@@ -13,7 +14,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
-from pypy.rlib.objectmodel import we_are_translated, hint
+from pypy.rlib.objectmodel import we_are_translated, hint, we_are_jitted
 import sys
 import os
 import __builtin__
@@ -109,12 +110,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                          f.space.wrap(message))
                 nargs = oparg & 0xff
                 w_function = w_value
-                try:
-                    w_result = f.space.call_valuestack(w_function, nargs, f)
-                    # XXX XXX fix the problem of resume points!
-                    #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-                finally:
-                    f.dropvalues(nargs)
+                if we_are_jitted():
+                    args = Arguments(f.space, f.popvalues(nargs))
+                    w_result = f.space.call_args(w_function, args)
+                else:
+                    try:
+                        w_result = f.space.call_valuestack(w_function, nargs, f)
+                        # XXX XXX fix the problem of resume points!
+                        #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
+                    finally:
+                        f.dropvalues(nargs)
                 f.pushvalue(w_result)
 
         self.FrameClass = StdObjSpaceFrame
