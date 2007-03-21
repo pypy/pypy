@@ -15,13 +15,13 @@ from py.__.green.server.httpserver import GreenHTTPServer
 commproxy.USE_MOCHIKIT = True
 
 SNIPPETS = [
-    """from tputil import make_instance_proxy
+    """from tputil import make_proxy
 history = []
-def recorder(invocation):
-    history.append(invocation)
-    return invocation.perform()
+def recorder(operation):
+    history.append(operation) 
+    return operation.delegate()
 
-l = make_instance_proxy([], recorder)
+l = make_proxy(recorder, obj=[])
 """]
 
 FUNCTION_LIST = ["load_console", "console_onload", "execute_snippet"]

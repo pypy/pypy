@@ -17,7 +17,10 @@ def callback(retval=None, args={}):
         if defs is None:
             defs = ()
         vars = func.func_code.co_varnames[:func.func_code.co_argcount]
-        arg_list = load_dict_args(vars, defs, args)
+        if isinstance(args, dict):
+            arg_list = load_dict_args(vars, defs, args)
+        else:
+            arg_list = args
         arg_list.append(("callback", _callable(args=[retval])))
         func._method = (func.__name__, MethodDesc(arg_list, retval))
         return func
