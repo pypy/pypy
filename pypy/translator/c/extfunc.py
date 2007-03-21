@@ -99,6 +99,7 @@ import math
 for name in math_functions:
     EXTERNALS['ll_math.ll_math_%s' % name] = 'LL_math_%s' % name
 
+EXTERNALS['LL_flush_icache'] = 'LL_flush_icache'
 
 #______________________________________________________
 

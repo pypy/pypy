@@ -43,6 +43,11 @@
 #  include "src/asm_gcc_x86.h"
 #endif
 
+#if defined(__GNUC__) && defined(__ppc__)
+#  include "src/asm_ppc.h"
+#endif
+
+
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"

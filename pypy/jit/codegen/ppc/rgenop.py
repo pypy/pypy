@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.conftest import option
-from ctypes import POINTER, cast, c_void_p, c_int
+from ctypes import POINTER, cast, c_void_p, c_int, CFUNCTYPE
 
 from pypy.jit.codegen.ppc import codebuf
 from pypy.jit.codegen.ppc.instruction import rSP, rFP, rSCRATCH, gprs
@@ -18,6 +18,7 @@ from pypy.jit.codegen.ppc.ppcgen.rassemblermaker import make_rassembler
 from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import MyPPCAssembler
 
 from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
+from pypy.rpython.annlowlevel import llhelper
 
 class RPPCAssembler(make_rassembler(MyPPCAssembler)):
     def emit(self, value):
@@ -25,6 +26,14 @@ class RPPCAssembler(make_rassembler(MyPPCAssembler)):
 
 _PPC = RPPCAssembler
 
+
+_flush_icache = None
+def flush_icache(base, size):
+    global _flush_icache
+    if _flush_icache == None:
+        cpath = py.magic.autopath().dirpath().join('_flush_icache.c')
+        _flush_icache  = cpath._getpymodule()._flush_icache
+    _flush_icache(base, size)
 
 NSAVEDREGISTERS = 19
 
@@ -652,9 +661,13 @@ class Builder(GenBuilder):
 
     def _open(self):
         self.asm.mc = self.rgenop.open_mc()
+        self._code_start = self.asm.mc.tell()
         self.closed = False
 
     def _close(self):
+        _code_stop = self.asm.mc.tell()
+        code_size = self._code_start - _code_stop
+        flush_icache(self._code_start, code_size)
         self.rgenop.close_mc(self.asm.mc)
         self.asm.mc = None
 
