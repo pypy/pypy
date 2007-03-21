@@ -27,24 +27,11 @@ from pypy.module.cclp.variable import app_newvar, wait, app_wait, app_wait_neede
      app_is_aliased, app_is_free, app_is_bound, app_alias_of, alias_of, app_bind, \
      app_unify, W_Var, W_CVar, W_Future, all_mms as variable_mms, app_entail
 
-from pypy.module.cclp.constraint.variable import app_domain
+from pypy.module.cclp.constraint.variable import app_domain 
 
 from pypy.module.cclp.types import app_domain_of, app_name_of, AppCoroutine
 
 all_mms.update(variable_mms)
-
-#-- CONSTRAINTS ----------------------------------------------
-
-## #------ domains ------------------ 
-from pypy.module.cclp.constraint import domain 
-all_mms.update(domain.all_mms)
-
-W_FiniteDomain = domain.W_FiniteDomain
-
-## # ---- constraints ----------------
-from pypy.module.cclp.constraint import constraint
-all_mms.update(constraint.all_mms)
-
 
 
 #-- SPACE HELPERS -------------------------------------
@@ -182,10 +169,10 @@ def Space(*args, **kwds):
         space = std.Space(*args, **kwds)
 
         # multimethods hack
-        space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
+        space.model.typeorder[W_Var] = [(W_Var, None),
+                                        (W_Root, None)] # None means no conversion
         space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None), (W_Root, None)]
         space.model.typeorder[W_CVar] = [(W_CVar, None), (W_Var, None), (W_Root, None)]
-        space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
         for name in all_mms.keys():
             exprargs, expr, miniglobals, fallback = (
@@ -231,22 +218,9 @@ def Space(*args, **kwds):
                      space.wrap(app_wait))
         space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                       space.wrap(app_wait_needed))
-        #-- domain -------
-        space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
-                     space.wrap(domain.app_make_fd))
-        space.setitem(space.builtin.w_dict, space.wrap('intersection'),
-                     space.wrap(domain.app_intersection))
-
         #-- misc -----
         space.setitem(space.builtin.w_dict, space.wrap('interp_id'),
                       space.wrap(app_interp_id))
-
-        #-- path to the applevel modules --
-    ##     import pypy.objspace.constraint
-    ##     import os
-    ##     dir = os.path.dirname(pypy.module.cclp.constraint.__file__)
-    ##     dir = os.path.join(dir, 'test')
-    ##     space.call_method(space.sys.get('path'), 'append', space.wrap(dir))
 
         # make sure that _stackless is imported
         w_modules = space.getbuiltinmodule('_stackless')
