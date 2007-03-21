@@ -9,12 +9,96 @@ import sys
 try:
     from _stackless import coroutine, greenlet
 except ImportError: # we are running from CPython
-    # you must have coroutine from
-    # http://codespeak.net/svn/user/stephan/hacks/coroutine/
-    # in your path in order to get the following to work
-
     from py.magic import greenlet
-    from coroutine import coroutine
+    try:
+        from functools import partial
+    except ImportError: # we are not running python 2.5
+        class partial(object):
+            # just enough of 'partial' to be usefull
+            def __init__(self, func, *argl, **argd):
+                self.func = func
+                self.argl = argl
+                self.argd = argd
+
+            def __call__(self):
+                return self.func(*self.argl, **self.argd)
+
+    class GWrap(greenlet):
+        """This is just a wrapper around greenlets to allow
+           to stick additional attributes to a greenlet.
+           To be more concrete, we need a backreference to
+           the coroutine object"""
+
+    class MWrap(object):
+        def __init__(self,something):
+            self.something = something
+
+        def __getattr__(self, attr):
+            return getattr(self.something, attr)
+
+    class coroutine(object):
+        "we can't have greenlet as a base, because greenlets can't be rebound"
+
+        def __init__(self):
+            self._frame = None
+            self.is_zombie = False
+
+        def __getattr__(self, attr):
+            return getattr(self._frame, attr)
+
+        def __del__(self):
+            self.is_zombie = True
+            del self._frame
+            self._frame = None
+
+        def bind(self, func, *argl, **argd):
+            """coro.bind(f, *argl, **argd) -> None.
+               binds function f to coro. f will be called with
+               arguments *argl, **argd
+            """
+            if self._frame is None or self._frame.dead:
+                self._frame = frame = GWrap()
+                frame.coro = self
+            if hasattr(self._frame, 'run') and self._frame.run:
+                raise ValueError("cannot bind a bound coroutine")
+            self._frame.run = partial(func, *argl, **argd)
+
+        def switch(self):
+            """coro.switch() -> returnvalue
+               switches to coroutine coro. If the bound function
+               f finishes, the returnvalue is that of f, otherwise
+               None is returned
+            """
+            try:
+                return greenlet.switch(self._frame)
+            except TypeError: # self._frame is the main coroutine
+                return greenlet.switch(self._frame.something)
+
+        def kill(self):
+            """coro.kill() : kill coroutine coro"""
+            self._frame.throw()
+
+        def _is_alive(self):
+            if self._frame is None:
+                return False
+            return not self._frame.dead
+        is_alive = property(_is_alive)
+        del _is_alive
+
+        def getcurrent():
+            """coroutine.getcurrent() -> the currently running coroutine"""
+            try:
+                return greenlet.getcurrent().coro
+            except AttributeError:
+                return _maincoro
+        getcurrent = staticmethod(getcurrent)
+
+    _maincoro = coroutine()
+    maingreenlet = greenlet.getcurrent()
+    _maincoro._frame = frame = MWrap(maingreenlet)
+    frame.coro = _maincoro
+    del frame
+    del maingreenlet
 
 from collections import deque
 

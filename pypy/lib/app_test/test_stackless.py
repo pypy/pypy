@@ -544,5 +544,15 @@ class Test_Stackless:
         assert value == (2, 42)
         
 
+    def test_schedule_return_value(self):
+
+        def task(val):
+            value = stackless.schedule(val)
+            assert value == val
+
+        stackless.tasklet(task)(10)
+        stackless.tasklet(task)(5)
+
+        stackless.run()
 
 
