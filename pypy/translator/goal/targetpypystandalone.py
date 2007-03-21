@@ -133,6 +133,11 @@ class PyPyTarget(object):
         elif config.objspace.usemodules.pypyjit:
             self.translateconfig.goal_options.jit = True
 
+        if config.translation.backend == "cli":
+            config.objspace.usemodules.clr = True
+        elif config.objspace.usemodules.clr:
+            config.translation.backend == "clr"
+
         config.objspace.nofaking = True
         config.objspace.compiler = "ast"
         config.translating = True
