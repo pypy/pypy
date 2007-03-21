@@ -40,9 +40,11 @@ class W_Future(W_Var):
         w("FUT", str(w_self))
 
 
+from pypy.module._cslib import fd
+
 class W_CVar(W_Var):
     def __init__(self, space, w_dom, w_name):
-        assert isinstance(w_dom, W_AbstractDomain)
+        assert isinstance(w_dom, fd.W_FiniteDomain)
         W_Var.__init__(self, space)
         self.w_dom = w_dom
         self.name = space.str_w(w_name)
@@ -57,6 +59,12 @@ class W_CVar(W_Var):
 
     def w_name(self):
         return self.w_nam
+
+    def assign(self, w_var):
+        if not w_var.w_dom.contains(w_val):
+            raise ValueError, "assignment out of domain"
+        w_var.w_bound_to = w_val
+
 
 def domain_of(space, w_v):
     if not isinstance(w_v, W_CVar):
@@ -85,95 +93,42 @@ class ConsistencyError(Exception): pass
 
 class Solution(Exception): pass
 
-#-- Constraint ---------------------------------------------
+class FailedSpace(Exception): pass
 
-class W_Constraint(baseobjspace.Wrappable):
-    def __init__(self, object_space):
-        self._space = object_space
+#-- Ring (used by scheduling entities)
 
-W_Constraint.typedef = typedef.TypeDef("W_Constraint")
+class RingMixin(object):
+    _mixin_ = True
+    """
+    useless till we can give a type parameter
+    """
+    
+    def init_head(self, head):
+        self._head = head
+        head._next = head._prev = head
+        self._count = 1
 
-class W_AbstractDomain(baseobjspace.Wrappable):
-    """Implements the functionnality related to the changed flag.
-    Can be used as a starting point for concrete domains"""
+    def chain_insert(self, obj):
+        r = self._head
+        l = r._prev
+        l._next = obj
+        r._prev = obj
+        obj._prev = l
+        obj._next = r
 
-    def __init__(self, space):
-        self._space = space
-        self._changed = W_Var(self._space)
-
-    def give_synchronizer(self):
-        pass
-
-    def get_values(self):
-        pass
-
-    def remove_values(self, values):
-        assert isinstance(values, list)
-        
-    def size(self):
-        pass
-
-W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
-
-class W_AbstractDistributor(baseobjspace.Wrappable):
-
-    def __init__(self, space, fanout):
-        assert isinstance(fanout, int)
-        self._space = space
-        self._fanout = fanout
-        self._cspace = get_current_cspace(space)
-
-W_AbstractDistributor.typedef = typedef.TypeDef("W_AbstractDistributor")
-
-#-- Space Coroutine ----------------------
-
-
-class SpaceCoroutine(AppClonableCoroutine):
-    def __init__(self, space, state=None):
-        AppClonableCoroutine.__init__(self, space, state)
-        self._cspace = None
-        self._next = self._prev = None
-
-    def _clone(self):
-        if not we_are_translated():
-            raise NotImplementedError
-
-        space = self.space
-        costate = self.costate
-        if costate.current is self:
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("clone() cannot clone the "
-                                            "current coroutine"
-                                            "; use fork() instead"))
-        copy = SpaceCoroutine(space, state=costate)
-
-        # This part is a copy of InterpClonableMixin.clone_into
-        # we can't use it because extradata as a different signature
-        # see the comments there for explanations
-        # ----------------------------------------------------------
-        copy.parent = self.parent
-        self.hello_local_pool()
-        data = (self.frame, self.subctx, self._cspace)
-        self.goodbye_local_pool()
-        # clone!
-        data, copy.local_pool = gc_clone(data, self.local_pool)
-        copy.frame, copy.subctx, copy._cspace = data
-        return copy
-
-    #XXX idea for future :
-    #    only call AppCoroutine.hello() there
-    #    do main_thread.hello|goodbye_local_pool when switching spaces
-    #    we will need to clone the other coros stackframes and
-    #    restuff these into fresh AppCoroutine shells
-    #    (because AppCoros have finalizers, hence are not cloned)
-    def hello(self):
-        w('Hello coro %d' % id(self) )
-        AppClonableCoroutine.hello(self)
-
-    def goodbye(self):
-        w('Bye coro %d' % id(self))
-        AppClonableCoroutine.goodbye(self)
-
+    def remove(self, obj):
+        l = obj._prev
+        r = obj._next
+        l._next = r
+        r._prev = l
+        if self._head == obj:
+            self._head = r
+        if r == obj:
+            # that means obj was the last one
+            # the group is about to die
+            self._head = None
+        obj._next = obj._prev = None
+          
 
 #-- Misc ---------------------------------------------------
 

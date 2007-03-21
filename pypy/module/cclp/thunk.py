@@ -1,12 +1,11 @@
 from pypy.module._stackless.coroutine import _AppThunk, AppCoroutine
 from pypy.module._stackless.interp_coroutine import AbstractThunk
 
-from pypy.module.cclp.misc import w
+from pypy.module.cclp.misc import w, get_current_cspace
 from pypy.module.cclp.global_state import sched
 from pypy.module.cclp.types import W_Var, W_CVar, W_Future, W_FailedValue, \
-     ConsistencyError, Solution, W_AbstractDomain, SpaceCoroutine
-from pypy.module.cclp.interp_var import interp_wait, interp_entail, \
-     interp_bind, interp_free, interp_wait_or
+     ConsistencyError, FailedSpace, Solution
+from pypy.module.cclp.interp_var import interp_bind, interp_free, interp_wait_or
 
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.listobject import W_TupleObject
@@ -40,6 +39,9 @@ class ProcedureThunk(_AppThunk):
                 _AppThunk.call(self)
             except Exception, exc:
                 w(".! exceptional EXIT of procedure", str(id(self._coro)), "with", str(exc))
+                if not we_are_translated():
+                    import traceback
+                    traceback.print_exc()
                 sched.uler.dirty_traced_vars(self._coro, W_FailedValue(exc))
             else:
                 w(".! clean EXIT of procedure", str(id(self._coro)))
@@ -83,7 +85,7 @@ class CSpaceThunk(_AppThunk):
     def call(self):
         space = self.space
         coro = AppCoroutine.w_getcurrent(space)
-        assert isinstance(coro, SpaceCoroutine)
+        assert isinstance(coro, AppCoroutine)
         cspace = coro._cspace
         w("-- initial DISTRIBUTOR thunk CALL in", str(id(coro)))
         sched.uler.trace_vars(coro, logic_args(self.args.unpack()))
@@ -93,15 +95,20 @@ class CSpaceThunk(_AppThunk):
                     _AppThunk.call(self)
                 finally:
                     coro = AppCoroutine.w_getcurrent(space)
-                    assert isinstance(coro, SpaceCoroutine)
+                    assert isinstance(coro, AppCoroutine)
                     cspace = coro._cspace
-            except ConsistencyError, exc:
-                w("-- EXIT of DISTRIBUTOR, space is FAILED", str(id(coro)), "with", str(exc))
+            except FailedSpace, exc:
+                w("-- EXIT of DISTRIBUTOR %s, space is FAILED with %s" % (id(coro),
+                                                                          str(exc)))
                 failed_value = W_FailedValue(exc)
                 interp_bind(cspace._solution, failed_value)
             except Exception, exc:
                 # maybe app_level let something buble up ...
-                w("-- exceptional EXIT of DISTRIBUTOR", str(id(coro)), "with", str(exc))
+                w("-- exceptional EXIT of DISTRIBUTOR %s with %s" % (id(coro),
+                                                                     str(exc)))
+                if not we_are_translated():
+                    import traceback
+                    traceback.print_exc()
                 failed_value = W_FailedValue(exc)
                 sched.uler.dirty_traced_vars(coro, failed_value)
                 interp_bind(cspace._solution, failed_value)
@@ -125,7 +132,6 @@ class CSpaceThunk(_AppThunk):
             sched.uler.remove_thread(coro)
             sched.uler.schedule()
 
-
 class PropagatorThunk(AbstractThunk):
     def __init__(self, space, w_constraint, coro):
         self.space = space
@@ -135,26 +141,27 @@ class PropagatorThunk(AbstractThunk):
     def call(self):
         #coro = AppCoroutine.w_getcurrent(self.space)
         try:
+            space = self.space
             cspace = self.coro._cspace
+            const = self.const
             try:
                 while 1:
-                    entailed = self.const.revise()
+                    if not interp_free(cspace._finished):
+                        break
+                    entailed = const.revise(cspace._domains)
                     if entailed:
                         break
                     # we will block on domains being pruned
                     wait_list = []
-                    _vars = self.const._variables
-                    assert isinstance(_vars, list)
-                    for var in _vars:
-                        assert isinstance(var, W_CVar)
-                        dom = var.w_dom
-                        assert isinstance(dom, W_AbstractDomain)
-                        wait_list.append(dom.give_synchronizer())
+                    _doms = [cspace._domains[var]
+                             for var in const._variables]
+                    for dom in _doms:
+                        #assert isinstance(dom, W_AbstractDomain)
+                        wait_list.append(dom.one_shot_watcher())
                     #or the cspace being dead
                     wait_list.append(cspace._finished)
-                    interp_wait_or(self.space, wait_list)
-                    if not interp_free(cspace._finished):
-                        break
+                    interp_wait_or(space, wait_list)
+                    cspace = get_current_cspace(space) # might have been cloned
             except ConsistencyError:
                 cspace.fail()
             except Exception: # rpython doesn't like just except:\n ...

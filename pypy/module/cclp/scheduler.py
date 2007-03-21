@@ -9,7 +9,6 @@ from pypy.module.cclp.global_state import sched
 
 #-- Singleton scheduler ------------------------------------------------
 
-AppCoroutine.tid = 0
 AppCoroutine._cspace = None
 
 class TopLevelScheduler(object):
@@ -26,25 +25,6 @@ class TopLevelScheduler(object):
         # asking for stability
         self._asking = {} # cspace -> thread set
         self._asking[top_level_space] = {} # XXX
-        # variables suspension lists
-        self._tl_blocked = {} # set of spaces
-        self._tl_blocked_on = {} # var -> spaces
-        self._tl_blocked_byneed = {} # var -> spaces
-        self.next_tid = 1 # 0 is reserved for untracked threads
-        self.threads = {} # id->thread mapping
-
-    def get_new_tid(self):
-        # XXX buggy if it overflows
-        tid = self.next_tid
-        self.next_tid += 1
-        return tid
-
-    def register_thread(self, thread):
-        if thread.tid==0:
-            thread.tid = self.get_new_tid()
-            self.threads[thread.tid] = thread
-##         else:
-##             assert thread.tid in self.threads, "Thread already registered"
     
     def _chain_insert(self, group):
         assert isinstance(group, W_ThreadGroupScheduler), "type error"
@@ -61,14 +41,11 @@ class TopLevelScheduler(object):
     def schedule(self):
         running = self._head
         to_be_run = self._select_next()
-        if not isinstance(to_be_run, W_ThreadGroupScheduler):
-            w("Aaarg something wrong in top level schedule")
-            assert False, "type error"
         #w(".. SWITCHING (spaces)", str(id(get_current_cspace(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         if to_be_run != running:
-            running.goodbye()
-            to_be_run.hello()
+            running.goodbye_local_pool()
+            to_be_run.hello_local_pool()
         to_be_run.schedule()
 
     def _select_next(self):
@@ -79,7 +56,6 @@ class TopLevelScheduler(object):
             if to_be_run.is_runnable():
                 break
             to_be_run = to_be_run._next
-            assert isinstance(to_be_run, W_ThreadGroupScheduler), "type error"
             if to_be_run == sentinel:
                 reset_scheduler(self.space)
                 w(".. SCHEDULER reinitialized")
@@ -245,12 +221,13 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
 
     def __init__(self, space):
         self.space = space
-        self._pool = None
         self._switch_count = 0
         self._traced = {} # thread -> vars
         self.thread_count = 1
         self.blocked_count = 0
+        # head thread
         self._head = None
+        # thread group ring
         self._next = self
         self._prev = self
         # accounting for blocked stuff
@@ -260,40 +237,9 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
 
     def _init_head(self, thread):
         "sets the initial ring head"
-        assert isinstance(thread, AppCoroutine), "type error"
         self._head = thread
         thread._next = thread._prev = thread
-        sched.uler.register_thread( thread )
-        w("HEAD (main) THREAD = ", str(id(self._head)))
-
-
-    def replace_thread( self, orig_tid, cl_thread ):
-        # walk the list of _blocked threads:
-        for th in self._blocked:
-            if th.tid == orig_tid:
-                del self._blocked[th]
-                self._blocked[cl_thread] = True
-
-        # walk the mappings var->threads
-        for w_var in self._blocked_on:
-            threads = self._blocked_on[w_var]
-            for k in range(len(threads)):
-                if threads[k].tid == orig_tid:
-                    threads[k] = cl_thread
-                    
-        for w_var in self._blocked_byneed:
-            threads = self._blocked_byneed[w_var]
-            for k in range(len(threads)):
-                if threads[k].tid == orig_tid:
-                    threads[k] = cl_thread
-
-        # handled traced thread
-        for th in self._traced.keys():
-            if th.tid == orig_tid:
-                lvars = self._traced[th]
-                del self._traced[th]
-                self._traced[cl_thread] = lvars
-            
+        w("HEAD (main) THREAD = ", str(id(self._head)))            
 
     def _chain_insert(self, thread):
         assert isinstance(thread, AppCoroutine), "type error"
@@ -305,12 +251,11 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         r._prev = thread
         thread._prev = l
         thread._next = r
-        sched.uler.register_thread( thread )
 
-    def hello(self):
+    def hello_local_pool(self):
         pass
 
-    def goodbye(self):
+    def goodbye_local_pool(self):
         pass
 
     def register_var(self, var):
@@ -352,9 +297,7 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
             asking[self] = {curr:True}
         curr._cspace._blocked[curr] = True  #XXX semantics please ?
         curr._cspace.blocked_count += 1
-        w("About to reschedule")
         sched.uler.schedule()
-        w("Resuming %d" % id(self) )
 
     def schedule(self):
         to_be_run = self._select_next()
@@ -449,14 +392,15 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
             for th in sched.uler._asking[home].keys():
                 # these asking threads must be unblocked, in their
                 # respective home spaces
-                # was: del sched.uler._blocked[th]
-                v(' ', str(id(th)))
+                v(str(id(th)))
                 del th._cspace._blocked[th]
                 th._cspace.blocked_count -= 1
             w('')
             sched.uler._asking[home] = {}
 
-
+    def distribute(self, dist):
+        raise OperationError(self.space.w_RuntimeError,
+                             self.space.wrap("You can't distribute a top-level space."))
 
     def add_new_thread(self, thread):
         "insert 'thread' at end of running queue"
@@ -493,7 +437,6 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         assert isinstance(thread, AppCoroutine), "type error"
         assert isinstance(lvars, list), "type error"
         #w(".. TRACING logic vars.", str(lvars), "for", str(id(thread)))
-        #assert not self._traced.has_key(thread) doesn't translate 
         self._traced[thread] = lvars
 
     def dirty_traced_vars(self, thread, failed_value):

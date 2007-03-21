@@ -7,6 +7,7 @@ class Module(MixedModule):
     """
 
     appleveldefs = {
+        'make_expression':'app.make_expression'
     }
 
     interpleveldefs = {
@@ -21,12 +22,13 @@ class Module(MixedModule):
         'reset_scheduler':'scheduler.reset_scheduler',
 
         'newspace':'cspace.newspace',
+        'dorkspace':'cspace.dorkspace',
         'choose':'cspace.choose',
         'tell':'cspace.tell',
 
-        'distribute':'constraint.distributor.distribute',
+        'distribute':'cspace.distribute',
 
-        'make_expression':'constraint.constraint.make_expression',
+        '_make_expression':'constraint.constraint._make_expression',
         'all_diff': 'constraint.constraint.make_alldistinct'
         
     }

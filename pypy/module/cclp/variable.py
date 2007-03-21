@@ -289,7 +289,7 @@ def _assign_entailed(space, w_var, w_val):
 def _assign(space, w_var, w_val):
     assert isinstance(w_var, W_Var)
     if isinstance(w_var, W_CVar):
-        if not w_val in space.unpackiterable(w_var.w_dom._values):
+        if not w_val in w_var.w_dom.domain.get_wvalues_in_rlist():
             raise_unification_failure(space, "assignment out of domain")
     w_var.w_bound_to = w_val
 

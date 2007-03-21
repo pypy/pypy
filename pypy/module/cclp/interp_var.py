@@ -69,7 +69,7 @@ def _assign_entailed(w_var, w_val):
 def _assign(w_var, w_val):
     assert isinstance(w_var, W_Var)
     if isinstance(w_var, W_CVar):
-        if not w_var.w_dom.contains(w_val):
+        if not w_val in w_var.w_dom.domain.vlist:
             raise ValueError, "assignment out of domain"
     w_var.w_bound_to = w_val
 
