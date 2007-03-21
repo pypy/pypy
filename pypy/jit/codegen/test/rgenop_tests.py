@@ -722,7 +722,10 @@ class ManyFramePlaceWriter:
     def __init__(self, RGenOp):
         def writer(base, value):
             i = 0
-            for p in self.places:
+            places = self.places
+            n = len(places)
+            while i < n:
+                p = places[i]
                 RGenOp.write_frame_place(lltype.Signed, base, p, value + i)
                 i += 1
         self.writer = writer
