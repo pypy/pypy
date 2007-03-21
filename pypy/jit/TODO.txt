@@ -14,7 +14,8 @@ To Do Right Now
    - we explode in reg alloc for f(sys.maxint) (of test_pypy_c) ...!
      it seems we are in a flexswitch after a promote to be precise
      adding a bunch of printf to the c code: it seems that the inputlocatios to the reg alloc contain the same register twice
-   - CALL_LIKELY_BUILTIN uses call_valuestack => bad       
+     mmh, because we have the same variable twice (this is an invariant broken)
+- CALL_LIKELY_BUILTIN uses call_valuestack => bad       
 
 Longer-term
 ------------------
