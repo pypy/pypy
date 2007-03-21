@@ -92,7 +92,7 @@ Key 0.99.0 Features
   - the JavaScript backend has evolved to a point where it can be used to write
     AJAX web applications with it. This is still an experimental technique,
     though. For demo applications see:
-    http://play1.codespeak.net:8008/ 
+    http://play1.codespeak.net/ 
 
 * new configuration system: 
   There is a new comprehensive configuration system that allows 

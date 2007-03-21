@@ -52,7 +52,10 @@ non-existing method).
 There are some facilities for testing your Python code (about to be translated
 to a JavaScript) on top of Python. For further details see `testing`_
 
+Several `demos`_ are available online, to take a glimpse at features.
+
 .. _`using`: using.html
 .. _`b'n'b demo`: http://play1.codespeak.net:7070
 .. _`testing`: testing.html
+.. _`demos`: http://play1.codespeak.net/
 
