@@ -560,7 +560,6 @@ The `tputil.py`_ module provides:
   ProxyOperation instances have the following attributes: 
 
     `proxyobj`: the transparent proxy object of this operation. 
-    `type`: the apparent type of the transparent proxy 
     `opname`: the operation name of this operation 
     `args`: positional arguments for this operation 
     `kwargs`: keyword arguments for this operation 
