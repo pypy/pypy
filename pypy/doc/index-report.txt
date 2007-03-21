@@ -12,6 +12,11 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
+`D03.1 Extension Compiler`_ is a report about
+PyPy's extension compiler and RCTypes, as well as the effort to keep up with
+CPython's changes. *(2007-03-21)*
+
+
 `Interim D12.1 High-Level-Backends and Feature Prototypes`_ is an
 interim version of a report about our high-level backends and our
 several validation prototypes: an information flow security prototype,
@@ -45,10 +50,6 @@ feedback for it is welcome. *(2007-02-28)*
 `D14.2 Tutorials and Guide Through the PyPy Source Code`_ is an interim version
 of a report about the steps we have taken to make the project approachable for
 newcomers.
-
-`D03.1 Extension Compiler`_ is an interim version of a report about
-PyPy's extension compiler and RCTypes, as well as the effort to keep up with
-CPython's changes. All feedback for it is very welcome. *(2007-02-28)*
 
 `Draft D13.1 Build and Configuration Tool`_ is an interim version of a report
 about our build an configuration toolchain as well as the planned Debian
