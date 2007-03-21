@@ -23,9 +23,9 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert s[5] == '5'
         assert s[-2] == '8'
         assert s[3:7] == '3456'
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         # when the slice is too short, don't use the slice string object
-        assert 'W_StringObject' in __pypy__.pypy_repr("abcdefgh"[3:7])
+        assert 'W_StringObject' in __pypy__.internal_repr("abcdefgh"[3:7])
         s2 = s.upper()
         assert not self.not_forced(s)
 
@@ -33,7 +33,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         import __pypy__
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' + "X" * 100)
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert slice('abcdefghiabc' + 'X' * 100) == 'abcdefghiabc' + 'X' * 100
         res = s.find('abc')
         assert res == 0
@@ -45,7 +45,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         m = sys.maxint
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' * 20)
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert s.index('') == 0
         assert s.index('def') == 3
         assert s.index('abc') == 0
@@ -62,7 +62,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         import __pypy__
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' + "X" * 100)
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert s.rfind('abc') == 9
         assert s.rfind('') == 112
         assert s.rfind('abcd') == 0
@@ -73,7 +73,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         from sys import maxint
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice("X" * 100 + 'abcdefghiabc')
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert s.rindex('') == 112
         assert s.rindex('def') == 103
         assert s.rindex('abc') == 109
@@ -93,7 +93,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         import __pypy__
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice("abc" + "X" * 100)
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert '' in s
         assert 'a' in s
         assert 'ab' in s
@@ -107,25 +107,25 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         # disabled: assert hash('') == 0 --- different special case
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('a' * 101)
-        assert 'W_StringSliceObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
 
     def test_split_produces_strslices(self):
         import __pypy__
         l = ("X" * 100 + "," + "Y" * 100).split(",")
-        assert "W_StringSliceObject" in __pypy__.pypy_repr(l[0])
-        assert "W_StringSliceObject" in __pypy__.pypy_repr(l[1])
+        assert "W_StringSliceObject" in __pypy__.internal_repr(l[0])
+        assert "W_StringSliceObject" in __pypy__.internal_repr(l[1])
 
     def test_strip_produces_strslices(self):
         import __pypy__
         s = ("abc" + "X" * 100 + "," + "Y" * 100 + "abc").strip("abc")
-        assert "W_StringSliceObject" in __pypy__.pypy_repr(s)
+        assert "W_StringSliceObject" in __pypy__.internal_repr(s)
 
     def test_splitlines_produces_strslices(self):
         import __pypy__
         l = ("X" * 100 + "\n" + "Y" * 100).splitlines()
-        assert "W_StringSliceObject" in __pypy__.pypy_repr(l[0])
-        assert "W_StringSliceObject" in __pypy__.pypy_repr(l[1])
+        assert "W_StringSliceObject" in __pypy__.internal_repr(l[0])
+        assert "W_StringSliceObject" in __pypy__.internal_repr(l[1])
 
     def test_count_does_not_force(self):
         def slice(s): return (s*3)[len(s):-len(s)]

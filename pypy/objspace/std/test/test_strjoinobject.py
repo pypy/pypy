@@ -12,7 +12,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         import __pypy__
         s = "Hello, " + "World!"
         assert type(s) is str
-        assert 'W_StringJoinObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringJoinObject' in __pypy__.internal_repr(s)
 
     def test_add_twice(self):
         x = "a" + ""
@@ -25,7 +25,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         all = ""
         for i in range(20):
             all += str(i)
-        assert 'W_StringJoinObject' in __pypy__.pypy_repr(all)
+        assert 'W_StringJoinObject' in __pypy__.internal_repr(all)
 
     def test_hash(self):
         import __pypy__
@@ -34,7 +34,7 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         # disabled: assert hash('') == 0 --- different special case
         def join(s): return s[:len(s) // 2] + s[len(s) // 2:]
         s = join('a' * 101)
-        assert 'W_StringJoinObject' in __pypy__.pypy_repr(s)
+        assert 'W_StringJoinObject' in __pypy__.internal_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
 
     def test_len(self):

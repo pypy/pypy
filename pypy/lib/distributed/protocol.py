@@ -56,7 +56,7 @@ TODO list:
 3. Support inheritance and recursive types
 """
 
-from __pypy__ import pypy_repr
+from __pypy__ import internal_repr
 
 import types
 from marshal import dumps

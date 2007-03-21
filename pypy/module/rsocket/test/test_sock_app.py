@@ -449,7 +449,7 @@ class AppTestErrno:
         try:
             s = socket(AF_INET, SOCK_STREAM)
             import __pypy__
-            print __pypy__.pypy_repr(s)
+            print __pypy__.internal_repr(s)
             s.accept()
         except Exception, e:
             assert len(e.args) == 2

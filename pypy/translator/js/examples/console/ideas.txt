@@ -6,6 +6,6 @@
 
 * Stackless - examples in a docs of stackless/WP7
 
-* pypymagic.pypy_repr - --faassen, ropes
+* __pypy__.internal_repr - --faassen, ropes
 
 * changing grammar at the runtime

@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
 from pypy.rlib.objectmodel import we_are_translated
 
-def pypy_repr(space, w_object):
+def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
 def isfake(space, w_obj):

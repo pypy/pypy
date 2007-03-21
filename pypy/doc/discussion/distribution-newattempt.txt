@@ -14,7 +14,7 @@ on different machines or in different processes. Let's call it *local side*
 
 What we want to achieve is to have a transparent enough layer on local
 side, which does not allow user to tell the objects local and remote apart
-(despit sys.pypy_repr, which I would consider cheating).
+(despite __pypy__.internal_repr, which I would consider cheating).
 
 Because in pypy we have possibility to have different implementations
 for types (even builtin ones), we can use that mechanism to implement

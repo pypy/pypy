@@ -10,7 +10,7 @@ class AppTestRangeListObject(object):
             import __pypy__
             def f(r):
                 return (isinstance(r, list) and
-                        "W_ListObject" not in __pypy__.pypy_repr(r))
+                        "W_ListObject" not in __pypy__.internal_repr(r))
             return f
         """)
 

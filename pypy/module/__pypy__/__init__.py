@@ -7,7 +7,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'pypy_repr'             : 'interp_magic.pypy_repr',
+        'internal_repr'             : 'interp_magic.internal_repr',
     }
 
     def setup_after_space_initialization(self):
