@@ -489,14 +489,14 @@ Suppose we want to have list which stores all operations performed on
 it for later analysis.  We use a small `tputil`_ module that helps
 with transparently proxying builtin instances::
 
-   from tputil import make_instance_proxy
+   from tputil import make_proxy
 
    history = []
-   def recorder(invocation):
-       history.append(invocation) 
-       return invocation.perform()
+   def recorder(operation):
+       history.append(operation) 
+       return operation.delegate()
 
-   >>>> l = make_instance_proxy([], recorder)
+   >>>> l = make_proxy(recorder, obj=[]) 
    >>>> type(l)
    list
    >>>> l.append(3)
@@ -545,12 +545,31 @@ the `pypymagic`_ module provides the following builtins:
 tputil help module 
 ----------------------------
 
-The `tputil.py`_ module helps writing programs that
-make use of transparent proxies.  Apart from the 
-`transparent proxy builtins`_ it provides
-the following functionality: 
+The `tputil.py`_ module provides: 
 
-XXX 
+* ``make_proxy(controller, type, obj)`` function which 
+  creates a tranparent proxy controlled by the given 
+  'controller' callable.  The proxy will appear 
+  as a completely regular instance of the given 
+  type but all operations on it are send to the 
+  specified controller - which receices on 
+  ProxyOperation instance on each such operation.  
+  A non-specified type will default to type(obj) if 
+  `obj` was specified. 
+
+  ProxyOperation instances have the following attributes: 
+
+    `proxyobj`: the transparent proxy object of this operation. 
+    `type`: the apparent type of the transparent proxy 
+    `opname`: the operation name of this operation 
+    `args`: positional arguments for this operation 
+    `kwargs`: keyword arguments for this operation 
+    `obj`: (if provided to `make_proxy`: an concrete object) 
+
+  If you have specified a concrete object instance `obj` 
+  to your `make_proxy` invocation, you may call 
+  ``proxyoperation.delegate()`` to delegate the operation 
+  to this object instance. 
 
 Further points of interest
 ---------------------------
