@@ -46,15 +46,15 @@ if greyscale:
 else:
     colors = "brg"
 
-def txt2png(p):
+def csv2png(p):
     print p
     title, axis, data = get_data(p)
     dates = data[0]
 
-    release_title, release_axis, release_data = get_data( py.path.local("release_dates.csv") )
+    release_title, release_axis, release_data = get_data( py.path.local("release_dates.dat") )
     release_dates, release_names = release_data
  
-    sprint_title, sprint_axis, sprint_data = get_data( py.path.local("sprint_dates.csv") )
+    sprint_title, sprint_axis, sprint_data = get_data( py.path.local("sprint_dates.dat") )
     sprint_locations, sprint_begin_dates, sprint_end_dates = sprint_data
  
     ax = pylab.subplot(111)
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         py.std.sys.exit()
     for arg in args[1:]:
         if arg == "--all":
-            for p in py.path.local().listdir("*.txt"):
+            for p in py.path.local().listdir("*.csv"):
                 py.std.os.system("python %s %s" % (args[0], p.basename))
         else:
-            txt2png(py.path.local(arg))
+            csv2png(py.path.local(arg))
