@@ -452,18 +452,19 @@ returns at line 3164.  All the rest is start-up, printing, and shutdown.
 Transparent Proxy Implementation
 ================================
 
-Among the unique features of PyPy, there is as well the possibility of
-having multiple implementations of builtin types. Multiple performance
-optimisations using this features are already implemented, see the document
-about `alternative object implementations`_.
+PyPy's Transparent Proxies allow to route operations to objects 
+to a callable.  Application level code can customize e.g. list
+and dictionary objects without interfering with the type system, 
+for example ``type(proxy_list) is list`` can be true but you 
+you have full control on all operations that are performed on the
+``proxy_list``.  
 
-Transparent proxies are implementation of types which sends every performed
-operation on an object to a provided callable. From an application level
-it looks like an instance of arbitrary type, but all operations are directly
-calling a provided callable with an apropriate arguments.
 
-Suppose we have a need of having a list instance which added to anything
-will provide 42. Than we create transparent proxy for int::
+Example of the core mechanism 
+-------------------------------------------
+
+The following example proxies a list and will 
+return ``42`` on any add operation to the list:: 
 
    $ py.py --with-transparent-proxy
    >>>> from pypymagic import transparent_proxy
@@ -473,65 +474,40 @@ will provide 42. Than we create transparent proxy for int::
    >>>>    raise AttributeError
    >>>>
    >>>> i = transparent_proxy(list, f)
-
-And now::
-
-   >>> type(i)
+   >>>> type(i)
    list
-   >>> i + 3
+   >>>> i + 3
    42
 
 .. _`alternative object implementations`: object-optimizations.html
 
-More sophisticated example:
----------------------------
+
+Example of recording all operations on builtins
+----------------------------------------------------
+
+XXX describe tputil.py's "Invocation" object somewhere 
+XXX this is work in progress
 
 Suppose we want to have list which stores all operations performed on
-it for later analysis. So we create an apropriate controller::
+it for later analysis.  We use a small `tputil.py`_ module that helps
+with transparently proxying builtin instances::
 
-   from pypymagic import transparent_proxy, get_transparent_controller
-   from types import MethodType
+   from tputil import make_proxy
 
-   class ListController(object):
-       def __init__(self, l):
-           assert isinstance(l, list)
-           self.l = l
-           self.history = []
-           self.proxy = transparent_proxy(list, self.perform)
+   history = []
+   def recorder(invocation):
+       history.append(invocation) 
+       return invocation.perform()
 
-       def perform(self, operation, *args, **kwargs):
-           self.history.append(operation) # remember the operation performed
-           # perform the operation on the proxied object
-           result = getattr(self.l, operation)(*args, **kwargs)
-           if result is self.l:
-               # If the result is the proxied list
-               # return the proxy instead.
-               result = self.proxy
-           elif (isinstance(result, MethodType) and
-                 result.im_self is self.l):
-               # Convert methods bound to the proxied list
-               # to methods bound to the proxy.
-               # This is to have calls to the method become calls
-               # to perform.
-               result = MethodType(result.im_func, self.proxy, result.im_class)
-           return result
-
-   >>>> l = []
-   >>>> c = Controller(l)
-   >>>> lst = c.proxy
-
-Now we can perform::
-
-    >>>> lst.append(3)
-    >>>> len(lst)
-    1
-    >>>> l
-    [3]
-    >>>> c.history
-    [__getattribute__, append, __len__]
-    >>>> type(lst) is type(l)
-    True
-
+   >>>> l = make_proxy([], recorder)
+   >>>> type(l)
+   list
+   >>>> l.append(3)
+   >>>> len(l)
+   1
+   >>>> len(history)
+   4
+   
 So what happened:
 
 * We've create transparent proxy of type list with controller c.perform
@@ -548,10 +524,13 @@ Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
 does not show up at all (indeed the type is the only aspect of the instance that
 the controller cannot change).
 
-Provided API:
--------------
 
-Transparent proxy provides two magic functions appearing in the pypymagic module.
+Basic and tputil.py API 
+-----------------------------
+
+XXX (hpk) refactor/amend/refine 
+
+Transparent proxy provides two functions in the pypymagic module.
 
 * `transparent_proxy` - a basic function to create proxy object.
 
@@ -576,23 +555,34 @@ but not limited to:
   objects. (Of course some operations on them could raise exceptions, but it's
   purely done in application level, so it's not real problem)
 
-Random notes:
--------------
+Implementation Note
+-----------------------------
 
-Transparent proxy is implemented on top of `standard object space`_, in
-`proxy_helpers.py`_, `proxyobject.py`_ and `transparent.py`_. To run it
-you need to pass ``--with-transparent-proxy`` option to ``py.py`` or
-``translate.py``. It registers implementations like a ``W_TransparentXxx``
-which usually corresponds to an apropriate ``W_XxxObject``, including some
-interpreter hacks for objects that are too close to the interpreter
-to be implemented in a std objspace. The types of objects that can be proxied
-like this are:
-user created classes & functions, lists, dicts, exceptions, tracebacks and
-frames.
+PyPy's standard object space allows to internally have multiple
+implementations of a type and change the implementation at run
+time while application level code consistently sees the exact 
+same type and object.  Multiple performance optimisations using 
+this features are already implemented, see the document
+about `alternative object implementations`_. Transparent
+Proxies use the architecture to provide control back 
+to application level code. 
+
+Transparent proxy is implemented on top of `standard object
+space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
+`transparent.py`_. To run it you need to pass
+``--with-transparent-proxy`` option to ``py.py`` or
+``translate.py``. It registers implementations like a
+``W_TransparentXxx`` which usually corresponds to an
+apropriate ``W_XxxObject``, including some interpreter hacks
+for objects that are too close to the interpreter to be
+implemented in a std objspace. The types of objects that can
+be proxied like this are: user created classes & functions,
+lists, dicts, exceptions, tracebacks and frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
 .. _`proxy_helpers.py`: ../../pypy/objspace/std/proxy_helpers.py
 .. _`proxyobject.py`: ../../pypy/objspace/std/proxyobject.py
 .. _`transparent.py`: ../../pypy/objspace/std/transparent.py
+.. _`tputil.py`: ../../pypy/lib/tputil.py
 
 .. include:: _ref.txt
