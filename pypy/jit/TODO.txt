@@ -9,8 +9,8 @@ To Do Right Now
 - we are promoting inside space.type, there are other uses of it    
   beyond dispatching, it may not be the best idea in general
 
-- check that --jit works with --faassen; don't stop at
-  BINARY_ADD!
+- check that --jit works with --faassen
+
    - we explode in reg alloc for f(sys.maxint) (of test_pypy_c) ...!
      it seems we are in a flexswitch after a promote to be precise
      adding a bunch of printf to the c code: it seems that the inputlocatios to the reg alloc contain the same register twice
