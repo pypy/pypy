@@ -28,9 +28,10 @@ Here is what we implemented so far, in historical order:
 * *Dump Object Space*: dumps all operations performed on all the objects
   into a large log file.  For debugging your applications.
 
-* *Transparent Proxies Object Space*: adds new objects that behave like
-  regular built-in objects (list objects, traceback objects, etc.), but
-  completely under the control of the application.
+* *Transparent Proxies Extension*: adds new proxy objects to
+  the Standard Object Space that enable applications to 
+  control operations on application and builtin objects, 
+  e.g lists, dictionaries, tracebacks. 
 
 Which object space to use can be chosen with :config:`objspace.name` option.
 
