@@ -31,3 +31,15 @@ def test_two_interpreters():
     one, two = allof(g, f)
     assert two.startswith(">>")
     assert one.startswith("Traceback")
+
+def test_multiline_command():
+    i = Interpreter("python", timeout=3)
+    while not i.interact().endswith(">>> "):
+        pass
+    val = i.interact("def f(x):\n y = x + 3\n return y\n\nf(8)\n")
+    while val is not None:
+        assert 'Traceback' not in val
+        assert 'Syntax' not in val
+        print val
+        val = i.interact()
+

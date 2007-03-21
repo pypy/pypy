@@ -30,6 +30,7 @@ def refresh_console(msg):
     #inp_elem.disabled = False
     if msg[0] == "refresh":
         inp_elem.scrollIntoView()
+        inp_elem.focus()
         data = msg[1]
         exported_methods.refresh_empty(glob.sess_id, refresh_console)
         add_text(data)
@@ -63,11 +64,14 @@ def keypressed(key):
 def nothing(msg):
     pass
 
+def nothing2(msg):
+    pass
+
 def cleanup_console():
     inp_elem = dom.document.getElementById("inp")
     inp_elem.disabled = True
     set_text("")
-    exported_methods.kill_console(glob.sess_id, nothing)
+    exported_methods.kill_console(glob.sess_id, nothing2)
 
 def load_console(python="python"):
     if glob.console_running:
@@ -79,6 +83,13 @@ def load_console(python="python"):
     inp_elem.focus()
     glob.console_running = True
     exported_methods.get_console(python, set_sessid)
+
+def add_snippet(snippet):
+    add_text(snippet)
+    exported_methods.refresh(glob.sess_id, snippet, refresh_console)
+
+def execute_snippet(number=3):
+    exported_methods.execute_snippet(number, add_snippet)
 
 def console_onload():
     #createLoggingPane(True)

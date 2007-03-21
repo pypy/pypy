@@ -14,7 +14,17 @@ from py.__.green.server.httpserver import GreenHTTPServer
 
 commproxy.USE_MOCHIKIT = True
 
-FUNCTION_LIST = ["load_console", "console_onload"]
+SNIPPETS = [
+    """from tputil import make_instance_proxy
+history = []
+def recorder(invocation):
+    history.append(invocation)
+    return invocation.perform()
+
+l = make_instance_proxy([], recorder)
+"""]
+
+FUNCTION_LIST = ["load_console", "console_onload", "execute_snippet"]
 HELP = {'python':"just Python, play as you like :)",
         'pypy-c':
 '''
@@ -28,9 +38,11 @@ This is the PyPy standard interpreter translated to C with the following feature
    <li><b>Transparent proxy</b> - This is a unique PyPy interpreter feature,
    which allows you to provide application-level controller for any kind of
    object. Details and snippets can be found in the
-   <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#tproxy">transparent proxy documentation</a>.</li>
+   <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#tproxy">transparent proxy documentation</a>. Example (<a href="javascript:execute_snippet(0)">execute</a>):
+   <pre>%s</pre>
+   </li>
 </ul>
-''',
+''' % (SNIPPETS[0],),
         'pypy-c-thunk':'''The PyPy standard interpreter compiled to C using
         the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-thunk-object-space">thunk object space</a>''',
         'pypy-c-taint':'''The PyPy standard interpreter compiled to C using
@@ -99,7 +111,7 @@ class Sessions(object):
 sessions = Sessions()
 
 class ExportedMethods(server.ExportedMethods):
-    @callback(args=[str], retval=[str])
+    @callback(retval=[str])
     def get_console(self, python="python"):
         retval = sessions.new_session(python)
         return [str(retval), HELP[python]]
@@ -123,6 +135,10 @@ class ExportedMethods(server.ExportedMethods):
             return ["disconnected"]
         except Ignore:
             return ["ignore"]
+
+    @callback(retval=str)
+    def execute_snippet(self, number=3):
+        return SNIPPETS[int(number)]
 
     @callback()
     def kill_console(self, pid=0):

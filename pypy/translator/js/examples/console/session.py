@@ -37,12 +37,11 @@ class Interpreter(object):
         return data
 
     def write_only(self, to_write):
-        if to_write:
+        if to_write is not None:
             self.pipe.stdin.write(to_write)
 
     def interact(self, to_write=None):
-        if to_write is not None:
-            self.pipe.stdin.write(to_write)
+        self.write_only(to_write)
         return self.timeout_read(self.read_fd, self.timeout)
 
     def close(self):
