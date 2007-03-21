@@ -29,13 +29,21 @@ Caches that can freeze when the annotator needs it.
 class Cache(object):
     def __init__(self):
         self.content = {}
+        self._building = {}
 
     def getorbuild(self, key):
         try:
             return self.content[key]
         except KeyError:
-            result = self._build(key)
-            self.content[key] = result
+            if key in self._building:
+                raise Exception, "%s recursive building of %r" % (
+                    self, key)
+            self._building[key] = True
+            try:
+                result = self._build(key)
+                self.content[key] = result
+            finally:
+                del self._building[key]
             self._ready(result)
             return result
     getorbuild._annspecialcase_ = "specialize:memo"
