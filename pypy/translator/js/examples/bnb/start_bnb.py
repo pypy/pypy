@@ -267,7 +267,7 @@ def session_dispatcher(sessionid):
                                  bnb_dispatcher)
 
 def bnb():
-    #createLoggingPane(True)
+    createLoggingPane(True)
     log("keys: [0-9] to select player, [wsad] to walk around")
     exported_methods.initialize_session(session_dispatcher)
 
