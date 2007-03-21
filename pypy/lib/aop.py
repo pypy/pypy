@@ -12,28 +12,6 @@ import re
 import sys
 import os
 import os.path as osp
-from logging import error, debug, warning, info
-
-import logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s: %(message)s',
-                    datefmt='%H:%M:%S')
-
-
-
-def log_exc(func):
-    """Logs entering the function at debug level.
-    Logs any exception during function execution at error level"""
-    
-    def wrapped(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception, exc:
-            error('Unhandled exception in %s', func.func_name)
-            error('Exception %s: %s', exc.__class__.__name__, exc)#, exc_info=True)
-            raise
-    wrapped.__doc__ == func.__doc__
-    return wrapped
 
 # advices
 # -------
@@ -59,7 +37,6 @@ class Advice(parser.ASTMutator):
                                    self.pointcut)
         
     def __call__(self, function):
-        debug('wrapping advice %s on %s', self.pointcut, function.__name__)
         self.woven_code = function
         return self
 
@@ -94,14 +71,12 @@ class Advice(parser.ASTMutator):
 
 class around(Advice):
     """specify code to be run instead of the pointcut"""
-    @log_exc
     def weave_at_execution(self, node, tjp):
         """weaving around a function execution moves the body of the
         function to an inner function called
         __aoptarget_<id>__, and generate the following code:
         return __aop__(id, __aoptarget_<id>__)
         """
-        debug("WEAVE around execution")
         p = parser
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement = node.code
@@ -120,11 +95,9 @@ class around(Advice):
         
         node.decorators = None
         node.code = newcode
-        debug('newnode: %s', node)
         return node
     
     def weave_at_call(self, node, tjp):
-        debug("WEAVE around call")
         p = parser
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         newnode = make_aop_call_for_around_call(id,
@@ -133,7 +106,6 @@ class around(Advice):
                                                 node.star_args,
                                                 node.dstar_args
                                                 )
-        debug('newnode: %s', newnode)
         return newnode
     
     def weave_at_initialization(self, node, tjp):
@@ -144,25 +116,20 @@ class around(Advice):
     
 class before(Advice):
     """specify code to be run before the pointcut"""
-    @log_exc
     def weave_at_execution(self, node, tjp):
         """weaving before execution inserts a call to __aop__(id) at
         the beginning of the wrapped function definition"""
-        debug("WEAVE before execution")
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement_list = node.code.nodes
         statement_list.insert(0, make_aop_call(id))
         node.code.nodes = statement_list
-        debug('newnode: %s', node)
         return node
         
-    @log_exc
     def weave_at_call(self, node, tjp):
         """weaving before call replaces a call to foo(bar) with the
         following code:
         (lambda *args,**kwargs: (__aop__(id), foo(*args,**kwargs)))(bar)[1]
         """
-        debug("WEAVE before call")
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         p = parser
         lambda_ret = p.ASTTuple((make_aop_call(id).expr, # we don't want the ASTDiscard
@@ -183,7 +150,6 @@ class before(Advice):
         newnode = p.ASTSubscript(call,
                                  p.OP_APPLY,
                                  p.ASTConst(1))
-        debug('newnode: %s', newnode)
         return newnode
     
     def weave_at_initialization(self, node, tjp):
@@ -194,31 +160,24 @@ class before(Advice):
     
 class after(Advice):
     """specify code to be run after the pointcut"""
-    @log_exc
     def weave_at_execution(self, node, tjp):
         """weaving after execution wraps the code of the function in a
         try...finally block, and calls __aop__(id) in the finally
         block"""
-        debug("WEAVE after execution")
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         statement = node.code
         tryfinally = parser.ASTTryFinally(statement, make_aop_call(id))
         node.code = tryfinally
-        debug('newnode: %s', node)
         return node
 
-    @log_exc
     def weave_at_call(self, node, tjp):
         """weaving before call replaces a call to foo(bar) with the
         following code:
         __aop__(id, result=foo(bar)) 
         """
-        debug("WEAVE after call")
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         p = parser
-        debug('old node: %s', node)
         newnode = make_aop_call(id, resultcallfuncnode=node).expr # we don't want the ASTDiscard
-        debug('newnode: %s', newnode)
         return newnode
     
     
@@ -233,7 +192,6 @@ class introduce(Advice):
     this is the only advice available on static point cuts"""
     requires_dynamic_pointcut=False
     def weave_at_static(self, node, tjp):
-        debug("WEAVE introduce!!!")
         p = parser
         id = __aop__.register_joinpoint(self.woven_code, tjp)
         if node.code.__class__ == p.ASTPass:
@@ -265,7 +223,6 @@ class introduce(Advice):
         
         methods.append(newmethod)
         node.code.nodes = methods
-        debug('newnode: %s', node)
         return node
 
     
@@ -340,7 +297,6 @@ class PointCut:
         The created point cut is static. 
 
         The pointcut argument can also be a pointcut instance"""
-        ##debug('%s %s %s %s', module, klass, func, pointcut)
         if pointcut is None:
             self.func_re = re.compile(func)
             self.module_re = re.compile(module)
@@ -349,7 +305,6 @@ class PointCut:
             self.func_re = pointcut.func_re
             self.module_re = pointcut.module_re
             self.class_re = pointcut.class_re
-            ##debug('*** %s %s %s', self.func_re, self.module_re, self.class_re)
         else:
             raise TypeError(type(pointcut))
         self.isdynamic = False
@@ -570,7 +525,6 @@ class Weaver:
             return ast
         try:
             modulename = self._guessmodule(filename)
-            info('Looking for something to weave on  %s', modulename)
             for aspect, advice in self.advices:
                 self._curr_aspect = aspect
                 ast = advice.weave(ast, enc, modulename)
@@ -592,19 +546,17 @@ class Weaver:
     def register_joinpoint(self, woven_code, joinpoint,  *args): # FIXME: do we need *args ?
         assert self._curr_aspect is not None
         id = self._next_id()
-        info("register joinpoint with id %d", id)
         arguments = self._curr_aspect, joinpoint, args
         self.joinpoints[id] = woven_code, arguments
         return id
 
     def __call__(self, id, target=None, target_locals = None, result=_UndefinedResult):
-        info('call to __aop__(%d)', id)
-        debug('arguments: id=%d, target=%s, target_locals=%s, result=%s', id, target, target_locals, result)
         woven_code, (aspect, joinpoint, arguments) = self.joinpoints[id]
         joinpoint.func = target
-        debug('target_locals = %s', target_locals)
         if type(target_locals) is dict: 
-            joinpoint._arguments = (), dict([(n, target_locals[n]) for n in joinpoint._argnames or ()])
+            joinpoint._arguments = (), dict([(n, target_locals[n]) for n in joinpoint._argnames or () if n != 'self'])
+            if 'self' in target_locals:
+                joinpoint._target = target_locals['self']
         elif type(target_locals) is tuple:
             joinpoint._arguments = target_locals, {}
         if result is not _UndefinedResult:
@@ -613,9 +565,7 @@ class Weaver:
         return woven_code(*args)
 
     def call_introduced(self, id, args):
-        info('call to __aop__.call_introduced(%d, *%s)', id, args)
         woven_code, (aspect, joinpoint, arguments) = self.joinpoints[id]
-        debug('woven_code: %s', woven_code)
         return woven_code(aspect, *args)
         
 
@@ -636,7 +586,6 @@ class Aspect(type):
         instance = super(Aspect, cls).__call__(*args, **kwargs)
         for name, advice in cls.__dict__.iteritems():
             if isinstance(advice, Advice):
-                info("registering advice %s", advice)
                 __aop__.register_advice(instance, advice)
 
         return instance
@@ -694,7 +643,6 @@ def make_aop_call_for_around_call(id, targetname, target_args, target_starargs, 
 
     target_args, target_starargs, target_dstar_args are the values of the original ASTCallFunc 
     """
-    debug('make... %s %s %s %s %s', id, targetname, target_args, target_starargs, target_dstar_args)
     p = parser
     arguments = [p.ASTConst(id),]
     if targetname is not None:
@@ -702,13 +650,10 @@ def make_aop_call_for_around_call(id, targetname, target_args, target_starargs, 
     else:
         arguments.append(p.ASTName('None'))
 
-    callargs = [p.ASTList(target_args)]
-        
+    callargs = [p.ASTList(target_args)]        
     
     arguments.append(p.ASTTuple(callargs))
-                     
-                         
-    debug('arguments: %s', arguments)
+                                              
     return p.ASTCallFunc(p.ASTName('__aop__'),
                          arguments,
                          None, # *args
