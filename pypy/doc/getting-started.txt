@@ -261,7 +261,7 @@ transparent manner::
     cd pypy
     python bin/py.py -o thunk
 
-    >>>> from pypymagic import thunk
+    >>>> from __pypy__ import thunk
     >>>> def longcomputation(lst):
     ....     print "computing..."
     ....     return sum(lst)

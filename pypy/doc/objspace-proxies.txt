@@ -50,7 +50,7 @@ objects (computed only when an operation is performed on them), and
 Example usage::
 
     $ py.py -o thunk
-    >>>> from pypymagic import thunk
+    >>>> from __pypy__ import thunk
     >>>> def f():
     ....    print 'computing...'
     ....    return 6*7
@@ -70,7 +70,7 @@ A related, but more obscure feature, allows one object to be instantly
 and globally replaced with another::
 
     $ py.py -o thunk
-    >>>> from pypymagic import become
+    >>>> from __pypy__ import become
     >>>> x = object()
     >>>> lst = [1, 2, x, 4]
     >>>> become(x, 3)
@@ -82,7 +82,7 @@ lazily (the function appears to return a result, but it is not really
 invoked before the result is used, if at all)::
 
     $ py.py -o thunk
-    >>>> from pypymagic import lazy
+    >>>> from __pypy__ import lazy
     >>>> @lazy
     .... def f(x):
     ....    print 'computing...'
@@ -194,7 +194,7 @@ Tainting and untainting
 Start a py.py with the Taint Object Space and try the following example::
 
     $ py.py -o taint
-    >>>> from pypymagic import taint
+    >>>> from __pypy__ import taint
     >>>> x = taint(6)
 
     # x is hidden from now on.  We can pass it around and
@@ -231,7 +231,7 @@ careful security review.  To avoid unexpected objects showing up, the
 ``untaint()`` function must be called with the exact type of the object
 to declassify.  It will raise ``TaintError`` if the type doesn't match::
 
-    >>>> from pypymagic import taint
+    >>>> from __pypy__ import taint
     >>>> untaint(int, x)
     6
     >>>> untaint(int, z)
@@ -286,7 +286,7 @@ Note that the ``TaintError`` exception is deliberately not including any
 useful error message, because that might give information away too.
 However, it makes debugging quite harder.  This is a difficult problem
 to solve in general too; so far we implemented a way to peek in a Taint
-Box or Bomb, ``pypymagic._taint_look(x)``, and a "debug mode" that
+Box or Bomb, ``__pypy__._taint_look(x)``, and a "debug mode" that
 prints the exception as soon as a Bomb is created.  Both write
 information to the low-level stderr of the application, where we hope
 that it is unlikely to be seen by anyone else than the application
@@ -303,7 +303,7 @@ hiding all exceptions into Bombs).
 
 There is a built-in decorator that does exactly that::
 
-    >>>> @pypymagic.taint_atomic
+    >>>> @__pypy__.taint_atomic
     >>>> def myop(x, y):
     ....     while x > 0:
     ....         x -= y
@@ -385,7 +385,7 @@ operation does not let an exception be raised).  An operation called
 with a Tainted Bomb argument immediately returns the same Tainted Bomb.
 
 In a PyPy running with (or translated with) the Taint Object Space,
-the ``pypymagic`` module exposes the following interface:
+the ``__pypy__`` module exposes the following interface:
 
 * ``taint(obj)``
 
@@ -467,7 +467,7 @@ The following example proxies a list and will
 return ``42`` on any add operation to the list:: 
 
    $ py.py --with-transparent-proxy
-   >>>> from pypymagic import tproxy
+   >>>> from __pypy__ import tproxy
    >>>> def f(operation, *args, **kwargs):
    >>>>    if operation == '__add__':
    >>>>         return 42
@@ -527,7 +527,7 @@ Transparent Proxy PyPy Builtins
 --------------------------------------
 
 If you are using the `--with-transparent-proxies` option 
-the `pypymagic`_ module provides the following builtins: 
+the `__pypy__`_ module provides the following builtins: 
 
 * ``tproxy(type, controller)``: returns a proxy object 
   representing the given type and forwarding all operations 
@@ -538,7 +538,7 @@ the `pypymagic`_ module provides the following builtins:
   controller for a given object.  For non-proxied objects
   ``None`` is returned.  
 
-.. _pypymagic:  
+.. ___pypy__:  
 
 .. _tputil: 
 
