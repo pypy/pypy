@@ -12,6 +12,10 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
+`D02.1 Development Tools and Website`_ is a report
+about the codespeak_ development environment and aditional tool support for the
+PyPy development process. *(2007-03-21)*
+
 `D03.1 Extension Compiler`_ is a report about
 PyPy's extension compiler and RCTypes, as well as the effort to keep up with
 CPython's changes. *(2007-03-21)*
@@ -28,10 +32,6 @@ welcome. *(2007-03-12)*
 report about the management activities within the PyPy project and
 PyPy development process. The report is still non-final, all feedback
 for it is welcome. *(2007-03-12)*
-
-`Interim D02.1 Development Tools and Website`_ is an interim version of a report
-about the codespeak_ development environment and aditional tool support for the
-PyPy development process. The report is still non-final, all feedback for it is welcome. *(2007-03-12)*
 
 `Interim D02.3 Testing Tool`_ is an interim version of a report about the
 `py.test`_ testing tool which is part of the `py-lib`_. The report is still 
@@ -121,7 +121,7 @@ project during the first year of EU funding (December 2004 - December 2005)
 .. _`D03.1 Extension Compiler`: http://codespeak.net/pypy/extradoc/eu-report/D03.1_Extension_Compiler-2007-03-21.pdf
 .. _`Interim D02.3 Testing Tool`: http://codespeak.net/pypy/extradoc/eu-report/D02.3_Testing_Framework-interim-2007-03-12.pdf
 .. _`Interim D01.2-4 Project Organization`: http://codespeak.net/pypy/extradoc/eu-report/D01.2-4_Project_Organization-interim-2007-03-12.pdf
-.. _`Interim D02.1 Development Tools and Website`: http://codespeak.net/pypy/extradoc/eu-report/D02.1_Development_Tools_and_Website-interim-2007-03-12.pdf
+.. _`D02.1 Development Tools and Website`: http://codespeak.net/pypy/extradoc/eu-report/D02.1_Development_Tools_and_Website-2007-03-21.pdf
 .. _`Draft D08.2 JIT Compiler Architecture`: http://codespeak.net/pypy/extradoc/eu-report/D08.2_JIT_Compiler_Architecture-interim-2007-01-28.pdf
 .. _`Interim D12.1 High-Level-Backends and Feature Prototypes`: http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-interim-2007-03-12.pdf
 .. _`Draft D13.1 Build and Configuration Tool`: http://codespeak.net/pypy/extradoc/eu-report/D13.1_Build-_and_Configuration_Tool-interim-2006-02-01.pdf
