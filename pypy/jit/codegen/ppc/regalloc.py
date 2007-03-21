@@ -142,6 +142,7 @@ class RegisterAllocation:
                 print "Processing instruction"
                 print insn
                 print "LRU list was:", self.lru
+                print 'located at', [self.loc_of(a) for a in self.lru]
 
             # put things into the lru
             for arg in insn.reg_args:
@@ -150,6 +151,7 @@ class RegisterAllocation:
                 self._promote(insn.result)
             if DEBUG_PRINT:
                 print "LRU list is now:", self.lru
+                print 'located at', [self.loc_of(a) for a in self.lru if a is not insn.result]
 
             # We need to allocate a register for each used
             # argument that is not already in one
