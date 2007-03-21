@@ -712,6 +712,40 @@ As a workaround you can use the Mono ilasm, which does the job
 fine. Once assembled, you can run the produced executable with the
 Microsoft Runtime.
 
+Trying the experimental .NET integration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also try the still very experimental ``clr`` module that
+enables integration with the surrounding .NET environment.  First, you
+have to tell translate.py to include the ``clr`` module::
+
+    ./translate.py --text --batch --backend=cli targetpypystandalone.py --withmod-clr
+
+Then, you can dynamically load .NET classes using the
+``clr.load_cli_class`` method. After a class has been loaded, you can
+instantiate and use it as it were a normal Python class. Special
+methods such as indexers and properties are supported using the usual
+Python syntax::
+
+    >>>> import clr
+    >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+    >>>> obj = ArrayList()
+    >>>> obj.Add(1)
+    0
+    >>>> obj.Add(2)
+    1
+    >>>> obj.Add("foo")
+    2
+    >>>> print obj[0], obj[1], obj[2]
+    1 2 foo
+    >>>> print obj.Count
+    3
+
+At the moment the only way to load a .NET class is to explicitly use
+``clr.load_cli_class``; in the future they will be automatically
+loaded when accessing .NET namespaces as they were Python modules, as
+IronPython does.
+
 
 .. _`start reading sources`: 
 
