@@ -6,11 +6,6 @@ except ImportError:
     # we might be called from _test_logic_build
     # if not, check your paths
 
-try:
-    is_interpreted()
-except:
-    def is_interpreted(): return True
-
 
 class AppTest_Logic(object):
 
@@ -700,7 +695,7 @@ class AppTest_CompSpace(object):
             raises(UnificationError, unify, d1, d3)
             unify(d1, d2)
             assert alias_of(d1, d2)
-            assert domain_of(d1) == domain_of(d2) == FiniteDomain([2, 3])
+            assert domain_of(d1) == domain_of(d2)
 
             d1 = domain([1, 2, 3], '')
             d4 = domain([3, 4], '')
@@ -726,6 +721,7 @@ class AppTest_CompSpace(object):
             return []
 
         X = newvar()
+
         newspace(in_space, X)
         wait(X)
 
@@ -774,7 +770,7 @@ class AppTest_CompSpace(object):
 
     def test_tell_ask_choose_commit(self):
         from constraint.examples import conference_scheduling
-        from cclp import stacklet, newspace, choose, switch_debug_info
+        from cclp import stacklet, newspace, dorkspace, choose
         
         def solve(spc, commitment, Sol):
             while 1:
@@ -789,18 +785,19 @@ class AppTest_CompSpace(object):
             else:
                 unify(Sol, False)
 
-        for commit_to in (1, 2):
-            s = newspace(conference_scheduling)
-            Solution = newvar()
-            stacklet(solve, s, commit_to, Solution)
+        for somespace in (dorkspace, newspace):
+            for commit_to in (1, 2):
+                s = somespace(conference_scheduling)
+                Solution = newvar()
+                stacklet(solve, s, commit_to, Solution)
 
-            # well, depending on dict key linear order, we get different
-            # results -- possibly failed spaces
-            assert len(Solution) == 10
+                # well, depending on dict key linear order, we get different
+                # results -- possibly failed spaces
+                assert len(Solution) == 10
         
 
     def test_logic_program(self):
-        from cclp import newspace, choose
+        from cclp import newspace, dorkspace, choose
         
         def soft():
             choice = choose(2)
@@ -848,16 +845,18 @@ class AppTest_CompSpace(object):
             for e in lst:
                 yield e
 
-        for commit_to in (lazily([1, 1, 1, 1, 1, 1]),
-                          lazily([1, 1, 1, 2, 1, 2])):
-            s = newspace(suit)
-            Solution = newvar()
-            solve(s, commit_to, Solution)
-            assert Solution in (False, ('beige', 'mauve', 'coral'))
+        for somespace in (dorkspace, newspace):
+            for commit_to in (lazily([1, 1, 1, 1, 1, 1]),
+                              lazily([1, 1, 1, 2, 1, 2])):
+                s = somespace(suit)
+                Solution = newvar()
+                solve(s, commit_to, Solution)
+                assert Solution in (False, ('beige', 'mauve', 'coral'))
 
     def test_queens(self):
         skip("success depends on dict order")
         from constraint.examples import queens1, queens2
+        from cclp import newspace
 
         def solve(spc, commitment, Sol):
             while 1:
@@ -897,101 +896,3 @@ class AppTest_CompSpace(object):
             assert len(sols) == 2
 
 
-
-class AppTest_CompSpaceCloning(object):
-
-    def setup_class(cls):
-        if not option.runappdirect:
-            skip('pure pypy-logic test (try with _test_logic_build)')
-        cls.space = gettestobjspace('logic')
-        
-
-    def test_cloning_queens(self):
-        from constraint.examples import queens1, queens2
-        from constraint.solver import solve
-
-        #switch_debug_info()
-        for queen in (queens1,):# queens2):
-            sols = set()
-            s = newspace(queens1, {'size':8})
-            for sol in solve(s):
-                sols.add(sol)
-                print sol
-            #assert len(sols) == 2
-
-    
-    def test_full_logic_program(self):
-
-        from constraint.solver import solve
-        
-        def soft():
-            choice = choose(2)
-            if choice == 1:
-                return 'beige'
-            else:
-                return 'coral'
-
-        def hard():
-            choice = choose(2)
-            if choice == 1:
-                return 'mauve'
-            else:
-                return 'ochre'
-
-        def contrast(C1, C2):
-            choice = choose(2)
-            if choice == 1:
-                unify(C1, soft())
-                unify(C2, hard())
-            else:
-                unify(C1, hard())
-                unify(C2, soft())
-
-        def suit():
-            Shirt, Pants, Socks = newvar(), newvar(), newvar()
-            contrast(Shirt, Pants)
-            contrast(Pants, Socks)
-            if Shirt == Socks: fail()
-            return (Shirt, Pants, Socks)
-
-        s = newspace(suit)
-        for sol in solve(s):
-            print sol
-            
-    def test_recomputing_solver(self):
-        from problem import conference_scheduling
-        from constraint import solver
-        import sys
-
-        s = newspace(conference_scheduling)
-
-        sols = set()
-        for sol in solver.solve_recomputing(s, sys.maxint):
-            sols.add(tuple(sol))
-            print sol
-        assert len(sols) == 64
-
-    def test_nd_append(self):
-        skip('write me')
-        #from CTM p.639
-        #write me correctly...
-        """
-        def append(A, B, C):
-            choice:
-                unify(A, None)
-                unify(B, C)
-            or:
-                As, Bs, X = newvar(), newvar(), newvar()
-                unify(A, (X, As))
-                unify(C, (X, Cs))
-                append(As, B, Cs)
-        """
-        from solver import solve
-        X, Y, S = newvar(), newvar(), newvar()
-        unify((X, Y), S)
-        
-        for sol in solve(lambda : append(X, Y, [1, 2, 3])):
-            assert sol in ((None, [1, 2, 3]),
-                           ([1], [2, 3]),
-                           ([1, 2], [3]),
-                           ([1, 2, 3], None))

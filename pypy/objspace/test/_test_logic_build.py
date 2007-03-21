@@ -1,4 +1,6 @@
 import inspect
+import os
+from cclp import switch_debug_info
 
 def raises(exception, call, *args):
     try:
@@ -12,8 +14,10 @@ def raises(exception, call, *args):
 class Skip(Exception): pass
 
 def skip(desc):
-    print "skipping because", desc
-    raise Skip
+    raise Skip, desc
+
+def out(obj):
+    os.write(1, str(obj))
 
 def get_test_classes():
     return [obj for name, obj in inspect.getmembers(tm)
@@ -41,14 +45,16 @@ def run_tests(tm, selected_tests):
                 continue
             try:
                 meth()
-            except Skip:
-##                 import traceback
-##                 traceback.print_exc()
-                skipped.append(name)
+            except Skip, s:
+                skipped.append((name, s.args[0]))
+                out('s')
             except Exception, e:
                 failures.append((name, meth, e))
+                out('F')
             else:
                 successes.append(name)
+                out('.')
+    out('\n')
 
     if successes:
         print "Successes :"
@@ -61,7 +67,9 @@ def run_tests(tm, selected_tests):
         print
     if skipped:
         print "Skipped"
-        print '', '\n '.join(skipped)
+        for name, cause in skipped:
+            print '', name, "skipped because", cause
+        print
 
     # replay failures with more info
     switch_debug_info()
