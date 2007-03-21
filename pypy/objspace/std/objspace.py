@@ -212,12 +212,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.setup_builtin_modules()
         # Adding transparent proxy call
         if self.config.objspace.std.withtproxy:
-            w_pypymagic = self.getbuiltinmodule("pypymagic")
+            w___pypy__ = self.getbuiltinmodule("__pypy__")
             from pypy.objspace.std.transparent import app_proxy, app_proxy_controller
         
-            self.setattr(w_pypymagic, self.wrap('tproxy'),
+            self.setattr(w___pypy__, self.wrap('tproxy'),
                           self.wrap(app_proxy))
-            self.setattr(w_pypymagic, self.wrap('get_tproxy_controller'),
+            self.setattr(w___pypy__, self.wrap('get_tproxy_controller'),
                           self.wrap(app_proxy_controller))
 
     def enable_old_style_classes_as_default_metaclass(self):

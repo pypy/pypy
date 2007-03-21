@@ -111,7 +111,7 @@ class AppTestMethodCaching(AppTestShadowTracking):
             **{"objspace.std.withmethodcachecounter": True})
 
     def test_mix_classes(self):
-        import pypymagic
+        import __pypy__
         class A(object):
             def f(self):
                 return 42
@@ -122,16 +122,16 @@ class AppTestMethodCaching(AppTestShadowTracking):
             def f(self):
                 return 44
         l = [A(), B(), C()] * 10
-        pypymagic.reset_method_cache_counter()
+        __pypy__.reset_method_cache_counter()
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
-        cache_counter = pypymagic.method_cache_counter("f")
+        cache_counter = __pypy__.method_cache_counter("f")
         assert cache_counter[0] >= 15
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
 
     def test_class_that_cannot_be_cached(self):
-        import pypymagic
+        import __pypy__
         class metatype(type):
             pass
         class A(object):
@@ -146,29 +146,29 @@ class AppTestMethodCaching(AppTestShadowTracking):
             def f(self):
                 return 44
         l = [A(), B(), C()] * 10
-        pypymagic.reset_method_cache_counter()
+        __pypy__.reset_method_cache_counter()
         for i, a in enumerate(l):
             assert a.f() == 42 + i % 3
-        cache_counter = pypymagic.method_cache_counter("f")
+        cache_counter = __pypy__.method_cache_counter("f")
         assert cache_counter[0] >= 9
         assert cache_counter[1] >= 2 # should be (18, 2)
         assert sum(cache_counter) == 20
  
     def test_change_methods(self):
-        import pypymagic
+        import __pypy__
         class A(object):
             def f(self):
                 return 42
         l = [A()] * 10
-        pypymagic.reset_method_cache_counter()
+        __pypy__.reset_method_cache_counter()
         for i, a in enumerate(l):
             assert a.f() == 42 + i
             A.f = eval("lambda self: %s" % (42 + i + 1, ))
-        cache_counter = pypymagic.method_cache_counter("f")
+        cache_counter = __pypy__.method_cache_counter("f")
         assert cache_counter == (0, 10)
 
     def test_subclasses(self):
-        import pypymagic
+        import __pypy__
         class A(object):
             def f(self):
                 return 42
@@ -178,16 +178,16 @@ class AppTestMethodCaching(AppTestShadowTracking):
         class C(A):
             pass
         l = [A(), B(), C()] * 10
-        pypymagic.reset_method_cache_counter()
+        __pypy__.reset_method_cache_counter()
         for i, a in enumerate(l):
             assert a.f() == 42 + (i % 3 == 1)
-        cache_counter = pypymagic.method_cache_counter("f")
+        cache_counter = __pypy__.method_cache_counter("f")
         assert cache_counter[0] >= 15
         assert cache_counter[1] >= 3 # should be (27, 3)
         assert sum(cache_counter) == 30
   
     def test_many_names(self):
-        import pypymagic
+        import __pypy__
         class A(object):
             foo = 5
             bar = 6
@@ -202,11 +202,11 @@ class AppTestMethodCaching(AppTestShadowTracking):
                       if not name.startswith('_')]
         names_repeated = names * 10
         result = []
-        pypymagic.reset_method_cache_counter()
+        __pypy__.reset_method_cache_counter()
         for name in names_repeated:
             result.append(getattr(a, name))
-        append_counter = pypymagic.method_cache_counter("append")
-        names_counters = [pypymagic.method_cache_counter(name)
+        append_counter = __pypy__.method_cache_counter("append")
+        names_counters = [__pypy__.method_cache_counter(name)
                           for name in names]
         assert append_counter[0] >= 5 * len(names)
         for name, count in zip(names, names_counters):

@@ -36,8 +36,8 @@ Remote side:
 """
 
 try:
-    from pypymagic import tproxy as proxy
-    from pypymagic import get_tproxy_controller
+    from __pypy__ import tproxy as proxy
+    from __pypy__ import get_tproxy_controller
 except ImportError:
     raise ImportError("Cannot work without transparent proxy functionality")
 
@@ -56,7 +56,7 @@ TODO list:
 3. Support inheritance and recursive types
 """
 
-from pypymagic import pypy_repr
+from __pypy__ import pypy_repr
 
 import types
 from marshal import dumps

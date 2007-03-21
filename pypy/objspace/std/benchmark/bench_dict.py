@@ -47,6 +47,6 @@ def bench_simple_dict(SIZE = 10000):
 
 if __name__ == '__main__':
     test_d = bench_simple_dict()
-    import pypymagic
-    print pypymagic.pypy_repr(test_d)
-    print pypymagic.pypy_repr(test_d.iterkeys())
+    import __pypy__
+    print __pypy__.pypy_repr(test_d)
+    print __pypy__.pypy_repr(test_d.iterkeys())

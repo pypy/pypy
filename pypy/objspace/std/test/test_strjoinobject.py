@@ -9,10 +9,10 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         cls.space = gettestobjspace(**{"objspace.std.withstrjoin": True})
 
     def test_basic(self):
-        import pypymagic
+        import __pypy__
         s = "Hello, " + "World!"
         assert type(s) is str
-        assert 'W_StringJoinObject' in pypymagic.pypy_repr(s)
+        assert 'W_StringJoinObject' in __pypy__.pypy_repr(s)
 
     def test_add_twice(self):
         x = "a" + ""
@@ -21,20 +21,20 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert c == "ab"
 
     def test_add(self):
-        import pypymagic
+        import __pypy__
         all = ""
         for i in range(20):
             all += str(i)
-        assert 'W_StringJoinObject' in pypymagic.pypy_repr(all)
+        assert 'W_StringJoinObject' in __pypy__.pypy_repr(all)
 
     def test_hash(self):
-        import pypymagic
+        import __pypy__
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case
         def join(s): return s[:len(s) // 2] + s[len(s) // 2:]
         s = join('a' * 101)
-        assert 'W_StringJoinObject' in pypymagic.pypy_repr(s)
+        assert 'W_StringJoinObject' in __pypy__.pypy_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
 
     def test_len(self):

@@ -7,7 +7,7 @@ is the original method operation name for
 the proxied object. 
 
 """
-from pypymagic import tproxy 
+from __pypy__ import tproxy 
 from types import MethodType
 
 _dummy = object()

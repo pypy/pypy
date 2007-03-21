@@ -6,7 +6,7 @@ class AppTest_Taint:
         cls.space = gettestobjspace('taint')
 
     def test_simple(self):
-        from pypymagic import taint, untaint, TaintError
+        from __pypy__ import taint, untaint, TaintError
         x = taint(6)
         x = x * 7
         raises(TaintError, "if x: y = 1")
@@ -16,7 +16,7 @@ class AppTest_Taint:
         raises(TaintError, "untaint(float, x)")
 
     def test_bomb(self):
-        from pypymagic import taint, untaint, TaintError
+        from __pypy__ import taint, untaint, TaintError
         x = taint(6)
         x = x / 0
         raises(TaintError, "if x: y = 1")
@@ -26,7 +26,7 @@ class AppTest_Taint:
         raises(TaintError, "untaint(float, x)")
 
     def test_taint_atomic(self):
-        from pypymagic import taint, untaint, TaintError, taint_atomic
+        from __pypy__ import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x *= 7
 
@@ -42,7 +42,7 @@ class AppTest_Taint:
         assert untaint(int, y) == 5
 
     def test_taint_atomic_exception(self):
-        from pypymagic import taint, untaint, TaintError, taint_atomic
+        from __pypy__ import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x *= 7
 
@@ -58,7 +58,7 @@ class AppTest_Taint:
         raises(TaintError, "untaint(int, y)")
 
     def test_taint_atomic_incoming_bomb(self):
-        from pypymagic import taint, untaint, TaintError, taint_atomic
+        from __pypy__ import taint, untaint, TaintError, taint_atomic
         x = taint(6)
         x /= 0
         lst = []

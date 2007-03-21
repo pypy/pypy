@@ -448,8 +448,8 @@ class AppTestErrno:
         import errno
         try:
             s = socket(AF_INET, SOCK_STREAM)
-            import pypymagic
-            print pypymagic.pypy_repr(s)
+            import __pypy__
+            print __pypy__.pypy_repr(s)
             s.accept()
         except Exception, e:
             assert len(e.args) == 2

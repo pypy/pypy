@@ -8,12 +8,12 @@ class AppTest(object):
         cls.space = gettestobjspace(**{"objspace.usemodules.select": False})
 
     def test__isfake(self):
-        from pypymagic import isfake
+        from __pypy__ import isfake
         assert not isfake(map)
         assert not isfake(object)
         assert not isfake(isfake)
 
     def test__isfake_currently_true(self):
-        from pypymagic import isfake
+        from __pypy__ import isfake
         import select
         assert isfake(select)

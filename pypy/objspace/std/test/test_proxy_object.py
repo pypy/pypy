@@ -13,7 +13,7 @@ class AppTestProxyNoDict(AppProxyBasic):
         return A
         """)
         self.w_proxy = self.space.appexec([], """():
-        from pypymagic import tproxy
+        from __pypy__ import tproxy
         return tproxy
         """)
     
@@ -106,7 +106,7 @@ class AppTestProxyObjectList(AppTestProxyObj):
         return A
         """)
         self.w_proxy = self.space.appexec([], """():
-        from pypymagic import tproxy
+        from __pypy__ import tproxy
         return tproxy
         """)
 

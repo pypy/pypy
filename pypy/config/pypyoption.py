@@ -18,7 +18,7 @@ default_modules = essential_modules.copy()
 default_modules.update(dict.fromkeys(
     ["_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "operator",
-     "recparser", "symbol", "_random", "pypymagic"]))
+     "recparser", "symbol", "_random", "__pypy__"]))
 
 
 working_modules = default_modules.copy()
@@ -189,7 +189,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    requires=[("objspace.std.withtypeversion", True)]),
         BoolOption("withmethodcachecounter",
-                   "try to cache methods and provide a counter in pypymagic. "
+                   "try to cache methods and provide a counter in __pypy__. "
                    "for testing purposes only.",
                    default=False,
                    requires=[("objspace.std.withmethodcache", True)]),

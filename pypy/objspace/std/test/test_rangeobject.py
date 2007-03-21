@@ -7,10 +7,10 @@ class AppTestRangeListObject(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withrangelist": True})
         cls.w_not_forced = cls.space.appexec([], """():
-            import pypymagic
+            import __pypy__
             def f(r):
                 return (isinstance(r, list) and
-                        "W_ListObject" not in pypymagic.pypy_repr(r))
+                        "W_ListObject" not in __pypy__.pypy_repr(r))
             return f
         """)
 

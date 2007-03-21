@@ -19,7 +19,7 @@ class AppTestProxyFunction(object):
                 return getattr(self.obj, name)(*args, **kwargs)
         def get_proxy(f):
             import types
-            from pypymagic import tproxy as proxy
+            from __pypy__ import tproxy as proxy
             return proxy(types.FunctionType, Controller(f).perform)
         return get_proxy
         """)
@@ -90,7 +90,7 @@ class AppTestProxyFunction(object):
         class AA:
             pass
         
-        from pypymagic import tproxy as proxy
+        from __pypy__ import tproxy as proxy
         a = A()
         class X:
             def __init__(self, x):

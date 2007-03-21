@@ -206,21 +206,21 @@ object is performed."""))
             self.newtuple([self.w_Exception]),
             w_dict
             )
-        w_pypymagic = self.getbuiltinmodule("pypymagic")
-        self.setattr(w_pypymagic, self.wrap('taint'),
+        w___pypy__ = self.getbuiltinmodule("__pypy__")
+        self.setattr(w___pypy__, self.wrap('taint'),
                      self.wrap(app_taint))
-        self.setattr(w_pypymagic, self.wrap('is_tainted'),
+        self.setattr(w___pypy__, self.wrap('is_tainted'),
                      self.wrap(app_is_tainted))
-        self.setattr(w_pypymagic, self.wrap('untaint'),
+        self.setattr(w___pypy__, self.wrap('untaint'),
                      self.wrap(app_untaint))
         self.w_fn_taint_atomic_function = self.wrap(app_taint_atomic_function)
-        self.setattr(w_pypymagic, self.wrap('taint_atomic'),
+        self.setattr(w___pypy__, self.wrap('taint_atomic'),
                      self.wrap(app_taint_atomic))
-        self.setattr(w_pypymagic, self.wrap('TaintError'),
+        self.setattr(w___pypy__, self.wrap('TaintError'),
                      self.w_TaintError)
-        self.setattr(w_pypymagic, self.wrap('_taint_debug'),
+        self.setattr(w___pypy__, self.wrap('_taint_debug'),
                      self.wrap(app_taint_debug))
-        self.setattr(w_pypymagic, self.wrap('_taint_look'),
+        self.setattr(w___pypy__, self.wrap('_taint_look'),
                      self.wrap(app_taint_look))
         patch_space_in_place(self, 'taint', proxymaker)
 
