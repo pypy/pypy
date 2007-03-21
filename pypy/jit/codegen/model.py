@@ -118,7 +118,12 @@ class GenBuilder(object):
         The current builder stays open.  To make the backend\'s life
         easier it must be closed before the fresh builder is used at
         all, and the first thing to call on the latter is
-        start_writing().'''
+        start_writing().
+
+        args_for_jump_gv lists the variables that need to be live
+        after the jump is taken.  The list can contain duplicates
+        (which the backend should ignore) but no constants.
+        '''
         raise NotImplementedError
 
     def jump_if_true(self, gv_condition, args_for_jump_gv):
@@ -151,7 +156,9 @@ class GenBuilder(object):
         few times.
 
         args_gv is the list of live variables.  It\'s the list of
-        variables that can be used in each switch case.
+        variables that can be used in each switch case.  The list can
+        contain duplicates (which the backend should ignore) but no
+        constants.
 
         Returns a tuple:
         - an instance of CodeGenSwitch (see below)
@@ -177,7 +184,10 @@ class GenBuilder(object):
         while. This allows the builder to be freed. The pause_writing()
         method returns the next builder, on which you will have to call
         start_writing() before you continue.
-        '''
+
+        args_gv lists the variables that need to stay live.  The list can
+        contain duplicates (which the backend should ignore) but no
+        constants.'''
         return self
 
     def start_writing(self):

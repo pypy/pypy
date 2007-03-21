@@ -414,9 +414,10 @@ def make_func_calling_pause(rgenop):
 
     gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
 
-    targetbuilder = builder.jump_if_false(gv_cond, [gv_x])
+    # this also tests duplicates in the lists of live vars
+    targetbuilder = builder.jump_if_false(gv_cond, [gv_x, gv_x])
 
-    builder = builder.pause_writing([gv_x])
+    builder = builder.pause_writing([gv_x, gv_x, gv_x])
 
     targetbuilder.start_writing()
     gv_negated = targetbuilder.genop1("int_neg", gv_x)
@@ -1490,7 +1491,8 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         args_gv = [v3, v4, v5, v8]
         label1 = builder1.enter_next_block([signed_kind]*4, args_gv)
         [v9, v10, v11, v12] = args_gv
-        flexswitch0, builder2 = builder1.flexswitch(v12, [v9, v10, v12])
+        # test duplicates in live vars while we're at it
+        flexswitch0, builder2 = builder1.flexswitch(v12, [v9, v10, v12, v10])
         v13 = builder2.genop2("int_add", v9, v10)
         v14 = builder2.genop2("int_add", v13, v12)
         builder2.finish_and_return(sigtoken, v14)
