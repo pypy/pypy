@@ -48,8 +48,6 @@ class W_AbstractConstraint(baseobjspace.Wrappable):
 W_AbstractConstraint.typedef = typedef.TypeDef(
     "W_AbstractConstraint")
 
-
-
 class _Expression(rc.Expression):
     """A constraint represented as a python expression."""
 
@@ -74,8 +72,7 @@ class _Expression(rc.Expression):
         for var, value in kwargs.items():
             dom = self.doms[var]
             assert isinstance( dom, _FiniteDomain )
-            #print '!!!!', dom.w_values, value
-            w_val = space.getitem( dom.w_values, space.wrap(value) )
+            w_val = dom.vlist[value]
             w_kwargs.content[space.wrap(var)] = w_val
         return space.is_true(space.call(self.w_filter_func,
                                         space.newlist([]),
@@ -84,7 +81,6 @@ class _Expression(rc.Expression):
 
     def __repr__(self):
         return '<%s>' % self.formula
-
 
 class _BinaryExpression(rc.BinaryExpression):
     """A constraint represented as a python expression."""
@@ -117,11 +113,11 @@ class _BinaryExpression(rc.BinaryExpression):
         w_kwargs = space.newdict()
         
         dom = self.doms[var1]
-        w_val = space.getitem( dom.w_values, space.wrap(arg1) )
+        w_val = dom.vlist[arg1]
         w_kwargs.content[space.wrap(var1)] = w_val
         
         dom = self.doms[var2]
-        w_val = space.getitem( dom.w_values, space.wrap(arg2) )
+        w_val = dom.vlist[arg2]
         w_kwargs.content[space.wrap(var2)] = w_val
         
         res = space.is_true(space.call(self.w_filter_func,
@@ -179,7 +175,6 @@ class W_AllDistinct(W_AbstractConstraint):
 W_AllDistinct.typedef = typedef.TypeDef(
     "W_AllDistinct", W_AbstractConstraint.typedef)
 
-#function bolted into the space to serve as constructor
 def make_alldistinct(space, w_variables):
     return space.wrap(W_AllDistinct(space, w_variables))
 

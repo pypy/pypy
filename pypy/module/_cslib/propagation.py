@@ -72,7 +72,7 @@ class W_Solver(baseobjspace.Wrappable):
                 domain = w_repo.repo._domains[var]
                 assert isinstance( domain, fd._FiniteDomain )
                 w_var = space.wrap(var)
-                w_value = space.getitem( domain.w_values, space.wrap(value) )
+                w_value = domain.vlist[value]
                 space.setitem( w_dict, w_var, w_value )
             sols_w.append( w_dict )
         return space.newlist(sols_w)
