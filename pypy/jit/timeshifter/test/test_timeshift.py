@@ -1637,3 +1637,28 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 78 - 12
         res = self.timeshift(f, [2, 4], backendoptimize=True)
         assert res == 56 - 90
+
+    def test_substitute_graph(self):
+
+        def h(jitstate, mbox):
+            from pypy.jit.timeshifter.rvalue import IntRedBox
+            builder = jitstate.curbuilder
+            gv_result = builder.genop1("int_neg", mbox.getgenvar(jitstate))
+            return IntRedBox(mbox.kind, gv_result)
+
+        def g(m):
+            return m + 17
+
+        def f(n):
+            return g(n)
+
+        class MyPolicy(HintAnnotatorPolicy):
+            def look_inside_graph(self, graph):
+                if graph.func is g:
+                    return h     # replaces g with a meta-call to h...
+                else:
+                    return True
+
+        res = self.timeshift(f, [3], policy=MyPolicy())
+        assert res == -3
+        self.check_insns({'int_neg': 1})

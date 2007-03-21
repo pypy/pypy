@@ -48,8 +48,13 @@ class GraphDesc(object):
             return self._cache[key]
         except KeyError:
             bk = self.bookkeeper
-            if bk.annotator.policy.look_inside_graph(self.origgraph):
-                graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
+            look = bk.annotator.policy.look_inside_graph(self.origgraph)
+            if look:
+                if callable(look):
+                    graph = self.build_metacall_graph(self.origgraph, look)
+                else:
+                    # normal case
+                    graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
                 if not self._cache:
                     bk.nonstuboriggraphcount += 1
                 if verbose:
@@ -87,7 +92,20 @@ class GraphDesc(object):
         newstartblock = Block(args_v)
         newstartblock.operations.append(
             SpaceOperation('direct_call', [v_ptr] + args_v, v_res))
-        newgraph = FunctionGraph(graph.name, newstartblock)
+        newgraph = FunctionGraph('%s_ts_stub' % (graph.name,), newstartblock)
+        newgraph.getreturnvar().concretetype = v_res.concretetype
+        newstartblock.closeblock(Link([v_res], newgraph.returnblock))
+        return newgraph
+
+    def build_metacall_graph(self, origgraph, metafunc):
+        args_v = [copyvar(None, v) for v in origgraph.getargs()]
+        v_res = copyvar(None, origgraph.getreturnvar())
+        v_metafunc = Constant(metafunc, lltype.Void)
+        newstartblock = Block(args_v)
+        newstartblock.operations.append(
+            SpaceOperation('ts_metacall', [v_metafunc] + args_v, v_res))
+        newgraph = FunctionGraph('%s_ts_metacall' % (origgraph.name,),
+                                 newstartblock)
         newgraph.getreturnvar().concretetype = v_res.concretetype
         newstartblock.closeblock(Link([v_res], newgraph.returnblock))
         return newgraph

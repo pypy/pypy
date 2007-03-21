@@ -680,6 +680,18 @@ class HintRTyper(RPythonTyper):
         [v] = hop.inputargs(hop.r_result)
         return v
 
+    def translate_op_ts_metacall(self, hop):
+        nb_args = hop.nb_args - 1
+        args_r = [self.getredrepr(originalconcretetype(hs))
+                  for hs in hop.args_s[1:]]
+        vlist = hop.inputargs(lltype.Void, *args_r)
+        metafunc = vlist[0].value
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(metafunc,
+                            [self.s_JITState] + [self.s_RedBox] * nb_args,
+                            [v_jitstate]      + vlist[1:],
+                            self.s_RedBox)
+
     def translate_op_getfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_getfield(hop)

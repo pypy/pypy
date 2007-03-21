@@ -90,6 +90,10 @@ class HintAnnotator(RPythonAnnotator):
     def consider_op_resume_point(self, hs_v, *args_hs):
         pass
 
+    def consider_op_ts_metacall(self, hs_metafunc, *args_hs):
+        RESTYPE = self.bookkeeper.current_op_concretetype()
+        return hintmodel.variableoftype(RESTYPE)
+
     def simplify(self):
         RPythonAnnotator.simplify(self, extra_passes=[])
 
