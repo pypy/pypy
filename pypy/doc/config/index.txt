@@ -39,6 +39,11 @@ standard interpreter`_, or allow the creation of objects that can
 barely be imagined in CPython, which are documented in `What PyPy can
 do for your objects`_.
 
+The following diagram gives some hints about which PyPy features work together
+with which other PyPy features:
+
+.. image:: ../image/compat-matrix.png
+
 .. _`configuration`: ../configuration.html
 .. _`objspace options`: commandline.html#overwiew-of-command-line-options-for-objspace
 .. _`object space options`: commandline.html#overwiew-of-command-line-options-for-objspace

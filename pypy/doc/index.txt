@@ -85,6 +85,9 @@ against PyPy on top of CPython.
 
 `PyPy statistics`_ is a page with various statistics about the PyPy project.
 
+`compatibility matrix`_ is a diagram that shows which of the various features
+of the PyPy interpreter work together with which other features.
+
 
 Source Code Documentation
 ===============================================
@@ -342,6 +345,7 @@ Directory                      explanation/links
 .. _Mono: http://www.mono-project.com/
 .. _`"standard library"`: rlib.html
 .. _`graph viewer`: getting-started.html#try-out-the-translator
+.. _`compatibility matrix`: image/compat-matrix.png
 
 .. include:: _ref.txt
 
