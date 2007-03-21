@@ -11,6 +11,8 @@ like: (on the left, without the new bytecodes; on the right, with them)
 """
 
 from pypy.interpreter import pyframe, function
+from pypy.rlib.objectmodel import we_are_jitted
+from pypy.interpreter.argument import Arguments
 
 
 def object_getattribute(space):
@@ -58,11 +60,20 @@ class __extend__(pyframe.PyFrame):
 
     def CALL_METHOD(f, nargs, *ignored):
         # 'nargs' is the argument count excluding the implicit 'self'
-        w_self     = f.peekvalue(nargs)
-        w_callable = f.peekvalue(nargs + 1)
-        try:
+        w_self = f.peekvalue(nargs)
+        if we_are_jitted():
+            if w_self is None:
+                args = f.popvalues(nargs)
+                f.popvalue() # w_self
+            else:
+                args = f.popvalues(nargs + 1)
+            w_callable = f.popvalue()
+            w_result = f.space.call_args(w_callable, Arguments(f.space, args))
+        else:
+            w_callable = f.peekvalue(nargs + 1)
             n = nargs + (w_self is not None)
-            w_result = f.space.call_valuestack(w_callable, n, f)
-        finally:
-            f.dropvalues(nargs + 2)
+            try:
+                w_result = f.space.call_valuestack(w_callable, n, f)
+            finally:
+                f.dropvalues(nargs + 2)
         f.pushvalue(w_result)
