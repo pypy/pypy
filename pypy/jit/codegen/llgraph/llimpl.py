@@ -393,6 +393,7 @@ def closelinktofreshblock(link, inputargs=None, otherlink=None):
         inputvars = prevblockvars
     else:
         inputvars = _inputvars(inputargs)
+        inputvars = dict.fromkeys(inputvars).keys()
     # the link's arguments are the same as the inputvars, except
     # if otherlink is specified, in which case they are copied from otherlink
     if otherlink is None:
