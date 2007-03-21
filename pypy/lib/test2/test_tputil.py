@@ -1,35 +1,59 @@
 from pypy.conftest import gettestobjspace
 
-class AppTestTPListproxy:
+class AppTest_make_proxy:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+
+    def test_errors(self):
+        from tputil import make_proxy 
+        raises(TypeError, "make_proxy(None)")
+        raises(TypeError, "make_proxy(None, None)")
+        def f(): pass 
+        raises(TypeError, "make_proxy(f)")
+        raises(TypeError, "make_proxy(f, None, None)")
+
+    def test_virtual_proxy(self):
+        from tputil import make_proxy 
+        l = []
+        tp = make_proxy(l.append, type=list)
+        x = len(tp)
+        assert len(l) == 1
+        assert l[0].opname == '__len__'
        
-    def test_listproxy_basic(self):
-        from tputil import make_instance_proxy 
+    def test_simple(self):
+        from tputil import make_proxy 
         record = []
-        def func(invocation):
-            record.append(invocation)
-            return invocation.perform()
-        l = make_instance_proxy([], func) 
+        def func(operation):
+            record.append(operation)
+            return operation.delegate()
+        l = make_proxy(func, obj=[])
         l.append(1)
         assert len(record) == 2
         i1, i2 = record 
         assert i1.opname == '__getattribute__'
         assert i2.opname == 'append' 
 
+    def test_missing_attr(self):
+        from tputil import make_proxy
+        def func(operation):
+            return operation.delegate()
+        l = make_proxy(func, obj=[]) 
+        excinfo = raises(AttributeError, "l.asdasd")
+        assert str(excinfo).find("asdasd") != -1
+
     def test_proxy_double(self): 
-        from tputil import make_instance_proxy 
+        from tputil import make_proxy
         r1 = []
         r2 = []
-        def func1(invocation):
-            r1.append(invocation)
-            return invocation.perform()
-        def func2(invocation):
-            r2.append(invocation)
-            return invocation.perform()
+        def func1(operation):
+            r1.append(operation)
+            return operation.delegate()
+        def func2(operation):
+            r2.append(operation)
+            return operation.delegate()
             
-        l = make_instance_proxy([], func1) 
-        l2 = make_instance_proxy(l, func2) 
+        l = make_proxy(func1, obj=[])
+        l2 = make_proxy(func2, obj=l)
         assert not r1 and not r2
         l2.append
         assert len(r2) == 1
@@ -42,12 +66,12 @@ class AppTestTPListproxy:
 
     def test_proxy_inplace_add(self):
         r = []
-        from tputil import make_instance_proxy 
-        def func1(invocation):
-            r.append(invocation)
-            return invocation.perform()
+        from tputil import make_proxy 
+        def func1(operation):
+            r.append(operation)
+            return operation.delegate()
 
-        l2 = make_instance_proxy([], func1)
+        l2 = make_proxy(func1, obj=[])
         l = l2
         l += [3]
         assert l is l2

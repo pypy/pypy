@@ -5,7 +5,7 @@ mechanism on top of PyPy's transparent proxies.
 
 """
 from pypymagic import tproxy, get_tproxy_controller
-from tputil import make_instance_proxy 
+from tputil import make_proxy 
 
 list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ '
                      '__delslice__ __setslice__ '
@@ -13,11 +13,11 @@ list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ '
 
 def make_plist(instance, storage): 
     def perform(invocation): 
-        res = invocation.perform()
+        res = invocation.delegate()
         if invocation.opname in list_changeops: 
             storage.dump(instance) 
         return res
-    return make_instance_proxy(instance, perform, typ=list) 
+    return make_proxy(perform, type=list, obj=instance) 
 
 def get_plist(storage):
     obj = storage.load()
