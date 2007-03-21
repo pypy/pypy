@@ -17,6 +17,9 @@ To Do Right Now
      mmh, because we have the same variable twice (this is an invariant broken)
 - CALL_LIKELY_BUILTIN uses call_valuestack => bad       
 
+- 386 regalloc bug: release(gv) might release it too early if gv is
+  used several times by the same operation :-(
+
 Longer-term
 ------------------
 
