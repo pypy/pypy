@@ -7,9 +7,9 @@ mechanism on top of PyPy's transparent proxies.
 from pypymagic import transparent_proxy, get_transparent_controller
 from tputil import make_proxy 
 
-list_changeops = ('__iadd__ __imul__ __delitem__ __setitem__ '
-                  '__delslice__ __setslice__ '
-                  'append extend insert pop remove reverse sort').split()
+list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ '
+                     '__delslice__ __setslice__ '
+                     'append extend insert pop remove reverse sort'.split())
 
 def make_plist(instance, storage): 
     def perform(invocation): 
@@ -48,4 +48,3 @@ if __name__ == '__main__':
     restoredlist = get_plist(storage) 
     print "restored list 2", restoredlist
     assert restoredlist == [1,2,3,4,5,6,7] * 2
-    
