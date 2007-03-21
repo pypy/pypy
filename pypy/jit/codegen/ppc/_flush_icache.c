@@ -4,6 +4,12 @@
 static PyObject*
 _flush_icache(PyObject *self, PyObject *args)
 {
+	long base, size;
+
+	if (!PyArg_ParseTuple(args, "ii:_flush_icache", &base, &size))
+		return NULL;
+
+	LL_flush_icache(base, size);
 	Py_INCREF(Py_None);
 	return Py_None;
 }
