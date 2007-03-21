@@ -158,9 +158,12 @@ class RegAllocator(object):
             v = self.inputvars_gv[i]
             if v in self.lifetime:   # else: input argument is not used
                 loc = self.inputlocations[i]
-                self.var2loc[v] = loc
-                self.vars_in_use[v] = self.lifetime[v]
-                self.force_loc_used(v, loc)
+                if v in self.var2loc:   # duplicate inputvars_gv, which is ok
+                    assert self.var2loc[v] == loc
+                else:
+                    self.var2loc[v] = loc
+                    self.vars_in_use[v] = self.lifetime[v]
+                    self.force_loc_used(v, loc)
                 if not we_are_translated():
                     print 'in %20s:  %s' % (loc, short(v))
 
@@ -564,7 +567,15 @@ class Place(Operation):
         allocator._created(self, loc)
         if self.x is not None:
             srcop = allocator.get_operand(self.x)
-            allocator.mc.MOV(loc, srcop)
+            try:
+                allocator.mc.MOV(loc, srcop)
+            except FailedToImplement:
+                # loc and srcop are both in the stack - need a temporary reg
+                tmpop = allocator.create_scratch_reg(srcop)
+                # loc and srcop still valid, as they are already in the stack
+                # so cannot have been spilled by create_scratch_reg()
+                allocator.mc.MOV(loc, tmpop)
+                allocator.end_clobber(tmpop)
             allocator.release(self.x)
             self.x = None     # hack to avoid that the Place keeps a lot of
                               # memory around
