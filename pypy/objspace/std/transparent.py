@@ -9,6 +9,9 @@ from pypy.objspace.std.proxyobject import *
 from pypy.objspace.std.typeobject import W_TypeObject
 
 def proxy(space, w_type, w_controller):
+    """tproxy(typ, controller) -> obj
+Return something that looks like it is of type typ. It's behaviour is
+completely controlled by the controller."""
     from pypy.interpreter.typedef import Function, PyTraceback, PyFrame, \
         PyCode, GeneratorIterator
     
@@ -39,6 +42,9 @@ def proxy(space, w_type, w_controller):
           "be wrapped (YET)" % w_type.getname(space, "?")))
 
 def proxy_controller(space, w_object):
+    """get_tproxy_controller(obj) -> controller
+If obj is really a transparent proxy, return its controller. Otherwise return
+None."""
     if isinstance(w_object, W_Transparent):
         return w_object.w_controller
     if isinstance(w_object, W_TransparentObject):

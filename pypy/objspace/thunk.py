@@ -97,6 +97,7 @@ def become(space, w_target, w_source):
 app_become = gateway.interp2app(become)
 
 def lazy(space, w_callable):
+    """Decorator to make a callable return its results wrapped in a thunk."""
     meth = Method(space, space.w_fn_thunk,
                   w_callable, space.type(w_callable))
     return space.wrap(meth)
