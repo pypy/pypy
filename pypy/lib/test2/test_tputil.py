@@ -12,6 +12,18 @@ class AppTest_make_proxy:
         raises(TypeError, "make_proxy(f)")
         raises(TypeError, "make_proxy(f, None, None)")
 
+    def test_repr(self):
+        from tputil import make_proxy 
+        l = []
+        def func(operation): 
+            l.append(repr(operation))
+            return operation.delegate()
+        tp = make_proxy(func, obj=[])
+        tp.append(3)
+        for rep in l:
+            assert isinstance(rep, str)
+            assert rep.find("list") != -1
+
     def test_virtual_proxy(self):
         from tputil import make_proxy 
         l = []
@@ -38,8 +50,7 @@ class AppTest_make_proxy:
         def func(operation):
             return operation.delegate()
         l = make_proxy(func, obj=[]) 
-        excinfo = raises(AttributeError, "l.asdasd")
-        assert str(excinfo).find("asdasd") != -1
+        raises(AttributeError, "l.asdasd")
 
     def test_proxy_double(self): 
         from tputil import make_proxy

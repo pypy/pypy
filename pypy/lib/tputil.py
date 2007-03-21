@@ -18,27 +18,27 @@ def make_proxy(controller, type=_dummy, obj=_dummy):
         'controller' callable.  The proxy will appear 
         as a completely regular instance of the given 
         type but all operations on it are send to the 
-        specified controller - which receices on 
-        ProxyOperation instance on each such call.  A non-specified 
-        type will default to type(obj) if obj is specified. 
+        specified controller - which receives on 
+        ProxyOperation instance on each such call.  
+        A non-specified type will default to type(obj) 
+        if obj is specified. 
     """
     if type is _dummy: 
         if obj is _dummy: 
-            raise TypeError("you must specify a type or an instance obj") 
+            raise TypeError("you must specify a type or an instance obj of it") 
         type = origtype(obj) 
     def perform(opname, *args, **kwargs):
-        operation = ProxyOperation(tp, type, obj, opname, args, kwargs)
+        operation = ProxyOperation(tp, obj, opname, args, kwargs)
         return controller(operation) 
     tp = tproxy(type, perform) 
     return tp 
 
 class ProxyOperation(object):
-    def __init__(self, proxyobj, type, obj, opname, args, kwargs):
+    def __init__(self, proxyobj, obj, opname, args, kwargs):
         self.proxyobj = proxyobj
         self.opname = opname 
         self.args = args
         self.kwargs = kwargs
-        self.type = type 
         if obj is not _dummy: 
             self.obj = obj 
 
@@ -64,5 +64,6 @@ class ProxyOperation(object):
         return res 
 
     def __repr__(self):
-        return "<ProxyOperation %s(*%r, **%r) %x>" %(
-                    self.opname, self.args, self.kwargs, id(self))
+        return "<ProxyOperation %s.%s(*%r, **%r) %x>" %(
+                    type(self.proxyobj).__name__, self.opname, 
+                    self.args, self.kwargs, id(self.proxyobj))
