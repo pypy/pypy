@@ -25,9 +25,15 @@ system_config = Config(system_optiondescription)
 # compile option config, used by client to parse info, by startcompile for 
 # cmdline args, defaults are taken from the optiondescription
 from pypy.config.pypyoption import get_pypy_config
-compile_config = get_pypy_config()
-compile_config.override({'translation.backend': 'c',
-                         'translation.gc': 'boehm'})
+from pypy.translator.goal.translate import translate_optiondescr
+from pypy.tool.build.compileoption import combine_config
+pypy_config = get_pypy_config()
+pypy_config.override({'translation.backend': 'c',
+                      'translation.gc': 'boehm'})
+translate_config = Config(translate_optiondescr)
+translate_config.override({'graphserve': 0})
+compile_config = combine_config(pypy_config, translate_config, 'pypy',
+                                'pypy options')
 
 # svn path and revision, etc.
 from pypy.tool.build.tooloption import tool_optiondescription
