@@ -14,7 +14,10 @@ Light Gray  0;37     White         1;37
 """
 
 
-palette = [37, 34, 35, 36, 31, 33, 32, 37]
+palette = [39, 34, 35, 36, 31, 33, 32, 37]
+
+
+colour_range = None # used for debugging
 
 
 def print_pixel(colour, value_range, invert=1):
@@ -25,17 +28,23 @@ def print_pixel(colour, value_range, invert=1):
     char = chars[idx(chars)]
     ansi_colour = palette[idx(palette)]
     ansi_print(char, ansi_colour, newline=False, flush=True)
+    #if colour_range is None:
+    #    global colour_range
+    #    colour_range = [colour, colour]
+    #else:
+    #    global colour_range
+    #    colour_range = [min(colour_range[0], colour), max(colour_range[1], colour)]
 
 
 class Mandelbrot:
-    def __init__ (self, width=100, height=28):
-        self.xpos = -0.5
-        self.ypos = 0
+    def __init__ (self, width=100, height=28, x_pos=-0.5, y_pos=0, distance=6.75):
+        self.xpos = x_pos
+        self.ypos = y_pos
         aspect_ratio = 1/3.
-        factor = 6.75 / width
+        factor = float(distance) / width # lowering the distance will zoom in
         self.xscale = factor * aspect_ratio
         self.yscale = factor
-        self.iterations = 100
+        self.iterations = 170
         self.x = width
         self.y = height
         self.z0 = complex(0, 0)
@@ -46,6 +55,9 @@ class Mandelbrot:
         ymin = self.ypos - self.yscale * self.y / 2
         self.x_range = [xmin + self.xscale * ix for ix in range(self.x)]
         self.y_range = [ymin + self.yscale * iy for iy in range(self.y)]
+        
+        #print "x", self.x_range[0], self.x_range[-1]
+        #print "y", self.y_range[0], self.y_range[-1]
 
     def reset(self):
         self.do_reset = True
@@ -63,7 +75,7 @@ class Mandelbrot:
                     z = z * z + c
                     d = abs(z)
                     if d >= 2:
-                        colour = min(int(mind / 0.001), 254) + 1
+                        colour = min(int(mind / 0.007), 254) + 1
                         break
                     else:
                         mind = min(d, mind)
@@ -77,17 +89,34 @@ class Mandelbrot:
 
 
 class Driver(object):
-    def __init__(self):
+    zoom_locations = [
+        # x, y, "distance", range
+        (0.37865401, 0.669227668, 0.04, 111 - 2),
+            ]
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.zoom_location = -1
+        self.colour_range = 256
         self.init()
 
     def init(self):
         self.width = get_terminal_width()
-        self.mandelbrot = Mandelbrot(width=self.width)
+        self.mandelbrot = Mandelbrot(width=self.width, **self.kwargs)
         self.mandelbrot.init()
         self.gen = self.mandelbrot.generate()
 
     def reset(self):
         self.mandelbrot.reset()
+
+    def jump(self, cnt):
+        try:
+            garbage = [self.gen.next() for _ in range(cnt)]
+        except StopIteration:
+            self.restart()
+
+    def restart(self):
+        print
+        self.init()
 
     def dot(self):
         x = c = 0
@@ -98,11 +127,16 @@ class Driver(object):
                 if width != self.width:
                     self.init()
         except StopIteration:
-            print
-            self.init()
+            kwargs = self.kwargs
+            self.zoom_location += 1
+            self.zoom_location %= len(self.zoom_locations)
+            loc = self.zoom_locations[self.zoom_location]
+            kwargs.update({"x_pos": loc[0], "y_pos": loc[1], "distance": loc[2]})
+            self.colour_range = loc[3]
+            return self.restart()
         if x == self.width - 1:
             print
-        print_pixel(c, 256, 1)
+        print_pixel(c, self.colour_range, 1)
 
 
 if __name__ == '__main__':
@@ -110,10 +144,14 @@ if __name__ == '__main__':
     from time import sleep
 
     d = Driver()
-    for x in xrange(4000):
-        sleep(random.random() / 300)
+    for x in xrange(10000):
+        #sleep(random.random() / 3000)
         d.dot()
-        if random.random() < 0.001:
+        if 0 and random.random() < 0.001:
             print
             d.reset()
+        if 0 and random.random() < 0.01:
+            string = "WARNING! " * 3
+            d.jump(len(string))
+            print string,
 
