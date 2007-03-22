@@ -6,6 +6,9 @@ To Do Right Now
 
 - (maybe) make W_IntObject immutable
 
+- (maybe) try to replace the bool genvar with two constant bools in
+  the two paths exiting a conditional jump
+
 Longer-term
 ------------------
 
