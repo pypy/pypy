@@ -134,7 +134,7 @@ with microthreads instead of real threads (see `Stackless features`_).
 The `EU Interim Report`_ (PDF) describes the Logic Object Space in
 more details.
 
-.. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2006-07-28.pdf
+.. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2007-02-28.pdf
 .. _`Stackless features`: stackless.html
 
 .. _taint:

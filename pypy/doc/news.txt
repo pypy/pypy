@@ -86,7 +86,7 @@ Our next big `EU report`_ about Stackless features, optimizations, and
 memory management is finished.  You can download it `as pdf`_.
 
 .. _`EU report`: index-report.html
-.. _`as pdf`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2006-12-15.pdf
+.. _`as pdf`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
 
 
 Duesseldorf sprint #2, 30th October - 5th November over
