@@ -666,7 +666,7 @@ class Builder(GenBuilder):
 
     def _close(self):
         _code_stop = self.asm.mc.tell()
-        code_size = self._code_start - _code_stop
+        code_size = _code_stop - self._code_start
         flush_icache(self._code_start, code_size)
         self.rgenop.close_mc(self.asm.mc)
         self.asm.mc = None
