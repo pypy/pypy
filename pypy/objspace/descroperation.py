@@ -150,13 +150,6 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        # first a few shortcuts for performance
-        if w_obj is space.w_False:
-            return False
-        if w_obj is space.w_True:
-            return True
-        if w_obj is space.w_None:
-            return False
         w_descr = space.lookup(w_obj, '__nonzero__')
         if w_descr is None:
             w_descr = space.lookup(w_obj, '__len__')
