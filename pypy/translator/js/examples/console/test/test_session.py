@@ -6,7 +6,7 @@ import py
 
 from py.__.green.greensock2 import allof
 from py.__.green.pipe.fd import FDInput
-from pypy.translator.js.examples.console.session import Interpreter
+from pypy.translator.js.examples.console.session import Interpreter, Killed
 
 def test_greensock_reader_timeouter():
     i = Interpreter("python", timeout=3)
@@ -43,3 +43,9 @@ def test_multiline_command():
         print val
         val = i.interact()
 
+def test_kill_timeout():
+    i = Interpreter("python", kill_timeout=1, timeout=3)
+    while not i.interact().endswith(">>> "):
+        pass
+    i.interact()
+    py.test.raises(Killed, "i.interact()")
