@@ -206,7 +206,8 @@ class ArgumentsPrepended(AbstractArguments):
     
 class ArgumentsFromValuestack(AbstractArguments):
     """
-    Collects the arguments of a fuction call as stored on a PyFrame valuestack.
+    Collects the arguments of a function call as stored on a PyFrame
+    valuestack.
 
     Only for the case of purely positional arguments, for now.
     """
