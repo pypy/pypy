@@ -10,9 +10,9 @@ the PyPy package, and used to compile PyPy on clients that participate in the
 PyPy build network. Both the build tool and this web front-end are generic, so
 they can be used for other projects too.
 
-See `build-tool-description.txt`_ for more details about the tool itself.
+See the `buildtool`_ description for more details about the tool itself.
 
-.. _`build-tool-description.txt`: build-tool-description.txt
+.. _`buildtool`: ../buildtool.html 
 
 Overview
 =========
