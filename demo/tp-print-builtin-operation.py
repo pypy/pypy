@@ -6,7 +6,6 @@ builtin objects.  It requires the "--with-transparent-proxy" option.
 """
 
 from tputil import make_proxy 
-from __pypy__ import become
 
 def make_show_proxy(instance):
     def controller(operation):
