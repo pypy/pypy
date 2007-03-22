@@ -22,6 +22,16 @@ def recorder(operation):
     return operation.delegate()
 
 l = make_proxy(recorder, obj=[])
+""",
+    """from __pypy__ import thunk
+def f():
+    print 'computing...'
+    return 6*7
+
+x = thunk(f)
+""",
+    """from __pypy__ import taint
+x = taint(6)
 """]
 
 FUNCTION_LIST = ["load_console", "console_onload", "execute_snippet"]
@@ -44,9 +54,15 @@ This is the PyPy standard interpreter translated to C with the following feature
 </ul>
 ''' % (SNIPPETS[0],),
         'pypy-c-thunk':'''The PyPy standard interpreter compiled to C using
-        the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-thunk-object-space">thunk object space</a>''',
+    the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-thunk-object-space">thunk object space</a>. Example (<a href="javascript:execute_snippet(1)">execute</a>):
+        <pre>%s</pre>
+        And try <i>x</i>.
+''' % (SNIPPETS[1],),
         'pypy-c-taint':'''The PyPy standard interpreter compiled to C using
-        the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-taint-object-space">taint object space</a>''',
+    the <a href="http://codespeak.net/pypy/dist/pypy/doc/objspace-proxies.html#the-taint-object-space">taint object space</a>. Example (<a href="javascript:execute_snippet(2)">execute</a>):
+        <pre>%s</pre>
+        Now try hard getting to value of <i>x</i> :-)
+        ''' % (SNIPPETS[2],),
         'pypy-cli':'''The PyPy standard interpreter compiled to CLI'''}
 
 class Ignore(Exception):
