@@ -9,7 +9,7 @@ def restartable_point_fork(auto=None, extra_msg=None):
         while True:
             if extra_msg:
                 print extra_msg
-            print '---> Checkpoint: cont / restart / quit / pdb ?'
+            print '---> Checkpoint: cont / restart-it-all / quit / pdb ?'
             if auto:
                 print 'auto-%s' % (auto,)
                 line = auto
@@ -31,7 +31,7 @@ def restartable_point_fork(auto=None, extra_msg=None):
                 except Exception, e:
                     print '(%s ignored)' % e.__class__.__name__
                     continue
-            if line == 'restart':
+            if line == 'restart-it-all':
                 restart_process()
 
         try:
