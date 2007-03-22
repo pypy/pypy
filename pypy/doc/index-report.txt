@@ -12,8 +12,11 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
-`D10.1 Aspect Oriented Programming in PyPy`_ is a report
-about XXX. *(2007-03-22)*
+`D10.1 Aspect-Oriented, Design-by-Contract Programming and RPython static checking`_ is a report
+about the ``aop`` module providing an Aspect Oriented Programming
+mechanism for PyPy, and how this can be leveraged to implement a
+Design-by-Contract module. It also introduces RPylint static type
+checker for RPython code. *(2007-03-22)*
 
 `D02.1 Development Tools and Website`_ is a report
 about the codespeak_ development environment and aditional tool support for the
