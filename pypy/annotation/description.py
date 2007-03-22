@@ -755,7 +755,7 @@ class MethodDesc(Desc):
                                                         desc.name,
                                                         commonflags)
                 del descs[desc]
-                descs[newdesc] = True
+                descs[newdesc] = None
 
         # --- case 1 ---
         groups = {}
