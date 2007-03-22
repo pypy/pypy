@@ -7,7 +7,7 @@ system_optiondescription = OptionDescription('system', '', [
     IntOption('maxint', 'maximum int value', default=sys.maxint),
     ChoiceOption('byteorder', 'endianness, byte order (little/big)',
                  ['little', 'big'], default=sys.byteorder),
-    ChoiceOption('os', 'operating system', ['win32', 'linux2'],
+    ChoiceOption('os', 'operating system', ['win32', 'linux2', 'darwin'],
                  default=sys.platform),
 ])
 
