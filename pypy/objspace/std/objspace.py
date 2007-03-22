@@ -549,6 +549,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_one is w_two
 
     def is_true(self, w_obj):
+        if isinstance(w_obj, W_BoolObject):
+            return w_obj.boolval
         if type(w_obj) is self.DictObjectCls:
             return w_obj.len() != 0
         else:

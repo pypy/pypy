@@ -1,13 +1,14 @@
 from pypy.module.pypyjit.interp_jit import PORTAL
+from pypy.module.pypyjit.newbool import NewBoolDesc
 from pypy.translator.translator import graphof
 from pypy.annotation.specialize import getuniquenondirectgraph
 from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 
 class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
+    novirtualcontainer = True
+    oopspec = True
 
     def __init__(self, timeshift_graphs):
-        HintAnnotatorPolicy.__init__(self, novirtualcontainer = True,
-                                           oopspec = True)
         self.timeshift_graphs = timeshift_graphs
 
     def look_inside_graph(self, graph):
@@ -112,8 +113,16 @@ def timeshift_graphs(t, portal_graph, log):
         for i in range(1, len(path)):
             seefunc(path[i-1], path[i])
 
-    def dontsee(func):
-        result_graphs[_graph(func)] = False
+    def seegraph(func, look=True):
+        graph = _graph(func)
+        if look:
+            extra = ""
+            if look != True:
+                extra = " substituted with %s" % look
+            log('including graph %s%s' % (graph, extra))
+        else:
+            log('excluding graph %s' % (graph,))
+        result_graphs[graph] = look
 
     def seebinary(opname):
         name2 = name1 = opname[:3].lower()
@@ -148,7 +157,8 @@ def timeshift_graphs(t, portal_graph, log):
         descr_impl = getattr(pypy.objspace.descroperation.DescrOperation, name)
         seepath(pypy.interpreter.pyframe.PyFrame.COMPARE_OP,
                 descr_impl,
-                getattr(pypy.objspace.std.intobject, name +'__Int_Int'))
+                getattr(pypy.objspace.std.intobject, name +'__Int_Int'),
+                pypy.objspace.std.Space.newbool)
         seepath(descr_impl,
                 pypy.objspace.std.typeobject.W_TypeObject.is_heaptype)
 
@@ -173,9 +183,15 @@ def timeshift_graphs(t, portal_graph, log):
             pypy.objspace.std.Space.gettypeobject)
     seepath(pypy.objspace.descroperation.DescrOperation.add,
             pypy.objspace.std.Space.is_w)
-    dontsee(pypy.interpreter.pyframe.PyFrame.execute_frame)
+    seegraph(pypy.interpreter.pyframe.PyFrame.execute_frame, False)
     # --------------------
-
+    # special timeshifting logic for newbool
+    seegraph(pypy.objspace.std.Space.newbool, NewBoolDesc)
+    seepath(pypy.interpreter.pyframe.PyFrame.JUMP_IF_TRUE,
+            pypy.objspace.std.Space.is_true)
+    seepath(pypy.interpreter.pyframe.PyFrame.JUMP_IF_FALSE,
+            pypy.objspace.std.Space.is_true)
+    
     return result_graphs
 
 

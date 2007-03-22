@@ -50,7 +50,7 @@ class NewBoolDesc:
         vbool.ownbox = box
         return vbool
 
-    def metafunc(self, jitstate, valuebox):
+    def metafunc(self, jitstate, spacevoid, valuebox):
         vbool = self.vboolfactory()
         vbool.valuebox = valuebox
         return vbool.ownbox
@@ -172,6 +172,7 @@ class FrozenBool(rcontainer.FrozenContainer):
 
     def exactmatch(self, vstruct, outgoingvarboxes, memo):
         # XXX code duplication with rcontainer...
+        assert isinstance(vstruct, rcontainer.VirtualContainer)
         contmemo = memo.containers
         if self in contmemo:
             ok = vstruct is contmemo[self]
