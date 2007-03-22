@@ -109,7 +109,7 @@ def test_genbooleq():
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.interpreter.baseobjspace import W_Root
 
-def newbool(flag):
+def newbool(space, flag):
     if flag:
         return W_BoolObject.w_True
     else:
@@ -128,7 +128,7 @@ class TestNewBool(TimeshiftingTests):
 
     def test_simple(self):
         def f(n):
-            w_res = newbool(n > 5)
+            w_res = newbool(None, n > 5)
             return int(w_res.boolval)
 
         res = self.timeshift(f, [7], policy=MyPolicy())
@@ -137,7 +137,7 @@ class TestNewBool(TimeshiftingTests):
 
     def test_ptreq1(self):
         def f(n):
-            w_res = newbool(n > 5)
+            w_res = newbool(None, n > 5)
             return int(w_res is W_BoolObject.w_True)
 
         res = self.timeshift(f, [3], policy=MyPolicy())
@@ -146,7 +146,7 @@ class TestNewBool(TimeshiftingTests):
 
     def test_ptreq2(self):
         def f(n):
-            w_res = newbool(n > 5)
+            w_res = newbool(None, n > 5)
             return int(w_res is W_BoolObject.w_False)
 
         res = self.timeshift(f, [3], policy=MyPolicy())
@@ -155,7 +155,7 @@ class TestNewBool(TimeshiftingTests):
 
     def test_force(self):
         def f(n):
-            w_res = newbool(n > 5)
+            w_res = newbool(None, n > 5)
             return w_res
         f.convert_result = lambda res: 'foo'
 
@@ -167,9 +167,9 @@ class TestNewBool(TimeshiftingTests):
     def test_merge_bools(self):
         def f(n):
             if n > 5:
-                w_res = newbool(n >= 10)
+                w_res = newbool(None, n >= 10)
             else:
-                w_res = newbool(n < -10)
+                w_res = newbool(None, n < -10)
             return int(w_res.boolval)
 
         res = self.timeshift(f, [-3], policy=MyPolicy())
@@ -180,7 +180,7 @@ class TestNewBool(TimeshiftingTests):
     def test_merge_with_virtual_root(self):
         def f(n):
             if n > 5:
-                w_res = newbool(n >= 10)
+                w_res = newbool(None, n >= 10)
             else:
                 w_res = W_Root()
             return w_res
@@ -194,7 +194,7 @@ class TestNewBool(TimeshiftingTests):
 
     def test_ptreq3(self):
         def f(n):
-            w1 = newbool(n >= 10)
+            w1 = newbool(None, n >= 10)
             w2 = W_Root()
             return int(w1 is w2) + int(w2 is w1)
 
@@ -206,7 +206,7 @@ class TestNewBool(TimeshiftingTests):
         w2 = W_Root()
 
         def f(n):
-            w1 = newbool(n >= 10)
+            w1 = newbool(None, n >= 10)
             return int(w1 is w2) + int(w2 is w1)
 
         res = self.timeshift(f, [123], policy=MyPolicy())

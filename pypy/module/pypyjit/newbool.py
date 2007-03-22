@@ -19,8 +19,8 @@ class NewBoolDesc:
         self.ll_False = r_w_bool.convert_const(W_BoolObject.w_False)
         self.ll_True  = r_w_bool.convert_const(W_BoolObject.w_True)
 
-        A = lltype.FixedSizeArray(lltype.typeOf(self.ll_False), 2)
-        self.ll_bools = lltype.malloc(A, immortal=True)
+        A = lltype.Array(lltype.typeOf(self.ll_False))
+        self.ll_bools = lltype.malloc(A, 2, immortal=True)
         self.ll_bools[0] = self.ll_False
         self.ll_bools[1] = self.ll_True
         self.gv_bools = RGenOp.constPrebuiltGlobal(self.ll_bools)
