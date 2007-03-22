@@ -29,9 +29,10 @@ def refresh_console(msg):
     inp_elem = dom.document.getElementById("inp")
     #inp_elem.disabled = False
     if msg[0] == "refresh":
-        inp_elem.scrollIntoView()
-        inp_elem.focus()
         data = msg[1]
+        if data:
+            inp_elem.scrollIntoView()
+        inp_elem.focus()
         exported_methods.refresh_empty(glob.sess_id, refresh_console)
         add_text(data)
     elif msg[0] == 'disconnect':
