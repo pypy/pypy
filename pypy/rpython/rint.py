@@ -208,7 +208,9 @@ def _rtype_template(hop, func, implicit_excs=[]):
         assert isinstance(repr.lowleveltype, Number)
         c_zero = inputconst(repr.lowleveltype, repr.lowleveltype._default)
 
-        if func in ('floordiv', 'floordiv_ovf'):
+        op = func.split('_', 1)[0]
+
+        if op == 'floordiv':
             # return (x/y) - (((x^y)<0)&((x%y)!=0));
             v_xor = hop.genop(prefix + 'xor', vlist,
                             resulttype=repr)
@@ -224,7 +226,7 @@ def _rtype_template(hop, func, implicit_excs=[]):
                              resulttype=repr)
             v_res = hop.genop(prefix + 'sub', [v_res, v_corr],
                               resulttype=repr)
-        elif func in ('mod', 'mod_ovf'):
+        elif op == 'mod':
             # return r + y*(((x^y)<0)&(r!=0));
             v_xor = hop.genop(prefix + 'xor', vlist,
                             resulttype=repr)

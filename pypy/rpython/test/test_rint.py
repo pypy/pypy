@@ -245,6 +245,68 @@ class BaseTestRint(BaseRtypingTest):
                 res = self.interpret(m, [x, y])
                 assert res == m(x, y)
 
+    def test_protected_div_mod(self):
+        def div_unpro(x, y):
+            return x//y
+        def div_ovf(x, y):
+            try:
+                return ovfcheck(x//y)
+            except OverflowError:
+                return 42
+        def div_zer(x, y):
+            try:
+                return x//y
+            except ZeroDivisionError:
+                return 84
+        def div_ovf_zer(x, y):
+            try:
+                return ovfcheck(x//y)
+            except OverflowError:
+                return 42
+            except ZeroDivisionError:
+                return 84
+
+        def mod_unpro(x, y):
+            return x%y
+        def mod_ovf(x, y):
+            try:
+                return ovfcheck(x%y)
+            except OverflowError:
+                return 42
+        def mod_zer(x, y):
+            try:
+                return x%y
+            except ZeroDivisionError:
+                return 84
+        def mod_ovf_zer(x, y):
+            try:
+                return ovfcheck(x%y)
+            except OverflowError:
+                return 42
+            except ZeroDivisionError:
+                return 84
+
+        for inttype in (int, r_longlong):
+
+            args = [( 5, 2), (-5, 2), ( 5,-2), (-5,-2),
+                    ( 6, 2), (-6, 2), ( 6,-2), (-6,-2),
+                    (-sys.maxint, -1), (4, 0)]
+
+            funcs = [div_unpro, div_ovf, div_zer, div_ovf_zer,
+                     mod_unpro, mod_ovf, mod_zer, mod_ovf_zer]
+
+            for func in funcs:
+                print func
+                if 'ovf' in func.func_name and inttype is r_longlong:
+                    continue # don't have many llong_*_ovf operations...
+                for x, y in args:
+                    x, y = inttype(x), inttype(y)
+                    try:
+                        res1 = ovfcheck(func(x, y))
+                    except (OverflowError, ZeroDivisionError):
+                        continue
+                    res2 = self.interpret(func, [x, y])
+                    assert res1 == res2
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass

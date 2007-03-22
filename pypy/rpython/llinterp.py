@@ -841,12 +841,26 @@ class LLFrame(object):
             checkfn = 'intmask'
         else:
             checkfn = ''
+        if operator == '//':
+            code = '''r = %(checkfn)s(x // y)
+                if x^y < 0 and x%%y != 0:
+                    r += 1
+                return r
+                '''%locals()
+        elif operator == '%':
+            code = '''r = %(checkfn)s(x %% y)
+                if x^y < 0 and x%%y != 0:
+                    r -= y
+                return r
+                '''%locals()
+        else:
+            code = 'return %(checkfn)s(x %(operator)s y)'%locals()
         exec py.code.Source("""
         def %(fn)s(self, x, y):
             assert isinstance(x, %(xtype)s)
             assert isinstance(y, %(ytype)s)
             try:
-                return %(checkfn)s(x %(operator)s y)
+                %(code)s
             except (OverflowError, ValueError, ZeroDivisionError):
                 self.make_llexception()
         """ % locals()).compile() in globals(), d
