@@ -743,6 +743,39 @@ At the moment the only way to load a .NET class is to explicitly use
 loaded when accessing .NET namespaces as they were Python modules, as
 IronPython does.
 
+Translate using the Build Tool
+++++++++++++++++++++++++++++++
+
+If you don't have access to the required resources to build PyPy yourself,
+or want to build it on a platform you don't have access to, you can use
+the 'build tool', a set of components that allow translating and
+compiling PyPy on remote servers. The build tool provides a meta server
+that manages a set of connected build servers; clients can request a build
+by specifying target options and Subversion revision and path, and the meta
+server will do its best to get the request fullfilled.
+
+The meta server is made available on codespeak.net and there should always be
+a number of build servers running. If you want to request a compilation, just
+issue::
+
+  $ ./bin/startcompile.py [options] <email>
+
+in the root of the PyPy package, replacing '[options]' with the options you
+desire and '<email>' with your email address. Type::
+
+  $ ./bin/startcompile.py --help
+
+to see a list of available options.
+
+To donate build server time (we'd be eternally thankful! ;) just run::
+
+  $ ./bin/buildserver.py
+
+without arguments. Do mind that you need a decent machine with enough RAM
+(about 2 GB is recommended) and that you need to remove older 'build-\*'
+dirs from /tmp from time to time if you decide to participate.
+
+Note: currently Windows is not supported.
 
 .. _`start reading sources`: 
 
