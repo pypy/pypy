@@ -684,21 +684,23 @@ class HintRTyper(RPythonTyper):
         # note that if the ts_metacall operation is pure and green, then
         # we don't even get there because the original graph in which
         # it is will just be green_call'ed by the caller.
-        nb_args = hop.nb_args - 2
-        def normalize(hs):
+        args_r = []
+        args_s = []
+        for hs in hop.args_s[2:]:
             T = originalconcretetype(hs)
             if T is lltype.Void:
-                return lltype.Void
+                args_r.append(lltype.Void)
+                args_s.append(annmodel.s_None)
             else:
-                return self.getredrepr(T)
-        args_r = [normalize(hs) for hs in hop.args_s[2:]]
+                args_r.append(self.getredrepr(T))
+                args_s.append(self.s_RedBox)
         vlist = hop.inputargs(lltype.Void, lltype.Void, *args_r)
         metadesccls = vlist[1].value
         metadesc = metadesccls(self)
         metafunc = metadesc.metafunc
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(metafunc,
-                            [self.s_JITState] + [self.s_RedBox] * nb_args,
+                            [self.s_JITState] + args_s,
                             [v_jitstate]      + vlist[2:],
                             self.s_RedBox)
 

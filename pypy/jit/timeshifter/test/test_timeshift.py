@@ -1660,22 +1660,32 @@ class TestTimeshift(TimeshiftingTests):
             def _freeze_(self):
                 return True
 
-            def metafunc(self, jitstate, mbox):
+            def metafunc(self, jitstate, space, mbox):
                 from pypy.jit.timeshifter.rvalue import IntRedBox
                 builder = jitstate.curbuilder
                 gv_result = builder.genop1("int_neg", mbox.getgenvar(jitstate))
                 return IntRedBox(mbox.kind, gv_result)
 
-        def g(m):
-            return m * 10
+        class Fz(object):
+            x = 10
+            
+            def _freeze_(self):
+                return True
+
+        def g(fz, m):
+            return m * fz.x
+
+        fz = Fz()
 
         def f(n, m):
-            x = g(n)
-            y = g(m)
+            x = g(fz, n)
+            y = g(fz, m)
             hint(y, concrete=True)
-            return x + g(y)
+            return x + g(fz, y)
 
         class MyPolicy(HintAnnotatorPolicy):
+            novirtualcontainer = True
+            
             def look_inside_graph(self, graph):
                 if graph.func is g:
                     return MetaG   # replaces g with a meta-call to metafunc()
