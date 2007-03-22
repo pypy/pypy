@@ -48,7 +48,8 @@ def compile(wc, compileinfo, buildpath):
                     targetpypystandalone.PyPyTarget.translateconfig = config
 
                     driver = TranslationDriver.from_targetspec(
-                                targetpypystandalone.__dict__, config=config,
+                                targetpypystandalone.__dict__,
+                                config=pypy_config,
                                 default_goal='compile')
                     driver.proceed(['compile'])
                 except Exception, e:
