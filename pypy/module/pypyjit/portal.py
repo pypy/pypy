@@ -198,8 +198,6 @@ def timeshift_graphs(t, portal_graph, log):
     seepath(pypy.interpreter.pyframe.PyFrame.CALL_FUNCTION,
             pypy.interpreter.function.Function.funccall_obj_valuestack)
 
-
-    import pdb; pdb.set_trace()
     return result_graphs
 
 
