@@ -44,6 +44,11 @@ class PyPyReSTChecker(ReSTChecker):
     
 class Directory(Directory): 
     ReSTChecker = PyPyReSTChecker 
+    def run(self):
+        l = super(Directory, self).run()
+        if 'statistic' in l:
+            l.remove('statistic')
+        return l
 
 try:
     from docutils.parsers.rst import directives, states, roles
