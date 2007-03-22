@@ -21,6 +21,7 @@ colour_range = None # used for debugging
 
 
 def print_pixel(colour, value_range, invert=1):
+    global colour_range
     chars = [".", ".", "+", "*", "%", "#"]
     idx = lambda chars: (colour+1) * (len(chars) - 1) / value_range
     if invert:
@@ -29,10 +30,8 @@ def print_pixel(colour, value_range, invert=1):
     ansi_colour = palette[idx(palette)]
     ansi_print(char, ansi_colour, newline=False, flush=True)
     #if colour_range is None:
-    #    global colour_range
     #    colour_range = [colour, colour]
     #else:
-    #    global colour_range
     #    colour_range = [min(colour_range[0], colour), max(colour_range[1], colour)]
 
 
@@ -91,7 +90,10 @@ class Mandelbrot:
 class Driver(object):
     zoom_locations = [
         # x, y, "distance", range
-        (0.37865401, 0.669227668, 0.04, 111 - 2),
+        (0.37865401, 0.669227668, 0.04, 111),
+        (-1.15, -0.28, 0.9, 94),
+        (-1.15, -0.28, 0.3, 58),
+        (-1.15, -0.28, 0.05, 26),
             ]
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -133,6 +135,9 @@ class Driver(object):
             loc = self.zoom_locations[self.zoom_location]
             kwargs.update({"x_pos": loc[0], "y_pos": loc[1], "distance": loc[2]})
             self.colour_range = loc[3]
+            #global colour_range
+            #print colour_range, loc[2]
+            #colour_range = None
             return self.restart()
         if x == self.width - 1:
             print
@@ -144,12 +149,13 @@ if __name__ == '__main__':
     from time import sleep
 
     d = Driver()
-    for x in xrange(10000):
+    for x in xrange(15000):
         #sleep(random.random() / 3000)
         d.dot()
         if 0 and random.random() < 0.001:
             print
             d.reset()
+        #    print "R",
         if 0 and random.random() < 0.01:
             string = "WARNING! " * 3
             d.jump(len(string))
