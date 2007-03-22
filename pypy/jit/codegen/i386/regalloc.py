@@ -313,7 +313,11 @@ class RegAllocator(object):
             self.registers_pinned |= loc.bitmask
 
     def release(self, v):
-        """Stop using argument 'v'.  Must be called for each used argument."""
+        """Stop using argument 'v'.  Must be called for each used argument.
+        Warning: if an operation uses v1 and v2, and if v1 could be equal to
+        v2, then calling release(v1) will also immediately release(v2)...
+        The best is to call release() on all operands at once.
+        """
         ok = self.lastuse(v) and v in self.vars_in_use
         if ok:
             self._no_longer_in_use(v)

@@ -442,7 +442,6 @@ class OpShift(Op2):
 
     def generate(self, allocator):
         op2 = allocator.get_operand(self.y)
-        holds_ecx = False
         mc = allocator.mc
         if isinstance(op2, IMM32):
             n = op2.value
@@ -461,7 +460,6 @@ class OpShift(Op2):
         else:
             if self.countmax31:
                 allocator.clobber(ecx)
-                holds_ecx = True
                 op2 = allocator.get_operand(self.y)
                 mc.MOV(ecx, imm8(31))
                 mc.CMP(op2, ecx)
@@ -469,13 +467,12 @@ class OpShift(Op2):
                 allocator.release(self.y)
             elif op2 != ecx:
                 allocator.clobber(ecx)
-                holds_ecx = True
                 op2 = allocator.get_operand(self.y)
                 mc.MOV(ecx, op2)
                 allocator.release(self.y)
             else:
-                op2 = allocator.grab_operand(self.y)
-                assert op2 == ecx
+                allocator.release(self.y)
+                allocator.clobber(ecx)    # but self.y is still in there
             count = cl
 
         srcop = allocator.get_operand(self.x)
@@ -492,10 +489,7 @@ class OpShift(Op2):
                 mc.CMP(ecx, imm8(32))
                 mc.SBB(ecx, ecx)
                 mc.AND(dstop, ecx)
-            if holds_ecx:
-                allocator.end_clobber(ecx)
-            else:
-                allocator.release(self.y)
+            allocator.end_clobber(ecx)
 
 class OpIntLShift(OpShift):
     opname = 'int_lshift', 'uint_lshift'
@@ -597,10 +591,11 @@ class JumpIf(Operation):
             op = allocator.get_operand(self.gv_condition)
             mc.CMP(op, imm(0))
             cc = Conditions['NE']
-        allocator.release(self.gv_condition)
         operands = []
         for gv in targetbuilder.inputargs_gv:
             operands.append(allocator.get_operand(gv))
+        allocator.release(self.gv_condition)
+        for gv in targetbuilder.inputargs_gv:
             allocator.release(gv)
         if self.negate:
             cc = cond_negate(cc)
@@ -627,6 +622,7 @@ class OpLabel(Operation):
         operands = []
         for v in self.args_gv:
             operands.append(allocator.get_operand(v))
+        for v in self.args_gv:
             allocator.release(v)
         lbl = self.lbl
         lbl.targetaddr = allocator.mc.tell()
@@ -655,7 +651,6 @@ class OpCall(Operation):
                 stackargs_i.append(i)
             else:
                 mc.MOV(mem(esp, WORD * i), srcop)
-                allocator.release(args_gv[i])
 
         allocator.clobber3(eax, edx, ecx)
         allocator.reserve_extra_stack(len(args_gv))
@@ -666,7 +661,6 @@ class OpCall(Operation):
                 srcop = allocator.get_operand(args_gv[i])
                 mc.MOV(tmp, srcop)
                 mc.MOV(mem(esp, WORD * i), tmp)
-                allocator.release(args_gv[i])
 
         fnop = allocator.get_operand(self.gv_fnptr)
         if isinstance(fnop, IMM32):
@@ -675,6 +669,8 @@ class OpCall(Operation):
             mc.CALL(fnop)
 
         allocator.release(self.gv_fnptr)
+        for v in args_gv:
+            allocator.release(v)
         allocator.end_clobber(eax)
         allocator.end_clobber(edx)
         allocator.end_clobber(ecx)
