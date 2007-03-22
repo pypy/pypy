@@ -21,20 +21,18 @@ Thunk Object Space Functionality
 When the thunk object space is used (choose with :config:`objspace.name`),
 the following functions are put into ``__pypy__``:
 
- - ``thunk(f, *args, **kwargs)``: returns something that behaves like the result
-   of the call ``f(*args, **kwargs)`` but the call is done lazily.
+ - ``thunk``
+ - ``is_thunk``
+ - ``become``
+ - ``lazy``
 
- - ``is_thunk(obj)``: return True if ``obj`` is a thunk that is not computed
-   yet.
-
- - ``become(obj1, obj2)``: globally replace ``obj1`` with ``obj2``.
-
- - ``lazy(callable)``: Should be used as a function decorator. The decorated
-   function behaves lazily: all calls to it return a thunk object.
+Those are all described in the `interface section of the thunk object space
+docs`_.
 
 For explanations and examples see the `thunk object space docs`_.
 
 .. _`thunk object space docs`: objspace-proxies.html#thunk
+.. _`interface section of the thunk object space docs`: objspace-proxies.html#thunk-interface
 
 Taint Object Space Functionality
 ================================
@@ -50,13 +48,13 @@ the following names are put into ``__pypy__``:
  - ``_taint_look``
  - ``TaintError``
 
-Those are all described in the `interface section`_ of the taint object space
-docs.
+Those are all described in the `interface section of the taint object space
+docs`_.
 
 For more detailed explanations and examples see the `taint object space docs`_.
 
 .. _`taint object space docs`: objspace-proxies.html#taint
-.. _`interface section`: objspace-proxies.html#taint-interface
+.. _`interface section of the taint object space docs`: objspace-proxies.html#taint-interface
 
 Transparent Proxy Functionality
 ===============================

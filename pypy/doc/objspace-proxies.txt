@@ -95,6 +95,9 @@ invoked before the result is used, if at all)::
     computing...
     [0, 900]
 
+Implementation
+--------------
+
 The implementation is short (see `pypy/objspace/thunk.py`_).  For the
 purpose of ``become()``, it adds an internal field `w_thunkalias` to
 each object, which is either None (in the common case) or a reference to
@@ -110,6 +113,25 @@ chains of objects, it special-cases ``W_Thunk``: it invokes the stored
 callable if necessary to compute the real value and then stores it in
 the ``w_thunkalias`` field of the ``W_Thunk``, which has the effect of
 replacing the latter with the real value.
+
+.. _thunk-interface:
+
+Interface
+---------
+
+In a PyPy running with (or translated with) the Thunk Object Space,
+the ``__pypy__`` module exposes the following interface:
+
+ * ``thunk(f, *args, **kwargs)``: returns something that behaves like the result
+   of the call ``f(*args, **kwargs)`` but the call is done lazily.
+
+ * ``is_thunk(obj)``: return True if ``obj`` is a thunk that is not computed
+   yet.
+
+ * ``become(obj1, obj2)``: globally replace ``obj1`` with ``obj2``.
+
+ * ``lazy(callable)``: Should be used as a function decorator. The decorated
+   function behaves lazily: all calls to it return a thunk object.
 
 
 .. _logic:
