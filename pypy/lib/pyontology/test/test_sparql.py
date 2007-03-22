@@ -251,8 +251,8 @@ def test_query3():
 
 import xmlrpclib, socket, os, signal
 
-class TestXMLRPC:
-    
+class _TestXMLRPC:
+
     def setup_class(self):
         from subprocess import Popen 
         import sys
@@ -280,3 +280,12 @@ class TestXMLRPC:
         result2 = server.sparql(qt_proto % ('?x', 'ns:test ns:p ?x .'))
         print "Result 2",result2
         assert result[0]['x'] == 123
+
+def check_have_oldstyle():
+    class A:pass
+    return object not in A.__bases__
+
+if check_have_oldstyle():
+    TestXMLRPC = _TestXMLRPC
+else:
+    py.test.skip('Please build PyPy with --oldstyle, needed by xmlrpclib')
