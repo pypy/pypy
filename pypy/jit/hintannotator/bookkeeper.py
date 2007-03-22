@@ -49,12 +49,9 @@ class GraphDesc(object):
         except KeyError:
             bk = self.bookkeeper
             look = bk.annotator.policy.look_inside_graph(self.origgraph)
-            if look:
-                if callable(look):
-                    graph = self.build_metacall_graph(self.origgraph, look)
-                else:
-                    # normal case
-                    graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
+            if look and not callable(look):
+                # normal case
+                graph = copygraph(self.origgraph, varmap=TIMESHIFTMAP)
                 if not self._cache:
                     bk.nonstuboriggraphcount += 1
                 if verbose:
@@ -62,7 +59,7 @@ class GraphDesc(object):
                 else:
                     log.dot()
             else:
-                graph = self.build_callback_graph(self.origgraph)
+                graph = self.build_callback_graph(self.origgraph, look)
                 if not self._cache:
                     bk.stuboriggraphcount += 1                
                 if verbose:
@@ -83,29 +80,24 @@ class GraphDesc(object):
             self.bookkeeper.annotator.translator.graphs.append(graph)
             return graph
 
-    def build_callback_graph(self, graph):
+    def build_callback_graph(self, graph, metadesccls=False):
         args_v = [copyvar(None, v) for v in graph.getargs()]
         v_res = copyvar(None, graph.getreturnvar())
         rtyper = self.bookkeeper.annotator.base_translator.rtyper  # fish
         fnptr = rtyper.getcallable(graph)
         v_ptr = Constant(fnptr, lltype.typeOf(fnptr))
         newstartblock = Block(args_v)
+        if metadesccls:
+            v_metadesccls = Constant(metadesccls, lltype.Void)
+            args_v = [v_metadesccls] + args_v
+            opname = 'ts_metacall'
+            suffix = 'ts_metacall'
+        else:
+            opname = 'direct_call'
+            suffix = 'ts_stub'
         newstartblock.operations.append(
-            SpaceOperation('direct_call', [v_ptr] + args_v, v_res))
-        newgraph = FunctionGraph('%s_ts_stub' % (graph.name,), newstartblock)
-        newgraph.getreturnvar().concretetype = v_res.concretetype
-        newstartblock.closeblock(Link([v_res], newgraph.returnblock))
-        return newgraph
-
-    def build_metacall_graph(self, origgraph, metadesccls):
-        args_v = [copyvar(None, v) for v in origgraph.getargs()]
-        v_res = copyvar(None, origgraph.getreturnvar())
-        v_metadesccls = Constant(metadesccls, lltype.Void)
-        newstartblock = Block(args_v)
-        newstartblock.operations.append(
-            SpaceOperation('ts_metacall', [v_metadesccls] + args_v, v_res))
-        newgraph = FunctionGraph('%s_ts_metacall' % (origgraph.name,),
-                                 newstartblock)
+            SpaceOperation(opname, [v_ptr] + args_v, v_res))
+        newgraph = FunctionGraph('%s_%s' % (graph.name, suffix), newstartblock)
         newgraph.getreturnvar().concretetype = v_res.concretetype
         newstartblock.closeblock(Link([v_res], newgraph.returnblock))
         return newgraph

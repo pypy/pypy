@@ -96,9 +96,11 @@ class HintAnnotator(RPythonAnnotator):
     def consider_op_resume_point(self, hs_v, *args_hs):
         pass
 
-    def consider_op_ts_metacall(self, hs_metafunc, *args_hs):
-        RESTYPE = self.bookkeeper.current_op_concretetype()
-        return hintmodel.variableoftype(RESTYPE)
+    def consider_op_ts_metacall(self, hs_f1, hs_metadesccls, *args_hs):
+        bookkeeper = self.bookkeeper
+        fnobj = hs_f1.const._obj
+        return hintmodel.cannot_follow_call(bookkeeper, fnobj.graph, args_hs,
+                                            lltype.typeOf(fnobj).RESULT)
 
     def simplify(self):
         RPythonAnnotator.simplify(self, extra_passes=[])

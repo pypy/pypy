@@ -681,22 +681,25 @@ class HintRTyper(RPythonTyper):
         return v
 
     def translate_op_ts_metacall(self, hop):
-        nb_args = hop.nb_args - 1
+        # note that if the ts_metacall operation is pure and green, then
+        # we don't even get there because the original graph in which
+        # it is will just be green_call'ed by the caller.
+        nb_args = hop.nb_args - 2
         def normalize(hs):
             T = originalconcretetype(hs)
             if T is lltype.Void:
                 return lltype.Void
             else:
                 return self.getredrepr(T)
-        args_r = [normalize(hs) for hs in hop.args_s[1:]]
-        vlist = hop.inputargs(lltype.Void, *args_r)
-        metadesccls = vlist[0].value
+        args_r = [normalize(hs) for hs in hop.args_s[2:]]
+        vlist = hop.inputargs(lltype.Void, lltype.Void, *args_r)
+        metadesccls = vlist[1].value
         metadesc = metadesccls(self)
         metafunc = metadesc.metafunc
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(metafunc,
                             [self.s_JITState] + [self.s_RedBox] * nb_args,
-                            [v_jitstate]      + vlist[1:],
+                            [v_jitstate]      + vlist[2:],
                             self.s_RedBox)
 
     def translate_op_getfield(self, hop):
@@ -1527,6 +1530,7 @@ class HintLowLevelOpList(LowLevelOpList):
                 args_v = [v_self] + args_v
             function = function.im_func
 
+        assert len(args_s) == len(args_v)
         graph = self.hrtyper.annhelper.getgraph(function, args_s, s_result)
         self.record_extra_call(graph) # xxx
 

@@ -83,7 +83,7 @@ class CallOpOriginFlags(OriginFlags):
     def record_dependencies(self, greenorigindependencies,
                                   callreturndependencies):
         bk = self.bookkeeper
-        if self.spaceop.opname == 'direct_call':
+        if self.spaceop.opname in ('direct_call', 'ts_metacall'):
             args = self.spaceop.args[1:]
         elif self.spaceop.opname == 'indirect_call':
             args = self.spaceop.args[1:-1]

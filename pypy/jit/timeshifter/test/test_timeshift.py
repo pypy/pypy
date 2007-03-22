@@ -1667,10 +1667,13 @@ class TestTimeshift(TimeshiftingTests):
                 return IntRedBox(mbox.kind, gv_result)
 
         def g(m):
-            return m + 17
+            return m * 10
 
-        def f(n):
-            return g(n)
+        def f(n, m):
+            x = g(n)
+            y = g(m)
+            hint(y, concrete=True)
+            return x + g(y)
 
         class MyPolicy(HintAnnotatorPolicy):
             def look_inside_graph(self, graph):
@@ -1679,6 +1682,6 @@ class TestTimeshift(TimeshiftingTests):
                 else:
                     return True
 
-        res = self.timeshift(f, [3], policy=MyPolicy())
-        assert res == -3
-        self.check_insns({'int_neg': 1})
+        res = self.timeshift(f, [3, 6], policy=MyPolicy())
+        assert res == -3 + 600
+        self.check_insns({'int_neg': 1, 'int_add': 1})

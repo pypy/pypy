@@ -881,3 +881,31 @@ def test_ignore_nonjitted_path():
             return 5
     hs = hannotate(g, [int], backendoptimize=True)
     assert hs.is_green()
+
+
+def test_substitute_graph():
+    class MetaG:
+        pass    # the details are only used by the timeshifter
+
+    def g(m):
+        return m * 17
+
+    def f(n, m):
+        x = g(n)
+        y = g(m)
+        hint(y, concrete=True)
+        return g(m)
+
+    class MyPolicy(HintAnnotatorPolicy):
+        entrypoint_returns_red = False
+        def look_inside_graph(self, graph):
+            if graph.func is g:
+                return MetaG   # replaces g with a meta-call to metafunc()
+            else:
+                return True
+
+    hs, hannotator = hannotate(f, [int, int], policy=MyPolicy(),
+                               annotator=True)
+    assert hs.is_green()
+    for graph in hannotator.translator.graphs:
+        assert 'int_mul' not in flowmodel.summary(graph)
