@@ -453,6 +453,45 @@ adhere to our implicit assertions.
 .. _`wrapping rules`:
 .. _`wrapped`:
 
+
+RPylint
+-------
+
+Pylint_ is a static code checker for Python. Recent versions
+(>=0.13.0) can be run with the ``--rpython-mode`` command line option. This option
+enables the RPython checker which will checks for some of the
+restrictions RPython adds on standard Python code (and uses a 
+more agressive type inference than the one used by default by
+pylint). The full list of checks is available in the documentation of
+Pylin. 
+
+RPylint can be a nice tool to get some information about how much work
+will be needed to convert a piece of Python code to RPython, or to get
+started with RPython.  While this tool will not guarantee that the
+code it checks will be translate successfully, it offers a few nice
+advantages over running a translation:
+
+* it is faster and therefore provides feedback faster than  ``translate.py``
+
+* it does not stop at the first problem it finds, so you can get more
+  feedback on the code in one run
+
+* the messages tend to be a bit less cryptic 
+
+* you can easily run it from emacs, vi, eclipse or visual studio.
+
+Note: if pylint is not prepackaged for your OS/distribution, or if
+only an older version is available, you will need to install from
+source. In that case, there are a couple of dependencies,
+logilab-common_ and astng_ that you will need to install too before
+you can use the tool. 
+
+.. _Pylint: http://www.logilab.org/projects/pylint
+.. _logilab-common: http://www.logilab.org/projects/common
+.. _astng: http://www.logilab.org/projects/astng
+
+
+
 Wrapping rules
 ==============
 
