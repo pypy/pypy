@@ -45,7 +45,7 @@ if __name__ == '__main__':
     storage = py.path.local("/tmp/dictpickle")
     pdict = make_persistent_proxy({}, storage) 
 
-    # the below is not aware of using the proxy 
+    # the code below is not aware of pdict being a proxy 
     assert type(pdict) is dict
     pdict['hello'] = 'world'       
     pdict['somelist'] = []

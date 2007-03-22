@@ -15,12 +15,13 @@ def make_show_proxy(instance):
     tproxy = make_proxy(controller, obj=instance)
     return tproxy
 
-mydict = make_show_proxy({}) 
+if __name__ == '__main__':
+    mydict = make_show_proxy({}) 
 
-assert type(mydict) is dict      # this looks exactly like a dict 
-mydict['hello'] = 'world'        # will print __
-mydict[42] = 23 
-assert mydict.pop('hello') == 'world'
-assert mydict.popitem() == (42,23)
+    assert type(mydict) is dict            # this looks exactly like a dict 
+    mydict['hello'] = 'world'              # will print __setitem__
+    mydict[42] = 23                        # will print __setitem__
+    assert mydict.pop('hello') == 'world'  # will print pop
+    assert mydict.popitem() == (42,23)     # will print popitem
 
 
