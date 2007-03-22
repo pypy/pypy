@@ -155,7 +155,7 @@ def op_int_mul(x, y):
 def op_int_floordiv(x, y):
     assert isinstance(x, int)
     assert isinstance(y, int)
-    r = x/y
+    r = x//y
     if x^y < 0 and x%y != 0:
         r += 1
     return r
@@ -171,7 +171,7 @@ def op_int_mod(x, y):
 def op_llong_floordiv(x, y):
     assert isinstance(x, r_longlong)
     assert isinstance(y, r_longlong)
-    r = x/y
+    r = x//y
     if x^y < 0 and x%y != 0:
         r += 1
     return r
