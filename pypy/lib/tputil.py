@@ -5,6 +5,7 @@ application level support module for transparent proxies.
 """
 from __pypy__ import tproxy 
 from types import MethodType
+import inspect
 
 _dummy = object()
 origtype = type
@@ -60,6 +61,10 @@ class ProxyOperation(object):
         return res 
 
     def __repr__(self):
-        return "<ProxyOperation %s.%s(*%r, **%r) %x>" %(
-                    type(self.proxyobj).__name__, self.opname, 
-                    self.args, self.kwargs, id(self.proxyobj))
+        args = ", ".join([repr(x) for x in self.args])
+        args = "<0x%x>, " % id(self.proxyobj) + args 
+        if self.kwargs:
+            args += ", ".join(["%s=%r" % item 
+                                  for item in self.kwargs.items()])
+        return "<ProxyOperation %s.%s(%s)>" %(
+                    type(self.proxyobj).__name__, self.opname, args)
