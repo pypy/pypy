@@ -1,4 +1,3 @@
-import autopath
 import py
 import sys
 import marshal as cpy_marshal
