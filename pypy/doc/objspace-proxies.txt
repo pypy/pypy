@@ -552,7 +552,7 @@ The `tputil.py`_ module provides:
   'controller' callable.  The proxy will appear 
   as a completely regular instance of the given 
   type but all operations on it are send to the 
-  specified controller - which receices on 
+  specified controller - which receives a
   ProxyOperation instance on each such operation.  
   A non-specified type will default to type(obj) if 
   `obj` was specified. 
