@@ -117,7 +117,7 @@ class Driver(object):
             self.restart()
 
     def restart(self):
-        print
+        print >>sys.stderr
         self.init()
 
     def dot(self):
@@ -140,7 +140,7 @@ class Driver(object):
             #colour_range = None
             return self.restart()
         if x == self.width - 1:
-            print
+            print >>sys.stderr
         print_pixel(c, self.colour_range, 1)
 
 
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     for x in xrange(15000):
         #sleep(random.random() / 3000)
         d.dot()
-        if 0 and random.random() < 0.001:
+        if 1 and random.random() < 0.001:
             print
             d.reset()
         #    print "R",
