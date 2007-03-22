@@ -4,47 +4,59 @@ This small example implements a basic orthogonal persistence
 mechanism on top of PyPy's transparent proxies. 
 
 """
-from pypymagic import tproxy, get_tproxy_controller
-from tputil import make_proxy 
+from tputil import make_proxy
 
-list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ '
+list_changeops = set('__iadd__ __imul__ __delitem__ __setitem__ __setattr__'
                      '__delslice__ __setslice__ '
                      'append extend insert pop remove reverse sort'.split())
 
-def make_plist(instance, storage): 
-    def perform(invocation): 
-        res = invocation.delegate()
-        if invocation.opname in list_changeops: 
-            storage.dump(instance) 
+dict_changeops = set('__delitem__ __setitem__  __setattr__'
+                     'clear pop popitem setdefault update'.split())
+
+def ischangeop(operation): 
+    """ return True if this operation is a changing operation 
+        on known builtins (dicts, lists). 
+    """ 
+    if isinstance(operation.obj, list):
+        changeops = list_changeops 
+    elif isinstance(operation.obj, dict):
+        changeops = dict_changeops 
+    else:
+        return False
+    return operation.opname in changeops 
+
+def make_persistent_proxy(instance, storage): 
+    def perform(operation): 
+        res = operation.delegate()
+        if ischangeop(operation):
+            print "persisting after:", operation 
+            storage.dump(instance)
+        if res is not operation.proxyobj and isinstance(res, (dict, list)):
+            res = make_proxy(perform, obj=res)
         return res
-    return make_proxy(perform, type=list, obj=instance) 
+    return make_proxy(perform, obj=instance) 
 
-def get_plist(storage):
+def load(storage):
     obj = storage.load()
-    return make_plist(obj, storage) 
+    return make_persistent_proxy(obj, storage) 
     
-def work_with_list(mylist):
-    assert isinstance(mylist, list)
-    assert mylist.__class__ is list 
-    mylist.append(4) 
-    mylist += [5,6,7]
-
 if __name__ == '__main__': 
     import py 
-    storage = py.path.local("/tmp/mystorage")
-            
-    plist = make_plist([1,2,3], storage) 
-    # here we may call into application code which can 
-    # not detect easily that it is dealing with a 
-    # transparently persistent list 
-    work_with_list(plist)
-    del plist  
+    storage = py.path.local("/tmp/dictpickle")
+    pdict = make_persistent_proxy({}, storage) 
 
-    restoredlist = get_plist(storage) 
-    print "restored list", restoredlist
-    assert restoredlist == [1,2,3,4,5,6,7]
-    restoredlist *= 2
-    del restoredlist 
-    restoredlist = get_plist(storage) 
-    print "restored list 2", restoredlist
-    assert restoredlist == [1,2,3,4,5,6,7] * 2
+    # the below is not aware of using the proxy 
+    assert type(pdict) is dict
+    pdict['hello'] = 'world'       
+    pdict['somelist'] = []
+    del pdict 
+
+    newdict = load(storage) 
+    assert newdict == {'hello': 'world', 'somelist': []}
+    l = newdict['somelist']  
+    l.append(1)              # this triggers persisting the whole dict 
+    l.extend([2,3])          # this triggers persisting the whole dict 
+    del newdict, l 
+    
+    newdict = load(storage)
+    print newdict['somelist']   # will show [1,2,3]
