@@ -466,7 +466,7 @@ Example of the core mechanism
 The following example proxies a list and will 
 return ``42`` on any add operation to the list:: 
 
-   $ py.py --with-transparent-proxy
+   $ py.py --objspace-std-withtproxy 
    >>>> from __pypy__ import tproxy
    >>>> def f(operation, *args, **kwargs):
    >>>>    if operation == '__add__':
@@ -496,37 +496,29 @@ with transparently proxying builtin instances::
        history.append(operation) 
        return operation.delegate()
 
-   >>>> l = make_proxy(recorder, obj=[]) 
+   >>>> l = make_proxy(recorder, obj=[])    
    >>>> type(l)
    list
    >>>> l.append(3)
    >>>> len(l)
    1
    >>>> len(history)
-   4
+   2
    
-So what happened (XXX):
+``make_proxy(recorder, obj=[])`` creates a transparent list
+proxy where we can delegate operations to in the ``recorder`` function. 
+Calling ``type(l)`` does not lead to any operation at all. 
 
-* We've create transparent proxy of type list with controller c.perform
-
-* When performing lst.append, it calls lst.__getattribute__ which returns
-  bound method append of l (so append did not show up)
-
-* we call len
-
-* we call type, which does not show up at all (indeed the type is the only
-  aspect of the instance that the controller cannot change).
-
-Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
+XXX Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
 does not show up at all (indeed the type is the only aspect of the instance that
 the controller cannot change).
 
 .. _`transparent proxy builtins`: 
 
-Transparent Proxy PyPy Builtins
---------------------------------------
+Transparent Proxy PyPy Builtins and support
+-----------------------------------------------------------
 
-If you are using the `--with-transparent-proxies` option 
+If you are using the `--objspace-std-withtproxy`_ option 
 the `__pypy__`_ module provides the following builtins: 
 
 * ``tproxy(type, controller)``: returns a proxy object 
@@ -538,7 +530,8 @@ the `__pypy__`_ module provides the following builtins:
   controller for a given object.  For non-proxied objects
   ``None`` is returned.  
 
-.. ___pypy__:  
+.. _`__pypy__`:  __pypy__-module.html 
+.. _`--objspace-std-withtproxy`: config/objspace.std.withtproxy.html
 
 .. _tputil: 
 
@@ -560,9 +553,13 @@ The `tputil.py`_ module provides:
   ProxyOperation instances have the following attributes: 
 
     `proxyobj`: the transparent proxy object of this operation. 
+
     `opname`: the operation name of this operation 
+
     `args`: positional arguments for this operation 
+
     `kwargs`: keyword arguments for this operation 
+
     `obj`: (if provided to `make_proxy`: an concrete object) 
 
   If you have specified a concrete object instance `obj` 
@@ -601,7 +598,7 @@ to application level code.
 Transparent proxy is implemented on top of `standard object
 space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
 `transparent.py`_. To run it you need to pass
-``--with-transparent-proxy`` option to ``py.py`` or
+`--objspace-std-withtproxy`_ option to ``py.py`` or
 ``translate.py``. It registers implementations like a
 ``W_TransparentXxx`` which usually corresponds to an
 apropriate ``W_XxxObject``, including some interpreter hacks

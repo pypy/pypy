@@ -6,4 +6,4 @@ document are in the module.
 See the `__pypy__ module documentation`_ for more details.
 
 .. _`object space proxy`: ../objspace-proxies.html
-.. _`__pypy__ module documentation`: __pypy__-module.html
+.. _`__pypy__ module documentation`: ../__pypy__-module.html
