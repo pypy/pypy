@@ -205,7 +205,7 @@ class TestServerAccessor(object):
             build.metaserver_instance = old_metaserver_instance
     """
     
-    def setup(self, method):
+    def setup_method(self, method):
         self.gw = gw = py.execnet.PopenGateway()
         conference = execnetconference.conference(gw, config.testport, True)
         self.channel = conference.remote_exec(self.initcode % (config.path,))
