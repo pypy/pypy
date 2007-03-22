@@ -2,8 +2,6 @@
 To Do Right Now
 ------------------
 
-- improve is_true()
-
 - basic docs and examples
 
 - 386 regalloc bug: release(gv) might release it too early if gv is
@@ -11,6 +9,8 @@ To Do Right Now
 
 Longer-term
 ------------------
+
+- we should be able to timeshift call_valuestack with sane results
 
 - we are promoting inside space.type, there are other uses of it    
   beyond dispatching, it may not be the best idea in general
