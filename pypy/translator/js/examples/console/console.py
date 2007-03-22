@@ -9,7 +9,7 @@ from pypy.translator.js.lib import server
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.lib.support import callback
 from pypy.translator.js import commproxy
-from pypy.translator.js.examples.console.session import Interpreter
+from pypy.translator.js.examples.console.session import Interpreter, Killed
 from py.__.green.server.httpserver import GreenHTTPServer
 
 commproxy.USE_MOCHIKIT = True
@@ -137,7 +137,7 @@ class ExportedMethods(server.ExportedMethods):
         #print "Refresh %s %d" % (to_write, int(pid))
         try:
             return ["refresh", sessions.update_session(int(pid), to_write)]
-        except (KeyError, IOError):
+        except (KeyError, IOError, Killed):
             return ["disconnected"]
         except Ignore:
             return ["ignore"]
@@ -147,7 +147,7 @@ class ExportedMethods(server.ExportedMethods):
         #print "Empty refresh %d" % int(pid)
         try:
             return ["refresh", sessions.update_session(int(pid), None)]
-        except (KeyError, IOError):
+        except (KeyError, IOError, Killed):
             return ["disconnected"]
         except Ignore:
             return ["ignore"]

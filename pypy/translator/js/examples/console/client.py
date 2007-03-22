@@ -19,6 +19,9 @@ def add_text(txt):
         data_elem.removeChild(data_elem.childNodes[0])
     data_elem.appendChild(dom.document.createTextNode(data))
 
+def create_text(txt):
+    return dom.document.createTextNode(txt)
+
 def set_text(txt):
     data_elem = dom.document.getElementById("data")
     while data_elem.childNodes:
@@ -35,8 +38,13 @@ def refresh_console(msg):
         inp_elem.focus()
         exported_methods.refresh_empty(glob.sess_id, refresh_console)
         add_text(data)
-    elif msg[0] == 'disconnect':
-        dom.document.getElementById("error").innerHTML = "ERROR! disconnected"
+    elif msg[0] == 'disconnected':
+        inp_elem.disabled = True
+        name_bar = dom.document.getElementById("namebar")
+        name_bar.style.color = "red"
+        text = name_bar.lastChild.nodeValue
+        name_bar.removeChild(name_bar.lastChild)
+        name_bar.appendChild(create_text(text + " [DEFUNCT]"))
 
 def set_sessid(data):
     sessid = int(data[0])

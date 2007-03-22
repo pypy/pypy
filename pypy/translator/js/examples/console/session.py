@@ -59,7 +59,7 @@ class Interpreter(object):
         self.pipe.stdin.close()
         # XXX: some sane way of doing wait here? (note that wait
         #      is blocking, which means it eats all our clean interface)
-        #self.pipe.wait()
+        self.pipe.wait()
 
 class InterpreterManager(object):
     pass
