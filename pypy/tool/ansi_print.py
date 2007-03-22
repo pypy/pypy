@@ -5,6 +5,7 @@ A color print.
 import sys
 
 from py.__.misc.terminal_helper import ansi_print
+from pypy.tool.ansi_mandelbrot import Driver
 
 class AnsiLog:
     wrote_dot = False # XXX sharing state with all instances
@@ -24,11 +25,13 @@ class AnsiLog:
         self.kw_to_color = self.KW_TO_COLOR.copy()
         self.kw_to_color.update(kw_to_color)
         self.file = file
+        self.mandelbrot_driver = Driver()
 
     def __call__(self, msg):
         tty = getattr(sys.stderr, 'isatty', lambda: False)()
         flush = False
         newline = True
+        fancy = True
         keywords = []
         esc = []
         for kw in msg.keywords:
@@ -48,7 +51,12 @@ class AnsiLog:
                 return
         elif 'dot' in keywords:
             if tty:
-                ansi_print(".", tuple(esc), file=self.file, newline=False, flush=flush)
+                if fancy:
+                    if not AnsiLog.wrote_dot:
+                        self.mandelbrot_driver.reset()
+                    self.mandelbrot_driver.dot()
+                else:
+                    ansi_print(".", tuple(esc), file=self.file, newline=False, flush=flush)
                 AnsiLog.wrote_dot = True
                 return
         if AnsiLog.wrote_dot:
@@ -58,7 +66,7 @@ class AnsiLog:
         for line in msg.content().splitlines():
             ansi_print("[%s] %s" %(":".join(keywords), line), esc, 
                        file=self.file, newline=newline, flush=flush)
- 
+
 ansi_log = AnsiLog()
 
 # ____________________________________________________________
