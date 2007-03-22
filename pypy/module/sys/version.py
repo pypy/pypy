@@ -7,7 +7,7 @@ import os
 CPYTHON_VERSION            = (2, 4, 1, "alpha", 42)
 CPYTHON_API_VERSION        = 1012
 
-PYPY_VERSION               = (0, 99, 0, "alpha", '?')
+PYPY_VERSION               = (1, 0, 0, "alpha", '?')
 # the last item is replaced by the svn revision ^^^
 
 SVN_URL = "$HeadURL$"[10:-28]
