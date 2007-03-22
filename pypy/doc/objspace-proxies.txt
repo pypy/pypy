@@ -370,6 +370,8 @@ conservative and carefully check all assumptions on their input
 arguments.
 
 
+.. _`taint-interface`:
+
 Interface
 ---------
 
