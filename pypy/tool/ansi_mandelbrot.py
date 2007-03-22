@@ -49,7 +49,7 @@ class Mandelbrot:
         self.z0 = complex(0, 0)
 
     def init(self):
-        self.do_reset = False
+        self.reset_lines = False
         xmin = self.xpos - self.xscale * self.x / 2
         ymin = self.ypos - self.yscale * self.y / 2
         self.x_range = [xmin + self.xscale * ix for ix in range(self.x)]
@@ -58,11 +58,12 @@ class Mandelbrot:
         #print "x", self.x_range[0], self.x_range[-1]
         #print "y", self.y_range[0], self.y_range[-1]
 
-    def reset(self):
-        self.do_reset = True
+    def reset(self, cnt):
+        self.reset_lines = cnt
 
     def generate(self):
-        for iy in range(self.y):
+        iy = 0
+        while iy < self.y:
             ix = 0
             while ix < self.x:
                 c = complex(self.x_range[ix], self.y_range[iy])
@@ -80,11 +81,16 @@ class Mandelbrot:
                         mind = min(d, mind)
 
                 yield ix, iy, colour
-                if self.do_reset: # jump to the beginning of the line
-                    self.do_reset = False
+                if self.reset_lines is not False: # jump to the beginning of the line
+                    iy += self.reset_lines
+                    do_break = bool(self.reset_lines)
+                    self.reset_lines = False
+                    if do_break:
+                        break
                     ix = 0
                 else:
                     ix += 1
+            iy += 1
 
 
 class Driver(object):
@@ -99,6 +105,7 @@ class Driver(object):
         self.kwargs = kwargs
         self.zoom_location = -1
         self.colour_range = 256
+        self.invert = True
         self.init()
 
     def init(self):
@@ -107,20 +114,25 @@ class Driver(object):
         self.mandelbrot.init()
         self.gen = self.mandelbrot.generate()
 
-    def reset(self):
-        self.mandelbrot.reset()
+    def reset(self, cnt=0):
+        """ Resets to the beginning of the line and drops cnt lines internally. """
+        self.mandelbrot.reset(cnt)
 
-    def jump(self, cnt):
-        try:
-            garbage = [self.gen.next() for _ in range(cnt)]
-        except StopIteration:
-            self.restart()
+    def catchup(self):
+        """ Fills the current line. """
+        x = 0
+        while x != self.width - 1:
+            x, y, c = self.gen.next()
+            print_pixel(c, self.colour_range, self.invert)
+        print >>sys.stderr
 
     def restart(self):
+        """ Restarts the current generator. """
         print >>sys.stderr
         self.init()
 
     def dot(self):
+        """ Emits a colourful character. """
         x = c = 0
         try:
             x, y, c = self.gen.next()
@@ -139,9 +151,9 @@ class Driver(object):
             #print colour_range, loc[2]
             #colour_range = None
             return self.restart()
+        print_pixel(c, self.colour_range, self.invert)
         if x == self.width - 1:
             print >>sys.stderr
-        print_pixel(c, self.colour_range, 1)
 
 
 if __name__ == '__main__':
@@ -150,11 +162,12 @@ if __name__ == '__main__':
 
     d = Driver()
     for x in xrange(15000):
-        #sleep(random.random() / 3000)
+        sleep(random.random() / 300)
         d.dot()
-        if 1 and random.random() < 0.001:
-            print
-            d.reset()
+        if 0 and random.random() < 0.01:
+            d.catchup()
+            print "WARNING! " * 3
+            d.reset(1)
         #    print "R",
         if 0 and random.random() < 0.01:
             string = "WARNING! " * 3
