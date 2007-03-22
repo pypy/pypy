@@ -3,10 +3,12 @@
 
 from pypy.tool.pairtype import extendabletype
 from pypy.interpreter import eval, baseobjspace, pycode
+from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 import opcode
-from pypy.rlib.objectmodel import we_are_translated, instantiate, hint
+from pypy.rlib.objectmodel import we_are_translated, instantiate
+from pypy.rlib.objectmodel import we_are_jitted, hint
 from pypy.rlib import rstack # for resume points
 
 
@@ -149,6 +151,18 @@ class PyFrame(eval.Frame):
             values_w[n] = self.popvalue()
         return values_w
 
+    def peekvalues(self, n):
+        values_w = [None] * n
+        base = self.valuestackdepth - n
+        assert base >= 0
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            values_w[n] = self.valuestack_w[base+n]
+        return values_w
+
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
         while True:
             n -= 1
@@ -197,7 +211,12 @@ class PyFrame(eval.Frame):
         self.valuestack_w[:len(items_w)] = items_w
         self.dropvaluesuntil(len(items_w))
 
-
+    def make_arguments(self, nargs):
+        if we_are_jitted():
+            return Arguments(self.space, self.peekvalues(nargs))
+        else:
+            return ArgumentsFromValuestack(self.space, self, nargs)
+            
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         from pypy.module._pickle_support import maker # helper fns

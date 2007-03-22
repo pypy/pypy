@@ -822,7 +822,7 @@ class __extend__(pyframe.PyFrame):
         
     def CALL_FUNCTION(f, oparg, *ignored):
         # XXX start of hack for performance
-        if not we_are_jitted() and (oparg >> 8) & 0xff == 0:
+        if (oparg >> 8) & 0xff == 0:
             # Only positional arguments
             nargs = oparg & 0xff
             w_function = f.peekvalue(nargs)

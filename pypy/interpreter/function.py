@@ -49,78 +49,81 @@ class Function(Wrappable):
             if w_res is not None:
                 return w_res
         elif len(args_w) == 2:
-            w_res = code.fastcall_2(self.space, self, args_w[0],
-                                           args_w[1])
+            w_res = code.fastcall_2(self.space, self, args_w[0], args_w[1])
             if w_res is not None:
                 return w_res
         elif len(args_w) == 3:
             w_res = code.fastcall_3(self.space, self, args_w[0],
-                                           args_w[1], args_w[2])
+                                    args_w[1], args_w[2])
             if w_res is not None:
                 return w_res
         elif len(args_w) == 4:
             w_res = code.fastcall_4(self.space, self, args_w[0],
-                                           args_w[1], args_w[2], args_w[3])
+                                    args_w[1], args_w[2], args_w[3])
             if w_res is not None:
                 return w_res
         return self.call_args(Arguments(self.space, list(args_w)))
 
     def funccall_valuestack(self, nargs, frame): # speed hack
+        code = self.getcode() # hook for the jit
         if nargs == 0:
-            w_res = self.code.fastcall_0(self.space, self)
+            w_res = code.fastcall_0(self.space, self)
             if w_res is not None:
                 return w_res
         elif nargs == 1:
-            w_res = self.code.fastcall_1(self.space, self, frame.peekvalue(0))
+            w_res = code.fastcall_1(self.space, self, frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 2:
-            w_res = self.code.fastcall_2(self.space, self, frame.peekvalue(1),
-                                         frame.peekvalue(0))
+            w_res = code.fastcall_2(self.space, self, frame.peekvalue(1),
+                                    frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 3:
-            w_res = self.code.fastcall_3(self.space, self, frame.peekvalue(2),
-                                         frame.peekvalue(1), frame.peekvalue(0))
+            w_res = code.fastcall_3(self.space, self, frame.peekvalue(2),
+                                    frame.peekvalue(1), frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 4:
-            w_res = self.code.fastcall_4(self.space, self, frame.peekvalue(3),
-                                         frame.peekvalue(2), frame.peekvalue(1),
-                                         frame.peekvalue(0))
+            w_res = code.fastcall_4(self.space, self, frame.peekvalue(3),
+                                    frame.peekvalue(2), frame.peekvalue(1),
+                                    frame.peekvalue(0))
             if w_res is not None:
                 return w_res
-        args = ArgumentsFromValuestack(self.space, frame, nargs)
+        args = frame.make_arguments(nargs)
         try:
             return self.call_args(args)
         finally:
-            args.frame = None
+            if isinstance(args, ArgumentsFromValuestack):
+                args.frame = None
 
     def funccall_obj_valuestack(self, w_obj, nargs, frame): # speed hack
+        code = self.getcode() # hook for the jit
         if nargs == 0:
-            w_res = self.code.fastcall_1(self.space, self, w_obj)
+            w_res = code.fastcall_1(self.space, self, w_obj)
             if w_res is not None:
                 return w_res
         elif nargs == 1:
-            w_res = self.code.fastcall_2(self.space, self, w_obj, frame.peekvalue(0))
+            w_res = code.fastcall_2(self.space, self, w_obj, frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 2:
-            w_res = self.code.fastcall_3(self.space, self, w_obj, frame.peekvalue(1),
-                                         frame.peekvalue(0))
+            w_res = code.fastcall_3(self.space, self, w_obj, frame.peekvalue(1),
+                                    frame.peekvalue(0))
             if w_res is not None:
                 return w_res
         elif nargs == 3:
-            w_res = self.code.fastcall_4(self.space, self, w_obj, frame.peekvalue(2),
-                                         frame.peekvalue(1), frame.peekvalue(0))
+            w_res = code.fastcall_4(self.space, self, w_obj, frame.peekvalue(2),
+                                    frame.peekvalue(1), frame.peekvalue(0))
             if w_res is not None:
                 return w_res
-        stkargs = ArgumentsFromValuestack(self.space, frame, nargs)
+        stkargs = frame.make_arguments(nargs)
         args = stkargs.prepend(w_obj)
         try:
             return self.call_args(args)
         finally:
-            stkargs.frame = None
+            if isinstance(stkargs, ArgumentsFromValuestack):
+                stkargs.frame = None
 
     def getdict(self):
         if self.w_func_dict is None:

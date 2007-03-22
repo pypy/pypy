@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
+from pypy.rlib.objectmodel import hint
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
 import os, sys
@@ -619,6 +620,7 @@ class ObjSpace(object):
     def call_valuestack(self, w_func, nargs, frame):
         # XXX start of hack for performance
         from pypy.interpreter.function import Function, Method
+        hint(w_func.__class__, promote=True)
         if isinstance(w_func, Method):
             w_inst = w_func.w_instance
             if w_inst is not None:
@@ -634,11 +636,12 @@ class ObjSpace(object):
             return w_func.funccall_valuestack(nargs, frame)
         # XXX end of hack for performance
 
-        args = ArgumentsFromValuestack(self, frame, nargs)
+        args = frame.make_arguments(nargs)
         try:
             return self.call_args(w_func, args)
         finally:
-            args.frame = None
+            if isinstance(args, ArgumentsFromValuestack):
+                args.frame = None
 
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))

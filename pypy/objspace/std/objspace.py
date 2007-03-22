@@ -110,16 +110,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                          f.space.wrap(message))
                 nargs = oparg & 0xff
                 w_function = w_value
-                if we_are_jitted():
-                    args = Arguments(f.space, f.popvalues(nargs))
-                    w_result = f.space.call_args(w_function, args)
-                else:
-                    try:
-                        w_result = f.space.call_valuestack(w_function, nargs, f)
-                        # XXX XXX fix the problem of resume points!
-                        #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-                    finally:
-                        f.dropvalues(nargs)
+                try:
+                    w_result = f.space.call_valuestack(w_function, nargs, f)
+                    # XXX XXX fix the problem of resume points!
+                    #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
+                finally:
+                    f.dropvalues(nargs)
                 f.pushvalue(w_result)
 
         self.FrameClass = StdObjSpaceFrame
