@@ -357,6 +357,9 @@ class InstanceRepr(AbstractInstanceRepr):
                 adtmeths = {}
             if hints is None:
                 hints = {}
+            if '_immutable_' in self.classdef.classdesc.classdict:
+                hints = hints.copy()
+                hints['immutable'] = True
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    hints=hints,

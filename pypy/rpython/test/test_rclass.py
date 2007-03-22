@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+from pypy.objspace.flow.model import summary
 
 class EmptyBase(object):
     pass
@@ -651,6 +652,21 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
         assert destrptra is not None
         assert destrptrb is not None
+
+    def test_immutable(self):
+        class I(object):
+            _immutable_ = True
+            
+            def __init__(self, v):
+                self.v = v
+
+        i = I(3)
+        def f():
+            return i.v
+
+        t, typer, graph = self.gengraph(f, [], backendopt=True)
+        assert summary(graph) == {}
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 
