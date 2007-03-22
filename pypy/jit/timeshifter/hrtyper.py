@@ -682,8 +682,13 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_ts_metacall(self, hop):
         nb_args = hop.nb_args - 1
-        args_r = [self.getredrepr(originalconcretetype(hs))
-                  for hs in hop.args_s[1:]]
+        def normalize(hs):
+            T = originalconcretetype(hs)
+            if T is lltype.Void:
+                return lltype.Void
+            else:
+                return self.getredrepr(T)
+        args_r = [normalize(hs) for hs in hop.args_s[1:]]
         vlist = hop.inputargs(lltype.Void, *args_r)
         metadesccls = vlist[0].value
         metadesc = metadesccls(self)
