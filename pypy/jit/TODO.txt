@@ -4,8 +4,7 @@ To Do Right Now
 
 - basic docs and examples
 
-- 386 regalloc bug: release(gv) might release it too early if gv is
-  used several times by the same operation :-(
+- (maybe) make W_IntObject immutable
 
 Longer-term
 ------------------
