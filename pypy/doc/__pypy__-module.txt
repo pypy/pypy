@@ -36,6 +36,38 @@ For explanations and examples see the `thunk object space docs`_.
 
 .. _`thunk object space docs`: objspace-proxies.html#thunk
 
+Tain Object Space Functionality
+===============================
+
+When the taint object space is used (choose with :config:`objspace.name`),
+the following objects are put into ``__pypy__``:
+
+ - ``taint(obj)``: Return a tainted version of the argument.
+
+ - ``is_tainted(obj)``: Return whether the argument is tainted.
+
+ - ``untaint(expectedtype, tainted_obj)``: Untaint untainted_obj and return it.
+   If the result is not of expectedtype, raise a type error.
+
+ - ``taint_atomic(callable)``: decorator to make a callable "taint-atomic": if
+   the function is called with tainted arguments, those are untainted. The
+   result of the function is tainted again.  All exceptions that the callable
+   raises are turned into taint bombs.
+
+ - ``_taint_debug(debug_level)``: Set the debug level. If the debug level is
+   greater than 0, the creation of taint bombs will print debug information. For
+   debugging purposes only!
+
+ - ``_taint_look(obj)``: Print some info about the taintedness of an object. For
+   debugging purposes only!
+
+ - ``TaintError``: Exception that is raised when an operation revealing
+   information on a tainted object is performed.
+
+For explanations and examples see the `taint object space docs`_.
+
+.. _`taint object space docs`: objspace-proxies.html#taint
+
 Transparent Proxy Functionality
 ===============================
 
@@ -52,8 +84,8 @@ the following functions are put into ``__pypy__``:
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 
 
-Functionality available on py.py
-================================
+Functionality available on py.py (not after translation)
+========================================================
 
  - ``isfake(obj)``: returns True if ``obj`` is faked.
 
@@ -61,4 +93,3 @@ Functionality available on py.py
 
 
 
-XXX missing taint obj space docs
