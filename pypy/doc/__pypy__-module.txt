@@ -36,7 +36,7 @@ For explanations and examples see the `thunk object space docs`_.
 
 .. _`thunk object space docs`: objspace-proxies.html#thunk
 
-Tain Object Space Functionality
+Taint Object Space Functionality
 ===============================
 
 When the taint object space is used (choose with :config:`objspace.name`),
