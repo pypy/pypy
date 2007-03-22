@@ -65,7 +65,7 @@ class GraphDesc(object):
                 if verbose:
                     log.stub(str(graph))
                 else:
-                    log.dot()
+                    log.stub.dot()
             graph.tag = 'timeshifted'
             try:
                 etrafo = bk.annotator.exceptiontransformer

@@ -48,7 +48,7 @@ class AnsiLog:
                 return
         elif 'dot' in keywords:
             if tty:
-                sys.stderr.write(".")
+                ansi_print(".", tuple(esc), file=self.file, newline=False, flush=flush)
                 AnsiLog.wrote_dot = True
                 return
         if AnsiLog.wrote_dot:
