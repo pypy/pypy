@@ -55,6 +55,9 @@ class RedBox(object):
         assert not self.is_constant()
         self.genvar = newgenvar
 
+    def learn_boolvalue(self, jitstate, boolval):
+        return True
+
     def enter_block(self, incoming, memo):
         memo = memo.boxes
         if not self.is_constant() and self not in memo:
@@ -128,6 +131,13 @@ def ll_is_constant(box):
 
 class IntRedBox(RedBox):
     "A red box that contains a constant integer-like value."
+
+    def learn_boolvalue(self, jitstate, boolval):
+        if self.is_constant():
+            return self.genvar.revealconst(lltype.Bool) == boolval
+        else:
+            self.setgenvar(ll_gv_fromvalue(jitstate, boolval))
+            return True
 
     def copy(self, memo):
         memo = memo.boxes
@@ -207,6 +217,8 @@ class PtrRedBox(RedBox):
                 gv_null = jitstate.curbuilder.rgenop.genzeroconst(self.kind)
                 self.setgenvar_hint(gv_null, known_nonzero=False)
         return ok
+
+    learn_boolvalue = learn_nonzeroness
 
     def __repr__(self):
         if not self.genvar and self.content is not None:

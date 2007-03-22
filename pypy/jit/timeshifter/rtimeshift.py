@@ -380,7 +380,7 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
         return exitgvar.revealconst(lltype.Bool)
     else:
         return split_nonconstantcase(jitstate, exitgvar, resumepoint,
-                                     None, False, list(greens_gv))
+                                     switchredbox, False, list(greens_gv))
 
 def split_ptr_nonzero(jitstate, switchredbox, resumepoint,
                       ptrbox, reverse, *greens_gv):
@@ -392,14 +392,13 @@ def split_ptr_nonzero(jitstate, switchredbox, resumepoint,
                                      ptrbox, reverse, list(greens_gv))
 
 def split_nonconstantcase(jitstate, exitgvar, resumepoint,
-                          ptrbox, reverse, greens_gv, ll_evalue=NULL_OBJECT):
+                          condbox, reverse, greens_gv, ll_evalue=NULL_OBJECT):
     resuming = jitstate.get_resuming()
     if resuming is not None and resuming.mergesleft == 0:
         node = resuming.path.pop()
         assert isinstance(node, PromotionPathSplit)
-        if ptrbox is not None:
-            ok = ptrbox.learn_nonzeroness(jitstate,
-                                          nonzeroness = node.answer ^ reverse)
+        if condbox is not None:
+            ok = condbox.learn_boolvalue(jitstate, node.answer ^ reverse)
             assert ok
         return node.answer
     later_gv = jitstate.get_locals_gv() # alive gvs on the later path
@@ -409,15 +408,15 @@ def split_nonconstantcase(jitstate, exitgvar, resumepoint,
         later_builder = jitstate.curbuilder.jump_if_false(exitgvar, later_gv)
     memo = rvalue.copy_memo()
     jitstate2 = jitstate.split(later_builder, resumepoint, greens_gv, memo)
-    if ptrbox is not None:
-        ok = ptrbox.learn_nonzeroness(jitstate, nonzeroness = True ^ reverse)
+    if condbox is not None:
+        ok = condbox.learn_boolvalue(jitstate, True ^ reverse)
         assert ok
         try:
-            copybox = memo.boxes[ptrbox]
+            copybox = memo.boxes[condbox]
         except KeyError:
             pass
         else:
-            ok = copybox.learn_nonzeroness(jitstate2, nonzeroness = reverse)
+            ok = copybox.learn_boolvalue(jitstate2, reverse)
             assert ok
     if ll_evalue:
         jitstate2.residual_ll_exception(ll_evalue)
