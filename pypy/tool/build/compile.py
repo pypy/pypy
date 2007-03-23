@@ -173,13 +173,14 @@ def main(config, request, foreground=False):
     print 'going to start compile'
     ret = msa.start_compile(request)
     reqid = ret['id']
-    if ret['path']:
+    path = ret['path']
+    message = ret['message']
+    if path:
         print ('a suitable result is already available, you can '
-               'find it at "%s" on %s' % (ret['path'],
-                                          config.server))
+               'find it at "%s" on %s' % (path, config.server))
     else:
-        print ret['message']
-        print 'the id of this build request is: %s' % (ret['id'],)
+        print message
+        print 'the id of this build request is: %s' % (reqid,)
         inprogress = True
 
     if foreground and inprogress:
@@ -195,12 +196,12 @@ def main(config, request, foreground=False):
             print 'error:', error
             return (False, error)
         else:
-            zipfile = py.path.local('pypy-%s.zip' % (retid,))
+            zipfile = py.path.local('pypy-%s.zip' % (reqid,))
             msa.save_zip(zipfile)
             print 'done, the result can be found in %s' % (zipfile,)
-            return (True, ret['message'])
-    elif not foreground and inprogress and not ret['path']:
+            return (True, message)
+    elif not foreground and inprogress and not path:
         print 'you will be mailed once it\'s ready'
     elif foreground:
-        return (False, ret['message'])
+        return (False, message)
 

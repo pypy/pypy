@@ -3,6 +3,7 @@ import thread
 from zipfile import ZipFile, ZIP_DEFLATED
 from cStringIO import StringIO
 from pypy.tool.build import build
+from py.execnet import SshGateway, PopenGateway
 
 class BuildServer(object):
     def __init__(self, channel, sysinfo, hostname, testing_sleeptime=False):
@@ -150,10 +151,7 @@ def tempdir(parent=None):
             return parent.ensure(dirname, dir=True)
         i += 1
 
-def main(config, path, compilefunc):
-    """ build server bootstrapping and main loop """
-    from py.execnet import SshGateway, PopenGateway
-
+def connect(config):
     if config.server in ['localhost', '127.0.0.1']:
         gw = PopenGateway()
     else:
@@ -166,12 +164,22 @@ def main(config, path, compilefunc):
                    config.system_config,
                    path=config.path,
                    port=config.port)
+    return gw, channel
+
+def main(config, path, compilefunc):
+    """ build server bootstrapping and main loop """
+    gw, channel = connect(config)
 
     print 'connected'
     try:
         while 1:
             # receive compile requests
-            request = channel.receive()
+            try:
+                request = channel.receive()
+            except EOFError:
+                gw.exit()
+                gw, channel = connect(config)
+
             if not isinstance(request, str):
                 raise ValueError(
                     'received wrong unexpected data of type %s' % (
