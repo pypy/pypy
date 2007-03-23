@@ -70,7 +70,8 @@ def load_class_or_namespace(name):
 def query_description(name):
     log.query('Loading description for %s' % name)
     arglist = SDK.runtime() + [Query.get(), name]
-    query = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    query = subprocess.Popen(arglist, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             universal_newlines=True)
     stdout, stderr = query.communicate()
     retval = query.wait()
     if retval == 0:
