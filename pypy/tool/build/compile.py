@@ -66,21 +66,19 @@ class ServerAccessor(object):
             self._connect()
             self.channel.send(data)
 
-    def _receive_twice(self):
-        try:
-            ret = self.channel.receive()
-        except EOFError, e:
-            print 'error during receive: %s, retrying' % (e,)
-            self.close()
-            self._connect()
-            ret = self.channel.receive()
+    def _receive(self):
+        ret = self.channel.receive()
         if isinstance(ret, Exception):
             raise ret.__class__, ret # tb?
         return ret
 
     def _try_twice(self, command, data):
-        self._send_twice((command, data))
-        return self._receive_twice()
+        try:
+            self._send_twice((command, data))
+            return self._receive()
+        except EOFError:
+            self._send_twice((command, data))
+            return self._receive()
 
     def start_compile(self, request):
         req = request.serialize()
@@ -94,6 +92,8 @@ class ServerAccessor(object):
 
     def save_zip(self, path):
         self._send_twice(('zip', self.requestid))
+        # XXX let's not try to fiddle about with re-sending the zip on
+        # failures, people can always go to the web page
         fp = path.open('w')
         try:
             while 1:
@@ -138,7 +138,7 @@ def parse_options(config, args=None):
                          help='block until build is available and download it '
                               'immediately')
 
-    (options, args) = optparser.parse_args()
+    (options, args) = optparser.parse_args(args)
 
     if not args or len(args) != 1:
         optparser.error('please provide an email address')
@@ -172,6 +172,7 @@ def main(config, request, foreground=False):
     msa = ServerAccessor(config)
     print 'going to start compile'
     ret = msa.start_compile(request)
+    reqid = ret['id']
     if ret['path']:
         print ('a suitable result is already available, you can '
                'find it at "%s" on %s' % (ret['path'],
@@ -192,10 +193,14 @@ def main(config, request, foreground=False):
             time.sleep(POLLTIME)
         if error and error != 'None':
             print 'error:', error
+            return (False, error)
         else:
-            zipfile = py.path.local('data.zip')
+            zipfile = py.path.local('pypy-%s.zip' % (retid,))
             msa.save_zip(zipfile)
-            print 'done, the result can be found in "data.zip"'
-    elif inprogress:
+            print 'done, the result can be found in %s' % (zipfile,)
+            return (True, ret['message'])
+    elif not foreground and inprogress and not ret['path']:
         print 'you will be mailed once it\'s ready'
+    elif foreground:
+        return (False, ret['message'])
 

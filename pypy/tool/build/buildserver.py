@@ -53,8 +53,6 @@ class BuildServer(object):
                     # end of data is marked by sending a None
                     if chunk is None:
                         break
-                    else:
-                        self.channel.send(None)
                     gotdata = True
                     fp.write(chunk)
             finally:
@@ -120,7 +118,6 @@ class ChannelWrapper(object):
     def write(self, data):
         self.loc += len(data)
         self.channel.send(data)
-        self.channel.receive() # to make sure stuff is only sent when required
 
     def close(self):
         self.channel.send(None)
