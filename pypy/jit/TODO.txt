@@ -4,13 +4,11 @@ To Do Right Now
 
 - basic docs and examples
 
-- (maybe) make W_IntObject immutable
-
-- (maybe) try to replace the bool genvar with two constant bools in
-  the two paths exiting a conditional jump
-
 Longer-term
 ------------------
+
+- make W_IntObject immutable (done, but gives bad code with
+  unexpected merges - try to understand why)
 
 - we should be able to timeshift call_valuestack with sane results
 
