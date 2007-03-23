@@ -53,14 +53,14 @@ class MetaServer(object):
         self._queued = [] # no builders available
         self._waiting = [] # compilation already in progress for someone else
 
+        self._requestlock = thread.allocate_lock()
         self._queuelock = thread.allocate_lock()
         self._namelock = thread.allocate_lock()
 
     def register(self, builder):
         """ register a builder (instance) """
         self._builders.append(builder)
-        self._channel.send('registered %s with info %r' % (
-                            builder, builder.sysinfo))
+        self._channel.send('registered build server %s' % (builder.hostname,))
 
     def compile(self, request):
         """start a compilation
@@ -79,53 +79,61 @@ class MetaServer(object):
             in any case, if the first item of the tuple returned is False,
             an email will be sent once the build is available
         """
-        # store the request, if there's already a build available the
-        # storage will return that path
-        requestid = request.id()
-        for bp in self._done:
-            if request.has_satisfying_data(bp.request):
-                path = str(bp)
-                self._channel.send(
-                    'already a build for this info available as %s' % (
-                        bp.request.id(),))
-                return {'path': path, 'id': bp.request.id(),
-                        'isbuilding': True,
-                        'message': 'build is already available'}
-        for builder in self._builders:
-            if (builder.busy_on and
-                    request.has_satisfying_data(builder.busy_on)):
-                id = builder.busy_on.id()
-                self._channel.send(
-                    "build for %s currently in progress on '%s' as %s" % (
-                        request.id(), builder.hostname, id))
-                self._waiting.append(request)
-                return {'path': None, 'id': id, 'isbuilding': True,
-                        'message': "this build is already in progress "
-                                   "on '%s'" % (builder.hostname,)}
-        for br in self._waiting + self._queued:
-            if br.has_satisfying_data(request):
-                id = br.id()
-                self._channel.send(
-                    'build for %s already queued as %s' % (
-                        request.id(), id))
-                return {'path': None, 'id': id, 'isbuilding': False,
-                        'message': ('no suitable server found, and a '
-                                    'similar request was already queued '
-                                    'as %s' % (id,))}
-        # we don't have a build for this yet, find a builder to compile it
-        hostname = self.run(request)
-        if hostname is not None:
-            return {'path': None, 'id': requestid, 'isbuilding': True,
-                    'message': "found a suitable server, going to build "
-                               "on '%s'" % (hostname, )}
-        self._queuelock.acquire()
+        self._requestlock.acquire()
         try:
-            self._queued.append(request)
+            # store the request, if there's already a build available the
+            # storage will return that path
+            requestid = request.id()
+            for bp in self._done:
+                if request.has_satisfying_data(bp.request):
+                    path = str(bp)
+                    self._channel.send(
+                        'already a build for this info available as %s' % (
+                            bp.request.id(),))
+                    return {'path': path, 'id': bp.request.id(),
+                            'isbuilding': True,
+                            'message': 'build is already available'}
+            for builder in self._builders:
+                if (builder.busy_on and
+                        request.has_satisfying_data(builder.busy_on)):
+                    id = builder.busy_on.id()
+                    self._channel.send(
+                        "build for %s currently in progress on '%s' as %s" % (
+                            request.id(), builder.hostname, id))
+                    self._waiting.append(request)
+                    return {'path': None, 'id': id, 'isbuilding': True,
+                            'message': "this build is already in progress "
+                                       "on '%s'" % (builder.hostname,)}
+            for br in self._waiting + self._queued:
+                if br.has_satisfying_data(request):
+                    id = br.id()
+                    self._channel.send(
+                        'build for %s already queued as %s' % (
+                            request.id(), id))
+                    return {'path': None, 'id': id, 'isbuilding': False,
+                            'message': ('no suitable server found, and a '
+                                        'similar request was already queued '
+                                        'as %s' % (id,))}
+            # we don't have a build for this yet, find a builder to compile it
+            hostname = self.run(request)
+            if hostname is not None:
+                self._channel.send('going to send compile job for request %s'
+                                   'to %s' % (request.id(), builder.hostname))
+                return {'path': None, 'id': requestid, 'isbuilding': True,
+                        'message': "found a suitable server, going to build "
+                                   "on '%s'" % (hostname, )}
+            self._channel.send('no suitable build server available for '
+                               'compilation of %s' % (request.id(),))
+            self._queuelock.acquire()
+            try:
+                self._queued.append(request)
+            finally:
+                self._queuelock.release()
+            return {'path': None, 'id': requestid, 'isbuilding': False,
+                    'message': 'no suitable build server found; your request '
+                               'is queued'}
         finally:
-            self._queuelock.release()
-        return {'path': None, 'id': requestid, 'isbuilding': False,
-                'message': 'no suitable build server found; your request '
-                           'is queued'}
+            self._requestlock.release()
     
     def run(self, request):
         """find a suitable build server and run the job if possible"""
@@ -140,22 +148,9 @@ class MetaServer(object):
                     request in builder.refused):
                 continue
             else:
-                self._channel.send(
-                    'going to send compile job for request %s to %s' % (
-                        request, builder.hostname
-                    )
-                )
                 accepted = builder.compile(request)
                 if accepted:
-                    self._channel.send('compile job accepted')
                     return builder.hostname
-                else:
-                    self._channel.send('compile job denied')
-        self._channel.send(
-            'no suitable build server available for compilation of %s' % (
-                request,
-            )
-        )
 
     def serve_forever(self):
         """this keeps the script from dying, and re-tries jobs"""
@@ -177,14 +172,6 @@ class MetaServer(object):
                 self._test_waiting()
                 self._try_queued()
 
-    def _cleanup(self):
-        for builder in self._builders:
-            try:
-                builder.channel.close()
-            except EOFError:
-                pass
-        self._channel.close()
-
     def get_new_buildpath(self, request):
         path = BuildPath(str(self._buildroot / self._create_filename()))
         path.request = request
@@ -195,7 +182,8 @@ class MetaServer(object):
         self._queuelock.acquire()
         try:
             self._channel.send('compilation done for %s, written to %s' % (
-                                                buildpath.request, buildpath))
+                                                buildpath.request.id(),
+                                                buildpath))
             emails = [buildpath.request.email]
             self._done.append(buildpath)
             waiting = self._waiting[:]
@@ -216,12 +204,20 @@ class MetaServer(object):
             for builder in builders:
                 if builder.channel.isclosed():
                     self._channel.send('build server %s disconnected' % (
-                        builder,))
+                        builder.hostname,))
                     if builder.busy_on:
                         self._queued.append(builder.busy_on)
                     self._builders.remove(builder)
         finally:
             self._queuelock.release()
+
+    def _cleanup(self):
+        for builder in self._builders:
+            try:
+                builder.channel.close()
+            except EOFError:
+                pass
+        self._channel.close()
 
     def _test_waiting(self):
         """ for each waiting request, see if the compilation is still alive

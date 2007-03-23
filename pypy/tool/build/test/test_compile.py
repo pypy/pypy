@@ -105,7 +105,6 @@ def get_test_config():
 
 def create_test_repo_file(name):
     repo, wc = svntestbase.getrepowc('test_compile')
-    temp = py.test.ensuretemp('test_compile.%s' % (name,))
     wc.ensure('foo', dir=True)
     wc.commit('added foo')
     path = repo + '/foo'
@@ -115,6 +114,7 @@ def test_blocking():
     # functional test, sorry :|
     if not option.functional:
         py.test.skip('skipping functional test, use --functional to run it')
+    temp = py.test.ensuretemp('test_compile.test_blocking')
     path = create_test_repo_file('test_blocking')
 
     gw = py.execnet.PopenGateway()
