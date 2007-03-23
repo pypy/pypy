@@ -10,7 +10,7 @@ Longer-term
 - make W_IntObject immutable (done, but gives bad code with
   unexpected merges - try to understand why)
 
-- we should be able to timeshift call_valuestack with sane results
+- do something even better for calls (and LOOKUP_METHOD)
 
 - we are promoting inside space.type, there are other uses of it    
   beyond dispatching, it may not be the best idea in general
