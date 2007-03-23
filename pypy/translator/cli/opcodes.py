@@ -126,6 +126,7 @@ opcodes = {
     'int_xor_ovf':              'xor',
     'int_floordiv_ovf_zer':     _check_zer('div'),
     'int_mod_ovf_zer':          _check_zer('rem'),
+    'int_mod_zer':              _check_zer('rem'),
 
     'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'uint_invert':              'not',
@@ -177,7 +178,9 @@ opcodes = {
     'llong_div':                'div',
     'llong_truediv':            None, # TODO
     'llong_floordiv':           'div',
+    'llong_floordiv_zer':       _check_zer('div'),
     'llong_mod':                'rem',
+    'llong_mod_zer':            _check_zer('rem'),
     'llong_lt':                 'clt',
     'llong_le':                 _not('cgt'),
     'llong_eq':                 'ceq',

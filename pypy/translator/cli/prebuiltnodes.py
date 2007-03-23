@@ -22,9 +22,13 @@ def raise_OverflowError():
 def raise_ValueError():
     raise ValueError
 
+def raise_ZeroDivisionError():
+    raise ZeroDivisionError
+
 HELPERS = [(raise_RuntimeError, []),
            (raise_OverflowError, []),
            (raise_ValueError, []),
+           (raise_ZeroDivisionError, []),
            ]
 
 def _build_helpers(translator, db):
