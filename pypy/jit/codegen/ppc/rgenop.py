@@ -539,6 +539,8 @@ class Builder(GenBuilder):
                 self.asm.mc = self.rgenop.ExistingCodeBlock(
                     self.final_jump_addr, self.final_jump_addr+8)
                 self.asm.load_word(rSCRATCH, target)
+                _flush_icache(self.final_jump_addr, 8)
+            self._code_start = mc.tell()
             self.asm.mc = mc
             self.final_jump_addr = 0
             self.closed = False
@@ -554,6 +556,7 @@ class Builder(GenBuilder):
             self.asm.mc = self.rgenop.ExistingCodeBlock(
                 self.patch_start_here, self.patch_start_here+8)
             self.asm.load_word(rSCRATCH, mc.tell())
+            _flush_icache(self.patch_start_here, 8)
             self.asm.mc = mc
             self.patch_start_here = 0
 
@@ -1344,6 +1347,7 @@ class FlexSwitch(CodeGenSwitch):
             self._add_case(gv_case, target_addr)
         except codebuf.CodeBlockOverflow:
             self.asm.mc.setpos(p)
+            base = self.asm.mc.tell()
             mc = self.rgenop.open_mc()
             newmc = mc.reserve(7 * 5 + 4)
             self.rgenop.close_mc(mc)
@@ -1351,12 +1355,15 @@ class FlexSwitch(CodeGenSwitch):
             self.asm.load_word(rSCRATCH, new_addr)
             self.asm.mtctr(rSCRATCH)
             self.asm.bctr()
+            size = self.asm.mc.tell() - base
+            flush_icache(base, size)
             self.asm.mc = newmc
             self._add_case(gv_case, target_addr)
         return targetbuilder
 
     def _add_case(self, gv_case, target_addr):
         asm = self.asm
+        base = self.asm.mc.tell()
         assert isinstance(gv_case, GenConst)
         gv_case.load_now(asm, insn.gprs[0])
         asm.cmpw(self.crf.number, rSCRATCH, self.switch_reg.number)
@@ -1365,14 +1372,19 @@ class FlexSwitch(CodeGenSwitch):
         asm.bcctr(12, self.crf.number*4 + 2)
         if self.default_target_addr:
             self._write_default()
+        size = self.asm.mc.tell() - base
+        flush_icache(base, size)
 
     def add_default(self):
         targetbuilder = self.rgenop.newbuilder()
         targetbuilder._open()
         targetbuilder.initial_var2loc = self.var2loc
         targetbuilder.initial_spill_offset = self.initial_spill_offset
+        base = self.asm.mc.tell()
         self.default_target_addr = targetbuilder.asm.mc.tell()
         self._write_default()
+        size = self.asm.mc.tell() - base
+        flush_icache(base, size)
         return targetbuilder
 
     def _write_default(self):
