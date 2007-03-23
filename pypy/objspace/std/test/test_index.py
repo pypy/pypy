@@ -1,7 +1,9 @@
 from py.test import raises
+from pypy.conftest import gettestobjspace
 
 class AppTest_IndexProtocol:
     def setup_class(self):
+        self.space = gettestobjspace(oldstyle=True)
         w_oldstyle = self.space.appexec([], """():
             class oldstyle:
                 def __index__(self):
@@ -13,6 +15,16 @@ class AppTest_IndexProtocol:
                 def __index__(self):
                     return self.ind
             return newstyle""")
+
+        w_oldstyle_no_index = self.space.appexec([], """():
+            class oldstyle_no_index:
+                pass
+            return oldstyle_no_index""")
+
+        w_newstyle_no_index = self.space.appexec([], """():
+            class newstyle_no_index(object):
+                pass
+            return newstyle_no_index""")
 
         w_TrapInt = self.space.appexec([], """(): 
             class TrapInt(int):
@@ -28,8 +40,10 @@ class AppTest_IndexProtocol:
 
         self.w_oldstyle = w_oldstyle
         self.w_o = self.space.call_function(w_oldstyle)
+        self.w_o_no_index = self.space.call_function(w_oldstyle_no_index)
         self.w_newstyle = w_newstyle
         self.w_n = self.space.call_function(w_newstyle)
+        self.w_n_no_index = self.space.call_function(w_newstyle_no_index)
 
         self.w_TrapInt = w_TrapInt
         self.w_TrapLong = w_TrapLong
@@ -40,6 +54,8 @@ class AppTest_IndexProtocol:
         import operator
         assert operator.index(self.o) == -2
         assert operator.index(self.n) == 2
+        raises(TypeError, operator.index, self.o_no_index) 
+        raises(TypeError, operator.index, self.n_no_index) 
 
     def test_slice(self):
         self.o.ind = 1

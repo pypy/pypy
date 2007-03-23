@@ -404,7 +404,7 @@ class instance(object):
         if func:
             return func()
         else:
-            raise AttributeError('object cannot be interpreted as an index')
+            raise TypeError('object cannot be interpreted as an index')
 
 
     # coerce
