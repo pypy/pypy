@@ -12,6 +12,8 @@ Longer-term
 
 - do something even better for calls (and LOOKUP_METHOD)
 
+- redirect only the relevant fields in the virtualized frames
+
 - we are promoting inside space.type, there are other uses of it    
   beyond dispatching, it may not be the best idea in general
 
