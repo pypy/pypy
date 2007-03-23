@@ -2,6 +2,11 @@
 Alternative object implementations in the PyPy standard interpreter
 ===================================================================
 
+.. contents:: Contents
+
+Introduction
+============
+
 One of the advantages of the PyPy standard interpreter (compared to CPython) is
 that we can provide several implementations of the same object (e.g. for lists
 and strings) without the user noticing any difference. This makes it easy to
@@ -16,7 +21,6 @@ If you have any observation in that direction, please let us know! By the way:
 alternative object implementations are a great way to get into PyPy development
 since you have to know only a rather small part of PyPy to do them. And they are
 fun too!
-
 
 String optimizations
 ====================
@@ -49,7 +53,6 @@ string.  There is also a minimum number of characters below which being lazy
 is not saving any time over making the copy).
 
 You can enable this feature with the :config:`objspace.std.withstrslice` option.
-
 
 Ropes
 -----
@@ -85,10 +88,10 @@ Integer optimizations
 caching small integers
 ----------------------
 
-Similar to what CPython does it is possible to enable caching of small integer
-objects to not have to allocate all the time when doing simple arithmetic. Every
-time a new integer object is created it is checked whether the integer is small
-enough to be retrieved from the cache.
+Similar to CPython, it is possible to enable caching of small integer objects to
+not have to allocate all the time when doing simple arithmetic. Every time a new
+integer object is created it is checked whether the integer is small enough to
+be retrieved from the cache.
 
 You can enable this feature with the :config:`objspace.std.withsmallint` option.
 
@@ -111,18 +114,18 @@ multi-dicts
 
 Multi-dicts are a special implementation of dictionaries.  It became clear that
 it is very useful to *change* the internal representation of an object during
-its lifetime.  Multi-Dicts are a general way to do that for dictionaries: they
+its lifetime.  Multi-dicts are a general way to do that for dictionaries: they
 provide generic support for the switching of internal representations for
 dicts.
 
 If you just enable multi-dicts, special representations for empty dictionaries,
-for string-keyed dictionaries and for small dictionaries are used (as well as a
-general representation that can store arbitrary keys). In addition there are
-more specialized dictionary implementations for various purposes (see below).
+for string-keyed dictionaries. In addition there are more specialized dictionary
+implementations for various purposes (see below).
 
 You can enable this feature with the :config:`objspace.std.withmultidict`
 option.
 
+.. XXX chunked dicts, small dicts
 
 sharing dicts
 -------------
@@ -143,7 +146,6 @@ the representation of the instance dict contains only a list of values.
 
 You can enable this feature with the :config:`objspace.std.withsharingdict`
 option.
-
 
 builtin-shadowing
 -----------------
@@ -257,3 +259,5 @@ as long as the instance did not shadow any of its classes attributes.
 
 You can enable this feature with the :config:`objspace.std.withmethodcache`
 option.
+
+.. CALL_METHOD?
