@@ -63,7 +63,8 @@ This is the PyPy standard interpreter translated to C with the following feature
         <pre>%s</pre>
         Now try hard getting to value of <i>x</i> :-)
         ''' % (SNIPPETS[2],),
-        'pypy-cli':'''The PyPy standard interpreter compiled to CLI'''}
+        'pypy-cli':'''The PyPy standard interpreter compiled to CLI''',
+        'pyrolog-c':'''The Prolog interpreter compiled to C'''}
 
 class Ignore(Exception):
     pass
