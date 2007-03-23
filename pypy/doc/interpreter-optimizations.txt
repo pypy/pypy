@@ -28,11 +28,14 @@ them. And they are fun too!
 
 .. describe other optimizations!
 
-String optimizations
+Object Optimizations
 ====================
 
-string-join objects
--------------------
+String Optimizations
+--------------------
+
+String-Join Objects
++++++++++++++++++++
 
 String-join objects are a different implementation of the Python ``str`` type,
 They represent the lazy addition of several strings without actually performing
@@ -44,8 +47,8 @@ perform repeated string additions in a loop without using the
 You can enable this feature enable with the :config:`objspace.std.withstrjoin`
 option.
 
-string-slice objects
---------------------
+String-Slice Objects
+++++++++++++++++++++
 
 String-slice objects are another implementation of the Python ``str`` type.
 They represent the lazy slicing of a string without actually performing the
@@ -62,7 +65,7 @@ is not saving any time over making the copy).
 You can enable this feature with the :config:`objspace.std.withstrslice` option.
 
 Ropes
------
++++++
 
 Ropes are a general flexible string implementation, following the paper `"Ropes:
 An alternative to Strings."`_ by Boehm, Atkinson and Plass. Strings are
@@ -89,11 +92,11 @@ You can enable this feature with the :config:`objspace.std.withrope` option.
 
 .. _`"Ropes: An alternative to Strings."`: http://www.cs.ubc.ca/local/reading/proceedings/spe91-95/spe/vol25/issue12/spe986.pdf
 
-Integer optimizations
-=====================
+Integer Optimizations
+---------------------
 
-caching small integers
-----------------------
+Caching Small Integers
+++++++++++++++++++++++
 
 Similar to CPython, it is possible to enable caching of small integer objects to
 not have to allocate all the time when doing simple arithmetic. Every time a new
@@ -102,8 +105,8 @@ be retrieved from the cache.
 
 You can enable this feature with the :config:`objspace.std.withsmallint` option.
 
-integers as tagged pointers
----------------------------
+Integers as Tagged Pointers
++++++++++++++++++++++++++++
 
 An even more aggressive way to save memory when using integers is "small int"
 integer implementation. It is another integer implementation used for integers
@@ -113,11 +116,11 @@ them from normal pointers. This completely avoids the boxing step, saving
 time and memory.
 
 
-Dictionary optimizations
-========================
+Dictionary Optimizations
+------------------------
 
-multi-dicts
------------
+Multi-Dicts
++++++++++++
 
 Multi-dicts are a special implementation of dictionaries.  It became clear that
 it is very useful to *change* the internal representation of an object during
@@ -134,8 +137,8 @@ option.
 
 .. XXX chunked dicts, small dicts
 
-sharing dicts
--------------
+Sharing Dicts
++++++++++++++
 
 Sharing dictionaries are a special representation used together with multidicts.
 This dict representation is used only for instance dictionaries and tries to
@@ -154,8 +157,8 @@ the representation of the instance dict contains only a list of values.
 You can enable this feature with the :config:`objspace.std.withsharingdict`
 option.
 
-builtin-shadowing
------------------
+Builtin-Shadowing
++++++++++++++++++
 
 Usually the calling of builtins in Python requires two dictionary lookups: first
 to see whether the current global dictionary contains an object with the same
@@ -181,11 +184,11 @@ You can enable this feature with the
 :config:`objspace.opcodes.CALL_LIKELY_BUILTIN` option.
 
 
-List optimizations
-==================
+List Optimizations
+------------------
 
-range-lists
------------
+Range-Lists
++++++++++++
 
 Range-lists solve the same problem that the ``xrange`` builtin solves poorly:
 the problem that ``range`` allocates memory even if the resulting list is only
@@ -199,8 +202,8 @@ of use of ``range``, and makes ``xrange`` essentially useless.
 You can enable this feature with the :config:`objspace.std.withrangelist`
 option.
 
-multi-lists
------------
+Multi-Lists
++++++++++++
 
 As with dictionaries it became clear that it is generally useful to allow lists
 to change their internal representation over their lifetime. Therefore
@@ -214,8 +217,8 @@ You can enable this feature with the :config:`objspace.std.withmultilist`
 option.
 
 
-fast list slicing
-------------------
+Fast List Slicing
++++++++++++++++++
 
 A rather experimental special list representation used with multilists is the
 slice list (the original idea is from `Neal Norwitz on pypy-dev`_). The
@@ -230,11 +233,11 @@ option.
 .. _`Neal Norwitz on pypy-dev`: http://codespeak.net/pipermail/pypy-dev/2005q4/002538.html
 
 
-User class optimizations
-========================
+User Class Optimizations
+------------------------
 
-Shadow tracking
----------------
+Shadow Tracking
++++++++++++++++
 
 Shadow tracking is a general optimization that speeds up method calls for user
 classes (that don't have special meta-class). For this a special dict
@@ -251,8 +254,8 @@ You can enable this feature with the :config:`objspace.std.withshadowtracking`
 option.
 
 
-Method caching
---------------
+Method Caching
+++++++++++++++
 
 Shadow tracking is also an important building block for the method caching
 optimization. A method cache is introduced where the result of a method lookup
@@ -267,4 +270,18 @@ as long as the instance did not shadow any of its classes attributes.
 You can enable this feature with the :config:`objspace.std.withmethodcache`
 option.
 
-.. CALL_METHOD?
+Interpreter Optimizations
+=========================
+
+Special Bytecodes
+-----------------
+
+LOOKUP_METHOD & CALL_METHOD
++++++++++++++++++++++++++++
+
+Write this!
+
+CALL_LIKELY_BUILTIN
++++++++++++++++++++
+
+And this!
