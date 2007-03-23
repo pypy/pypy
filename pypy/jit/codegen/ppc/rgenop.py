@@ -4,6 +4,7 @@ from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.model import ReplayBuilder, dummy_var
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import lloperation
+from pypy.rpython.extfunc import register_external
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.conftest import option
 from ctypes import POINTER, cast, c_void_p, c_int, CFUNCTYPE
@@ -34,6 +35,8 @@ def flush_icache(base, size):
         cpath = py.magic.autopath().dirpath().join('_flush_icache.c')
         _flush_icache  = cpath._getpymodule()._flush_icache
     _flush_icache(base, size)
+register_external(flush_icache, [int, int], None, "LL_flush_icache")
+
 
 NSAVEDREGISTERS = 19
 

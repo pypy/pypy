@@ -50,11 +50,6 @@ for name, args, res, hook in complex_math_functions:
                       llfakeimpl=llfake, oofakeimpl=oofake,
                       annotation_hook = hook)
 
-# ___________________________
-# bit of magic for the ppc jit
-from pypy.jit.codegen.ppc.rgenop import flush_icache
-register_external(flush_icache, [int, int], None, "LL_flush_icache")
-
 
 # ___________________________
 # os.path functions
