@@ -539,7 +539,7 @@ class Builder(GenBuilder):
                 self.asm.mc = self.rgenop.ExistingCodeBlock(
                     self.final_jump_addr, self.final_jump_addr+8)
                 self.asm.load_word(rSCRATCH, target)
-                _flush_icache(self.final_jump_addr, 8)
+                flush_icache(self.final_jump_addr, 8)
             self._code_start = mc.tell()
             self.asm.mc = mc
             self.final_jump_addr = 0
@@ -556,7 +556,7 @@ class Builder(GenBuilder):
             self.asm.mc = self.rgenop.ExistingCodeBlock(
                 self.patch_start_here, self.patch_start_here+8)
             self.asm.load_word(rSCRATCH, mc.tell())
-            _flush_icache(self.patch_start_here, 8)
+            flush_icache(self.patch_start_here, 8)
             self.asm.mc = mc
             self.patch_start_here = 0
 
