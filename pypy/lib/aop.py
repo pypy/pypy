@@ -523,16 +523,13 @@ class Weaver:
     def weave(self, ast, enc, filename):
         if not self.advices:
             return ast
-        try:
-            modulename = self._guessmodule(filename)
-            for aspect, advice in self.advices:
-                self._curr_aspect = aspect
-                ast = advice.weave(ast, enc, modulename)
-            self._curr_aspect = None
-            return ast
-        except Exception, exc:
-            print '%s: %s in weave' % ( exc.__class__.__name__, exc)
-            return ast
+        modulename = self._guessmodule(filename)
+        for aspect, advice in self.advices:
+            self._curr_aspect = aspect
+            ast = advice.weave(ast, enc, modulename)
+        self._curr_aspect = None
+        return ast
+
     def _clear_all(self):
         self.advices = []
         self.joinpoints = {}
