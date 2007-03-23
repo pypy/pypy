@@ -361,7 +361,7 @@ Overall Effects
 ===============
 
 The impact these various optimizations have on performance unsurprisingly
-depends on the program being.  Using the default multi-dict implementation that
+depends on the program being run.  Using the default multi-dict implementation that
 simply special cases string-keyed dictionaries is a clear win on all benchmarks,
 improving results by anything from 15-40 per cent.
 
