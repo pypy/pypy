@@ -276,6 +276,8 @@ Interpreter Optimizations
 Special Bytecodes
 -----------------
 
+.. _`lookup method call method`:
+
 LOOKUP_METHOD & CALL_METHOD
 +++++++++++++++++++++++++++
 
@@ -331,6 +333,8 @@ The ``CALL_METHOD N`` bytecode emulates a bound method call by
 inspecting the *im_self* entry in the stack below the ``N`` arguments:
 if it is not None, then it is considered to be an additional first
 argument in the call to the *im_func* object from the stack.
+
+.. _`call likely builtin`:
 
 CALL_LIKELY_BUILTIN
 +++++++++++++++++++
