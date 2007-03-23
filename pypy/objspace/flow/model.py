@@ -120,9 +120,9 @@ class FunctionGraph(object):
             for op in block.operations:
                 yield block, op
 
-    def show(self):
-        from pypy.translator.tool.graphpage import SingleGraphPage
-        SingleGraphPage(self).display()
+    def show(self, t=None):
+        from pypy.translator.tool.graphpage import FlowGraphPage
+        FlowGraphPage(t, [self]).display()
 
 
 class Link(object):
