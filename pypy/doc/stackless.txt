@@ -30,11 +30,11 @@ the _stackless module by running it as follows::
     py.py --withmod-_stackless
 
 This is implemented internally using greenlets, so it only works on a
-platform where the `Py lib greenlets`_ are supported.  A few features do
-not work in this way, though, and really require a translated
+platform where `Py lib greenlets`_ are supported.  A few features do
+not work this way, though, and really require a translated
 ``pypy-c``.
 
-To obtained a translated version of ``pypy-c`` that includes Stackless
+To obtain a translated version of ``pypy-c`` that includes Stackless
 support, run translate.py as follows::
 
     cd pypy/translator/goal
@@ -45,8 +45,8 @@ Application level interface
 =============================
 
 A stackless PyPy contains a module called ``stackless``.  The interface
-exposed by this module has not been much refined, so it should be
-considered in-flux (as of 2006).
+exposed by this module have not been refined much, so it should be
+considered in-flux (as of 2007).
 
 So far, PyPy does not provide support for ``stackless`` in a threaded
 environment.  This limitation is not fundamental, as previous experience
