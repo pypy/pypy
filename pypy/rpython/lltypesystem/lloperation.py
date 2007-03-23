@@ -131,8 +131,8 @@ class StackException(Exception):
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
-# Note that many exception-raising operations are being replaced by calls
-# to helpers by rpython/raisingops/.
+# Note that many exception-raising operations can be replaced by calls
+# to helper functions in pypy.rpython.raisingops.raisingops.
 # ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
