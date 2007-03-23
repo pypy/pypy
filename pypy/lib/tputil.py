@@ -5,7 +5,6 @@ application level support module for transparent proxies.
 """
 from __pypy__ import tproxy 
 from types import MethodType
-import inspect
 
 _dummy = object()
 origtype = type
