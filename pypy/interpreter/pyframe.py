@@ -163,6 +163,17 @@ class PyFrame(eval.Frame):
             values_w[n] = self.valuestack_w[base+n]
         return values_w
 
+    def dropvalues(self, n):
+        finaldepth = self.valuestackdepth - n
+        assert finaldepth >= 0, "stack underflow in dropvalues()"        
+        while True:
+            n -= 1
+            if n < 0:
+                break
+            hint(n, concrete=True)
+            self.valuestack_w[finaldepth+n] = None
+        self.valuestackdepth = finaldepth
+
     def pushrevvalues(self, n, values_w): # n should be len(values_w)
         while True:
             n -= 1
@@ -197,11 +208,6 @@ class PyFrame(eval.Frame):
             self.valuestack_w[depth] = None
             depth -= 1
         self.valuestackdepth = finaldepth
-
-    def dropvalues(self, n):
-        finaldepth = self.valuestackdepth - n
-        assert finaldepth >= 0, "stack underflow in dropvalues()"
-        self.dropvaluesuntil(finaldepth)
 
     def savevaluestack(self):
         return self.valuestack_w[:self.valuestackdepth]
