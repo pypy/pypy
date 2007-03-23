@@ -2,6 +2,15 @@ from pypy.translator.backendopt.support import log, all_operations, annotate
 import pypy.rpython.raisingops.raisingops
 log = log.raisingop2directcall
 
+def is_raisingop(op):
+    s = op.opname
+    if (not s.startswith('int_') and not s.startswith('uint_') and
+        not s.startswith('float_') and not s.startswith('llong_')):
+       return False
+    if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'): #not s in special_operations:
+       return False
+    return True
+
 def raisingop2direct_call(translator, graphs=None):
     """search for operations that could raise an exception and change that
     operation into a direct_call to a function from the raisingops directory.
@@ -14,14 +23,6 @@ def raisingop2direct_call(translator, graphs=None):
     if graphs is None:
         graphs = translator.graphs
 
-    def is_raisingop(op):
-        s = op.opname
-        if (not s.startswith('int_') and not s.startswith('uint_') and
-            not s.startswith('float_') and not s.startswith('llong_')):
-           return False
-        if not s.endswith('_zer') and not s.endswith('_ovf') and not s.endswith('_val'): #not s in special_operations:
-           return False
-        return True
 
     log('starting')
     seen = {}

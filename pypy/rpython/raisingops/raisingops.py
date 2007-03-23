@@ -1,5 +1,7 @@
 import sys
 from pypy.rlib.rarithmetic import r_longlong, r_uint, intmask
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem.lltype import Signed
 
 #XXX original SIGNED_RIGHT_SHIFT_ZERO_FILLS not taken into account
 #XXX assuming HAVE_LONG_LONG (int_mul_ovf)
@@ -17,7 +19,7 @@ def int_floordiv_zer(x, y):
         else FAIL_ZER(err, "integer division")
     '''
     if y:
-        return int_floordiv(x, y)
+        return llop.int_floordiv(Signed, x, y)
     else:
         raise ZeroDivisionError("integer division")
 
@@ -132,7 +134,7 @@ def int_floordiv_ovf(x, y):
     if y == -1 and x < 0 and (r_uint(x) << 1) == 0:
         raise OverflowError("integer division")
     else:
-        return int_floordiv(x, y)
+        return llop.int_floordiv(Signed, x, y)
 
 def int_floordiv_ovf_zer(x, y):
     '''#define OP_INT_FLOORDIV_OVF_ZER(x,y,r,err) \
@@ -153,7 +155,7 @@ def int_mod_ovf(x, y):
     if y == -1 and x < 0 and (r_uint(x) << 1) == 0:
         raise OverflowError("integer modulo")
     else:
-        return int_mod(x, y)
+        return llop.int_mod(Signed, x, y)
 
 def int_mod_zer(x, y):
     '''#define OP_INT_MOD_ZER(x,y,r,err) \
@@ -161,7 +163,7 @@ def int_mod_zer(x, y):
         else FAIL_ZER(err, "integer modulo")
     '''
     if y:
-        return int_mod(x, y)
+        return llop.int_mod(Signed, x, y)
     else:
         raise ZeroDivisionError("integer modulo")
 
@@ -186,42 +188,6 @@ def int_mod_ovf_zer(x, y):
         raise ZeroDivisionError("integer modulo")
 
 # Helpers...
-
-def int_floordiv(x, y):
-    return x / y
-
-#def int_floordiv(x, y):
-#    xdivy = r_longlong(x / y)
-#    xmody = r_longlong(x - xdivy * y)
-#  
-#    # If the signs of x and y differ, and the remainder is non-0,
-#    # C89 doesn't define whether xdivy is now the floor or the
-#    # ceiling of the infinitely precise quotient.  We want the floor,
-#    # and we have it iff the remainder's sign matches y's.
-#    if xmody and ((y ^ xmody) < 0):
-#        xmody += y
-#        xdivy -= 1
-#        assert xmody and ((y ^ xmody) >= 0)
-#
-#    return xdivy
-
-def int_mod(x, y):
-    return x % y
-
-#def int_mod(x, y):
-#    xdivy = r_longlong(x / y)
-#    xmody = r_longlong(x - xdivy * y)
-#  
-#    # If the signs of x and y differ, and the remainder is non-0,
-#    # C89 doesn't define whether xdivy is now the floor or the
-#    # ceiling of the infinitely precise quotient.  We want the floor,
-#    # and we have it iff the remainder's sign matches y's.
-#    if xmody and ((y ^ xmody) < 0):
-#        xmody += y
-#        xdivy -= 1
-#        assert xmody and ((y ^ xmody) >= 0)
-#
-#    return xmody
 
 def _Py_ARITHMETIC_RIGHT_SHIFT(i, j):
     '''
