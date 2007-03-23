@@ -531,7 +531,7 @@ class Weaver:
             self._curr_aspect = None
             return ast
         except Exception, exc:
-            error('%s: %s in weave', exc.__class__.__name__, exc)
+            print '%s: %s in weave' % ( exc.__class__.__name__, exc)
             return ast
     def _clear_all(self):
         self.advices = []
