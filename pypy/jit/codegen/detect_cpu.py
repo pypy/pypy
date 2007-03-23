@@ -8,10 +8,13 @@ class ProcessorAutodetectError(Exception):
     pass
 
 def autodetect():
+    mach = None
     try:
         import platform
         mach = platform.machine()
     except ImportError:
+        pass
+    if not mach:
         platform = sys.platform.lower()
         if platform.startswith('win'):   # assume an Intel Windows
             return 'i386'

@@ -19,24 +19,24 @@ class CConfig:
 globals().update(ctypes_platform.configure(CConfig))
 
 # cannot use c_void_p as return value of functions :-(
-LPVOID = ctypes.POINTER(ctypes.c_char)
+PTR = ctypes.POINTER(ctypes.c_char)
 
 VirtualAlloc = ctypes.windll.kernel32.VirtualAlloc
-VirtualAlloc.argtypes = [LPVOID, SIZE_T, DWORD, DWORD]
-VirtualAlloc.restype = LPVOID
+VirtualAlloc.argtypes = [PTR, SIZE_T, DWORD, DWORD]
+VirtualAlloc.restype = PTR
 
 VirtualProtect = ctypes.windll.kernel32.VirtualProtect
-VirtualProtect.argtypes = [LPVOID, SIZE_T, DWORD, ctypes.POINTER(DWORD)]
+VirtualProtect.argtypes = [PTR, SIZE_T, DWORD, ctypes.POINTER(DWORD)]
 VirtualProtect.restype = BOOL
 
 VirtualFree = ctypes.windll.kernel32.VirtualFree
-VirtualFree.argtypes = [LPVOID, SIZE_T, DWORD]
+VirtualFree.argtypes = [PTR, SIZE_T, DWORD]
 VirtualFree.restype = BOOL
 
 # ____________________________________________________________
 
 def alloc(map_size):
-    res = VirtualAlloc(LPVOID(), map_size, MEM_COMMIT|MEM_RESERVE,
+    res = VirtualAlloc(PTR(), map_size, MEM_COMMIT|MEM_RESERVE,
                        PAGE_EXECUTE_READWRITE)
     if not res:
         raise MemoryError
