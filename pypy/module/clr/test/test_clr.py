@@ -78,6 +78,11 @@ class AppTestDotnet:
         assert obj.IndexOf(7) == 7
         assert obj.IndexOf(7, 0, 5) == -1
 
+    def test_wrong_overload(self):
+        import clr
+        Math = clr.load_cli_class('System', 'Math')
+        raises(TypeError, Math.Abs, "foo")
+
     def test_staticmethod(self):
         import clr
         Math = clr.load_cli_class('System', 'Math')

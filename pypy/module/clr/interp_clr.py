@@ -15,10 +15,14 @@ System.Double # force the type to be loaded, else the annotator could think that
 
 def get_method(space, b_type, name, b_paramtypes):
     try:
-        return b_type.GetMethod(name, b_paramtypes)
+        method = b_type.GetMethod(name, b_paramtypes)
     except AmbiguousMatchException:
         msg = 'Multiple overloads for %s could match' % name
         raise OperationError(space.w_TypeError, space.wrap(msg))
+    if method is None:
+        msg = 'No overloads for %s could match' % name
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return method
 
 def get_constructor(space, b_type, b_paramtypes):
     try:
