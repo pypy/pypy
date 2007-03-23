@@ -24,7 +24,7 @@ translation toolchain
  - review pdbplus, especially the graph commands, also in the light of
    https://codespeak.net/issue/pypy-dev/issue303 and the fact that
    we can have more than one translator/annotator around (with the
-   timeshfiter)
+   timeshifter)
 
 interpreter
 -----------
