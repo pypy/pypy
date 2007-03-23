@@ -19,7 +19,10 @@ translation toolchain
    and the gctransfomers, which varies depending on the GC :(,
    exploit better the removal of zeroing assumption 
  - clean up the tangle of including headers in the C backend
- - make approach for loading modules more sane
+ - make approach for loading modules more sane, mixedmodule capture
+   too many platform dependecies especially for pypy-cli
+ - review pdbplus, especially the graph commands, also in the light of
+   https://codespeak.net/issue/pypy-dev/issue303
 
 interpreter
 -----------
