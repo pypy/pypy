@@ -22,7 +22,9 @@ translation toolchain
  - make approach for loading modules more sane, mixedmodule capture
    too many platform dependecies especially for pypy-cli
  - review pdbplus, especially the graph commands, also in the light of
-   https://codespeak.net/issue/pypy-dev/issue303
+   https://codespeak.net/issue/pypy-dev/issue303 and the fact that
+   we can have more than one translator/annotator around (with the
+   timeshfiter)
 
 interpreter
 -----------
