@@ -332,7 +332,7 @@ an integer (after all, integers are directly available in C too). You could
 represent small integers as odd-valuated pointers. But it puts extra burden on
 the whole C code, so the CPython team avoided it.  (In our case it is an
 optimization that we eventually made, but not hard-coded at this level -
-see `object optimizations`_.)
+see `Standard Interpreter Optimizations`_.)
 
 So in summary: wrapping integers as instances is the simple path, while
 using plain integers instead is the complex path, not the other way
@@ -389,14 +389,14 @@ other implementations of strings use the same ``typedef`` from
 `stringtype.py`_.
 
 For other examples of multiple implementations of the same Python type,
-see the `object optimizations`_ page.
+see `Standard Interpreter Optimizations`_.
 
 .. _`listtype.py`: ../objspace/std/listtype.py
 .. _`stringtype.py`: ../objspace/std/stringtype.py
 .. _`tupletype.py`: ../objspace/std/tupletype.py
 .. _`tupleobject.py`: ../objspace/std/tupleobject.py
 
-.. _`object optimizations`: object-optimizations.html
+.. _`Standard Interpreter Optimizations`: interpreter-optimizations.html
 
 
 Multimethods

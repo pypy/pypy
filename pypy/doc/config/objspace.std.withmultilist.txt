@@ -2,7 +2,7 @@ This enables "multilists". They are a different implementation of the Python
 ``list`` type, indistinguishable for the normal user (when using multilists, the
 normal implementation is not used at all).
 
-See the page about `object reimplementations`_ for more details.
+See the section in `Standard Interpreter Optimizations`_ for more details.
 
-.. _`object reimplementations`: ../object-optimizations.html
+.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html#multi-lists
 

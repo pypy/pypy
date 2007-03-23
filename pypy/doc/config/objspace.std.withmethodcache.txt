@@ -1,3 +1,2 @@
-Enable method caching. See the section "Method Caching" in `Alternative object
-implementations in the PyPy standard interpreter
-<../object-optimizations.html#method-caching>`__.
+Enable method caching. See the section "Method Caching" in `Standard
+Interpreter Optimizations <../interpreter-optimizations.html#method-caching>`__.

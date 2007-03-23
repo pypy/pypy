@@ -98,8 +98,10 @@ and several implementations.
 `bytecode interpreter`_ explains the basic mechanisms 
 of the bytecode interpreter and virtual machine. 
 
-`object optimizations`_ describes various alternative object implementations
-(for strings, dictionaries and lists) in the standard object space.
+`interpreter optimizations`_ describes our various strategies for
+improving the performance of our interpreter, including alternative
+object implementations (for strings, dictionaries and lists) in the
+standard object space.
 
 `translation`_ is a detailed overview of our translation process.  The
 rtyper_ is the largest component of our translation process.
@@ -146,7 +148,7 @@ from our Python interpreter.
 .. _`PyPy LOC statistics`: http://codespeak.net/~hpk/pypy-stat/
 .. _`PyPy statistics`: http://codespeak.net/pypy/dist/pypy/doc/statistic
 .. _`object spaces`: objspace.html 
-.. _`object optimizations`: object-optimizations.html 
+.. _`interpreter optimizations`: interpreter-optimizations.html 
 .. _`translation`: translation.html 
 .. _`dynamic-language translation`: dynamic-language-translation.html
 .. _`low-level encapsulation`: low-level-encapsulation.html

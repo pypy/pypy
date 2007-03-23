@@ -34,10 +34,9 @@ There is an `overview`_ of all command line arguments that can be
 passed in either position.
 
 Many of the more interesting object space options enable optimzations,
-which are described in `Alternative object implementations in the PyPy
-standard interpreter`_, or allow the creation of objects that can
-barely be imagined in CPython, which are documented in `What PyPy can
-do for your objects`_.
+which are described in `Standard Interpreter Optimizations`_, or allow
+the creation of objects that can barely be imagined in CPython, which
+are documented in `What PyPy can do for your objects`_.
 
 The following diagram gives some hints about which PyPy features work together
 with which other PyPy features:
@@ -49,5 +48,5 @@ with which other PyPy features:
 .. _`object space options`: commandline.html#overwiew-of-command-line-options-for-objspace
 .. _`translation options`: commandline.html#overwiew-of-command-line-options-for-translation
 .. _`overview`: commandline.html
-.. _`Alternative object implementations in the PyPy standard interpreter`: ../object-optimizations.html
+.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html
 .. _`What PyPy can do for your objects`: ../objspace-proxies.html

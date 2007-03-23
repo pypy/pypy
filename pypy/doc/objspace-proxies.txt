@@ -503,7 +503,7 @@ return ``42`` on any add operation to the list::
    >>>> i + 3
    42
 
-.. _`alternative object implementations`: object-optimizations.html
+.. _`alternative object implementations`: interpreter-optimizations.html
 
 
 Example of recording all operations on builtins

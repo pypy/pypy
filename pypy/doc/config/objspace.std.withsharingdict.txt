@@ -1,6 +1,6 @@
 Enable "sharing dictionaries".
 
-See the page about `object optimizations`_ for more details.
+See the section in `Standard Interpreter Optimizations`_ for more details.
 
-.. _`object optimizations`: ../object-optimizations.html
+.. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html#sharing-dicts
 

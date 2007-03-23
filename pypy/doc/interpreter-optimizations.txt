@@ -1,26 +1,32 @@
-===================================================================
-Alternative object implementations in the PyPy standard interpreter
-===================================================================
+==================================
+Standard Interpreter Optimizations
+==================================
 
 .. contents:: Contents
 
 Introduction
 ============
 
-One of the advantages of the PyPy standard interpreter (compared to CPython) is
-that we can provide several implementations of the same object (e.g. for lists
-and strings) without the user noticing any difference. This makes it easy to
-provide a specialized implementation of a type that is optimized for a certain
-situation without disturbing the implementation for the regular case.
+One of the advantages -- indeed, one of the motivating goals -- of the PyPy
+standard interpreter (compared to CPython) is that of increased flexibility and
+configurability.
 
-We have implemented several such optimizations. Most of them are not enabled by
-default. Also, it is not clear for all these optimizations whether they are
-worth it in practice, for a real-world application (they sure make some
-microbenchmarks a lot faster and use less memory, which is not saying too much).
-If you have any observation in that direction, please let us know! By the way:
-alternative object implementations are a great way to get into PyPy development
-since you have to know only a rather small part of PyPy to do them. And they are
-fun too!
+One example of this is that we can provide several implementations of the same
+object (e.g. lists) without exposing any difference to application-level
+code. This makes it easy to provide a specialized implementation of a type that
+is optimized for a certain situation without disturbing the implementation for
+the regular case.
+
+This document describes several such optimizations.  Most of them are not
+enabled by default.  Also, for many of these optimizations it is not clear
+whether they are worth it in practice for a real-world application (they sure
+make some microbenchmarks a lot faster and use less memory, which is not saying
+too much).  If you have any observation in that direction, please let us know!
+By the way: alternative object implementations are a great way to get into PyPy
+development since you have to know only a rather small part of PyPy to do
+them. And they are fun too!
+
+.. describe other optimizations!
 
 String optimizations
 ====================
@@ -35,7 +41,8 @@ join object is needed, the addition is performed. This makes it possible to
 perform repeated string additions in a loop without using the
 ``"".join(list_of_strings)`` pattern.
 
-You can this feature enable with the :config:`objspace.std.withstrjoin` option.
+You can enable this feature enable with the :config:`objspace.std.withstrjoin`
+option.
 
 string-slice objects
 --------------------
