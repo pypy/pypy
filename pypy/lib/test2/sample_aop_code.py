@@ -1,5 +1,3 @@
-import py 
-
 code = """
 def foo(b, c):
     '''
@@ -43,15 +41,18 @@ import os.path as osp
 def _make_filename(name):
     if not name.endswith('.py'):
         name += ".py"
-    base = py.test.ensuretemp("aop_test")
-    return base.join(name)
+    return osp.join(osp.dirname(__file__), name)
 
-def _write_module(name):
-    f = _make_filename(name).open('w')
+def write_module(name):
+    clean_module(name)
+    f = open(_make_filename(name), 'w')
     f.write(code)
     f.close()
 
-def import_(name):
-    _write_module(name)
-    p = _make_filename(name)
-    return p.pyimport()
+def clean_module(name):
+    name = _make_filename(name)
+    if os.path.isfile(name):
+        os.unlink(name)
+    if os.path.isfile(name+'c'):
+        os.unlink(name+'c')
+
