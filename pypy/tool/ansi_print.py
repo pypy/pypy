@@ -25,13 +25,17 @@ class AnsiLog:
         self.kw_to_color = self.KW_TO_COLOR.copy()
         self.kw_to_color.update(kw_to_color)
         self.file = file
-        self.mandelbrot_driver = Driver()
+        self.fancy = True
+        self.isatty = getattr(sys.stderr, 'isatty', lambda: False)
+        if self.fancy and self.isatty(): 
+            self.mandelbrot_driver = Driver()
+        else:
+            self.mandelbrot_driver = None
 
     def __call__(self, msg):
-        tty = getattr(sys.stderr, 'isatty', lambda: False)()
+        tty = self.isatty()
         flush = False
         newline = True
-        fancy = True
         keywords = []
         esc = []
         for kw in msg.keywords:
@@ -51,7 +55,7 @@ class AnsiLog:
                 return
         elif 'dot' in keywords:
             if tty:
-                if fancy:
+                if self.fancy:
                     if not AnsiLog.wrote_dot:
                         self.mandelbrot_driver.reset()
                     self.mandelbrot_driver.dot()
