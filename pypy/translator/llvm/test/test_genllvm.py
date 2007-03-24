@@ -459,3 +459,15 @@ def test_switch_no_default():
     f = compile_function(func, [int])
     res = f(4)
     assert res == 16
+
+def test_call_boehm_gc_alloc():
+    from pypy.rpython.lltypesystem import llmemory, lltype
+    from pypy.rpython.lltypesystem.lloperation import llop
+    def f(s):
+        a = llop.call_boehm_gc_alloc(llmemory.Address, 100)
+        a.signed[0] = s
+        a.signed[1] = s+2
+        return a.signed[0]*a.signed[1]
+    f = compile_function(f, [int])
+    res = f(4)
+    assert res == 4*(4+2)

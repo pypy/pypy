@@ -329,6 +329,11 @@ class OpWriter(object):
         else:
             raise NotImplementedError
 
+    def call_boehm_gc_alloc(self, opr):
+        word = self.db.get_machine_word()
+        self.codewriter.call(opr.retref, 'sbyte*', '%pypy_malloc',
+                             [word], [opr.argrefs[0]])
+
     def getfield(self, opr):
         op = opr.op
         if opr.rettype != "void":
