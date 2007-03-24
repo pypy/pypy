@@ -1,0 +1,257 @@
+==================================================
+PyPy - Goals and Architecture Overview 
+==================================================
+
+.. contents::
+.. sectnum::
+
+This document gives an overview of the goals and architecture of PyPy.
+See `getting started`_ for a practical introduction and starting points. 
+
+Mission statement 
+====================
+
+We aim to provide:
+
+* a common translation framework for generating interpreters
+  and implementations of dynamic languages, supporting a clean separation 
+  between language specification and implementation aspects. 
+
+* a compliant and fast Python Language interpreter 
+  enabling new advanced features without the requirement
+  to encode low level details into it. 
+
+The choice of target platform as well as advanced optimisations 
+techniques are to become aspects of the translation process, up
+to the ultimate point of *generating Just-in-Time compilers* 
+for dynamic language interpreters. 
+
+
+High Level Goals
+=============================
+
+PyPy - The Translation Framework 
+-----------------------------------------------
+
+Traditionally, language interpreters are written in a target platform language
+like C/Posix, Java or C#.  Each such implementation fundamentally provides 
+a mapping from application source code to the target environment.  One of 
+the goals of the "all-encompassing" environments, like the .NET framework
+and to some extent the Java virtual machine, is to provide standardized
+and higher level functionalities in order to support language implementors
+for writing language implementations. 
+
+PyPy is experimenting with a more ambitious approach.  We are using a
+subset of a VHLL language, called RPython, to specify languages
+without many references and dependencies to lower level details,
+leaving it to the translation framework to add these as translation
+aspects and produce custom implementations for particular feature
+and platform configurations.  
+
+Particularly, we want to help avoiding having to write ``n * m * o``
+interpreters for ``n`` dynamic languages and ``m`` platforms
+with ``o`` crucial design decisions.  PyPy aims at having any
+one of these parameters changeable independently from each
+other:
+
+* ``n``: modify or replace the language we analyse and regenerate
+  a concrete interpreter for each target;
+
+* ``m``: write new translator back-ends to target new
+  physical and virtual platforms;
+
+* ``o``: tweak and optimize the translation process to produce 
+  platform specific code based on different models and tradeoffs.
+
+By contrast, a standardized target environment - say .NET -
+enforces ``m=1`` as far as it's concerned.  This helps making ``o`` a
+bit smaller by providing a higher-level base to build upon.  Still,
+we believe that enforcing the use of one common environment 
+is not necessary.  PyPy's goal is to give weight to this claim - at least 
+as far as language implementation is concerned - showing an approach
+to the ``n * m * o`` problem that does not rely on standardization.
+
+Particularly, we set ourselves the goal to *generate
+Just-In-Time Compilers* in addition to traditional
+Interpreter implementations - an area of language
+implementation that is commonly considered the ultimate 
+in complexity. 
+
+
+PyPy - the Python Interpreter 
+--------------------------------------------
+
+Our goal is to provide a full featured, customizable and fast Python
+implementation, written in a subset of Python itself, working on and interacting 
+with a large variety of platforms and allowing to quickly introduce 
+new advanced language features. 
+
+The architecture and abstractions of PyPy's "Python language specification" 
+aim to enable new implementation and optimization features that 
+tradtionally require pervasive changes in a language implementation 
+source code. 
+
+An important aspect of implementing Python in RPython is the high level of
+abstraction and compactness of the language. This allows an implementation
+that is, in many respects, easier to understand and play with than the one
+written in C (referred to throughout the PyPy documentation and source as
+"CPython").
+
+Another goal is to specify the language implementation in the form
+of a number of independent modules and abstractions, with clearly defined and 
+automatically tested API's.  This eases reuse and allows experimenting with 
+variations and combinations of features. 
+
+Our Python language implementation architecture, however, also serves as a 
+key part for the translation framework:  we re-use its bytecode evaluator 
+to analyse RPython programs, PyPy's implementation language for specifying 
+language semantics and interpretation. 
+
+
+PyPy Architecture 
+===========================
+
+As you would expect from a project implemented using ideas from the world
+of `Extreme Programming`_, the architecture of PyPy has evolved over time
+and continues to evolve.  Nevertheless, the high level architecture is 
+stable. There are two rather independent basic subsystems: the `Python 
+Interpreter`_ and `the Translation Framework`_.  We first talk about the 
+Python Interpreter because the Translation framework in fact re-uses 
+parts of its architecture and code. 
+
+.. _`standard interpreter`: 
+
+The Python Interpreter
+-------------------------------------
+
+The *Python Interpreter* is the subsystem implementing the Python language
+with the following key components: 
+
+- a bytecode compiler responsible for producing Python Code objects 
+
+- a `bytecode evaluator`_ responsible for interpreting 
+  Python code objects. 
+
+- an `standard object space`_ responsible for creating, accessing and
+  modifying Python application level objects.  
+
+The *bytecode evaluator* is the part that interprets the compact
+bytecode format produced from user Python sources by a preprocessing
+phase, the *bytecode compiler*.  The bytecode compiler itself is
+implemented as a chain of flexible passes (tokenizer, lexer, parser,
+abstract syntax tree builder, bytecode generator).  The bytecode
+evaluator does its work by delegating all actual manipulation of
+user objects to the *object space*.  The latter can be thought of as the
+library of built-in types.  It defines the implementation of the user
+objects, like integers and lists, as well as the operations between
+them, like addition or truth-value-testing.  
+
+This division between bytecode evaluator and object space is very
+important, as it gives a lot of flexibility. It is possible to use
+different `object spaces`_ to get different behaviours of the Python
+objects.  Using a special object space is also an important technique
+for our translation process.
+
+.. _`bytecode evaluator`: interpreter.html
+.. _`standard object space`: objspace.html#the-standard-object-space
+.. _`object spaces`: objspace.html
+
+The Translation Process
+-----------------------
+
+The *translation process* is implemented in four parts: 
+
+- producing a *flow graph* representation of an RPython program source, 
+  A combination of the `bytecode evaluator`_ and a *flow object space*
+  performs `abstract interpretation`_ to record the flow of objects
+  and execution throughout a python program into such a *flow graph*;
+
+- the *annotator* which performs type inference on the flow graph;
+
+- the *typer* which, based on the type annotations, turns the flow graph
+  into another representation fitting the model of the target platform;
+
+- the *backend* which emits code for and integrates with the target platform. 
+
+.. _`initialization time`:
+.. _`translation process in more details`:
+
+In order for our generic translation and type inference mechanisms to
+master complexity, we restrict the dynamism of our source
+RPython program, using a particularly dynamic definition of RPython_. 
+During initialization the source program can make unrestricted 
+use of Python (including metaclasses and execution of dynamically 
+constructed strings).  However, Python code objects that we eventually
+see during the production and analysis of flow graphs, must adhere
+to a more static subset of Python.  
+
+The `bytecode evaluator`_ and the Flow Object Space work through 
+those initialized RPython code objects.  The result of this 
+`abstract interpretation`_ is a flow graph: yet another
+representation of the source program, but one which is suitable for
+applying translation and type inference techniques.  The nodes of the
+graph are basic blocks consisting of Object Space operations, flowing
+of values, and an exitswitch to one, two or multiple links which connect
+each basic block to other basic blocks. 
+
+The flow graphs are fed as input into the Annotator.  The Annotator,
+given entry point types, infers the types of values that flow through
+the program variables.  RPython code is restricted in such a way that the
+Annotator is able to infer consistent types.  How much dynamism we allow in 
+RPython depends on, and is mostly restricted by, the Flow Object Space and 
+the Annotator implementation.  The more we can improve this translation 
+phase, the more dynamism we can allow.  
+
+The *Typer* is responsible to prepare and produce target platform specific 
+representations of the annotated high level RPython flowgraphs.  It visits 
+the flowgraphs in order to transform and amend its contained operations 
+into specialized representations, suitable for either high level or 
+low level platforms.  High level platforms usually have their own 
+garbace collectors and high level builtin types, while low level platforms
+require dealing with machine level types and pointers. 
+
+The actual target platform code is eventually emitted by 
+the backend through "visiting" the type-annontated flow graph
+and adding platform specific integration code. 
+
+Here is a graphical overview of the translation process (`PDF color version`_):
+
+    .. image:: image/translation-greyscale-small.png
+
+
+Further reading
+===============
+
+* `[VMC]`_ PyPy's approach to virtual machine construction
+  (Dynamic Languages Symposium 2006).
+
+* The `translation document`_ describes our translation process in detail.
+  You might also be interested in reading the more
+  theoretically-oriented paper `Compiling dynamic language
+  implementations`_.
+
+* All our `Technical reports`_. XXX reference specific reports
+  and provide a summary here? 
+
+* `Getting started`_ with PyPy for a practical introduction. 
+
+.. _`Extreme Programming`: http://www.extremeprogramming.com/
+.. _`statistics web page`: http://codespeak.net/~hpk/pypy-stat/
+.. _`very compliant`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
+.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+.. _`RPython`: coding-guide.html#rpython
+.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`Compiling dynamic language implementations`: dynamic-language-translation.html
+.. _`translation document`: translation.html
+.. _LLVM: http://llvm.org/
+.. _`PDF color version`: image/translation.pdf
+.. _`getting started`: getting-started.html
+.. _`[VMC]`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`Technical reports`: index-report.html
+
+.. _Python: http://docs.python.org/ref
+.. _Psyco: http://psyco.sourceforge.net
+.. _Stackless: http://stackless.com 
+
+.. include:: _ref.txt
+
