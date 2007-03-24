@@ -48,28 +48,29 @@ leaving it to the translation framework to add these as translation
 aspects and produce custom implementations for particular feature
 and platform configurations.  
 
-Particularly, we want to help avoiding having to write ``n * m * o``
-interpreters for ``n`` dynamic languages and ``m`` platforms
+Particularly, we want to help avoiding having to write ``l * o * p``
+interpreters for ``l`` dynamic languages and ``p`` platforms
 with ``o`` crucial design decisions.  PyPy aims at having any
 one of these parameters changeable independently from each
 other:
 
-* ``n``: modify or replace the language we analyse and regenerate
+* ``l``: modify or replace the language we analyse and regenerate
   a concrete interpreter for each target;
-
-* ``m``: write new translator back-ends to target new
-  physical and virtual platforms;
 
 * ``o``: tweak and optimize the translation process to produce 
   platform specific code based on different models and tradeoffs.
 
+* ``p``: write new translator back-ends to target 
+  physical and virtual platforms;
+
+
 By contrast, a standardized target environment - say .NET -
-enforces ``m=1`` as far as it's concerned.  This helps making ``o`` a
+enforces ``p=1`` as far as it's concerned.  This helps making ``o`` a
 bit smaller by providing a higher-level base to build upon.  Still,
 we believe that enforcing the use of one common environment 
 is not necessary.  PyPy's goal is to give weight to this claim - at least 
 as far as language implementation is concerned - showing an approach
-to the ``n * m * o`` problem that does not rely on standardization.
+to the ``l * o * p`` problem that does not rely on standardization.
 
 Particularly, we set ourselves the goal to *generate
 Just-In-Time Compilers* in addition to traditional
