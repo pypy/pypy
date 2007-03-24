@@ -73,3 +73,8 @@ def test_readonly():
     py.test.raises((TypeError, AttributeError), "x.st_mode = 1")
     py.test.raises((TypeError, AttributeError), "x.st_mtime = 1")
     py.test.raises((TypeError, AttributeError), "x.st_rdev = 1")
+
+def test_no_extra_assignments():
+    x = mydata(range(100, 113))
+    py.test.skip("not working yet")
+    py.test.raises((TypeError, AttributeError), "x.some_random_attribute = 1")
