@@ -260,6 +260,16 @@ class TestInteraction:
         data = os.read(pipe.stdout.fileno(), 1024)
         assert data.startswith('Python')
 
+    def test_paste_several_lines_doesnt_mess_prompt(self):
+        py.test.skip("this can only work if readline is enabled")
+        child = self.spawn([])
+        child.expect('>>> ')
+        child.sendline('if 1:\n    print 42\n')
+        child.expect('...     print 42')
+        child.expect('... ')
+        child.expect('42')
+        child.expect('>>> ')
+
 
 class TestNonInteractive:
 
