@@ -21,7 +21,7 @@ We aim to provide:
   enabling new advanced features without the requirement
   to encode low level details into it. 
 
-The choice of target platform as well as advanced optimisations 
+The choice of target platform as well as advanced optimizations 
 techniques are to become aspects of the translation process, up
 to the ultimate point of *generating Just-in-Time compilers* 
 for dynamic language interpreters. 
@@ -58,10 +58,10 @@ other:
   a concrete interpreter for each target;
 
 * ``o``: tweak and optimize the translation process to produce 
-  platform specific code based on different models and trade-offs.
+  platform specific code based on different models and trade-offs;
 
 * ``p``: write new translator back-ends to target 
-  physical and virtual platforms;
+  physical and virtual platforms.
 
 
 By contrast, a standardized target environment - say .NET -
@@ -121,6 +121,7 @@ Python Interpreter because the Translation framework in fact re-uses
 parts of its architecture and code. 
 
 .. _`standard interpreter`: 
+.. _`python interpreter`: 
 
 The Python Interpreter
 -------------------------------------
@@ -141,7 +142,7 @@ bytecode format produced from user Python sources by a preprocessing
 phase, the *bytecode compiler*.  The bytecode compiler itself is
 implemented as a chain of flexible passes (tokenizer, lexer, parser,
 abstract syntax tree builder, bytecode generator).  The bytecode
-evaluator does its work by delegating all actual manipulation of
+evaluator does its work by delegating all actual manipulations of
 user objects to the *object space*.  The latter can be thought of as the
 library of built-in types.  It defines the implementation of the user
 objects, like integers and lists, as well as the operations between
@@ -156,20 +157,24 @@ for our translation process.
 .. _`bytecode evaluator`: interpreter.html
 .. _`standard object space`: objspace.html#the-standard-object-space
 .. _`object spaces`: objspace.html
+.. _`flow object space`: objspace.html#the-flow-object-space
+
+.. _`the translation framework`:
 
 The Translation Process
 -----------------------
 
 The *translation process* is implemented in four parts: 
 
-- producing a *flow graph* representation of an RPython program source, 
-  A combination of the `bytecode evaluator`_ and a *flow object space*
+- the production of a *flow graph* representation of an RPython program
+  source, function by function.
+  A combination of the `bytecode evaluator`_ and a `flow object space`_
   performs `abstract interpretation`_ to record the flow of objects
-  and execution throughout a python program into such a *flow graph*;
+  and execution throughout a Python program into such a *flow graph*;
 
-- the *annotator* which performs type inference on the flow graph;
+- the *annotator*, which performs type inference on the family of flow graphs;
 
-- the *rtyper* which, based on the type annotations, turns the flow graph
+- the *rtyper*, which - based on the type annotations - turns the flow graph
   into another representation fitting the model of the target platform;
 
 - the *backend* which emits code for and integrates with the target platform. 
@@ -177,18 +182,18 @@ The *translation process* is implemented in four parts:
 .. _`initialization time`:
 .. _`translation process in more details`:
 
-In order for our generic translation and type inference mechanisms to
-master complexity, we restrict the dynamism of our source
-RPython program, using a particularly dynamic definition of RPython_. 
+In order to limit the complexity of our generic translation and type
+inference mechanisms, we restrict the dynamism of our source
+RPython program.  RPython_ is still defined in a particularly dynamic.
 During initialization the source program can make unrestricted 
 use of Python (including metaclasses and execution of dynamically 
-constructed strings).  However, Python code objects that we eventually
+constructed strings).  However, the Python code objects that we eventually
 see during the production and analysis of flow graphs, must adhere
 to a more static subset of Python.  
 
-The `bytecode evaluator`_ and the Flow Object Space work through 
+The `bytecode evaluator`_ and the `Flow Object Space`_ work through 
 those initialized RPython code objects.  The result of this 
-`abstract interpretation`_ is a flow graph: yet another
+`abstract interpretation`_ is a flow graph (one per function): yet another
 representation of the source program, but one which is suitable for
 applying translation and type inference techniques.  The nodes of the
 graph are basic blocks consisting of Object Space operations, flowing
@@ -197,19 +202,24 @@ each basic block to other basic blocks.
 
 The flow graphs are fed as input into the Annotator.  The Annotator,
 given entry point types, infers the types of values that flow through
-the program variables.  RPython code is restricted in such a way that the
+the variables of the entire program.
+RPython code is restricted in such a way that the
 Annotator is able to infer consistent types.  How much dynamism we allow in 
 RPython depends on, and is mostly restricted by, the Flow Object Space and 
 the Annotator implementation.  The more we can improve this translation 
 phase, the more dynamism we can allow.  
 
-The *Typer* is responsible to prepare and produce target platform specific 
+The *RTyper* is responsible for the preparation and production of target
+platform specific 
 representations of the annotated high level RPython flowgraphs.  It visits 
-the flowgraphs in order to transform and amend its contained operations 
-into specialized representations, suitable for either high level or 
-low level platforms.  High level platforms usually have their own 
+the flow graphs in order to transform and amend the operations it contains.
+After this pass the operations in the flow graphs are suitable for the
+target platform.  High level platforms (e.g. object-oriented virtual machines)
+usually have their own 
 garbace collectors and high level builtin types, while low level platforms
-require dealing with machine level types and pointers. 
+(e.g. C-like environments)
+require dealing with machine level types and pointers; the RTyper can
+produce flow graphs containing operations suited for either kind of platform.
 
 The actual target platform code is eventually emitted by 
 the backend through "visiting" the type-annotated flow graph
