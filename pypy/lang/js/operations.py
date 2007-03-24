@@ -53,8 +53,6 @@ class Node(object):
         """
         Used for expression evaluation
         """
-        if DEBUG:
-            print self
         raise NotImplementedError
 
     def execute(self, ctx):
@@ -100,8 +98,6 @@ class BinaryComparisonOp(BinaryOp):
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         s4 = self.right.eval(ctx).GetValue()
-        if DEBUG:
-            print "bincomp, op1 and op2 ", s2, s4
         return self.decision(ctx, s2, s4)
     
     def decision(self, ctx, op1, op2):
@@ -111,8 +107,6 @@ class BinaryBitwiseOp(BinaryOp):
     def eval(self, ctx):
         s5 = self.left.eval(ctx).GetValue().ToInt32()
         s6 = self.right.eval(ctx).GetValue().ToInt32()
-        if DEBUG:
-            print "bitwisecomp, op1 and op2 ", s2, s4
         return self.decision(ctx, s5, s6)
     
     def decision(self, ctx, op1, op2):
@@ -231,8 +225,6 @@ class Call(BinaryOp):
     opcode = 'CALL'
 
     def eval(self, ctx):
-        if DEBUG:
-            print "calling", self.left, self.right
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
@@ -387,8 +379,6 @@ class Ge(BinaryComparisonOp):
     
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
-        if DEBUG:
-            print ">= ARC result:", s5
         if s5 in (-1, 1):
             return W_Boolean(False)
         else:
@@ -399,8 +389,6 @@ class Gt(BinaryComparisonOp):
     
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
-        if DEBUG:
-            print "> ARC result:", s5
         if s5 == -1:
             return W_Boolean(False)
         else:
@@ -666,10 +654,10 @@ class List(ListOp):
 class BinaryNumberOp(BinaryOp):
     def eval(self, ctx):
         nleft = self.left.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
+        print "context now is:"
+        print ctx
         nright = self.right.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
         result = self.mathop(ctx, nleft, nright)
-        if DEBUG:
-            print self.left, nleft, self.opcode, self.right, nright, '=', result
         return result
 
 class Plus(BinaryNumberOp):
@@ -814,8 +802,6 @@ class ObjectInit(ListOp):
     def eval(self, ctx):
         w_obj = W_Object()
         for prop in self.list:
-            if DEBUG:
-                print prop.left
             name = prop.left.value
             w_expr = prop.right.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)

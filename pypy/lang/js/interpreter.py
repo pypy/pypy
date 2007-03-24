@@ -58,8 +58,6 @@ def functionjs(ctx, args, this):
         functioncode = "__anon__ = function (%s) {%s}"%(fargs, fbody)
     else:
         functioncode = "__anon__ = function () {}"
-    if DEBUG:
-        print functioncode
     return evaljs(ctx, [W_String(functioncode),], this)
 
 def parseIntjs(ctx, args, this):
@@ -178,6 +176,10 @@ class Interpreter(object):
         w_Global.Put('Function', w_Function)
         w_Global.Put('Array', W_Array())
         w_Global.Put('version', W_Builtin(versionjs))
+        
+        #Number
+        w_Date = W_Object(Class="Number")
+        w_Global.Put('Date', w_Date)
         
         #Number
         w_Number = W_Builtin(numberjs, Class="Number")

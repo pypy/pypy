@@ -1,7 +1,6 @@
 # encoding: utf-8
 from pypy.rlib.rarithmetic import r_uint, intmask
 
-DEBUG = False
 
 class SeePage(NotImplementedError):
     pass
@@ -75,8 +74,6 @@ class W_Root(object):
         raise NotImplementedError
     
     def PutValue(self, w, ctx):
-        if DEBUG:
-            print self, w.ToString(), w.__class__, ctx
         raise NotImplementedError
     
     def Call(self, ctx, args=[], this=None):
@@ -260,8 +257,6 @@ class W_Builtin(W_PrimitiveObject):
         self.callfuncbi = callfuncbi
 
     def Call(self, ctx, args=[], this = None):
-        if DEBUG:
-            print args
         return self.callfuncbi(ctx, args, this)
         
     def type(self):
@@ -282,6 +277,9 @@ class ActivationObject(W_PrimitiveObject):
         W_PrimitiveObject.__init__(self, Class='Activation')
         del self.propdict["prototype"]
 
+    def __repr__(self):
+        return str(self.propdict)
+        
 def arraycallbi(ctx, args, this):
     return W_Array()
     
@@ -336,8 +334,6 @@ def array_str_builtin(ctx, args, this):
 
 class W_Boolean(W_Primitive):
     def __init__(self, boolval):
-        if DEBUG:
-            print boolval
         self.boolval = bool(boolval)
 
     def ToString(self):
@@ -364,7 +360,7 @@ class W_String(W_Primitive):
         self.strval = strval
 
     def __str__(self):
-        return self.strval
+        return self.strval+"W"
 
     def ToString(self):
         return self.strval
@@ -380,6 +376,9 @@ class W_Number(W_Primitive):
     def __init__(self, floatval):
         self.floatval = float(floatval)
 
+    def __str__(self):
+        return str(self.floatval)+"W"
+        
     def ToString(self):
         if str(self.floatval) == str(NaN):
             return 'NaN'
@@ -446,6 +445,9 @@ class ExecutionContext(object):
         self.debug = False
         self.property = Property('',w_Undefined) #Attribute flags for new vars
     
+    def __str__(self):
+        return "<ExCtx %s>"%(str(self.scope))
+        
     def assign(self, name, value):
         """
         assign to property name, creating it if it doesn't exist
@@ -483,14 +485,14 @@ def global_context(w_global):
 
 def function_context(scope, activation, this=None):
     ctx = ExecutionContext()
-    ctx.scope = scope
+    ctx.scope = scope[:]
     ctx.push_object(activation)
     if this is None:
         ctx.this = ctx.get_global()
     else:
         ctx.this = this
-    
     ctx.property = Property('', w_Undefined, dd=True)
+    print ctx
     return ctx
     
 def eval_context(calling_context):
@@ -512,9 +514,6 @@ class W_Reference(W_Root):
             exception = "ReferenceError: %s is not defined"%(self.property_name,)
             raise ThrowException(W_String(exception))
         
-        if DEBUG:
-            print "ref base: %s, prop: %s, getresult: %s"%(self.base,
-                  self.property_name, 'self.base.Get(self.property_name)')
         return self.base.Get(self.property_name)
 
     def PutValue(self, w, ctx):
