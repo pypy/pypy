@@ -70,7 +70,10 @@ def abs__file__():
     """Set all module' __file__ attribute to an absolute path"""
     for m in sys.modules.values():
         try:
-            m.__file__ = os.path.abspath(m.__file__)
+            prev = m.__file__
+            new = os.path.abspath(m.__file__)
+            if prev != new:
+                m.__file__ = new
         except AttributeError:
             continue
 
