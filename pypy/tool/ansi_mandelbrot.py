@@ -110,7 +110,7 @@ class Driver(object):
         self.init()
 
     def init(self):
-        self.width = get_terminal_width()
+        self.width = get_terminal_width() or 1
         self.mandelbrot = Mandelbrot(width=self.width, **self.kwargs)
         self.mandelbrot.init()
         self.gen = self.mandelbrot.generate()
