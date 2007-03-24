@@ -16,11 +16,6 @@ def test_required():
     conf.objspace.std.withprebuiltint = True
     py.test.raises(ValueError, "conf.objspace.std.withsmallint = True")
 
-def test_objspace_incopatibilities():
-    conf = get_pypy_config()
-    conf.objspace.name = "logic"
-    assert not conf.objspace.geninterp
-
 def test_stacklessgc_required():
     conf = get_pypy_config()
     conf.translation.gc = "stacklessgc"
