@@ -151,7 +151,6 @@ class AppTestWeavingAtExecution(object):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_before_execution')
         
         class AspectTest:
             __metaclass__ = Aspect 
@@ -168,20 +167,19 @@ class AppTestWeavingAtExecution(object):
         assert __aop__.advices == [(aspect, AspectTest.advice_before_execution)] 
         assert not aspect.executed
 
-        from app_test import aop_before_execution
+        aop_before_execution = sample_aop_code.import_('aop_before_execution')
+
         assert  aspect.executed == 0
         answ = aop_before_execution.foo(1,2)
         assert aspect.executed == 1
         assert aspect.argnames == ['b', 'c']
         assert aspect.flags == 0
         assert answ == 47
-        sample_aop_code.clean_module('aop_before_execution')
 
     def test_aspect_before_meth_execution(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_before_meth_execution')
         
         class AspectTest:
             __metaclass__ = Aspect 
@@ -198,20 +196,19 @@ class AppTestWeavingAtExecution(object):
         assert __aop__.advices == [(aspect, AspectTest.advice_before_meth_execution)] 
         assert not aspect.executed
 
-        from app_test import aop_before_meth_execution
+        aop_before_meth_execution = sample_aop_code.import_(
+            'aop_before_meth_execution')
         assert  aspect.executed == 0
         answ = aop_before_meth_execution.truc()
         assert aspect.executed == 1
         assert aspect.argnames == ['self', 'b']
         assert aspect.flags == 0
         assert answ == 7
-        sample_aop_code.clean_module('aop_before_meth_execution')
 
     def test_simple_aspect_after_execution(self):
         from  aop import PointCut, Aspect, after
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_after_execution')
         class AspectTest:
             __metaclass__ = Aspect 
             def __init__(self):
@@ -224,18 +221,16 @@ class AppTestWeavingAtExecution(object):
         aspect = AspectTest()
         assert __aop__.advices == [(aspect, AspectTest.advice_after_execution)] 
         assert not aspect.executed
-        from app_test import aop_after_execution
+        aop_after_execution = sample_aop_code.import_('aop_after_execution')
         assert aspect.executed == 0
         answ = aop_after_execution.foo(1,2)
         assert aspect.executed == 1
         assert answ == 47
-        sample_aop_code.clean_module('aop_after_execution')
 
     def test_simple_aspect_around_execution(self):
         from  aop import PointCut, Aspect, around
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_around_execution')
         class AspectTest:
             __metaclass__ = Aspect 
             def __init__(self):
@@ -253,7 +248,7 @@ class AppTestWeavingAtExecution(object):
                 return tjp.result()
         
         aspect = AspectTest()
-        from app_test import aop_around_execution
+        aop_around_execution = sample_aop_code.import_('aop_around_execution')
         assert aspect.executed_before == 0
         assert aspect.executed_after == 0
         answ = aop_around_execution.foo(1,2)
@@ -261,7 +256,6 @@ class AppTestWeavingAtExecution(object):
         assert aspect.executed_after == 1
         assert aspect.result == 47
         assert answ == 47
-        sample_aop_code.clean_module('aop_around_execution')
         
 
 class AppTestWeavingAtCall(object):
@@ -269,7 +263,6 @@ class AppTestWeavingAtCall(object):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_before_call')
         
         class AspectTest:
             __metaclass__ = Aspect 
@@ -287,18 +280,16 @@ class AppTestWeavingAtCall(object):
         assert __aop__.advices == [(aspect, AspectTest.advice_before_call)] 
         assert not aspect.executed
 
-        from app_test import aop_before_call
+        aop_before_call = sample_aop_code.import_('aop_before_call')
         assert  aspect.executed == 0
         answ = aop_before_call.foo(1,2)
         assert aspect.executed == 1
         assert answ == 47
-        sample_aop_code.clean_module('aop_before_call')
 
     def test_simple_aspect_after_call(self):
         from  aop import PointCut, Aspect, after
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_after_call')
         
         class AspectTest:
             __metaclass__ = Aspect 
@@ -320,20 +311,18 @@ class AppTestWeavingAtCall(object):
         assert __aop__.advices == [(aspect, AspectTest.advice_after_call)] 
         assert not aspect.executed
 
-        from app_test import aop_after_call
+        aop_after_call = sample_aop_code.import_('aop_after_call')
         assert not aspect.executed 
         answ = aop_after_call.foo(1,2)
         assert aspect.executed 
         assert answ == 47
         assert aspect.result == 42
-        sample_aop_code.clean_module('aop_after_call')
 
     
     def test_simple_aspect_around_call(self):
         from  aop import PointCut, Aspect, around
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_around_call')
         class AspectTest:
             __metaclass__ = Aspect 
             def __init__(self):
@@ -351,7 +340,7 @@ class AppTestWeavingAtCall(object):
                 return tjp.result()
         
         aspect = AspectTest()
-        from app_test import aop_around_call
+        aop_around_call = sample_aop_code.import_('aop_around_call')
         assert aspect.executed_before == 0
         assert aspect.executed_after == 0
         answ = aop_around_call.foo(1,2)
@@ -359,8 +348,6 @@ class AppTestWeavingAtCall(object):
         assert aspect.executed_after == 1
         assert aspect.result == 42
         assert answ == 47
-        sample_aop_code.clean_module('aop_around_call')
-
 
 
 class AppTestWeavingIntroduce(object):
@@ -368,7 +355,6 @@ class AppTestWeavingIntroduce(object):
         from  aop import PointCut, Aspect, introduce
         from app_test import sample_aop_code
         __aop__._clear_all()
-        sample_aop_code.write_module('aop_introduce')
         class AspectTest:
             __metaclass__ = Aspect 
             @introduce(PointCut(klass='Mumble'))
@@ -376,7 +362,7 @@ class AppTestWeavingIntroduce(object):
                 return it.p*a+b
             
         aspect = AspectTest()
-        from app_test import aop_introduce
+        aop_introduce = sample_aop_code.import_('aop_introduce')
         c = aop_introduce.Mumble(2)
         try:
             answ = c.newmethod(1,3)
