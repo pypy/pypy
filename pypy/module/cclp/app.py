@@ -1,3 +1,5 @@
+# NOT_RPYTHON
+
 from cclp import _make_expression
 
 def make_expression(variables, formula):
