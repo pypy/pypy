@@ -168,14 +168,13 @@ Motivation
 ----------
 
 The Taint Object Space provides a form of security: "tainted objects",
-inspired by various sources, including Perl's tainting (XXX more
-references needed).
+inspired by various sources, see [D12.1]_ for a more detailed discussion. 
 
 The basic idea of this kind of security is not to protect against
-malicious code, unlike sandboxing, for example.  This is about the
-handling of "sensitive" data.  It covers two kinds of sensitive data:
-secret data which should not leak, and untrusted data coming from an
-external source and that must be validated before it is used.
+malicious code but to help with handling and boxing sensitive data. 
+It covers two kinds of sensitive data: secret data which should not leak, 
+and untrusted data coming from an external source and that must be 
+validated before it is used.
 
 The idea is that, considering a large application that handles these
 kinds of sensitive data, there are typically only a small number of
@@ -482,7 +481,8 @@ to a callable.  Application level code can customize e.g. list
 and dictionary objects without interfering with the type system, 
 i.e. ``type(proxied_list) is list`` holds true while still
 giving you full control on all operations that are performed on the
-``proxied_list``.  
+``proxied_list``.  Please see [D12.1]_ for context, 
+motivation and usage of transparent proxies. 
 
 Example of the core mechanism 
 -------------------------------------------
@@ -636,5 +636,8 @@ lists, dicts, exceptions, tracebacks and frames.
 .. _`proxyobject.py`: ../../pypy/objspace/std/proxyobject.py
 .. _`transparent.py`: ../../pypy/objspace/std/transparent.py
 .. _`tputil.py`: ../../pypy/lib/tputil.py
+
+.. [D12.1] `High-Level Backends and Interpreter Feature Prototypes`, PyPy
+           EU-Report, 2007, http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 .. include:: _ref.txt
