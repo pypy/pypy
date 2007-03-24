@@ -88,6 +88,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                negation=False),
 
     BoolOption("geninterp", "specify whether geninterp should be used",
+               cmdline=None,
                default=True),
 
     BoolOption("logbytecodes",
@@ -251,9 +252,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 ##                              ("translation.backend", "llvm")],
 ##                    cmdline="--llvm-faassen", negation=False),
      ]),
-    BoolOption("lowmem", "Try to use less memory during translation",
-               default=False, cmdline="--lowmem",
-               requires=[("objspace.geninterp", False)]),
+    #BoolOption("lowmem", "Try to use less memory during translation",
+    #           default=False, cmdline="--lowmem",
+    #           requires=[("objspace.geninterp", False)]),
 
 
 ])
