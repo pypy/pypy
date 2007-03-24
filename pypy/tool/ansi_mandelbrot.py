@@ -62,6 +62,7 @@ class Mandelbrot:
         self.reset_lines = cnt
 
     def generate(self):
+        self.reset_lines = False
         iy = 0
         while iy < self.y:
             ix = 0
