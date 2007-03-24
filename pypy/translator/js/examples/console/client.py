@@ -50,6 +50,12 @@ def set_sessid(data):
     sessid = int(data[0])
     help_msg = data[1]
     glob.sess_id = sessid
+    inp_elem = dom.document.getElementById("inp")
+    inp_elem.disabled = False 
+    name_bar = dom.document.getElementById("namebar")
+    name_bar.style.color = "black"
+    name_bar.removeChild(name_bar.lastChild)
+    name_bar.appendChild(create_text("Python console"))
     dom.document.getElementById("helpcontents").innerHTML = help_msg
     exported_methods.refresh_empty(sessid, refresh_console)
 
@@ -97,8 +103,8 @@ def add_snippet(snippet):
     add_text(snippet)
     exported_methods.refresh(glob.sess_id, snippet, refresh_console)
 
-def execute_snippet(number=3):
-    exported_methods.execute_snippet(number, add_snippet)
+def execute_snippet(name='python', number=3):
+    exported_methods.execute_snippet(name, number, add_snippet)
 
 def console_onload():
     #createLoggingPane(True)

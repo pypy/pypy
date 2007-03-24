@@ -5,7 +5,7 @@ pypy-cs from doc directory
 
 import py
 
-class LoadDoc(object):
+class DocLoader(object):
     def __init__(self, consoles, docdir, testfile='test_snippets.py'):
         self.consoles = consoles
         self.docdir = py.path.local(docdir)
