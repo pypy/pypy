@@ -19,4 +19,27 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
+        'parse_and_bind':     'app_stub.stub',
+        'get_line_buffer':    'app_stub.stub_str',
+        'insert_text':        'app_stub.stub',
+        'read_init_file':     'app_stub.stub',
+        'read_history_file':  'app_stub.stub',
+        'write_history_file': 'app_stub.stub',
+        'clear_history':      'app_stub.stub',
+        'get_history_length': 'app_stub.stub_int',
+        'set_history_length': 'app_stub.stub',
+        'get_current_history_length': 'app_stub.stub_int',
+        'get_history_item':           'app_stub.stub_str',
+        'remove_history_item':        'app_stub.stub',
+        'replace_history_item':       'app_stub.stub',
+        'redisplay':                  'app_stub.stub',
+        'set_startup_hook':           'app_stub.stub',
+        'set_pre_input_hook':         'app_stub.stub',
+        'set_completer':      'app_stub.stub',
+        'get_completer':      'app_stub.stub',
+        'get_begidx':         'app_stub.stub_int',
+        'get_endidx':         'app_stub.stub_int',
+        'set_completer_delims':       'app_stub.stub',
+        'get_completer_delims':       'app_stub.stub_str',
+        'add_history':        'app_stub.stub',
     }
