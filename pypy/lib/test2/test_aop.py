@@ -1,11 +1,22 @@
-from pypy.conftest import gettestobjspace
+import py
+from pypy.conftest import option, maketestobjspace
 
 
-class AppTestAOPGeneral(object):
+class BaseAppTest(object):
+    def setup_class(cls):
+        if option.runappdirect:
+            py.test.skip("messes up the internal state of the compiler")
+        # we NEED a fresh space, otherwise the messed-up compiler might
+        # show up for the other test files and then we get extremely
+        # confused (speaking from experience here)
+        cls.space = maketestobjspace()
+
+
+class AppTestAOPGeneral(BaseAppTest):
     def test_init(self):
         import aop
 
-class AppTestPointCut(object):
+class AppTestPointCut(BaseAppTest):
     def test_static_dynamic_advice_and_pointcut(self):
         from  aop import PointCut, introduce, before, around, after
 
@@ -146,7 +157,7 @@ class AppTestPointCut(object):
         assert not pc.match(c)
         
             
-class AppTestWeavingAtExecution(object):
+class AppTestWeavingAtExecution(BaseAppTest):
     def test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
@@ -258,7 +269,7 @@ class AppTestWeavingAtExecution(object):
         assert answ == 47
         
 
-class AppTestWeavingAtCall(object):
+class AppTestWeavingAtCall(BaseAppTest):
     def test_simple_aspect_before_call(self):
         from  aop import PointCut, Aspect, before
         from app_test import sample_aop_code
@@ -350,7 +361,7 @@ class AppTestWeavingAtCall(object):
         assert answ == 47
 
 
-class AppTestWeavingIntroduce(object):
+class AppTestWeavingIntroduce(BaseAppTest):
     def test_introduce(self):
         from  aop import PointCut, Aspect, introduce
         from app_test import sample_aop_code
