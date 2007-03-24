@@ -340,6 +340,7 @@ class TranslationDriver(SimpleTaskEngine):
                               inline_threshold=0,
                               merge_if_blocks=True,
                               constfold=True,
+                              raisingop2direct_call=False,
                               remove_asserts=True)
     #
     task_prehannotatebackendopt_lltype = taskdef(
