@@ -327,9 +327,10 @@ Read more about `Logic Object space features`_.
 Aspect Oriented Programming
 +++++++++++++++++++++++++++
 
-PyPy provides some `Aspect Oriented Programming` facilities. 
-
-Try it out::
+PyPy provides experimental `Aspect Oriented Programming` facilities
+(warning: using the 'aop' module may modify compiler state and 
+badly affect subsequent execution of compiled code and imports) 
+Here is an example::
 
  cd pypy
  python bin/py.py
