@@ -38,7 +38,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  ["std", "flow", "logic", "thunk", "cpy", "dump", "taint"],
                  "std",
                  requires = {
-                     "thunk": [("objspace.geninterp", False)],
                      "logic": [("objspace.geninterp", False),
                                ("objspace.usemodules._stackless", True),
                                ("objspace.usemodules.cclp", True),
