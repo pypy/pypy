@@ -43,25 +43,31 @@ def gettestobjspace(name=None, **kwds):
                     py.test.skip("cannot runappdirect test: "
                                  "%s objspace required" % (name,))
             return TinyObjSpace(**kwds)
-        try:
-            space = make_objspace(config)
-        except OperationError, e:
-            check_keyboard_interrupt(e)
-            if option.verbose:
-                import traceback
-                traceback.print_exc()
-            py.test.fail("fatal: cannot initialize objspace: %r" %
-                             (config.objspace.name,))
+        space = maketestobjspace(config)
         _SPACECACHE[key] = space
-        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                      appsupport.build_pytest_assertion(space))
-        space.setitem(space.builtin.w_dict, space.wrap('raises'),
-                      space.wrap(appsupport.app_raises))
-        space.setitem(space.builtin.w_dict, space.wrap('skip'),
-                      space.wrap(appsupport.app_skip))
-        space.raises_w = appsupport.raises_w.__get__(space)
-        space.eq_w = appsupport.eq_w.__get__(space)
         return space
+
+def maketestobjspace(config=None):
+    if config is None:
+        config = make_config(option)
+    try:
+        space = make_objspace(config)
+    except OperationError, e:
+        check_keyboard_interrupt(e)
+        if option.verbose:
+            import traceback
+            traceback.print_exc()
+        py.test.fail("fatal: cannot initialize objspace: %r" %
+                         (config.objspace.name,))
+    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
+                  appsupport.build_pytest_assertion(space))
+    space.setitem(space.builtin.w_dict, space.wrap('raises'),
+                  space.wrap(appsupport.app_raises))
+    space.setitem(space.builtin.w_dict, space.wrap('skip'),
+                  space.wrap(appsupport.app_skip))
+    space.raises_w = appsupport.raises_w.__get__(space)
+    space.eq_w = appsupport.eq_w.__get__(space)
+    return space
 
 class TinyObjSpace(object):
     def __init__(self, **kwds):
