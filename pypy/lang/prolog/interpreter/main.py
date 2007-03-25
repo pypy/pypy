@@ -168,7 +168,7 @@ screen."""
 getch = _Getch()
 
 
-if __name__ == '__main__':
+def main():
     import readline
     oldps1 = getattr(sys, "ps1", ">>> ")
     oldps2 = getattr(sys, "ps2", "... ")
@@ -193,3 +193,6 @@ if __name__ == '__main__':
         sys.ps1 = oldps1
         sys.ps2 = oldps2
     
+
+if __name__ == '__main__':
+    main()
