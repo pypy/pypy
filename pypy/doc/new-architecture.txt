@@ -126,7 +126,7 @@ parts of its architecture and code.
 The Python Interpreter
 -------------------------------------
 
-The *Python Interpreter* is the subsystem implementing the Python language
+PyPy's *Python Interpreter* implements the Python language
 with the following key components: 
 
 - a bytecode compiler responsible for producing Python code objects 
