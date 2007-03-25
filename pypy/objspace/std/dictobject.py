@@ -239,7 +239,12 @@ class W_DictIterObject(W_Object):
         w_self.len = len(content)
         w_self.pos = 0
         w_self.setup_iterator()
+    
+    def setup_iterator(w_self):
+        raise NotImplementedError("abstract base class")
 
+    def next_entry(w_self):
+        raise NotImplementedError("abstract base class")
 
 registerimplementation(W_DictIterObject)
 
