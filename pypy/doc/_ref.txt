@@ -1,4 +1,6 @@
 .. _`demo/`: ../../demo
+.. _`demo/jit/`: ../../demo/jit
+.. _`demo/jit/f1.py`: ../../demo/jit/f1.py
 .. _`demo/pickle_coroutine.py`: ../../demo/pickle_coroutine.py
 .. _`lib-python/`: ../../lib-python
 .. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
@@ -58,8 +60,7 @@
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`objspace/`:
 .. _`pypy/objspace`: ../../pypy/objspace
-.. _`objspace/cpy/`:
-.. _`pypy/objspace/cpy`: ../../pypy/objspace/cpy
+.. _`objspace/cpy/`: ../../pypy/objspace/cpy
 .. _`objspace/dump.py`: ../../pypy/objspace/dump.py
 .. _`objspace/flow/`: ../../pypy/objspace/flow
 .. _`objspace/logic.py`: ../../pypy/objspace/logic.py
