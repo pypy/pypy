@@ -164,6 +164,8 @@ for our translation process.
 The Translation Process
 -----------------------
 
+.. XXX this part sounds repetivive here and there and a bit heavy
+
 The *translation process* is implemented in four parts: 
 
 - the production of a *flow graph* representation of an RPython program
