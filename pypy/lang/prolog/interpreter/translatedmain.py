@@ -1,7 +1,7 @@
 import os, sys
 from pypy.rlib.parsing.parsing import ParseError
 from pypy.rlib.parsing.deterministic import LexerError
-from pypy.lang.prolog.interpreter.main import helptext
+from pypy.lang.prolog.interpreter.interactive import helptext
 from pypy.lang.prolog.interpreter.parsing import parse_file, get_query_and_vars
 from pypy.lang.prolog.interpreter.parsing import get_engine
 from pypy.lang.prolog.interpreter.engine import Engine
