@@ -117,8 +117,7 @@ of `Extreme Programming`_, the architecture of PyPy has evolved over time
 and continues to evolve.  Nevertheless, the high level architecture is 
 stable. There are two rather independent basic subsystems: the `Python 
 Interpreter`_ and `the Translation Framework`_.  We first talk about the 
-Python Interpreter because the Translation framework in fact re-uses 
-parts of its architecture and code. 
+Python Interpreter because of its re-use by the Translation framework.
 
 .. _`standard interpreter`: 
 .. _`python interpreter`: 
