@@ -75,8 +75,8 @@ to the ``l * o * p`` problem that does not rely on standardization.
 Particularly, we set ourselves the goal to *generate
 Just-In-Time Compilers* in addition to traditional
 Interpreter implementations - an area of language
-implementation that is commonly considered the ultimate 
-in complexity. 
+implementation that is commonly considered very challenging
+because of the involved complexity. 
 
 
 PyPy - the Python Interpreter 
