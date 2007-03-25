@@ -565,6 +565,10 @@ class OpWriter(object):
     def debug_print(self, opr):
         pass     # XXX
 
+    def debug_fatalerror(self, opr):
+        # XXX message?
+        self.codewriter.call(None, "void", "%abort", [], [])
+
     def hint(self, opr):
         self.same_as(opr)
 
