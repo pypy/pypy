@@ -1,4 +1,0 @@
-Try to use as little memory as possible *during translation*. Currently only
-disables :config:`objspace.geninterp` which also makes the resulting binary
-slower.
-
