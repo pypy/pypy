@@ -25,7 +25,7 @@ def test_offsetof():
 def test_sizeof_array_with_no_length():
     py.test.skip("inprogress")
     A = lltype.GcArray(lltype.Signed, hints={'nolength': True})
-    a = lltype.malloc(A, 5)
+    a = lltype.malloc(A, 5, zero=True)
     
     arraysize = llmemory.itemoffsetof(A, 10)
     signedsize = llmemory.sizeof(lltype.Signed)
