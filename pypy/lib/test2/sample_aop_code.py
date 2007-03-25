@@ -35,24 +35,16 @@ def truc():
     print 'truc', r, 'expected 7'
     return r
 """
-import os
+import os, sys
 import os.path as osp
 
 def _make_filename(name):
+    dir = sys.path[0]     # see setup_class()
     if not name.endswith('.py'):
         name += ".py"
-    return osp.join(osp.dirname(__file__), name)
+    return osp.join(dir, name)
 
 def write_module(name):
-    clean_module(name)
     f = open(_make_filename(name), 'w')
     f.write(code)
     f.close()
-
-def clean_module(name):
-    name = _make_filename(name)
-    if os.path.isfile(name):
-        os.unlink(name)
-    if os.path.isfile(name+'c'):
-        os.unlink(name+'c')
-

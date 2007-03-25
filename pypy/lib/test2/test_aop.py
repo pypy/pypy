@@ -1,20 +1,27 @@
 import py
 from pypy.conftest import option, maketestobjspace
+from pypy.tool.udir import udir
 
-def teardown_module(mod):
-    mydir = py.magic.autopath().dirpath()
-    for p in mydir.listdir():
-        if p.purebasename.startswith("aop_"):
-            p.remove()
-    
+
+def setup_module(mod):
+    if option.runappdirect:
+        py.test.skip("messes up the internal state of the compiler")
+    # we NEED a fresh space, otherwise the messed-up compiler might
+    # show up for the other test files and then we get extremely
+    # confused (speaking from experience here)
+    space = maketestobjspace()
+    mod.space = space
+    p = udir.join('test_aop')
+    p.ensure(dir=1)
+    # Note that sample_aop_code.py expects the temp dir to be in sys.path[0].
+    space.call_method(space.sys.get('path'), 'insert',
+                      space.wrap(0),
+                      space.wrap(str(p)))
+
+
 class BaseAppTest(object):
     def setup_class(cls):
-        if option.runappdirect:
-            py.test.skip("messes up the internal state of the compiler")
-        # we NEED a fresh space, otherwise the messed-up compiler might
-        # show up for the other test files and then we get extremely
-        # confused (speaking from experience here)
-        cls.space = maketestobjspace()
+        cls.space = space
 
 
 class AppTestAOPGeneral(BaseAppTest):
@@ -165,7 +172,7 @@ class AppTestPointCut(BaseAppTest):
 class AppTestWeavingAtExecution(BaseAppTest):
     def test_simple_aspect_before_execution(self):
         from  aop import PointCut, Aspect, before
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_before_execution')
         
@@ -191,11 +198,10 @@ class AppTestWeavingAtExecution(BaseAppTest):
         assert aspect.argnames == ['b', 'c']
         assert aspect.flags == 0
         assert answ == 47
-        sample_aop_code.clean_module('aop_before_execution')
 
     def test_aspect_before_meth_execution(self):
         from  aop import PointCut, Aspect, before
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_before_meth_execution')
         
@@ -221,11 +227,10 @@ class AppTestWeavingAtExecution(BaseAppTest):
         assert aspect.argnames == ['self', 'b']
         assert aspect.flags == 0
         assert answ == 7
-        sample_aop_code.clean_module('aop_before_meth_execution')
 
     def test_simple_aspect_after_execution(self):
         from  aop import PointCut, Aspect, after
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_after_execution')
         class AspectTest:
@@ -245,11 +250,10 @@ class AppTestWeavingAtExecution(BaseAppTest):
         answ = aop_after_execution.foo(1,2)
         assert aspect.executed == 1
         assert answ == 47
-        sample_aop_code.clean_module('aop_after_execution')
 
     def test_simple_aspect_around_execution(self):
         from  aop import PointCut, Aspect, around
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_around_execution')
         class AspectTest:
@@ -277,13 +281,12 @@ class AppTestWeavingAtExecution(BaseAppTest):
         assert aspect.executed_after == 1
         assert aspect.result == 47
         assert answ == 47
-        sample_aop_code.clean_module('aop_around_execution')
         
 
 class AppTestWeavingAtCall(BaseAppTest):
     def test_simple_aspect_before_call(self):
         from  aop import PointCut, Aspect, before
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_before_call')
         
@@ -308,11 +311,10 @@ class AppTestWeavingAtCall(BaseAppTest):
         answ = aop_before_call.foo(1,2)
         assert aspect.executed == 1
         assert answ == 47
-        sample_aop_code.clean_module('aop_before_call')
 
     def test_simple_aspect_after_call(self):
         from  aop import PointCut, Aspect, after
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_after_call')
         
@@ -342,12 +344,11 @@ class AppTestWeavingAtCall(BaseAppTest):
         assert aspect.executed 
         assert answ == 47
         assert aspect.result == 42
-        sample_aop_code.clean_module('aop_after_call')
 
     
     def test_simple_aspect_around_call(self):
         from  aop import PointCut, Aspect, around
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_around_call')
         class AspectTest:
@@ -375,13 +376,12 @@ class AppTestWeavingAtCall(BaseAppTest):
         assert aspect.executed_after == 1
         assert aspect.result == 42
         assert answ == 47
-        sample_aop_code.clean_module('aop_around_call')
 
 
 class AppTestWeavingIntroduce(BaseAppTest):
     def test_introduce(self):
         from  aop import PointCut, Aspect, introduce
-        import sample_aop_code
+        from test2 import sample_aop_code
         __aop__._clear_all()
         sample_aop_code.write_module('aop_introduce')
         class AspectTest:
