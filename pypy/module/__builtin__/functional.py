@@ -85,9 +85,8 @@ get a list in decending order."""
     except (ValueError, OverflowError):
         pass
     else:
-        if (space.config.objspace.name == "std" and
-            (space.config.objspace.std.withmultilist or
-             space.config.objspace.std.withrangelist)):
+        if (space.config.objspace.std.withmultilist or
+            space.config.objspace.std.withrangelist):
             return range_withspecialized_implementation(space, start,
                                                         step, howmany)
         res_w = [None] * howmany
