@@ -133,8 +133,9 @@ Related projects
 
 * `GNU lightning`_ generates assembly language at runtime. 
 
-* Tunes_ is not entirely unrelated.  (See also the `review of
-  programming languages`_.)
+* Tunes_ is not entirely unrelated.  The web site changed a lot, but a
+  snapshot of the `old Tunes Wiki`_ is available on codespeak; browsing
+  through it is a lot of fun.
 
 .. _`CLR under the hood`: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
 .. _Stackless: http://stackless.com 
@@ -153,4 +154,4 @@ Related projects
 .. _`Dynamic Native Optimization of Native Interpreters`: http://www.ai.mit.edu/~gregs/dynamorio.html
 .. _JikesRVM: http://jikesrvm.sf.net
 .. _Tunes: http://tunes.org
-.. _`review of programming languages`: http://web.archive.org/web/20050205011706/cliki.tunes.org/Programming+Languages
+.. _`old Tunes Wiki`: http://codespeak.net/cliki.tunes.org/
