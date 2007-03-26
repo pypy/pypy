@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     if (RPyExceptionOccurred()) {
         /* fish for the exception type, at least */
 #ifndef AVR
-        fprintf(stderr, "Fatal PyPy error: %s\n",
+        fprintf(stderr, "Fatal RPython error: %s\n",
                 RPyFetchExceptionType()->ov_name->items);
 #endif
         exitcode = 1;
