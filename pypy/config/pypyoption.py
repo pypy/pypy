@@ -248,7 +248,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                              ("objspace.std.withprebuiltchar", True),
 #                             ("objspace.std.optimized_int_add", True),
                              ],
-                   cmdline="--alloptimizations --faassen", negation=False),
+                   cmdline="--allopts --faassen", negation=False),
 
 ##         BoolOption("llvmallopts",
 ##                    "enable all optimizations, and use llvm compiled via C",
