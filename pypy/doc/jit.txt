@@ -323,10 +323,92 @@ registers in a (slightly) more reasonable way on more complicated
 examples.
 
 
-A (slightly less) tiny interpreter
-==================================
+A slightly less tiny interpreter
+================================
 
-`pypy/jit/tl/tiny2.py`_ XXX
+The interpreter in `pypy/jit/tl/tiny2.py`_ is a reasonably good example
+of the difficulties that we meet when scaling up this approach, and how
+we solve them - or work around them.  For more details, see the comments
+in the source code.  With more work on the JIT generator, we hope to be
+eventually able to remove the need for the workarounds.
+
+Promotion
+---------
+
+The most powerful hint introduced in this example is ``promote=True``.
+It is applied to a value that is usually not a compile-time constant,
+but which we would like to become a compile-time constant "just in
+time".  Its meaning is to instruct the JIT compiler to stop compiling at
+this point, wait until the runtime actually reaches that point, grab the
+value that arrived here at runtime, and go on compiling with the value
+now considered as a compile-time constant.  If the same point is reached
+at runtime several times with several different values, the compiler
+will produce one code path for each, with a switch in the generated
+code.  This is a process that is never "finished": in general, new
+values can always show up later during runtime, causing more code paths
+to be compiled and the switch in the generated code to be extended.
+
+Promotion is the essential new feature introduced in PyPy when compared
+to existing partial evaluation techniques (it was actually first
+introduced in Psyco [JITSPEC]_, which is strictly speaking not a partial
+evaluator).
+
+Another way to understand the effect of promotion is to consider it as a
+complement to the ``concrete=True`` hint.  The latter tells the
+hint-annotator that the value that arrives here is required to be a
+compile-time constant (i.e. green).  In general, this is a very strong
+constraint, because it forces "backwards" a potentially large number of
+values to be green as well - all the values that this one depends on.
+In general, it does not work at all, because the value ultimately
+depends on an operation that cannot be constant-folded at all by the JIT
+compiler, e.g. because it depends on external input or reads from
+non-immutable memory.
+
+The ``promote=True`` hint can take an arbitrary red value and returns it
+as a green variable, so it can be used to bound the set of values that
+need to be forced to green.  A common idiom is to put a
+``concrete=True`` hint at the precise point where a compile-time
+constant would be useful (e.g. on the value on which a complex switch
+dispatches), and then put a few ``promote=True`` hints to copy specific
+values into green variables *before* the ``concrete=True``.
+
+The ``promote=True`` hints should be applied where we expect not too
+many different values to arrive at runtime; here are typical examples:
+
+* Where we expect a small integer, the integer can be promoted if each
+  specialized version can be optimized (e.g. lists of known length can
+  be optimized by the JIT compiler).
+
+* The interpreter-level class of an object can be promoted before an
+  indirect method call, if it is useful for the JIT compiler to look
+  inside the called method.  If the method call is indirect, the JIT
+  compiler merely produces a similar indirect method call in the
+  generated code.  But if the class is a compile-time constant, then it
+  knows which method is called, and compiles its operations (effectively
+  inlining it from the point of the view of the generated code).
+
+* Whole objects can be occasionally promoted, with care.  For example,
+  in an interpreter for a language which has function calls, it might be
+  useful to know exactly which Function object is called (as opposed to
+  just the fact that we call an object of class Function).
+
+Other hints
+-----------
+
+The other hints mentioned in `pypy/jit/tl/tiny2.py`_ are "global merge
+points" and "deepfreeze".  For more information, please refer to the
+explanations there.
+
+We should also mention a technique not used in ``tiny2.py``, which is
+the notion of *virtualizable* objects.  In PyPy, the Python frame
+objects are virtualizable.  Such objects assume that they will be mostly
+read and mutated by the JIT'ed code - this is typical of frame objects
+in most interpreters: they are either not visible at all for the
+interpreted programs, or (as in Python) you have to access them using
+some reflection API.  The ``_virtualizable_`` hint allows the object to
+escape (e.g. in PyPy, the Python frame object is pushed on the
+globally-accessible frame stack) while still remaining efficient to
+access from JIT'ed code.
 
 
 ------------------------------------------------------------------------
@@ -499,6 +581,8 @@ and are looking for a quick overview of some of our techniques.
 
 .. _`expanded version of the present document`: discussion/jit-draft.html
 
+---------------
+
 
 .. _VMC: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`RPython`: coding-guide.html#rpython
@@ -510,5 +594,9 @@ and are looking for a quick overview of some of our techniques.
 .. _Psyco: http://psyco.sourceforge.net
 .. _`PyPy Standard Interpreter`: architecture.html#standard-interpreter
 .. _`exception transformer`: translation.html#making-exception-handling-explicit
+.. [JITSPEC] Representation-Based Just-In-Time Specialization and the
+           Psyco Prototype for Python, ACM SIGPLAN PEPM'04, August 24-26, 2004,
+           Verona, Italy.
+           http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
 
 .. include:: _ref.txt
