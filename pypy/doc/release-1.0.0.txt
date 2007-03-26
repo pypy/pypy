@@ -1,0 +1,110 @@
+======================================================================
+pypy-1.0.0: XXX ...
+======================================================================
+
+Welcome to the PyPy 1.0.0 release. This a fundamental milestone for
+our efforts. Although still not mature enough for general use, PyPy
+1.0 materializes for the first time the full extent of our original
+vision:
+
+- A Python definition and interpreter written in Python (a subset
+  thereof)
+
+- A translation approach to produce efficient low-level versions
+  of the interpreter
+
+both these goals were achieved quite early in project, but finally:
+
+- the ability to *generate automally* a Just-In-Time Compiler
+  starting from the interpreter
+
+This is *possibly* our main research achievement, and something never
+done with this generality before. 
+
+With PyPy 1.0 the product of JIT generation can be enabled
+for some example functions to produce Psyco-like speed-ups.
+
+XXX link to jit.txt
+
+Main entry point for getting-started/download and documentation: 
+
+    http://codespeak.net/pypy/dist/pypy/doc/index.html
+
+Further below you'll find some notes about PyPy,
+the 1.0.0 highlights and some discussion about the future.
+PyPy 1.0.0 is the last release of our EU funded period.
+
+have fun, 
+
+    the PyPy team, 
+    XXX Names
+
+    and many others: 
+    http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+
+
+What is PyPy? 
+================================
+
+Technically, PyPy is both a Python Interpreter implementation 
+and an advanced Compiler, actually a framework for implementing 
+dynamic languages and generating virtual machines for them.
+
+The Framework allows for alternative frontends and
+for alternative backends, currently C, LLVM and .NET.  
+For our main target "C", we can can "mix in" different Garbage
+Collectors and threading models, including micro-threads aka
+"Stackless".  The inherent complexity that arises from this
+ambitious approach is mostly kept away from the Python
+interpreter implementation, our main frontend.
+
+PyPy now is also a Just-In-Time compiler generator.  The translation
+framework contains , the now integrated, JIT generation
+technology. This works based on hints added to the source interpreter,
+it should allow to cope with the changes to the interpreter, and be
+generally applicable to other interpreters written using the
+framework.
+
+Socially, PyPy is a collaborative effort of many individuals
+working together in a distributed and sprint-driven way since
+2003.  PyPy would not have gotten as far without the coding,
+feedback and general support from numerous people. 
+
+Formally, many of the current developers are involved in executing an
+EU contract with the goal of exploring and researching new approaches
+to Language/Compiler development and software engineering.  This
+contract's duration is about to end this month (March 2007) and we are
+working and preparing the according final review which is scheduled
+for May 2007.
+
+
+Key 1.0.0 Features 
+=====================
+
+- the JIT
+
+- more opts (CALL_METHOD(+cache), ropes)
+
+- clr module for cli integration
+
+- minimal readline
+
+
+What about the Future?
+=======================
+
+XXX ...
+
+
+Funding partners and organisations
+=====================================================
+    
+PyPy development and activities happen as an open source project and
+with the support of a consortium partially funded by a 28 months
+European Union IST research grant for the period December 2004 up to
+March 2007. The full partners of that consortium are:
+        
+    Heinrich-Heine University (Germany), Open End (Sweden)
+    merlinux GmbH (Germany), tismerysoft GmbH (Germany) 
+    Logilab Paris (France), DFKI GmbH (Germany)
+    ChangeMaker (Sweden), Impara (Germany)
