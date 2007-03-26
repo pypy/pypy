@@ -1,34 +1,4 @@
 from pypy.rlib.objectmodel import hint, _is_early_constant
-import sys
-
-
-INVALID = -sys.maxint-1
-
-def myint_internal(s, start=0):
-    if start >= len(s):
-        return INVALID
-    res = 0
-    while start < len(s):
-        c = s[start]
-        n = ord(c) - ord('0')
-        if not (0 <= n <= 9):
-            return INVALID
-        res = res * 10 + n
-        start += 1
-    return res
-
-def myint(s, start=0):
-    if _is_early_constant(s):
-        s = hint(s, promote=True)
-        start = hint(start, promote=True)
-        n = myint_internal(s, start)
-        if n == INVALID:
-            raise ValueError
-    else:
-        n = myint_internal(s, start)
-        if n == INVALID:
-            raise ValueError
-    return n
 
 
 class Box:
@@ -114,6 +84,33 @@ def interpret(bytecode, args):
     while len(stack) > 1:
         op2(stack, func_add_int, func_add_str)
     return stack.pop()
+
+
+def myint_internal(s, start=0):
+    if start >= len(s):
+        return -1
+    res = 0
+    while start < len(s):
+        c = s[start]
+        n = ord(c) - ord('0')
+        if not (0 <= n <= 9):
+            return -1
+        res = res * 10 + n
+        start += 1
+    return res
+
+def myint(s, start=0):
+    if _is_early_constant(s):
+        s = hint(s, promote=True)
+        start = hint(start, promote=True)
+        n = myint_internal(s, start)
+        if n < 0:
+            raise ValueError
+    else:
+        n = myint_internal(s, start)
+        if n < 0:
+            raise ValueError
+    return n
 
 
 def test_main():

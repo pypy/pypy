@@ -6,7 +6,7 @@ def ll_plus_minus(s, x, y):
     pc = 0
     while pc < len(s):
         op = s[pc]
-        op = hint(op, concrete=True)
+        hint(op, concrete=True)
         if op == '+':
             acc += y
         elif op == '-':
