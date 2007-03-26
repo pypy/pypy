@@ -13,7 +13,7 @@ vision:
 - A translation approach to produce efficient low-level versions
   of the interpreter
 
-both these goals were achieved quite early in project, but finally:
+Both these goals were achieved quite early in project, but finally:
 
 - the ability to *generate automatically* a Just-In-Time Compiler
   starting from the interpreter
@@ -59,7 +59,7 @@ ambitious approach is mostly kept away from the Python
 interpreter implementation, our main frontend.
 
 PyPy now is also a Just-In-Time compiler generator.  The translation
-framework contains , the now integrated, JIT generation
+framework contains the now integrated JIT generation
 technology. This works based on hints added to the source interpreter,
 it should allow to cope with the changes to the interpreter, and be
 generally applicable to other interpreters written using the
