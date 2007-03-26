@@ -6,11 +6,11 @@ pypy-cs from doc directory
 import py
 
 class DocLoader(object):
-    def __init__(self, consoles, docdir, testfile='test_snippets.py'):
+    def __init__(self, consoles, docdir, testfile):
         self.consoles = consoles
         self.docdir = py.path.local(docdir)
         assert self.docdir.check(dir=1)
-        self.testfile = self.docdir.join(testfile)
+        self.testfile = testfile
         assert self.testfile.check()
         self.htmls = {}
         self.snippets = {}

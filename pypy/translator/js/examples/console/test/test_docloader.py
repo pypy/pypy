@@ -11,6 +11,6 @@ def test_load_html():
         def test_snippet_1(self):
             x = 1
     ''')) + '\n')
-    ld = DocLoader(docdir=tmpdir, consoles=['one'], testfile='test_snippets2.py')
+    ld = DocLoader(docdir=tmpdir, consoles=['one'], testfile=tmpdir.join('test_snippets2.py'))
     assert ld.get_html('one') == "<a href='dupa'>x = 1</a>"
     assert ld.get_snippet('one', 0) == 'x = 1'

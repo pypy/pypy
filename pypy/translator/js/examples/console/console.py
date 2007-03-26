@@ -49,7 +49,9 @@ class Sessions(object):
     def __init__(self):
         self.sessions = {}
         self.updating = {}
-        self.docloader = DocLoader(docdir=DOCDIR, consoles=CONSOLES)
+        testfile = py.path.local(__file__).dirpath().join("play1_snippets.py")
+        self.docloader = DocLoader(docdir=DOCDIR, consoles=CONSOLES,
+                                   testfile=testfile)
 
     def new_session(self, python="python"):
         if not py.path.local().sysfind(python):
