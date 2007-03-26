@@ -50,7 +50,7 @@ def startcompile(exe_name, config, opts):
 def wait_until_done():
     while 1:
         for t in threading.enumerate():
-            if t != threading.currentThread() and t.isAlive():
+            if t.getName().startswith('buildthread-') and t.isAlive():
                 t.join()
         else:
             break
@@ -82,15 +82,16 @@ if __name__ == '__main__':
     results = []
     options = list(get_options(optionsfile))
     random.shuffle(options)
-    for opts in options:
+    for i, opts in enumerate(options):
         t = threading.Thread(target=build_pypy_with_options,
                              args=(basedir, opts))
         t.start()
+        t.setName('buildthread-%s' % (i,))
         while 1:
             # tiny bit of slack to the server
             time.sleep(1)
             active = len([t for t in threading.enumerate() if t.isAlive() and
-                          t != threading.currentThread()])
+                          t.getName().startswith('buildthread-')])
             if active < MAX_ACTIVE_THREADS:
                 break
             
