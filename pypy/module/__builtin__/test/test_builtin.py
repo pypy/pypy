@@ -468,7 +468,6 @@ class AppTestBuiltinOptimized(object):
     def setup_class(cls):
         from pypy.conftest import gettestobjspace
         cls.space = gettestobjspace(**{"objspace.opcodes.CALL_LIKELY_BUILTIN": True})
-        assert cls.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN
 
     # hum, we need to invoke the compiler explicitely
     def test_xrange_len(self):
