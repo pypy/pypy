@@ -26,4 +26,4 @@ class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
     oopspec = True
 
 def portal(driver):
-    return tiny2.interpret, MyHintAnnotatorPolicy()
+    return tiny1.ll_plus_minus, MyHintAnnotatorPolicy()
