@@ -35,7 +35,14 @@ class AppTest_pypy_c_taint(object):
         x = taint(6)
 
 class AppTest_pypy_cli(object):
-    pass
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{'usemodules': 'clr'})
+
+    def test_snippet_1(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        obj = ArrayList()
+        obj.Add(1)
 
 class AppTest_pyrolog_c(object):
     pass
