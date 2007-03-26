@@ -360,12 +360,14 @@ class NewHandler(BaseHTTPRequestHandler):
     def process_http_error(self, e):
         """ create the response body and headers for errors
         """
-        headers = {'Content-Type': 'text/plain'} # XXX need more headers here?
+        headers = {'Content-Type': 'text/html'} # XXX need more headers here?
         if e.status in [301, 302]:
             headers['Location'] = e.data
             body = 'Redirecting to %s' % (e.data,)
         else:
-            body = 'Error: %s (%s)' % (e.status, e.message)
+            message, explain = self.responses[e.status]
+            body = self.error_message_format % {'code': e.status, 'message': message,
+                                                'explain': explain}
         return headers, body
     
     def response(self, status, headers, body, send_body=True):
