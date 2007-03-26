@@ -43,6 +43,7 @@ def get_headers():
 
 def format_compileinfo(compileinfo):
     # XXX hack and partially copied from Config.__str__
+    from urllib import quote
     from pypy.config.pypyoption import get_pypy_config
     from pypy.config.config import Config
     from pypy.translator.driver import DEFAULTS
@@ -72,10 +73,13 @@ def format_compileinfo(compileinfo):
                     continue
                 if value == value_default:
                     continue
-                url = "http://codespeak.net/pypy/dist/pypy/doc/config/"
-                url += subpath + ".html"
-                items.append('<li> <a href="%s"> %s </a> = %s </li>' % (
-                    url, name, value))
+                if path_upto_here == 'goal_options':
+                    title = name
+                else:
+                    url = "http://codespeak.net/pypy/dist/pypy/doc/config/"
+                    url += quote(subpath) + ".html"
+                    title = '<a href="%s">%s</a>' % (url, name)
+                items.append('<li> %s = %s </li>' % (title, value))
         if outermost and not lines:
             return ""
         return "\n  ".join(items)
