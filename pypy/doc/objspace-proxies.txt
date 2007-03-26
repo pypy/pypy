@@ -145,7 +145,7 @@ The Logic Object Space adds several logic programming features,
 including the notion of logical variable.  A logical variable is really
 an object from the Python point of view; it is called "variable" for
 consistency with logic programming terminology.  It is an "empty" object
-with no initial value: it's value can be set once, and only once, at any
+with no initial value: its value can be set once, and only once, at any
 point in time.
 
 Logical variables are not entirely different from lazily-computed objects,
