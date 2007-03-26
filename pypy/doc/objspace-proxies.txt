@@ -6,10 +6,10 @@ What PyPy can do for your objects
 .. sectnum::
 
 
-Thanks to the `Object Space`_ architecture, there is a kind of feature
-that is easy to implement on top of PyPy: namely, any feature that is
+Thanks to the `Object Space`_ architecture, any feature that is
 based on proxying, extending, changing or otherwise controlling the
-behavior of all objects in a running program.
+behavior of all objects in a running program is easy to implement on
+top of PyPy.
 
 Here is what we implemented so far, in historical order:
 
@@ -21,9 +21,9 @@ Here is what we implemented so far, in historical order:
 * *Logic Object Space*: logical variables, i.e. placeholder objects
   whose value can be bound once.
 
-* *Taint Object Space*: a soft security system.  Your application cannot
+* *Taint Object Space*: a soft security system; your application cannot
   accidentally compute results based on tainted objects unless it
-  explicitly untaint them first.
+  explicitly untaints them first.
 
 * *Dump Object Space*: dumps all operations performed on all the objects
   into a large log file.  For debugging your applications.
@@ -33,7 +33,8 @@ Here is what we implemented so far, in historical order:
   control operations on application and builtin objects, 
   e.g lists, dictionaries, tracebacks. 
 
-Which object space to use can be chosen with :config:`objspace.name` option.
+Which object space to use can be chosen with the :config:`objspace.name`
+option.
 
 .. _`Object Space`: objspace.html
 
@@ -44,10 +45,11 @@ The Thunk Object Space
 
 This small object space, meant as a nice example, wraps another object
 space (e.g. the standard one) and adds two capabilities: lazily computed
-objects (computed only when an operation is performed on them), and
-"become", which completely and globally replaces an object with another.
+objects, computed only when an operation is performed on them, and
+"become", a more obscure feature which allows to completely and globally
+replaces an object with another.
 
-Example usage::
+Example usage of lazily computed objects::
 
     $ py.py -o thunk
     >>>> from __pypy__ import thunk
@@ -66,8 +68,8 @@ Example usage::
     computing...
     <type 'int'>
 
-A related, but more obscure feature, allows one object to be instantly
-and globally replaced with another::
+Example of how one object can be instantly and globally replaced with
+another::
 
     $ py.py -o thunk
     >>>> from __pypy__ import become
@@ -111,7 +113,7 @@ new internal class ``W_Thunk`` which stores the user-supplied callable
 and arguments.  When a space operation follows the ``w_thunkalias``
 chains of objects, it special-cases ``W_Thunk``: it invokes the stored
 callable if necessary to compute the real value and then stores it in
-the ``w_thunkalias`` field of the ``W_Thunk``, which has the effect of
+the ``w_thunkalias`` field of the ``W_Thunk``.  This has the effect of
 replacing the latter with the real value.
 
 .. _thunk-interface:
@@ -130,7 +132,7 @@ the ``__pypy__`` module exposes the following interface:
 
  * ``become(obj1, obj2)``: globally replace ``obj1`` with ``obj2``.
 
- * ``lazy(callable)``: Should be used as a function decorator. The decorated
+ * ``lazy(callable)``: should be used as a function decorator - the decorated
    function behaves lazily: all calls to it return a thunk object.
 
 
@@ -143,18 +145,20 @@ The Logic Object Space adds several logic programming features,
 including the notion of logical variable.  A logical variable is really
 an object from the Python point of view; it is called "variable" for
 consistency with logic programming terminology.  It is an "empty" object
-with no initial value at all.  It is possible to put a value into this
-object once, and only once, at any point in time.
+with no initial value: it's value can be set once, and only once, at any
+point in time.
 
-This is not entirely unrelated to a lazily-computed object, except that
-the object has no built-in knowledge about how it should compute itself.
-Trying to use such an object before it got a value results in a lock:
+Logical variables are not entirely different from lazily-computed objects,
+except that the objects have no built-in knowledge about how they should
+compute themselves.
+
+Using a logical variable before it gets a value results in a lock:
 the current thread is suspended, in the hope that another thread will
-eventually put a value into the object.  In practice, this works well
+eventually give it a value.  In practice, this works well
 with microthreads instead of real threads (see `Stackless features`_).
 
 The `EU Interim Report`_ (PDF) describes the Logic Object Space in
-more details.
+more detail.
 
 .. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2007-02-28.pdf
 .. _`Stackless features`: stackless.html
@@ -197,7 +201,7 @@ The effect of this is that although these small parts still need a
 careful security review, the rest of the application no longer does,
 because even a bug would be unable to leak the information.
 
-We have implemented a simple two-levels model: objects are either
+We have implemented a simple two-level model: objects are either
 regular (untainted), or sensitive (tainted).  Objects are marked as
 sensitive if they are secret or untrusted, and only declassified at
 carefully-checked positions (e.g. where the secret data is needed, or
@@ -296,21 +300,21 @@ called, not where the operation failed.  This means that all calls to
 reviewed for what occurs if they receive a Taint Bomb; they might catch
 the ``TaintError`` and give the user a generic message that something
 went wrong, if we are reasonably careful that the message or even its
-presence doesn't give information away.  This might be a decliate
-problem by itself, but there is no satisfying general solution to this
-problem; it must be considered on a case-by-case basis.  Again, what the
+presence doesn't give information away.  This might be a
+problem by itself, but there is no satisfying general solution here:
+it must be considered on a case-by-case basis.  Again, what the
 Taint Object Space approach achieves is not solving these problems, but
 localizing them to well-defined small parts of the application - namely,
 around calls to ``untaint()``.
 
-Note that the ``TaintError`` exception is deliberately not including any
-useful error message, because that might give information away too.
-However, it makes debugging quite harder.  This is a difficult problem
-to solve in general too; so far we implemented a way to peek in a Taint
+The ``TaintError`` exception deliberately does not include any
+useful error messages, because they might give information away.
+Of course, this makes debugging quite a bit harder; a difficult
+problem to solve properly.  So far we have implemented a way to peek in a Taint
 Box or Bomb, ``__pypy__._taint_look(x)``, and a "debug mode" that
-prints the exception as soon as a Bomb is created.  Both write
+prints the exception as soon as a Bomb is created - both write
 information to the low-level stderr of the application, where we hope
-that it is unlikely to be seen by anyone else than the application
+that it is unlikely to be seen by anyone but the application
 developer.
 
 
@@ -318,11 +322,11 @@ Taint Atomic functions
 ----------------------
 
 Occasionally, a more complicated computation must be performed on a
-tainted object.  This requires first untainting the object, perform the
+tainted object.  This requires first untainting the object, performing the
 computations, and then carefully tainting the result again (including
 hiding all exceptions into Bombs).
 
-There is a built-in decorator that does exactly that::
+There is a built-in decorator that does this for you::
 
     >>>> @__pypy__.taint_atomic
     >>>> def myop(x, y):
@@ -345,7 +349,7 @@ the function body always sees untainted arguments - and the eventual
 result is tainted again (possibly in a Taint Bomb).
 
 It is important for the function marked as ``taint_atomic`` to have no
-visible side effects, otherwise information could be leaked that way.
+visible side effects, as these could cause information leakage.
 This is currently not enforced, which means that all ``taint_atomic``
 functions have to be carefully reviewed for security (but not the
 callers of ``taint_atomic`` functions).
@@ -403,7 +407,7 @@ kinds of objects, Tainted Boxes and Tainted Bombs (which are not types
 in the Python sense).  Each box internally contains a regular object;
 each bomb internally contains an exception object.  An operation
 involving Tainted Boxes is performed on the objects contained in the
-boxes, and give a Tainted Box or a Tainted Bomb as a result (such an
+boxes, and gives a Tainted Box or a Tainted Bomb as a result (such an
 operation does not let an exception be raised).  An operation called
 with a Tainted Bomb argument immediately returns the same Tainted Bomb.
 
@@ -453,11 +457,11 @@ the ``__pypy__`` module exposes the following interface:
 The Dump Object Space
 =====================
 
-When PyPy is run with (or translated with) the Dump Object Space, all
+When PyPy is run with (or translated with) the *Dump Object Space*, all
 operations between objects are dumped to a file called
 ``pypy-space-dump``.  This should give a powerful way to debug
 applications, but so far the dump can only be inspected in a text
-editor; better browsing tools are needed before it can be really useful.
+editor; better browsing tools are needed before it becomes really useful.
 
 Try::
 
@@ -476,13 +480,14 @@ returns at line 3164.  All the rest is start-up, printing, and shutdown.
 Transparent Proxies
 ================================
 
-PyPy's Transparent Proxies allow to route operations to objects 
-to a callable.  Application level code can customize e.g. list
-and dictionary objects without interfering with the type system, 
-i.e. ``type(proxied_list) is list`` holds true while still
+PyPy's Transparent Proxies allow routing of operations on objects 
+to a callable.  Application level code can customize objects without
+interfering with the type system - ``type(proxied_list) is list`` holds true
+when 'proxied_list' is a proxied built-in list - while
 giving you full control on all operations that are performed on the
-``proxied_list``.  Please see [D12.1]_ for context, 
-motivation and usage of transparent proxies. 
+``proxied_list``.
+
+See [D12.1]_ for more context, motivation and usage of transparent proxies. 
 
 Example of the core mechanism 
 -------------------------------------------
@@ -509,8 +514,8 @@ return ``42`` on any add operation to the list::
 Example of recording all operations on builtins
 ----------------------------------------------------
 
-Suppose we want to have list which stores all operations performed on
-it for later analysis.  We use a small `tputil`_ module that helps
+Suppose we want to have a list which stores all operations performed on
+it for later analysis.  We can use the small `tputil`_ module to help
 with transparently proxying builtin instances::
 
    from tputil import make_proxy
@@ -531,15 +536,15 @@ with transparently proxying builtin instances::
    
 ``make_proxy(recorder, obj=[])`` creates a transparent list
 proxy where we can delegate operations to in the ``recorder`` function. 
-Calling ``type(l)`` does not lead to any operation at all. 
+Calling ``type(l)`` does not lead to any operation being executed at all. 
 
-XXX Note that ``append`` shows up as ``__getattribute__`` and that the ``type(lst)``
-does not show up at all (indeed the type is the only aspect of the instance that
-the controller cannot change).
+Note that ``append`` shows up as ``__getattribute__`` and that ``type(lst)``
+does not show up at all - the type is the only aspect of the instance which
+the controller cannot change.
 
 .. _`transparent proxy builtins`: 
 
-Transparent Proxy PyPy Builtins and support
+Transparent Proxy PyPy builtins and support
 -----------------------------------------------------------
 
 If you are using the `--objspace-std-withtproxy`_ option 
@@ -564,7 +569,7 @@ tputil help module
 
 The `tputil.py`_ module provides: 
 
-* ``make_proxy(controller, type, obj)`` function which 
+* ``make_proxy(controller, type, obj)``: function which 
   creates a tranparent proxy controlled by the given 
   'controller' callable.  The proxy will appear 
   as a completely regular instance of the given 
@@ -584,7 +589,7 @@ The `tputil.py`_ module provides:
 
     `kwargs`: keyword arguments for this operation 
 
-    `obj`: (if provided to `make_proxy`: an concrete object) 
+    `obj`: (if provided to `make_proxy`): a concrete object
 
   If you have specified a concrete object instance `obj` 
   to your `make_proxy` invocation, you may call 
@@ -594,18 +599,18 @@ The `tputil.py`_ module provides:
 Further points of interest
 ---------------------------
 
-A lot of tasks could be performed using transparent proxies. Including,
+A lot of tasks could be performed using transparent proxies, including,
 but not limited to:
 
-* A Remote version of objects, on which we perform operations
+* Remote versions of objects, on which we can directly perform operations
   (think about transparent distribution)
 
-* Access to some persistent-storages like databases (imagine an
-  SQL object mapper which looks like real object)
+* Access to persistent storage such as a database (imagine an
+  SQL object mapper which looks like a real object)
 
-* Access to external data structures, like other languages as normal
-  objects. (Of course some operations on them could raise exceptions, but it's
-  purely done in application level, so it's not real problem)
+* Access to external data structures, such as other languages, as normal
+  objects (of course some operations could raise exceptions, but 
+  since they are purely done on application level, that is not real problem)
 
 Implementation Notes
 -----------------------------
@@ -613,22 +618,22 @@ Implementation Notes
 PyPy's standard object space allows to internally have multiple
 implementations of a type and change the implementation at run
 time while application level code consistently sees the exact 
-same type and object.  Multiple performance optimisations using 
-this features are already implemented, see the document
+same type and object.  Multiple performance optimizations using 
+this features are already implemented: see the document
 about `alternative object implementations`_. Transparent
 Proxies use the architecture to provide control back 
 to application level code. 
 
-Transparent proxy is implemented on top of `standard object
+Transparent proxies are implemented on top of the `standard object
 space`_, in `proxy_helpers.py`_, `proxyobject.py`_ and
-`transparent.py`_. To run it you need to pass
+`transparent.py`_.  To use them you will need to pass a
 `--objspace-std-withtproxy`_ option to ``py.py`` or
-``translate.py``. It registers implementations like a
-``W_TransparentXxx`` which usually corresponds to an
-apropriate ``W_XxxObject``, including some interpreter hacks
+``translate.py``.  This registers implementations named
+``W_TransparentXxx`` - which usually correspond to an
+apropriate ``W_XxxObject`` - and includes some interpreter hacks
 for objects that are too close to the interpreter to be
-implemented in a std objspace. The types of objects that can
-be proxied like this are: user created classes & functions,
+implemented in the std objspace. The types of objects that can
+be proxied this way are user created classes & functions,
 lists, dicts, exceptions, tracebacks and frames.
 
 .. _`standard object space`: objspace.html#the-standard-object-space
