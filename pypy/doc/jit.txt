@@ -184,7 +184,9 @@ in Time Compiler should be another aspect as much as possible
 transparently introduced by and during the translation process.
 
 Partial evaluation techniques should, at least theoretically, allow
-such a derivation of a compiler from an interpreter. (XXX references)
+such a derivation of a compiler from an interpreter.
+
+.. XXX references
 
 The forest of flow graphs that the translation process generates and
 transforms constitutes a reasonable base for the necessary analyses.
@@ -200,8 +202,9 @@ data left as a variable. The generating extension is essentially
 capable of compiling the input programs.
 
 Generating extensions can be produced by self-applying partial evaluators,
-but this approach may lead to not optimal results or be not scalable
-(XXX expand this argument).
+but this approach may lead to not optimal results or be not scalable.
+
+.. XXX expand this argument
 
 For PyPy, our approach aims at producing the generating extension more
 directly from the analysed interpreter in the form of a forest of flow
@@ -248,7 +251,9 @@ so that the next time the same value is encountered at runtime, the
 execution can directly jump to the correct specialized code path.
 
 This can also be thought of as a generalisation of polymorphic inline
-caches (XXX reference).
+caches.
+
+.. XXX reference
 
 
 Partial Evaluation
