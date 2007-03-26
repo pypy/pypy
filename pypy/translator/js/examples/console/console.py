@@ -26,14 +26,12 @@ def js_source():
     return rpython2javascript(client, FUNCTION_LIST)
 
 def line_split(ret, max_len):
-    return ret
-    # XXX borken
     to_ret = []
     for line in ret.split("\n"):
         if len(line) > max_len:
             to_ret += [line[i*max_len:(i+1)*max_len] for i in
-                       range(len(line)/max_len - 1)]
-            i += 1
+                       range(len(line)/max_len)]
+            i = len(line)/max_len
         else:
             i = 0
         to_ret.append(line[i*max_len:])
