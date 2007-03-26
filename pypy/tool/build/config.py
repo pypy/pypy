@@ -27,7 +27,7 @@ system_config = Config(system_optiondescription)
 from pypy.config.pypyoption import get_pypy_config
 from pypy.translator.goal.translate import translate_optiondescr
 from pypy.tool.build.compileoption import combine_config
-pypy_config = get_pypy_config()
+pypy_config = get_pypy_config(translating=True)
 pypy_config.override({'translation.backend': 'c',
                       'translation.gc': 'boehm'})
 translate_config = Config(translate_optiondescr)
