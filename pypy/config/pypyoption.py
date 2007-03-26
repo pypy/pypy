@@ -1,7 +1,6 @@
 import autopath
 import py, os
 import sys
-import platform
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 
@@ -27,6 +26,13 @@ working_modules.update(dict.fromkeys(
      "crypt", "signal", "dyngram", "readline",
     ]
 ))
+
+if sys.platform == "win32":
+    del working_modules["rsocket"]
+    del working_modules["fcntl"]
+    del working_modules["select"]
+    del working_modules["readline"]
+
 
 module_dependencies = { }
 if os.name == "posix":
