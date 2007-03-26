@@ -4,7 +4,6 @@ functional programming.
 """
 from __future__ import generators
 
-from operator import lt, gt
 
 
 def sum(sequence, total=0):
@@ -203,9 +202,6 @@ def range(x, y=None, step=1):
 
 # ____________________________________________________________
 
-# min and max could be one function if we had operator.__gt__ and
-# operator.__lt__  Perhaps later when we have operator.
-
 
 def _identity(arg):
     return arg
@@ -214,6 +210,7 @@ def _identity(arg):
 def min(*arr, **kwargs):
     """return the smallest number in a list,
     or its smallest argument if more than one is given."""
+    from operator import gt
 
     return min_max(gt, "min", *arr, **kwargs)
 
@@ -246,6 +243,7 @@ def min_max(comp, funcname, *arr, **kwargs):
 def max(*arr, **kwargs):
     """return the largest number in a list,
     or its largest argument if more than one is given."""
+    from operator import lt
 
     return min_max(lt, "max", *arr, **kwargs)
 
