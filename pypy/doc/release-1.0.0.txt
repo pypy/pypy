@@ -15,7 +15,7 @@ vision:
 
 both these goals were achieved quite early in project, but finally:
 
-- the ability to *generate automally* a Just-In-Time Compiler
+- the ability to *generate automatically* a Just-In-Time Compiler
   starting from the interpreter
 
 This is *possibly* our main research achievement, and something never
