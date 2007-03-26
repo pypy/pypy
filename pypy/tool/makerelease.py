@@ -77,7 +77,7 @@ def build_html(target):
     old = docdir.chdir()
     try:
         # Generate the html files.
-        cmd = "python2.4 ../test_all.py"
+        cmd = "python2.4 ../test_all.py -k -test_play1_snippets"
         logexec(cmd)
         r = os.system(cmd)
         if r:
