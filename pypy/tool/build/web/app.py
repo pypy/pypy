@@ -46,14 +46,15 @@ def format_compileinfo(compileinfo):
     from pypy.config.pypyoption import get_pypy_config
     from pypy.config.config import Config
     from pypy.translator.driver import DEFAULTS
-    config = get_pypy_config(DEFAULTS, translating=True)
-    def add(config, path_upto_here="", outermost=False):
+    #config = get_pypy_config(DEFAULTS, translating=True)
+    cconfig = config.compile_config.copy()
+    def add(cconfig, path_upto_here="", outermost=False):
         items = []
         children = [(child._name, child)
-                    for child in config._cfgimpl_descr._children]
+                    for child in cconfig._cfgimpl_descr._children]
         children.sort()
         for name, child in children:
-            value_default = getattr(config, name)
+            value_default = getattr(cconfig, name)
             if path_upto_here:
                 subpath = path_upto_here + "." + name
             else:
@@ -78,7 +79,7 @@ def format_compileinfo(compileinfo):
         if outermost and not lines:
             return ""
         return "\n  ".join(items)
-    return "<ul> %s </ul>" % (add(config, outermost=False), )
+    return "<ul> %s </ul>" % (add(cconfig, outermost=False), )
 
 class ServerPage(object):
     """ base class for pages that communicate with the server
@@ -354,7 +355,6 @@ class Logs(Collection):
         # we have a name for a build, let's build a page for it (if it can't
         # be found, this page will raise an exception)
         return LogPage(name, self.config, self.gateway)
-
 
 class LogPage(ServerPage):
     def __init__(self, buildid, config, gateway=None):
