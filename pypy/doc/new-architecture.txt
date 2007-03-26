@@ -163,15 +163,13 @@ for our translation process.
 The Translation Process
 -----------------------
 
-.. XXX this part sounds repetivive here and there and a bit heavy
-
 The *translation process* is implemented in four parts: 
 
 - the production of a *flow graph* representation of an RPython program
   source, function by function.
   A combination of the `bytecode evaluator`_ and a `flow object space`_
   performs `abstract interpretation`_ to record the flow of objects
-  and execution throughout a Python program into such a *flow graph*;
+  and execution throughout a Python program into a family of *flow graphs*;
 
 - the *annotator*, which performs type inference on the family of flow graphs;
 
@@ -183,17 +181,17 @@ The *translation process* is implemented in four parts:
 .. _`initialization time`:
 .. _`translation process in more details`:
 
-In order to limit the complexity of our generic translation and type
-inference mechanisms, we restrict the dynamism of our source
-RPython program.  RPython_ is still defined in a particularly dynamic.
-During initialization the source program can make unrestricted 
-use of Python (including metaclasses and execution of dynamically 
-constructed strings).  However, the Python code objects that we eventually
-see during the production and analysis of flow graphs, must adhere
-to a more static subset of Python.  
+In order for our generic translation and type inference mechanisms to
+work effectively we need to restrict the allowed dynamism of RPython
+programs. The Python code objects that we eventually see during the
+production and analysis of flow graphs, must adhere to a more static
+subset of Python. This doesn't apply to the startup code which is not
+seen by the translation, so during initialization the source program
+can make unrestricted use of Python (including metaclasses and
+execution of dynamically constructed strings).
 
 The `bytecode evaluator`_ and the `Flow Object Space`_ work through 
-those initialized RPython code objects.  The result of this 
+the initialized RPython code objects.  The result of this 
 `abstract interpretation`_ is a flow graph (one per function): yet another
 representation of the source program, but one which is suitable for
 applying translation and type inference techniques.  The nodes of the
@@ -203,24 +201,21 @@ each basic block to other basic blocks.
 
 The flow graphs are fed as input into the Annotator.  The Annotator,
 given entry point types, infers the types of values that flow through
-the variables of the entire program.
-RPython code is restricted in such a way that the
-Annotator is able to infer consistent types.  How much dynamism we allow in 
-RPython depends on, and is mostly restricted by, the Flow Object Space and 
-the Annotator implementation.  The more we can improve this translation 
-phase, the more dynamism we can allow.  
+the variables of the entire program. RPython restrictions are crucial
+and defined for this to work.
 
-The *RTyper* is responsible for the preparation and production of target
-platform specific 
-representations of the annotated high level RPython flowgraphs.  It visits 
-the flow graphs in order to transform and amend the operations it contains.
-After this pass the operations in the flow graphs are suitable for the
-target platform.  High level platforms (e.g. object-oriented virtual machines)
-usually have their own 
-garbace collectors and high level builtin types, while low level platforms
-(e.g. C-like environments)
-require dealing with machine level types and pointers; the RTyper can
-produce flow graphs containing operations suited for either kind of platform.
+... XXX these last bits still need a cleanup:
+
+The *RTyper* is responsible for the preparation and production of
+target platform specific representations of the annotated high level
+RPython flowgraphs.  It visits the flow graphs in order to transform
+and amend the operations it contains.  After this pass the operations
+in the flow graphs are suitable for the target platform.  High level
+platforms (e.g. object-oriented virtual machines) usually have their
+own garbace collectors and high level builtin types, while low level
+platforms (e.g. C-like environments) require dealing with machine
+level types and pointers; the RTyper can produce flow graphs
+containing operations suited for either kind of platform.
 
 The actual target platform code is eventually emitted by 
 the backend through "visiting" the type-annotated flow graph
