@@ -89,6 +89,7 @@ Key 1.0.0 Features
 
 - minimal readline
 
+XXX point to play1
 
 What about the Future?
 =======================
