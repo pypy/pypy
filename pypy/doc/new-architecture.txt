@@ -26,6 +26,14 @@ techniques are to become aspects of the translation process, up
 to the ultimate point of *generating Just-in-Time compilers* 
 for dynamic language interpreters. 
 
+.. XXX <arigo>
+   the above wording looks nice, but somehow I end up missing all
+   these notions that were more explicit in the previous missing statement:
+   flexibility, variety of platforms large and small, custom Python
+   versions, memory and threading models, robustness against language
+   change, generating complete VMs, and the proof that it's really not
+   only for Python because we have other interpreters already...
+
 
 High Level Goals
 =============================
