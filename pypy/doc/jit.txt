@@ -211,7 +211,7 @@ Ideally, turning an interpreter into a JIT compiler is only a matter of
 adding a few hints.  In practice, the current JIT generation framework
 has many limitations and rough edges requiring workarounds.  On the
 above example, though, it works out of the box.  We only need one hint,
-the central hint that all interpreter need.  In the source, it is the line::
+the central hint that all interpreters need.  In the source, it is the line::
 
     hint(op, concrete=True)
 
@@ -219,7 +219,7 @@ This hint says: "at this point in time, ensure that ``op`` is a
 compile-time constant".  The motivation for such a hint is that the most
 important source of inefficiency in a small interpreter is the switch on
 the next opcode, here ``op``.  If ``op`` is known at the time where the
-JIT compiler runs, then the whole switch dispatch and be constant-folded
+JIT compiler runs, then the whole switch dispatch can be constant-folded
 away; only the case that applies remains.
 
 The way the ``concrete=True`` hint works is by setting a constraint: it
