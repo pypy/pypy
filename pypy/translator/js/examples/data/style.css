@@ -49,3 +49,8 @@ div#metaspace {
 
 .main {
 }
+
+.error {
+  color: red;
+  font-weight: bold;
+}

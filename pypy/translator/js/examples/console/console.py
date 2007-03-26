@@ -12,6 +12,7 @@ from pypy.translator.js import commproxy
 from pypy.translator.js.examples.console.session import Interpreter, Killed
 from pypy.translator.js.examples.console.docloader import DocLoader
 from py.__.green.server.httpserver import GreenHTTPServer
+from py.__.green.greensock2 import ConnexionClosed
 
 commproxy.USE_MOCHIKIT = True
 
@@ -25,6 +26,8 @@ def js_source():
     return rpython2javascript(client, FUNCTION_LIST)
 
 def line_split(ret, max_len):
+    return ret
+    # XXX borken
     to_ret = []
     for line in ret.split("\n"):
         if len(line) > max_len:
@@ -42,7 +45,7 @@ for x in range(6):
     STATIC_DIR = STATIC_DIR.dirpath()
 STATIC_DIR = STATIC_DIR.join("compiled")
 DOCDIR = STATIC_DIR.dirpath().join("pypy", "doc", "play1")
-CONSOLES = ['pypy-c', 'pypy-c-thunk', 'pypy-c-taint', 'pypy-cli', 'pyrolog-c']
+CONSOLES = ['python', 'pypy-c', 'pypy-c-thunk', 'pypy-c-taint', 'pypy-cli', 'pyrolog-c', 'pypy-c-jit']
 
 class Sessions(object):
     def __init__(self):
@@ -77,6 +80,15 @@ class Sessions(object):
         del self.sessions[pid]
         del self.updating[pid]
 
+    def get_ps(self, python):
+        if python == 'python':
+            return ['>>> ', '... ']
+        if python.startswith('pypy'):
+            return ['>>>> ', '.... ']
+        if python == 'pyrolog-c':
+            return ['>?-']
+        return []
+
 # We hack here, cause in exposed methods we don't have global 'server'
 # state
 sessions = Sessions()
@@ -85,31 +97,29 @@ class ExportedMethods(server.ExportedMethods):
     @callback(retval=[str])
     def get_console(self, python="python"):
         retval = sessions.new_session(python)
-        return [str(retval), sessions.docloader.get_html(python)]
+        return [str(retval), sessions.docloader.get_html(python)] +\
+               sessions.get_ps(python)
+
+    def _refresh(self, pid, to_write):
+        try:
+            return ["refresh", sessions.update_session(int(pid), to_write)]
+        except (KeyError, IOError, Killed, ConnexionClosed):
+            return ["disconnected"]
+        except Ignore:
+            return ["ignore"]        
 
     @callback(retval=[str])
     def refresh(self, pid=0, to_write=""):
-        #print "Refresh %s %d" % (to_write, int(pid))
-        try:
-            return ["refresh", sessions.update_session(int(pid), to_write)]
-        except (KeyError, IOError, Killed):
-            return ["disconnected"]
-        except Ignore:
-            return ["ignore"]
+        return self._refresh(pid, to_write)
 
     @callback(retval=[str])
     def refresh_empty(self, pid=0):
         #print "Empty refresh %d" % int(pid)
-        try:
-            return ["refresh", sessions.update_session(int(pid), None)]
-        except (KeyError, IOError, Killed):
-            return ["disconnected"]
-        except Ignore:
-            return ["ignore"]
+        return self._refresh(pid, None)
 
     @callback(retval=str)
     def execute_snippet(self, name='aaa', number=3):
-        return sessions.docloader.get_snippet(name, int(number))
+        return sessions.docloader.get_snippet(name, int(number)) + "\n"
 
     @callback()
     def kill_console(self, pid=0):

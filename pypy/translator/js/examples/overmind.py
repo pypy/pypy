@@ -11,6 +11,7 @@ from pypy.rpython.extfunc import _callable
 from pypy.rpython.ootypesystem.bltregistry import described
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.examples.console import console
+from py.__.green.server.httpserver import GreenHTTPServer
 
 import os
 import py
@@ -23,12 +24,16 @@ def js_source(function_list):
     import over_client
     return rpython2javascript(over_client, FUNCTION_LIST)
 
+static_dir = py.path.local(__file__).dirpath().join("data")
+
 class Root(server.Collection):
-    static_dir = py.path.local(__file__).dirpath().join("data")
     index = server.FsFile(static_dir.join("index.html"))
-    style_css = server.FsFile(static_dir.join("style.css"))
+    style_css = server.FsFile(static_dir.join("style.css"),
+                              content_type="text/css")
     terminal = server.Static(static_dir.join("terminal.html"))
     console = console.Root()
+    py_web1_png = server.FsFile(static_dir.join("py-web1.png"),
+                                content_type="image/png")
 
     def source_js(self):
         if hasattr(self.server, 'source'):
@@ -52,12 +57,13 @@ class Root(server.Collection):
 
 class Handler(server.NewHandler):
     application = Root()
+
+    error_message_format = static_dir.join('error.html').read()
     #console = server.Static(os.path.join(static_dir, "launcher.html"))
 
 if __name__ == '__main__':
     try:
         addr = ('', 8008)
-        from py.__.green.server.httpserver import GreenHTTPServer
         httpd = server.create_server(server_address=addr, handler=Handler,
                                      server=GreenHTTPServer)
         httpd.serve_forever()
