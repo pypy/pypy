@@ -35,14 +35,14 @@ def compile(wc, compileinfo, buildpath):
                     from pypy.tool.udir import udir
 
                     from pypy.config.pypyoption import get_pypy_config
-                    from pypy.translator.goal.translate import translate_optiondescr
+                    from pypy.translator.goal.translate import \
+                                                    translate_optiondescr
                     from pypy.tool.build.compileoption import combine_config
                     from pypy.config.config import Config
                     pypy_config = get_pypy_config()
                     translate_config = Config(translate_optiondescr)
-                    config = combine_config(pypy_config, translate_config, 'pypy',
-                                                    'pypy options')
-                    open('/tmp/compileinfo', 'w').write(repr(compileinfo))
+                    config = combine_config(pypy_config, translate_config,
+                                            'pypy', 'pypy options')
                     config.override(compileinfo)
 
                     targetpypystandalone.PyPyTarget.translateconfig = config

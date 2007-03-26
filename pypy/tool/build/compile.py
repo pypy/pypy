@@ -193,9 +193,10 @@ def main(config, request, foreground=False):
                 break
             time.sleep(POLLTIME)
         if error and error != 'None':
-            print 'error:', error
+            print 'error compiling:', error
             return (False, error)
         else:
+            print 'compilation finished successfully, downloading zip file'
             zipfile = py.path.local('pypy-%s.zip' % (reqid,))
             msa.save_zip(zipfile)
             print 'done, the result can be found in %s' % (zipfile,)

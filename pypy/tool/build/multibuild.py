@@ -38,7 +38,7 @@ def startcompile(exe_name, config, opts):
     try:
         override_conf(config, opts)
     except:
-        return exe_name_from_options(newconfig.compile_config, opts), \
+        return exe_name_from_options(config.compile_config, opts), \
                "didn't configure"
     request, foreground = getrequest(config, sys.argv[3:])
     hasbuilt, message = main(config, request, True)
