@@ -7,7 +7,7 @@ logexec = py.log.Producer("exec")
 
 import os
 
-BASEURL = "file:///svn/pypy/release/0.99.x"
+BASEURL = "file:///svn/pypy/release/1.0.x"
 DDIR = py.path.local('/www/codespeak.net/htdocs/download/pypy')
 
 def usage():
