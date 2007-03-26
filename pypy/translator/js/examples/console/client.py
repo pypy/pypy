@@ -35,11 +35,18 @@ def add_text(txt, server_flag, fn=add_text_to_dom):
             add_text_to_dom(txt)
     else:
         for ps in glob.pss:
-            if txt.startswith(ps) and glob.text_to_show:
-                txt = txt[len(ps):]
-                add_text_to_dom(ps + glob.text_to_show.pop(0) + "\n")
-                add_text(txt, True)
-                return
+            if glob.text_to_show:
+                num = txt.find(ps)
+                if txt.startswith(ps):
+                    txt = txt[len(ps):]
+                    add_text_to_dom(ps + glob.text_to_show.pop(0) + "\n")
+                    add_text(txt, True)
+                    return
+                if txt.startswith("\n" + ps):
+                    txt = txt[len(ps) + 1:]
+                    add_text_to_dom(ps + glob.text_to_show.pop(0) + "\n")
+                    add_text(txt, True)
+                    return
         add_text_to_dom(txt)
 
 def create_text(txt):
@@ -115,6 +122,7 @@ def cleanup_console():
     inp_elem = dom.document.getElementById("inp")
     inp_elem.disabled = True
     set_text("")
+    glob.text_to_show = [] # better safe than sorry
     exported_methods.kill_console(glob.sess_id, nothing2)
 
 def load_console(python="python"):
