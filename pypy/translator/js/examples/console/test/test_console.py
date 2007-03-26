@@ -5,7 +5,7 @@ def test_line_skip():
     from pypy.translator.js.examples.console.console import line_split
     assert line_split("asdf", 80) == "asdf"
     assert line_split("a b c d", 3) == "a b\n c \nd"
-    assert line_split("a b c d e f g h i j", 3) == "a b\n c \nd e\n f \ng h\n i j"
+    assert line_split("a b c d e f g h i j", 3) == "a b\n c \nd e\n f \ng h\n i \nj"
 
 def test_run_console():
     """ Check if we can read anything
