@@ -147,7 +147,8 @@ def parse_options_and_load_target():
         elif os.path.isfile(arg) and arg.endswith('.py'):
             translateconfig.targetspec = arg[:-3]
         else:
-            args = [arg] + args
+            log.ERROR("Could not find target %r" % (arg, ))
+            sys.exit(1)
 
     targetspec = translateconfig.targetspec
     targetspec_dic = load_target(targetspec)
