@@ -359,6 +359,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.portal_graph = graphof(t, PORTAL)
 
         hannotator = HintAnnotator(base_translator=t, policy=POLICY)
+        self.hint_translator = hannotator.translator
         hs = hannotator.build_types(self.portal_graph,
                                     [SomeLLAbstractConstant(v.concretetype,
                                                             {OriginFlags(): True})
@@ -388,6 +389,7 @@ class TranslationDriver(SimpleTaskEngine):
         else:
             raise Exception('Unsuported cpu %r'%cpu)
 
+        del self.hint_translator
         ha = self.hannotator
         t = self.translator
         # make the timeshifted graphs

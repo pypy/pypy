@@ -214,15 +214,19 @@ def main():
         async_server = None
         
         def __call__(self, port=None, async_only=False):
+            try:
+                t1 = drv.hint_translator
+            except (NameError, AttributeError):
+                t1 = t
             if self.async_server is not None:
                 return self.async_server
             elif port is not None:
                 from pypy.translator.tool.graphserver import run_async_server
-                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, translateconfig, port)
+                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t1, translateconfig, port)
                 return serv_start, serv_show, serv_stop
             elif not async_only:
                 from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-                return run_server_for_inprocess_client(t, translateconfig)
+                return run_server_for_inprocess_client(t1, translateconfig)
 
     server_setup = ServerSetup()
     server_setup(translateconfig.graphserve, async_only=True)
