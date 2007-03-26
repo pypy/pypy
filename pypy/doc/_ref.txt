@@ -39,6 +39,9 @@
 .. _`jit/timeshifter/`: ../../pypy/jit/timeshifter
 .. _`pypy/jit/timeshifter/rvalue.py`: ../../pypy/jit/timeshifter/rvalue.py
 .. _`jit/tl/`: ../../pypy/jit/tl
+.. _`pypy/jit/tl/targettiny1.py`: ../../pypy/jit/tl/targettiny1.py
+.. _`pypy/jit/tl/tiny1.py`: ../../pypy/jit/tl/tiny1.py
+.. _`pypy/jit/tl/tiny2.py`: ../../pypy/jit/tl/tiny2.py
 .. _`lang/`: ../../pypy/lang
 .. _`lang/js/`: ../../pypy/lang/js
 .. _`lang/prolog/`: ../../pypy/lang/prolog

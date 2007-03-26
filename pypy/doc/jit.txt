@@ -161,18 +161,181 @@ technique works on interpreters of any size, from tiny to PyPy.
 Aside from the obvious advantage, it means that we can show all the
 basic ideas of the technique on a tiny interpreter.  The fact that we
 have done the same on the whole of PyPy shows that the approach scales
-well.  So we will follow in the sequel the example of a tiny interpreter
-and insert a JIT compiler into it during translation.
+well.  So we will follow in the sequel the example of small interpreters
+and insert a JIT compiler into them during translation.
 
-A tiny interpreter
-==================
+The important terms:
+
+* *Translation time*: while you are running ``translate.py`` to produce
+  the static executable.
+
+* *Compile time*: when the JIT compiler runs.  This really occurs at
+  runtime, as it is a Just-In-Time compiler, but we need a consistent
+  way of naming the part of runtime that is occupied by running the
+  JIT support code and generating more machine code.
+
+* *Run time*: the execution of the user program.  This can mean either
+  when the interpreter runs (for parts of the user program that have not
+  been JIT-compiled), or when the generated machine code runs.
 
 
+A first example
+===============
+
+Source
+------
+
+Let's consider a very small interpreter-like example::
+
+        def ll_plus_minus(s, x, y):
+            acc = x
+            pc = 0
+            while pc < len(s):
+                op = s[pc]
+                hint(op, concrete=True)
+                if op == '+':
+                    acc += y
+                elif op == '-':
+                    acc -= y
+                pc += 1
+            return acc
+
+Here, ``s`` is an input program which is simply a string of ``'+'`` or
+``'-'``.  The ``x`` and ``y`` are integer input arguments.  The source
+code of this example is in `pypy/jit/tl/tiny1.py`_.
+
+Hint
+----
+
+Ideally, turning an interpreter into a JIT compiler is only a matter of
+adding a few hints.  In practice, the current JIT generation framework
+has many limitations and rough edges requiring workarounds.  On the
+above example, though, it works out of the box.  We only need one hint,
+the central hint that all interpreter need.  In the source, it is the line::
+
+    hint(op, concrete=True)
+
+This hint says: "at this point in time, ensure that ``op`` is a
+compile-time constant".  The motivation for such a hint is that the most
+important source of inefficiency in a small interpreter is the switch on
+the next opcode, here ``op``.  If ``op`` is known at the time where the
+JIT compiler runs, then the whole switch dispatch and be constant-folded
+away; only the case that applies remains.
+
+The way the ``concrete=True`` hint works is by setting a constraint: it
+requires ``op`` to be a compile-time constant.  During translation, a
+phase called *hint-annotation* processes these hints and tries to
+satisfy the constraints.  Without further hints, the only way that
+``op`` could be a compile-time constant is if all the other values that
+``op`` depends on are also compile-time constants.  So the
+hint-annotator will also mark ``s`` and ``pc`` as compile-time
+constants.
+
+Colors
+------
+
+You can see the results of the hint-annotator with the following
+commands::
+
+    cd pypy/jit/tl
+    python ../../translator/goal/translate.py --hintannotate targettiny1.py
+
+Click on ``ll_plus_minus`` in the Pygame viewer to get a nicely colored
+graph of that function.  The graph contains the low-level operations
+produced by RTyping.  The *green* variables are the ones that have been
+forced to be compile-time constants by the hint-annotator.  The *red*
+variables are the ones that will generally not be compile-time
+constants, although the JIT compiler is also able to do constant
+propagation of red variables if they contain compile-time constants in
+the first place.
+
+In this example, when the JIT runs, it generates machine code that is
+simply a list of additions and subtractions, as indicated by the ``'+'``
+and ``'-'`` characters in the input string.  To understand why it does
+this, consider the colored graph of ``ll_plus_minus`` more closely.  A
+way to understand this graph is to consider that it is no longer the
+graph of the ``ll_plus_minus`` interpreter, but really the graph of the
+JIT compiler itself.  All operations involving only green variables will
+be performed by the JIT compiler at compile-time.  In this case, the
+whole looping code only involves the green variables ``s`` and ``pc``,
+so the JIT compiler itself will loop over all the opcodes of the
+bytecode string ``s``, fetch the characters and do the switch on them.
+The only operations involving red variables are the ``int_add`` and
+``int_sub`` operations in the implementation of the ``'+'`` and ``'-'``
+opcodes respectively.  These are the operations that will be generated
+as machine code by the JIT.
+
+Over-simplifying, we can say that at the end of translation, in the
+actual implementation of the JIT compiler, operations involving only
+green variables are kept unchanged, and operations involving red
+variables have been replaced by calls to helpers.  These helpers contain
+the logic to generate a copy of the original operation, as machine code,
+directly into memory.
+
+Translating
+-----------
+
+Now try translating ``tiny1.py`` with a JIT without stopping at the
+hint-annotation viewer::
+
+    python ../../translator/goal/translate.py --jit targettiny1.py
+
+Test it::
+
+    ./targettiny1-c +++-+++ 100 10
+    150
+
+What occurred here is that the colored graph seen above was turned into
+a JIT compiler, and the original ``ll_plus_minus`` function was patched.
+Whenever that function is called from the rest of the program (in this
+case, from ``entry_point()`` in `pypy/jit/tl/targettiny1.py`_), then
+instead of the original code performing the interpretation, the patched
+function performs the following operations:
+
+* It looks up the value of its green argument ``s`` in a cache (the red
+  ``x`` and ``y`` are not considered here).
+
+* If the cache does not contain a corresponding entry, the JIT compiler
+  is called to produce machine code.  At this point, we pass to the JIT
+  compiler the value of ``s`` as a compile-time constant, but ``x`` and
+  ``y`` remain variables.
+
+* Finally, the machine code (either just produced or retrieved from the
+  cache) is invoked with the actual values of ``x`` and ``y``.
+
+The idea is that interpreting the same bytecode over and over again with
+different values of ``x`` and ``y`` should be the fast path: the
+compilation step is only required the first time.
+
+On 386-compatible processors running Linux, you can inspect the
+generated machine code as follows::
+
+    PYPYJITLOG=log ./targettiny1-c +++-+++ 100 10
+    python ../../jit/codegen/i386/viewcode.py log
+
+If you are familiar with GNU-style 386 assembler, you will notice that
+the code is a single block with no jump, containing the three additions,
+the subtraction, and the three further additions.  The machine code is
+not particularly optimal in this example because all the values are
+input arguments of the function, so they are reloaded and stored back in
+the stack at every operation.  The current backend tends to use
+registers in a (slightly) more reasonable way on more complicated
+examples.
+
+
+A (slightly less) tiny interpreter
+==================================
+
+`pypy/jit/tl/tiny2.py`_ XXX
 
 
 ------------------------------------------------------------------------
                   JIT Compiler Generation - Theory
 ------------------------------------------------------------------------
+
+.. _warning:
+
+    This section is work in progress!
 
 Introduction
 ============
@@ -330,9 +493,9 @@ colors that we use when displaying the control flow graphs:
 For more information
 ====================
 
-The `expanded version of the present document`_ is mostly unreadable,
-but may be of interest to you if you are already familiar with the
-domain of Partial Evaluation.
+The `expanded version of the present document`_ may be of interest to
+you if you are already familiar with the domain of Partial Evaluation
+and are looking for a quick overview of some of our techniques.
 
 .. _`expanded version of the present document`: discussion/jit-draft.html
 

@@ -334,9 +334,9 @@ Directory                      explanation/links
 .. _JIT: jit.html
 .. _`JIT Generation in PyPy`: jit.html
 .. _`just-in-time compiler generator`: jit.html
-.. _`jit backends`: jit.html#backends
-.. _`hint-annotator`: jit.html#hint-annotator
-.. _`timeshifter`: jit.html#timeshifter
+.. _`jit backends`: discussion/jit-draft.html#backends
+.. _`hint-annotator`: discussion/jit-draft.html#hint-annotator
+.. _`timeshifter`: discussion/jit-draft.html#timeshifter
 .. _rtyper: rtyper.html
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
