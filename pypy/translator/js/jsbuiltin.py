@@ -42,6 +42,8 @@ class _Builtins(object):
                 'll_substring' : CallBuiltin('substring'),
                 'll_lower' : lambda g, op: Call._render_builtin_method(g, 'toLowerCase', [op.args[1]]),
                 'll_upper' : lambda g, op: Call._render_builtin_method(g, 'toUpperCase', [op.args[1]]),
+                'll_find' : lambda g, op: Call._render_builtin_method(g, 'search', [op.args[1], op.args[2]]),
+                'll_find_char' : lambda g, op: Call._render_builtin_method(g, 'search', [op.args[1], op.args[2]]),
             },
             ootype.List: {
                 'll_setitem_fast' : ListSetitem,
