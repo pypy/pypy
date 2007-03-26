@@ -9,9 +9,12 @@ import sys
 import random
 import os
 import threading
+import time
 from pypy.translator.goal.multibuild import get_options, exe_name_from_options
 from pypy.tool.build import config
 from pypy.tool.build.compile import getrequest, main
+
+MAX_ACTIVE_THREADS = 5
 
 class ConfigWrapper(object):
     def __init__(self, orgconfig):
@@ -42,7 +45,6 @@ def startcompile(exe_name, config, opts):
                "didn't configure"
     request, foreground = getrequest(config, sys.argv[3:])
     hasbuilt, message = main(config, request, True)
-    hasbuilt, message = (True, 'foo')
     return hasbuilt and 'successfully built' or 'not built: %s' % (message,)
 
 def wait_until_done():
@@ -84,6 +86,14 @@ if __name__ == '__main__':
         t = threading.Thread(target=build_pypy_with_options,
                              args=(basedir, opts))
         t.start()
+        while 1:
+            # tiny bit of slack to the server
+            time.sleep(1)
+            active = len([t for t in threading.enumerate() if t.isAlive() and
+                          t != threading.currentThread()])
+            if active < MAX_ACTIVE_THREADS:
+                break
+            
     wait_until_done()
     print 'done'
 
