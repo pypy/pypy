@@ -34,10 +34,7 @@ clearly marks a major research result and gives weight to our vision
 that one can generate efficient interpreter implementations, starting
 from a description in a high level language.
 
-We have prepared several entry points to start looking around or to get
-started yourself:
-
-.. XXX
+We have prepared several entry points to help yoy get started:
 
 * The main entry point for JIT documentation and status:
 
@@ -57,10 +54,8 @@ started yourself:
 
    http://codespeak.net/pypy/dist/pypy/doc/index-report.html
 
-.. XXX
-
-In the next few months, we are going to discuss and aim for the next
-stage and goals of development - now more than ever depending on your
+In the next few months we are going to discuss the goals and form of
+the next stage of development - now more than ever depending on your
 feedback and contributions - and we hope you appreciate PyPy 1.0 as an
 interesting basis for greater things to come, as much as we do
 ourselves!
@@ -102,18 +97,16 @@ not have gotten as far as it has without the coding, feedback and
 general support from numerous people.
 
 Formally, many of the current developers were involved in executing an
-EU contract with the goal of exploring and researching new approaches to
-language and compiler development and software engineering.  This
+EU contract with the goal of exploring and researching new approaches
+to language and compiler development and software engineering.  This
 contract's duration is about to end this month (March 2007) and we are
-working and preparing the according final review which is scheduled for
-May 2007.
+working and preparing the according final review which is scheduled
+for May 2007.
 
-.. XXX
-
-For the future, we are in the process of setting up structures to guard
-conceptual integrity of the project and to discuss and deal with funding
-opportunities related to further PyPy sprinting and developments. See
-here for discussion results:
+For the future, we are in the process of setting up structures to help
+maintain conceptual integrity of the project and to discuss and deal
+with funding opportunities related to further PyPy sprinting and
+developments. See here for results of the discussion so far:
 
     http://codespeak.net/pipermail/pypy-dev/2007q1/003577.html
 
