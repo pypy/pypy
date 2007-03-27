@@ -471,18 +471,19 @@ compiled version::
 Translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
-To translate for LLVM (`low level virtual machine`_) you must first have `LLVM
-installed with version 1.9`_ - the `how to install LLVM`_ provides some helpful
-hints.  Please note that you do not need the CFrontend to compile, make
-tools-only.
+The LLVM or `low level virtual machine`_ project has, amonst other things,
+defined a statically typed portable assembly language and a set of tools that
+optimize and compile this assembly for a variety of platforms.  As such, this
+assembly is a natural target for PyPy's translator.
 
-The LLVM backend is still experimental.  However, it is very close to C backend
-functionality. At the point of writing, it is mostly missing stackless and
-threading support as well as the possibility to use reference counting. Calling
-compiled LLVM code from CPython is more restrictive than the C backend - the
-return type and the arguments of the entry function must be ints, floats or
-bools.  The emphasis of the LLVM backend is to compile standalone executables -
-please see the pypy/translator/llvm/demo directory for examples.
+To translate to LLVM assembly you must first have `LLVM version 1.9 installed`_
+- the `how to install LLVM`_ page provides some helpful hints.
+
+The LLVM backend is not as flexible as the C backend, and for example only
+supports one garbage collection strategy.  Calling compiled LLVM code from
+CPython is more restrictive than the C backend - the return type and the
+arguments of the entry function must be ints, floats or bools - as the emphasis
+of the LLVM backend is to compile standalone executables.
 
 Here is a simple example to try::
 
@@ -909,7 +910,7 @@ plan where to meet with us.
 .. _`low level virtual machine`: http://llvm.org/
 .. _`how to install LLVM`: http://llvm.org/docs/GettingStarted.html
 .. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev
-.. _`LLVM installed with version 1.9`: http://llvm.org/releases
+.. _`LLVM version 1.9 installed`: http://llvm.org/releases
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 .. _`Google summer of code`: http://code.google.com/soc
