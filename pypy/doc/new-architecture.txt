@@ -43,19 +43,19 @@ We aim to provide:
    separation between language specification and implementation
    aspects.
 
- * a compliant and fast implementation of the Python Language using
+ * a flexible and fast implementation of the Python Language using
    the above framework to enable new advanced features without having
    to encode low level details into it.
 
 By separating concerns in this way, we intend for our implementation
-of Python - and other dynamic languages, such as Prolog and
-JavaScript - to become robust against almost all implementation
-decisions, including target platform, memory and threading models,
-optimizations applied, up to to the point of being able to
+of Python - and other dynamic languages - to become robust against almost 
+all implementation decisions, including target platform, memory and 
+threading models, optimizations applied, up to to the point of being able to
 automatically *generate* Just-in-Time compilers for dynamic languages.
 
-Conversely, our implementation techniques, including the JIT compiler,
-should become robust against changes in the languages implementated.
+Conversely, our implementation techniques, including the JIT compiler 
+generator, should become robust against changes in the languages 
+implementated.
 
 High Level Goals
 =============================
