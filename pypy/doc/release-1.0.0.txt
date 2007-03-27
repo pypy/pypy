@@ -20,8 +20,9 @@ for the first time the full extent of our original vision:
   - low level (C, LLVM) and high level (CLI, Java, Javascript) backends 
 
 - A **Just-In-Time Compiler Generator** able to **automatically**
-  produce low-level versions of our Python Interpreter, leading
-  to JIT-typical speedups on algorithmic example code! 
+  enhance the low-level versions of our Python Interpreter, leading to
+  run-time machine code and JIT-typical speedups on algorithmic
+  example code!
 
 Previous releases and particularly 0.99.0 from February already 
 highlighted features of our Python implementation and the abilities
