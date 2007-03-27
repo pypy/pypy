@@ -45,6 +45,10 @@
 .. _`lang/`: ../../pypy/lang
 .. _`lang/js/`: ../../pypy/lang/js
 .. _`lang/prolog/`: ../../pypy/lang/prolog
+.. _`pypy/lang/prolog/builtin/`: ../../pypy/lang/prolog/builtin
+.. _`pypy/lang/prolog/builtin/control.py`: ../../pypy/lang/prolog/builtin/control.py
+.. _`pypy/lang/prolog/interpreter/engine.py`: ../../pypy/lang/prolog/interpreter/engine.py
+.. _`pypy/lang/prolog/interpreter/term.py`: ../../pypy/lang/prolog/interpreter/term.py
 .. _`lib/`:
 .. _`pypy/lib/`: ../../pypy/lib
 .. _`lib/app_test/`: ../../pypy/lib/app_test

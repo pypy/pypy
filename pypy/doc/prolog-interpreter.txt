@@ -5,7 +5,7 @@ Pyrolog: PyPy's Prolog interpreter
 .. contents::
 
 Pyrolog, PyPy's Prolog interpreter was written by Carl Friedrich Bolz as part of
-his bachelor thesis. It aims at being fully implementing the `Prolog ISO
+his bachelor thesis. It aims at fully implementing the `Prolog ISO
 specification`_. Currently it implements the core Prolog semantics and many, but
 not all, ISO builtins (it is especially lacking when it comes to I/O and module
 support). Its speed is still quite a bit below that of highly optimized Prologs,
@@ -50,7 +50,7 @@ First some simple examples that show simple unification::
  
 
 A more complicated example with an actual function: First define the function
-using ``assertz``:
+using ``assertz``::
 
     pypy/bin$ ./pyrolog.py
     PyPy Prolog Console
@@ -155,4 +155,13 @@ Prolog interpreter to C::
     pypy/translator/goal$ python translate.py targetprologstandalone.py
 
 
+Some implementation notes
+=========================
 
+The main Prolog data structures including the unification algorithm are defined
+in `pypy/lang/prolog/interpreter/term.py`_. The Prolog resolution engine in
+`pypy/lang/prolog/interpreter/engine.py`_. All the builtins are defined in the
+`pypy/lang/prolog/builtin/`_ directory, the most important ones being in
+`pypy/lang/prolog/builtin/control.py`_.
+
+.. include:: _ref.txt
