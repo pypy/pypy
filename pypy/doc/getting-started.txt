@@ -30,33 +30,23 @@ Just the facts
 Downloading & running the PyPy 1.0 release 
 --------------------------------------------
 
-Download one of the following release files and unpack it: 
+Download one of the following release files: 
 
 *pypy-1.0*
     
-  * download one of 
-
-    * `pypy-1.0.0.tar.bz2`_ (unix line endings) or
-    * `pypy-1.0.0.tar.gz`_ (unix line endings) or
-    * `pypy-1.0.0.zip`_ (windows line-endings) and unpack it 
-    
-  * alternatively run 
-  
-    * ``svn co http://codespeak.net/svn/pypy/release/1.0.x pypy-1.0.x``
-      (the 1.0 maintenance branch)
-
-  * Windows users can download a set of precompiled executables:
-
-    * `pypy-1.0.0-win32.zip`_
-
-to get it from the subversion repository. Then change to the
-``pypy-1.0.0`` or ``pypy-1.0.x`` directory and execute the following
-command line::
+    * `pypy-1.0.0.tar.bz2`_ (sources, unix line endings) or
+    * `pypy-1.0.0.tar.gz`_ (sources, unix line endings) or
+    * `pypy-1.0.0.zip`_ (sources, windows line-endings) or
+    * `pypy-1.0.0-win32.zip`_ precompiled executables for windows
+    * or get the `latest stable version via subversion`_.
+   
+After unpacking the source downloads you can change to the
+``pypy-1.0.0`` directory and execute the following command line::
 
     python pypy/bin/py.py 
 
 This will give you a PyPy prompt, i.e. a very compliant Python
-interpreter implemented in Python.  PyPy passes around `95% of
+interpreter implemented in Python.  PyPy passes around `98% of
 CPythons core language regression tests`_.  Because this invocation of
 PyPy still runs on top of CPython, it runs around 2000 times slower
 than the original CPython.
@@ -65,16 +55,22 @@ However, since the 0.7.0 release it is possible to use PyPy to `translate
 itself to lower level languages`_ after which it runs standalone, is not
 dependant on CPython anymore and becomes faster.
 
-.. _`95% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+If you are using the precompiled Windows executables, please look
+at the included ``README.txt`` on how to start already translated
+interpreters. 
+
+.. _`98% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
 .. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
 .. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
 .. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
 .. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
 
+.. _`latest stable version via subversion`:   
+
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
-If you want to play with the ongoing development PyPy version 
+If you want to play with the stable development PyPy version 
 you can check it out from the repository using subversion. Download 
 and install subversion_ if you don't already have it. Then you can
 issue on the command line (DOS box or terminal)::
@@ -91,7 +87,7 @@ After checkout you can get a PyPy interpreter via::
 
 have fun :-) 
 
-We have some `help on installing subversion`_ for PyPy. 
+We have some `help on installing subversion`_ for PyPy.
 Have a look at `interesting starting points`_ 
 for some guidance on how to continue. 
 
