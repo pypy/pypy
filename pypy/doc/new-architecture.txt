@@ -196,68 +196,42 @@ for our translation process.
 The Translation Process
 -----------------------
 
-The *translation process* is implemented in four parts: 
+The job of translation tool chain is to translate RPython_ programs into an
+efficient version of that program for one of various target platforms,
+generally one that is considerably lower-level than Python.
 
-- the production of a *flow graph* representation of an RPython program
-  source, function by function.
-  A combination of the `bytecode evaluator`_ and a `flow object space`_
-  performs `abstract interpretation`_ to record the flow of objects
-  and execution throughout a Python program into a family of *flow graphs*;
+A vital detail of PyPy's approach is that the level of abstraction is
+reduced in several steps from the high level of RPython down to that
+of the target platform, whatever that may be.
 
-- the *annotator*, which performs type inference on the family of flow graphs;
+The translation tool chain never sees Python source code or syntax
+trees, but rather starts with the *code objects* that define the
+behaviour of the function objects one gives it as input.
 
-- the *rtyper*, which - based on the type annotations - turns the flow graph
-  into another representation fitting the model of the target platform;
+The steps the translation process can be summarized as follows:
 
-- the *backend* which emits code for and integrates with the target platform. 
+ * A code object is converted to a control flow graph, by the Flow
+   Object Space.
 
-.. _`initialization time`:
-.. _`translation process in more details`:
+ * The control flow graphs are processed by the Annotator, which
+   annotates each variable of the control flow graph with the types it
+   may take at run-time.
 
-In order for our generic translation and type inference mechanisms to
-work effectively we need to restrict the allowed dynamism of RPython
-programs. The Python code objects that we eventually see during the
-production and analysis of flow graphs, must adhere to a more static
-subset of Python. This doesn't apply to the startup code which is not
-seen by the translation, so during initialization the source program
-can make unrestricted use of Python (including metaclasses and
-execution of dynamically constructed strings).
+ * The information provided by the annotator is used by the RTyper to
+   convert the high level operations of the control flow graphs into
+   operations closer to abstraction level of the target platform.
 
-The `bytecode evaluator`_ and the `Flow Object Space`_ work through 
-the initialized RPython code objects.  The result of this 
-`abstract interpretation`_ is a flow graph (one per function): yet another
-representation of the source program, but one which is suitable for
-applying translation and type inference techniques.  The nodes of the
-graph are basic blocks consisting of Object Space operations, flowing
-of values, and an exitswitch to one, two or multiple links which connect
-each basic block to other basic blocks. 
+ * Optionally, various transformations can then applied which, for
+   example, perform optimizations such as inlining or add capabilities
+   such as stackless-style concurrency.
 
-The flow graphs are fed as input into the Annotator.  The Annotator,
-given entry point types, infers the types of values that flow through
-the variables of the entire program. RPython restrictions are crucial
-and defined for this to work.
+ * Then, the graph is converted to source code for the target platform
+   and compiled into an executable.
 
-... XXX these last bits still need a cleanup:
+This process is described in much more detail in the `document about
+the translation process`_.
 
-The *RTyper* is responsible for the preparation and production of
-target platform specific representations of the annotated high level
-RPython flowgraphs.  It visits the flow graphs in order to transform
-and amend the operations it contains.  After this pass the operations
-in the flow graphs are suitable for the target platform.  High level
-platforms (e.g. object-oriented virtual machines) usually have their
-own garbace collectors and high level builtin types, while low level
-platforms (e.g. C-like environments) require dealing with machine
-level types and pointers; the RTyper can produce flow graphs
-containing operations suited for either kind of platform.
-
-The actual target platform code is eventually emitted by 
-the backend through "visiting" the type-annotated flow graph
-and adding platform specific integration code. 
-
-Here is a graphical overview of the translation process (`PDF color version`_):
-
-    .. image:: image/translation-greyscale-small.png
-
+.. _`document about the translation process`: translation.html
 
 Further reading
 ===============
