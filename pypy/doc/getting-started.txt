@@ -71,7 +71,7 @@ Svn-check out & run the latest PyPy as a two-liner
 
 If you want to play with the ongoing development PyPy version 
 you can check it out from the repository using subversion. Download 
-and install subversion_ if you don't allready have it. Then you can
+and install subversion_ if you don't already have it. Then you can
 issue on the command line (DOS box or terminal)::
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
@@ -269,7 +269,7 @@ transparent manner::
     >>>> x = thunk(longcomputation, range(5))
     >>>> y = thunk(longcomputation, range(10))
 
-from the application perspective, ``x`` and ``y`` represent 
+From the application perspective, ``x`` and ``y`` represent 
 exactly the objects being returned by the ``longcomputation()``
 invocations.  You can put these objects into a dictionary 
 without triggering the computation:: 
@@ -411,7 +411,7 @@ The translator is a tool based on the PyPy interpreter which can translate
 sufficiently static Python programs into low-level code. To be able to use it
 you need to:
 
-  * Download and install Pygame_ if you do not already have it.
+  * Download and install Pygame_ and ctypes_ if you do not already have them.
 
   * Have an internet connection. The flowgraph viewer connects to
     codespeak.net and lets it convert the flowgraph by a patched version of
@@ -434,7 +434,7 @@ Test snippets of translatable code are provided in the file
     >>> t.view()
         
 After that, the graph viewer pops up, that lets you interactively inspect the
-flowgraph. To move around, click on something that you want to inspect.
+flow graph. To move around, click on something that you want to inspect.
 To get help about how to use it, press 'H'. To close it again, press 'Q'.
 
 Trying out the type annotator
@@ -471,7 +471,7 @@ compiled version::
 Translating the flow graph to LLVM code
 +++++++++++++++++++++++++++++++++++++++
 
-The LLVM or `low level virtual machine`_ project has, amonst other things,
+The LLVM or `low level virtual machine`_ project has, among other things,
 defined a statically typed portable assembly language and a set of tools that
 optimize and compile this assembly for a variety of platforms.  As such, this
 assembly is a natural target for PyPy's translator.
@@ -495,17 +495,17 @@ Here is a simple example to try::
    5
 
 
-Translating the flow graph to Javascript code
+Translating the flow graph to JavaScript code
 +++++++++++++++++++++++++++++++++++++++++++++
 
-The Javascript backend is still experimental but was heavily improved
+The JavaScript backend is still experimental but was heavily improved
 during last
 years `Google summer of code`_. It contains some rudimentary support
 for the document object model and a good integration with PyPy's unittesting
-framework. Code can be tested with the `Spidermonkey`_ commandline javascript
-interpreter in addition to a multitude of javascript capable browsers. 
-The emphasis of the Javascript backend is to compile RPython code into
-javascript snippets that can be used in a range of browsers. The goal is
+framework. Code can be tested with the `Spidermonkey`_ commandline JavaScript
+interpreter in addition to a multitude of JavaScript capable browsers. 
+The emphasis of the JavaScript backend is to compile RPython code into
+JavaScript snippets that can be used in a range of browsers. The goal is
 to make it more and more capable to produce full featured web applications.
 Please see the pypy/translator/js/test directory for example unittests.
 
@@ -523,7 +523,7 @@ If you want to know more about the JavaScript backend please refer to the
 Translating the flow graph to CLI code
 ++++++++++++++++++++++++++++++++++++++
 
-Use the `CLI backend`_ to translate the flowgraphs into .NET executables:
+Use the `CLI backend`_ to translate the flow graphs into .NET executables:
 ``gencli`` is quite mature now and can also compile the whole
 interpreter. You can try out the `CLI backend`_ from the interactive
 translator shell::
@@ -548,7 +548,7 @@ of the ``/tmp/usession-*`` directories::
     9
 
 To translate and run for CLI you must have the SDK installed: Windows
-users need the `.NET Frameword SDK 2.0`_, while Linux and Mac users
+users need the `.NET Framework SDK 2.0`_, while Linux and Mac users
 can use Mono_.
 
 A slightly larger example
@@ -570,23 +570,24 @@ compiled and executed.
 
 .. _`translate itself to lower level languages`: 
 
-Translating the PyPy interpreter
---------------------------------
+Translating the PyPy Python interpreter
+---------------------------------------
 
-(**Note**: for some hints on how to translate PyPy under Windows, see the 
-`windows document`_)
+(**Note**: for some hints on how to translate the Python interpreter under
+Windows, see the `windows document`_)
 
 .. _`windows document`: windows.html
 
 Not for the faint of heart nor the owner of a very old machine: you can
-translate the whole of PyPy to low level C code. This is the largest and
+translate the PyPy's whole of Python interpreter to low level C code. This is
+the largest and
 ultimate example of source that our translation toolchain can process::
 
     cd pypy/translator/goal
     python translate.py --run targetpypystandalone.py
 
 By default the translation process will try to use the
-`Boehm-Demers-Weiser garbage collector`_ for the translated PyPy (Use
+`Boehm-Demers-Weiser garbage collector`_ for the translated interpreter (Use
 ``--gc=framework`` to use our own exact mark-n-sweep implementation which
 at the moment is slower but doesn't have external dependencies). Otherwise, be sure
 to install Boehm before starting the translation (e.g. by running
@@ -619,7 +620,7 @@ executable.  This executable contains a lot of things that are hard-coded
 for your particular system (including paths), so it's not really meant to
 be installed or redistributed at the moment.
 
-If you exit the interpreter you get a pygame window with all the flowgraphs
+If you exit the interpreter you get a pygame window with all the flow graphs
 plus a pdb prompt. Moving around in the resulting flow graph is difficult
 because of the sheer size of the result. For this reason, the debugger prompt
 you get at the end has been enhanced with commands to facilitate locating
@@ -630,7 +631,7 @@ The ``translate.py`` script itself takes a number of options controlling
 what to translate and how.  See ``translate.py -h``. Some of the more
 interesting options are:
 
-   * ``--text``: don't show the flowgraph after the translation is
+   * ``--text``: don't show the flow graph after the translation is
      done. This is useful if you don't have pygame installed.
 
    * ``--stackless``: this produces a pypy-c that includes features
@@ -758,16 +759,20 @@ the 'build tool', a set of components that allow translating and
 compiling PyPy on remote servers. The build tool provides a meta server
 that manages a set of connected build servers; clients can request a build
 by specifying target options and Subversion revision and path, and the meta
-server will do its best to get the request fullfilled.
+server will do its best to get the request fulfilled.
+Currently you need to have a codespeak account to be able to use the build tool.
 
 The meta server is made available on codespeak.net and there should always be
-a number of build servers running. If you want to request a compilation, just
-issue::
+a number of build servers running. If you want to request a compilation you need
+to checkout the build tool sources from:
+
+    https://codespeak.net/svn/pypy/build/buildtool
+
+Then you can issue::
 
   $ ./bin/startcompile.py [options] <email>
 
-in the root of the 'buildtool' package - which can be checked out from
-https://codespeak.net/svn/pypy/build/buildtool - replacing '[options]' with
+in the root of the 'buildtool' package replacing '[options]' with
 the options you desire and '<email>' with your email address. Type::
 
   $ ./bin/startcompile.py --help
@@ -780,7 +785,7 @@ To donate build server time (we'd be eternally thankful! ;) just run::
 
 without arguments. Do mind that you need to be a registered user on
 'codespeak.net', and  that a decent machine with enough RAM is required
-(about 2 GB is recommended).
+(about 1-2 GB is recommended).
 
 Note: currently Windows is not supported.
 
@@ -791,7 +796,7 @@ Where to start reading the sources
 
 PyPy is made from parts that are relatively independent from each other.
 You should start looking at the part that attracts you most (all paths are
-relative to the PyPy toplevel directory).  You may look at our `directory reference`_ 
+relative to the PyPy top level directory).  You may look at our `directory reference`_ 
 or start off at one of the following points:
 
 *  `pypy/interpreter`_ contains the bytecode interpreter: bytecode dispatcher
@@ -847,11 +852,11 @@ We use some optional tools for developing PyPy. They are not required to run
 the basic tests or to get an interactive PyPy prompt but they help to
 understand  and debug PyPy especially for the ongoing translation work.  
 
-graphviz & pygame for flowgraph viewing (highly recommended)
+graphviz & pygame for flow graph viewing (highly recommended)
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-graphviz and pygame are both neccessary if you
-want to look at generated flowgraphs: 
+graphviz and pygame are both necessary if you
+want to look at generated flow graphs: 
 
 	graphviz: http://www.graphviz.org/Download.php 
 
@@ -870,7 +875,7 @@ to C. See the `download page of ctypes`_.
 CLISP
 +++++++
 
-The CLISP backend is optional and not quite uptodate with the rest of
+The CLISP backend is optional and not quite up-to-date with the rest of
 PyPy. Still there are a few examples you can try our backend out on. 
 Here is a link to a LISP implementation that should basically work: 
 
@@ -897,7 +902,7 @@ Getting involved
 PyPy employs an open development process.  You are invited to join our
 `pypy-dev mailing list`_ or look at the other `contact
 possibilities`_.  We are also doing coding Sprints which are
-separatedly announced and often happen around Python conferences such
+separately announced and often happen around Python conferences such
 as EuroPython or Pycon. Take a look at the list of upcoming events_ to
 plan where to meet with us.
 
