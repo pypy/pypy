@@ -94,7 +94,7 @@ list:
  * mixed module implementations: exceptions, sys, __builtin__, posix
    _codecs, gc, _weakref, array, marshal, errno, math, _sre,  parser, symbol,
    _random, socket, unicodedata, mmap, fcntl, time, select, bz2, crypt,
-   signal
+   signal, readline (incomplete)
 
 
 .. _`stackless-like microthreads`: stackless.html
