@@ -5,11 +5,10 @@ How to use the Logic Object space features of PyPy
 Outline
 =======
 
-This document gives some (outdated wrt what sits in the repository, a
-much better document to read would be the `EU Interim Report`_)
-information about the content and usage of an extension of PyPy known
-as the Logic Objectspace (LO). The LO, when finished, will provide
-additional builtins that will allow to write:
+This document gives some information about the content and usage of an
+extension of PyPy known as the Logic Objectspace (LO), and also about
+the constraint programming library that ships with PyPy. The LO, when
+finished, will provide additional builtins that will allow to write:
 
 * concurrent programs based on coroutines scheduled by dataflow logic
   variables,
@@ -20,24 +19,31 @@ additional builtins that will allow to write:
 
 * new search "engines" to help solve logic/constraint programs.
 
-The 0.9 preview comes without logic programming; the constraint solver
-is only lightly tested, is not equipped with some specialized but
-important propagators for linear relations on numeric variables, and
-*might* support concurrency - but that would be an accident; the
-dataflow scheduling of coroutines is known to fail in at least one
-basic and important case.
+Currently, the `integrated concurrent logic and constraint
+programming` part is, unfortunately, quite unfinished. It will take
+some effort, time and knowledge of PyPy internals to finish it. We
+provide however a full-blown constraint-solving infrastructure that
+can be used (and extended) out of the box.
 
-In this document, we skim over these topics, hoping to give enough
-information and examples for an uninformed user to understand what is
-going on and how to use the provided functionality.
+To fire up a working standard PyPy with the the constraint library,
+please type::
 
-To fire up a working PyPy with the LO, please type::
+  /root-of-pypy-dist/pypy/bin/py.py --withmod-_cslib
 
-/root-of-pypy-dist/pypy/bin/py.py -o logic --withmod-_stackless
+To fire up a working PyPy with the LO (including the constraint
+solving library), please type::
 
+  /root-of-pypy-dist/pypy/bin/py.py -o logic
+
+More information is available in the `EU Interim Report`_, especially
+with respect to the (unfinished) integrated framework for constraint
+and logic programming.
 
 Logic Variables and Dataflow Synchronisation of Coroutines
 ==========================================================
+
+This section peruses the LO, so you should try the examples with a
+logic build or the `-o logic` argument to `py.py`.
 
 Logic Variables
 +++++++++++++++
@@ -68,13 +74,11 @@ Logic variables can be bound like that::
 
 The single-assignment property is easily checked::
 
-  bind(X, 'hello') # would raise a FailureException
+  bind(X, 'hello') # would raise a RebindingError
   bind(X, 42)      # is admitted (it is a no-op)
 
-In the current state of the LO, a generic Exception will be raised.
 It is quite obvious from this that logic variables are really objects
-acting as boxes for python values. No syntactic extension to Python is
-provided yet to lessen this inconvenience.
+acting as boxes for python values. 
 
 The bind operator is low-level. The more general operation that binds
 a logic variable is known as "unification". Unify is an operator that
@@ -83,17 +87,22 @@ equality, much in the sense of the == operator, but with one
 important twist: unify mutates the state of the involved logic
 variables.
 
+Unify is thus defined as follows (it is symmetric):
+
+.. raw:: latex
+
+    \begin{center}
+    \begin{tabular}{|l|l|l|} \hline
+    \textbf{Unify} & \textbf{value} & \textbf{unbound var} \\ \hline
+    \textbf{value} & equal? & bind \\ \hline
+    \textbf{unbound var} & bind & alias \\ \hline
+    \end{tabular}
+    \end{center}
+
 Unifying structures devoid of logic variables, like::
 
   unify([1, 2], [1, 2])
-  unify(42, 43)
-
-is equivalent to an assertion about their equality, the difference
-being that a FailureException will be raised instead of an
-AssertionError, would the assertion be violated::
-
-  assert [1, 2] == [1, 2]   
-  assert 42 == 43           
+  unify(42, 43) # raises UnificationError
 
 A basic example involving logic variables embedded into dictionaries::
 
@@ -101,14 +110,6 @@ A basic example involving logic variables embedded into dictionaries::
   unify({'a': 42, 'b': Z},
         {'a':  Z, 'b': W})
   assert Z == W == 42
-
-Unifying one unbound variable with some value (a) means assigning the
-value to the variable (which then satisfies equality), unifying two
-unbound variables (b) aliases them (they are constrained to reference
-the same -future- value). 
-
-Assignment or aliasing of variables is provided underneath by the
-'bind' operator.
 
 An example involving custom data types::
 
@@ -183,28 +184,32 @@ threads blocked on this variable.
 
 Wait and wait_needed allow to write efficient lazy evaluating code.
 
-Using the "uthread" builtin (which spawns a coroutine and applies the
+Using the "stacklet" builtin (which spawns a coroutine and applies the
 2..n args to its first arg), here is how to implement a
 producer/consumer scheme::
 
-  def generate(n, limit):
-      if n < limit:
-          return (n, generate(n + 1, limit))
-      return None
+  from cclp import stacklet
 
-  def sum(L, a):
+  def generate(n, limit, R):
+      if n < limit:
+          Tail = newvar()
+          unify(R, (n, Tail))
+          return generate(n + 1, limit, Tail)
+      bind(R, None)
+      return
+
+  def sum(L, a, R):
       Head, Tail = newvar(), newvar()
       unify(L, (Head, Tail))
       if Tail != None:
-          return sum(Tail, Head + a)
-      return a + Head
+          return sum(Tail, Head + a, R)
+      bind(R, a + Head)
+      return
 
   X = newvar()
   S = newvar()
-        
-  unify(S, uthread(sum, X, 0))
-  unify(X, uthread(generate, 0, 10))
-
+  stacklet(sum, X, 0, S)
+  stacklet(generate, 0, 10, X)
   assert S == 45
 
 Note that this eagerly generates all elements before the first of them
@@ -219,54 +224,22 @@ and thus must be adapted too::
       bind(L, (n, Tail))
       lgenerate(n+1, Tail)
 
-  def lsum(L, a, limit):
+  def lsum(L, a, limit, R):
       """this summer controls the generator"""
       if limit > 0:
           Head, Tail = newvar(), newvar()
-          wait(L)
+          wait(L) # awakes those waiting by need on L
           unify(L, (Head, Tail))
-          return lsum(Tail, a+Head, limit-1)
+          return lsum(Tail, a+Head, limit-1, R)
       else:
-          return a
+          bind(R, a)
 
   Y = newvar()
   T = newvar()
 
-  uthread(lgenerate, 0, Y)
-  unify(T, uthread(lsum, Y, 0, 10))
-
-  wait(T)
+  stacklet(lgenerate, 0, Y)
+  stacklet(lsum, Y, 0, 10, T)
   assert T == 45
-
-Please note that in the current LO, we deal with coroutines, not
-threads (thus we can't rely on preemptive scheduling to lessen the
-problem with the eager consumer/producer program). Also nested
-coroutines don't schedule properly yet. This impacts the ability to
-write a simple program like the following::
-
-  def sleep(X, Barrier):
-      wait(X)
-      bind(Barrier, True)
-        
-  def wait_two(X, Y):
-      Barrier = newvar()
-      uthread(sleep, X, Barrier)
-      uthread(sleep, Y, Barrier)
-      wait(Barrier)
-      if is_free(Y):
-          return 1
-      return 2
-
-  X, Y = newvar(), newvar()
-  o = uthread(wait_two, X, Y)
-  unify(X, Y)
-  unify(Y, 42)
-  assert X == Y == 42
-  assert o == 2
-
-Finally, it must be noted that the bind/unify and wait pair of
-operations are quite similar to the asynchronous send and receive
-primitives commonly used for inter-process communication.
 
 The operators table
 -------------------
@@ -281,270 +254,95 @@ Blocking ops
 
 Coroutine spawning
 
- uthread/n | 1 <= n 
-   callable, opt args. -> logic var.
-
+ stacklet/n
+   callable, (n-1) optional args -> None
 
 Constraint Programming
 ======================
 
-The LO comes with a flexible, extensible constraint solver
-engine. While regular search strategies such as depth-first or
-breadth-first search are provided, you can write better, specialized
-strategies (an example would be best-search). We therein describe how
-to use the solver to specify and get the solutions of a constraint
-satisfaction problem, and then highlight how to extend the solver with
-new strategies.
-
-Using the constraint engine
-+++++++++++++++++++++++++++
+PyPy comes with a flexible, extensible constraint solver engine based
+on the CPython Logilab constraint package (and we paid attention to
+API compatibility). We therein describe how to use the solver to
+specify and get the solutions of a constraint satisfaction problem.
 
 Specification of a problem 
---------------------------
+++++++++++++++++++++++++++
 
 A constraint satisfaction problem is defined by a triple (X, D, C)
 where X is a set of finite domain variables, D the set of domains
 associated with the variables in X, and C the set of constraints, or
 relations, that bind together the variables of X.
 
-Note that the constraint variables are NOT logic variables. Not yet
-anyway.
-
 So we basically need a way to declare variables, their domains and
-relations; and something to hold these together. The later is what we
-call a "computation space". The notion of computation space is broad
-enough to encompass constraint and logic programming, but we use it
-there only as a box that holds the elements of our constraint
-satisfaction problem. Note that it is completely unrelated to the
-notion of object space (as in the logic object space).
+relations; and something to hold these together. 
 
-A problem is a one-argument procedure defined as follows::
+Let's have a look at a reasonnably simple example of a constraint
+program::
 
-  def simple_problem(cs):
-      cs.var('x', FiniteDomain(['spam', 'egg', 'ham']))
-      cs.var('y', FiniteDomain([3, 4, 5]))
+  from cslib import *
 
-This snippet defines a couple of variables and their domains, on the
-'cs' argument which is indeed a computation space. Note that we didn't
-take a reference of the created variables. We can query the space to
-get these back if needed, and then complete the definition of our
-problem. Our problem, continued::
+  variables = ('c01','c02','c03','c04','c05',
+               'c06','c07','c08','c09','c10')
+  values = [(room,slot) 
+            for room in ('room A','room B','room C') 
+            for slot in ('day 1 AM','day 1 PM',
+                         'day 2 AM','day 2 PM')]
+  domains = {}
 
-  ... x = cs.find_var('x')
-      y = cs.find_var('y')
-      cs.tell(make_expression([x,y], 'len(x) == y'))
-      
-      return x, y
-      
-We must be careful to return the set of variables whose candidate
-values we are interested in. The rest should be sufficiently
-self-describing... 
+  # let us associate the variables to their domains
+  for v in variables:
+      domains[v]=fd.FiniteDomain(values)
 
-Getting solutions
------------------
+  # let us define relations/constraints on the variables
+  constraints = []
 
-Now to get and print solutions out of this, we must::
+  # Internet access is in room C only
+  for conf in ('c03','c04','c05','c06'):
+      constraints.append(fd.make_expression((conf,),
+                                            "%s[0] == 'room C'"%conf))
 
-  import solver
-  cs = newspace()
-  cs.define_problem(simple_problem)
-  
-  for sol in solver.solve(cs):
-      print sol
+  # Speakers only available on day 1
+  for conf in ('c01','c05','c10'):
+      constraints.append(fd.make_expression((conf,),
+                                            "%s[1].startswith('day 1')"%conf))
+  # Speakers only available on day 2
+  for conf in ('c02','c03','c04','c09'):
+      constraints.append(fd.make_expression((conf,),
+                                            "%s[1].startswith('day 2')"%conf))
 
-The builtin solve function returns a generator. You will note with
-pleasure how slow the search can be on a solver running on a Python
-interpreter written in Python, the later running on top of
-cpython... It is expected that the compiled version of PyPy + LO will
-provide decent performance.
+  # try to satisfy people willing to attend several conferences
+  groups = (('c01','c02','c03','c10'),
+            ('c02','c06','c08','c09'),
+            ('c03','c05','c06','c07'),
+            ('c01','c03','c07','c08'))
+  for g in groups:
+      for conf1 in g:
+          for conf2 in g:
+              if conf2 > conf1:
+                  constraints.append(fd.make_expression((conf1,conf2),
+                                                        '%s[1] != %s[1]'%\
+                                                        (conf1,conf2)))
 
-Table of Operators
-------------------
+  constraints.append(fd.AllDistinct(variables))
 
-Note that below, "variable/expression designators" really are strings.
+  # now, give the triple (X, D, C) to a repository object
+  r = Repository(variables,domains,constraints)
 
-Space creation
+  # that we can give to one solver of our choice 
+  # (there, it is the default depth-first search, 
+  #  find-all solutions solver)
 
- newspace/0
+  solutions = Solver().solve(r, 0)
+  assert len(solutions) == 64
 
-Finite domain creation
+Extending the solver machinery
+++++++++++++++++++++++++++++++
 
- FiniteDomain/1    
-   list of any -> FiniteDomain
+The core of the solving system is written in pure RPython and resides
+in the rlib/cslib library. It should be quite easy to subclass the
+provided elements to get specialized, special-case optimized
+variants. On top of this library is built a PyPy module that exports
+up to application level the low-level engine functionality.
 
-Expressions
-
- make_expression/2 
-   list of var. designators, expression designator -> Expression
-
- AllDistinct/1
-   list of var. designators -> Expression
-
-Space methods
-
- var/2             
-   var. designator, FiniteDomain -> constraint variable instance
-
- find_var/1        
-   var. designator -> constraint variable instance
-
- tell/1            
-   Expression -> None
-
- define_problem/1  
-   procedure (space -> tuple of constraint variables) -> None
-
-Extending the search engine
-+++++++++++++++++++++++++++
-
-Writing a solver
-----------------
-
-Here we show how the additional builtin primitives allow you to write,
-in pure Python, a very basic solver that will search depth-first and
-return the first found solution.
-
-As we've seen, a CSP is encapsulated into a so-called "computation
-space". The space object has additional methods that allow the solver
-implementor to drive the search. First, let us see some code driving a
-binary depth-first search::
-
-  1   def first_solution_dfs(space):
-  2       status = space.ask()
-  3       if status == 0:
-  4           return None
-  5       elif status == 1:
-  6           return space.merge()
-  7       else:
-  8           new_space = space.clone()
-  9           space.commit(1)
-  10          outcome = first_solution_dfs(space)
-  11          if outcome is None:
-  13              new_space.commit(2)
-  14              outcome = first_solution_dfs(new_space)
-  15          return outcome
-
-This recursive solver takes a space as argument, and returns the first
-solution or None. Let us examine it piece by piece and discover the
-basics of the solver protocol.
-
-The first thing to do is "asking" the space about its status. This may
-force the "inside" of the space to check that the values of the
-domains are compatibles with the constraints. Every inconsistent value
-is removed from the variable domains. This phase is called "constraint
-propagation". It is crucial because it prunes as much as possible of
-the search space. Then, the call to ask returns a positive integer
-value which we call the space status; at this point, all (possibly
-concurrent) computations happening inside the space are terminated.
-
-Depending on the status value, either:
-
-* the space is failed (status == 0), which means that there is no
-  combination of values of the finite domains that can satisfy the
-  constraints,
-
-* one solution has been found (status == 1): there is exactly one
-  valuation of the variables that satisfy the constraints,
-
-* several branches of the search space can be taken (status represents
-  the exact number of available alternatives, or branches).
-
-Now, we have written this toy solver as if there could be a maximum of
-two alternatives. This assumption holds for the simple_problem we
-defined above, where a binary "distributor" (see below for an
-explanation of this term) has been chosen automatically for us, but
-not in the general case. See the sources for a more general-purpose
-`solver`_ and more involved `sample problems`_ (currently, probably
-only conference_scheduling is up to date with the current API).
-
-In line 8, we take a clone of the space; nothing is shared between
-space and newspace (the clone). We now have two identical versions of
-the space that we got as parameter. This will allow us to explore the
-two alternatives. This step is done, line 9 and 13, with the call to
-commit, each time with a different integer value representing the
-branch to be taken. The rest should be sufficiently self-describing.
-
-This shows the two important space methods used by a search engine:
-ask, which waits for the stability of the space and informs the solver
-of its status, and commit, which tells a space which road to take in
-case of a fork.
-
-Using distributors
-------------------
-
-Now, earlier, we talked of a "distributor": it is a program running in
-a computation space. It could be anything, and in fact, in the final
-version of the LO, it will be any Python program, augmented with calls
-to non-deterministic choice points. Each time a program embedded in a
-computation space reaches such a point, it blocks until some Deus ex
-machina makes the choice for him. Only a solver can be responsible for
-the actual choice (that is the reason for the name "non
-deterministic": the decision does not belong to the embedded program,
-only to the solver that drives it).
-
-In the case of a CSP, the distributor is a simple piece of code, which
-works only after the propagation phase has reached a fixpoint. Its
-policy will determine the fanout, or branching factor, of the current
-computation space (or node in the abstract search space).
-
-Here are two examples of distribution strategies:
-
-* take the variable with the biggest domain, and remove exactly one
-  value from its domain; thus we always get two branches: one with the
-  value removed, the other with only this value remaining,
-
-* take a variable with a small domain, and keep only one value in the
-  domain for each branch (in other words, we "instantiate" the
-  variable); this makes for a branching factor equal to the size of
-  the domain of the variable.
-
-There are a great many ways to distribute... Some of them perform
-better, depending on the characteristics of the problem to be
-solved. But there is no absolutely better distribution strategy. Note
-that the second strategy given as example there is what is used (and
-hard-wired) in the MAC algorithm.
-
-Currently in the LO we have two builtin distributors:
-
-* NaiveDistributor, which distributes domains by splitting the
-  smallest domain in 2 new domains; the first new domain has a size of
-  one, and the second has all the other values,
-
-* SplitDistributor, which distributes domains by splitting the
-  smallest domain in N equal parts (or as equal as possible).  If N is
-  0, then the smallest domain is split in domains of size 1; a special
-  case of this, DichotomyDistributor, for which N == 2, is also
-  provided and is the default one.
-
-To explicitly specify a distributor for a constraint problem, you
-need to say, in the procedure that defines the problem::
-
-  cs.set_distributor(NaiveDistributor())
-
-It is not possible currently to write distributors in pure Python;
-this is scheduled for PyPy version 1.
-
-Remaining space operators
--------------------------
-
-For solver writers
-
- ask/0           
-   nothing -> a positive integer i
-
- commit/1        
-   integer in [1, i] -> None
-
- merge/0         
-   nothing -> list of values (solution)
-
-For distributor writers
-
- choose
-
-
-.. _`solver`: http://codespeak.net/svn/pypy/dist/pypy/lib/constraint/solver.py
-.. _`sample problems`: http://codespeak.net/svn/pypy/dist/pypy/objspace/test/problem.py
-.. _`Oz programming language`: http://www.mozart-oz.org
 .. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2007-02-28.pdf
 
