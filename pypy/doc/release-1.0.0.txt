@@ -3,7 +3,7 @@ PyPy 1.0: dynamic language translation framework, multi-target Python implementa
 =======================================================================================
 
 Welcome to the PyPy 1.0 release - a milestone integrating the results 
-of four years of research, engineering, managment and sprinting 
+of four years of research, engineering, management and sprinting 
 efforts, concluding the 28 months phase of EU co-funding!
 
 Although still not mature enough for general use, PyPy 1.0 materializes
@@ -20,7 +20,7 @@ for the first time the full extent of our original vision:
 
   - That performs whole type-inference on RPython programs.
   - Can weave in threading, memory and target platform aspects.
-  - Has low level (C, LLVM) and high level (CLI, Java, Javascript) backends.
+  - Has low level (C, LLVM) and high level (CLI, Java, JavaScript) backends.
 
 - A **Just-In-Time Compiler generator** able to **automatically**
   enhance the low level versions of our Python interpreter, leading to
