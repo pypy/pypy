@@ -15,7 +15,7 @@ finished, will provide additional builtins that will allow to write:
 
 * concurrent logic programs,
 
-* concurrent constraint problems,
+* concurrent constraint programs,
 
 * new search "engines" to help solve logic/constraint programs.
 
@@ -157,30 +157,30 @@ Mutators
    any, any -> None
 
 
-Micro-threads and dataflow synchronisation
+Coroutines and dataflow synchronisation
 ++++++++++++++++++++++++++++++++++++++++++
 
 Description and examples
 ------------------------
 
-When a piece of code tries to access a free logic variable, the thread
+When a piece of code tries to access a free logic variable, the coroutine
 in which it runs is blocked (suspended) until the variable becomes
 bound. This behaviour is known as "dataflow synchronization" and
 mimics exactly the dataflow variables from the `Oz programming
 language`_. With respect to behaviour under concurrency conditions,
 logic variables come with two operators :
 
-* wait: this suspends the current thread until the variable is bound,
-  it returns the value otherwise (impl. note: in the logic
-  object space, all operators make an implicit wait on their arguments)
+* wait: this suspends the current coroutine until the variable is
+  bound, it returns the value otherwise (impl. note: in the logic
+  object space, all operators make an implicit wait on their
+  arguments)
 
-* wait_needed: this suspends the current thread until the variable
-  has received a wait message. It has to be used explicitly,
-  typically by a producer thread that wants to produce data only when
-  needed.
+* wait_needed: this suspends the current coroutine until the variable
+  has received a wait message. It has to be used explicitly, typically
+  by a producer coroutine that wants to produce data only when needed.
 
 In this context, binding a variable to a value will make runnable all
-threads blocked on this variable.
+coroutines blocked on this variable.
 
 Wait and wait_needed allow to write efficient lazy evaluating code.
 
