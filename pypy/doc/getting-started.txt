@@ -27,26 +27,26 @@ Just the facts
 
 .. _gettingpypy: 
 
-Downloading & running the PyPy 0.99 release 
+Downloading & running the PyPy 1.0 release 
 --------------------------------------------
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.99*
+*pypy-1.0*
     
   * download one of 
 
-    * `pypy-0.99.0.tar.bz2`_ (unix line endings) or
-    * `pypy-0.99.0.tar.gz`_ (unix line endings) or
-    * `pypy-0.99.0.zip`_ (windows line-endings) and unpack it 
+    * `pypy-1.0.0.tar.bz2`_ (unix line endings) or
+    * `pypy-1.0.0.tar.gz`_ (unix line endings) or
+    * `pypy-1.0.0.zip`_ (windows line-endings) and unpack it 
     
   * alternatively run 
   
-    * ``svn co http://codespeak.net/svn/pypy/release/0.99.x pypy-0.99.x``
-      (the 0.99 maintenance branch)
+    * ``svn co http://codespeak.net/svn/pypy/release/1.0.x pypy-1.0.x``
+      (the 1.0 maintenance branch)
 
 to get it from the subversion repository. Then change to the
-``pypy-0.99.0`` or ``pypy-0.99.x`` directory and execute the following
+``pypy-1.0.0`` or ``pypy-1.0.x`` directory and execute the following
 command line::
 
     python pypy/bin/py.py 
@@ -62,9 +62,9 @@ itself to lower level languages`_ after which it runs standalone, is not
 dependant on CPython anymore and becomes faster.
 
 .. _`95% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
-.. _`pypy-0.99.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.99.0.tar.bz2
-.. _`pypy-0.99.0.zip`: http://codespeak.net/download/pypy/pypy-0.99.0.zip
-.. _`pypy-0.99.0.tar.gz`: http://codespeak.net/download/pypy/pypy-0.99.0.tar.gz
+.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.tar.bz2
+.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.zip
+.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
@@ -920,7 +920,7 @@ plan where to meet with us.
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 .. _`Google summer of code`: http://code.google.com/soc
 
-.. _`.NET Frameword SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
+.. _`.NET Framework SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
 .. _Mono: http://www.mono-project.com/Main_Page
 .. _`CLI backend`: cli-backend.html
 .. _clr: clr-module.html
