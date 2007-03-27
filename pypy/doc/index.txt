@@ -224,7 +224,7 @@ Directory                      explanation/links
 
 `lang/js/`_                    a JavaScript interpreter (in-progress)
 
-`lang/prolog/`_                a Prolog interpreter
+`lang/prolog/`_                a `Prolog interpreter`_
 
 `lib/`_                        PyPy's wholesale reimplementations of CPython modules_
                                and experimental new application-level modules
@@ -350,8 +350,9 @@ Directory                      explanation/links
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 .. _`PyPy Prolog Interpreter`: prolog-interpreter.html
-.. _`main PyPy-translation scripts`: getting-started.html#translating-the-pypy-interpreter
-.. _`translate.py`: getting-started.html#translating-the-pypy-interpreter
+.. _`Prolog Interpreter`: prolog-interpreter.html
+.. _`main PyPy-translation scripts`: getting-started.html#translating-the-pypy-python-interpreter
+.. _`translate.py`: getting-started.html#translating-the-pypy-python-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/
 .. _`"standard library"`: rlib.html
