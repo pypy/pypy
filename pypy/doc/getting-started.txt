@@ -676,7 +676,7 @@ Translating using the LLVM backend
 To create a standalone executable using the experimental LLVM_ compiler
 infrastructure::
 
-    ./translate.py --text --batch --backend=llvm --raisingop2direct_call targetpypystandalone.py
+    ./translate.py --text --batch --backend=llvm targetpypystandalone.py
 
 Translating using the CLI backend
 +++++++++++++++++++++++++++++++++
