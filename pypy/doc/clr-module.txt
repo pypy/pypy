@@ -3,9 +3,9 @@ The ``clr`` module for PyPy.NET
 ===============================
 
 PyPy.NET give you access to the sorrounding .NET environment via the
-``clr`` module. This module is still experimental and the its
-interface might change in next versions, but it's still useful to
-experiment a bit with PyPy.NET.
+``clr`` module. This module is still experimental: some features are
+still missing and its interface might change in next versions, but
+it's still useful to experiment a bit with PyPy.NET.
 
 The main entry-point for the ``clr`` module is the ``load_cli_class``
 function: it takes the names of a .NET namespace and a class and
@@ -75,8 +75,16 @@ some sort of collection.
 
 The opposite .NET to Python conversions happen for the values returned
 by the methods. Again, primitive types are converted in a
-straightforward way, while objects of non-primitive types are returned
-as "black boxes".
+straightforward way; for objects of non-primitive types there are two
+cases:
+
+  - if the object is already a Python one, return it "as-is";
+
+  - if the object is not a Python one, raise an exception.
+
+In the future, the second case will be handled much more carefully,
+letting methods to return .NET objects that will be automatically
+wrapped into Python ones, but at the moment it's not possible.
 
 Overload resolution
 ===================
