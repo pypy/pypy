@@ -17,8 +17,14 @@ machines, a 'build farm' is created.
 Quick usage instructions
 ========================
 
-For the impatient, that just want to get started, some quick instructions. To
-start a compilation, run (from the buildtool root directory)::
+For the impatient, that just want to get started, some quick instructions.
+
+First you'll need to have a checkout of the 'buildtool' package, that can
+be found here::
+
+  https://codespeak.net/svn/pypy/build/buildtool
+
+To start a compilation, run (from the buildtool root directory)::
 
   $ ./bin/startcompile.py [options] <email address>
 
@@ -135,7 +141,7 @@ Meta Server
 
 Also for the server there's no real setup required, and again there's a 
 dependency on the `py lib`_. Starting it is done by running
-'./tool/build/bin/metaserver'.
+'./bin/metaserver'.
 
 Running a compile job
 ---------------------
@@ -154,7 +160,7 @@ Using the build tool for other projects
 The code for the build tool is meant to be generic. Using it for other projects
 than PyPy (for which it was originally written) is relatively straight-forward:
 just change the configuration, and implement a build client script (probably
-highly resembling bin/client).
+highly resembling bin/buildserver.py).
 
 Note that there is a test project in 'tool/build/testproject' that can serve
 as an example.
@@ -203,7 +209,7 @@ Web Front-End
 
 To examine the status of the meta server, connected build servers and build
 requests, there is a web server available. This can be started using
-'./tool/build/bin/webserver' and uses port 8080 by default (override in
+'./bin/webserver' and uses port 8080 by default (override in
 config.py).
 
 The web server presents a number of different pages:

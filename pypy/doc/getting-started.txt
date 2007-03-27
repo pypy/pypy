@@ -771,8 +771,9 @@ issue::
 
   $ ./bin/startcompile.py [options] <email>
 
-in the root of the PyPy package, replacing '[options]' with the options you
-desire and '<email>' with your email address. Type::
+in the root of the 'buildtool' package - which can be checked out from
+https://codespeak.net/svn/pypy/build/buildtool - replacing '[options]' with
+the options you desire and '<email>' with your email address. Type::
 
   $ ./bin/startcompile.py --help
 
@@ -782,9 +783,9 @@ To donate build server time (we'd be eternally thankful! ;) just run::
 
   $ ./bin/buildserver.py
 
-without arguments. Do mind that you need a decent machine with enough RAM
-(about 2 GB is recommended) and that you need to remove older 'build-\*'
-dirs from /tmp from time to time if you decide to participate.
+without arguments. Do mind that you need to be a registered user on
+'codespeak.net', and  that a decent machine with enough RAM is required
+(about 2 GB is recommended).
 
 Note: currently Windows is not supported.
 
