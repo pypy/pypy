@@ -2,9 +2,9 @@
 pypy-1.0.0: dynamic language translation framework, multi-target Python implementation
 =======================================================================================
 
-Welcome to the PyPy 1.0 release - a milestone integrating the results of
-28 months of EU co-funded research, engineering, management and
-sprinting efforts!
+Welcome to the PyPy 1.0 release - a milestone integrating the results 
+of almost four years of research, engineering, managment and sprinting 
+efforts, concluding the 28 months phase of EU co-funding!
 
 Although still not mature enough for general use, PyPy 1.0 materializes
 for the first time the full extent of our original vision:
