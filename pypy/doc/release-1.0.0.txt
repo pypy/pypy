@@ -62,8 +62,10 @@ as much as we do ourselves!
 
 have fun, 
 
-    the PyPy team, 
-    XXX Names
+    the PyPy release team, 
+    Samuele Pedroni, Armin Rigo, Holger Krekel, Michael Hudson, 
+    Carl Friedrich Bolz, Antonio Cuni, Anders Chrigstroem, Guido Wesdrop
+    Maciej Fijalkowski, Alexandre Fayolle
 
     and many others: 
     http://codespeak.net/pypy/dist/pypy/doc/contributor.html
@@ -103,31 +105,61 @@ contract's duration is about to end this month (March 2007) and we are
 working and preparing the according final review which is scheduled
 for May 2007.
 
-XXX note about future / caretakers / trusted contributors 
+For the future, we are in the process of setting up structures
+to guard conceptual integrity of the project and to discuss 
+and deal with funding opportunities related to further PyPy 
+sprinting and developments. See here for discussion results: 
+
+    http://codespeak.net/pipermail/pypy-dev/2007q1/003577.html
 
 
-Key 1.0.0 Features 
-=====================
+1.0.0 Feature highlights 
+==============================
 
-XXX think more carefully about this section 
-
-The 0.99 release from last month lists a lot of highlights
-that we are not going to repeat here, please check it out: 
-
-    http://codespeak.net/pypy/dist/pypy/doc/release-0.99.0.html
    
-We here just list the new achievements newly exposed with 1.0: 
+Here is a summary list of key features coming with PyPy-1.0:
 
-- the Just-In-Time Compiler Generator 
+- the Just-In-Time Compiler Generator, now generating 
+  first JIT compiler versions of our Python Interpreter, see: 
 
-- more optimizations (CALL_METHOD(+cache), ropes), leading up 
-  to having generated Python versions run benchmarks at 
-  around half of CPython's speed. 
+    http://codespeak.net/pypy/dist/pypy/doc/jit.html 
 
-- CLR module for .NET/CLI integration
+- more Python Interpreter optimizations (CALL_METHOD(+cache), ropes), 
+  now running benchmarks at around half of CPython's speed (without the JIT)
 
-- Aspect Oriented Programming (based on amending the Abstract
-  Syntax Tree) 
+- The Python Interpreter can be translated to .NET and enables
+  interactions with the CLR libraries, see
+
+    http://codespeak.net/pypy/dist/pypy/doc/cli-backend.html 
+    http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
+
+- Aspect Oriented Programming facilities (based on amending 
+  the Abstract Syntax Tree), see here for more details: 
+
+  http://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html 
+  http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
+
+- the JavaScript backend has evolved to a point where it can be used to write
+  AJAX web applications with it. This is still an experimental technique,
+  though. For demo applications, also showcasing various generated 
+  Python and PROLOG interpreters see: 
+
+  http://play1.codespeak.net/ 
+
+- proxying object spaces and features of our Python Interpreter: 
+
+  - Tainting: a 270-line proxy object space tracking 
+    and boxing sensitive information within an application. 
+
+  - Transparent proxies: allow to customize both application and
+    builtin objects from application level code.  Now featuring
+    an initial support module (tputil.py) for working with transparent
+    proxies 
+
+For a detailed description and discussion of high level backends and 
+Python Interpreter features, please see our extensive "D12" report: 
+
+http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
 
 Funding partners and organisations
