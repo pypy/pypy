@@ -327,13 +327,19 @@ Read more about `Logic Object space features`_.
 Aspect Oriented Programming
 +++++++++++++++++++++++++++
 
-PyPy provides experimental `Aspect Oriented Programming` facilities
-(warning: using the 'aop' module may modify compiler state and 
-badly affect subsequent execution of compiled code and imports) 
+PyPy provides an experimental `Aspect Oriented Programming` facility
+in the 'aop' module. Be aware that this module works on the abstract
+syntax tree level, and will leave traces in the byte-compiled ('.pyc')
+files. Be sure to remove these files after playing with the module if
+you do not intend to really use the aspect oriented programming in
+your code. Even better, use the '--no-objspace-usepycfiles' command
+line option, so that the byte-compiled modules are not written to
+disk. 
+
 Here is an example::
 
  cd pypy
- python bin/py.py
+ python bin/py.py --no-objspace-usepycfiles
 
  >>>> from aop import Aspect, before, PointCut
  >>>> class DemoAspect:
