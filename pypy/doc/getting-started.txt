@@ -321,7 +321,7 @@ Try it out::
 
 Read more about `Logic Object space features`_.
 
-.. _`Logic Object space features`: howto-logicobjspace-0.9.html
+.. _`Logic Object space features`: howto-logicobjspace.html
 
 
 Aspect Oriented Programming
