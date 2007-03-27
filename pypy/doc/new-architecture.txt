@@ -202,7 +202,10 @@ generally one that is considerably lower-level than Python.
 
 A vital detail of PyPy's approach is that the level of abstraction is
 reduced in several steps from the high level of RPython down to that
-of the target platform, whatever that may be.
+of the target platform, whatever that may be.  Currently we support
+two broad flavours of target platforms, one that assumes a C-like
+memory model with structures and pointers and another that assumes an
+object-oriented model with classes, instances and methods.
 
 The translation tool chain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
@@ -210,18 +213,18 @@ behaviour of the function objects one gives it as input.
 
 The steps the translation process can be summarized as follows:
 
- * A code object is converted to a control flow graph, by the Flow
-   Object Space.
+ * A code object is converted to a `control flow graph` by the `Flow
+   Object Space`_.
 
- * The control flow graphs are processed by the Annotator, which
-   annotates each variable of the control flow graph with the types it
-   may take at run-time.
+ * The control flow graphs are processed by the Annotator_, which
+   performs whole-program type inference to annotate each variable of
+   the control flow graph with the types it may take at run-time.
 
- * The information provided by the annotator is used by the RTyper to
+ * The information provided by the annotator is used by the RTyper_ to
    convert the high level operations of the control flow graphs into
    operations closer to abstraction level of the target platform.
 
- * Optionally, various transformations can then applied which, for
+ * Optionally, `various transformations`_ can then be applied which, for
    example, perform optimizations such as inlining or add capabilities
    such as stackless-style concurrency.
 
@@ -231,6 +234,11 @@ The steps the translation process can be summarized as follows:
 This process is described in much more detail in the `document about
 the translation process`_.
 
+.. _`control flow graph`: translation.html#the-flow-model
+.. _`Flow Object Space`: objspace.html#the-flow-object-space
+.. _Annotator: translation.html#the-annotation-pass
+.. _RTyper: rtyper.html#overview
+.. _`various transformations`: translation.html#the-optional-transformations
 .. _`document about the translation process`: translation.html
 
 Further reading
