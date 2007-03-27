@@ -13,38 +13,13 @@ Mission statement
 
 We aim to provide:
 
-* a common translation and support framework for generating interpreters
-  and implementations of dynamic languages, supporting a clean separation 
-  between language specification and implementation aspects. 
-
-* a compliant and fast Python Language interpreter 
-  enabling new advanced features without the requirement
-  to encode low level details into it. 
-
-The choice of target platform as well as advanced optimizations 
-techniques are to become aspects of the translation process, up
-to the ultimate point of *generating Just-in-Time compilers* 
-for dynamic language interpreters. 
-
-.. XXX <arigo>
-   the above wording looks nice, but somehow I end up missing all
-   these notions that were more explicit in the previous missing statement:
-   flexibility, variety of platforms large and small, custom Python
-   versions, memory and threading models, robustness against language
-   change, generating complete VMs, and the proof that it's really not
-   only for Python because we have other interpreters already...
-
-.. here's mwh's rewrite:
-
-We aim to provide:
-
  * a common translation and support framework for producing
    implementations of dynamic languages, emphasising a clean
    separation between language specification and implementation
    aspects.
 
- * a flexible and fast implementation of the Python_ Language using
-   the above framework to enable new advanced features without having
+ * a compliant, flexible and fast implementation of the Python_ Language 
+   using the above framework to enable new advanced features without having
    to encode low level details into it.
 
 By separating concerns in this way, we intend for our implementation
@@ -56,6 +31,15 @@ automatically *generate* Just-in-Time compilers for dynamic languages.
 Conversely, our implementation techniques, including the JIT compiler 
 generator, should become robust against changes in the languages 
 implementated.
+
+.. XXX <arigo> (relating to an older version of the above)
+   the above wording looks nice, but somehow I end up missing all
+   these notions that were more explicit in the previous missing statement:
+   flexibility, variety of platforms large and small, custom Python
+   versions, memory and threading models, robustness against language
+   change, generating complete VMs, and the proof that it's really not
+   only for Python because we have other interpreters already...
+
 
 High Level Goals
 =============================
