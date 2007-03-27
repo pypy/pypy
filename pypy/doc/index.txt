@@ -12,13 +12,18 @@ PyPy User Documentation
 ===============================================
 
 `getting started`_ provides hands-on instructions 
-including a two-liner to run PyPy on your system. 
+including a two-liner to run the PyPy Python interpreter 
+on your system, examples on advanced features and 
+entry points for using PyPy's translation tool chain. 
 
 `FAQ`_ contains some frequently asked questions.
 
-New features of PyPy (available from optional built-in modules):
+New features of PyPy's Python Interpreter and 
+Translation Framework: 
+
   * `What PyPy can do for your objects`_
   * `Stackless and coroutines`_
+  * `JIT Generation in PyPy`_ 
 
 `extension compiler`_ describes the (in-progress) tool that can be used
 to write modules in PyPy's style and compile them into regular CPython
@@ -26,6 +31,9 @@ extension modules.
 
 `JavaScript backend`_ describes how to use the JavaScript backend to create
 AJAX-based web pages.
+
+`PyPy Prolog Interpreter`_ describes an implementation of 
+Prolog that makes use of our Translation Tool chain. 
 
 Status_ of the project.
 
@@ -341,6 +349,7 @@ Directory                      explanation/links
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`Stackless Transform`: translation.html#the-stackless-transform
+.. _`PyPy Prolog Interpreter`: prolog-interpreter.html
 .. _`main PyPy-translation scripts`: getting-started.html#translating-the-pypy-interpreter
 .. _`translate.py`: getting-started.html#translating-the-pypy-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
