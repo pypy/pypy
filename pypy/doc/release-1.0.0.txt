@@ -34,7 +34,7 @@ clearly marks a major research result and gives weight to our vision
 that one can generate efficient interpreter implementations, starting
 from a description in a high level language.
 
-We have prepared several entry points to help yoy get started:
+We have prepared several entry points to help you get started:
 
 * The main entry point for JIT documentation and status:
 
