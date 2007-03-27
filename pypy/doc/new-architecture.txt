@@ -34,6 +34,28 @@ for dynamic language interpreters.
    change, generating complete VMs, and the proof that it's really not
    only for Python because we have other interpreters already...
 
+.. here's mwh's rewrite:
+
+We aim to provide:
+
+ * a common translation and support framework for producing
+   implementations of dynamic languages, emphasising a clean
+   separation between language specification and implementation
+   aspects.
+
+ * a compliant and fast implementation of the Python Language using
+   the above framework to enable new advanced features without having
+   to encode low level details into it.
+
+By separating concerns in this way, we intend for our implementation
+of Python - and other dynamic languages, such as Prolog and
+JavaScript - to become robust against almost all implementation
+decisions, including target platform, memory and threading models,
+optimizations applied, up to to the point of being able to
+automatically *generate* Just-in-Time compilers for dynamic languages.
+
+Conversely, our implementation techniques, including the JIT compiler,
+should become robust against changes in the languages implementated.
 
 High Level Goals
 =============================
@@ -51,7 +73,7 @@ for writing language implementations.
 
 PyPy is experimenting with a more ambitious approach.  We are using a
 subset of a VHLL language, called RPython, to specify languages
-without many references and dependencies to lower level details,
+with few references to and dependencies on lower level details,
 leaving it to the translation framework to add these as translation
 aspects and produce custom implementations for particular feature
 and platform configurations.  
@@ -69,8 +91,7 @@ other:
   platform specific code based on different models and trade-offs;
 
 * ``p``: write new translator back-ends to target 
-  physical and virtual platforms.
-
+  different physical and virtual platforms.
 
 By contrast, a standardized target environment - say .NET -
 enforces ``p=1`` as far as it's concerned.  This helps making ``o`` a
@@ -82,7 +103,7 @@ to the ``l * o * p`` problem that does not rely on standardization.
 
 Particularly, we set ourselves the goal to *generate
 Just-In-Time Compilers* in addition to traditional
-Interpreter implementations - an area of language
+interpreted implementations - an area of language
 implementation that is commonly considered very challenging
 because of the involved complexity. 
 
@@ -92,7 +113,7 @@ PyPy - the Python Interpreter
 
 Our goal is to provide a full featured, customizable and fast Python
 implementation, written in a subset of Python itself, working on and interacting 
-with a large variety of platforms and allowing to quickly introduce 
+with a large variety of platforms and allowing the quick introduction of
 new advanced language features. 
 
 The architecture and abstractions of PyPy's "Python language specification" 
@@ -160,6 +181,10 @@ important, as it gives a lot of flexibility. It is possible to use
 different `object spaces`_ to get different behaviours of the Python
 objects.  Using a special object space is also an important technique
 for our translation process.
+
+.. XXX there's something about the middle sentence of the above
+   paragraph that i don't like -- maybe it's just that "different
+   behaviours" reads strangely to me.
 
 .. _`bytecode evaluator`: interpreter.html
 .. _`standard object space`: objspace.html#the-standard-object-space
