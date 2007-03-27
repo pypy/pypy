@@ -37,9 +37,9 @@ Download one of the following release files:
     * `pypy-1.0.0.tar.bz2`_ (sources, unix line endings) or
     * `pypy-1.0.0.tar.gz`_ (sources, unix line endings) or
     * `pypy-1.0.0.zip`_ (sources, windows line-endings) or
-    * `pypy-1.0.0-win32.zip`_ precompiled executables for windows
+    * `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
     * or get the `latest stable version via subversion`_.
-   
+ 
 After unpacking the source downloads you can change to the
 ``pypy-1.0.0`` directory and execute the following command line::
 
@@ -57,7 +57,9 @@ dependant on CPython anymore and becomes faster.
 
 If you are using the precompiled Windows executables, please look
 at the included ``README.txt`` on how to start already translated
-interpreters. 
+interpreters.  Note that the examples in the html documentation generally 
+assume that you have a py.py; with precompiled binaries, you need to 
+pick one with the matching features compiled in.
 
 .. _`98% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
 .. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
