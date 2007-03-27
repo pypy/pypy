@@ -43,7 +43,7 @@ IronPython does.
 Example of usage
 ================
 
-Here is an example of interactive session using the ``clr`` module:
+Here is an example of interactive session using the ``clr`` module::
 
     >>>> import clr
     >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
