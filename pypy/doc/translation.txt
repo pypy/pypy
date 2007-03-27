@@ -98,16 +98,8 @@ stages.
 
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: theory.html#abstract-interpretation
-.. _`translator.py`: ../../pypy/translator/translator.py
-.. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
-.. _`control flow graph`: objspace.html#the-flow-model
 .. _`Common Lisp`: ../../pypy/translator/lisp/
-.. _Pyrex: ../../pypy/translator/pyrex/
-.. _JavaScript: ../../pypy/translator/js/
-.. _Squeak: ../../pypy/translator/squeak/
-.. _CLI: ../../pypy/translator/cli/
-.. _graph: image/translation.pdf
 .. _`interactive interface`: getting-started.html#try-out-the-translator
 .. _`translatorshell.py`: ../../pypy/bin/translatorshell.py
 
