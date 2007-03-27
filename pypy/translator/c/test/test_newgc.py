@@ -900,7 +900,7 @@ class TestUsingStacklessFramework(TestUsingFramework):
         try:
             res = runner.wrap_stackless_function(f)
         except py.process.cmdexec.Error, e:
-            if 'Fatal PyPy error: MemoryError' in e.err:
+            if 'Fatal RPython error: MemoryError' in e.err:
                 res = MemoryError
             else:
                 raise
