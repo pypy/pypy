@@ -45,7 +45,7 @@ Download one of the following release files and unpack it:
     * ``svn co http://codespeak.net/svn/pypy/release/1.0.x pypy-1.0.x``
       (the 1.0 maintenance branch)
 
-  * Windows user can download a set of precompiled executables:
+  * Windows users can download a set of precompiled executables:
 
     * `pypy-1.0.0-win32.zip`_
 
