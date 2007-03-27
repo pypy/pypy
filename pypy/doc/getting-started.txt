@@ -723,7 +723,7 @@ executables.
 Trying the experimental .NET integration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can also try the still very experimental ``clr`` module that
+You can also try the still very experimental clr_ module that
 enables integration with the surrounding .NET environment.
 
 You can dynamically load .NET classes using the ``clr.load_cli_class``
@@ -918,6 +918,7 @@ plan where to meet with us.
 .. _`.NET Frameword SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
 .. _Mono: http://www.mono-project.com/Main_Page
 .. _`CLI backend`: cli-backend.html
+.. _clr: clr-module.html
 
 .. _Dot Graphviz:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/

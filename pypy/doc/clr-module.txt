@@ -1,0 +1,101 @@
+===============================
+The ``clr`` module for PyPy.NET
+===============================
+
+PyPy.NET give you access to the sorrounding .NET environment via the
+``clr`` module. This module is still experimental and the its
+interface might change in next versions, but it's still useful to
+experiment a bit with PyPy.NET.
+
+The main entry-point for the ``clr`` module is the ``load_cli_class``
+function: it takes the names of a .NET namespace and a class and
+returns an object that can be used and instantiated as a normal Python
+class but refers to the .NET one.
+
+The resulting class tries to behave as much as possible in the
+"expected" way both for the developers used to .NET and for the ones
+used to Python.
+
+In particular, the following features are mapped one to one because
+they exist in both worlds:
+
+  - .NET constructors are mapped to the Python __init__ method;
+
+  - .NET instance methods are mapped to Python methods;
+
+  - .NET static methods are mapped to Python static methods (belonging
+    to the class);
+
+  - .NET properties are mapped to property-like Python objects (very
+    similar to the Python ``property`` built-in);
+
+  - .NET indexers are mapped to Python __getitem__ and __setitem__;
+
+Moreover, since the object returned by ``load_cli_class`` is a plain
+Python class, all the usual Python features such as bound and unbound
+methods are available as well.
+
+At the moment the only way to load a .NET class is to explicitly use
+``clr.load_cli_class``; in the future they will be automatically
+loaded when accessing .NET namespaces as they were Python modules, as
+IronPython does.
+
+Example of usage
+================
+
+Here is an example of intercative session using the ``clr`` module:
+
+    >>>> import clr
+    >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+    >>>> obj = ArrayList()
+    >>>> obj.Add(1)
+    0
+    >>>> obj.Add(2)
+    1
+    >>>> obj.Add("foo")
+    2
+    >>>> print obj[0], obj[1], obj[2]
+    1 2 foo
+    >>>> print obj.Count
+    3
+
+Conversion of parameters
+========================
+
+When calling a .NET method Python objects are converted to .NET
+objects.  Lots of effort have been taken to make the conversion as
+much transparent as possibile; in particular, all the primitive types
+such as int, float and string are converted to the corresponding .NET
+types (e.g., ``System.Int32``, ``System.Float64`` and
+``System.String``).
+
+Python objects without a corresponding .NET types (e.g., instances of
+user classes) are passed as "black boxes", for example to be stored in
+some sort of collection.
+
+The opposite .NET to Python conversions happen for the values returned
+by the methods. Again, primitive types are converted in a
+straightforward way, while objects of non-primitive types are returned
+as "black boxes".
+
+Overload resolution
+===================
+
+When calling an overloaded method, PyPy.NET tries to find the best
+overload for the given arguments; for example, consider the
+``System.Math.Abs`` method::
+
+
+    >>>> import clr
+    >>>> Math = clr.load_cli_class('System', 'Math')
+    >>>> Math.Abs(-42)
+    42
+    >>>> Math.Abs(-42.0)
+    42.0
+
+``System.Math.Abs`` has got overloadings both for integers and floats:
+in the first case we call the method ``System.Math.Abs(int32)``, while
+in the second one we call the method ``System.Math.Abs(float64)``.
+
+If the system can't find a best overload for the given parameters, a
+TypeError exception is raised.

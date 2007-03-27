@@ -64,6 +64,19 @@ def call_method(space, b_obj, b_type, name, w_args, startfrom):
         return cli2py(space, b_res)
 
 def call_staticmethod(space, typename, methname, w_args):
+    """
+    Call a .NET static method.
+
+    Parameters:
+
+      - typename: the fully qualified .NET name of the class
+        containing the method (e.g. ``System.Math``)
+
+      - methname: the name of the static method to call (e.g. ``Abs``)
+
+      - args: a list containing the arguments to be passed to the
+        method.
+    """
     b_type = System.Type.GetType(typename) # XXX: cache this!
     return call_method(space, None, b_type, methname, w_args, 0)
 call_staticmethod.unwrap_spec = [ObjSpace, str, str, W_Root]
@@ -160,6 +173,17 @@ class _CliClassCache:
 CliClassCache = _CliClassCache()
 
 def load_cli_class(space, namespace, classname):
+    """
+    Load the given .NET class into the PyPy interpreter and return a
+    Python class referencing to it.
+
+    Parameters:
+
+       - namespace: the full name of the namespace containing the
+         class (e.g., ``System.Collections``).
+
+       - classname: the name of the class in the specified namespace
+         (e.g. ``ArrayList``).    """
     fullname = '%s.%s' % (namespace, classname)
     w_cls = CliClassCache.get(fullname)
     if w_cls is None:
