@@ -66,9 +66,9 @@ itself to lower level languages`_ after which it runs standalone, is not
 dependant on CPython anymore and becomes faster.
 
 .. _`95% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
-.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.tar.bz2
-.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.zip
-.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0pre1.tar.gz
+.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
+.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
+.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
 .. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
 
 Svn-check out & run the latest PyPy as a two-liner
