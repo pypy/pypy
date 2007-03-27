@@ -51,6 +51,7 @@ def getinitialpath(srcdir):
     pypy_lib = os.path.join(pypydir, 'lib')
     checkdir(pypy_lib)
 
+    #import pdb;pdb.set_trace()
     importlist = ['']
     pythonpath = ros.getenv('PYTHONPATH')
     if pythonpath:

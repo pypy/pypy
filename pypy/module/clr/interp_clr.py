@@ -11,7 +11,8 @@ System = CLR.System
 TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
 AmbiguousMatchException = NativeException(CLR.System.Reflection.AmbiguousMatchException)
 
-System.Double # force the type to be loaded, else the annotator could think that System has no Double attribute
+System.Double  # force the type to be loaded, else the annotator could think that System has no Double attribute
+System.Boolean # the same
 
 def get_method(space, b_type, name, b_paramtypes):
     try:
