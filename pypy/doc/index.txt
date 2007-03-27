@@ -46,8 +46,6 @@ architecture_ gives a complete view of PyPy's basic design.
 `coding guide`_ helps you to write code for PyPy (especially also describes
 coding in RPython a bit). 
 
-`development methodology`_ describes our sprint-driven approach.
-
 `sprint reports`_ lists reports written at most of our sprints, from
 2003 to the present.
 
@@ -62,6 +60,8 @@ introductions) that are available.
 
 `Technical reports`_ is a page that contains links to the
 reports that we submitted to the European Union.
+
+`development methodology`_ describes our sprint-driven approach.
 
 `license`_ contains licensing details (basically a straight MIT-license). 
 
