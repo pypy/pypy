@@ -591,14 +591,8 @@ at the moment is slower but doesn't have external dependencies). Otherwise, be s
 to install Boehm before starting the translation (e.g. by running
 ``apt-get install libgc-dev`` on Debian).
 
-This whole process will take some time and quite a lot of memory. To
-reduce the memory footprint of the translation process you can use the
-option ``--lowmem``::
-
-    python translate.py --run targetpypystandalone.py --lowmem
-
-With this option the whole process should be
-runnable on a machine with 512Mb of RAM. If the translation is
+This whole process will take some time and quite a lot of memory (although it
+might just work on a machine with 512MB of RAM). If the translation is
 finished running and after you closed the graph you will be greeted
 (because of ``--run`` option) by the friendly prompt of a PyPy
 executable that is not running on top of CPython any more::
