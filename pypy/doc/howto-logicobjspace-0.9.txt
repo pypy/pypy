@@ -29,11 +29,11 @@ basic and important case.
 
 In this document, we skim over these topics, hoping to give enough
 information and examples for an uninformed user to understand what is
-going on and how to use the provided functionnality.
+going on and how to use the provided functionality.
 
 To fire up a working PyPy with the LO, please type::
 
-/root-of-pypy-dist/pypy/bin/py.py -o logic --usemodules=_stackless
+/root-of-pypy-dist/pypy/bin/py.py -o logic --withmod-_stackless
 
 
 Logic Variables and Dataflow Synchronisation of Coroutines
@@ -61,7 +61,7 @@ state::
   assert is_free(X)
   assert not is_bound(X)
 
-Logic variables can be bound thusly::
+Logic variables can be bound like that::
 
   bind(X, 42)
   assert X / 2 == 21
@@ -69,7 +69,7 @@ Logic variables can be bound thusly::
 The single-assignment property is easily checked::
 
   bind(X, 'hello') # would raise a FailureException
-  bind(X, 42)      # is admitted (it is a noop)
+  bind(X, 42)      # is admitted (it is a no-op)
 
 In the current state of the LO, a generic Exception will be raised.
 It is quite obvious from this that logic variables are really objects
@@ -79,7 +79,7 @@ provided yet to lessen this inconvenience.
 The bind operator is low-level. The more general operation that binds
 a logic variable is known as "unification". Unify is an operator that
 takes two arbitrary data structures and tries to assert their
-equalness, much in the sense of the == operator, but with one
+equality, much in the sense of the == operator, but with one
 important twist: unify mutates the state of the involved logic
 variables.
 
@@ -88,14 +88,14 @@ Unifying structures devoid of logic variables, like::
   unify([1, 2], [1, 2])
   unify(42, 43)
 
-is equivalent to an assertion about their equalness, the difference
+is equivalent to an assertion about their equality, the difference
 being that a FailureException will be raised instead of an
 AssertionError, would the assertion be violated::
 
   assert [1, 2] == [1, 2]   
   assert 42 == 43           
 
-A basic example involving logic variables embedded into dictionnaries::
+A basic example involving logic variables embedded into dictionaries::
 
   Z, W = newvar(), newvar()
   unify({'a': 42, 'b': Z},
@@ -103,7 +103,7 @@ A basic example involving logic variables embedded into dictionnaries::
   assert Z == W == 42
 
 Unifying one unbound variable with some value (a) means assigning the
-value to the variable (which then satisfies equalness), unifying two
+value to the variable (which then satisfies equality), unifying two
 unbound variables (b) aliases them (they are constrained to reference
 the same -future- value). 
 
@@ -156,8 +156,8 @@ Mutators
    any, any -> None
 
 
-Threads and dataflow synchronisation
-++++++++++++++++++++++++++++++++++++
+Micro-threads and dataflow synchronisation
+++++++++++++++++++++++++++++++++++++++++++
 
 Description and examples
 ------------------------
@@ -171,7 +171,7 @@ logic variables come with two operators :
 
 * wait: this suspends the current thread until the variable is bound,
   it returns the value otherwise (impl. note: in the logic
-  objectspace, all operators make an implicit wait on their arguments)
+  object space, all operators make an implicit wait on their arguments)
 
 * wait_needed: this suspends the current thread until the variable
   has received a wait message. It has to be used explicitly,
@@ -185,7 +185,7 @@ Wait and wait_needed allow to write efficient lazy evaluating code.
 
 Using the "uthread" builtin (which spawns a coroutine and applies the
 2..n args to its first arg), here is how to implement a
-producer/consummer scheme::
+producer/consumer scheme::
 
   def generate(n, limit):
       if n < limit:
@@ -208,8 +208,8 @@ producer/consummer scheme::
   assert S == 45
 
 Note that this eagerly generates all elements before the first of them
-is consummed. Wait_needed helps us write a lazy version of the
-generator. But the consummer will be responsible of the termination,
+is consumed. Wait_needed helps us write a lazy version of the
+generator. But the consumer will be responsible of the termination,
 and thus must be adapted too::
 
   def lgenerate(n, L):
@@ -239,8 +239,8 @@ and thus must be adapted too::
   assert T == 45
 
 Please note that in the current LO, we deal with coroutines, not
-threads (thus we can't rely on preemtive scheduling to lessen the
-problem with the eager consummer/producer program). Also nested
+threads (thus we can't rely on preemptive scheduling to lessen the
+problem with the eager consumer/producer program). Also nested
 coroutines don't schedule properly yet. This impacts the ability to
 write a simple program like the following::
 
@@ -266,21 +266,18 @@ write a simple program like the following::
 
 Finally, it must be noted that the bind/unify and wait pair of
 operations are quite similar to the asynchronous send and receive
-primitives commonly used for for inter-process communication.
+primitives commonly used for inter-process communication.
 
 The operators table
 -------------------
 
 Blocking ops
 
- wait/1 # blocks if first arg. is a free logic var., til it becomes bound
+ wait/1 # blocks if first argument is a free logic var., till it becomes bound
    value -> value
 
  wait_needed/1 # blocks until its arg. receives a wait
    logic var. -> logic var.
-
- wait_two/2
-   logic var., logic var. ->  int in {1,2}
 
 Coroutine spawning
 
@@ -294,7 +291,7 @@ Constraint Programming
 The LO comes with a flexible, extensible constraint solver
 engine. While regular search strategies such as depth-first or
 breadth-first search are provided, you can write better, specialized
-strategies (an exemple would be best-search). We therein describe how
+strategies (an example would be best-search). We therein describe how
 to use the solver to specify and get the solutions of a constraint
 satisfaction problem, and then highlight how to extend the solver with
 new strategies.
@@ -502,7 +499,7 @@ Here are two examples of distribution strategies:
   the domain of the variable.
 
 There are a great many ways to distribute... Some of them perform
-better, depending on the caracteristics of the problem to be
+better, depending on the characteristics of the problem to be
 solved. But there is no absolutely better distribution strategy. Note
 that the second strategy given as example there is what is used (and
 hard-wired) in the MAC algorithm.
