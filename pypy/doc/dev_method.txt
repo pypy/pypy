@@ -243,7 +243,7 @@ to pypy-funding@codespeak.net, our mailinglist for project coordination.
 Previous sprints?
 +++++++++++++++++
 
-The PyPy team have been sprinting on the following occasions::
+The PyPy team has been sprinting on the following occasions::
 
     * Hildesheim                      Feb     2003
     * Gothenburg                      May     2003
@@ -267,11 +267,13 @@ The PyPy team have been sprinting on the following occasions::
     * Düsseldorf                      June    2006
     * Europython/Geneva               July    2006
     * Limerick                        Aug     2006
-    
+    * Düsseldorf                      Oct     2006
+    * Leysin                          Jan     2007
+    * Hildesheim                      Feb     2007
     
 People who have participated and contributed during our sprints and thus
 contributing to PyPy (if we have missed someone here - please contact us 
-so we can correct it)::
+so we can correct it):
 
     Armin Rigo
     Holger Krekel
