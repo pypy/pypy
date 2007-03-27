@@ -1,6 +1,6 @@
-=======================================================================================
-PyPy 1.0: dynamic language translation framework, multi-target Python implementation
-=======================================================================================
+==========================================
+PyPy 1.0: JIT compilers for free and more
+==========================================
 
 Welcome to the PyPy 1.0 release - a milestone integrating the results 
 of four years of research, engineering, management and sprinting 
