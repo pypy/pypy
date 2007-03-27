@@ -30,7 +30,7 @@ automatically *generate* Just-in-Time compilers for dynamic languages.
 
 Conversely, our implementation techniques, including the JIT compiler 
 generator, should become robust against changes in the languages 
-implementated.
+implemented. 
 
 
 High Level Goals
