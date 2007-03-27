@@ -177,14 +177,10 @@ objects, like integers and lists, as well as the operations between
 them, like addition or truth-value-testing.  
 
 This division between bytecode evaluator and object space is very
-important, as it gives a lot of flexibility. It is possible to use
-different `object spaces`_ to get different behaviours of the Python
-objects.  Using a special object space is also an important technique
-for our translation process.
-
-.. XXX there's something about the middle sentence of the above
-   paragraph that i don't like -- maybe it's just that "different
-   behaviours" reads strangely to me.
+important, as it gives a lot of flexibility.  One can plug in 
+different `object spaces`_ to get different or enriched behaviours 
+of the Python objects.  Additionally, a special more abstract object space 
+allows to reuse the bytecode evaluator for our translation process. 
 
 .. _`bytecode evaluator`: interpreter.html
 .. _`standard object space`: objspace.html#the-standard-object-space
