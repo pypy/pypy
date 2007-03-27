@@ -162,7 +162,7 @@ with the following key components:
 - a `bytecode evaluator`_ responsible for interpreting 
   Python code objects. 
 
-- an `standard object space`_ responsible for creating, accessing and
+- a `standard object space`_ responsible for creating, accessing and
   modifying Python application level objects.  
 
 The *bytecode evaluator* is the part that interprets the compact
@@ -195,6 +195,8 @@ The Translation Process
 The job of translation tool chain is to translate RPython_ programs into an
 efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.
+
+.. XXX "vital detail"?
 
 A vital detail of PyPy's approach is that the level of abstraction is
 reduced in several steps from the high level of RPython down to that
