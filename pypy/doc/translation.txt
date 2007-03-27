@@ -41,6 +41,8 @@ The choice of the target platform affects the process somewhat, but to
 start with we describe the process of translating an RPython_ program into
 C (which is the default and original target).
 
+.. _`initialization time`:
+
 The translation tool chain never sees Python source code or syntax
 trees, but rather starts with the *code objects* that define the
 behaviour of the function objects one gives it as input.  The

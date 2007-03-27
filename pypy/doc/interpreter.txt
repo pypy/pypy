@@ -105,7 +105,7 @@ function invocations.
 
 .. _`how-to guide for descriptors`: http://users.rcn.com/python/download/Descriptor.htm
 .. _`annotation pass`: translation.html#the-annotation-pass
-.. _`initialization time`: architecture.html#initialization-time
+.. _`initialization time`: translation.html#initialization-time
 .. _`interpreter-level and application-level`: coding-guide.html#interpreter-level 
 .. _`wrapped`: coding-guide.html#wrapping-rules
 .. _`object space`: objspace.html
