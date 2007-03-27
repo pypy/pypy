@@ -27,9 +27,9 @@ generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
 
-As of the 0.9 release, RPython_ programs can be translated into the following
-languages/platforms: C/POSIX, LLVM/POSIX, CLI/.NET, Squeak, Javascript and
-Common Lisp (in addition, there's `a backend`_ that translates
+As of the 1.0 release, RPython_ programs can be translated into the following
+languages/platforms: C/POSIX, LLVM/POSIX, CLI/.NET, Squeak, Javascript,
+Common Lisp and Java/JVM (in addition, there's `a backend`_ that translates
 `application-level`_ into `interpreter-level`_ code, but this is a special
 case in several ways).
 
@@ -52,7 +52,7 @@ and translation techniques and which is the fundamental data structure
 most of the translation steps operate on.
 
 It is helpful to consider translation as being made up of the following
-steps:
+steps (see also the figure below):
 
 1. The complete program is imported, at which time arbitrary run-time
    initialization can be performed.  Once this is done, the program must
@@ -95,6 +95,12 @@ There is an `interactive interface`_ called `translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
+The following figure gives a simplified overview (`PDF color version`_):
+
+    .. image:: image/translation-greyscale-small.png
+
+
+.. _`PDF color version`: image/translation.pdf
 .. _`bytecode evaluator`: interpreter.html
 .. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
