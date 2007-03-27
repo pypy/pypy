@@ -1,5 +1,5 @@
 =======================================================================================
-pypy-1.0.0: dynamic language translation framework, multi-target Python implementation
+PyPy 1.0: dynamic language translation framework, multi-target Python implementation
 =======================================================================================
 
 Welcome to the PyPy 1.0 release - a milestone integrating the results 
@@ -10,52 +10,58 @@ Although still not mature enough for general use, PyPy 1.0 materializes
 for the first time the full extent of our original vision:
 
 - A flexible Python interpreter, written in "RPython":
-  - mostly unaware of threading, memory and lower-level target platform
-    aspects
-  - showcases advanced interpreter features and prototypes
-  - passes core CPython regression tests, translates to C, LLVM and .NET
+
+  - Mostly unaware of threading, memory and lower-level target platform
+    aspects.
+  - Showcasing advanced interpreter features and prototypes.
+  - Passing core CPython regression tests, translatable to C, LLVM and .NET.
 
 - An advanced framework to translate such interpreters and programs:
-  - performs whole type-inference on RPython programs
-  - weaves threading, memory and target platform aspects
-  - low level (C, LLVM) and high level (CLI, Java, Javascript) backends
 
-- A **Just-In-Time Compiler Generator** able to **automatically**
-  enhance the low-level versions of our Python Interpreter, leading to
+  - That performs whole type-inference on RPython programs.
+  - Can weave in threading, memory and target platform aspects.
+  - Has low level (C, LLVM) and high level (CLI, Java, Javascript) backends.
+
+- A **Just-In-Time Compiler generator** able to **automatically**
+  enhance the low level versions of our Python interpreter, leading to
   run-time machine code and JIT-typical speedups on algorithmic example
   code!
 
-Previous releases and particularly 0.99.0 from February already
-highlighted features of our Python implementation and the abilities of
-our translation approach but the **new JIT Generator** clearly marks a
-major research result and gives weight to our vision that one can
-generate efficient Interpreter implementations, starting from a High
-Level Language Interpreter description.
+Previous releases, particularly the 0.99.0 release from February,
+already highlighted features of our Python implementation and the
+abilities of our translation approach but the **new JIT generator**
+clearly marks a major research result and gives weight to our vision
+that one can generate efficient interpreter implementations, starting
+from description in a high level language.
 
-We have prepared several good possibilities to start looking around or
-to get started yourself:
+We have prepared several entry points to start looking around or to get
+started yourself:
 
-* the main entry point for JIT documentation and status:
+.. XXX
 
-  http://codespeak.net/pypy/dist/pypy/doc/jit.html
+* The main entry point for JIT documentation and status:
 
-* the main documentation and getting-started PyPy entry point:
+   http://codespeak.net/pypy/dist/pypy/doc/jit.html
 
-  http://codespeak.net/pypy/dist/pypy/doc/index.html
+* The main documentation and getting-started PyPy entry point:
 
-* our online "play1" demos showcasing various Python interpreters,
+   http://codespeak.net/pypy/dist/pypy/doc/index.html
+
+* Our online "play1" demos showcasing various Python interpreters,
   features (and a new way to program AJAX applications):
 
-  http://play1.pypy.org
+   http://play1.codespeak.net/
 
-* our detailed and in-depth Reports about various aspects of the
+* Our detailed and in-depth Reports about various aspects of the
   project, closing up on 28 months of research and development:
 
-  http://codespeak.net/pypy/extradoc/eu-report/
+   http://codespeak.net/pypy/extradoc/eu-report/
 
-In the next months, we are going to discuss and aim for the next stages
-and goals of development - now more than ever depending on your feedback
-and contributions - and we hope you appreciate pypy-1.0 as an
+.. XXX
+
+In the next few months, we are going to discuss and aim for the next
+stage and goals of development - now more than ever depending on your
+feedback and contributions - and we hope you appreciate PyPy 1.0 as an
 interesting basis for greater things to come, as much as we do
 ourselves!
 
@@ -73,33 +79,36 @@ have fun,
 What is PyPy?
 ================================
 
-Technically, PyPy is both a Python Interpreter implementation and an
-advanced Compiler, actually a framework for implementing dynamic
+Technically, PyPy is both a Python interpreter implementation and an
+advanced compiler, or more precisely a framework for implementing dynamic
 languages and generating virtual machines for them.
 
-The Framework allows for alternative frontends and for alternative
+The framework allows for alternative frontends and for alternative
 backends, currently C, LLVM and .NET.  For our main target "C", we can
-can "mix in" different Garbage Collectors and threading models,
+can "mix in" different garbage collectors and threading models,
 including micro-threads aka "Stackless".  The inherent complexity that
 arises from this ambitious approach is mostly kept away from the Python
 interpreter implementation, our main frontend.
 
-PyPy now is also a Just-In-Time compiler generator.  The translation
-framework contains the now integrated JIT generation technology. This
-works based on hints added to the source interpreter, it should allow to
-cope with the changes to the interpreter, and be generally applicable to
-other interpreters written using the framework.
+PyPy is now also a Just-In-Time compiler generator.  The translation
+framework contains the now-integrated JIT generation technology.  This
+depends only on a few hints added to the interpreter source and should
+be able to cope with the changes to the interpreter and be generally
+applicable to other interpreters written using the framework.
 
 Socially, PyPy is a collaborative effort of many individuals working
 together in a distributed and sprint-driven way since 2003.  PyPy would
-not have gotten as far without the coding, feedback and general support
-from numerous people.
+not have gotten as far as it has without the coding, feedback and
+general support from numerous people.
 
 Formally, many of the current developers were involved in executing an
 EU contract with the goal of exploring and researching new approaches to
-Language/Compiler development and software engineering.  This contract's
-duration is about to end this month (March 2007) and we are working and
-preparing the according final review which is scheduled for May 2007.
+language and compiler development and software engineering.  This
+contract's duration is about to end this month (March 2007) and we are
+working and preparing the according final review which is scheduled for
+May 2007.
+
+.. XXX
 
 For the future, we are in the process of setting up structures to guard
 conceptual integrity of the project and to discuss and deal with funding
@@ -113,47 +122,50 @@ here for discussion results:
 ==============================
 
 
-Here is a summary list of key features coming with PyPy-1.0:
+Here is a summary list of key features included in PyPy 1.0:
 
-- The Just-In-Time Compiler Generator, now generating first JIT compiler
-  versions of our Python Interpreter, see:
+- The Just-In-Time compiler generator, now capable of generating the
+  first JIT compiler versions of our Python interpreter, see:
 
-    http://codespeak.net/pypy/dist/pypy/doc/jit.html
+   http://codespeak.net/pypy/dist/pypy/doc/jit.html
 
-- More Python Interpreter optimizations (CALL_METHOD bytecode and method
+- More Python interpreter optimizations (CALL_METHOD bytecode and method
   cache, rope-based strings), now running benchmarks at around half of
-  CPython's speed (without the JIT).
+  CPython's speed (without the JIT):
 
-- The Python Interpreter can be translated to .NET and enables
+   http://codespeak.net/pypy/dist/pypy/doc/interpreter-optimizations.html
+
+- The Python interpreter can be translated to .NET and enables
   interactions with the CLR libraries, see
 
-    http://codespeak.net/pypy/dist/pypy/doc/cli-backend.html
-    http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
+   http://codespeak.net/pypy/dist/pypy/doc/cli-backend.html
+   http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
 
-- Aspect Oriented Programming facilities (based on amending the Abstract
+- Aspect Oriented Programming facilities (based on mutating the Abstract
   Syntax Tree), see here for more details:
 
-  http://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html
-  http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
+   http://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html
+   http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
 
-- the JavaScript backend has evolved to a point where it can be used to
+- The JavaScript backend has evolved to a point where it can be used to
   write AJAX web applications with it. This is still an experimental
   technique, though. For demo applications, also showcasing various
   generated Python and PROLOG interpreters see:
 
-  http://play1.codespeak.net/
+   http://play1.codespeak.net/
 
-- Proxying object spaces and features of our Python Interpreter:
+- Proxying object spaces and features of our Python interpreter:
 
   - Tainting: a 270-line proxy object space tracking and boxing
     sensitive information within an application.
 
-  - Transparent proxies: allow to customize both application and builtin
-    objects from application level code.  Now featuring an initial
-    support module (tputil.py) for working with transparent proxies
+  - Transparent proxies: allow the customization of both application and
+    builtin objects from application level code.  Now featuring an
+    initial support module (tputil.py) for working with transparent
+    proxies.
 
 For a detailed description and discussion of high level backends and
-Python Interpreter features, please see our extensive "D12" report:
+Python interpreter features, please see our extensive "D12" report:
 
 http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
 
@@ -161,9 +173,9 @@ http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prot
 Funding partners and organisations
 =====================================================
 
-PyPy development and activities happens as an open source project and
-with the support of a consortium partially funded by a 28 months
-European Union IST research grant for the period December 2004 up to
+PyPy development and activities happen as an open source project and
+with the support of a consortium partially funded by a 28 month
+European Union IST research grant for the period from December 2004 to
 March 2007. The full partners of that consortium are:
 
     Heinrich-Heine University (Germany), Open End (Sweden)
