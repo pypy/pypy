@@ -64,7 +64,7 @@ have fun,
 
     the PyPy release team,
     Samuele Pedroni, Armin Rigo, Holger Krekel, Michael Hudson,
-    Carl Friedrich Bolz, Antonio Cuni, Anders Chrigstroem, Guido Wesdrop
+    Carl Friedrich Bolz, Antonio Cuni, Anders Chrigstroem, Guido Wesdorp
     Maciej Fijalkowski, Alexandre Fayolle
 
     and many others:
