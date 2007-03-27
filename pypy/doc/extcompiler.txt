@@ -75,7 +75,7 @@ This means that you can do the following with a mixed module:
 
 * run it with PyPy on top of CPython.  Example::
 
-    $ python pypy/bin/py.py --usemodules=_demo
+    $ python pypy/bin/py.py --withmod_demo
     PyPy 0.99.0 in StdObjSpace on top of Python 2.4.3
     >>>> import _demo
     >>>> _demo.measuretime(10000, long)
@@ -86,7 +86,7 @@ This means that you can do the following with a mixed module:
   Example::
 
     $ cd pypy/translator/goal
-    $ python translate.py targetpypystandalone --usemodules=_demo
+    $ python translate.py targetpypystandalone --withmod-_demo
     [wait for 30 minutes]
     [translation:info] created: ./pypy-c
     (Pbd)
