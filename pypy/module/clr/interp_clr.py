@@ -101,6 +101,9 @@ def cli2py(space, b_obj):
     elif b_type == typeof(System.Double):
         floatval = unbox(b_obj, ootype.Float)
         return space.wrap(floatval)
+    elif b_type == typeof(System.Boolean):
+        boolval = unbox(b_obj, ootype.Bool)
+        return space.wrap(boolval)
     elif b_type == typeof(System.String):
         strval = unbox(b_obj, ootype.String)
         return space.wrap(strval)

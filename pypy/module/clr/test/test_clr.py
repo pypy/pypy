@@ -40,6 +40,19 @@ class AppTestDotnet:
         item = obj.get_Item(0)
         assert isinstance(item, float)
 
+    def test_bool_conversion(self):
+        import clr
+        ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
+        obj = ArrayList()
+        obj.Add(True)
+        obj.Add(False)
+        t = obj.get_Item(0)
+        f = obj.get_Item(1)
+        assert t and isinstance(t, bool)
+        assert not f and isinstance(f, bool)
+        obj.Add(42)
+        assert obj.Contains(42)
+
     def test_getitem(self):
         import clr
         ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')

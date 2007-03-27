@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.translator.cli.dotnet import box
@@ -20,6 +21,10 @@ W_FloatObject.tocli = tocli
 def tocli(self):
     return None
 W_NoneObject.tocli = tocli
+
+def tocli(self):
+    return box(self.boolval)
+W_BoolObject.tocli = tocli
 
 def tocli(self):
     return box(self._value)
