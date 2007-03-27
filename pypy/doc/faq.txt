@@ -165,13 +165,15 @@ has become quite advanced to support it. This resulted in people having the idea
 to implement interpreters for other dynamic languages than Python and get a lot
 of things for free (translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
-integers). Therefore people started to implement a `JavaScript interpreter`_
+integers). Therefore people started to implement a JavaScript interpreter
 (Leonardo Santagada as his Summer of PyPy project) and a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Masters thesis). Both projects are undocumented and
-unfinished, at the moment (the Prolog interpreter being less unfinished).
+(Carl Friedrich Bolz as his Masters thesis). The JavaScript interpreter is
+undocumented at the moment, you can look at `its sources`_.
+Both projects are unfinished the moment (the Prolog interpreter being less
+unfinished).
 
-.. _`JavaScript interpreter`: ../../pypy/lang/js
-.. _`Prolog interpreter`: ../../pypy/lang/prolog
+.. _`its sources`: ../../pypy/lang/js
+.. _`Prolog interpreter`: prolog-interpreter.html
 
 
 Development
