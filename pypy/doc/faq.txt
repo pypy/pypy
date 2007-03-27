@@ -138,6 +138,7 @@ results so far.  This area is going to improve over time.
 .. _`rctypes`: rctypes.html
 
 .. _`slower than CPython`:
+.. _`how fast is pypy`:
 
 -----------------
 How fast is PyPy?
