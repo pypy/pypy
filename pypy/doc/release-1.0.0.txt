@@ -119,13 +119,14 @@ sprinting and developments. See here for discussion results:
    
 Here is a summary list of key features coming with PyPy-1.0:
 
-- the Just-In-Time Compiler Generator, now generating 
+- The Just-In-Time Compiler Generator, now generating 
   first JIT compiler versions of our Python Interpreter, see: 
 
     http://codespeak.net/pypy/dist/pypy/doc/jit.html 
 
-- more Python Interpreter optimizations (CALL_METHOD(+cache), ropes), 
-  now running benchmarks at around half of CPython's speed (without the JIT)
+- More Python Interpreter optimizations (CALL_METHOD bytecode and
+  method cache, rope-based strings), now running benchmarks at around
+  half of CPython's speed (without the JIT).
 
 - The Python Interpreter can be translated to .NET and enables
   interactions with the CLR libraries, see
@@ -146,7 +147,7 @@ Here is a summary list of key features coming with PyPy-1.0:
 
   http://play1.codespeak.net/ 
 
-- proxying object spaces and features of our Python Interpreter: 
+- Proxying object spaces and features of our Python Interpreter: 
 
   - Tainting: a 270-line proxy object space tracking 
     and boxing sensitive information within an application. 
