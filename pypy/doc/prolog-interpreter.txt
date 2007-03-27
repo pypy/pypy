@@ -17,9 +17,13 @@ Prolog. `Learn Prolog Now!`_ is a rather nice book (available online) to learn
 some Prolog with (but it's probably not a good idea to use Pyrolog while
 learning since it is too rough for that).
 
+For a more detailed description of the implementation of the Prolog interpreter
+see the `A flexible Prolog interpreter in Python`_ draft paper.
+
 .. _`Prolog ISO specification`: http://pauillac.inria.fr/~deransar/prolog/docs.html
 .. _`Sicstus Prolog`: http://www.sics.se/sicstus/
 .. _`Learn Prolog Now!`: http://www.coli.uni-saarland.de/~kris/learn-prolog-now/
+.. _`A flexible Prolog interpreter in Python`: http://codespeak.net/svn/user/cfbolz/hack/prolog/paper/prolog-in-rpython.pdf
 
 Example useage
 ==============
