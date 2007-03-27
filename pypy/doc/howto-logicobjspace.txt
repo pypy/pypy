@@ -28,12 +28,12 @@ can be used (and extended) out of the box.
 To fire up a working standard PyPy with the the constraint library,
 please type::
 
-  /root-of-pypy-dist/pypy/bin/py.py --withmod-_cslib
+  root-of-pypy-dist/pypy/bin/py.py --withmod-_cslib
 
 To fire up a working PyPy with the LO (including the constraint
 solving library), please type::
 
-  /root-of-pypy-dist/pypy/bin/py.py -o logic
+  root-of-pypy-dist/pypy/bin/py.py -o logic
 
 More information is available in the `EU Interim Report`_, especially
 with respect to the (unfinished) integrated framework for constraint
@@ -89,15 +89,13 @@ variables.
 
 Unify is thus defined as follows (it is symmetric):
 
-.. raw:: latex
-
-    \begin{center}
-    \begin{tabular}{|l|l|l|} \hline
-    \textbf{Unify} & \textbf{value} & \textbf{unbound var} \\ \hline
-    \textbf{value} & equal? & bind \\ \hline
-    \textbf{unbound var} & bind & alias \\ \hline
-    \end{tabular}
-    \end{center}
++-----------------+-----------------+-----------------+
+| ``Unify``       | **value**       | **unbound var** |
++-----------------+-----------------+-----------------+
+| **value**       | equal?          | bind            |
++-----------------+-----------------+-----------------+
+| **unbound var** | bind            | alias           |
++-----------------+-----------------+-----------------+
 
 Unifying structures devoid of logic variables, like::
 
@@ -132,7 +130,7 @@ The operators table
 
 Logic variables support the following operators (with their arity):
 
-Predicates
+Predicates::
 
  is_free/1
    any -> bool
@@ -143,12 +141,12 @@ Predicates
  alias_of/2
    logic vars. -> bool
 
-Variable Creation
+Variable Creation::
 
  newvar/0
    nothing -> logic variable
  
-Mutators
+Mutators::
 
  bind/2
    logic var., any -> None
@@ -261,9 +259,11 @@ Constraint Programming
 ======================
 
 PyPy comes with a flexible, extensible constraint solver engine based
-on the CPython Logilab constraint package (and we paid attention to
+on the CPython `Logilab constraint package`_ (and we paid attention to
 API compatibility). We therein describe how to use the solver to
 specify and get the solutions of a constraint satisfaction problem.
+
+.. _`Logilab constraint package`: http://www.logilab.org/view?rql=Any%20X%20WHERE%20X%20eid%20852
 
 Specification of a problem 
 ++++++++++++++++++++++++++
@@ -276,7 +276,7 @@ relations, that bind together the variables of X.
 So we basically need a way to declare variables, their domains and
 relations; and something to hold these together. 
 
-Let's have a look at a reasonnably simple example of a constraint
+Let's have a look at a reasonably simple example of a constraint
 program::
 
   from cslib import *
