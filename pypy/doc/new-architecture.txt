@@ -43,7 +43,7 @@ We aim to provide:
    separation between language specification and implementation
    aspects.
 
- * a flexible and fast implementation of the Python Language using
+ * a flexible and fast implementation of the Python_ Language using
    the above framework to enable new advanced features without having
    to encode low level details into it.
 
@@ -72,7 +72,7 @@ and higher level functionalities in order to support language implementors
 for writing language implementations. 
 
 PyPy is experimenting with a more ambitious approach.  We are using a
-subset of a VHLL language, called RPython, to specify languages
+subset of a VHLL language, called RPython_, to specify languages
 with few references to and dependencies on lower level details,
 leaving it to the translation framework to add these as translation
 aspects and produce custom implementations for particular feature
@@ -222,7 +222,7 @@ The steps the translation process can be summarized as follows:
 
  * Optionally, `various transformations`_ can then be applied which, for
    example, perform optimizations such as inlining or add capabilities
-   such as stackless-style concurrency.
+   such as stackless_-style concurrency.
 
  * Then, the graph is converted to source code for the target platform
    and compiled into an executable.
@@ -240,32 +240,40 @@ the translation process`_.
 Further reading
 ===============
 
-* `[VMC]`_ PyPy's approach to virtual machine construction
-  (Dynamic Languages Symposium 2006).
+All of PyPy's documentation can be reached from the `documentation
+index`_.  Of particular interest after reading this document might be:
 
-* The `translation document`_ describes our translation process in detail.
-  You might also be interested in reading the more
-  theoretically-oriented paper `Compiling dynamic language
-  implementations`_.
+ * `getting-started`_: a hands-on guide to getting involved with the
+   PyPy source code.
 
-* All our `Technical reports`_. XXX reference specific reports
-  and provide a summary here? 
+ * `PyPy's approach to virtual machine construction`_: a paper
+   presented to the Dynamic Languages Symposium attached to OOPSLA
+   2006.
 
-* `Getting started`_ with PyPy for a practical introduction. 
+ * `The translation document`_: a detailed description of our
+   translation process.
 
-.. _`Extreme Programming`: http://www.extremeprogramming.com/
-.. _`statistics web page`: http://codespeak.net/~hpk/pypy-stat/
-.. _`very compliant`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
-.. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
-.. _`RPython`: coding-guide.html#rpython
-.. _`abstract interpretation`: theory.html#abstract-interpretation
+ * `Compiling dynamic language implementations`_: a paper describing
+   the annotation pass with a greater emphasis on theoretical aspects
+   than in the other documentation.
+
+ * All our `Technical reports`_. XXX reference specific reports
+   and provide a summary here? 
+
+.. _`documentation index`: index.html
+.. _`getting-started`: getting-started.html
+.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`the translation document`: translation.html
 .. _`Compiling dynamic language implementations`: dynamic-language-translation.html
-.. _`translation document`: translation.html
-.. _LLVM: http://llvm.org/
-.. _`PDF color version`: image/translation.pdf
-.. _`getting started`: getting-started.html
-.. _`[VMC]`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`Technical reports`: index-report.html
+
+.. _`getting started`: getting-started.html
+.. _`Extreme Programming`: http://www.extremeprogramming.com/
+
+.. XXX link to this again:
+.. _`very compliant`: http://www2.openend.se/~pedronis/pypy-c-test/allworkingmodules/summary.html
+
+.. _`RPython`: coding-guide.html#rpython
 
 .. _Python: http://docs.python.org/ref
 .. _Psyco: http://psyco.sourceforge.net

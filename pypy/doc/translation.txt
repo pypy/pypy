@@ -37,7 +37,6 @@ case in several ways).
 .. _`application-level`: coding-guide.html#application-level
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 
-
 The choice of the target platform affects the process somewhat, but to
 start with we describe the process of translating an RPython_ program into
 C (which is the default and original target).
