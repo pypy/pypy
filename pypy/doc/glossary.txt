@@ -65,8 +65,7 @@ links to more information.
 .. _`jit`:
 
 **jit**
-  `just in time compiler`_.  Our jit now has `some draft documentation
-  <jit.html>`__.
+  `just in time compiler`_.
 
 .. _llinterpreter:
 
@@ -219,7 +218,7 @@ links to more information.
 
 .. _applevel: coding-guide.html#application-level
 .. _`target language`: getting-started.html#trying-out-the-translator
-.. _`just in time compiler`: http://en.wikipedia.org/wiki/Just-in-time_compilation
+.. _`just in time compiler`: jit.html
 .. _`the jit docs`: jit.html
 .. _`type inference article on Wikipedia`: http://en.wikipedia.org/wiki/Type_inference
 .. _`annotator pass`: translation.html#the-annotation-pass

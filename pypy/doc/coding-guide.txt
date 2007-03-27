@@ -1017,7 +1017,7 @@ Command line tool test_all
 
 You can run almost all of PyPy's tests by invoking::
 
-  python test_all.py
+  python test_all.py file_or_directory
 
 which is a synonym for the general `py.test`_ utility
 located in the ``pypy`` directory.  For switches to
