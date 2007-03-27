@@ -44,7 +44,7 @@ like C/Posix, Java or C#.  Each such implementation fundamentally provides
 a mapping from application source code to the target environment.  One of 
 the goals of the "all-encompassing" environments, like the .NET framework
 and to some extent the Java virtual machine, is to provide standardized
-and higher level functionalities in order to support language implementors
+and higher level functionalities in order to support language implementers
 for writing language implementations. 
 
 PyPy is experimenting with a more ambitious approach.  We are using a
@@ -56,7 +56,7 @@ inserting appropriate lower level aspects.  The result can be customized
 by selecting other feature and platform configurations.
 
 Our goal is to provide a possible solution to the problem of language
-implementors: having to write ``l * o * p`` interpreters for ``l``
+implementers: having to write ``l * o * p`` interpreters for ``l``
 dynamic languages and ``p`` platforms with ``o`` crucial design
 decisions.  PyPy aims at having any one of these parameters changeable
 independently from each other:
