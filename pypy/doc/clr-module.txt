@@ -2,7 +2,7 @@
 The ``clr`` module for PyPy.NET
 ===============================
 
-PyPy.NET give you access to the sorrounding .NET environment via the
+PyPy.NET give you access to the surrounding .NET environment via the
 ``clr`` module. This module is still experimental: some features are
 still missing and its interface might change in next versions, but
 it's still useful to experiment a bit with PyPy.NET.
@@ -43,7 +43,7 @@ IronPython does.
 Example of usage
 ================
 
-Here is an example of intercative session using the ``clr`` module:
+Here is an example of interactive session using the ``clr`` module:
 
     >>>> import clr
     >>>> ArrayList = clr.load_cli_class('System.Collections', 'ArrayList')
@@ -64,7 +64,7 @@ Conversion of parameters
 
 When calling a .NET method Python objects are converted to .NET
 objects.  Lots of effort have been taken to make the conversion as
-much transparent as possibile; in particular, all the primitive types
+much transparent as possible; in particular, all the primitive types
 such as int, float and string are converted to the corresponding .NET
 types (e.g., ``System.Int32``, ``System.Float64`` and
 ``System.String``).
@@ -73,7 +73,7 @@ Python objects without a corresponding .NET types (e.g., instances of
 user classes) are passed as "black boxes", for example to be stored in
 some sort of collection.
 
-The opposite .NET to Python conversions happen for the values returned
+The opposite .NET to Python conversions happens for the values returned
 by the methods. Again, primitive types are converted in a
 straightforward way; for objects of non-primitive types there are two
 cases:
@@ -83,7 +83,7 @@ cases:
   - if the object is not a Python one, raise an exception.
 
 In the future, the second case will be handled much more carefully,
-letting methods to return .NET objects that will be automatically
+allowing methods to return .NET objects that will be automatically
 wrapped into Python ones, but at the moment it's not possible.
 
 Overload resolution
