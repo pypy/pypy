@@ -21,7 +21,7 @@ then the `How It Fits Together`_ is probably what you want.
 Overview
 ========
 
-The job of translation tool-chain is to translate RPython_ programs into an
+The job of translation tool chain is to translate RPython_ programs into an
 efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
@@ -42,9 +42,15 @@ The choice of the target platform affects the process somewhat, but to
 start with we describe the process of translating an RPython_ program into
 C (which is the default and original target).
 
-Most of the steps in the translation process operate on control flow
-graphs, which are produced from functions in the input program, analyzed,
-transformed and then translated to the target language.
+The translation tool chain never sees Python source code or syntax
+trees, but rather starts with the *code objects* that define the
+behaviour of the function objects one gives it as input.  The
+`bytecode evaluator`_ and the `Flow Object Space`_ work through these
+code objects using `abstract interpretation`_ to produce a control
+flow graph (one per function): yet another representation of the
+source program, but one which is suitable for applying type inference
+and translation techniques and which is the fundamental data structure
+most of the translation steps operate on.
 
 It is helpful to consider translation as being made up of the following
 steps:
@@ -90,7 +96,8 @@ There is an `interactive interface`_ called `translatorshell.py`_ to the
 translation process which allows you to interactively work through these
 stages.
 
-.. _`SSA`: http://en.wikipedia.org/wiki/Static_single_assignment_form
+.. _`bytecode evaluator`: interpreter.html
+.. _`abstract interpretation`: theory.html#abstract-interpretation
 .. _`translator.py`: ../../pypy/translator/translator.py
 .. _`play around`: getting-started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
@@ -105,6 +112,7 @@ stages.
 .. _`translatorshell.py`: ../../pypy/bin/translatorshell.py
 
 .. _`flow model`:
+.. _`control flow graphs`: 
 
 The Flow Model
 ==============
