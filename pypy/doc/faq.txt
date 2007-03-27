@@ -146,12 +146,20 @@ How fast is PyPy?
 .. _whysoslow:
 
 As of August 2005, PyPy was successfully translated to C.  Compared to
-CPython, the version of PyPy that still runs on top of CPython is slower by
-a factor of 2000. The first translated version was roughly 300 times slower
-than CPython. In later versions, we increased the speed. CPython was about
-10-20 times as fast as version 0.8.0, 4-7 times as fast as version 0.9 and
-2 to 4 times as fast as the current version (0.99).
-Note that the speed heavily depends on the options enabled at compile time.
+CPython, the version of PyPy that still runs on top of CPython is slower
+by a factor of 2000. The first translated version was roughly 300 times
+slower than CPython, a number which we increased release after release
+to the current point, where PyPy is only between 1.7 and 4 times slower
+than CPython.  Note that the speed heavily depends on the options
+enabled at compile time.
+
+The integration of the work on the Just-In-Time compiler has just
+started; it can be `manually enabled`_ and gives good results on
+functions doing integer arithmetic (60 times faster than CPython,
+i.e. within 20% of recoding the function in C and compiling with ``gcc``
+without optimizations).
+
+.. _`manually enabled`: jit.html
 
 
 .. _`prolog and javascript`:
