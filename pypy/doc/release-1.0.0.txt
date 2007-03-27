@@ -3,7 +3,7 @@ PyPy 1.0: dynamic language translation framework, multi-target Python implementa
 =======================================================================================
 
 Welcome to the PyPy 1.0 release - a milestone integrating the results 
-of almost four years of research, engineering, managment and sprinting 
+of four years of research, engineering, managment and sprinting 
 efforts, concluding the 28 months phase of EU co-funding!
 
 Although still not mature enough for general use, PyPy 1.0 materializes
@@ -24,15 +24,15 @@ for the first time the full extent of our original vision:
 
 - A **Just-In-Time Compiler generator** able to **automatically**
   enhance the low level versions of our Python interpreter, leading to
-  run-time machine code and JIT-typical speedups on algorithmic example
-  code!
+  run-time machine code that runs algorithmic examples at speeds typical
+  of JITs!
 
 Previous releases, particularly the 0.99.0 release from February,
 already highlighted features of our Python implementation and the
 abilities of our translation approach but the **new JIT generator**
 clearly marks a major research result and gives weight to our vision
 that one can generate efficient interpreter implementations, starting
-from description in a high level language.
+from a description in a high level language.
 
 We have prepared several entry points to start looking around or to get
 started yourself:
@@ -53,9 +53,9 @@ started yourself:
    http://play1.codespeak.net/
 
 * Our detailed and in-depth Reports about various aspects of the
-  project, closing up on 28 months of research and development:
+  project:
 
-   http://codespeak.net/pypy/extradoc/eu-report/
+   http://codespeak.net/pypy/dist/pypy/doc/index-report.html
 
 .. XXX
 
@@ -125,32 +125,32 @@ here for discussion results:
 Here is a summary list of key features included in PyPy 1.0:
 
 - The Just-In-Time compiler generator, now capable of generating the
-  first JIT compiler versions of our Python interpreter, see:
+  first JIT compiler versions of our Python interpreter:
 
    http://codespeak.net/pypy/dist/pypy/doc/jit.html
 
-- More Python interpreter optimizations (CALL_METHOD bytecode and method
+- More Python interpreter optimizations (a CALL_METHOD bytecode, a method
   cache, rope-based strings), now running benchmarks at around half of
   CPython's speed (without the JIT):
 
    http://codespeak.net/pypy/dist/pypy/doc/interpreter-optimizations.html
 
 - The Python interpreter can be translated to .NET and enables
-  interactions with the CLR libraries, see
+  interactions with the CLR libraries:
 
    http://codespeak.net/pypy/dist/pypy/doc/cli-backend.html
    http://codespeak.net/pypy/dist/pypy/doc/clr-module.html
 
 - Aspect Oriented Programming facilities (based on mutating the Abstract
-  Syntax Tree), see here for more details:
+  Syntax Tree):
 
    http://codespeak.net/pypy/dist/pypy/doc/aspect_oriented_programming.html
    http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
 
 - The JavaScript backend has evolved to a point where it can be used to
   write AJAX web applications with it. This is still an experimental
-  technique, though. For demo applications, also showcasing various
-  generated Python and PROLOG interpreters see:
+  technique, though. For demo applications which also showcase various
+  generated Python and PROLOG interpreters, see:
 
    http://play1.codespeak.net/
 
