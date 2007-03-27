@@ -163,8 +163,8 @@ Further examples:
 
 There is bub'n'bros client working in javascript available `here`_ (No
 working copy on-line right now, sorry) and a simple example of JS a
-`console`_. There is also a simple `django ping example`_.
+`python console`_. There is also a simple `django ping example`_.
 
 .. _`here`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/bnb/start_bnb.py
-.. _`console`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/console.py
+.. _`python console`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/pythonconsole.py
 .. _`django ping example`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/examples/djangoping
