@@ -11,7 +11,7 @@ from pypy.rpython.rclass import AbstractClassRepr,\
                                 get_type_repr, rtype_new_instance
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, Struct, GcStruct, malloc, \
-     cast_pointer, castable, nullptr, \
+     cast_pointer, cast_ptr_to_int, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, attachRuntimeTypeInfo, \
      FuncType, Bool, Signed, functionptr, FuncType, PyObject
@@ -585,18 +585,24 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def ll_str(self, i): # doesn't work for non-gc classes!
         from pypy.rpython.lltypesystem import rstr
+        from pypy.rpython.lltypesystem.ll_str import ll_int2hex
+        from pypy.rlib.rarithmetic import r_uint
         if not i:
             return rstr.null_str
         instance = cast_pointer(OBJECTPTR, i)
+        uid = r_uint(cast_ptr_to_int(i))
         nameLen = len(instance.typeptr.name)
         nameString = rstr.mallocstr(nameLen-1)
         i = 0
         while i < nameLen - 1:
             nameString.chars[i] = instance.typeptr.name[i]
             i += 1
-        return rstr.ll_strconcat(rstr.instance_str_prefix,
-                                 rstr.ll_strconcat(nameString,
-                                                   rstr.instance_str_suffix))
+        res =                        rstr.instance_str_prefix
+        res = rstr.ll_strconcat(res, nameString)
+        res = rstr.ll_strconcat(res, rstr.instance_str_infix)
+        res = rstr.ll_strconcat(res, ll_int2hex(uid, False))
+        res = rstr.ll_strconcat(res, rstr.instance_str_suffix)
+        return res
 
     def rtype_isinstance(self, hop):
         class_repr = get_type_repr(hop.rtyper)

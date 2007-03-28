@@ -667,6 +667,22 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         t, typer, graph = self.gengraph(f, [], backendopt=True)
         assert summary(graph) == {}
 
+    def test_instance_repr(self):
+        class FooBar(object):
+            pass
+        def f():
+            x = FooBar()
+            return id(x), str(x)
+
+        res = self.interpret(f, [])
+        xid, xstr = self.ll_unpack_tuple(res, 2)
+        xstr = self.ll_to_string(xstr)
+        print xid, xstr
+        assert 'FooBar' in xstr
+        from pypy.rlib.rarithmetic import r_uint
+        expected = hex(r_uint(xid)).lower().replace('l', '')
+        assert expected in xstr
+
 
 class TestOOtype(BaseTestRclass, OORtypeMixin):
 

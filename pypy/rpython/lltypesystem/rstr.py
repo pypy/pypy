@@ -789,7 +789,8 @@ string_iterator_repr = StringIteratorRepr()
 # not that insane that a string constant is built in this file).
 
 instance_str_prefix = string_repr.convert_const("<")
-instance_str_suffix = string_repr.convert_const(" object>")
+instance_str_infix  = string_repr.convert_const(" object at 0x")
+instance_str_suffix = string_repr.convert_const(">")
 
 null_str = string_repr.convert_const("NULL")
 
