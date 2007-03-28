@@ -1,15 +1,6 @@
 """
 Interp-level definition of frequently used functionals.
 
-Candidates      implemented
-
-  range             yes
-  zip               no
-  min               no
-  max               no
-  enumerate         no
-  xrange            no
-
 """
 
 from pypy.interpreter.error import OperationError
@@ -113,3 +104,34 @@ def range_withspecialized_implementation(space, start, step, howmany):
         impl = RangeImplementation(space, start, step, howmany)
         return W_ListMultiObject(space, impl)
 
+
+
+
+def all(space, w_S):
+    w_iter = space.iter(w_S)
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise       # re-raise other app-level exceptions
+            break
+        if not space.is_true(w_next):
+            return space.w_False
+    return space.w_True
+all.unwrap_spec = [ObjSpace, W_Root]
+
+
+def any(space, w_S):
+    w_iter = space.iter(w_S)
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise       # re-raise other app-level exceptions
+            break
+        if space.is_true(w_next):
+            return space.w_True
+    return space.w_False
+any.unwrap_spec = [ObjSpace, W_Root]

@@ -44,8 +44,6 @@ class Module(MixedModule):
         # is still needed and should stay where it is.
         'min'           : 'app_functional.min',
         'max'           : 'app_functional.max',
-        'all'           : 'app_functional.all',
-        'any'           : 'app_functional.any',
         'enumerate'     : 'app_functional.enumerate',
         'xrange'        : 'app_functional.xrange',
         '_install_pickle_support_for_xrange_iterator':
@@ -129,6 +127,8 @@ class Module(MixedModule):
         '__import__'    : 'importing.importhook',
 
         'range'         : 'functional.range_int',
+        'all'           : 'functional.all',
+        'any'           : 'functional.any',
         # float->string helper
         '_formatd'      : 'special._formatd'
     }

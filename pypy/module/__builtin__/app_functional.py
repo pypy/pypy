@@ -273,22 +273,6 @@ for obtaining an indexed list: (0, seq[0]), (1, seq[1]), (2, seq[2]), ..."""
     def __iter__(self):
         return self
 
-# ____________________________________________________________
-
-def all( it ):
-    "Return True if bool(x) is True for all values x in the given iterable."
-    for i in it:
-        if not i:
-            return False
-    return True
-    
-def any( it ):
-    "Return True if bool(x) is True for any value x in the given iterable."
-    for i in it:
-        if i:
-            return True
-    return False
-
 
 # ____________________________________________________________
 
