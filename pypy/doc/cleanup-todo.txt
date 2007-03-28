@@ -32,3 +32,4 @@ interpreter
  - review the things implemented at applevel whether they are performance-
    critical
 
+ - review threading (especially GIL). It's segfaulting quite often now.
