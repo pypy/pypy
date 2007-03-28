@@ -214,7 +214,7 @@ Flow restrictions
 
 **control structures**
 
-  all allowed but yield, for loops restricted to builtin types
+  all allowed but yield, ``for`` loops restricted to builtin types
 
 **range**
 
