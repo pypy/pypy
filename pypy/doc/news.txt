@@ -8,9 +8,8 @@ nonsense, isn't it?  `more...`_
 .. _`more...`: architecture.html#mission-statement 
 
 
-The following is a list of planned PyPy events, most of which 
-are also published in `iCalendar format`_.  See eventhistory_ 
-for a list of past events. 
+   The planned PyPy events announced below are also published in
+   `iCalendar format`_.  See eventhistory_ for a list of past events.
 
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
