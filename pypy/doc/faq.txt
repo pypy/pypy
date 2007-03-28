@@ -176,7 +176,7 @@ of things for free (translation to various languages, stackless features,
 garbage collection, implementation of various things like arbitrarily long
 integers). Therefore people started to implement a JavaScript interpreter
 (Leonardo Santagada as his Summer of PyPy project) and a `Prolog interpreter`_
-(Carl Friedrich Bolz as his Masters thesis). The JavaScript interpreter is
+(Carl Friedrich Bolz as his Bachelor thesis). The JavaScript interpreter is
 undocumented at the moment, you can look at `its sources`_.
 Both projects are unfinished the moment (the Prolog interpreter being less
 unfinished).
