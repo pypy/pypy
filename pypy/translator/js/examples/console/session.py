@@ -14,8 +14,10 @@ after TIMEOUT
 import py
 import subprocess
 from Queue import Queue
-from py.__.green.greensock2 import autogreenlet, Timer, Interrupted
+from py.__.green.greensock2 import autogreenlet, Timer, Interrupted,\
+     meetingpoint
 from py.__.green.pipe.fd import FDInput
+from py.magic import greenlet
 import time
 
 class Killed(Exception):
@@ -30,8 +32,20 @@ class Interpreter(object):
         self.read_fd = FDInput(self.pipe.stdout.fileno(), close=False)
         self.pid = pipe.pid
         self.timeout = timeout
-        self.kill_timeout = kill_timeout
-        self.last_activity = time.time()
+        #self.kill_timeout = kill_timeout
+        self.giver, accepter = meetingpoint()
+        autogreenlet(self.timeout_kill, accepter, kill_timeout)
+        #self.last_activity = time.time()
+
+    def timeout_kill(self, accepter, timeout):
+        while 1:
+            try:
+                self.kill_timer = Timer(timeout)
+                accepter.accept()
+                self.kill_timer.stop()
+            except Interrupted:
+                self.close()
+                raise Killed()
 
     def timeout_read(self, fd, timeout):
         timer = Timer(timeout)
@@ -45,14 +59,11 @@ class Interpreter(object):
 
     def write_only(self, to_write):
         if to_write is not None:
-            self.last_activity = time.time()
+            self.giver.give(42)
             self.pipe.stdin.write(to_write)
 
     def interact(self, to_write=None):
         self.write_only(to_write)
-        if time.time() - self.last_activity > self.kill_timeout:
-            self.close()
-            raise Killed()
         return self.timeout_read(self.read_fd, self.timeout)
 
     def close(self):
@@ -60,6 +71,8 @@ class Interpreter(object):
         # XXX: some sane way of doing wait here? (note that wait
         #      is blocking, which means it eats all our clean interface)
         self.pipe.wait()
+
+    __del__ = close
 
 class InterpreterManager(object):
     pass

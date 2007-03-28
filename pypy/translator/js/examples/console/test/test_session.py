@@ -4,7 +4,7 @@
 
 import py
 
-from py.__.green.greensock2 import allof
+from py.__.green.greensock2 import allof, sleep
 from py.__.green.pipe.fd import FDInput
 from pypy.translator.js.examples.console.session import Interpreter, Killed
 
@@ -47,5 +47,18 @@ def test_kill_timeout():
     i = Interpreter("python", kill_timeout=1, timeout=3)
     while not i.interact().endswith(">>> "):
         pass
-    i.interact()
     py.test.raises(Killed, "i.interact()")
+
+def test_kill_timeout_outside():
+    i = Interpreter("python", kill_timeout=1, timeout=3)
+    while not i.interact().endswith(">>> "):
+        pass
+    py.test.raises(Killed, "sleep(8)")
+
+def test_does_not_die():
+    i = Interpreter("python", kill_timeout=1, timeout=3)
+    while not i.interact().endswith(">>> "):
+        pass
+    i.interact("import time\n")
+    for _ in range(6):
+        i.interact("time.sleep(.2)\n")
