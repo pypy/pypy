@@ -45,7 +45,7 @@ class Interpreter(object):
                 self.kill_timer.stop()
             except Interrupted:
                 self.close()
-                raise Killed()
+                return
 
     def timeout_read(self, fd, timeout):
         timer = Timer(timeout)
