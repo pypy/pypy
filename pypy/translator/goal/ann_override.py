@@ -76,14 +76,14 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     def attach_lookup(pol, t, attr):
         cached = "cached_%s" % attr
         if not t.is_heaptype():
-            setattr(t, cached, t.lookup(attr))
+            setattr(t, cached, t._lookup(attr))
             return True
         return False
 
     def attach_lookup_in_type_where(pol, t, attr):
         cached = "cached_where_%s" % attr
         if not t.is_heaptype():
-            setattr(t, cached, t.lookup_where(attr))
+            setattr(t, cached, t._lookup_where(attr))
             return True
         return False
 
