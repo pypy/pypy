@@ -445,11 +445,13 @@ class BaseTestRstr(BaseRtypingTest):
 
         res = self.ll_to_string(self.interpret(dummy, [1]))
         assert res.startswith('<')
-        assert res.endswith('C object>')
+        assert res.find('C object') != -1
+        assert res.endswith('>')
 
         res = self.ll_to_string(self.interpret(dummy, [0]))
         assert res.startswith('<')
-        assert res.endswith('D object>')
+        assert res.find('D object') != -1
+        assert res.endswith('>')
 
     def test_percentformat_instance(self):
         class C:
@@ -468,11 +470,13 @@ class BaseTestRstr(BaseRtypingTest):
 
         res = self.ll_to_string(self.interpret(dummy, [1]))
         res = res.replace('pypy.rpython.test.test_rstr.', '')
-        assert res == 'what a nice <C object>, much nicer than <D object>'
+        assert res.find('what a nice <C object') != -1
+        assert res.find('>, much nicer than <D object') != -1
 
         res = self.ll_to_string(self.interpret(dummy, [0]))
         res = res.replace('pypy.rpython.test.test_rstr.', '')        
-        assert res == 'what a nice <D object>, much nicer than <C object>'
+        assert res.find('what a nice <D object') != -1
+        assert res.find('>, much nicer than <C object') != -1
 
     def test_percentformat_tuple(self):
         for t, expected in [((),        "<<<()>>>"),
