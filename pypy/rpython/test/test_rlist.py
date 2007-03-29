@@ -11,6 +11,7 @@ from pypy.rpython.rint import signed_repr
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+import re
 
 # undo the specialization parameter
 for n1 in 'get set del'.split():
@@ -824,6 +825,7 @@ class BaseTestRlist(BaseRtypingTest):
             return str(x)+";"+str(l)
         res = self.ll_to_string(self.interpret(fn, []))
         res = res.replace('pypy.rpython.test.test_rlist.', '')
+        res = re.sub(' at 0x[a-z0-9]+', '', res)
         assert res == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
         def fn():
@@ -839,6 +841,7 @@ class BaseTestRlist(BaseRtypingTest):
             return str(l)
         res = self.ll_to_string(self.interpret(fn, []))
         res = res.replace('pypy.rpython.test.test_rlist.', '')        
+        res = re.sub(' at 0x[a-z0-9]+', '', res)
         assert res == '[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'
 
     def test_list_slice_minusone(self):
