@@ -26,6 +26,8 @@ Release Steps
 * update dist/pypy/doc/contributor.txt (and possibly dist/LICENSE)
 * update dist/README
 * write release announcement dist/pypy/doc/release-x.y(.z).txt
+  the release announcement should contain a direct link to the download page
+  (which is getting started).
 * update dist/pypy/doc/getting-started.txt links at the top
   and release number references, make sure it is generally up-to-date
 * use, after the necessary updates, dist/pypy/tool/makerelease.py to
