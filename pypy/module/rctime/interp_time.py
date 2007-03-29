@@ -83,6 +83,9 @@ elif _WIN:
     QueryPerformanceCounter = windll.kernel32.QueryPerformanceCounter
     QueryPerformanceCounter.argtypes = [POINTER(LARGE_INTEGER)]
     QueryPerformanceCounter.restype = BOOL
+    QueryPerformanceFrequency = windll.kernel32.QueryPerformanceFrequency
+    QueryPerformanceFrequency.argtypes = [POINTER(LARGE_INTEGER)]
+    QueryPerformanceFrequency.restype = BOOL
     Sleep = windll.kernel32.Sleep
     Sleep.argtypes = [DWORD]
     Sleep.restype = None
@@ -312,9 +315,9 @@ def clock(space):
     elif _WIN:
         if pccache.divisor == 0.0:
             freq = LARGE_INTEGER()
-            res = QueryPerformanceCounter(byref(freq))
+            res = QueryPerformanceFrequency(byref(freq))
             if not res or not freq:
-                return space.wrap(float(libc.clock()))
+                return space.wrap(float(libc.clock()) / CLOCKS_PER_SEC)
             pccache.divisor = float(freq.value)
             QueryPerformanceCounter(byref(pccache.ctrStart))
 

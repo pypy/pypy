@@ -39,7 +39,7 @@ double LL_time_clock(void)
 		if (!QueryPerformanceFrequency(&freq) || freq.QuadPart == 0) {
 			/* Unlikely to happen - this works on all intel
 			   machines at least!  Revert to clock() */
-			return clock();
+			return ((double)clock()) / CLOCKS_PER_SEC;
 		}
 		divisor = (double)freq.QuadPart;
 	}
