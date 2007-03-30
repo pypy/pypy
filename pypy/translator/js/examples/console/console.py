@@ -123,7 +123,10 @@ class ExportedMethods(server.ExportedMethods):
 
     @callback()
     def kill_console(self, pid=0):
-        sessions.kill_session(int(pid))
+        try:
+            sessions.kill_session(int(pid))
+        except KeyError:
+            pass
 
 exported_methods = ExportedMethods()
 
