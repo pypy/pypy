@@ -12,7 +12,7 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
-`D02.2 Release Scheme`_ is a report XXX add a description. *(2007-03-30)*
+`D02.2 Release Scheme`_ lists PyPy's six public releases and explains the release structure, tools, directories and policies for performing PyPy releases. *(2007-03-30)*
 
 `D01.2-4 Project Organization`_ is a report about the management activities
 within the PyPy project and PyPy development process. *(2007-03-28)*
