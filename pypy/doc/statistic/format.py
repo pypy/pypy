@@ -90,8 +90,8 @@ def csv2png(p):
                     verticalalignment='top',
                     rotation='vertical')
     pylab.legend(axis[1:], "upper left")
-    pylab.xlabel(axis[0])
-    pylab.ylabel(axis[1])
+    pylab.ylabel(axis[0])
+    pylab.xlabel("")
     ticklabels = ax.get_xticklabels()
     pylab.setp(ticklabels, 'rotation', 45, size=9)
     ax.autoscale_view()

@@ -1,5 +1,5 @@
 Number of files in the pypy subtree
-date,  number of files,  number of testfiles
+number of files,  number of non-test files,  number of testfiles
 2003-02-19, 8, 0
 2003-02-20, 10, 1
 2003-02-21, 29, 5
