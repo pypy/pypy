@@ -557,25 +557,38 @@ can use Mono_.
 Translating RPystone to JVM code
 ++++++++++++++++++++++++++++++++
 
-Although the JVM backend has not yet been integrated with the
-interactive translator, you can use it to translate the RPystone
-benchmark with the ``pypy/goal/translate.py`` script.
+Although the JVM backend cannot yet translate the entire interpreter,
+you can use it with the interactive shell for small functions, and 
+with the ``pypy/goal/translate.py`` for some larger benchmarks such as
+RPystone.
 
-To do so, run the following commands:
+Using the interactive shell with the JVM is basically the same as any
+other backend.  For example, you might enter:
 
-    $ cd pypy/translator/goal/
-    $ python translate.py -b jvm targetrpystonedalone.py
-    ... lots of output follows ...
+    >>> def myfunc(a, b):
+    ...     return a+b
+    >>> t = Translation(myfunc)
+    >>> t.annotate([int, int])
+    >>> f = t.compile_jvm()
+    >>> f(4, 5)
+    9
 
-If all is successful, the resulting files will be stored in the
-``/tmp/usession-*`` directories.  It can be executed as follows:
+As with the CLI, the object returned by ``compile_jvm`` is a wrapper
+around the real executable.  When invoked, it actually starts a JVM
+process, passing the parameters as command line arguments and the
+result as a string over stdout. Therefore, the interface works best
+with simple types like integers and strings.
 
-    $ java -cp /tmp/usession-<username>/pypy pypy.Main
-    RPystone(41682) time for 10000000 passes = 13.0
-    This machine benchmarks at 769230.7692307692 pystones/second
+If you prefer to run the compiled code directly, you will find it in
+one of the ``/tmp/usession-*`` directories.  You can run it like so:
 
-To successfully use the JVM, however, you will need to have both a
-`JDK`_ installed (at least version 5), and the `Jasmin assembler`_.
+    $java -cp /tmp/usession-<username>/pypy/ pypy.Main 4 5
+    9
+
+Note that the main entrypoint is always ``pypy.Main``.
+
+To successfully use the JVM you will need to have both a `JDK`_
+installed (at least version 5), and the `Jasmin assembler`_.
 Furthermore, you need a script on your path called ``jasmin`` which
 runs the Jasmin jar file, something like the following:
 
@@ -585,9 +598,6 @@ runs the Jasmin jar file, something like the following:
     $ cat `which jasmin`
     #!/bin/bash
     java -jar $PATH_TO_JASMIN_JAR "$@"
-
-As the JVM backend matures, it will naturally be more fully
-integrated into the PyPy toolchain.  
 
 A slightly larger example
 +++++++++++++++++++++++++

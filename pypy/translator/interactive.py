@@ -176,3 +176,14 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         self.ensure_backend('cli')
         self.driver.source_cli()
+
+    def compile_jvm(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('jvm')
+        self.driver.compile_jvm()
+        return self.driver.c_entryp
+
+    def source_jvm(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('jvm')
+        self.driver.source_jvm()

@@ -55,6 +55,8 @@ class EntryPoint(Node):
         'graph' --- The initial graph to invoke from main()
         'expandargs' --- controls whether the arguments passed to main()
         are passed as a list, or expanded to match each argument to the graph
+        'printresult' --- controls whether the result is printed to stdout
+        when the program finishes
 
         The 'expandargs' option deserves explanation:
         

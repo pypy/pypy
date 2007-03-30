@@ -677,7 +677,8 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
         from pypy.translator.jvm.node import EntryPoint
 
         entry_point_graph = self.translator.graphs[0]
-        entry_point = EntryPoint(entry_point_graph, False, False)
+        is_func = not self.standalone
+        entry_point = EntryPoint(entry_point_graph, is_func, is_func)
         self.gen = GenJvm(udir, self.translator, entry_point)
         self.jvmsource = self.gen.generate_source()
         self.log.info("Wrote JVM code")
@@ -686,6 +687,7 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
 
     def task_compile_jvm(self):
         self.jvmsource.compile()
+        self.c_entryp = lambda *args: eval(self.jvmsource.execute(args))
         self.log.info("Compiled JVM source")
     task_compile_jvm = taskdef(task_compile_jvm, ['source_jvm'],
                               'Compiling JVM source')
