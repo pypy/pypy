@@ -12,6 +12,11 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
+`D13.1 Integration and Configuration`_ is a report about our build and
+configuration toolchain as well as the planned Debian packages. It also
+describes the work done to integrate the results of other workpackages into the
+rest of the project. *(2007-03-30)*
+
 `D02.2 Release Scheme`_ lists PyPy's six public releases and explains the release structure, tools, directories and policies for performing PyPy releases. *(2007-03-30)*
 
 `D01.2-4 Project Organization`_ is a report about the management activities
@@ -58,10 +63,6 @@ report about PyPy's logic programming and constraint solving features, as well
 as the work going on to tie semantic web technologies and PyPy together. All
 feedback for it is welcome. *(2007-02-28)*
 
-`Draft D13.1 Build and Configuration Tool`_ is an interim version of a report
-about our build an configuration toolchain as well as the planned Debian
-packages.  The report is still a draft, all feedback for it is welcome.
-*(2007-02-02)*
 
 `Draft D08.2 JIT Compiler Architecture`_ is an interim version of a report
 about the Architecture and working of our JIT compiler generator.  The report
@@ -134,5 +135,5 @@ project during the first year of EU funding (December 2004 - December 2005)
 .. _`D10.1 Aspect-Oriented, Design-by-Contract Programming and RPython static checking`: http://codespeak.net/pypy/extradoc/eu-report/D10.1_Aspect_Oriented_Programming_in_PyPy-2007-03-22.pdf
 .. _`D11.1 PyPy for Embedded Devices`: http://codespeak.net/pypy/extradoc/eu-report/D11.1_PyPy_for_Embedded_Devices-2007-03-26.pdf
 .. _`D12.1 High-Level-Backends and Feature Prototypes`: http://codespeak.net/pypy/extradoc/eu-report/D12.1_H-L-Backends_and_Feature_Prototypes-2007-03-22.pdf
-.. _`Draft D13.1 Build and Configuration Tool`: http://codespeak.net/pypy/extradoc/eu-report/D13.1_Build-_and_Configuration_Tool-interim-2006-02-01.pdf
+.. _`D13.1 Integration and Configuration`: http://codespeak.net/pypy/extradoc/eu-report/D13.1_Integration_and_Configuration-2007-03-30.pdf 
 .. _`D14.2 Tutorials and Guide Through the PyPy Source Code`: http://codespeak.net/pypy/extradoc/eu-report/D14.2_Tutorials_and_Guide_Through_the_PyPy_Source_Code-2007-03-22.pdf
