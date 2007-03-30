@@ -12,11 +12,13 @@ have been approved by the European Union.
 Reports of 2007
 ===============
 
+`D02.2 Release Scheme`_ is a report XXX add a description. *(2007-03-30)*
+
 `D01.2-4 Project Organization`_ is a report about the management activities
 within the PyPy project and PyPy development process. *(2007-03-28)*
 
-`D11.1 PyPy for Embedded Devices`_ is a report the possibilities of using PyPy
-technology for programming embedded devices. *(2007-03-26)*
+`D11.1 PyPy for Embedded Devices`_ is a report about the possibilities of using
+PyPy technology for programming embedded devices. *(2007-03-26)*
 
 `D02.3 Testing Tool`_ is a report about the
 `py.test`_ testing tool which is part of the `py-lib`_. *(2007-03-23)*
@@ -110,6 +112,7 @@ properties into our interpreter during the translation process.
 project during the first year of EU funding (December 2004 - December 2005)
 
 
+.. _`D02.2 Release Scheme`: http://codespeak.net/svn/pypy/extradoc/eu-report/D02.2_Release_Scheme-2007-03-30.pdf
 .. _`D04.1 Partial Python Implementation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.1_Partial_Python_Implementation_on_top_of_CPython.pdf
 .. _`D04.2 Complete Python Implementation`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.2_Complete_Python_Implementation_on_top_of_CPython.pdf
 .. _`D04.3 Parser and Bytecode Compiler`: http://codespeak.net/svn/pypy/extradoc/eu-report/D04.3_Report_about_the_parser_and_bytecode_compiler.pdf
