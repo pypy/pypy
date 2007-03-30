@@ -94,7 +94,7 @@ def csv2png(p):
     pylab.xlabel("")
     ticklabels = ax.get_xticklabels()
     pylab.setp(ticklabels, 'rotation', 45, size=9)
-    ax.autoscale_view()
+#    ax.autoscale_view()
     ax.grid(True)
     pylab.title(title)
 
