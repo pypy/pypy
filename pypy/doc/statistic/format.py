@@ -60,7 +60,7 @@ def csv2png(p):
     ax = pylab.subplot(111)
     for i, d in enumerate(data[1:]):
         args = [dates, d, colors[i]]
-        pylab.plot_date(*args)
+        pylab.plot_date(linewidth=0.8, *args)
 
     ymax = max(pylab.yticks()[0]) #just below the legend
     for i, release_date in enumerate(release_dates):
@@ -69,13 +69,12 @@ def csv2png(p):
             color = 0.3
         else:
             color = "g"
-        pylab.axvline(release_date, linewidth=2, color=color, alpha=0.5)
-        ax.text(release_date, ymax * 0.5, release_name,
+        pylab.axvline(release_date, linewidth=0.8, color=color, alpha=0.5)
+        ax.text(release_date, ymax * 0.4, release_name,
                 fontsize=10,
                 horizontalalignment='right',
                 verticalalignment='top',
                 rotation='vertical')
-
     for i, location in enumerate(sprint_locations):
         begin = sprint_begin_dates[i]
         end   = sprint_end_dates[i]
@@ -84,13 +83,12 @@ def csv2png(p):
                 color = 0.8
             else:
                 color = "y"
-            pylab.axvspan(begin, end, facecolor=color, alpha=0.2)
-            ax.text(begin, ymax * 0.88, location,
+            pylab.axvspan(begin, end, linewidth=0, facecolor=color, alpha=0.5)
+            ax.text(begin, ymax * 0.85, location,
                     fontsize=10,
                     horizontalalignment='right',
                     verticalalignment='top',
                     rotation='vertical')
-
     pylab.legend(axis[1:], "upper left")
     pylab.xlabel(axis[0])
     pylab.ylabel(axis[1])
