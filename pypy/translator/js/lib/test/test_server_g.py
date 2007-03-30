@@ -16,11 +16,16 @@ class SomePage(object):
     def __call__(self, handler, path, query):
         return ('text/plain', 'foo')
 
+def raising_page(handler, path, query):
+    xxx
+raising_page.exposed = True
+
 def build_app_structure():
     app = Collection()
     app.sub = Collection()
     app.sub = Collection()
     app.sub.index = SomePage()
+    app.error = raising_page
     return app
 
 class TestCollection(object):
@@ -101,6 +106,18 @@ class TestHandler(object):
 
     def test_get_response_wrong_body(self):
         py.test.raises(ValueError, "self.handler.response(200, {}, u'xxx')")
+
+    def test_handle_error(self):
+        l = []
+        def f(*args):
+            l.append(args)
+        app = build_app_structure()
+        self.handler.application = app
+        self.handler.path = '/error'
+        self.handler.do_GET()
+        self.handler.application.handle_error = f
+        self.handler.do_GET()
+        assert len(l) == 1
 
 class TestFsFile(object):
     def test_call(self):

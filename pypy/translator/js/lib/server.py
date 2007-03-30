@@ -323,6 +323,8 @@ class NewHandler(BaseHTTPRequestHandler):
             data = 'An error has occurred: %s - %s\n\n%s' % (exc, e,
                                                              tb_formatted)
             headers = {'Content-Type': 'text/plain'}
+            if hasattr(self.application, 'handle_error'):
+                self.application.handle_error(exc, e, tb)
         else:
             status = 200
             if not 'content-type' in [k.lower() for k in headers]:
