@@ -905,6 +905,9 @@ class JVMGenerator(Generator):
         else:
             self._instr(IFEQ, target_label)
 
+    def branch_if_equal(self, target_label):
+        self._instr(IF_ICMPEQ, target_label)
+
     def call_graph(self, graph):
         mthd = self.db.pending_function(graph)
         mthd.invoke(self)
