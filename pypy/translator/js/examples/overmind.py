@@ -53,7 +53,14 @@ class Root(server.Collection):
            <body onload="bnb_redirect()">
            </body>
         </html>'''
-    bnb.exposed = True    
+    bnb.exposed = True
+
+    def handle_error(self, exc, e_value, tb):
+        tb_formatted = '\n'.join(traceback.format_tb(tb)) + \
+                       "%s: %s" % (exc, e_value)
+        log_file = open("/tmp/play1_error_log", "a")
+        log_file.write(tb_formatted)
+        log_file.close()
 
 class Handler(server.NewHandler):
     application = Root()
