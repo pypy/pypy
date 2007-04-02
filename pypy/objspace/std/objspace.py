@@ -88,6 +88,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
                             w_result = f.space.add(w_1, w_2)
                         f.pushvalue(w_result)
 
+            if self.config.objspace.std.optimized_list_getitem:
+                def BINARY_SUBSCR(f, *ignored):
+                    w_2 = f.popvalue()
+                    w_1 = f.popvalue()
+                    if type(w_1) is W_ListObject and type(w_2) is W_IntObject:
+                        try:
+                            w_result = w_1.wrappeditems[w_2.intval]
+                        except IndexError:
+                            raise OperationError(f.space.w_IndexError,
+                                f.space.wrap("list index out of range"))
+                    else:
+                        w_result = f.space.getitem(w_1, w_2)
+                    f.pushvalue(w_result)
+
             def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
                 from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
                 from pypy.objspace.std.dictmultiobject import W_DictMultiObject

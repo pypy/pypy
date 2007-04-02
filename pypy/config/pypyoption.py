@@ -226,6 +226,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("optimized_int_add",
                    "special case the addition of two integers in BINARY_ADD",
                    default=False),
+        BoolOption("optimized_list_getitem",
+                   "special case the 'list[integer]' expressions",
+                   default=False),
 
         BoolOption("oldstyle",
                    "specify whether the default metaclass should be classobj",
