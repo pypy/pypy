@@ -1,4 +1,4 @@
-import autopath
+]import autopath
 import py, os
 import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
@@ -233,6 +233,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("oldstyle",
                    "specify whether the default metaclass should be classobj",
                    default=False, cmdline="--oldstyle"),
+
+        BoolOption("logspaceoptypes",
+                   "a instrumentation option: before exit, print the types seen by "
+                   "certain simpler bytecodes",
+                   default=False),
 
         BoolOption("allopts",
                    "enable all thought-to-be-working optimizations",

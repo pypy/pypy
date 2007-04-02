@@ -132,6 +132,41 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     f.dropvalues(nargs)
                 f.pushvalue(w_result)
 
+            if self.config.objspace.std.logspaceoptypes:
+                _space_op_types = []
+                for name, func in pyframe.PyFrame.__dict__.iteritems():
+                    if hasattr(func, 'binop'):
+                        operationname = func.binop
+                        def make_opimpl(operationname):
+                            def opimpl(f, *ignored):
+                                operation = getattr(f.space, operationname)
+                                w_2 = f.popvalue()
+                                w_1 = f.popvalue()
+                                if we_are_translated():
+                                    s = operationname + ' ' + str(w_1) + ' ' + str(w_2)
+                                else:
+                                    s = operationname + ' ' + w_1.__class__.__name__ + ' ' + w_2.__class__.__name__
+                                f._space_op_types.append(s)
+                                w_result = operation(w_1, w_2)
+                                f.pushvalue(w_result)
+                            return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+                        locals()[name] = make_opimpl(operationname)
+                    elif hasattr(func, 'unaryop'):
+                        operationname = func.unaryop
+                        def make_opimpl(operationname):
+                            def opimpl(f, *ignored):
+                                operation = getattr(f.space, operationname)
+                                w_1 = f.popvalue()
+                                if we_are_translated():
+                                    s = operationname + ' ' + str(w_1)
+                                else:
+                                    s = operationname + ' ' + w_1.__class__.__name__
+                                f._space_op_types.append(s)
+                                w_result = operation(w_1)
+                                f.pushvalue(w_result)
+                            return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+                        locals()[name] = make_opimpl(operationname)
+
         self.FrameClass = StdObjSpaceFrame
 
         # XXX store the dict class on the space to access it in various places

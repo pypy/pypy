@@ -225,6 +225,9 @@ class ObjSpace(object):
             report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
+        if self.config.objspace.std.logspaceoptypes:
+            for s in self.FrameClass._space_op_types:
+                print s
     
     def reportbytecodecounts(self):
         os.write(2, "Starting bytecode report.\n")

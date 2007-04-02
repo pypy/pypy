@@ -26,6 +26,7 @@ def unaryoperation(operationname):
         w_1 = f.popvalue()
         w_result = operation(w_1)
         f.pushvalue(w_result)
+    opimpl.unaryop = operationname
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
@@ -37,6 +38,7 @@ def binaryoperation(operationname):
         w_1 = f.popvalue()
         w_result = operation(w_1, w_2)
         f.pushvalue(w_result)
+    opimpl.binop = operationname
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
