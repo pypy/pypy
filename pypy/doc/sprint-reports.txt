@@ -20,7 +20,7 @@ A good summary of the progress over the years.....enjoy!
   * `Paris (Oct 2005)`_
   * `Gothenburg (Dec 2005)`_
   * `Mallorca (Jan 2006)`_
-  *  PyCon/Dallas (Feb 2006)
+  * `PyCon/Dallas (Feb 2006)`_
   * `LouvainLaNeuve (March 2006)`_
   * `Leysin (April 2006)`_
   * `Tokyo (April 2006)`_
@@ -54,3 +54,4 @@ A good summary of the progress over the years.....enjoy!
     .. _`Leysin (January 2007)`: http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2007/report.txt
     .. _Hildesheim (Feb 2007): http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/sprint-report.txt
     .. _`EU report writing sprint`: http://codespeak.net/pypy/extradoc/sprintinfo/trillke-2007/eu-report-sprint-report.txt
+    .. _`PyCon/Dallas (Feb 2006)`: http://codespeak.net/pypy/extradoc/sprintinfo/pycon06/sprint-report.txt
