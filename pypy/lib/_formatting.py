@@ -173,7 +173,7 @@ class ReprFormatter(Formatter):
 
 class PercentFormatter(Formatter):
     def format(self):
-        return '%'
+        return self.std_wp('%')
 
 # isinf isn't too hard...
 def isinf(v):
