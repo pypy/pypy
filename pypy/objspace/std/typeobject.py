@@ -267,6 +267,8 @@ class W_TypeObject(W_Object):
         w_value = w_self.dict_w.get(attr, None)
         if w_self.lazyloaders and w_value is None:
             if attr in w_self.lazyloaders:
+                # very clever next line: it forces the attr string
+                # to be interned.
                 w_attr = space.new_interned_str(attr)
                 loader = w_self.lazyloaders[attr]
                 del w_self.lazyloaders[attr]
