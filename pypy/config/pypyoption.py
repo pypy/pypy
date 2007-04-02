@@ -1,4 +1,4 @@
-]import autopath
+import autopath
 import py, os
 import sys
 from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
