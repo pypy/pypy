@@ -30,3 +30,9 @@ def test_console_2_build():
     from pypy.translator.js.examples.console import console, client
     assert rpython2javascript(client, console.FUNCTION_LIST,
                               use_pdb=False)
+
+def test_ping_play1():
+    from urllib import URLopener
+    u = URLopener()
+    text = "<title>pypy.js various demos</title>"
+    assert u.open("http://play1.pypy.org/").read().find(text) != -1
