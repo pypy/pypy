@@ -25,6 +25,7 @@ translation toolchain
    https://codespeak.net/issue/pypy-dev/issue303 and the fact that
    we can have more than one translator/annotator around (with the
    timeshifter)
+ - unicode strings in RPython
 
 interpreter
 -----------
