@@ -183,7 +183,7 @@ def main(backends=[]):
             c--thread
             c--_objspace=taint
             c--_allworkingmodules
-            c--_with-transparent-proxy--_faassen
+            c--_objspace-std-withtproxy--_faassen
             c--gc=framework--_faassen
             c--_objspace-std-withrope
             cli
