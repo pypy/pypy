@@ -31,8 +31,8 @@ In more details
 ---------------
 
 So far there is little point in trying the JIT on anything else than
-arithmetic-intensive functions (unless you want to help find bugs).  For
-small examples, you can also look at the machine code it produces, but
+integer arithmetic-intensive functions (unless you want to help find bugs).
+For small examples, you can also look at the machine code it produces, but
 if you do please keep in mind that the assembler will look fundamentally
 different after we extend the range of PyPy that the JIT generator
 processes.
