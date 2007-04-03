@@ -175,4 +175,46 @@ function clear_dict(d) {
         delete(d[elem]);
     }
 }
+
+function findIndexOf(s1, s2, start, end) {
+    if (start > end || start > s1.length) {
+        return -1;
+    }
+    s1 = s1.substr(start, end-start);
+    res = s1.indexOf(s2);
+    if (res == -1) {
+        return -1;
+    }
+    return res + start;
+}
+
+function findIndexOfTrue(s1, s2) {
+    return findIndexOf(s1, s2, 0, s1.length) != -1;
+}
+
+function countCharOf(s, c, start, end) {
+    s = s.substring(start, end);
+    var i = 0;
+    for (c1 in s) {
+        if (s[c1] == c) {
+            i++;
+        }
+    }
+    return(i);
+}
+
+function countOf(s, s1, start, end) {
+    var ret = findIndexOf(s, s1, start, end);
+    var i = 0;
+    var lgt = 1;
+    if (s1.length > 0) {
+        lgt = s1.length;
+    }
+    while (ret != -1) {
+        i++;
+        ret = findIndexOf(s, s1, ret + lgt, end);
+    }
+    return (i);
+}
+    
 // ends hand written code

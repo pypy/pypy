@@ -11,6 +11,7 @@ class Class(Node):
         self.cts = db.genoo.TypeSystem(db)
         self.classdef = classdef
         self.name = classdef._name.replace('.', '_')#[-1]
+        self.real_name = classdef._name
 
         if not self.is_root(classdef):
             self.parent = self.db.pending_class(classdef._superclass)
@@ -50,7 +51,7 @@ class Class(Node):
         
         # begin to_String method
         ilasm.begin_method("toString", self.name, [])
-        ilasm.load_str("'<%s instance>'" % self.name)
+        ilasm.load_str("'<%s object>'" % self.real_name)
         ilasm.ret()
         ilasm.end_function()
 

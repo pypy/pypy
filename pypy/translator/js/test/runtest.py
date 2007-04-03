@@ -1,6 +1,3 @@
-'''
-    Sests with DONT in front of them will probably not be fixed for the time being.
-'''
 
 import py, os, re, subprocess
 from pypy.translator.translator import TranslationContext
@@ -12,6 +9,7 @@ from pypy.translator.js.log import log
 from pypy.conftest import option
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.rlib.nonconst import NonConstant
+from pypy.rpython.ootypesystem import ootype
 
 from pypy.rpython.llinterp import LLException
 
@@ -20,6 +18,9 @@ use_browsertest = conftest.option.browser
 use_tg = conftest.option.tg
 
 port = 8080
+
+class JSException(LLException):
+    pass
 
 def _CLI_is_on_path():
     if py.path.local.sysfind('js') is None:  #we recommend Spidermonkey
@@ -104,18 +105,22 @@ class compile_function(object):
             input = "load(%r);\n" % self.js.filename.strpath
             for call in self.function_calls[:-1]:
                 input += "%s;\n" % call
-            input += "print(%s);\n" % self.function_calls[-1]
+            input += "print(\"'\" + %s + \"'\");\n" % self.function_calls[-1]
             js.stdin.write(input)
             stdout, stderr = js.communicate()
             output = (stderr + stdout).strip()
         for s in output.split('\n'):
             log(s)
 
-        return self.reinterpret(s)
+        m = re.match("'(.*)'", output, re.DOTALL)
+        if not m:
+            log("Error: %s" % output)
+            raise JSException(output)
+        return self.reinterpret(m.group(1))
 
     def reinterpret(cls, s):
-        while s.startswith(" "):
-            s = s[1:] # :-) quite inneficient, but who cares
+        #while s.startswith(" "):
+        #    s = s[1:] # :-) quite inneficient, but who cares
         if s == 'false':
             res = False
         elif s == 'true':
@@ -126,8 +131,6 @@ class compile_function(object):
             res = 1e300 * 1e300
         elif s == 'NaN':
             res = (1e300 * 1e300) / (1e300 * 1e300)
-        elif s.startswith("uncaught exception:"):
-            raise LLException(str(s))
         elif s.startswith('[') or s.startswith('('):
             l = s[1:-1].split(',')
             res = [cls.reinterpret(i) for i in l]
@@ -144,6 +147,9 @@ class compile_function(object):
 class JsTest(BaseRtypingTest, OORtypeMixin):
     def _compile(self, _fn, args, policy=None):
         argnames = _fn.func_code.co_varnames[:_fn.func_code.co_argcount]
+        func_name = _fn.func_name
+        if func_name == '<lambda>':
+            func_name = 'func'
         source = py.code.Source("""
         def %s():
             from pypy.rlib.nonconst import NonConstant
@@ -152,10 +158,13 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
                 return None
             else:
                 return str(res)"""
-        % (_fn.func_name, ",".join(["%s=NonConstant(%s)" % (name,i) for
+        % (func_name, ",".join(["%s=NonConstant(%r)" % (name, i) for
                                    name, i in zip(argnames, args)])))
         exec source.compile() in locals()
-        return compile_function(locals()[_fn.func_name], [], policy=policy)
+        return compile_function(locals()[func_name], [], policy=policy)
+
+    def string_to_ll(self, s):
+        return s
     
     def interpret(self, fn, args, policy=None):
         f = self._compile(fn, args, policy)
@@ -168,7 +177,7 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #import pdb; pdb.set_trace()
         try:
             res = self.interpret(fn, args)
-        except LLException, e:
+        except JSException, e:
             s = e.args[0]
             assert s.startswith('uncaught exception:')
             assert re.search(str(exception), s)
@@ -180,7 +189,7 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    assert False, 'function did raise no exception at all'
 
     def ll_to_string(self, s):
-        return s
+        return str(s)
 
     def ll_to_list(self, l):
         return l

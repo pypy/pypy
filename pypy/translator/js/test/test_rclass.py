@@ -73,11 +73,3 @@ class TestJsClass(JsTest, BaseTestRclass):
     def test_isinstance(self):
         py.test.skip("WIP")
 
-#class TestJsPBC(JsTest, BaseTestRPBC):
-#    pass
-##
-#class TestJsRtuple(JsTest, BaseTestRtuple):
-#    pass
-##
-#class TestJsStr(JsTest, BaseTestRstr):
-#    pass

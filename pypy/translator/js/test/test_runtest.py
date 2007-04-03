@@ -56,6 +56,12 @@ def test_return_function():
     assert rp('[a,b]') == ["a", "b"]
     #assert rp('(true,[a,b])') == [True, ["a", "b"]]
 
+def test_return_newline():
+    def fun_newline():
+        return "\n"
+    fun = compile_function(fun_newline, [])
+    assert fun() == "\n"
+
 ##def test_multiple_function():
 ##    def one():
 ##        return 1

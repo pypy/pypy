@@ -35,5 +35,6 @@ class TestJsPBC(JsTest, BaseTestRPBC):
     def test_conv_from_None(self):
         py.test.skip("WIP")
 
-
-
+    def test_multiple_ll_one_hl_op(self):
+        py.test.skip("XXX fix me soon")
+        

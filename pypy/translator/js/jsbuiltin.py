@@ -42,8 +42,16 @@ class _Builtins(object):
                 'll_substring' : CallBuiltin('substring'),
                 'll_lower' : lambda g, op: Call._render_builtin_method(g, 'toLowerCase', [op.args[1]]),
                 'll_upper' : lambda g, op: Call._render_builtin_method(g, 'toUpperCase', [op.args[1]]),
-                'll_find' : lambda g, op: Call._render_builtin_method(g, 'search', [op.args[1], op.args[2]]),
-                'll_find_char' : lambda g, op: Call._render_builtin_method(g, 'search', [op.args[1], op.args[2]]),
+                'll_find' : CallBuiltin('findIndexOf'),
+                'll_find_char' : CallBuiltin('findIndexOf'),
+                #'ll_find' : lambda g, op: Call._render_builtin_method(g, 'indexOf', [op.args[1], op.args[2], op.args[3]]),
+                #'ll_find_char' : lambda g, op: Call._render_builtin_method(g, 'indexOf', [op.args[1], op.args[2], op.args[3]]),
+                'll_contains' : CallBuiltin('findIndexOfTrue'),
+                'll_replace_chr_chr' : lambda g, op:
+                     Call._render_builtin_method(g, 'replace',
+                     [op.args[1], op.args[2], op.args[3], 'g']),
+                'll_count_char' : CallBuiltin('countCharOf'),
+                'll_count' : CallBuiltin('countOf'),
             },
             ootype.List: {
                 'll_setitem_fast' : ListSetitem,

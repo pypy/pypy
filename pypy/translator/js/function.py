@@ -28,6 +28,8 @@ class BaseGenerator(object):
                 self.ilasm.load_local(v)
         elif isinstance(v, flowmodel.Constant):
             self.db.load_const(v.concretetype, v.value, self.ilasm)
+        elif isinstance(v, str):
+            self.ilasm.load_const("'" + v + "'")
         else:
             assert False
 
