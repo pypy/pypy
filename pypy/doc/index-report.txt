@@ -14,7 +14,8 @@ Reports of 2007
 
 `D06.1 Core Object Optimization Results`_ documents the optimizations
 we implemented in the interpreter and object space: dictionary
-imlementations, method call optimizations, etc. *(2007-04-04)*
+imlementations, method call optimizations, etc. The report is still not final
+so we are very interested in any feedback *(2007-04-04)*
 
 `D14.5 Documentation of the development process`_ documents PyPy's
 sprint-driven development process and puts it into the context of agile
