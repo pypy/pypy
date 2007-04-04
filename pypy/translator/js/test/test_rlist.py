@@ -79,5 +79,5 @@ class TestJsList(JsTest, BaseTestRlist):
             x = l2.pop()
             return str(x)+";"+str(l)
         res = self.ll_to_string(self.interpret(fn, []))
-        res = res.replace('pypy_translator_js_test_test_rlist_', '')
-        assert res == '<Foo instance>;[<Foo instance>, <Bar instance>, <Bar instance>, <Foo instance>, <Foo instance>]'
+        res = res.replace('pypy.translator.js.test.test_rlist.', '')
+        assert res == '<Foo object>;[<Foo object>, <Bar object>, <Bar object>, <Foo object>, <Foo object>]'

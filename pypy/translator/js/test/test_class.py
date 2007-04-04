@@ -136,11 +136,11 @@ def test_instance_str():
         return str(C())
     
     fn = compile_function(instance_str, [])
-    assert fn() == '<pypy_translator_js_test_test_class_C instance>'
+    assert fn() == '<pypy.translator.js.test.test_class.C object>'
 
 def test_instance_ret():
     def instance_ret():
         return str(C())
     
     fn = compile_function(instance_ret, [])
-    assert fn() == '<pypy_translator_js_test_test_class_C instance>'
+    assert fn() == '<pypy.translator.js.test.test_class.C object>'

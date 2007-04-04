@@ -199,10 +199,10 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         return tuple(t)
 
     def class_name(self, value):
-        return value[:-10].split('_')[-1]
+        return value[:-8].split('.')[-1]
 
     def is_of_instance_type(self, val):
-        m = re.match("^<.* instance>$", val)
+        m = re.match("^<.* object>$", val)
         return bool(m)
 
     def read_attr(self, obj, name):
