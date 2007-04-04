@@ -3,7 +3,8 @@ from pypy.translator.jvm import generator as jvmgen
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
      jInt, jVoid, jStringBuilder, jString, jPyPy, jChar, jArrayList, jObject, \
-     jBool, jHashMap, jPyPyDictItemsIterator, Generifier, jCharSequence
+     jBool, jHashMap, jPyPyDictItemsIterator, Generifier, jCharSequence, \
+     jPyPyCustomDict
 
 # ______________________________________________________________________
 # Mapping of built-in OOTypes to JVM types
@@ -127,6 +128,21 @@ built_in_methods = {
     
     (ootype.Dict, "ll_clear"):
     jvmgen.Method.v(jHashMap, "clear", (), jVoid),
+
+    (ootype.CustomDict, "ll_set"):
+    jvmgen.Method.v(jPyPyCustomDict, "put", (jObject, jObject), jObject),
+    
+    (ootype.CustomDict, "ll_get"):
+    jvmgen.Method.v(jPyPyCustomDict, "get", (jObject,), jObject),
+
+    (ootype.CustomDict, "ll_contains"):
+    jvmgen.Method.v(jPyPyCustomDict, "containsKey", (jObject,), jBool),
+
+    (ootype.CustomDict, "ll_length"):
+    jvmgen.Method.v(jPyPyCustomDict, "size", (), jInt),
+    
+    (ootype.CustomDict, "ll_clear"):
+    jvmgen.Method.v(jPyPyCustomDict, "clear", (), jVoid),
 
     (ootype.List, "ll_length"):
     jvmgen.Method.v(jArrayList, "size", (), jInt),

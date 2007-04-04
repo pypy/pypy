@@ -89,3 +89,28 @@ class TranslateException(MicroInstruction):
 
         gen.try_catch_region(self.java_exc, trylbl, catchlbl, catchlbl)
         
+class _NewCustomDict(MicroInstruction):
+    def _load_func(self, gen, fn, obj, method_name):
+        db = gen.db
+        if fn.value:
+            # Standalone function: find the delegate class and
+            # instantiate it.
+            assert method_name.value is None
+            smimpl = fn.value.concretize().value   # ootype._static_meth
+            db.record_delegate(smimpl._TYPE)       # _TYPE is a StaticMethod
+            ty = db.record_delegate_standalone_func_impl(smimpl.graph)
+            gen.new_with_jtype(ty)
+        else:
+            # Bound method: create a wrapper bound to the given
+            # object, using the "bind()" static method that bound
+            # method wrapper classes have.
+            INSTANCE = obj.concretetype
+            method_name = method_name.value
+            ty = db.record_delegate_bound_method_impl(INSTANCE, method_name)
+            gen.load(obj)
+            gen.emit(ty.bind_method)
+    def render(self, generator, op):
+        self._load_func(generator, *op.args[1:4])
+        self._load_func(generator, *op.args[4:7])
+        generator.emit(jvmgen.CUSTOMDICTMAKE)
+NewCustomDict = _NewCustomDict()

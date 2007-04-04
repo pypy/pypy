@@ -9,7 +9,7 @@ from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
      SetField, GetField, DownCast, RuntimeNew, OOString, CastTo
 from pypy.translator.jvm.metavm import \
-     IndirectCall, JvmCallMethod, TranslateException
+     IndirectCall, JvmCallMethod, TranslateException, NewCustomDict
 
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
@@ -53,10 +53,10 @@ _opcodes = {
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
-    #'oonewcustomdict':          [NewCustomDict],
+    'oonewcustomdict':          [NewCustomDict, StoreResult],
     #
     'same_as':                  DoNothing,
-    #'hint':                     [PushArg(0), StoreResult],
+    'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
     #

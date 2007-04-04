@@ -18,7 +18,7 @@ from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.constant import \
-     JVMConstantGenerator, JVMStaticMethodConst
+     JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst
 from pypy.translator.jvm.prebuiltnodes import create_interlink_node
 
 class JvmError(Exception):
@@ -128,10 +128,18 @@ class JvmGeneratedSource(object):
         print "... completed!"
                            
         self.compiled = True
-        self._compile_helper(('DictItemsIterator',
-                              'PyPy',
+        self._compile_helper(('Callback',
+                              'CustomDict',
+                              'DictItemsIterator',
+                              'Equals',
                               'ExceptionWrapper',
-                              'Interlink'))
+                              'Filter',
+                              'FilterIterator',
+                              'FilterSet',
+                              'HashCode',
+                              'Interlink',
+                              'PyPy',
+                              ))
 
     def _make_str(self, a):
         if isinstance(a, ootype._string):
@@ -199,6 +207,7 @@ class GenJvm(GenOO):
     log = log
 
     ConstantGenerator = JVMConstantGenerator
+    CustomDictConst   = JVMCustomDictConst
     StaticMethodConst = JVMStaticMethodConst
     
     def __init__(self, tmpdir, translator, entrypoint):

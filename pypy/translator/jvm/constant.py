@@ -1,9 +1,9 @@
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.generator import \
-     Field, Method
+     Field, Method, CUSTOMDICTMAKE
 from pypy.translator.oosupport.constant import \
      BaseConstantGenerator, RecordConst, InstanceConst, ClassConst, \
-     StaticMethodConst
+     StaticMethodConst, CustomDictConst
 from pypy.translator.jvm.typesystem import \
      jPyPyConst, jObject, jVoid
 
@@ -63,7 +63,8 @@ class JVMStaticMethodConst(StaticMethodConst):
             self.delegate_impl = None
             return
         StaticMethodConst.record_dependencies(self)
-        self.delegate_impl = self.db.record_delegate_impl(self.value.graph)
+        self.delegate_impl = self.db.record_delegate_standalone_func_impl(
+            self.value.graph)
 
     def create_pointer(self, gen):
         if self.delegate_impl:
@@ -74,3 +75,20 @@ class JVMStaticMethodConst(StaticMethodConst):
     def initialize_data(self, ilasm):
         return
     
+class JVMCustomDictConst(CustomDictConst):
+
+    def record_dependencies(self):
+        # Near as I can tell, self.value is an ootype._custom_dict,
+        # key_eq is a Python function and graph is, well, a method
+        # graph that seems to be added to the function pointer
+        # somewhere.  Adapted from cli/constant.py
+        self.eq_jcls = self.db.record_delegate_standalone_func_impl(
+            self.value._dict.key_eq.graph)
+        self.hash_jcls = self.db.record_delegate_standalone_func_impl(
+            self.value._dict.key_hash.graph)
+        
+    def create_pointer(self, gen):
+        gen.new_with_jtype(self.eq_jcls)
+        gen.new_with_jtype(self.hash_jcls)
+        gen.emit(CUSTOMDICTMAKE)
+        

@@ -10,7 +10,8 @@ from pypy.translator.jvm.typesystem import \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
-     jObjectArray, jPyPyInterlink
+     jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
+     jPyPyHashCode, jMap
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -176,6 +177,7 @@ IF_ACMPNE = Opcode('if_acmpne')
 INVOKESTATIC = Opcode('invokestatic')
 INVOKEVIRTUAL = Opcode('invokevirtual')
 INVOKESPECIAL = Opcode('invokespecial')
+INVOKEINTERFACE = Opcode('invokeinterface')
 
 # Other opcodes
 LDC =       Opcode('ldc')       # single-word types
@@ -293,11 +295,15 @@ class Method(object):
         not the this ptr
         'rettype' - JvmType for return type
         """
-        assert isinstance(classty, JvmType)
         classnm = classty.name
-        return Method(classnm, methnm, argtypes, rettype, opcode=INVOKEVIRTUAL)
+        if isinstance(classty, jvmtype.JvmInterfaceType):
+            opc = INVOKEINTERFACE
+        else:
+            assert isinstance(classty, jvmtype.JvmClassType)
+            opc = INVOKEVIRTUAL
+        return Method(classnm, methnm, argtypes, rettype, opcode=opc)
     v = staticmethod(v)
-    
+
     # Create a static method:
     def s(classty, methnm, argtypes, rettype):
         """
@@ -329,9 +335,14 @@ class Method(object):
     def is_static(self):
         return self.opcode == INVOKESTATIC
     def jasmin_syntax(self):
-        return "%s/%s%s" % (self.class_name.replace('.','/'),
-                            self.method_name,
-                            self.descriptor)
+        res = "%s/%s%s" % (self.class_name.replace('.','/'),
+                           self.method_name,
+                           self.descriptor)
+        # A weird, inexplicable quirk of Jasmin syntax is that it requires
+        # the number of arguments after an invokeinterface call:
+        if self.opcode == INVOKEINTERFACE:
+            res += " %d" % (len(self.argument_types),)
+        return res
 
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
 OBJTOSTRING =           Method.v(jObject, 'toString', (), jString)
@@ -375,6 +386,8 @@ PYPYARRAYTOLIST =       Method.s(jPyPy, 'array_to_list', (jObjectArray,), jArray
 OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
 EXCWRAPWRAP =           Method.s(jPyPyExcWrap, 'wrap', (jObject,), jPyPyExcWrap)
+CUSTOMDICTMAKE =        Method.s(jPyPyCustomDict, 'make',
+                                 (jPyPyEquals, jPyPyHashCode), jPyPyCustomDict)
 
 # ___________________________________________________________________________
 # Fields
@@ -594,9 +607,9 @@ class JVMGenerator(Generator):
         The correct opcode and their types depends on the opcode. """
         unimplemented
 
-    def return_val(self, vartype):
-        """ Returns a value from top of stack of the JvmType 'vartype' """
-        self._instr(RETURN.for_type(vartype))
+    def return_val(self, jtype):
+        """ Returns a value from top of stack of the JvmType 'jtype' """
+        self._instr(RETURN.for_type(jtype))
 
     def load_class_name(self):
         """ Loads the name of the *Java* class of the object on the top of
@@ -681,6 +694,9 @@ class JVMGenerator(Generator):
 
     def prepare_generic_argument(self, ITEMTYPE):
         jty = self.db.lltype_to_cts(ITEMTYPE)
+        self.prepare_generic_argument_with_jtype(jty)
+        
+    def prepare_generic_argument_with_jtype(self, jty):
         if jty is jvmtype.jVoid:
             self.emit(ACONST_NULL)
         elif isinstance(jty, JvmScalarType):
@@ -688,6 +704,9 @@ class JVMGenerator(Generator):
 
     def prepare_generic_result(self, ITEMTYPE):
         jresty = self.db.lltype_to_cts(ITEMTYPE)
+        self.prepare_generic_result_with_jtype(jresty)
+        
+    def prepare_generic_result_with_jtype(self, jresty):
         if jresty is jvmtype.jVoid:
             self.emit(POP)
         elif isinstance(jresty, JvmScalarType):
@@ -696,7 +715,7 @@ class JVMGenerator(Generator):
             self.unbox_value(jresty)
         else:
             # Perform any casting required:
-            self.downcast(ITEMTYPE)
+            self.downcast_jtype(jresty)
 
     def box_value(self, jscalartype):
         """ Assuming that an value of type jscalartype is on the stack,

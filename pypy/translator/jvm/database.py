@@ -32,7 +32,10 @@ class Database(OODatabase):
         self._functions = {}      # graph -> jvmgen.Method
 
         # (jargtypes, jrettype) -> node.StaticMethodInterface
-        self._delegates = {} 
+        self._delegates = {}
+
+        # (INSTANCE, method_name) -> node.StaticMethodImplementation
+        self._bound_methods = {}
 
         self._function_names = {} # graph --> function_name
 
@@ -235,12 +238,27 @@ class Database(OODatabase):
         return res
 
     def record_delegate(self, TYPE):
-        """ TYPE is a StaticMethod """
+        """
+        Creates and returns a StaticMethodInterface type; this type
+        represents an abstract base class for functions with a given
+        signature, represented by TYPE, a ootype.StaticMethod
+        instance.
+        """
 
         # Translate argument/return types into java types, check if
         # we already have such a delegate:
-        jargs = tuple([self.lltype_to_cts(ARG) for ARG in TYPE.ARGS])
+        jargs = tuple([self.lltype_to_cts(ARG) for ARG in TYPE.ARGS
+                       if ARG is not ootype.Void])
         jret = self.lltype_to_cts(TYPE.RESULT)
+        return self.record_delegate_sig(jargs, jret)
+
+    def record_delegate_sig(self, jargs, jret):
+        """
+        Like record_delegate, but the signature is in terms of java
+        types.  jargs is a list of JvmTypes, one for each argument,
+        and jret is a JvmType.  Note that jargs does NOT include an
+        entry for the this pointer of the resulting object.  
+        """
         key = (jargs, jret)
         if key in self._delegates:
             return self._delegates[key]
@@ -250,19 +268,42 @@ class Database(OODatabase):
         name = self._pkg(self._uniq('Delegate'))
 
         # Create a new one if we do not:
-        interface = node.StaticMethodInterface(name, TYPE, jargs, jret)
+        interface = node.StaticMethodInterface(name, jargs, jret)
         self._delegates[key] = interface
         self.pending_node(interface)
         return interface
     
-    def record_delegate_impl(self, graph):
-        """ TYPE is a StaticMethod """
+    def record_delegate_standalone_func_impl(self, graph):
+        """
+        Creates a class with an invoke() method that invokes the given
+        graph.  This object can be used as a function pointer.  It
+        will extend the appropriate delegate for the graph's
+        signature.
+        """
         jargtypes, jrettype = self.types_for_graph(graph)
-        key = (jargtypes, jrettype)
-        assert key in self._delegates
+        super_class = self.record_delegate_sig(jargtypes, jrettype)
         pfunc = self.pending_function(graph)
         implnm = self._pkg(self._uniq(graph.name+'_delegate'))
-        n = node.StaticMethodImplementation(implnm, self._delegates[key], pfunc)
+        n = node.StaticMethodImplementation(implnm, super_class, None, pfunc)
+        self.pending_node(n)
+        return n
+
+    def record_delegate_bound_method_impl(self, INSTANCE, method_name):
+        """
+        Creates an object with an invoke() method which invokes
+        a method named method_name on an instance of INSTANCE.
+        """
+        key = (INSTANCE, method_name)
+        if key in self._bound_methods:
+            return self._bound_methods[key]
+        METH_TYPE = INSTANCE._lookup(method_name)[1]._TYPE
+        super_class = self.record_delegate(METH_TYPE)
+        self_class = self.lltype_to_cts(INSTANCE)
+        mthd_obj = self_class.lookup_method(method_name)
+        implnm = self._pkg(self._uniq(
+            self_class.simple_name()+"_"+method_name+"_delegate"))
+        n = self._bound_methods[key] = node.StaticMethodImplementation(
+            implnm, super_class, self_class, mthd_obj)
         self.pending_node(n)
         return n
 
@@ -338,6 +379,7 @@ class Database(OODatabase):
         ootype.List:             jvmtype.jArrayList,
         ootype.Dict:             jvmtype.jHashMap,
         ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,
+        ootype.CustomDict:       jvmtype.jPyPyCustomDict,
         }
 
     def lltype_to_cts(self, OOT):

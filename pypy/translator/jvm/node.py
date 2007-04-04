@@ -13,7 +13,6 @@ Nodes representing classes that we will build also implement the JvmType
 interface defined by database.JvmType.
 """
 
-
 from pypy.objspace.flow import \
      model as flowmodel
 from pypy.rpython.lltypesystem import \
@@ -22,7 +21,7 @@ from pypy.rpython.ootypesystem import \
      ootype, rclass
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
-     jObject, JvmType, jStringBuilder, jPyPyInterlink
+     jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -359,20 +358,27 @@ class StaticMethodInterface(Node, JvmClassType):
     abstract class Foo {
       public abstract ReturnType invoke(Arg1, Arg2, ...);
     }
-    
+
+    Depending on the signature of Arg1, Arg2, and ReturnType, this
+    abstract class may have additional methods and may implement
+    interfaces such as PyPy.Equals or PyPy.HashCode.  This is to allow
+    it to interface with the the standalone Java code.  See
+    the pypy.Callback interface for more information.    
     """
-    def __init__(self, name, STATIC_METHOD, jargtypes, jrettype):
+    def __init__(self, name, jargtypes, jrettype):
         """
         argtypes: list of JvmTypes
         rettype: JvmType
         """
         JvmClassType.__init__(self, name)
-        self.STATIC_METHOD = STATIC_METHOD
         assert isinstance(jrettype, JvmType)
         self.java_argument_types = [self] + list(jargtypes)
         self.java_return_type = jrettype
         self.dump_method = ConstantStringDumpMethod(
             self, "StaticMethodInterface")
+        self.invoke_method_obj = jvmgen.Method.v(
+                self, 'invoke',
+                self.java_argument_types[1:], self.java_return_type)
         
     def lookup_field(self, fieldnm):
         """ Given a field name, returns a jvmgen.Field object """
@@ -381,18 +387,58 @@ class StaticMethodInterface(Node, JvmClassType):
         """ Given the method name, returns a jvmgen.Method object """
         assert isinstance(self.java_return_type, JvmType)
         if methodnm == 'invoke':
-            return jvmgen.Method.v(
-                self, 'invoke',
-                self.java_argument_types[1:], self.java_return_type)
+            return self.invoke_method_obj
         raise KeyError(methodnm) # only one method
     def render(self, gen):
         assert isinstance(self.java_return_type, JvmType)
+
+        # Scan through the jCallbackInterfaces and look for any
+        # that apply.
+        for jci in jCallbackInterfaces:
+            if jci.matches(self.java_argument_types[1:], self.java_return_type):
+                break
+        else:
+            jci = None
+        
         gen.begin_class(self, jObject, abstract=True)
+        if jci: gen.implements(jci)
         gen.begin_constructor()
         gen.end_constructor()
+        
         gen.begin_function('invoke', [], self.java_argument_types,
                            self.java_return_type, abstract=True)
         gen.end_function()
+
+        # Because methods in the JVM are identified by both their name
+        # and static signature, we need to create a dummy "invoke"
+        # method if the Java callback interface argument types don't
+        # match the actual types for this method.  For example, the
+        # equals interface has the static signature
+        # "(Object,Object)=>boolean", but there may be static methods
+        # with some signature "(X,Y)=>boolean" where X and Y are other
+        # types.  In that case, we create an adaptor method like:
+        #
+        #   boolean invoke(Object x, Object y) {
+        #     return invoke((X)x, (Y)y);
+        #   }
+        if (jci and
+            (jci.java_argument_types != self.java_argument_types[1:] or
+             jci.java_return_type != self.java_return_type)):
+
+            jci_jargs = [self] + list(jci.java_argument_types)
+            jci_ret = jci.java_return_type
+            gen.begin_function('invoke', [], jci_jargs, jci_ret)
+            idx = 0
+            for jci_arg, self_arg in zip(jci_jargs, self.java_argument_types):
+                gen.load_jvm_var(jci_arg, idx)
+                if jci_arg != self_arg:
+                    gen.prepare_generic_result_with_jtype(self_arg)
+                idx += jci_arg.descriptor.type_width()
+            gen.emit(self.invoke_method_obj)
+            assert jci_ret == self.java_return_type # no variance here currently
+            gen.return_val(jci_ret)
+            gen.end_function()
+            
         gen.end_class()
 
 class StaticMethodImplementation(Node, JvmClassType):
@@ -406,26 +452,81 @@ class StaticMethodImplementation(Node, JvmClassType):
           return SomeStaticClass.StaticMethod(Arg1, Arg2);
         }
     }
+
+    If the bound_to_jty argument is not None, then this class
+    represents a bound method, and looks something like:
+
+    class Bar extends Foo {
+        Qux bound_to;
+        public static Bar bind(Qux to) {
+          Bar b = new Bar();
+          b.bound_to = to;
+          return b;
+        }
+        public ReturnType invoke(Arg1, Arg2) {
+          return bound_to.SomeMethod(Arg1, Arg2);
+        }
+    }
     """
-    def __init__(self, name, interface, impl_method):
-        JvmClassType.__init__(self, name)        
-        self.super_class = interface
+    def __init__(self, name, super_class, bound_to_jty, impl_method):
+        JvmClassType.__init__(self, name)
+        self.super_class = super_class
         self.impl_method = impl_method
         self.dump_method = ConstantStringDumpMethod(
             self, "StaticMethodImplementation")
+
+        if bound_to_jty:
+            self.bound_to_jty = bound_to_jty
+            self.bound_to_fld = jvmgen.Field(
+                self.name, 'bound_to', bound_to_jty, False)
+            self.bind_method = jvmgen.Method.s(
+                self, 'bind', (self.bound_to_jty,), self)                
+        else:
+            self.bound_to_jty = None
+            self.bound_to_fld = None
+            self.bind_method = None
+            
     def lookup_field(self, fieldnm):
-        """ Given a field name, returns a jvmgen.Field object """
+        if self.bound_to_fld and fieldnm == self.bound_to_fld.name:
+            return self.bound_to_fld
         return self.super_class.lookup_field(fieldnm)
     def lookup_method(self, methodnm):
-        """ Given the method name, returns a jvmgen.Method object """
+        if self.bind_method and methodnm == 'bind':
+            return self.bind_method
         return self.super_class.lookup_method(methodnm)
     def render(self, gen):
         gen.begin_class(self, self.super_class)
+
+        if self.bound_to_fld:
+            gen.add_field(self.bound_to_fld)
+            
         gen.begin_constructor()
         gen.end_constructor()
+
+        # Emit the "bind" function which creates an instance if there is
+        # a bound field:
+        if self.bound_to_jty:
+            assert self.bound_to_fld and self.bind_method
+            gen.begin_function(
+                'bind', [], (self.bound_to_jty,), self, static=True)
+            gen.new_with_jtype(self)
+            gen.emit(jvmgen.DUP)
+            gen.load_jvm_var(self.bound_to_jty, 0)
+            self.bound_to_fld.store(gen)
+            gen.return_val(self)
+            gen.end_function()
+
+        # Emit the invoke() function, which just re-pushes the
+        # arguments and then invokes either the (possibly static)
+        # method self.impl_method.  Note that if we are bound to an
+        # instance, we push that as the this pointer for
+        # self.impl_method.
         gen.begin_function('invoke', [],
                            self.super_class.java_argument_types,
                            self.super_class.java_return_type)
+        if self.bound_to_fld:
+            gen.load_jvm_var(self, 0)
+            gen.emit(self.bound_to_fld)
         for i in range(len(self.super_class.java_argument_types)):
             if not i: continue # skip the this ptr
             gen.load_function_argument(i)
@@ -456,6 +557,11 @@ class Class(Node, JvmClassType):
         # * --- actually maps to an object that defines the
         # attributes: name, method() and render().  Usually, this is a
         # Function object, but in some subclasses it is not.
+
+    def simple_name(self):
+        dot = self.name.rfind('.')
+        if dot == -1: return self.name
+        return self.name[dot+1:]
 
     def set_super_class(self, supercls):
         self.super_class = supercls

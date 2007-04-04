@@ -17,5 +17,4 @@ class TestJvmEmptyDict(JvmTest, oodict.BaseTestEmptyDict):
         py.test.skip("Iteration over empty dict is not supported, yet")
 
 class TestJvmConstantDict(JvmTest, oodict.BaseTestConstantDict):
-    def test_constant_r_dict(self):
-        py.test.skip("JVM doesn't support r_dict so far")
+    pass

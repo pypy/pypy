@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * Class with a number of utility routines.
@@ -521,15 +522,34 @@ public class PyPy {
 
     // ----------------------------------------------------------------------
     // Dicts
+    //
+    // Note: it's easier to cut and paste a few methods here than
+    // make the code generator smarter to avoid the duplicate code.
 
     public static boolean ll_remove(HashMap map, Object key) {
         return map.remove(key) != null;
     }
 
+    public static boolean ll_remove(CustomDict map, Object key) {
+        return map.remove(key) != null;
+    }
+    
     public static DictItemsIterator ll_get_items_iterator(HashMap map) {
         return new DictItemsIterator(map);
     }
+    
+    public static DictItemsIterator ll_get_items_iterator(CustomDict map) {
+        return new DictItemsIterator(map);
+    }
 
+    public static <K,V> CustomDict<K,V> ll_copy(CustomDict<K,V> map) {
+        CustomDict<K,V> cd = new CustomDict<K,V>(map.equals, map.hashCode);
+        for (Map.Entry<K,V> me : map.entrySet()) {
+            cd.put(me.getKey(), me.getValue());
+        }
+        return cd;
+    }
+    
     // ----------------------------------------------------------------------
     // Lists
 
