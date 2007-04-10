@@ -33,11 +33,11 @@ def fff():
     pass
 
 def test_bookkeeper_cleanup():
-    assert rpython2javascript(sys.modules[__name__], ["fun"])
-    assert rpython2javascript(sys.modules[__name__], ["fun"])
+    assert rpython2javascript(sys.modules[__name__], ["fun"], jsconfig)
+    assert rpython2javascript(sys.modules[__name__], ["fun"], jsconfig)
 
 def test_module_none():
-    assert rpython2javascript(None, "fff")
+    assert rpython2javascript(None, "fff", jsconfig)
 
 class TestJsMain(object):
     def _test_not_raises(self, mod_file, args_rest=[]):
