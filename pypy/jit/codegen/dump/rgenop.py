@@ -181,6 +181,15 @@ class Builder(GenBuilder):
             self.rgenop.vname(gv_ptr2)))
         return v
 
+    def genop_cast_int_to_ptr(self, kind, gv_int):
+        v = self.llbuilder.genop_cast_int_to_ptr(kind, gv_int)
+        self.dump("%s = %s.genop_cast_int_to_ptr(%s, %s)" % (
+            self.rgenop.vname(v),
+            self.name,
+            self.rgenop.kindtokenname(kind),
+            self.rgenop.vname(gv_int)))
+        return v
+
     def genop_same_as(self, kind, gv_x):
         v = self.llbuilder.genop_same_as(kind, gv_x)
         self.dump("%s = %s.genop_same_as(%s, %s)" % (

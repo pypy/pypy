@@ -419,6 +419,9 @@ class Builder(GenBuilder):
         self.operations.append(op)
         return op
 
+    def genop_cast_int_to_ptr(self, kind, gv_int):
+        return gv_int     # identity
+
     def genop_same_as(self, kind, gv_x):
         if gv_x.is_const:    # must always return a var
             op = OpSameAs(gv_x)

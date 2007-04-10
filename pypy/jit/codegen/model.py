@@ -88,6 +88,7 @@ class GenBuilder(object):
 ##     def genop_ptr_nonzero(self, kindtoken, gv_ptr)
 ##     def genop_ptr_eq(self, kindtoken, gv_ptr1, gv_ptr2)
 ##     def genop_ptr_ne(self, kindtoken, gv_ptr1, gv_ptr2)
+##     def genop_cast_int_to_ptr(self, kindtoken, gv_int)
 
     # the other thing that happens for a given chunk is entering and
     # leaving basic blocks inside it.

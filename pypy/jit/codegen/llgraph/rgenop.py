@@ -254,6 +254,12 @@ class LLBuilder(GenBuilder):
         return LLVar(llimpl.genop(self.b, 'ptr_ne', [gv_ptr1, gv_ptr2],
                                   gv_Bool.v))
 
+    def genop_cast_int_to_ptr(self, gv_PTRTYPE, gv_int):
+        debug_assert(self.rgenop.currently_writing is self,
+                     "genop_cast_int_to_ptr: bad currently_writing")
+        return LLVar(llimpl.genop(self.b, 'cast_int_to_ptr', [gv_int],
+                                  gv_PTRTYPE.v))
+
     def _newblock(self, kinds):
         self.b = newb = llimpl.newblock()
         return [LLVar(llimpl.geninputarg(newb, kind.v)) for kind in kinds]

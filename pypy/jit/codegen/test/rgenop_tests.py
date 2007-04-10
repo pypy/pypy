@@ -1,6 +1,6 @@
 import random, sys
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy, llhelper
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.c.test import test_boehm
@@ -2038,3 +2038,40 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
                 assert (res & 1) == 1
             else:
                 assert res == intmask(expected << 1) | 0
+
+    def test_cast_direct(self):
+        yield self.cast_direct, ["int_is_true", "cast_bool_to_int"], bool
+        yield self.cast_direct, ["int_is_true",
+                                 "cast_bool_to_uint",
+                                 "cast_uint_to_int"], bool
+        yield self.cast_direct, ["cast_int_to_char",
+                                 "cast_char_to_int"], int, 255
+        yield self.cast_direct, ["cast_int_to_unichar",
+                                 "cast_unichar_to_int"], int, sys.maxunicode
+        yield self.cast_direct, ["cast_int_to_uint", "cast_uint_to_int"], int
+        yield self.cast_direct, ["cast_int_to_ptr", "cast_ptr_to_int"], int
+
+    def cast_direct(self, operations, expected, max=r_uint(-1)):
+        need_odd_integer = False
+        rgenop = self.RGenOp()
+        sigtoken = rgenop.sigToken(FUNC)
+        builder, gv_fn, [gv_x] = rgenop.newgraph(sigtoken, "cast")
+        builder.start_writing()
+        for opname in operations:
+            if opname == "cast_int_to_ptr":
+                S = lltype.GcStruct('s', ('x', lltype.Signed))
+                ptrkind = rgenop.kindToken(lltype.Ptr(S))
+                gv_x = builder.genop_cast_int_to_ptr(ptrkind, gv_x)
+                need_odd_integer = True
+            else:
+                gv_x = builder.genop1(opname, gv_x)
+        builder.finish_and_return(sigtoken, gv_x)
+        builder.end()
+
+        fnptr = self.cast(gv_fn, 1)
+        for x in [0, 1, max // 6, max // 2, max - 1, max]:
+            x = intmask(x)
+            if need_odd_integer:
+                x |= 1
+            result = fnptr(x)
+            assert result == expected(x)

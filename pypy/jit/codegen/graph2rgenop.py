@@ -171,7 +171,12 @@ def generate_operation(rgenop, builder, op, var2gv):
         gv_result = builder.genop_ptr_ne(token,
                                          var2gv(op.args[0]),
                                          var2gv(op.args[1]))
-        
+
+    elif op.opname == 'cast_int_to_ptr':
+        token = rgenop.kindToken(op.result.concretetype)
+        gv_result = builder.genop_cast_int_to_ptr(token,
+                                                  var2gv(op.args[0]))
+
     elif len(op.args) == 1:
         gv_result = builder.genop1(op.opname, var2gv(op.args[0]))
     elif len(op.args) == 2:
