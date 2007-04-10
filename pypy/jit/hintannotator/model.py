@@ -15,6 +15,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_uint_to_int
                       cast_char_to_int
                       cast_bool_to_int
+                      cast_ptr_to_int
                       ptr_nonzero
                       ptr_iszero
                       is_early_constant

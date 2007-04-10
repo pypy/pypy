@@ -909,3 +909,13 @@ def test_substitute_graph():
     assert hs.is_green()
     for graph in hannotator.translator.graphs:
         assert 'int_mul' not in flowmodel.summary(graph)
+
+
+def test_cast_ptr_to_int():
+    GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
+    def f():
+        p = lltype.malloc(GCS1)
+        return lltype.cast_ptr_to_int(p)
+
+    hs = hannotate(f, [], policy=P_NOVIRTUAL)
+    assert not hs.is_green()

@@ -167,11 +167,17 @@ def genop(block, opname, vars_gv, gv_RESULT_TYPE):
     block.operations.append(op)
     return to_opaque_object(erasedvar(v, block))
 
+RESULT_TYPES = {
+    'cast_ptr_to_int': lltype.Signed,
+    }
+
 def guess_result_type(opname, opvars):
     if opname.endswith('_zer'):   # h
         opname = opname[:-4]      # a
     if opname.endswith('_ovf'):   # c
         opname = opname[:-4]      # k
+    if opname in RESULT_TYPES:
+        return RESULT_TYPES[opname]
     op = getattr(llop, opname)
     need_result_type = getattr(op.fold, 'need_result_type', False)
     assert not need_result_type, ("cannot guess the result type of %r"

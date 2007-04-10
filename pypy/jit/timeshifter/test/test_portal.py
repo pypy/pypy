@@ -5,6 +5,7 @@ from pypy.jit.timeshifter.hrtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL, StopAtXPolicy
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import  summary
 from pypy.rlib.objectmodel import hint
 from pypy.jit.codegen.llgraph.rgenop import RGenOp as LLRGenOp
@@ -517,3 +518,14 @@ class TestPortal(PortalTest):
 
         res = self.timeshift_from_portal(f, f, [15], policy=P_OOPSPEC)
         assert res == 15
+
+    def test_cast_ptr_to_int(self):
+        GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
+        def g(p):
+            return lltype.cast_ptr_to_int(p)
+        def f():
+            p = lltype.malloc(GCS1)
+            return g(p) - lltype.cast_ptr_to_int(p)
+
+        res = self.timeshift_from_portal(f, g, [], policy=P_NOVIRTUAL)
+        assert res == 0
