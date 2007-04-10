@@ -117,7 +117,7 @@ def get_source_ssf(mod, module_name, function_names):
     print retval
     return retval
 
-def rpython2javascript(mod, function_names, jsconfig=None):
+def rpython2javascript(mod, function_names, jsconfig=None, use_pdb=True):
     if isinstance(function_names, str):
         function_names = [function_names]
         # avoid confusion
@@ -129,6 +129,8 @@ def rpython2javascript(mod, function_names, jsconfig=None):
     
     if jsconfig is None:
         jsconfig = Config(js_optiondescr)
+    if use_pdb:
+        jsconfig.use_pdb = True
     module_name = mod.__name__
     if not function_names and 'main' in mod.__dict__:
         function_names.append('main')
@@ -160,4 +162,4 @@ def rpython2javascript(mod, function_names, jsconfig=None):
         # XXX: Add some possibility to write down selected file
     except Exception, e:
         # do something nice with it
-        debug(driver, jsconfig.use_pdb)
+        debug(driver, use_pdb)
