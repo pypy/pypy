@@ -398,6 +398,9 @@ class Builder(GenBuilder):
         else:
             return gv_arg
 
+    def genop_cast_int_to_ptr(self, ptrkindtoken, gv_int):
+        return gv_int
+
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def genop_get_frame_base(self):
@@ -1111,7 +1114,6 @@ class Builder(GenBuilder):
         return self._compare('eq', gv_arg, self.rgenop.genconst(0))
 
     op_cast_ptr_to_int     = _identity
-    op_cast_int_to_ptr     = _identity
 
     # ... address operations ...
 
