@@ -4,7 +4,8 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
+import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
 
 def abs(space, w_val):
@@ -18,7 +19,7 @@ def chr(space, w_ascii):
 
 def unichr(space, w_code):
     "Return a Unicode string of one character with the given ordinal."
-    return space.newunicode([space.int_w(w_code)])
+    return space.newunicode([__builtin__.unichr(space.int_w(w_code))])
 
 def len(space, w_obj):
     "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
