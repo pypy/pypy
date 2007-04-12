@@ -11,6 +11,9 @@ def trace(msg):
     if TRACE:
         print >>sys.stderr, msg
 
+class Finished(Exception):
+    pass
+
 class SocketWrapper(object):
     def __init__(self, conn):
         self.buffer = ""
@@ -19,7 +22,10 @@ class SocketWrapper(object):
     def receive(self):
         msg, self.buffer = decodemessage(self.buffer)
         while msg is None:
-            self.buffer += self.conn.recv(8192)
+            data = self.conn.recv(8192)
+            if not data:
+                raise Finished()
+            self.buffer += data
             msg, self.buffer = decodemessage(self.buffer)
         assert msg[0] == 'c'
         trace("received %s" % msg[1])
