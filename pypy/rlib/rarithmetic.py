@@ -409,6 +409,19 @@ formatd_max_length = 120
 def formatd(fmt, x):
     return fmt % (x,)
 
+def formatd_overflow(alt, prec, kind, x):
+    if ((kind == 'g' and formatd_max_length <= 10+prec) or
+        (kind == 'f' and formatd_max_length <= 53+prec)):
+        raise OverflowError("formatted float is too long (precision too large?)")
+    if alt:
+        alt = '#'
+    else:
+        alt = ''
+
+    fmt = "%%%s.%d%s" % (alt, prec, kind)
+
+    return formatd(fmt, x)
+
 # a common string hash function
 
 def _hash_string(s):
