@@ -71,7 +71,7 @@ except ImportError: # we are running from CPython
             """
             try:
                 return greenlet.switch(self._frame)
-            except TypeError: # self._frame is the main coroutine
+            except TypeError, exp: # self._frame is the main coroutine
                 return greenlet.switch(self._frame.something)
 
         def kill(self):
@@ -352,6 +352,12 @@ class tasklet(coroutine):
         self.alive = True
         _scheduler_append(self)
         return self
+
+    def run(self):
+        if _scheduler_contains(self):
+            return
+        else:
+            _scheduler_append(self)
 
     def __reduce__(self):
         one, two, three = coroutine.__reduce__(self)
