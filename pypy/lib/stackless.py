@@ -282,10 +282,10 @@ class tasklet(coroutine):
     """
     tempval = None
     def __new__(cls, func=None, label=''):
-        return super(tasklet,cls).__new__(cls)
+        return coroutine.__new__(cls)
 
     def __init__(self, func=None, label=''):
-        super(tasklet, self).__init__()
+        coroutine.__init__(self)
         self._init(func, label)
 
     def _init(self, func=None, label=''):
