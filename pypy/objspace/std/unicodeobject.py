@@ -8,6 +8,8 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
 
+from pypy.objspace.std.formatting import format
+
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
 
@@ -857,22 +859,6 @@ def unicode_translate__Unicode_ANY(self, table):
                 raise TypeError("character mapping must return integer, None or unicode")
     return ''.join(result)
 
-def mod__Unicode_ANY(format, values):
-    import _formatting
-    if isinstance(values, tuple):
-        return _formatting.format(format, values, None, do_unicode=True)
-    else:
-        # CPython\'s logic for deciding if  ""%values  is
-        # an error (1 value, 0 %-formatters) or not
-        # (values is of a mapping type)
-        if (hasattr(values, "__getitem__")
-            and not isinstance(values, basestring)):
-            return _formatting.format(format, (values,), values,
-                                      do_unicode=True)
-        else:
-            return _formatting.format(format, (values,), None,
-                                      do_unicode=True)
-
 def unicode_encode__Unicode_ANY_ANY(unistr, encoding=None, errors=None):
     import codecs, sys
     if encoding is None:
@@ -1047,6 +1033,25 @@ def repr__Unicode(space, w_unicode):
     return space.wrap(''.join(result[:i]))
         
 #repr__Unicode = app.interphook('repr__Unicode') # uncomment when repr code is moved to _codecs
+
+def mod__Unicode_ANY(space, w_format, w_values):
+    if space.is_true(space.isinstance(w_values, space.w_tuple)):
+        return format(space, w_format, w_values, do_unicode=True)
+    else:
+        # we check directly for dict to avoid obscure checking
+        # in simplest case
+        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
+           (space.lookup(w_values, '__getitem__') and
+           not space.is_true(space.isinstance(w_values, space.w_basestring))):
+            return format(space, w_format,
+                          space.newtuple([w_values]), w_values,
+                          do_unicode=True)
+        else:
+            return format(space, w_format,
+                          space.newtuple([w_values]), None,
+                          do_unicode=True)
+
+
 import unicodetype
 register_all(vars(), unicodetype)
 

@@ -11,6 +11,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.std.stringtype import wrapchar
 
 from pypy.objspace.std import rope
+from pypy.objspace.std.stringobject import mod__String_ANY as mod__Rope_ANY
 
 class W_RopeObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -1061,28 +1062,9 @@ app = gateway.applevel(r'''
             return codecs.getencoder(encoding)(str, errors)[0]
 ''', filename=__file__) 
 
-# this one should do the import of _formatting:
-app2 = gateway.applevel('''
-    import _formatting
-
-    def mod__Rope_ANY(format, values):
-        if isinstance(values, tuple):
-            return _formatting.format(format, values, None)
-        else:
-            # CPython's logic for deciding if  ""%values  is
-            # an error (1 value, 0 %-formatters) or not
-            # (values is of a mapping type)
-            if (hasattr(values, '__getitem__')
-                and not isinstance(values, basestring)):
-                return _formatting.format(format, (values,), values)
-            else:
-                return _formatting.format(format, (values,), None)
-''', filename=__file__)
-
 str_translate__Rope_ANY_ANY = app.interphook('str_translate__Rope_ANY_ANY') 
 str_decode__Rope_ANY_ANY = app.interphook('str_decode__Rope_ANY_ANY') 
 str_encode__Rope_ANY_ANY = app.interphook('str_encode__Rope_ANY_ANY') 
-mod__Rope_ANY = app2.interphook('mod__Rope_ANY') 
 
 # methods of the iterator
 

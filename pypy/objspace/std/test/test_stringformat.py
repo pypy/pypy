@@ -161,3 +161,24 @@ class AppTestWidthPrec:
             return fmt % x
         raises(OverflowError, f, "%.70f", 2.0)
         raises(OverflowError, f, "%.110g", 2.0)
+
+class AppTestUnicodeObject:
+    def test_unicode_convert(self):
+        assert isinstance("%s" % (u"x"), unicode)
+
+    def test_unicode_d(self):
+        assert u"%.1d" % 3 == '3'
+
+    def test_unicode_overflow(self):
+        import sys
+        raises(OverflowError, 'u"%.*d" % (sys.maxint, 1)')
+
+    def test_unicode_format_a(self):
+        assert u'%x' % 10L == 'a'
+
+    def test_long_no_overflow(self):
+        assert "%x" % 100000000000L == "174876e800"
+
+    def test_missing_cases(self):
+        print '%032d' % -123456789012345678901234567890L
+        assert '%032d' % -123456789012345678901234567890L == '-0123456789012345678901234567890'

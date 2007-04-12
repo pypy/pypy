@@ -14,6 +14,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
      stringendswith, stringstartswith
 
+from pypy.objspace.std.formatting import format
 
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -907,28 +908,28 @@ app = gateway.applevel(r'''
             return codecs.getencoder(encoding)(str, errors)[0]
 ''', filename=__file__) 
 
-# this one should do the import of _formatting:
-app2 = gateway.applevel('''
-    import _formatting
-
-    def mod__String_ANY(format, values):
-        if isinstance(values, tuple):
-            return _formatting.format(format, values, None)
-        else:
-            # CPython's logic for deciding if  ""%values  is
-            # an error (1 value, 0 %-formatters) or not
-            # (values is of a mapping type)
-            if (hasattr(values, '__getitem__')
-                and not isinstance(values, basestring)):
-                return _formatting.format(format, (values,), values)
-            else:
-                return _formatting.format(format, (values,), None)
-''', filename=__file__)
 
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
 str_encode__String_ANY_ANY = app.interphook('str_encode__String_ANY_ANY') 
-mod__String_ANY = app2.interphook('mod__String_ANY') 
+
+# CPython's logic for deciding if  ""%values  is
+# an error (1 value, 0 %-formatters) or not
+# (values is of a mapping type)
+def mod__String_ANY(space, w_format, w_values):
+    if space.is_true(space.isinstance(w_values, space.w_tuple)):
+        return format(space, w_format, w_values)
+    else:
+        # we check directly for dict to avoid obscure checking
+        # in simplest case
+        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
+           (space.lookup(w_values, '__getitem__') and
+           not space.is_true(space.isinstance(w_values, space.w_basestring))):
+            return format(space, w_format,
+                                     space.newtuple([w_values]), w_values)
+        else:
+            return format(space, w_format,
+                                     space.newtuple([w_values]), None)
 
 # register all methods
 from pypy.objspace.std import stringtype
