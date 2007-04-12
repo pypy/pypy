@@ -236,7 +236,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def newunicode(self, codes):
         # XXX inefficient
-        lst = [PyUnicode_FromOrdinal(code) for code in codes]
+        lst = [PyUnicode_FromOrdinal(ord(code)) for code in codes]
         w_lst = self.newlist(lst)
         w_emptyunicode = PyUnicode_FromUnicode(None, 0)
         return self.call_method(w_emptyunicode, 'join', w_lst)

@@ -56,7 +56,7 @@ def test_newstring():
 
 def test_newunicode():
     space = CPyObjSpace()
-    w = space.newunicode([65, 66])
+    w = space.newunicode([unichr(65), unichr(66)])
     assert space.is_w(space.type(w), space.w_unicode)
     for i in range(2):
         code = space.int_w(space.ord(space.getitem(w, space.wrap(i))))
@@ -68,9 +68,9 @@ def test_ord():
     assert space.int_w(space.ord(w)) == 65
     w = space.wrap('\x00')
     assert space.int_w(space.ord(w)) == 0
-    w = space.newunicode([65])
+    w = space.newunicode([unichr(65)])
     assert space.int_w(space.ord(w)) == 65
-    w = space.newunicode([0])
+    w = space.newunicode([unichr(0)])
     assert space.int_w(space.ord(w)) == 0
 
 def test_id():

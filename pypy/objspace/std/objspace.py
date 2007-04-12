@@ -531,11 +531,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.wrap(''.join(chars))
 
     def newunicode(self, chars):
-        try:
-            chars = [unichr(c) for c in chars]
-        except ValueError, e:  # unichr(out-of-range)
-            msg = "character code not in range(%s)" % hex(sys.maxunicode+1)
-            raise OperationError(self.w_ValueError, self.wrap(msg))
         return W_UnicodeObject(chars)
 
     def newseqiter(self, w_obj):
