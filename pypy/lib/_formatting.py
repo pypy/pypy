@@ -1,3 +1,4 @@
+
 # Application level implementation of string formatting.
 
 # There's some insane stuff in here.  Blame CPython.  Please.
@@ -14,7 +15,7 @@
 #     for the usage of rpython-level unicode strings. 
 
 
-import sys
+import sys, py
 
 class _Flags(object):
     def __repr__(self):
@@ -33,12 +34,13 @@ def peel_num(c, fmtiter, valuegetter):
         if not v.isint():
             raise TypeError, "* wants int"
         return fmtiter.next(), v.maybe_int()
-    n = ''
+    i0 = fmtiter.i - 1
+    ik = i0
     while c in '0123456789':
-        n += c
         c = fmtiter.next()
-    if n:
-        return c, int(n)
+        ik += 1
+    if ik != i0:
+        return c, int(fmtiter.fmt[i0:ik])
     else:
         return c, 0
 
@@ -69,7 +71,8 @@ def parse_fmt(fmtiter, valuegetter):
     value = None
     gotvalue = False
     if c == '(':
-        n = ''
+        i0 = fmtiter.i
+        ik = i0
         pcount = 1
         while 1:
             c = fmtiter.next()
@@ -79,8 +82,8 @@ def parse_fmt(fmtiter, valuegetter):
                     break
             elif c == '(':
                 pcount += 1
-            n += c
-        value = valuegetter.getitem(n)
+            ik += 1
+        value = valuegetter.getitem(fmtiter.fmt[i0:ik])
         gotvalue = True
         c = fmtiter.next()
     c, flags = peel_flags(c, fmtiter)
@@ -108,72 +111,67 @@ def parse_fmt(fmtiter, valuegetter):
 class NeedUnicodeFormattingError(Exception):
     pass
 
-class Formatter(object):
-    def __init__(self, char, flags, width, prec, valuebox):
-        self.char = char
-        self.flags = flags
-        self.width = width
-        self.prec = prec
-        self.valuebox = valuebox
 
-    def numeric_preprocess(self, v):
-        # negative zeroes?
-        # * mwh giggles, falls over
-        # still, if we can recognize them, here's the place to do it.
-        import math
-        if v < 0 or v == 0 and isinstance(v, float) and math.atan2(0, v) != 0:
-            sign = '-'
-            v = -v
+#class Formatter(object):
+#    def __init__(self, char, flags, width, prec, valuebox):
+#        self.char = char
+#        self.flags = flags
+#        self.width = width
+#        self.prec = prec
+#        self.valuebox = valuebox
+
+def numeric_preprocess(v, flags):
+    # negative zeroes?
+    # * mwh giggles, falls over
+    # still, if we can recognize them, here's the place to do it.
+    import math
+    if v < 0 or v == 0 and isinstance(v, float) and math.atan2(0, v) != 0:
+        sign = '-'
+        v = -v
+    else:
+        if flags.f_sign:
+            sign = '+'
+        elif flags.f_blank:
+            sign = ' '
         else:
-            if self.flags.f_sign:
-                sign = '+'
-            elif self.flags.f_blank:
-                sign = ' '
-            else:
-                sign = ''
-        return v, sign
+            sign = ''
+    return v, sign
 
-    def numeric_postprocess(self, r, sign, prefix=""):
-        assert self.char in 'iduoxXeEfFgG'
-        padchar = ' '
-        if self.flags.f_zero:
-            padchar = '0'
-        if self.width is not None:
-            p = self.width - len(r) - len(sign) -len(prefix)
-            if self.flags.f_ljust:
-                r = sign + prefix + r + ' '*p
-            else:
-                if self.flags.f_zero:
-                    r = sign+prefix+padchar*p + r
-                else:
-                    r = padchar*p + sign + prefix + r
+def numeric_postprocess(r, sign, char, flags, width, prefix=""):
+    assert char in 'iduoxXeEfFgG'
+    padchar = ' '
+    if flags.f_zero:
+        padchar = '0'
+    if width is not None:
+        p = width - len(r) - len(sign) -len(prefix)
+        if flags.f_ljust:
+            r = sign + prefix + r + ' '*p
         else:
-            r = sign + prefix + r
-        return r
-
-    def format(self):
-        raise NotImplementedError
-
-    def std_wp(self, r):
-        assert self.char not in 'iduoxXeEfFgG'
-        if self.prec is not None:
-            r = r[:self.prec]
-        if self.width is not None:
-            p = self.width - len(r)
-            if self.flags.f_ljust:
-                r = r + ' '*p
+            if flags.f_zero:
+                r = sign+prefix+padchar*p + r
             else:
-                r = ' '*p + r
-        return r
+                r = padchar*p + sign + prefix + r
+    else:
+        r = sign + prefix + r
+    return r
 
+def std_wp(r, char, flags, width, prec):
+    assert char not in 'iduoxXeEfFgG'
+    if prec is not None:
+        r = r[:prec]
+    if width is not None:
+        p = width - len(r)
+        if flags.f_ljust:
+            r = r + ' '*p
+        else:
+            r = ' '*p + r
+    return r
 
-class ReprFormatter(Formatter):
-    def format(self):
-        return self.std_wp(self.valuebox.repr())
+def repr_format(char, flags, width, prec, valuebox):
+    return std_wp(valuebox.repr(), char, flags, width, prec)
 
-class PercentFormatter(Formatter):
-    def format(self):
-        return self.std_wp('%')
+def percent_format(char, flags, width, prec, valuebox):
+    return std_wp('%', char, flags, width, prec)
 
 # isinf isn't too hard...
 def isinf(v):
@@ -185,210 +183,186 @@ def isinf(v):
 def isnan(v):
     return v != v*1.0 or (v == 1.0 and v == 2.0)
 
-class FloatFormatter(Formatter):
-    def eDigits(self, ds):
-        ds = ds[:self.prec + 1] + ['0'] * (self.prec + 1 - len(ds))
-        if self.prec > 0 or self.flags.f_alt:
-            ds[1:1] = ['.']
-        return ''.join(ds)
+#def eDigits(ds, flags, prec):
+#    ds = ds[:prec + 1] + ['0'] * (prec + 1 - len(ds))
+#    if prec > 0 or flags.f_alt:
+#        ds[1:1] = ['.']
+#    return ''.join(ds)
 
-    def fDigits(self, ds, k):
-        p = max(self.prec, 0)
-        if 0 < k < len(ds):
-            if len(ds) - k < p:
-                ds.extend(['0'] * (p - (len(ds) - k)))
-            else:
-                ds = ds[:p + k]
-            ds[k:k] = ['.']
-        elif k <= 0:
-            ds[0:0] = ['0']*(-k)
-            ds = ds[:p]
-            ds.extend(['0'] * (p - len(ds)))
-            ds[0:0]= ['0', '.']
-        elif k >= len(ds):
-            ds.extend((k-len(ds))*['0'] + ['.'] + ['0']*p)
-        return ''.join(ds)
+#def fDigits(ds, k, prec):
+#    p = max(prec, 0)
+#    if 0 < k < len(ds):
+#        if len(ds) - k < p:
+#            ds.extend(['0'] * (p - (len(ds) - k)))
+#        else:
+#            ds = ds[:p + k]
+#        ds[k:k] = ['.']
+#    elif k <= 0:
+#        ds[0:0] = ['0']*(-k)
+#        ds = ds[:p]
+#        ds.extend(['0'] * (p - len(ds)))
+#        ds[0:0]= ['0', '.']
+#    elif k >= len(ds):
+#        ds.extend((k-len(ds))*['0'] + ['.'] + ['0']*p)
+#    return ''.join(ds)
 
-    def format(self):
-        v = self.valuebox.maybe_float()
-        if isnan(v):
-            return 'nan'
-        elif isinf(v):
-            return 'inf'
-        v, sign = self.numeric_preprocess(v)
-        if self.prec is None:
-            self.prec = 6
-        r = self._format(v)
-        return self.numeric_postprocess(r, sign)
+def float_format(char, flags, valuebox):
+    v = valuebox.maybe_float()
+    if isnan(v):
+        return 'nan'
+    elif isinf(v):
+        return 'inf'
+    return numeric_preprocess(v, flags)
 
-    def _formatd(self, kind, v):
-        import __builtin__
-        return __builtin__._formatd(self.flags.f_alt, self.prec, kind, v)
+def float_formatd(kind, v, flags, prec):
+    import __builtin__
+    return __builtin__._formatd(flags.f_alt, prec, kind, v)
 
-class FloatFFormatter(FloatFormatter):
-    def _format(self, v):
-        if v/1e25 > 1e25:
-            return FloatGFormatter('g', self.flags, self.width,
-                                   self.prec, self.valuebox).format()
-        return self._formatd('f', v)
+def float_f_format(char, flags, width, prec, valuebox):
+    if prec is None:
+        prec = 6
+    v, sign = float_format(char, flags, valuebox)
+    if v/1e25 > 1e25:
+        return float_g_format('g', flags, width, prec, valuebox)
+    return numeric_postprocess(float_formatd('f', v, flags, prec),
+                               sign, char, flags, width)
 
-# system specific formatting. Linux does 3, Windows does 4...
-# XXX this works only when we use geninterp!
-if 0:
-    _x = `1.2e34`
-    _EF = len(_x) - _x.rindex('+')
-    del _x
-else:
-    _EF = 3
+def float_e_format(char, flags, width, prec, valuebox):
+    if prec is None:
+        prec = 6
+    v, _ = float_format(char, flags, valuebox)
+    return numeric_postprocess(float_formatd('e', v, flags, prec),
+                               sign, char, flags, width)
 
-
-class FloatEFormatter(FloatFormatter):
-    def _format(self, v):
-        return self._formatd('e', v)
-
-class FloatGFormatter(FloatFormatter):
+def float_g_format(char, flags, width, prec, valuebox):
     # The description of %g in the Python documentation lies
     # in a variety of minor ways.
     # Gah, this still isn't quite right in the f_alt case.
     # (One has to wonder who might care).
-    def _format(self, v):
-        return self._formatd('g', v)
+    if prec is None:
+        prec = 6
+    v, sign = float_format(char, flags, valuebox)
+    return numeric_postprocess(float_formatd('g', v, flags, prec),
+                               sign, char, flags, width)
 
-class HexFormatter(Formatter):
+def hex_format(char, flags, width, prec, valuebox):
     # NB: this has 2.4 semantics wrt. negative values
-    def format(self):
-        v, sign = self.numeric_preprocess(self.valuebox.maybe_int())
-        r = hex(v)[2:]
-        if r[-1]=="L":
-            # workaround weird behavior of CPython's hex
-            r = r[:-1].lower()
-        if self.prec is not None and len(r) < self.prec:
-            r = '0'*(self.prec - len(r)) + r
-        if self.flags.f_alt:
-            prefix = '0x'
-        else:
-            prefix = ''
-        if self.char == 'X':
-            r = r.upper()
-            prefix = prefix.upper()
-        return self.numeric_postprocess(r, sign, prefix)
+    v, sign = numeric_preprocess(valuebox.maybe_int(), flags)
+    r = hex(v)[2:]
+    if r[-1]=="L":
+        # workaround weird behavior of CPython's hex
+        r = r[:-1].lower()
+    if prec is not None and len(r) < prec:
+        r = '0'*(prec - len(r)) + r
+    if flags.f_alt:
+        prefix = '0x'
+    else:
+        prefix = ''
+    if char == 'X':
+        r = r.upper()
+        prefix = prefix.upper()
+    return numeric_postprocess(r, sign, char, flags, width, prefix)
 
+def oct_format(char, flags, width, prec, valuebox):
+    v, sign = numeric_preprocess(valuebox.maybe_int(), flags)
+    r = oct(v)
+    if r[-1] == "L":
+        r = r[:-1]
+    if v and not flags.f_alt:
+        r = r[1:]
+    if prec is not None and len(r) < prec:
+        r = '0'*(prec - len(r)) + r
+    return numeric_postprocess(r, sign, char, flags, width)
 
-class OctFormatter(Formatter):
-    # NB: this has 2.4 semantics wrt. negative values
-    def format(self):
-        v, sign = self.numeric_preprocess(self.valuebox.maybe_int())
-        r = oct(v)
-        if r[-1] == "L":
-            r = r[:-1]
-        if v and not self.flags.f_alt:
-            r = r[1:]
-        if self.prec is not None and len(r) < self.prec:
-            r = '0'*(self.prec - len(r)) + r
-        return self.numeric_postprocess(r, sign)
+def int_format(char, flags, width, prec, valuebox):
+    v, sign = numeric_preprocess(valuebox.maybe_int(), flags)
+    r = str(v)
+    if prec is not None and len(r) < prec:
+        r = '0'*(prec - len(r)) + r
+    return numeric_postprocess(r, sign, char, flags, width)
 
+def char_format(char, flags, width, prec, valuebox):
+    if valuebox.isstr():
+        v = valuebox.str()
+        if len(v) != 1:
+            raise TypeError, "%c requires int or char"
+    elif valuebox.isunicode():
+        raise NeedUnicodeFormattingError
+    else:
+        i = valuebox.maybe_int()
+        if not 0 <= i <= 255:
+            raise OverflowError("OverflowError: unsigned byte "
+                                "integer is greater than maximum")
+        v = chr(i)
+    return std_wp(v, char, flags, width, None)
 
-class IntFormatter(Formatter):
-    # NB: this has 2.4 semantics wrt. negative values (for %u)
-    def format(self):
-        v, sign = self.numeric_preprocess(self.valuebox.maybe_int())
-        r = str(v)
-        if self.prec is not None and len(r) < self.prec:
-            r = '0'*(self.prec - len(r)) + r
-        return self.numeric_postprocess(r, sign)
-
-
-class CharFormatter(Formatter):
-    def format(self):
-        if self.valuebox.isstr():
-            v = self.valuebox.str()
-            if len(v) != 1:
-                raise TypeError, "%c requires int or char"
-        elif self.valuebox.isunicode():
-            raise NeedUnicodeFormattingError
-        else:
-            i = self.valuebox.maybe_int()
-            if not 0 <= i <= 255:
-                raise OverflowError("OverflowError: unsigned byte "
-                                    "integer is greater than maximum")
-            v = chr(i)
-        self.prec = None
-        return self.std_wp(v)
-
-class StringFormatter(Formatter):
-    def format(self):
-        if self.valuebox.isunicode():
-            raise NeedUnicodeFormattingError
-        return self.std_wp(self.valuebox.str())
-
-
+def string_format(char, flags, width, prec, valuebox):
+    if valuebox.isunicode():
+        raise NeedUnicodeFormattingError
+    return std_wp(valuebox.str(), char, flags, width, prec)
 
 str_format_registry = {
-    'd':IntFormatter,
-    'i':IntFormatter,
-    'o':OctFormatter,
-    'u':IntFormatter,
-    'x':HexFormatter,
-    'X':HexFormatter,
-    'e':FloatEFormatter,
-    'E':FloatEFormatter,
-    'f':FloatFFormatter,
-    'F':FloatFFormatter,
-    'g':FloatGFormatter,
-    'G':FloatGFormatter,
-    'c':CharFormatter,
-    's':StringFormatter,
-    'r':ReprFormatter, 
+    'd':int_format,
+    'i':int_format,
+    'o':oct_format,
+    'u':int_format,
+    'x':hex_format,
+    'X':hex_format,
+    'e':float_e_format,
+    'E':float_e_format,
+    'f':float_f_format,
+    'F':float_f_format,
+    'g':float_g_format,
+    'G':float_g_format,
+    'c':char_format,
+    's':string_format,
+    'r':repr_format, 
     # this *can* get accessed, by e.g. '%()4%'%{'':1}.
     # The usual %% case has to be handled specially as it
     # doesn't consume a value.
-    '%':PercentFormatter, 
+    '%':percent_format, 
     }
-    
-class UnicodeStringFormatter(Formatter):
-    def format(self):
-        uval = self.valuebox.unicode()
-        return self.std_wp(uval)
 
-class UnicodeCharFormatter(Formatter):
-    def format(self):
-        if self.valuebox.isunicode():
-            v = self.valuebox.unicode()
-            if len(v) != 1:
-                raise TypeError, "%c requires int or unicode char"
-        elif self.valuebox.isstr():
-            v = unicode(self.valuebox.str())
-            if len(v) != 1:
-                raise TypeError, "%c requires int or unicode char"
-        else:
-            i = self.valuebox.maybe_int()
-            if not 0 <= i <= sys.maxunicode:
-                raise OverflowError("OverflowError: unsigned byte "
-                                    "integer is greater than maximum")
-            v = unichr(i)
-        self.prec = None
-        return self.std_wp(v)
+def unicode_string_format(char, flags, width, prec, valuebox):
+    return std_wp(valuebox.unicode(), char, flags, width, prec)
+
+def unicode_char_format(char, flags, width, prec, valuebox):
+    if valuebox.isunicode():
+        v = valuebox.unicode()
+        if len(v) != 1:
+            raise TypeError, "%c requires int or unicode char"
+    elif valuebox.isstr():
+        v = unicode(valuebox.str())
+        if len(v) != 1:
+            raise TypeError, "%c requires int or unicode char"
+    else:
+        i = valuebox.maybe_int()
+        if not 0 <= i <= sys.maxunicode:
+            raise OverflowError("OverflowError: unsigned byte "
+                                "integer is greater than maximum")
+        v = unichr(i)
+    return std_wp(v, char, flags, width, None)
 
 unicode_format_registry = {
-    u'd':IntFormatter,
-    u'i':IntFormatter,
-    u'o':OctFormatter,
-    u'u':IntFormatter,
-    u'x':HexFormatter,
-    u'X':HexFormatter,
-    u'e':FloatEFormatter,
-    u'E':FloatEFormatter,
-    u'f':FloatFFormatter,
-    u'F':FloatFFormatter,
-    u'g':FloatGFormatter,
-    u'G':FloatGFormatter,
-    u'c':UnicodeCharFormatter,
-    u's':UnicodeStringFormatter,
-    u'r':ReprFormatter, 
+    'd':int_format,
+    'i':int_format,
+    'o':oct_format,
+    'u':int_format,
+    'x':hex_format,
+    'X':hex_format,
+    'e':float_e_format,
+    'E':float_e_format,
+    'f':float_f_format,
+    'F':float_f_format,
+    'g':float_g_format,
+    'G':float_g_format,
+    'c':unicode_char_format,
+    's':unicode_string_format,
+    'r':repr_format, 
     # this *can* get accessed, by e.g. '%()4%'%{'':1}.
     # The usual %% case has to be handled specially as it
     # doesn't consume a value.
-    u'%':PercentFormatter, 
+    '%':percent_format, 
     }
     
 
@@ -402,8 +376,8 @@ class FmtIter(object):
         return self
 
     def next(self):
-        if self.i >= self._fmtlength: 
-            raise StopIteration 
+        if self.i >= self._fmtlength:
+            raise StopIteration
         c = self.fmt[self.i]
         self.i += 1
         return c
@@ -451,13 +425,13 @@ def _format(fmt, valuegetter, do_unicode=False):
             # r.append(f(*t).format())
             char, flags, width, prec, value = t
             try:
-                result = f(char, flags, width, prec, value).format()
+                result = f(char, flags, width, prec, value)
             except NeedUnicodeFormattingError:
                 # Switch to using the unicode formatters and retry.
                 do_unicode = True
                 format_registry = unicode_format_registry
                 f = format_registry[t[0]]
-                r.append(f(char, flags, width, prec, value).format())
+                r.append(f(char, flags, width, prec, value))
             else:
                 r.append(result)
         else:
