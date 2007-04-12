@@ -149,6 +149,8 @@ def ll_construct_restart_positions(s, l):
 class LLHelpers(AbstractLLHelpers):
 
     def ll_char_mul(ch, times):
+        if times < 0:
+            times = 0
         newstr = mallocstr(times)
         j = 0
         while j < times:

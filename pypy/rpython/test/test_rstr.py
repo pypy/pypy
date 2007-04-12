@@ -600,6 +600,13 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(f, ['a', 0])
         assert self.ll_to_string(res) == ""
 
+    def test_char_mul_negative(self):
+        def f(c):
+            return c * -3
+
+        res = self.interpret(f, ['a'])
+        assert self.ll_to_string(res) == ''
+
     def test_n_mul_char(self):
         def f(c, n):
             return n*c
