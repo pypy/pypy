@@ -26,3 +26,14 @@ def test_repr_formatting():
         '%r' % (d,)
         i += 1
 
+def test_format_unicode():
+    i = 0
+    while i < iterations:
+        '%s %s' % (u'foo', u'bar')
+        i += 1
+
+def test_format_long():
+    i = 0
+    while i < iterations:
+        '%d' % (100000000000L,)
+        i += 1
