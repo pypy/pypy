@@ -71,6 +71,8 @@ class LLHelpers(AbstractLLHelpers):
         return ootype.oohash(s)
 
     def ll_char_mul(ch, times):
+        if times < 0:
+            times = 0
         buf = ootype.new(ootype.StringBuilder)
         buf.ll_allocate(times)
         i = 0

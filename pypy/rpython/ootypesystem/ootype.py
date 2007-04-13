@@ -1118,6 +1118,7 @@ class _string_builder(_builtin_type):
 
     def ll_allocate(self, n):
         assert isinstance(n, int)
+        assert n >= 0
         # do nothing
 
     def ll_append_char(self, ch):
