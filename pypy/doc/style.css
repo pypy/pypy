@@ -769,8 +769,9 @@ td.toplist {
 
 img#pyimg {
     position: absolute;
-    top: 4px;
-    left: 4px;
+    top: 0px;
+    left: 20px;
+    margin: 20px;
 }
 
 img#extraimg {
@@ -791,7 +792,7 @@ div#navspace {
 div#metaspace {
     position: absolute;
     top: 40px;
-    left: 170px;
+    left: 210px;
 }
 
 div#errorline {
@@ -804,9 +805,9 @@ div#contentspace {
     position: absolute;
   	/* font: 120% "Times New Roman", serif;*/
     font: 110% Verdana, Helvetica, Arial, sans-serif;
-    top: 130px;
-    left: 170px;
-    margin-right: 5px;
+    top: 140px;
+    left: 130px;
+    margin-right: 140px;
 }
 
 div#menubar {
