@@ -283,6 +283,7 @@ class Function(Expression):
 
     def eval(self, ctx):
        w_obj = W_Object(ctx=ctx, callfunc = self)
+       w_obj.Put('prototype', W_Object(ctx=ctx))
        return w_obj
 
 class Identifier(Expression):
@@ -654,8 +655,6 @@ class List(ListOp):
 class BinaryNumberOp(BinaryOp):
     def eval(self, ctx):
         nleft = self.left.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
-        print "context now is:"
-        print ctx
         nright = self.right.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
         result = self.mathop(ctx, nleft, nright)
         return result

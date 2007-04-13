@@ -510,21 +510,19 @@ class TestInterp(object):
         """, ['0', '1'])
 
     def test_recursive_call(self):
-        #py.test.skip()
         self.assert_prints("""
-        function f(x) { if (x == 0) { return 1; } else { return f(x-1)*x; }}
-        print(f(1))
-        """, ['1',])
+        function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
+        print(fact(3))
+        """, ['6',])
     
     def test_function_prototype(self):
-        py.test.skip()
         self.assert_prints("""
         function foo() {}; foo.prototype.bar = function() {}
-        """, ['',])
+        """, [])
 
 
     def test_function_this(self):
         py.test.skip()
         self.assert_prints("""
-        function foo() {this.bar = function() {}}; var f = new foo(); f.bar();
+        function foo() {print("debug");this.bar = function() {}}; var f = new foo(); f.bar();
         """, ['',])

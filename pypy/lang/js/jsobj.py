@@ -492,7 +492,6 @@ def function_context(scope, activation, this=None):
     else:
         ctx.this = this
     ctx.property = Property('', w_Undefined, dd=True)
-    print ctx
     return ctx
     
 def eval_context(calling_context):
@@ -530,5 +529,5 @@ class W_Reference(W_Root):
         return self.property_name
 
     def __str__(self):
-        return "< " + str(self.base) + " -> " + str(self.property_name) + " >"
+        return "<" + str(self.base) + " -> " + str(self.property_name) + ">"
     
