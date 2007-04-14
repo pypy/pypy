@@ -8,6 +8,7 @@ from pypy.interpreter.astcompiler.consts \
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.tool import stdlib_opcode as pythonopcode
+from pypy.interpreter.error import OperationError
 
 class BlockSet:
     """A Set implementation specific to Blocks
@@ -447,7 +448,9 @@ class PyFlowGraph(FlowGraph):
         if newlocals:
             self.flags |= CO_NEWLOCALS
 
-        self.consts = []
+        # XXX we need to build app-level dict here, bleh
+        self.w_consts = space.newdict()
+        #self.const_list = []
         self.names = []
         # Free variables found by the symbol table scan, including
         # variables used only in nested scopes, are included here.
@@ -631,11 +634,19 @@ class PyFlowGraph(FlowGraph):
     for i in pythonopcode.hasjabs:
         hasjabs[pythonopcode.opname[i]] = True
 
+    def setconst(self, w_consts, w_item, value):
+        space = self.space
+        w_item_type = space.type(w_item)
+        w_key = space.newtuple([w_item, w_item_type])
+        space.setitem(w_consts, w_key, space.wrap(value))
+
     def convertArgs(self):
         """Convert arguments from symbolic to concrete form"""
         assert self.stage == RAW
+        space = self.space
         self.orderedblocks = self.getBlocksInOrder()
-        self.consts.insert(0, self.docstring)
+        self.setconst(self.w_consts, self.docstring, 0)
+        #self.const_list.insert(0, self.docstring)
         self.sort_cellvars()
 
         for b in self.orderedblocks:
@@ -691,7 +702,7 @@ class PyFlowGraph(FlowGraph):
                  return True
         return False
 
-    def _lookupConst(self, w_obj, list_w):
+    def _lookupConst(self, w_obj, w_dict):
         """
         This routine uses a list instead of a dictionary, because a
         dictionary can't store two different keys if the keys have the
@@ -701,12 +712,15 @@ class PyFlowGraph(FlowGraph):
         """
         space = self.space
         w_obj_type = space.type(w_obj)
-        for i in range(len(list_w)):
-            if self._cmpConsts(w_obj, list_w[i]):
-                return i
-        end = len(list_w)
-        list_w.append(w_obj)
-        return end
+        try:
+            w_key = space.newtuple([w_obj, w_obj_type])
+            return space.int_w(space.getitem(w_dict, w_key))
+        except OperationError, operr:
+            if not operr.match(space, space.w_KeyError):
+                raise
+            lgt = space.int_w(space.len(w_dict))
+            self.setconst(w_dict, w_obj, lgt)
+            return lgt
 
     _converters = {}
 
@@ -717,7 +731,7 @@ class PyFlowGraph(FlowGraph):
             assert isinstance(inst, InstrObj)
             w_obj = inst.obj
         #assert w_obj is not None
-        index = self._lookupConst(w_obj, self.consts)
+        index = self._lookupConst(w_obj, self.w_consts)
         return InstrInt(inst.op, index)
 
     def _convert_LOAD_FAST(self, inst):
@@ -842,7 +856,14 @@ class PyFlowGraph(FlowGraph):
         Must convert references to code (MAKE_FUNCTION) to code
         objects recursively.
         """
-        return self.consts[:]
+        space = self.space
+        l_w = [None] * space.int_w(space.len(self.w_consts))
+        keys_w = space.unpackiterable(self.w_consts)
+        for w_key in keys_w:
+            index = space.int_w(space.getitem(self.w_consts, w_key))
+            w_v = space.unpacktuple(w_key)[0]
+            l_w[index] = w_v
+        return l_w
 
 def isJump(opname):
     if opname[:4] == 'JUMP':
