@@ -19,8 +19,12 @@ parser and we are using narcisus on top of spidermonkey . Also, it does have
 an interactive interpreter for you to play with, but it is made in pure python
 (not rpython) so it isn't present on the translated interpreter.
 
+If you want to play with it now, you will see that it works for some simple
+code and most of javascript statements but it is still missing much on the
+standard library, and right now we have some problems with prototypes (but
+they are being worked on)
 
-Translating the interpreter to C
+Translating the interpreter to C 
 ================================
 
 Just as you can translate PyPy's Python interpreter, you can also translate the
