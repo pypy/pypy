@@ -9,9 +9,10 @@ show how to implement a clear interpreter on the pypy plataform, and providing
 support for some facilities not common to javascript interpreters.
 
 To run the js interpreter you will need the spidermonkey binary in the path
-(or in the same directory in windows). It does have a interactive interpreter
-for you to play with, but it is made in pure python (not rpython) so it isn't
-present on the translated interpreter
+(or in the same directory in windows) as we currently don't have our own
+parser and we are using narcisus on top of spidermonkey . Also, it does have
+an interactive interpreter for you to play with, but it is made in pure python
+(not rpython) so it isn't present on the translated interpreter.
 
 
 Translating the interpreter to C
