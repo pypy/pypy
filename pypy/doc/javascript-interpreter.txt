@@ -18,7 +18,7 @@ Translating the interpreter to C
 ================================
 
 Just as you can translate PyPy's Python interpreter, you can also translate the
-Javscript interpreter to C::
+Javascript interpreter to C::
 
     pypy$ cd translator/goal
     pypy/translator/goal$ python translate.py targetjsstandalone.py
