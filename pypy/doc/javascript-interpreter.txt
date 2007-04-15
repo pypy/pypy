@@ -2,11 +2,16 @@
 JS-PyPy: PyPy's Javascript interpreter
 ======================================
 
-
-The pypy Javascript interpreter was written by Leonardo Santagada with the
-help of most of the pypy team and is his summer of pypy project. It aims to
-show how to implement a clear interpreter on the pypy plataform, and providing
-support for some facilities not common to javascript interpreters.
+JS-PyPy is a Javascript interpreter written in pyton by Leonardo Santagada
+with the help of most of the pypy team and is his summer of pypy project. It
+is a python program, so you can run it on top of the usual python interpreter
+and probably in the future even use it to support javascript in a python
+application (some apis and some more work is needed for that), but the most
+important stuff now is that it can be translated by pypy to a binary or to any
+other backend to make a stand-alone interpreter, with the flexibility that the
+pypy tools give you, like changing garbage collector. It aims to show how to
+implement a clear interpreter on the pypy plataform, and providing support for
+some facilities not common to javascript interpreters.
 
 To run the js interpreter you will need the spidermonkey binary in the path
 (or in the same directory in windows) as we currently don't have our own
