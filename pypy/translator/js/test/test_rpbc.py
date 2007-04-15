@@ -3,6 +3,8 @@ import py
 from pypy.translator.js.test.runtest import JsTest
 from pypy.rpython.test.test_rpbc import BaseTestRPBC
 
+# ====> ../../../rpython/test/test_rpbc.py
+
 class TestJsPBC(JsTest, BaseTestRPBC):
     def test_single_pbc_getattr(self):
         class C:
@@ -31,10 +33,4 @@ class TestJsPBC(JsTest, BaseTestRPBC):
 
     def test_call_memoized_function_with_bools(self):
         py.test.skip("WIP")
-
-    def test_conv_from_None(self):
-        py.test.skip("WIP")
-
-    def test_multiple_ll_one_hl_op(self):
-        py.test.skip("XXX fix me soon")
         

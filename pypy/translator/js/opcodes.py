@@ -117,6 +117,7 @@ opcodes = {'int_mul': '*',
     'new' : [New],
     'runtimenew' : [RuntimeNew],
     'instanceof' : [IsInstance],
+    #'subclassof' : [IsSubclassOf],
     
     # objects
     

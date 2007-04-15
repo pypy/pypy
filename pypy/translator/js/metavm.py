@@ -250,5 +250,5 @@ IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()
 CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]
-CastString = _CastMethod("toString")
+CastString = _CastFun("convertToString", 1)
 SameAs = CopyName

@@ -8,6 +8,8 @@ from pypy.rpython.test.test_rstr import BaseTestRstr
 class TestJsException(JsTest, BaseTestException):
     pass
 
+# ====> ../../../rpython/test/test_rclass.py
+
 class TestJsClass(JsTest, BaseTestRclass):
     def test___class___attribute(self):
         class Base(object): pass
@@ -70,6 +72,6 @@ class TestJsClass(JsTest, BaseTestRclass):
     def test_issubclass_type(self):
         py.test.skip("WIP")
     
-    def test_isinstance(self):
-        py.test.skip("WIP")
+    #def test_isinstance(self):
+    #    py.test.skip("WIP")
 

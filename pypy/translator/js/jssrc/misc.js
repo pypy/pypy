@@ -22,6 +22,9 @@ function inherits(child, parent) {
 }
 
 function isinstanceof(self, what) {
+    if (!self) {
+        return (false);
+    }
     t = self.constructor;
     while ( t ) {
         if (t == what) {
@@ -216,5 +219,11 @@ function countOf(s, s1, start, end) {
     }
     return (i);
 }
-    
+
+function convertToString(stuff) {
+    if (stuff === undefined) {
+       return ("undefined");
+    }
+    return (stuff.toString());
+}    
 // ends hand written code
