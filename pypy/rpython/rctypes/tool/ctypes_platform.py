@@ -129,7 +129,6 @@ class Struct(CConfigEntry):
     def prepare_code(self):
         if self.ifdef is not None:
             yield '#ifdef %s' % (self.ifdef,)
-            yield 'dump("defined", 1);'
         yield 'typedef %s ctypesplatcheck_t;' % (self.name,)
         yield 'typedef struct {'
         yield '    char c;'
@@ -137,6 +136,8 @@ class Struct(CConfigEntry):
         yield '} ctypesplatcheck2_t;'
         yield ''
         yield 'ctypesplatcheck_t s;'
+        if self.ifdef is not None:
+            yield 'dump("defined", 1);'
         yield 'dump("align", offsetof(ctypesplatcheck2_t, s));'
         yield 'dump("size",  sizeof(ctypesplatcheck_t));'
         for fieldname, fieldtype in self.interesting_fields:
@@ -231,10 +232,11 @@ class SimpleType(CConfigEntry):
     def prepare_code(self):
         if self.ifdef is not None:
             yield '#ifdef %s' % (self.ifdef,)
-            yield 'dump("defined", 1);'
         yield 'typedef %s ctypesplatcheck_t;' % (self.name,)
         yield ''
         yield 'ctypesplatcheck_t x;'
+        if self.ifdef is not None:
+            yield 'dump("defined", 1);'
         yield 'dump("size",  sizeof(ctypesplatcheck_t));'
         if self.ctype_hint in integer_class:
             yield 'x = 0; x = ~x;'
