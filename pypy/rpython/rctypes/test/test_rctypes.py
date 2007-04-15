@@ -35,7 +35,7 @@ includes = (str(c_source),)   # in the sequel, we #include the whole .c file
 del c_source                  # into the generated C sources
 
 if sys.platform == "win32":
-    _rctypes_test = cdll_load("_rctypes_test.pyd")
+    _rctypes_test = cdll_load(str(thisdir.join("_rctypes_test.pyd")))
 else:
     _rctypes_test = cdll_load(str(thisdir.join("_rctypes_test.so")))
 
