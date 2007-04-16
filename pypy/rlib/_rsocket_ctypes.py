@@ -222,7 +222,9 @@ CConfig.hostent = ctypes_platform.Struct('struct hostent',
 
 CConfig.servent = ctypes_platform.Struct('struct servent',
                                          [('s_name', c_char_p),
-                                          ('s_port', c_int)])
+                                          ('s_port', c_int),
+                                          ('s_proto', c_char_p),
+                                          ])
 
 CConfig.protoent = ctypes_platform.Struct('struct protoent',
                                           [('p_proto', c_int),
@@ -420,6 +422,10 @@ if _POSIX:
     inet_ntop = socketdll.inet_ntop
     inet_ntop.argtypes = [c_int, c_void_p, c_char_p, socklen_t]
     inet_ntop.restype = c_char_p
+
+inet_addr = socketdll.inet_addr
+inet_addr.argtypes = [c_char_p]
+inet_addr.restype = c_uint
 
 socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]

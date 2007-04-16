@@ -180,6 +180,7 @@ def test_getaddrinfo_http():
             addr.get_port() == 80):
             found = True
     assert found, lst
+    py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
 
 def test_getaddrinfo_snake():
     lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
@@ -187,6 +188,24 @@ def test_getaddrinfo_snake():
     found = False
     for family, socktype, protocol, canonname, addr in lst:
         if addr.get_host() == '134.99.112.214':
+            found = True
+    assert found, lst
+
+def test_getaddrinfo_reverse_snake():
+    lst = getaddrinfo('134.99.112.214', None, flags=AI_CANONNAME)
+    assert isinstance(lst, list)
+    found = False
+    for family, socktype, protocol, canonname, addr in lst:
+        if canonname == 'snake.cs.uni-duesseldorf.de':
+            found = True
+    assert found, lst
+
+def test_getaddrinfo_reverse_lookup_fail():
+    lst = getaddrinfo('1.2.3.4', None, flags=AI_CANONNAME)
+    assert isinstance(lst, list)
+    found = False
+    for family, socktype, protocol, canonname, addr in lst:
+        if canonname == '1.2.3.4':
             found = True
     assert found, lst
 

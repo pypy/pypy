@@ -87,21 +87,15 @@ def makeipaddr(name, result=None):
         family = result.family
 
     if len(name) == 0:
-        hints = _c.addrinfo(ai_family   = family,
-                            ai_socktype = SOCK_DGRAM,   # dummy
-                            ai_flags    = AI_PASSIVE)
-        res = _c.addrinfo_ptr()
-        error = _c.getaddrinfo(None, "0", byref(hints), byref(res))
-        if error:
-            raise GAIError(error)
-        try:
-            info = res.contents
-            if info.ai_next:
-                raise RSocketError("wildcard resolved to "
-                                   "multiple addresses")
-            return make_address(info.ai_addr, info.ai_addrlen, result)
-        finally:
-            _c.freeaddrinfo(res)
+        info = getaddrinfo(None, "0",
+                           family=family,
+                           socktype=SOCK_DGRAM,   # dummy
+                           flags=AI_PASSIVE,
+                           address_to_fill=result)
+        if len(info) > 1:
+            raise RSocketError("wildcard resolved to "
+                               "multiple addresses")
+        return info[0][4]
 
     # IPv4 also supports the special name "<broadcast>".
     if name == '<broadcast>':
@@ -127,17 +121,8 @@ def makeipaddr(name, result=None):
                                     result)
 
     # generic host name to IP conversion
-    hints = _c.addrinfo(ai_family = family)
-    res = _c.addrinfo_ptr()
-    error = _c.getaddrinfo(name, None, byref(hints), byref(res))
-    # PLAT EAI_NONAME
-    if error:
-        raise GAIError(error)
-    try:
-        info = res.contents
-        return make_address(info.ai_addr, info.ai_addrlen, result)
-    finally:
-        _c.freeaddrinfo(res)
+    info = getaddrinfo(name, None, family=family, address_to_fill=result)
+    return info[0][4]
 
 class IPAddress(Address):
     """AF_INET and AF_INET6 addresses"""
@@ -146,13 +131,8 @@ class IPAddress(Address):
         # Create a string object representing an IP address.
         # For IPv4 this is always a string of the form 'dd.dd.dd.dd'
         # (with variable size numbers).
-        buf = create_string_buffer(NI_MAXHOST)
-        error = _c.getnameinfo(byref(self.addr), self.addrlen,
-                               buf, NI_MAXHOST,
-                               None, 0, NI_NUMERICHOST)
-        if error:
-            raise GAIError(error)
-        return buf.value
+        host, serv = getnameinfo(self, NI_NUMERICHOST | NI_NUMERICSERV)
+        return host
 
 # ____________________________________________________________
 
@@ -895,11 +875,11 @@ def gethostbyname(name):
     makeipaddr(name, result)
     return result
 
-def gethost_common(hostname, hostent, addr):
+def gethost_common(hostname, hostent, addr=None):
     if not hostent:
         raise HSocketError(hostname)
-    family = addr.family
-    if hostent.contents.h_addrtype != family:
+    family = hostent.contents.h_addrtype
+    if addr is not None and addr.family != family:
         raise CSocketError(_c.EAFNOSUPPORT)
 
     aliases = []
@@ -944,7 +924,8 @@ def gethostbyaddr(ip):
     return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
-                family=AF_UNSPEC, socktype=0, proto=0, flags=0):
+                family=AF_UNSPEC, socktype=0, proto=0, flags=0,
+                address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
     hints = _c.addrinfo(ai_family   = family,
@@ -961,7 +942,7 @@ def getaddrinfo(host, port_or_service,
         p = res
         while p:
             info = p.contents
-            addr = make_address(info.ai_addr, info.ai_addrlen)
+            addr = make_address(info.ai_addr, info.ai_addrlen, address_to_fill)
             canonname = info.ai_canonname
             if canonname is None:
                 canonname = ""
@@ -1060,3 +1041,17 @@ def setdefaulttimeout(timeout):
     if timeout < 0.0:
         timeout = -1.0
     defaults.timeout = timeout
+
+# _______________________________________________________________
+#
+# Patch module, for platforms without getaddrinfo / getnameinfo
+#
+
+if not getattr(_c, 'getaddrinfo', None):
+    from pypy.rlib.getaddrinfo import getaddrinfo
+    from pypy.rlib.getaddrinfo import GAIError_getmsg
+    GAIError.get_msg = GAIError_getmsg
+
+if not getattr(_c, 'getnameinfo', None):
+    from pypy.rlib.getnameinfo import getnameinfo
+    from pypy.rlib.getnameinfo import NI_NUMERICHOST, NI_NUMERICSERV
