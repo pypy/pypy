@@ -707,6 +707,21 @@ class __extend__(pyframe.PyFrame):
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
         w_fromlist = f.popvalue()
+
+        # CPython 2.5 adds an obscure extra flag consumed by this opcode
+        if f.pycode.magic >= 0xa0df294:
+            w_flag = f.popvalue()
+            try:
+                if space.int_w(w_flag) == -1:
+                    w_flag = None     # don't provide the extra flag if == -1
+            except OperationError, e:
+                # let SystemExit and KeyboardInterrupt go through
+                if e.async(space):
+                    raise
+                # ignore other exceptions
+        else:
+            w_flag = None
+
         w_import = f.get_builtin().getdictvalue_w(f.space, '__import__')
         if w_import is None:
             raise OperationError(space.w_ImportError,
@@ -714,8 +729,14 @@ class __extend__(pyframe.PyFrame):
         w_locals = f.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_obj = space.call_function(w_import, space.wrap(modulename),
-                                    f.w_globals, w_locals, w_fromlist)
+        w_modulename = space.wrap(modulename)
+        w_globals = f.w_globals
+        if w_flag is None:
+            w_obj = space.call_function(w_import, w_modulename, w_globals,
+                                        w_locals, w_fromlist)
+        else:
+            w_obj = space.call_function(w_import, w_modulename, w_globals,
+                                        w_locals, w_fromlist, w_flag)
         f.pushvalue(w_obj)
 
     def IMPORT_STAR(f, *ignored):
