@@ -243,9 +243,12 @@ if _POSIX:
 CConfig.timeval = ctypes_platform.Struct('struct timeval',
                                          [('tv_sec', c_long),
                                           ('tv_usec', c_long)])
-CConfig.fd_set = ctypes_platform.Struct('struct fd_set',
-                                         [('fd_count', c_uint),
-                                          ('fd_array', c_uint * 64)]) # XXX FD_SETSIZE
+
+if _MS_WINDOWS:
+    CConfig.fd_set = ctypes_platform.Struct('struct fd_set',
+                                            [('fd_count', c_uint),
+                                             # XXX use FD_SETSIZE
+                                             ('fd_array', c_uint * 64)])
 
 if _MS_WINDOWS:
     CConfig.WSAData = ctypes_platform.Struct('struct WSAData',
@@ -331,7 +334,8 @@ if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
 timeval = cConfig.timeval
-fd_set = cConfig.fd_set
+if MS_WINDOWS:
+    fd_set = cConfig.fd_set
 
 c_int_size = sizeof(c_int)
 SetPointerType(addrinfo_ptr, addrinfo)
@@ -544,11 +548,12 @@ if _POSIX:
     poll = socketdll.poll
     poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
     poll.restype = c_int
-select = socketdll.select
-select.argtypes = [c_int,
-                   POINTER(fd_set), POINTER(fd_set), POINTER(fd_set),
-                   POINTER(timeval)]
-select.restype = c_int
+elif MS_WINDOWS:
+    select = socketdll.select
+    select.argtypes = [c_int,
+                       POINTER(fd_set), POINTER(fd_set), POINTER(fd_set),
+                       POINTER(timeval)]
+    select.restype = c_int
 
 if MS_WINDOWS:
     WSAData = cConfig.WSAData
