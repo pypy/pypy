@@ -164,13 +164,17 @@ def getaddrinfo(hostname, servname,
                                     sizeof(_c.sockaddr_in), address_to_fill)
                 return [(_c.AF_INET, socktype, protocol, None, addr)]
             else:
-                # XXX getaddrinfo() is a name->address translation function,
-                # and it looks strange that we do addr->name translation here.
                 sin = _c.sockaddr_in(sin_family=_c.AF_INET, sin_port=port)
 
                 sin.sin_addr.s_addr = packedaddr
 
-                canonname = get_name(hostname, sin.sin_addr, sizeof(_c.in_addr))
+                # getaddrinfo() is a name->address translation function,
+                # and it looks strange that we do addr->name translation here.
+                # This is what python2.3 did on Windows:
+                # if sys.version < (2, 4):
+                #     canonname = get_name(hostname, sin.sin_addr,
+                #                          sizeof(_c.in_addr))
+                canonname = hostname
 
                 addr = make_address(cast(pointer(sin), POINTER(_c.sockaddr)),
                                     sizeof(_c.sockaddr_in), address_to_fill)
