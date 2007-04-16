@@ -230,17 +230,7 @@ class ClassDef:
         other1 = other
         while other is not None and not self.issubclass(other):
             other = other.basedef
-        # special case for MI with Exception
-        #if other is None and other1 is not None:
-        #    if issubclass(self.cls, Exception) and issubclass(other1.cls, Exception):
-        #        return self.bookkeeper.getclassdef(Exception)
         return other
-
-    #def superdef_containing(self, cls):
-    #    clsdef = self
-    #    while clsdef is not None and not issubclass(cls, clsdef.cls):
-    #        clsdef = clsdef.basedef
-    #    return clsdef
 
     def getmro(self):
         while self is not None:

@@ -536,7 +536,8 @@ class ClassDesc(Desc):
         return s_instance
 
     def is_exception_class(self):
-        return self.pyobj is not None and issubclass(self.pyobj, Exception)
+        return self.pyobj is not None and issubclass(self.pyobj,
+                                                     py.builtin.BaseException)
 
     def is_builtin_exception_class(self):
         if self.is_exception_class():

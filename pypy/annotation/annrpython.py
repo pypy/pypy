@@ -622,7 +622,7 @@ class RPythonAnnotator(object):
             last_exc_value_var = link.last_exc_value # may be None for non-exception link
             
             if isinstance(link.exitcase, (types.ClassType, type)) \
-                   and issubclass(link.exitcase, Exception):
+                   and issubclass(link.exitcase, py.builtin.BaseException):
                 assert last_exception_var and last_exc_value_var
                 last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
                 last_exception_object = annmodel.SomeObject()

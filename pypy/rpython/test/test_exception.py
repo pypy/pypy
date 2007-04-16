@@ -112,6 +112,17 @@ class BaseTestException(BaseRtypingTest):
                 next_instr -= operr.a
         py.test.raises(LLException, self.interpret, f, [10])
 
+    def test_catch_KeyboardInterrupt(self):
+        def g(n):
+            return n
+        def f(n):
+            try:
+                return g(n)
+            except KeyboardInterrupt:
+                return -1
+        res = self.interpret(f, [11])
+        assert res == 11
+
 
 class TestLLtype(BaseTestException, LLRtypeMixin):
     pass
