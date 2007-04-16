@@ -9,6 +9,25 @@ except ImportError:
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from pypy.lib.pyontology.pyontology import Ontology, ConsistencyFailure
 
+import os
+import pypy.lib.pyontology
+DATAPATH = os.path.join(os.path.split(pypy.lib.pyontology.__file__)[0], 'test')
+
+def datapath(name):
+    """
+    Making the tests location independent:
+    We need to turn the file name into an URL, or the drive letter
+    would be misinterpreted as protocol on windows.
+    Instead of a plain file name, we pass an open URL.
+    But careful, URLs don't have a seek method, so we need to avoid
+    inspection of the beginning of the file by passing the file type
+    'xml' explicitly.
+    """
+    from urllib import urlopen, pathname2url
+    url = pathname2url(os.path.join(DATAPATH, name))
+    return urlopen(url)
+
+
 qt = """
          PREFIX ns: <http://example.org/ns#>
 
@@ -80,7 +99,7 @@ def test_case_0():
 
     query = qt_proto % ('?x', 'ns:sub ns:p "a123" .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     raises(ConsistencyFailure, O.sparql, query)
 
@@ -89,7 +108,7 @@ def test_case_1():
 
     query = qt_proto % ('?x', '?x ns:p 123 .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
     res = O.sparql(query)
@@ -100,7 +119,7 @@ def test_case_2():
 
     query = qt_proto % ('?x', 'ns:sub  ?x 123 .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
 
     O.finish()
@@ -113,7 +132,7 @@ def test_case_3():
 
     query = qt_proto % ('?x', 'ns:sub ns:p ?x .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
 
     O.attach_fd()
     O.finish()
@@ -125,7 +144,7 @@ def test_case_4():
 
     query = qt_proto % ('?x ?y', '?x ?y 123 .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
 
@@ -139,7 +158,7 @@ def test_case_5():
 
     query = qt_proto % ('?x ?y', '?x ns:p ?y .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
 
@@ -154,7 +173,7 @@ def test_case_6():
 
     query = qt_proto % ('?x ?y', 'ns:sub ?x ?y .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
 
@@ -167,7 +186,7 @@ def test_case_7():
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
     res = O.sparql(query)
@@ -177,7 +196,7 @@ def test_case_7():
 def test_filter():
     query = qt_proto % ('?x ?y', '?x ns:p ?y  .\n FILTER(?y < 124) .')
     O = Ontology()
-    O.add_file("testont.rdf")
+    O.add_file(datapath("testont.rdf"), 'xml')
     O.attach_fd()
     O.finish()
     res = O.sparql(query)
@@ -218,7 +237,7 @@ query3 = """
 
 def test_query1():
     O = Ontology()
-    O.add_file("testont2.rdf")
+    O.add_file(datapath("testont2.rdf"), 'xml')
     O.attach_fd()
 
     res = O.sparql(query1)
@@ -229,7 +248,7 @@ def test_query1():
 def test_query2():
 #    py.test.skip("Doesn't work yet")
     O = Ontology()
-    O.add_file("testont2.rdf")
+    O.add_file(datapath("testont2.rdf"), 'xml')
     O.attach_fd()
 
     res = O.sparql(query2)
@@ -240,7 +259,7 @@ def test_query2():
 def test_query3():
     #py.test.skip("Doesn't work yet")
     O = Ontology()
-    O.add_file("testont2.rdf")
+    O.add_file(datapath("testont2.rdf"), 'xml')
     O.attach_fd()
 
     res = O.sparql(query3)
@@ -258,6 +277,8 @@ class _TestXMLRPC:
         import sys
         exe = sys.executable
         print exe
+        self.oldcwd = os.getcwd()
+        os.chdir(DATAPATH)
         self.shell = Popen("%s ../pyontology.py testont.rdf" % exe, shell=True)
         server = xmlrpclib.ServerProxy("http://localhost:9000")
         print "setup"
@@ -271,7 +292,11 @@ class _TestXMLRPC:
                 break
     def teardown_class(self):
         print " teardown", self.shell.pid
-        os.kill(self.shell.pid, signal.SIGTERM)
+        os.chdir(self.oldcwd)
+        try:
+            os.kill(self.shell.pid, signal.SIGTERM)
+        except AttributeError:
+            print "SORRY can't kill process in this OS"
 
     def test_xmlrpc(self):
         print "test_xmlrpc"

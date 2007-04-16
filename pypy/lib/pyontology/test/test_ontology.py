@@ -13,6 +13,24 @@ except ImportError:
 #from pypy.lib.pyontology.pyontology import * # Ontology, ClassDomain, SubClassConstraint 
 from rdflib import Graph, URIRef, BNode
 
+import os
+import pypy.lib.pyontology
+DATAPATH = os.path.join(os.path.split(pypy.lib.pyontology.__file__)[0], 'test')
+
+def datapath(name):
+    """
+    Making the tests location independent:
+    We need to turn the file name into an URL, or the drive letter
+    would be misinterpreted as protocol on windows.
+    Instead of a plain file name, we pass an open URL.
+    But careful, URLs don't have a seek method, so we need to avoid
+    inspection of the beginning of the file by passing the file type
+    'xml' explicitly.
+    """
+    from urllib import urlopen, pathname2url
+    url = pathname2url(os.path.join(DATAPATH, name))
+    return urlopen(url)
+
 UR = URIRef
 
 class TestAppOntology:
@@ -40,7 +58,7 @@ class TestAppOntology:
     def test_equivalentProperty_inconst(self):
         from pypy.lib.pyontology.pyontology import *
         O = Ontology()
-        O.add_file("testinconst.rdf")
+        O.add_file(datapath("testinconst.rdf"), 'xml')
         O.attach_fd()
         raises(ConsistencyFailure, O.consistency)
 
@@ -683,12 +701,12 @@ class TestAppOntology:
     def test_add_file(self):
         from pypy.lib.pyontology.pyontology import *
         O = Ontology()
-        O.add_file('premises001.rdf')
+        O.add_file(datapath('premises001.rdf'), 'xml')
         trip = list(O.graph.triples((None,)*3))
     #    O.attach_fd()
         ll = len(O.variables)
         l = len(trip)
-        O.add_file('conclusions001.rdf')
+        O.add_file(datapath('conclusions001.rdf'), 'xml')
         O.attach_fd()
         lll = len(O.variables)
         assert len(list(O.graph.triples((None,)*3))) > l
@@ -696,12 +714,12 @@ class TestAppOntology:
     def test_more_cardinality(self):
         from pypy.lib.pyontology.pyontology import *
         O = Ontology()
-        O.add_file('premises003.rdf')
+        O.add_file(datapath('premises003.rdf'), 'xml')
         trip = list(O.graph.triples((None,)*3))
      #   O.attach_fd()
         ll = len(O.variables)
         l = len(trip)
-        O.add_file('conclusions003.rdf')
+        O.add_file(datapath('conclusions003.rdf'), 'xml')
         O.attach_fd()
         O.consistency()
         lll = len(O.variables)
