@@ -39,7 +39,7 @@ class GeneratorIterator(Wrappable):
         self.running = True
         try:
             try:
-                w_result = self.frame.execute_frame()
+                w_result = self.frame.execute_generator_frame(space.w_None)
             except OperationError:
                 # errors finish a frame
                 self.frame.frame_finished_execution = True

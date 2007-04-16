@@ -92,6 +92,14 @@ class PyFrame(eval.Frame):
         else:
             return self.execute_frame()
 
+    def execute_generator_frame(self, w_inputvalue):
+        # opcode semantic change in CPython 2.5: we must pass an input value
+        # when resuming a generator, which goes into the value stack.
+        # (it's always w_None for now - not implemented in generator.py)
+        if self.pycode.magic >= 0xa0df294 and self.last_instr != -1:
+            self.pushvalue(w_inputvalue)
+        return self.execute_frame()
+
     def execute_frame(self):
         """Execute this frame.  Main entry point to the interpreter."""
         executioncontext = self.space.getexecutioncontext()
