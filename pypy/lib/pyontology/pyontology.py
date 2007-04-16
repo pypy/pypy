@@ -65,10 +65,15 @@ def check_format(f):
     return format
 
 """ In OWL there are Classes, Properties, Individuals and Literals.
-    Properties creates relations between Classes, Classes and Individuals, Individuals and Individuals and Literals. There are a inheritance tree of Properties.    We record instances of Properies in the class variable "prop_instance".
+    Properties creates relations between Classes, Classes and Individuals,
+    Individuals and Individuals and Literals. There is an inheritance
+    tree of Properties.
+    We record instances of Properies in the class variable "prop_instance".
 
-    Classes are defined as the set of Individuals belonging to the Class. We record these as the Values of the Classdomain.
-    We record the instances of a Classtype in the Class variable "cls_inst". The class instances shall "buble" up the inheritance tree.
+    Classes are defined as the set of Individuals belonging to the Class.
+    We record these as the Values of the Classdomain.
+    We record the instances of a Classtype in the Class variable "cls_inst".
+    The class instances shall "bubble" up the inheritance tree.
 """
 
 class ClassDomain(AbstractDomain, object):
@@ -917,7 +922,6 @@ class Ontology:
         # class extension of var, ie if a indiviual is in
         # the extension of s it must be in the extension of
         # var
-        
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(ClassDomain, s)
         self.variables[svar].bases.append(avar)
