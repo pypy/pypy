@@ -10,39 +10,54 @@ from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char, c_ubyte
 from ctypes import c_short, POINTER, ARRAY, cdll, sizeof, SetPointerType
 from pypy.rlib.rarithmetic import intmask, r_uint
 
-
 # Also not used here, but exported for other code.
 from ctypes import cast, pointer, create_string_buffer
 
-includes = ('sys/types.h',
-            'sys/socket.h',
-            'sys/un.h',
-            'sys/poll.h',
-            'netinet/in.h',
-            'netinet/tcp.h',
-            'unistd.h',
-            'fcntl.h',
-            'stdio.h',
-            'netdb.h',
-            'arpa/inet.h',
-            'stdint.h', 
-            'errno.h',
-            )
-cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
-HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
-COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
-                      for cond_include in cond_includes])
+_POSIX = os.name == "posix"
+_MS_WINDOWS = os.name == "nt"
+
+if _POSIX:
+    includes = ('sys/types.h',
+                'sys/socket.h',
+                'sys/un.h',
+                'sys/poll.h',
+                'netinet/in.h',
+                'netinet/tcp.h',
+                'unistd.h',
+                'fcntl.h',
+                'stdio.h',
+                'netdb.h',
+                'arpa/inet.h',
+                'stdint.h', 
+                'errno.h',
+                )
+    cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
+    HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
+    COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
+                          for cond_include in cond_includes])
+if _MS_WINDOWS:
+    HEADER = '\n'.join([
+        '#include <WinSock2.h>',
+        '#include <WS2tcpip.h>',
+        # winsock2 defines AF_UNIX, but not sockaddr_un
+        '#undef AF_UNIX',
+        # these types do not exist on windows
+        'typedef int ssize_t;',
+        'typedef unsigned __int16 uint16_t;',
+        'typedef unsigned __int32 uint32_t;',
+        ])
+    COND_HEADER = ''
 constants = {}
 
 class CConfig:
     _header_ = HEADER + COND_HEADER
     # constants
-    O_NONBLOCK = ctypes_platform.ConstantInteger('O_NONBLOCK')
-    F_GETFL = ctypes_platform.ConstantInteger('F_GETFL')
-    F_SETFL = ctypes_platform.ConstantInteger('F_SETFL')
+    O_NONBLOCK = ctypes_platform.DefinedConstantInteger('O_NONBLOCK')
+    F_GETFL = ctypes_platform.DefinedConstantInteger('F_GETFL')
+    F_SETFL = ctypes_platform.DefinedConstantInteger('F_SETFL')
 
     linux      = ctypes_platform.Defined('linux')
-    MS_WINDOWS = ctypes_platform.Defined('MS_WINDOWS')
+    MS_WINDOWS = ctypes_platform.Defined('_WIN32')
     INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = ctypes_platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= ctypes_platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
@@ -213,11 +228,23 @@ CConfig.protoent = ctypes_platform.Struct('struct protoent',
                                           [('p_proto', c_int),
                                            ])
 
-CConfig.nfds_t = ctypes_platform.SimpleType('nfds_t')
-CConfig.pollfd = ctypes_platform.Struct('struct pollfd',
-                                        [('fd', c_int),
-                                         ('events', c_short),
-                                         ('revents', c_short)])
+if _POSIX:
+    CConfig.nfds_t = ctypes_platform.SimpleType('nfds_t')
+    CConfig.pollfd = ctypes_platform.Struct('struct pollfd',
+                                            [('fd', c_int),
+                                             ('events', c_short),
+                                             ('revents', c_short)])
+
+if _MS_WINDOWS:
+    CConfig.WSAData = ctypes_platform.Struct('struct WSAData',
+                                     [('wVersion', c_ushort),
+                                      ('wHighVersion', c_ushort),
+                                      ('szDescription', c_char * 1), # (WSADESCRIPTION_LEN+1)
+                                      ('szSystemStatus', c_char * 1), # (WSASYS_STATUS_LEN+1)
+                                      ('iMaxSockets', c_ushort),
+                                      ('iMaxUdpDg', c_ushort),
+                                      ('lpVendorInfo', c_char_p)])
+
 
 class cConfig:
     pass
@@ -260,6 +287,8 @@ EAFNOSUPPORT = cConfig.EAFNOSUPPORT
 
 linux = cConfig.linux
 MS_WINDOWS = cConfig.MS_WINDOWS
+assert MS_WINDOWS == _MS_WINDOWS
+
 if MS_WINDOWS:
     def invalid_socket(fd):
         return fd == INVALID_SOCKET
@@ -285,8 +314,9 @@ in_addr = cConfig.in_addr
 in_addr_size = sizeof(in_addr)
 in6_addr = cConfig.in6_addr
 addrinfo = cConfig.addrinfo
-nfds_t = cConfig.nfds_t
-pollfd = cConfig.pollfd
+if _POSIX:
+    nfds_t = cConfig.nfds_t
+    pollfd = cConfig.pollfd
 
 c_int_size = sizeof(c_int)
 SetPointerType(addrinfo_ptr, addrinfo)
@@ -294,23 +324,31 @@ SetPointerType(sockaddr_ptr, sockaddr)
 
 
 # functions
-dllname = util.find_library('c')
-assert dllname is not None
-socketdll = cdll.LoadLibrary(dllname)
+if MS_WINDOWS:
+    from ctypes import windll
+    dllname = util.find_library('wsock32')
+    assert dllname is not None
+    socketdll = windll.LoadLibrary(dllname)
+else:
+    dllname = util.find_library('c')
+    assert dllname is not None
+    socketdll = cdll.LoadLibrary(dllname)
 
-dup = socketdll.dup
-dup.argtypes = [c_int]
-dup.restype = c_int
+if _POSIX:
+    dup = socketdll.dup
+    dup.argtypes = [c_int]
+    dup.restype = c_int
 
 #errno = c_int.in_dll(socketdll, 'errno')
 
-strerror = socketdll.strerror
-strerror.argtypes = [c_int]
-strerror.restype = c_char_p
+if _POSIX:
+    strerror = socketdll.strerror
+    strerror.argtypes = [c_int]
+    strerror.restype = c_char_p
 
-gai_strerror = socketdll.gai_strerror
-gai_strerror.argtypes = [c_int]
-gai_strerror.restype = c_char_p
+    gai_strerror = socketdll.gai_strerror
+    gai_strerror.argtypes = [c_int]
+    gai_strerror.restype = c_char_p
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
 #
@@ -333,20 +371,21 @@ socketconnect = socketdll.connect
 socketconnect.argtypes = [c_int, sockaddr_ptr, socklen_t]
 socketconnect.restype = c_int
 
-getaddrinfo = socketdll.getaddrinfo
-getaddrinfo.argtypes = [c_char_p, c_char_p, addrinfo_ptr,
-                        POINTER(addrinfo_ptr)]
-getaddrinfo.restype = c_int
+if not MS_WINDOWS:
+    getaddrinfo = socketdll.getaddrinfo
+    getaddrinfo.argtypes = [c_char_p, c_char_p, addrinfo_ptr,
+                            POINTER(addrinfo_ptr)]
+    getaddrinfo.restype = c_int
 
-freeaddrinfo = socketdll.freeaddrinfo
-freeaddrinfo.argtypes = [addrinfo_ptr]
-freeaddrinfo.restype = None
+    freeaddrinfo = socketdll.freeaddrinfo
+    freeaddrinfo.argtypes = [addrinfo_ptr]
+    freeaddrinfo.restype = None
 
-getnameinfo = socketdll.getnameinfo
-getnameinfo.argtypes = [sockaddr_ptr, socklen_t,
-                        c_char_p, size_t,
-                        c_char_p, size_t, c_int]
-getnameinfo.restype = c_int
+    getnameinfo = socketdll.getnameinfo
+    getnameinfo.argtypes = [sockaddr_ptr, socklen_t,
+                            c_char_p, size_t,
+                            c_char_p, size_t, c_int]
+    getnameinfo.restype = c_int
 
 htonl = socketdll.htonl
 htonl.argtypes = [uint32_t]
@@ -364,21 +403,23 @@ ntohs = socketdll.ntohs
 ntohs.argtypes = [uint16_t]
 ntohs.restype = uint16_t
 
-inet_aton = socketdll.inet_aton
-inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
-inet_aton.restype = c_int
+if _POSIX:
+    inet_aton = socketdll.inet_aton
+    inet_aton.argtypes = [c_char_p, POINTER(in_addr)]
+    inet_aton.restype = c_int
 
 inet_ntoa = socketdll.inet_ntoa
 inet_ntoa.argtypes = [in_addr]
 inet_ntoa.restype = c_char_p
 
-inet_pton = socketdll.inet_pton
-inet_pton.argtypes = [c_int, c_char_p, c_void_p]
-inet_pton.restype = c_int
+if _POSIX:
+    inet_pton = socketdll.inet_pton
+    inet_pton.argtypes = [c_int, c_char_p, c_void_p]
+    inet_pton.restype = c_int
 
-inet_ntop = socketdll.inet_ntop
-inet_ntop.argtypes = [c_int, c_void_p, c_char_p, socklen_t]
-inet_ntop.restype = c_char_p
+    inet_ntop = socketdll.inet_ntop
+    inet_ntop.argtypes = [c_int, c_void_p, c_char_p, socklen_t]
+    inet_ntop.restype = c_char_p
 
 socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
@@ -436,11 +477,6 @@ socketshutdown = socketdll.shutdown
 socketshutdown.argtypes = [c_int, c_int]
 socketshutdown.restype = c_int
 
-
-getaddrinfo = socketdll.getaddrinfo
-getaddrinfo.argtypes = [ c_char_p, c_char_p, addrinfo_ptr, POINTER(addrinfo_ptr)]
-getaddrinfo.restype = c_int
-
 gethostname = socketdll.gethostname
 gethostname.argtypes = [c_char_p, c_int]
 gethostname.restype = c_int
@@ -465,28 +501,37 @@ getprotobyname = socketdll.getprotobyname
 getprotobyname.argtypes = [c_char_p]
 getprotobyname.restype = POINTER(cConfig.protoent)
 
-fcntl = socketdll.fcntl
-fcntl.argtypes = [c_int] * 3
-fcntl.restype = c_int
+if _POSIX:
+    fcntl = socketdll.fcntl
+    fcntl.argtypes = [c_int] * 3
+    fcntl.restype = c_int
 
-memcpy = socketdll.memcpy
-memcpy.argtypes = [c_void_p, c_void_p, size_t]
-memcpy.restype = c_void_p
-
-socketpair_t = ARRAY(c_int, 2)
-socketpair = socketdll.socketpair
-socketpair.argtypes = [c_int, c_int, c_int, POINTER(socketpair_t)]
-socketpair.restype = c_int
+    socketpair_t = ARRAY(c_int, 2)
+    socketpair = socketdll.socketpair
+    socketpair.argtypes = [c_int, c_int, c_int, POINTER(socketpair_t)]
+    socketpair.restype = c_int
 
 shutdown = socketdll.shutdown
 shutdown.argtypes = [c_int, c_int]
 shutdown.restype = c_int
 
-poll = socketdll.poll
-poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
-poll.restype = c_int
+if _POSIX:
+    poll = socketdll.poll
+    poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
+    poll.restype = c_int
 
 if MS_WINDOWS:
+    WSAData = cConfig.WSAData
+    WSAStartup = socketdll.WSAStartup
+    WSAStartup.argtypes = [c_int, POINTER(WSAData)]
+    WSAStartup.restype = c_int
+
+    WSAGetLastError = socketdll.WSAGetLastError
+    WSAGetLastError.argtypes = []
+    WSAGetLastError.restype = c_int
+    geterrno = WSAGetLastError
+    
+    import errno
     WIN32_ERROR_MESSAGES = {
         errno.WSAEINTR:  "Interrupted system call",
         errno.WSAEBADF:  "Bad file descriptor",
@@ -547,7 +592,7 @@ if MS_WINDOWS:
         }
 
     def socket_strerror(errno):
-        return WIN32_ERROR_MESSAGES.get(errno, "winsock error")
+        return WIN32_ERROR_MESSAGES.get(errno, "winsock error %d" % errno)
 else:
     def socket_strerror(errno):
         return strerror(errno)

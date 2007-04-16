@@ -2,6 +2,9 @@ import py, errno
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import *
 
+def setup_module(mod):
+    rsocket_startup()
+
 def test_ipv4_addr():
     a = INETAddress("localhost", 4000)
     assert a.get_host() == "127.0.0.1"

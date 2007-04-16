@@ -22,6 +22,16 @@ from pypy.rlib.rarithmetic import intmask
 constants = _c.constants
 locals().update(constants) # Define constants from _c
 
+if _c.MS_WINDOWS:
+    def rsocket_startup():
+        wsadata = _c.WSAData()
+        res = _c.WSAStartup(1, byref(wsadata))
+        assert res == 0
+else:
+    def rsocket_startup():
+        pass
+ 
+ 
 ntohs = _c.ntohs
 ntohl = _c.ntohl
 htons = _c.htons
@@ -311,60 +321,62 @@ class INET6Address(IPAddress):
 
 # ____________________________________________________________
 
-class UNIXAddress(Address):
-    family = AF_UNIX
-    struct = _c.sockaddr_un
-    maxlen = sizeof(struct)
+if 'AF_UNIX' in constants:
+    class UNIXAddress(Address):
+        family = AF_UNIX
+        struct = _c.sockaddr_un
+        maxlen = sizeof(struct)
 
-    def __init__(self, path):
-        sun = _c.sockaddr_un(sun_family = AF_UNIX)
-        if _c.linux and path.startswith('\x00'):
-            # Linux abstract namespace extension
-            if len(path) > sizeof(sun.sun_path):
-                raise RSocketError("AF_UNIX path too long")
-        else:
-            # regular NULL-terminated string
-            if len(path) >= sizeof(sun.sun_path):
-                raise RSocketError("AF_UNIX path too long")
-            sun.sun_path[len(path)] = 0
-        for i in range(len(path)):
-            sun.sun_path[i] = ord(path[i])
-        self.sun = sun
-        self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
-        self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
+        def __init__(self, path):
+            sun = _c.sockaddr_un(sun_family = AF_UNIX)
+            if _c.linux and path.startswith('\x00'):
+                # Linux abstract namespace extension
+                if len(path) > sizeof(sun.sun_path):
+                    raise RSocketError("AF_UNIX path too long")
+            else:
+                # regular NULL-terminated string
+                if len(path) >= sizeof(sun.sun_path):
+                    raise RSocketError("AF_UNIX path too long")
+                sun.sun_path[len(path)] = 0
+            for i in range(len(path)):
+                sun.sun_path[i] = ord(path[i])
+            self.sun = sun
+            self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
+            self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
 
-    def as_sockaddr_un(self):
-        if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
-            raise RSocketError("invalid address")
-        return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
+        def as_sockaddr_un(self):
+            if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
+                raise RSocketError("invalid address")
+            return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
 
-    def __repr__(self):
-        try:
-            return '<UNIXAddress %r>' % (self.get_path(),)
-        except SocketError:
-            return '<UNIXAddress ?>'
+        def __repr__(self):
+            try:
+                return '<UNIXAddress %r>' % (self.get_path(),)
+            except SocketError:
+                return '<UNIXAddress ?>'
 
-    def get_path(self):
-        a = self.as_sockaddr_un()
-        if _c.linux and a.sun_path[0] == 0:
-            # Linux abstract namespace
-            buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
-                           self.addrlen - offsetof(_c.sockaddr_un, 'sun_path'))
-            return buf.raw
-        else:
-            # regular NULL-terminated string
-            return cast(pointer(a.sun_path), c_char_p).value
+        def get_path(self):
+            a = self.as_sockaddr_un()
+            if _c.linux and a.sun_path[0] == 0:
+                # Linux abstract namespace
+                buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
+                               self.addrlen - offsetof(_c.sockaddr_un,
+                                                       'sun_path'))
+                return buf.raw
+            else:
+                # regular NULL-terminated string
+                return cast(pointer(a.sun_path), c_char_p).value
 
-    def eq(self, other):   # __eq__() is not called by RPython :-/
-        return (isinstance(other, UNIXAddress) and
-                self.get_path() == other.get_path())
+        def eq(self, other):   # __eq__() is not called by RPython :-/
+            return (isinstance(other, UNIXAddress) and
+                    self.get_path() == other.get_path())
 
-    def as_object(self, space):
-        return space.wrap(self.get_path())
+        def as_object(self, space):
+            return space.wrap(self.get_path())
 
-    def from_object(space, w_address):
-        return UNIXAddress(space.str_w(w_address))
-    from_object = staticmethod(from_object)
+        def from_object(space, w_address):
+            return UNIXAddress(space.str_w(w_address))
+        from_object = staticmethod(from_object)
 
 if 'AF_NETLINK' in constants:
     class NETLINKAddress(Address):
@@ -837,7 +849,7 @@ defaults = Defaults()
 
 
 # ____________________________________________________________
-if AF_UNIX is None:
+if 'AF_UNIX' not in constants or AF_UNIX is None:
     socketpair_default_family = AF_INET
 else:
     socketpair_default_family = AF_UNIX
