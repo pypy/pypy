@@ -7,7 +7,8 @@ from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 from pypy.rpython.rctypes.aerrno import geterrno
 
 from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char, c_ubyte
-from ctypes import c_short, POINTER, ARRAY, cdll, sizeof, SetPointerType
+from ctypes import c_short, c_long, c_ulong
+from ctypes import POINTER, ARRAY, cdll, sizeof, SetPointerType
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 # Also not used here, but exported for other code.
@@ -52,12 +53,14 @@ constants = {}
 class CConfig:
     _header_ = HEADER + COND_HEADER
     # constants
+    linux      = ctypes_platform.Defined('linux')
+    MS_WINDOWS = ctypes_platform.Defined('_WIN32')
+
     O_NONBLOCK = ctypes_platform.DefinedConstantInteger('O_NONBLOCK')
     F_GETFL = ctypes_platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = ctypes_platform.DefinedConstantInteger('F_SETFL')
+    FIONBIO = ctypes_platform.DefinedConstantInteger('FIONBIO')
 
-    linux      = ctypes_platform.Defined('linux')
-    MS_WINDOWS = ctypes_platform.Defined('_WIN32')
     INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = ctypes_platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= ctypes_platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
@@ -237,6 +240,13 @@ if _POSIX:
                                              ('events', c_short),
                                              ('revents', c_short)])
 
+CConfig.timeval = ctypes_platform.Struct('struct timeval',
+                                         [('tv_sec', c_long),
+                                          ('tv_usec', c_long)])
+CConfig.fd_set = ctypes_platform.Struct('struct fd_set',
+                                         [('fd_count', c_uint),
+                                          ('fd_array', c_uint * 64)]) # XXX FD_SETSIZE
+
 if _MS_WINDOWS:
     CConfig.WSAData = ctypes_platform.Struct('struct WSAData',
                                      [('wVersion', c_ushort),
@@ -279,6 +289,7 @@ locals().update(constants)
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
+FIONBIO = cConfig.FIONBIO
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
 POLLIN = cConfig.POLLIN
@@ -293,7 +304,7 @@ assert MS_WINDOWS == _MS_WINDOWS
 
 if MS_WINDOWS:
     def invalid_socket(fd):
-        return fd == INVALID_SOCKET
+        return c_uint(fd).value == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
 else:
     def invalid_socket(fd):
@@ -319,6 +330,8 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
+timeval = cConfig.timeval
+fd_set = cConfig.fd_set
 
 c_int_size = sizeof(c_int)
 SetPointerType(addrinfo_ptr, addrinfo)
@@ -517,6 +530,12 @@ if _POSIX:
     socketpair.argtypes = [c_int, c_int, c_int, POINTER(socketpair_t)]
     socketpair.restype = c_int
 
+if _MS_WINDOWS:
+    ioctlsocket = socketdll.ioctlsocket
+    ioctlsocket.argtypes = [c_int, c_long, POINTER(c_ulong)]
+    ioctlsocket.restype = c_int
+    
+
 shutdown = socketdll.shutdown
 shutdown.argtypes = [c_int, c_int]
 shutdown.restype = c_int
@@ -525,6 +544,11 @@ if _POSIX:
     poll = socketdll.poll
     poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
     poll.restype = c_int
+select = socketdll.select
+select.argtypes = [c_int,
+                   POINTER(fd_set), POINTER(fd_set), POINTER(fd_set),
+                   POINTER(timeval)]
+select.restype = c_int
 
 if MS_WINDOWS:
     WSAData = cConfig.WSAData

@@ -13,8 +13,8 @@ a drop-in replacement for the 'socket' module.
 
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib import _rsocket_ctypes as _c
-from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
-from ctypes import create_string_buffer, sizeof, cast
+from ctypes import c_char, c_ulong, c_char_p, c_void_p
+from ctypes import POINTER, pointer, byref, create_string_buffer, sizeof, cast
 from pypy.rpython.rctypes.astruct import offsetof
 from pypy.rlib.rarithmetic import intmask
 
@@ -471,35 +471,62 @@ class RSocket(object):
     def __del__(self):
         self.close()
 
-    def _setblocking(self, block):
-        # PLAT various methods on other platforms
-        # XXX Windows missing
-        delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
-        if block:
-            delay_flag &= ~_c.O_NONBLOCK
-        else:
-            delay_flag |= _c.O_NONBLOCK
-        _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+    if hasattr(_c, 'fcntl'):
+        def _setblocking(self, block):
+            delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
+            if block:
+                delay_flag &= ~_c.O_NONBLOCK
+            else:
+                delay_flag |= _c.O_NONBLOCK
+            _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+    elif hasattr(_c, 'ioctlsocket'):
+        def _setblocking(self, block):
+            flag = c_ulong(not block)
+            _c.ioctlsocket(self.fd, _c.FIONBIO, byref(flag))
 
-    def _select(self, for_writing):
-        """Returns 0 when reading/writing is possible,
-        1 when timing out and -1 on error."""
-        if self.timeout <= 0.0 or self.fd < 0:
-            # blocking I/O or no socket.
+    if hasattr(_c, 'poll'):
+        def _select(self, for_writing):
+            """Returns 0 when reading/writing is possible,
+            1 when timing out and -1 on error."""
+            if self.timeout <= 0.0 or self.fd < 0:
+                # blocking I/O or no socket.
+                return 0
+            pollfd = _c.pollfd()
+            pollfd.fd = self.fd
+            if for_writing:
+                pollfd.events = _c.POLLOUT
+            else:
+                pollfd.events = _c.POLLIN
+            timeout = int(self.timeout * 1000.0 + 0.5)
+            n = _c.poll(byref(pollfd), 1, timeout)
+            if n < 0:
+                return -1
+            if n == 0:
+                return 1
             return 0
-        pollfd = _c.pollfd()
-        pollfd.fd = self.fd
-        if for_writing:
-            pollfd.events = _c.POLLOUT
-        else:
-            pollfd.events = _c.POLLIN
-        timeout = int(self.timeout * 1000.0 + 0.5)
-        n = _c.poll(byref(pollfd), 1, timeout)
-        if n < 0:
-            return -1
-        if n == 0:
-            return 1
-        return 0
+    else:
+        # Version witout poll(): use select()
+        def _select(self, for_writing):
+            """Returns 0 when reading/writing is possible,
+            1 when timing out and -1 on error."""
+            if self.timeout <= 0.0 or self.fd < 0:
+                # blocking I/O or no socket.
+                return 0
+            tv = _c.timeval(tv_sec=int(self.timeout),
+                            tv_usec=int((self.timeout-int(self.timeout))
+                                        * 1000000))
+            fds = _c.fd_set(fd_count=1)
+            fds.fd_array[0] = self.fd
+            if for_writing:
+                n = _c.select(self.fd + 1, None, byref(fds), None, byref(tv))
+            else:
+                n = _c.select(self.fd + 1, byref(fds), None, None, byref(tv))
+            if n < 0:
+                return -1
+            if n == 0:
+                return 1
+            return 0
+        
         
     def error_handler(self):
         return last_error()
