@@ -415,7 +415,7 @@ class Restriction(ClassDomain):
     """ A owl:restriction is an anonymous class that links a class to a restriction on a property
         The restriction is only applied to the property in the conntext of the specific task. In order
         to construct a constraint to check the restriction three things are thus needed :
-            1. The property to which the restriction applies - this comes from the onProperty tripple.
+            1. The property to which the restriction applies - this comes from the onProperty triple.
                 the property is saved in the Restriction class' property attribute
             2. The restriction itself. This comes from one of the property restrictions triples (oneOf,
                 maxCardinality ....). It adds a constraint class

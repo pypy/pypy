@@ -3,6 +3,13 @@ from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
 from logilab.constraint.distributors import DichotomyDistributor, SplitDistributor
 from logilab.constraint.fd import Expression
 from rdflib import URIRef
+try:
+    # not sure if we have this when running on PyPy
+    # this is needed for verbose, only (see solve method)
+    from time import strftime
+except ImportError:
+    pass
+
 import autopath
 import py
 from pypy.tool.ansi_print import ansi_log
