@@ -24,7 +24,6 @@ The constructor is:
 array(typecode [, initializer]) -- create a new array
 """
 import sys
-from struct import pack, unpack
 
 if sys.maxunicode == 65535:
     UNICODE_SIZE = 2
@@ -214,6 +213,7 @@ class array(object):
         self._fromiterable(l)
         
     def fromstring(self, s):
+        from struct import pack, unpack
         """Appends items from the string, interpreting it as an array of machine
         values, as if it had been read from a file using the fromfile()
         method)."""
@@ -266,6 +266,7 @@ class array(object):
         return self._data[:]
 
     def tostring(self):
+        from struct import pack, unpack
         """Convert the array to an array of machine values and return the string
         representation."""
         if self.typecode == "u":
