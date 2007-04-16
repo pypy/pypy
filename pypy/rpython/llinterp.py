@@ -333,7 +333,7 @@ class LLFrame(object):
                 cls = e.args[0]
                 inst = e.args[1]
                 for link in block.exits[1:]:
-                    assert issubclass(link.exitcase, Exception)
+                    assert issubclass(link.exitcase, py.builtin.BaseException)
                     if self.op_direct_call(exdata.fn_exception_match,
                                            cls, link.llexitcase):
                         self.setifvar(link.last_exception, cls)
@@ -1138,7 +1138,8 @@ def enumerate_exceptions_top_down():
     result = []
     seen = {}
     def addcls(cls):
-        if type(cls) is type(Exception) and issubclass(cls, Exception):
+        if (type(cls) is type(Exception) and
+            issubclass(cls, py.builtin.BaseException)):
             if cls in seen:
                 return
             for base in cls.__bases__:   # bases first

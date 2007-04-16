@@ -9,16 +9,6 @@ def getclassrepr(rtyper, classdef):
     try:
         result = rtyper.class_reprs[classdef]
     except KeyError:
-        #if classdef and classdef.cls is Exception:
-        #    # skip Exception as a base class and go directly to 'object'.
-        #    # the goal is to allow any class anywhere in the hierarchy
-        #    # to have Exception as a second base class.  It should be an
-        #    # empty class anyway.
-        #    if classdef.attrs:
-        #        raise TyperError("the Exception class should not "
-        #                         "have any attribute attached to it")
-        #    result = getclassrepr(rtyper, None)
-        #else:
         result = rtyper.type_system.rclass.ClassRepr(rtyper, classdef)
         rtyper.class_reprs[classdef] = result
         rtyper.add_pendingsetup(result)
