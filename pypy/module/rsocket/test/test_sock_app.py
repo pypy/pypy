@@ -301,6 +301,8 @@ class AppTestSocket:
 
     def test_socket_close_error(self):
         import _socket, os
+        if os.name == 'nt':
+            skip("Windows sockets are not files")
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         os.close(s.fileno())
         raises(_socket.error, s.close)
