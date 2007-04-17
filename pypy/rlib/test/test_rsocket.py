@@ -162,6 +162,8 @@ def test_nonblocking():
     assert err in (0, errno.EISCONN)
 
     s1.send('?')
+    import time
+    time.sleep(0.01) # Windows needs some time to transfer data
     buf = s2.recv(100)
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
