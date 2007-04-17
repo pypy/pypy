@@ -247,6 +247,8 @@ class AppTestSocket:
 
     def test_ntop_exceptions(self):
         import _socket
+        if not hasattr(_socket, 'inet_ntop'):
+            skip('No socket.inet_pton on this platform')
         for family, packed, exception in \
                     [(_socket.AF_INET + _socket.AF_INET6, "", _socket.error),
                      (_socket.AF_INET, "a", ValueError),

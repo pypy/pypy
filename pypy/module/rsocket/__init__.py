@@ -28,7 +28,8 @@ class Module(MixedModule):
             getdefaulttimeout setdefaulttimeout
             """.split():
 
-            if name in ('inet_pton',) and not hasattr(rsocket, name):
+            if name in ('inet_pton', 'inet_ntop',
+                        ) and not hasattr(rsocket, name):
                 continue
             
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )

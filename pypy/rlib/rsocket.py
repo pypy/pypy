@@ -1058,25 +1058,26 @@ if hasattr(_c, 'inet_pton'):
         else:
             return buf.raw
 
-def inet_ntop(family, packed):
-    "packed string -> human-readable string"
-    if family == AF_INET:
-        srcsize = sizeof(_c.in_addr)
-        dstsize = _c.INET_ADDRSTRLEN
-    elif AF_INET6 is not None and family == AF_INET6:
-        srcsize = sizeof(_c.in6_addr)
-        dstsize = _c.INET6_ADDRSTRLEN
-    else:
-        raise RSocketError("unknown address family")
-    if len(packed) != srcsize:
-        raise ValueError("packed IP wrong length for inet_ntop")
-    srcbuf = create_string_buffer(srcsize)
-    srcbuf.raw = packed
-    dstbuf = create_string_buffer(dstsize)
-    res = _c.inet_ntop(family, cast(srcbuf, c_void_p), dstbuf, dstsize)
-    if res is None:
-        raise last_error()
-    return res
+if hasattr(_c, 'inet_ntop'):
+    def inet_ntop(family, packed):
+        "packed string -> human-readable string"
+        if family == AF_INET:
+            srcsize = sizeof(_c.in_addr)
+            dstsize = _c.INET_ADDRSTRLEN
+        elif AF_INET6 is not None and family == AF_INET6:
+            srcsize = sizeof(_c.in6_addr)
+            dstsize = _c.INET6_ADDRSTRLEN
+        else:
+            raise RSocketError("unknown address family")
+        if len(packed) != srcsize:
+            raise ValueError("packed IP wrong length for inet_ntop")
+        srcbuf = create_string_buffer(srcsize)
+        srcbuf.raw = packed
+        dstbuf = create_string_buffer(dstsize)
+        res = _c.inet_ntop(family, cast(srcbuf, c_void_p), dstbuf, dstsize)
+        if res is None:
+            raise last_error()
+        return res
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:
