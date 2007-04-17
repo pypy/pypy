@@ -1036,7 +1036,7 @@ def repr__Unicode(space, w_unicode):
 
 def mod__Unicode_ANY(space, w_format, w_values):
     if space.is_true(space.isinstance(w_values, space.w_tuple)):
-        return format(space, w_format, w_values, do_unicode=True)
+        return format(space, w_format, w_values, space.w_None, do_unicode=True)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
@@ -1048,7 +1048,7 @@ def mod__Unicode_ANY(space, w_format, w_values):
                           do_unicode=True)
         else:
             return format(space, w_format,
-                          space.newtuple([w_values]), None,
+                          space.newtuple([w_values]), space.w_None,
                           do_unicode=True)
 
 

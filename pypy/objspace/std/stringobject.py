@@ -918,7 +918,7 @@ str_encode__String_ANY_ANY = app.interphook('str_encode__String_ANY_ANY')
 # (values is of a mapping type)
 def mod__String_ANY(space, w_format, w_values):
     if space.is_true(space.isinstance(w_values, space.w_tuple)):
-        return format(space, w_format, w_values)
+        return format(space, w_format, w_values, space.w_None)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
@@ -929,7 +929,7 @@ def mod__String_ANY(space, w_format, w_values):
                                      space.newtuple([w_values]), w_values)
         else:
             return format(space, w_format,
-                                     space.newtuple([w_values]), None)
+                                     space.newtuple([w_values]), space.w_None)
 
 # register all methods
 from pypy.objspace.std import stringtype

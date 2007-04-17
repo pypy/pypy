@@ -419,7 +419,7 @@ class FmtIter(object):
             return self.fmt[i:j]
 
 
-def format(space, w_fmt, w_values, w_valuedict=None, do_unicode=False):
+def format(space, w_fmt, w_values, w_valuedict, do_unicode=False):
     vb = ValueGetter(space, w_values, w_valuedict)
     if not do_unicode:
         return _format(space, space.str_w(w_fmt), vb)
@@ -515,7 +515,7 @@ class ValueGetter:
     def check_consumed(self):
         space = self.space
         if (self._valueindex < len(self.values_w) and 
-            self.w_valuedict is None):
+            space.is_w(self.w_valuedict, space.w_None)):
             raise OperationError(space.w_TypeError,
                space.wrap('not all arguments converted '
                             'during string formatting'))
