@@ -1,4 +1,4 @@
-import py, errno
+import py, errno, sys
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import *
 
@@ -20,6 +20,8 @@ def test_ipv4_addr():
     assert res == "<INETAddress 255.255.255.255:47002>"
 
 def test_unix_addr():
+    if getattr(rsocket, 'AF_UNIX', None) is None:
+        py.test.skip('AF_UNIX not supported.')
     a = UNIXAddress("/tmp/socketname")
     assert a.get_path() == "/tmp/socketname"
 
@@ -42,6 +44,8 @@ def test_gethostbyname():
     assert a.get_host() == "127.0.0.1"
 
 def test_socketpair():
+    if sys.platform == "win32":
+        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     s1.send('?')
     buf = s2.recv(100)
@@ -238,6 +242,8 @@ def test_getsetsockopt():
     assert reuseptr[0] != 0
 
 def test_dup():
+    if sys.platform == "win32":
+        skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
     s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
