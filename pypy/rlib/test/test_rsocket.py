@@ -150,7 +150,7 @@ def test_nonblocking():
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.setblocking(False)
     err = py.test.raises(CSocketError, s2.connect, addr)
-    assert err.value.errno == errno.EINPROGRESS
+    assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
     s1, addr2 = sock.accept()
     s1.setblocking(False)
@@ -165,11 +165,16 @@ def test_nonblocking():
     buf = s2.recv(100)
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
-    assert err.value.errno == errno.EAGAIN
+    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
     count = s2.send('x'*500000)
     assert 1 <= count <= 500000
-    buf = s1.recv(500100)
-    assert buf == 'x'*count
+    while count: # Recv may return less than requested
+        buf = s1.recv(count + 100)
+        assert len(buf) <= count
+        assert buf.count('x') == len(buf)
+        count -= len(buf)
+    # Check that everything has been read
+    err = py.test.raises(CSocketError, s1.recv, 5000)
     s1.close()
     s2.close()
 
@@ -209,7 +214,7 @@ def test_getaddrinfo_no_reverse_lookup():
 
 def test_connect_ex():
     s = RSocket()
-    err = s.connect_ex(s.getsockname())   # should not work
+    err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work
     assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
 
 
