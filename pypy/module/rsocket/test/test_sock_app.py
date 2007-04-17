@@ -131,7 +131,7 @@ def test_aton_ntoa():
 
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
+        py.test.skip('No socket.inet_pton on this platform')
     tests = [
         ("123.45.67.89", "\x7b\x2d\x43\x59"),
         ("0.0.0.0", "\x00" * 4),
@@ -147,7 +147,7 @@ def test_pton_ntop_ipv4():
 
 def test_ntop_ipv6():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
+        py.test.skip('No socket.inet_pton on this platform')
     if not socket.has_ipv6:
         py.test.skip("No IPv6 on this platform")
     tests = [
@@ -168,7 +168,7 @@ def test_ntop_ipv6():
 
 def test_pton_ipv6():
     if not hasattr(socket, 'inet_pton'):
-        py.test.skip('No socket.(inet_pton|inet_ntop) on this platform')
+        py.test.skip('No socket.inet_pton on this platform')
     if not socket.has_ipv6:
         py.test.skip("No IPv6 on this platform")
     tests = [
@@ -256,6 +256,8 @@ class AppTestSocket:
 
     def test_pton_exceptions(self):
         import _socket
+        if not hasattr(_socket, 'inet_pton'):
+            skip('No socket.inet_pton on this platform')
         tests = [
             (_socket.AF_INET + _socket.AF_INET6, ""),
             (_socket.AF_INET, "127.0.0.256"),
@@ -455,6 +457,7 @@ class AppTestErrno:
             s.accept()
         except Exception, e:
             assert len(e.args) == 2
-            assert e.args[0] == errno.EINVAL
+            # error is EINVAL, or WSAEINVAL on Windows
+            assert errno.errorcode[e.args[0]].endswith("EINVAL")
             assert isinstance(e.args[1], str)
 

@@ -1040,22 +1040,23 @@ def inet_ntoa(packed):
     buf.raw = packed
     return _c.inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
 
-def inet_pton(family, ip):
-    "human-readable string -> packed string"
-    if family == AF_INET:
-        size = sizeof(_c.in_addr)
-    elif AF_INET6 is not None and family == AF_INET6:
-        size = sizeof(_c.in6_addr)
-    else:
-        raise RSocketError("unknown address family")
-    buf = create_string_buffer(size)
-    res = _c.inet_pton(family, ip, cast(buf, c_void_p))
-    if res < 0:
-        raise last_error()
-    elif res == 0:
-        raise RSocketError("illegal IP address string passed to inet_pton")
-    else:
-        return buf.raw
+if hasattr(_c, 'inet_pton'):
+    def inet_pton(family, ip):
+        "human-readable string -> packed string"
+        if family == AF_INET:
+            size = sizeof(_c.in_addr)
+        elif AF_INET6 is not None and family == AF_INET6:
+            size = sizeof(_c.in6_addr)
+        else:
+            raise RSocketError("unknown address family")
+        buf = create_string_buffer(size)
+        res = _c.inet_pton(family, ip, cast(buf, c_void_p))
+        if res < 0:
+            raise last_error()
+        elif res == 0:
+            raise RSocketError("illegal IP address string passed to inet_pton")
+        else:
+            return buf.raw
 
 def inet_ntop(family, packed):
     "packed string -> human-readable string"
