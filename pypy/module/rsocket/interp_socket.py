@@ -474,6 +474,11 @@ getpeername getsockname getsockopt gettimeout listen makefile
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop
 """.split()
+# Remove non-implemented methods
+for name in ('dup',):
+    if not hasattr(RSocket, name):
+        socketmethodnames.remove(name)
+
 socketmethods = {}
 for methodname in socketmethodnames:
     method = getattr(W_RSocket, methodname + '_w')

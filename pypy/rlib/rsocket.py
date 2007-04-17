@@ -613,14 +613,15 @@ class RSocket(object):
             return _c.geterrno()
         return res
 
-    def dup(self, SocketClass=None):
-        if SocketClass is None:
-            SocketClass = RSocket
-        fd = _c.dup(self.fd)
-        if fd < 0:
-            raise self.error_handler()
-        return make_socket(fd, self.family, self.type, self.proto,
-                           SocketClass=SocketClass)
+    if hasattr(_c, 'dup'):
+        def dup(self, SocketClass=None):
+            if SocketClass is None:
+                SocketClass = RSocket
+            fd = _c.dup(self.fd)
+            if fd < 0:
+                raise self.error_handler()
+            return make_socket(fd, self.family, self.type, self.proto,
+                               SocketClass=SocketClass)
         
     def fileno(self):
         fd = self.fd
@@ -1011,13 +1012,25 @@ def getnameinfo(addr, flags):
         raise GAIError(error)
     return host.value, serv.value
 
-def inet_aton(ip):
-    "IPv4 dotted string -> packed 32-bits string"
-    buf = create_string_buffer(sizeof(_c.in_addr))
-    if _c.inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
+if hasattr(_c, 'inet_aton'):
+    def inet_aton(ip):
+        "IPv4 dotted string -> packed 32-bits string"
+        buf = create_string_buffer(sizeof(_c.in_addr))
+        if _c.inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
+            return buf.raw
+        else:
+            raise RSocketError("illegal IP address string passed to inet_aton")
+else:
+    def inet_aton(ip):
+        "IPv4 dotted string -> packed 32-bits string"
+        if ip == "255.255.255.255":
+            return "\xff\xff\xff\xff"
+        packed_addr = _c.inet_addr(ip)
+        if _c.c_long(packed_addr).value == INADDR_NONE:
+            raise RSocketError("illegal IP address string passed to inet_aton")
+        buf = copy_buffer(cast(pointer(c_ulong(packed_addr)),
+                               POINTER(c_char)), 4)
         return buf.raw
-    else:
-        raise RSocketError("illegal IP address string passed to inet_aton")
 
 def inet_ntoa(packed):
     "packet 32-bits string -> IPv4 dotted string"

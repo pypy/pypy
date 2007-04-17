@@ -257,6 +257,14 @@ def test_dup():
     s2 = s.dup()
     assert s.fileno() != s2.fileno()
     assert s.getsockname().eq(s2.getsockname())
+
+def test_inet_aton():
+    assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
+    assert inet_aton('127.0.0.1') == '\x7f\x00\x00\x01'
+    tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
+        "127.2.0.0.1", "127.2..0"]
+    for ip in tests:
+        py.test.raises(SocketError, inet_aton, ip)
     
 class TestTCP:
     PORT = 50007

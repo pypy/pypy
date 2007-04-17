@@ -377,6 +377,8 @@ class AppTestSocket:
 
     def test_dup(self):
         import _socket as socket
+        if not hasattr(socket.socket, 'dup'):
+            skip('No dup() on this platform')
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(('localhost', 50007))
