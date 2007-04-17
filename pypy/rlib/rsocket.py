@@ -862,28 +862,30 @@ if 'AF_UNIX' not in constants or AF_UNIX is None:
 else:
     socketpair_default_family = AF_UNIX
 
-def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
-               SocketClass=RSocket):
-    """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
+if hasattr(_c, 'socketpair'):
+    def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
+                   SocketClass=RSocket):
+        """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
-    Create a pair of socket objects from the sockets returned by the platform
-    socketpair() function.
-    The arguments are the same as for socket() except the default family is
-    AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
-    """
-    result = _c.socketpair_t()
-    res = _c.socketpair(family, type, proto, byref(result))
-    if res < 0:
-        raise last_error()
-    return (make_socket(result[0], family, type, proto, SocketClass),
-            make_socket(result[1], family, type, proto, SocketClass))
+        Create a pair of socket objects from the sockets returned by the platform
+        socketpair() function.
+        The arguments are the same as for socket() except the default family is
+        AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
+        """
+        result = _c.socketpair_t()
+        res = _c.socketpair(family, type, proto, byref(result))
+        if res < 0:
+            raise last_error()
+        return (make_socket(result[0], family, type, proto, SocketClass),
+                make_socket(result[1], family, type, proto, SocketClass))
 
-def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
-    # Dup the fd so it and the socket can be closed independently
-    fd = _c.dup(fd)
-    if fd < 0:
-        raise last_error()
-    return make_socket(fd, family, type, proto, SocketClass)
+if hasattr(_c, 'dup'):
+    def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
+        # Dup the fd so it and the socket can be closed independently
+        fd = _c.dup(fd)
+        if fd < 0:
+            raise last_error()
+        return make_socket(fd, family, type, proto, SocketClass)
 
 def getdefaulttimeout():
     return defaults.timeout

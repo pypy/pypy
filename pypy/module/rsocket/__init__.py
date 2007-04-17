@@ -17,6 +17,10 @@ class Module(MixedModule):
         'socket'    :  'interp_socket.W_RSocket',
     }
 
+    def startup(self, space):
+        from pypy.rlib.rsocket import rsocket_startup
+        rsocket_startup()
+
     def buildloaders(cls):
         from pypy.rlib import rsocket
         for name in """
@@ -29,6 +33,7 @@ class Module(MixedModule):
             """.split():
 
             if name in ('inet_pton', 'inet_ntop',
+                        'fromfd', 'socketpair',
                         ) and not hasattr(rsocket, name):
                 continue
             
