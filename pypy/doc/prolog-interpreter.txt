@@ -18,12 +18,12 @@ some Prolog with (but it's probably not a good idea to use Pyrolog while
 learning since it is too rough for that).
 
 For a more detailed description of the implementation of the Prolog interpreter
-see the `A flexible Prolog interpreter in Python`_ draft paper.
+see Carl Friedrich's bachelor thesis `A Prolog interpreter in Python`_ paper.
 
 .. _`Prolog ISO specification`: http://pauillac.inria.fr/~deransar/prolog/docs.html
 .. _`Sicstus Prolog`: http://www.sics.se/sicstus/
 .. _`Learn Prolog Now!`: http://www.coli.uni-saarland.de/~kris/learn-prolog-now/
-.. _`A flexible Prolog interpreter in Python`: http://codespeak.net/svn/user/cfbolz/hack/prolog/paper/prolog-in-rpython.pdf
+.. _`A Prolog interpreter in Python`: http://codespeak.net/pypy/extradoc/paper/prolog-in-python.pdf
 
 Example useage
 ==============
