@@ -916,6 +916,9 @@ class PartialDataStruct(AbstractContainer):
         else:
             return None
 
+    def op_ptreq(self, jitstate, otherbox, reverse):
+        return None    # XXX for now
+
     def remember_field(self, fielddesc, box):
         searchindex = fielddesc.fieldindex
         for i in range(len(self.data)):
