@@ -262,9 +262,17 @@ def test_inet_aton():
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
     assert inet_aton('127.0.0.1') == '\x7f\x00\x00\x01'
     tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
-        "127.2.0.0.1", "127.2..0"]
+        "127.2.0.0.1", "127.2.0."]
     for ip in tests:
         py.test.raises(SocketError, inet_aton, ip)
+
+    # Windows 2000: missing numbers are replaced by 0
+    for ip, aton in [("11..22.33", '\x0b\x00\x16\x21'),
+                     (".11.22.33", '\x00\x0b\x16\x21')]:
+        try:
+            assert inet_aton(ip) == aton
+        except SocketError:
+            pass
     
 class TestTCP:
     PORT = 50007

@@ -241,7 +241,7 @@ class AppTestSocket:
     def test_aton_exceptions(self):
         import _socket
         tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
-            "127.2.0.0.1", "127.2..0"]
+            "127.2.0.0.1", "127.2.0."]
         for ip in tests:
             raises(_socket.error, _socket.inet_aton, ip)
 
