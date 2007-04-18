@@ -8,6 +8,7 @@ except ImportError:
 
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from pypy.lib.pyontology.pyontology import Ontology, ConsistencyFailure
+import datetime
 
 import os
 import pypy.lib.pyontology
@@ -205,10 +206,11 @@ def test_filter():
 query1 = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         SELECT ?person ?activity
                 WHERE {
-                                ?activity owl:subClassOf ltw:Active_Project .
-                                ?person_obj owl:subClassOf ltw:Active_Person .
+                                ?activity rdf:type ltw:Active_Project .
+                                ?person_obj rdf:type ltw:Active_Person .
                                 ?activity ltw:hasParticipant ?person_obj .
                                 ?person_obj ltw:personName ?person .
                                 }
@@ -219,7 +221,7 @@ query2 = """
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
         SELECT ?project ?date_begin
                 WHERE {
-                        ?project ltw:funded_by ltw:BMBF .
+                        ?project ltw:supportedBy  ltw:BMBF .
                         ?project ltw:dateStart ?date_begin .
                         ?project ltw:dateEnd ?date_end .
                         FILTER ( ?date_begin  < 2007  &&  ?date_end >= 2006) .
@@ -228,11 +230,13 @@ query2 = """
 query3 = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         SELECT ?project
                 WHERE {
-                                ?project owl:subClassOf ltw:Active_Project .
-                                ?project owl:subClassOf ltw:Semantic_Web .
-                                ?project ltw:supportedby ?x .
+                                ?project rdf:type ltw:Active_Project .
+                                ?project ltw:lt_technologicalMethod ?y .
+                                ?y rdf:type ltw:Semantic_Web .
+                                ?project ltw:supportedBy ?x .
                                 }"""
 
 def test_query1():
@@ -252,9 +256,9 @@ def test_query2():
     O.attach_fd()
 
     res = O.sparql(query2)
-    assert len(res) == 1
-    assert res[0]['activity'] == u'http://www.lt-world.org/ltw.owl#obj_59754' 
-    assert res[0]['person'] == u'\nKlara Vicsi'
+    assert len(res) == 2
+    assert res[0]['project'] == u'http://www.lt-world.org/ltw.owl#obj_59754' 
+    assert res[0]['date_begin'] == datetime.date(1998,9,1) 
 
 def test_query3():
     #py.test.skip("Doesn't work yet")

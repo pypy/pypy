@@ -72,7 +72,7 @@ DIINAR-MBS</projectNameVariant>
 <lt_technologicalApplication rdf:resource="#KB_788599_Individual_72"/>
 <lt_technologicalApplication rdf:resource="#KB_901071_Individual_79"/>
 <lt_linguality rdf:resource="#lt-world_Individual_712"/>
-<dateStart>
+<dateStart rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
 1998-09-01</dateStart>
 <projectName>
 A Multimedia Multilingual Teaching and Training System for Speech Handicapped Children</projectName>
@@ -86,7 +86,7 @@ http://luna.ttt.bme.hu/speech/speco1.htm</deadlinkURL>
 vicsi@ttt-202.ttt.bme.hu</contact>
 <dc_source>
 http://www.hltcentral.org/projects</dc_source>
-<dateEnd>
+<dateEnd rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
 2001-08-31</dateEnd>
 <homepageURL>
 http://www.hltcentral.org/projects/detail.php?acronym=SPECO</homepageURL>
