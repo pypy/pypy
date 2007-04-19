@@ -1,6 +1,7 @@
 
 import autopath
 import py.test
+import sys
 from pypy import conftest
 from pypy.tool.udir import udir
 
@@ -823,6 +824,14 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [r_uint])
         assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
+    def test_large_unsigned(self):
+        large_constant = sys.maxint * 2 + 1 # 0xFFFFFFFF on 32-bit platforms
+        def f():
+            return large_constant
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == r_uint
 
     def test_pbc_getattr(self):
         class C:
