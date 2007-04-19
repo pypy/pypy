@@ -67,8 +67,11 @@ class CConfig:
     POLLIN = ctypes_platform.DefinedConstantInteger('POLLIN')
     POLLOUT = ctypes_platform.DefinedConstantInteger('POLLOUT')
     EINPROGRESS = ctypes_platform.DefinedConstantInteger('EINPROGRESS')
-    EWOULDBLOCK = ctypes_platform.DefinedConstantInteger('EWOULDBLOCK')    
-    EAFNOSUPPORT = ctypes_platform.DefinedConstantInteger('EAFNOSUPPORT')    
+    WSAEINPROGRESS = ctypes_platform.DefinedConstantInteger('WSAEINPROGRESS')
+    EWOULDBLOCK = ctypes_platform.DefinedConstantInteger('EWOULDBLOCK')
+    WSAEWOULDBLOCK = ctypes_platform.DefinedConstantInteger('WSAEWOULDBLOCK')
+    EAFNOSUPPORT = ctypes_platform.DefinedConstantInteger('EAFNOSUPPORT')
+    WSAEAFNOSUPPORT = ctypes_platform.DefinedConstantInteger('WSAEAFNOSUPPORT')
 constant_names = '''
 AF_AAL5 AF_APPLETALK AF_ASH AF_ATMPVC AF_ATMSVC AF_AX25 AF_BLUETOOTH AF_BRIDGE
 AD_DECnet AF_ECONET AF_INET AF_INET6 AF_IPX AF_IRDA AF_KEY AF_LLC AF_NETBEUI
@@ -170,6 +173,11 @@ CConfig.size_t = ctypes_platform.SimpleType('size_t', c_int)
 CConfig.ssize_t = ctypes_platform.SimpleType('ssize_t', c_int)
 CConfig.socklen_t = ctypes_platform.SimpleType('socklen_t', c_int)
 
+if _MS_WINDOWS:
+    socketfd_type = c_uint
+else:
+    socketfd_type = c_int
+
 # struct types
 CConfig.sockaddr = ctypes_platform.Struct('struct sockaddr',
                                              [('sa_family', c_int),
@@ -236,7 +244,7 @@ CConfig.protoent = ctypes_platform.Struct('struct protoent',
 if _POSIX:
     CConfig.nfds_t = ctypes_platform.SimpleType('nfds_t')
     CConfig.pollfd = ctypes_platform.Struct('struct pollfd',
-                                            [('fd', c_int),
+                                            [('fd', socketfd_type),
                                              ('events', c_short),
                                              ('revents', c_short)])
 
@@ -246,9 +254,9 @@ CConfig.timeval = ctypes_platform.Struct('struct timeval',
 
 if _MS_WINDOWS:
     CConfig.fd_set = ctypes_platform.Struct('struct fd_set',
-                                            [('fd_count', c_uint),
-                                             # XXX use FD_SETSIZE
-                                             ('fd_array', c_uint * 64)])
+                                   [('fd_count', c_uint),
+                                   # XXX use FD_SETSIZE
+                                   ('fd_array', socketfd_type * 64)])
 
 if _MS_WINDOWS:
     CConfig.WSAData = ctypes_platform.Struct('struct WSAData',
@@ -297,9 +305,9 @@ INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
 POLLIN = cConfig.POLLIN
 POLLOUT = cConfig.POLLOUT
-EINPROGRESS = cConfig.EINPROGRESS
-EWOULDBLOCK = cConfig.EWOULDBLOCK
-EAFNOSUPPORT = cConfig.EAFNOSUPPORT
+EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
+EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
+EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
 
 linux = cConfig.linux
 MS_WINDOWS = cConfig.MS_WINDOWS
@@ -307,7 +315,7 @@ assert MS_WINDOWS == _MS_WINDOWS
 
 if MS_WINDOWS:
     def invalid_socket(fd):
-        return c_uint(fd).value == INVALID_SOCKET
+        return fd == INVALID_SOCKET
     INVALID_SOCKET = cConfig.INVALID_SOCKET
 else:
     def invalid_socket(fd):
@@ -355,8 +363,8 @@ else:
 
 if _POSIX:
     dup = socketdll.dup
-    dup.argtypes = [c_int]
-    dup.restype = c_int
+    dup.argtypes = [socketfd_type]
+    dup.restype = socketfd_type
 
 #errno = c_int.in_dll(socketdll, 'errno')
 
@@ -377,17 +385,17 @@ if _POSIX:
 
 socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
-socket.restype = c_int
+socket.restype = socketfd_type
 
 if MS_WINDOWS:
     socketclose = socketdll.closesocket
 else:
     socketclose = socketdll.close
-socketclose.argtypes = [c_int]
+socketclose.argtypes = [socketfd_type]
 socketclose.restype = c_int
 
 socketconnect = socketdll.connect
-socketconnect.argtypes = [c_int, sockaddr_ptr, socklen_t]
+socketconnect.argtypes = [socketfd_type, sockaddr_ptr, socklen_t]
 socketconnect.restype = c_int
 
 if not MS_WINDOWS:
@@ -445,59 +453,59 @@ inet_addr.argtypes = [c_char_p]
 inet_addr.restype = c_uint
 
 socketaccept = socketdll.accept
-socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
-socketaccept.restype = c_int
+socketaccept.argtypes = [socketfd_type, sockaddr_ptr, POINTER(socklen_t)]
+socketaccept.restype = socketfd_type
 
 socketbind = socketdll.bind
-socketbind.argtypes = [c_int, sockaddr_ptr, socklen_t]
+socketbind.argtypes = [socketfd_type, sockaddr_ptr, socklen_t]
 socketbind.restype = c_int
 
 socketlisten = socketdll.listen
-socketlisten.argtypes = [c_int, c_int]
+socketlisten.argtypes = [socketfd_type, c_int]
 socketlisten.restype = c_int
 
 socketgetpeername = socketdll.getpeername
-socketgetpeername.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
+socketgetpeername.argtypes = [socketfd_type, sockaddr_ptr, POINTER(socklen_t)]
 socketgetpeername.restype = c_int
 
 socketgetsockname = socketdll.getsockname
-socketgetsockname.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
+socketgetsockname.argtypes = [socketfd_type, sockaddr_ptr, POINTER(socklen_t)]
 socketgetsockname.restype = c_int
 
 socketgetsockopt = socketdll.getsockopt
-socketgetsockopt.argtypes = [c_int, c_int, c_int, 
+socketgetsockopt.argtypes = [socketfd_type, c_int, c_int, 
                              c_void_p, POINTER(socklen_t)]
 socketgetsockopt.restype = c_int
 
 socketsetsockopt = socketdll.setsockopt
-socketsetsockopt.argtypes = [c_int, c_int, c_int,
+socketsetsockopt.argtypes = [socketfd_type, c_int, c_int,
                              c_void_p, #this should be constant
                              socklen_t]
 socketsetsockopt.restype = c_int
 
 socketrecv = socketdll.recv
-socketrecv.argtypes = [c_int, c_void_p, c_int, c_int]
+socketrecv.argtypes = [socketfd_type, c_void_p, c_int, c_int]
 socketrecv.recv = ssize_t
 
 recvfrom = socketdll.recvfrom
-recvfrom.argtypes = [c_int, c_void_p, size_t,
+recvfrom.argtypes = [socketfd_type, c_void_p, size_t,
                      c_int, sockaddr_ptr, POINTER(socklen_t)]
 recvfrom.restype = ssize_t
 
 send = socketdll.send
-send.argtypes = [c_int,
+send.argtypes = [socketfd_type,
                        c_void_p, #this should be constant
                        size_t, c_int]
 send.restype = ssize_t
 
 sendto = socketdll.sendto
-sendto.argtypes = [c_int, c_void_p, #this should be constant
+sendto.argtypes = [socketfd_type, c_void_p, #this should be constant
                          size_t, c_int, sockaddr_ptr, #this should be const
                          socklen_t]
 sendto.restype = ssize_t
 
 socketshutdown = socketdll.shutdown
-socketshutdown.argtypes = [c_int, c_int]
+socketshutdown.argtypes = [socketfd_type, c_int]
 socketshutdown.restype = c_int
 
 gethostname = socketdll.gethostname
@@ -526,17 +534,17 @@ getprotobyname.restype = POINTER(cConfig.protoent)
 
 if _POSIX:
     fcntl = socketdll.fcntl
-    fcntl.argtypes = [c_int] * 3
+    fcntl.argtypes = [socketfd_type, c_int, c_int]
     fcntl.restype = c_int
 
-    socketpair_t = ARRAY(c_int, 2)
+    socketpair_t = ARRAY(socketfd_type, 2)
     socketpair = socketdll.socketpair
     socketpair.argtypes = [c_int, c_int, c_int, POINTER(socketpair_t)]
     socketpair.restype = c_int
 
 if _MS_WINDOWS:
     ioctlsocket = socketdll.ioctlsocket
-    ioctlsocket.argtypes = [c_int, c_long, POINTER(c_ulong)]
+    ioctlsocket.argtypes = [socketfd_type, c_long, POINTER(c_ulong)]
     ioctlsocket.restype = c_int
     
 

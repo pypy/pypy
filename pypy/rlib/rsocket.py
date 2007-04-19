@@ -656,7 +656,9 @@ class RSocket(object):
         res = _c.socketgetsockopt(self.fd, level, option, cast(buf, POINTER(c_char)), byref(bufsize))
         if res < 0:
             raise self.error_handler()
-        return buf.raw[:bufsize.value]
+        size = bufsize.value
+        assert size > 0       # socklen_t is signed on Windows
+        return buf.raw[:size]
 
     def getsockopt_int(self, level, option):
         flag = _c.c_int()
