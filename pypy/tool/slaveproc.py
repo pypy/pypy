@@ -37,7 +37,11 @@ class SlaveProcess(object):
     _broken = False
     
     def __init__(self, slave_impl):
-        inp, out = os.popen2('%s -u %s' % (sys.executable, os.path.abspath(slave_impl)))
+        if sys.platform == 'win32':
+            unbuffered = ''
+        else:
+            unbuffered = '-u'
+        inp, out = os.popen2('%s %s %s' % (sys.executable, unbuffered, os.path.abspath(slave_impl)))
         self.exchg = Exchange(out, inp)
 
     def cmd(self, data):
