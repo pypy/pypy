@@ -274,7 +274,7 @@ class TestInteraction:
 class TestNonInteractive:
 
     def run(self, cmdline):
-        cmdline = '"%s" "%s" %s' % (sys.executable, app_main, cmdline)
+        cmdline = '%s "%s" %s' % (sys.executable, app_main, cmdline)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         child_in.close()
