@@ -248,7 +248,7 @@ class TestFdOpen(BaseROTests):
     extra_args = ()
 
     def setup_method(self, method):
-        fd = os.open(TestFile.expected_filename, os.O_RDONLY)
+        fd = os.open(TestFile.expected_filename, os.O_RDONLY|os.O_BINARY)
         self.file = _file.file.fdopen(fd,
                                       self.expected_mode,
                                       *self.extra_args)
@@ -392,7 +392,7 @@ def test_flush():
     assert os.stat(fn).st_size == 1
     f.close()
 
-    f = _file.file(fn, 'w', 1)
+    f = _file.file(fn, 'wb', 1)
     f.write('x')
     assert os.stat(fn).st_size == 0
     f.write('\n')
@@ -404,7 +404,7 @@ def test_flush():
     f.close()
     assert os.stat(fn).st_size == 3
 
-    f = _file.file(fn, 'w', 100)
+    f = _file.file(fn, 'wb', 100)
     f.write('x')
     assert os.stat(fn).st_size == 0
     f.write('\n')
