@@ -7,7 +7,7 @@ from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
 from pypy.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 
-grammar = py.magic.autopath().dirpath().join("pygrammar.txt").read()
+grammar = py.magic.autopath().dirpath().join("pygrammar.txt").read(mode='rt')
 
 
 def test_parse_grammar():
