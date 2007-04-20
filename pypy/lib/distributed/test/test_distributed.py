@@ -219,8 +219,19 @@ class AppTestDistributedTasklets(object):
         res = xa.x()
         assert res == 8
 
+    def test_types_reverse_mapping(self):
+        class A:
+            def m(self, tp):
+                assert type(self) is tp
+
+        a = A()
+        protocol = self.test_env({'a':a, 'A':A})
+        xa = protocol.get_remote('a')
+        xA = protocol.get_remote('A')
+        xa.m(xA)
+
     def test_instantiate_remote_type(self):
-        #skip("Doesn't work yet")
+        skip("Will not work unless we take care about __basis__")
         class C:
             def __init__(self, y):
                 self.y = y
@@ -230,6 +241,24 @@ class AppTestDistributedTasklets(object):
 
         protocol = self.test_env({'C':C})
         xC = protocol.get_remote('C')
-        res = xC(3).x()
+        xc = xC(3)
+        res = xc.x()
         assert res == 3
 
+    def test_remote_sys(self):
+        import sys
+
+        protocol = self.test_env({'sys':sys})
+        s = protocol.get_remote('sys')
+        l = dir(s)
+        assert l
+
+    def test_remote_file_access(self):
+        # cannot do test_env({'file':file}) yet :)
+        def f(name):
+            return open(name)
+
+        protocol = self.test_env({'f':f})
+        xf = protocol.get_remote('f')
+        data = xf('/etc/passwd').read()
+        assert data
