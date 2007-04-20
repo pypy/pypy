@@ -42,6 +42,8 @@ class Frame(object):
         return self.vars[index]
 
     def setvar(self, index, val):
+        # XXX check if oldval != val
+        #     it happens all the time in get_last_var_in_chain_and_val()
         oldval = self.vars[index]
         self.vars[index] = val
         # only trail for variables that have a chance to get restored
