@@ -41,7 +41,7 @@ def impl_retract(engine, pattern):
                                      head.get_prolog_signature())
     function = engine.signature2function.get(head.signature, None)
     if function is None:
-        raise UnificationFailed
+        raise error.UnificationFailed
     #import pdb; pdb.set_trace()
     rulechain = function.rulechain
     while rulechain:
