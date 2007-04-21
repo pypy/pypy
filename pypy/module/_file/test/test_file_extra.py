@@ -248,7 +248,8 @@ class TestFdOpen(BaseROTests):
     extra_args = ()
 
     def setup_method(self, method):
-        fd = os.open(TestFile.expected_filename, os.O_RDONLY|os.O_BINARY)
+        O_BINARY = getattr(os, "O_BINARY", 0)
+        fd = os.open(TestFile.expected_filename, os.O_RDONLY | O_BINARY)
         self.file = _file.file.fdopen(fd,
                                       self.expected_mode,
                                       *self.extra_args)
