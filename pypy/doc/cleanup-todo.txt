@@ -26,6 +26,7 @@ translation toolchain
    we can have more than one translator/annotator around (with the
    timeshifter)
  - unicode strings in RPython
+ - finish rctypes rewrite (some of items of this list depend on it)
 
 interpreter
 -----------
