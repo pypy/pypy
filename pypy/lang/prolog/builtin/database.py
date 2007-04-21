@@ -14,8 +14,8 @@ def impl_abolish(engine, predicate):
     if signature in builtins:
         error.throw_permission_error("modify", "static_procedure",
                                      predicate)
-    if signature in engine.signature2rules:
-        del engine.signature2rules[signature]
+    if signature in engine.signature2function:
+        del engine.signature2function[signature]
 expose_builtin(impl_abolish, "abolish", unwrap_spec=["obj"])
 
 def impl_assert(engine, rule):
@@ -39,9 +39,13 @@ def impl_retract(engine, pattern):
         assert isinstance(head, term.Callable)
         error.throw_permission_error("modify", "static_procedure", 
                                      head.get_prolog_signature())
-    rules = engine.signature2rules.get(head.signature, [])
-    for i in range(len(rules)):
-        rule = rules[i]
+    function = engine.signature2function.get(head.signature, None)
+    if function is None:
+        raise UnificationFailed
+    #import pdb; pdb.set_trace()
+    rulechain = function.rulechain
+    while rulechain:
+        rule = rulechain.rule
         oldstate = engine.frame.branch()
         # standardizing apart
         try:
@@ -51,8 +55,15 @@ def impl_retract(engine, pattern):
         except error.UnificationFailed:
             engine.frame.revert(oldstate)
         else:
-            del rules[i]
+            if function.rulechain is rulechain:
+                if rulechain.next is None:
+                    del engine.signature2function[head.signature]
+                else:
+                    function.rulechain = rulechain.next
+            else:
+                function.remove(rulechain)
             break
+        rulechain = rulechain.next
     else:
         raise error.UnificationFailed()
 expose_builtin(impl_retract, "retract", unwrap_spec=["callable"])

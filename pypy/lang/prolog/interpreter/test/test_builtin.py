@@ -120,6 +120,25 @@ def test_assert_logical_update_view():
     """)
     frames = collect_all(e, "g(X).")
     assert len(frames) == 3
+    e = get_engine("""
+        p :- assertz(p), fail.
+        p :- fail.
+    """)
+    assert_false("p.", e)
+    e = get_engine("""
+        q :- fail.
+        q :- assertz(q), fail.
+    """)
+    assert_false("q.", e)
+
+
+def test_retract_logical_update_view():
+    e = get_engine("""
+        p :- retract(p :- true), fail.
+        p :- true.
+    """)
+    assert_true("p.", e)
+    assert_false("p.", e)
 
 def test_abolish():
     e = get_engine("g(b, b). g(c, c). g(a). f(b, b). h(b, b).")

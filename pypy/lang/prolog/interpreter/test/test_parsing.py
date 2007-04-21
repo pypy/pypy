@@ -30,7 +30,7 @@ greater_than(succ(X), succ(Y)) :- greater_than(X, Y).
     for fact in facts:
         print fact
         e.add_rule(fact)
-    assert e.signature2rules["add_numeral/3"][0].head.args[1].name == "null"
+    assert e.signature2function["add_numeral/3"].rulechain.rule.head.args[1].name == "null"
     four = Term("succ", [Term("succ", [Term("succ",
                 [Term("succ", [Atom("null")])])])])
     e.run(parse_query_term("numeral(succ(succ(null)))."))
