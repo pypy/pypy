@@ -522,7 +522,8 @@ class TestInterp(object):
 
 
     def test_function_this(self):
-        py.test.skip()
         self.assert_prints("""
-        function foo() {print("debug");this.bar = function() {}}; var f = new foo(); f.bar();
-        """, ['',])
+        function foo() {print("debug");this.bar = function() {}};
+        var f = new foo();
+        f.bar();
+        """, ['debug',])

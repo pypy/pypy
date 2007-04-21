@@ -228,6 +228,9 @@ class Call(BinaryOp):
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
+        if not isinstance(r3, W_PrimitiveObject): # TODO: review this on the spec
+            raise JsTypeError(str(r3) + " is not a function")
+            
         if isinstance(r1, W_Reference):
             r6 = r1.GetBase()
         else:
@@ -237,8 +240,11 @@ class Call(BinaryOp):
         else:
             r7 = r6
         
-        retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
-        return retval
+        try:
+            retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
+            return retval
+        except ExecutionReturned, e:
+            return e.value
 
 class Comma(BinaryOp):
     opcode = 'COMMA'
@@ -282,9 +288,10 @@ class Function(Expression):
             self.params = params.split(',')
 
     def eval(self, ctx):
-       w_obj = W_Object(ctx=ctx, callfunc = self)
-       w_obj.Put('prototype', W_Object(ctx=ctx))
-       return w_obj
+        # TODO: this is wrong, should clone the function prototype
+        w_obj = W_Object(ctx=ctx, callfunc = self)
+        w_obj.Put('prototype', W_Object(ctx=ctx))
+        return w_obj
 
 class Identifier(Expression):
     opcode = 'IDENTIFIER'
@@ -855,7 +862,7 @@ class Script(Statement):
             return last
         except Exception, e:
             if isinstance(e, ExecutionReturned) and e.type == 'return':
-                return e.value
+                raise
             else:
                 # TODO: proper exception handling
                 print "exception in line: %s, on: %s"%(node.lineno, node.value)

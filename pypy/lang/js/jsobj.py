@@ -161,11 +161,12 @@ class W_PrimitiveObject(W_Root):
             obj.Prototype = prot
         else:
             obj.Prototype = ctx.get_global().Get('Object')
-        ret = self.Call(ctx, args, this=obj)
-        if isinstance(ret, W_PrimitiveObject):
-            return ret
-        else:
+
+        try: #this is a hack to be compatible to spidermonkey
+            self.Call(ctx, args, this=obj)
             return obj
+        except ExecutionReturned, e:
+            return e.value
         
         
     def Get(self, P):
@@ -292,6 +293,9 @@ class W_Array(W_Builtin):
         self.Put('length', W_Number(0))
         self.length = r_uint(0)
         self.set_builtin_call(arraycallbi)
+
+    def Construct(self, ctx, args=[]):
+        return self
 
     def Put(self, P, V, dd=False,
             ro=False, de=False, it=False):
