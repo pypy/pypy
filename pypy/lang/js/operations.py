@@ -1042,7 +1042,6 @@ class ForIn(Statement):
             if prop.de:
                 continue
             iterator = self.iterator.eval(ctx)
-            print prop.name
             iterator.PutValue(prop.value, ctx)
             try:
                 result = self.body.execute(ctx)
