@@ -1,6 +1,6 @@
 import py
 from pypy.lang.prolog.interpreter.error import UnificationFailed
-from pypy.lang.prolog.interpreter.term import Atom, Var, Number, Term, Rule
+from pypy.lang.prolog.interpreter.term import Atom, Var, Number, Term, BlackBox
 from pypy.lang.prolog.interpreter.engine import Heap, Engine
 
 def test_atom():
@@ -50,6 +50,13 @@ def test_term():
     t1.unify(t2, heap)
     assert X.getvalue(heap).name == "HALLO"
     assert Y.getvalue(heap).name == "hallo"
+
+def test_blackbox():
+    bl1 = BlackBox()
+    bl2 = BlackBox()
+    heap = Heap()
+    bl1.unify(bl1, heap)
+    py.test.raises(UnificationFailed, bl1.unify, bl2, heap)
 
 def test_run():
     e = Engine()

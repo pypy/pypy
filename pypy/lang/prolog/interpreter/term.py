@@ -319,6 +319,29 @@ class Float(NonVar):
     def __repr__(self):
         return "Float(%r)" % (self.num, )
 
+class BlackBox(NonVar):
+    # meant to be subclassed
+    TAG = tag()
+    STANDARD_ORDER = 4
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        if self is other:
+            return
+        raise UnificationFailed
+
+    def copy(self, heap, memo):
+        return self
+
+    def copy_and_basic_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        if self is other:
+            return self
+        else:
+            raise UnificationFailed
+
+    def get_unify_hash(self, heap=None):
+        return intmask(id(self) << TAGBITS | self.TAG)
+
 
 # helper functions for various Term methods
 
