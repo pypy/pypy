@@ -1,10 +1,10 @@
-""" Helper functions for dealing with prolog lists"""
+""" Helper functions for dealing with prolog terms"""
 
 from pypy.lang.prolog.interpreter import term
 from pypy.lang.prolog.interpreter import error
 
 def wrap_list(python_list):
-    curr = term.Atom("[]")
+    curr = term.Atom.newatom("[]")
     for i in range(len(python_list) - 1, -1, -1):
         curr = term.Term(".", [python_list[i], curr])
     return curr

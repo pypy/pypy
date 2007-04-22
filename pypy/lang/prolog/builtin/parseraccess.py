@@ -12,7 +12,7 @@ def impl_current_op(engine, precedence, typ, name, continuation):
                 oldstate = engine.heap.branch()
                 try:
                     precedence.unify(term.Number(prec), engine.heap)
-                    typ.unify(term.Atom(form), engine.heap)
+                    typ.unify(term.Atom.newatom(form), engine.heap)
                     name.unify(term.Atom(op), engine.heap)
                     return continuation.call(engine)
                 except error.UnificationFailed:

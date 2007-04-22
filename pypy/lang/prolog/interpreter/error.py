@@ -29,7 +29,7 @@ class CutException(PrologError):
 
 def throw_instantiation_error():
     from pypy.lang.prolog.interpreter import term
-    raise CatchableError(term.Atom("instantiation_error"))
+    raise CatchableError(term.Atom.newatom("instantiation_error"))
 
 def throw_type_error(valid_type, obj):
     from pypy.lang.prolog.interpreter import term
@@ -39,7 +39,7 @@ def throw_type_error(valid_type, obj):
     # number, predicate_indicator, variable
     from pypy.lang.prolog.interpreter import term
     raise CatchableError(
-        term.Term("type_error", [term.Atom(valid_type), obj]))
+        term.Term("type_error", [term.Atom.newatom(valid_type), obj]))
 
 def throw_domain_error(valid_domain, obj):
     from pypy.lang.prolog.interpreter import term
@@ -50,14 +50,14 @@ def throw_domain_error(valid_domain, obj):
     # stream, stream_option, stream_or_alias, stream_position,
     # stream_property, write_option
     raise CatchableError(
-        term.Term("domain_error", [term.Atom(valid_domain), obj]))
+        term.Term("domain_error", [term.Atom.newatom(valid_domain), obj]))
 
 def throw_existence_error(object_type, obj):
     from pypy.lang.prolog.interpreter import term
     # valid types are:
     # procedure, source_sink, stream
     raise CatchableError(
-        term.Term("existence_error", [term.Atom(object_type), obj]))
+        term.Term("existence_error", [term.Atom.newatom(object_type), obj]))
 
 def throw_permission_error(operation, permission_type, obj):
     from pypy.lang.prolog.interpreter import term
@@ -68,6 +68,6 @@ def throw_permission_error(operation, permission_type, obj):
     # binary_stream, flag, operator, past_end_of_stream, private_procedure,
     # static_procedure, source_sink, stream, text_stream. 
     raise CatchableError(
-        term.Term("permission_error", [term.Atom(operation),
-                                       term.Atom(permission_type),
+        term.Term("permission_error", [term.Atom.newatom(operation),
+                                       term.Atom.newatom(permission_type),
                                        obj]))

@@ -22,7 +22,7 @@ def impl_findall(engine, template, goal, bag):
         engine.call(goal, collector)
     except error.UnificationFailed:
         engine.heap.revert(oldstate)
-    result = term.Atom("[]")
+    result = term.Atom.newatom("[]")
     for i in range(len(collector.found) - 1, -1, -1):
         copy = collector.found[i]
         d = {}
