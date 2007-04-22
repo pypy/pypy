@@ -3,15 +3,15 @@ import py
 
 from py.magic import greenlet
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rpython.rstack import yield_current_frame_to_caller
+from pypy.rpython.rstack import yield_current_heap_to_caller
 from pypy.translator.c.test.test_stackless import StacklessTest
 
 from pypy.lang.prolog.interpreter.error import UnificationFailed, CutException
 
-def make_llframe(choice_point, func, args):
-    llframe = yield_current_frame_to_caller()
+def make_llheap(choice_point, func, args):
+    llheap = yield_current_heap_to_caller()
     try:
-        choice_point.current = llframe
+        choice_point.current = llheap
         try:
             func(*args)
         except UnificationFailed:
@@ -22,14 +22,14 @@ def make_llframe(choice_point, func, args):
     except:
         pass
     os.write(0, "bad\n")
-    return llframe # will nexer be executed, help the translator
-make_llframe._annspecialcase_ = "specialize:arg(1)"
+    return llheap # will nexer be executed, help the translator
+make_llheap._annspecialcase_ = "specialize:arg(1)"
 
 class ChoicePoint(object):
     def __init__(self, engine, continuation, stop_cut=False):
         self._init_current()
         self.engine = engine
-        self.oldstate = engine.frame.branch()
+        self.oldstate = engine.heap.branch()
         self.continuation = continuation
         self.stop_cut = stop_cut
         self.any_choice = True
@@ -50,7 +50,7 @@ class ChoicePoint(object):
             else:
                 self.exception = e
         except UnificationFailed:
-            self.engine.frame.revert(self.oldstate)
+            self.engine.heap.revert(self.oldstate)
             if last:
                 raise
             return
@@ -65,8 +65,8 @@ class ChoicePoint(object):
 
     def switch(self, func, *args):
         if we_are_translated():
-            llframe = make_llframe(self, func, args)
-            llframe.switch()
+            llheap = make_llheap(self, func, args)
+            llheap.switch()
         else:
             g = greenlet(func)
             try:

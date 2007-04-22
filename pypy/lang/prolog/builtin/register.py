@@ -25,10 +25,10 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
         varname = "var%s" % (i, )
         subargs.append(varname)
         if spec in ("obj", "callable", "int", "atom", "arithmetic"):
-            code.append("    %s = query.args[%s].dereference(engine.frame)" %
+            code.append("    %s = query.args[%s].dereference(engine.heap)" %
                         (varname, i))
         elif spec in ("concrete", "list"):
-            code.append("    %s = query.args[%s].getvalue(engine.frame)" %
+            code.append("    %s = query.args[%s].getvalue(engine.heap)" %
                         (varname, i))
         if spec in ("callable", "int", "atom", "arithmetic", "list"):
             code.append(

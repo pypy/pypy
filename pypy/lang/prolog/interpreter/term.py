@@ -2,6 +2,7 @@ import math
 from pypy.rlib.objectmodel import we_are_translated, UnboxedValue
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
+from pypy.rlib.objectmodel import hint, specialize
 
 DEBUG = True
 
@@ -19,57 +20,54 @@ def debug_print(*args):
 
 class PrologObject(object):
     __slots__ = ()
-    def getvalue(self, frame):
+    def getvalue(self, heap):
         return self
 
-    def dereference(self, frame):
-        return self
+    def dereference(self, heap):
+        raise NotImplementedError("abstract base class")
 
     def get_max_var(self):
         return -1
 
-    def clone(self, offset):
-        return self
+    def copy(self, heap, memo):
+        raise NotImplementedError("abstract base class")
+
+    def copy_and_unify(self, other, heap, memo):
+        raise NotImplementedError("abstract base class")
 
     def clone_compress_vars(self, vars_new_indexes, offset):
         return self
 
-    def make_template(self, vars_new_indexes):
-        return self
-
-    def instantiate_template(self, template_frame):
-        return self
-
-    def get_unify_hash(self, frame=None):
+    def get_unify_hash(self, heap=None):
         # if two non-var objects return two different numbers
         # they must not be unifiable
         raise NotImplementedError("abstract base class")
 
-    def get_deeper_unify_hash(self, frame=None):
-        return [self.get_unify_hash(frame)]
+    def get_deeper_unify_hash(self, heap=None):
+        return [self.get_unify_hash(heap)]
 
-    def basic_unify(self, other, frame):
-        pass
-
-    def unify(self, other, frame, occurs_check=False):
-        pass
-    unify._annspecialcase_ = "specialize:arg(3)"
-
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
+    @specialize.arg(3)
+    def unify(self, other, heap, occurs_check=False):
         raise NotImplementedError("abstract base class")
 
-    def contains_var(self, var, frame):
+    @specialize.arg(3)
+    def _unify(self, other, heap, occurs_check=False):
+        raise NotImplementedError("abstract base class")
+
+    def contains_var(self, var, heap):
         return False
 
     def __eq__(self, other):
         # for testing
-        return self.__dict__ == other.__dict__
+        return (self.__class__ == other.__class__ and
+                self.__dict__ == other.__dict__)
 
     def __ne__(self, other):
+        # for testing
         return not (self == other)
 
 
-class Var(PrologObject):#, UnboxedValue):
+class Var(PrologObject):
     TAG = 0
     STANDARD_ORDER = 0
 
@@ -78,74 +76,58 @@ class Var(PrologObject):#, UnboxedValue):
     def __init__(self, index):
         self.index = index
 
-    def unify(self, other, frame, occurs_check=False):
-        #debug_print("unify", self, other, frame.vars)
-        self, val = self.get_last_var_in_chain_and_val(frame)
-        if val is not None:
-            other.unify(val, frame, occurs_check)
-        elif isinstance(other, Var):
-            other, val = other.get_last_var_in_chain_and_val(frame)
-            if val is None:
-                if other.index != self.index:
-                    frame.setvar(self.index, other)
-            else:
-                self.unify(val, frame, occurs_check)
+    @specialize.arg(3)
+    def unify(self, other, heap, occurs_check=False):
+        return self.dereference(heap)._unify(other, heap, occurs_check)
+
+    @specialize.arg(3)
+    def _unify(self, other, heap, occurs_check=False):
+        other = other.dereference(heap)
+        if isinstance(other, Var) and other is self:
+            pass
+        elif occurs_check and other.contains_var(self, heap):
+            raise UnificationFailed()
         else:
-            if occurs_check and other.contains_var(self, frame):
-                raise UnificationFailed()
-            frame.setvar(self.index, other)
-    unify._annspecialcase_ = "specialize:arg(3)"
+            heap.setvar(self.index, other)
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        self, val = self.get_last_var_in_chain_and_val(frame)
-        if val is not None:
-            return val.unify_with_template(other, frame, template_frame,
-                                           to_instantiate)
-        if isinstance(other, Var):
-            other, otherval = other.get_last_var_in_chain_and_val(frame)
-            if otherval is None:
-                if other.index != self.index:
-                    return frame.setvar(self.index, other)
-            else:
-                return self.unify_with_template(otherval, frame,
-                                                template_frame, to_instantiate)
+    def dereference(self, heap):
+        next = heap.getvar(self.index)
+        if next is None:
+            return self
         else:
-            if isinstance(other, TemplateVar):
-                return other.unify_with_template(self, frame, template_frame,
-                                                 to_instantiate)
-            if isinstance(other, Term):
-                to_instantiate.append((self.index, other))
-            frame.setvar(self.index, other)
+            result = next.dereference(heap)
+            # do path compression
+            heap.setvar(self.index, result)
+            return result
 
-    def getvalue(self, frame):
-        var, res = self.get_last_var_in_chain_and_val(frame)
-        if res is not None:
-            return res.getvalue(frame)
-        return var
+    def getvalue(self, heap):
+        res = self.dereference(heap)
+        if not isinstance(res, Var):
+            return res.getvalue(heap)
+        return res
 
-    def dereference(self, frame):
-        var, res = self.get_last_var_in_chain_and_val(frame)
-        if res is not None:
-            return res
-        return var
+    def copy(self, heap, memo):
+        hint(self, concrete=True)
+        try:
+            return memo[self.index]
+        except KeyError:
+            newvar = memo[self.index] = heap.newvar()
+            return newvar
 
-    def get_last_var_in_chain_and_val(self, frame):
-        next = frame.getvar(self.index)
-        if next is None or not isinstance(next, Var):
-            return self, next
-        # do path compression
-        last, val = next.get_last_var_in_chain_and_val(frame)
-        if val is None:
-            frame.setvar(self.index, last)
+    def copy_and_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        try:
+            seen_value = memo[self.index]
+        except KeyError:
+            memo[self.index] = other
+            return other
         else:
-            frame.setvar(self.index, val)
-        return last, val
+            seen_value.unify(other, heap)
+            return seen_value
+
 
     def get_max_var(self):
         return self.index
-
-    def clone(self, offset):
-        return Var(self.index + offset)
 
     def clone_compress_vars(self, vars_new_indexes, offset):
         if self.index in vars_new_indexes:
@@ -154,97 +136,73 @@ class Var(PrologObject):#, UnboxedValue):
         vars_new_indexes[self.index] = index
         return Var(index)
     
-    def make_template(self, vars_new_indexes):
-        if self.index in vars_new_indexes:
-            return TemplateVar.make_templatevar(vars_new_indexes[self.index])
-        index = len(vars_new_indexes)
-        vars_new_indexes[self.index] = index
-        return TemplateVar.make_templatevar(index)
-
-    def get_unify_hash(self, frame=None):
-        if frame is None:
+    def get_unify_hash(self, heap=None):
+        if heap is None:
             return 0
-        self = self.dereference(frame)
+        self = self.dereference(heap)
         if isinstance(self, Var):
             return 0
-        return self.get_unify_hash(frame)
+        return self.get_unify_hash(heap)
 
-    def contains_var(self, var, frame):
-        self = self.dereference(frame)
+    def contains_var(self, var, heap):
+        self = self.dereference(heap)
         if self is var:
             return True
         if not isinstance(self, Var):
-            return self.contains_var(var, frame)
+            return self.contains_var(var, heap)
         return False
 
     def __repr__(self):
         return "Var(%s)" % (self.index, )
 
 
-class TemplateVar(PrologObject):
-    TAG = 0
-    STANDARD_ORDER = 0
-    __slots__ = 'index'
-    cache = []
+    def __eq__(self, other):
+        # for testing
+        return (self.__class__ == other.__class__ and
+                self.index == other.index)
 
-    def __init__(self, index):
-        self.index = index
+class NonVar(PrologObject):
 
-    def unify(self, other, frame, occurs_check=False):
-        raise UncatchableError("TemplateVar in wrong place")
+    def dereference(self, heap):
+        return self
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        val = template_frame[self.index]
-        if val is None:
-            template_frame[self.index] = other
+    @specialize.arg(3)
+    def unify(self, other, heap, occurs_check=False):
+        return self._unify(other, heap, occurs_check)
+
+
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        raise NotImplementedError("abstract base class")
+
+    @specialize.arg(3)
+    def _unify(self, other, heap, occurs_check=False):
+        other = other.dereference(heap)
+        if isinstance(other, Var):
+            other._unify(self, heap, occurs_check)
         else:
-            val.unify_with_template(other, frame, template_frame, to_instantiate)
+            self.basic_unify(other, heap, occurs_check)
 
-    def getvalue(self, frame):
-        raise UncatchableError("TemplateVar in wrong place")
+    def copy_and_unify(self, other, heap, memo):
+        other = other.dereference(heap)
+        if isinstance(other, Var):
+            copy = self.copy(heap, memo)
+            other._unify(copy, heap)
+            return copy
+        else:
+            return self.copy_and_basic_unify(other, heap, memo)
 
-    def dereference(self, frame):
-        raise UncatchableError("TemplateVar in wrong place")
-
-    def get_max_var(self):
-        return self.index
-
-    def clone(self, offset):
-        return TemplateVar.make_template(self.index + offset)
-
-    def clone_compress_vars(self, vars_new_indexes, offset):
-        raise UncatchableError("TemplateVar in wrong place")
-
-    def make_template(self, vars_new_indexes):
-        raise UncatchableError("TemplateVar in wrong place")
-
-    def instantiate_template(self, template_frame):
-        return template_frame[self.index]
-
-    def get_unify_hash(self, frame=None):
-        return 0
-
-    def contains_var(self, var, frame):
-        raise UncatchableError("TemplateVar in wrong place")
-
-    def __repr__(self):
-        return "TemplateVar(%s)" % (self.index, )
-
-    def make_templatevar(index):
-        l = len(TemplateVar.cache)
-        if index >= l:
-            TemplateVar.cache.extend(
-                [TemplateVar(i) for i in range(l, l + index + 1)])
-        return TemplateVar.cache[index]
-    make_templatevar = staticmethod(make_templatevar)
+    def copy_and_basic_unify(self, other, heap, memo):
+        raise NotImplementedError("abstract base class")
 
 
-class Callable(PrologObject):
+class Callable(NonVar):
     name = ""
     signature = ""
 
     def get_prolog_signature(self):
         raise NotImplementedError("abstract base")
+
 
 class Atom(Callable):
     TAG = tag()
@@ -262,66 +220,60 @@ class Atom(Callable):
     def __repr__(self):
         return "Atom(%r)" % (self.name,)
 
-    def basic_unify(self, other, frame):
-        if isinstance(other, Atom):
-            if self is other or other.name == self.name:
-                return
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        if isinstance(other, Atom) and (self is other or
+                                        other.name == self.name):
+            return
         raise UnificationFailed
 
-    def unify(self, other, frame, occurs_check=False):
-        #debug_print("unify", self, other, type(other))
-        if isinstance(other, Var):
-            return other.unify(self, frame, occurs_check)
-        return self.basic_unify(other, frame)
-    unify._annspecialcase_ = "specialize:arg(3)"
+    def copy(self, heap, memo):
+        return self
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        if isinstance(other, Var):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, TemplateVar):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        return self.basic_unify(other, frame)
+    def copy_and_basic_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        if isinstance(other, Atom) and (self is other or
+                                        other.name == self.name):
+            return self
+        else:
+            raise UnificationFailed
 
-    def get_unify_hash(self, frame=None):
+    def get_unify_hash(self, heap=None):
         return intmask(hash(self.name) << TAGBITS | self.TAG)
 
     def get_prolog_signature(self):
         return Term("/", [self, Number(0)])
 
-    def make_atom(name):
+    def newatom(name):
         result = Atom.cache.get(name, None)
         if result is not None:
             return result
         Atom.cache[name] = result = Atom(name)
         return result
-    make_atom = staticmethod(make_atom)
+    newatom = staticmethod(newatom)
 
-class Number(PrologObject):
+
+class Number(NonVar):
     TAG = tag()
     STANDARD_ORDER = 2
     def __init__(self, num):
         self.num = num
 
-    def basic_unify(self, other, frame):
-        if isinstance(other, Number):
-            if other.num != self.num:
-                raise UnificationFailed
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        if isinstance(other, Number) and other.num == self.num:
             return
         raise UnificationFailed
 
-    def unify(self, other, frame, occurs_check=False):
-        #debug_print("unify", self, other, type(other))
-        if isinstance(other, Var):
-            return other.unify(self, frame, occurs_check)
-        return self.basic_unify(other, frame)
-    unify._annspecialcase_ = "specialize:arg(3)"
+    def copy(self, heap, memo):
+        return self
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        if isinstance(other, Var):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, TemplateVar):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        return self.basic_unify(other, frame)
+    def copy_and_basic_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        if isinstance(other, Number) and other.num == self.num:
+            return self
+        else:
+            raise UnificationFailed
 
     def __str__(self):
         return repr(self.num)
@@ -329,44 +281,33 @@ class Number(PrologObject):
     def __repr__(self):
         return "Number(%r)" % (self.num, )
 
-    def get_unify_hash(self, frame=None):
+    def get_unify_hash(self, heap=None):
         return intmask(self.num << TAGBITS | self.TAG)
 
 
-class Float(PrologObject):
+class Float(NonVar):
     TAG = tag()
     STANDARD_ORDER = 2
     def __init__(self, num):
         self.num = num
 
-    def basic_unify(self, other, frame):
-        if isinstance(other, Float):
-            if other.num != self.num:
-                raise UnificationFailed
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        if isinstance(other, Float) and other.num == self.num:
             return
         raise UnificationFailed
 
-    def basic_unify(self, other, frame):
-        if isinstance(other, Float):
-            if other.num != self.num:
-                raise UnificationFailed
-            return
-        raise UnificationFailed
+    def copy(self, heap, memo):
+        return self
 
-    def unify(self, other, frame, occurs_check=False):
-        if isinstance(other, Var):
-            return other.unify(self, frame, occurs_check)
-        return self.basic_unify(other, frame)
-    unify._annspecialcase_ = "specialize:arg(3)"
+    def copy_and_basic_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        if isinstance(other, Float) and other.num == self.num:
+            return self
+        else:
+            raise UnificationFailed
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        if isinstance(other, Var):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        elif isinstance(other, TemplateVar):
-            return other.unify_with_template(self, frame, template_frame, to_instantiate)
-        return self.basic_unify(other, frame)
-
-    def get_unify_hash(self, frame=None):
+    def get_unify_hash(self, heap=None):
         #XXX no clue whether this is a good idea...
         m, e = math.frexp(self.num)
         m = intmask(int(m / 2 * 2 ** (32 - TAGBITS)))
@@ -387,14 +328,8 @@ def _clone(obj, offset):
 def _clone_compress_vars(obj, vars_new_indexes, offset):
     return obj.clone_compress_vars(vars_new_indexes, offset)
 
-def _make_template(obj, vars_new_indexes):
-    return obj.make_template(vars_new_indexes)
-
-def _instantiate_template(obj, template_frame):
-    return obj.instantiate_template(template_frame)
-
-def _getvalue(obj, frame):
-    return obj.getvalue(frame)
+def _getvalue(obj, heap):
+    return obj.getvalue(heap)
 
 class Term(Callable):
     TAG = tag()
@@ -413,31 +348,44 @@ class Term(Callable):
     def __str__(self):
         return "%s(%s)" % (self.name, ", ".join([str(a) for a in self.args]))
 
-    def unify(self, other, frame, occurs_check=False):
-        if not isinstance(other, Term):
-            if isinstance(other, Var):
-                return other.unify(self, frame, occurs_check)
+    @specialize.arg(3)
+    def basic_unify(self, other, heap, occurs_check=False):
+        if (isinstance(other, Term) and
+            self.name == other.name and
+            len(self.args) == len(other.args)):
+            for i in range(len(self.args)):
+                self.args[i].unify(other.args[i], heap, occurs_check)
+        else:
             raise UnificationFailed
-        if (hash(self.name) != hash(other.name) or 
-            self.name != other.name or len(self.args) != len(other.args)):
-            raise UnificationFailed
-        for i in range(len(self.args)):
-            self.args[i].unify(other.args[i], frame, occurs_check)
-    unify._annspecialcase_ = "specialize:arg(3)"
 
-    def unify_with_template(self, other, frame, template_frame, to_instantiate):
-        if not isinstance(other, Term):
-            if isinstance(other, Var):
-                return other.unify_with_template(self, frame, template_frame, to_instantiate)
-            if isinstance(other, TemplateVar):
-                return other.unify_with_template(self, frame, template_frame, to_instantiate)
+    def copy(self, heap, memo):
+        hint(self, concrete=True)
+        self = hint(self, deepfreeze=True)
+        newargs = []
+        i = 0
+        while i < len(self.args):
+            hint(i, concrete=True)
+            arg = self.args[i].copy(heap, memo)
+            newargs.append(arg)
+            i += 1
+        return Term(self.name, newargs)
+
+    def copy_and_basic_unify(self, other, heap, memo):
+        hint(self, concrete=True)
+        self = hint(self, deepfreeze=True)
+        if (isinstance(other, Term) and
+            self.name == other.name and
+            len(self.args) == len(other.args)):
+            newargs = [None] * len(self.args)
+            i = 0
+            while i < len(self.args):
+                hint(i, concrete=True)
+                arg = self.args[i].copy_and_unify(other.args[i], heap, memo)
+                newargs[i] = arg
+                i += 1
+            return Term(self.name, newargs)
+        else:
             raise UnificationFailed
-        if (hash(self.name) != hash(other.name) or 
-            self.name != other.name or len(self.args) != len(other.args)):
-            raise UnificationFailed
-        for i in range(len(self.args)):
-            self.args[i].unify_with_template(other.args[i], frame,
-                                             template_frame, to_instantiate)
 
     def get_max_var(self):
         result = -1
@@ -445,20 +393,11 @@ class Term(Callable):
             result = max(result, subterm.get_max_var())
         return result
     
-    def clone(self, offset):
-        return self._copy_term(_clone, offset)
-
     def clone_compress_vars(self, vars_new_indexes, offset):
         return self._copy_term(_clone_compress_vars, vars_new_indexes, offset)
 
-    def make_template(self, vars_new_indexes):
-        return self._copy_term(_make_template, vars_new_indexes)
-
-    def instantiate_template(self, template_frame):
-        return self._copy_term(_instantiate_template, template_frame)
-
-    def getvalue(self, frame):
-        return self._copy_term(_getvalue, frame)
+    def getvalue(self, heap):
+        return self._copy_term(_getvalue, heap)
 
     def _copy_term(self, copy_individual, *extraargs):
         args = [None] * len(self.args)
@@ -473,23 +412,22 @@ class Term(Callable):
             return Term(self.name, args, self.signature)
         else:
             return self
-    _copy_term._annspecialcase_ = "specialize:arg(1)"
 
-    def get_unify_hash(self, frame=None):
+    def get_unify_hash(self, heap=None):
         return intmask(hash(self.signature) << TAGBITS | self.TAG)
 
-    def get_deeper_unify_hash(self, frame=None):
+    def get_deeper_unify_hash(self, heap=None):
         result = [0] * len(self.args)
         for i in range(len(self.args)):
-            result[i] = self.args[i].get_unify_hash(frame)
+            result[i] = self.args[i].get_unify_hash(heap)
         return result
 
     def get_prolog_signature(self):
-        return Term("/", [Atom.make_atom(self.name), Number(len(self.args))])
+        return Term("/", [Atom.newatom(self.name), Number(len(self.args))])
     
-    def contains_var(self, var, frame):
+    def contains_var(self, var, heap):
         for arg in self.args:
-            if arg.contains_var(var, frame):
+            if arg.contains_var(var, heap):
                 return True
         return False
         
@@ -498,12 +436,12 @@ class Rule(object):
     def __init__(self, head, body):
         from pypy.lang.prolog.interpreter import helper
         d = {}
-        head = head.make_template(d)
+        head = head.clone_compress_vars(d, 0)
         assert isinstance(head, Callable)
         self.head = head
         if body is not None:
             body = helper.ensure_callable(body)
-            self.body = body.make_template(d)
+            self.body = body.clone_compress_vars(d, 0)
         else:
             self.body = None
         self.numvars = len(d)
@@ -526,41 +464,19 @@ class Rule(object):
                 stack.extend(current.args)
         self.contains_cut = False
 
-    def clone(self, offset):
-        if self.body is None:
-            body = None
-        else:
-            body = self.body.clone(offset)
-        return Rule(self.head.clone(offset), body)
-
-    def clone_and_unify_head(self, frame, head):
-        template_frame = [None] * self.numvars
+    def clone_and_unify_head(self, heap, head):
+        memo = {}
         if isinstance(head, Term):
-            to_instantiate = []
             h2 = self.head
             assert isinstance(h2, Term)
             for i in range(len(h2.args)):
                 arg1 = h2.args[i]
                 arg2 = head.args[i]
-                if (isinstance(arg1, Term) or
-                    isinstance(arg1, TemplateVar)):
-                    h2.args[i].unify_with_template(
-                        head.args[i], frame, template_frame, to_instantiate)
-                else:
-                    h2.args[i].unify(head.args[i], frame)
-            extend_and_normalize_template_frame(template_frame, frame)
-            for index, obj in to_instantiate:
-                frame.vars[index] = obj.instantiate_template(template_frame)
-        else:
-            next_free = frame.maxvar()
-            for i in range(self.numvars):
-                template_frame[i] = Var(next_free)
-                next_free += 1
-            frame.extend(next_free - frame.maxvar())
+                arg1.copy_and_unify(arg2, heap, memo)
         body = self.body
         if body is None:
             return None
-        return body.instantiate_template(template_frame)
+        return body.copy(heap, memo)
 
     def __repr__(self):
         if self.body is None:
@@ -568,26 +484,15 @@ class Rule(object):
         return "%s :- %s." % (self.head, self.body)
 
 
-def extend_and_normalize_template_frame(template_frame, frame):
-    next_free = frame.maxvar()
-    for i in range(len(template_frame)):
-        val = template_frame[i]
-        if val is None:
-            template_frame[i] = Var(next_free)
-            next_free += 1
-        elif isinstance(val, TemplateVar):
-            template_frame[i] = template_frame[val.index]
-    frame.extend(next_free - frame.maxvar())
-
+@specialize.argtype(0)
 def rcmp(a, b): # RPython does not support cmp...
     if a == b:
         return 0
     if a < b:
         return -1
     return 1
-rcmp._annspecialcase_ = "specialize:argtype(0)"
 
-def cmp_standard_order(obj1, obj2, frame):
+def cmp_standard_order(obj1, obj2, heap):
     c = rcmp(obj1.STANDARD_ORDER, obj2.STANDARD_ORDER)
     if c != 0:
         return c
@@ -606,9 +511,9 @@ def cmp_standard_order(obj1, obj2, frame):
         if c != 0:
             return c
         for i in range(len(obj1.args)):
-            a1 = obj1.args[i].dereference(frame)
-            a2 = obj2.args[i].dereference(frame)
-            c = cmp_standard_order(a1, a2, frame)
+            a1 = obj1.args[i].dereference(heap)
+            a2 = obj2.args[i].dereference(heap)
+            c = cmp_standard_order(a1, a2, heap)
             if c != 0:
                 return c
         return 0

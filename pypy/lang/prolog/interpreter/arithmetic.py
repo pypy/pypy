@@ -32,7 +32,7 @@ def wrap_builtin_operation(pattern, unwrap_spec, can_overflow):
 wrap_builtin_operation._annspecialcase_ = 'specialize:memo'
 
 def eval_arithmetic(engine, query):
-    query = query.getvalue(engine.frame)
+    query = query.getvalue(engine.heap)
     if isinstance(query, term.Number):
         return query
     if isinstance(query, term.Float):

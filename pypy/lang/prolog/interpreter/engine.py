@@ -24,7 +24,7 @@ class LimitedScopeContinuation(Continuation):
 START_NUMBER_OF_VARS = 4096
 
 
-class Frame(object):
+class Heap(object):
     def __init__(self):
         self.vars = [None] * START_NUMBER_OF_VARS
         self.trail = []
@@ -141,7 +141,7 @@ class Function(object):
 
 class Engine(object):
     def __init__(self):
-        self.frame = Frame()
+        self.heap = Heap()
         self.signature2function = {}
         self.parser = None
         self.operations = None
@@ -175,7 +175,7 @@ class Engine(object):
         if not isinstance(query, Callable):
             error.throw_type_error("callable", query)
         vars = query.get_max_var() + 1
-        self.frame.clear(vars)
+        self.heap.clear(vars)
         try:
             return self.call(query, continuation)
         except CutException, e:
@@ -215,27 +215,27 @@ class Engine(object):
         if function is None:
             error.throw_existence_error(
                 "procedure", query.get_prolog_signature())
-        unify_hash = query.get_deeper_unify_hash(self.frame)
+        unify_hash = query.get_deeper_unify_hash(self.heap)
         rulechain = function.rulechain.find_applicable_rule(query, unify_hash)
         if rulechain is None:
             # none of the rules apply
             raise UnificationFailed()
         rule = rulechain.rule
         rulechain = rulechain.next
-        oldstate = self.frame.branch()
+        oldstate = self.heap.branch()
         while rulechain:
             rulechain = rulechain.find_applicable_rule(query, unify_hash)
             if rulechain is None:
-                self.frame.discard(oldstate)
+                self.heap.discard(oldstate)
                 break
             if rule.contains_cut:
                 continuation = LimitedScopeContinuation(continuation)
                 try:
                     result = self.try_rule(rule, query, continuation)
-                    self.frame.discard(oldstate)
+                    self.heap.discard(oldstate)
                     return result
                 except UnificationFailed:
-                    self.frame.revert(oldstate)
+                    self.heap.revert(oldstate)
                 except CutException, e:
                     if continuation.scope_active:
                         return self.continue_after_cut(e.continuation,
@@ -244,10 +244,10 @@ class Engine(object):
             else:
                 try:
                     result = self.try_rule(rule, query, continuation)
-                    self.frame.discard(oldstate)
+                    self.heap.discard(oldstate)
                     return result
                 except UnificationFailed:
-                    self.frame.revert(oldstate)
+                    self.heap.revert(oldstate)
             rule = rulechain.rule
             rulechain = rulechain.next
         if rule.contains_cut:
@@ -262,16 +262,11 @@ class Engine(object):
 
     def try_rule(self, rule, query, continuation=DONOTHING):
         if DEBUG:
-            debug_print("trying rule", rule, query, self.frame.vars[:self.frame.needed_vars])
-        try:
-            # standardizing apart
-            nextcall = rule.clone_and_unify_head(self.frame, query)
-        except UnificationFailed:
-            if DEBUG:
-                debug_print("didn't work", rule, query, self.frame.vars[:self.frame.needed_vars])
-            raise
+            debug_print("trying rule", rule, query, self.heap.vars[:self.heap.needed_vars])
+        # standardizing apart
+        nextcall = rule.clone_and_unify_head(self.heap, query)
         if DEBUG:
-            debug_print("worked", rule, query, self.frame.vars[:self.frame.needed_vars])
+            debug_print("worked", rule, query, self.heap.vars[:self.heap.needed_vars])
         if nextcall is not None:
             return self.call(nextcall, continuation)
         return continuation.call(self)

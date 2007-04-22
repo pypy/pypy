@@ -5,6 +5,13 @@ from pypy.lang.prolog.interpreter.error import UnificationFailed, CatchableError
 from pypy.lang.prolog.interpreter.test.tool import collect_all, assert_true, assert_false
 from pypy.lang.prolog.interpreter.test.tool import prolog_raises
 
+def test_trivial():
+    e = get_engine("""
+        f(a).
+    """)
+    e.run(parse_query_term("f(X)."))
+    assert e.heap.getvar(0).name == "a"
+
 def test_and():
     e = get_engine("""
         g(a, a).
@@ -14,8 +21,8 @@ def test_and():
     """)
     e.run(parse_query_term("f(a, c)."))
     e.run(parse_query_term("f(X, c)."))
-    print e.frame.vars
-    assert e.frame.getvar(0).name == "a"
+    print e.heap.vars[:10]
+    assert e.heap.getvar(0).name == "a"
 
 def test_and_long():
     e = get_engine("""
@@ -24,8 +31,8 @@ def test_and_long():
         h(d). h(e). h(f).
         f(X, Y, Z) :- f(X), g(Y), h(Z).
     """)
-    frames = collect_all(e, "f(X, Y, Z).")
-    assert len(frames) == 27  
+    heaps = collect_all(e, "f(X, Y, Z).")
+    assert len(heaps) == 27  
 
 def test_numeral():
     e = get_engine("""
@@ -46,7 +53,7 @@ def test_numeral():
     e.run(parse_query_term("num(0)."))
     e.run(parse_query_term("num(succ(0))."))
     e.run(parse_query_term("num(X)."))
-    assert e.frame.getvar(0).num == 0
+    assert e.heap.getvar(0).num == 0
     e.run(parse_query_term("add(0, 0, 0)."))
     py.test.raises(UnificationFailed, e.run, parse_query_term("""
         add(0, 0, succ(0))."""))
@@ -82,7 +89,7 @@ def test_or_backtrack():
         f(X, Y, Z) :- (g(X, Z); g(X, Z); g(Z, Y)), a(Z).
         """)
     e.run(parse_query_term("f(a, b, Z)."))
-    assert e.frame.getvar(0).name == "a"
+    assert e.heap.getvar(0).name == "a"
     f = collect_all(e, "X = 1; X = 2.")
     assert len(f) == 2
 
@@ -118,11 +125,11 @@ def test_collect_all():
         g(b).
         g(c).
     """)
-    frames = collect_all(e, "g(X).")
-    assert len(frames) == 3
-    assert frames[0].getvar(0).name == "a"
-    assert frames[1].getvar(0).name == "b"
-    assert frames[2].getvar(0).name == "c"
+    heaps = collect_all(e, "g(X).")
+    assert len(heaps) == 3
+    assert heaps[0].getvar(0).name == "a"
+    assert heaps[1].getvar(0).name == "b"
+    assert heaps[2].getvar(0).name == "c"
 
 def test_cut():
     e = get_engine("""
@@ -134,8 +141,8 @@ def test_cut():
         f(x).
         f(y).
     """)
-    frames = collect_all(e, "f(X).")
-    assert len(frames) == 0
+    heaps = collect_all(e, "f(X).")
+    assert len(heaps) == 0
     assert_true("!.")
 
 def test_cut2():
@@ -146,8 +153,8 @@ def test_cut2():
         h(a, y).
         f(X, Y) :- g(X), !, !, !, !, !, h(X, Y).
     """)
-    frames = collect_all(e, "f(X, Y).")
-    assert len(frames) == 2
+    heaps = collect_all(e, "f(X, Y).")
+    assert len(heaps) == 2
 
 def test_cut3():
     e = get_engine("""
@@ -171,8 +178,8 @@ def test_rule_with_cut_calling_rule_with_cut():
         g(X) :- f(X), !.
         g(a).
     """)
-    frames = collect_all(e, "g(X).")
-    assert len(frames) == 1
+    heaps = collect_all(e, "g(X).")
+    assert len(heaps) == 1
 
 def test_not_with_cut():
     e = get_engine("""
@@ -227,8 +234,8 @@ def test_indexing2():
 
         sibling(X, Y) :- mother(Z, X), mother(Z, Y).
     """)
-    frames = collect_all(e, "sibling(m, X).")
-    assert len(frames) == 3
+    heaps = collect_all(e, "sibling(m, X).")
+    assert len(heaps) == 3
 
 def test_runstring():
     e = get_engine("foo(a, c).")

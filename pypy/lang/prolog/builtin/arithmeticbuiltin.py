@@ -9,13 +9,13 @@ from pypy.lang.prolog.builtin.register import expose_builtin
 def impl_between(engine, lower, upper, varorint, continuation):
     if isinstance(varorint, term.Var):
         for i in range(lower, upper):
-            oldstate = engine.frame.branch()
+            oldstate = engine.heap.branch()
             try:
-                varorint.unify(term.Number(i), engine.frame)
+                varorint.unify(term.Number(i), engine.heap)
                 return continuation.call(engine)
             except error.UnificationFailed:
-                engine.frame.revert(oldstate)
-        varorint.unify(term.Number(upper), engine.frame)
+                engine.heap.revert(oldstate)
+        varorint.unify(term.Number(upper), engine.heap)
         return continuation.call(engine)
     else:
         integer = helper.unwrap_int(varorint)
@@ -26,7 +26,7 @@ expose_builtin(impl_between, "between", unwrap_spec=["int", "int", "obj"],
                handles_continuation=True)
 
 def impl_is(engine, var, num):
-    var.unify(num, engine.frame)
+    var.unify(num, engine.heap)
 expose_builtin(impl_is, "is", unwrap_spec=["raw", "arithmetic"])
 
 for ext, prolog, python in [("eq", "=:=", "=="),

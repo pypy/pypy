@@ -2,7 +2,7 @@ import py
 from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter.parsing import parse_query_term, get_engine
 from pypy.lang.prolog.interpreter.error import UnificationFailed
-from pypy.lang.prolog.interpreter.engine import Frame, Engine
+from pypy.lang.prolog.interpreter.engine import Heap, Engine
 from pypy.lang.prolog.interpreter import error
 from pypy.lang.prolog.interpreter.test.tool import collect_all, assert_false, assert_true
 from pypy.lang.prolog.interpreter.test.tool import prolog_raises
@@ -13,8 +13,8 @@ def test_fail():
         f(X) :- g(X), fail.
         f(a).
     """)
-    frames = collect_all(e, "f(X).")
-    assert len(frames) == 1
+    heaps = collect_all(e, "f(X).")
+    assert len(heaps) == 1
 
 def test_not():
     e = get_engine("""
@@ -36,8 +36,8 @@ def test_not():
     assert_false("\\+(g(a, a)).", e)
     assert_false("not(!).", e)
 
-    frames = collect_all(e, "sibling(a, X).")
-    assert len(frames) == 2
+    heaps = collect_all(e, "sibling(a, X).")
+    assert len(heaps) == 2
 
 def test_and():
     assert_false("fail, X.")
@@ -118,8 +118,8 @@ def test_assert_logical_update_view():
         g(c) :- assertz(g(d)).
         g(b).
     """)
-    frames = collect_all(e, "g(X).")
-    assert len(frames) == 3
+    heaps = collect_all(e, "g(X).")
+    assert len(heaps) == 3
     e = get_engine("""
         p :- assertz(p), fail.
         p :- fail.
@@ -155,6 +155,7 @@ def test_unify():
     assert_false("X \\= Y.")
     assert_false("X \\= f(X).")
     assert_true("x \\= y.")
+    assert_true("f(X, b) \\= f(a, c), X = c.")
     assert_true("unify_with_occurs_check(X, Y).")
     assert_true("unify_with_occurs_check(X, X).")
     assert_false("unify_with_occurs_check(X, f(X)).")
@@ -177,8 +178,8 @@ def test_call():
         withcut(X) :- call(!), fail.
         withcut(a).
         """)
-    frames = collect_all(e, "g(X).")
-    assert len(frames) == 2
+    heaps = collect_all(e, "g(X).")
+    assert len(heaps) == 2
     assert_true("withcut(a).", e)
     assert_true("call((!, true)).")
 
@@ -212,8 +213,8 @@ def test_term_construction():
         f(2, b).
         f(3, c).
     """)
-    frames = collect_all(e, "arg(X, g(a, b, c), A), f(X, A).")
-    assert len(frames) == 3
+    heaps = collect_all(e, "arg(X, g(a, b, c), A), f(X, A).")
+    assert len(heaps) == 3
     assert_true("arg(X, h(a, b, c), b), X = 2.")
     assert_true("arg(X, h(a, b, g(X, b)), g(3, B)), X = 3, B = b.")
     assert_true("copy_term(X, Y), X = 1, Y = 2.")
@@ -278,9 +279,9 @@ def test_between():
     assert_true("between(-5, 15, 0).")
     assert_false("between(12, 15, 6).")
     assert_false("between(12, 15, 16).")
-    frames = collect_all(Engine(), "between(1, 4, X).")
-    assert len(frames) == 4
-    assert frames[0].vars[0].num == 1
+    heaps = collect_all(Engine(), "between(1, 4, X).")
+    assert len(heaps) == 4
+    assert heaps[0].vars[0].num == 1
 
 def test_is():
     assert_true("5 is 1 + 1 + 1 + 1 + 1.")
@@ -333,10 +334,10 @@ def test_atom_concat():
     assert_true("atom_concat(ab, X, abcdef), X = cdef.")
     assert_true("atom_concat(X, cdef, abcdef), X = ab.")
     assert_true("atom_concat(1, Y, '1def'), Y = def.")
-    frames = collect_all(
+    heaps = collect_all(
         Engine(),
         "atom_concat(X, Y, abcd), atom(X), atom(Y).")
-    assert len(frames) == 5
+    assert len(heaps) == 5
 
 def test_sub_atom():
     assert_true("sub_atom(abc, B, L, A, bc), B=1, L=2, A=0.")

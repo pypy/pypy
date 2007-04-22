@@ -7,11 +7,11 @@ from pypy.lang.prolog.builtin.register import expose_builtin
 
 def impl_functor(engine, t, functor, arity):
     if helper.is_atomic(t):
-        functor.unify(t, engine.frame)
-        arity.unify(term.Number(0), engine.frame)
+        functor.unify(t, engine.heap)
+        arity.unify(term.Number(0), engine.heap)
     elif isinstance(t, term.Term):
-        functor.unify(term.Atom(t.name), engine.frame)
-        arity.unify(term.Number(len(t.args)), engine.frame)
+        functor.unify(term.Atom(t.name), engine.heap)
+        arity.unify(term.Number(len(t.args)), engine.heap)
     elif isinstance(t, term.Var):
         if isinstance(functor, term.Var):
             error.throw_instantiation_error()
@@ -23,15 +23,15 @@ def impl_functor(engine, t, functor, arity):
         else:
             functor = helper.ensure_atomic(functor)
             if a == 0:
-                t.unify(helper.ensure_atomic(functor), engine.frame)
+                t.unify(helper.ensure_atomic(functor), engine.heap)
             else:
                 name = helper.unwrap_atom(functor)
-                start = engine.frame.needed_vars
-                engine.frame.extend(a)
+                start = engine.heap.needed_vars
+                engine.heap.extend(a)
                 t.unify(
                     term.Term(name,
                               [term.Var(i) for i in range(start, start + a)]),
-                    engine.frame)
+                    engine.heap)
 expose_builtin(impl_functor, "functor", unwrap_spec=["obj", "obj", "obj"])
 
 def impl_arg(engine, first, second, third, continuation):
@@ -44,13 +44,13 @@ def impl_arg(engine, first, second, third, continuation):
     if isinstance(first, term.Var):
         for i in range(len(second.args)):
             arg = second.args[i]
-            oldstate = engine.frame.branch()
+            oldstate = engine.heap.branch()
             try:
-                third.unify(arg, engine.frame)
-                first.unify(term.Number(i + 1), engine.frame)
+                third.unify(arg, engine.heap)
+                first.unify(term.Number(i + 1), engine.heap)
                 return continuation.call(engine)
             except error.UnificationFailed:
-                engine.frame.revert(oldstate)
+                engine.heap.revert(oldstate)
         raise error.UnificationFailed()
     elif isinstance(first, term.Number):
         num = first.num
@@ -61,7 +61,7 @@ def impl_arg(engine, first, second, third, continuation):
         if num > len(second.args):
             raise error.UnificationFailed()
         arg = second.args[num - 1]
-        third.unify(arg, engine.frame)
+        third.unify(arg, engine.heap)
     else:
         error.throw_type_error("integer", first)
     return continuation.call(engine)
@@ -76,9 +76,9 @@ def impl_univ(engine, first, second):
             l = [first]
         u1 = helper.wrap_list(l)
         if not isinstance(second, term.Var):
-            u1.unify(second, engine.frame)
+            u1.unify(second, engine.heap)
         else:
-            u1.unify(second, engine.frame)
+            u1.unify(second, engine.heap)
     else:
         if isinstance(second, term.Var):
             error.throw_instantiation_error()
@@ -87,14 +87,14 @@ def impl_univ(engine, first, second):
             head = l[0]
             if not isinstance(head, term.Atom):
                 error.throw_type_error("atom", head)
-            term.Term(head.name, l[1:]).unify(first, engine.frame)
+            term.Term(head.name, l[1:]).unify(first, engine.heap)
 expose_builtin(impl_univ, "=..", unwrap_spec=["obj", "obj"])
 
 def impl_copy_term(engine, interm, outterm):
     d = {}
-    copy = interm.clone_compress_vars(d, engine.frame.maxvar())
-    engine.frame.extend(len(d))
-    outterm.unify(copy, engine.frame)
+    copy = interm.clone_compress_vars(d, engine.heap.maxvar())
+    engine.heap.extend(len(d))
+    outterm.unify(copy, engine.heap)
 expose_builtin(impl_copy_term, "copy_term", unwrap_spec=["obj", "obj"])
 
 

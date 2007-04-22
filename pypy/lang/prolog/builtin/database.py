@@ -19,11 +19,11 @@ def impl_abolish(engine, predicate):
 expose_builtin(impl_abolish, "abolish", unwrap_spec=["obj"])
 
 def impl_assert(engine, rule):
-    engine.add_rule(rule.getvalue(engine.frame))
+    engine.add_rule(rule.getvalue(engine.heap))
 expose_builtin(impl_assert, ["assert", "assertz"], unwrap_spec=["callable"])
 
 def impl_asserta(engine, rule):
-    engine.add_rule(rule.getvalue(engine.frame), end=False)
+    engine.add_rule(rule.getvalue(engine.heap), end=False)
 expose_builtin(impl_asserta, "asserta", unwrap_spec=["callable"])
 
 
@@ -46,14 +46,14 @@ def impl_retract(engine, pattern):
     rulechain = function.rulechain
     while rulechain:
         rule = rulechain.rule
-        oldstate = engine.frame.branch()
+        oldstate = engine.heap.branch()
         # standardizing apart
         try:
-            deleted_body = rule.clone_and_unify_head(engine.frame, head)
+            deleted_body = rule.clone_and_unify_head(engine.heap, head)
             if body is not None:
-                body.unify(deleted_body, engine.frame)
+                body.unify(deleted_body, engine.heap)
         except error.UnificationFailed:
-            engine.frame.revert(oldstate)
+            engine.heap.revert(oldstate)
         else:
             if function.rulechain is rulechain:
                 if rulechain.next is None:

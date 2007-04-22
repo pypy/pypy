@@ -39,7 +39,7 @@ def test_engine():
     def run():
         e.run(t1)
         e.run(t2)
-        v0 = e.frame.getvar(0)
+        v0 = e.heap.getvar(0)
         if isinstance(v0, Atom):
             return v0.name
         return "no!"

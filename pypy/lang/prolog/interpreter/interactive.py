@@ -59,11 +59,11 @@ def var_representation(var_to_pos, engine, write):
     f = TermFormatter(engine, quoted=True, max_depth=10)
     vars = var_to_pos.items()
     vars.sort()
-    frame = engine.frame
+    heap = engine.heap
     for var, real_var in vars:
         if var.startswith("_"):
             continue
-        val = real_var.getvalue(frame)
+        val = real_var.getvalue(heap)
         write("%s = %s\n" % (var, f.format(val)))
 
 class PrologConsole(code.InteractiveConsole):

@@ -8,24 +8,24 @@ from pypy.lang.prolog.builtin.type import impl_ground
 
 def impl_catch(engine, goal, catcher, recover, continuation):
     catching_continuation = enginemod.LimitedScopeContinuation(continuation)
-    old_state = engine.frame.branch()
+    old_state = engine.heap.branch()
     try:
         return engine.call(goal, catching_continuation)
     except error.CatchableError, e:
         if not catching_continuation.scope_active:
             raise
-        exc_term = e.term.getvalue(engine.frame)
-        engine.frame.revert(old_state)
+        exc_term = e.term.getvalue(engine.heap)
+        engine.heap.revert(old_state)
         d = {}
-        exc_term = exc_term.clone_compress_vars(d, engine.frame.maxvar())
-        engine.frame.extend(len(d))
+        exc_term = exc_term.clone_compress_vars(d, engine.heap.maxvar())
+        engine.heap.extend(len(d))
         try:
             impl_ground(engine, exc_term)
         except error.UnificationFailed:
             raise error.UncatchableError(
                 "not implemented: catching of non-ground terms")
         try:
-            catcher.unify(exc_term, engine.frame)
+            catcher.unify(exc_term, engine.heap)
         except error.UnificationFailed:
             if isinstance(e, error.UserError):
                 raise error.UserError(exc_term)

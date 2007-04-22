@@ -349,7 +349,7 @@ class TermBuilder(RPythonVisitor):
             name = unescape(node.additional_info[1:end])
         else:
             name = node.additional_info
-        return Atom.make_atom(name)
+        return Atom.newatom(name)
 
     def visit_VAR(self, node):
         from pypy.lang.prolog.interpreter.term import Var
@@ -399,7 +399,7 @@ class TermBuilder(RPythonVisitor):
         node = node.children[1]
         if len(node.children) == 1:
             l = self.build_list(node)
-            start = Atom.make_atom("[]")
+            start = Atom.newatom("[]")
         else:
             l = self.build_list(node.children[0])
             start = self.visit(node.children[2])
