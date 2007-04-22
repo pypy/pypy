@@ -6,6 +6,14 @@ from pypy.lang.prolog.builtin import builtins
 
 from pypy.rlib.objectmodel import we_are_translated
 
+class Builtin(object):
+    def __init__(self, function):
+        self.function = function
+
+    def call(self, engine, query, continuation):
+        return self.function(engine, query, continuation)
+        
+
 def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
                    translatable=True):
     if isinstance(name, list):
@@ -68,5 +76,5 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
     exec py.code.Source("\n".join(code)).compile() in miniglobals
     for name in expose_as:
         signature = "%s/%s" % (name, len(unwrap_spec))
-        builtins[signature] = miniglobals[funcname]
+        builtins[signature] = Builtin(miniglobals[funcname])
 

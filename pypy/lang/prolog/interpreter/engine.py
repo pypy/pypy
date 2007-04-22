@@ -204,7 +204,7 @@ class Engine(object):
         # check for builtins
         builtin = builtins.get(signature, None)
         if builtin is not None:
-            return builtin(self, query, continuation)
+            return builtin.call(self, query, continuation)
         # do a real call
         return self.user_call(query, continuation)
 
