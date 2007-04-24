@@ -6,7 +6,9 @@
 
 /* Windows.h includes winsock.h, but the socket module needs */ 
 /* winsock2.h. So I include it before. Ugly. */
+
 #include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include <windows.h>
 #include <limits.h>

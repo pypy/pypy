@@ -273,6 +273,16 @@ class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 
+# HACK HACK HACK
+if _MS_WINDOWS:
+    from ctypes import Structure
+    for struct in cConfig.__dict__.values():
+        if isinstance(struct, type) and issubclass(struct, Structure):
+            if struct.__name__ == 'in6_addr':
+                struct.__name__ = '_in6_addr'
+            else:
+                struct._external_ = True       # hack to avoid redeclaration of the struct in C
+
 # fill in missing constants with reasonable defaults
 cConfig.NI_MAXHOST = cConfig.NI_MAXHOST or 1025
 cConfig.NI_MAXSERV = cConfig.NI_MAXSERV or 32
@@ -568,6 +578,7 @@ if MS_WINDOWS:
     WSAStartup = socketdll.WSAStartup
     WSAStartup.argtypes = [c_int, POINTER(WSAData)]
     WSAStartup.restype = c_int
+    WSAStartup.libraries = ('ws2_32',)
 
     WSAGetLastError = socketdll.WSAGetLastError
     WSAGetLastError.argtypes = []
