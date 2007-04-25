@@ -1,9 +1,4 @@
-
-import subprocess
-import fcntl
-import os
 import py
-import time
 
 from pypy.translator.js.lib import server
 from pypy.translator.js.main import rpython2javascript
