@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError
@@ -126,7 +127,7 @@ class W_RSocket(Wrappable, RSocket):
             fd = self.fileno()
         except SocketError, e:
             raise converted_error(space, e)
-        return space.wrap(fd)
+        return space.wrap(intmask(fd))
     fileno_w.unwrap_spec = ['self', ObjSpace]
 
     def getpeername_w(self, space):
