@@ -85,8 +85,12 @@ def make_parse_function(regexs, rules, eof=False):
         tokens = lexer.tokenize(s, eof=eof)
         s = parser.parse(tokens)
         if not we_are_translated():
-            if py.test.config.option.view: 
-                s.view()
+            try:
+                if py.test.config.option.view: 
+                    s.view()
+            except AttributeError:
+                pass
+                
         return s
     return parse
 
