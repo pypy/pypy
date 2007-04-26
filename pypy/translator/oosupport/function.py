@@ -5,7 +5,8 @@ py.log.setconsumer("oosupport", ansi_log)
 
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.oosupport.metavm import InstructionList
+from pypy.translator.oosupport.treebuilder import SubOperation
+from pypy.translator.oosupport.metavm import InstructionList, StoreResult
 
 class Function(object):
 
@@ -194,6 +195,8 @@ class Function(object):
         else:
             assert False, 'Unknonw exitswitch type: %s' % block.exitswitch.concretetype
 
+    # XXX: soon or later we should use the implementation in
+    # cli/function.py, but at the moment jvm and js fail with it.
     def render_bool_switch(self, block):
         for link in block.exits:
             self._setup_link(link)
@@ -221,21 +224,37 @@ class Function(object):
                 self.generator.load(block.exitswitch)
                 self.generator.branch_if_equal(target_label)
 
+    def _follow_link(self, link):
+        target_label = self._get_block_name(link.target)
+        self._setup_link(link)
+        self.generator.branch_unconditionally(target_label)
+
     def _setup_link(self, link):
-        self.generator.add_comment("Setup link")
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
-            if to_load.concretetype is not ootype.Void:
-                self.generator.add_comment("  to_load=%r to_store=%r" % (
-                    to_load, to_store))
-                self.generator.load(to_load)
-                self.generator.store(to_store)
+            if isinstance(to_load, flowmodel.Variable) and to_load.name == to_store.name:
+                continue
+            if to_load.concretetype is ootype.Void:
+                continue
+            self.generator.add_comment("%r --> %r" % (to_load, to_store))
+            self.generator.load(to_load)
+            self.generator.store(to_store)
 
     def _render_op(self, op):
         instr_list = self.db.genoo.opcodes.get(op.opname, None)
         assert instr_list is not None, 'Unknown opcode: %s ' % op
         assert isinstance(instr_list, InstructionList)
         instr_list.render(self.generator, op)
+
+    def _render_sub_op(self, sub_op):
+        op = sub_op.op
+        instr_list = self.db.genoo.opcodes.get(op.opname, None)
+        assert instr_list is not None, 'Unknown opcode: %s ' % op
+        assert isinstance(instr_list, InstructionList)
+        assert instr_list[-1] is StoreResult, "Cannot inline an operation that doesn't store the result"
+        instr_list = InstructionList(instr_list[:-1]) # leave the value on the stack if this is a sub-op
+        instr_list.render(self.generator, op)
+        # now the value is on the stack
 
     # ---------------------------------------------------------#
     # These methods are quite backend independent, but not     #

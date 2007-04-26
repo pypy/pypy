@@ -50,7 +50,7 @@ def build_trees_for_block(block):
                 if can_be_inlined(sub_op):
                     op.args[i] = SubOperation(sub_op)
                     block.operations[sub_i] = None
-    block.operations = [op for op in block.operations if op is not None]
+    block.operations = [op for op in block.operations if op is not None] or ()
 
 def build_trees(graph):
     if not getattr(graph, 'tree_built', False):

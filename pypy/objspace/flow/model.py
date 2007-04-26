@@ -573,6 +573,8 @@ def copygraph(graph, shallow=False, varmap={}):
 
 def checkgraph(graph):
     "Check the consistency of a flow graph."
+
+    from pypy.translator.oosupport.treebuilder import SubOperation
     if not __debug__:
         return
     try:
@@ -608,19 +610,24 @@ def checkgraph(graph):
                 if in_link is not None:
                     assert vars[v] is None or vars[v] is in_link
 
-            for v in block.inputargs:
-                definevar(v)
-
-            for op in block.operations:
+            def checkop(op):
                 for v in op.args:
-                    assert isinstance(v, (Constant, Variable))
-                    if isinstance(v, Variable):
+                    assert isinstance(v, (Constant, Variable, SubOperation))
+                    if isinstance(v, SubOperation):
+                        checkop(v.op)
+                    elif isinstance(v, Variable):
                         usevar(v)
                     else:
                         assert v.value is not last_exception
                         #assert v.value != last_exc_value
                 if op.opname == 'direct_call':
                     assert isinstance(op.args[0], Constant)
+
+            for v in block.inputargs:
+                definevar(v)
+
+            for op in block.operations:
+                checkop(op)
                 definevar(op.result)
 
             exc_links = {}

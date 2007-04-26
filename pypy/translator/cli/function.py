@@ -6,6 +6,7 @@ except NameError:
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.function import Function as OOFunction
 from pypy.translator.oosupport.constant import push_constant
 from pypy.translator.cli.option import getoption
@@ -127,17 +128,18 @@ class LastExceptionHandler(object):
         else:
             self.ilasm.opcode('br', self._get_block_name(self.return_block))
 
-
     def _render_op(self, op):
-        from pypy.rpython.ootypesystem import ootype        
-        instr_list = self.db.genoo.opcodes.get(op.opname, None)
-        assert instr_list is not None, 'Unknown opcode: %s ' % op
-        assert isinstance(instr_list, InstructionList)
-        instr_list.render(self.generator, op)
+        OOFunction._render_op(self, op)
         if op.opname in ('direct_call', 'oosend', 'indirect_call') and not self.in_try:
             self._premature_return()
 
-    def _premature_return(self):
+    def _render_sub_op(self, sub_op):
+        OOFunction._render_sub_op(self, sub_op)
+        if sub_op.op.opname in ('direct_call', 'oosend', 'indirect_call') and not self.in_try:
+            self._premature_return(need_pop=sub_op.op.result is not ootype.Void)
+
+
+    def _premature_return(self, need_pop=False):
         try:
             return_block = self._get_block_name(self.graph.returnblock)
         except KeyError:
@@ -205,6 +207,23 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
             self.load(return_var)
         self.ilasm.opcode('ret')
 
+    # XXX: this method should be moved into oosupport, but other
+    # backends are not ready :-(
+    def render_bool_switch(self, block):
+        assert len(block.exits) == 2
+        for link in block.exits:
+            if link.exitcase:
+                link_true = link
+            else:
+                link_false = link
+
+        true_label = self.next_label('link_true')
+        self.generator.load(block.exitswitch)
+        self.generator.branch_conditionally(link.exitcase, true_label)
+        self._follow_link(link_false) # if here, the exitswitch is false
+        self.set_label(true_label)
+        self._follow_link(link_true)  # if here, the exitswitch is true
+
     def render_numeric_switch(self, block):
         if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):
             # TODO: it could be faster to check is the values fit in
@@ -269,7 +288,8 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
                     self.ilasm.load_arg(v)
             else:
                 self.ilasm.load_local(v)
-
+        elif isinstance(v, SubOperation):
+            self._render_sub_op(v)
         else:
             super(Function, self).load(v)
 

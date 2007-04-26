@@ -17,6 +17,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None,
                  requires={
+                     "lltype": [("translation.backendopt.stack_optimization", False)],
                      "ootype": [("translation.backendopt.raisingop2direct_call", False),
                                 ("translation.backendopt.constfold", False),
                                 ("translation.backendopt.heap2stack", False),
@@ -30,10 +31,14 @@ translation_optiondescription = OptionDescription(
                                 ("translation.gc", "boehm"),
                                 ("translation.backendopt.raisingop2direct_call", True)],
                      "cli":    [("translation.type_system", "ootype")],
-                     "jvm":    [("translation.type_system", "ootype")],
-                     "js":     [("translation.type_system", "ootype")],
-                     "squeak": [("translation.type_system", "ootype")],
-                     "cl":     [("translation.type_system", "ootype")],
+                     "jvm":    [("translation.type_system", "ootype"),
+                                ("translation.backendopt.stack_optimization", False)],
+                     "js":     [("translation.type_system", "ootype"),
+                                ("translation.backendopt.stack_optimization", False)],
+                     "squeak": [("translation.type_system", "ootype"),
+                                ("translation.backendopt.stack_optimization", False)],
+                     "cl":     [("translation.type_system", "ootype"),
+                                ("translation.backendopt.stack_optimization", False)],
                      },
                  cmdline="-b --backend"),
     BoolOption("llvm_via_c", "compile llvm via C",
@@ -165,6 +170,14 @@ translation_optiondescription = OptionDescription(
                    "Remove operations that look like 'raise AssertionError', "
                    "which lets the C optimizer remove the asserts",
                    default=False),
+
+        BoolOption("stack_optimization",
+                   "Tranform graphs in SSI form into graphs tailored for "
+                   "stack based virtual machines",
+                   default=True,
+                   cmdline="--stackopt",
+                   requires=[("translation.type_system", "ootype"),
+                             ("translation.backend", "cli")]),
 
         BoolOption("none",
                    "Do not run any backend optimizations",

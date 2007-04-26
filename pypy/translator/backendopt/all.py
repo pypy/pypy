@@ -11,6 +11,8 @@ from pypy.translator.backendopt import mallocprediction
 from pypy.translator.backendopt.removeassert import remove_asserts
 from pypy.translator.backendopt.support import log
 from pypy.translator.backendopt.checkvirtual import check_virtual_methods
+from pypy.translator.backendopt.ssa import SSI_to_SSA
+from pypy.translator.oosupport.treebuilder import build_trees
 from pypy.objspace.flow.model import checkgraph
 
 INLINE_THRESHOLD_FOR_TEST = 33
@@ -124,6 +126,11 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     if config.print_statistics:
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
+
+    if config.stack_optimization:
+        for graph in graphs:
+            SSI_to_SSA(graph)
+            build_trees(graph)
 
     for graph in graphs:
         checkgraph(graph)

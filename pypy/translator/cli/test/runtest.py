@@ -166,16 +166,7 @@ def _build_gen(func, annotation, graph=None, backend_opt={}):
 
     t.buildrtyper(type_system="ootype").specialize()
     check_virtual_methods(ootype.ROOT)
-    backend_opt_default = dict(
-        raisingop2direct_call=False,
-        inline_threshold=1,
-        mallocs=True,
-        merge_if_blocks=True,
-        constfold=True,
-        heap2stack=False,
-        clever_malloc_removal=False)
-    backend_opt_default.update(backend_opt)
-    #backend_optimizations(t, **backend_opt_default)
+    backend_optimizations(t)
     
     main_graph = t.graphs[0]
 
