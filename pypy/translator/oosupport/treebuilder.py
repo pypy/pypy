@@ -1,7 +1,17 @@
-from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
+from pypy.rpython.lltypesystem.lloperation import LLOp, LL_OPERATIONS as LL_OPS
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow import model as flowmodel
 
+LL_OPERATIONS = {
+    'clibox':               LLOp(oo=True, canfold=True),
+    'cliunbox':             LLOp(oo=True, canfold=True),
+    'cli_newarray':         LLOp(oo=True, canfold=True),
+    'cli_getelem':          LLOp(oo=True, sideeffects=False),
+    'cli_setelem':          LLOp(oo=True),
+    'cli_typeof':           LLOp(oo=True, canfold=True),
+    'cli_arraylength':      LLOp(oo=True, canfold=True),
+    }
+LL_OPERATIONS.update(LL_OPS)
 
 class SubOperation(object):
     def __init__(self, op):
