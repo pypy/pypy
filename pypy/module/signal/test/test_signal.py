@@ -1,4 +1,4 @@
-import os
+import os, py
 from pypy.conftest import gettestobjspace
 
 class AppTestSignal:
