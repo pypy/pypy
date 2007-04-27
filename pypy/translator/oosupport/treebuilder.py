@@ -1,5 +1,7 @@
+from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow import model as flowmodel
+
 
 class SubOperation(object):
     def __init__(self, op):
@@ -19,11 +21,14 @@ def is_mutable(TYPE):
                              ootype.CustomDict,
                              ootype.DictItemsIterator))
 
+# TODO: analyze graphs to determine which functions calls could have
+# side effects and which can be inlined safely.
 def can_be_inlined(op):
-    for v in op.args:
-        if isinstance(v, flowmodel.Variable) and is_mutable(v.concretetype):
-            return False
-    return True
+    try:
+        llop = LL_OPERATIONS[op.opname]
+        return llop.canfold
+    except KeyError:
+        return False
 
 def build_op_map(block):
     var_count = {}
