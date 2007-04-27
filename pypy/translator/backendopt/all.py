@@ -127,7 +127,8 @@ def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
 
-    if config.stack_optimization:
+    # XXX: it's not nice to have the backend hard-coded here
+    if config.stack_optimization and translator.config.translation.backend == 'cli':
         for graph in graphs:
             SSI_to_SSA(graph)
             build_trees(graph)
