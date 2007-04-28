@@ -1,7 +1,7 @@
 
 import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
-from pypy.rlib.parsing.parsing import ParseError
+from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
 from pypy import conftest
 import sys
@@ -20,28 +20,28 @@ parse = make_parse_function(regexs, rules, eof=True)
 def setstartrule(rules, start):
     "takes the rule start and put it on the beginning of the rules"
     oldpos = 0
-    newrules = rules[:]
-    for n, rule in enumerate(rules):
-        if rule.nonterminal == start:
-            oldpos = n
-    startrule = newrules.pop(oldpos)
-    newrules.insert(0, startrule)
+    newrules = [Rule("hacked_first_symbol", [[start, "EOF"]])] + rules
     return newrules
 
 def get_defaultparse():
     global parse
     if parse is None:
-        parse = make_parse_function(regexs, rules)
+        parse = make_parse_function(regexs, rules, eof=True)
     return parse
 
 def parse_func(start=None):
     if start is not None:
-        parse = make_parse_function(regexs, setstartrule(rules, start))
+        parse = make_parse_function(regexs, setstartrule(rules, start),
+                                    eof=True)
     else:
         parse = get_defaultparse()
 
     def methodparse(self, text):
-        tree = parse(text).visit(ToAST())[0]
+        tree = parse(text)
+        if start is not None:
+            assert tree.symbol == "hacked_first_symbol"
+            tree = tree.children[0]
+        tree = tree.visit(ToAST())[0]
         if conftest.option.view:
             tree.view()
         return tree
