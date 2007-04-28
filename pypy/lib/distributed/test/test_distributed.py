@@ -287,3 +287,8 @@ class AppTestDistributedTasklets(object):
         xX = protocol.get_remote('X')
         assert isinstance(xy, xX)
 
+    def test_key_error(self):
+        from distributed import ObjectNotFound
+        protocol = self.test_env({})
+        raises(ObjectNotFound, "protocol.get_remote('x')")
+

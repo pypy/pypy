@@ -45,6 +45,9 @@ from distributed.objkeeper import ObjKeeper
 from distributed import faker
 import sys
 
+class ObjectNotFound(Exception):
+    pass
+
 # XXX We do not make any garbage collection. We'll need it at some point
 
 """
@@ -289,8 +292,13 @@ def remote_loop(protocol):
     while 1:
         command, data = receive()
         if command == 'get':
-            # XXX: Error recovery anyone???
-            send(("finished", wrap(protocol.keeper.exported_names[data])))
+            try:
+                item = protocol.keeper.exported_names[data]
+            except KeyError:
+                send(("finished_error",data))
+            else:
+                # XXX wrapping problems catching? do we have any?
+                send(("finished", wrap(item)))
         elif command == 'call':
             id, name, args, kwargs = data
             args, kwargs = protocol.unpack_args(args, kwargs)
@@ -302,6 +310,8 @@ def remote_loop(protocol):
                 send(("finished", wrap(retval)))
         elif command == 'finished':
             return unwrap(data)
+        elif command == 'finished_error':
+            raise ObjectNotFound("Cannot find name %s" % (data,))
         elif command == 'raised':
             exc, val, tb = unwrap(data)
             raise exc, val, tb
