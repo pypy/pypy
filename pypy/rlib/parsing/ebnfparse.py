@@ -493,14 +493,9 @@ class EBNFToAST(object):
     def visit__star_symbol0(self, node):
         length = len(node.children)
         if length == 2:
-            if (node.children[0].symbol == 'expansion' and node.children[1].symbol == '__2_|'):
-                children = []
-                children.extend(self.visit_expansion(node.children[0]))
-                return [Nonterminal(node.symbol, children)]
-            if (node.children[0].symbol == 'expansion' and node.children[1].symbol == '__2_|'):
-                children = []
-                children.extend(self.visit_expansion(node.children[0]))
-                return [Nonterminal(node.symbol, children)]
+            children = []
+            children.extend(self.visit_expansion(node.children[0]))
+            return [Nonterminal(node.symbol, children)]
         children = []
         children.extend(self.visit_expansion(node.children[0]))
         expr = self.visit__star_symbol0(node.children[2])
@@ -591,13 +586,25 @@ class EBNFToAST(object):
         children = []
         children.extend([node.children[0]])
         return [Nonterminal(node.symbol, children)]
+    def transform(self, tree):
+        assert isinstance(tree, Nonterminal)
+        assert tree.symbol == 'file'
+        r = self.visit_file(tree)
+        assert len(r) == 1
+        if not we_are_translated():
+            try:
+                if py.test.config.option.view:
+                    r[0].view()
+            except AttributeError:
+                pass
+        return r[0]
 parser = PackratParser([Rule('file', [['list', 'EOF']]),
   Rule('_plus_symbol0', [['element', '_plus_symbol0'], ['element']]),
   Rule('list', [['_plus_symbol0']]),
   Rule('element', [['regex'], ['production']]),
   Rule('regex', [['SYMBOLNAME', '__0_:', 'QUOTE', '__1_;']]),
   Rule('production', [['NONTERMINALNAME', '__0_:', 'body', '__1_;']]),
-  Rule('_star_symbol0', [['expansion', '__2_|', '_star_symbol0'], ['expansion', '__2_|'], ['expansion', '__2_|']]),
+  Rule('_star_symbol0', [['expansion', '__2_|', '_star_symbol0'], ['expansion', '__2_|']]),
   Rule('body', [['_star_symbol0', 'expansion'], ['expansion']]),
   Rule('_plus_symbol1', [['decorated', '_plus_symbol1'], ['decorated']]),
   Rule('expansion', [['_plus_symbol1']]),
