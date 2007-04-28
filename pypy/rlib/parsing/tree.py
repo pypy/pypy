@@ -56,7 +56,7 @@ class Nonterminal(Node):
     def visit(self, visitor):
         "NOT_RPYTHON"
         if isinstance(visitor, RPythonVisitor):
-            visitor.dispatch(self)
+            return visitor.dispatch(self)
         general = getattr(visitor, "visit", None)
         if general is None:
             return getattr(visitor, "visit_" + self.symbol)(self)
