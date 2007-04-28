@@ -231,7 +231,6 @@ class AppTestDistributedTasklets(object):
         xa.m(xA)
 
     def test_instantiate_remote_type(self):
-        skip("Will not work unless we take care about __basis__")
         class C:
             def __init__(self, y):
                 self.y = y
@@ -254,11 +253,7 @@ class AppTestDistributedTasklets(object):
         assert l
 
     def test_remote_file_access(self):
-        # cannot do test_env({'file':file}) yet :)
-        def f(name):
-            return open(name)
-
-        protocol = self.test_env({'f':f})
+        protocol = self.test_env({'f':open})
         xf = protocol.get_remote('f')
         data = xf('/etc/passwd').read()
         assert data
@@ -279,3 +274,16 @@ class AppTestDistributedTasklets(object):
         xx = protocol.get_remote('x')
         assert xx.x == 3
     
+    def test_bases(self):
+        class X(object):
+            pass
+
+        class Y(X):
+            pass
+
+        y = Y()
+        protocol = self.test_env({'y':y, 'X':X})
+        xy = protocol.get_remote('y')
+        xX = protocol.get_remote('X')
+        assert isinstance(xy, xX)
+

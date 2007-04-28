@@ -40,12 +40,8 @@ def wrap_type(protocol, tp, tp_id):
     """ Wrap type to transpotable entity, taking
     care about descriptors
     """
-    # XXX forget about bases right now
-    bases = []
     dict_w = {}
-    # XXX we do dir here because we've forgotten about basis
-    #     above
-    for item in dir(tp):
+    for item in tp.__dict__.keys():
         value = getattr(tp, item)
         if ignore(item):
             # we've got shortcut for method
@@ -57,7 +53,8 @@ def wrap_type(protocol, tp, tp_id):
                     dict_w[item] = ('set', name)
             else:
                 dict_w[item] = protocol.wrap(value)
-    return tp_id, tp.__name__, dict_w, bases
+    bases_w = [protocol.wrap(i) for i in tp.__bases__ if i is not object]
+    return tp_id, tp.__name__, dict_w, bases_w
 
 def unwrap_descriptor_gen(desc_class):
     def unwrapper(protocol, data):
@@ -73,14 +70,16 @@ unwrap_getset_descriptor = unwrap_descriptor_gen(GetSetDescriptor)
 def unwrap_type(objkeeper, protocol, type_id, name_, dict_w, bases_w):
     """ Unwrap remote type, based on it's description
     """
-    # XXX sanity check
-    assert bases_w == []
+    if bases_w == []:
+        bases = (object,)
+    else:
+        bases = tuple([protocol.unwrap(i) for i in bases_w])
     d = dict.fromkeys(dict_w)
     # XXX we do it in two steps to avoid cyclic dependencies,
     #     probably there is some smarter way of doing this
     if '__doc__' in dict_w:
         d['__doc__'] = protocol.unwrap(dict_w['__doc__'])
-    tp = type(name_, (object,), d)
+    tp = type(name_, bases, d)
     objkeeper.register_remote_type(tp, type_id)
     for key, value in dict_w.items():
         if key != '__doc__':
