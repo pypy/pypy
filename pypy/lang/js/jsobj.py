@@ -20,6 +20,8 @@ class ThrowException(JsBaseExcept):
 class JsTypeError(JsBaseExcept):
     pass
 
+class RangeError(JsBaseExcept): pass
+
 Infinity = 1e300 * 1e300
 NaN = Infinity/Infinity
 

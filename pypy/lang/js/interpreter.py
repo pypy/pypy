@@ -63,7 +63,7 @@ def functionjs(ctx, args, this):
 def parseIntjs(ctx, args, this):
     if len(args) < 1:
         return W_Number(NaN)
-    s = args[0].ToString().strip()
+    s = args[0].ToString().strip(" ")
     if len(args) > 1:
         radix = args[1].ToInt32()
     else:
@@ -82,7 +82,7 @@ def parseIntjs(ctx, args, this):
 def parseFloatjs(ctx, args, this):
     if len(args) < 1:
         return W_Number(NaN)
-    s = args[0].ToString().strip()
+    s = args[0].ToString().strip(" ")
     try:
         n = float(s)
     except ValueError:
