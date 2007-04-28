@@ -262,3 +262,20 @@ class AppTestDistributedTasklets(object):
         xf = protocol.get_remote('f')
         data = xf('/etc/passwd').read()
         assert data
+
+    def test_real_descriptor(self):
+        class getdesc(object):
+            def __get__(self, obj, val=None):
+                if obj is not None:
+                    assert type(obj) is X
+                return 3
+
+        class X(object):
+            x = getdesc()
+
+        x = X()
+
+        protocol = self.test_env({'x':x})
+        xx = protocol.get_remote('x')
+        assert xx.x == 3
+    
