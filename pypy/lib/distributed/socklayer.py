@@ -42,8 +42,9 @@ def socket_listener(address, socket=socket):
     s = socket(AF_INET, SOCK_STREAM)
     s.bind(address)
     s.listen(1)
-    print "Waiting for connection"
+    print "Waiting for connection on %s" % (address,)
     conn, addr = s.accept()
+    print "Connected from %s" % (addr,)
 
     return SenderWrapper(conn).send, ReceiverWrapper(conn).receive
 
