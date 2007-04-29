@@ -252,6 +252,12 @@ class Function(object):
         assert instr_list is not None, 'Unknown opcode: %s ' % op
         assert isinstance(instr_list, InstructionList)
         assert instr_list[-1] is StoreResult, "Cannot inline an operation that doesn't store the result"
+
+        # record that we know about the type of result and args
+        self.cts.lltype_to_cts(op.result.concretetype)
+        for v in op.args:
+            self.cts.lltype_to_cts(v.concretetype)
+
         instr_list = InstructionList(instr_list[:-1]) # leave the value on the stack if this is a sub-op
         instr_list.render(self.generator, op)
         # now the value is on the stack
