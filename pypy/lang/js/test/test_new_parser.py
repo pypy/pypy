@@ -106,16 +106,28 @@ class TestExpressions(BaseGrammarTest):
         assert result1 == result2
         return tree
 
-    def test_simple(self):
-        self.parse_and_evaluate("1")
-        self.parse_and_evaluate("1 + 2")
-        self.parse_and_evaluate("1 - 2")
-        self.parse_and_evaluate("1 * 2")
-        self.parse_and_evaluate("1 / 2")
+    def parse_all(self, l):
+        for i in l:
+            self.parse_and_evaluate(i)
 
+    def test_simple(self):
+        self.parse_all(["1",
+                        "1 + 2",
+                        "1 - 2",
+                        "1 * 2",
+                        "1 / 2",
+                        "1 >> 2",
+                        "4 % 2",
+                        "4 | 1",
+                        "4 ^ 2",
+        ])
+        
     def test_chained(self):
-        self.parse_and_evaluate("1 + 2 * 3")
-        self.parse_and_evaluate("1 * 2 + 3")
-        self.parse_and_evaluate("1 - 3 - 3")
-        self.parse_and_evaluate("4 / 2 / 2")
+        self.parse_all(["1 + 2 * 3",
+                        "1 * 2 + 3",
+                        "1 - 3 - 3",
+                        "4 / 2 / 2",
+                        "2 << 4 << 4",
+                        "30 | 3 & 5",
+        ])
         
