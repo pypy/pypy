@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.oosupport.treebuilder import build_trees, SubOperation
