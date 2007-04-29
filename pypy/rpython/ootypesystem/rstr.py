@@ -196,7 +196,11 @@ class LLHelpers(AbstractLLHelpers):
         return sign * val
 
     def ll_float(ll_str):
-        return ootype.ooparse_float(ll_str)
+        # XXX workaround for an inlining bug
+        try:
+            return ootype.ooparse_float(ll_str)
+        except ValueError:
+            raise
     
     # interface to build strings:
     #   x = ll_build_start(n)
