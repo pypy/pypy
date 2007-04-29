@@ -231,7 +231,7 @@ postfixexpression   : lefthandsideexpression "++"
 
 unaryexpression : "delete" unaryexpression 
                 | "void" unaryexpression 
-                | "typeof" unaryexpression 
+                | "typeof" unaryexpression
                 | "++" unaryexpression 
                 | "--" unaryexpression 
                 | "+" unaryexpression 
@@ -241,57 +241,56 @@ unaryexpression : "delete" unaryexpression
                 | postfixexpression
                 ;
 
-multiplicativeexpression    : unaryexpression "*" multiplicativeexpression
-                            | unaryexpression "/" multiplicativeexpression
-                            | unaryexpression "%" multiplicativeexpression
+multiplicativeexpression    : unaryexpression "*" >multiplicativeexpression<
+                            | unaryexpression "/" >multiplicativeexpression<
+                            | unaryexpression "%" >multiplicativeexpression<
                             | unaryexpression
                             ;
-                            
 
 additiveexpression  : multiplicativeexpression "+" >additiveexpression<
                     | multiplicativeexpression "-" >additiveexpression<
-                    | <multiplicativeexpression>
+                    | multiplicativeexpression
                     ;
 
-shiftexpression : additiveexpression "<<" shiftexpression
-                | additiveexpression ">>" shiftexpression
-                | additiveexpression ">>>" shiftexpression
+shiftexpression : additiveexpression "<<" >shiftexpression<
+                | additiveexpression ">>" >shiftexpression<
+                | additiveexpression ">>>" >shiftexpression<
                 | additiveexpression
                 ;
 
-relationalexpression    : shiftexpression "<" relationalexpression
-                        | shiftexpression ">" relationalexpression
-                        | shiftexpression "<=" relationalexpression
-                        | shiftexpression ">=" relationalexpression
-                        | shiftexpression "instanceof" relationalexpression
-                        | shiftexpression "in" relationalexpression
+relationalexpression    : shiftexpression "<" >relationalexpression<
+                        | shiftexpression ">" >relationalexpression<
+                        | shiftexpression "<=" >relationalexpression<
+                        | shiftexpression ">=" >relationalexpression<
+                        | shiftexpression "instanceof" >relationalexpression<
+                        | shiftexpression "in" >relationalexpression<
                         | shiftexpression
                         ;
 
-equalityexpression  : relationalexpression "==" equalityexpression
-                    | relationalexpression "!=" equalityexpression 
-                    | relationalexpression "===" equalityexpression 
-                    | relationalexpression "!==" equalityexpression
+equalityexpression  : relationalexpression "==" <equalityexpression>
+                    | relationalexpression "!=" <equalityexpression> 
+                    | relationalexpression "===" <equalityexpression> 
+                    | relationalexpression "!==" <equalityexpression>
                     | relationalexpression
                     ;
 
-bitwiseandexpression    : equalityexpression "&" bitwiseandexpression
+bitwiseandexpression    : equalityexpression "&" >bitwiseandexpression<
                         | equalityexpression
                         ;
 
-bitwisexorexpression    : bitwiseandexpression "^" bitwisexorexpression
+bitwisexorexpression    : bitwiseandexpression "^" >bitwisexorexpression<
                         | bitwiseandexpression
                         ;
 
-bitwiseorexpression     : bitwisexorexpression "|" bitwiseorexpression
+bitwiseorexpression     : bitwisexorexpression "|" >bitwiseorexpression<
                         | bitwisexorexpression
                         ; 
 
-logicalandexpression    : bitwiseorexpression "&&" logicalandexpression
+logicalandexpression    : bitwiseorexpression "&&" >logicalandexpression<
                         | bitwiseorexpression
                         ;
 
-logicalorexpression : logicalandexpression "||" logicalorexpression
+logicalorexpression : logicalandexpression "||" >logicalorexpression<
                     | logicalandexpression
                     ;
                     
@@ -317,7 +316,7 @@ assignmentoperator: "=" |
                     "^=" |
                     "\|=" ;
 
-expression  : assignmentexpression "," expression
+expression  : assignmentexpression "," >expression<
             | assignmentexpression
             ;
 

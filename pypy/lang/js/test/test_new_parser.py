@@ -87,7 +87,11 @@ class IntEvaluationVisitor(RPythonVisitor):
             return self.dispatch(node.children[0])
         if len(node.children) >= 3:
             code = [str(self.dispatch(child)) for child in node.children]
-            return eval(" ".join(code))
+            print code
+            while len(code) >= 3:
+                r = eval("%s %s %s"%(code.pop(0), code.pop(0), code.pop(0)))
+                code.insert(0, r)
+            return code[0]
 
 
 class TestExpressions(BaseGrammarTest):
@@ -113,3 +117,5 @@ class TestExpressions(BaseGrammarTest):
         self.parse_and_evaluate("1 + 2 * 3")
         self.parse_and_evaluate("1 * 2 + 3")
         self.parse_and_evaluate("1 - 3 - 3")
+        self.parse_and_evaluate("4 / 2 / 2")
+        
