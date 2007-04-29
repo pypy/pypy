@@ -1,3 +1,4 @@
+from __future__ import division
 
 import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function

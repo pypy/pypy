@@ -13,33 +13,33 @@ sourceelement   : functiondeclaration
                 | statement
                 ;
 
-statement   : block
-            | variablestatement [";"]
+statement   : <block>
+            | <variablestatement> [";"]
             | [ ";" ] 
-            | expressionstatement [";"]
-            | ifstatement [";"]
-            | iterationstatement [";"]
-            | continuestatement [";"]
-            | breakstatement [";"]
-            | returnstatement [";"]
-            | withstatement [";"]
-            | labelledstatement [";"]
-            | switchstatement 
-            | throwstatement [";"]
-            | trystatement [";"]
+            | <expressionstatement> [";"]
+            | <ifstatement> [";"]
+            | <iterationstatement> [";"]
+            | <continuestatement> [";"]
+            | <breakstatement> [";"]
+            | <returnstatement> [";"]
+            | <withstatement> [";"]
+            | <labelledstatement> [";"]
+            | <switchstatement> 
+            | <throwstatement> [";"]
+            | <trystatement> [";"]
             ;
 
 block   : "{" statementlist? "}"
         ;
 
-statementlist   : statement statementlist
+statementlist   : statement >statementlist<
                 | statement
                 ;
 
 variablestatement   : ["var"] variabledeclarationlist
                     ; 
 
-variabledeclarationlist : variabledeclaration [","] variabledeclarationlist 
+variabledeclarationlist : variabledeclaration [","] >variabledeclarationlist<
                         | variabledeclaration
                         ;
 
@@ -87,6 +87,7 @@ caseblock   : ["{"] caseclauses? defaultclause caseclauses? ["}"]
             | ["{"] caseclauses? ["}"]
             ;
 
+# XXX this looks wrong to me
 caseclauses : caseclause caseclauses
             ;
 
@@ -110,14 +111,14 @@ catch   : ["catch"] ["("] identifier [")"] block
 finally : ["finally"] block
         ;
 
-identifier  : IDENTIFIERNAME;
+identifier  : <IDENTIFIERNAME>;
 
 IDENTIFIERNAME  : "[a-zA-Z_$][a-zA-Z_0-9]*";
 
-literal : nullliteral
-        | booleanliteral
-        | numericliteral
-        | stringliteral
+literal : <nullliteral>
+        | <booleanliteral>
+        | <numericliteral>
+        | <stringliteral>
         ;
 
 nullliteral : "null";
@@ -126,8 +127,8 @@ booleanliteral  : "true"
                 | "false"
                 ;
 
-numericliteral  : DECIMALLITERAL
-                | HEXINTEGERLITERAL
+numericliteral  : <DECIMALLITERAL>
+                | <HEXINTEGERLITERAL>
                 ; 
 
 DECIMALLITERAL  : "(((0|[1-9][0-9]*)(\.[0-9]*)?)|(\.[0-9]+))([eE][\+\-]?[0-9]*)?"
@@ -136,8 +137,8 @@ DECIMALLITERAL  : "(((0|[1-9][0-9]*)(\.[0-9]*)?)|(\.[0-9]+))([eE][\+\-]?[0-9]*)?
 HEXINTEGERLITERAL   : "0[xX][0-9a-fA-F]+"
                     ;
 
-stringliteral   : SINGLESTRING
-                | DOUBLESTRING
+stringliteral   : <SINGLESTRING>
+                | <DOUBLESTRING>
                 ;
 
 SINGLESTRING    : "'([^']|\\')*'"
@@ -147,15 +148,15 @@ DOUBLESTRING    : "\"([^\"]|\\\")*\""
                 ;
 
 primaryexpression   : "this"
-                    | identifier 
-                    | literal
-                    | arrayliteral 
-                    | objectliteral 
-                    | "\(" expression "\)"
+                    | <identifier>
+                    | <literal>
+                    | <arrayliteral>
+                    | <objectliteral>
+                    | "\(" <expression> "\)"
                     ;
 
-arrayliteral    : "[" elementlist "]" 
-                | "[" elementlist "," "]"
+arrayliteral    : ["["] elementlist ["]"] 
+                | ["["] elementlist ["," "]"]
                 ;
 
 elementlist : assignmentexpression ("," assignmentexpression)*
@@ -174,9 +175,9 @@ propertynameandvaluelist    : hpropertynameandvaluelist* propertyname ":" assign
 hpropertynameandvaluelist   : propertyname ":" assignmentexpression ","
                             ;
 
-propertyname    : identifier
-                | stringliteral
-                | numericliteral
+propertyname    : <identifier>
+                | <stringliteral>
+                | <numericliteral>
                 ; 
 
 functiondeclaration : "function" identifier "(" formalparameterlist? ")" "{" functionbody "}"
@@ -185,25 +186,25 @@ functiondeclaration : "function" identifier "(" formalparameterlist? ")" "{" fun
 functionexpression  : "function" identifier? "(" formalparameterlist? ")" "{" functionbody "}"
                     ;
 
-formalparameterlist : identifier "," formalparameterlist 
+formalparameterlist : identifier [","] >formalparameterlist<
                     | identifier
                     ;
 
 functionbody    : sourceelements
                 ;
 
-begmemberexpression : primaryexpression
-                    | functionexpression
+begmemberexpression : <primaryexpression>
+                    | <functionexpression>
                     ;
 
 memberexpression    : begmemberexpression "[" expression "]" memberexpression* 
                     | begmemberexpression "." identifier memberexpression*
                     | "new" memberexpression arguments
-                    | begmemberexpression
+                    | <begmemberexpression>
                     ;
 
 newexpression   : "new" newexpression
-                | memberexpression
+                | <memberexpression>
                 ;
 
 callexpression  : memberexpression arguments arguments callexpression* 
@@ -216,17 +217,16 @@ arguments   : "(" ")"
             | "(" argumentlist ")"
             ;
  
-argumentlist    : assignmentexpression
-                | assignmentexpression "," argumentlist
-                ;
+argumentlist    : assignmentexpression "," >argumentlist<
+                | assignmentexpression;
 
-lefthandsideexpression  : callexpression
-                        | newexpression
+lefthandsideexpression  : <callexpression>
+                        | <newexpression>
                         ; 
 
 postfixexpression   : lefthandsideexpression "++" 
                     | lefthandsideexpression "--"
-                    | lefthandsideexpression
+                    | <lefthandsideexpression>
                     ; 
 
 unaryexpression : "delete" unaryexpression 
@@ -234,73 +234,63 @@ unaryexpression : "delete" unaryexpression
                 | "typeof" unaryexpression
                 | "++" unaryexpression 
                 | "--" unaryexpression 
-                | "+" unaryexpression 
-                | "-" unaryexpression 
+                | PLM unaryexpression 
                 | "~" unaryexpression 
                 | "!" unaryexpression 
-                | postfixexpression
+                | <postfixexpression>
                 ;
 
-multiplicativeexpression    : unaryexpression "*" >multiplicativeexpression<
-                            | unaryexpression "/" >multiplicativeexpression<
-                            | unaryexpression "%" >multiplicativeexpression<
-                            | unaryexpression
+multop: "*" | "/" | "%";
+multiplicativeexpression    : unaryexpression (multop unaryexpression)+
+                            | <unaryexpression>
                             ;
-
-additiveexpression  : multiplicativeexpression "+" >additiveexpression<
-                    | multiplicativeexpression "-" >additiveexpression<
-                    | multiplicativeexpression
+PLM  : "\+|\-";
+additiveexpression  : multiplicativeexpression (PLM multiplicativeexpression)+
+                    | <multiplicativeexpression>
                     ;
 
-shiftexpression : additiveexpression "<<" >shiftexpression<
-                | additiveexpression ">>" >shiftexpression<
-                | additiveexpression ">>>" >shiftexpression<
-                | additiveexpression
+shiftop: "<<" | ">>" | ">>>";
+shiftexpression : additiveexpression (shiftop additiveexpression)+
+                | <additiveexpression>
                 ;
 
-relationalexpression    : shiftexpression "<" >relationalexpression<
-                        | shiftexpression ">" >relationalexpression<
-                        | shiftexpression "<=" >relationalexpression<
-                        | shiftexpression ">=" >relationalexpression<
-                        | shiftexpression "instanceof" >relationalexpression<
-                        | shiftexpression "in" >relationalexpression<
-                        | shiftexpression
+relationalop: "<" | ">" | "<=" | ">=" | "instanceof" | "in";
+relationalexpression    : shiftexpression (relationalop relationalexpression)+
+                        | <shiftexpression>
                         ;
 
-equalityexpression  : relationalexpression "==" <equalityexpression>
-                    | relationalexpression "!=" <equalityexpression> 
-                    | relationalexpression "===" <equalityexpression> 
-                    | relationalexpression "!==" <equalityexpression>
-                    | relationalexpression
+equalityop: "==" | "!=" | "===" | "!==";
+equalityexpression  : relationalexpression (equalityop relationalexpression)+
+                    | <relationalexpression>
                     ;
 
-bitwiseandexpression    : equalityexpression "&" >bitwiseandexpression<
-                        | equalityexpression
+bitwiseandexpression    : equalityexpression ("&" equalityexpression)+
+                        | <equalityexpression>
                         ;
 
-bitwisexorexpression    : bitwiseandexpression "^" >bitwisexorexpression<
-                        | bitwiseandexpression
+bitwisexorexpression    : bitwiseandexpression ("^" bitwiseandexpression)+
+                        | <bitwiseandexpression>
                         ;
 
-bitwiseorexpression     : bitwisexorexpression "|" >bitwiseorexpression<
-                        | bitwisexorexpression
+bitwiseorexpression     : bitwisexorexpression ("|" bitwisexorexpression)+
+                        | <bitwisexorexpression>
                         ; 
 
-logicalandexpression    : bitwiseorexpression "&&" >logicalandexpression<
-                        | bitwiseorexpression
+logicalandexpression    : bitwiseorexpression ("&&" bitwiseorexpression)+
+                        | <bitwiseorexpression>
                         ;
 
-logicalorexpression : logicalandexpression "||" >logicalorexpression<
-                    | logicalandexpression
+logicalorexpression : logicalandexpression ("||" logicalandexpression)+
+                    | <logicalandexpression>
                     ;
                     
 
 conditionalexpression   : logicalorexpression "?" assignmentexpression ":" assignmentexpression
-                        | logicalorexpression
+                        | <logicalorexpression>
                         ;
 
 assignmentexpression    : lefthandsideexpression assignmentoperator assignmentexpression
-                        | conditionalexpression
+                        | <conditionalexpression>
                         ;
 
 assignmentoperator: "=" |
@@ -316,75 +306,54 @@ assignmentoperator: "=" |
                     "^=" |
                     "\|=" ;
 
-expression  : assignmentexpression "," >expression<
-            | assignmentexpression
+expression  : assignmentexpression ([","] assignmentexpression)+
+            | <assignmentexpression>
             ;
 
 #noin copy
 
-relationalexpressionnoin    : shiftexpression "<" relationalexpression
-                            | shiftexpression ">" relationalexpression
-                            | shiftexpression "<=" relationalexpression
-                            | shiftexpression ">=" relationalexpression
-                            | shiftexpression "instanceof" relationalexpression
-#                           | shiftexpression "in" relationalexpression
-                            | shiftexpression
+relationalopnoin: "<" | ">" | "<=" | ">=" | "instanceof";
+relationalexpressionnoin    : shiftexpression (relationalopnoin shiftexpression)+
+                            | <shiftexpression>
                             ;
 
-
-equalityexpressionnoin  : relationalexpressionnoin "==" equalityexpressionnoin
-                    | relationalexpressionnoin "!=" equalityexpressionnoin 
-                    | relationalexpressionnoin "===" equalityexpressionnoin 
-                    | relationalexpressionnoin "!==" equalityexpressionnoin
-                    | relationalexpressionnoin
+equalityexpressionnoin  : relationalexpressionnoin (equalityop equalityexpressionnoin)+
+                    | <relationalexpressionnoin>
                     ;
 
-bitwiseandexpressionnoin    : equalityexpressionnoin "&" bitwiseandexpressionnoin
-                        | equalityexpressionnoin
+bitwiseandexpressionnoin    : equalityexpressionnoin ("&" equalityexpressionnoin)+
+                        | <equalityexpressionnoin>
                         ;
 
-bitwisexorexpressionnoin    : bitwiseandexpressionnoin "^" bitwisexorexpressionnoin
-                        | bitwiseandexpressionnoin
+bitwisexorexpressionnoin    : bitwiseandexpressionnoin ("^" bitwiseandexpressionnoin)+
+                        | <bitwiseandexpressionnoin>
                         ;
 
-bitwiseorexpressionnoin     : bitwisexorexpressionnoin "|" bitwiseorexpressionnoin
-                        | bitwisexorexpressionnoin
+bitwiseorexpressionnoin     : bitwisexorexpressionnoin ("|" bitwisexorexpressionnoin)+
+                        | <bitwisexorexpressionnoin>
                         ; 
 
-logicalandexpressionnoin    : bitwiseorexpressionnoin "&&" logicalandexpressionnoin
-                        | bitwiseorexpressionnoin
+logicalandexpressionnoin    : bitwiseorexpressionnoin ("&&" bitwiseorexpressionnoin)+
+                        | <bitwiseorexpressionnoin>
                         ;
 
-logicalorexpressionnoin : logicalandexpressionnoin "||" logicalorexpressionnoin
-                    | logicalandexpressionnoin
+logicalorexpressionnoin : logicalandexpressionnoin ("||" logicalandexpressionnoin)+
+                    | <logicalandexpressionnoin>
                     ;
 
 
 conditionalexpressionnoin
                     : logicalorexpressionnoin "?" assignmentexpressionnoin ":" assignmentexpressionnoin
-                    | logicalorexpressionnoin
+                    | <logicalorexpressionnoin>
                     ;
 
 #lefthandside
-assignmentexpressionnoin    : lefthandsideexpression assignmentoperatornoin assignmentexpressionnoin
-                        | conditionalexpressionnoin
+assignmentexpressionnoin    : lefthandsideexpression assignmentoperator assignmentexpressionnoin
+                        | <conditionalexpressionnoin>
                         ;
 
-assignmentoperatornoin: "=" |
-                        "\*=" |
-                        "\/=" |
-                        "\%=" |
-                        "\+=" |
-                        "\-=" |
-                        "<<=" |
-                        ">>=" |
-                        ">>>=" |
-                        "&=" |
-                        "^=" |
-                        "\|=";
-
-expressionnoin  : assignmentexpressionnoin "," expressionnoin
-            | assignmentexpressionnoin
+expressionnoin  : assignmentexpressionnoin ([","] assignmentexpressionnoin)+
+            | <assignmentexpressionnoin>
             ;
 
 #identifier
