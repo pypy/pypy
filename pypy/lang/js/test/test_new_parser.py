@@ -74,7 +74,6 @@ class TestLiterals(BaseGrammarTest):
             self.parse(str(i)).visit(dc)
             assert dc.counts["DECIMALLITERAL"] == 1
 
-
 class IntEvaluationVisitor(RPythonVisitor):
     def general_symbol_visit(self, node):
         return node.additional_info
@@ -87,11 +86,38 @@ class IntEvaluationVisitor(RPythonVisitor):
             return self.dispatch(node.children[0])
         if len(node.children) >= 3:
             code = [str(self.dispatch(child)) for child in node.children]
-            print code
             while len(code) >= 3:
-                r = eval("%s %s %s"%(code.pop(0), code.pop(0), code.pop(0)))
+                r = self.evalop(int(code.pop(0)), code.pop(0), int(code.pop(0)))
                 code.insert(0, r)
             return code[0]
+    
+    def visit_unaryexpression(self, node):
+        if len(node.children) == 1:
+            return self.dispatch(node.children[0])
+        else:
+            arg1 = self.dispatch(node.children[1])
+            op = self.dispatch(node.children[0])
+            return self.evalop(arg1,op)
+        
+    opmap = {'+': lambda x,y: x+y,
+            '-': lambda x,y: x-y,
+            '*': lambda x,y: x*y,
+            '++': lambda x,y: x+1,
+            '--': lambda x,y: x-1,
+            '!': lambda x,y: not x,
+            '~': lambda x,y: ~ x,
+            '/': lambda x,y: x / y,
+            '>>': lambda x,y: x>>y,
+            '<<': lambda x,y: x<<y,
+            '&': lambda x,y: x&y,
+            '|': lambda x,y: x|y,
+            '^': lambda x,y: x^y,
+            '%': lambda x,y: x%y,
+    }
+    
+    def evalop(self, arg1, op, arg2=None):
+        return self.opmap[op](arg1, arg2)
+        
 
 
 class TestExpressions(BaseGrammarTest):
@@ -105,13 +131,20 @@ class TestExpressions(BaseGrammarTest):
         result2 = eval(s)
         assert result1 == result2
         return tree
+    
+    def parse_and_compare(self, s, n):
+        tree = self.parse(s)
+        result1 = self.evaluator.dispatch(tree)
+        assert result1 == n
+        return tree
+        
 
-    def parse_all(self, l):
+    def parse_and_eval_all(self, l):
         for i in l:
             self.parse_and_evaluate(i)
 
     def test_simple(self):
-        self.parse_all(["1",
+        self.parse_and_eval_all(["1",
                         "1 + 2",
                         "1 - 2",
                         "1 * 2",
@@ -121,9 +154,11 @@ class TestExpressions(BaseGrammarTest):
                         "4 | 1",
                         "4 ^ 2",
         ])
+        self.parse_and_compare("++5", 6)
+        self.parse_and_compare("~3", -4)
         
     def test_chained(self):
-        self.parse_all(["1 + 2 * 3",
+        self.parse_and_eval_all(["1 + 2 * 3",
                         "1 * 2 + 3",
                         "1 - 3 - 3",
                         "4 / 2 / 2",
