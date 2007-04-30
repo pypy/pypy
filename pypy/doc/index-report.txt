@@ -12,6 +12,10 @@ to `pypy-dev`_, the development list.
 Reports of 2007
 ===============
 
+`D08.1 JIT Compiler Release` reports on our sucessfully including a
+JIT compiler for Python and the novel framework we used to
+automatically generate it in PyPy 1.0. *()*
+
 `D14.4 PyPy-1.0 Milestone report`_ (for language developers and researchers)
 summarizes research & technical results of the PyPy-1.0 release and discusses
 related development process and community aspects. This report is an interim 
