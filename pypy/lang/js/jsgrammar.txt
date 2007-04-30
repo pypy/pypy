@@ -234,33 +234,33 @@ unaryexpression : "delete" unaryexpression
                 | "typeof" unaryexpression
                 | "++" unaryexpression 
                 | "--" unaryexpression 
-                | PLM unaryexpression 
+                | >addop< unaryexpression 
                 | "~" unaryexpression 
                 | "!" unaryexpression 
                 | <postfixexpression>
                 ;
 
 multop: "*" | "/" | "%";
-multiplicativeexpression    : unaryexpression (multop unaryexpression)+
+multiplicativeexpression    : unaryexpression (>multop< unaryexpression)+
                             | <unaryexpression>
                             ;
-PLM  : "\+|\-";
-additiveexpression  : multiplicativeexpression (PLM multiplicativeexpression)+
+addop: "+" | "-";
+additiveexpression  : multiplicativeexpression (>addop< multiplicativeexpression)+
                     | <multiplicativeexpression>
                     ;
 
 shiftop: "<<" | ">>" | ">>>";
-shiftexpression : additiveexpression (shiftop additiveexpression)+
+shiftexpression : additiveexpression (>shiftop< additiveexpression)+
                 | <additiveexpression>
                 ;
 
 relationalop: "<" | ">" | "<=" | ">=" | "instanceof" | "in";
-relationalexpression    : shiftexpression (relationalop relationalexpression)+
+relationalexpression    : shiftexpression (>relationalop< relationalexpression)+
                         | <shiftexpression>
                         ;
 
 equalityop: "==" | "!=" | "===" | "!==";
-equalityexpression  : relationalexpression (equalityop relationalexpression)+
+equalityexpression  : relationalexpression (>equalityop< relationalexpression)+
                     | <relationalexpression>
                     ;
 
@@ -289,22 +289,13 @@ conditionalexpression   : logicalorexpression "?" assignmentexpression ":" assig
                         | <logicalorexpression>
                         ;
 
-assignmentexpression    : lefthandsideexpression assignmentoperator assignmentexpression
+assignmentexpression    : lefthandsideexpression >assignmentoperator< assignmentexpression
                         | <conditionalexpression>
                         ;
 
-assignmentoperator: "=" |
-                    "\*=" |
-                    "\/=" |
-                    "\%=" |
-                    "\+=" |
-                    "\-=" |
-                    "<<=" |
-                    ">>=" |
-                    ">>>=" |
-                    "&=" |
-                    "^=" |
-                    "\|=" ;
+assignmentoperator  : "=" | "\*=" | "\/=" | "\%=" | "\+=" | "\-=" | "<<="
+                    | ">>=" | ">>>=" | "&=" | "^=" | "\|=" 
+                    ;
 
 expression  : assignmentexpression ([","] assignmentexpression)+
             | <assignmentexpression>
