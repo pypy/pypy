@@ -31,6 +31,10 @@ class MySolver(Solver):
             print repository
         try:
             foundSolution = repository.consistency(verbose)
+# This ties the repository to a special distributor - not nice
+            if not foundSolution:
+                dom = repository.getDomains()
+                foundSolution = [x for x in self._distributor.vars if dom[x].size() == 1]
         except ConsistencyFailure, exc:
             if verbose:
                 print strftime('%H:%M:%S'), exc
@@ -88,9 +92,15 @@ class MyExpression(Expression):
 
 class MyDistributor(SplitDistributor):
 
-    def __init__(self):
+    def __init__(self, vars_to_distribute):
         SplitDistributor.__init__(self,2)
+        self.vars = vars_to_distribute
         self.to_split = None
+
+    def findSmallestDomain(self, domains):
+        dom_sizes = [(domains[v].size(),v) for v in self.vars if domains[v].size()>1]
+        dom_sizes.sort()
+        return dom_sizes[0][1]
 
     def nb_subdomains(self, domains):
         """See AbstractDistributor"""
@@ -258,7 +268,7 @@ class PropertyConstrain2(AbstractConstraint):
 class PropertyConstrain3(AbstractConstraint):
     cost = 1
     def __init__(self, prop, variable, cls_or_restriction):
-        AbstractConstraint.__init__(self, [ prop])
+        AbstractConstraint.__init__(self, [variable])
         self.object = cls_or_restriction
         self.variable = variable
         self.prop = prop
@@ -266,23 +276,24 @@ class PropertyConstrain3(AbstractConstraint):
     def narrow(self, domains):
         # Narrow the domains of object and variable to those values 
         # that are connected by self.prop
+#        import pdb
+#        pdb.set_trace()
         dom = domains[self.prop]
         sub = domains[self.variable]
         obj = domains[self.object]
-        vals_dict = dom._dict 
+        sub_= [x[0] for x in dom.getValues()]
+        obj_= [x[1] for x in dom.getValues()]
 
-        keep = set()
         sub_rem = []
+        obj_rem = []
         for v in sub.getValues():
-            if not v in vals_dict:
+            if not v in sub_:
                 sub_rem.append(v)
-                #sub.removeValue(v)
-            else:
-                for o in dom.getValuesPrKey(v):
-                    keep.add(o)
-        remove = [x for x in obj.getValues() if not x in keep]
+        for v in obj.getValues():
+            if not v in obj_:
+                obj_rem.append(v)
         sub.removeValues(sub_rem)
-        obj.removeValues(remove)
+        obj.removeValues(obj_rem)
 
 class MemberConstraint(AbstractConstraint):
     cost = 1
@@ -585,14 +596,25 @@ class IntersectionofConstraint(OneofPropertyConstraint):
         assert len(inter) > 0
         cls = domains[self.variable].setValues(inter)
 
-class SomeValueConstraint(OneofPropertyConstraint):
+class SomeValueConstraint(AbstractConstraint):
 
     cost = 100
-        
+
+    def __init__(self, variable, property, list_of_vals):
+        AbstractConstraint.__init__(self, [variable ])
+        self.variable = variable
+        self.property = property
+        self.List = list_of_vals
+    cost = 100
+
+    def estimateCost(self, domains):
+        return self.cost
+
+
     def narrow(self, domains):
         val = set(domains[self.List].getValues())
         dom = domains[self.variable]
-        property = dom.property
+        property = self.property
         indi = dom.getValues()
         prop = Linkeddict(list(domains[property].getValues()))
         for v in indi:
@@ -606,7 +628,7 @@ class SomeValueConstraint(OneofPropertyConstraint):
                 else:
                     dom.removeValue(v)
             
-class AllValueConstraint(OneofPropertyConstraint):
+class AllValueConstraint(SomeValueConstraint):
     """ AllValuesfrom property restriction is used to define the class
         of individuals for which the values for the property (defined 
         by the onProperty triple) all comes from the class description
@@ -621,7 +643,7 @@ class AllValueConstraint(OneofPropertyConstraint):
         if not val:
             return 
         dom = domains[self.variable]
-        property = dom.property
+        property = self.property
         indi = dom.getValues()
         prop = domains[property]._dict
         remove = []
@@ -635,14 +657,14 @@ class AllValueConstraint(OneofPropertyConstraint):
                        remove.append(v)
         dom.removeValues(remove)
 
-class HasvalueConstraint(OneofPropertyConstraint):
+class HasvalueConstraint(SomeValueConstraint):
 
     cost = 100
 
     def narrow(self, domains):
         val = self.List
         dom = domains[self.variable]
-        property = dom.property
+        property = self.property
         indi = dom.getValues()
         prop = Linkeddict(domains[property].getValues())
         remove = []
