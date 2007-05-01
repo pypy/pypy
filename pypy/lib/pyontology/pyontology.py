@@ -145,7 +145,7 @@ class ClassDomain(AbstractDomain, object):
                 variables[self.name].setValues([v[0] for v in prop.getValues()])
             elif ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
                  and  self.size() == 0):
-                variables[self.name].setValues(list(variables['owl_Thing'].getValues()))
+                variables[self.name].setValues(list(variables['owl_Thing'].getValues())+list(variables['owl_Literal']))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
 #            assert self.size() != 0
@@ -533,6 +533,9 @@ class Ontology:
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
             else:
+#           In case of an inconsistent ontology remove the comments to get more
+#           than one error
+
 #                try:
                 constraint.narrow(self.variables)
 #                except ConsistencyFailure, e:
@@ -553,7 +556,7 @@ class Ontology:
 
         triples = where.GroupGraphPattern[0].Triples
         new = []
-        vars = []
+        vars = set() 
         for trip in triples:
             case = 0
             inc = 1
@@ -572,7 +575,7 @@ class Ontology:
                 elif item.VAR1:
                     var_uri = URIRef('query_'+item.VAR1[0][0])
                     newtrip.append(var_uri)
-                    vars.append(var_uri)
+                    vars.add(var_uri)
                     case += trip_.index(item) + inc
                     if inc == 2:
                         inc = 1
@@ -583,6 +586,12 @@ class Ontology:
             newtrip.append(case)
             new.append(newtrip)
         constrain = where.GroupGraphPattern[0].Constraint
+        if constrain:
+            constrain = constrain[0]
+            expr = constrain.pop(-1)
+            for x in constrain:
+                expr = expr.replace(x,  URIRef('query_'+x))
+            constrain = Expression([URIRef('query_'+x) for x in constrain], expr)
         return new, prefixes, resvars, constrain, vars
 
 # There are 8 ways of having the triples in the query, if predicate is not a builtin owl predicate
@@ -615,12 +624,22 @@ class Ontology:
             elif case == 1:
                 # Add a HasValue constraint
                 ns,pred = trip[1].split("#")
-                if ns in namespaces.values():
+                if 0: #ns in namespaces.values():
+                    import pdb
+                    pdb.set_trace()
                     self.consider_triple(trip)
                 else:
                     var = self.make_var(Restriction, URIRef(trip[0]))
-                    self.onProperty(var, URIRef(trip[1]))
-                    self.hasValue(var, trip[2])
+                    prop = URIRef(trip[1])
+                    prop_name = self.mangle_name(prop)
+                    self.onProperty(var, prop)
+                    query_dom[prop_name] = self.variables[prop_name]
+                    if trip[2] in self.variables['owl_Literal'] :
+                        val = trip[2]
+                    else:
+                        val = self.variables[self.mangle_name(trip[2])]
+                    query_constr.append(HasvalueConstraint(var, prop_name, val))
+                    #self.hasValue(var, trip[2])
             elif case == 2:
                 #  for all p's return p if p[0]==s and p[1]==o
 
@@ -672,18 +691,9 @@ class Ontology:
                 prop = self.make_var(Property, URIRef(trip[1]))
                 query_dom[prop] = self.variables[prop]
                 p_vals = list(self.variables[prop].getValues())
-                sub = self.make_var(Thing, trip[0])
-                vals = set([v[0] for v in p_vals])
-                if self.variables[sub].size():
-                    vals &= set(self.variables[sub].getValues())
-                self.variables[sub].setValues(vals)
-                obj = self.make_var(Thing, trip[2])
-                vals = set([v[1] for v in p_vals])
-                if self.variables[obj].size():
-                    vals &= set(self.variables[obj].getValues())
-                self.variables[obj].setValues(vals)
+                sub = self.make_var(ClassDomain, trip[0])
+                obj = self.make_var(ClassDomain, trip[2])
                 con = PropertyConstrain3(prop, sub, obj)
-#                con = Expression([sub,prop,obj], "%s == (%s, %s)" %(prop, sub, obj))
                 query_constr.append(con)
 
             elif case == 6:
@@ -709,13 +719,15 @@ class Ontology:
             _dom, _ = self.variables[self.mangle_name(v)].finish(self.variables, query_constr) #query_dom, query_constr)
             query_dom.update(_dom)
         # Build a repository with the variables in the query
-        dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v)])
-                     for v in vars])
-
+        solve_vars = [self.mangle_name(v) for v in vars] 
+        dom = dict([(v, self.variables[v])
+                     for v in solve_vars])
         dom.update(query_dom)
+#        import pdb
+#        pdb.set_trace()
         # solve the repository and return the solution
-        rep = Repository(dom.keys(), dom, query_constr)
-        res_s = Solver(MyDistributor()).solve(rep, verbose=0)
+        rep = Repository(solve_vars, dom, query_constr)
+        res_s = Solver(MyDistributor(solve_vars)).solve(rep, verbose=0)
         res = []
         query_vars = dict([('query_%s_'%name,name) for name in resvars])
         for d in res_s:
@@ -1059,7 +1071,11 @@ class Ontology:
             Individuals that have a property with the value of var.
             To make an assertion we need to know for which class the restriction applies"""
         sub = self.make_var(Restriction, s)
-        cons = HasvalueConstraint(sub, var)
+        try:
+            prop = self.variables[sub].property
+        except KeyError:
+            prop = None
+        cons = HasvalueConstraint(sub, prop, var)
         self.constraints.append(cons)
 
     def allValuesFrom(self, s, var):
