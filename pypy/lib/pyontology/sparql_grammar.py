@@ -28,10 +28,27 @@ def replace_int(s, loc, toks):
 
 
 def replace_string(s, loc, toks):
-    return [rdfliteral((toks[0]), datatype="http://www.w3.org/2001/XMLSchema#String")]
+    return [rdfliteral((toks[0][1:-1]), datatype="http://www.w3.org/2001/XMLSchema#String")]
 
 def replace_float(s, loc, toks):
     return [rdfliteral(float(toks[0]), datatype="http://www.w3.org/2001/XMLSchema#float")]
+
+def replace_RDFLiteral(s, loc, toks):
+
+    if toks.IRIref:
+        lit = toks[0]
+        lit.datatype = toks.IRIref
+        ret = [lit]
+    else:
+        ret = [rdfliteral(toks[0], datatype="http://www.w3.org/2001/XMLSchema#String")]
+    return ret
+
+def construct_constraint(s, loc, toks):
+    varlist = [] 
+    for x in toks.Var:
+        varlist.append(x[0])
+    varlist.append(toks[0])
+    return [varlist] 
 
 class SPARQLGrammar(object):
 
@@ -75,8 +92,8 @@ class SPARQLGrammar(object):
     lne = punctuation('ne')
     bnode = punctuation('_:')
     comma = punctuation(',')
-    lor = punctuation('||')
-    land = punctuation('&&')
+    lor = punctuation('||').setParseAction(lambda x,y,z: [' or '])
+    land = punctuation('&&').setParseAction(lambda x,y,z: [' and '])
 
     # keywords
 
@@ -138,7 +155,7 @@ class SPARQLGrammar(object):
     OptionalGraphPattern = production('OptionalGraphPattern')
     GraphGraphPattern = production('GraphGraphPattern')
     GroupOrUnionGraphPattern = production('GroupOrUnionGraphPattern')
-    Constraint = production('Constraint')
+    Constraint = production('Constraint').setParseAction(construct_constraint)
     ConstructTemplate = production('ConstructTemplate')
     Triples = production('Triples')
     Triples1 = production('Triples1')
@@ -174,7 +191,7 @@ class SPARQLGrammar(object):
     PrimaryExpression = production('PrimaryExpression')
     RDFTerm = production('RDFTerm')
     NumericLiteral = production('NumericLiteral')
-    RDFLiteral = production('RDFLiteral')
+    RDFLiteral = production('RDFLiteral').setParseAction(replace_RDFLiteral)
     BooleanLiteral = production('BooleanLiteral')
     String = production('String').setParseAction(replace_string)
     IRIref = production('IRIref')
