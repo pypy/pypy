@@ -1,5 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF xmlns:p1="http://protege.stanford.edu/plugins/owl/protege#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns="http://www.lt-world.org/ltw.owl#" xmlns:daml="http://www.daml.org/2001/03/daml+oil#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:reg="http://registry.dfki.de#" xml:base="http://www.lt-world.org/ltw.owl">
+<Semantic_Web rdf:ID="obj_59928">
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<technologyName>
+Semantic Web</technologyName>
+<name>
+Semantic Web</name>
+<technologyNameVariant>
+Semantic Web</technologyNameVariant>
+<definition>
+The Semantic Web is a W3C-based initiative for         representing knowledge on the World Wide Web in a machine-readable fashion,         such that it can be understood and used by machines for intelligent applications.</definition>
+</Semantic_Web>
+<Active_FundingOrganisation rdf:ID="obj_59717">
+<organisationNameVariant>
+EUROPA!Europaeische Union!European Comission!Eurpean Commission!Eurpean Comission!European Commission - Directorate General</organisationNameVariant>
+<organisationNameAbbreviation>
+EC</organisationNameAbbreviation>
+<organisationNameVariant>
+EC</organisationNameVariant>
+<organisationName>
+European Commission</organisationName>
+<name>
+European Commission</name>
+</Active_FundingOrganisation>
+<Active_FundingOrganisation rdf:ID="obj_61128">
+<organisationName>
+Federal Ministry of Education and Research</organisationName>
+<organisationNameAbbreviation rdf:datatype='http://www.w3.org/2001/XMLSchema#String'>BMBF</organisationNameAbbreviation>
+</Active_FundingOrganisation>
 <Active_Project rdf:ID="obj_59773">
 <hasParticipant rdf:resource="#obj_59772"/>
 <hasParticipant rdf:resource="#obj_59771"/>
@@ -8,7 +36,8 @@
 <hasParticipant rdf:resource="#obj_59768"/>
 <coordinatedBy rdf:resource="#obj_59772"/>
 <supportedBy rdf:resource="#obj_59717"/>
-<lt_technologicalMethod rdf:resource="#obj_59820"/>
+<supportedBy rdf:resource="#obj_61128"/>
+<lt_technologicalMethod rdf:resource="#obj_59928"/>
 <lt_linguality rdf:resource="#lt-world_Individual_712"/>
 <lt_language rdf:resource="#lt-world_Individual_105"/>
 <lt_language rdf:resource="#lt-world_Individual_112"/>
