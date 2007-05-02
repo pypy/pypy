@@ -53,7 +53,7 @@ class CountingVisitor(RPythonVisitor):
         self.counts = {}
     
     def general_nonterminal_visit(self, node):
-        print node
+        print node.symbol
         self.counts[node.symbol] = self.counts.get(node.symbol, 0) + 1
         for child in node.children:
             self.dispatch(child)
@@ -157,6 +157,8 @@ class TestExpressions(BaseGrammarTest):
         ])
         self.parse_and_compare("++5", 6)
         self.parse_and_compare("~3", -4)
+        self.parse("x = 3")
+        self.parse("x")
         
     def test_chained(self):
         self.parse_and_eval_all(["1 + 2 * 3",
@@ -166,4 +168,40 @@ class TestExpressions(BaseGrammarTest):
                         "2 << 4 << 4",
                         "30 | 3 & 5",
         ])
+        
+class TestStatements(BaseGrammarTest):
+    def setup_class(cls):
+        cls.parse = parse_func('statement')
+    
+    def parse_count(self, s):
+        "parse the expression and return the CountingVisitor"
+        cv = CountingVisitor()
+        self.parse(s).visit(cv)
+        return cv.counts
+    
+    def test_block(self):
+        r = self.parse_count("{x;return;true;if(x);}")
+        assert r['block'] == 1
+    
+    def test_vardecl(self):
+        r = self.parse_count("var x;")
+        assert r['variablestatement'] == 1
+        
+        r = self.parse_count("var x = 2;")
+        assert r['variablestatement'] == 1
+    
+    def test_empty(self):
+        for i in range(1,10):
+            r = self.parse_count('{%s}'%(';'*i))
+            assert r['emptystatement'] == i
+    
+    def test_if(self):
+        r = self.parse_count("if(x)return;;")
+        assert r['ifstatement'] == 1
+        assert r.get('emptystatement', 0) == 0
+        r = self.parse_count("if(x)if(i)return;")
+        assert r['ifstatement'] == 2
+        r = self.parse_count("if(x)return;else return;")
+        assert r['ifstatement'] == 1
+    
         

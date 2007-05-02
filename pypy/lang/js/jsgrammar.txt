@@ -15,9 +15,9 @@ sourceelement   : functiondeclaration
 
 statement   : <block>
             | <variablestatement> [";"]
-            | [ ";" ] 
+            | <emptystatement>
             | <expressionstatement> [";"]
-            | <ifstatement> [";"]
+            | <ifstatement> [";"]*
             | <iterationstatement> [";"]
             | <continuestatement> [";"]
             | <breakstatement> [";"]
@@ -48,6 +48,9 @@ variabledeclaration : identifier initialiser?
  
 initialiser : ["="] assignmentexpression
             ;
+
+emptystatement  : ";"
+                ;
 
 expressionstatement : expression
                     ;
@@ -88,7 +91,11 @@ caseblock   : ["{"] caseclauses? defaultclause caseclauses? ["}"]
             ;
 
 # XXX this looks wrong to me
-caseclauses : caseclause caseclauses
+# ans: it was defined in the spec as
+# CaseClauses : 
+#       CaseClause 
+#       CaseClauses CaseClause
+caseclauses : caseclause+
             ;
 
 caseclause  : ["case"] expression [":"] statementlist?
