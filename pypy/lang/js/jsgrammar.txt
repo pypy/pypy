@@ -17,7 +17,7 @@ statement   : <block>
             | <variablestatement> [";"]
             | <emptystatement>
             | <expressionstatement> [";"]
-            | <ifstatement> [";"]*
+            | <ifstatement> [";"]?
             | <iterationstatement> [";"]
             | <continuestatement> [";"]
             | <breakstatement> [";"]
