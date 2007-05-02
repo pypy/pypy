@@ -289,13 +289,14 @@ class TranslationDriver(SimpleTaskEngine):
                 raise Exception("stand-alone program entry point must return an "
                                 "int (and not, e.g., None or always raise an "
                                 "exception).")
+            annotator.simplify()
             return s
         else:
             assert self.libdef is not None
             for func, inputtypes in self.libdef.functions:
                 annotator.build_types(func, inputtypes)
             self.sanity_check_annotation()
-        annotator.simplify()
+            annotator.simplify()
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
 
