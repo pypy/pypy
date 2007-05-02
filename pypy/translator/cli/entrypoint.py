@@ -19,6 +19,12 @@ class BaseEntryPoint(Node):
         self.db = db
         self.cts = CTS(db)
 
+    def ilasm_flags(self):
+        return []
+
+    def output_filename(self, il_filename):
+        return il_filename.replace('.il', '.exe')
+
 class StandaloneEntryPoint(BaseEntryPoint):
     """
     This class produces a 'main' method that converts the argv in a
@@ -59,3 +65,21 @@ class StandaloneEntryPoint(BaseEntryPoint):
         ilasm.opcode('ret')
         ilasm.end_function()
         self.db.pending_function(self.graph)
+
+class DllEntryPoint(BaseEntryPoint):
+    def __init__(self, name, graphs):
+        self.name = name
+        self.graphs = graphs
+
+    def get_name(self):
+        return self.name
+
+    def ilasm_flags(self):
+        return ['/dll']
+
+    def output_filename(self, il_filename):
+        return il_filename.replace('.il', '.dll')
+
+    def render(self, ilasm):
+        for graph in self.graphs:
+            self.db.pending_function(graph)

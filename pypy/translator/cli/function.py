@@ -173,7 +173,18 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         OOFunction.__init__(self, *args, **kwargs)
         self._set_args()
         self._set_locals()
-                 
+        namespace = getattr(self.graph.func, '_namespace_', None)
+        str
+        if namespace:
+            if '.' in namespace:
+                self.namespace, self.classname = namespace.rsplit('.', 1)
+            else:
+                self.namespace = None
+                self.classname = namespace
+        else:
+            self.namespace = None
+            self.classname = None
+
     def _create_generator(self, ilasm):
         return self # Function implements the Generator interface
 
@@ -192,11 +203,20 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         else:
             args = self.args
             meth_type = 'static'
-        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
+
+        if self.namespace:
+            self.ilasm.begin_namespace(self.namespace)
+        if self.classname:
+            self.ilasm.begin_class(self.classname)
+        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)
         self.ilasm.locals(self.locals)
 
     def end_render(self):
         self.ilasm.end_function()
+        if self.classname:
+            self.ilasm.end_class()
+        if self.namespace:
+            self.ilasm.end_namespace()
 
     def set_label(self, label):
         self.ilasm.label(label)

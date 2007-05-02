@@ -137,15 +137,15 @@ class TestEntryPoint(BaseEntryPoint):
             assert False, 'Input type %s not supported' % arg_type
 
 
-def compile_function(func, annotation=[], graph=None, backend_opt={}):
+def compile_function(func, annotation=[], graph=None, backendopt=True):
     olddefs = patch()
-    gen = _build_gen(func, annotation, graph, backend_opt)
+    gen = _build_gen(func, annotation, graph, backendopt)
     gen.generate_source()
     exe_name = gen.build_exe()
     unpatch(*olddefs) # restore original values
     return CliFunctionWrapper(exe_name)
 
-def _build_gen(func, annotation, graph=None, backend_opt={}):
+def _build_gen(func, annotation, graph=None, backendopt=True):
     try: 
         func = func.im_func
     except AttributeError: 
@@ -165,8 +165,9 @@ def _build_gen(func, annotation, graph=None, backend_opt={}):
        t.view()
 
     t.buildrtyper(type_system="ootype").specialize()
-    check_virtual_methods(ootype.ROOT)
-    backend_optimizations(t)
+    if backendopt:
+        check_virtual_methods(ootype.ROOT)
+        backend_optimizations(t)
     
     main_graph = t.graphs[0]
 
@@ -242,13 +243,13 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._cli_func = None
 
-    def _compile(self, fn, args, ann=None):
+    def _compile(self, fn, args, ann=None, backendopt=True):
         if ann is None:
             ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
             return self._cli_func
         else:
-            self._cli_func = compile_function(fn, ann)
+            self._cli_func = compile_function(fn, ann, backendopt=backendopt)
             self._func = fn
             self._ann = ann
             return self._cli_func
@@ -261,8 +262,8 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         if platform.processor() == 'powerpc':
             py.test.skip('PowerPC --> %s' % reason)
 
-    def interpret(self, fn, args, annotation=None):
-        f = self._compile(fn, args, annotation)
+    def interpret(self, fn, args, annotation=None, backendopt=True):
+        f = self._compile(fn, args, annotation, backendopt)
         res = f(*args)
         if isinstance(res, ExceptionWrapper):
             raise res

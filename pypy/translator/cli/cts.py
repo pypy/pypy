@@ -196,6 +196,9 @@ class CTS(object):
         ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
         func_name = func_name or graph.name
         func_name = self.escape_name(func_name)
+        namespace = getattr(graph.func, '_namespace_', None)
+        if namespace:
+            func_name = '%s::%s' % (namespace, func_name)
 
         args = [arg for arg in graph.getargs() if arg.concretetype is not ootype.Void]
         if is_method:

@@ -11,14 +11,9 @@ import py
 from py.compat import subprocess
 from pypy.translator.cli.sdk import SDK
 from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("cli") 
-py.log.setconsumer("cli", ansi_log) 
+log = py.log.Producer("cli")
+py.log.setconsumer("cli", ansi_log)
 
-SRC_DIR = os.path.join(os.path.dirname(__file__), 'src/')
-
-def _filename(name, path=None):
-    rel_path =  os.path.join(SRC_DIR, name)
-    return os.path.abspath(rel_path)
 
 class Target:
     SOURCES = []
@@ -26,6 +21,12 @@ class Target:
     ALIAS = None
     FLAGS = []
     DEPENDENCIES = []
+    SRC_DIR = os.path.join(os.path.dirname(__file__), 'src/')
+
+    def _filename(cls, name, path=None):
+        rel_path =  os.path.join(cls.SRC_DIR, name)
+        return os.path.abspath(rel_path)
+    _filename = classmethod(_filename)
 
     def get_COMPILER(cls):
         return SDK.csc()
@@ -34,9 +35,9 @@ class Target:
     def get(cls):
         for dep in cls.DEPENDENCIES:
             dep.get()
-        sources = [_filename(src) for src in cls.SOURCES]
-        out = _filename(cls.OUTPUT)
-        alias = _filename(cls.ALIAS or cls.OUTPUT)
+        sources = [cls._filename(src) for src in cls.SOURCES]
+        out = cls._filename(cls.OUTPUT)
+        alias = cls._filename(cls.ALIAS or cls.OUTPUT)
         recompile = True
         try:
             src_mtime = max([os.stat(src).st_mtime for src in sources])
@@ -54,14 +55,14 @@ class Target:
     def compile(cls, sources, out):
         log.red("Compiling %s" % (cls.ALIAS or cls.OUTPUT))
         oldcwd = os.getcwd()
-        os.chdir(SRC_DIR)
+        os.chdir(cls.SRC_DIR)
         compiler = subprocess.Popen([cls.get_COMPILER()] + cls.FLAGS + ['/out:%s' % out] + sources,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = compiler.communicate()
         retval = compiler.wait()
         assert retval == 0, 'Failed to compile %s: the compiler said:\n %s' % (cls.OUTPUT, stderr)
         if cls.ALIAS is not None:
-            alias = _filename(cls.ALIAS)
+            alias = cls._filename(cls.ALIAS)
             shutil.copy(out, alias)
         os.chdir(oldcwd)
 

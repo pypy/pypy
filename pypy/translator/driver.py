@@ -209,8 +209,13 @@ class TranslationDriver(SimpleTaskEngine):
 
         self.entry_point = entry_point
         self.translator = translator
+        self.libdef = None
 
         self.translator.driver_instrument_result = self.instrument_result
+
+    def setup_library(self, libdef, policy=None, extra={}, empty_translator=None):
+        self.setup(None, None, policy, extra, empty_translator)
+        self.libdef = libdef
 
     def instrument_result(self, args):
         backend, ts = self.get_backend_and_type_system()
@@ -275,16 +280,22 @@ class TranslationDriver(SimpleTaskEngine):
 
         annmodel.DEBUG = self.config.translation.debug
         annotator = translator.buildannotator(policy=policy)
-        
-        s = annotator.build_types(self.entry_point, self.inputtypes)
-        
-        self.sanity_check_annotation()
-        if self.standalone and s.knowntype != int:
-            raise Exception("stand-alone program entry point must return an "
-                            "int (and not, e.g., None or always raise an "
-                            "exception).")
+
+        if self.entry_point:
+            s = annotator.build_types(self.entry_point, self.inputtypes)
+
+            self.sanity_check_annotation()
+            if self.standalone and s.knowntype != int:
+                raise Exception("stand-alone program entry point must return an "
+                                "int (and not, e.g., None or always raise an "
+                                "exception).")
+            return s
+        else:
+            assert self.libdef is not None
+            for func, inputtypes in self.libdef.functions:
+                annotator.build_types(func, inputtypes)
+            self.sanity_check_annotation()
         annotator.simplify()
-        return s
     #
     task_annotate = taskdef(task_annotate, [], "Annotating&simplifying")
 
@@ -619,9 +630,16 @@ class TranslationDriver(SimpleTaskEngine):
         from pypy.translator.cli.gencli import GenCli
         from pypy.translator.cli.entrypoint import get_entrypoint
 
-        entry_point_graph = self.translator.graphs[0]
-        self.gen = GenCli(udir, self.translator, get_entrypoint(entry_point_graph),
-                          config=self.config)
+        if self.entry_point is not None: # executable mode
+            entry_point_graph = self.translator.graphs[0]
+            entry_point = get_entrypoint(entry_point_graph)
+        else:
+            # library mode
+            assert self.libdef is not None
+            bk = self.translator.annotator.bookkeeper
+            entry_point = self.libdef.get_entrypoint(bk)
+
+        self.gen = GenCli(udir, self.translator, entry_point, config=self.config)
         filename = self.gen.generate_source()
         self.log.info("Wrote %s" % (filename,))
     task_source_cli = taskdef(task_source_cli, ["?" + OOBACKENDOPT, OOTYPE],
@@ -666,6 +684,15 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
 """ % main_exe_name)
         f.close()
         os.chmod(newexename, 0755)
+
+    def copy_cli_dll(self):
+        import os.path
+        import shutil
+        dllname = self.gen.outfile
+        usession_path, dll_name = os.path.split(dllname)
+        pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
+        shutil.copy(dllname, '.')
+        shutil.copy(pypylib_dll, '.')
 
     def task_run_cli(self):
         pass
