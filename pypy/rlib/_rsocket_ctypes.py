@@ -597,6 +597,10 @@ elif MS_WINDOWS:
     WSACreateEvent.argtypes = []
     WSACreateEvent.restype = WSAEVENT
 
+    WSACloseEvent = socketdll.WSACloseEvent
+    WSACloseEvent.argtypes = [WSAEVENT]
+    WSACloseEvent.restype = c_int
+
     WSAEventSelect = socketdll.WSAEventSelect
     WSAEventSelect.argtypes = [socketfd_type, WSAEVENT, c_long]
     WSAEventSelect.restype = c_int

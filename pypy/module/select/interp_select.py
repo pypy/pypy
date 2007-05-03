@@ -180,6 +180,9 @@ class Poll(Wrappable):
                 if revents:
                     retval_w.append(space.newtuple([space.wrap(fd),
                                                     space.wrap(revents)]))
+
+                _c.WSACloseEvent(event)
+                
             return space.newlist(retval_w)
     poll.unwrap_spec = ['self', ObjSpace, W_Root]
 
