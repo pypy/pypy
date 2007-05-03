@@ -15,8 +15,10 @@ def setstartrule(rules, start):
     newrules = [Rule("hacked_first_symbol", [[start, "EOF"]])] + rules
     return newrules
 
-parse = make_parse_function(regexs, rules, eof=True)
-#parse = make_parse_function(regexs, rules)
+if len(sys.argv) == 1:
+    parse = make_parse_function(regexs, rules, eof=True)
+else:
+    parse = make_parse_function(regexs, setstartrule(rules,sys.argv[1]), eof=True)
 
 print rules[2].nonterminal
 source = raw_input()

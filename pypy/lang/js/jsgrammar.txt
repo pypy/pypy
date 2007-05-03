@@ -22,11 +22,11 @@ statement   : <block> [";"]?
             | <continuestatement> [";"]
             | <breakstatement> [";"]
             | <returnstatement> [";"]
-            | <withstatement> [";"]
+            | <withstatement>
             | <labelledstatement>
-            | <switchstatement> 
+            | <switchstatement> [";"]?
             | <throwstatement> [";"]
-            | <trystatement> [";"]
+            | <trystatement>
             ;
 
 block   : ["{"] statementlist? ["}"]
@@ -96,7 +96,7 @@ caseblock   : ["{"] caseclauses? defaultclause caseclauses? ["}"]
 # CaseClauses : 
 #       CaseClause 
 #       CaseClauses CaseClause
-caseclauses : caseclause+
+caseclauses : >caseclause<+
             ;
 
 caseclause  : ["case"] expression [":"] statementlist?
@@ -174,14 +174,14 @@ elision : ","+
         ;
 
 objectliteral   : ["{"] ["}"] 
-                | ["{"] propertynameandvaluelist ["}"]
+                | ["{"] >propertynameandvaluelist< ["}"]
                 ;
 
-propertynameandvaluelist    : hpropertynameandvaluelist* propertyname ":" assignmentexpression
+propertynameandvaluelist    : propertynameandvalue ([","] propertynameandvalue)*
                             ;
 
-hpropertynameandvaluelist   : propertyname ":" assignmentexpression ","
-                            ;
+propertynameandvalue    : propertyname [":"] assignmentexpression
+                        ;
 
 propertyname    : <identifier>
                 | <stringliteral>

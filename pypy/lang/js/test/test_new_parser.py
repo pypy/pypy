@@ -168,7 +168,23 @@ class TestExpressions(BaseGrammarTest):
                         "2 << 4 << 4",
                         "30 | 3 & 5",
         ])
-        
+    
+    def test_primary(self):
+        self.parse('this')
+        self.parse('(x)')
+        self.parse('((((x))))')
+        self.parse('(x * (x * x)) + x - x')
+    
+    def test_array_literal(self):
+        self.parse('[1,2,3,4]')
+        self.parse('[1,2,]')
+        self.parse('[1]')
+    
+    def test_object_literal(self):
+        self.parse('{}')
+        self.parse('{x:1}') #per spec {x:1,} should not be supported
+        self.parse('{x:1,y:2}')
+    
 class TestStatements(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func('statement')
@@ -216,16 +232,41 @@ class TestStatements(BaseGrammarTest):
         self.parse('while(1);')
         self.parse('do ; while(1)')
     
-    def test_continue_return_break(self):
+    def test_continue_return_break_throw(self):
         self.parse('return;')
         self.parse('return x+y;')
         self.parse('break;')
         self.parse('continue;')
         self.parse('break label;')
         self.parse('continue label;')
+        self.parse('throw (5+5);')
     
+    def test_with(self):
+        self.parse('with(x);')
+        
     def test_labeled(self):
         self.parse('label: x+y;')
+    
+    def test_switch(self):
+        self.parse("""switch(x) {
+            case 1: break;
+            case 2: break;
+            default: ;
+        }
+        
+        """)
+        self.parse("""switch(x) {
+            case 1: break;
+            case 2: break;
+            default: ;
+            case 3: break;
+        }
+        
+        """)
+    def test_try(self):
+        self.parse('try {x;} catch (e) {x;}')
+        self.parse('try {x;} catch (e) {x;} finally {x;}')
+        self.parse('try {x;} finally {x;}')
 
 class TestFunctionDeclaration(BaseGrammarTest):
     def setup_class(cls):
