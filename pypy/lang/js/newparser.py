@@ -15,7 +15,7 @@ def setstartrule(rules, start):
     newrules = [Rule("hacked_first_symbol", [[start, "EOF"]])] + rules
     return newrules
 
-parse = make_parse_function(regexs, setstartrule(rules, start="statement"), eof=True)
+parse = make_parse_function(regexs, rules, eof=True)
 #parse = make_parse_function(regexs, rules)
 
 print rules[2].nonterminal

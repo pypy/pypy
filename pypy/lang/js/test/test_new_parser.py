@@ -191,17 +191,48 @@ class TestStatements(BaseGrammarTest):
         assert r['variablestatement'] == 1
     
     def test_empty(self):
+        self.parse(";")
         for i in range(1,10):
             r = self.parse_count('{%s}'%(';'*i))
             assert r['emptystatement'] == i
     
     def test_if(self):
-        r = self.parse_count("if(x)return;;")
+        r = self.parse_count("if(x)return;")
         assert r['ifstatement'] == 1
         assert r.get('emptystatement', 0) == 0
         r = self.parse_count("if(x)if(i)return;")
         assert r['ifstatement'] == 2
         r = self.parse_count("if(x)return;else return;")
         assert r['ifstatement'] == 1
+
+    def test_iteration(self):
+        self.parse('for(;;);')
+        self.parse('for(x;;);')
+        self.parse('for(;x>0;);')
+        self.parse('for(;;x++);')
+        self.parse('for(var x = 1;;);')
+        self.parse('for(x in z);')
+        self.parse('for(var x in z);')
+        self.parse('while(1);')
+        self.parse('do ; while(1)')
+    
+    def test_continue_return_break(self):
+        self.parse('return;')
+        self.parse('return x+y;')
+        self.parse('break;')
+        self.parse('continue;')
+        self.parse('break label;')
+        self.parse('continue label;')
+    
+    def test_labeled(self):
+        self.parse('label: x+y;')
+
+class TestFunctionDeclaration(BaseGrammarTest):
+    def setup_class(cls):
+        cls.parse = parse_func('functiondeclaration')
+    
+    def test_simpledecl(self):
+        self.parse('function x () {;}')
+        self.parse('function z (a,b,c,d,e) {;}')
     
         

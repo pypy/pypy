@@ -5,31 +5,31 @@ IGNORE: "([ \f\t\n]*)|(//[^\n]*\n)|(/\*([^\*]|\*[^/])*\*?\*/)";
 program : sourceelements EOF
         ;
 
-sourceelements  : sourceelement sourceelements
+sourceelements  : sourceelement >sourceelements<
                 | sourceelement
                 ;
 
-sourceelement   : functiondeclaration
-                | statement
+sourceelement   : <functiondeclaration>
+                | <statement>
                 ;
 
-statement   : <block>
+statement   : <block> [";"]?
             | <variablestatement> [";"]
             | <emptystatement>
             | <expressionstatement> [";"]
-            | <ifstatement> [";"]?
-            | <iterationstatement> [";"]
+            | <ifstatement>
+            | <iterationstatement>
             | <continuestatement> [";"]
             | <breakstatement> [";"]
             | <returnstatement> [";"]
             | <withstatement> [";"]
-            | <labelledstatement> [";"]
+            | <labelledstatement>
             | <switchstatement> 
             | <throwstatement> [";"]
             | <trystatement> [";"]
             ;
 
-block   : "{" statementlist? "}"
+block   : ["{"] statementlist? ["}"]
         ;
 
 statementlist   : statement >statementlist<
@@ -49,7 +49,7 @@ variabledeclaration : identifier initialiser?
 initialiser : ["="] assignmentexpression
             ;
 
-emptystatement  : ";"
+emptystatement  : [";"]
                 ;
 
 expressionstatement : expression
@@ -59,7 +59,8 @@ ifstatement : ["if"] ["("] expression [")"] statement  ["else"] statement
             | ["if"] ["("] expression [")"] statement
             ;
 
-iterationstatement  : "do" statement ["while"] ["("] expression [")"]
+iterationstatement  
+    : "do" statement ["while"] ["("] expression [")"]
     | "while" ["("] expression [")"] statement 
     | "for" ["("]expressionnoin? [";"] expression? [";"] expression? [")"] statement 
     | "for" ["("] ["var"] variabledeclarationlistnoin [";"] expression? [";"] expression? [")"] statement 
@@ -172,8 +173,8 @@ elementlist : assignmentexpression ("," assignmentexpression)*
 elision : ","+
         ;
 
-objectliteral   : "{" "}" 
-                | "{" propertynameandvaluelist "}"
+objectliteral   : ["{"] ["}"] 
+                | ["{"] propertynameandvaluelist ["}"]
                 ;
 
 propertynameandvaluelist    : hpropertynameandvaluelist* propertyname ":" assignmentexpression
@@ -187,17 +188,17 @@ propertyname    : <identifier>
                 | <numericliteral>
                 ; 
 
-functiondeclaration : "function" identifier "(" formalparameterlist? ")" "{" functionbody "}"
+functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] functionbody ["}"]
                     ;
 
-functionexpression  : "function" identifier? "(" formalparameterlist? ")" "{" functionbody "}"
+functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] functionbody ["}"]
                     ;
 
 formalparameterlist : identifier [","] >formalparameterlist<
                     | identifier
                     ;
 
-functionbody    : sourceelements
+functionbody    : <sourceelements>
                 ;
 
 begmemberexpression : <primaryexpression>
@@ -220,11 +221,11 @@ callexpression  : memberexpression arguments arguments callexpression*
                 | memberexpression arguments
                 ;
 
-arguments   : "(" ")" 
-            | "(" argumentlist ")"
+arguments   : ["("] [")"] 
+            | "(" <argumentlist> ")"
             ;
  
-argumentlist    : assignmentexpression "," >argumentlist<
+argumentlist    : assignmentexpression [","] >argumentlist<
                 | assignmentexpression;
 
 lefthandsideexpression  : <callexpression>
