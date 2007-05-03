@@ -136,6 +136,10 @@ IPX_TYPE
 
 POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
 POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG
+
+FD_READ FD_WRITE FD_ACCEPT FD_CONNECT FD_CLOSE
+WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
+FD_CONNECT_BIT FD_CLOSE_BIT
 '''.split()
 
 for name in constant_names:
@@ -164,7 +168,13 @@ constants_w_defaults = [('SOL_IP', 0),
                         ('INADDR_NONE', 0xffffffff),
                         ('SHUT_RD', 0),
                         ('SHUT_WR', 1),
-                        ('SHUT_RDWR', 2)]
+                        ('SHUT_RDWR', 2),
+                        ('POLLIN', 1),
+                        ('POLLPRI', 2),
+                        ('POLLOUT', 4),
+                        ('POLLERR', 8),
+                        ('POLLHUP', 16),
+                        ]
 for name, default in constants_w_defaults:
     setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
     
@@ -249,6 +259,13 @@ if _POSIX:
                                             [('fd', socketfd_type),
                                              ('events', c_short),
                                              ('revents', c_short)])
+if _MS_WINDOWS:
+    CConfig.WSAEVENT = ctypes_platform.SimpleType('WSAEVENT', c_void_p)
+    CConfig.WSANETWORKEVENTS = ctypes_platform.Struct('WSANETWORKEVENTS',
+                                  [('lNetworkEvents', c_long),
+                                   ('iErrorCode', c_int * 10), #FD_MAX_EVENTS
+                                   ])
+    
 
 CConfig.timeval = ctypes_platform.Struct('struct timeval',
                                          [('tv_sec', c_long),
@@ -351,6 +368,9 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
+if MS_WINDOWS:
+    WSAEVENT = cConfig.WSAEVENT
+    WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
 timeval = cConfig.timeval
 if MS_WINDOWS:
     fd_set = cConfig.fd_set
@@ -363,7 +383,7 @@ SetPointerType(sockaddr_ptr, sockaddr)
 # functions
 if MS_WINDOWS:
     from ctypes import windll
-    dllname = util.find_library('wsock32')
+    dllname = util.find_library('ws2_32')
     assert dllname is not None
     socketdll = windll.LoadLibrary(dllname)
 else:
@@ -572,6 +592,24 @@ elif MS_WINDOWS:
                        POINTER(fd_set), POINTER(fd_set), POINTER(fd_set),
                        POINTER(timeval)]
     select.restype = c_int
+
+    WSACreateEvent = socketdll.WSACreateEvent
+    WSACreateEvent.argtypes = []
+    WSACreateEvent.restype = WSAEVENT
+
+    WSAEventSelect = socketdll.WSAEventSelect
+    WSAEventSelect.argtypes = [socketfd_type, WSAEVENT, c_long]
+    WSAEventSelect.restype = c_int
+
+    WSAWaitForMultipleEvents = socketdll.WSAWaitForMultipleEvents
+    WSAWaitForMultipleEvents.argtypes = [c_long, POINTER(WSAEVENT),
+                                         c_int, c_long, c_int]
+    WSAWaitForMultipleEvents.restype = c_long
+
+    WSAEnumNetworkEvents = socketdll.WSAEnumNetworkEvents
+    WSAEnumNetworkEvents.argtypes = [socketfd_type, WSAEVENT,
+                                     POINTER(WSANETWORKEVENTS)]
+    WSAEnumNetworkEvents.restype = c_int
 
 if MS_WINDOWS:
     WSAData = cConfig.WSAData

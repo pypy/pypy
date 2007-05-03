@@ -4,8 +4,9 @@ from pypy.conftest import gettestobjspace
 class _AppTestSelect:
     def test_sleep(self):
         import time, select
+        readend, writeend = getpair()
         start = time.time()
-        iwtd, owtd, ewtd = select.select([], [], [], 0.3)
+        iwtd, owtd, ewtd = select.select([readend], [], [], 0.3)
         end = time.time()
         assert iwtd == owtd == ewtd == []
         assert end - start > 0.25
@@ -53,13 +54,16 @@ class _AppTestSelect:
             readend.close()
 
     def test_close(self):
-        import select
+        import select, sys
         readend, writeend = getpair()
         try:
             try:
                 total_out = writeend.send('x' * 512)
             finally:
-                writeend.close()
+                # win32 sends the 'closed' event immediately, even when
+                # more data is available
+                if sys.platform != 'win32':
+                    writeend.close()
             assert 1 <= total_out <= 512
             total_in = 0
             while True:
@@ -71,6 +75,9 @@ class _AppTestSelect:
                     break
                 assert data == 'x' * len(data)
                 total_in += len(data)
+                # win32: check that closing the socket exits the loop
+                if sys.platform == 'win32' and total_in == total_out:
+                    writeend.close()
             assert total_in == total_out
         finally:
             readend.close()
