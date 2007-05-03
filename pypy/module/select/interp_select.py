@@ -1,7 +1,7 @@
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import W_Root, ObjSpace, interp2app
-from pypy.module.select import ctypes_select as _c
+from pypy.rlib import _rsocket_ctypes as _c
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 

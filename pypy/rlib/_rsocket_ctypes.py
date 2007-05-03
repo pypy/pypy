@@ -22,6 +22,7 @@ if _POSIX:
                 'sys/socket.h',
                 'sys/un.h',
                 'sys/poll.h',
+                'sys/select.h',
                 'netinet/in.h',
                 'netinet/tcp.h',
                 'unistd.h',
@@ -64,8 +65,6 @@ class CConfig:
     INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = ctypes_platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= ctypes_platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
-    POLLIN = ctypes_platform.DefinedConstantInteger('POLLIN')
-    POLLOUT = ctypes_platform.DefinedConstantInteger('POLLOUT')
     EINPROGRESS = ctypes_platform.DefinedConstantInteger('EINPROGRESS')
     WSAEINPROGRESS = ctypes_platform.DefinedConstantInteger('WSAEINPROGRESS')
     EWOULDBLOCK = ctypes_platform.DefinedConstantInteger('EWOULDBLOCK')
@@ -134,6 +133,9 @@ TCP_CORK TCP_DEFER_ACCEPT TCP_INFO TCP_KEEPCNT TCP_KEEPIDLE TCP_KEEPINTVL
 TCP_LINGER2 TCP_MAXSEG TCP_NODELAY TCP_QUICKACK TCP_SYNCNT TCP_WINDOW_CLAMP
 
 IPX_TYPE
+
+POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
+POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG
 '''.split()
 
 for name in constant_names:
@@ -313,8 +315,6 @@ F_SETFL = cConfig.F_SETFL
 FIONBIO = cConfig.FIONBIO
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
-POLLIN = cConfig.POLLIN
-POLLOUT = cConfig.POLLOUT
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT

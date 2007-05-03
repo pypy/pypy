@@ -13,9 +13,15 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.select import ctypes_select as _c 
-        for constant, value in _c.constants.iteritems():
-            Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+        constantnames = '''
+            POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
+            POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG'''.split()
+
+        from pypy.rlib._rsocket_ctypes import constants
+        for name in constantnames:
+            if name in constants:
+                value = constants[name]
+                Module.interpleveldefs[name] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
 
