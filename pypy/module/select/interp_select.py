@@ -112,12 +112,12 @@ class Poll(Wrappable):
                 if wsaEvents == 0:
                     continue
 
- 		# select socket for desired events
+                # select socket for desired events
                 event = _c.WSACreateEvent()
                 _c.WSAEventSelect(fd, event, wsaEvents)
 
                 eventdict[fd] = event
- 		socketevents[numevents] = event
+                socketevents[numevents] = event
                 numevents += 1
 
             # if no sockets then return immediately
