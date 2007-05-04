@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
-from pypy.module.rsocket.interp_socket import converted_error, W_RSocket
+from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError
 from pypy.interpreter.error import OperationError

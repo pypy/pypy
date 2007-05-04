@@ -3,7 +3,7 @@ import sys
 import py
 
 def setup_module(mod):
-    mod.space = gettestobjspace(usemodules=['rsocket'])
+    mod.space = gettestobjspace(usemodules=['_socket'])
     global socket
     import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
