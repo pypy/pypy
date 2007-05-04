@@ -47,6 +47,7 @@ class W_Thunk(baseobjspace.W_Root, object):
     def __init__(w_self, w_callable, args):
         w_self.w_callable = w_callable
         w_self.args = args
+        w_self.operr = None
 
 # special marker to say that w_self has not been computed yet
 w_NOT_COMPUTED_THUNK = W_Thunk(None, None)
@@ -58,6 +59,8 @@ def _force(space, w_self):
     while w_alias is not None:
         if w_alias is w_NOT_COMPUTED_THUNK:
             assert isinstance(w_self, W_Thunk)
+            if w_self.operr is not None:
+                raise w_self.operr
             w_callable = w_self.w_callable
             args       = w_self.args
             if w_callable is None or args is None:
@@ -65,7 +68,11 @@ def _force(space, w_self):
                                  space.wrap("thunk is already being computed"))
             w_self.w_callable = None
             w_self.args       = None
-            w_alias = space.call_args(w_callable, args)
+            try:
+                w_alias = space.call_args(w_callable, args)
+            except OperationError, operr:
+                w_self.operr = operr
+                raise
             # XXX detect circular w_alias result
             w_self.w_thunkalias = w_alias
         w_self = w_alias

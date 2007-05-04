@@ -100,7 +100,6 @@ class AppTest_Thunk:
         assert lst == [3]
 
     def test_exception_in_thunk(self):
-        skip("thunk about what should happen there!")
         from __pypy__ import lazy
         def f(x):
             if x:
