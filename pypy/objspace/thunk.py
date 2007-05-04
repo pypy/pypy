@@ -73,11 +73,29 @@ def _force(space, w_self):
             except OperationError, operr:
                 w_self.operr = operr
                 raise
-            # XXX detect circular w_alias result
+            if _is_circular(w_self, w_alias):
+                operr = OperationError(space.w_RuntimeError,
+                                       space.wrap("circular thunk alias"))
+                w_self.operr = operr
+                raise operr
             w_self.w_thunkalias = w_alias
+        # XXX do path compression?
         w_self = w_alias
         w_alias = w_self.w_thunkalias
     return w_self
+
+def _is_circular(w_obj, w_alias):
+    assert (w_obj.w_thunkalias is None or
+            w_obj.w_thunkalias is w_NOT_COMPUTED_THUNK)
+    while 1:
+        if w_obj is w_alias:
+            return True
+        w_next = w_alias.w_thunkalias
+        if w_next is None:
+            return False
+        if w_next is w_NOT_COMPUTED_THUNK:
+            return False
+        w_alias = w_next
 
 def force(space, w_self):
     if w_self.w_thunkalias is not None:
@@ -93,13 +111,20 @@ app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.W_Root,
 
 def is_thunk(space, w_obj):
     """Check if an object is a thunk that has not been computed yet."""
-    return space.newbool(w_obj.w_thunkalias is w_NOT_COMPUTED_THUNK)
+    while 1:
+        w_alias = w_obj.w_thunkalias
+        if w_alias is None:
+            return space.w_False
+        if w_alias is w_NOT_COMPUTED_THUNK:
+            return space.w_True
+        w_obj = w_alias
 app_is_thunk = gateway.interp2app(is_thunk)
 
 def become(space, w_target, w_source):
     """Globally replace the target object with the source one."""
     w_target = force(space, w_target)
-    w_target.w_thunkalias = w_source
+    if not _is_circular(w_target, w_source):
+        w_target.w_thunkalias = w_source
     return space.w_None
 app_become = gateway.interp2app(become)
 

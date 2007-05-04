@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+from pypy.interpreter import gateway
 
 class AppTest_Thunk:
 
@@ -64,6 +65,15 @@ class AppTest_Thunk:
         become(y, z)
         assert x is y is z
 
+    def test_double_become2(self):
+        from __pypy__ import thunk, become
+        x = []
+        y = []
+        z = []
+        become(x, y)
+        become(x, z)
+        assert x is y is z
+
     def test_thunk_forcing_while_forcing(self):
         from __pypy__ import thunk, become
         def f():
@@ -71,7 +81,7 @@ class AppTest_Thunk:
         x = thunk(f)
         raises(RuntimeError, 'x+1')
 
-    def INPROGRESS_test_thunk_forcing_while_forcing_2(self):
+    def test_thunk_forcing_while_forcing_2(self):
         from __pypy__ import thunk, become
         def f():
             return x
@@ -84,6 +94,26 @@ class AppTest_Thunk:
             pass
         assert is_thunk(thunk(f))
         assert not is_thunk(42)
+
+    def test_is_thunk2(self):
+        from __pypy__ import thunk, become, is_thunk
+        def f():
+            return 42
+        x = thunk(f)
+        assert is_thunk(x)
+        assert x == 42
+        assert not is_thunk(x)
+
+    def test_is_thunk_become(self):
+        from __pypy__ import thunk, become, is_thunk
+        def f():
+            return 42
+        x = thunk(f)
+        y = []
+        become(y, x)
+        assert is_thunk(y)
+        assert y == 42
+        assert not is_thunk(y)
 
     def test_lazy(self):
         from __pypy__ import lazy
@@ -110,4 +140,10 @@ class AppTest_Thunk:
         assert y == 42
         y = f(0)
         raises(ValueError, "str(y)")
-        raises(ValueError, "str(y)") # raises "RuntimeError: thunk is already being computed"
+        raises(ValueError, "str(y)")
+
+    def test_become_yourself(self):
+        from __pypy__ import become
+        x = []
+        become(x, x)
+        assert str(x) == "[]"
