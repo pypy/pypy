@@ -143,11 +143,10 @@ class Poll(Wrappable):
                 return space.newlist([])
 
             if ret < 0: # WSA_WAIT_FAILED is unsigned...
-                from pypy.rlib._rsocket_ctypes import socket_strerror, geterrno
-                errno = geterrno()
+                errno = _c.geterrno()
                 w_module = space.getbuiltinmodule('select')
                 w_errortype = space.getattr(w_module, space.wrap('error'))
-                message = socket_strerror(errno)
+                message = _c.socket_strerror(errno)
                 raise OperationError(w_errortype,
                                      space.newtuple([space.wrap(errno),
                                                      space.wrap(message)]))

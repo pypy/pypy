@@ -140,6 +140,8 @@ POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG
 FD_READ FD_WRITE FD_ACCEPT FD_CONNECT FD_CLOSE
 WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
+WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
+WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
 '''.split()
 
 for name in constant_names:
@@ -261,10 +263,11 @@ if _POSIX:
                                              ('revents', c_short)])
 if _MS_WINDOWS:
     CConfig.WSAEVENT = ctypes_platform.SimpleType('WSAEVENT', c_void_p)
-    CConfig.WSANETWORKEVENTS = ctypes_platform.Struct('WSANETWORKEVENTS',
-                                  [('lNetworkEvents', c_long),
-                                   ('iErrorCode', c_int * 10), #FD_MAX_EVENTS
-                                   ])
+    CConfig.WSANETWORKEVENTS = ctypes_platform.Struct(
+        'struct _WSANETWORKEVENTS',
+        [('lNetworkEvents', c_long),
+         ('iErrorCode', c_int * 10), #FD_MAX_EVENTS
+         ])
     
 
 CConfig.timeval = ctypes_platform.Struct('struct timeval',
@@ -685,7 +688,17 @@ if MS_WINDOWS:
         # errno.WSANO_RECOVERY: "Unexpected server error encountered",
         # errno.WSANO_DATA: "Valid name without requested data",
         # errno.WSANO_ADDRESS: "No address, look for MX record",
+
+        # select() errors
+        WSA_IO_PENDING: "WSA_IO_PENDING",
+        WSA_IO_INCOMPLETE: "WSA_IO_INCOMPLETE",
+        WSA_INVALID_HANDLE: "WSA_INVALID_HANDLE",
+        WSA_INVALID_PARAMETER: "WSA_INVALID_PARAMETER",
+        WSA_NOT_ENOUGH_MEMORY: "WSA_NOT_ENOUGH_MEMORY",
+        WSA_OPERATION_ABORTED: "WSA_OPERATION_ABORTED",
         }
+
+    assert len(WIN32_ERROR_MESSAGES) == 53 # detect duplicates
 
     def socket_strerror(errno):
         return WIN32_ERROR_MESSAGES.get(errno, "winsock error %d" % errno)
