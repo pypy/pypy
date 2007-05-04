@@ -28,9 +28,7 @@ working_modules.update(dict.fromkeys(
 ))
 
 if sys.platform == "win32":
-    del working_modules["_socket"]
     del working_modules["fcntl"]
-    del working_modules["select"]
     del working_modules["readline"]
     del working_modules["crypt"]
 
