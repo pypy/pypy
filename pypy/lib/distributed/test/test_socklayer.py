@@ -6,7 +6,7 @@ from pypy.conftest import gettestobjspace
 class AppTestSocklayer:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
-                                       "usemodules":("_stackless","rsocket", "select")})
+                                       "usemodules":("_stackless","_socket", "select")})
     
     def test_socklayer(self):
         class X:

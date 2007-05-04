@@ -22,13 +22,13 @@ default_modules.update(dict.fromkeys(
 
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["rsocket", "unicodedata", "mmap", "fcntl", "rctime", "select",
+    ["_socket", "unicodedata", "mmap", "fcntl", "rctime", "select",
      "crypt", "signal", "dyngram", "readline",
     ]
 ))
 
 if sys.platform == "win32":
-    del working_modules["rsocket"]
+    del working_modules["_socket"]
     del working_modules["fcntl"]
     del working_modules["select"]
     del working_modules["readline"]
