@@ -140,7 +140,7 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
 # restate subcase at the end of it.
 #
 # note that we order types by the index of the erased type in
-# STORAGE_TYPES, to increase the chance that we can resuse the types.
+# STORAGE_TYPES, to increase the chance that we can reuse the types.
 #
 # in simple cases this approach creates graphs that are more
 # complicated than needed, so we run the graph through a few
