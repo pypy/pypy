@@ -98,3 +98,17 @@ class AppTest_Thunk:
         assert lst == [3]
         assert type(y) is int
         assert lst == [3]
+
+    def test_exception_in_thunk(self):
+        skip("thunk about what should happen there!")
+        from __pypy__ import lazy
+        def f(x):
+            if x:
+                return 42
+            raise ValueError
+        f = lazy(f)
+        y = f(3)
+        assert y == 42
+        y = f(0)
+        raises(ValueError, "str(y)")
+        raises(ValueError, "str(y)") # raises "RuntimeError: thunk is already being computed"
