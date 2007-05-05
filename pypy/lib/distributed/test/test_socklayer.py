@@ -14,6 +14,10 @@ class AppTestSocklayer:
 
         x = X()
 
+        try:
+            import py
+        except ImportError:
+            skip("pylib not importable")
         from py.__.green.pipe.gsocket import GreenSocket
         from distributed.socklayer import socket_loop, connect
         from py.__.green.greensock2 import oneof, allof
