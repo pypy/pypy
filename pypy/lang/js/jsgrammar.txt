@@ -29,7 +29,7 @@ statement   : <block> [";"]?
             | <trystatement>
             ;
 
-block   : ["{"] statementlist? ["}"]
+block   : ["{"] >statementlist<? ["}"]
         ;
 
 statementlist   : statement >statementlist<
@@ -43,7 +43,7 @@ variabledeclarationlist : variabledeclaration [","] >variabledeclarationlist<
                         | variabledeclaration
                         ;
 
-variabledeclaration : identifier initialiser?
+variabledeclaration : identifier >initialiser<?
                     ;
  
 initialiser : ["="] assignmentexpression
@@ -62,10 +62,10 @@ ifstatement : ["if"] ["("] expression [")"] statement  ["else"] statement
 iterationstatement  
     : "do" statement ["while"] ["("] expression [")"]
     | "while" ["("] expression [")"] statement 
-    | "for" ["("]expressionnoin? [";"] expression? [";"] expression? [")"] statement 
-    | "for" ["("] ["var"] variabledeclarationlistnoin [";"] expression? [";"] expression? [")"] statement 
-    | ["for"] ["("] lefthandsideexpression "in" expression [")"] statement 
-    | ["for"] ["("] ["var"] variabledeclarationnoin "in" expression [")"] statement
+    | "for" ["("] expressionnoin? ";" expression? ";" expression? ")" statement 
+    | "for" ["("] ["var"] variabledeclarationlistnoin ";" expression? ";" expression? ")" statement 
+    | "for" ["("] lefthandsideexpression "in" expression ")" statement 
+    | "for" ["("] ["var"] variabledeclarationnoin "in" expression ")" statement
     ; 
 
 
