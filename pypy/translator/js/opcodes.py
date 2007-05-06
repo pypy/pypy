@@ -124,8 +124,6 @@ opcodes = {'int_mul': '*',
     'oosetfield' : [_SetFieldDispatcher(Builtins, class_map)],
     'oogetfield' : [_GetFieldDispatcher(Builtins, class_map)],
     'oosend'     : [_MethodDispatcher(Builtins, class_map)],
-    #'ooupcast'   : [_NotImplemented("Inheritance not implemented (ooupcast)")],
-    #'oodowncast' : [_NotImplemented("Inheritance not implemented (oodowncast)")],
     'ooupcast'   : DoNothing,
     'oodowncast' : DoNothing,        
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
@@ -133,10 +131,6 @@ opcodes = {'int_mul': '*',
     'ooparse_int' : [PushAllArgs,_CastFun("parseInt",2)],
     'ooparse_float' : [PushAllArgs,_CastFun("parseFloat",1)],
     'oois'       : '===',
-    # when casting from bool we want that every truth value is casted
-    # to 1: we can't simply DoNothing, because the CLI stack could
-    # contains a truth value not equal to 1, so we should use the !=0
-    # trick.
     'cast_bool_to_int':         CopyName,
     'cast_bool_to_uint':        CopyName,
     'cast_bool_to_float':       CopyName,
