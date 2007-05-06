@@ -15,7 +15,8 @@ class ExecutionReturned(JsBaseExcept):
 
 class ThrowException(JsBaseExcept):
     def __init__(self, exception):
-        self.exception = self.args = exception
+        self.exception = exception
+        self.args = [exception]
 
 class JsTypeError(JsBaseExcept):
     pass
