@@ -157,7 +157,7 @@ class Function(object):
         for link in block.exits:
             if link.exitcase is None:
                 continue # see above
-            assert issubclass(link.exitcase, Exception)
+            assert issubclass(link.exitcase, BaseException)
             ll_meta_exc = link.llexitcase
             self.record_ll_meta_exc(ll_meta_exc)
             self.begin_catch(link.llexitcase)
