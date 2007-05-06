@@ -1,5 +1,5 @@
 
-""" Tests some error handilng routines
+""" Tests some error handling routines
 """
 
 from pypy.translator.translator import TranslationContext
