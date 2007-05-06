@@ -284,7 +284,11 @@ class TestToEvalTree(BaseGrammarTest):
 
     def to_etree(self, s):
         return EvalTreeBuilder().dispatch(self.parse(s))
-
+    
+    def eval_expr(self, s):
+        etree = self.to_etree(s)
+        return etree.eval(None)
+    
     def test_primary(self):
         etree = self.to_etree('(6)')
         w_num = etree.eval(None)
@@ -301,4 +305,8 @@ class TestToEvalTree(BaseGrammarTest):
         etree = self.to_etree('++5')
         w_num = etree.eval(None)
         assert w_num.ToNumber() == 6
+        w_num = self.eval_expr('--5')
+        assert w_num.ToNumber() == 4
+        w_str = self.eval_expr('"hello "+\'world\'')
+        assert w_str.ToString() == 'hello world'
     

@@ -43,6 +43,7 @@ class EvalTreeBuilder(RPythonVisitor):
         '+': operations.UPlus,
         '-': operations.UMinus,
         '++': operations.Increment,
+        '--': operations.Decrement,
     }
     def get_instance(self, symbol, cls):
         assert isinstance(symbol, Symbol)
@@ -58,6 +59,15 @@ class EvalTreeBuilder(RPythonVisitor):
         result = self.get_instance(node, operations.Number)
         result.num = float(node.additional_info)
         return result
+
+    def string(self,node):
+        print node.additional_info
+        result = self.get_instance(node, operations.String)
+        result.strval = node.additional_info[1:-1] #XXX should do unquoting
+        return result
+    
+    visit_DOUBLESTRING = string
+    visit_SINGLESTRING = string
 
     def binaryop(self, node):
         left = self.dispatch(node.children[0])
@@ -79,7 +89,6 @@ class EvalTreeBuilder(RPythonVisitor):
         result = self.get_instance(
                 op, self.UNOP_TO_CLS[op.additional_info])
         child = self.dispatch(node.children[1])
-        print child
         result.expr = child
         result.postfix = False
         return result
