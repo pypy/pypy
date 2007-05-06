@@ -8,6 +8,8 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.metavm import InstructionList, StoreResult
 
+
+
 class Function(object):
 
     def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):
@@ -157,7 +159,7 @@ class Function(object):
         for link in block.exits:
             if link.exitcase is None:
                 continue # see above
-            assert issubclass(link.exitcase, BaseException)
+            assert issubclass(link.exitcase, py.builtin.BaseException)
             ll_meta_exc = link.llexitcase
             self.record_ll_meta_exc(ll_meta_exc)
             self.begin_catch(link.llexitcase)
