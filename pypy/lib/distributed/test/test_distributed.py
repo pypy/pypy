@@ -3,6 +3,7 @@
 """
 
 from pypy.conftest import gettestobjspace
+import sys
 
 class AppTestNoProxy(object):
     disabled = True
@@ -100,6 +101,11 @@ class AppTestDistributedTasklets(object):
         from distributed import test_env
         return test_env
         """)
+        cls.reclimit = sys.getrecursionlimit()
+        sys.setrecursionlimit(100000)
+
+    def teardown_class(cls):
+        sys.setrecursionlimit(cls.reclimit)
     
     def test_remote_protocol_call(self):
         def f(x, y):
