@@ -4,6 +4,7 @@ import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
+from pypy.lang.js.newparser import EvalTreeBuilder
 from pypy import conftest
 import sys
 
@@ -277,3 +278,23 @@ class TestFunctionDeclaration(BaseGrammarTest):
         self.parse('function z (a,b,c,d,e) {;}')
     
         
+class TestToEvalTree(BaseGrammarTest):
+    def setup_class(cls):
+        cls.parse = parse_func('expression')
+
+    def to_etree(self, s):
+        return EvalTreeBuilder().dispatch(self.parse(s))
+
+    def test_primary(self):
+        etree = self.to_etree('(6)')
+        w_num = etree.eval(None)
+        assert w_num.ToNumber() == 6
+        etree = self.to_etree('((((6))))')
+        w_num = etree.eval(None)
+        assert w_num.ToNumber() == 6
+        etree = self.to_etree('1 - 1 - 1')
+        w_num = etree.eval(None)
+        assert w_num.ToNumber() == -1
+        etree = self.to_etree('-(6 * (6 * 6)) + 6 - 6')
+        w_num = etree.eval(None)
+        assert w_num.ToNumber() == -216
