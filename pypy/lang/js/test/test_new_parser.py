@@ -298,3 +298,7 @@ class TestToEvalTree(BaseGrammarTest):
         etree = self.to_etree('-(6 * (6 * 6)) + 6 - 6')
         w_num = etree.eval(None)
         assert w_num.ToNumber() == -216
+        etree = self.to_etree('++5')
+        w_num = etree.eval(None)
+        assert w_num.ToNumber() == 6
+    

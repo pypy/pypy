@@ -77,7 +77,7 @@ class W_Root(object):
         raise NotImplementedError
     
     def PutValue(self, w, ctx):
-        raise NotImplementedError
+        pass
     
     def Call(self, ctx, args=[], this=None):
         raise NotImplementedError
@@ -427,7 +427,7 @@ class W_Number(W_Primitive):
             return r_uint(0)
            
         return r_uint(self.floatval)
-
+    
 class W_List(W_Root):
     def __init__(self, list_w):
         self.list_w = list_w

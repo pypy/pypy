@@ -42,6 +42,7 @@ class EvalTreeBuilder(RPythonVisitor):
     UNOP_TO_CLS = {
         '+': operations.UPlus,
         '-': operations.UMinus,
+        '++': operations.Increment,
     }
     def get_instance(self, symbol, cls):
         assert isinstance(symbol, Symbol)
@@ -78,6 +79,7 @@ class EvalTreeBuilder(RPythonVisitor):
         result = self.get_instance(
                 op, self.UNOP_TO_CLS[op.additional_info])
         child = self.dispatch(node.children[1])
+        print child
         result.expr = child
         result.postfix = False
         return result
