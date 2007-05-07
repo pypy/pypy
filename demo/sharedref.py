@@ -35,7 +35,7 @@
 """
 
 import sys, marshal
-from pypymagic import thunk, become
+from __pypy__ import thunk, become
 from socket import *
 from select import select
 

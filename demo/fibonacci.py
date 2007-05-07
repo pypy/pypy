@@ -9,7 +9,7 @@ Fibonacci sequence by using an infinite lazy linked list.
 """
 
 try:
-    from pypymagic import thunk    # only available in 'py.py -o thunk'
+    from __pypy__ import thunk    # only available in 'py.py -o thunk'
 except ImportError:
     print __doc__
     raise SystemExit(2)

@@ -14,7 +14,7 @@
 """
 
 import sys
-import pypymagic
+import __pypy__
 
 import gadfly
 

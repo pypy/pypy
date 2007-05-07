@@ -11,7 +11,7 @@ Fibonacci sequence as nested 2-tuples.
 import pprint
 
 try:
-    from pypymagic import lazy
+    from __pypy__ import lazy
 except ImportError:
     print __doc__
     raise SystemExit(2)
