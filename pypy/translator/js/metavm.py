@@ -3,7 +3,7 @@
 
 #from pypy.translator.js.jsbuiltin import Builtins
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, SetField, GetField, MicroInstruction
+    InstructionList, New, GetField, MicroInstruction
 
 from pypy.translator.js.log import log
 from pypy.rpython.ootypesystem import ootype
@@ -82,6 +82,20 @@ class CallBuiltin(_Call):
     def render(self, generator, op):
         self._render_builtin(generator, self.builtin, op.args)
 
+class CallBuiltinMethod(_Call):
+    def __init__(self, builtin, slice=None, additional_args=[]):
+        self.builtin = builtin
+        self.slice = slice
+        self.additional_args = additional_args
+
+    def render(self, generator, op):
+        if self.slice is not None:
+            args = op.args[self.slice]
+        else:
+            args = op.args
+        args += self.additional_args
+        self._render_builtin_method(generator, self.builtin, args)
+
 class _SameAs(MicroInstruction):
     def render(self, generator, op):
         generator.change_name(op.result, op.args[0])
@@ -128,11 +142,17 @@ class _GetBuiltinField(MicroInstruction):
     def render(self, generator, op):
         this = op.args[0]
         field = op.args[1].value[1:]
-        self.run_it(generator, this, field)
-    
-    def run_it(self, generator, this, field_name):
         generator.load(this)
-        generator.get_field(None, field_name)
+        generator.get_field(None, field)
+
+class _GetPredefinedField(MicroInstruction):
+    def __init__(self, field):
+        self.field = field
+
+    def render(self, generator, op):
+        this = op.args[1]
+        generator.load(this)
+        generator.get_field(None, self.field)
 
 GetBuiltinField = _GetBuiltinField()
 
@@ -151,6 +171,15 @@ class _SetBuiltinField(MicroInstruction):
         generator.load(this)
         generator.load_special(value)
         generator.set_field(None, field_name)
+
+class _SetPredefinedField(_SetBuiltinField):
+    def __init__(self, field):
+        self.field = field
+
+    def render(self, generator, op):
+        value = op.args[2]
+        this = op.args[1]
+        self.run_it(generator, this, self.field, value)
     
 class _SetExternalField(_SetBuiltinField):
     def render(self, generator, op):
@@ -177,7 +206,7 @@ class _CallExternalObject(_Call):
         this = op.args[1].concretetype
         method = op.args[0]
         method_name = method.value
-        generator.load(op.args[1])
+        #generator.load(op.args[1])
         self._render_builtin_method(generator, method_name, op.args[1:])
 
 CallBuiltinObject = _CallBuiltinObject()
@@ -213,6 +242,10 @@ class _SetTimeout(MicroInstruction):
         generator.load(op.args[2])
         generator.call_external('setTimeout',[0]*2)
 
+class _DiscardStack(MicroInstruction):
+    def render(self, generator, op):
+        generator.clean_stack()
+
 class SetOnEvent(MicroInstruction):
     def __init__(self, field):
         self.field = field
@@ -222,29 +255,23 @@ class SetOnEvent(MicroInstruction):
         val = op.args[1].value
         val = val.concretize().value
         assert(isinstance(val, ootype._static_meth))
-        #if isinstance(val, ootype.StaticMethod):
         real_name = val._name
         generator.db.pending_function(val.graph)
-            #generator.db.pending_function(val.graph)
-        #else:
-        #    concrete = val.concretize()
-        #    real_name = concrete.value._name
-        #    generator.db.pending_function(concrete.value.graph)
-        #generator.load_str("'%s()'" % real_name)
-        #generator.load(op.args[2])
         generator.load_str("document")
         generator.load_str(real_name)
         generator.set_field(None, self.field)
-        #generator.call_external('setTimeout',[0]*2)
 
-##class _XmlSetCallback(MicroInstruction):
-##    # FIXME: Another dirty hack. To remove soon
-##    def render(self, generator, op):
-##        generator.load(op.args[2])
-##        generator.load(op.args[1])
-##        generator.set_field(None, 'onreadystatechange')
-##
-##XmlSetCallback = _XmlSetCallback()
+class _CheckLength(MicroInstruction):
+    def render(self, generator, op):
+        assert not generator.ilasm.right_hand
+
+class _ListRemove(MicroInstruction):
+    def render(self, generator, op):
+        generator.list_getitem(op.args[1], op.args[2])
+        generator.call_external('delete', [0])
+
+ListRemove = _ListRemove()
+CheckLength = _CheckLength()
 SetTimeout = _SetTimeout()
 IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()
@@ -252,3 +279,19 @@ CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]
 CastString = _CastFun("convertToString", 1)
 SameAs = CopyName
+DiscardStack = _DiscardStack()
+
+def fix_opcodes(opcodes):
+    for key, value in opcodes.iteritems():
+        if type(value) is str:
+            value = InstructionList([PushAllArgs, value, StoreResult, CheckLength])
+        elif value == []:
+            value = InstructionList([CheckLength])
+        elif value is not None:
+            if StoreResult not in value:
+                value.append(StoreResult)
+            if CheckLength not in value:
+                value.append(CheckLength)
+            value = InstructionList(value)
+
+        opcodes[key] = value

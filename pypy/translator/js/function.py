@@ -34,13 +34,11 @@ class BaseGenerator(object):
             assert False
 
     def store(self, v):
-        if isinstance(v, flowmodel.Variable):
-            if v.concretetype is not Void:
-                self.ilasm.store_local(v)
-            else:
-                self.ilasm.store_void()
+        assert isinstance(v, flowmodel.Variable)
+        if v.concretetype is not Void:
+            self.ilasm.store_local(v)
         else:
-            assert False
+            self.ilasm.store_void()
     
     def change_name(self, name, to_name):
         self.ilasm.change_name(name, to_name)
@@ -230,3 +228,6 @@ class Function(function.Function, BaseGenerator):
 
     def begin_try(self):
         self.ilasm.begin_try()
+
+    def clean_stack(self):
+        self.ilasm.clean_stack()

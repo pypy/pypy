@@ -101,6 +101,7 @@ class JS(GenOO):
             self.gen_pendings()
             self.db.gen_constants(self.ilasm, self.db._pending_nodes)
         self.ilasm.close()
+        assert len(self.ilasm.right_hand) == 0
         return self.tmpfile.strpath
         
     def write_source(self):

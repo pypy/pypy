@@ -53,6 +53,15 @@ class Queue(object):
     def __len__(self):
         return len(self.l)
 
+    def __nonzero__(self):
+        return len(self.l) > 0
+
+    def empty(self):
+        self.l = []
+
+    def __repr__(self):
+        return "<Queue %s>" % (repr(self.l),)
+
 class AsmGen(object):
     """ JS 'assembler' generator routines
     """
@@ -166,9 +175,8 @@ class AsmGen(object):
         self.codegenerator.openblock()
 
     def change_name(self, from_name, to_name):
-    #    if isinstance(from_name,Variable) and isinstance(to_name,Variable):
-    #        self.subst_table[from_name.name] = to_name.name
-        pass
+        if isinstance(from_name,Variable) and isinstance(to_name,Variable):
+            self.subst_table[from_name.name] = to_name.name
     
     def cast_function(self, name, num):
         # FIXME: redundancy with call
@@ -193,7 +201,7 @@ class AsmGen(object):
     def set_field(self, useless_parameter, name):
         v = self.right_hand.pop()
         self.codegenerator.writeline("%s.%s = %s;"%(self.right_hand.pop(), name, v))
-        self.right_hand.append(None)
+        #self.right_hand.append(None)
     
     def call_method(self, obj, name, signature):
         l = [self.right_hand.pop() for i in signature]
@@ -215,7 +223,7 @@ class AsmGen(object):
         self.right_hand.append("this")
     
     def store_void(self):
-        if len(self.right_hand) == 0:
+        if not len(self.right_hand):
             return
         v = self.right_hand.pop()
         if v is not None and v.find('('):
@@ -286,3 +294,6 @@ class AsmGen(object):
     
     def throw_real(self, s):
         self.codegenerator.writeline("throw(%s);"%s)
+
+    def clean_stack(self):
+        self.right_hand.empty()

@@ -2,19 +2,21 @@
 """
 
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, SetField, GetField, MicroInstruction, RuntimeNew, PushPrimitive
+    InstructionList, New, GetField, MicroInstruction, RuntimeNew, PushPrimitive
      
 from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispatcher, \
-    _CallDispatcher, _MethodDispatcher
+    _CallDispatcher, _MethodDispatcher, SetField
 
-from pypy.translator.js.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
-    _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField,\
-    IndirectCall, CallExternalObject, SetExternalField, _CastMethod, _LoadConst
+from pypy.translator.js.metavm import IsInstance, Call, CallMethod,\
+     CopyName, CastString, _Prefix, _CastFun, _NotImplemented, CallBuiltin,\
+     CallBuiltinObject, GetBuiltinField, SetBuiltinField, IndirectCall,\
+     CallExternalObject, SetExternalField, _CastMethod, _LoadConst,\
+     DiscardStack, CheckLength, fix_opcodes
 
 from pypy.translator.js.jsbuiltin import Builtins
 from pypy.rpython.ootypesystem import ootype
 
-DoNothing = [PushAllArgs]
+DoNothing = []
 
 from pypy.translator.js.log import log
 
@@ -113,7 +115,7 @@ opcodes = {'int_mul': '*',
     
     'direct_call' : [_CallDispatcher(Builtins, class_map)],
     'indirect_call' : [IndirectCall],
-    'same_as' : SameAs,
+    'same_as' : CopyName,
     'new' : [New],
     'runtimenew' : [RuntimeNew],
     'instanceof' : [IsInstance],
@@ -124,8 +126,8 @@ opcodes = {'int_mul': '*',
     'oosetfield' : [_SetFieldDispatcher(Builtins, class_map)],
     'oogetfield' : [_GetFieldDispatcher(Builtins, class_map)],
     'oosend'     : [_MethodDispatcher(Builtins, class_map)],
-    'ooupcast'   : DoNothing,
-    'oodowncast' : DoNothing,        
+    'ooupcast'   : CopyName,
+    'oodowncast' : CopyName,        
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
     'oostring'   : [PushArg(0),CastString],
     'ooparse_int' : [PushAllArgs,_CastFun("parseInt",2)],
@@ -153,12 +155,4 @@ opcodes = {'int_mul': '*',
     'is_early_constant': [PushPrimitive(ootype.Bool, False)],
 }
 
-for key, value in opcodes.iteritems():
-    if type(value) is str:
-        value = InstructionList([PushAllArgs, value, StoreResult])
-    elif value is not None:
-        if StoreResult not in value:
-            value.append(StoreResult)
-        value = InstructionList(value)
-
-    opcodes[key] = value
+fix_opcodes(opcodes)
