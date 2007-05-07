@@ -239,8 +239,17 @@ class PushArg(MicroInstruction):
 
 class _PushAllArgs(MicroInstruction):
     """ Pushes all arguments of the instruction onto the stack in order. """
+    def __init__(self, slice=None):
+        """ Eventually slice args
+        """
+        self.slice = slice
+    
     def render(self, generator, op):
-        for arg in op.args:
+        if self.slice is not None:
+            args = op.args[self.slice]
+        else:
+            args = op.args
+        for arg in args:
             generator.load(arg)
 
 class PushPrimitive(MicroInstruction):
