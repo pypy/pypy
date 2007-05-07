@@ -136,7 +136,7 @@ class CTS(object):
     def escape_name(self, name):
         """Mangle then name if it's a ilasm reserved word"""
         if name in self.ILASM_KEYWORDS:
-            return name + '__MANGLED' # XXX: it could not be unique
+            return "'%s'" % name
         else:
             return name
 
