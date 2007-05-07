@@ -56,11 +56,13 @@ class Root(server.Collection):
     bnb.exposed = True
 
     def handle_error(self, exc, e_value, tb):
+        import traceback
         tb_formatted = '\n'.join(traceback.format_tb(tb)) + \
                        "%s: %s" % (exc, e_value)
         log_file = open("/tmp/play1_error_log", "a")
         log_file.write(tb_formatted)
         log_file.close()
+        print tb_formatted
 
 class Handler(server.NewHandler):
     application = Root()
