@@ -59,6 +59,7 @@ def maketestobjspace(config=None):
             traceback.print_exc()
         py.test.fail("fatal: cannot initialize objspace: %r" %
                          (config.objspace.name,))
+    space.startup() # Initialize all builtin modules
     space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
                   appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),

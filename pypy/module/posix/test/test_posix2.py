@@ -105,7 +105,9 @@ class AppTestPosix:
 
         assert posix.access(pdir, posix.R_OK)
         assert posix.access(pdir, posix.W_OK)
-        assert not posix.access(pdir, posix.X_OK)
+        import sys
+        if sys.platform != "win32":
+            assert not posix.access(pdir, posix.X_OK)
 
 
     def test_strerror(self):
@@ -123,9 +125,11 @@ class AppTestPosix:
             # XXX check status1
         pass # <- please, inspect.getsource(), don't crash
 
-    if hasattr(__import__(os.name), "execv"): # and fork
+    if hasattr(__import__(os.name), "execv"):
         def test_execv(self):
             os = self.posix
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execv()")
             pid = os.fork()
             if pid == 0:
                 os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
@@ -138,7 +142,7 @@ class AppTestPosix:
             raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
 
         def test_execve(self):
-            skip("not implemented")
+            skip("Not implemented")
             os = self.posix
             pid = os.fork()
             if pid == 0:
@@ -161,9 +165,14 @@ class AppTestEnvironment(object):
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
+
     def test_environ(self):
         posix = self.posix
         os = self.os
+        assert posix.environ['PATH']
+        del posix.environ['PATH']
+        def fn(): posix.environ['PATH']
+        raises(KeyError, fn)
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
