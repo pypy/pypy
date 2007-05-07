@@ -3,6 +3,8 @@ import py
 from pypy.rpython.test.test_rdict import BaseTestRdict
 from pypy.translator.js.test.runtest import JsTest
 
+# ====> ../../../rpython/test/test_rdict.py
+
 class TestJsDict(JsTest, BaseTestRdict):
     def test_tuple_dict(self):
         py.test.skip("rdict not implemented")

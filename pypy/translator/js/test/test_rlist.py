@@ -9,6 +9,8 @@ class Foo:
 class Bar(Foo):
     pass
 
+# ====> ../../../rpython/test/test_rlist.py
+
 class TestJsList(JsTest, BaseTestRlist):
     def test_append(self):
         def dummyfn():
