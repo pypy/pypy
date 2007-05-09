@@ -335,6 +335,9 @@ def remote_loop(protocol):
             value = protocol.unwrap(w_value)
             getattr(type(obj), name).__set__(obj, value)
             send(('finished', protocol.wrap(None)))
+        elif command == 'remote_keys':
+            keys = protocol.keeper.exported_names.keys()
+            send(('finished', protocol.wrap(keys)))
         else:
             raise NotImplementedError("command %s" % command)
 
@@ -389,11 +392,14 @@ class RemoteProtocol(AbstractProtocol):
 
     def get(self, name, obj, type):
         self.send(("desc_get", (name, self.wrap(obj), self.wrap(type))))
-        retval = remote_loop(self)
-        return retval
+        return remote_loop(self)
 
     def set(self, obj, value):
         self.send(("desc_set", (name, self.wrap(obj), self.wrap(value))))
+
+    def remote_keys(self):
+        self.send(("remote_keys",None))
+        return remote_loop(self)
 
 class RemoteObject(object):
     def __init__(self, protocol, id):

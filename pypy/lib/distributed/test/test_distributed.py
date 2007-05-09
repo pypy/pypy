@@ -298,3 +298,7 @@ class AppTestDistributedTasklets(object):
         protocol = self.test_env({})
         raises(ObjectNotFound, "protocol.get_remote('x')")
 
+    def test_list_items(self):
+        protocol = self.test_env({'x':3, 'y':8})
+        assert sorted(protocol.remote_keys()) == ['x', 'y']
+
