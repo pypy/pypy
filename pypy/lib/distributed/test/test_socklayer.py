@@ -27,6 +27,7 @@ class AppTestSocklayer:
 
         def two():
             rp = connect(('127.0.0.1', 21211), GreenSocket)
-            assert rp.get_remote('x').z == 3
+            assert rp.x.z == 3
+            assert [i for i in dir(rp) if not i.startswith('__')] == ['x']
 
         oneof(one, two)
