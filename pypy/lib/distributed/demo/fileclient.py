@@ -8,7 +8,7 @@ HOST = '127.0.0.1'
 PORT = 12221
 
 from distributed.socklayer import connect
-file_opener = connect((HOST, PORT)).get_remote('open')
+file_opener = connect((HOST, PORT)).open
 
 # now you can do for example file_opener('/etc/passwd').read() to
 # read remote /etc/passwd
