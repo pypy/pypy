@@ -37,6 +37,7 @@ def testboth(formatstr, *args):
     if have_unicode:
         testformat(unicode(formatstr), *args)
 
+
 testboth("%.1d", (1,), "1")
 testboth("%.*d", (sys.maxint,1))  # expect overflow
 testboth("%.100d", (1,), '0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001')
