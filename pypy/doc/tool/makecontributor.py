@@ -31,7 +31,10 @@ cutoff = 5 # cutoff for authors in the LICENSE file
 mark = False
 for author, count in items: 
     user = uconf.system.User(author)
-    realname = user.realname.strip()
+    try:
+        realname = user.realname.strip()
+    except KeyError:
+        realname = author
     if not mark and count < cutoff:
         mark = True
         print '-'*60
