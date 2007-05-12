@@ -12,9 +12,9 @@ PyPy 1.0 Sources:
 PyPy 1.0 prebuilt binaries:
 ----------------------------
 * `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
-* `pypy-1.0.0-dynamic.tar.bz2` (precombiled binaries for linux, dynamic
+* `pypy-1.0.0-dynamic.tar.bz2`_ (precombiled binaries for linux, dynamic
   executable)
-* `pypy-1.0.0-static.tar.bz2` (precombiled binaries for linux, static
+* `pypy-1.0.0-static.tar.bz2`_ (precombiled binaries for linux, static
   executable, GLIBC 2.5)
 * `pypy-1.0.0-minimal-dynamic.tar.bz2`_ (precompiled minimal binary for
   linux, dynamic executable)
@@ -27,4 +27,6 @@ PyPy 1.0 prebuilt binaries:
 .. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
 .. _`pypy-1.0.0-minimal-dynamic.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal.tar.bz2
 .. _`pypy-1.0.0-minimal-static.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal-static.tar.bz2
+.. _`pypy-1.0.0-dynamic.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-dynamic.tar.bz2
+.. _`pypy-1.0.0-static.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-static.tar.bz2
 
