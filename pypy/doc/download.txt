@@ -13,11 +13,11 @@ PyPy 1.0 prebuilt binaries:
 ----------------------------
 * `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
 * `pypy-1.0.0-dynamic.tar.bz2` (precombiled binaries for linux, dynamic
-  executable, GLIBC 2.5)
+  executable)
 * `pypy-1.0.0-static.tar.bz2` (precombiled binaries for linux, static
   executable, GLIBC 2.5)
 * `pypy-1.0.0-minimal-dynamic.tar.bz2`_ (precompiled minimal binary for
-  linux, dynamic executable, GLIBC 2.5)
+  linux, dynamic executable)
 * `pypy-1.0.0-minimal-static.tar.bz2`_ (precompiled minimal binary for
   linux, statix executable, GLIBC 2.5)
 
