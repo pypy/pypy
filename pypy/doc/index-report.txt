@@ -12,10 +12,16 @@ to `pypy-dev`_, the development list.
 Reports of 2007
 ===============
 
+The `PyPy EU Final Activity Report`_ summarizes the 28 month EU project
+period (Dec 2004-March 2007) on technical, scientific and community levels. 
+You do not need prior knowledge about PyPy but some technical knowledge about 
+computer language implementations is helpful.  The report contains reflections 
+and recommendations which might be interesting for other project aiming 
+at funded Open Source research. *(2007-05-11)* 
+
 `D09.1 Constraint Solving and Semantic Web`_ is  a report about PyPy's logic
 programming and constraint solving features, as well as the work going on to
 tie semantic web technologies and PyPy together. *(2007-05-11)*
-
 
 `D14.4 PyPy-1.0 Milestone report`_ (for language developers and researchers)
 summarizes research & technical results of the PyPy-1.0 release and discusses
@@ -129,6 +135,7 @@ properties into our interpreter during the translation process.
 `D14.1 Report about Milestone/Phase 1`_ describes what happened in the PyPy
 project during the first year of EU funding (December 2004 - December 2005)
 
+.. _`PyPy EU Final Activity Report`: http://codespeak.net/pypy/extradoc/eu-report/PYPY-EU-Final-Activity-Report.pdf
 .. _`D01.2-4 Project Organization`: http://codespeak.net/pypy/extradoc/eu-report/D01.2-4_Project_Organization-2007-03-28.pdf
 .. _`D02.1 Development Tools and Website`: http://codespeak.net/pypy/extradoc/eu-report/D02.1_Development_Tools_and_Website-2007-03-21.pdf
 .. _`D02.2 Release Scheme`: http://codespeak.net/svn/pypy/extradoc/eu-report/D02.2_Release_Scheme-2007-03-30.pdf
