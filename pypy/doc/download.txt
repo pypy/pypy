@@ -1,0 +1,30 @@
+
+Download one of the following release files: 
+=============================================
+
+PyPy 1.0 Sources:
+-----------------
+
+* `pypy-1.0.0.tar.bz2`_ (sources, unix line endings) or
+* `pypy-1.0.0.tar.gz`_ (sources, unix line endings) or
+* `pypy-1.0.0.zip`_ (sources, windows line-endings) or
+
+PyPy 1.0 prebuilt binaries:
+----------------------------
+* `pypy-1.0.0-win32.zip`_ (precompiled executables for windows)
+* `pypy-1.0.0-dynamic.tar.bz2` (precombiled binaries for linux, dynamic
+  executable, GLIBC 2.5)
+* `pypy-1.0.0-static.tar.bz2` (precombiled binaries for linux, static
+  executable, GLIBC 2.5)
+* `pypy-1.0.0-minimal-dynamic.tar.bz2`_ (precompiled minimal binary for
+  linux, dynamic executable, GLIBC 2.5)
+* `pypy-1.0.0-minimal-static.tar.bz2`_ (precompiled minimal binary for
+  linux, statix executable, GLIBC 2.5)
+
+.. _`pypy-1.0.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.bz2
+.. _`pypy-1.0.0.zip`: http://codespeak.net/download/pypy/pypy-1.0.0.zip
+.. _`pypy-1.0.0.tar.gz`: http://codespeak.net/download/pypy/pypy-1.0.0.tar.gz
+.. _`pypy-1.0.0-win32.zip`: http://codespeak.net/download/pypy/pypy-1.0.0-win32.zip
+.. _`pypy-1.0.0-minimal-dynamic.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal.tar.bz2
+.. _`pypy-1.0.0-minimal-static.tar.bz2`: http://codespeak.net/download/pypy/pypy-1.0.0-minimal-static.tar.bz2
+

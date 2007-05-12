@@ -12,6 +12,8 @@ class PyPyPage(Page):
                    class_="menu"), " ",
             html.a("documentation", href=self.get_doclink("index.html"),
                    class_="menu"), " ",
+            html.a("downloads", href=self.get_doclink("download.html"),
+                   class_="menu"), " ",
             html.a("svn", href="https://codespeak.net/viewvc/pypy/dist/",
                    class_="menu"), " ",
             html.a("issues",
