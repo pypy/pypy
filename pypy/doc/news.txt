@@ -23,7 +23,7 @@ heading towards a 31st May Review Meeting in Bruxelles.  The `PyPy EU Final
 Activity Report`_ summarizes what we did and what we have in mind
 on technical, scientific and community levels.  It also contains reflections 
 and recommendations possibly interesting to other projects aiming at 
-EU funded Open Source research.*(2007-05-12)* 
+EU funded Open Source research. *(12th May, 2007)* 
 
 .. _`submitted last documents`: http://codespeak.net/pypy/dist/pypy/doc/index-report.html 
 .. _`PyPy EU Final Activity Report`: http://codespeak.net/pypy/extradoc/eu-report/PYPY-EU-Final-Activity-Report.pdf
