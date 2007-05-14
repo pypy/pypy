@@ -27,13 +27,15 @@ class ASTBuilder(RPythonVisitor):
             source_pos = node.token.source_pos
             value = node.additional_info
         else:
-            for child in node.children:
-                if isinstance(child, Symbol):
-                    source_pos = child.token.source_pos
-                    value = child.additional_info
+            curr = node.children[0]
+            while not isinstance(curr, Symbol):
+                if len(curr.children):
+                    curr = curr.children[0]
+                else:
+                    source_pos = None
                     break
-        if source_pos is None:
-            return cls(None, '', -1, -1, -1)
+            else:
+                source_pos = curr.token.source_pos
 
         # XXX some of the source positions are not perfect
         return cls(None,
