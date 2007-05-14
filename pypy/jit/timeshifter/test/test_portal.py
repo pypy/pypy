@@ -529,3 +529,16 @@ class TestPortal(PortalTest):
 
         res = self.timeshift_from_portal(f, g, [], policy=P_NOVIRTUAL)
         assert res == 0
+
+    def test_portal_returns_none(self):
+        #py.test.skip("portal returning None is not supported")
+        def g(x):
+            x = hint(x, promote=True)
+            if x == 42:
+                return None
+        def f(x):
+            return g(x)
+
+        res = self.timeshift_from_portal(f, g, [42], policy=P_NOVIRTUAL)
+
+
