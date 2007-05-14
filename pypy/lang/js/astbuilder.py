@@ -20,17 +20,24 @@ class ASTBuilder(RPythonVisitor):
         '{': operations.ObjectInit,
     }
 
-    def get_instance(self, symbol, cls):
-        if isinstance(symbol, Symbol):
-            source_pos = symbol.token.source_pos
-            # XXX some of the source positions are not perfect
-            return cls(None,
-                       symbol.additional_info, 
-                       source_pos.lineno,
-                       source_pos.columnno,
-                       source_pos.columnno + len(symbol.additional_info))
+    def get_instance(self, node, cls):
+        if isinstance(node, Symbol):
+            source_pos = node.token.source_pos
         else:
-            return cls(None, '', -1, -1, -1)
+            source_pos = None
+            for child in symbol.children:
+                if isinstance(child, Symbol):
+                    source_pos = child.token.source_pos
+                    break
+            if posnode is None:
+                return cls(None, '', -1, -1, -1)
+
+        # XXX some of the source positions are not perfect
+        return cls(None,
+                   node.additional_info, 
+                   source_pos.lineno,
+                   source_pos.columnno,
+                   source_pos.columnno + len(node.additional_info))
 
     def visit_DECIMALLITERAL(self, node):
         result = self.get_instance(node, operations.Number)
