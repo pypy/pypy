@@ -21,23 +21,26 @@ class ASTBuilder(RPythonVisitor):
     }
 
     def get_instance(self, node, cls):
+        value = ''
+        source_pos = None
         if isinstance(node, Symbol):
             source_pos = node.token.source_pos
+            value = node.additional_info
         else:
-            source_pos = None
-            for child in symbol.children:
+            for child in node.children:
                 if isinstance(child, Symbol):
                     source_pos = child.token.source_pos
+                    value = child.additional_info
                     break
-            if source_pos is None:
-                return cls(None, '', -1, -1, -1)
+        if source_pos is None:
+            return cls(None, '', -1, -1, -1)
 
         # XXX some of the source positions are not perfect
         return cls(None,
-                   node.additional_info, 
+                   value, 
                    source_pos.lineno,
                    source_pos.columnno,
-                   source_pos.columnno + len(node.additional_info))
+                   source_pos.columnno + len(value))
 
     def visit_DECIMALLITERAL(self, node):
         result = self.get_instance(node, operations.Number)
@@ -87,15 +90,13 @@ class ASTBuilder(RPythonVisitor):
     visit_objectliteral = listop
     
     def visit_propertynameandvalue(self, node):
-        op = node.children[0]
         result = self.get_instance(
-                op, operations.PropertyInit)
+                node, operations.PropertyInit)
         result.left = self.dispatch(node.children[0])
         result.right = self.dispatch(node.children[1])
         return result
     
     def visit_IDENTIFIERNAME(self, node):
-        print node.additional_info
         result = self.get_instance(node, operations.Identifier)
         result.name = node.additional_info
         result.initializer = operations.astundef #XXX this is uneded now
