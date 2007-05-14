@@ -4,7 +4,8 @@ import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
-from pypy.lang.js.newparser import EvalTreeBuilder
+from pypy.lang.js.jsobj import global_context, ThrowException 
+from pypy.lang.js.astbuilder import ASTBuilder
 from pypy import conftest
 import sys
 
@@ -277,36 +278,41 @@ class TestFunctionDeclaration(BaseGrammarTest):
         self.parse('function x () {;}')
         self.parse('function z (a,b,c,d,e) {;}')
     
-        
+
 class TestToEvalTree(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func('expression')
 
-    def to_etree(self, s):
-        return EvalTreeBuilder().dispatch(self.parse(s))
+    def to_ast(self, s):
+        return ASTBuilder().dispatch(self.parse(s))
     
     def eval_expr(self, s):
-        etree = self.to_etree(s)
-        return etree.eval(None)
+        ast = self.to_ast(s)
+        return ast.eval(global_context())
     
-    def test_primary(self):
-        etree = self.to_etree('(6)')
-        w_num = etree.eval(None)
+    def test_primaryexpression(self):
+        w_num = self.eval_expr('(6)')
         assert w_num.ToNumber() == 6
-        etree = self.to_etree('((((6))))')
-        w_num = etree.eval(None)
+        w_num =  self.eval_expr('((((6))))')
         assert w_num.ToNumber() == 6
-        etree = self.to_etree('1 - 1 - 1')
-        w_num = etree.eval(None)
+        w_array = self.eval_expr('[1,2,3]')
+        assert w_array.ToString() == '1,2,3'
+        w_identifier = self.eval_expr('x')
+        py.test.raises(ThrowException, w_identifier.GetValue)
+        w_object = self.eval_expr('{x:1}')
+        assert w_object.ToString() == '[object Object]'
+        assert w_object.Get('x').ToNumber() == 1
+    
+    def test_expression(self):
+        w_num = self.eval_expr('1 - 1 - 1')
         assert w_num.ToNumber() == -1
-        etree = self.to_etree('-(6 * (6 * 6)) + 6 - 6')
-        w_num = etree.eval(None)
+        w_num = self.eval_expr('-(6 * (6 * 6)) + 6 - 6')
         assert w_num.ToNumber() == -216
-        etree = self.to_etree('++5')
-        w_num = etree.eval(None)
+        w_num = self.eval_expr('++5')
         assert w_num.ToNumber() == 6
         w_num = self.eval_expr('--5')
         assert w_num.ToNumber() == 4
         w_str = self.eval_expr('"hello "+\'world\'')
         assert w_str.ToString() == 'hello world'
+        
     

@@ -483,7 +483,7 @@ class ExecutionContext(object):
         return W_Reference(identifier)
     
 
-def global_context(w_global):
+def global_context(w_global=W_Object()):
     ctx = ExecutionContext()
     ctx.push_object(w_global)
     ctx.this = w_global

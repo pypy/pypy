@@ -163,18 +163,18 @@ primaryexpression   : "this"
                     | "\(" <expression> "\)"
                     ;
 
-arrayliteral    : ["["] elementlist ["]"] 
-                | ["["] elementlist ["," "]"]
+arrayliteral    : "[" >elementlist< ["]"] 
+                | "[" >elementlist< ["," "]"]
                 ;
 
-elementlist : assignmentexpression ("," assignmentexpression)*
+elementlist : assignmentexpression ([","] assignmentexpression)*
             ;
             
 elision : ","+
         ;
 
-objectliteral   : ["{"] ["}"] 
-                | ["{"] >propertynameandvaluelist< ["}"]
+objectliteral   : "{" ["}"] 
+                | "{" >propertynameandvaluelist< ["}"]
                 ;
 
 propertynameandvaluelist    : propertynameandvalue ([","] propertynameandvalue)*

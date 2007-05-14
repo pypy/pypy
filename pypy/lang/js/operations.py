@@ -17,7 +17,7 @@ class Node(object):
     is used to match the AST operation to the efective execution node.
     """
     opcode = None
-    def __init__(self, t=None, type_='', value='', lineno=0, start=0, end=0):
+    def __init__(self, t=None, value='', lineno=0, start=0, end=0):
         """
         Not to be overriden by subclasses, this method thakes the basic node
         information from the AST needed for tracing and debuging. if you want
@@ -25,7 +25,6 @@ class Node(object):
         call.
         """
         if t is None:
-            self.type = type_
             self.value = value
             self.lineno = lineno
             self.start = start
@@ -306,7 +305,7 @@ class Identifier(Expression):
         return "<id %s init: %s>"%(str(self.name), str(self.initializer))
     
     def eval(self, ctx):
-        if self.initializer is not astundef:
+        if not isinstance(self.initializer, Undefined):
             ref = ctx.resolve_identifier(self.name)
             ref.PutValue(self.initializer.eval(ctx).GetValue(), ctx)
         return ctx.resolve_identifier(self.name)
