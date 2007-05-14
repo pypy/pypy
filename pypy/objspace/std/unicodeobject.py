@@ -8,7 +8,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
 from pypy.module.unicodedata import unicodedb_3_2_0 as unicodedb
 
-from pypy.objspace.std.formatting import format
+from pypy.objspace.std.formatting import mod_format
 
 class W_UnicodeObject(W_Object):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
@@ -904,7 +904,6 @@ def unicode_endswith__Unicode_Tuple_ANY_ANY(unistr, suffixes, start, end):
 
 ''')
 
-mod__Unicode_ANY = app.interphook('mod__Unicode_ANY')
 unicode_expandtabs__Unicode_ANY = app.interphook('unicode_expandtabs__Unicode_ANY')
 unicode_translate__Unicode_ANY = app.interphook('unicode_translate__Unicode_ANY')
 unicode_encode__Unicode_ANY_ANY = app.interphook('unicode_encode__Unicode_ANY_ANY')
@@ -1035,21 +1034,7 @@ def repr__Unicode(space, w_unicode):
 #repr__Unicode = app.interphook('repr__Unicode') # uncomment when repr code is moved to _codecs
 
 def mod__Unicode_ANY(space, w_format, w_values):
-    if space.is_true(space.isinstance(w_values, space.w_tuple)):
-        return format(space, w_format, w_values, space.w_None, do_unicode=True)
-    else:
-        # we check directly for dict to avoid obscure checking
-        # in simplest case
-        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
-           (space.lookup(w_values, '__getitem__') and
-           not space.is_true(space.isinstance(w_values, space.w_basestring))):
-            return format(space, w_format,
-                          space.newtuple([w_values]), w_values,
-                          do_unicode=True)
-        else:
-            return format(space, w_format,
-                          space.newtuple([w_values]), space.w_None,
-                          do_unicode=True)
+    return mod_format(space, w_format, w_values, do_unicode=True)
 
 
 import unicodetype

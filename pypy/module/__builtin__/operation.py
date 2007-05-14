@@ -19,6 +19,7 @@ def chr(space, w_ascii):
 
 def unichr(space, w_code):
     "Return a Unicode string of one character with the given ordinal."
+    # XXX range checking!
     return space.newunicode([__builtin__.unichr(space.int_w(w_code))])
 
 def len(space, w_obj):

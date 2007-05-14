@@ -399,7 +399,10 @@ class __extend__(pairtype(SomeChar, SomeChar)):
     def union((chr1, chr2)):
         return SomeChar()
 
-class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
+
+class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint),
+                 pairtype(SomeChar, SomeUnicodeCodePoint),
+                 pairtype(SomeUnicodeCodePoint, SomeChar)):
 
     def union((uchr1, uchr2)):
         return SomeUnicodeCodePoint()

@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import inputconst, Repr
 from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython import rint
-from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void
+from pypy.rpython.lltypesystem.lltype import Signed, Bool, Void, UniChar
 
 class AbstractStringRepr(Repr):
     pass
@@ -437,6 +437,8 @@ def _rtype_compare_template(hop, func):
 class __extend__(AbstractUniCharRepr):
 
     def convert_const(self, value):
+        if isinstance(value, str):
+            value = unicode(value)
         if not isinstance(value, unicode) or len(value) != 1:
             raise TyperError("not a unicode character: %r" % (value,))
         return value
@@ -462,7 +464,9 @@ class __extend__(AbstractUniCharRepr):
         return hop.genop('cast_unichar_to_int', vlist, resulttype=Signed)
 
 
-class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr)):
+class __extend__(pairtype(AbstractUniCharRepr, AbstractUniCharRepr),
+                 pairtype(AbstractCharRepr, AbstractUniCharRepr),
+                 pairtype(AbstractUniCharRepr, AbstractCharRepr)):
     def rtype_eq(_, hop): return _rtype_unchr_compare_template(hop, 'eq')
     def rtype_ne(_, hop): return _rtype_unchr_compare_template(hop, 'ne')
 ##    def rtype_lt(_, hop): return _rtype_unchr_compare_template(hop, 'lt')
@@ -496,6 +500,10 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
             return llops.gendirectcall(r_from.ll.ll_stritem_nonneg, v, c_zero)
         return NotImplemented
 
+class __extend__(pairtype(AbstractCharRepr, AbstractUniCharRepr)):
+    def convert_from_to((r_from, r_to), v, llops):
+        v2 = llops.genop('cast_char_to_int', [v], resulttype=Signed)
+        return llops.genop('cast_int_to_unichar', [v2], resulttype=UniChar)
 
 # ____________________________________________________________
 #

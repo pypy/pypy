@@ -576,6 +576,16 @@ class RPythonTyper(object):
     def translate_op_alloc_and_set(self, hop):
         return rlist.rtype_alloc_and_set(hop)
 
+    def translate_op_extend_with_str_slice(self, hop):
+        r_arg1 = hop.args_r[0]
+        r_arg2 = hop.args_r[1]
+        return pair(r_arg1, r_arg2).rtype_extend_with_str_slice(hop)
+
+    def translate_op_extend_with_char_count(self, hop):
+        r_arg1 = hop.args_r[0]
+        r_arg2 = hop.args_r[1]
+        return pair(r_arg1, r_arg2).rtype_extend_with_char_count(hop)
+
     def translate_op_newtuple(self, hop):
         return self.type_system.rtuple.rtype_newtuple(hop)
 

@@ -137,14 +137,28 @@ def degrees(space, x):
 degrees.unwrap_spec = [ObjSpace, float]
 
 def _log_any(space, w_x, base):
+    # base is supposed to be positive or 0.0, which means we use e
     try:
-        return space.log(w_x, base)
+        if space.is_true(space.isinstance(w_x, space.w_long)):
+            # special case to support log(extremely-large-long)
+            num = space.bigint_w(w_x)
+            result = num.log(base)
+        else:
+            x = space.float_w(w_x)
+            if base == 10.0:
+                result = math.log10(x)
+            else:
+                result = math.log(x) 
+                if base != 0.0:
+                    den = math.log(base)
+                    result /= den
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap('math range error'))
     except ValueError:
         raise OperationError(space.w_ValueError,
                              space.wrap('math domain error'))
+    return space.wrap(result)
 
 def log(space, w_x, w_base=NoneNotWrapped):
     """log(x[, base]) -> the logarithm of x to the given base.

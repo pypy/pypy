@@ -1598,6 +1598,15 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int, str])
         assert s.knowntype == int
 
+    def test_int_nonneg(self):
+        def f(x, y):
+            assert x >= 0
+            return int(x) + int(y == 3)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, int])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
     def test_listitem_merge_asymmetry_bug(self):
         class K:
             pass

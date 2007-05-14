@@ -228,11 +228,16 @@ class rbigint(object):
         # no matter what the sign is (two's complement)
         return a.digits[0] & 1
 
+    def format(self, digits, prefix='', suffix=''):
+        # 'digits' is a string whose length is the base to use,
+        # and where each character is the corresponding digit.
+        return _format(self, digits, prefix, suffix)
+
     def repr(self):
-        return _format(self, 10, True)
+        return _format(self, BASE10, '', 'L')
 
     def str(self):
-        return _format(self, 10, False)
+        return _format(self, BASE10)
 
     def eq(self, other):
         if (self.sign != other.sign or
@@ -526,10 +531,13 @@ class rbigint(object):
         return _bitwise(self, '|', other)
 
     def oct(self):
-        return _format(self, 8, True)
+        if self.sign == 0:
+            return '0L'
+        else:
+            return _format(self, BASE8, '0', 'L')
 
     def hex(self):
-        return _format(self, 16, True)
+        return _format(self, BASE16, '0x', 'L')
 
     def log(self, base):
         # base is supposed to be positive or 0.0, which means we use e
@@ -1288,13 +1296,13 @@ def _AsDouble(v):
 def _loghelper(func, arg):
     """
     A decent logarithm is easy to compute even for huge bigints, but libm can't
-    do that by itself -- loghelper can.  func is log or log10, and name is
-    "log" or "log10".  Note that overflow isn't possible:  a bigint can contain
+    do that by itself -- loghelper can.  func is log or log10.
+    Note that overflow isn't possible:  a bigint can contain
     no more than INT_MAX * SHIFT bits, so has value certainly less than
     2**(2**64 * 2**16) == 2**2**80, and log2 of that is 2**80, which is
     small enough to fit in an IEEE single.  log and log10 are even smaller.
     """
-    x, e = _AsScaledDouble(arg);
+    x, e = _AsScaledDouble(arg)
     if x <= 0.0:
         raise ValueError
     # Value is ~= x * 2**(e*SHIFT), so the log ~=
@@ -1323,20 +1331,20 @@ def _bigint_true_divide(a, b):
     # math.ldexp checks and raises
     return ad
 
-    
 
+BASE8  = '01234567'
+BASE10 = '0123456789'
+BASE16 = '0123456789ABCDEF'
 
-def _format(a, base, addL):
+def _format(a, digits, prefix='', suffix=''):
     """
     Convert a bigint object to a string, using a given conversion base.
     Return a string object.
-    If base is 8 or 16, add the proper prefix '0' or '0x'.
     """
     size_a = len(a.digits)
 
+    base = len(digits)
     assert base >= 2 and base <= 36
-
-    sign = False
 
     # Compute a rough upper bound for the length of the string
     i = base
@@ -1344,14 +1352,14 @@ def _format(a, base, addL):
     while i > 1:
         bits += 1
         i >>= 1
-    i = 5 + int(bool(addL)) + (size_a*SHIFT + bits-1) // bits
+    i = 5 + len(prefix) + len(suffix) + (size_a*SHIFT + bits-1) // bits
     s = [chr(0)] * i
     p = i
-    if addL:
+    j = len(suffix)
+    while j > 0:
         p -= 1
-        s[p] = 'L'
-    if a.sign < 0:
-        sign = True
+        j -= 1
+        s[p] = suffix[j]
 
     if a.sign == 0:
         p -= 1
@@ -1374,13 +1382,9 @@ def _format(a, base, addL):
             assert accumbits >= basebits
             while 1:
                 cdigit = accum & (base - 1)
-                if cdigit < 10:
-                    cdigit += ord('0')
-                else:
-                    cdigit += ord('A') - 10
-                assert p > 0
                 p -= 1
-                s[p] = chr(cdigit)
+                assert p >= 0
+                s[p] = digits[cdigit]
                 accumbits -= basebits
                 accum >>= basebits
                 if i < size_a - 1:
@@ -1421,13 +1425,9 @@ def _format(a, base, addL):
             while 1:
                 nextrem = rem // base
                 c = rem - nextrem * base
-                assert p > 0
-                if c < 10:
-                    c += ord('0')
-                else:
-                    c += ord('A') - 10
                 p -= 1
-                s[p] = chr(c)
+                assert p >= 0
+                s[p] = digits[c]
                 rem = nextrem
                 ntostore -= 1
                 # Termination is a bit delicate:  must not
@@ -1438,33 +1438,19 @@ def _format(a, base, addL):
             if size == 0:
                 break
 
-    if base == 8:
-        if a.sign != 0:
-            p -= 1
-            s[p] = '0'
-    elif base == 16:
+    j = len(prefix)
+    while j > 0:
         p -= 1
-        s[p] ='x'
-        p -= 1
-        s[p] = '0'
-    elif base != 10:
-        p -= 1
-        s[p] = '#'
-        p -= 1
-        s[p] = chr(ord('0') + base % 10)
-        if base > 10:
-            p -= 1
-            s[p] = chr(ord('0') + base // 10)
-    if sign:
+        j -= 1
+        s[p] = prefix[j]
+
+    if a.sign < 0:
         p -= 1
         s[p] = '-'
 
     assert p >= 0    # otherwise, buffer overflow (this is also a
                      # hint for the annotator for the slice below)
-    if p == 0:
-        return ''.join(s)
-    else:
-        return ''.join(s[p:])
+    return ''.join(s[p:])
 
 
 def _bitwise(a, op, b): # '&', '|', '^'

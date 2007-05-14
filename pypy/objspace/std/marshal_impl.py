@@ -20,6 +20,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway
 
 from pypy.objspace.std.boolobject    import W_BoolObject
+from pypy.objspace.std.complexobject import W_ComplexObject
 from pypy.objspace.std.intobject     import W_IntObject
 from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_TupleObject
@@ -207,12 +208,10 @@ def unmarshal_Float(space, u, tc):
                                  space.wrap(u.get_pascal()))
 register(TYPE_FLOAT + TYPE_BINARY_FLOAT, unmarshal_Float)
 
-# this is not a native type, yet, so we have to
-# dispatch on it in ANY
-
-def marshal_w_Complex(space, w_complex, m):
-    w_real = space.getattr(w_complex, space.wrap('real'))
-    w_imag = space.getattr(w_complex, space.wrap('imag'))
+def marshal_w__Complex(space, w_complex, m):
+    # XXX a bit too wrap-happy
+    w_real = space.wrap(w_complex.realval)
+    w_imag = space.wrap(w_complex.imagval)
     if m.version > 1:
         m.start(TYPE_BINARY_COMPLEX)
         m.put(space.str_w(float_to_str(space, w_real)))
@@ -221,8 +220,6 @@ def marshal_w_Complex(space, w_complex, m):
         m.start(TYPE_COMPLEX)
         m.put_pascal(space.str_w(repr_float(space, w_real)))
         m.put_pascal(space.str_w(repr_float(space, w_imag)))
-
-handled_by_any.append( ('complex', marshal_w_Complex) )
 
 def unmarshal_Complex(space, u, tc):
     if tc == TYPE_BINARY_COMPLEX:

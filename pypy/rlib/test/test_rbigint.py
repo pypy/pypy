@@ -299,6 +299,20 @@ class Test_rbigint(object):
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
 
+    def test_tostring(self):
+        z = rbigint.fromlong(0)
+        assert z.str() == '0'
+        assert z.repr() == '0L'
+        assert z.hex() == '0x0L'
+        assert z.oct() == '0L'
+        x = rbigint.fromlong(-18471379832321)
+        assert x.str() == '-18471379832321'
+        assert x.repr() == '-18471379832321L'
+        assert x.hex() == '-0x10CCB4088E01L'
+        assert x.oct() == '-0414626402107001L'
+        assert x.format('.!') == (
+            '-!....!!..!!..!.!!.!......!...!...!!!........!')
+        assert x.format('abcdefghijkl', '<<', '>>') == '-<<cakdkgdijffjf>>'
 
 
 class TestInternalFunctions(object):

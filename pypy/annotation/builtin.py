@@ -91,7 +91,8 @@ def builtin_int(s_obj, s_base=None):
         args_s = [s_obj, s_base]
     else:
         args_s = [s_obj]
-    return constpropagate(int, args_s, SomeInteger())
+    nonneg = isinstance(s_obj, SomeInteger) and s_obj.nonneg
+    return constpropagate(int, args_s, SomeInteger(nonneg=nonneg))
 
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())

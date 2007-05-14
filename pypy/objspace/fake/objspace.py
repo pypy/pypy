@@ -126,7 +126,6 @@ class FakeObjSpace(ObjSpace):
     def delete(self, *args):   raise NotImplementedError("space.delete()")
     def userdel(self, *args):  raise NotImplementedError("space.userdel()")
     def marshal_w(self, *args):raise NotImplementedError("space.marshal_w()")
-    def log(self, *args):      raise NotImplementedError("space.log()")
 
     gettypefor     = make_dummy()
     gettypeobject  = make_dummy()

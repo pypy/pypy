@@ -254,9 +254,6 @@ def hex__Long(space, w_long1):
 def getnewargs__Long(space, w_long1):
     return space.newtuple([W_LongObject(w_long1.num)])
 
-def log__Long(space, w_long, base):
-    return space.wrap(w_long.num.log(base))
-
 register_all(vars())
 
 # register implementations of ops that recover int op overflows

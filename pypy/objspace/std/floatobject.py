@@ -3,6 +3,7 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf
+from pypy.rlib.rarithmetic import formatd
 
 import math
 from pypy.objspace.std.intobject import W_IntObject
@@ -68,25 +69,23 @@ def long__Float(space, w_floatobj):
 def float_w__Float(space, w_float):
     return w_float.floatval
 
-app = gateway.applevel(''' 
-    def repr__Float(f):
-        r = "%.17g" % f
-        for c in r:
-            if c not in '-0123456789':
-                return r
-        else:
-            return r + '.0'    
+def should_not_look_like_an_int(s):
+    for c in s:
+        if c in '.eE':
+            break
+    else:
+        s += '.0'
+    return s
 
-    def str__Float(f):
-        r = "%.12g" % f
-        for c in r:
-            if c not in '-0123456789':
-                return r
-        else:
-            return r + '.0'
-''', filename=__file__) 
-repr__Float = app.interphook('repr__Float') 
-str__Float = app.interphook('str__Float') 
+def repr__Float(space, w_float):
+    x = w_float.floatval
+    s = formatd("%.17g", x)
+    return space.wrap(should_not_look_like_an_int(s))
+
+def str__Float(space, w_float):
+    x = w_float.floatval
+    s = formatd("%.12g", x)
+    return space.wrap(should_not_look_like_an_int(s))
 
 def lt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
@@ -388,19 +387,6 @@ def nonzero__Float(space, w_float):
 
 def getnewargs__Float(space, w_float):
     return space.newtuple([W_FloatObject(w_float.floatval)])
-
-def log__Float(space, w_float, base):
-    # base is supposed to be positive or 0.0, which means we use e
-    x = space.float_w(w_float)
-    if base == 10.0:
-        return space.wrap(math.log10(x))
-    num = math.log(x) 
-    if base == 0.0:
-        return space.wrap(num)
-    else:
-        den = math.log(base)
-        return space.wrap(num / den)
-
 
 register_all(vars())
 

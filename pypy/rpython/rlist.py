@@ -4,6 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
+from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
@@ -350,6 +351,55 @@ class __extend__(pairtype(AbstractListRepr, AbstractBaseListRepr)):
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
         return v_lst1
 
+class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
+
+    def rtype_inplace_add((r_lst1, r_str2), hop):
+        if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
+            raise TyperError('"lst += string" only supported with a list '
+                             'of chars or unichars')
+        string_repr = r_lst1.rtyper.type_system.rstr.string_repr
+        v_lst1, v_str2 = hop.inputargs(r_lst1, string_repr)
+        c_strlen  = hop.inputconst(Void, string_repr.ll.ll_strlen)
+        c_stritem = hop.inputconst(Void, string_repr.ll.ll_stritem_nonneg)
+        hop.gendirectcall(ll_extend_with_str, v_lst1, v_str2,
+                          c_strlen, c_stritem)
+        return v_lst1
+
+    def rtype_extend_with_str_slice((r_lst1, r_str2), hop):
+        if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
+            raise TyperError('"lst += string" only supported with a list '
+                             'of chars or unichars')
+        rs = r_lst1.rtyper.type_system.rslice
+        string_repr = r_lst1.rtyper.type_system.rstr.string_repr
+        c_strlen  = hop.inputconst(Void, string_repr.ll.ll_strlen)
+        c_stritem = hop.inputconst(Void, string_repr.ll.ll_stritem_nonneg)
+        r_slic = hop.args_r[2]
+        v_lst1, v_str2, v_slice = hop.inputargs(r_lst1, string_repr, r_slic)
+        if r_slic == rs.startonly_slice_repr:
+            hop.gendirectcall(ll_extend_with_str_slice_startonly,
+                              v_lst1, v_str2, c_strlen, c_stritem, v_slice)
+        elif r_slic == rs.startstop_slice_repr:
+            hop.gendirectcall(ll_extend_with_str_slice,
+                              v_lst1, v_str2, c_strlen, c_stritem, v_slice)
+        elif r_slic == rs.minusone_slice_repr:
+            hop.gendirectcall(ll_extend_with_str_slice_minusone,
+                              v_lst1, v_str2, c_strlen, c_stritem)
+        else:
+            raise TyperError('lst += str[:] does not support slices with %r' %
+                             (r_slic,))
+        return v_lst1
+
+class __extend__(pairtype(AbstractListRepr, AbstractCharRepr)):
+
+    def rtype_extend_with_char_count((r_lst1, r_chr2), hop):
+        if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
+            raise TyperError('"lst += string" only supported with a list '
+                             'of chars or unichars')
+        char_repr = r_lst1.rtyper.type_system.rstr.char_repr
+        v_lst1, v_chr, v_count = hop.inputargs(r_lst1, char_repr, Signed)
+        hop.gendirectcall(ll_extend_with_char_count, v_lst1, v_chr, v_count)
+        return v_lst1
+
 
 class __extend__(pairtype(AbstractBaseListRepr, AbstractSliceRepr)):
 
@@ -449,6 +499,12 @@ def ll_null_item(lst):
         if isinstance(ITEM, Ptr):
             return nullptr(ITEM.TO)
     return None
+
+def listItemType(lst):
+    LIST = typeOf(lst)
+    if isinstance(LIST, Ptr):    # lltype
+        LIST = LIST.TO
+    return LIST.ITEM
 
 
 def ll_copy(RESLIST, l):
@@ -690,6 +746,77 @@ def ll_extend(l1, l2):
     while i < len2:
         l1.ll_setitem_fast(j, l2.ll_getitem_fast(i))
         i += 1
+        j += 1
+
+def ll_extend_with_str(lst, s, getstrlen, getstritem):
+    return ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, 0)
+
+def ll_extend_with_str_slice_startonly(lst, s, getstrlen, getstritem, start):
+    len1 = lst.ll_length()
+    len2 = getstrlen(s)
+    debug_assert(start >= 0, "unexpectedly negative str slice start")
+    debug_assert(start <= len2, "str slice start larger than str length")
+    newlength = len1 + len2 - start
+    lst._ll_resize_ge(newlength)
+    i = start
+    j = len1
+    while i < len2:
+        c = getstritem(s, i)
+        if listItemType(lst) is UniChar:
+            c = unichr(ord(c))
+        lst.ll_setitem_fast(j, c)
+        i += 1
+        j += 1
+
+def ll_extend_with_str_slice(lst, s, getstrlen, getstritem, slice):
+    start = slice.start
+    stop = slice.stop
+    len1 = lst.ll_length()
+    len2 = getstrlen(s)
+    debug_assert(start >= 0, "unexpectedly negative str slice start")
+    debug_assert(start <= len2, "str slice start larger than str length")
+    debug_assert(stop >= start, "str slice stop smaller than start")
+    if stop > len2:
+        stop = len2
+    newlength = len1 + stop - start
+    lst._ll_resize_ge(newlength)
+    i = start
+    j = len1
+    while i < stop:
+        c = getstritem(s, i)
+        if listItemType(lst) is UniChar:
+            c = unichr(ord(c))
+        lst.ll_setitem_fast(j, c)
+        i += 1
+        j += 1
+
+def ll_extend_with_str_slice_minusone(lst, s, getstrlen, getstritem):
+    len1 = lst.ll_length()
+    len2m1 = getstrlen(s) - 1
+    debug_assert(len2m1 >= 0, "empty string is sliced with [:-1]")
+    newlength = len1 + len2m1
+    lst._ll_resize_ge(newlength)
+    i = 0
+    j = len1
+    while i < len2m1:
+        c = getstritem(s, i)
+        if listItemType(lst) is UniChar:
+            c = unichr(ord(c))
+        lst.ll_setitem_fast(j, c)
+        i += 1
+        j += 1
+
+def ll_extend_with_char_count(lst, char, count):
+    if count <= 0:
+        return
+    len1 = lst.ll_length()
+    newlength = len1 + count
+    lst._ll_resize_ge(newlength)
+    j = len1
+    if listItemType(lst) is UniChar:
+        char = unichr(ord(char))
+    while j < newlength:
+        lst.ll_setitem_fast(j, char)
         j += 1
 
 def ll_listslice_startonly(RESLIST, l1, start):

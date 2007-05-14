@@ -1,5 +1,6 @@
 import sys
 from pypy.translator.translator import TranslationContext
+from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rlist import *
@@ -1170,6 +1171,137 @@ class BaseTestRlist(BaseRtypingTest):
             pass
         else:
             assert False
+
+    def test_charlist_extension_1(self):
+        def f(n):
+            s = 'hello%d' % n
+            l = ['a', 'b']
+            l += s
+            return ''.join(l)
+        res = self.interpret(f, [58])
+        assert self.ll_to_string(res) == 'abhello58'
+
+    def test_unicharlist_extension_1(self):
+        def f(n):
+            s = 'hello%d' % n
+            l = [u'a', u'b']
+            l += s
+            return ''.join([chr(ord(c)) for c in l])
+        res = self.interpret(f, [58])
+        assert self.ll_to_string(res) == 'abhello58'
+
+    def test_extend_a_non_char_list_1(self):
+        def f(n):
+            s = 'hello%d' % n
+            l = ['foo', 'bar']
+            l += s          # NOT SUPPORTED for now if l is not a list of chars
+            return ''.join(l)
+        py.test.raises(TyperError, self.interpret, f, [58])
+
+    def test_charlist_extension_2(self):
+        def f(n, i):
+            s = 'hello%d' % n
+            assert 0 <= i <= len(s)
+            l = ['a', 'b']
+            l += s[i:]
+            return ''.join(l)
+        res = self.interpret(f, [9381701, 3])
+        assert self.ll_to_string(res) == 'ablo9381701'
+
+    def test_unicharlist_extension_2(self):
+        def f(n, i):
+            s = 'hello%d' % n
+            assert 0 <= i <= len(s)
+            l = [u'a', u'b']
+            l += s[i:]
+            return ''.join([chr(ord(c)) for c in l])
+        res = self.interpret(f, [9381701, 3])
+        assert self.ll_to_string(res) == 'ablo9381701'
+
+    def test_extend_a_non_char_list_2(self):
+        def f(n, i):
+            s = 'hello%d' % n
+            assert 0 <= i <= len(s)
+            l = ['foo', 'bar']
+            l += s[i:]      # NOT SUPPORTED for now if l is not a list of chars
+            return ''.join(l)
+        py.test.raises(TyperError, self.interpret, f, [9381701, 3])
+
+    def test_charlist_extension_3(self):
+        def f(n, i, j):
+            s = 'hello%d' % n
+            assert 0 <= i <= j <= len(s)
+            l = ['a', 'b']
+            l += s[i:j]
+            return ''.join(l)
+        res = self.interpret(f, [9381701, 3, 7])
+        assert self.ll_to_string(res) == 'ablo93'
+
+    def test_unicharlist_extension_3(self):
+        def f(n, i, j):
+            s = 'hello%d' % n
+            assert 0 <= i <= j <= len(s)
+            l = [u'a', u'b']
+            l += s[i:j]
+            return ''.join([chr(ord(c)) for c in l])
+        res = self.interpret(f, [9381701, 3, 7])
+        assert self.ll_to_string(res) == 'ablo93'
+
+    def test_charlist_extension_4(self):
+        def f(n):
+            s = 'hello%d' % n
+            l = ['a', 'b']
+            l += s[:-1]
+            return ''.join(l)
+        res = self.interpret(f, [9381701])
+        assert self.ll_to_string(res) == 'abhello938170'
+
+    def test_unicharlist_extension_4(self):
+        def f(n):
+            s = 'hello%d' % n
+            l = [u'a', u'b']
+            l += s[:-1]
+            return ''.join([chr(ord(c)) for c in l])
+        res = self.interpret(f, [9381701])
+        assert self.ll_to_string(res) == 'abhello938170'
+
+    def test_charlist_extension_5(self):
+        def f(count):
+            l = ['a', 'b']
+            l += '.' * count     # char * count
+            return ''.join(l)
+        res = self.interpret(f, [7])
+        assert self.ll_to_string(res) == 'ab.......'
+        res = self.interpret(f, [0])
+        assert self.ll_to_string(res) == 'ab'
+
+    def test_unicharlist_extension_5(self):
+        def f(count):
+            l = [u'a', u'b']
+            l += '.' * count     # NON-UNICODE-char * count
+            return ''.join([chr(ord(c)) for c in l])
+        res = self.interpret(f, [7])
+        assert self.ll_to_string(res) == 'ab.......'
+        res = self.interpret(f, [0])
+        assert self.ll_to_string(res) == 'ab'
+
+    def test_charlist_extension_6(self):
+        def f(count):
+            l = ['a', 'b']
+            l += count * '.'     # count * char
+            return ''.join(l)
+        res = self.interpret(f, [7])
+        assert self.ll_to_string(res) == 'ab.......'
+        res = self.interpret(f, [0])
+        assert self.ll_to_string(res) == 'ab'
+
+    def test_extend_a_non_char_list_6(self):
+        def f(count):
+            l = ['foo', 'bar']
+            # NOT SUPPORTED for now if l is not a list of chars
+            l += count * '.'
+            return ''.join(l)
+        py.test.raises(TyperError, self.interpret, f, [5])
 
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):

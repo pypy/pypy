@@ -410,8 +410,8 @@ def formatd(fmt, x):
     return fmt % (x,)
 
 def formatd_overflow(alt, prec, kind, x):
-    if ((kind == 'g' and formatd_max_length <= 10+prec) or
-        (kind == 'f' and formatd_max_length <= 53+prec)):
+    if ((kind in 'gG' and formatd_max_length <= 10+prec) or
+        (kind in 'fF' and formatd_max_length <= 53+prec)):
         raise OverflowError("formatted float is too long (precision too large?)")
     if alt:
         alt = '#'

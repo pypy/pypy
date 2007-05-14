@@ -75,15 +75,29 @@ class AppTestStringObject:
         assert '23.456' == '%s' % 23.456
         # for 'r' use a float that has an exact decimal rep:
         assert '23.125' == '%r' % 23.125
-        # XXX rounding: assert '0.028' == '%.3f' % 0.0276
+        assert '0.028' == '%.3f' % 0.0276    # should work on most platforms...
+        assert '   inf' == '%6g' % (1E200 * 1E200)
 
     def test_format_int(self):
+        import sys
         assert '23' == '%d' % 23
         assert '17' == '%x' % 23
         assert '0x17' == '%#x' % 23
         assert '0x0' == '%#x' % 0
         assert '23' == '%s' % 23
         assert '23' == '%r' % 23
+        assert ('%d' % (-sys.maxint-1,) == '-' + str(sys.maxint+1)
+                                        == '-%d' % (sys.maxint+1,))
+        assert '1C' == '%X' % 28
+        assert '0X1C' == '%#X' % 28
+        assert '10' == '%o' % 8
+        assert '010' == '%#o' % 8
+        assert '-010' == '%#o' % -8
+        assert '0' == '%o' % 0
+        assert '0' == '%#o' % 0
+
+        assert '-0x017' == '%#06x' % -23
+        assert '0' == '%#.0o' % 0
 
     def test_format_list(self):
         assert '<[1, 2]>' == '<%s>' % [1,2]
@@ -114,11 +128,29 @@ class AppTestStringObject:
 
     def test_incomplete_format(self):
         raises(ValueError, '%'.__mod__, ((23,),))
+        raises(ValueError, '%('.__mod__, ({},))
+
+    def test_format_char(self):
+        assert '%c' % 65 == 'A'
+        assert '%c' % 'e' == 'e'
+        raises(OverflowError, '%c'.__mod__, (256,))
+        raises(OverflowError, '%c'.__mod__, (-1,))
+        raises(TypeError, '%c'.__mod__, ("bla",))
+        raises(TypeError, '%c'.__mod__, ("",))
+        raises(TypeError, '%c'.__mod__, (['c'],))
 
 class AppTestWidthPrec:
     def test_width(self):
         assert "%3s" %'a' == '  a'
         assert "%-3s"%'a' == 'a  '
+
+    def test_prec_cornercase(self):
+        assert "%.0x" % 0 == ''
+        assert "%.x" % 0 == ''
+        assert "%.0d" % 0 == ''
+        assert "%.i" % 0 == ''
+        assert "%.0o" % 0 == ''
+        assert "%.o" % 0 == ''
 
     def test_prec_string(self):
         assert "%.3s"%'a' ==     'a'
@@ -170,8 +202,9 @@ class AppTestUnicodeObject:
         assert u"%.1d" % 3 == '3'
 
     def test_unicode_overflow(self):
+        skip("nicely passes on top of CPython but requires > 2GB of RAM")
         import sys
-        raises(OverflowError, 'u"%.*d" % (sys.maxint, 1)')
+        raises((OverflowError, MemoryError), 'u"%.*d" % (sys.maxint, 1)')
 
     def test_unicode_format_a(self):
         assert u'%x' % 10L == 'a'
@@ -182,3 +215,6 @@ class AppTestUnicodeObject:
     def test_missing_cases(self):
         print '%032d' % -123456789012345678901234567890L
         assert '%032d' % -123456789012345678901234567890L == '-0123456789012345678901234567890'
+
+    def test_invalid_char(self):
+        raises(ValueError, 'u"%\u1234" % (4,)')

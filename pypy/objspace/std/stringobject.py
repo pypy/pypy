@@ -14,7 +14,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.stringtype import sliced, joined, wrapstr, wrapchar, \
      stringendswith, stringstartswith
 
-from pypy.objspace.std.formatting import format
+from pypy.objspace.std.formatting import mod_format
 
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
@@ -917,19 +917,7 @@ str_encode__String_ANY_ANY = app.interphook('str_encode__String_ANY_ANY')
 # an error (1 value, 0 %-formatters) or not
 # (values is of a mapping type)
 def mod__String_ANY(space, w_format, w_values):
-    if space.is_true(space.isinstance(w_values, space.w_tuple)):
-        return format(space, w_format, w_values, space.w_None)
-    else:
-        # we check directly for dict to avoid obscure checking
-        # in simplest case
-        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
-           (space.lookup(w_values, '__getitem__') and
-           not space.is_true(space.isinstance(w_values, space.w_basestring))):
-            return format(space, w_format,
-                                     space.newtuple([w_values]), w_values)
-        else:
-            return format(space, w_format,
-                                     space.newtuple([w_values]), space.w_None)
+    return mod_format(space, w_format, w_values, do_unicode=False)
 
 # register all methods
 from pypy.objspace.std import stringtype

@@ -1015,6 +1015,5 @@ ObjSpace.IrregularOpTable = [
     'newslice',
     'call_args',
     'marshal_w',
-    'log',
     ]
 

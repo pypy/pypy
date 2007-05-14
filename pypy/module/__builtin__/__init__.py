@@ -129,8 +129,6 @@ class Module(MixedModule):
         'range'         : 'functional.range_int',
         'all'           : 'functional.all',
         'any'           : 'functional.any',
-        # float->string helper
-        '_formatd'      : 'special._formatd'
     }
 
     def pick_builtin(self, w_globals):

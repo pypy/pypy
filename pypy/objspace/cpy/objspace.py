@@ -366,7 +366,6 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def delete(self, *args):   raise NotImplementedError("space.delete()")
     def userdel(self, *args):  raise NotImplementedError("space.userdel()")
     def marshal_w(self, *args):raise NotImplementedError("space.marshal_w()")
-    def log(self, *args):      raise NotImplementedError("space.log()")
 
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON"
