@@ -29,7 +29,7 @@ class ASTBuilder(RPythonVisitor):
                 if isinstance(child, Symbol):
                     source_pos = child.token.source_pos
                     break
-            if posnode is None:
+            if source_pos is None:
                 return cls(None, '', -1, -1, -1)
 
         # XXX some of the source positions are not perfect
