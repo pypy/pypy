@@ -104,13 +104,14 @@ class LinkedRules(object):
             curr = curr.next
         return first, copy
 
-    def find_applicable_rule(self, query, uh1):
+    def find_applicable_rule(self, query):
         #import pdb;pdb.set_trace()
         while self:
-            uh2 = self.rule.unify_hash
-            assert len(uh1) == len(uh2)
-            for j in range(len(uh1)):
-                if uh1[j] != 0 and uh2[j] != 0 and uh1[j] != uh2[j]:
+            uh = self.rule.unify_hash
+            for j in range(len(uh)):
+                hash1 = uh[j]
+                hash2 = query.unify_hash_of_child(j)
+                if hash1 != 0 and hash2 != 0 and hash1 != hash2:
                     break
             else:
                 return self
@@ -215,8 +216,7 @@ class Engine(object):
         if function is None:
             error.throw_existence_error(
                 "procedure", query.get_prolog_signature())
-        unify_hash = query.get_deeper_unify_hash(self.heap)
-        rulechain = function.rulechain.find_applicable_rule(query, unify_hash)
+        rulechain = function.rulechain.find_applicable_rule(query)
         if rulechain is None:
             # none of the rules apply
             raise UnificationFailed()
@@ -224,7 +224,7 @@ class Engine(object):
         rulechain = rulechain.next
         oldstate = self.heap.branch()
         while rulechain:
-            rulechain = rulechain.find_applicable_rule(query, unify_hash)
+            rulechain = rulechain.find_applicable_rule(query)
             if rulechain is None:
                 self.heap.discard(oldstate)
                 break
