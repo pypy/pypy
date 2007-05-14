@@ -290,6 +290,20 @@ class TestToEvalTree(BaseGrammarTest):
         ast = self.to_ast(s)
         return ast.eval(global_context())
     
+    def test_get_instance(self):
+        from pypy.lang.js import operations
+        from pypy.rlib.parsing.tree import Symbol
+        astb = ASTBuilder()
+        t = self.parse('6')
+        assert isinstance(t, Symbol)
+        op = astb.get_instance(t, operations.Node)
+        assert op.value == '6'
+        assert op.lineno == 0
+        t = self.parse('[1,]')
+        assert not isinstance(t, Symbol)
+        op = astb.get_instance(t, operations.Node)
+        assert op.lineno == 0
+        
     def test_primaryexpression(self):
         w_num = self.eval_expr('(6)')
         assert w_num.ToNumber() == 6
