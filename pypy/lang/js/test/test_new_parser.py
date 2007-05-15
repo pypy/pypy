@@ -279,7 +279,7 @@ class TestFunctionDeclaration(BaseGrammarTest):
         self.parse('function z (a,b,c,d,e) {;}')
     
 
-class TestToEvalTree(BaseGrammarTest):
+class TestToAST(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func('expression')
 

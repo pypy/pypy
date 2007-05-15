@@ -1,6 +1,7 @@
 
 import math
-from pypy.lang.js.jsparser import parse, parse_bytecode
+from pypy.lang.js.jsparser import parse
+from pypy.lang.js.astbuilder import ASTBuilder
 from pypy.lang.js.operations import *
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -9,12 +10,9 @@ def writer(x):
     print x
 
 def load_source(script_source):
+    astb = ASTBuilder()
     temp_tree = parse(script_source)
-    return from_tree(temp_tree)
-
-def load_bytecode(bytecode):
-    temp_tree = parse_bytecode(bytecode)
-    return from_tree(temp_tree)
+    return astb.dispatch(temp_tree)
 
 import cPickle as pickle
 import os.path

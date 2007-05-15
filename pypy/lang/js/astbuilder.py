@@ -46,7 +46,7 @@ class ASTBuilder(RPythonVisitor):
 
     def visit_DECIMALLITERAL(self, node):
         result = self.get_instance(node, operations.Number)
-        result.num = float(node.additional_info)
+        result.num = float(result.value)
         return result
 
     def string(self,node):
