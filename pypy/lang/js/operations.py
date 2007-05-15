@@ -6,7 +6,6 @@ Implements the javascript operations nodes for the interpretation tree
 
 #XXX * imports are bad
 from pypy.lang.js.jsobj import *
-from pypy.lang.js.jsparser import JsSyntaxError
 from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 from pypy.rlib.rarithmetic import r_uint, intmask
 from constants import unescapedict, SLASH

@@ -1,7 +1,7 @@
 import py
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Array, JsBaseExcept
-from pypy.lang.js.jsparser import JsSyntaxError
+from pypy.rlib.parsing.parsing import ParseError
 from py.__.test.outcome import Failed, ExceptionFailure
 import pypy.lang.js as js
 
@@ -57,7 +57,7 @@ class JSTestFile(py.test.collect.Module):
         t = load_file(str(self.fspath))
         try:
             t.execute(self.interp.global_context)
-        except JsSyntaxError:
+        except ParseError:
             raise Failed(msg="Syntax Error",excinfo=py.code.ExceptionInfo())
         except JsBaseExcept:
             raise Failed(msg="Javascript Error", excinfo=py.code.ExceptionInfo())
