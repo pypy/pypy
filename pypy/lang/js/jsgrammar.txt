@@ -188,17 +188,17 @@ propertyname    : <identifier>
                 | <numericliteral>
                 ; 
 
-functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] functionbody ["}"]
+functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] >functionbody< ["}"]
                     ;
 
-functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] functionbody ["}"]
+functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] >functionbody< ["}"]
                     ;
 
 formalparameterlist : identifier [","] >formalparameterlist<
                     | identifier
                     ;
 
-functionbody    : <sourceelements>
+functionbody    : sourceelements
                 ;
 
 begmemberexpression : <primaryexpression>

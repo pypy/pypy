@@ -279,7 +279,7 @@ class TestFunctionDeclaration(BaseGrammarTest):
         self.parse('function z (a,b,c,d,e) {;}')
     
 
-class TestToAST(BaseGrammarTest):
+class TestToASTExpr(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func('expression')
 
@@ -328,5 +328,16 @@ class TestToAST(BaseGrammarTest):
         assert w_num.ToNumber() == 4
         w_str = self.eval_expr('"hello "+\'world\'')
         assert w_str.ToString() == 'hello world'
-        
+    
+
+class TestToAST(BaseGrammarTest):
+    def setup_class(cls):
+        cls.parse = parse_func()
+
+    def to_ast(self, s):
+        ASTBuilder().dispatch(self.parse(s))
+    
+    def test_simple(self):
+        self.to_ast("1;")
+        #self.to_ast("print(1+1);")
     

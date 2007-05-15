@@ -104,3 +104,19 @@ class ASTBuilder(RPythonVisitor):
         result.initializer = operations.astundef #XXX this is uneded now
         print result
         return result
+
+    def visit_program(self, node):
+        result = self.get_instance(node, operations.Program)
+        result.body = self.dispatch(node.children[0])
+        return result
+        
+    def visit_sourceelements(self, node):
+        result = self.get_instance(node, operations.Script)
+        result.var_decl = None #XXX TODO
+        result.func_decl = None #XXX TODO
+        result.nodes = [self.dispatch(child) for child in node.children]
+        return result
+    
+    def visit_expressionstatement(self, node):
+        return self.dispatch(node.children[0])
+        

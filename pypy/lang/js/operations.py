@@ -868,6 +868,11 @@ class Script(Statement):
                 print "exception in line: %s, on: %s"%(node.lineno, node.value)
                 raise
 
+class Program(Statement):
+
+    def execute(self, ctx):
+        return self.body.execute(self, ctx)
+
 class Semicolon(Statement):
     opcode = 'SEMICOLON'
 
