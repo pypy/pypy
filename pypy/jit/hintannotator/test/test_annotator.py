@@ -919,3 +919,30 @@ def test_cast_ptr_to_int():
 
     hs = hannotate(f, [], policy=P_NOVIRTUAL)
     assert not hs.is_green()
+
+def test_strange_green_result_after_red_switch():
+    py.test.skip("is this right?")
+    class LinkedRules(object):
+        _immutable_ = True
+        def __init__(self, data, next=None):
+            self.data = data
+            self.next = next
+
+        def find_applicable_rule(self, query):
+            # self is green, query isn't
+            # should the result really be green?
+            while self:
+                data = self.data
+                hint(data, concrete=True)
+                j = 0
+                if self.data == query:
+                    return self
+                self = self.next
+            return None
+
+    chain = LinkedRules(1, LinkedRules(2, LinkedRules(0)))
+    def f(x):
+        rulechain = chain.find_applicable_rule(x)
+        return rulechain
+    hs = hannotate(f, [int], policy=P_OOPSPEC_NOVIRTUAL)
+    assert isinstance(hs, SomeLLAbstractVariable)
