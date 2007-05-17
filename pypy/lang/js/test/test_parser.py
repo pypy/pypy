@@ -290,19 +290,18 @@ class TestToASTExpr(BaseGrammarTest):
         ast = self.to_ast(s)
         return ast.eval(global_context())
     
-    def test_get_instance(self):
+    def test_get_pos(self):
         from pypy.lang.js import operations
         from pypy.rlib.parsing.tree import Symbol
         astb = ASTBuilder()
         t = self.parse('6')
         assert isinstance(t, Symbol)
-        op = astb.get_instance(t, operations.Node)
-        assert op.value == '6'
-        assert op.lineno == 0
+        pos = astb.get_pos(t)
+        assert pos.lineno == 0
         t = self.parse('[1,]')
         assert not isinstance(t, Symbol)
-        op = astb.get_instance(t, operations.Node)
-        assert op.lineno == 0
+        pos = astb.get_pos(t)
+        assert pos.start == 0
         
     def test_primaryexpression(self):
         w_num = self.eval_expr('(6)')
@@ -330,7 +329,7 @@ class TestToASTExpr(BaseGrammarTest):
         assert w_str.ToString() == 'hello world'
     
 
-class TestToAST(BaseGrammarTest):
+class TestToASTProgram(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func()
 
@@ -339,5 +338,6 @@ class TestToAST(BaseGrammarTest):
     
     def test_simple(self):
         self.to_ast("1;")
+        #self.to_ast("var x=1;")
         #self.to_ast("print(1+1);")
     

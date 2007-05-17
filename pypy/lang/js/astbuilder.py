@@ -20,40 +20,37 @@ class ASTBuilder(RPythonVisitor):
         '{': operations.ObjectInit,
     }
 
-    def get_instance(self, node, cls):
+    def get_pos(self, node):
         value = ''
         source_pos = None
         if isinstance(node, Symbol):
-            source_pos = node.token.source_pos
             value = node.additional_info
+            source_pos = node.token.source_pos
         else:
             curr = node.children[0]
             while not isinstance(curr, Symbol):
                 if len(curr.children):
                     curr = curr.children[0]
                 else:
-                    source_pos = None
                     break
             else:
+                value = curr.additional_info
                 source_pos = curr.token.source_pos
 
         # XXX some of the source positions are not perfect
-        return cls(None,
-                   value, 
+        return operations.Position(
                    source_pos.lineno,
                    source_pos.columnno,
                    source_pos.columnno + len(value))
 
     def visit_DECIMALLITERAL(self, node):
-        result = self.get_instance(node, operations.Number)
-        result.num = float(result.value)
-        return result
+        pos = self.get_pos(node)
+        number = operations.Number(pos, float(node.additional_info))
+        return number
 
     def string(self,node):
-        print node.additional_info
-        result = self.get_instance(node, operations.String)
-        result.strval = node.additional_info[1:-1] #XXX should do unquoting
-        return result
+        pos = self.get_pos(node)
+        return operations.String(pos, node.additional_info)
     
     visit_DOUBLESTRING = string
     visit_SINGLESTRING = string
@@ -62,11 +59,9 @@ class ASTBuilder(RPythonVisitor):
         left = self.dispatch(node.children[0])
         for i in range((len(node.children) - 1) // 2):
             op = node.children[i * 2 + 1]
-            result = self.get_instance(
-                    op, self.BINOP_TO_CLS[op.additional_info])
+            pos = self.get_pos(op)
             right = self.dispatch(node.children[i * 2 + 2])
-            result.left = left
-            result.right = right
+            result = self.BINOP_TO_CLS[op.additional_info](pos, left, right)
             left = result
         return left
     visit_additiveexpression = binaryop
@@ -74,48 +69,41 @@ class ASTBuilder(RPythonVisitor):
 
     def visit_unaryexpression(self, node):
         op = node.children[0]
-        result = self.get_instance(
-                op, self.UNOP_TO_CLS[op.additional_info])
+        pos = self.get_pos(op)
         child = self.dispatch(node.children[1])
-        result.expr = child
-        result.postfix = False
-        return result
+        return self.UNOP_TO_CLS[op.additional_info](pos, child)
     
     def listop(self, node):
         op = node.children[0]
-        result = self.get_instance(
-                op, self.LISTOP_TO_CLS[op.additional_info])
+        pos = self.get_pos(op)
         l = [self.dispatch(child) for child in node.children[1:]]
-        result.list = l
-        return result
+        return self.LISTOP_TO_CLS[op.additional_info](pos, l)
     visit_arrayliteral = listop
     visit_objectliteral = listop
     
     def visit_propertynameandvalue(self, node):
-        result = self.get_instance(
-                node, operations.PropertyInit)
-        result.left = self.dispatch(node.children[0])
-        result.right = self.dispatch(node.children[1])
-        return result
+        pos = self.get_pos(node)
+        left = self.dispatch(node.children[0])
+        right = self.dispatch(node.children[1])
+        return operations.PropertyInit(pos,left,right)
     
     def visit_IDENTIFIERNAME(self, node):
-        result = self.get_instance(node, operations.Identifier)
-        result.name = node.additional_info
-        result.initializer = operations.astundef #XXX this is uneded now
-        print result
-        return result
+        pos = self.get_pos(node)
+        name = node.additional_info
+        initializer = operations.astundef #XXX this is uneded now
+        return operations.Identifier(pos, name, initializer)
 
     def visit_program(self, node):
-        result = self.get_instance(node, operations.Program)
-        result.body = self.dispatch(node.children[0])
-        return result
+        pos = self.get_pos(node)
+        body = self.dispatch(node.children[0])
+        return operations.Program(pos, body)
         
     def visit_sourceelements(self, node):
-        result = self.get_instance(node, operations.Script)
-        result.var_decl = None #XXX TODO
-        result.func_decl = None #XXX TODO
-        result.nodes = [self.dispatch(child) for child in node.children]
-        return result
+        pos = self.get_pos(node)
+        var_decl = None #XXX TODO
+        func_decl = None #XXX TODO
+        nodes = [self.dispatch(child) for child in node.children]
+        return operations.Script(pos, var_decl, func_decl, nodes)
     
     def visit_expressionstatement(self, node):
         return self.dispatch(node.children[0])
