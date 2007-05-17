@@ -115,9 +115,10 @@ class JvmType(object):
         self.name = None              # public, string like "java.lang.Object"
                                       # (None for scalars and arrays)
     def lookup_field(self, fieldnm):
-        """ Returns a jvm.generator.Field object representing the field
-        with the given name, or raises KeyError if that field does not
-        exist on this type. """
+        """ If the class has a field named 'fieldnm', returns a
+        jvmgen.Field or jvmgen.Property object that represents it and can
+        be used with the interpreter to load/store it.  If no such field
+        exists, or this is not a class, then raises KeyError. """
         raise NotImplementedException
     def lookup_method(self, methodnm):
         """ Returns a jvm.generator.Method object representing the method

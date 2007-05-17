@@ -10,9 +10,11 @@ from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import node, methods
 from pypy.translator.jvm.option import getoption
 import pypy.translator.jvm.generator as jvmgen
+from pypy.translator.jvm.generator import Method, Property, Field
 import pypy.translator.jvm.constant as jvmconst
 from pypy.translator.jvm.typesystem import \
-     jStringBuilder, jInt, jVoid, jString, jChar, jPyPyConst, jObject
+     jStringBuilder, jInt, jVoid, jString, jChar, jPyPyConst, jObject, \
+     jThrowable
 from pypy.translator.jvm.builtin import JvmBuiltInType
 
 from pypy.translator.oosupport.database import Database as OODatabase
@@ -40,6 +42,11 @@ class Database(OODatabase):
         self._function_names = {} # graph --> function_name
 
         self._constants = {}      # flowmodel.Variable --> jvmgen.Const
+
+        # Special fields for the Object class, see _translate_Object
+        self._object_interf = None
+        self._object_impl = None
+        self._object_exc_impl = None
 
     # _________________________________________________________________
     # Java String vs Byte Array
@@ -73,6 +80,9 @@ class Database(OODatabase):
     def jasmin_files(self):
         """ Returns list of files we need to run jasmin on """
         return self._jasmin_files
+
+    def is_Object(self, OOTYPE):
+        return isinstance(OOTYPE, ootype.Instance) and OOTYPE._name == "Object"
 
     # _________________________________________________________________
     # Node Creation
@@ -151,7 +161,82 @@ class Database(OODatabase):
 
         self.pending_node(clsobj)
         return clsobj
-    
+
+    def _translate_Object(self, OBJ):
+        """
+        We handle the class 'Object' quite specially: we translate it
+        into an interface with two implementations.  One
+        implementation serves as the root of most objects, and the
+        other as the root for all exceptions.
+        """
+        assert self.is_Object(OBJ)
+        assert OBJ._superclass == ootype.ROOT
+
+        # Have we already translated Object?
+        if self._object_interf: return self._object_interf
+
+        # Create the interface and two implementations:
+        def gen_name(): return self._pkg(self._uniq(OBJ._name))
+        internm, implnm, exc_implnm = gen_name(), gen_name(), gen_name()
+        self._object_interf = node.Interface(internm)
+        self._object_impl = node.Class(implnm, supercls=jObject)
+        self._object_exc_impl = node.Class(exc_implnm, supercls=jThrowable)
+        self._object_impl.add_interface(self._object_interf)
+        self._object_exc_impl.add_interface(self._object_interf)
+
+        # Translate the fields into properties on the interface,
+        # and into actual fields on the implementations.
+        for fieldnm, (FIELDOOTY, fielddef) in OBJ._fields.iteritems():
+            if FIELDOOTY is ootype.Void: continue
+            fieldty = self.lltype_to_cts(FIELDOOTY)
+
+            # Currently use hacky convention of _jvm_FieldName for the name
+            methodnm = "_jvm_"+fieldnm
+
+            def getter_method_obj(node):
+                return Method.v(node, methodnm+"_g", [], fieldty)
+            def putter_method_obj(node):
+                return Method.v(node, methodnm+"_p", [fieldty], jVoid)
+            
+            # Add get/put methods to the interface:
+            prop = Property(
+                fieldnm, 
+                getter_method_obj(self._object_interf),
+                putter_method_obj(self._object_interf),
+                OOTYPE=FIELDOOTY)
+            self._object_interf.add_property(prop)
+
+            # Generate implementations:
+            def generate_impl(clsobj):
+                clsnm = clsobj.name
+                fieldobj = Field(clsnm, fieldnm, fieldty, False, FIELDOOTY)
+                clsobj.add_field(fieldobj, fielddef)
+                clsobj.add_method(node.GetterFunction(
+                    self, clsobj, getter_method_obj(clsobj), fieldobj))
+                clsobj.add_method(node.PutterFunction(
+                    self, clsobj, putter_method_obj(clsobj), fieldobj))
+            generate_impl(self._object_impl)
+            generate_impl(self._object_exc_impl)
+
+        # Ensure that we generate all three classes.
+        self.pending_node(self._object_interf)
+        self.pending_node(self._object_impl)
+        self.pending_node(self._object_exc_impl)
+
+    def _translate_superclass_of(self, OOSUB):
+        """
+        Invoked to translate OOSUB's super class.  Normally just invokes
+        pending_class, but we treat "Object" differently so that we can
+        make all exceptions descend from Throwable.
+        """
+        OOSUPER = OOSUB._superclass
+        if not self.is_Object(OOSUPER):
+            return self.pending_class(OOSUPER)
+        self._translate_Object(OOSUPER)          # ensure this has been done
+        if OOSUB._name == "exceptions.Exception":
+            return self._object_exc_impl
+        return self._object_impl        
+
     def _translate_instance(self, OOTYPE):
         assert isinstance(OOTYPE, ootype.Instance)
         assert OOTYPE is not ootype.ROOT
@@ -167,14 +252,13 @@ class Database(OODatabase):
 
         # Resolve super class 
         assert OOTYPE._superclass
-        supercls = self.pending_class(OOTYPE._superclass)
+        supercls = self._translate_superclass_of(OOTYPE)
         clsobj.set_super_class(supercls)
 
         # TODO --- mangle field and method names?  Must be
         # deterministic, or use hashtable to avoid conflicts between
         # classes?
         
-        # Add fields:
         # Add fields:
         self._translate_class_fields(clsobj, OOTYPE)
             
@@ -368,7 +452,7 @@ class Database(OODatabase):
         ootype.Char:             jvmtype.jChar,    # byte would be sufficient, but harder
         ootype.UniChar:          jvmtype.jChar,
         ootype.Class:            jvmtype.jClass,
-        ootype.ROOT:             jvmtype.jObject,  # count this as a scalar...
+        ootype.ROOT:             jvmtype.jObject   # treat like a scalar
         }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we
@@ -399,6 +483,8 @@ class Database(OODatabase):
 
         # Handle non-built-in-types:
         if isinstance(OOT, ootype.Instance):
+            if self.is_Object(OOT):
+                return self._translate_Object(OOT)
             return self._translate_instance(OOT)
         if isinstance(OOT, ootype.Record):
             return self._translate_record(OOT)

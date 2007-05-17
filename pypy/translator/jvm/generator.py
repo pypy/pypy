@@ -151,11 +151,12 @@ class OpcodeFamily(object):
 class ArrayOpcodeFamily(OpcodeFamily):
     """ Opcode family specialized for array access instr """
     def for_type(self, argtype):
-        if argtype == 'J':    return self._o("l")   # Integers
-        if argtype == 'D':    return self._o("d")   # Doubles
-        if argtype == 'C':    return self._o("c")   # Characters
-        if argtype == 'B':    return self._o("b")   # Bytes
-        if argtype == 'Z':    return self._o("b")   # Boolean (access as bytes)
+        desc = argtype.descriptor
+        if desc == 'J':    return self._o("l")   # Integers
+        if desc == 'D':    return self._o("d")   # Doubles
+        if desc == 'C':    return self._o("c")   # Characters
+        if desc == 'B':    return self._o("b")   # Bytes
+        if desc == 'Z':    return self._o("b")   # Boolean (access as bytes)
         return OpcodeFamily.for_type(self, argtype)
 
 # Define the opcodes for IFNE, IFEQ, IFLT, IF_ICMPLT, etc.  The IFxx
@@ -295,6 +296,8 @@ class Method(object):
         not the this ptr
         'rettype' - JvmType for return type
         """
+        assert argtypes is not None
+        assert rettype is not None
         classnm = classty.name
         if isinstance(classty, jvmtype.JvmInterfaceType):
             opc = INVOKEINTERFACE
@@ -341,7 +344,7 @@ class Method(object):
         # A weird, inexplicable quirk of Jasmin syntax is that it requires
         # the number of arguments after an invokeinterface call:
         if self.opcode == INVOKEINTERFACE:
-            res += " %d" % (len(self.argument_types),)
+            res += " %d" % (len(self.argument_types)+1,)
         return res
 
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
@@ -418,6 +421,29 @@ class Field(object):
             self.field_name,
             self.jtype.descriptor)
 
+class Property(object):
+    """
+    An object which acts like a Field, but when a value is loaded or
+    stored it actually invokes accessor methods.
+    """
+    def __init__(self, field_name, get_method, put_method, OOTYPE=None):
+        self.get_method = get_method
+        self.put_method = put_method
+        self.field_name = field_name
+        self.OOTYPE = OOTYPE
+        
+        # Synthesize the Field attributes from the get_method/put_method:
+        self.class_name = get_method.class_name
+        assert put_method.class_name == self.class_name
+        self.jtype = get_method.return_type
+        self.is_static = get_method.is_static
+    def load(self, gen):
+        self.get_method.invoke(gen)
+    def store(self, gen):
+        self.put_method.invoke(gen)
+    # jasmin_syntax is not needed, since this object itself never appears
+    # as an argument an Opcode
+
 SYSTEMOUT =    Field('java.lang.System', 'out', jPrintStream, True)
 SYSTEMERR =    Field('java.lang.System', 'err', jPrintStream, True)
 DOUBLENAN =    Field('java.lang.Double', 'NaN', jDouble, True)
@@ -488,7 +514,8 @@ class JVMGenerator(Generator):
     # If the name does not begin with '_', it will be called from
     # outside the generator.
 
-    def begin_class(self, classty, superclsty, abstract=False):
+    def begin_class(self, classty, superclsty,
+                    abstract=False, interface=False):
         """
         Begins a class declaration.  Overall flow of class declaration
         looks like:
@@ -507,7 +534,7 @@ class JVMGenerator(Generator):
         """
         assert not self.curclass
         self.curclass = ClassState(classty, superclsty)
-        self._begin_class(abstract)
+        self._begin_class(abstract, interface)
 
     def end_class(self):
         self._end_class()
@@ -519,7 +546,7 @@ class JVMGenerator(Generator):
         begin_class() has not been called, returns None. """
         return self.curclass.class_type
 
-    def _begin_class(self, abstract):
+    def _begin_class(self, abstract, interface):
         """ Main implementation of begin_class """
         raise NotImplementedError
 
@@ -557,6 +584,19 @@ class JVMGenerator(Generator):
         self.return_val(jVoid)
         self.end_function()
 
+    def begin_j_function(self, cls_obj, method_obj, abstract=False):
+        """
+        A convenience function that invokes begin_function() with the
+        appropriate arguments to define a method on class 'cls_obj' that
+        could be invoked with 'method_obj'.
+        """
+        return self.begin_function(method_obj.method_name,
+                                   [],
+                                   [cls_obj]+method_obj.argument_types,
+                                   method_obj.return_type,
+                                   static=method_obj.is_static(),
+                                   abstract=abstract)
+    
     def begin_function(self, funcname, argvars, argtypes, rettype,
                        static=False, abstract=False):
         """
@@ -635,13 +675,13 @@ class JVMGenerator(Generator):
         #     XXX --- support byte arrays here?  Would be trickier!
         self._instr(LDC, res)
 
-    def load_jvm_var(self, vartype, varidx):
+    def load_jvm_var(self, jvartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
         assert varidx < self.curfunc.next_offset
-        opc = LOAD.for_type(vartype)
-        self.add_comment("     load_jvm_jar: vartype=%s varidx=%s" % (
-            repr(vartype), repr(varidx)))
+        opc = LOAD.for_type(jvartype)
+        self.add_comment("     load_jvm_jar: jvartype=%s varidx=%s" % (
+            repr(jvartype), repr(varidx)))
         self._instr(opc, varidx)
 
     def store_jvm_var(self, vartype, varidx):
@@ -858,7 +898,7 @@ class JVMGenerator(Generator):
         if isinstance(instr, Method):
             return instr.invoke(self)
 
-        if isinstance(instr, Field):
+        if isinstance(instr, Field) or isinstance(instr, Property):
             return instr.load(self)
 
         raise Exception("Unknown object in call to emit(): "+repr(instr))
@@ -1169,9 +1209,14 @@ class JasminGenerator(JVMGenerator):
         JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
-    def _begin_class(self, abstract):
+    def _begin_class(self, abstract, interface):
         """
-        classnm --- full Java name of the class (i.e., "java.lang.String")
+        Invoked by begin_class.  It is expected that self.curclass will
+        be set when this method is invoked.  
+
+        abstract: True if the class to generate is abstract
+
+        interface: True if the 'class' to generate is an interface
         """
 
         iclassnm = self.current_type().descriptor.int_class_name()
@@ -1186,10 +1231,15 @@ class JasminGenerator(JVMGenerator):
         self.curclass.file = open(jfile, 'w')
         self.db.add_jasmin_file(jfile)
 
+        # Determine the "declaration string"
+        if interface: decl_str = "interface"
+        else: decl_str = "class"
+
         # Write the JasminXT header
         fields = ["public"]
         if abstract: fields.append('abstract')
-        self.curclass.out(".class %s %s\n" % (" ".join(fields), iclassnm))
+        self.curclass.out(".%s %s %s\n" % (
+            decl_str, " ".join(fields), iclassnm))
         self.curclass.out(".super %s\n" % isuper)
         
     def _end_class(self):

@@ -21,7 +21,8 @@ from pypy.rpython.ootypesystem import \
      ootype, rclass
 from pypy.translator.jvm.typesystem import \
      JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
-     jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces
+     jObject, JvmType, jStringBuilder, jPyPyInterlink, jCallbackInterfaces, \
+     JvmInterfaceType
 from pypy.translator.jvm.opcodes import \
      opcodes
 from pypy.translator.jvm.option import \
@@ -172,7 +173,47 @@ class Function(object):
         """ Returns a jvmgen.Method object that would allow this
         function to be invoked. """
         raise NotImplementedError
+
+class GetterFunction(Function):
+    def __init__(self, db, cls_obj, method_obj, field_obj):
+        self.db = db
+        self.name = method_obj.method_name
+        self.cls_obj = cls_obj
+        self.method_obj = method_obj
+        self.field_obj = field_obj
+
+    def method(self):
+        return self.method_obj
+
+    def render(self, gen):
+        gen.begin_function(
+            self.method_obj.method_name, [],
+            [self.cls_obj], self.field_obj.jtype)
+        gen.load_this_ptr()
+        self.field_obj.load(gen)
+        gen.return_val(self.field_obj.jtype)
+        gen.end_function()
     
+class PutterFunction(Function):
+    def __init__(self, db, cls_obj, method_obj, field_obj):
+        self.db = db
+        self.cls_obj = cls_obj
+        self.method_obj = method_obj
+        self.field_obj = field_obj
+
+    def method(self):
+        return self.method_obj
+
+    def render(self, gen):
+        gen.begin_function(
+            self.method_obj.method_name, [],
+            [self.cls_obj, self.field_obj.jtype], jVoid)
+        gen.load_this_ptr()
+        gen.load_function_argument(1)
+        self.field_obj.store(gen)
+        gen.return_val(jVoid)
+        gen.end_function()
+
 class GraphFunction(OOFunction, Function):
     
     """ Represents a function that is generated from a graph. """
@@ -266,12 +307,7 @@ class GraphFunction(OOFunction, Function):
             if isinstance(link.last_exception, flowmodel.Variable):
                 self.ilasm.emit(jvmgen.DUP)
                 self.ilasm.store(link.last_exc_value)
-                fld = jvmgen.Field(
-                    self.db.lltype_to_cts(rclass.OBJECT).name,
-                    'meta',
-                    self.db.lltype_to_cts(rclass.CLASSTYPE),
-                    False,
-                    rclass.OBJECT)
+                fld = self.db.lltype_to_cts(rclass.OBJECT).lookup_field('meta')
                 self.ilasm.emit(fld)
                 self.ilasm.store(link.last_exception)
             else:
@@ -381,14 +417,15 @@ class StaticMethodInterface(Node, JvmClassType):
                 self.java_argument_types[1:], self.java_return_type)
         
     def lookup_field(self, fieldnm):
-        """ Given a field name, returns a jvmgen.Field object """
         raise KeyError(fieldnm) # no fields
+    
     def lookup_method(self, methodnm):
         """ Given the method name, returns a jvmgen.Method object """
         assert isinstance(self.java_return_type, JvmType)
         if methodnm == 'invoke':
             return self.invoke_method_obj
         raise KeyError(methodnm) # only one method
+    
     def render(self, gen):
         assert isinstance(self.java_return_type, JvmType)
 
@@ -535,12 +572,54 @@ class StaticMethodImplementation(Node, JvmClassType):
         gen.end_function()
         gen.end_class()
 
+class Interface(Node, JvmInterfaceType):
+    """
+    Represents an interface to be generated.  The only class that we
+    currently generate into an interface is ootype.ROOT.
+    """
+    def __init__(self, name):
+        JvmClassType.__init__(self, name)
+        self.super_class = jObject
+        self.rendered = False
+        self.properties = {}
+        self.methods = {}
+
+    def lookup_field(self, fieldnm):
+        # Right now, we don't need inheritance between interfaces.
+        return self.properties[fieldnm]
+
+    def lookup_method(self, methodnm):
+        # Right now, we don't need inheritance between interfaces.
+        return self.methods[methodnm]
+
+    def add_property(self, prop):
+        self.properties[prop.field_name] = prop
+
+    def add_method(self, method):
+        self.methods[method.name] = method
+
+    def render(self, gen):
+        self.rendered = True
+        gen.begin_class(self, self.super_class, interface=True)
+
+        def emit_method(method):
+            gen.begin_j_function(self, method, abstract=True)
+            gen.end_function()
+            
+        for method in self.methods.values():
+            emit_method(method)
+        for prop in self.properties.values():
+            emit_method(prop.get_method)
+            emit_method(prop.put_method)
+
+        gen.end_class()
+
 class Class(Node, JvmClassType):
 
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
 
-    def __init__(self, name, supercls=None, initialize_fields=True):
+    def __init__(self, name, supercls=None):
         """
         'name' should be a fully qualified Java class name like
         "java.lang.String", supercls is a Class object
@@ -577,7 +656,6 @@ class Class(Node, JvmClassType):
         self.interfaces.append(inter)
 
     def lookup_field(self, fieldnm):
-        """ Given a field name, returns a jvmgen.Field object """
         if fieldnm in self.fields:
             return self.fields[fieldnm][0]
         return self.super_class.lookup_field(fieldnm)
@@ -629,9 +707,7 @@ class Class(Node, JvmClassType):
             method.render(gen)
 
         for method in self.abstract_methods.values():
-            gen.begin_function(
-                method.method_name, None, method.argument_types,
-                method.return_type, abstract=True)
+            gen.begin_j_function(self, method, abstract=True)
             gen.end_function()
         
         gen.end_class()
