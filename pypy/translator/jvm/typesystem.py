@@ -136,9 +136,10 @@ class JvmClassType(JvmType):
     only work to obtain the descriptor.  We use it on occasion for classes
     like java.lang.Object etc.
     """
-    def __init__(self, classnm):
+    def __init__(self, classnm, throwable=False):
         JvmType.__init__(self, desc_for_class(classnm))
-        self.name = classnm # public String, like 'java.lang.Object'
+        self.name = classnm        # public; String, like 'java.lang.Object'
+        self.throwable = throwable # public; boolean
     def lookup_field(self, fieldnm):
         raise KeyError(fieldnm) # we treat as opaque type
     def lookup_method(self, methodnm):
@@ -153,7 +154,7 @@ jDoubleClass = JvmClassType('java.lang.Double')
 jByteClass = JvmClassType('java.lang.Byte')
 jCharClass = JvmClassType('java.lang.Character')
 jBoolClass = JvmClassType('java.lang.Boolean')
-jThrowable = JvmClassType('java.lang.Throwable')
+jThrowable = JvmClassType('java.lang.Throwable', throwable=True)
 jObject = JvmClassType('java.lang.Object')
 jString = JvmClassType('java.lang.String')
 jCharSequence = JvmClassType('java.lang.CharSequence')
@@ -175,7 +176,7 @@ jPyPyDictItemsIterator = JvmClassType('pypy.DictItemsIterator')
 jPyPyInterlink = JvmClassType('pypy.Interlink')
 jPyPyCustomDict = JvmClassType('pypy.CustomDict')
 
-jArithmeticException = JvmClassType('java.lang.ArithmeticException')
+jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 
 class JvmScalarType(JvmType):
     """

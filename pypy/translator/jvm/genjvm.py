@@ -132,7 +132,6 @@ class JvmGeneratedSource(object):
                               'CustomDict',
                               'DictItemsIterator',
                               'Equals',
-                              'ExceptionWrapper',
                               'Filter',
                               'FilterIterator',
                               'FilterSet',

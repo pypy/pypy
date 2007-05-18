@@ -5,7 +5,7 @@ and the mapping between the OOTypeSystem and the Java type system.
 
 from cStringIO import StringIO
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem import ootype, rclass
 from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import node, methods
 from pypy.translator.jvm.option import getoption
@@ -492,6 +492,15 @@ class Database(OODatabase):
             return self.record_delegate(OOT)
         
         assert False, "Untranslatable type %s!" % OOT
+
+    def exception_root_object(self):
+        """
+        Returns a JvmType representing the version of Object that
+        serves as the root of all exceptions.
+        """
+        self.lltype_to_cts(rclass.OBJECT)
+        assert self._object_interf
+        return self._object_exc_impl
 
     # _________________________________________________________________
     # Uh....

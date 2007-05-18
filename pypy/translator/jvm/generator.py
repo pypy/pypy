@@ -286,6 +286,12 @@ class Label(object):
 
 class Method(object):
 
+    # Create a constructor:
+    def c(classty, argtypes):
+        return Method(classty.name, "<init>", argtypes, jVoid,
+                      opcode=INVOKESPECIAL)
+    c = staticmethod(c)
+
     # Create a virtual method:
     def v(classty, methnm, argtypes, rettype):
         """
@@ -376,19 +382,18 @@ PYPYSTRTOBOOL =         Method.s(jPyPy, 'str_to_bool', (jString,), jBool)
 PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
 PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
 PYPYDUMP          =     Method.s(jPyPy, 'dump', (jString,), jVoid)
+PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYSERIALIZEBOOLEAN =  Method.s(jPyPy, 'serialize_boolean', (jBool,), jString)
 PYPYSERIALIZEUINT  =    Method.s(jPyPy, 'serialize_uint', (jInt,), jString)
 PYPYSERIALIZEVOID =     Method.s(jPyPy, 'serialize_void', (), jString)
 PYPYESCAPEDCHAR =       Method.s(jPyPy, 'escaped_char', (jChar,), jString)
 PYPYESCAPEDSTRING =     Method.s(jPyPy, 'escaped_string', (jString,), jString)
 PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
-PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
 PYPYARRAYTOLIST =       Method.s(jPyPy, 'array_to_list', (jObjectArray,), jArrayList)
 OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
-EXCWRAPWRAP =           Method.s(jPyPyExcWrap, 'wrap', (jObject,), jPyPyExcWrap)
 CUSTOMDICTMAKE =        Method.s(jPyPyCustomDict, 'make',
                                  (jPyPyEquals, jPyPyHashCode), jPyPyCustomDict)
 
@@ -451,8 +456,6 @@ DOUBLEPOSINF = Field('java.lang.Double', 'POSITIVE_INFINITY', jDouble, True)
 DOUBLENEGINF = Field('java.lang.Double', 'NEGATIVE_INFINITY', jDouble, True)
 
 PYPYINTERLINK= Field(jPyPy.name, 'interlink', jPyPyInterlink, True)
-
-EXCWRAPOBJ =   Field(jPyPyExcWrap.name, 'object', jObject, False)
 
 # ___________________________________________________________________________
 # Generator State
@@ -772,6 +775,10 @@ class JVMGenerator(Generator):
             jclasstype, jscalartype.unbox_method, (), jscalartype)
         self.emit(jmethod)
 
+    def swap(self):
+        """ Swaps the two words highest on the stack. """
+        self.emit(SWAP)
+
     # __________________________________________________________________
     # Exception Handling
 
@@ -789,32 +796,16 @@ class JVMGenerator(Generator):
         """
         self.endtrylbl = self.unique_label("end_try", mark=True)
 
-    def begin_catch(self, excclsty):
+    def begin_catch(self, jexcclsty):
         """
         Begins a catch region corresponding to the last try; there can
         be more than one call to begin_catch, in which case the last
         try region is reused.
-        'excclsty' --- a JvmType for the class of exception to be caught
+        'jexcclsty' --- a JvmType for the class of exception to be caught
         """
         catchlbl = self.unique_label("catch", mark=True)
         self.try_catch_region(
-            jPyPyExcWrap, self.begintrylbl, self.endtrylbl, catchlbl)
-
-        # emit the code to unwrap the exception, check the type
-        # of the unwrapped object, and re-throw the exception
-        # if it not the right type
-        catch = self.unique_label('catch')
-        self.emit(DUP)
-        EXCWRAPOBJ.load(self)
-        self.emit(INSTANCEOF, excclsty)
-        self.emit(IFNE, catch)
-        self.emit(ATHROW)
-
-        # If it IS the right type, just dereference and get the
-        # wrapped Python object 
-        self.mark(catch)
-        EXCWRAPOBJ.load(self)
-        self.emit(CHECKCAST, excclsty)
+            jexcclsty, self.begintrylbl, self.endtrylbl, catchlbl)
 
     def end_catch(self):
         """
@@ -823,14 +814,14 @@ class JVMGenerator(Generator):
         """
         return
         
-    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def try_catch_region(self, jexcclsty, trystartlbl, tryendlbl, catchlbl):
         """
         Indicates a try/catch region.
 
         Either invoked directly, or from the begin_catch() routine:
         the latter is invoked by the oosupport code.
         
-        'excclsty' --- a JvmType for the class of exception to be caught
+        'jexcclsty' --- a JvmType for the class of exception to be caught
         'trystartlbl', 'tryendlbl' --- labels marking the beginning and end
         of the try region
         'catchlbl' --- label marking beginning of catch region
@@ -952,7 +943,12 @@ class JVMGenerator(Generator):
         jtype = self.db.lltype_to_cts(TYPE)
         self._instr(INSTANCEOF, jtype)
 
+    # included for compatibility with oosupport, but instanceof_jtype
+    # follows our naming convention better
     def isinstance(self, jtype):
+        return self.instanceof_jtype(jtype)
+    
+    def instanceof_jtype(self, jtype):
         self._instr(INSTANCEOF, jtype)
 
     def branch_unconditionally(self, target_label):
@@ -1008,7 +1004,7 @@ class JVMGenerator(Generator):
         self.new_with_jtype(jtype)
 
     def new_with_jtype(self, jtype):
-        ctor = Method(jtype.name, "<init>", (), jVoid, opcode=INVOKESPECIAL)
+        ctor = Method.c(jtype, ())
         self.emit(NEW, jtype)
         self.emit(DUP)
         self.emit(ctor)
@@ -1023,6 +1019,9 @@ class JVMGenerator(Generator):
         
     def dup(self, OOTYPE):
         jvmtype = self.db.lltype_to_cts(OOTYPE)
+        self.dup_jtype(jvmtype)
+
+    def dup_jtype(self, jvmtype):
         if jvmtype.descriptor.type_width() == 1:
             self.emit(DUP)
         else:
@@ -1092,12 +1091,6 @@ class JVMGenerator(Generator):
 
     def throw(self):
         """ Throw the object from top of the stack as an exception """
-
-        # We have to deal with the problem that exceptions must
-        # derive from Throwable, but our exception hierarchy in OOTYPE
-        # does not (today).  For now, we use a wrapper class, which is
-        # probably the worst answer of all, but an easy one.
-        self.emit(EXCWRAPWRAP)
         self._instr(ATHROW)
 
     def iabs(self):
@@ -1301,9 +1294,9 @@ class JasminGenerator(JVMGenerator):
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
-    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def try_catch_region(self, jexcclsty, trystartlbl, tryendlbl, catchlbl):
         self.curclass.out('  .catch %s from %s to %s using %s\n' % (
-            excclsty.descriptor.int_class_name(),
+            jexcclsty.descriptor.int_class_name(),
             trystartlbl.jasmin_syntax(),
             tryendlbl.jasmin_syntax(),
             catchlbl.jasmin_syntax()))

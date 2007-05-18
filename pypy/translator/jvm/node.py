@@ -143,7 +143,8 @@ class EntryPoint(Node):
             gen.goto(done_printing)
             gen.end_try()
 
-            gen.begin_catch(jObject)
+            jexc = self.db.exception_root_object()
+            gen.begin_catch(jexc)
             gen.emit(jvmgen.PYPYDUMPEXCWRAPPER) # dumps to stdout
             gen.end_catch()
 
@@ -289,8 +290,9 @@ class GraphFunction(OOFunction, Function):
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase
         ll_exc = ll_meta_exc._inst.class_._INSTANCE
-        cts_exc = self.cts.lltype_to_cts(ll_exc)
-        self.ilasm.begin_catch(cts_exc)
+        jtype = self.cts.lltype_to_cts(ll_exc)
+        assert jtype.throwable # SHOULD only try to catch subtypes of Exception
+        self.ilasm.begin_catch(jtype)        
 
     def end_catch(self, exit_lbl):
         self.ilasm.goto(exit_lbl)
@@ -324,6 +326,15 @@ class GraphFunction(OOFunction, Function):
     def render_raise_block(self, block):
         exc = block.inputargs[1]
         self.ilasm.load(exc)
+
+        # Check whether the static type is known to be throwable.
+        # If not, emit a CHECKCAST to the base exception type.
+        # According to Samuele, no non-Exceptions should be thrown,
+        # but this is not enforced by the RTyper or annotator.
+        jtype = self.db.lltype_to_cts(exc.concretetype)
+        if not jtype.throwable:
+            self.ilasm.downcast_jtype(self.db.exception_root_object())
+            
         self.ilasm.throw()
 
     def _trace(self, str):
@@ -625,13 +636,13 @@ class Class(Node, JvmClassType):
         "java.lang.String", supercls is a Class object
         """
         JvmClassType.__init__(self, name)
-        self.super_class = supercls # JvmType; if None, must use set_super_class
         self.rendered = False       # has rendering occurred?
         self.abstract = False       # is this an abstract class?
         self.fields = {}            # maps field name to jvmgen.Field object
         self.interfaces = []        # list of JvmTypes
         self.methods = {}           # maps method name to a Function object*
         self.abstract_methods = {}  # maps method name to jvmgen.Method object
+        self.set_super_class(supercls)
 
         # * --- actually maps to an object that defines the
         # attributes: name, method() and render().  Usually, this is a
@@ -644,6 +655,10 @@ class Class(Node, JvmClassType):
 
     def set_super_class(self, supercls):
         self.super_class = supercls
+
+        # Throwability is inherited:
+        if self.super_class and self.super_class.throwable:
+            self.throwable = True
 
     def add_field(self, fieldobj, fielddef):
         """ Creates a new field accessed via the jvmgen.Field
@@ -739,4 +754,3 @@ class InterlinkFunction(Function):
         gen.emit(self.helper)
         gen.return_val(jVoid)
         gen.end_function()
-
