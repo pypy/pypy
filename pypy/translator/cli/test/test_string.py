@@ -11,6 +11,8 @@ class TestCliString(CliTest, oostring.BaseTestString):
     test_unichar_eq = test_unichar_const
     test_unichar_ord = test_unichar_const
     test_unichar_hash = test_unichar_const
+    test_char_unichar_eq = test_unichar_const
+    test_char_unichar_eq_2 = test_unichar_const
 
     def test_upper(self):
         py.test.skip("CLI doens't support backquotes inside string literals")
