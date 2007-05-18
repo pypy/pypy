@@ -3,7 +3,16 @@ import py
 from pypy.translator.js.test.runtest import JsTest
 import pypy.translator.oosupport.test_template.string as oostring
 
+
+# ====> ../../../rpython/test/test_str.py
+
 class TestJsString(JsTest, oostring.BaseTestString):
+    def test_char_unichar_eq(self):
+        py.test.skip("Cannot test it yet")
+
+    def test_char_unichar_eq_2(self):
+        py.test.skip("Cannot test it yet")    
+    
     def test_unichar_const(self):
         py.test.skip("Cannot test it yet")
 
