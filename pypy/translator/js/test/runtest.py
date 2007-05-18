@@ -180,7 +180,7 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         except JSException, e:
             s = e.args[0]
             assert s.startswith('uncaught exception:')
-            assert re.search(str(exception), s)
+            assert re.search(exception.__name__, s)
         else:
             raise AssertionError("Did not raise, returned %s" % res)
         #except ExceptionWrapper, ex:
