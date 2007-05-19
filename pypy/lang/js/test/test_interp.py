@@ -15,18 +15,14 @@ def js_is_on_path():
         py.test.skip("js binary not found")
 
 js_is_on_path()
-py.test.skip("making the transition to the new parser")
+py.test.skip("not ready yet")
 
 class TestInterp(object):
     def test_simple(self):
-        p = Plus()
-        n1 = Number()
-        n2 = Number()
-        n1.num = 2
-        n2.num = 4
-        p.left = n1
-        p.right = n2
-        assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6
+        n1 = Number(Position(), 2.0)
+        n2 = Number(Position(), 4.0)
+        p = Plus(Position(), n1, n2)
+        assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6.0
         l = []
         interpreter.writer = l.append
         # Script([Semicolon(Call(Identifier('print', None), 
@@ -54,8 +50,8 @@ class TestInterp(object):
         assert r.ToString() == result.ToString()
         
     def test_interp_parse(self):
-        self.assert_prints("print(1+1)", ["2"])
-        self.assert_prints("print(1+2+3); print(1)", ["6", "1"])
+        self.assert_prints("print(1+1);", ["2"])
+        self.assert_prints("print(1+2+3); print(1);", ["6", "1"])
         self.assert_prints("print(1,2,3);\n", ["1,2,3"])
 
     def test_var_assign(self):
@@ -63,7 +59,7 @@ class TestInterp(object):
         self.assert_prints("x=3;y=4;print(x+y);", ["7"])
 
     def test_minus(self):
-        self.assert_prints("print(2-1)", ["1"])
+        self.assert_prints("print(2-1);", ["1"])
     
     def test_string_var(self):
         self.assert_prints('print(\"sss\");', ["sss"])
@@ -90,7 +86,7 @@ class TestInterp(object):
     
     def test_function_returns(self):
         self.assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
-        self.assert_prints('function x() { return }', [])
+        self.assert_prints('function x() { return; };', [])
     
     def test_var_declaration(self):
         self.assert_prints('var x = 3; print(x);', ["3"])
@@ -167,13 +163,13 @@ class TestInterp(object):
         """, [""])
 
     def test_throw(self):
-        self.assert_prints("throw(3)", ["uncaught exception: 3"])
+        self.assert_prints("throw(3);", ["uncaught exception: 3"])
         
     def test_group(self):
-        self.assert_prints("print((2+1))", ["3"])
+        self.assert_prints("print((2+1));", ["3"])
 
     def test_comma(self):
-        self.assert_prints("print((500,3))", ["3"])
+        self.assert_prints("print((500,3));", ["3"])
     
     def test_try_catch(self):
         self.assert_prints("""
@@ -186,8 +182,8 @@ class TestInterp(object):
         """, ["3"])
     
     def test_block(self):
-        self.assert_result("{ 5}", W_Number(5))
-        self.assert_result("{3; 5}", W_Number(5))
+        self.assert_result("{ 5};", W_Number(5))
+        self.assert_result("{3; 5};", W_Number(5))
     
     def test_try_catch_finally(self):
         self.assert_prints("""
@@ -198,7 +194,7 @@ class TestInterp(object):
             print(x);
         }
         finally {
-            print(5)
+            print(5);
         }
         """, ["3", "5"])
         
@@ -219,27 +215,27 @@ class TestInterp(object):
         """, ["2"])
 
     def test_compare(self):
-        self.assert_prints("print(1>0)",["true"])
-        self.assert_prints("print(0>1)",["false"])
-        self.assert_prints("print(0>0)",["false"])
-        self.assert_prints("print(1<0)",["false"])
-        self.assert_prints("print(0<1)",["true"])
-        self.assert_prints("print(0<0)",["false"])
-        self.assert_prints("print(1>=0)",["true"])
-        self.assert_prints("print(1>=1)",["true"])
-        self.assert_prints("print(1>=2)",["false"])
-        self.assert_prints("print(0<=1)",["true"])
-        self.assert_prints("print(1<=1)",["true"])
-        self.assert_prints("print(1<=0)",["false"])
-        self.assert_prints("print(0==0)",["true"])
-        self.assert_prints("print(1==1)",["true"])
-        self.assert_prints("print(0==1)",["false"])
-        self.assert_prints("print(0!=1)",["true"])
-        self.assert_prints("print(1!=1)",["false"])
+        self.assert_prints("print(1>0);",["true"])
+        self.assert_prints("print(0>1);",["false"])
+        self.assert_prints("print(0>0);",["false"])
+        self.assert_prints("print(1<0);",["false"])
+        self.assert_prints("print(0<1);",["true"])
+        self.assert_prints("print(0<0);",["false"])
+        self.assert_prints("print(1>=0);",["true"])
+        self.assert_prints("print(1>=1);",["true"])
+        self.assert_prints("print(1>=2);",["false"])
+        self.assert_prints("print(0<=1);",["true"])
+        self.assert_prints("print(1<=1);",["true"])
+        self.assert_prints("print(1<=0);",["false"])
+        self.assert_prints("print(0==0);",["true"])
+        self.assert_prints("print(1==1);",["true"])
+        self.assert_prints("print(0==1);",["false"])
+        self.assert_prints("print(0!=1);",["true"])
+        self.assert_prints("print(1!=1);",["false"])
 
     def test_binary_op(self):
-        self.assert_prints("print(0||0); print(1||0)",["0", "1"])
-        self.assert_prints("print(0&&1); print(1&&1)",["0", "1"])
+        self.assert_prints("print(0||0); print(1||0);",["0", "1"])
+        self.assert_prints("print(0&&1); print(1&&1);",["0", "1"])
     
     def test_while(self):
         self.assert_prints("""
@@ -264,7 +260,7 @@ class TestInterp(object):
             print(z);
         }
         catch (e) {
-            print(e)
+            print(e);
         }
         """, ["ReferenceError: z is not defined"])
 
@@ -287,7 +283,7 @@ class TestInterp(object):
 
     def test_vars(self):
         self.assert_prints("""
-        var x;x=3; print(x)""", ["3"])
+        var x;x=3; print(x);""", ["3"])
 
     def test_minus(self):
         self.assert_prints("""
@@ -303,7 +299,7 @@ class TestInterp(object):
         print(x);
         z = 2;
         ""","""
-        print(z)
+        print(z);
         """]
         ,["3", "2"])
     
@@ -324,7 +320,7 @@ class TestInterp(object):
 
     def test_arrayobject(self):
         self.assert_prints("""var x = new Array();
-        print(x.length == 0)""", ['true'])
+        print(x.length == 0);""", ['true'])
          
     def test_break(self):
         self.assert_prints("""
@@ -334,12 +330,12 @@ class TestInterp(object):
         for(x=0;1==1;x++) {
             break;
         }
-        print('out')""", ["out"])
+        print('out');""", ["out"])
 
     def test_typeof(self):
         self.assert_result("""
         var x = 3;
-        typeof x == 'number'
+        typeof x == 'number';
         """, W_Boolean(True))
         
     def test_semicolon(self):
@@ -348,15 +344,15 @@ class TestInterp(object):
     def test_newwithargs(self):
         self.assert_prints("""
         var x = new Object(1,2,3,4);
-        print(x)
+        print(x);
         """, ["[object Object]"])
 
     def test_increment(self):
         self.assert_prints("""
         var x;
-        x = 1
-        x++
-        print(x)""", ["2"])
+        x = 1;
+        x++;
+        print(x);""", ["2"])
         
     def test_ternaryop(self):
         self.assert_prints([
@@ -368,53 +364,53 @@ class TestInterp(object):
         self.assert_prints("""
         var x = false;
         var y = true;
-        print(y)
-        print(x)""", ["true", "false"])
+        print(y);
+        print(x);""", ["true", "false"])
         
     def test_unarynot(self):
         self.assert_prints("""
         var x = false;
-        print(!x)
-        print(!!x)""", ["true", "false"])
+        print(!x);
+        print(!!x);""", ["true", "false"])
 
     def test_equals(self):
         self.assert_prints("""
         var x = 5;
-        y = z = x
-        print(y)""", ["5"])
+        y = z = x;
+        print(y);""", ["5"])
     
     def test_math_stuff(self):
         self.assert_prints("""
         var x = 5;
         var z = 2;
-        print(x*z)
-        print(4/z)
-        print(isNaN(z))
-        print(Math.abs(z-x))
-        print(Number.NaN)
-        print(Number.POSITIVE_INFINITY)
-        print(Number.NEGATIVE_INFINITY)
-        print(Math.floor(3.2))
-        print(null)
-        print(-z)
+        print(x*z);
+        print(4/z);
+        print(isNaN(z));
+        print(Math.abs(z-x));
+        print(Number.NaN);
+        print(Number.POSITIVE_INFINITY);
+        print(Number.NEGATIVE_INFINITY);
+        print(Math.floor(3.2));
+        print(null);
+        print(-z);
         """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
         
     def test_globalproperties(self):
         self.assert_prints( """
-        print(NaN)
-        print(Infinity)
-        print(undefined)
+        print(NaN);
+        print(Infinity);
+        print(undefined);
         """, ['NaN', 'inf', 'undefined'])
 
     def test_strangefunc(self):
         self.assert_prints("""function f1() { var z; var t;}""", [])
-        self.assert_prints(""" "'t'" """, [])
+        self.assert_prints(""" "'t'"; """, [])
         
     def test_null(self):
-        self.assert_result("null", w_Null)
+        self.assert_result("null;", w_Null)
 
     def test_void(self):
-        self.assert_prints("print(void print('hello'))",
+        self.assert_prints("print(void print('hello'));",
                             ["hello", "undefined"])
 
     def test_activationprob(self):
@@ -424,17 +420,17 @@ class TestInterp(object):
             return int1;
         }
         function x (v1){
-            this.p1 = v1
-            this.p2 = intern(this.p1)
+            this.p1 = v1;
+            this.p2 = intern(this.p1);
         }
-        var ins = new x(1)
-        print(ins.p1)
-        print(ins.p2)
+        var ins = new x(1);
+        print(ins.p1);
+        print(ins.p2);
         """, ['1','1', '1'])
 
     def test_array_acess(self):
         self.assert_prints("""
-        var x = new Array()
+        var x = new Array();
         x[0] = 1;
         x[x[0]] = 2;
         x[2] = x[0]+x[1];
@@ -447,73 +443,73 @@ class TestInterp(object):
         self.assert_prints("""
         var testcases = new Array();
         var tc = testcases.length;
-        print('tc'+tc) 
+        print('tc'+tc);
         """, ['tc0'])
     
     def test_mod_op(self):
-        self.assert_prints("print(2%2)", ['0'])
+        self.assert_prints("print(2%2);", ['0'])
     
     def test_unary_plus(self):
-        self.assert_prints("print(+1)", ['1'])
+        self.assert_prints("print(+1);", ['1'])
 
     def test_delete(self):
         self.assert_prints("""
-        var x = {}
+        var x = {};
         x.y = 1;
-        delete x.y
-        print(x.y)
+        delete x.y;
+        print(x.y);
         """, ['undefined'])
 
     def test_forin(self):
         self.assert_prints("""
-        var x = {a:5}
+        var x = {a:5};
         for(y in x){
-            print(y)
+            print(y);
         }
         """, ['5',])
 
     def test_stricteq(self):
         self.assert_prints("""
-        print(2 === 2)
-        print(2 === 3)
-        print(2 !== 3)
-        print(2 !== 2)    
+        print(2 === 2);
+        print(2 === 3);
+        print(2 !== 3);
+        print(2 !== 2);   
         """, ['true', 'false', 'true', 'false'])
     
     def test_with(self):
         self.assert_prints("""
-        var mock = {x:2}
-        var x=4
-        print(x)
+        var mock = {x:2};
+        var x=4;
+        print(x);
         try {
             with(mock) {
-                print(x)
-                throw 3
-                print("not reacheable")
+                print(x);
+                throw 3;
+                print("not reacheable");
             }
         }
         catch(y){
-            print(y)
+            print(y);
         }
-        print(x)
+        print(x);
         """, ['4', '2', '3', '4'])
     
     def test_bitops(self):
         self.assert_prints("""
-        print(2 ^ 2)
-        print(2 & 3)
-        print(2 | 3)
+        print(2 ^ 2);
+        print(2 & 3);
+        print(2 | 3);
         """, ['0', '2', '3'])
 
     def test_for_strange(self):
         self.assert_prints("""
-        for (var arg = "", i = 0; i < 2; i++) { print(i)}
+        for (var arg = "", i = 0; i < 2; i++) { print(i);}
         """, ['0', '1'])
 
     def test_recursive_call(self):
         self.assert_prints("""
         function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
-        print(fact(3))
+        print(fact(3));
         """, ['6',])
     
     def test_function_prototype(self):
@@ -524,7 +520,8 @@ class TestInterp(object):
 
     def test_function_this(self):
         self.assert_prints("""
-        function foo() {print("debug");this.bar = function() {}};
+        function foo() {print("debug");this.bar = function() {};};
         var f = new foo();
         f.bar();
         """, ['debug',])
+    

@@ -1,13 +1,42 @@
 from pypy.rlib.parsing.tree import RPythonVisitor, Symbol
 from pypy.lang.js import operations
 
+#this is a noop for now
+def varfinder(opnode):
+    return [] 
+    if isinstance(opnode, operations.Vars):
+        return [opnode,]
+    elif hasattr(opnode, "nodes"):
+        temp = []
+        for op in opnode.nodes:
+            temp.extend(varfinder(op))
+        return temp
+    elif hasattr(opnode, "body"):
+        return varfinder(opnode.body)
+    else:
+        return []
+
+#this is a noop for now
+def funcfinder(opnode):
+    return []
+    if isinstance(opnode, operations.Function):
+        return [opnode,]
+    elif hasattr(opnode, "nodes"):
+        return [funcfinder(op) for op in opnode.nodes]
+    elif hasattr(opnode, "body"):
+        return funcfinder(opnode.body)
+    else:
+        return []
+
+
 class ASTBuilder(RPythonVisitor):
     BINOP_TO_CLS = {
         '+': operations.Plus,
         '-': operations.Minus,
         '*': operations.Mult,
-        '/': operations.Div,
+        '/': operations.Division,
         '%': operations.Mod,
+        '.': operations.Member,
     }
     UNOP_TO_CLS = {
         '+': operations.UPlus,
@@ -90,8 +119,7 @@ class ASTBuilder(RPythonVisitor):
     def visit_IDENTIFIERNAME(self, node):
         pos = self.get_pos(node)
         name = node.additional_info
-        initializer = operations.astundef #XXX this is uneded now
-        return operations.Identifier(pos, name, initializer)
+        return operations.Identifier(pos, name)
 
     def visit_program(self, node):
         pos = self.get_pos(node)
@@ -100,11 +128,41 @@ class ASTBuilder(RPythonVisitor):
         
     def visit_sourceelements(self, node):
         pos = self.get_pos(node)
-        var_decl = None #XXX TODO
-        func_decl = None #XXX TODO
         nodes = [self.dispatch(child) for child in node.children]
-        return operations.Script(pos, var_decl, func_decl, nodes)
+        var_decl = []
+        func_decl = []
+        for node in nodes:
+            var_decl.extend(varfinder(node))
+            func_decl.extend(funcfinder(node))
+        
+        return operations.SourceElements(pos, var_decl, func_decl, nodes)
     
     def visit_expressionstatement(self, node):
         return self.dispatch(node.children[0])
-        
+    
+    def visit_variablestatement(self, node):
+        pos = self.get_pos(node)
+        body = self.dispatch(node.children[0])
+        return operations.Variable(pos, body)
+    
+    def visit_variabledeclarationlist(self, node):
+        pos = self.get_pos(node)
+    
+    def visit_callexpression(self, node):
+        pos = self.get_pos(node)
+        left = self.dispatch(node.children[0])
+        right = self.dispatch(node.children[1])
+        return operations.Call(pos, left, right)
+    
+    def visit_argumentlist(self, node):
+        pos = self.get_pos(node)
+        nodes = [self.dispatch(child) for child in node.children]
+        return operations.ArgumentList(pos, nodes)
+    
+    def visit_assignmentexpression(self, node):
+        pos = self.get_pos(node)
+        left = self.dispatch(node.children[0])
+        atype = node.children[1].additional_info
+        right = self.dispatch(node.children[2])
+        return operations.Assignment(pos, left, right, atype)
+    

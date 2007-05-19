@@ -46,7 +46,7 @@ class Node(object):
         raise NotImplementedError
     
     def __str__(self):
-        return "<ASTop %s %s >"%(self.opcode, self.value)
+        return "%s()"%(self.__class__)
 
 class Statement(Node):
     def __init__(self, pos):
@@ -60,9 +60,9 @@ class Expression(Statement):
         return self.eval(ctx)
 
 class ListOp(Expression):
-    def __init__(self, pos, nodelist):
+    def __init__(self, pos, nodes):
         self.pos = pos
-        self.nodelist = nodelist
+        self.nodes = nodes
         
 class UnaryOp(Expression):
     def __init__(self, pos, expr, postfix=False):
@@ -100,30 +100,36 @@ class PropertyInit(BinaryOp):
 class Array(ListOp):    
     def eval(self, ctx):
         array = W_Array()
-        for i in range(len(self.nodelist)):
-            array.Put(str(i), self.nodelist[i].eval(ctx).GetValue())
+        for i in range(len(self.nodes)):
+            array.Put(str(i), self.nodes[i].eval(ctx).GetValue())
         return array
 
-class Assign(BinaryOp):    
+class Assignment(Expression):
+    def __init__(self, pos, left, right, atype):
+        self.pos = pos
+        self.left = left
+        self.right = right
+        self.type = atype    
+
     def eval(self, ctx):
         v1 = self.left.eval(ctx)
         v3 = self.right.eval(ctx).GetValue()
-        op = self.value
+        op = self.type
         if op == "=":
             val = v3
-        elif op == "*":
+        elif op == "*=":
             val = Mult().mathop(ctx, v1.GetValue(), v3)
-        elif op == "+":
+        elif op == "+=":
             val = Plus().mathop(ctx, v1.GetValue(), v3)
-        elif op == "/":
+        elif op == "/=":
             val = Div().mathop(ctx, v1.GetValue(), v3)
-        elif op == "%":
+        elif op == "%=":
             val = Mod().mathop(ctx, v1.GetValue(), v3)
-        elif op == "&":
+        elif op == "&=":
             val = BitwiseAnd().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
-        elif op == "|":
+        elif op == "|=":
             val = BitwiseOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
-        elif op == "^":
+        elif op == "^=":
             val = BitwiseXOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
         else:
             print op
@@ -131,11 +137,12 @@ class Assign(BinaryOp):
         
         v1.PutValue(val, ctx)
         return val
+    
 
 class Block(Statement):
-    def __init__(self, pos, t):
-        self.nodes = get_objects(t)        
-
+    def __init__(self, pos, nodes):
+        self.nodes = nodes
+    
     def execute(self, ctx):
         try:
             last = w_Undefined
@@ -147,6 +154,7 @@ class Block(Statement):
                 return e.value
             else:
                 raise e
+    
 
 class BitwiseAnd(BinaryBitwiseOp):
     opcode = 'BITWISE_AND'
@@ -193,9 +201,7 @@ class Continue(Unconditional):
     def execute(self, ctx):
         raise ExecutionReturned('continue', None, None)
 
-class Call(BinaryOp):
-    opcode = 'CALL'
-
+class Call(BinaryOp):    
     def eval(self, ctx):
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
@@ -217,6 +223,7 @@ class Call(BinaryOp):
             return retval
         except ExecutionReturned, e:
             return e.value
+    
 
 class Comma(BinaryOp):
     opcode = 'COMMA'
@@ -239,50 +246,38 @@ class Conditional(Expression):
         else:
             return self.falseop.eval(ctx).GetValue()
 
-class Dot(BinaryOp):
-    opcode = 'DOT'
-
+class Member(BinaryOp):
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
         name = self.right.eval(ctx).GetPropertyName()
         return W_Reference(name, w_obj)
+    
 
 class Function(Expression):
     opcode = 'FUNCTION'
 
-    def __init__(self, pos, t):
-        self.name = get_string(t, 'name')
-        self.body = get_obj(t, 'body')
-        params = get_string(t, 'params')
-        if params == '':
-            self.params = []
-        else:
-            self.params = params.split(',')
+    def __init__(self, pos, name, body, params):
+        self.name = name
+        self.body = body
+        self.params = params
 
     def eval(self, ctx):
-        # TODO: this is wrong, should clone the function prototype
+        #XXX this is wrong, should clone the function prototype
         w_obj = W_Object(ctx=ctx, callfunc = self)
         w_obj.Put('prototype', W_Object(ctx=ctx))
         return w_obj
 
 class Identifier(Expression):
-    opcode = 'IDENTIFIER'
-
-    def __init__(self, pos, name, initializer):
+    def __init__(self, pos, name):
+        self.pos = pos
         self.name = name
-        self.initializer = initializer
         
-    def __str__(self):
-        return "<id %s init: %s>"%(str(self.name), str(self.initializer))
-    
     def eval(self, ctx):
-        if not isinstance(self.initializer, Undefined):
-            ref = ctx.resolve_identifier(self.name)
-            ref.PutValue(self.initializer.eval(ctx).GetValue(), ctx)
         return ctx.resolve_identifier(self.name)
     
     def get_literal(self):
         return self.name
+    
 
 class This(Identifier):
     opcode = "THIS"
@@ -335,64 +330,58 @@ def ARC(ctx, x, y):
         return -1
 
 class Or(BinaryOp):
-    
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         if s2.ToBoolean():
             return s2
         s4 = self.right.eval(ctx).GetValue()
         return s4
+    
 
 class And(BinaryOp):
-    opcode = 'AND'
-    
     def eval(self, ctx):
         s2 = self.left.eval(ctx).GetValue()
         if not s2.ToBoolean():
             return s2
         s4 = self.right.eval(ctx).GetValue()
         return s4
+    
 
 class Ge(BinaryComparisonOp):
-    opcode = 'GE'
-    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
         if s5 in (-1, 1):
             return W_Boolean(False)
         else:
             return W_Boolean(True)
+    
 
 class Gt(BinaryComparisonOp):
-    opcode = 'GT'
-    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
         if s5 == -1:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
+    
 
 class Le(BinaryComparisonOp):
-    opcode = 'LE'
-    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op2, op1)
         if s5 in (-1, 1):
             return W_Boolean(False)
         else:
             return W_Boolean(True)
+    
 
 class Lt(BinaryComparisonOp):
-    opcode = 'LT'
-    
     def decision(self, ctx, op1, op2):
         s5 = ARC(ctx, op1, op2)
         if s5 == -1:
             return W_Boolean(False)
         else:
             return W_Boolean(s5)
-
+    
 
 ##############################################################################
 #
@@ -617,11 +606,9 @@ class Index(BinaryOp):
         name= self.right.eval(ctx).GetValue().ToString()
         return W_Reference(name, w_obj)
 
-class List(ListOp):
-    opcode = 'LIST'
-        
+class ArgumentList(ListOp):
     def eval(self, ctx):
-        return W_List([node.eval(ctx).GetValue() for node in self.list])
+        return W_List([node.eval(ctx).GetValue() for node in self.nodes])
 
 
 ##############################################################################
@@ -637,47 +624,56 @@ class BinaryNumberOp(BinaryOp):
         result = self.mathop(ctx, nleft, nright)
         return result
 
+def plus(ctx, nleft, nright):
+    if isinstance(nleft, W_String) or isinstance(nright, W_String):
+        sleft = nleft.ToString()
+        sright = nright.ToString()
+        return W_String(sleft + sright)
+    else:
+        fleft = nleft.ToNumber()
+        fright = nright.ToNumber()
+        return W_Number(fleft + fright)
+
+def mult(ctx, nleft, nright):
+    fleft = nleft.ToNumber()
+    fright = nright.ToNumber()
+    return W_Number(fleft * fright)
+
+def mod(ctx, nleft, nright): # XXX this one is really not following spec
+    ileft = nleft.ToInt32()
+    iright = nright.ToInt32()
+    return W_Number(ileft % iright)
+
+def division(ctx, nleft, nright):
+    fleft = nleft.ToNumber()
+    fright = nright.ToNumber()
+    return W_Number(fleft / fright)
+
+def minus(ctx, nleft, nright):
+    fleft = nleft.ToNumber()
+    fright = nright.ToNumber()
+    return W_Number(fleft - fright)
+
+
 class Plus(BinaryNumberOp):
-    @staticmethod
-    def mathop(ctx, nleft, nright):
-        if isinstance(nleft, W_String) or isinstance(nright, W_String):
-            sleft = nleft.ToString()
-            sright = nright.ToString()
-            return W_String(sleft + sright)
-        else:
-            fleft = nleft.ToNumber()
-            fright = nright.ToNumber()
-            return W_Number(fleft + fright)
+    mathop = staticmethod(plus)
+    
 
 class Mult(BinaryNumberOp):
-    def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToNumber()
-        fright = nright.ToNumber()
-        return W_Number(fleft * fright)
+    mathop = staticmethod(mult)
+    
 
 class Mod(BinaryNumberOp):
-    def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToInt32()
-        fright = nright.ToInt32()
-        return W_Number(fleft % fright)
-
-class Div(BinaryNumberOp):
-    opcode = 'DIV'
+    mathop = staticmethod(mod)
     
-    def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToInt32()
-        fright = nright.ToInt32()
-        return W_Number(fleft / fright)
+
+class Division(BinaryNumberOp):
+    mathop = staticmethod(division)
+    
 
 class Minus(BinaryNumberOp):
-    opcode = 'MINUS'
+    mathop = staticmethod(minus)
     
-    def mathop(self, ctx, nleft, nright):
-        fleft = nleft.ToNumber()
-        fright = nright.ToNumber()
-        return W_Number(fleft - fright)
-
-
 
 class Null(Expression):
     opcode = 'NULL'
@@ -768,7 +764,7 @@ class ObjectInit(ListOp):
 
     def eval(self, ctx):
         w_obj = W_Object()
-        for prop in self.nodelist:
+        for prop in self.nodes:
             name = prop.left.name
             w_expr = prop.right.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
@@ -780,9 +776,9 @@ class ObjectInit(ListOp):
 #
 ##############################################################################
 
-class Script(Statement):
+class SourceElements(Statement):
     """
-    Script nodes are found on each function declaration and in global code
+    SourceElements nodes are found on each function declaration and in global code
     """
     def __init__(self, pos, var_decl, func_decl, nodes):        
         self.var_decl = var_decl
@@ -794,8 +790,6 @@ class Script(Statement):
             ctx.variable.Put(var.name, w_Undefined)
         for fun in self.func_decl:
             ctx.variable.Put(fun.name, fun.eval(ctx))
-            
-        
         node = self
 
         try:
@@ -808,7 +802,7 @@ class Script(Statement):
                 raise
             else:
                 # TODO: proper exception handling
-                print "exception in line: %s, on: %s"%(node.lineno, node.value)
+                print "exception in line: %s, on: %s"%(node.pos.lineno, node)
                 raise
 
 class Program(Statement):
@@ -817,7 +811,7 @@ class Program(Statement):
         self.body = body
 
     def execute(self, ctx):
-        return self.body.execute(self, ctx)
+        return self.body.execute(ctx)
 
 class Semicolon(Statement):
     opcode = 'SEMICOLON'
@@ -829,6 +823,13 @@ class Semicolon(Statement):
         if self.expr is None:
             return w_Undefined
         return self.expr.execute(ctx)
+
+# class ExpressionStatement(Statement):
+#     def __init__(self, pos, exp):
+#         self.expr = expr
+#     
+#     def execute(self, ctx):
+#         return self.expr.eval(ctx)
 
 class Return(Statement):
     opcode = 'RETURN'
@@ -902,19 +903,36 @@ class Undefined(Statement):
     def execute(self, ctx):
         return None
 
-class Vars(Statement):
-    opcode = 'VAR'
-
-    def __init__(self, pos, t):
-        self.nodes = get_objects(t)
-
-    def execute(self, ctx):
-        for var in self.nodes:
-            var.execute(ctx)
-        return W_String(self.nodes[-1].get_literal())
-
+class VariableDeclaration(Node):
+    def __init__(self, pos, identifier, initializerexp):
+        self.pos = pos
+        self.identifier = identifier
+        self.initializerexp = initializerexp
+    
     def eval(self, ctx):
-        return self.execute(ctx)
+        if not isinstance(self.initializerexp, Undefined):
+            ref = self.identifier.eval()
+            ref.PutValue(self.initializerexp.eval(ctx).GetValue(), ctx)
+        return w_Undefined
+    
+
+class VariableDeclList(Expression):
+    def __init__(self, pos, nodes):
+        self.pos = pos
+        self.nodes = nodes
+    
+    def eval(self, ctx):
+        for var in self.nodes:
+            var.eval(ctx)
+        return w_Undefined
+    
+
+class Variable(Statement):
+    def __init__(self, pos, body):
+        self.body = body
+    
+    def execute(self, ctx):
+        return self.body.eval()
 
 class Void(UnaryOp):
     opcode = 'VOID'
@@ -1021,20 +1039,12 @@ class For(Statement):
                     continue
     
 class Boolean(Expression):
-    def __init__(self, pos, t):
-        if self.opcode == 'TRUE':
-            self.bool = True
-        else:
-            self.bool = False
+    def __init__(self, pos, boolval):
+        self.bool = boolval
     
     def eval(self, ctx):
         return W_Boolean(self.bool)
-
-class BTrue(Boolean):
-    pass
-
-class BFalse(Boolean):
-    pass
+    
 
 class Not(UnaryOp):
     def eval(self, ctx):
@@ -1047,6 +1057,6 @@ class UMinus(UnaryOp):
 class UPlus(UnaryOp):    
     def eval(self, ctx):
         return W_Number(+self.expr.eval(ctx).GetValue().ToNumber())
-
+    
 
 astundef = Undefined(Position())

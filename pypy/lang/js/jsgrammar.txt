@@ -188,10 +188,10 @@ propertyname    : <identifier>
                 | <numericliteral>
                 ; 
 
-functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] >functionbody< ["}"]
+functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] >functionbody<? ["}"]
                     ;
 
-functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] >functionbody< ["}"]
+functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] >functionbody<? ["}"]
                     ;
 
 formalparameterlist : identifier [","] >formalparameterlist<
@@ -201,15 +201,13 @@ formalparameterlist : identifier [","] >formalparameterlist<
 functionbody    : sourceelements
                 ;
 
-begmemberexpression : <primaryexpression>
-                    | <functionexpression>
-                    ;
-
-memberexpression    : begmemberexpression "[" expression "]" memberexpression* 
-                    | begmemberexpression "." identifier memberexpression*
-                    | "new" memberexpression arguments
-                    | <begmemberexpression>
-                    ;
+memberexpression	: "." identifier >memberexpression<*
+					| "[" expression "]" >memberexpression<*
+					| "new" memberexpression arguments
+					| <primaryexpression> >memberexpression<*
+					| <functionexpression> >memberexpression<*
+					;
+					
 
 newexpression   : "new" newexpression
                 | <memberexpression>
@@ -362,6 +360,6 @@ variabledeclarationnoin : identifier initialisernoin?
 initialisernoin : "=" assignmentexpressionnoin
             ;
 
-variabledeclarationlistnoin : variabledeclarationnoin "," variabledeclarationlistnoin 
+variabledeclarationlistnoin : variabledeclarationnoin [","] >variabledeclarationlistnoin< 
                         | variabledeclarationnoin
                         ;
