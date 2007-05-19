@@ -308,8 +308,8 @@ class TestToASTExpr(BaseGrammarTest):
         assert w_num.ToNumber() == 6
         w_num =  self.eval_expr('((((6))))')
         assert w_num.ToNumber() == 6
-        #w_array = self.eval_expr('[1,2,3]')
-        #assert w_array.ToString() == '1,2,3'
+        w_array = self.eval_expr('[1,2,3]')
+        assert w_array.ToString() == '1,2,3'
         w_identifier = self.eval_expr('x')
         py.test.raises(ThrowException, w_identifier.GetValue)
         w_object = self.eval_expr('{x:1}')
