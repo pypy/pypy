@@ -8,10 +8,9 @@ grammar = r'''
 STRING: "\"([^\\\"]|\\\"|\\\\)*\"";
 IDENTIFIER: "[\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]+";
 IGNORE: " |\n|\t|;[^\n]*";
+progn: sexpr sexpr+
 sexpr: ["("] sexpr* [")"] | <IDENTIFIER> | <STRING>;
 '''
-#IDENTIFIER: "[\+\-\*a-zA-Z0-9!<=>_~$%&/:?\^]+";
-
 try:
 	regexs, rules, ToAST = parse_ebnf(grammar)
 except ParseError, e:
