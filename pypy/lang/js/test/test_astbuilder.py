@@ -8,7 +8,7 @@ def to_ast(s):
 def test_simple():
     yield to_ast, "1;"
     yield to_ast, "var x=1;"
-    yield to_ast, "print(1);"
+    #yield to_ast, "print(1);"
     #yield to_ast, ""
 
 def test_funcvarfinder():
