@@ -201,15 +201,15 @@ formalparameterlist : identifier [","] >formalparameterlist<
 functionbody    : sourceelements
                 ;
 
-memberexpression	: primaryexpression >memberexpression<
-					| functionexpression >memberexpression<
-					| <primaryexpression>
-					| <functionexpression>
-					| "." identifier >memberexpression<*
-					| "[" expression "]" >memberexpression<*
-					| "new" memberexpression arguments
-					;
-					
+memberexpression: primaryexpression >memberexpression<
+                | functionexpression >memberexpression<
+                | <primaryexpression>
+                | <functionexpression>
+                | "." identifier >memberexpression<*
+                | "[" expression "]" >memberexpression<*
+                | "new" memberexpression arguments
+                ;
+
 
 newexpression   : "new" newexpression
                 | <memberexpression>
