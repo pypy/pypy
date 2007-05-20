@@ -558,10 +558,11 @@ class TestPortal(PortalTest):
         res = self.timeshift_from_portal(f, g, [42], policy=P_NOVIRTUAL)
 
     def test_recursive_portal_call(self):
-        py.test.skip("recursive portal calls don't work right now")
         def indirection(green, red):
-            return portal((green + red) % 100, red + 1)
+            newgreen = hint((green + red) % 100, promote=True)
+            return portal(newgreen, red + 1)
         def portal(green, red):
+            hint(None, global_merge_point=True)
             green = abs(green)
             red = abs(red)
             hint(green, concrete=True)
