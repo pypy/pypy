@@ -436,3 +436,16 @@ list: DECIMAL >list< | DECIMAL;
     t = parse("1 2 3 4 5")
     t = ToAST().transform(t)
 
+def test_bug():
+    # this could be seen as using the transformer in the wrong way
+    # but I have no clue how to detect this situation
+    py.test.skip("fix me somehow")
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+DECIMAL: "0|[1-9][0-9]*";
+list: DECIMAL >list< | <DECIMAL>;
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = parse("1 2 3 4 5")
+    t = ToAST().transform(t)
+
