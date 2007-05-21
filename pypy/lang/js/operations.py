@@ -53,9 +53,6 @@ class Statement(Node):
         self.pos = pos
 
 class Expression(Statement):
-    def eval(self, ctx):
-        return W_Root()
-
     def execute(self, ctx):
         return self.eval(ctx)
 
@@ -809,24 +806,7 @@ class Program(Statement):
 
     def execute(self, ctx):
         return self.body.execute(ctx)
-
-class Semicolon(Statement):
-    opcode = 'SEMICOLON'
-
-    def __init__(self, pos, t):
-        self.expr = get_obj(t, 'expression')
     
-    def execute(self, ctx):
-        if self.expr is None:
-            return w_Undefined
-        return self.expr.execute(ctx)
-
-# class ExpressionStatement(Statement):
-#     def __init__(self, pos, exp):
-#         self.expr = expr
-#     
-#     def execute(self, ctx):
-#         return self.expr.eval(ctx)
 
 class Return(Statement):
     opcode = 'RETURN'

@@ -2,569 +2,586 @@
 import sys
 from StringIO import StringIO
 
-import py.test
+import py
 
 from pypy.lang.js import interpreter
 from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
 
+def test_simple():
+    n1 = Number(Position(), 2.0)
+    n2 = Number(Position(), 4.0)
+    p = Plus(Position(), n1, n2)
+    assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6.0
+    l = []
+    interpreter.writer = l.append
 
-def js_is_on_path():
-    if py.path.local.sysfind("js") is None:
-        py.test.skip("js binary not found")
+def assert_prints(code, assval):
+    l = []
+    interpreter.writer = l.append
+    js_int = interpreter.Interpreter()
+    try:
+        if isinstance(code, str):
+            js_int.run(load_source(code))
+        else:
+            for codepiece in code:
+                js_int.run(load_source(codepiece))
+    except ThrowException, excpt:
+        l.append("uncaught exception: "+str(excpt.exception.ToString()))
+    print l, assval
+    assert l == assval
 
-js_is_on_path()
+def assertp(code, prints):
+    l = []
+    interpreter.writer = l.append
+    jsint = interpreter.Interpreter()
+    try:
+        jsint.run(load_source(code))
+    except ThrowException, excpt:
+        l.append("uncaught exception: "+str(excpt.exception.ToString()))
+    print l, prints
+    if isinstance(prints, list):
+        assert l == prints
+    else:
+        assert l[0] == prints
 
-class TestInterp(object):
-    def test_simple(self):
-        n1 = Number(Position(), 2.0)
-        n2 = Number(Position(), 4.0)
-        p = Plus(Position(), n1, n2)
-        assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6.0
-        l = []
-        interpreter.writer = l.append
-        # Script([Semicolon(Call(Identifier('print', None), 
-        #                 List([Number(1), Number(2)])))],[],[]).execute(ExecutionContext())
-        #         assert l == ['1,2']
+def assertv(code, value):
+    jsint = interpreter.Interpreter()
+    try:
+        code_val = jsint.run(load_source(code)).GetValue()
+    except ThrowException, excpt:
+        code_val = excpt
+    print code_val, value
+    if isinstance(value, int):
+        assert code_val.ToInt32() == value
+    elif isinstance(value, float):
+        assert code_val.ToNumber() == value
+    else:
+        assert code_val.ToString() == value
 
-    def assert_prints(self, code, assval):
-        l = []
-        interpreter.writer = l.append
-        js_int = interpreter.Interpreter()
-        try:
-            if isinstance(code, str):
-                js_int.run(load_source(code))
-            else:
-                for codepiece in code:
-                    js_int.run(load_source(codepiece))
-        except ThrowException, excpt:
-            l.append("uncaught exception: "+str(excpt.exception.ToString()))
-        print l, assval
-        assert l == assval
+def assert_result(code, result):
+    inter = interpreter.Interpreter()
+    r = inter.run(load_source(code))
+    assert r.ToString() == result.ToString()
     
-    def assert_result(self, code, result):
-        inter = interpreter.Interpreter()
-        r = inter.run(load_source(code))
-        assert r.ToString() == result.ToString()
-        
-    def test_interp_parse(self):
-        self.assert_prints("print(1+1);", ["2"])
-        self.assert_prints("print(1+2+3); print(1);", ["6", "1"])
-        self.assert_prints("print(1,2,3);\n", ["1,2,3"])
+def test_interp_parse():
+    yield assertv, "1+1;", 2
+    yield assertp, "print(1+2+3); print(1);", ["6", "1"]
+    yield assertp, "print(1,2,3);\n", "1,2,3"
 
-    def test_var_assign(self):
-        self.assert_prints("x=3;print(x);", ["3"])
-        self.assert_prints("x=3;y=4;print(x+y);", ["7"])
+def test_var_assign():
+    yield assertv, "x=3;x;", 3
+    yield assertv, "x=3;y=4;x+y;", 7
 
-    def test_minus(self):
-        self.assert_prints("print(2-1);", ["1"])
-    
-    def test_string_var(self):
-        self.assert_prints('print(\"sss\");', ["sss"])
-    
-    def test_string_concat(self):
-        self.assert_prints('x="xxx"; y="yyy"; print(x+y);', ["xxxyyy"])
-    
-    def test_string_num_concat(self):
-        self.assert_prints('x=4; y="x"; print(x+y, y+x);', ["4x,x4"])
+def test_minus():
+    assert_prints("print(2-1);", ["1"])
 
-    def test_to_string(self):
-        self.assert_prints("x={}; print(x);", ["[object Object]"])
+def test_string_var():
+    assert_prints('print(\"sss\");', ["sss"])
 
-    def test_object_access(self):
-        self.assert_prints("x={d:3}; print(x.d);", ["3"])
-        self.assert_prints("x={d:3}; print(x.d.d);", ["undefined"])
-        self.assert_prints("x={d:3, z:4}; print(x.d+x.z);", ["7"])
+def test_string_concat():
+    assert_prints('x="xxx"; y="yyy"; print(x+y);', ["xxxyyy"])
 
-    def test_object_access_index(self):
-        self.assert_prints('x={d:"x"}; print(x["d"]);', ["x"])
-    
-    def test_function_prints(self):
-        py.test.skip("not ready yet")
-        self.assert_prints('x=function(){print(3);}; x();', ["3"])
-    
-    def test_function_returns(self):
-        py.test.skip("not ready yet")
-        self.assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
-        self.assert_prints('function x() { return; };', [])
-    
-    def test_var_declaration(self):
-        self.assert_prints('var x = 3; print(x);', ["3"])
-        self.assert_prints('var x = 3; print(x+x);', ["6"])
+def test_string_num_concat():
+    assert_prints('x=4; y="x"; print(x+y, y+x);', ["4x,x4"])
 
-    def test_var_scoping(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var y;
+def test_to_string():
+    assert_prints("x={}; print(x);", ["[object Object]"])
+
+def test_object_access():
+    assert_prints("x={d:3}; print(x.d);", ["3"])
+    assert_prints("x={d:3}; print(x.d.d);", ["undefined"])
+    assert_prints("x={d:3, z:4}; print(x.d+x.z);", ["7"])
+
+def test_object_access_index():
+    assert_prints('x={d:"x"}; print(x["d"]);', ["x"])
+
+def test_function_prints():
+    py.test.skip("not ready yet")
+    assert_prints('x=function(){print(3);}; x();', ["3"])
+
+def test_function_returns():
+    py.test.skip("not ready yet")
+    assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
+    assert_prints('function x() { return; };', [])
+
+def test_var_declaration():
+    assert_prints('var x = 3; print(x);', ["3"])
+    assert_prints('var x = 3; print(x+x);', ["6"])
+
+def test_var_scoping():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var y;
+    var p;
+    p = 0;
+    x = function() {
         var p;
-        p = 0;
-        x = function() {
-            var p;
-            p = 1;
-            y = 3; return y + z;
-        };
-        var z = 2;
-        print(x(), y, p);
-        """, ["5,3,0"])
+        p = 1;
+        y = 3; return y + z;
+    };
+    var z = 2;
+    print(x(), y, p);
+    """, ["5,3,0"])
 
-    def test_function_args(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = function (t,r) {
-               return t+r;
-        };
-        print(x(2,3));
-        """, ["5"])
+def test_function_args():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = function (t,r) {
+           return t+r;
+    };
+    print(x(2,3));
+    """, ["5"])
 
-    def test_function_less_args(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = function (t, r) {
-                return t + r;
-        };
-        print(x(2));
-        """, ["NaN"])
+def test_function_less_args():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = function (t, r) {
+            return t + r;
+    };
+    print(x(2));
+    """, ["NaN"])
 
-    def test_function_more_args(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = function (t, r) {
-                return t + r;
-        };
-        print(x(2,3,4));
-        """, ["5"])
+def test_function_more_args():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = function (t, r) {
+            return t + r;
+    };
+    print(x(2,3,4));
+    """, ["5"])
 
-    def test_function_has_var(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = function () {
-                var t = 'test';
-                return t;
-        };
-        print(x());
-        """, ["test"])
+def test_function_has_var():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = function () {
+            var t = 'test';
+            return t;
+    };
+    print(x());
+    """, ["test"])
 
-    def test_function_arguments(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = function () {
-                r = arguments[0];
-                t = arguments[1];
-                return t + r;
-        };
-        print(x(2,3));
-        """, ["5"])
+def test_function_arguments():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = function () {
+            r = arguments[0];
+            t = arguments[1];
+            return t + r;
+    };
+    print(x(2,3));
+    """, ["5"])
 
 
-    def test_index(self):
-        self.assert_prints("""
-        x = {1:"test"};
-        print(x[1]);
-        """, ["test"])
+def test_index():
+    yield assertv, """
+    x = {1:"test"};
+    x[1];
+    """, 'test'
 
-    def test_array_initializer(self):
-        self.assert_prints("""
-        x = [];
+def test_array_initializer():
+    assert_prints("""
+    x = [];
+    print(x);
+    """, [""])
+
+def test_throw():
+    assert_prints("throw(3);", ["uncaught exception: 3"])
+    
+def test_group():
+    assert_prints("print((2+1));", ["3"])
+
+def test_comma():
+    py.test.skip("not ready yet")
+    assert_prints("print((500,3));", ["3"])
+
+def test_try_catch():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    try {
+        throw(3);
+    }
+    catch (x) {
         print(x);
-        """, [""])
+    }
+    """, ["3"])
 
-    def test_throw(self):
-        self.assert_prints("throw(3);", ["uncaught exception: 3"])
-        
-    def test_group(self):
-        self.assert_prints("print((2+1));", ["3"])
+def test_block():
+    py.test.skip("not ready yet")
+    assert_result("{ 5};", W_Number(5))
+    assert_result("{3; 5};", W_Number(5))
 
-    def test_comma(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("print((500,3));", ["3"])
+def test_try_catch_finally():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    try {
+        throw(3);
+    }
+    catch (x) {
+        print(x);
+    }
+    finally {
+        print(5);
+    }
+    """, ["3", "5"])
     
-    def test_try_catch(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        try {
-            throw(3);
-        }
-        catch (x) {
-            print(x);
-        }
-        """, ["3"])
-    
-    def test_block(self):
-        py.test.skip("not ready yet")
-        self.assert_result("{ 5};", W_Number(5))
-        self.assert_result("{3; 5};", W_Number(5))
-    
-    def test_try_catch_finally(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        try {
-            throw(3);
-        }
-        catch (x) {
-            print(x);
-        }
-        finally {
-            print(5);
-        }
-        """, ["3", "5"])
-        
-    def test_if_then(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        if (1) {
-            print(1);
-        }
-        """, ["1"])
+def test_if_then():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    if (1) {
+        print(1);
+    }
+    """, ["1"])
 
-    def test_if_then_else(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        if (0) {
-            print(1);
-        } else {
-            print(2);
-        }
-        """, ["2"])
+def test_if_then_else():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    if (0) {
+        print(1);
+    } else {
+        print(2);
+    }
+    """, ["2"])
 
-    def test_compare(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("print(1>0);",["true"])
-        self.assert_prints("print(0>1);",["false"])
-        self.assert_prints("print(0>0);",["false"])
-        self.assert_prints("print(1<0);",["false"])
-        self.assert_prints("print(0<1);",["true"])
-        self.assert_prints("print(0<0);",["false"])
-        self.assert_prints("print(1>=0);",["true"])
-        self.assert_prints("print(1>=1);",["true"])
-        self.assert_prints("print(1>=2);",["false"])
-        self.assert_prints("print(0<=1);",["true"])
-        self.assert_prints("print(1<=1);",["true"])
-        self.assert_prints("print(1<=0);",["false"])
-        self.assert_prints("print(0==0);",["true"])
-        self.assert_prints("print(1==1);",["true"])
-        self.assert_prints("print(0==1);",["false"])
-        self.assert_prints("print(0!=1);",["true"])
-        self.assert_prints("print(1!=1);",["false"])
+def test_compare():
+    py.test.skip("not ready yet")
+    assert_prints("print(1>0);",["true"])
+    assert_prints("print(0>1);",["false"])
+    assert_prints("print(0>0);",["false"])
+    assert_prints("print(1<0);",["false"])
+    assert_prints("print(0<1);",["true"])
+    assert_prints("print(0<0);",["false"])
+    assert_prints("print(1>=0);",["true"])
+    assert_prints("print(1>=1);",["true"])
+    assert_prints("print(1>=2);",["false"])
+    assert_prints("print(0<=1);",["true"])
+    assert_prints("print(1<=1);",["true"])
+    assert_prints("print(1<=0);",["false"])
+    assert_prints("print(0==0);",["true"])
+    assert_prints("print(1==1);",["true"])
+    assert_prints("print(0==1);",["false"])
+    assert_prints("print(0!=1);",["true"])
+    assert_prints("print(1!=1);",["false"])
 
-    def test_binary_op(self):
-        self.assert_prints("print(0||0); print(1||0);",["0", "1"])
-        self.assert_prints("print(0&&1); print(1&&1);",["0", "1"])
-    
-    def test_while(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        i = 0;
-        while (i<3) {
-            print(i);
-            i = i+1;
-        }
+def test_binary_op():
+    assert_prints("print(0||0); print(1||0);",["0", "1"])
+    assert_prints("print(0&&1); print(1&&1);",["0", "1"])
+
+def test_while():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    i = 0;
+    while (i<3) {
         print(i);
-        """, ["0","1","2","3"])
+        i = i+1;
+    }
+    print(i);
+    """, ["0","1","2","3"])
 
-    def test_object_creation(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        o = new Object();
-        print(o);
-        """, ["[object Object]"])
+def test_object_creation():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    o = new Object();
+    print(o);
+    """, ["[object Object]"])
 
-    def test_var_decl(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("print(x); var x;", ["undefined"])
-        self.assert_prints("""
-        try {
-            print(z);
-        }
-        catch (e) {
-            print(e);
-        }
-        """, ["ReferenceError: z is not defined"])
-
-    def test_function_name(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        function x() {
-            print("my name is x");
-        }
-        x();
-        """, ["my name is x"])
-            
-    def test_new_with_function(self):
-        py.test.skip("not ready yet")
-        c= """
-        x = function() {this.info = 'hello';};
-        o = new x();
-        print(o.info);
-        """
-        print c
-        self.assert_prints(c, ["hello"])
-
-    def test_vars(self):
-        self.assert_prints("""
-        var x;x=3; print(x);""", ["3"])
-
-    def test_minus(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        x = {y:3};
-        print("y" in x);
-        print("z" in x);
-        """, ["true", "false"])
-    
-    def test_append_code(self):
-        self.assert_prints(["""
-        var x; x=3;
-        """, """
-        print(x);
-        z = 2;
-        ""","""
+def test_var_decl():
+    py.test.skip("not ready yet")
+    assert_prints("print(x); var x;", ["undefined"])
+    assert_prints("""
+    try {
         print(z);
-        """]
-        ,["3", "2"])
-    
-    def test_for(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        for (i=0; i<3; i++) {
-            print(i);
-        }
+    }
+    catch (e) {
+        print(e);
+    }
+    """, ["ReferenceError: z is not defined"])
+
+def test_function_name():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    function x() {
+        print("my name is x");
+    }
+    x();
+    """, ["my name is x"])
+        
+def test_new_with_function():
+    py.test.skip("not ready yet")
+    c= """
+    x = function() {this.info = 'hello';};
+    o = new x();
+    print(o.info);
+    """
+    print c
+    assert_prints(c, ["hello"])
+
+def test_vars():
+    assert_prints("""
+    var x;x=3; print(x);""", ["3"])
+
+def test_minus():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    x = {y:3};
+    print("y" in x);
+    print("z" in x);
+    """, ["true", "false"])
+
+def test_append_code():
+    assert_prints(["""
+    var x; x=3;
+    """, """
+    print(x);
+    z = 2;
+    ""","""
+    print(z);
+    """]
+    ,["3", "2"])
+
+def test_for():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    for (i=0; i<3; i++) {
         print(i);
-        """, ["0","1","2","3"])
+    }
+    print(i);
+    """, ["0","1","2","3"])
+
+def test_eval():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = 2;
+    eval('x=x+1; print(x); z=2');
+    print(z);
+    """, ["3","2"])
+
+def test_arrayobject():
+    py.test.skip("not ready yet")
+    assert_prints("""var x = new Array();
+    print(x.length == 0);""", ['true'])
+     
+def test_break():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    while(1){
+        break;
+    }
+    for(x=0;1==1;x++) {
+        break;
+    }
+    print('out');""", ["out"])
+
+def test_typeof():
+    py.test.skip("not ready yet")
+    assert_result("""
+    var x = 3;
+    typeof x == 'number';
+    """, W_Boolean(True))
     
-    def test_eval(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = 2;
-        eval('x=x+1; print(x); z=2');
-        print(z);
-        """, ["3","2"])
+def test_semicolon():
+    py.test.skip("not ready yet")
+    assert_prints(';', [])
 
-    def test_arrayobject(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""var x = new Array();
-        print(x.length == 0);""", ['true'])
-         
-    def test_break(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        while(1){
-            break;
-        }
-        for(x=0;1==1;x++) {
-            break;
-        }
-        print('out');""", ["out"])
+def test_newwithargs():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = new Object(1,2,3,4);
+    print(x);
+    """, ["[object Object]"])
 
-    def test_typeof(self):
-        py.test.skip("not ready yet")
-        self.assert_result("""
-        var x = 3;
-        typeof x == 'number';
-        """, W_Boolean(True))
-        
-    def test_semicolon(self):
-        py.test.skip("not ready yet")
-        self.assert_prints(';', [])
+def test_increment():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x;
+    x = 1;
+    x++;
+    print(x);""", ["2"])
+    
+def test_ternaryop():
+    py.test.skip("not ready yet")
+    assert_prints([
+    "( 1 == 1 ) ? print('yep') : print('nope');",
+    "( 1 == 0 ) ? print('yep') : print('nope');"],
+    ["yep","nope"])
 
-    def test_newwithargs(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = new Object(1,2,3,4);
-        print(x);
-        """, ["[object Object]"])
+def test_booleanliterals():
+    assert_prints("""
+    var x = false;
+    var y = true;
+    print(y);
+    print(x);""", ["true", "false"])
+    
+def test_unarynot():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = false;
+    print(!x);
+    print(!!x);""", ["true", "false"])
 
-    def test_increment(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x;
-        x = 1;
-        x++;
-        print(x);""", ["2"])
-        
-    def test_ternaryop(self):
-        py.test.skip("not ready yet")
-        self.assert_prints([
-        "( 1 == 1 ) ? print('yep') : print('nope');",
-        "( 1 == 0 ) ? print('yep') : print('nope');"],
-        ["yep","nope"])
+def test_equals():
+    assert_prints("""
+    var x = 5;
+    y = z = x;
+    print(y);""", ["5"])
 
-    def test_booleanliterals(self):
-        self.assert_prints("""
-        var x = false;
-        var y = true;
+def test_math_stuff():
+    assert_prints("""
+    var x = 5;
+    var z = 2;
+    print(x*z);
+    print(4/z);
+    print(isNaN(z));
+    print(Math.abs(z-x));
+    print(Number.NaN);
+    print(Number.POSITIVE_INFINITY);
+    print(Number.NEGATIVE_INFINITY);
+    print(Math.floor(3.2));
+    print(null);
+    print(-z);
+    """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
+    
+def test_globalproperties():
+    assert_prints( """
+    print(NaN);
+    print(Infinity);
+    print(undefined);
+    """, ['NaN', 'inf', 'undefined'])
+
+def test_strangefunc():
+    py.test.skip("not ready yet")
+    assert_prints("""function f1() { var z; var t;}""", [])
+    assert_prints(""" "'t'"; """, [])
+    
+def test_null():
+    assert_result("null;", w_Null)
+
+def test_void():
+    py.test.skip("not ready yet")
+    assert_prints("print(void print('hello'));",
+                        ["hello", "undefined"])
+
+def test_activationprob():
+    py.test.skip("not ready yet")
+    assert_prints( """
+    function intern (int1){
+        print(int1);
+        return int1;
+    }
+    function x (v1){
+        this.p1 = v1;
+        this.p2 = intern(this.p1);
+    }
+    var ins = new x(1);
+    print(ins.p1);
+    print(ins.p2);
+    """, ['1','1', '1'])
+
+def test_array_acess():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = new Array();
+    x[0] = 1;
+    x[x[0]] = 2;
+    x[2] = x[0]+x[1];
+    for(i=0; i<3; i++){
+        print(x[i]);
+    }
+    """, ['1', '2', '3'])
+
+def test_array_length():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var testcases = new Array();
+    var tc = testcases.length;
+    print('tc'+tc);
+    """, ['tc0'])
+
+def test_mod_op():
+    assert_prints("print(2%2);", ['0'])
+
+def test_unary_plus():
+    assert_prints("print(+1);", ['1'])
+
+def test_delete():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = {};
+    x.y = 1;
+    delete x.y;
+    print(x.y);
+    """, ['undefined'])
+
+def test_forin():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var x = {a:5};
+    for(y in x){
         print(y);
-        print(x);""", ["true", "false"])
-        
-    def test_unarynot(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = false;
-        print(!x);
-        print(!!x);""", ["true", "false"])
+    }
+    """, ['5',])
 
-    def test_equals(self):
-        self.assert_prints("""
-        var x = 5;
-        y = z = x;
-        print(y);""", ["5"])
-    
-    def test_math_stuff(self):
-        self.assert_prints("""
-        var x = 5;
-        var z = 2;
-        print(x*z);
-        print(4/z);
-        print(isNaN(z));
-        print(Math.abs(z-x));
-        print(Number.NaN);
-        print(Number.POSITIVE_INFINITY);
-        print(Number.NEGATIVE_INFINITY);
-        print(Math.floor(3.2));
-        print(null);
-        print(-z);
-        """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
-        
-    def test_globalproperties(self):
-        self.assert_prints( """
-        print(NaN);
-        print(Infinity);
-        print(undefined);
-        """, ['NaN', 'inf', 'undefined'])
+def test_stricteq():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    print(2 === 2);
+    print(2 === 3);
+    print(2 !== 3);
+    print(2 !== 2);   
+    """, ['true', 'false', 'true', 'false'])
 
-    def test_strangefunc(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""function f1() { var z; var t;}""", [])
-        self.assert_prints(""" "'t'"; """, [])
-        
-    def test_null(self):
-        self.assert_result("null;", w_Null)
-
-    def test_void(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("print(void print('hello'));",
-                            ["hello", "undefined"])
-
-    def test_activationprob(self):
-        py.test.skip("not ready yet")
-        self.assert_prints( """
-        function intern (int1){
-            print(int1);
-            return int1;
+def test_with():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    var mock = {x:2};
+    var x=4;
+    print(x);
+    try {
+        with(mock) {
+            print(x);
+            throw 3;
+            print("not reacheable");
         }
-        function x (v1){
-            this.p1 = v1;
-            this.p2 = intern(this.p1);
-        }
-        var ins = new x(1);
-        print(ins.p1);
-        print(ins.p2);
-        """, ['1','1', '1'])
+    }
+    catch(y){
+        print(y);
+    }
+    print(x);
+    """, ['4', '2', '3', '4'])
 
-    def test_array_acess(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = new Array();
-        x[0] = 1;
-        x[x[0]] = 2;
-        x[2] = x[0]+x[1];
-        for(i=0; i<3; i++){
-            print(x[i]);
-        }
-        """, ['1', '2', '3'])
-    
-    def test_array_length(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var testcases = new Array();
-        var tc = testcases.length;
-        print('tc'+tc);
-        """, ['tc0'])
-    
-    def test_mod_op(self):
-        self.assert_prints("print(2%2);", ['0'])
-    
-    def test_unary_plus(self):
-        self.assert_prints("print(+1);", ['1'])
+def test_bitops():
+    assert_prints("""
+    print(2 ^ 2);
+    print(2 & 3);
+    print(2 | 3);
+    """, ['0', '2', '3'])
 
-    def test_delete(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = {};
-        x.y = 1;
-        delete x.y;
-        print(x.y);
-        """, ['undefined'])
+def test_for_strange():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    for (var arg = "", i = 0; i < 2; i++) { print(i);}
+    """, ['0', '1'])
 
-    def test_forin(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var x = {a:5};
-        for(y in x){
-            print(y);
-        }
-        """, ['5',])
+def test_recursive_call():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
+    print(fact(3));
+    """, ['6',])
 
-    def test_stricteq(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        print(2 === 2);
-        print(2 === 3);
-        print(2 !== 3);
-        print(2 !== 2);   
-        """, ['true', 'false', 'true', 'false'])
-    
-    def test_with(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        var mock = {x:2};
-        var x=4;
-        print(x);
-        try {
-            with(mock) {
-                print(x);
-                throw 3;
-                print("not reacheable");
-            }
-        }
-        catch(y){
-            print(y);
-        }
-        print(x);
-        """, ['4', '2', '3', '4'])
-    
-    def test_bitops(self):
-        self.assert_prints("""
-        print(2 ^ 2);
-        print(2 & 3);
-        print(2 | 3);
-        """, ['0', '2', '3'])
-
-    def test_for_strange(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        for (var arg = "", i = 0; i < 2; i++) { print(i);}
-        """, ['0', '1'])
-
-    def test_recursive_call(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
-        print(fact(3));
-        """, ['6',])
-    
-    def test_function_prototype(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        function foo() {}; foo.prototype.bar = function() {};
-        """, [])
+def test_function_prototype():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    function foo() {}; foo.prototype.bar = function() {};
+    """, [])
 
 
-    def test_function_this(self):
-        py.test.skip("not ready yet")
-        self.assert_prints("""
-        function foo() {print("debug");this.bar = function() {};};
-        var f = new foo();
-        f.bar();
-        """, ['debug',])
+def test_function_this():
+    py.test.skip("not ready yet")
+    assert_prints("""
+    function foo() {print("debug");this.bar = function() {};};
+    var f = new foo();
+    f.bar();
+    """, ['debug',])
     
