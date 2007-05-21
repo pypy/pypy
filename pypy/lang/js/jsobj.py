@@ -378,6 +378,8 @@ class W_String(W_Primitive):
     def type(self):
         return 'string'
 
+    def GetPropertyName(self):
+        return self.ToString()
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
@@ -427,6 +429,9 @@ class W_Number(W_Primitive):
             return r_uint(0)
            
         return r_uint(self.floatval)
+    
+    def GetPropertyName(self):
+        return self.ToString()
     
 class W_List(W_Root):
     def __init__(self, list_w):

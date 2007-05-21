@@ -15,7 +15,6 @@ def js_is_on_path():
         py.test.skip("js binary not found")
 
 js_is_on_path()
-py.test.skip("not ready yet")
 
 class TestInterp(object):
     def test_simple(self):
@@ -82,9 +81,11 @@ class TestInterp(object):
         self.assert_prints('x={d:"x"}; print(x["d"]);', ["x"])
     
     def test_function_prints(self):
+        py.test.skip("not ready yet")
         self.assert_prints('x=function(){print(3);}; x();', ["3"])
     
     def test_function_returns(self):
+        py.test.skip("not ready yet")
         self.assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
         self.assert_prints('function x() { return; };', [])
     
@@ -93,6 +94,7 @@ class TestInterp(object):
         self.assert_prints('var x = 3; print(x+x);', ["6"])
 
     def test_var_scoping(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var y;
         var p;
@@ -107,6 +109,7 @@ class TestInterp(object):
         """, ["5,3,0"])
 
     def test_function_args(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = function (t,r) {
                return t+r;
@@ -115,6 +118,7 @@ class TestInterp(object):
         """, ["5"])
 
     def test_function_less_args(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = function (t, r) {
                 return t + r;
@@ -123,6 +127,7 @@ class TestInterp(object):
         """, ["NaN"])
 
     def test_function_more_args(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = function (t, r) {
                 return t + r;
@@ -131,6 +136,7 @@ class TestInterp(object):
         """, ["5"])
 
     def test_function_has_var(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = function () {
                 var t = 'test';
@@ -140,6 +146,7 @@ class TestInterp(object):
         """, ["test"])
 
     def test_function_arguments(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = function () {
                 r = arguments[0];
@@ -169,9 +176,11 @@ class TestInterp(object):
         self.assert_prints("print((2+1));", ["3"])
 
     def test_comma(self):
+        py.test.skip("not ready yet")
         self.assert_prints("print((500,3));", ["3"])
     
     def test_try_catch(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         try {
             throw(3);
@@ -182,10 +191,12 @@ class TestInterp(object):
         """, ["3"])
     
     def test_block(self):
+        py.test.skip("not ready yet")
         self.assert_result("{ 5};", W_Number(5))
         self.assert_result("{3; 5};", W_Number(5))
     
     def test_try_catch_finally(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         try {
             throw(3);
@@ -199,6 +210,7 @@ class TestInterp(object):
         """, ["3", "5"])
         
     def test_if_then(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         if (1) {
             print(1);
@@ -206,6 +218,7 @@ class TestInterp(object):
         """, ["1"])
 
     def test_if_then_else(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         if (0) {
             print(1);
@@ -215,6 +228,7 @@ class TestInterp(object):
         """, ["2"])
 
     def test_compare(self):
+        py.test.skip("not ready yet")
         self.assert_prints("print(1>0);",["true"])
         self.assert_prints("print(0>1);",["false"])
         self.assert_prints("print(0>0);",["false"])
@@ -238,6 +252,7 @@ class TestInterp(object):
         self.assert_prints("print(0&&1); print(1&&1);",["0", "1"])
     
     def test_while(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         i = 0;
         while (i<3) {
@@ -248,12 +263,14 @@ class TestInterp(object):
         """, ["0","1","2","3"])
 
     def test_object_creation(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         o = new Object();
         print(o);
         """, ["[object Object]"])
 
     def test_var_decl(self):
+        py.test.skip("not ready yet")
         self.assert_prints("print(x); var x;", ["undefined"])
         self.assert_prints("""
         try {
@@ -265,6 +282,7 @@ class TestInterp(object):
         """, ["ReferenceError: z is not defined"])
 
     def test_function_name(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         function x() {
             print("my name is x");
@@ -273,6 +291,7 @@ class TestInterp(object):
         """, ["my name is x"])
             
     def test_new_with_function(self):
+        py.test.skip("not ready yet")
         c= """
         x = function() {this.info = 'hello';};
         o = new x();
@@ -286,6 +305,7 @@ class TestInterp(object):
         var x;x=3; print(x);""", ["3"])
 
     def test_minus(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         x = {y:3};
         print("y" in x);
@@ -304,6 +324,7 @@ class TestInterp(object):
         ,["3", "2"])
     
     def test_for(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         for (i=0; i<3; i++) {
             print(i);
@@ -312,6 +333,7 @@ class TestInterp(object):
         """, ["0","1","2","3"])
     
     def test_eval(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = 2;
         eval('x=x+1; print(x); z=2');
@@ -319,10 +341,12 @@ class TestInterp(object):
         """, ["3","2"])
 
     def test_arrayobject(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""var x = new Array();
         print(x.length == 0);""", ['true'])
          
     def test_break(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         while(1){
             break;
@@ -333,21 +357,25 @@ class TestInterp(object):
         print('out');""", ["out"])
 
     def test_typeof(self):
+        py.test.skip("not ready yet")
         self.assert_result("""
         var x = 3;
         typeof x == 'number';
         """, W_Boolean(True))
         
     def test_semicolon(self):
+        py.test.skip("not ready yet")
         self.assert_prints(';', [])
 
     def test_newwithargs(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = new Object(1,2,3,4);
         print(x);
         """, ["[object Object]"])
 
     def test_increment(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x;
         x = 1;
@@ -355,6 +383,7 @@ class TestInterp(object):
         print(x);""", ["2"])
         
     def test_ternaryop(self):
+        py.test.skip("not ready yet")
         self.assert_prints([
         "( 1 == 1 ) ? print('yep') : print('nope');",
         "( 1 == 0 ) ? print('yep') : print('nope');"],
@@ -368,6 +397,7 @@ class TestInterp(object):
         print(x);""", ["true", "false"])
         
     def test_unarynot(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = false;
         print(!x);
@@ -403,6 +433,7 @@ class TestInterp(object):
         """, ['NaN', 'inf', 'undefined'])
 
     def test_strangefunc(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""function f1() { var z; var t;}""", [])
         self.assert_prints(""" "'t'"; """, [])
         
@@ -410,10 +441,12 @@ class TestInterp(object):
         self.assert_result("null;", w_Null)
 
     def test_void(self):
+        py.test.skip("not ready yet")
         self.assert_prints("print(void print('hello'));",
                             ["hello", "undefined"])
 
     def test_activationprob(self):
+        py.test.skip("not ready yet")
         self.assert_prints( """
         function intern (int1){
             print(int1);
@@ -429,6 +462,7 @@ class TestInterp(object):
         """, ['1','1', '1'])
 
     def test_array_acess(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = new Array();
         x[0] = 1;
@@ -440,6 +474,7 @@ class TestInterp(object):
         """, ['1', '2', '3'])
     
     def test_array_length(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var testcases = new Array();
         var tc = testcases.length;
@@ -453,6 +488,7 @@ class TestInterp(object):
         self.assert_prints("print(+1);", ['1'])
 
     def test_delete(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = {};
         x.y = 1;
@@ -461,6 +497,7 @@ class TestInterp(object):
         """, ['undefined'])
 
     def test_forin(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var x = {a:5};
         for(y in x){
@@ -469,6 +506,7 @@ class TestInterp(object):
         """, ['5',])
 
     def test_stricteq(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         print(2 === 2);
         print(2 === 3);
@@ -477,6 +515,7 @@ class TestInterp(object):
         """, ['true', 'false', 'true', 'false'])
     
     def test_with(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         var mock = {x:2};
         var x=4;
@@ -502,23 +541,27 @@ class TestInterp(object):
         """, ['0', '2', '3'])
 
     def test_for_strange(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         for (var arg = "", i = 0; i < 2; i++) { print(i);}
         """, ['0', '1'])
 
     def test_recursive_call(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
         print(fact(3));
         """, ['6',])
     
     def test_function_prototype(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
-        function foo() {}; foo.prototype.bar = function() {}
+        function foo() {}; foo.prototype.bar = function() {};
         """, [])
 
 
     def test_function_this(self):
+        py.test.skip("not ready yet")
         self.assert_prints("""
         function foo() {print("debug");this.bar = function() {};};
         var f = new foo();

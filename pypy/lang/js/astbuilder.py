@@ -28,7 +28,6 @@ def funcfinder(opnode):
     else:
         return []
 
-
 class ASTBuilder(RPythonVisitor):
     BINOP_TO_CLS = {
         '+': operations.Plus,
@@ -36,7 +35,15 @@ class ASTBuilder(RPythonVisitor):
         '*': operations.Mult,
         '/': operations.Division,
         '%': operations.Mod,
+        '^': operations.BitwiseXor,
+        '|': operations.BitwiseOr,
+        '&': operations.BitwiseAnd,
+        '&&': operations.And,
+        '||': operations.Or,
+        '==': operations.Eq,
+        '!=': operations.Ne,
         '.': operations.Member,
+        '[': operations.Member,
     }
     UNOP_TO_CLS = {
         '+': operations.UPlus,
@@ -48,7 +55,7 @@ class ASTBuilder(RPythonVisitor):
         '[': operations.Array,
         '{': operations.ObjectInit,
     }
-
+    
     def get_pos(self, node):
         value = ''
         source_pos = None
@@ -80,7 +87,6 @@ class ASTBuilder(RPythonVisitor):
     def string(self,node):
         pos = self.get_pos(node)
         return operations.String(pos, node.additional_info)
-    
     visit_DOUBLESTRING = string
     visit_SINGLESTRING = string
 
@@ -91,10 +97,31 @@ class ASTBuilder(RPythonVisitor):
             pos = self.get_pos(op)
             right = self.dispatch(node.children[i * 2 + 2])
             result = self.BINOP_TO_CLS[op.additional_info](pos, left, right)
+            print left, right
             left = result
         return left
     visit_additiveexpression = binaryop
     visit_multiplicativeexpression = binaryop
+    visit_memberexpression = binaryop
+    visit_bitwisexorexpression = binaryop
+    visit_bitwiseandexpression = binaryop
+    visit_bitwiseorexpression = binaryop
+    visit_equalityexpression = binaryop
+    visit_logicalorexpression = binaryop
+    visit_logicalandexpression = binaryop
+    
+
+    def literalop(self, node):
+        pos = self.get_pos(node);
+        value = node.children[0].additional_info
+        if value == "true":
+            return operations.Boolean(pos, True)
+        elif value == "false":
+            return operations.Boolean(pos, False)
+        else:
+            return operations.Null(pos)
+    visit_nullliteral = literalop
+    visit_booleanliteral = literalop
 
     def visit_unaryexpression(self, node):
         op = node.children[0]
@@ -107,7 +134,7 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(op)
         l = [self.dispatch(child) for child in node.children[1:]]
         return self.LISTOP_TO_CLS[op.additional_info](pos, l)
-    visit_arrayliteral = listop
+    visit_arrayliteral = listop # XXX elision
     visit_objectliteral = listop
     
     def visit_propertynameandvalue(self, node):
@@ -147,6 +174,17 @@ class ASTBuilder(RPythonVisitor):
     
     def visit_variabledeclarationlist(self, node):
         pos = self.get_pos(node)
+        nodes = [self.dispatch(child) for child in node.children]
+        return operations.VariableDeclList(pos, nodes)
+    
+    def visit_variabledeclaration(self, node):
+        pos = self.get_pos(node)
+        identifier = self.dispatch(node.children[0])
+        if len(node.children) > 1:
+            expr = self.dispatch(node.children[1])
+        else:
+            expr = None
+        return operations.VariableDeclaration(pos, identifier, expr)
     
     def visit_callexpression(self, node):
         pos = self.get_pos(node)
@@ -154,9 +192,9 @@ class ASTBuilder(RPythonVisitor):
         right = self.dispatch(node.children[1])
         return operations.Call(pos, left, right)
     
-    def visit_argumentlist(self, node):
+    def visit_arguments(self, node):
         pos = self.get_pos(node)
-        nodes = [self.dispatch(child) for child in node.children]
+        nodes = [self.dispatch(child) for child in node.children[1:]]
         return operations.ArgumentList(pos, nodes)
     
     def visit_assignmentexpression(self, node):
@@ -165,4 +203,15 @@ class ASTBuilder(RPythonVisitor):
         atype = node.children[1].additional_info
         right = self.dispatch(node.children[2])
         return operations.Assignment(pos, left, right, atype)
+    
+    def visit_functiondeclaration(self, node):
+        pos = self.get_pos(node)
+        
+    def visit_throwstatement(self, node):
+        pos = self.get_pos(node)
+        exp = self.dispatch(node.children[0])
+        return operations.Throw(pos, exp)
+    
+    def visit_emptystatement(self, node):
+        return operations.astundef
     

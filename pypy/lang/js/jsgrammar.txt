@@ -160,10 +160,11 @@ primaryexpression   : "this"
                     | <literal>
                     | <arrayliteral>
                     | <objectliteral>
-                    | "\(" <expression> "\)"
+                    | "(" <expression> ")"
                     ;
 
-arrayliteral    : "[" >elementlist< ["]"] 
+arrayliteral    : "[" [elision]? ["]"] # XXX should be treating elisions
+                | "[" >elementlist< ["]"] 
                 | "[" >elementlist< ["," "]"]
                 ;
 
@@ -188,43 +189,46 @@ propertyname    : <identifier>
                 | <numericliteral>
                 ; 
 
-functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] >functionbody<? ["}"]
+functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] functionbody? ["}"]
                     ;
 
-functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] >functionbody<? ["}"]
+functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] functionbody? ["}"]
                     ;
 
 formalparameterlist : identifier [","] >formalparameterlist<
                     | identifier
                     ;
 
-functionbody    : sourceelements
+functionbody    : <sourceelements>
                 ;
 
-memberexpression: primaryexpression memberexpression
-                | functionexpression memberexpression
-                | <primaryexpression>
-                | <functionexpression>
-                | "." identifier memberexpression*
-                | "[" expression "]" memberexpression*
-                | "new" memberexpression arguments
-                ;
+memberexpression    : primaryexpression >memberexpressiona<+
+                    | functionexpression >memberexpressiona<+
+                    | "new" memberexpression arguments
+                    | <primaryexpression>
+                    | <functionexpression>
+                    ;
 
+memberexpressiona   : "." identifier
+                    | "[" expression ["]"]
+                    ;
 
 newexpression   : "new" newexpression
                 | <memberexpression>
                 ;
 
-callexpression  : memberexpression arguments arguments callexpression* 
-                | memberexpression arguments "[" expression "]" callexpression*
-                | memberexpression arguments "." identifier callexpression* 
-                | memberexpression arguments
+callexpression  : memberexpression arguments >callexpressiona<*
                 ;
 
-arguments   : ["("] [")"] 
-            | "(" <argumentlist> ")"
+callexpressiona : arguments
+                | "[" expression ["]"]
+                | "." identifier
+                ;
+
+arguments   : "(" [")"] 
+            | "(" >argumentlist< [")"]
             ;
- 
+
 argumentlist    : assignmentexpression [","] >argumentlist<
                 | assignmentexpression;
 
@@ -365,3 +369,4 @@ initialisernoin : "=" assignmentexpressionnoin
 variabledeclarationlistnoin : variabledeclarationnoin [","] >variabledeclarationlistnoin< 
                         | variabledeclarationnoin
                         ;
+

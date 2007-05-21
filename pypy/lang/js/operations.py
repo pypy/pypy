@@ -170,15 +170,13 @@ class BitwiseNot(UnaryOp):
         return W_Number(~op1)
 
 
-class BitwiseOR(BinaryBitwiseOp):
+class BitwiseOr(BinaryBitwiseOp):
     opcode = 'BITWISE_OR'
     
     def decision(self, ctx, op1, op2):
         return W_Number(op1|op2)
 
-class BitwiseXOR(BinaryBitwiseOp):
-    opcode = 'BITWISE_XOR'
-    
+class BitwiseXor(BinaryBitwiseOp):    
     def decision(self, ctx, op1, op2):
         return W_Number(op1^op2)
 
@@ -251,32 +249,43 @@ class Member(BinaryOp):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
         name = self.right.eval(ctx).GetPropertyName()
         return W_Reference(name, w_obj)
-    
 
-class Function(Expression):
-    opcode = 'FUNCTION'
-
+class FunctionStatement(Statement):
     def __init__(self, pos, name, body, params):
         self.name = name
         self.body = body
         self.params = params
-
+    
+    def execute(self, ctx):
+        pass
+    
     def eval(self, ctx):
         #XXX this is wrong, should clone the function prototype
         w_obj = W_Object(ctx=ctx, callfunc = self)
         w_obj.Put('prototype', W_Object(ctx=ctx))
         return w_obj
+    
+
+class FunctionExpression(Expression):
+    def __init__(self, pos, name, body, params):
+        self.name = name
+        self.body = body
+        self.params = params
+    
+    def eval(self, ctx):
+        #XXX this is wrong, should clone the function prototype
+        w_obj = W_Object(ctx=ctx, callfunc = self)
+        w_obj.Put('prototype', W_Object(ctx=ctx))
+        return w_obj
+    
 
 class Identifier(Expression):
     def __init__(self, pos, name):
         self.pos = pos
         self.name = name
-        
+    
     def eval(self, ctx):
         return ctx.resolve_identifier(self.name)
-    
-    def get_literal(self):
-        return self.name
     
 
 class This(Identifier):
@@ -675,12 +684,7 @@ class Minus(BinaryNumberOp):
     mathop = staticmethod(minus)
     
 
-class Null(Expression):
-    opcode = 'NULL'
-    
-    def __init__(self, pos, t):
-        pass
-    
+class Null(Expression):    
     def eval(self, ctx):
         return w_Null            
 
@@ -720,22 +724,21 @@ class Number(Expression):
         return W_Number(self.num)
 
 class String(Expression):
-    opcode = 'STRING'
-    
     def __init__(self, pos, strval):
+        self.pos = pos
         self.strval = self.string_unquote(strval)
-
+    
     def eval(self, ctx):
         return W_String(self.strval)
     
     def get_literal(self):
         return W_String(self.strval).ToString()
-
+    
     def string_unquote(self, string):
         temp = []
         stop = len(string)-1
         last = ""
-    
+        
         #removing the begining quotes (" or \')
         if string.startswith('"'):
             singlequote = False
@@ -746,7 +749,7 @@ class String(Expression):
             print stop
             raise JsSyntaxError()
         internalstring = string[1:stop]
-    
+        
         for c in internalstring:
             if last == SLASH:
                 unescapeseq = unescapedict[last+c]
@@ -757,7 +760,7 @@ class String(Expression):
                 temp.append(c)
             last = c
         return ''.join(temp)
-
+    
 
 class ObjectInit(ListOp):
     opcode = 'OBJECT_INIT'
@@ -765,16 +768,10 @@ class ObjectInit(ListOp):
     def eval(self, ctx):
         w_obj = W_Object()
         for prop in self.nodes:
-            name = prop.left.name
+            name = prop.left.eval(ctx).GetPropertyName()
             w_expr = prop.right.eval(ctx).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
-
-##############################################################################
-#
-# Script and semicolon, the most important part of the interpreter probably
-#
-##############################################################################
 
 class SourceElements(Statement):
     """
@@ -844,13 +841,12 @@ class Return(Statement):
             raise ExecutionReturned('return', self.expr.eval(ctx), None)
 
 class Throw(Statement):
-    opcode = 'THROW'
+    def __init__(self, pos, exp):
+        self.pos = pos
+        self.exp = exp
     
-    def __init__(self, pos, t):
-        self.exception = get_obj(t, 'exception')
-
     def execute(self, ctx):
-        raise ThrowException(self.exception.eval(ctx))
+        raise ThrowException(self.exp.eval(ctx).GetValue())
 
 class Try(Statement):
     opcode = 'TRY'
@@ -903,17 +899,17 @@ class Undefined(Statement):
     def execute(self, ctx):
         return None
 
-class VariableDeclaration(Node):
-    def __init__(self, pos, identifier, initializerexp):
+class VariableDeclaration(Expression):
+    def __init__(self, pos, identifier, expr=None):
         self.pos = pos
         self.identifier = identifier
-        self.initializerexp = initializerexp
+        self.expr = expr
     
     def eval(self, ctx):
-        if not isinstance(self.initializerexp, Undefined):
-            ref = self.identifier.eval()
-            ref.PutValue(self.initializerexp.eval(ctx).GetValue(), ctx)
-        return w_Undefined
+        # XXX take a look at the specs
+        v = self.identifier.eval(ctx)
+        if self.expr is not None:
+            v.PutValue(self.expr.eval(ctx).GetValue(), ctx)
     
 
 class VariableDeclList(Expression):
@@ -926,13 +922,13 @@ class VariableDeclList(Expression):
             var.eval(ctx)
         return w_Undefined
     
-
 class Variable(Statement):
     def __init__(self, pos, body):
+        self.pos = pos
         self.body = body
     
     def execute(self, ctx):
-        return self.body.eval()
+        return self.body.eval(ctx)
 
 class Void(UnaryOp):
     opcode = 'VOID'
