@@ -213,8 +213,8 @@ memberexpressiona   : "." identifier
                     | "[" expression ["]"]
                     ;
 
-newexpression   : "new" newexpression
-                | <memberexpression>
+newexpression   : <memberexpression>
+                | "new" newexpression                
                 ;
 
 callexpression  : memberexpression arguments >callexpressiona<*

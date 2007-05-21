@@ -693,14 +693,13 @@ class Null(Expression):
 ##############################################################################
 
 class New(UnaryOp):
-    opcode = 'NEW'
-
     def eval(self, ctx):
         x = self.expr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
         
         return x.Construct(ctx=ctx)
+    
 
 class NewWithArgs(BinaryOp):
     opcode = 'NEW_WITH_ARGS'

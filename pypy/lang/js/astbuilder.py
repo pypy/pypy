@@ -102,7 +102,6 @@ class ASTBuilder(RPythonVisitor):
         return left
     visit_additiveexpression = binaryop
     visit_multiplicativeexpression = binaryop
-    visit_memberexpression = binaryop
     visit_bitwisexorexpression = binaryop
     visit_bitwiseandexpression = binaryop
     visit_bitwiseorexpression = binaryop
@@ -110,6 +109,18 @@ class ASTBuilder(RPythonVisitor):
     visit_logicalorexpression = binaryop
     visit_logicalandexpression = binaryop
     
+    def visit_memberexpression(self, node):
+        if isinstance(node.children[0], Symbol) and \
+           node.children[0].additional_info == 'new': # XXX could be a identifier?
+            # "new case"
+            pos = self.get_pos(node)
+            left = self.dispatch(node.children[1])
+            right = self.dispatch(node.children[2])
+            exp = operations.Call(pos, left, right)
+            return operations.New(pos, exp)            
+        else:
+            return self.binaryop(node)
+
 
     def literalop(self, node):
         pos = self.get_pos(node);
@@ -214,4 +225,12 @@ class ASTBuilder(RPythonVisitor):
     
     def visit_emptystatement(self, node):
         return operations.astundef
+    
+    def visit_newexpression(self, node):
+        if len(node.children) == 1:
+            return self.dispatch(node.children[0])
+        else:
+            pos = self.get_pos(node)
+            val = self.dispatch(node.children[0])
+            return operations.New(pos, val)
     
