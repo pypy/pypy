@@ -42,10 +42,14 @@ class ASTBuilder(RPythonVisitor):
         '||': operations.Or,
         '==': operations.Eq,
         '!=': operations.Ne,
+        '!==': operations.StrictNe,
+        '===': operations.StrictEq,
         '.': operations.Member,
         '[': operations.Member,
     }
     UNOP_TO_CLS = {
+        '~': operations.BitwiseNot,
+        '!': operations.Not,
         '+': operations.UPlus,
         '-': operations.UMinus,
         '++': operations.Increment,
@@ -74,6 +78,8 @@ class ASTBuilder(RPythonVisitor):
                 source_pos = curr.token.source_pos
 
         # XXX some of the source positions are not perfect
+        if source_pos is None:
+            return operations.Position()
         return operations.Position(
                    source_pos.lineno,
                    source_pos.columnno,
@@ -112,12 +118,10 @@ class ASTBuilder(RPythonVisitor):
     def visit_memberexpression(self, node):
         if isinstance(node.children[0], Symbol) and \
            node.children[0].additional_info == 'new': # XXX could be a identifier?
-            # "new case"
             pos = self.get_pos(node)
             left = self.dispatch(node.children[1])
             right = self.dispatch(node.children[2])
-            exp = operations.Call(pos, left, right)
-            return operations.New(pos, exp)            
+            return operations.NewWithArgs(pos, left, right)
         else:
             return self.binaryop(node)
 
@@ -139,6 +143,13 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(op)
         child = self.dispatch(node.children[1])
         return self.UNOP_TO_CLS[op.additional_info](pos, child)
+
+    def visit_postfixexpression(self, node):
+        op = node.children[1]
+        pos = self.get_pos(op)
+        child = self.dispatch(node.children[0])
+        return self.UNOP_TO_CLS[op.additional_info](pos, child, postfix=True)
+
     
     def listop(self, node):
         op = node.children[0]

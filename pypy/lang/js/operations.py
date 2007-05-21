@@ -154,28 +154,25 @@ class Block(Statement):
     
 
 class BitwiseAnd(BinaryBitwiseOp):
-    opcode = 'BITWISE_AND'
-    
     def decision(self, ctx, op1, op2):
         return W_Number(op1&op2)
+    
 
 class BitwiseNot(UnaryOp):
-    opcode = 'BITWISE_NOT'
-
     def eval(self, ctx):
         op1 = self.expr.eval(ctx).GetValue().ToInt32()
         return W_Number(~op1)
-
+    
 
 class BitwiseOr(BinaryBitwiseOp):
-    opcode = 'BITWISE_OR'
-    
     def decision(self, ctx, op1, op2):
         return W_Number(op1|op2)
+    
 
 class BitwiseXor(BinaryBitwiseOp):    
     def decision(self, ctx, op1, op2):
         return W_Number(op1^op2)
+    
 
 class Unconditional(Statement):
     def __init__(self, pos, t):
@@ -702,14 +699,13 @@ class New(UnaryOp):
     
 
 class NewWithArgs(BinaryOp):
-    opcode = 'NEW_WITH_ARGS'
-    
     def eval(self, ctx):
         x = self.left.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
         args = self.right.eval(ctx).get_args()
         return x.Construct(ctx=ctx, args=args)
+    
 
 class Number(Expression):    
     def __init__(self, pos, num):
@@ -1024,6 +1020,7 @@ class Boolean(Expression):
 class Not(UnaryOp):
     def eval(self, ctx):
         return W_Boolean(not self.expr.eval(ctx).GetValue().ToBoolean())
+    
 
 class UMinus(UnaryOp):
     def eval(self, ctx):

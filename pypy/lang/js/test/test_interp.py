@@ -53,7 +53,9 @@ def assertv(code, value):
     except ThrowException, excpt:
         code_val = excpt
     print code_val, value
-    if isinstance(value, int):
+    if isinstance(value, bool):
+        assert code_val.ToBoolean() == value
+    elif isinstance(value, int):
         assert code_val.ToInt32() == value
     elif isinstance(value, float):
         assert code_val.ToNumber() == value
@@ -75,10 +77,10 @@ def test_var_assign():
     yield assertv, "x=3;y=4;x+y;", 7
 
 def test_minus():
-    assert_prints("print(2-1);", ["1"])
+    assertv("2-1;", 1)
 
 def test_string_var():
-    assert_prints('print(\"sss\");', ["sss"])
+    assertv('\"sss\";', 'sss')
 
 def test_string_concat():
     assert_prints('x="xxx"; y="yyy"; print(x+y);', ["xxxyyy"])
@@ -280,11 +282,10 @@ def test_while():
     """, ["0","1","2","3"])
 
 def test_object_creation():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    yield assertv, """
     o = new Object();
-    print(o);
-    """, ["[object Object]"])
+    o;
+    """, "[object Object]"
 
 def test_var_decl():
     py.test.skip("not ready yet")
@@ -321,7 +322,7 @@ def test_vars():
     assert_prints("""
     var x;x=3; print(x);""", ["3"])
 
-def test_minus():
+def test_in():
     py.test.skip("not ready yet")
     assert_prints("""
     x = {y:3};
@@ -350,17 +351,15 @@ def test_for():
     """, ["0","1","2","3"])
 
 def test_eval():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = 2;
-    eval('x=x+1; print(x); z=2');
+    eval('x=x+1; print(x); z=2;');
     print(z);
     """, ["3","2"])
 
 def test_arrayobject():
-    py.test.skip("not ready yet")
-    assert_prints("""var x = new Array();
-    print(x.length == 0);""", ['true'])
+    assertv("""var x = new Array();
+    x.length == 0;""", 'true')
      
 def test_break():
     py.test.skip("not ready yet")
@@ -381,23 +380,20 @@ def test_typeof():
     """, W_Boolean(True))
     
 def test_semicolon():
-    py.test.skip("not ready yet")
-    assert_prints(';', [])
+    assertp(';', [])
 
 def test_newwithargs():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = new Object(1,2,3,4);
     print(x);
-    """, ["[object Object]"])
+    """, "[object Object]")
 
 def test_increment():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     var x;
     x = 1;
     x++;
-    print(x);""", ["2"])
+    x;""", 2)
     
 def test_ternaryop():
     py.test.skip("not ready yet")
@@ -407,27 +403,26 @@ def test_ternaryop():
     ["yep","nope"])
 
 def test_booleanliterals():
-    assert_prints("""
+    assertp("""
     var x = false;
     var y = true;
     print(y);
     print(x);""", ["true", "false"])
     
 def test_unarynot():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = false;
     print(!x);
     print(!!x);""", ["true", "false"])
 
 def test_equals():
-    assert_prints("""
+    assertv("""
     var x = 5;
     y = z = x;
-    print(y);""", ["5"])
+    y;""", 5)
 
 def test_math_stuff():
-    assert_prints("""
+    assertp("""
     var x = 5;
     var z = 2;
     print(x*z);
@@ -443,7 +438,7 @@ def test_math_stuff():
     """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
     
 def test_globalproperties():
-    assert_prints( """
+    assertp( """
     print(NaN);
     print(Infinity);
     print(undefined);
@@ -491,18 +486,17 @@ def test_array_acess():
     """, ['1', '2', '3'])
 
 def test_array_length():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var testcases = new Array();
     var tc = testcases.length;
     print('tc'+tc);
-    """, ['tc0'])
+    """, 'tc0')
 
 def test_mod_op():
-    assert_prints("print(2%2);", ['0'])
+    assertp("print(2%2);", '0')
 
 def test_unary_plus():
-    assert_prints("print(+1);", ['1'])
+    assertp("print(+1);", '1')
 
 def test_delete():
     py.test.skip("not ready yet")
@@ -523,13 +517,10 @@ def test_forin():
     """, ['5',])
 
 def test_stricteq():
-    py.test.skip("not ready yet")
-    assert_prints("""
-    print(2 === 2);
-    print(2 === 3);
-    print(2 !== 3);
-    print(2 !== 2);   
-    """, ['true', 'false', 'true', 'false'])
+    yield assertv, "2 === 2;", True
+    yield assertv, "2 === 3;", False
+    yield assertv, "2 !== 3;", True
+    yield assertv, "2 !== 2;", False
 
 def test_with():
     py.test.skip("not ready yet")
@@ -551,11 +542,9 @@ def test_with():
     """, ['4', '2', '3', '4'])
 
 def test_bitops():
-    assert_prints("""
-    print(2 ^ 2);
-    print(2 & 3);
-    print(2 | 3);
-    """, ['0', '2', '3'])
+    yield assertv, "2 ^ 2;", 0
+    yield assertv, "2 & 3;", 2
+    yield assertv, "2 | 3;", 3
 
 def test_for_strange():
     py.test.skip("not ready yet")
