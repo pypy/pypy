@@ -389,14 +389,19 @@ class W_Number(W_Primitive):
         return str(self.floatval)+"W"
         
     def ToString(self):
-        if str(self.floatval) == str(NaN):
+        floatstr = str(self.floatval)
+        if floatstr == str(NaN):
             return 'NaN'
+        if floatstr == str(Infinity):
+            return 'Infinity'
+        if floatstr == str(-Infinity):
+            return '-Infinity'
         try:
             if float(int(self.floatval)) == self.floatval:
                 return str(int(self.floatval))
         except OverflowError, e:
             pass
-        return str(self.floatval)
+        return floatstr
     
     def ToBoolean(self):
         if self.floatval == 0.0 or str(self.floatval) == str(NaN):

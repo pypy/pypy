@@ -230,11 +230,11 @@ def test_try_catch_finally():
     
 def test_if_then():
     py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     if (1) {
         print(1);
     }
-    """, ["1"])
+    """, "1")
 
 def test_if_then_else():
     py.test.skip("not ready yet")
@@ -435,14 +435,15 @@ def test_math_stuff():
     print(Math.floor(3.2));
     print(null);
     print(-z);
-    """, ['10', '2', 'false', '3', 'NaN', 'inf', '-inf', '3', '', '-2'])
+    """, ['10', '2', 'false', '3', 'NaN', 'Infinity', '-Infinity',
+    '3', '', '-2'])
     
 def test_globalproperties():
     assertp( """
     print(NaN);
     print(Infinity);
     print(undefined);
-    """, ['NaN', 'inf', 'undefined'])
+    """, ['NaN', 'Infinity', 'undefined'])
 
 def test_strangefunc():
     py.test.skip("not ready yet")

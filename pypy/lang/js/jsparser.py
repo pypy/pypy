@@ -5,7 +5,7 @@ import py
 GFILE = py.magic.autopath().dirpath().join("jsgrammar.txt")
 
 try:
-    t = GFILE.read()
+    t = GFILE.read(mode='U')
     regexs, rules, ToAST = parse_ebnf(t)
 except ParseError,e:
     print e.nice_error_message(filename=str(GFILE),source=t)
