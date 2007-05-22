@@ -1,25 +1,31 @@
 from pypy.rpython.ootypesystem import ootype
+from pypy.objspace.flow import model as flowmodel
 from pypy.translator.jvm.generator import \
      Field, Method, CUSTOMDICTMAKE
 from pypy.translator.oosupport.constant import \
      BaseConstantGenerator, RecordConst, InstanceConst, ClassConst, \
-     StaticMethodConst, CustomDictConst
+     StaticMethodConst, CustomDictConst, WeakRefConst, push_constant
 from pypy.translator.jvm.typesystem import \
-     jPyPyConst, jObject, jVoid
+     jPyPyConst, jObject, jVoid, jWeakRef
 
 # ___________________________________________________________________________
 # Constant Generator
 
 class JVMConstantGenerator(BaseConstantGenerator):
-
+    
     # _________________________________________________________________
     # Constant Operations
     #
     # We store constants in static fields of the jPyPyConst class.
     
     def _init_constant(self, const):
-        fieldty = self.db.lltype_to_cts(const.OOTYPE())
-        const.fieldobj = Field(jPyPyConst.name, const.name, fieldty, True)
+        # Determine the Java type of the constant: some constants
+        # (weakrefs) do not have an OOTYPE, so if it returns None use
+        # jtype()
+        JFIELDOOTY = const.OOTYPE()
+        if not JFIELDOOTY: jfieldty = const.jtype()
+        else: jfieldty = self.db.lltype_to_cts(JFIELDOOTY)
+        const.fieldobj = Field(jPyPyConst.name, const.name, jfieldty, True)
 
     def push_constant(self, gen, const):
         const.fieldobj.load(gen)
@@ -92,3 +98,27 @@ class JVMCustomDictConst(CustomDictConst):
         gen.new_with_jtype(self.hash_jcls)
         gen.emit(CUSTOMDICTMAKE)
         
+class JVMWeakRefConst(WeakRefConst):
+
+    # Ensure that weak refs are initialized last:
+    PRIORITY = 200
+
+    def jtype(self):
+        return jWeakRef
+
+    def create_pointer(self, gen):
+        gen.prepare_cast_ptr_to_weak_address()
+        if not self.value:
+            TYPE = ootype.ROOT
+            gen.push_null(TYPE)
+        else:
+            TYPE = self.value._TYPE
+            push_constant(self.db, self.value._TYPE, self.value, gen)
+        gen.finalize_cast_ptr_to_weak_address(TYPE)
+
+    def initialize_data(self, gen):
+        gen.pop(ootype.ROOT)
+        return True
+    
+    
+    

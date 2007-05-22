@@ -9,7 +9,8 @@ from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
      SetField, GetField, DownCast, RuntimeNew, OOString, CastTo
 from pypy.translator.jvm.metavm import \
-     IndirectCall, JvmCallMethod, TranslateException, NewCustomDict
+     IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
+     CastPtrToWeakAddress, CastWeakAddressToPtr
 
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
@@ -59,9 +60,9 @@ _opcodes = {
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
-    #
-    #'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
-    #'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
+
+    'cast_ptr_to_weakadr':      [CastPtrToWeakAddress],
+    'cast_weakadr_to_ptr':      CastWeakAddressToPtr,
     #'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     #'resume_point':             Ignore,
 

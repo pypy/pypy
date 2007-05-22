@@ -18,7 +18,8 @@ from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.constant import \
-     JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst
+     JVMConstantGenerator, JVMStaticMethodConst, JVMCustomDictConst, \
+     JVMWeakRefConst
 from pypy.translator.jvm.prebuiltnodes import create_interlink_node
 
 class JvmError(Exception):
@@ -208,6 +209,7 @@ class GenJvm(GenOO):
     ConstantGenerator = JVMConstantGenerator
     CustomDictConst   = JVMCustomDictConst
     StaticMethodConst = JVMStaticMethodConst
+    WeakRefConst = JVMWeakRefConst
     
     def __init__(self, tmpdir, translator, entrypoint):
         """
