@@ -13,7 +13,7 @@ sourceelement   : <functiondeclaration>
                 | <statement>
                 ;
 
-statement   : <block> [";"]?
+statement   : <block>
             | <variablestatement> [";"]
             | <emptystatement>
             | <expressionstatement> [";"]
@@ -29,7 +29,7 @@ statement   : <block> [";"]?
             | <trystatement>
             ;
 
-block   : ["{"] >statementlist<? ["}"]
+block   : "{" >statementlist<? ["}"]
         ;
 
 statementlist   : statement >statementlist<

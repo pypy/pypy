@@ -5,9 +5,9 @@ from StringIO import StringIO
 import py
 
 from pypy.lang.js import interpreter
-from pypy.lang.js.jsparser import parse
-from pypy.lang.js.interpreter import *
-from pypy.lang.js.jsobj import W_Number, W_Object, ExecutionContext
+from pypy.lang.js.operations import AEC, Number, Position, Plus
+from pypy.lang.js.jsobj import W_Number, W_Object, \
+    ExecutionContext, W_Root, ThrowException, w_Null
 
 def test_simple():
     n1 = Number(Position(), 2.0)
@@ -23,10 +23,10 @@ def assert_prints(code, assval):
     js_int = interpreter.Interpreter()
     try:
         if isinstance(code, str):
-            js_int.run(load_source(code))
+            js_int.run(interpreter.load_source(code))
         else:
             for codepiece in code:
-                js_int.run(load_source(codepiece))
+                js_int.run(interpreter.load_source(codepiece))
     except ThrowException, excpt:
         l.append("uncaught exception: "+str(excpt.exception.ToString()))
     print l, assval
@@ -37,7 +37,7 @@ def assertp(code, prints):
     interpreter.writer = l.append
     jsint = interpreter.Interpreter()
     try:
-        jsint.run(load_source(code))
+        jsint.run(interpreter.load_source(code))
     except ThrowException, excpt:
         l.append("uncaught exception: "+str(excpt.exception.ToString()))
     print l, prints
@@ -49,11 +49,13 @@ def assertp(code, prints):
 def assertv(code, value):
     jsint = interpreter.Interpreter()
     try:
-        code_val = jsint.run(load_source(code)).GetValue()
+        code_val = jsint.run(interpreter.load_source(code)).GetValue()
     except ThrowException, excpt:
         code_val = excpt
     print code_val, value
-    if isinstance(value, bool):
+    if isinstance(value, W_Root):
+        assert AEC(jsint.global_context, code_val, value) == True
+    elif isinstance(value, bool):
         assert code_val.ToBoolean() == value
     elif isinstance(value, int):
         assert code_val.ToInt32() == value
@@ -61,11 +63,6 @@ def assertv(code, value):
         assert code_val.ToNumber() == value
     else:
         assert code_val.ToString() == value
-
-def assert_result(code, result):
-    inter = interpreter.Interpreter()
-    r = inter.run(load_source(code))
-    assert r.ToString() == result.ToString()
     
 def test_interp_parse():
     yield assertv, "1+1;", 2
@@ -210,9 +207,8 @@ def test_try_catch():
     """, ["3"])
 
 def test_block():
-    py.test.skip("not ready yet")
-    assert_result("{ 5};", W_Number(5))
-    assert_result("{3; 5};", W_Number(5))
+    assertv("{5;}", W_Number(5))
+    assertv("{3; 5;}", W_Number(5))
 
 def test_try_catch_finally():
     py.test.skip("not ready yet")
@@ -229,7 +225,6 @@ def test_try_catch_finally():
     """, ["3", "5"])
     
 def test_if_then():
-    py.test.skip("not ready yet")
     assertp("""
     if (1) {
         print(1);
@@ -237,42 +232,39 @@ def test_if_then():
     """, "1")
 
 def test_if_then_else():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     if (0) {
         print(1);
     } else {
         print(2);
     }
-    """, ["2"])
+    """, "2")
 
 def test_compare():
-    py.test.skip("not ready yet")
-    assert_prints("print(1>0);",["true"])
-    assert_prints("print(0>1);",["false"])
-    assert_prints("print(0>0);",["false"])
-    assert_prints("print(1<0);",["false"])
-    assert_prints("print(0<1);",["true"])
-    assert_prints("print(0<0);",["false"])
-    assert_prints("print(1>=0);",["true"])
-    assert_prints("print(1>=1);",["true"])
-    assert_prints("print(1>=2);",["false"])
-    assert_prints("print(0<=1);",["true"])
-    assert_prints("print(1<=1);",["true"])
-    assert_prints("print(1<=0);",["false"])
-    assert_prints("print(0==0);",["true"])
-    assert_prints("print(1==1);",["true"])
-    assert_prints("print(0==1);",["false"])
-    assert_prints("print(0!=1);",["true"])
-    assert_prints("print(1!=1);",["false"])
+    yield assertv, "1>0;", True
+    yield assertv, "0>1;", False
+    yield assertv, "0>0;", False
+    yield assertv, "1<0;", False
+    yield assertv, "0<1;", True
+    yield assertv, "0<0;", False
+    yield assertv, "1>=0;", True
+    yield assertv, "1>=1;", True
+    yield assertv, "1>=2;", False
+    yield assertv, "0<=1;", True
+    yield assertv, "1<=1;", True
+    yield assertv, "1<=0;", False
+    yield assertv, "0==0;", True
+    yield assertv, "1==1;", True
+    yield assertv, "0==1;", False
+    yield assertv, "0!=1;", True
+    yield assertv, "1!=1;", False
 
 def test_binary_op():
-    assert_prints("print(0||0); print(1||0);",["0", "1"])
-    assert_prints("print(0&&1); print(1&&1);",["0", "1"])
+    yield assertp, "print(0||0); print(1||0);", ["0", "1"]
+    yield assertp, "print(0&&1); print(1&&1);", ["0", "1"]
 
 def test_while():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     i = 0;
     while (i<3) {
         print(i);
@@ -373,11 +365,10 @@ def test_break():
     print('out');""", ["out"])
 
 def test_typeof():
-    py.test.skip("not ready yet")
-    assert_result("""
+    assertv("""
     var x = 3;
     typeof x == 'number';
-    """, W_Boolean(True))
+    """, True)
     
 def test_semicolon():
     assertp(';', [])
@@ -451,7 +442,7 @@ def test_strangefunc():
     assert_prints(""" "'t'"; """, [])
     
 def test_null():
-    assert_result("null;", w_Null)
+    assertv("null;", w_Null)
 
 def test_void():
     py.test.skip("not ready yet")

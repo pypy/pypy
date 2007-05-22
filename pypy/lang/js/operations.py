@@ -91,6 +91,12 @@ class BinaryBitwiseOp(BinaryOp):
     def decision(self, ctx, op1, op2):
         raise NotImplementedError
 
+class Undefined(Statement):
+    def execute(self, ctx):
+        return w_Undefined
+
+astundef = Undefined(Position())
+
 class PropertyInit(BinaryOp):
     pass
 
@@ -138,6 +144,7 @@ class Assignment(Expression):
 
 class Block(Statement):
     def __init__(self, pos, nodes):
+        self.pos = pos
         self.nodes = nodes
     
     def execute(self, ctx):
@@ -286,12 +293,10 @@ class This(Identifier):
     opcode = "THIS"
 
 class If(Statement):
-    opcode = 'IF'
-
-    def __init__(self, pos, t):
-        self.condition = get_obj(t, 'condition')
-        self.thenPart = get_obj(t, 'thenPart')
-        self.elsePart = get_obj(t, 'elsePart')
+    def __init__(self, pos, condition, thenpart, elsepart=astundef):
+        self.condition = condition
+        self.thenPart = thenpart
+        self.elsePart = elsepart
 
     def execute(self, ctx):
         temp = self.condition.eval(ctx).GetValue()
@@ -870,10 +875,6 @@ class Typeof(UnaryOp):
             return W_String("undefined")
         return W_String(val.GetValue().type())
 
-class Undefined(Statement):
-    def execute(self, ctx):
-        return None
-
 class VariableDeclaration(Expression):
     def __init__(self, pos, identifier, expr=None):
         self.pos = pos
@@ -931,9 +932,10 @@ class With(Statement):
 
 
 class WhileBase(Statement):
-    def __init__(self, pos, t):
-        self.condition = get_obj(t, 'condition')
-        self.body = get_obj(t, 'body')
+    def __init__(self, pos, condition, body):
+        self.pos = pos
+        self.condition = condition
+        self.body = body
 
 class Do(WhileBase):
     opcode = 'DO'
@@ -956,8 +958,6 @@ class Do(WhileBase):
                     continue
     
 class While(WhileBase):
-    opcode = 'WHILE'
-    
     def execute(self, ctx):
         while self.condition.eval(ctx).ToBoolean():
             try:
@@ -967,6 +967,7 @@ class While(WhileBase):
                     break
                 elif e.type == 'continue':
                     continue
+    
 
 class ForIn(Statement):
     def __init__(self, pos, t):
@@ -1030,5 +1031,3 @@ class UPlus(UnaryOp):
     def eval(self, ctx):
         return W_Number(+self.expr.eval(ctx).GetValue().ToNumber())
     
-
-astundef = Undefined(Position())
