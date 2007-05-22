@@ -60,13 +60,29 @@ ifstatement : ["if"] ["("] expression [")"] statement  ["else"] statement
             ;
 
 iterationstatement  
+    : whiles
+    | regularfor
+    | regularvarfor
+    | infor
+    | invarfor
+    ; 
+
+whiles 
     : "do" statement ["while"] ["("] expression [")"]
     | "while" ["("] expression [")"] statement 
-    | "for" ["("] expressionnoin? ";" expression? ";" expression? ")" statement 
-    | "for" ["("] ["var"] variabledeclarationlistnoin ";" expression? ";" expression? ")" statement 
-    | "for" ["("] lefthandsideexpression "in" expression ")" statement 
-    | "for" ["("] ["var"] variabledeclarationnoin "in" expression ")" statement
-    ; 
+    ;
+
+regularfor
+    : "for" ["("] expressionnoin? ";" expression? ";" expression? ")" statement;
+
+regularvarfor
+    : "for" ["("] ["var"] variabledeclarationlistnoin ";" expression? ";" expression? ")" statement; 
+
+infor
+    : "for" ["("] lefthandsideexpression ["in"] expression [")"] statement;
+
+invarfor
+    :  "for" ["("] ["var"] variabledeclarationnoin ["in"] expression [")"] statement;
 
 
 continuestatement   : ["continue"] identifier?
@@ -316,11 +332,11 @@ expression  : assignmentexpression ([","] assignmentexpression)+
 #noin copy
 
 relationalopnoin: "<" | ">" | "<=" | ">=" | "instanceof";
-relationalexpressionnoin    : shiftexpression (relationalopnoin shiftexpression)+
+relationalexpressionnoin    : shiftexpression (>relationalopnoin< shiftexpression)+
                             | <shiftexpression>
                             ;
 
-equalityexpressionnoin  : relationalexpressionnoin (equalityop equalityexpressionnoin)+
+equalityexpressionnoin  : relationalexpressionnoin (>equalityop< equalityexpressionnoin)+
                     | <relationalexpressionnoin>
                     ;
 
@@ -351,7 +367,7 @@ conditionalexpressionnoin
                     ;
 
 #lefthandside
-assignmentexpressionnoin    : lefthandsideexpression assignmentoperator assignmentexpressionnoin
+assignmentexpressionnoin    : lefthandsideexpression >assignmentoperator< assignmentexpressionnoin
                         | <conditionalexpressionnoin>
                         ;
 

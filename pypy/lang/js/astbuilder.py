@@ -1,4 +1,4 @@
-from pypy.rlib.parsing.tree import RPythonVisitor, Symbol
+from pypy.rlib.parsing.tree import RPythonVisitor, Symbol, Nonterminal
 from pypy.lang.js import operations
 
 #this is a noop for now
@@ -59,6 +59,8 @@ class ASTBuilder(RPythonVisitor):
         '++': operations.Increment,
         '--': operations.Decrement,
         'typeof': operations.Typeof,
+        'void': operations.Void,
+        'delete': operations.Delete,
     }
     LISTOP_TO_CLS = {
         '[': operations.Array,
@@ -71,7 +73,7 @@ class ASTBuilder(RPythonVisitor):
         if isinstance(node, Symbol):
             value = node.additional_info
             source_pos = node.token.source_pos
-        else:
+        elif len(node.children) > 0:
             curr = node.children[0]
             while not isinstance(curr, Symbol):
                 if len(curr.children):
@@ -242,6 +244,7 @@ class ASTBuilder(RPythonVisitor):
         atype = node.children[1].additional_info
         right = self.dispatch(node.children[2])
         return operations.Assignment(pos, left, right, atype)
+    visit_assignmentexpressionnoin = visit_assignmentexpression
     
     def visit_functiondeclaration(self, node):
         pos = self.get_pos(node)
@@ -268,8 +271,38 @@ class ASTBuilder(RPythonVisitor):
         return operations.If(pos, condition, ifblock, elseblock)
     
     def visit_iterationstatement(self, node):
+        return self.dispatch(node.children[0])
+    
+    def visit_whiles(self, node):
         pos = self.get_pos(node)
-        if node.children[0].additional_info == 'while':
+        itertype = node.children[0].additional_info
+        if itertype == 'while':
             condition = self.dispatch(node.children[1])
             block = self.dispatch(node.children[2])
             return operations.While(pos, condition, block)
+        elif itertype == "do":
+            pass
+    
+    def visit_regularfor(self, node):
+        pos = self.get_pos(node)
+        i = 1
+        setup, i = self.get_next_expr(node, i)
+        condition, i = self.get_next_expr(node, i)
+        update, i = self.get_next_expr(node, i)
+        body, i = self.get_next_expr(node, i)
+        return operations.For(pos, setup, condition, update, body)
+    
+    def get_next_expr(self, node, i):
+        if isinstance(node.children[i], Symbol) and \
+           node.children[i].additional_info in [';', ')']:
+            return operations.astundef, i+1
+        else:
+            return self.dispatch(node.children[i]), i+2
+    
+    def visit_breakstatement(self, node):
+        pos = self.get_pos(node)
+        if len(node.children) > 0:
+            target = self.dispatch(node.children[0])
+        else:
+            target = operations.astundef
+        return operations.Break(pos, target)

@@ -92,6 +92,9 @@ class BinaryBitwiseOp(BinaryOp):
         raise NotImplementedError
 
 class Undefined(Statement):
+    def eval(self, ctx):
+        return w_Undefined
+    
     def execute(self, ctx):
         return w_Undefined
 
@@ -182,23 +185,19 @@ class BitwiseXor(BinaryBitwiseOp):
     
 
 class Unconditional(Statement):
-    def __init__(self, pos, t):
-        pieces = get_string(t, 'target').split(',')
-        self.targtype = pieces[0] 
-        self.targlineno = pieces[1]
-        self.targstart = pieces[2]
-        
-class Break(Unconditional):
-    opcode = 'BREAK'
+    def __init__(self, pos, target):
+        self.pos = pos
+        self.target = target
     
+class Break(Unconditional):
     def execute(self, ctx):
         raise ExecutionReturned('break', None, None)
+    
 
 class Continue(Unconditional):
-    opcode = 'CONTINUE'
-    
     def execute(self, ctx):
         raise ExecutionReturned('continue', None, None)
+    
 
 class Call(BinaryOp):    
     def eval(self, ctx):
@@ -560,8 +559,6 @@ class Delete(UnaryOp):
     """
     the delete op, erases properties from objects
     """
-    opcode = 'DELETE'
-    
     def eval(self, ctx):
         r1 = self.expr.eval(ctx)
         if not isinstance(r1, W_Reference):
@@ -569,6 +566,7 @@ class Delete(UnaryOp):
         r3 = r1.GetBase()
         r4 = r1.GetPropertyName()
         return W_Boolean(r3.Delete(r4))
+    
 
 class Increment(UnaryOp):
     """
@@ -907,11 +905,10 @@ class Variable(Statement):
         return self.body.eval(ctx)
 
 class Void(UnaryOp):
-    opcode = 'VOID'
-
     def eval(self, ctx):
         self.expr.eval(ctx)
         return w_Undefined
+    
 
 class With(Statement):
     opcode = "WITH"
@@ -991,11 +988,12 @@ class ForIn(Statement):
                     continue
     
 class For(Statement):
-    def __init__(self, pos, t):
-        self.setup = get_obj(t, 'setup')
-        self.condition = get_obj(t, 'condition')
-        self.update = get_obj(t, 'update')
-        self.body = get_obj(t, 'body')
+    def __init__(self, pos, setup, condition, update, body):
+        self.pos = pos
+        self.setup = setup
+        self.condition = condition
+        self.update = update
+        self.body = body
     
     def execute(self, ctx):
         self.setup.eval(ctx).GetValue()

@@ -106,8 +106,8 @@ def test_function_returns():
     assert_prints('function x() { return; };', [])
 
 def test_var_declaration():
-    assert_prints('var x = 3; print(x);', ["3"])
-    assert_prints('var x = 3; print(x+x);', ["6"])
+    yield assertv, 'var x = 3; x;', 3
+    yield assertv, 'var x = 3; x+x;', 6
 
 def test_var_scoping():
     py.test.skip("not ready yet")
@@ -334,9 +334,9 @@ def test_append_code():
     ,["3", "2"])
 
 def test_for():
-    py.test.skip("not ready yet")
-    assert_prints("""
-    for (i=0; i<3; i++) {
+    assertp("""
+    i = 0;
+    for (i; i<3; i++) {
         print(i);
     }
     print(i);
@@ -354,15 +354,14 @@ def test_arrayobject():
     x.length == 0;""", 'true')
      
 def test_break():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     while(1){
         break;
     }
     for(x=0;1==1;x++) {
         break;
     }
-    print('out');""", ["out"])
+    print('out');""", "out")
 
 def test_typeof():
     assertv("""
@@ -445,8 +444,7 @@ def test_null():
     assertv("null;", w_Null)
 
 def test_void():
-    py.test.skip("not ready yet")
-    assert_prints("print(void print('hello'));",
+    assertp("print(void print('hello'));",
                         ["hello", "undefined"])
 
 def test_activationprob():
@@ -491,13 +489,12 @@ def test_unary_plus():
     assertp("print(+1);", '1')
 
 def test_delete():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = {};
     x.y = 1;
     delete x.y;
     print(x.y);
-    """, ['undefined'])
+    """, 'undefined')
 
 def test_forin():
     py.test.skip("not ready yet")
