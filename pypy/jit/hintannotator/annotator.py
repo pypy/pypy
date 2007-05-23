@@ -1,47 +1,11 @@
-from pypy.annotation import policy
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator, BlockedInference
 from pypy.annotation.annrpython import raise_nicer_exception
 from pypy.objspace.flow.model import Variable
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
+from pypy.jit.hintannotator.policy import HintAnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
-
-
-class HintAnnotatorPolicy(policy.AnnotatorPolicy):
-    novirtualcontainer     = False
-    oopspec                = False
-    entrypoint_returns_red = True
-
-    def __init__(self, novirtualcontainer     = None,
-                       oopspec                = None,
-                       entrypoint_returns_red = None):
-        if novirtualcontainer is not None:
-            self.novirtualcontainer = novirtualcontainer
-        if oopspec is not None:
-            self.oopspec = oopspec
-        if entrypoint_returns_red is not None:
-            self.entrypoint_returns_red = entrypoint_returns_red
-
-    def look_inside_graph(self, graph):
-        return True
-
-
-class StopAtXPolicy(HintAnnotatorPolicy):
-    """Useful for tests."""
-    novirtualcontainer = True
-    oopspec = True
-
-    def __init__(self, *funcs):
-        self.funcs = funcs
-
-    def look_inside_graph(self, graph):
-        try:
-            if graph.func in self.funcs:
-                return False
-        except AttributeError:
-            pass
-        return True
 
 
 class HintAnnotator(RPythonAnnotator):

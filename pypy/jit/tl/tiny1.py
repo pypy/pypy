@@ -1,4 +1,4 @@
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 
 
 def ll_plus_minus(s, x, y):

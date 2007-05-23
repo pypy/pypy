@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycompiler import CPythonCompiler, PythonAstCompiler
 from pypy.interpreter.miscutils import ThreadLocals
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
 import os, sys

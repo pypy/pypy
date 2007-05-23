@@ -2,7 +2,7 @@ from pypy.jit.timeshifter.test.test_portal import PortalTest, P_OOPSPEC
 from pypy.jit.timeshifter.test.test_timeshift import StopAtXPolicy
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rvirtualizable import VABLERTIPTR
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 import py
 
 S = lltype.GcStruct('s', ('a', lltype.Signed), ('b', lltype.Signed))

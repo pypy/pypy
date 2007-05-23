@@ -19,7 +19,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 
 # internal non-translatable parts: 
 import py

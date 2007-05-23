@@ -1,6 +1,6 @@
-from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
+from pypy.jit.hintannotator.policy import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 
 P_OOPSPEC = HintAnnotatorPolicy(novirtualcontainer = True,
                                 oopspec = True)

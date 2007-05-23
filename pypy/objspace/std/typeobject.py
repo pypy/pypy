@@ -6,7 +6,8 @@ from pypy.interpreter.typedef import weakref_descr
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.dictproxyobject import W_DictProxyObject
-from pypy.rlib.objectmodel import we_are_translated, hint
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit import hint
 from pypy.rlib.rarithmetic import intmask, r_uint
 
 from copy_reg import _HEAPTYPE

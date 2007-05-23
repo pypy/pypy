@@ -25,9 +25,12 @@ def is_callable(var, engine):
     return isinstance(var, term.Callable)
 
 def ensure_callable(var):
-    if isinstance(var, term.Callable):
+    if isinstance(var, term.Var):
+        error.throw_instantiation_error()
+    elif isinstance(var, term.Callable):
         return var
-    error.throw_type_error("callable", var)
+    else:
+        error.throw_type_error("callable", var)
 
 def unwrap_int(obj):
     if isinstance(obj, term.Number):

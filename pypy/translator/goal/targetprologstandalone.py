@@ -14,6 +14,9 @@ engine.DEBUG = False
 term.DEBUG = False
 
 def entry_point(argv):
+    from pypy.jit.codegen.hlinfo import highleveljitinfo
+    if highleveljitinfo.sys_executable is None:
+        highleveljitinfo.sys_executable = argv[0]
     if len(argv) == 2:
         execute(e, argv[1])
     try:
@@ -25,11 +28,16 @@ def entry_point(argv):
 # _____ Define and setup target ___
 
 def handle_config(config):
+    return
     config.translation.stackless = True
 
 def target(driver, args):
     driver.exe_name = 'pyrolog-%(backend)s'
     return entry_point, None
+
+def portal(driver):
+    from pypy.lang.prolog.interpreter.portal import get_portal
+    return get_portal(driver)
 
 if __name__ == '__main__':
     entry_point(sys.argv)

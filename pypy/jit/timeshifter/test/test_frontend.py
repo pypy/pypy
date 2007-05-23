@@ -1,4 +1,4 @@
-from pypy.rlib.objectmodel import we_are_jitted, _is_early_constant, hint
+from pypy.rlib.jit import we_are_jitted, _is_early_constant, hint
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 

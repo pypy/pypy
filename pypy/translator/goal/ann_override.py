@@ -167,7 +167,7 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         return
 
 CACHED_LOOKUP = """
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 def lookup_%(attr)s(space, w_obj, name):
     w_type = space.type(w_obj)
     if not w_type.is_heaptype():
@@ -177,7 +177,7 @@ def lookup_%(attr)s(space, w_obj, name):
 """
 
 CACHED_LOOKUP_IN_TYPE_WHERE = """
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 def lookup_in_type_where_%(attr)s(space, w_type, name):
     if not w_type.is_heaptype():
         w_type = hint(w_type, deepfreeze=True)

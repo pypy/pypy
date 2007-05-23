@@ -27,7 +27,7 @@ The '}' pops an integer value off the stack and loops if it is not zero:
     { #1 #1 1 SUB ->#1 #1 }    => when called with 5, gives '5 4 3 2 1'
 
 """
-from pypy.rlib.objectmodel import hint, _is_early_constant
+from pypy.rlib.jit import hint, _is_early_constant
 
 #
 # See pypy/doc/jit.txt for a higher-level overview of the JIT techniques

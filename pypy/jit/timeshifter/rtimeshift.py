@@ -453,6 +453,7 @@ def collect_split(jitstate_chain, resumepoint, *greens_gv):
         if pending.returnbox is not None:
             pending.frame.local_boxes.insert(0, getreturnbox(pending))
         pending.next = None
+        start_writing(pending, jitstate_chain)
         return pending
 
     n = 0

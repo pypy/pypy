@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.flow.model import summary
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr

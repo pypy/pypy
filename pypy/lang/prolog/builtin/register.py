@@ -2,17 +2,20 @@ import py
 from pypy.lang.prolog.interpreter import arithmetic
 from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
-from pypy.lang.prolog.builtin import builtins
+from pypy.lang.prolog.builtin import builtins, builtins_list
 
 from pypy.rlib.objectmodel import we_are_translated
 
 class Builtin(object):
+    _immutable_ = True
     def __init__(self, function):
         self.function = function
 
     def call(self, engine, query, continuation):
         return self.function(engine, query, continuation)
         
+    def _freeze_(self):
+        return True
 
 def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
                    translatable=True):
@@ -29,6 +32,10 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
         code.append("    if we_are_translated():")
         code.append("        raise error.UncatchableError('%s does not work in translated version')" % (name, ))
     subargs = ["engine"]
+    if len(unwrap_spec):
+        code.append("    assert isinstance(query, term.Term)")
+    else:
+        code.append("    assert isinstance(query, term.Atom)")
     for i, spec in enumerate(unwrap_spec):
         varname = "var%s" % (i, )
         subargs.append(varname)
@@ -38,7 +45,7 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
         elif spec in ("concrete", "list"):
             code.append("    %s = query.args[%s].getvalue(engine.heap)" %
                         (varname, i))
-        if spec in ("callable", "int", "atom", "arithmetic", "list"):
+        if spec in ("int", "atom", "arithmetic", "list"):
             code.append(
                 "    if isinstance(%s, term.Var):" % (varname,))
             code.append(
@@ -70,11 +77,17 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
     call = "    result = %s(%s)" % (func.func_name, ", ".join(subargs))
     code.append(call)
     if not handles_continuation:
-        code.append("    return continuation.call(engine)")
+        code.append("    return continuation.call(engine, choice_point=False)")
+    else:
+        code.append("    return result")
     miniglobals = globals().copy()
     miniglobals[func.func_name] = func
     exec py.code.Source("\n".join(code)).compile() in miniglobals
     for name in expose_as:
         signature = "%s/%s" % (name, len(unwrap_spec))
-        builtins[signature] = Builtin(miniglobals[funcname])
-
+        b = Builtin(miniglobals[funcname])
+        builtins[signature] = b
+        if signature == ",/2":
+            builtins_list.insert(0, (signature, b))
+        else:
+            builtins_list.append((signature, b))

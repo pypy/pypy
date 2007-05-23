@@ -1,11 +1,11 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
-from pypy.jit.hintannotator.annotator import StopAtXPolicy
+from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.policy import StopAtXPolicy, HintAnnotatorPolicy
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.objectmodel import hint, we_are_jitted
+from pypy.rlib.jit import hint, we_are_jitted
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.backendopt.inline import auto_inlining
@@ -946,3 +946,27 @@ def test_strange_green_result_after_red_switch():
         return rulechain
     hs = hannotate(f, [int], policy=P_OOPSPEC_NOVIRTUAL)
     assert isinstance(hs, SomeLLAbstractVariable)
+
+def test_manual_marking_of_pure_functions():
+    d = {}
+    def h1(s):
+        try:
+            return d[s]
+        except KeyError:
+            d[s] = r = hash(s)
+            return r
+    h1._pure_function_ = True
+    def f(n):
+        hint(n, concrete=True)
+        if n == 0:
+            s = "abc"
+        else:
+            s = "123"
+        a = h1(s)
+        return a
+
+    P = StopAtXPolicy(h1)
+    P.oopspec = True
+    P.entrypoint_returns_red = False
+    hs = hannotate(f, [int], policy=P)
+    assert hs.is_green()

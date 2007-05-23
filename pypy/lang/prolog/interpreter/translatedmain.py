@@ -19,7 +19,7 @@ class ContinueContinuation(Continuation):
         self.var_to_pos = var_to_pos
         self.write = write
 
-    def call(self, engine):
+    def _call(self, engine):
         self.write("yes\n")
         var_representation(self.var_to_pos, engine, self.write)
         while 1:

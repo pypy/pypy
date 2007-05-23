@@ -1,4 +1,4 @@
-from pypy.rlib.objectmodel import hint, we_are_jitted
+from pypy.rlib.jit import hint, we_are_jitted
 
 def jitted():
     print "jitted"

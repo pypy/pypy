@@ -11,13 +11,13 @@ def impl_fail(engine):
 expose_builtin(impl_fail, "fail", unwrap_spec=[])
 
 def impl_true(engine):
-    pass
+    return
 expose_builtin(impl_true, "true", unwrap_spec=[])
 
 def impl_repeat(engine, continuation):
     while 1:
         try:
-            return continuation.call(engine)
+            return continuation.call(engine, choice_point=True)
         except error.UnificationFailed:
             pass
 expose_builtin(impl_repeat, "repeat", unwrap_spec=[], handles_continuation=True)
@@ -32,18 +32,16 @@ class AndContinuation(engine.Continuation):
         self.next_call = next_call
         self.continuation = continuation
 
-    def call(self, engine):
+    def _call(self, engine):
         next_call = self.next_call.dereference(engine.heap)
-        if isinstance(next_call, term.Var):
-            error.throw_instantiation_error()
         next_call = helper.ensure_callable(next_call)
-        return engine.call(next_call, self.continuation)
+        return engine.call(next_call, self.continuation, choice_point=False)
 
 def impl_and(engine, call1, call2, continuation):
     if not isinstance(call2, term.Var) and not isinstance(call2, term.Callable):
         error.throw_type_error('callable', call2)
     and_continuation = AndContinuation(call2, continuation)
-    return engine.call(call1, and_continuation)
+    return engine.call(call1, and_continuation, choice_point=False)
 expose_builtin(impl_and, ",", unwrap_spec=["callable", "raw"],
                handles_continuation=True)
 
@@ -53,7 +51,7 @@ def impl_or(engine, call1, call2, continuation):
         return engine.call(call1, continuation)
     except error.UnificationFailed:
         engine.heap.revert(oldstate)
-    return engine.call(call2, continuation)
+    return engine.call(call2, continuation, choice_point=False)
 
 expose_builtin(impl_or, ";", unwrap_spec=["callable", "callable"],
                handles_continuation=True)
@@ -76,7 +74,8 @@ def impl_if(engine, if_clause, then_clause, continuation):
     except error.UnificationFailed:
         engine.heap.revert(oldstate)
         raise
-    return engine.call(helper.ensure_callable(then_clause), continuation)
+    return engine.call(helper.ensure_callable(then_clause), continuation,
+                       choice_point=False)
 expose_builtin(impl_if, "->", unwrap_spec=["callable", "raw"],
                handles_continuation=True)
 

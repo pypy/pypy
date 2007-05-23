@@ -1,15 +1,16 @@
 import py
 import sys
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
-from pypy.jit.hintannotator.annotator import StopAtXPolicy
+from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.policy import StopAtXPolicy, HintAnnotatorPolicy
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.jit.timeshifter.hrtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter import rtimeshift, rvalue
 from pypy.objspace.flow.model import summary, Variable
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
-from pypy.rlib.objectmodel import hint, keepalive_until_here, debug_assert
+from pypy.rlib.jit import hint
+from pypy.rlib.objectmodel import keepalive_until_here, debug_assert
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable, cachedtype
@@ -58,9 +59,12 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
         auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(t)
+        if inline is not None:
+            backend_optimizations(t, inline_threshold=inline)
     if portal is None:
         portal = func
+    if hasattr(policy, "seetranslator"):
+        policy.seetranslator(t)
     graph1 = graphof(t, portal)
     # build hint annotator types
     hannotator = HintAnnotator(base_translator=t, policy=policy)
@@ -1511,6 +1515,42 @@ class TestTimeshift(TimeshiftingTests):
         assert res == f(4,113)
         self.check_insns({})
 
+    def test_manual_marking_of_pure_functions(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        a1 = A()
+        a2 = A()
+        d = {}
+        def h1(b, s):
+            try:
+                return d[s]
+            except KeyError:
+                d[s] = r = A()
+                return r
+        h1._pure_function_ = True
+        b = B()
+        def f(n):
+            hint(None, global_merge_point=True)
+            hint(n, concrete=True)
+            if n == 0:
+                s = "abc"
+            else:
+                s = "123"
+            a = h1(b, s)
+            return hint(n, variable=True)
+
+        P = StopAtXPolicy(h1)
+        P.oopspec = True
+        res = self.timeshift(f, [0], [], policy=P)
+        assert res == 0
+        self.check_insns({})
+        res = self.timeshift(f, [4], [], policy=P)
+        assert res == 4
+        self.check_insns({})
+
+
     def test_red_int_add_ovf(self):
         def f(n, m):
             try:
@@ -1695,3 +1735,27 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(f, [3, 6], policy=MyPolicy())
         assert res == -3 + 600
         self.check_insns({'int_neg': 1, 'int_add': 1})
+
+    def test_hash_of_green_string_is_green(self):
+        py.test.skip("unfortunately doesn't work")
+        def f(n):
+            if n == 0:
+                s = "abc"
+            elif n == 1:
+                s = "cde"
+            else:
+                s = "fgh"
+            return hash(s)
+
+        res = self.timeshift(f, [0])
+        self.check_insns({'int_eq': 2})
+        assert res == f(0)
+
+    def test_misplaced_global_merge_point(self):
+        def g(n):
+            hint(None, global_merge_point=True)
+            return n+1
+        def f(n):
+            hint(None, global_merge_point=True)
+            return g(n)
+        py.test.raises(AssertionError, self.timeshift, f, [7], [])

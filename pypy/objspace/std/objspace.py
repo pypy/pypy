@@ -14,7 +14,8 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
-from pypy.rlib.objectmodel import we_are_translated, hint, we_are_jitted
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit import hint, we_are_jitted
 import sys
 import os
 import __builtin__

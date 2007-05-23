@@ -26,7 +26,7 @@ class CollectAllContinuation(Continuation):
     def __init__(self):
         self.heaps = []
 
-    def call(self, engine):
+    def _call(self, engine):
         f = Heap()
         f.vars = engine.heap.vars[:]
         self.heaps.append(f)

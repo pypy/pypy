@@ -48,7 +48,7 @@ def impl_arg(engine, first, second, third, continuation):
             try:
                 third.unify(arg, engine.heap)
                 first.unify(term.Number(i + 1), engine.heap)
-                return continuation.call(engine)
+                return continuation.call(engine, choice_point=True)
             except error.UnificationFailed:
                 engine.heap.revert(oldstate)
         raise error.UnificationFailed()
@@ -64,7 +64,7 @@ def impl_arg(engine, first, second, third, continuation):
         third.unify(arg, engine.heap)
     else:
         error.throw_type_error("integer", first)
-    return continuation.call(engine)
+    return continuation.call(engine, choice_point=False)
 expose_builtin(impl_arg, "arg", unwrap_spec=["obj", "obj", "obj"],
                handles_continuation=True)
 

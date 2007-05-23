@@ -794,7 +794,7 @@ class InstallerVersion2(object):
                 bodylines.append('    pass')
             bodylines.append('return %s' % expr(calllist[-1]))
 
-        from pypy.rlib.objectmodel import hint
+        from pypy.rlib.jit import hint
         miniglobals['hint'] = hint
         entry = FuncEntry(bodylines, miniglobals, fallback)
         key = entry.key()

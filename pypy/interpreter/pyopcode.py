@@ -12,7 +12,8 @@ from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated, hint, we_are_jitted
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.jit import hint, we_are_jitted
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs

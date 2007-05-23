@@ -414,9 +414,12 @@ class HintRTyper(RPythonTyper):
         transformer.transform()
         flowmodel.checkgraph(graph)    # for now
         self.contains_promotion |= transformer.contains_promotion
+        global_mp = transformer.mergepointfamily.has_global_mergepoints()
         if is_portal:
-            self.portal_contains_global_mp = (
-                transformer.mergepointfamily.has_global_mergepoints())
+            self.portal_contains_global_mp = global_mp
+        else:
+            assert not global_mp, ("global_merge_point only allowed in portal"
+                                   " - found one in %s" % (graph,))
         return transformer.tsgraphs_seen
 
     def timeshift_ops(self, graph):

@@ -181,6 +181,7 @@ class LLHelpers(AbstractLLHelpers):
             x = _hash_string(s.chars)
             s.hash = x
         return x
+    ll_strhash._pure_function_ = True # it's pure but it does not look like it
 
     def ll_strfasthash(s):
         return s.hash     # assumes that the hash is already computed

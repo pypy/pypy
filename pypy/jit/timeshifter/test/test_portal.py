@@ -7,7 +7,7 @@ from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import  summary
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 from pypy.jit.codegen.llgraph.rgenop import RGenOp as LLRGenOp
 
 import py.test

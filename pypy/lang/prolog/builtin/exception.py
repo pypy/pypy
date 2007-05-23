@@ -31,7 +31,7 @@ def impl_catch(engine, goal, catcher, recover, continuation):
                 raise error.UserError(exc_term)
             if isinstance(e, error.CatchableError):
                 raise error.CatchableError(exc_term)
-        return engine.call(recover, continuation)
+        return engine.call(recover, continuation, choice_point=False)
 expose_builtin(impl_catch, "catch", unwrap_spec=["callable", "obj", "callable"],
                handles_continuation=True)
 

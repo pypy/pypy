@@ -24,7 +24,7 @@ def target(driver, args):
 
 # ____________________________________________________________
 
-from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
+from pypy.jit.hintannotator.policy import HintAnnotatorPolicy
 
 class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
     novirtualcontainer = True

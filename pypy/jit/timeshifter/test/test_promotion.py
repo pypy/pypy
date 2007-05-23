@@ -4,7 +4,7 @@ from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_timeshift import StopAtXPolicy
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 from pypy.rpython.module.support import LLSupport
 
 class TestPromotion(TimeshiftingTests):

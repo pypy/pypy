@@ -10,7 +10,7 @@ class FindallContinuation(engine.Continuation):
         self.found = []
         self.template = template
 
-    def call(self, engine):
+    def _call(self, engine):
         clone = self.template.getvalue(engine.heap)
         self.found.append(clone)
         raise error.UnificationFailed()

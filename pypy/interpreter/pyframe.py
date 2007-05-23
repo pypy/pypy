@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 import opcode
 from pypy.rlib.objectmodel import we_are_translated, instantiate
-from pypy.rlib.objectmodel import we_are_jitted, hint
+from pypy.rlib.jit import we_are_jitted, hint
 from pypy.rlib import rstack # for resume points
 
 

@@ -1,5 +1,6 @@
 # all builtins
 builtins = {}
+builtins_list = []
 
 # imports to register builtins
 import pypy.lang.prolog.builtin.allsolution

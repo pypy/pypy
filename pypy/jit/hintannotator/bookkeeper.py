@@ -1,7 +1,7 @@
 import py
 from pypy.tool.tls import tlsobject
 from pypy.tool.ansi_print import ansi_log
-from pypy.rlib import objectmodel
+from pypy.rlib import jit
 from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
 from pypy.objspace.flow.model import Variable, Block, Link, FunctionGraph
 from pypy.annotation import model as annmodel
@@ -15,7 +15,7 @@ TLS = tlsobject()
 log = py.log.Producer("hintannotate")
 py.log.setconsumer("hintannotate", ansi_log)
 
-TIMESHIFTMAP = {Constant(objectmodel._we_are_jitted):
+TIMESHIFTMAP = {Constant(jit._we_are_jitted):
                 Constant(1, lltype.Signed)}
 
 class GraphDesc(object):
@@ -125,6 +125,14 @@ class ImpurityAnalyzer(graphanalyze.GraphAnalyzer):
         ARGTYPES = [v.concretetype for v in op.args]
         return not operation.is_pure(*ARGTYPES)
 
+    def analyze_direct_call(self, graph, seen=None):
+        try:
+            func = graph.func
+            if getattr(func, "_pure_function_", False):
+                return False
+        except AttributeError:
+            pass
+        return graphanalyze.GraphAnalyzer.analyze_direct_call(self, graph, seen)
 
 class HintBookkeeper(object):
 

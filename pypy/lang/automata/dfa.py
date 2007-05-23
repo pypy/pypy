@@ -1,6 +1,6 @@
 " a very stripped down version of cfbolz's algorithm/automaton module "
 
-from pypy.rlib.objectmodel import hint
+from pypy.rlib.jit import hint
 from pypy.rpython.lltypesystem.lltype import GcArray, Signed, malloc
 
 class DFA(object):

@@ -2715,7 +2715,7 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeExternalBuiltin)        
 
     def test_instance_with_flags(self):
-        from pypy.rlib.objectmodel import hint
+        from pypy.rlib.jit import hint
 
         class A:
             _virtualizable_ = True

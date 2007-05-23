@@ -10,7 +10,7 @@ import py
 import sys
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.objectmodel import hint, _is_early_constant
+from pypy.rlib.jit import hint, _is_early_constant
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.eval import Frame
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS

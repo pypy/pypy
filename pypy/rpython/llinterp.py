@@ -594,7 +594,8 @@ class LLFrame(object):
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs 
         else:
-            log.warn("op_indirect_call with graphs=None:", f)
+            pass
+            #log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
     def op_adr_call(self, TGT, f, *inargs):

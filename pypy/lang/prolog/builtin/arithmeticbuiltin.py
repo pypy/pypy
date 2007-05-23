@@ -12,16 +12,16 @@ def impl_between(engine, lower, upper, varorint, continuation):
             oldstate = engine.heap.branch()
             try:
                 varorint.unify(term.Number(i), engine.heap)
-                return continuation.call(engine)
+                return continuation.call(engine, choice_point=True)
             except error.UnificationFailed:
                 engine.heap.revert(oldstate)
         varorint.unify(term.Number(upper), engine.heap)
-        return continuation.call(engine)
+        return continuation.call(engine, choice_point=False)
     else:
         integer = helper.unwrap_int(varorint)
         if not (lower <= integer <= upper):
             raise error.UnificationFailed
-    return continuation.call(engine)
+    return continuation.call(engine, choice_point=False)
 expose_builtin(impl_between, "between", unwrap_spec=["int", "int", "obj"],
                handles_continuation=True)
 

@@ -11,13 +11,13 @@ def test_atom():
     py.test.raises(UnificationFailed, "a.unify(Atom.newatom('xxx'), None)")
 
 def test_var():
-    b = Var(0)
+    b = Var.newvar(0)
     heap = Heap()
     heap.clear(1)
     b.unify(Atom.newatom("hallo"), heap)
     assert b.getvalue(heap).name == "hallo"
-    a = Var(0)
-    b = Var(1)
+    a = Var.newvar(0)
+    b = Var.newvar(1)
     heap.clear(2)
     a.unify(b, heap)
     a.unify(Atom.newatom("hallo"), heap)
@@ -25,7 +25,7 @@ def test_var():
     assert b.getvalue(heap).name == "hallo"
 
 def test_unify_var():
-    b = Var(0)
+    b = Var.newvar(0)
     heap = Heap()
     heap.clear(1)
     b.unify(b, heap)
@@ -33,15 +33,15 @@ def test_unify_var():
     py.test.raises(UnificationFailed, b.unify, Atom.newatom("bye"), heap)
 
 def test_recursive():
-    b = Var(0)
+    b = Var.newvar(0)
     heap = Heap()
     heap.clear(1)
     b.unify(Term("hallo", [b]), heap)
     
 
 def test_term():
-    X = Var(0)
-    Y = Var(1)
+    X = Var.newvar(0)
+    Y = Var.newvar(1)
     t1 = Term("f", [Atom.newatom("hallo"), X])
     t2 = Term("f", [Y, Atom.newatom("HALLO")])
     heap = Heap()
@@ -61,12 +61,12 @@ def test_blackbox():
 def test_run():
     e = Engine()
     e.add_rule(Term("f", [Atom.newatom("a"), Atom.newatom("b")]))
-    e.add_rule(Term("f", [Var(0), Var(0)]))
-    e.add_rule(Term(":-", [Term("f", [Var(0), Var(1)]),
-                           Term("f", [Var(1), Var(0)])]))
+    e.add_rule(Term("f", [Var.newvar(0), Var.newvar(0)]))
+    e.add_rule(Term(":-", [Term("f", [Var.newvar(0), Var.newvar(1)]),
+                           Term("f", [Var.newvar(1), Var.newvar(0)])]))
     X = e.heap.newvar()
-    assert e.run(Term("f", [Atom.newatom("b"), X])) is None
+    e.run(Term("f", [Atom.newatom("b"), X]))
     assert X.dereference(e.heap).name == "b"
-    assert e.run(Term("f", [Atom.newatom("b"), Atom.newatom("a")])) is None
+    e.run(Term("f", [Atom.newatom("b"), Atom.newatom("a")]))
 
 

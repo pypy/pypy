@@ -357,10 +357,10 @@ class TermBuilder(RPythonVisitor):
         if varname == "_":
             pos = self.freevar
             self.freevar += 1
-            return Var(pos)
+            return Var.newvar(pos)
         if varname in self.var_to_pos:
             return self.var_to_pos[varname]
-        res = Var(self.freevar)
+        res = Var.newvar(self.freevar)
         self.freevar += 1
         self.var_to_pos[varname] = res
         return res
