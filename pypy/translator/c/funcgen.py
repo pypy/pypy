@@ -552,7 +552,6 @@ class FunctionCodeGenerator(object):
                 elength,
                 itemtype,
                 eresult)
-            tail = '\n}'
             esize = 'sizeof(%s)-sizeof(%s)+%s*sizeof(%s)' % (
                 cdecl(typename, ''),
                 itemtype,
