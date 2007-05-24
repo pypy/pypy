@@ -577,7 +577,7 @@ class BaseTestRstr(BaseRtypingTest):
         raises(TyperError, self.interpret, fn, ())
 
     def test_int(self):
-        s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '']
+        s1 = [ '42', '01001', 'abc', 'ABC', '4aBc', ' 12ef ', '+42', 'foo', '42foo', '42.1', '', '+ 42']
         def fn(i, base):
             s = s1[i]
             res = int(s, base)
@@ -593,7 +593,7 @@ class BaseTestRstr(BaseRtypingTest):
                     assert res == expected
 
     def test_int_valueerror(self):
-        s1 = ['42g', '?']
+        s1 = ['42g', '?', '+', '+ ']
         def fn(i):
             try:
                 return int(s1[i])
@@ -602,6 +602,8 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [0])
         assert res == -654
         res = self.interpret(fn, [1])
+        assert res == -654
+        res = self.interpret(fn, [2])
         assert res == -654
 
     def test_float(self):

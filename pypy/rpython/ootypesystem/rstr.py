@@ -172,8 +172,12 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         elif s.ll_stritem_nonneg(i) == '+':
             i += 1;
+        # skip whitespaces between sign and digits
+        while i < strlen and s.ll_stritem_nonneg(i) == ' ':
+            i += 1
         #now get digits
         val = 0
+        oldpos = i
         while i < strlen:
             c = ord(s.ll_stritem_nonneg(i))
             if ord('a') <= c <= ord('z'):
@@ -188,6 +192,8 @@ class LLHelpers(AbstractLLHelpers):
                 break
             val = val * base + digit
             i += 1
+        if i == oldpos:
+            raise ValueError # catch strings like '+' and '+  '
         #skip trailing whitespace
         while i < strlen and s.ll_stritem_nonneg(i) == ' ':
             i += 1
