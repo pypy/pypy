@@ -14,25 +14,15 @@ def load_source(script_source):
     temp_tree = parse(script_source)
     return astb.dispatch(temp_tree)
 
-import cPickle as pickle
 import os.path
 
 def load_file(filename):
     # NOT RPYTHON
     base, ext = os.path.splitext(filename)
-    jscname = base+".jsc"
-    if os.path.isfile(jscname):
-        jsc = open(jscname, 'r')
-        t = pickle.load(jsc)
-        jsc.close()
-    else:
-        f = open(filename)
-        t = parse(f.read())
-        f.close()
-        jsc = open(jscname, 'w')
-        pickle.dump(t, jsc, protocol=2)
-        jsc.close()
-    return from_tree(t)
+    f = open(filename)
+    t = load_source(f.read())
+    f.close()
+    return t
     
 
 def evaljs(ctx, args, this):

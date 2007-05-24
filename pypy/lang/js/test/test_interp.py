@@ -13,24 +13,9 @@ def test_simple():
     n1 = Number(Position(), 2.0)
     n2 = Number(Position(), 4.0)
     p = Plus(Position(), n1, n2)
-    assert p.eval(ExecutionContext()).GetValue().ToNumber() == 6.0
+    assert p.eval(ExecutionContext([W_Object(),])).GetValue().ToNumber() == 6.0
     l = []
     interpreter.writer = l.append
-
-def assert_prints(code, assval):
-    l = []
-    interpreter.writer = l.append
-    js_int = interpreter.Interpreter()
-    try:
-        if isinstance(code, str):
-            js_int.run(interpreter.load_source(code))
-        else:
-            for codepiece in code:
-                js_int.run(interpreter.load_source(codepiece))
-    except ThrowException, excpt:
-        l.append("uncaught exception: "+str(excpt.exception.ToString()))
-    print l, assval
-    assert l == assval
 
 def assertp(code, prints):
     l = []
@@ -51,7 +36,7 @@ def assertv(code, value):
     try:
         code_val = jsint.run(interpreter.load_source(code)).GetValue()
     except ThrowException, excpt:
-        code_val = excpt
+        code_val = excpt.exception
     print code_val, value
     if isinstance(value, W_Root):
         assert AEC(jsint.global_context, code_val, value) == True
@@ -80,42 +65,39 @@ def test_string_var():
     assertv('\"sss\";', 'sss')
 
 def test_string_concat():
-    assert_prints('x="xxx"; y="yyy"; print(x+y);', ["xxxyyy"])
+    assertp('x="xxx"; y="yyy"; print(x+y);', "xxxyyy")
 
 def test_string_num_concat():
-    assert_prints('x=4; y="x"; print(x+y, y+x);', ["4x,x4"])
+    assertp('x=4; y="x"; print(x+y, y+x);', ["4x,x4"])
 
 def test_to_string():
-    assert_prints("x={}; print(x);", ["[object Object]"])
+    assertp("x={}; print(x);", ["[object Object]"])
 
 def test_object_access():
-    assert_prints("x={d:3}; print(x.d);", ["3"])
-    assert_prints("x={d:3}; print(x.d.d);", ["undefined"])
-    assert_prints("x={d:3, z:4}; print(x.d+x.z);", ["7"])
+    yield assertp, "x={d:3}; print(x.d);", "3"
+    yield assertp, "x={d:3}; print(x.d.d);", "undefined"
+    yield assertp, "x={d:3, z:4}; print(x.d+x.z);", "7"
 
 def test_object_access_index():
-    assert_prints('x={d:"x"}; print(x["d"]);', ["x"])
+    assertp('x={d:"x"}; print(x["d"]);', 'x')
 
 def test_function_prints():
-    py.test.skip("not ready yet")
-    assert_prints('x=function(){print(3);}; x();', ["3"])
+    assertp('x=function(){print(3);}; x();', '3')
 
 def test_function_returns():
-    py.test.skip("not ready yet")
-    assert_prints('x=function(){return 1;}; print(x()+x());', ["2"])
-    assert_prints('function x() { return; };', [])
+    yield assertp, 'x=function(){return 1;}; print(x()+x());', '2'
+    yield assertp, 'function x() { return; };', []
 
 def test_var_declaration():
     yield assertv, 'var x = 3; x;', 3
     yield assertv, 'var x = 3; x+x;', 6
 
 def test_var_scoping():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var y;
     var p;
     p = 0;
-    x = function() {
+    function x () {
         var p;
         p = 1;
         y = 3; return y + z;
@@ -125,94 +107,84 @@ def test_var_scoping():
     """, ["5,3,0"])
 
 def test_function_args():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     x = function (t,r) {
            return t+r;
     };
-    print(x(2,3));
-    """, ["5"])
+    x(2,3);
+    """, 5)
 
 def test_function_less_args():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     x = function (t, r) {
             return t + r;
     };
     print(x(2));
-    """, ["NaN"])
+    """, "NaN")
 
 def test_function_more_args():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     x = function (t, r) {
             return t + r;
     };
-    print(x(2,3,4));
-    """, ["5"])
+    x(2,3,4);
+    """, 5)
 
 def test_function_has_var():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     x = function () {
             var t = 'test';
             return t;
     };
-    print(x());
-    """, ["test"])
+    x();
+    """, 'test')
 
 def test_function_arguments():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     x = function () {
             r = arguments[0];
             t = arguments[1];
             return t + r;
     };
-    print(x(2,3));
-    """, ["5"])
+    x(2,3);
+    """, 5)
 
 
 def test_index():
-    yield assertv, """
+    assertv("""
     x = {1:"test"};
     x[1];
-    """, 'test'
+    """, 'test')
 
 def test_array_initializer():
-    assert_prints("""
+    assertp("""
     x = [];
     print(x);
-    """, [""])
+    """, '')
 
 def test_throw():
-    assert_prints("throw(3);", ["uncaught exception: 3"])
+    assertp("throw(3);", "uncaught exception: 3")
     
 def test_group():
-    assert_prints("print((2+1));", ["3"])
+    assertv("(2+1);", 3)
 
 def test_comma():
-    py.test.skip("not ready yet")
-    assert_prints("print((500,3));", ["3"])
+    assertv("(500,3);", 3)
 
-def test_try_catch():
-    py.test.skip("not ready yet")
-    assert_prints("""
+def test_block():
+    yield assertv, "{5;}", 5
+    yield assertv, "{3; 5;}", 5
+
+def test_try_catch_finally():
+    yield assertp, """
     try {
         throw(3);
     }
     catch (x) {
         print(x);
     }
-    """, ["3"])
-
-def test_block():
-    assertv("{5;}", W_Number(5))
-    assertv("{3; 5;}", W_Number(5))
-
-def test_try_catch_finally():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    """, "3"
+    yield assertp, """
     try {
         throw(3);
     }
@@ -222,7 +194,7 @@ def test_try_catch_finally():
     finally {
         print(5);
     }
-    """, ["3", "5"])
+    """, ["3", "5"]
     
 def test_if_then():
     assertp("""
@@ -280,58 +252,42 @@ def test_object_creation():
     """, "[object Object]"
 
 def test_var_decl():
-    py.test.skip("not ready yet")
-    assert_prints("print(x); var x;", ["undefined"])
-    assert_prints("""
+    yield assertp, "print(x); var x;", "undefined"
+    yield assertp, """
     try {
         print(z);
     }
     catch (e) {
         print(e);
     }
-    """, ["ReferenceError: z is not defined"])
+    """, "ReferenceError: z is not defined"
 
 def test_function_name():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     function x() {
         print("my name is x");
     }
     x();
-    """, ["my name is x"])
+    """, "my name is x")
         
 def test_new_with_function():
-    py.test.skip("not ready yet")
     c= """
     x = function() {this.info = 'hello';};
     o = new x();
-    print(o.info);
+    o.info;
     """
-    print c
-    assert_prints(c, ["hello"])
+    assertv(c, "hello")
 
 def test_vars():
-    assert_prints("""
+    assertp("""
     var x;x=3; print(x);""", ["3"])
 
 def test_in():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     x = {y:3};
     print("y" in x);
     print("z" in x);
     """, ["true", "false"])
-
-def test_append_code():
-    assert_prints(["""
-    var x; x=3;
-    """, """
-    print(x);
-    z = 2;
-    ""","""
-    print(z);
-    """]
-    ,["3", "2"])
 
 def test_for():
     assertp("""
@@ -386,11 +342,8 @@ def test_increment():
     x;""", 2)
     
 def test_ternaryop():
-    py.test.skip("not ready yet")
-    assert_prints([
-    "( 1 == 1 ) ? print('yep') : print('nope');",
-    "( 1 == 0 ) ? print('yep') : print('nope');"],
-    ["yep","nope"])
+    yield assertv, "( 1 == 1 ) ? true : false;", True
+    yield assertv, "( 1 == 0 ) ? true : false;", False
 
 def test_booleanliterals():
     assertp("""
@@ -436,9 +389,8 @@ def test_globalproperties():
     """, ['NaN', 'Infinity', 'undefined'])
 
 def test_strangefunc():
-    py.test.skip("not ready yet")
-    assert_prints("""function f1() { var z; var t;}""", [])
-    assert_prints(""" "'t'"; """, [])
+    assertp("""function f1() { var z; var t;}""", [])
+    assertp(""" "'t'"; """, [])
     
 def test_null():
     assertv("null;", w_Null)
@@ -448,8 +400,7 @@ def test_void():
                         ["hello", "undefined"])
 
 def test_activationprob():
-    py.test.skip("not ready yet")
-    assert_prints( """
+    assertp( """
     function intern (int1){
         print(int1);
         return int1;
@@ -464,16 +415,17 @@ def test_activationprob():
     """, ['1','1', '1'])
 
 def test_array_acess():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = new Array();
     x[0] = 1;
+    print(x[0]);
     x[x[0]] = 2;
+    print(x[1]);
     x[2] = x[0]+x[1];
     for(i=0; i<3; i++){
         print(x[i]);
     }
-    """, ['1', '2', '3'])
+    """, ['1','2', '1', '2', '3'])
 
 def test_array_length():
     assertp("""
@@ -498,7 +450,7 @@ def test_delete():
 
 def test_forin():
     py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var x = {a:5};
     for(y in x){
         print(y);
@@ -513,7 +465,7 @@ def test_stricteq():
 
 def test_with():
     py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     var mock = {x:2};
     var x=4;
     print(x);
@@ -535,31 +487,36 @@ def test_bitops():
     yield assertv, "2 & 3;", 2
     yield assertv, "2 | 3;", 3
 
-def test_for_strange():
+def test_for_vararg():
     py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     for (var arg = "", i = 0; i < 2; i++) { print(i);}
     """, ['0', '1'])
 
 def test_recursive_call():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertv("""
     function fact(x) { if (x == 0) { return 1; } else { return fact(x-1)*x; }}
-    print(fact(3));
-    """, ['6',])
+    fact(3);
+    """, 6)
 
 def test_function_prototype():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     function foo() {}; foo.prototype.bar = function() {};
     """, [])
 
 
 def test_function_this():
-    py.test.skip("not ready yet")
-    assert_prints("""
+    assertp("""
     function foo() {print("debug");this.bar = function() {};};
     var f = new foo();
     f.bar();
-    """, ['debug',])
+    """, 'debug')
     
+def test_switch():
+    py.test.skip("not ready yet")
+    assertv("""
+    x = 1;
+    switch(x){
+        case 1: 15; break;
+        default: 30;
+    };""", 15)

@@ -47,7 +47,7 @@ var BUGNUMBER = "";
  * constant strings
  */
 var GLOBAL = "[object global]";
-var PASSED = " PASSED!"
+var PASSED = " PASSED!";
 var FAILED = " FAILED! expected: ";
 
 var DEBUG = false;
@@ -141,7 +141,7 @@ function test() {
   //    }
   //  }
   //  stopTest();
-    return testcases.length
+    return testcases.length;
 }
 
 /*
@@ -196,7 +196,7 @@ function getTestCaseResult( expect, actual ) {
 
 function run_test(tc) {
     // try {
-        getTestCaseResult(testcases[tc].expect, testcases[tc].actual)
+        getTestCaseResult(testcases[tc].expect, testcases[tc].actual);
         testcases[tc].reason += ( testcases[tc].passed ) ? "passed" : "wrong value expected: "
                                 +testcases[tc].expect+" but got: "+ testcases[tc].actual;
         return testcases[tc].reason;

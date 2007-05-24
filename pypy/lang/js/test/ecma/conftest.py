@@ -5,8 +5,6 @@ from pypy.rlib.parsing.parsing import ParseError
 from py.__.test.outcome import Failed, ExceptionFailure
 import pypy.lang.js as js
 
-js.jsobj.DEBUG = False
-
 rootdir = py.magic.autopath().dirpath()
 exclusionlist = ['shell.js', 'browser.js']
 

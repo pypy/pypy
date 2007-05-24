@@ -129,10 +129,10 @@ trystatement    : ["try"] block catch finally
                 | ["try"] block finally
                 ;
 
-catch   : ["catch"] ["("] identifier [")"] block
+catch   : "catch" ["("] identifier [")"] block
         ;
 
-finally : ["finally"] block
+finally : "finally" block
         ;
 
 identifier  : <IDENTIFIERNAME>;
@@ -205,10 +205,10 @@ propertyname    : <identifier>
                 | <numericliteral>
                 ; 
 
-functiondeclaration : ["function"] identifier ["("] formalparameterlist? [")"] ["{"] functionbody? ["}"]
+functiondeclaration : ["function"] identifier "(" formalparameterlist? ")" ["{"] functionbody? "}"
                     ;
 
-functionexpression  : ["function"] identifier? ["("] formalparameterlist? [")"] ["{"] functionbody? ["}"]
+functionexpression  : ["function"] identifier? "(" formalparameterlist? ")" ["{"] functionbody? "}"
                     ;
 
 formalparameterlist : identifier [","] >formalparameterlist<
@@ -313,7 +313,7 @@ logicalorexpression : logicalandexpression ("||" logicalandexpression)+
                     ;
                     
 
-conditionalexpression   : logicalorexpression "?" assignmentexpression ":" assignmentexpression
+conditionalexpression   : logicalorexpression "?" assignmentexpression [":"] assignmentexpression
                         | <logicalorexpression>
                         ;
 
@@ -325,7 +325,7 @@ assignmentoperator  : "=" | "\*=" | "\/=" | "\%=" | "\+=" | "\-=" | "<<="
                     | ">>=" | ">>>=" | "&=" | "^=" | "\|=" 
                     ;
 
-expression  : assignmentexpression ([","] assignmentexpression)+
+expression  : assignmentexpression ("," assignmentexpression)+
             | <assignmentexpression>
             ;
 

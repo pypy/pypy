@@ -95,9 +95,10 @@ def main(argv=None):
             loadjs(interp.global_context, [W_String(filename)], None)
             # XXX we should catch more stuff here, like not implemented
             # and such
-        except (jsparser.JsSyntaxError, ThrowException), e:
-            if isinstance(e, jsparser.JsSyntaxError):
+        except (jsparser.ParseError, ThrowException), e:
+            if isinstance(e, jsparser.ParseError):
                 print "\nSyntax error!"
+                raise
             elif isinstance(e, ThrowException):
                 print "\nJS Exception thrown!"
             return

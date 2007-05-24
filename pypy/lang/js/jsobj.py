@@ -143,13 +143,14 @@ class W_PrimitiveObject(W_Root):
 
     def Call(self, ctx, args=[], this=None):
         act = ActivationObject()
-        for i in range(len(self.callfunc.params)):
-            arg = self.callfunc.params[i]
+        paramn = len(self.callfunc.params)
+        for i in range(paramn):
+            paramname = self.callfunc.params[i]
             try:
                 value = args[i]
             except IndexError:
                 value = w_Undefined
-            act.Put(self.callfunc.params[i], value)
+            act.Put(paramname, value)
         act.Put('this', this)
         w_Arguments = W_Arguments(self, args)
         act.Put('arguments', w_Arguments)
@@ -455,23 +456,29 @@ class W_List(W_Root):
         return str(self.list_w)
 
 class ExecutionContext(object):
-    def __init__(self):
-        self.scope = []
-        self.this = None
-        self.variable = None
-        self.debug = False
-        self.property = Property('',w_Undefined) #Attribute flags for new vars
+    def __init__(self, scope, this=None, variable=None, debug=False, jsproperty=None):
+        assert scope is not None
+        self.scope = scope
+        if this is None:
+            self.this = scope[-1]
+        else:
+            self.this = this
+        
+        if variable is None:
+            self.variable = self.scope[0]
+        else:
+            self.variable = variable
+        self.debug = debug
+        if jsproperty is None:
+            self.property = Property('',w_Undefined) #Attribute flags for new vars
+        else:
+            self.property = jsproperty
     
     def __str__(self):
-        return "<ExCtx %s>"%(str(self.scope))
+        return "<ExCtx %s, var: %s>"%(self.scope, self.variable)
         
     def assign(self, name, value):
-        """
-        assign to property name, creating it if it doesn't exist
-        """
         pass
-        #ref = self.resolve_identifier(name)
-        #if ref.
     
     def get_global(self):
         return self.scope[-1]
@@ -494,30 +501,27 @@ class ExecutionContext(object):
     
 
 def global_context(w_global=W_Object()):
-    ctx = ExecutionContext()
-    ctx.push_object(w_global)
-    ctx.this = w_global
-    ctx.property = Property('', w_Undefined, dd=True)
+    ctx = ExecutionContext([w_global],
+                            this = w_global,
+                            variable = w_global,
+                            jsproperty = Property('', w_Undefined, dd=True))
     return ctx
 
 def function_context(scope, activation, this=None):
-    ctx = ExecutionContext()
-    ctx.scope = scope[:]
+    newscope = scope[:]
+    ctx = ExecutionContext(newscope,
+                            this = this, 
+                            jsproperty = Property('', w_Undefined, dd=True))
     ctx.push_object(activation)
-    if this is None:
-        ctx.this = ctx.get_global()
-    else:
-        ctx.this = this
-    ctx.property = Property('', w_Undefined, dd=True)
     return ctx
     
 def eval_context(calling_context):
-    ctx = ExecutionContext()
-    ctx.scope = calling_context.scope[:]
-    ctx.this = calling_context.this
-    ctx.variable = calling_context.variable
-    ctx.property = Property('', w_Undefined)
+    ctx = ExecutionContext(calling_context.scope[:],
+                            this = calling_context.this,
+                            variable = calling_context.variable,
+                            jsproperty = Property('', w_Undefined))
     return ctx
+
 
 class W_Reference(W_Root):
     """Reference Type"""
@@ -534,7 +538,7 @@ class W_Reference(W_Root):
 
     def PutValue(self, w, ctx):
         base = self.base
-        if self.base is None:
+        if base is None:
             base = ctx.scope[-1]
         base.Put(self.property_name, w)
         return w

@@ -10,6 +10,9 @@ from pypy.rlib.parsing.ebnfparse import Symbol, Nonterminal
 from pypy.rlib.rarithmetic import r_uint, intmask
 from constants import unescapedict, SLASH
 
+import sys
+import os
+
 class Position(object):
     def __init__(self, lineno=-1, start=-1, end=-1):
         self.lineno = lineno
@@ -224,59 +227,54 @@ class Call(BinaryOp):
     
 
 class Comma(BinaryOp):
-    opcode = 'COMMA'
-    
     def eval(self, ctx):
         self.left.eval(ctx)
         return self.right.eval(ctx)
+    
 
 class Conditional(Expression):
-    opcode = 'CONDITIONAL'
-
-    def __init__(self, pos, t):
-        self.logicalexpr = get_obj(t, '0')
-        self.trueop = get_obj(t, '1')
-        self.falseop = get_obj(t, '2')
-        
+    def __init__(self, pos, condition, truepart, falsepart):
+        self.pos = pos
+        self.condition = condition
+        self.truepart = truepart
+        self.falsepart = falsepart
+    
     def eval(self, ctx):
-        if self.logicalexpr.eval(ctx).GetValue().ToBoolean():
-            return self.trueop.eval(ctx).GetValue()
+        if self.condition.eval(ctx).GetValue().ToBoolean():
+            return self.truepart.eval(ctx).GetValue()
         else:
-            return self.falseop.eval(ctx).GetValue()
+            return self.falsepart.eval(ctx).GetValue()
+    
 
 class Member(BinaryOp):
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject()
-        name = self.right.eval(ctx).GetPropertyName()
+        name = self.right.eval(ctx).GetValue().ToString()
         return W_Reference(name, w_obj)
+    
+
+class MemberDot(BinaryOp):
+    def eval(self, ctx):
+        w_obj = self.left.eval(ctx).GetValue().ToObject()
+        name = self.right.get_literal()
+        return W_Reference(name, w_obj)
+    
 
 class FunctionStatement(Statement):
-    def __init__(self, pos, name, body, params):
+    def __init__(self, pos, name, params, body):
+        self.pos = pos
         self.name = name
         self.body = body
         self.params = params
+        
+    def eval(self, ctx):
+        #XXX this is wrong, should clone the function prototype
+        w_obj = W_Object(ctx=ctx, callfunc = self)
+        w_obj.Put('prototype', W_Object(ctx=ctx))
+        return w_obj
     
     def execute(self, ctx):
-        pass
-    
-    def eval(self, ctx):
-        #XXX this is wrong, should clone the function prototype
-        w_obj = W_Object(ctx=ctx, callfunc = self)
-        w_obj.Put('prototype', W_Object(ctx=ctx))
-        return w_obj
-    
-
-class FunctionExpression(Expression):
-    def __init__(self, pos, name, body, params):
-        self.name = name
-        self.body = body
-        self.params = params
-    
-    def eval(self, ctx):
-        #XXX this is wrong, should clone the function prototype
-        w_obj = W_Object(ctx=ctx, callfunc = self)
-        w_obj.Put('prototype', W_Object(ctx=ctx))
-        return w_obj
+        return self.eval(ctx)
     
 
 class Identifier(Expression):
@@ -287,9 +285,13 @@ class Identifier(Expression):
     def eval(self, ctx):
         return ctx.resolve_identifier(self.name)
     
+    def get_literal(self):
+        return self.name
+    
 
 class This(Identifier):
-    opcode = "THIS"
+    pass
+    
 
 class If(Statement):
     def __init__(self, pos, condition, thenpart, elsepart=astundef):
@@ -778,24 +780,29 @@ class SourceElements(Statement):
         self.nodes = nodes
 
     def execute(self, ctx):
-        for var in self.var_decl:
-            ctx.variable.Put(var.name, w_Undefined)
-        for fun in self.func_decl:
-            ctx.variable.Put(fun.name, fun.eval(ctx))
+        print self.var_decl
+        print ctx
+        print repr(ctx.variable)
+        for varname in self.var_decl:
+            ctx.variable.Put(varname, w_Undefined)
+        for funcname, funccode in self.func_decl.items():
+            ctx.variable.Put(funcname, funccode.eval(ctx))
         node = self
-
+        
         try:
             last = w_Undefined
             for node in self.nodes:
                 last = node.execute(ctx)
+            print repr(ctx.variable)
             return last
         except Exception, e:
             if isinstance(e, ExecutionReturned) and e.type == 'return':
                 raise
             else:
                 # TODO: proper exception handling
-                print "exception in line: %s, on: %s"%(node.pos.lineno, node)
+                sys.stderr.write("exception in line: %s, on: %s%s"%(node.pos.lineno, node, os.linesep))
                 raise
+    
 
 class Program(Statement):
     def __init__(self, pos, body):
@@ -807,16 +814,16 @@ class Program(Statement):
     
 
 class Return(Statement):
-    opcode = 'RETURN'
-
-    def __init__(self, pos, t):
-        self.expr = get_obj(t, 'value')
-
+    def __init__(self, pos, expr):
+        self.pos = pos
+        self.expr = expr
+    
     def execute(self, ctx):
         if isinstance(self.expr, Undefined):
             raise ExecutionReturned('return', None, None)
         else:
             raise ExecutionReturned('return', self.expr.eval(ctx), None)
+    
 
 class Throw(Statement):
     def __init__(self, pos, exp):
@@ -827,20 +834,13 @@ class Throw(Statement):
         raise ThrowException(self.exp.eval(ctx).GetValue())
 
 class Try(Statement):
-    opcode = 'TRY'
-
-    def __init__(self, pos, t):
-        self.tryblock = get_obj(t, 'tryBlock')
-        self.finallyblock = get_obj(t, 'finallyBlock')
-        catch = get_tree_item(t, 'catchClauses')
-        if catch is not None:
-            #multiple catch clauses is a spidermonkey extension
-            self.catchblock = get_obj(catch, 'block')
-            self.catchparam = get_string(catch, 'varName')
-        else:
-            self.catchblock = None
-            self.catchparam = None
-
+    def __init__(self, pos, tryblock, catchparam, catchblock, finallyblock):
+        self.pos = pos
+        self.tryblock = tryblock
+        self.catchparam = catchparam
+        self.catchblock = catchblock
+        self.finallyblock = finallyblock
+    
     def execute(self, ctx):
         e = None
         tryresult = w_Undefined
@@ -850,7 +850,7 @@ class Try(Statement):
             e = excpt
             if self.catchblock is not None:
                 obj = W_Object()
-                obj.Put(self.catchparam, e.exception)
+                obj.Put(self.catchparam.name, e.exception)
                 ctx.push_object(obj)
                 tryresult = self.catchblock.execute(ctx)
                 ctx.pop_object()
@@ -863,6 +863,7 @@ class Try(Statement):
             raise e
         
         return tryresult
+    
 
 class Typeof(UnaryOp):
     opcode = 'TYPEOF'
@@ -880,10 +881,11 @@ class VariableDeclaration(Expression):
         self.expr = expr
     
     def eval(self, ctx):
-        # XXX take a look at the specs
-        v = self.identifier.eval(ctx)
-        if self.expr is not None:
-            v.PutValue(self.expr.eval(ctx).GetValue(), ctx)
+        name = self.identifier.get_literal()
+        if self.expr is None:
+            ctx.variable.Put(name, w_Undefined)
+        else:
+            ctx.variable.Put(name, self.expr.eval(ctx).GetValue())
     
 
 class VariableDeclList(Expression):

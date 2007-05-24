@@ -1,32 +1,6 @@
 from pypy.rlib.parsing.tree import RPythonVisitor, Symbol, Nonterminal
 from pypy.lang.js import operations
 
-#this is a noop for now
-def varfinder(opnode):
-    return [] 
-    if isinstance(opnode, operations.Vars):
-        return [opnode,]
-    elif hasattr(opnode, "nodes"):
-        temp = []
-        for op in opnode.nodes:
-            temp.extend(varfinder(op))
-        return temp
-    elif hasattr(opnode, "body"):
-        return varfinder(opnode.body)
-    else:
-        return []
-
-#this is a noop for now
-def funcfinder(opnode):
-    return []
-    if isinstance(opnode, operations.Function):
-        return [opnode,]
-    elif hasattr(opnode, "nodes"):
-        return [funcfinder(op) for op in opnode.nodes]
-    elif hasattr(opnode, "body"):
-        return funcfinder(opnode.body)
-    else:
-        return []
 
 class ASTBuilder(RPythonVisitor):
     BINOP_TO_CLS = {
@@ -48,8 +22,10 @@ class ASTBuilder(RPythonVisitor):
         '>=': operations.Ge,
         '<': operations.Lt,
         '<=': operations.Le,
-        '.': operations.Member,
+        '.': operations.MemberDot,
         '[': operations.Member,
+        ',': operations.Comma,
+        'in': operations.In,
     }
     UNOP_TO_CLS = {
         '~': operations.BitwiseNot,
@@ -110,7 +86,6 @@ class ASTBuilder(RPythonVisitor):
             pos = self.get_pos(op)
             right = self.dispatch(node.children[i * 2 + 2])
             result = self.BINOP_TO_CLS[op.additional_info](pos, left, right)
-            print left, right
             left = result
         return left
     visit_additiveexpression = binaryop
@@ -122,6 +97,7 @@ class ASTBuilder(RPythonVisitor):
     visit_logicalorexpression = binaryop
     visit_logicalandexpression = binaryop
     visit_relationalexpression = binaryop
+    visit_expression = binaryop
     
     def visit_memberexpression(self, node):
         if isinstance(node.children[0], Symbol) and \
@@ -177,7 +153,12 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(node)
         nodes = [self.dispatch(child) for child in node.children[1:]]
         return operations.ArgumentList(pos, nodes)
-
+    
+    def visit_formalparameterlist(self, node):
+        pos = self.get_pos(node)
+        nodes = [self.dispatch(child) for child in node.children]
+        return operations.ArgumentList(pos, nodes)
+    
     def visit_variabledeclarationlist(self, node):
         pos = self.get_pos(node)
         nodes = [self.dispatch(child) for child in node.children]
@@ -193,12 +174,14 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(node)
         name = node.additional_info
         return operations.Identifier(pos, name)
-
+    
     def visit_program(self, node):
+        self.varlists = []
+        self.funclists = []
         pos = self.get_pos(node)
         body = self.dispatch(node.children[0])
         return operations.Program(pos, body)
-
+    
     def visit_variablestatement(self, node):
         pos = self.get_pos(node)
         body = self.dispatch(node.children[0])
@@ -211,26 +194,52 @@ class ASTBuilder(RPythonVisitor):
         
     def visit_sourceelements(self, node):
         pos = self.get_pos(node)
-        nodes = [self.dispatch(child) for child in node.children]
-        var_decl = []
-        func_decl = []
-        for node in nodes:
-            var_decl.extend(varfinder(node))
-            func_decl.extend(funcfinder(node))
-        
+        self.varlists.append(set())
+        self.funclists.append({})
+        nodes=[]
+        for child in node.children:
+            node = self.dispatch(child)
+            if node is not None:
+                nodes.append(node)
+        var_decl = self.varlists.pop()
+        func_decl = self.funclists.pop()
+        print var_decl, func_decl
         return operations.SourceElements(pos, var_decl, func_decl, nodes)
     
-    def visit_expressionstatement(self, node):
-        return self.dispatch(node.children[0])
-            
+    def functioncommon(self, node, declaration=True):
+        pos = self.get_pos(node)
+        i=0
+        identifier, i = self.get_next_expr(node, i)
+        parameters, i = self.get_next_expr(node, i)
+        functionbody, i = self.get_next_expr(node, i)
+        if parameters == operations.astundef:
+            p = []
+        else:
+            p = [pident.get_literal() for pident in parameters.nodes]
+        funcobj = operations.FunctionStatement(pos, identifier, p, functionbody)
+        if declaration:
+            self.funclists[-1][identifier.get_literal()] = funcobj
+        return funcobj
+    
+    def visit_functiondeclaration(self, node):
+        self.functioncommon(node)
+        return None
+    
+    def visit_functionexpression(self, node):
+        return self.functioncommon(node, declaration=False)
+    
     def visit_variabledeclaration(self, node):
         pos = self.get_pos(node)
         identifier = self.dispatch(node.children[0])
+        self.varlists[-1].add(identifier.get_literal())
         if len(node.children) > 1:
             expr = self.dispatch(node.children[1])
         else:
             expr = None
         return operations.VariableDeclaration(pos, identifier, expr)
+    
+    def visit_expressionstatement(self, node):
+        return self.dispatch(node.children[0])
     
     def visit_callexpression(self, node):
         pos = self.get_pos(node)
@@ -245,10 +254,7 @@ class ASTBuilder(RPythonVisitor):
         right = self.dispatch(node.children[2])
         return operations.Assignment(pos, left, right, atype)
     visit_assignmentexpressionnoin = visit_assignmentexpression
-    
-    def visit_functiondeclaration(self, node):
-        pos = self.get_pos(node)
-            
+        
     def visit_emptystatement(self, node):
         return operations.astundef
     
@@ -294,7 +300,7 @@ class ASTBuilder(RPythonVisitor):
     
     def get_next_expr(self, node, i):
         if isinstance(node.children[i], Symbol) and \
-           node.children[i].additional_info in [';', ')']:
+           node.children[i].additional_info in [';', ')', '(', '}']:
             return operations.astundef, i+1
         else:
             return self.dispatch(node.children[i]), i+2
@@ -306,3 +312,38 @@ class ASTBuilder(RPythonVisitor):
         else:
             target = operations.astundef
         return operations.Break(pos, target)
+    
+    def visit_returnstatement(self, node):
+        pos = self.get_pos(node)
+        if len(node.children) > 0:
+            value = self.dispatch(node.children[0])
+        else:
+            value = operations.astundef
+        return operations.Return(pos, value)
+
+    def visit_conditionalexpression(self, node):
+        pos = self.get_pos(node)
+        condition = self.dispatch(node.children[0])
+        truepart = self.dispatch(node.children[2])
+        falsepart = self.dispatch(node.children[3])
+        return operations.Conditional(pos, condition, truepart, falsepart)
+    
+    def visit_trystatement(self, node):
+        pos = self.get_pos(node)
+        tryblock = self.dispatch(node.children[0])
+        catchparam = None
+        catchblock = None
+        finallyblock = None
+        if node.children[1].children[0].additional_info == "catch":
+            catchparam = self.dispatch(node.children[1].children[1])
+            catchblock = self.dispatch(node.children[1].children[2])
+            if len(node.children) > 2:
+                finallyblock = self.dispatch(node.children[2].children[1])
+        else:
+            finallyblock = self.dispatch(node.children[1].children[1])
+        return operations.Try(pos, tryblock, catchparam, catchblock, finallyblock)
+    
+    def visit_primaryexpression(self, node):
+        pos = self.get_pos(node)
+        return operations.This(pos, 'this')
+    
