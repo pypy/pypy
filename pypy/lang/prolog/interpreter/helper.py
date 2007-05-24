@@ -36,7 +36,7 @@ def unwrap_int(obj):
     if isinstance(obj, term.Number):
         return obj.num
     elif isinstance(obj, term.Float):
-        f = obj.num; i = int(f)
+        f = obj.floatval; i = int(f)
         if f == i:
             return i
     error.throw_type_error('integer', obj)
@@ -74,6 +74,6 @@ def convert_to_str(obj):
     elif isinstance(obj, term.Number):
         return str(obj.num)
     elif isinstance(obj, term.Float):
-        return str(obj.num)
+        return str(obj.floatval)
     error.throw_type_error("atomic", obj)
 

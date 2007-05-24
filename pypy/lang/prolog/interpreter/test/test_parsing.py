@@ -94,7 +94,7 @@ def test_number():
     facts = builder.build(t)
     assert len(facts) == 2
     assert facts[0].args[1].num == -1
-    assert facts[1].args[1].num == -1.345
+    assert facts[1].args[1].floatval == -1.345
     t = parse_file("""
         X = -1.
         arg(X, h(a, b, c), b), X = 2.

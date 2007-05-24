@@ -318,12 +318,12 @@ class Float(NonVar):
     TAG = tag()
     STANDARD_ORDER = 2
     _immutable_ = True
-    def __init__(self, num):
-        self.num = num
+    def __init__(self, floatval):
+        self.floatval = floatval
 
     @specialize.arg(3)
     def basic_unify(self, other, heap, occurs_check=False):
-        if isinstance(other, Float) and other.num == self.num:
+        if isinstance(other, Float) and other.floatval == self.floatval:
             return
         raise UnificationFailed
 
@@ -332,22 +332,22 @@ class Float(NonVar):
 
     def copy_and_basic_unify(self, other, heap, memo):
         hint(self, concrete=True)
-        if isinstance(other, Float) and other.num == self.num:
+        if isinstance(other, Float) and other.floatval == self.floatval:
             return self
         else:
             raise UnificationFailed
 
     def get_unify_hash(self, heap):
         #XXX no clue whether this is a good idea...
-        m, e = math.frexp(self.num)
+        m, e = math.frexp(self.floatval)
         m = intmask(int(m / 2 * 2 ** (32 - TAGBITS)))
         return intmask(m << TAGBITS | self.TAG)
 
     def __str__(self):
-        return repr(self.num)
+        return repr(self.floatval)
 
     def __repr__(self):
-        return "Float(%r)" % (self.num, )
+        return "Float(%r)" % (self.floatval, )
 
 class BlackBox(NonVar):
     # meant to be subclassed
@@ -589,10 +589,10 @@ def cmp_standard_order(obj1, obj2, heap):
         if isinstance(obj2, Number):
             return rcmp(obj1.num, obj2.num)
         elif isinstance(obj2, Float):
-            return rcmp(obj1.num, obj2.num)
+            return rcmp(obj1.num, obj2.floatval)
     if isinstance(obj1, Float):
         if isinstance(obj2, Number):
-            return rcmp(obj1.num, obj2.num)
+            return rcmp(obj1.floatval, obj2.num)
         elif isinstance(obj2, Float):
-            return rcmp(obj1.num, obj2.num)
+            return rcmp(obj1.floatval, obj2.floatval)
     assert 0

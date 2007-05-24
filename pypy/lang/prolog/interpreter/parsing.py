@@ -321,7 +321,7 @@ class TermBuilder(RPythonVisitor):
             if isinstance(child, Number):
                 return Number(factor * child.num)
             if isinstance(child, Float):
-                return Float(factor * child.num)
+                return Float(factor * child.floatval)
         return Term(name, children)
 
     def build_list(self, node):
@@ -391,7 +391,7 @@ class TermBuilder(RPythonVisitor):
             if isinstance(result, Number):
                 return Number(-result.num)
             elif isinstance(result, Float):
-                return Float(-result.num)
+                return Float(-result.floatval)
         return self.visit(node.children[1])
 
     def visit_listexpr(self, node):

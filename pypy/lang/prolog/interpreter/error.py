@@ -25,8 +25,6 @@ class CutException(PrologError):
     def __init__(self, continuation):
         self.continuation = continuation
 
-    pass
-
 def throw_instantiation_error():
     from pypy.lang.prolog.interpreter import term
     raise CatchableError(term.Atom.newatom("instantiation_error"))
