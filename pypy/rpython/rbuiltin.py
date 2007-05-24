@@ -233,11 +233,7 @@ def rtype_intmask(hop):
     return vlist[0]
 
 def rtype_builtin_min(hop):
-    rint1, rint2 = hop.args_r
-    assert isinstance(rint1, IntegerRepr)
-    assert isinstance(rint2, IntegerRepr)
-    assert rint1.lowleveltype == rint2.lowleveltype
-    v1, v2 = hop.inputargs(rint1, rint2)
+    v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     return hop.gendirectcall(ll_min, v1, v2)
 
 def ll_min(i1, i2):
@@ -246,11 +242,7 @@ def ll_min(i1, i2):
     return i2
 
 def rtype_builtin_max(hop):
-    rint1, rint2 = hop.args_r
-    assert isinstance(rint1, IntegerRepr)
-    assert isinstance(rint2, IntegerRepr)
-    assert rint1.lowleveltype == rint2.lowleveltype
-    v1, v2 = hop.inputargs(rint1, rint2)
+    v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):

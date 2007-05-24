@@ -113,6 +113,24 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.interpret(fn, (2, 2)) == 2
         assert self.interpret(fn, (-1, -12)) == -1
 
+    def test_float_min(self):
+        def fn(i, j):
+            return min(i, j)
+        assert self.interpret(fn, (1.9, 2.)) == 1.9
+        assert self.interpret(fn, (1.5, -1.4)) == -1.4
+
+    def test_float_int_min(self):
+        def fn(i, j):
+            return min(i, j)
+        assert self.interpret(fn, (1.9, 2)) == 1.9
+        assert self.interpret(fn, (1.5, -1)) == -1
+
+    def test_float_max(self):
+        def fn(i, j):
+            return max(i,j)
+        assert self.interpret(fn, (1.0, 2.)) == 2
+        assert self.interpret(fn, (1.1, -1)) == 1.1
+
     def test_builtin_math_floor(self):
         import math
         def fn(f):
