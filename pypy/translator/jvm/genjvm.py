@@ -92,7 +92,8 @@ class JvmGeneratedSource(object):
 
     def _invoke(self, args, allow_stderr):
         subp = subprocess.Popen(
-            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            shell=True, universal_newlines=True)
         stdout, stderr = subp.communicate()
         res = subp.wait()
         if res or (not allow_stderr and stderr):
@@ -108,7 +109,7 @@ class JvmGeneratedSource(object):
             if not os.path.exists(str(pypycls)):
                 tocompile.append(clsnm)
         if tocompile:
-            sl = __file__.rindex('/')
+            sl = __file__.rindex(os.path.sep)
             javasrcs = [__file__[:sl]+("/src/pypy/%s.java" % clsnm) for
                         clsnm in tocompile]
             self._invoke([getoption('javac'),
@@ -124,9 +125,32 @@ class JvmGeneratedSource(object):
         """
         jascmd = [getoption('jasmin'), '-d', str(self.javadir)]
 
-        print "Invoking jasmin on %s" % self.jasmin_files
-        self._invoke(jascmd+list(self.jasmin_files), False)
-        print "... completed!"
+        def split_list(files):
+            "Split the files list into manageable pieces"
+
+            # - On Windows 2000, commands in .bat are limited to 2047 chars.
+            # - But the 'jasmin' script contains a line like
+            #     path_to_jre/java -jar path_to_jasmin/jasmin.jar $*
+            # So we limit the length of arguments files to:
+            MAXLINE = 1500
+    
+            chunk = []
+            chunklen = 0
+            for f in files:
+                # Account for the space between items
+                chunklen += len(f) + 1
+                if chunklen > MAXLINE:
+                    yield chunk
+                    chunk = []
+                    chunklen = len(f)
+                chunk.append(f)
+            if chunk:
+                yield chunk
+
+        for files in split_list(self.jasmin_files):
+            print "Invoking jasmin on %s" % files
+            self._invoke(jascmd + files, False)
+            print "... completed!"
                            
         self.compiled = True
         self._compile_helper(('Callback',
