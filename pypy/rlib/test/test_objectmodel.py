@@ -269,14 +269,6 @@ class BaseTestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
-    def test_hint(self):
-        from pypy.rlib import objectmodel
-        def f():
-            x = objectmodel.hint(5, hello="world")
-            return x
-        res = self.interpret(f, [])
-        assert res == 5
-
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
     def test_cast_to_and_from_weakaddress(self):
@@ -311,23 +303,6 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
         res = self.interpret(f, [])
         assert res == 1
-
-    def test_is_early_constant(self):
-        from pypy.rlib import objectmodel
-        def f(x):
-            if objectmodel._is_early_constant(x):
-                return 42
-            return 0
-
-        assert f(3) == 0
-        res = self.interpret(f, [5])
-        assert res == 0
-
-        def g():
-            return f(88)
-        
-        res = self.interpret(g, [])
-        assert res == 42
 
 
 class TestOOtype(BaseTestObjectModel, OORtypeMixin):
