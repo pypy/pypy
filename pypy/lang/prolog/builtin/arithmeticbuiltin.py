@@ -27,6 +27,7 @@ expose_builtin(impl_between, "between", unwrap_spec=["int", "int", "obj"],
 
 def impl_is(engine, var, num):
     var.unify(num, engine.heap)
+impl_is._look_inside_me_ = True
 expose_builtin(impl_is, "is", unwrap_spec=["raw", "arithmetic"])
 
 for ext, prolog, python in [("eq", "=:=", "=="),
@@ -43,7 +44,7 @@ def impl_arith_%s(engine, num1, num2):
             eq = num1.num %s num2.num
     elif isinstance(num1, term.Float):
         if isinstance(num2, term.Float):
-            eq = num1.num %s num2.num
+            eq = num1.floatval %s num2.floatval
     if not eq:
         raise error.UnificationFailed()""" % (ext, python, python)).compile()
     expose_builtin(globals()["impl_arith_%s" % (ext, )], prolog,

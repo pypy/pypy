@@ -133,23 +133,26 @@ class TestPortal(PortalTest):
 
     def test_loop(self):
         e = get_engine("""
-            f(X) :- h(X).
-            f(a).
-            h(X) :- h(X).
+            f(X) :- h(X, _).
+            f(50).
+            h(0, _).
+            h(X, Y) :- Y is X - 1, h(Y, _).
         """)
-        X = e.heap.newvar()
+        num = term.Number(50)
 
         def main(n):
             e.heap.reset()
             if n == 0:
-                e.call(term.Term("f", [X]))
-                return isinstance(X.dereference(e.heap), term.Atom)
+                e.call(term.Term("f", [num]))
+                return True
             else:
                 return False
 
+        res = main(0)
+        assert res
         res = self.timeshift_from_portal(main, portal.PORTAL,
                                          [0], policy=POLICY,
                                          backendoptimize=True, 
                                          inline=0.0)
-        assert res == True
+        assert res
 

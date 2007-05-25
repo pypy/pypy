@@ -334,7 +334,7 @@ class Engine(object):
                                                        continuation)
                     raise
             else:
-                inline = False #XXX rule.body is None # inline facts
+                inline = rule.body is None # inline facts
                 try:
                     # for the last rule (rulechain is None), this will always
                     # return, because choice_point is False

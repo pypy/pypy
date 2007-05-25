@@ -73,7 +73,7 @@ class TermFormatter(object):
         return str(num.num)
 
     def format_float(self, num):
-        return str(num.num)
+        return str(num.floatval)
 
     def format_var(self, var):
         return "_G%s" % (var.index, )

@@ -87,7 +87,7 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
         signature = "%s/%s" % (name, len(unwrap_spec))
         b = Builtin(miniglobals[funcname])
         builtins[signature] = b
-        if signature == ",/2":
+        if signature in [",/2", "is/2"]:
             builtins_list.insert(0, (signature, b))
         else:
             builtins_list.append((signature, b))

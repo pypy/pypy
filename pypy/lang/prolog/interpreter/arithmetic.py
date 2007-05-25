@@ -4,10 +4,12 @@ from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
 from pypy.lang.prolog.interpreter.error import UnificationFailed, FunctionNotFound
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.jit import we_are_jitted, hint
+from pypy.rlib.unroll import unrolling_iterable
 
 arithmetic_functions = {}
+arithmetic_functions_list = []
 
-pattern_to_function = {}
 
 class CodeCollector(object):
     def __init__(self):
@@ -85,29 +87,15 @@ def wrap_builtin_operation(name, pattern, unwrap_spec, can_overflow, intversion)
     code.end_block("def")
     miniglobals = globals().copy()
     exec py.code.Source(code.tostring()).compile() in miniglobals
-    return miniglobals["prolog_" + name]
+    result = miniglobals["prolog_" + name]
+    result._look_inside_me_ = True
+    return result
 
 wrap_builtin_operation._annspecialcase_ = 'specialize:memo'
 
 def eval_arithmetic(engine, query):
-    query = query.getvalue(engine.heap)
-    if isinstance(query, term.Number):
-        return query
-    if isinstance(query, term.Float):
-        return norm_float(query)
-    if isinstance(query, term.Atom):
-        #XXX beautify that
-        if query.name == "pi":
-            return term.Float(math.pi)
-        if query.name == "e":
-            return term.Float(math.e)
-        error.throw_type_error("evaluable", query.get_prolog_signature())
-    if isinstance(query, term.Term):
-        func = arithmetic_functions.get(query.signature, None)
-        if func is None:
-            error.throw_type_error("evaluable", query.get_prolog_signature())
-        return func(engine, query)
-    raise error.UncatchableError("not implemented")
+    return query.eval_arithmetic(engine)
+eval_arithmetic._look_inside_me_ = True
 
 def norm_float(obj):
     v = obj.floatval
@@ -121,7 +109,7 @@ simple_functions = [
     ("-",                     ["expr", "expr"], "v0 - v1", True, True),
     ("*",                     ["expr", "expr"], "v0 * v1", True, True),
     ("//",                    ["int",  "int"],  "v0 / v1", True, False),
-    ("**",                    ["expr", "expr"], "v0 ** v1", True, True),
+    ("**",                    ["expr", "expr"], "float(v0) ** float(v1)", True, False),
     (">>",                    ["int", "int"],   "v0 >> v1", False, False),
     ("<<",                    ["int", "int"],   "intmask(v0 << v1)", False,
                                                                      False),
@@ -134,9 +122,9 @@ simple_functions = [
     ("max",                   ["expr", "expr"], "max(v0, v1)", False, True),
     ("min",                   ["expr", "expr"], "min(v0, v1)", False, True),
     ("round",                 ["expr"],         "int(v0 + 0.5)", False, False),
-    ("floor",                 ["expr"],         "math.floor(v0)", False, True), #XXX
-    ("ceiling",               ["expr"],         "math.ceil(v0)", False, True), #XXX
-    ("float_fractional_part", ["expr"],         "v0 - int(v0)", False, True), #XXX
+    ("floor",                 ["expr"],         "math.floor(v0)", False, False), #XXX
+    ("ceiling",               ["expr"],         "math.ceil(v0)", False, False), #XXX
+    ("float_fractional_part", ["expr"],         "v0 - int(v0)", False, False), #XXX
     ("float_integer_part",    ["expr"],         "int(v0)", False, True),
 ]
 
@@ -151,3 +139,6 @@ for prolog_name, unwrap_spec, pattern, overflow, intversion in simple_functions:
                                intversion)
     signature = "%s/%s" % (prolog_name, len(unwrap_spec))
     arithmetic_functions[signature] = f
+    arithmetic_functions_list.append((signature, f))
+
+arithmetic_functions_list = unrolling_iterable(arithmetic_functions_list)

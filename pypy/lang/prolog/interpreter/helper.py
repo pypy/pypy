@@ -3,8 +3,10 @@
 from pypy.lang.prolog.interpreter import term
 from pypy.lang.prolog.interpreter import error
 
+emptylist = term.Atom.newatom("[]")
+
 def wrap_list(python_list):
-    curr = term.Atom.newatom("[]")
+    curr = emptylist
     for i in range(len(python_list) - 1, -1, -1):
         curr = term.Term(".", [python_list[i], curr])
     return curr
@@ -23,6 +25,7 @@ def unwrap_list(prolog_list):
 
 def is_callable(var, engine):
     return isinstance(var, term.Callable)
+is_callable._look_inside_me_ = True
 
 def ensure_callable(var):
     if isinstance(var, term.Var):
@@ -31,6 +34,7 @@ def ensure_callable(var):
         return var
     else:
         error.throw_type_error("callable", var)
+ensure_callable._look_inside_me_ = True
 
 def unwrap_int(obj):
     if isinstance(obj, term.Number):
@@ -45,6 +49,7 @@ def unwrap_atom(obj):
     if isinstance(obj, term.Atom):
         return obj.name
     error.throw_type_error('atom', obj)
+unwrap_atom._look_inside_me_ = True
 
 def unwrap_predicate_indicator(predicate):
     if not isinstance(predicate, term.Term):

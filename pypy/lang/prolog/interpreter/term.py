@@ -2,8 +2,10 @@ import math
 from pypy.rlib.objectmodel import we_are_translated, UnboxedValue
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
+from pypy.lang.prolog.interpreter import error
 from pypy.rlib.jit import hint
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.jit import we_are_jitted, hint, purefunction
 
 DEBUG = False
 
@@ -71,6 +73,8 @@ class PrologObject(object):
         # for testing
         return not (self == other)
 
+    def eval_arithmetic(self, engine):
+        error.throw_type_error("evaluable", self)
 
 class Var(PrologObject):
     TAG = 0
@@ -169,13 +173,20 @@ class Var(PrologObject):
         return (self.__class__ == other.__class__ and
                 self.index == other.index)
 
+    @staticmethod
+    @purefunction
     def newvar(index):
         result = Var.cache.get(index, None)
         if result is not None:
             return result
         Var.cache[index] = result = Var(index)
         return result
-    newvar = staticmethod(newvar)
+
+    def eval_arithmetic(self, engine):
+        self = self.dereference(engine.heap)
+        if isinstance(self, Var):
+            error.throw_instantiation_error()
+        return self.eval_arithmetic(engine)
 
 
 class NonVar(PrologObject):
@@ -271,13 +282,22 @@ class Atom(Callable):
     def get_prolog_signature(self):
         return Term("/", [self, NUMBER_0])
 
+    @staticmethod
+    @purefunction
     def newatom(name):
         result = Atom.cache.get(name, None)
         if result is not None:
             return result
         Atom.cache[name] = result = Atom(name)
         return result
-    newatom = staticmethod(newatom)
+
+    def eval_arithmetic(self, engine):
+        #XXX beautify that
+        if self.name == "pi":
+            return Float.pi
+        if self.name == "e":
+            return Float.e
+        error.throw_type_error("evaluable", self.get_prolog_signature())
 
 
 class Number(NonVar):
@@ -311,6 +331,9 @@ class Number(NonVar):
 
     def get_unify_hash(self, heap):
         return intmask(self.num << TAGBITS | self.TAG)
+
+    def eval_arithmetic(self, engine):
+        return self
 
 NUMBER_0 = Number(0)
 
@@ -349,6 +372,14 @@ class Float(NonVar):
     def __repr__(self):
         return "Float(%r)" % (self.floatval, )
 
+    def eval_arithmetic(self, engine):
+        from pypy.lang.prolog.interpreter.arithmetic import norm_float
+        return norm_float(self)
+
+Float.e = Float(math.e)
+Float.pi = Float(math.pi)
+
+
 class BlackBox(NonVar):
     # meant to be subclassed
     TAG = tag()
@@ -374,6 +405,7 @@ class BlackBox(NonVar):
 
     def get_unify_hash(self, heap):
         return intmask(id(self) << TAGBITS | self.TAG)
+
 
 
 # helper functions for various Term methods
@@ -490,6 +522,20 @@ class Term(Callable):
                 return True
         return False
         
+    def eval_arithmetic(self, engine):
+        from pypy.lang.prolog.interpreter.arithmetic import arithmetic_functions
+        from pypy.lang.prolog.interpreter.arithmetic import arithmetic_functions_list
+        if we_are_jitted():
+            signature = hint(self.signature, promote=True)
+            func = None
+            for sig, func in arithmetic_functions_list:
+                if sig == signature:
+                    break
+        else:
+            func = arithmetic_functions.get(self.signature, None)
+        if func is None:
+            error.throw_type_error("evaluable", self.get_prolog_signature())
+        return func(engine, self)
 
 class Rule(object):
     _immutable_ = True

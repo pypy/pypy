@@ -1,5 +1,5 @@
 from pypy.jit.hintannotator.policy import ManualGraphPolicy
-from pypy.lang.prolog.interpreter import term, engine
+from pypy.lang.prolog.interpreter import term, engine, helper
 from pypy.translator.translator import graphof
 from pypy.annotation.specialize import getuniquenondirectgraph
 
@@ -27,7 +27,7 @@ class PyrologHintAnnotatorPolicy(ManualGraphPolicy):
 
     def fill_timeshift_graphs(self, t, portal_graph):
         import pypy
-        for cls in [term.Var, term.Term, term.Number, term.Float, term.Atom]:
+        for cls in [term.Var, term.Term, term.Number, term.Atom]:
             self.seegraph(cls.copy)
             self.seegraph(cls.__init__)
             self.seegraph(cls.copy_and_unify)
@@ -37,6 +37,7 @@ class PyrologHintAnnotatorPolicy(ManualGraphPolicy):
             self.seegraph(cls.copy_and_basic_unify)
         for cls in [term.Var, term.Term, term.Number, term.Atom]:
             self.seegraph(cls.get_unify_hash)
+            self.seegraph(cls.eval_arithmetic)
         for cls in [term.Callable, term.Atom, term.Term]:
             self.seegraph(cls.get_prolog_signature)
             self.seegraph(cls.unify_hash_of_children)
@@ -58,6 +59,8 @@ class PyrologHintAnnotatorPolicy(ManualGraphPolicy):
         for cls in [engine.Continuation, engine.LimitedScopeContinuation,
                     pypy.lang.prolog.builtin.control.AndContinuation]:
             self.seegraph(cls._call)
+        for function in "".split():
+            self.seegraph(getattr(helper, function))
 
 def get_portal(drv):
     t = drv.translator
