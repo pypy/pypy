@@ -81,6 +81,17 @@ def test_simple():
     assert_true("X is float_integer_part(-0.6), X = 0.")
     assert_true("X is float_integer_part(-1), X = -1.")
 
+    assert_true("X is float_fractional_part(1), X = 0.")
+    assert_true("X is float_fractional_part(2), X = 0.")
+    assert_true("X is float_fractional_part(-1), X = 0.")
+    assert_true("X is float_fractional_part(1.2), Y is 1.2 - 1, X = Y.")
+    assert_true("X is float_fractional_part(1.4), Y is 1.4 - 1, X = Y.")
+    assert_true("X is float_fractional_part(1.6), Y is 1.6 - 1, X = Y.")
+    assert_true("X is float_fractional_part(-1.2), X is -1.2 + 1, X = Y.")
+    assert_true("X is float_fractional_part(-1.4), X is -1.4 + 1, X = Y.")
+    assert_true("X is float_fractional_part(-1.6), X is -1.6 + 1, X = Y.")
+
+    assert_true("X is 2 ** 4, X = 16.")
 
 def test_comparison():
     assert_true("1 =:= 1.0.")
