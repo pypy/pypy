@@ -11,7 +11,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 """
 
 from pypy.interpreter import pyframe, function
-from pypy.rlib.objectmodel import we_are_jitted
+from pypy.rlib.jit import we_are_jitted
 from pypy.interpreter.argument import Arguments
 
 
