@@ -22,7 +22,7 @@ class TestJvmClass(JvmTest, BaseTestRclass):
             a = A()
             b = B()
             return call(a, x) + call(b, x)
-		assert self.interpret(fn, [0]) == 3
+        assert self.interpret(fn, [0]) == 3
 
     def test_abstract_method2(self):
         class Root(object):
