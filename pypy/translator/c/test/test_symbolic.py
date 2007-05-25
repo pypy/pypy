@@ -112,9 +112,9 @@ def test_computed_int_symbolic():
     assert res == 42
 
 def test_is_early_constant():
-    from pypy.rlib import objectmodel
+    from pypy.rlib import jit
     def f(x):
-        if objectmodel._is_early_constant(x):
+        if jit._is_early_constant(x):
             return 42
         return 0
     
