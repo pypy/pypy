@@ -269,9 +269,6 @@ def object_init(s_self, *args):
     pass
 
 
-def count(s_obj):
-    return SomeInteger()
-
 def conf():
     return SomeString()
 
