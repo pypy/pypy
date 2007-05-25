@@ -2,7 +2,7 @@
 Backend for the JVM.
 """
 
-import os, os.path, sys
+import sys
 
 import py
 from py.compat import subprocess
@@ -106,11 +106,11 @@ class JvmGeneratedSource(object):
         tocompile = []
         for clsnm in clsnms:
             pypycls = self.classdir.join(clsnm + '.class')
-            if not os.path.exists(str(pypycls)):
+            if not pypycls.check():
                 tocompile.append(clsnm)
         if tocompile:
-            sl = __file__.rindex(os.path.sep)
-            javasrcs = [__file__[:sl]+("/src/pypy/%s.java" % clsnm) for
+            thisdir = py.magic.autopath().dirpath()
+            javasrcs = [str(thisdir.join('src/pypy', clsnm + '.java')) for
                         clsnm in tocompile]
             self._invoke([getoption('javac'),
                           '-nowarn',

@@ -1,4 +1,3 @@
-import os # 
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.rpython.ootypesystem import ootype
@@ -1246,14 +1245,11 @@ class JasminGenerator(JVMGenerator):
         iclassnm = self.current_type().descriptor.int_class_name()
         isuper = self.curclass.superclass_type.descriptor.int_class_name()
         
-        jfile = "%s/%s.j" % (self.outdir, iclassnm)
+        jfile = self.outdir.join("%s.j" % iclassnm)
 
-        try:
-            jdir = jfile[:jfile.rindex('/')]
-            os.makedirs(jdir)
-        except OSError: pass
-        self.curclass.file = open(jfile, 'w')
-        self.db.add_jasmin_file(jfile)
+        jfile.dirpath().ensure(dir=True)
+        self.curclass.file = jfile.open('w')
+        self.db.add_jasmin_file(str(jfile))
 
         # Determine the "declaration string"
         if interface: decl_str = "interface"
