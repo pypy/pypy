@@ -13,11 +13,7 @@ int LL_stack_too_big(void);
 
 void LL_stack_unwind(void)
 {
-#ifdef USE_STACKLESS
-    LL_stackless_stack_unwind();
-#else
 	RPyRaiseSimpleException(PyExc_RuntimeError, "Recursion limit exceeded");
-#endif
 }
 
 long _LL_stack_growing_direction(char *parent)
