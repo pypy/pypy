@@ -169,9 +169,9 @@ def test_vararray():
 
 
 def test_is_early_constant():
-    from pypy.rlib import objectmodel
+    from pypy.rlib import jit
     def f(x):
-        if objectmodel._is_early_constant(x):
+        if jit._is_early_constant(x):
             return 42
         return 0
     
@@ -181,9 +181,9 @@ def test_is_early_constant():
     assert res == 0
 
 def test_we_are_jitted():
-    from pypy.rlib import objectmodel
+    from pypy.rlib import jit
     def f():
-        return objectmodel.we_are_jitted()
+        return jit.we_are_jitted()
     fn = compile_function(f, [])
     res = fn()
     assert res == False
