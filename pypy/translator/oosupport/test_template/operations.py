@@ -192,9 +192,9 @@ class BaseTestOperations(object):
         self._check_all(fn)
 
     def test_is_early_constant(self):
-        from pypy.rlib import objectmodel
+        from pypy.rlib import jit
         def f(x):
-            if objectmodel._is_early_constant(x):
+            if jit._is_early_constant(x):
                 return 42
             return 0
         assert self.interpret(f, [5]) == 0
