@@ -17,6 +17,7 @@ from pypy.rpython.memory.lladdress import NULL
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rlib import objectmodel
+from pypy.rlib import jit
 
 log = log.database 
 
@@ -508,7 +509,7 @@ class Primitives(object):
         elif isinstance(value, CDefinedIntSymbolic):
             if value is objectmodel.malloc_zero_filled:
                 repr = '1'
-            elif value is objectmodel._we_are_jitted:
+            elif value is jit._we_are_jitted:
                 repr = '0'
             else:
                 raise NotImplementedError("CDefinedIntSymbolic: %r" % (value,))
