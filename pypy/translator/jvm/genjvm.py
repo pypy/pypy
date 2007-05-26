@@ -91,9 +91,14 @@ class JvmGeneratedSource(object):
         self.jasmin_files = jfiles
 
     def _invoke(self, args, allow_stderr):
+        import sys
+        if sys.platform == 'nt':
+            shell = True
+        else:
+            shell = False
         subp = subprocess.Popen(
             args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            shell=True, universal_newlines=True)
+            shell=shell, universal_newlines=True)
         stdout, stderr = subp.communicate()
         res = subp.wait()
         if res or (not allow_stderr and stderr):
