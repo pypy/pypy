@@ -22,7 +22,7 @@ class EntryNonConstant(ExtRegistryEntry):
     
     def compute_result_annotation(self, arg):
         if hasattr(arg, 'const'):
-            return self.bookkeeper.annotation_from_example(arg.const)
+            return self.bookkeeper.immutablevalue(arg.const, False)
         else:
             return arg
 

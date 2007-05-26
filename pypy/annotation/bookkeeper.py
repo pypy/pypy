@@ -344,7 +344,7 @@ class Bookkeeper:
             else:
                 listdef = ListDef(self, s_ImpossibleValue)
                 for e in x:
-                    listdef.generalize(self.annotation_from_example(e))
+                    listdef.generalize(self.immutablevalue(e, False))
                 result = SomeList(listdef)    
         elif tp is dict or tp is r_dict:
             if need_const:
@@ -385,8 +385,8 @@ class Bookkeeper:
                     dictdef.dictkey.update_rdict_annotations(s_eqfn,
                         s_hashfn)
                 for ek, ev in x.iteritems():
-                    dictdef.generalize_key(self.annotation_from_example(ek))
-                    dictdef.generalize_value(self.annotation_from_example(ev))
+                    dictdef.generalize_key(self.immutablevalue(ek, False))
+                    dictdef.generalize_value(self.immutablevalue(ev, False))
                 result = SomeDict(dictdef)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
@@ -448,10 +448,6 @@ class Bookkeeper:
         if need_const:
             result.const = x
         return result
-    
-    def annotation_from_example(self, x):
-        # XXX to kill at some point
-        return self.immutablevalue(x, False)
     
     def getdesc(self, pyobj):
         # get the XxxDesc wrapper for the given Python object, which must be
