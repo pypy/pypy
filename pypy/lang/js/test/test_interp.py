@@ -449,7 +449,6 @@ def test_delete():
     """, 'undefined')
 
 def test_forin():
-    py.test.skip("not ready yet")
     assertp("""
     var x = {a:5};
     for(y in x){
@@ -464,7 +463,6 @@ def test_stricteq():
     yield assertv, "2 !== 2;", False
 
 def test_with():
-    py.test.skip("not ready yet")
     assertp("""
     var mock = {x:2};
     var x=4;
@@ -488,7 +486,6 @@ def test_bitops():
     yield assertv, "2 | 3;", 3
 
 def test_for_vararg():
-    py.test.skip("not ready yet")
     assertp("""
     for (var arg = "", i = 0; i < 2; i++) { print(i);}
     """, ['0', '1'])
@@ -520,3 +517,22 @@ def test_switch():
         case 1: 15; break;
         default: 30;
     };""", 15)
+
+def test_inplace_assign():
+    yield assertv, "x=1; x+=1; x;", 2
+    yield assertv, "x=2; x*=2; x;", 4
+    yield assertv, "x=2; x/=2; x;", 1
+    yield assertv, "x=4; x%=2; x;", 0
+    yield assertv, "x=2; x&=2; x;", 2
+    yield assertv, "x=0; x|=1; x;", 1
+    yield assertv, "x=2; x^=2; x;", 0
+
+def test_twoarray():
+    assertp("""
+    a1 = new Array();
+    a2 = new Array();
+    a1[0] = 1;
+    print(a1[0]);
+    a2[0] = 2;
+    print(a1[0]);
+    """, ['1', '1'])

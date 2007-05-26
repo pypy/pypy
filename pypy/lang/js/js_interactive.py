@@ -147,13 +147,13 @@ class MyCmd(cmd.Cmd):
                 res = self.interp.run(load_source("\n".join(self.lines)))
                 # XXX we should catch more stuff here, like not implemented
                 # and such
-            except (jsparser.JsSyntaxError, ThrowException), e:
+            except (jsparser.ParseError, ThrowException), e:
                 e_info = sys.exc_info()
                 if self.debug:
                     import pdb
                     pdb.post_mortem(e_info[2])
                 else:
-                    if isinstance(e, jsparser.JsSyntaxError):
+                    if isinstance(e, jsparser.ParseError):
                         print "\nSyntax error!"
                     elif isinstance(e, ThrowException):
                         print e.exception.ToString()

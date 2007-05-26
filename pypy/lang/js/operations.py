@@ -127,19 +127,19 @@ class Assignment(Expression):
         if op == "=":
             val = v3
         elif op == "*=":
-            val = Mult().mathop(ctx, v1.GetValue(), v3)
+            val = mult(ctx, v1.GetValue(), v3)
         elif op == "+=":
-            val = Plus().mathop(ctx, v1.GetValue(), v3)
+            val = plus(ctx, v1.GetValue(), v3)
         elif op == "/=":
-            val = Div().mathop(ctx, v1.GetValue(), v3)
+            val = division(ctx, v1.GetValue(), v3)
         elif op == "%=":
-            val = Mod().mathop(ctx, v1.GetValue(), v3)
+            val = mod(ctx, v1.GetValue(), v3)
         elif op == "&=":
-            val = BitwiseAnd().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
+            val = W_Number(v1.GetValue().ToInt32() & v3.ToInt32())
         elif op == "|=":
-            val = BitwiseOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
+            val = W_Number(v1.GetValue().ToInt32() | v3.ToInt32())
         elif op == "^=":
-            val = BitwiseXOR().decision(ctx, v1.GetValue().ToInt32(), v3.ToInt32())
+            val = W_Number(v1.GetValue().ToInt32() ^ v3.ToInt32())
         else:
             print op
             raise NotImplementedError()
@@ -699,7 +699,6 @@ class New(UnaryOp):
         x = self.expr.eval(ctx).GetValue()
         if not isinstance(x, W_PrimitiveObject):
             raise TypeError()
-        
         return x.Construct(ctx=ctx)
     
 
@@ -742,9 +741,6 @@ class String(Expression):
         else:
             singlequote = True
 
-        if stop < 0:
-            print stop
-            raise JsSyntaxError()
         internalstring = string[1:stop]
         
         for c in internalstring:
@@ -780,9 +776,6 @@ class SourceElements(Statement):
         self.nodes = nodes
 
     def execute(self, ctx):
-        print self.var_decl
-        print ctx
-        print repr(ctx.variable)
         for varname in self.var_decl:
             ctx.variable.Put(varname, w_Undefined)
         for funcname, funccode in self.func_decl.items():
@@ -793,14 +786,13 @@ class SourceElements(Statement):
             last = w_Undefined
             for node in self.nodes:
                 last = node.execute(ctx)
-            print repr(ctx.variable)
             return last
         except Exception, e:
             if isinstance(e, ExecutionReturned) and e.type == 'return':
                 raise
             else:
                 # TODO: proper exception handling
-                sys.stderr.write("exception in line: %s, on: %s%s"%(node.pos.lineno, node, os.linesep))
+                print "exception in line: %s, on: %s%s"%(node.pos.lineno, node, os.linesep)
                 raise
     
 
@@ -850,7 +842,7 @@ class Try(Statement):
             e = excpt
             if self.catchblock is not None:
                 obj = W_Object()
-                obj.Put(self.catchparam.name, e.exception)
+                obj.Put(self.catchparam.get_literal(), e.exception)
                 ctx.push_object(obj)
                 tryresult = self.catchblock.execute(ctx)
                 ctx.pop_object()
@@ -913,14 +905,13 @@ class Void(UnaryOp):
     
 
 class With(Statement):
-    opcode = "WITH"
-    
-    def __init__(self, pos, t):
-        self.object = get_obj(t, 'object')
-        self.body = get_obj(t, 'body')
+    def __init__(self, pos, identifier, body):
+        self.pos = pos
+        self.identifier = identifier
+        self.body = body
 
     def execute(self, ctx):
-        obj = self.object.eval(ctx).GetValue().ToObject()
+        obj = self.identifier.eval(ctx).GetValue().ToObject()
         ctx.push_object(obj)
 
         try:
@@ -969,10 +960,10 @@ class While(WhileBase):
     
 
 class ForIn(Statement):
-    def __init__(self, pos, t):
-        self.object = get_obj(t, 'object')
-        self.body = get_obj(t, 'body')
-        self.iterator = get_obj(t, 'iterator')
+    def __init__(self, pos, iterator, lobject, body):
+        self.iterator = iterator
+        self.object = lobject
+        self.body = body
 
     def execute(self, ctx):
         obj = self.object.eval(ctx).GetValue().ToObject()

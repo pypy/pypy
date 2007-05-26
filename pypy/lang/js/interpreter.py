@@ -4,7 +4,7 @@ from pypy.lang.js.jsparser import parse
 from pypy.lang.js.astbuilder import ASTBuilder
 from pypy.lang.js.operations import *
 from pypy.rlib.objectmodel import we_are_translated
-
+from pypy.rlib.streamio import open_file_as_stream
 
 def writer(x):
     print x
@@ -14,20 +14,16 @@ def load_source(script_source):
     temp_tree = parse(script_source)
     return astb.dispatch(temp_tree)
 
-import os.path
-
 def load_file(filename):
-    # NOT RPYTHON
-    base, ext = os.path.splitext(filename)
-    f = open(filename)
-    t = load_source(f.read())
+    f = open_file_as_stream(filename)
+    t = load_source(f.readall())
     f.close()
     return t
     
 
 def evaljs(ctx, args, this):
     if len(args) >= 1:
-        if  isinstance(args[0],W_String):
+        if  isinstance(args[0], W_String):
             code = args[0]
         else:
             return args[0]
@@ -109,6 +105,10 @@ def stringjs(ctx, args, this):
         return W_String(args[0].ToString())
     return W_String('')
 
+def arrayjs(ctx, args, this):
+    return W_Array()
+
+
 def numberjs(ctx, args, this):
     if len(args) > 0:
         return W_Number(args[0].ToNumber())
@@ -162,7 +162,7 @@ class Interpreter(object):
         #Global Properties
         w_Global.Put('Object', w_Object)
         w_Global.Put('Function', w_Function)
-        w_Global.Put('Array', W_Array())
+        w_Global.Put('Array', W_Builtin(arrayjs, Class='Array'))
         w_Global.Put('version', W_Builtin(versionjs))
         
         #Number

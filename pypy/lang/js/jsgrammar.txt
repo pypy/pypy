@@ -376,10 +376,10 @@ expressionnoin  : assignmentexpressionnoin ([","] assignmentexpressionnoin)+
             ;
 
 #identifier
-variabledeclarationnoin : identifier initialisernoin?
+variabledeclarationnoin : identifier >initialisernoin<?
                     ;
 
-initialisernoin : "=" assignmentexpressionnoin
+initialisernoin : ["="] assignmentexpressionnoin
             ;
 
 variabledeclarationlistnoin : variabledeclarationnoin [","] >variabledeclarationlistnoin< 

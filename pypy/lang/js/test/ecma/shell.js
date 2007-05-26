@@ -50,7 +50,7 @@ var GLOBAL = "[object global]";
 var PASSED = " PASSED!";
 var FAILED = " FAILED! expected: ";
 
-var DEBUG = false;
+var DEBUG = true;
 
 var DESCRIPTION;
 var EXPECTED;

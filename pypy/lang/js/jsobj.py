@@ -263,6 +263,9 @@ class W_Builtin(W_PrimitiveObject):
 
     def Call(self, ctx, args=[], this = None):
         return self.callfuncbi(ctx, args, this)
+
+    def Construct(self, ctx, args=[]):
+        return self.callfuncbi(ctx, args, None)
         
     def type(self):
         return 'builtin'
@@ -288,7 +291,7 @@ class ActivationObject(W_PrimitiveObject):
 def arraycallbi(ctx, args, this):
     return W_Array()
     
-class W_Array(W_Builtin):
+class W_Array(W_PrimitiveObject):
     def __init__(self, ctx=None, Prototype=None, Class='Array',
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
@@ -296,7 +299,6 @@ class W_Array(W_Builtin):
         self.Put('toString', toString, de=True)
         self.Put('length', W_Number(0))
         self.length = r_uint(0)
-        self.set_builtin_call(arraycallbi)
 
     def Construct(self, ctx, args=[]):
         return self
@@ -328,7 +330,8 @@ class W_Array(W_Builtin):
             return
         if index < self.length:
             return
-        self.length = index+1
+        
+        self.length = index+1        
         self.propdict['length'].value = W_Number(index+1)
         return
     
