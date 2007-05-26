@@ -8,6 +8,10 @@ from py.__.green.greensock2 import allof, sleep
 from py.__.green.pipe.fd import FDInput
 from pypy.translator.js.examples.console.session import Interpreter, Killed
 
+import sys
+if sys.platform == 'nt':
+    py.test.skip("Those tests doesn't run on windows (yet)")
+
 def test_greensock_reader_timeouter():
     i = Interpreter("python", timeout=3)
     while not i.interact().endswith(">>> "):
