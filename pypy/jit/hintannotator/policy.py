@@ -70,7 +70,7 @@ class ManualGraphPolicy(HintAnnotatorPolicy):
         if getattr(func, '_pure_function_', False):
             return False
         mod = func.__module__ or '?'
-        return self.look_inside_graph_of_module(graph, mod)
+        return self.look_inside_graph_of_module(graph, func, mod)
 
     def look_inside_graph_of_module(self, graph, func, mod):
         return True

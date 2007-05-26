@@ -8,7 +8,7 @@ from pypy.jit.hintannotator.policy import ManualGraphPolicy
 class PyPyHintAnnotatorPolicy(ManualGraphPolicy):
     PORTAL = PORTAL
     
-    def look_inside_graph_of_module(self, graph, func, module):
+    def look_inside_graph_of_module(self, graph, func, mod):
         if mod.startswith('pypy.objspace'):
             return False
         if '_geninterp_' in func.func_globals: # skip all geninterped stuff

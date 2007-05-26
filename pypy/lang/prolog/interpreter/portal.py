@@ -16,7 +16,7 @@ PORTAL = engine.Engine.portal_try_rule.im_func
 
 class PyrologHintAnnotatorPolicy(ManualGraphPolicy):
     PORTAL = PORTAL
-    def look_inside_graph_of_module(self, graph, mod):
+    def look_inside_graph_of_module(self, graph, func, mod):
         if mod in forbidden_modules:
             return False
         if mod in good_modules:
