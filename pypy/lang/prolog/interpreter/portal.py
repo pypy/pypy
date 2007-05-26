@@ -25,7 +25,7 @@ class PyrologHintAnnotatorPolicy(ManualGraphPolicy):
             return False
         return True
 
-    def fill_timeshift_graphs(self, t, portal_graph):
+    def fill_timeshift_graphs(self, portal_graph):
         import pypy
         for cls in [term.Var, term.Term, term.Number, term.Atom]:
             self.seegraph(cls.copy)

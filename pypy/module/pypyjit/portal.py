@@ -1,3 +1,4 @@
+import pypy
 from pypy.module.pypyjit.interp_jit import PORTAL
 from pypy.module.pypyjit.newbool import NewBoolDesc
 from pypy.translator.translator import graphof
@@ -5,6 +6,8 @@ from pypy.annotation.specialize import getuniquenondirectgraph
 from pypy.jit.hintannotator.policy import ManualGraphPolicy
 
 class PyPyHintAnnotatorPolicy(ManualGraphPolicy):
+    PORTAL = PORTAL
+    
     def look_inside_graph_of_module(self, graph, func, module):
         if mod.startswith('pypy.objspace'):
             return False
@@ -125,6 +128,6 @@ def get_portal(drv):
     portal = getattr(PORTAL, 'im_func', PORTAL)
     portal_graph = graphof(t, portal)
 
-    policy = PyPyHintAnnotatorPolicy(timeshift_graphs(t, portal_graph,
-                                                      drv.log))
+    policy = PyPyHintAnnotatorPolicy()
+    policy.seetranslator(t)
     return portal, policy
