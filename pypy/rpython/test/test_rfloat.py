@@ -102,6 +102,12 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [])
         assert res == 42.0
 
+    def test_pow(self):
+        def fn(x, y):
+            return x**y
+        res = self.interpret(fn, [2.0, 3.0])
+        assert res == 8.0
+
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
     def test_hash(self):
