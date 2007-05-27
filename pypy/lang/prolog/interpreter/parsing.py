@@ -371,12 +371,7 @@ class TermBuilder(RPythonVisitor):
         try:
             return Number(int(s))
         except ValueError:
-            # XXX float is not supported by the rtyper yet :-(
-            # return Float(float(s))
-            from pypy.objspace.std.strutil import break_up_float
-            from pypy.rlib.rarithmetic import parts_to_float
-            a, b, c, d = break_up_float(s)
-            return Float(parts_to_float(a, b, c, d))
+            return Float(float(s))
 
     def visit_complexterm(self, node):
         from pypy.lang.prolog.interpreter.term import Term
