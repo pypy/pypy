@@ -85,8 +85,9 @@ def test_function_prints():
     assertp('x=function(){print(3);}; x();', '3')
 
 def test_function_returns():
-    yield assertp, 'x=function(){return 1;}; print(x()+x());', '2'
+    yield assertv, 'x=function(){return 1;}; x()+x();', 2
     yield assertp, 'function x() { return; };', []
+    yield assertv, 'function x() { d=2; return d;}; x()', 2
 
 def test_var_declaration():
     yield assertv, 'var x = 3; x;', 3

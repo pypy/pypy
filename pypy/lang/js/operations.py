@@ -219,11 +219,7 @@ class Call(BinaryOp):
         else:
             r7 = r6
         
-        try:
-            retval = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
-            return retval
-        except ExecutionReturned, e:
-            return e.value
+        return r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
     
 
 class Comma(BinaryOp):
@@ -789,7 +785,7 @@ class SourceElements(Statement):
             return last
         except Exception, e:
             if isinstance(e, ExecutionReturned) and e.type == 'return':
-                raise
+                return e.value
             else:
                 # TODO: proper exception handling
                 print "exception in line: %s, on: %s%s"%(node.pos.lineno, node, os.linesep)
