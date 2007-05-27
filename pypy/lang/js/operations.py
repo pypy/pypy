@@ -878,6 +878,7 @@ class VariableDeclaration(Expression):
             ctx.variable.Put(name, w_Undefined)
         else:
             ctx.variable.Put(name, self.expr.eval(ctx).GetValue())
+        return self.identifier
     
 
 class VariableDeclList(Expression):
@@ -959,8 +960,33 @@ class While(WhileBase):
                     continue
     
 
+class ForVarIn(Statement):
+    def __init__(self, pos, vardecl, lobject, body):
+        self.pos = pos
+        self.vardecl = vardecl
+        self.object = lobject
+        self.body = body
+    
+    def execute(self, ctx):
+        identifier = self.vardecl.eval(ctx)
+        obj = self.object.eval(ctx).GetValue().ToObject()
+        for prop in obj.propdict.values():
+            if prop.de:
+                continue
+            iterator = identifier.eval(ctx)
+            iterator.PutValue(prop.value, ctx)
+            try:
+                result = self.body.execute(ctx)
+            except ExecutionReturned, e:
+                if e.type == 'break':
+                    break
+                elif e.type == 'continue':
+                    continue
+    
+
 class ForIn(Statement):
     def __init__(self, pos, iterator, lobject, body):
+        self.pos = pos
         self.iterator = iterator
         self.object = lobject
         self.body = body
@@ -980,6 +1006,7 @@ class ForIn(Statement):
                 elif e.type == 'continue':
                     continue
     
+
 class For(Statement):
     def __init__(self, pos, setup, condition, update, body):
         self.pos = pos

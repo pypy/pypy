@@ -456,6 +456,14 @@ def test_forin():
     }
     """, ['5',])
 
+def test_forinvar():
+    assertp("""
+    var x = {a:5};
+    for(var y in x){
+        print(y);
+    }
+    """, ['5',])
+
 def test_stricteq():
     yield assertv, "2 === 2;", True
     yield assertv, "2 === 3;", False
@@ -536,3 +544,6 @@ def test_twoarray():
     a2[0] = 2;
     print(a1[0]);
     """, ['1', '1'])
+    
+def test_semicolon():
+    assertv("1", 1)
