@@ -147,3 +147,21 @@ def test_getgcflavor():
     cdef = DummyClsDescDef(A)
     cdef._cpy_exported_type_ = type(Ellipsis)
     assert rmodel.getgcflavor(cdef) == 'cpy'
+
+def test_missing_gvflavor_bug():
+    class MyClass:
+        def set_x(self):
+            self.x = create_tuple()
+    def create_tuple():
+        return MyClass(), 42
+    def fn():
+        obj = MyClass()
+        obj.set_x()
+        create_tuple()
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, [])
+    t.buildrtyper(type_system='ootype').specialize()
+    #t.view()
+    t.checkgraphs()
+    graph = graphof(t, fn)
+    assert graph.getreturnvar().concretetype == Void

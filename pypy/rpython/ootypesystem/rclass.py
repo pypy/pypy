@@ -169,6 +169,7 @@ class InstanceRepr(AbstractInstanceRepr):
             self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
+        self.gcflavor = gcflavor
 
     def _setup_repr(self):
         if self.classdef is None:
