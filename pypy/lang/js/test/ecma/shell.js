@@ -50,7 +50,7 @@ var GLOBAL = "[object global]";
 var PASSED = " PASSED!";
 var FAILED = " FAILED! expected: ";
 
-var DEBUG = true;
+var DEBUG = false;
 
 var DESCRIPTION;
 var EXPECTED;
@@ -391,3 +391,4 @@ JavaScriptOptions.prototype.reset = function ()
   this.setOption('werror', this.orig.werror);
 }
 */
+

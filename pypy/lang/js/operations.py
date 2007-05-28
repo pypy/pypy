@@ -291,6 +291,7 @@ class This(Identifier):
 
 class If(Statement):
     def __init__(self, pos, condition, thenpart, elsepart=astundef):
+        self.pos = pos
         self.condition = condition
         self.thenPart = thenpart
         self.elsePart = elsepart
@@ -303,8 +304,6 @@ class If(Statement):
             return self.elsePart.execute(ctx)
 
 class Group(UnaryOp):
-    opcode = 'GROUP'
-    
     def eval(self, ctx):
         return self.expr.eval(ctx)
 
@@ -395,24 +394,18 @@ class Lt(BinaryComparisonOp):
 ##############################################################################
 
 class Ursh(BinaryComparisonOp):
-    opcode = 'URSH'
-    
     def decision(self, ctx, op1, op2):
         a = op1.ToUInt32()
         b = op2.ToUInt32()
         return W_Number(a >> (b & 0x1F))
 
 class Rsh(BinaryComparisonOp):
-    opcode = 'RSH'
-    
     def decision(self, ctx, op1, op2):
         a = op1.ToInt32()
         b = op2.ToUInt32()
         return W_Number(a >> intmask(b & 0x1F))
 
 class Lsh(BinaryComparisonOp):
-    opcode = 'LSH'
-    
     def decision(self, ctx, op1, op2):
         a = op1.ToInt32()
         b = op2.ToUInt32()
@@ -483,14 +476,10 @@ def AEC(ctx, x, y):
     return r
 
 class Eq(BinaryComparisonOp):
-    opcode = 'EQ'
-    
     def decision(self, ctx, op1, op2):
         return W_Boolean(AEC(ctx, op1, op2))
 
 class Ne(BinaryComparisonOp):
-    opcode = 'NE'
-    
     def decision(self, ctx, op1, op2):
         return W_Boolean(not AEC(ctx, op1, op2))
 
@@ -529,14 +518,10 @@ def SEC(x,y):
     return x == y
 
 class StrictEq(BinaryComparisonOp):
-    opcode = 'STRICT_EQ'
-    
     def decision(self, ctx, op1, op2):
         return W_Boolean(SEC(op1, op2))
 
 class StrictNe(BinaryComparisonOp):
-    opcode = 'STRICT_NE'
-    
     def decision(self, ctx, op1, op2):
         return W_Boolean(not SEC(op1, op2))
     
@@ -709,6 +694,7 @@ class NewWithArgs(BinaryOp):
 
 class Number(Expression):    
     def __init__(self, pos, num):
+        self.pos = pos
         assert isinstance(num, float)
         self.num = num
 
@@ -766,7 +752,8 @@ class SourceElements(Statement):
     """
     SourceElements nodes are found on each function declaration and in global code
     """
-    def __init__(self, pos, var_decl, func_decl, nodes):        
+    def __init__(self, pos, var_decl, func_decl, nodes):
+        self.pos = pos
         self.var_decl = var_decl
         self.func_decl = func_decl
         self.nodes = nodes
@@ -1026,6 +1013,7 @@ class For(Statement):
     
 class Boolean(Expression):
     def __init__(self, pos, boolval):
+        self.pos = pos
         self.bool = boolval
     
     def eval(self, ctx):

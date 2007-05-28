@@ -44,6 +44,11 @@ def assertv(code, value):
         assert code_val.ToNumber() == value
     else:
         assert code_val.ToString() == value
+
+def asserte(code, value):
+    jsint = interpreter.Interpreter()
+    py.test.raises(value, 'jsint.run(interpreter.load_source(code))')
+    
     
 def test_interp_parse():
     yield assertv, "1+1;", 2
@@ -296,11 +301,12 @@ def test_for():
     """, ["0","1","2","3"])
 
 def test_eval():
-    assertp("""
+    yield assertp, """
     var x = 2;
     eval('x=x+1; print(x); z=2;');
     print(z);
-    """, ["3","2"])
+    """, ["3","2"]
+    yield asserte, "eval('var do =true;');", ThrowException
 
 def test_arrayobject():
     assertv("""var x = new Array();

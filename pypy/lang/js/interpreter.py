@@ -1,8 +1,9 @@
 
 import math
-from pypy.lang.js.jsparser import parse
+from pypy.lang.js.jsparser import parse, ParseError
 from pypy.lang.js.astbuilder import ASTBuilder
 from pypy.lang.js.operations import *
+from pypy.lang.js.jsobj import ThrowException
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.streamio import open_file_as_stream
 
@@ -29,7 +30,12 @@ def evaljs(ctx, args, this):
             return args[0]
     else:
         code = W_String('')
-    return load_source(code.ToString()).execute(ctx)
+    try:
+        node = load_source(code.ToString())
+    except ParseError, e:
+        raise ThrowException(W_String('SintaxError: '+str(e)))    
+    
+    return node.execute(ctx)
 
 def functionjs(ctx, args, this):
     tam = len(args)
