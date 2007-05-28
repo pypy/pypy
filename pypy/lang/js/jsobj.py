@@ -503,7 +503,7 @@ class ExecutionContext(object):
         return W_Reference(identifier)
     
 
-def global_context(w_global=W_Object()):
+def global_context(w_global):
     ctx = ExecutionContext([w_global],
                             this = w_global,
                             variable = w_global,
@@ -525,6 +525,13 @@ def eval_context(calling_context):
                             jsproperty = Property('', w_Undefined))
     return ctx
 
+def empty_context():
+    obj = W_Object()
+    ctx = ExecutionContext([obj],
+                            this = obj,
+                            variable = obj,
+                            jsproperty = Property('', w_Undefined))
+    return ctx
 
 class W_Reference(W_Root):
     """Reference Type"""

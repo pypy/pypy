@@ -106,7 +106,10 @@ def stringjs(ctx, args, this):
     return W_String('')
 
 def arrayjs(ctx, args, this):
-    return W_Array()
+    arr = W_Array()
+    for i in range(len(args)):
+        arr.Put(str(i), args[i])
+    return arr
 
 
 def numberjs(ctx, args, this):
@@ -151,6 +154,7 @@ class Interpreter(object):
         w_math = W_Object(Class='Math')
         w_Global.Put('Math', w_math)
         w_math.Put('__proto__',  w_ObjPrototype)
+        w_math.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
         w_math.Put('pow', W_Builtin(powjs, Class='function'))
@@ -158,11 +162,15 @@ class Interpreter(object):
         w_math.Put('PI', W_Number(math.pi))
         
         w_Global.Put('String', W_Builtin(stringjs, Class='String'))
+
+        w_Array = W_Builtin(arrayjs, Class='Array')
+        w_Array.Put('__proto__',  w_ObjPrototype)
+        w_Array.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
         
         #Global Properties
         w_Global.Put('Object', w_Object)
         w_Global.Put('Function', w_Function)
-        w_Global.Put('Array', W_Builtin(arrayjs, Class='Array'))
+        w_Global.Put('Array', w_Array)
         w_Global.Put('version', W_Builtin(versionjs))
         
         #Number

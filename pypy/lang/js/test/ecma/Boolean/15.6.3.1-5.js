@@ -47,7 +47,7 @@
 var VERSION = "ECMA_2";
 startTest();
 var SECTION = "15.6.3.1-5";
-var TITLE   = "Boolean.prototype"
+var TITLE   = "Boolean.prototype";
 
 writeHeaderToLog( SECTION + " " + TITLE );
 

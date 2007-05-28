@@ -53,7 +53,7 @@
 var SECTION = "15.6.3";
 var VERSION = "ECMA_2";
 startTest();
-var TITLE   = "Properties of the Boolean Constructor"
+var TITLE   = "Properties of the Boolean Constructor";
 writeHeaderToLog( SECTION + TITLE );
 
 

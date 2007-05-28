@@ -53,7 +53,7 @@
 var SECTION = "15.6.4.2-2";
 var VERSION = "ECMA_1";
 startTest();
-var TITLE   = "Boolean.prototype.toString()"
+var TITLE   = "Boolean.prototype.toString()";
 writeHeaderToLog( SECTION + TITLE );
 
 new TestCase(   SECTION,

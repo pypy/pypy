@@ -1,9 +1,5 @@
 
-import sys
-from StringIO import StringIO
-
 import py
-
 from pypy.lang.js import interpreter
 from pypy.lang.js.operations import AEC, Number, Position, Plus
 from pypy.lang.js.jsobj import W_Number, W_Object, \

@@ -18,6 +18,7 @@ def parse(code):
         t = parsef(code)
     except ParseError:
         code += ';'
+        print code
         t = parsef(code)
 
     return ToAST().transform(t)

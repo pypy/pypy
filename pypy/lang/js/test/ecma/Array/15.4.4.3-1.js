@@ -116,7 +116,7 @@ new TestCase(   SECTION,
 		eval("var TEST_ARRAY = new Array(true); TEST_ARRAY.join('\v')") );
 
 
-SEPARATOR = "\t"
+SEPARATOR = "\t";
 TEST_LENGTH = 100;
 TEST_STRING = "";
 ARGUMENTS = "";

@@ -4,7 +4,7 @@ import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
-from pypy.lang.js.jsobj import global_context, ThrowException 
+from pypy.lang.js.jsobj import empty_context, ThrowException 
 from pypy.lang.js.astbuilder import ASTBuilder
 from pypy import conftest
 import sys
@@ -18,7 +18,7 @@ except ParseError,e:
     print e.nice_error_message(filename=str(GFILE),source=t)
     raise
 
-parse = make_parse_function(regexs, rules, eof=True)
+parse_function = make_parse_function(regexs, rules, eof=True)
 
 def setstartrule(rules, start):
     "takes the rule start and put it on the beginning of the rules"
@@ -27,20 +27,17 @@ def setstartrule(rules, start):
     return newrules
 
 def get_defaultparse():
-    global parse
-    if parse is None:
-        parse = make_parse_function(regexs, rules, eof=True)
-    return parse
+    return parse_function
 
 def parse_func(start=None):
     if start is not None:
-        parse = make_parse_function(regexs, setstartrule(rules, start),
+        parse_function = make_parse_function(regexs, setstartrule(rules, start),
                                     eof=True)
     else:
-        parse = get_defaultparse()
+        parse_function = get_defaultparse()
 
     def methodparse(self, text):
-        tree = parse(text)
+        tree = parse_function(text)
         if start is not None:
             assert tree.symbol == "hacked_first_symbol"
             tree = tree.children[0]
@@ -288,7 +285,7 @@ class TestToASTExpr(BaseGrammarTest):
     
     def eval_expr(self, s):
         ast = self.to_ast(s)
-        return ast.eval(global_context())
+        return ast.eval(empty_context())
     
     def test_get_pos(self):
         from pypy.lang.js import operations
@@ -327,4 +324,11 @@ class TestToASTExpr(BaseGrammarTest):
         assert w_num.ToNumber() == 4
         w_str = self.eval_expr('"hello "+\'world\'')
         assert w_str.ToString() == 'hello world'
+
+from pypy.lang.js.jsparser import parse
     
+def test_simplesemicolon():
+    yield parse, 'x'
+    yield parse, 'if(1){x}'
+    yield parse, 'function x () {}'
+    yield parse,'if(1) {}'

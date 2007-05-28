@@ -29,11 +29,28 @@ statement   : <block>
             | <trystatement>
             ;
 
+statementsemiopt   : <block>
+            | <variablestatement> [";"]?
+            | <emptystatement>
+            | <expressionstatement> [";"]?
+            | <ifstatement>
+            | <iterationstatement>
+            | <continuestatement> [";"]?
+            | <breakstatement> [";"]?
+            | <returnstatement> [";"]?
+            | <withstatement>
+            | <labelledstatement>
+            | <switchstatement> [";"]?
+            | <throwstatement> [";"]?
+            | <trystatement>
+            ;
+
+
 block   : "{" >statementlist<? ["}"]
         ;
 
 statementlist   : statement >statementlist<
-                | statement
+                | statementsemiopt
                 ;
 
 variablestatement   : ["var"] variabledeclarationlist
