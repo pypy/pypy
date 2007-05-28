@@ -365,3 +365,11 @@ def test_oswrite():
     s = t.buildannotator().build_types(f, [])
     rtyper = t.buildrtyper(type_system="lltype")
     rtyper.specialize()
+
+def test_x():
+    py.test.skip("Failing test. Seems that print allocs one bit too much")
+    def f():
+        print "xxx"
+
+    fn = compile(f, [])
+    fn()
