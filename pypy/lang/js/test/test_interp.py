@@ -558,3 +558,7 @@ def test_semicolon():
 
 def test_functionjs():
     assertv("x = Function('return 1'); x()", 1)
+
+def test_octal_and_hex():
+    yield assertv, "010;", 8
+    yield assertv, "0xF", 15

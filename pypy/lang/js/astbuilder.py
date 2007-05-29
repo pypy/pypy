@@ -75,6 +75,16 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(node)
         number = operations.Number(pos, float(node.additional_info))
         return number
+    
+    def visit_HEXINTEGERLITERAL(self, node):
+        pos = self.get_pos(node)
+        number = operations.Number(pos, float(int(node.additional_info, 16)))
+        return number
+
+    def visit_OCTALLITERAL(self, node):
+        pos = self.get_pos(node)
+        number = operations.Number(pos, float(int(node.additional_info, 8)))
+        return number
 
     def string(self,node):
         pos = self.get_pos(node)

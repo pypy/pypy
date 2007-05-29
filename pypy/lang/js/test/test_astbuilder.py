@@ -19,7 +19,8 @@ def test_simple():
     yield to_ast, "null;"
     yield to_ast, "f();"
     yield to_ast, "new f();"    
-    #yield to_ast, ""
+    yield to_ast, "01;"
+    yield to_ast, "0xFF;"
 
 def test_funcvarfinder():
     pos = operations.Position()
