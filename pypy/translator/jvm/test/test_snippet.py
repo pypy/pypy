@@ -23,4 +23,15 @@ class TestSnippets(BaseTestSnippets, JvmTest):
             return res
         assert self.interpret(base_func, [True])  == 110
         assert self.interpret(base_func, [False]) == 001
+        
+    def test_link_SSA(self):
+        def fn():
+            lst = [42, 43, 44]
+            for i in range(len(lst)):
+                item = lst[i]
+                if i < 10:
+                    lst[i] = item+10
+            return lst
+        res = self.ll_to_list(self.interpret(fn, []))
+        assert res == [52, 53, 54]
 
