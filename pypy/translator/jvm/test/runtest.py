@@ -99,6 +99,10 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
     def _skip_win(self, reason):
         if platform.system() == 'Windows':
             py.test.skip('Windows --> %s' % reason)
+            
+    def _skip_powerpc(self, reason):
+        if platform.processor() == 'powerpc':
+            py.test.skip('PowerPC --> %s' % reason)
 
     def interpret(self, fn, args, annotation=None):
         detect_missing_support_programs()
