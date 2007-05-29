@@ -44,11 +44,11 @@ def replace_RDFLiteral(s, loc, toks):
     return ret
 
 def construct_constraint(s, loc, toks):
-    varlist = [] 
+    varlist = []
     for x in toks.Var:
         varlist.append(x[0])
-    varlist.append(toks[0])
-    return [varlist] 
+    varlist.append(toks)
+    return [varlist, toks[0]] 
 
 class SPARQLGrammar(object):
 

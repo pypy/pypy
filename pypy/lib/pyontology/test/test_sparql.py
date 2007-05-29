@@ -69,7 +69,6 @@ def test_sparql():
     assert len(res[0]) == len(res[1]) == 4
     assert res[0][1] in ['http://example.org/ns#p', 'http://example.org/ns#q']
     assert res[1][1] in ['http://example.org/ns#p', 'http://example.org/ns#q']
-   # assert result[3].formula == 'query_x<2'
     assert (['query_x<2'], {}).formula == 'query_x<2'
 
 # There are 8 ways of having the triples in the query, if predicate is not a builtin owl predicate
@@ -224,6 +223,27 @@ def test_queryx():
     assert len(res) == 8
     assert res[0]['x'] == u'http://www.lt-world.org/ltw.owl#obj_61128'
 
+# Generating simply a list of people. 
+
+query0 = """
+        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+        PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        SELECT ?person 
+                WHERE {
+                        ?person_obj rdf:type  ltw:Active_Person .
+                        ?person_obj ltw:personName ?person
+                   }
+                """
+
+def test_query0():
+    O = Ontology()
+    O.add_file(datapath("testont2.rdf"), 'xml')
+    O.attach_fd()
+
+    res = O.sparql(query0)
+    assert len(res) == 1
+    assert res[0]['person'] == '\nKlara Vicsi'
+
 query_y = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
@@ -327,20 +347,6 @@ query1 = """
                                 ?person_obj ltw:personName ?person .
                                 }
                 ORDER BY ?person"""
-#how many projects have been funded by BMBF in 2006
-query2 = """
-        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
-        PREFIX owl : <http://www.w3.org/2002/07/owl#>
-        PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-        SELECT ?project ?date_begin ?x
-                WHERE {
-                        ?project ltw:supportedBy  ?x .
-                        ?x rdf:type ltw:Active_FundingOrganisation .
-                        ?x ltw:organisationNameAbbreviation 'BMBF' .
-                        ?project ltw:dateStart ?date_begin .
-                        ?project ltw:dateEnd ?date_end .
-                        FILTER ( ?date_begin  < 2007  &&  ?date_end >= 2006) .
-                                }"""
 #which project is funded in a technological area (i.e. Semantic web),
 query_3 = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
@@ -410,6 +416,22 @@ def test_query_1():
     assert res[0]['person'] == u'\nKlara Vicsi'
     
 
+#how many projects have been funded by BMBF in 2006
+query2 = """
+        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+        PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+        PREFIX xsd : <http://www.w3.org/2001/XMLSchema#>
+        SELECT ?project ?date_begin ?x
+                WHERE {
+                        ?project ltw:supportedBy  ?x .
+                        ?x rdf:type ltw:Active_FundingOrganisation .
+                        ?x ltw:organisationNameAbbreviation 'BMBF' .
+                        ?project ltw:dateStart ?date_begin .
+                        ?project ltw:dateEnd ?date_end .
+                        FILTER ( ?date_begin  < "2007-01-01"^^<http://www.w3.org/2001/XMLSchema#date>  &&  ?date_end >= "2006-01-01"^^<http://www.w3.org/2001/XMLSchema#date>) .
+                                }"""
+
 def test_query_2():
    # py.test.skip("Needs special care for dateTime type")
     O = Ontology()
@@ -430,6 +452,7 @@ def test_query_3():
     res = O.sparql(query_3)
     assert len(res) == 1
     assert res[0]['project'] == u'http://www.lt-world.org/ltw.owl#obj_59773' 
+    assert res[0]['x'] == u'http://www.lt-world.org/ltw.owl#obj_59773' 
 
 
 import xmlrpclib, socket, os, signal

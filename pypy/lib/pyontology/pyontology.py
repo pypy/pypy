@@ -441,7 +441,8 @@ def Types(typ):
             if isinstance(item, rdflib_literal):
                 return item.datatype is None or item.datatype == self.Type
             else:
-                return XMLTypes[self.Type.split("#")[-1]] == type(item)
+                self_type = XMLTypes[self.Type.split("#")[-1]][1]
+                return self_type == type(item)
 
     datatype = Type
     datatype.Type = typ
@@ -470,9 +471,11 @@ builtin_voc = {
                getUriref('rdf', 'Literal') : Literal,
 #               getUriref('rdf', 'type') : Property,
               }
-#XMLTypes = ['string', 'float', 'integer', 'date']
-XMLTypes = {'string': str, 'float': float, 'integer': int, 
-            'date': lambda x: datetime.date(*[int(v) for v in x.split('-')])}
+
+XMLTypes = {'string': (str, str), 'float': (float, float),
+            'integer': (int, int), 
+            'date': (lambda x: datetime.date(*[int(v) for v in x.split('-')]),
+                    datetime.date)}
 
 for typ in XMLTypes:
     uri = getUriref('xmlschema', typ)
@@ -519,7 +522,11 @@ class Ontology:
     
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
-            self.consider_triple((s, p, o))
+            try:
+                self.consider_triple((s, p, o))
+            except Exception, exc:
+                print "Exception: ", exc
+                print s , p, o
 
     def finish(self):
         cons = [(c.cost,c) for c in self.constraints if hasattr(c, 'cost')]
@@ -536,10 +543,10 @@ class Ontology:
 #           In case of an inconsistent ontology remove the comments to get more
 #           than one error
 
-#                try:
-                constraint.narrow(self.variables)
-#                except ConsistencyFailure, e:
-#                    print "FAilure", e
+                try:
+                    constraint.narrow(self.variables)
+                except ConsistencyFailure, e:
+                    print "Failure", e
         things = list(self.variables['owl_Thing'].getValues())
         things += list(self.variables['owl_Literal'].getValues())
         self.variables['owl_Thing'].setValues(things)
@@ -565,8 +572,9 @@ class Ontology:
             for item in trip_:
                 if isinstance(item[0], rdflib_literal):
                     o = item[0]
-                    if o.datatype in builtin_voc:
-                        o = XMLTypes[o.datatype.split('#')[-1]](o)
+                    dt = o.datatype
+                    if dt in builtin_voc:
+                        o = XMLTypes[dt.split('#')[-1]][0](o)
                     self.variables['owl_Literal'].addValue(o)
                     newtrip.append(o)
                 elif item[0].NCNAME_PREFIX:
@@ -588,10 +596,13 @@ class Ontology:
         constrain = where.GroupGraphPattern[0].Constraint
         if constrain:
             constrain = constrain[0]
-            expr = constrain.pop(-1)
+            expr = constrain.pop(-1)[0]
+            vars_mangled = []
             for x in constrain:
-                expr = expr.replace(x,  URIRef('query_'+x))
-            constrain = Expression([URIRef('query_'+x) for x in constrain], expr)
+                name = self.mangle_name(URIRef('query_'+x))
+                vars_mangled.append(name)
+                expr = expr.replace(x,  name)
+            constrain = Expression([x for x in vars_mangled], expr)
         return new, prefixes, resvars, constrain, vars
 
 # There are 8 ways of having the triples in the query, if predicate is not a builtin owl predicate
@@ -612,6 +623,8 @@ class Ontology:
         new, prefixes, resvars, constrain, vars = self._sparql(query)
         query_dom = {}
         query_constr = []
+        if constrain : 
+            query_constr.append(constrain)
         for trip in new:
             case = trip.pop(-1)
             if case == 0:
@@ -624,22 +637,16 @@ class Ontology:
             elif case == 1:
                 # Add a HasValue constraint
                 ns,pred = trip[1].split("#")
-                if 0: #ns in namespaces.values():
-                    import pdb
-                    pdb.set_trace()
-                    self.consider_triple(trip)
+                var = self.make_var(Restriction, URIRef(trip[0]))
+                prop = URIRef(trip[1])
+                prop_name = self.mangle_name(prop)
+                self.onProperty(var, prop)
+                query_dom[prop_name] = self.variables[prop_name]
+                if trip[2] in self.variables['owl_Literal'] :
+                    val = trip[2]
                 else:
-                    var = self.make_var(Restriction, URIRef(trip[0]))
-                    prop = URIRef(trip[1])
-                    prop_name = self.mangle_name(prop)
-                    self.onProperty(var, prop)
-                    query_dom[prop_name] = self.variables[prop_name]
-                    if trip[2] in self.variables['owl_Literal'] :
-                        val = trip[2]
-                    else:
-                        val = self.variables[self.mangle_name(trip[2])]
-                    query_constr.append(HasvalueConstraint(var, prop_name, val))
-                    #self.hasValue(var, trip[2])
+                    val = self.variables[self.mangle_name(trip[2])]
+                query_constr.append(HasvalueConstraint(var, prop_name, val))
             elif case == 2:
                 #  for all p's return p if p[0]==s and p[1]==o
 
@@ -723,8 +730,6 @@ class Ontology:
         dom = dict([(v, self.variables[v])
                      for v in solve_vars])
         dom.update(query_dom)
-#        import pdb
-#        pdb.set_trace()
         # solve the repository and return the solution
         rep = Repository(solve_vars, dom, query_constr)
         res_s = Solver(MyDistributor(solve_vars)).solve(rep, verbose=0)
@@ -776,7 +781,7 @@ class Ontology:
         elif type(o) == rdflib_literal:
 #            self.variables.setdefault('owl_Literal', ClassDomain('owl_Literal',u''))
             if o.datatype in builtin_voc:
-               o = XMLTypes[o.datatype.split('#')[-1]](o)
+               o = XMLTypes[o.datatype.split('#')[-1]][0](o)
             self.variables['owl_Literal'].addValue(o)
             val = o
         else:
@@ -1081,13 +1086,21 @@ class Ontology:
     def allValuesFrom(self, s, var):
         sub = self.make_var(Restriction, s)
         obj = self.make_var(ClassDomain, var)
-        cons = AllValueConstraint(sub, obj)
-        self.constraints.append(cons)
+        try:
+            prop = self.variables[sub].property
+            cons = AllValueConstraint(sub, prop, obj)
+            self.constraints.append(cons)
+        except KeyError:
+            self.variables[sub].un_constraint.append(AllValueConstraint)
 
     def someValuesFrom(self, s, var):
         sub = self.make_var(Restriction, s)
         obj = self.make_var(ClassDomain, var)
-        cons = SomeValueConstraint(sub, obj)
+        try:
+            prop = self.variables[sub].property
+        except KeyError:
+            prop = None
+        cons = SomeValueConstraint(sub, prop, obj)
         self.constraints.append(cons)
         
 # -----------------              ----------------
