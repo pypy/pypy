@@ -1,0 +1,8 @@
+PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX owl : <http://www.w3.org/2002/07/owl#>
+SELECT ?person
+	WHERE {
+		?person_obj rdf:type ltw:Active_Person .
+		?person_obj ltw:personName ?person .
+	      }

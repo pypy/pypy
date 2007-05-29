@@ -1,0 +1,9 @@
+ PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+ PREFIX rdf : <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+ PREFIX owl : <http://www.w3.org/2002/07/owl#>
+ SELECT ?project ?publications
+         WHERE {
+                 ?project_obj rdf:type ltw:Natural_Language_Generation .
+                 ?project_obj ltw:projectNameVariant ?project .
+                 ?project_obj ltw:relevantPublication ?publications .
+                }

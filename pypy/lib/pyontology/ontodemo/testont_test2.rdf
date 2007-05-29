@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:p1="http://protege.stanford.edu/plugins/owl/protege#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xsd="http://www.w3.org/2001/XMLSchema#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns="http://www.lt-world.org/ltw.owl#" xmlns:daml="http://www.daml.org/2001/03/daml+oil#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:reg="http://registry.dfki.de#" xml:base="http://www.lt-world.org/ltw.owl">
+<Semantic_Web rdf:ID="obj_59928">
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<technologyName>
+Semantic Web</technologyName>
+<name>
+Semantic Web</name>
+<technologyNameVariant>
+Semantic Web</technologyNameVariant>
+<definition>
+The Semantic Web is a W3C-based initiative for representing knowledge on the World Wide Web in a machine-readable fashion, such that it can be understood and used by machines for intelligent applications.</definition>
+</Semantic_Web>
+<Active_FundingOrganisation rdf:ID="obj_59717">
+<organisationNameVariant>
+EUROPA!Europaeische Union!European Comission!Eurpean Commission!Eurpean Comission!European Commission - Directorate General</organisationNameVariant>
+<organisationNameAbbreviation>
+EC</organisationNameAbbreviation>
+<organisationNameVariant>
+EC</organisationNameVariant>
+<organisationName>
+European Commission</organisationName>
+<name>
+European Commission</name>
+</Active_FundingOrganisation>
+<Active_FundingOrganisation rdf:ID="obj_61128">
+<organisationName>
+Federal Ministry of Education and Research</organisationName>
+<organisationNameAbbreviation rdf:datatype='http://www.w3.org/2001/XMLSchema#String'>BMBF</organisationNameAbbreviation>
+</Active_FundingOrganisation>
+<Active_Project rdf:ID="obj_59773">
+<hasParticipant rdf:resource="#obj_59750"/>
+<hasParticipant rdf:resource="#obj_59772"/>
+<hasParticipant rdf:resource="#obj_59771"/>
+<hasParticipant rdf:resource="#obj_59770"/>
+<hasParticipant rdf:resource="#obj_59769"/>
+<hasParticipant rdf:resource="#obj_59768"/>
+<coordinatedBy rdf:resource="#obj_59772"/>
+<supportedBy rdf:resource="#obj_59717"/>
+<supportedBy rdf:resource="#obj_61128"/>
+<lt_technologicalMethod rdf:resource="#obj_59928"/>
+<lt_linguality rdf:resource="#lt-world_Individual_712"/>
+<lt_language rdf:resource="#lt-world_Individual_105"/>
+<lt_language rdf:resource="#lt-world_Individual_112"/>
+<lt_language rdf:resource="#lt-world_Individual_80"/>
+<lt_technologicalApplication rdf:resource="#KB_901071_Individual_73"/>
+<lt_technologicalApplication rdf:resource="#KB_901071_Individual_79"/>
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<lt_linguisticArea rdf:resource="#lt-world_Individual_808"/>
+<lt_linguisticArea rdf:resource="#lt-world_Individual_819"/>
+<lt_linguisticArea rdf:resource="#lt-world_Individual_816"/>
+<lt_linguisticArea rdf:resource="#lt-world_Individual_806"/>
+<homepageURL>
+http://sites.univ-lyon2.fr/langues_promodiinar/Accueil.htm</homepageURL>
+<projectTheme>
+The aim of DIINAR-MBS is to create a multilingual lexical database based on a large corpus of linguistic data</projectTheme>
+<contact>
+joseph.dichy@univ-lyon2.fr</contact>
+<contact>
+joseph.dichy@univ-lyon2.fr</contact>
+<contact>
+joseph.dichy@univ-lyon2.fr</contact>
+<dc_keyword>
+NLP!Natural Language Processing!MT</dc_keyword>
+<dateEnd rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
+2000-08-01</dateEnd>
+<dateStart rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
+1998-02-01</dateStart>
+<dc_source>
+http://www.hltcentral.org/projects</dc_source>
+<dc_source>
+http://www.hltcentral.org/projects</dc_source>
+<projectName>
+Electronic Arab Dictionary - Multilingual Corpus</projectName>
+<projectNameVariant>
+Electronic Arab Dictionary - Multilingual Corpus</projectNameVariant>
+<projectNameAcronym>
+DIINAR-MBS</projectNameAcronym>
+<name>
+DIINAR-MBS</name>
+<projectNameVariant>
+DIINAR-MBS</projectNameVariant>
+</Active_Project>
+<Active_Project rdf:ID="obj_59754">
+<lt_technologicalMethod rdf:resource="#obj_60513"/>
+<lt_technologicalMethod rdf:resource="#obj_60889"/>
+<lt_technologicalMethod rdf:resource="#obj_60120"/>
+<supportedBy rdf:resource="#obj_59717"/>
+<hasParticipant rdf:resource="#obj_59750"/>
+<hasParticipant rdf:resource="#obj_59751"/>
+<hasParticipant rdf:resource="#obj_59752"/>
+<hasParticipant rdf:resource="#obj_59753"/>
+<hasParticipant rdf:resource="#obj_59749"/>
+<coordinatedBy rdf:resource="#obj_59750"/>
+<lt_language rdf:resource="#lt-world_Individual_105"/>
+<lt_language rdf:resource="#lt-world_Individual_188"/>
+<lt_language rdf:resource="#lt-world_Individual_125"/>
+<lt_language rdf:resource="#lt-world_Individual_193"/>
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<lt_technologicalApplication rdf:resource="#KB_788599_Individual_85"/>
+<lt_technologicalApplication rdf:resource="#KB_562804_Individual_61"/>
+<lt_technologicalApplication rdf:resource="#KB_788599_Individual_72"/>
+<lt_technologicalApplication rdf:resource="#KB_901071_Individual_79"/>
+<lt_linguality rdf:resource="#lt-world_Individual_712"/>
+<dateStart rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
+1998-09-01</dateStart>
+<projectName>
+A Multimedia Multilingual Teaching and Training System for Speech Handicapped Children</projectName>
+<projectNameVariant>
+A Multimedia Multilingual Teaching and Training System for Speech Handicapped Children</projectNameVariant>
+<projectTheme>
+Development of a new audio-visual pronunciation teaching and training method and a software system for hearing and speech-handicapped persons to help them to control their speech production</projectTheme>
+<deadlinkURL>
+http://luna.ttt.bme.hu/speech/speco1.htm</deadlinkURL>
+<contact>
+vicsi@ttt-202.ttt.bme.hu</contact>
+<dc_source>
+http://www.hltcentral.org/projects</dc_source>
+<dateEnd rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
+2001-08-31</dateEnd>
+<homepageURL>
+http://www.hltcentral.org/projects/detail.php?acronym=SPECO</homepageURL>
+<projectNameAcronym>
+SPECO</projectNameAcronym>
+<name>
+SPECO</name>
+<projectNameVariant>
+SPECO</projectNameVariant>
+</Active_Project>
+<Natural_Language_Generation rdf:ID="obj_59910">
+           <projectNameAcronym>
+RAGS</projectNameAcronym>
+            <lt_technologicalMethod rdf:resource="#obj_59910"/>
+            <contact>
+rags@itri.bton.ac.uk</contact>
+            <mirrorURL>
+http://www.itri.bton.ac.uk/projects/rags/</mirrorURL>
+            <name>
+RAGS</name> 
+            <homepageURL>
+http://www.itri.bton.ac.uk/research.html#RAGS</homepageURL>
+            <projectNameVariant>
+A Reference Architecture for Generation Systems</projectNameVariant>
+            <lt_technologicalMethod rdf:resource="#obj_63893"/>
+                  <relevantPublication>
+   @book{Rei:Dal:00,   author =    {Reiter, Ehud and Dale, Robert},   title =    {Building Natural Language Generation Systems},   publisher =  {Cambridge University Press},   year =     {2000},   address =   {Cambridge UK}   }  &lt;/br>!&lt;br>   @ARTICLE{Moo:Par:93,   KEY = {Moore and Paris 1993},   AUTHOR = {Johanna Moore and Cecile Paris},   TITLE = {Planning Text for Advisory Dialogues: Capturing Intentional and Rhetorical Information},   YEAR = {1993},   JOURNAL = {Computational Linguistics},   VOLUME = {19},   NUMBER = {4},   PAGES = {651-694}   }  &lt;/br>!&lt;br>   @BOOK{McKeown-85a,   KEY = {McKeown 1985},   AUTHOR = {Kathleen R. McKeown},   TITLE = {Text Generation: Using Discourse Strategies and Focus Constraints   to Generate Natural Language Text},   YEAR = {1985},   ADDRESS = {Cambridge},   PUBLISHER = {Cambridge University Press}   }</relevantPublication>
+                               </Natural_Language_Generation>
+<Active_Person rdf:ID="obj_59750">
+<participatedIn rdf:resource="#obj_59754"/>
+<affiliatedWith rdf:resource="#obj_68035"/>
+<subaffiliatedWith rdf:resource="#obj_68644"/>
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<personName>
+Klara Vicsi</personName>
+<personNameVariant>
+Klara Vicsi</personNameVariant>
+<personEmail>
+vicsi@alpha.ttt.bme.hu</personEmail>
+<personFirstname1>
+Klara</personFirstname1>
+<personLastname>
+Vicsi</personLastname>
+<personTitle>
+Dr.</personTitle>
+</Active_Person>
+<Monitoring_Person rdf:ID="obj_59767">
+<participatedIn rdf:resource="#obj_59773"/>
+<dc_language rdf:resource="#lt-world_Individual_105"/>
+<personName>
+Abdelkader Fassi Fehri</personName>
+<name>
+Abdelkader Fassi Fehri</name>
+<personNameVariant>
+Abdelkader Fassi Fehri</personNameVariant>
+</Monitoring_Person>
+
+</rdf:RDF>

@@ -1,0 +1,99 @@
+body {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background-color: #FFFFFF; list-style-image: url(../img/arrow.gif); list-style-type: squate}
+a { font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; text-decoration: none; color: #000000}
+a:hover { font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; text-decoration: underline; color: #333333}
+a.external {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; text-decoration: none; color: #000000}
+a.internal {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; text-decoration: underline; color: #000000}
+a.navi {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; text-decoration: none; color: #000000}
+
+td {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+p {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+ul {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+li {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+
+.highlight {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #000000}
+.about {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #999999; background-color: #FFFFFF}
+.provided {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #999999; background-color: #E8E7E7}
+.search {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #999999; background-color: #E8E7E7}
+.global {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #F6F7EF}
+.informationSource {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #BA0808}
+.relevantSource {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #999999}
+.technology {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #D56B6B}
+.abbreviation {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background: #E7A9AA}
+.abbreviations {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background: #E7A9AA}
+.person {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #3D7B3C}
+.project {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; color: #FFFFFF; background-color: #8AB089}
+.organisation {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.system {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #918168}
+.product {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background-color: #BCB3A4}
+.repository {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background-color: #D8D4CB}
+.news {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #085D94}
+.conference {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #518DB2}
+.patent {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background-color: #9CC6DF}
+.puffer {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; color: #000000; background-color: #FFFFFF; font-style: normal; line-height: normal}
+
+
+.Import_Person {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #3D7B3C}
+.Import_Project {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; color: #FFFFFF; background-color: #8AB089}
+.Import_Company {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_AcademicInstitution {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_Association {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_Group {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_Society {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_Network {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_FundingProgramme {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_FundingOrganisation {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; background-color: #BBD1BC; color: #333333}
+.Import_News {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #085D94}
+.Import_Conference {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #FFFFFF; background-color: #518DB2}
+.Import_Patent {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000; background-color: #9CC6DF}
+
+
+.Division12InformationSources {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #BA0808}
+.Division61RelevantSources {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #999999}
+.Division13Technologies {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #D56B6B}
+.Division11Glossary {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background: #E7A9AA}
+.Division22People {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #3D7B3C}
+.Division23Projects {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; text-decoration: none; color: #FFFFFF; background-color: #8AB089}
+.Division21Organisations {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: text-decoration: none; normal; background-color: #BBD1BC; color: #333333}
+.Division33Systems {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #918168}
+.Division31Products {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #000000; background-color: #BCB3A4}
+.Division32Repositories {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #000000; background-color: #D8D4CB}
+.Division42News {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #085D94}
+.Division41Conferences {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #FFFFFF; background-color: #518DB2}
+.Division43IntellectualPropertyRights {font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; text-decoration: none; color: #000000; background-color: #9CC6DF}
+
+
+#for the output of all results within the content frame
+.content {  font-family: Verdana, Arial, Helvetica, sans-serif, Tahoma; font-size: 10px; font-style: normal; line-height: normal; color: #000000}
+
+
+table.global {background: #FFFFFF; font-family:verdana, arial, sans-serif; font-size: 10px; text-decoration: none; }
+td.global {background: #FFFFFF; font-family:verdana, arial, sans-serif; font-size: 10px; text-decoration: none; }
+table.position { left: 0px; position: relative; top: 0px; margin-top: 0px; margin-left: 0px  }
+
+
+.bg { background-color: #005279; margin=0pt;  top : 0px;  left : 0px; left : 0px; position : absolute; top : 0px; }
+table.bg { background-color: #005279; margin=0pt;  top : 0px;  left : 0px; left : 0px; position : absolute; top : 0px; bordercolor: #000066;}
+.output { background-color: #E6E6E6; font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000; margin=10pt; top : 0px;  left : 0px; }
+.search { background-color: #E6E6E6; font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000; margin=0pt;  top : 0px;  left : 0px;}
+table.search { background-color: #E6E6E6; font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000; margin=0pt;  top : 0px;  left : 0px; }
+td.search { background-color: #E6E6E6; font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000; align: bottom }
+p {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+ul {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+li {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+p.klein {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+
+#a.klein:hover {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: underline; color: #666666}
+#a:hover {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: underline; color: #666666}
+#a.navi {  font-family: verdana, arial, sans-serif; font-size: 11px; text-decoration: none; color: #000000}
+#a.navi:hover {  font-family: verdana, arial, sans-serif; font-size: 11px; text-decoration: none; color: #666666}
+#a.navi_klein {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+#a.navi_klein:hover {  font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #666666}
+#td { font-family: verdana, arial, sans-serif; font-size: 10px; text-decoration: none; color: #000000}
+
+
+
+
+
+<table width="97%" border="0" cellspacing="0" cellpadding="0" align="center"><tr><td>
+
+</td></tr></table>
