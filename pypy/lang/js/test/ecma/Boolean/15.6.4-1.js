@@ -53,7 +53,7 @@
 */
 
 
-var VERSION = "ECMA_1"
+var VERSION = "ECMA_1";
 startTest();
 var SECTION = "15.6.4-1";
 

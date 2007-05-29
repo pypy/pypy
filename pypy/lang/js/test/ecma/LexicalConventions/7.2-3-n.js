@@ -63,7 +63,7 @@ writeHeaderToLog( SECTION + " "+ TITLE);
 
 
 DESCRIPTION = "\r\nb";
-EXPECTED = "error"
+EXPECTED = "error";
 
 new TestCase( SECTION,    "<cr>a",     "error",     eval("\r\nb"));
 

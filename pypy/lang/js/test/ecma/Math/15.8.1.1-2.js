@@ -54,7 +54,7 @@ var TITLE   = "Math.E";
 
 writeHeaderToLog( SECTION + " "+ TITLE);
 
-var MATH_E = 2.7182818284590452354
+var MATH_E = 2.7182818284590452354;
 new TestCase( SECTION, 
 	      "delete(Math.E)",                
 	      false,    

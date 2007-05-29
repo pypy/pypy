@@ -66,7 +66,7 @@ addCase( new Array(), 0, 1, 1 );
 addCase( new Array(Math.pow(2,12)), Math.pow(2,12), 0, 0 );
 addCase( new Array(Math.pow(2,13)), Math.pow(2,13), Math.pow(2,12), Math.pow(2,12) );
 addCase( new Array(Math.pow(2,12)), Math.pow(2,12), Math.pow(2,12), Math.pow(2,12) );
-addCase( new Array(Math.pow(2,14)), Math.pow(2,14), Math.pow(2,12), Math.pow(2,12) )
+addCase( new Array(Math.pow(2,14)), Math.pow(2,14), Math.pow(2,12), Math.pow(2,12) );
 
   // some tests where array is not empty
   // array is populated with strings

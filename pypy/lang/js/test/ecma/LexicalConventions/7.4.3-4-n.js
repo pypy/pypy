@@ -79,7 +79,7 @@ catch(e)
 
 jsOptions.reset();
 
-DESCRIPTION = "var super = true"
+DESCRIPTION = "var super = true";
 EXPECTED = "error";
 
 // force exception since this is a negative test

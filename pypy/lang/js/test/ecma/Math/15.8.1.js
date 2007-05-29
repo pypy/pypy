@@ -52,7 +52,7 @@
    Date:               7 july 1997
 
 */
-var SECTION = "15.8.1"
+var SECTION = "15.8.1";
 var VERSION = "ECMA_1";
 startTest();
 var TITLE   = "Value Properties of the Math Object";

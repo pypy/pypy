@@ -89,7 +89,7 @@ var a = new Array();
 AddCase( "3.00", "three" );
 AddCase( "00010", "eight" );
 AddCase( "37xyz", "thirty-five" );
-AddCase("5000000000", 5)
+AddCase("5000000000", 5);
   AddCase( "-2", -3 );
 
 new TestCase( SECTION,

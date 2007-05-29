@@ -95,7 +95,7 @@ function MyObject( value ) {
 function Unicode( c ) {
   u = GetUnicodeValues( c );
   this.upper = u[0];
-  this.lower = u[1]
+  this.lower = u[1];
     return this;
 }
 function GetUnicodeValues( c ) {

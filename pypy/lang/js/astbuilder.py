@@ -5,7 +5,7 @@ from pypy.lang.js import operations
 class ASTBuilder(RPythonVisitor):
     BINOP_TO_CLS = {
         '+': operations.Plus,
-        '-': operations.Minus,
+        '-': operations.Sub,
         '*': operations.Mult,
         '/': operations.Division,
         '%': operations.Mod,
@@ -22,6 +22,9 @@ class ASTBuilder(RPythonVisitor):
         '>=': operations.Ge,
         '<': operations.Lt,
         '<=': operations.Le,
+        '>>': operations.Rsh,
+        '>>>': operations.Ursh,
+        '<<': operations.Lsh,
         '.': operations.MemberDot,
         '[': operations.Member,
         ',': operations.Comma,
@@ -97,6 +100,7 @@ class ASTBuilder(RPythonVisitor):
     visit_logicalorexpression = binaryop
     visit_logicalandexpression = binaryop
     visit_relationalexpression = binaryop
+    visit_shiftexpression = binaryop
     visit_expression = binaryop
     
     def visit_memberexpression(self, node):
@@ -295,6 +299,8 @@ class ASTBuilder(RPythonVisitor):
         i = 1
         setup, i = self.get_next_expr(node, i)
         condition, i = self.get_next_expr(node, i)
+        if isinstance(condition, operations.Undefined):
+            condition = operations.Boolean(pos, True)
         update, i = self.get_next_expr(node, i)
         body, i = self.get_next_expr(node, i)
         return operations.For(pos, setup, condition, update, body)

@@ -67,12 +67,15 @@ class ListOp(Expression):
 class UnaryOp(Expression):
     def __init__(self, pos, expr, postfix=False):
         self.pos = pos
+        assert isinstance(expr, Node)
         self.expr = expr
         self.postfix = postfix
 
 class BinaryOp(Expression):
     def __init__(self, pos, left, right):
         self.pos = pos
+        assert isinstance(left, Node)
+        assert isinstance(right, Node)
         self.left = left
         self.right = right
     
@@ -130,6 +133,8 @@ class Assignment(Expression):
             val = mult(ctx, v1.GetValue(), v3)
         elif op == "+=":
             val = plus(ctx, v1.GetValue(), v3)
+        elif op == "-=":
+            val = sub(ctx, v1.GetValue(), v3)
         elif op == "/=":
             val = division(ctx, v1.GetValue(), v3)
         elif op == "%=":
@@ -638,7 +643,7 @@ def division(ctx, nleft, nright):
     fright = nright.ToNumber()
     return W_Number(fleft / fright)
 
-def minus(ctx, nleft, nright):
+def sub(ctx, nleft, nright):
     fleft = nleft.ToNumber()
     fright = nright.ToNumber()
     return W_Number(fleft - fright)
@@ -660,8 +665,8 @@ class Division(BinaryNumberOp):
     mathop = staticmethod(division)
     
 
-class Minus(BinaryNumberOp):
-    mathop = staticmethod(minus)
+class Sub(BinaryNumberOp):
+    mathop = staticmethod(sub)
     
 
 class Null(Expression):    
@@ -970,6 +975,7 @@ class ForVarIn(Statement):
 class ForIn(Statement):
     def __init__(self, pos, iterator, lobject, body):
         self.pos = pos
+        assert isinstance(iterator, Node)
         self.iterator = iterator
         self.object = lobject
         self.body = body
@@ -992,7 +998,7 @@ class ForIn(Statement):
 
 class For(Statement):
     def __init__(self, pos, setup, condition, update, body):
-        self.pos = pos
+        self.pos = pos        
         self.setup = setup
         self.condition = condition
         self.update = update

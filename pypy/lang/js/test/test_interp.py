@@ -495,6 +495,10 @@ def test_bitops():
     yield assertv, "2 ^ 2;", 0
     yield assertv, "2 & 3;", 2
     yield assertv, "2 | 3;", 3
+    yield assertv, "2 << 2;", 8
+    yield assertv, "4 >> 2;", 1
+    yield assertv, "-2 >> 31", -1
+    yield assertv, "-2 >>> 31;", 1
 
 def test_for_vararg():
     assertp("""
@@ -531,6 +535,7 @@ def test_switch():
 
 def test_inplace_assign():
     yield assertv, "x=1; x+=1; x;", 2
+    yield assertv, "x=1; x-=1; x;", 0
     yield assertv, "x=2; x*=2; x;", 4
     yield assertv, "x=2; x/=2; x;", 1
     yield assertv, "x=4; x%=2; x;", 0
@@ -550,3 +555,6 @@ def test_twoarray():
     
 def test_semicolon():
     assertv("1", 1)
+
+def test_functionjs():
+    assertv("x = Function('return 1'); x()", 1)

@@ -72,7 +72,7 @@ writeHeaderToLog( SECTION + " "+ TITLE);
 
 
 var TEST_STRING = "new Array(";
-var ARGUMENTS = ""
+var ARGUMENTS = "";
 var TEST_LENGTH = Math.pow(2,10); //Math.pow(2,32);
 
 for ( var index = 0; index < TEST_LENGTH; index++ ) {

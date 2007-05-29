@@ -6,12 +6,17 @@ program : sourceelements EOF
         ;
 
 sourceelements  : sourceelement >sourceelements<
-                | sourceelement
+                | sourceelementsemiopt
                 ;
 
 sourceelement   : <functiondeclaration>
                 | <statement>
                 ;
+
+sourceelementsemiopt   : <functiondeclaration>
+                | <statementsemiopt>
+                ;
+
 
 statement   : <block>
             | <variablestatement> [";"]

@@ -7,13 +7,14 @@ from pypy.lang.js.jsobj import ThrowException
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.streamio import open_file_as_stream
 
+ASTBUILDER = ASTBuilder()
+
 def writer(x):
     print x
 
 def load_source(script_source):
-    astb = ASTBuilder()
     temp_tree = parse(script_source)
-    return astb.dispatch(temp_tree)
+    return ASTBUILDER.dispatch(temp_tree)
 
 def load_file(filename):
     f = open_file_as_stream(filename)
@@ -45,10 +46,12 @@ def functionjs(ctx, args, this):
         for i in range(tam-1):
             argslist.append(args[i].GetValue().ToString())
         fargs = ','.join(argslist)
-        functioncode = "__anon__ = function (%s) {%s}"%(fargs, fbody)
+        functioncode = "function (%s) {%s}"%(fargs, fbody)
     else:
-        functioncode = "__anon__ = function () {}"
-    return evaljs(ctx, [W_String(functioncode),], this)
+        functioncode = "function () {}"
+    #remove program and sourcelements node
+    funcnode = parse(functioncode).children[0].children[0]
+    return ASTBUILDER.dispatch(funcnode).execute(ctx)
 
 def parseIntjs(ctx, args, this):
     if len(args) < 1:

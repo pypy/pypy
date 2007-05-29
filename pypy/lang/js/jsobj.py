@@ -70,6 +70,7 @@ class W_Root(object):
         return r_uint(0)
     
     def Get(self, P):
+        print P
         raise NotImplementedError
     
     def Put(self, P, V, dd=False,

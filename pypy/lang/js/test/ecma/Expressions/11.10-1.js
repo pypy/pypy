@@ -94,6 +94,7 @@ function ToInteger( n ) {
   }
   return ( sign * Math.floor(Math.abs(n)) );
 }
+
 function ToInt32( n ) {
   n = Number( n );
   var sign = ( n < 0 ) ? -1 : 1;
@@ -107,6 +108,7 @@ function ToInt32( n ) {
 
   return ( n );
 }
+
 function ToUint32( n ) {
   n = Number( n );
   var sign = ( n < 0 ) ? -1 : 1;
@@ -114,9 +116,8 @@ function ToUint32( n ) {
   if ( Math.abs( n ) == 0 || Math.abs( n ) == Number.POSITIVE_INFINITY) {
     return 0;
   }
-  n = sign * Math.floor( Math.abs(n) )
-
-    n = n % Math.pow(2,32);
+  n = sign * Math.floor( Math.abs(n) );
+  n = n % Math.pow(2,32);
 
   if ( n < 0 ){
     n += Math.pow(2,32);

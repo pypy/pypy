@@ -164,10 +164,10 @@ print( "TEST_STRING = new String(\" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJK
 test();
 
 function LastIndexOf( string, search, position ) {
-  string = String( string );
-  search = String( search );
+    string = String( string );
+    search = String( search );
 
-  position = Number( position )
+    position = Number( position );
 
     if ( isNaN( position ) ) {
       position = Infinity;

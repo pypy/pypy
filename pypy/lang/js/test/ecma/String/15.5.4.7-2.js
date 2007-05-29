@@ -165,7 +165,7 @@ function LastIndexOf( string, search, position ) {
   string = String( string );
   search = String( search );
 
-  position = Number( position )
+  position = Number( position );
 
     if ( isNaN( position ) ) {
       position = Infinity;

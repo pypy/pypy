@@ -14,11 +14,5 @@ except ParseError,e:
 parsef = make_parse_function(regexs, rules, eof=True)
 
 def parse(code):
-    try:
-        t = parsef(code)
-    except ParseError:
-        code += ';'
-        print code
-        t = parsef(code)
-
+    t = parsef(code)
     return ToAST().transform(t)

@@ -56,7 +56,7 @@ var TITLE   = "Boolean.prototype.valueOf()";
 
 writeHeaderToLog( SECTION + " "+ TITLE);
 
-DESCRIPTION = "valof=Boolean.prototype.valueOf; x=new String( 'hello' ); x.valueOf=valof;x.valueOf()"
+DESCRIPTION = "valof=Boolean.prototype.valueOf; x=new String( 'hello' ); x.valueOf=valof;x.valueOf()";
 EXPECTED = "error";
 
 new TestCase(   SECTION,

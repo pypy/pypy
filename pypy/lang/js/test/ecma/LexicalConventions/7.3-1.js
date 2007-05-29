@@ -68,7 +68,7 @@ testcase = new TestCase( SECTION,
 			 "pass",
 			 "" );
 
-var x = "// test \n testcase.actual = 'pass'"
+var x = "// test \n testcase.actual = 'pass'";
 
 testcase.actual = eval(x);
 

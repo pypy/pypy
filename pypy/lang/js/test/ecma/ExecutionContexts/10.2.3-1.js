@@ -60,7 +60,7 @@ var TITLE   = "Eval Code";
 
 writeHeaderToLog( SECTION + " "+ TITLE);
 
-var o = new MyObject("hello")
+var o = new MyObject("hello");
 
   new TestCase( SECTION,
 		"var o = new MyObject('hello'); o.THIS == x",
