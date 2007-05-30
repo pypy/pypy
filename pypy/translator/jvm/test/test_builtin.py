@@ -28,3 +28,15 @@ class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
     def test_os_isdir(self):
         py.test.skip("ll_os_stat is not currently implemented in the Jvm backed")
     
+    def test_builtin_math_floor(self):
+        py.test.skip("metavm.py needs to be updated to handle this math op")
+        
+    def test_builtin_math_fmod(self):
+        py.test.skip("metavm.py needs to be updated to handle this math op")
+        
+    def test_builtin_math_frexp(self):
+        py.test.skip("metavm.py needs to be updated to handle this math op")
+        
+    def test_builtin_math_modf(self):
+        py.test.skip("metavm.py needs to be updated to handle this math op")
+        
