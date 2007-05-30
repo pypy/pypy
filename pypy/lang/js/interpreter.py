@@ -134,7 +134,10 @@ def floorjs(ctx, args, this):
 
 def powjs(ctx, args, this):
     return W_Number(math.pow(args[0].ToNumber(), args[1].ToNumber()))
-    
+
+def sqrtjs(ctx, args, this):
+    return W_Number(math.sqrt(args[0].ToNumber()))
+
 def versionjs(ctx, args, this):
     return w_Undefined
 
@@ -167,6 +170,7 @@ class Interpreter(object):
         w_math.Put('abs', W_Builtin(absjs, Class='function'))
         w_math.Put('floor', W_Builtin(floorjs, Class='function'))
         w_math.Put('pow', W_Builtin(powjs, Class='function'))
+        w_math.Put('sqrt', W_Builtin(sqrtjs, Class='function'))
         w_math.Put('E', W_Number(math.e))
         w_math.Put('PI', W_Number(math.pi))
         

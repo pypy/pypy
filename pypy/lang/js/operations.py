@@ -720,6 +720,7 @@ class String(Expression):
     def string_unquote(self, string):
         temp = []
         stop = len(string)-1
+        assert stop >= 0
         last = ""
         
         #removing the begining quotes (" or \')
@@ -866,7 +867,7 @@ class VariableDeclaration(Expression):
             ctx.variable.Put(name, w_Undefined)
         else:
             ctx.variable.Put(name, self.expr.eval(ctx).GetValue())
-        return self.identifier
+        return self.identifier.eval(ctx)
     
 
 class VariableDeclList(Expression):
@@ -956,12 +957,12 @@ class ForVarIn(Statement):
         self.body = body
     
     def execute(self, ctx):
-        identifier = self.vardecl.eval(ctx)
+        self.vardecl.eval(ctx)
         obj = self.object.eval(ctx).GetValue().ToObject()
         for prop in obj.propdict.values():
             if prop.de:
                 continue
-            iterator = identifier.eval(ctx)
+            iterator = self.vardecl.eval(ctx)
             iterator.PutValue(prop.value, ctx)
             try:
                 result = self.body.execute(ctx)
