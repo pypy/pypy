@@ -6,4 +6,25 @@ from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
 class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
     def test_os(self):
         py.test.skip("Jvm os support uncertain")
-
+    
+    def test_os_open(self):
+        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
+        
+    def test_os_getcwd(self):
+        py.test.skip("ll_os_getcwd is not currently implemented in the Jvm backed")
+    
+    def test_os_write(self):
+        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
+    
+    def test_os_write_single_char(self):
+        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
+    
+    def test_os_read(self):
+        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
+    
+    def test_os_path_exists(self):
+        py.test.skip("ll_os_stat is not currently implemented in the Jvm backed")
+    
+    def test_os_isdir(self):
+        py.test.skip("ll_os_stat is not currently implemented in the Jvm backed")
+    
