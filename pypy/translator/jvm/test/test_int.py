@@ -18,8 +18,8 @@ class TestJvmInt(JvmTest, BaseTestRint):
         pass # does this make more sense in jvm
         
     def test_specializing_int_functions(self):
-    	py.test.skip("Error with longlong precision results in 2 == 1")
-    	
+        py.test.skip("Error with longlong precision results in 2 == 1")
+        
     def test_float_conversion(self):
         py.test.skip("Unknown opcode cast_longlong_to_float")
         
