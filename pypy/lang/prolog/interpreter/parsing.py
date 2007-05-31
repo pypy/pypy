@@ -219,7 +219,7 @@ def get_query_and_vars(s):
     s = parser_query.parse(tokens, lazy=False)
     builder = TermBuilder()
     query = builder.build(s)
-    return query, builder.var_to_pos
+    return query, builder.varname_to_var
 
 class OrderTransformer(object):
     def transform(self, node):
@@ -271,8 +271,7 @@ class OrderTransformer(object):
 class TermBuilder(RPythonVisitor):
 
     def __init__(self):
-        self.var_to_pos = {}
-        self.freevar = 0
+        self.varname_to_var = {}
 
     def build(self, s):
         "NOT_RPYTHON"
@@ -294,8 +293,7 @@ class TermBuilder(RPythonVisitor):
         return self.visit(s.children[0])
 
     def build_fact(self, node):
-        self.var_to_pos = {}
-        self.freevar = 0
+        self.varname_to_var = {}
         return self.visit(node.children[0])
 
     def visit(self, node):
@@ -355,14 +353,11 @@ class TermBuilder(RPythonVisitor):
         from pypy.lang.prolog.interpreter.term import Var
         varname = node.additional_info
         if varname == "_":
-            pos = self.freevar
-            self.freevar += 1
-            return Var.newvar(pos)
-        if varname in self.var_to_pos:
-            return self.var_to_pos[varname]
-        res = Var.newvar(self.freevar)
-        self.freevar += 1
-        self.var_to_pos[varname] = res
+            return Var()
+        if varname in self.varname_to_var:
+            return self.varname_to_var[varname]
+        res = Var()
+        self.varname_to_var[varname] = res
         return res
 
     def visit_NUMBER(self, node):

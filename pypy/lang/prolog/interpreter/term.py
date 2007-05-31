@@ -36,17 +36,11 @@ class PrologObject(object):
     def dereference(self, heap):
         raise NotImplementedError("abstract base class")
 
-    def get_max_var(self):
-        return -1
-
     def copy(self, heap, memo):
         raise NotImplementedError("abstract base class")
 
     def copy_and_unify(self, other, heap, memo):
         raise NotImplementedError("abstract base class")
-
-    def clone_compress_vars(self, vars_new_indexes, offset):
-        return self
 
     def get_unify_hash(self, heap):
         # if two non-var objects return two different numbers
@@ -80,12 +74,11 @@ class Var(PrologObject):
     TAG = 0
     STANDARD_ORDER = 0
 
-    __slots__ = ('index', )
+    __slots__ = ('binding', )
     cache = {}
-    _immutable_ = True
 
-    def __init__(self, index):
-        self.index = index
+    def __init__(self, heap=None):
+        self.binding = None
 
     @specialize.arg(3)
     def unify(self, other, heap, occurs_check=False):
@@ -99,16 +92,16 @@ class Var(PrologObject):
         elif occurs_check and other.contains_var(self, heap):
             raise UnificationFailed()
         else:
-            heap.setvar(self.index, other)
+            self.setvalue(other, heap)
 
     def dereference(self, heap):
-        next = heap.getvar(self.index)
+        next = self.binding
         if next is None:
             return self
         else:
             result = next.dereference(heap)
             # do path compression
-            heap.setvar(self.index, result)
+            self.setvalue(result, heap)
             return result
 
     def getvalue(self, heap):
@@ -116,6 +109,10 @@ class Var(PrologObject):
         if not isinstance(res, Var):
             return res.getvalue(heap)
         return res
+
+    def setvalue(self, value, heap):
+        heap.add_trail(self)
+        self.binding = value
 
     def copy(self, heap, memo):
         hint(self, concrete=True)
@@ -137,17 +134,6 @@ class Var(PrologObject):
             seen_value.unify(other, heap)
             return seen_value
 
-
-    def get_max_var(self):
-        return self.index
-
-    def clone_compress_vars(self, vars_new_indexes, offset):
-        if self.index in vars_new_indexes:
-            return Var.newvar(vars_new_indexes[self.index])
-        index = len(vars_new_indexes) + offset
-        vars_new_indexes[self.index] = index
-        return Var.newvar(index)
-    
     def get_unify_hash(self, heap):
         if heap is not None:
             self = self.dereference(heap)
@@ -165,22 +151,12 @@ class Var(PrologObject):
         return False
 
     def __repr__(self):
-        return "Var(%s)" % (self.index, )
+        return "Var(%s)" % (self.binding, )
 
 
     def __eq__(self, other):
         # for testing
-        return (self.__class__ == other.__class__ and
-                self.index == other.index)
-
-    @staticmethod
-    @purefunction
-    def newvar(index):
-        result = Var.cache.get(index, None)
-        if result is not None:
-            return result
-        Var.cache[index] = result = Var(index)
-        return result
+        return self is other
 
     def eval_arithmetic(self, engine):
         self = self.dereference(engine.heap)
@@ -413,9 +389,6 @@ class BlackBox(NonVar):
 def _clone(obj, offset):
     return obj.clone(offset)
 
-def _clone_compress_vars(obj, vars_new_indexes, offset):
-    return obj.clone_compress_vars(vars_new_indexes, offset)
-
 def _getvalue(obj, heap):
     return obj.getvalue(heap)
 
@@ -475,15 +448,6 @@ class Term(Callable):
         else:
             raise UnificationFailed
 
-    def get_max_var(self):
-        result = -1
-        for subterm in self.args:
-            result = max(result, subterm.get_max_var())
-        return result
-    
-    def clone_compress_vars(self, vars_new_indexes, offset):
-        return self._copy_term(_clone_compress_vars, vars_new_indexes, offset)
-
     def getvalue(self, heap):
         return self._copy_term(_getvalue, heap)
 
@@ -542,16 +506,13 @@ class Rule(object):
     unify_hash = []
     def __init__(self, head, body):
         from pypy.lang.prolog.interpreter import helper
-        d = {}
-        head = head.clone_compress_vars(d, 0)
         assert isinstance(head, Callable)
         self.head = head
         if body is not None:
             body = helper.ensure_callable(body)
-            self.body = body.clone_compress_vars(d, 0)
+            self.body = body
         else:
             self.body = None
-        self.numvars = len(d)
         self.signature = self.head.signature
         if isinstance(head, Term):
             self.unify_hash = [arg.get_unify_hash(None) for arg in head.args]
@@ -611,7 +572,7 @@ def cmp_standard_order(obj1, obj2, heap):
         return c
     if isinstance(obj1, Var):
         assert isinstance(obj2, Var)
-        return rcmp(obj1.index, obj2.index)
+        return rcmp(id(obj1), id(obj2))
     if isinstance(obj1, Atom):
         assert isinstance(obj2, Atom)
         return rcmp(obj1.name, obj2.name)

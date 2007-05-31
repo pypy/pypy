@@ -17,8 +17,7 @@ def impl_catch(engine, goal, catcher, recover, continuation):
         exc_term = e.term.getvalue(engine.heap)
         engine.heap.revert(old_state)
         d = {}
-        exc_term = exc_term.clone_compress_vars(d, engine.heap.maxvar())
-        engine.heap.extend(len(d))
+        exc_term = exc_term.copy(engine.heap, d)
         try:
             impl_ground(engine, exc_term)
         except error.UnificationFailed:

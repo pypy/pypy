@@ -105,12 +105,12 @@ def test_assert_at_right_end():
     assert_true("assertz(f(a, a)).", e)
     assert_true("A = a, asserta(h(A, A)).", e)
     f = assert_true("g(B, B).", e)
-    assert f.vars[0].name == "b"
+    assert f['B'].name == "b"
     f = assert_true("f(B, B).", e)
-    assert f.vars[0].name == "b"
+    assert f['B'].name == "b"
     assert_false("h(c, c).", e)
     f = assert_true("h(B, B).", e)
-    assert f.vars[0].name == "a"
+    assert f['B'].name == "a"
 
 def test_assert_logical_update_view():
     e = get_engine("""
@@ -281,7 +281,7 @@ def test_between():
     assert_false("between(12, 15, 16).")
     heaps = collect_all(Engine(), "between(1, 4, X).")
     assert len(heaps) == 4
-    assert heaps[0].vars[0].num == 1
+    assert heaps[0]['X'].num == 1
 
 def test_is():
     assert_true("5 is 1 + 1 + 1 + 1 + 1.")
@@ -319,9 +319,11 @@ def test_functor():
 def test_standard_comparison():
     assert_true("X = Y, f(X, Y, X, Y) == f(X, X, Y, Y).")
     assert_true("X = Y, f(X, Y, X, Z) \\== f(X, X, Y, Y).")
-    assert_true("X @< Y, X @=< X, X @=< Y, Y @> X.")
+    assert_true("""X \\== Y, ((X @< Y, X @=< X, X @=< Y, Y @> X);
+                              (X @> Y, X @>= X, X @>= Y, Y @< X)).""")
     assert_true("'\\\\=='(f(X, Y), 12).")
     assert_true("X = f(a), Y = f(b), Y @> X.")
+
 
 def test_atom_length():
     assert_true("atom_length('abc', 3).")

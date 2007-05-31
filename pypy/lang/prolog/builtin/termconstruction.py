@@ -15,8 +15,6 @@ def impl_functor(engine, t, functor, arity):
     elif isinstance(t, term.Var):
         if isinstance(functor, term.Var):
             error.throw_instantiation_error()
-        elif isinstance(functor, term.Var):
-            error.throw_instantiation_error()
         a = helper.unwrap_int(arity)
         if a < 0:
             error.throw_domain_error("not_less_than_zero", arity)
@@ -26,11 +24,8 @@ def impl_functor(engine, t, functor, arity):
                 t.unify(helper.ensure_atomic(functor), engine.heap)
             else:
                 name = helper.unwrap_atom(functor)
-                start = engine.heap.needed_vars
-                engine.heap.extend(a)
                 t.unify(
-                    term.Term(name,
-                              [term.Var(i) for i in range(start, start + a)]),
+                    term.Term(name, [term.Var() for i in range(a)]),
                     engine.heap)
 expose_builtin(impl_functor, "functor", unwrap_spec=["obj", "obj", "obj"])
 
@@ -92,8 +87,7 @@ expose_builtin(impl_univ, "=..", unwrap_spec=["obj", "obj"])
 
 def impl_copy_term(engine, interm, outterm):
     d = {}
-    copy = interm.clone_compress_vars(d, engine.heap.maxvar())
-    engine.heap.extend(len(d))
+    copy = interm.copy(engine.heap, d)
     outterm.unify(copy, engine.heap)
 expose_builtin(impl_copy_term, "copy_term", unwrap_spec=["obj", "obj"])
 

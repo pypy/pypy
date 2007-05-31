@@ -37,76 +37,36 @@ class LimitedScopeContinuation(Continuation):
         self.scope_active = False
         return self.continuation.call(engine, choice_point=False)
 
-START_NUMBER_OF_VARS = 4096
-
-
 class Heap(object):
     def __init__(self):
-        self.vars = [None] * START_NUMBER_OF_VARS
         self.trail = []
-        self.needed_vars = 0
-        self.last_branch = 0
 
     def reset(self):
-        self.vars = [None] * len(self.vars)
         self.trail = []
         self.last_branch = 0
 
-    def clear(self, length):
-        l = max(START_NUMBER_OF_VARS, length)
-        self.vars = [None] * l
-        self.needed_vars = length
-        self.last_branch = length
-        self.trail = []
-
-    def getvar(self, index):
-        return self.vars[index]
-
-    def setvar(self, index, val):
-        oldval = self.vars[index]
-        self.vars[index] = val
-        # only trail for variables that have a chance to get restored
-        # on the last choice point
-        if index < self.last_branch and oldval is not val:
-            self.trail.append((index, oldval))
+    def add_trail(self, var):
+        self.trail.append((var, var.binding))
 
     def branch(self):
-        old_last_branch = self.last_branch
-        self.last_branch = self.needed_vars
-        return len(self.trail), self.needed_vars, old_last_branch
+        return len(self.trail)
 
     def revert(self, state):
-        trails, length, old_last_branch = state
-        assert length == self.last_branch
+        trails = state
         for i in range(len(self.trail) - 1, trails - 1, -1):
-            index, val = self.trail[i]
-            if index >= length:
-                val = None
-            self.vars[index] = val
-        for i in range(length, self.needed_vars):
-            self.vars[i] = None
+            var, val = self.trail[i]
+            var.binding = val
         del self.trail[trails:]
-        self.needed_vars = length
 
     def discard(self, state):
-        old_last_branch = state[2]
-        self.last_branch = old_last_branch
-
-    def extend(self, numvars):
-        if numvars:
-            self.needed_vars += numvars
-            newvars = max(0, numvars - (len(self.vars) - self.needed_vars))
-            if newvars == 0:
-                return
-            self.vars.extend([None] * (2 * newvars)) # allocate a bit more
-            assert self.needed_vars <= len(self.vars)
+        pass #XXX for now
 
     def maxvar(self):
+        XXX
         return self.needed_vars
 
     def newvar(self):
-        result = Var.newvar(self.maxvar())
-        self.extend(1)
+        result = Var(self)
         return result
 
 class LinkedRules(object):
@@ -211,8 +171,6 @@ class Engine(object):
     def run(self, query, continuation=DONOTHING):
         if not isinstance(query, Callable):
             error.throw_type_error("callable", query)
-        vars = query.get_max_var() + 1
-        self.heap.clear(vars)
         try:
             return self.call(query, continuation, choice_point=True)
         except CutException, e:
@@ -412,7 +370,7 @@ class Engine(object):
         builder = TermBuilder()
         trees = parse_file(s, self.parser)
         terms = builder.build_many(trees)
-        return terms, builder.var_to_pos
+        return terms, builder.varname_to_var
 
     def getoperations(self):
         from pypy.lang.prolog.interpreter.parsing import default_operations

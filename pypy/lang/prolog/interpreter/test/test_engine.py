@@ -1,6 +1,7 @@
 import py
 from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter.parsing import parse_query_term, get_engine
+from pypy.lang.prolog.interpreter.parsing import get_query_and_vars
 from pypy.lang.prolog.interpreter.error import UnificationFailed, CatchableError
 from pypy.lang.prolog.interpreter.test.tool import collect_all, assert_true, assert_false
 from pypy.lang.prolog.interpreter.test.tool import prolog_raises
@@ -9,8 +10,9 @@ def test_trivial():
     e = get_engine("""
         f(a).
     """)
-    e.run(parse_query_term("f(X)."))
-    assert e.heap.getvar(0).name == "a"
+    t, vars = get_query_and_vars("f(X).")
+    e.run(t)
+    assert vars['X'].dereference(e.heap).name == "a"
 
 def test_and():
     e = get_engine("""
@@ -20,9 +22,9 @@ def test_and():
         f(X, Z) :- g(X, Y), g(Y, Z).
     """)
     e.run(parse_query_term("f(a, c)."))
-    e.run(parse_query_term("f(X, c)."))
-    print e.heap.vars[:10]
-    assert e.heap.getvar(0).name == "a"
+    t, vars = get_query_and_vars("f(X, c).")
+    e.run(t)
+    assert vars['X'].dereference(e.heap).name == "a"
 
 def test_and_long():
     e = get_engine("""
@@ -52,8 +54,9 @@ def test_numeral():
         return "succ(%s)" % nstr(n - 1)
     e.run(parse_query_term("num(0)."))
     e.run(parse_query_term("num(succ(0))."))
-    e.run(parse_query_term("num(X)."))
-    assert e.heap.getvar(0).num == 0
+    t, vars = get_query_and_vars("num(X).")
+    e.run(t)
+    assert vars['X'].dereference(e.heap).num == 0
     e.run(parse_query_term("add(0, 0, 0)."))
     py.test.raises(UnificationFailed, e.run, parse_query_term("""
         add(0, 0, succ(0))."""))
@@ -88,8 +91,9 @@ def test_or_backtrack():
         g(a, a).
         f(X, Y, Z) :- (g(X, Z); g(X, Z); g(Z, Y)), a(Z).
         """)
-    e.run(parse_query_term("f(a, b, Z)."))
-    assert e.heap.getvar(0).name == "a"
+    t, vars = get_query_and_vars("f(a, b, Z).")
+    e.run(t)
+    assert vars['Z'].dereference(e.heap).name == "a"
     f = collect_all(e, "X = 1; X = 2.")
     assert len(f) == 2
 
@@ -127,9 +131,9 @@ def test_collect_all():
     """)
     heaps = collect_all(e, "g(X).")
     assert len(heaps) == 3
-    assert heaps[0].getvar(0).name == "a"
-    assert heaps[1].getvar(0).name == "b"
-    assert heaps[2].getvar(0).name == "c"
+    assert heaps[0]['X'].name == "a"
+    assert heaps[1]['X'].name == "b"
+    assert heaps[2]['X'].name == "c"
 
 def test_cut():
     e = get_engine("""

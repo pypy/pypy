@@ -1,5 +1,4 @@
 import py
-from pypy.lang.prolog.interpreter import arithmetic
 from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
 from pypy.lang.prolog.builtin import builtins, builtins_list
@@ -66,7 +65,7 @@ def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
         elif spec == "atom":
             code.append("    %s = helper.unwrap_atom(%s)" % (varname, varname))
         elif spec == "arithmetic":
-            code.append("    %s = arithmetic.eval_arithmetic(engine, %s)" %
+            code.append("    %s = %s.eval_arithmetic(engine)" %
                         (varname, varname))
         elif spec == "list":
             code.append("    %s = helper.unwrap_list(%s)" % (varname, varname))

@@ -14,6 +14,7 @@ class TermFormatter(object):
         self.ignore_ops = ignore_ops
         self.curr_depth = 0
         self._make_reverse_op_mapping()
+        self.var_to_number = {}
     
     def from_option_list(engine, options):
         # XXX add numbervars support
@@ -76,8 +77,11 @@ class TermFormatter(object):
         return str(num.floatval)
 
     def format_var(self, var):
-        return "_G%s" % (var.index, )
-
+        try:
+            num = self.var_to_number[var]
+        except KeyError:
+            num = self.var_to_number[var] = len(self.var_to_number)
+        return "_G%s" % (num, )
 
     def format_term_normally(self, term):
         return "%s(%s)" % (self.format_atom(term.name),

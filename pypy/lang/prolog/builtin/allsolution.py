@@ -26,8 +26,7 @@ def impl_findall(engine, template, goal, bag):
     for i in range(len(collector.found) - 1, -1, -1):
         copy = collector.found[i]
         d = {}
-        copy = copy.clone_compress_vars(d, engine.heap.maxvar())
-        engine.heap.extend(len(d))
+        copy = copy.copy(engine.heap, d)
         result = term.Term(".", [copy, result])
     bag.unify(result, engine.heap)
 expose_builtin(impl_findall, "findall", unwrap_spec=['raw', 'callable', 'raw'])
