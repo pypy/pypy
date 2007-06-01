@@ -485,11 +485,11 @@ public class PyPy {
     // Primitive built-in functions
 
     public static double ll_time_clock() {
-        return System.currentTimeMillis()/1000; // XXX: processor time?
+        return System.currentTimeMillis()/1000.0; // XXX: processor time?
     }
 
     public static double ll_time_time() {
-        return System.currentTimeMillis()/1000;
+        return System.currentTimeMillis()/1000.0;
     }
 
     public static int ll_os_write(int fd, String text) {
