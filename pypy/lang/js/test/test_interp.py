@@ -233,6 +233,11 @@ def test_compare():
     yield assertv, "0!=1;", True
     yield assertv, "1!=1;", False
 
+def test_string_compare():
+    yield assertv, "'aaa' > 'a';", True
+    yield assertv, "'aaa' < 'a';", False
+    yield assertv, "'a' > 'a';", False
+
 def test_binary_op():
     yield assertp, "print(0||0); print(1||0);", ["0", "1"]
     yield assertp, "print(0&&1); print(1&&1);", ["0", "1"]

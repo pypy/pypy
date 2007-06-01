@@ -74,8 +74,6 @@ class UnaryOp(Expression):
 class BinaryOp(Expression):
     def __init__(self, pos, left, right):
         self.pos = pos
-        assert isinstance(left, Node)
-        assert isinstance(right, Node)
         self.left = left
         self.right = right
     
@@ -109,7 +107,7 @@ astundef = Undefined(Position())
 class PropertyInit(BinaryOp):
     pass
 
-class Array(ListOp):    
+class Array(ListOp):
     def eval(self, ctx):
         array = W_Array()
         for i in range(len(self.nodes)):
@@ -121,7 +119,7 @@ class Assignment(Expression):
         self.pos = pos
         self.left = left
         self.right = right
-        self.type = atype    
+        self.type = atype
 
     def eval(self, ctx):
         v1 = self.left.eval(ctx)
@@ -187,7 +185,8 @@ class BitwiseOr(BinaryBitwiseOp):
         return W_Number(op1|op2)
     
 
-class BitwiseXor(BinaryBitwiseOp):    
+
+class BitwiseXor(BinaryBitwiseOp):
     def decision(self, ctx, op1, op2):
         return W_Number(op1^op2)
     
@@ -207,7 +206,8 @@ class Continue(Unconditional):
         raise ExecutionReturned('continue', None, None)
     
 
-class Call(BinaryOp):    
+
+class Call(BinaryOp):
     def eval(self, ctx):
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
@@ -323,7 +323,6 @@ def ARC(ctx, x, y):
     Implements the Abstract Relational Comparison x < y
     Still not fully to the spec
     """
-    # TODO complete the funcion with strings comparison
     s1 = x.ToPrimitive(ctx, 'Number')
     s2 = y.ToPrimitive(ctx, 'Number')
     if not (isinstance(s1, W_String) and isinstance(s2, W_String)):
@@ -336,6 +335,12 @@ def ARC(ctx, x, y):
         else:
             return 0
     else:
+        s4 = s1.ToString()
+        s5 = s2.ToString()
+        if s4 < s5:
+            return 1
+        if s4 == s5:
+            return 0
         return -1
 
 class Or(BinaryOp):
@@ -566,7 +571,7 @@ class Increment(UnaryOp):
         thing = self.expr.eval(ctx)
         val = thing.GetValue()
         x = val.ToNumber()
-        resl = Plus.mathop(ctx, W_Number(x), W_Number(1))
+        resl = plus(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
         if self.postfix:
             return val
@@ -584,7 +589,7 @@ class Decrement(UnaryOp):
         thing = self.expr.eval(ctx)
         val = thing.GetValue()
         x = val.ToNumber()
-        resl = Plus.mathop(ctx, W_Number(x), W_Number(-1))
+        resl = sub(ctx, W_Number(x), W_Number(1))
         thing.PutValue(resl, ctx)
         if self.postfix:
             return val
@@ -617,6 +622,9 @@ class BinaryNumberOp(BinaryOp):
         nright = self.right.eval(ctx).GetValue().ToPrimitive(ctx, 'Number')
         result = self.mathop(ctx, nleft, nright)
         return result
+    
+    def mathop(self, ctx, n1, n2):
+        raise NotImplementedError
 
 def plus(ctx, nleft, nright):
     if isinstance(nleft, W_String) or isinstance(nright, W_String):
@@ -650,28 +658,33 @@ def sub(ctx, nleft, nright):
 
 
 class Plus(BinaryNumberOp):
-    mathop = staticmethod(plus)
-    
+    def mathop(self, ctx, n1, n2):
+        return plus(ctx, n1, n2)
+
 
 class Mult(BinaryNumberOp):
-    mathop = staticmethod(mult)
-    
+    def mathop(self, ctx, n1, n2):
+        return mult(ctx, n1, n2)
+
 
 class Mod(BinaryNumberOp):
-    mathop = staticmethod(mod)
-    
+    def mathop(self, ctx, n1, n2):
+        return mod(ctx, n1, n2)
+
 
 class Division(BinaryNumberOp):
-    mathop = staticmethod(division)
-    
+    def mathop(self, ctx, n1, n2):
+        return division(ctx, n1, n2)
+
 
 class Sub(BinaryNumberOp):
-    mathop = staticmethod(sub)
-    
+    def mathop(self, ctx, n1, n2):
+        return sub(ctx, n1, n2)
 
-class Null(Expression):    
+
+class Null(Expression):
     def eval(self, ctx):
-        return w_Null            
+        return w_Null
 
 
 ##############################################################################
@@ -697,7 +710,8 @@ class NewWithArgs(BinaryOp):
         return x.Construct(ctx=ctx, args=args)
     
 
-class Number(Expression):    
+
+class Number(Expression):
     def __init__(self, pos, num):
         self.pos = pos
         assert isinstance(num, float)
@@ -737,7 +751,7 @@ class String(Expression):
                 temp.append(unescapeseq)
                 last = unescapeseq
                 continue
-            if c != SLASH:        
+            if c != SLASH:
                 temp.append(c)
             last = c
         return ''.join(temp)
@@ -999,7 +1013,7 @@ class ForIn(Statement):
 
 class For(Statement):
     def __init__(self, pos, setup, condition, update, body):
-        self.pos = pos        
+        self.pos = pos
         self.setup = setup
         self.condition = condition
         self.update = update
@@ -1036,7 +1050,7 @@ class UMinus(UnaryOp):
     def eval(self, ctx):
         return W_Number(-self.expr.eval(ctx).GetValue().ToNumber())
 
-class UPlus(UnaryOp):    
+class UPlus(UnaryOp):
     def eval(self, ctx):
         return W_Number(+self.expr.eval(ctx).GetValue().ToNumber())
     
