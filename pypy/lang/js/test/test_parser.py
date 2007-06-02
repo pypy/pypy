@@ -4,7 +4,7 @@ import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
-from pypy.lang.js.jsobj import empty_context, ThrowException 
+from pypy.lang.js.jsobj import W_Object, global_context, ThrowException 
 from pypy.lang.js.astbuilder import ASTBuilder
 from pypy import conftest
 import sys
@@ -285,7 +285,10 @@ class TestToASTExpr(BaseGrammarTest):
     
     def eval_expr(self, s):
         ast = self.to_ast(s)
-        return ast.eval(empty_context())
+        w_Global = W_Object()
+        w_Object = W_Object(Prototype=W_Object())
+        w_Global.Put('Object', w_Object)
+        return ast.eval(global_context(w_Global))
     
     def test_get_pos(self):
         from pypy.lang.js import operations

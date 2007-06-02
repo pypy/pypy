@@ -186,7 +186,7 @@ class Interpreter(object):
         w_Global.Put('Array', w_Array)
         w_Global.Put('version', W_Builtin(versionjs))
         
-        #Number
+        #Date
         w_Date = W_Object(Class="Number")
         w_Global.Put('Date', w_Date)
         

@@ -249,14 +249,14 @@ class Conditional(Expression):
 
 class Member(BinaryOp):
     def eval(self, ctx):
-        w_obj = self.left.eval(ctx).GetValue().ToObject()
+        w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
         name = self.right.eval(ctx).GetValue().ToString()
         return W_Reference(name, w_obj)
     
 
 class MemberDot(BinaryOp):
     def eval(self, ctx):
-        w_obj = self.left.eval(ctx).GetValue().ToObject()
+        w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
         name = self.right.get_literal()
         return W_Reference(name, w_obj)
     
@@ -269,10 +269,13 @@ class FunctionStatement(Statement):
         self.params = params
         
     def eval(self, ctx):
-        #XXX this is wrong, should clone the function prototype
-        w_obj = W_Object(ctx=ctx, callfunc = self)
-        w_obj.Put('prototype', W_Object(ctx=ctx))
-        return w_obj
+        proto = ctx.get_global().Get('Function').Get('prototype')
+        w_func = W_Object(ctx=ctx, Prototype=proto, Class='Function', callfunc=self)
+        w_func.Put('length', W_Number(len(self.params)))
+        w_obj = create_object(ctx, 'Object')
+        w_obj.Put('constructor', w_func, de=True)
+        w_func.Put('prototype', w_obj)
+        return w_func
     
     def execute(self, ctx):
         return self.eval(ctx)
@@ -601,7 +604,7 @@ class Index(BinaryOp):
     opcode = 'INDEX'
     
     def eval(self, ctx):
-        w_obj = self.left.eval(ctx).GetValue().ToObject()
+        w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
         name= self.right.eval(ctx).GetValue().ToString()
         return W_Reference(name, w_obj)
 
@@ -761,7 +764,7 @@ class ObjectInit(ListOp):
     opcode = 'OBJECT_INIT'
 
     def eval(self, ctx):
-        w_obj = W_Object()
+        w_obj = create_object(ctx, 'Object')
         for prop in self.nodes:
             name = prop.left.eval(ctx).GetPropertyName()
             w_expr = prop.right.eval(ctx).GetValue()
@@ -915,7 +918,7 @@ class With(Statement):
         self.body = body
 
     def execute(self, ctx):
-        obj = self.identifier.eval(ctx).GetValue().ToObject()
+        obj = self.identifier.eval(ctx).GetValue().ToObject(ctx)
         ctx.push_object(obj)
 
         try:
@@ -972,7 +975,7 @@ class ForVarIn(Statement):
     
     def execute(self, ctx):
         self.vardecl.eval(ctx)
-        obj = self.object.eval(ctx).GetValue().ToObject()
+        obj = self.object.eval(ctx).GetValue().ToObject(ctx)
         for prop in obj.propdict.values():
             if prop.de:
                 continue
@@ -996,7 +999,7 @@ class ForIn(Statement):
         self.body = body
 
     def execute(self, ctx):
-        obj = self.object.eval(ctx).GetValue().ToObject()
+        obj = self.object.eval(ctx).GetValue().ToObject(ctx)
         for prop in obj.propdict.values():
             if prop.de:
                 continue

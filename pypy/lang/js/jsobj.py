@@ -57,7 +57,8 @@ class W_Root(object):
     def ToString(self):
         return ''
     
-    def ToObject(self):
+    def ToObject(self, ctx):
+        # XXX should raise not implemented
         return self
 
     def ToNumber(self):
@@ -131,9 +132,11 @@ class W_PrimitiveObject(W_Root):
     def __init__(self, ctx=None, Prototype=None, Class='Object',
                  Value=w_Undefined, callfunc=None):
         self.propdict = {}
-        self.propdict['prototype'] = Property('prototype', w_Undefined,
-                                              dd=True, de=True)
         self.Prototype = Prototype
+        if Prototype is None:
+            Prototype = w_Undefined
+        self.propdict['prototype'] = Property('prototype', Prototype,
+                                              dd=True, de=True)
         self.Class = Class
         self.callfunc = callfunc
         if callfunc is not None:
@@ -143,6 +146,8 @@ class W_PrimitiveObject(W_Root):
         self.Value = Value
 
     def Call(self, ctx, args=[], this=None):
+        if self.callfunc is None: # XXX Not sure if I should raise it here
+            raise JsTypeError('not a function')
         act = ActivationObject()
         paramn = len(self.callfunc.params)
         for i in range(paramn):
@@ -164,9 +169,8 @@ class W_PrimitiveObject(W_Root):
         prot = self.Get('prototype')
         if isinstance(prot, W_PrimitiveObject):
             obj.Prototype = prot
-        else:
-            obj.Prototype = ctx.get_global().Get('Object')
-
+        else: # would love to test this, but I fail to find a case that falls into this
+            obj.Prototype = ctx.get_global().Get('Object').Get('prototype')
         try: #this is a hack to be compatible to spidermonkey
             self.Call(ctx, args, this=obj)
             return obj
@@ -563,3 +567,7 @@ class W_Reference(W_Root):
     def __str__(self):
         return "<" + str(self.base) + " -> " + str(self.property_name) + ">"
     
+def create_object(ctx, prototypename='Object', callfunc=None):
+    proto = ctx.get_global().Get(prototypename).Get('prototype')
+    obj = W_Object(ctx, callfunc = callfunc,Prototype=proto, Class = proto.Class)
+    return obj

@@ -529,15 +529,6 @@ def test_function_this():
     f.bar();
     """, 'debug')
     
-def test_switch():
-    py.test.skip("not ready yet")
-    assertv("""
-    x = 1;
-    switch(x){
-        case 1: 15; break;
-        default: 30;
-    };""", 15)
-
 def test_inplace_assign():
     yield assertv, "x=1; x+=1; x;", 2
     yield assertv, "x=1; x-=1; x;", 0
@@ -567,3 +558,37 @@ def test_functionjs():
 def test_octal_and_hex():
     yield assertv, "010;", 8
     yield assertv, "0xF", 15
+
+def test_switch():
+    py.test.skip("not ready yet")
+    yield assertv, """
+    x = 1;
+    switch(x){
+        case 1: 15; break;
+        default: 30;
+    };""", 15
+    yield assertv, """
+    x = 1;
+    switch(x){
+        case 1: 15; break;
+        default: 30;
+    };""", 15
+
+def test_autoboxing():
+    py.test.skip("not ready yet")
+    yield assertv, "'abc'.charAt(0)", 0
+    yield assertv, "true.toString()", 'true'
+    yield assertv, "5.toString()", '5'
+
+def test_proper_prototype_inheritance():
+    yield assertv, """
+    Object.prototype.my = function() {return 1};
+    x = {};
+    x.my();
+    """, 1
+    yield assertv, """
+    Function.prototype.my = function() {return 1};
+    function x () {};
+    x.my();
+    """, 1
+    
