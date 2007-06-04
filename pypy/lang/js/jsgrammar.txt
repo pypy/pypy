@@ -397,7 +397,7 @@ assignmentexpressionnoin    : lefthandsideexpression >assignmentoperator< assign
                         | <conditionalexpressionnoin>
                         ;
 
-expressionnoin  : assignmentexpressionnoin ([","] assignmentexpressionnoin)+
+expressionnoin  : assignmentexpressionnoin ("," assignmentexpressionnoin)+
             | <assignmentexpressionnoin>
             ;
 

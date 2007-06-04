@@ -112,6 +112,7 @@ class ASTBuilder(RPythonVisitor):
     visit_relationalexpression = binaryop
     visit_shiftexpression = binaryop
     visit_expression = binaryop
+    visit_expressionnoin = binaryop
     
     def visit_memberexpression(self, node):
         if isinstance(node.children[0], Symbol) and \

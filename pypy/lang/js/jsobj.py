@@ -371,6 +371,9 @@ def array_str_builtin(ctx, args, this):
 class W_Boolean(W_Primitive):
     def __init__(self, boolval):
         self.boolval = bool(boolval)
+    
+    def ToObject(self, ctx):
+        return create_object(ctx, 'Boolean', Value=self)
 
     def ToString(self):
         if self.boolval == True:
@@ -412,7 +415,11 @@ class W_String(W_Primitive):
 
 class W_Number(W_Primitive):
     def __init__(self, floatval):
-        self.floatval = float(floatval)
+        try:
+            self.floatval = float(floatval)
+        except OverflowError: # XXX this should not be happening, there is an error somewhere else
+            #an ecma test to stress this is GlobalObject/15.1.2.2-2.js
+            self.floatval = Infinity
 
     def __str__(self):
         return str(self.floatval)+"W"

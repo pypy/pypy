@@ -213,7 +213,7 @@ class Call(BinaryOp):
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
         if not isinstance(r3, W_PrimitiveObject): # TODO: review this on the spec
-            raise JsTypeError(str(r3) + " is not a function")
+            raise ThrowException(W_String("it is not a callable"))
             
         if isinstance(r1, W_Reference):
             r6 = r1.GetBase()
@@ -224,8 +224,11 @@ class Call(BinaryOp):
         else:
             r7 = r6
         
-        return r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
-    
+        try:
+            res = r3.Call(ctx=ctx, args=r2.get_args(), this=r7)
+        except JsTypeError:
+            raise ThrowException(W_String('it is not a function'))
+        return res
 
 class Comma(BinaryOp):
     def eval(self, ctx):
@@ -688,21 +691,26 @@ class Null(Expression):
 #
 ##############################################################################
 
+def commonnew(ctx, obj, args):
+    if not isinstance(obj, W_PrimitiveObject):
+        raise ThrowException(W_String('it is not a constructor'))
+    try:
+        res = obj.Construct(ctx=ctx, args=args)
+    except JsTypeError:
+        raise ThrowException(W_String('it is not a constructor'))
+    return res
+
 class New(UnaryOp):
     def eval(self, ctx):
         x = self.expr.eval(ctx).GetValue()
-        if not isinstance(x, W_PrimitiveObject):
-            raise TypeError()
-        return x.Construct(ctx=ctx)
+        return commonnew(ctx, x, [])
     
 
 class NewWithArgs(BinaryOp):
     def eval(self, ctx):
         x = self.left.eval(ctx).GetValue()
-        if not isinstance(x, W_PrimitiveObject):
-            raise TypeError()
         args = self.right.eval(ctx).get_args()
-        return x.Construct(ctx=ctx, args=args)
+        return commonnew(ctx, x, args)
     
 
 

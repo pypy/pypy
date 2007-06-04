@@ -8,7 +8,8 @@ escapes = [
     r"\'",
     r'\b',
     r'\"',
-    r'\\']
+    r'\\',
+    r'\u'] #don't know what to do with these
 
 codes = [
     '\n',
@@ -20,7 +21,8 @@ codes = [
     "'",
     "\b",
     '"',
-    '\\']
+    '\\',
+    'u']
 
 escapedict = dict(zip(codes, escapes))
 unescapedict = dict(zip(escapes, codes))

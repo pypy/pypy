@@ -58,6 +58,8 @@ class W_BooleanObject(W_Object):
             return create_object(ctx, 'Boolean', Value = Value)
         return create_object(ctx, 'Boolean', Value = W_Boolean(False))
 
+TEST = False
+
 def evaljs(ctx, args, this):
     if len(args) >= 1:
         if  isinstance(args[0], W_String):
@@ -71,7 +73,13 @@ def evaljs(ctx, args, this):
     except ParseError, e:
         raise ThrowException(W_String('SintaxError: '+str(e)))    
     
-    return node.execute(ctx)
+    if TEST:
+        try:
+            return node.execute(ctx)
+        except ThrowException, e:
+            return W_String("error")
+    else:
+        return node.execute(ctx)
 
 def parseIntjs(ctx, args, this):
     if len(args) < 1:
