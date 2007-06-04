@@ -323,16 +323,21 @@ class TermBuilder(RPythonVisitor):
         return Term(name, children)
 
     def build_list(self, node):
+        result = []
+        while node is not None:
+            node = self._build_list(node, result)
+        return result
+
+    def _build_list(self, node, result):
         node = self.find_first_interesting(node)
         if isinstance(node, Nonterminal):
             child = node.children[1]
             if (isinstance(child, Symbol) and
                 node.children[1].additional_info == ","):
                 element = self.visit(node.children[0])
-                l = self.build_list(node.children[2])
-                l.insert(0, element)
-                return l
-        return [self.visit(node)]
+                result.append(element)
+                return node.children[2]
+        result.append(self.visit(node))
 
     def find_first_interesting(self, node):
         if isinstance(node, Nonterminal) and len(node.children) == 1:
