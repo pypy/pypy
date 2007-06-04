@@ -543,8 +543,6 @@ class In(BinaryComparisonOp):
     """
     The in operator, eg: "property in object"
     """
-    opcode = 'IN'
-    
     def decision(self, ctx, op1, op2):
         if not isinstance(op2, W_Object):
             raise ThrowException(W_String("TypeError"))
@@ -568,8 +566,6 @@ class Increment(UnaryOp):
     """
     ++value (prefix) and value++ (postfix)
     """
-    opcode = 'INCREMENT'
-        
     def eval(self, ctx):
         thing = self.expr.eval(ctx)
         val = thing.GetValue()
@@ -586,8 +582,6 @@ class Decrement(UnaryOp):
     """
     same as increment --value and value --
     """
-    opcode = 'DECREMENT'
-        
     def eval(self, ctx):
         thing = self.expr.eval(ctx)
         val = thing.GetValue()
@@ -601,8 +595,6 @@ class Decrement(UnaryOp):
 
 
 class Index(BinaryOp):
-    opcode = 'INDEX'
-    
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
         name= self.right.eval(ctx).GetValue().ToString()
@@ -752,17 +744,14 @@ class String(Expression):
             if last == SLASH:
                 unescapeseq = unescapedict[last+c]
                 temp.append(unescapeseq)
-                last = unescapeseq
-                continue
-            if c != SLASH:
+                c = ' ' # Could be anything
+            elif c != SLASH:
                 temp.append(c)
             last = c
         return ''.join(temp)
     
 
 class ObjectInit(ListOp):
-    opcode = 'OBJECT_INIT'
-
     def eval(self, ctx):
         w_obj = create_object(ctx, 'Object')
         for prop in self.nodes:
@@ -864,8 +853,6 @@ class Try(Statement):
     
 
 class Typeof(UnaryOp):
-    opcode = 'TYPEOF'
-    
     def eval(self, ctx):
         val = self.expr.eval(ctx)
         if isinstance(val, W_Reference) and val.GetBase() is None:

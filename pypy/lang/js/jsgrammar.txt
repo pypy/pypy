@@ -191,10 +191,10 @@ stringliteral   : <SINGLESTRING>
                 | <DOUBLESTRING>
                 ;
 
-SINGLESTRING    : "'([^']|\\')*'"
+SINGLESTRING    : "'([^'\\]|\\(\"|'|\\|n|r|b|f|u|t|v))*'"
                 ;
 
-DOUBLESTRING    : "\"([^\"]|\\\")*\""
+DOUBLESTRING    : "\"([^\"\\]|\\(\"|'|\\|n|r|b|f|u|t|v))*\""
                 ;
 
 primaryexpression   : "this"

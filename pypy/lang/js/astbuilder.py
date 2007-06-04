@@ -278,7 +278,7 @@ class ASTBuilder(RPythonVisitor):
             return self.dispatch(node.children[0])
         else:
             pos = self.get_pos(node)
-            val = self.dispatch(node.children[0])
+            val = self.dispatch(node.children[1])
             return operations.New(pos, val)
     
     def visit_ifstatement(self, node):

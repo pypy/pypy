@@ -340,7 +340,7 @@ def test_newwithargs():
     assertp("""
     var x = new Object(1,2,3,4);
     print(x);
-    """, "[object Object]")
+    """, '1')
 
 def test_increment():
     assertv("""
@@ -592,3 +592,6 @@ def test_proper_prototype_inheritance():
     x.my();
     """, 1
     
+def test_new_without_args_really():
+    assertv("var x = new Boolean; x.toString();", 'false')
+

@@ -228,7 +228,7 @@ class W_PrimitiveObject(W_Root):
     def DefaultValue(self, ctx, hint=""):
         if hint == "String":
             return self.internal_def_value(ctx, "toString", "valueOf")
-        else: #suppose hint is "Number" dunno what to do otherwise
+        else: # hint can only be empty, String or Number
             return self.internal_def_value(ctx, "valueOf", "toString")
     
     ToPrimitive = DefaultValue
@@ -253,16 +253,28 @@ class W_Object(W_PrimitiveObject):
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype,
                                    Class, Value, callfunc)
-        self.propdict['toString'] = Property('toString', W_Builtin(str_builtin), de=True)
 
+class W_NewBuiltin(W_PrimitiveObject):
+    def __init__(self, ctx, Prototype=None, Class='function',
+                 Value=w_Undefined, callfunc=None):
+        if Prototype is None:
+            proto = ctx.get_global().Get('Function').Get('prototype')
+            Prototype = proto
+
+        W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
+
+    def Call(self, ctx, args=[], this = None):
+        return NotImplementedError
+
+    def type(self):
+        return 'builtin'
 
 class W_Builtin(W_PrimitiveObject):
     def __init__(self, builtin=None, ctx=None, Prototype=None, Class='function',
-                 Value=w_Undefined, callfunc=None):
-        W_PrimitiveObject.__init__(self, ctx, Prototype,
-                                   Class, Value, callfunc)
+                 Value=w_Undefined, callfunc=None):        
+        W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
         self.set_builtin_call(builtin)
-        
+    
     def set_builtin_call(self, callfuncbi):
         self.callfuncbi = callfuncbi
 
@@ -274,8 +286,15 @@ class W_Builtin(W_PrimitiveObject):
         
     def type(self):
         return 'builtin'
-    
-class W_Arguments(W_PrimitiveObject):
+
+class W_ListObject(W_PrimitiveObject):
+    def tolist(self):
+        l = []
+        for i in range(self.length):
+            l.append(self.propdict[str(i)].value)
+        return l
+        
+class W_Arguments(W_ListObject):
     def __init__(self, callee, args):
         W_PrimitiveObject.__init__(self, Class='Arguments')
         del self.propdict["prototype"]
@@ -283,6 +302,7 @@ class W_Arguments(W_PrimitiveObject):
         self.Put('length', W_Number(len(args)))
         for i in range(len(args)):
             self.Put(str(i), args[i])
+        self.length = len(args)
 
 class ActivationObject(W_PrimitiveObject):
     """The object used on function calls to hold arguments and this"""
@@ -296,7 +316,7 @@ class ActivationObject(W_PrimitiveObject):
 def arraycallbi(ctx, args, this):
     return W_Array()
     
-class W_Array(W_PrimitiveObject):
+class W_Array(W_ListObject):
     def __init__(self, ctx=None, Prototype=None, Class='Array',
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
@@ -567,7 +587,13 @@ class W_Reference(W_Root):
     def __str__(self):
         return "<" + str(self.base) + " -> " + str(self.property_name) + ">"
     
-def create_object(ctx, prototypename='Object', callfunc=None):
+def create_object(ctx, prototypename, callfunc=None, Value=None):
     proto = ctx.get_global().Get(prototypename).Get('prototype')
-    obj = W_Object(ctx, callfunc = callfunc,Prototype=proto, Class = proto.Class)
+    obj = W_Object(ctx, callfunc = callfunc,Prototype=proto, Class = proto.Class, Value = Value)
     return obj
+
+def isnull_or_undefined(obj):
+    if isinstance(obj, W_Undefined) or isinstance(obj, W_Null):
+        return True
+    else:
+        return False
