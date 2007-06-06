@@ -72,10 +72,15 @@ def compilemodule(modname, interactive=False, basepath='pypy.module'):
     return driver.cbuilder.c_ext_module
 
 def main(argv):
-    if len(argv) != 2:
+    argvCount = len(argv)
+    if argvCount < 2 or argvCount > 4:
         print >> sys.stderr, __doc__
         sys.exit(2)
-    c_ext_module = compilemodule(argv[1], interactive=True)
+    elif len(argv) == 2:
+        c_ext_module = compilemodule(argv[1], interactive=True)
+    elif len(argv) == 3:
+        basepath = argv[2]
+        c_ext_module = compilemodule(argv[1], interactive=True, basepath=basepath)
     print 'Created %r.' % (c_ext_module.__file__,)
 
 
