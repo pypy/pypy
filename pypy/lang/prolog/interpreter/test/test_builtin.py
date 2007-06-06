@@ -195,6 +195,16 @@ def test_cut():
     """)
     assert_true("f(20).", e)
 
+def test_call_cut():
+    py.test.skip("cuts don't work properly in the presence of calls right now")
+    e = get_engine("""
+        f(X) :- call(X).
+        f(!).
+    """)
+    heaps = collect_all(e, "f(!).")
+    assert len(heaps) == 1
+
+
 def test_term_construction():
     assert_true("g(a, b, c) =.. [G, A, B, C].")
     assert_true("g(a, b, c) =.. [g, a, b, c].")
