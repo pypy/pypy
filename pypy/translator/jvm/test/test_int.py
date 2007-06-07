@@ -20,14 +20,11 @@ class TestJvmInt(JvmTest, BaseTestRint):
     def test_specializing_int_functions(self):
         py.test.skip("Error with longlong precision results in 2 == 1")
         
-    def test_float_conversion(self):
-        py.test.skip("Unknown opcode cast_longlong_to_float")
-        
     def test_float_conversion_implicit(self):
-        py.test.skip("Unknown opcode cast_longlong_to_float")
+        py.test.skip("Error with longlong precision results in 2 == 1")
         
     def test_neg_abs_ovf(self):
-        py.test.skip("emit doesn't get str or opcode, but None")
+        py.test.skip("Unaware how to handle overflow")
         
     def test_protected_div_mod(self):
         py.test.skip("fails because of unusual exception propagation")

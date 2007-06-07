@@ -84,7 +84,7 @@ _opcodes = {
 
     'int_is_true':              'not_equals_zero',
     'int_neg':                  jvmgen.INEG,
-    'int_neg_ovf':              None, # How to handle overflow?
+    'int_neg_ovf':              _check_ovf(jvmgen.INEG), # How to handle overflow?
     'int_abs':                  'iabs',
     'int_abs_ovf':              _check_ovf('iabs'),
     'int_invert':               'bitwise_negate',
@@ -233,6 +233,7 @@ _opcodes = {
     'cast_float_to_int':        jvmgen.D2I,
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
+    'cast_longlong_to_float':	jvmgen.L2D,
     
 }
 
