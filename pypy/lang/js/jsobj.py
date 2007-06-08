@@ -54,7 +54,7 @@ class W_Root(object):
     def ToPrimitive(self, ctx, hint=""):
         return self
 
-    def ToString(self):
+    def ToString(self, ctx):
         return ''
     
     def ToObject(self, ctx):
@@ -85,12 +85,12 @@ class W_Root(object):
         raise NotImplementedError
 
     def __str__(self):
-        return self.ToString()
+        return self.ToString(ctx=None)
     
     def type(self):
         raise NotImplementedError
-    
-    def delete(self):
+        
+    def GetPropertyName(self):
         raise NotImplementedError
 
 class W_Undefined(W_Root):
@@ -103,7 +103,7 @@ class W_Undefined(W_Root):
     def ToBoolean(self):
         return False
     
-    def ToString(self):
+    def ToString(self, ctx = None):
         return "undefined"
     
     def type(self):
@@ -169,7 +169,8 @@ class W_PrimitiveObject(W_Root):
         prot = self.Get('prototype')
         if isinstance(prot, W_PrimitiveObject):
             obj.Prototype = prot
-        else: # would love to test this, but I fail to find a case that falls into this
+        else: # would love to test this
+            #but I fail to find a case that falls into this
             obj.Prototype = ctx.get_global().Get('Object').Get('prototype')
         try: #this is a hack to be compatible to spidermonkey
             self.Call(ctx, args, this=obj)
@@ -233,8 +234,12 @@ class W_PrimitiveObject(W_Root):
     
     ToPrimitive = DefaultValue
 
-    def ToString(self):
-        return "[object %s]"%(self.Class,)
+    def ToString(self, ctx):
+        try:
+            res = self.ToPrimitive(ctx, 'String')
+        except JsTypeError:
+            return "[object %s]"%(self.Class,)
+        return res.ToString(ctx)
     
     def __str__(self):
         return "<Object class: %s>" % self.Class
@@ -246,7 +251,7 @@ class W_PrimitiveObject(W_Root):
             return 'object'
     
 def str_builtin(ctx, args, this):
-    return W_String(this.ToString())
+    return W_String(this.ToString(ctx))
 
 class W_Object(W_PrimitiveObject):
     def __init__(self, ctx=None, Prototype=None, Class='Object',
@@ -264,7 +269,7 @@ class W_NewBuiltin(W_PrimitiveObject):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
 
     def Call(self, ctx, args=[], this = None):
-        return NotImplementedError
+        raise NotImplementedError
 
     def type(self):
         return 'builtin'
@@ -360,11 +365,12 @@ class W_Array(W_ListObject):
         self.propdict['length'].value = W_Number(index+1)
         return
     
-    def ToString(self):
-        return ','.join([self.Get(str(index)).ToString() for index in range(self.length)])
+    def ToString(self, ctx):
+        return ','.join([self.Get(str(index)).ToString(ctx) 
+                            for index in range(self.length)])
 
 def array_str_builtin(ctx, args, this):
-    return W_String(this.ToString())
+    return W_String(this.ToString(ctx))
 
 
 
@@ -375,7 +381,7 @@ class W_Boolean(W_Primitive):
     def ToObject(self, ctx):
         return create_object(ctx, 'Boolean', Value=self)
 
-    def ToString(self):
+    def ToString(self, ctx=None):
         if self.boolval == True:
             return "true"
         return "false"
@@ -401,7 +407,10 @@ class W_String(W_Primitive):
     def __str__(self):
         return self.strval+"W"
 
-    def ToString(self):
+    def ToObject(self, ctx):
+        return create_object(ctx, 'String', Value=self)
+
+    def ToString(self, ctx=None):
         return self.strval
     
     def ToBoolean(self):
@@ -417,14 +426,18 @@ class W_Number(W_Primitive):
     def __init__(self, floatval):
         try:
             self.floatval = float(floatval)
-        except OverflowError: # XXX this should not be happening, there is an error somewhere else
+        except OverflowError: 
+            # XXX this should not be happening, there is an error somewhere else
             #an ecma test to stress this is GlobalObject/15.1.2.2-2.js
             self.floatval = Infinity
 
     def __str__(self):
         return str(self.floatval)+"W"
+
+    def ToObject(self, ctx):
+        return create_object(ctx, 'Number', Value=self)
         
-    def ToString(self):
+    def ToString(self, ctx = None):
         floatstr = str(self.floatval)
         if floatstr == str(NaN):
             return 'NaN'
@@ -473,12 +486,12 @@ class W_Number(W_Primitive):
     
     def GetPropertyName(self):
         return self.ToString()
-    
+        
 class W_List(W_Root):
     def __init__(self, list_w):
         self.list_w = list_w
 
-    def ToString(self):
+    def ToString(self, ctx = None):
         raise SeePage(42)
 
     def ToBoolean(self):
@@ -491,7 +504,8 @@ class W_List(W_Root):
         return str(self.list_w)
 
 class ExecutionContext(object):
-    def __init__(self, scope, this=None, variable=None, debug=False, jsproperty=None):
+    def __init__(self, scope, this=None, variable=None, 
+                    debug=False, jsproperty=None):
         assert scope is not None
         self.scope = scope
         if this is None:
@@ -505,7 +519,8 @@ class ExecutionContext(object):
             self.variable = variable
         self.debug = debug
         if jsproperty is None:
-            self.property = Property('',w_Undefined) #Attribute flags for new vars
+            #Attribute flags for new vars
+            self.property = Property('',w_Undefined)
         else:
             self.property = jsproperty
     
@@ -520,6 +535,7 @@ class ExecutionContext(object):
             
     def push_object(self, obj):
         """push object into scope stack"""
+        assert isinstance(obj, W_PrimitiveObject)
         self.scope.insert(0, obj)
         self.variable = obj
     
@@ -529,6 +545,7 @@ class ExecutionContext(object):
         
     def resolve_identifier(self, identifier):
         for obj in self.scope:
+            assert isinstance(obj, W_PrimitiveObject)
             if obj.HasProperty(identifier):
                 return W_Reference(identifier, obj)
         
@@ -536,6 +553,7 @@ class ExecutionContext(object):
     
 
 def global_context(w_global):
+    assert isinstance(w_global, W_PrimitiveObject)
     ctx = ExecutionContext([w_global],
                             this = w_global,
                             variable = w_global,
@@ -594,9 +612,10 @@ class W_Reference(W_Root):
     def __str__(self):
         return "<" + str(self.base) + " -> " + str(self.property_name) + ">"
     
-def create_object(ctx, prototypename, callfunc=None, Value=None):
+def create_object(ctx, prototypename, callfunc=None, Value=w_Undefined):
     proto = ctx.get_global().Get(prototypename).Get('prototype')
-    obj = W_Object(ctx, callfunc = callfunc,Prototype=proto, Class = proto.Class, Value = Value)
+    obj = W_Object(ctx, callfunc = callfunc,Prototype=proto,
+                    Class = proto.Class, Value = Value)
     return obj
 
 def isnull_or_undefined(obj):

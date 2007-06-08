@@ -22,12 +22,13 @@ def load_file(filename):
     f.close()
     return t
 
-class W_ObjectObject(W_Object):
-    def __init__(self, ctx=None, Prototype=None, Class='Object',
+class W_NativeObject(W_Object):
+    def __init__(self, Class, Prototype, ctx=None,
                  Value=w_Undefined, callfunc=None):
         W_Object.__init__(self, ctx, Prototype,
                           Class, Value, callfunc)
-
+    
+class W_ObjectObject(W_NativeObject):
     def Call(self, ctx, args=[], this=None):
         if len(args) >= 1 and not isnull_or_undefined(args[0]):
             return args[0].ToObject(ctx)
@@ -35,17 +36,13 @@ class W_ObjectObject(W_Object):
             return self.Construct(ctx)
 
     def Construct(self, ctx, args=[]):
-        if len(args) >= 1 and not (isinstance(args[0], W_Undefined) or isinstance(args[0], W_Null)):          
+        if len(args) >= 1 and not (isinstance(args[0], W_Undefined) \
+                                    or isinstance(args[0], W_Null)):          
             # XXX later we could separate builtins and normal objects
             return args[0].ToObject(ctx)
         return create_object(ctx, 'Object')
 
-class W_BooleanObject(W_Object):
-    def __init__(self, ctx=None, Prototype=None, Class='Boolean',
-                 Value=w_Undefined, callfunc=None):
-        W_Object.__init__(self, ctx, Prototype,
-                          Class, Value, callfunc)
-
+class W_BooleanObject(W_NativeObject):
     def Call(self, ctx, args=[], this=None):
         if len(args) >= 1 and not isnull_or_undefined(args[0]):
             return W_Boolean(args[0].ToBoolean())
@@ -58,6 +55,32 @@ class W_BooleanObject(W_Object):
             return create_object(ctx, 'Boolean', Value = Value)
         return create_object(ctx, 'Boolean', Value = W_Boolean(False))
 
+class W_NumberObject(W_NativeObject):
+    def Call(self, ctx, args=[], this=None):
+        if len(args) >= 1 and not isnull_or_undefined(args[0]):
+            return W_Number(args[0].ToNumber())
+        else:
+            return W_Number(0.0)
+
+    def Construct(self, ctx, args=[]):
+        if len(args) >= 1 and not isnull_or_undefined(args[0]):
+            Value = W_Number(args[0].ToNumber())
+            return create_object(ctx, 'Number', Value = Value)
+        return create_object(ctx, 'Number', Value = W_Number(0.0))
+
+class W_StringObject(W_NativeObject):
+    def Call(self, ctx, args=[], this=None):
+        if len(args) >= 1 and not isnull_or_undefined(args[0]):
+            return W_String(args[0].ToString(ctx))
+        else:
+            return W_String('')
+
+    def Construct(self, ctx, args=[]):
+        if len(args) >= 1 and not isnull_or_undefined(args[0]):
+            Value = W_String(args[0].ToString(ctx))
+            return create_object(ctx, 'String', Value = Value)
+        return create_object(ctx, 'String', Value = W_String(''))
+
 TEST = False
 
 def evaljs(ctx, args, this):
@@ -69,7 +92,7 @@ def evaljs(ctx, args, this):
     else:
         code = W_String('')
     try:
-        node = load_source(code.ToString())
+        node = load_source(code.ToString(ctx))
     except ParseError, e:
         raise ThrowException(W_String('SintaxError: '+str(e)))    
     
@@ -84,7 +107,7 @@ def evaljs(ctx, args, this):
 def parseIntjs(ctx, args, this):
     if len(args) < 1:
         return W_Number(NaN)
-    s = args[0].ToString().strip(" ")
+    s = args[0].ToString(ctx).strip(" ")
     if len(args) > 1:
         radix = args[1].ToInt32()
     else:
@@ -103,7 +126,7 @@ def parseIntjs(ctx, args, this):
 def parseFloatjs(ctx, args, this):
     if len(args) < 1:
         return W_Number(NaN)
-    s = args[0].ToString().strip(" ")
+    s = args[0].ToString(ctx).strip(" ")
     try:
         n = float(s)
     except ValueError:
@@ -112,7 +135,7 @@ def parseFloatjs(ctx, args, this):
     
 
 def printjs(ctx, args, this):
-    writer(",".join([i.GetValue().ToString() for i in args]))
+    writer(",".join([i.GetValue().ToString(ctx) for i in args]))
     return w_Undefined
 
 def isnanjs(ctx, args, this):
@@ -136,7 +159,7 @@ def booleanjs(ctx, args, this):
 
 def stringjs(ctx, args, this):
     if len(args) > 0:
-        return W_String(args[0].ToString())
+        return W_String(args[0].ToString(ctx))
     return W_String('')
 
 def arrayjs(ctx, args, this):
@@ -177,7 +200,7 @@ class W_ValueOf(W_NewBuiltin):
 class W_HasOwnProperty(W_NewBuiltin):
     def Call(self, ctx, args=[], this=None):
         if len(args) >= 1:
-            propname = args[0].ToString()
+            propname = args[0].ToString(ctx)
             if propname in this.propdict:
                 return W_Boolean(True)
         return W_Boolean(False)
@@ -196,7 +219,7 @@ class W_IsPrototypeOf(W_NewBuiltin):
 class W_PropertyIsEnumerable(W_NewBuiltin):
     def Call(self, ctx, args=[], this=None):
         if len(args) >= 1:
-            propname = args[0].ToString()
+            propname = args[0].ToString(ctx)
             if propname in this.propdict and not this.propdict[propname].de:
                 return W_Boolean(True)
         return W_Boolean(False)
@@ -205,10 +228,10 @@ class W_Function(W_NewBuiltin):
     def Call(self, ctx, args=[], this=None):
         tam = len(args)
         if tam >= 1:
-            fbody  = args[tam-1].GetValue().ToString()
+            fbody  = args[tam-1].GetValue().ToString(ctx)
             argslist = []
             for i in range(tam-1):
-                argslist.append(args[i].GetValue().ToString())
+                argslist.append(args[i].GetValue().ToString(ctx))
             fargs = ','.join(argslist)
             functioncode = "function (%s) {%s}"%(fargs, fbody)
         else:
@@ -220,10 +243,13 @@ class W_Function(W_NewBuiltin):
     def Construct(self, ctx, args=[]):
         return self.Call(ctx, args, this=None)
 
+functionstring= 'function (arguments go here!) {\n'+ \
+                '    [lots of stuff :)]\n'+ \
+                '}'
 class W_FToString(W_NewBuiltin):
     def Call(self, ctx, args=[], this=None):
         if this.Class == 'Function':
-            return W_String('function (arguments go here!) {\n    [lots of stuff :)]\n}')
+            return W_String(functionstring)
         else:
             raise JsTypeError('this is not a function object')
 
@@ -241,7 +267,8 @@ class W_Apply(W_NewBuiltin):
             arrayArgs = args[1]
             if isinstance(arrayArgs, W_ListObject):
                 callargs = arrayArgs.tolist()
-            elif isinstance(arrayArgs, W_Undefined) or isinstance(arrayArgs, W_Null):
+            elif isinstance(arrayArgs, W_Undefined) \
+                    or isinstance(arrayArgs, W_Null):
                 callargs = []
             else:
                 raise JsTypeError('arrayArgs is not an Array or Arguments object')
@@ -265,12 +292,30 @@ class W_Call(W_NewBuiltin):
 class W_ValueToString(W_NewBuiltin):
     "this is the toString function for objects with Value"
     def Call(self, ctx, args=[], this=None):
-        return W_String(this.Value.ToString())
+        return W_String(this.Value.ToString(ctx))
     
 class W_ValueValueOf(W_NewBuiltin):
     "this is the valueOf function for objects with Value"
     def Call(self, ctx, args=[], this=None):
         return this.Value
+
+class W_CharAt(W_NewBuiltin):
+    def Call(self, ctx, args=[], this=None):
+        string = this.ToString(ctx)
+        if len(args)>=1:
+            pos = args[0].ToInt32()
+            if (not pos >=0) or (pos > len(string) - 1):
+                return W_String('')
+        else:
+            return W_String('')
+        return W_String(string[pos])
+
+class W_Concat(W_NewBuiltin):
+    def Call(self, ctx, args=[], this=None):
+        string = this.ToString(ctx)
+        others = [obj.ToString(ctx) for obj in args]
+        string += ''.join(others)
+        return W_String(string)
 
 class W_DateFake(W_NewBuiltin): # XXX This is temporary
     def Call(self, ctx, args=[], this=None):
@@ -293,7 +338,7 @@ class Interpreter(object):
         
         w_Global.Put('Function', w_Function)
         
-        w_Object = W_ObjectObject(Prototype=w_Function)
+        w_Object = W_ObjectObject('Object', w_Function)
         w_Object.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
         
         w_Global.Put('Object', w_Object)
@@ -320,15 +365,35 @@ class Interpreter(object):
         w_FncPrototype.Put('apply', W_Apply(ctx))
         w_FncPrototype.Put('call', W_Call(ctx))
         
-        w_Boolean = W_BooleanObject(Prototype=w_FncPrototype)
+        w_Boolean = W_BooleanObject('Boolean', w_FncPrototype)
         w_Boolean.Put('constructor', w_FncPrototype)
+        
         w_BoolPrototype = create_object(ctx, 'Object', Value=W_Boolean(False))
         w_BoolPrototype.Class = 'Boolean'
-        w_Boolean.Put('prototype', w_BoolPrototype)
         w_BoolPrototype.Put('constructor', w_FncPrototype)
         w_BoolPrototype.Put('toString', W_ValueToString(ctx))
         w_BoolPrototype.Put('valueOf', W_ValueValueOf(ctx))
+
+        w_Boolean.Put('prototype', w_BoolPrototype)
+
         w_Global.Put('Boolean', w_Boolean)
+
+        #Number
+        w_Number = W_NumberObject('Number', w_FncPrototype)
+        w_Number.Put('constructor', w_FncPrototype)
+
+        w_NumPrototype = create_object(ctx, 'Object', Value=W_Number(0.0))
+        w_NumPrototype.Class = 'Number'
+        w_NumPrototype.Put('constructor', w_FncPrototype)
+        w_NumPrototype.Put('toString', W_ValueToString(ctx))
+        w_NumPrototype.Put('valueOf', W_ValueValueOf(ctx))
+
+        w_Number.Put('prototype', w_NumPrototype)
+        w_Number.Put('NaN', W_Number(NaN))
+        w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
+        w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
+
+        w_Global.Put('Number', w_Number)
         
         
         #Math
@@ -358,11 +423,34 @@ class Interpreter(object):
         w_Global.Put('Date', w_Date)
         
         #Number
-        w_Number = W_Builtin(numberjs, Class="Number")
+        w_Number = W_NumberObject('Number', w_FncPrototype)
+        
+        w_NumPrototype = create_object(ctx, 'Object', Value=W_Number(0.0))
+        w_NumPrototype.Class = 'Number'
+        w_NumPrototype.Put('constructor', w_FncPrototype)
+        w_NumPrototype.Put('toString', W_ValueToString(ctx))
+        w_NumPrototype.Put('valueOf', W_ValueValueOf(ctx))
+        
+        w_Number.Put('prototype', w_NumPrototype)
         w_Number.Put('NaN', W_Number(NaN))
         w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
         w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
+        
         w_Global.Put('Number', w_Number)
+        
+        #String
+        w_String = W_StringObject('String', w_FncPrototype)
+        w_StrPrototype = create_object(ctx, 'Object', Value=W_String(''))
+        w_StrPrototype.Class = 'String'
+        w_StrPrototype.Put('constructor', w_FncPrototype)
+        w_StrPrototype.Put('toString', W_ValueToString(ctx))
+        w_StrPrototype.Put('valueOf', W_ValueValueOf(ctx))
+        w_StrPrototype.Put('charAt', W_CharAt(ctx))
+        w_StrPrototype.Put('concat', W_Concat(ctx))
+        
+        w_String.Put('prototype', w_StrPrototype)
+        
+        w_Global.Put('String', w_String)
         
 
         w_Global.Put('NaN', W_Number(NaN))
@@ -394,7 +482,8 @@ def wrap_arguments(pyargs):
             res.append(arg)
         elif isinstance(arg, str):
             res.append(W_String(arg))
-        elif isinstance(arg, int) or isinstance(arg, float) or isinstance(arg, long):
+        elif isinstance(arg, int) or isinstance(arg, float) \
+                                    or isinstance(arg, long):
             res.append(W_Number(arg))
         elif isinstance(arg, bool):
             res.append(W_Boolean(arg))

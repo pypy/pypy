@@ -4,7 +4,7 @@ import py
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.parsing import ParseError, Rule
 from pypy.rlib.parsing.tree import RPythonVisitor
-from pypy.lang.js.jsobj import W_Object, global_context, ThrowException 
+from pypy.lang.js.jsobj import W_Object, global_context, ThrowException, empty_context
 from pypy.lang.js.astbuilder import ASTBuilder
 from pypy import conftest
 import sys
@@ -279,6 +279,7 @@ class TestFunctionDeclaration(BaseGrammarTest):
 class TestToASTExpr(BaseGrammarTest):
     def setup_class(cls):
         cls.parse = parse_func('expression')
+        cls.ctx = empty_context()
 
     def to_ast(self, s):
         return ASTBuilder().dispatch(self.parse(s))
@@ -309,11 +310,11 @@ class TestToASTExpr(BaseGrammarTest):
         w_num =  self.eval_expr('((((6))))')
         assert w_num.ToNumber() == 6
         w_array = self.eval_expr('[1,2,3]')
-        assert w_array.ToString() == '1,2,3'
+        assert w_array.ToString(self.ctx) == '1,2,3'
         w_identifier = self.eval_expr('x')
         py.test.raises(ThrowException, w_identifier.GetValue)
         w_object = self.eval_expr('{x:1}')
-        assert w_object.ToString() == '[object Object]'
+        assert w_object.ToString(self.ctx) == '[object Object]'
         assert w_object.Get('x').ToNumber() == 1
     
     def test_expression(self):
@@ -326,7 +327,7 @@ class TestToASTExpr(BaseGrammarTest):
         w_num = self.eval_expr('--5')
         assert w_num.ToNumber() == 4
         w_str = self.eval_expr('"hello "+\'world\'')
-        assert w_str.ToString() == 'hello world'
+        assert w_str.ToString(self.ctx) == 'hello world'
 
 from pypy.lang.js.jsparser import parse
     

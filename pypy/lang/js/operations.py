@@ -67,7 +67,7 @@ class ListOp(Expression):
 class UnaryOp(Expression):
     def __init__(self, pos, expr, postfix=False):
         self.pos = pos
-        assert isinstance(expr, Node)
+        #assert isinstance(expr, Node)
         self.expr = expr
         self.postfix = postfix
 
@@ -212,7 +212,7 @@ class Call(BinaryOp):
         r1 = self.left.eval(ctx)
         r2 = self.right.eval(ctx)
         r3 = r1.GetValue()
-        if not isinstance(r3, W_PrimitiveObject): # TODO: review this on the spec
+        if not isinstance(r3, W_PrimitiveObject):
             raise ThrowException(W_String("it is not a callable"))
             
         if isinstance(r1, W_Reference):
@@ -251,13 +251,15 @@ class Conditional(Expression):
     
 
 class Member(BinaryOp):
+    "this is for object[name]"
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
-        name = self.right.eval(ctx).GetValue().ToString()
+        name = self.right.eval(ctx).GetValue().ToString(ctx)
         return W_Reference(name, w_obj)
     
 
 class MemberDot(BinaryOp):
+    "this is for object.name"
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
         name = self.right.get_literal()
@@ -341,8 +343,8 @@ def ARC(ctx, x, y):
         else:
             return 0
     else:
-        s4 = s1.ToString()
-        s5 = s2.ToString()
+        s4 = s1.ToString(ctx)
+        s5 = s2.ToString(ctx)
         if s4 < s5:
             return 1
         if s4 == s5:
@@ -454,7 +456,7 @@ def AEC(ctx, x, y):
                 return True
             return False
         elif type1 == "string":
-            return x.ToString() == y.ToString()
+            return x.ToString(ctx) == y.ToString(ctx)
         elif type1 == "boolean":
             return x.ToBoolean() == x.ToBoolean()
         return x == y
@@ -486,7 +488,7 @@ def AEC(ctx, x, y):
             return True
         
     if isinstance(x, W_String) and isinstance(y, W_String):
-        r = x.ToString() == y.ToString()
+        r = x.ToString(ctx) == y.ToString(ctx)
     else:
         r = x.ToNumber() == y.ToNumber()
     return r
@@ -507,7 +509,7 @@ class Ne(BinaryComparisonOp):
 #
 ##############################################################################
 
-def SEC(x,y):
+def SEC(ctx, x, y):
     """
     Implements the Strict Equality Comparison x === y
     trying to be fully to the spec
@@ -528,18 +530,18 @@ def SEC(x,y):
             return True
         return False
     if type1 == "string":
-        return x.ToString() == y.ToString()
+        return x.ToString(ctx) == y.ToString(ctx)
     if type1 == "boolean":
         return x.ToBoolean() == x.ToBoolean()
     return x == y
 
 class StrictEq(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
-        return W_Boolean(SEC(op1, op2))
+        return W_Boolean(SEC(ctx, op1, op2))
 
 class StrictNe(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
-        return W_Boolean(not SEC(op1, op2))
+        return W_Boolean(not SEC(ctx, op1, op2))
     
 
 class In(BinaryComparisonOp):
@@ -549,7 +551,7 @@ class In(BinaryComparisonOp):
     def decision(self, ctx, op1, op2):
         if not isinstance(op2, W_Object):
             raise ThrowException(W_String("TypeError"))
-        name = op1.ToString()
+        name = op1.ToString(ctx)
         return W_Boolean(op2.HasProperty(name))
 
 class Delete(UnaryOp):
@@ -600,7 +602,7 @@ class Decrement(UnaryOp):
 class Index(BinaryOp):
     def eval(self, ctx):
         w_obj = self.left.eval(ctx).GetValue().ToObject(ctx)
-        name= self.right.eval(ctx).GetValue().ToString()
+        name= self.right.eval(ctx).GetValue().ToString(ctx)
         return W_Reference(name, w_obj)
 
 class ArgumentList(ListOp):
@@ -626,8 +628,8 @@ class BinaryNumberOp(BinaryOp):
 
 def plus(ctx, nleft, nright):
     if isinstance(nleft, W_String) or isinstance(nright, W_String):
-        sleft = nleft.ToString()
-        sright = nright.ToString()
+        sleft = nleft.ToString(ctx)
+        sright = nright.ToString(ctx)
         return W_String(sleft + sright)
     else:
         fleft = nleft.ToNumber()
@@ -988,7 +990,7 @@ class ForVarIn(Statement):
 class ForIn(Statement):
     def __init__(self, pos, iterator, lobject, body):
         self.pos = pos
-        assert isinstance(iterator, Node)
+        #assert isinstance(iterator, Node)
         self.iterator = iterator
         self.object = lobject
         self.body = body

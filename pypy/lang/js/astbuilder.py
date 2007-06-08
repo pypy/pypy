@@ -155,7 +155,7 @@ class ASTBuilder(RPythonVisitor):
         pos = self.get_pos(op)
         l = [self.dispatch(child) for child in node.children[1:]]
         return self.LISTOP_TO_CLS[op.additional_info](pos, l)
-    visit_arrayliteral = listop # XXX elision
+    visit_arrayliteral = listop # elision
     visit_objectliteral = listop
 
     def visit_block(self, node):

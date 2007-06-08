@@ -17,10 +17,11 @@ def assertp(code, prints):
     l = []
     interpreter.writer = l.append
     jsint = interpreter.Interpreter()
+    ctx = jsint.w_Global
     try:
         jsint.run(interpreter.load_source(code))
     except ThrowException, excpt:
-        l.append("uncaught exception: "+str(excpt.exception.ToString()))
+        l.append("uncaught exception: "+str(excpt.exception.ToString(ctx)))
     print l, prints
     if isinstance(prints, list):
         assert l == prints
@@ -29,6 +30,7 @@ def assertp(code, prints):
 
 def assertv(code, value):
     jsint = interpreter.Interpreter()
+    ctx = jsint.w_Global
     try:
         code_val = jsint.run(interpreter.load_source(code)).GetValue()
     except ThrowException, excpt:
@@ -43,7 +45,7 @@ def assertv(code, value):
     elif isinstance(value, float):
         assert code_val.ToNumber() == value
     else:
-        assert code_val.ToString() == value
+        assert code_val.ToString(ctx) == value
 
 def asserte(code, value):
     jsint = interpreter.Interpreter()
@@ -232,6 +234,8 @@ def test_compare():
     yield assertv, "0==1;", False
     yield assertv, "0!=1;", True
     yield assertv, "1!=1;", False
+    yield assertv, "1===1;", True
+    yield assertv, "1!==1;", False
 
 def test_string_compare():
     yield assertv, "'aaa' > 'a';", True
@@ -575,10 +579,9 @@ def test_switch():
     };""", 15
 
 def test_autoboxing():
-    py.test.skip("not ready yet")
-    yield assertv, "'abc'.charAt(0)", 0
+    yield assertv, "'abc'.charAt(0)", 'a'
     yield assertv, "true.toString()", 'true'
-    yield assertv, "5.toString()", '5'
+    yield assertv, "x=5; x.toString();", '5'
 
 def test_proper_prototype_inheritance():
     yield assertv, """
