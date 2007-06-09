@@ -14,6 +14,27 @@ nonsense, isn't it?  `more...`_
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+Review passed with flying colours
+=================================
+
+On the 31st of May 2007 the PyPy project was reviewed by the EU
+Commission in Brussels. Reviewers were Roel Wuyts, Unversité Libre de
+Bruxelles and Aki Lumiaho, Ramboll, Finland. Present was also our
+Project Officer, Charles McMillan. After 6 hours of presentations of
+the various aspects of the project, it only took the reviewers a few
+minutes to decide that the project was accepted, without any further
+work being required. Professor Wuyts, who has dynamic programming
+languages as his main field of research was very enthusiastic about
+the entire project and the results with the Just In Time Compiler
+Generator in particular. He offered his help in establishing
+collaborations with the communities around Prolog, Smalltalk, Lisp and
+other dynamic languages, as well as giving hints on how to get our
+results most widely pubicized.
+
+The preparations for the review left the team rather exhausted so
+development progress will be rather slow until the sprint at
+Europython in the second week of July.
+
 PyPy EU funding period over, Review ahead 
 ===========================================================
 
