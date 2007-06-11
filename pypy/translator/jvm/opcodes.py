@@ -233,7 +233,7 @@ _opcodes = {
     'cast_float_to_int':        jvmgen.D2I,
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
-    'cast_longlong_to_float':	jvmgen.L2D,
+    'cast_longlong_to_float':   jvmgen.L2D,
     
 }
 
