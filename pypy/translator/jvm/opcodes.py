@@ -84,7 +84,7 @@ _opcodes = {
 
     'int_is_true':              'not_equals_zero',
     'int_neg':                  jvmgen.INEG,
-    'int_neg_ovf':              _check_ovf(jvmgen.INEG), # How to handle overflow?
+    'int_neg_ovf':              None, # How to handle overflow?
     'int_abs':                  'iabs',
     'int_abs_ovf':              _check_ovf('iabs'),
     'int_invert':               'bitwise_negate',
@@ -216,7 +216,7 @@ _opcodes = {
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
     # contains a truth value not equal to 1, so we should use the !=0
-    # trick.
+    # trick. #THIS COMMENT NEEDS TO BE VALIDATED AND UPDATED
     'cast_bool_to_int':         DoNothing,
     'cast_bool_to_uint':        DoNothing,
     'cast_bool_to_float':       [PushAllArgs, 'not_equals_zero', jvmgen.I2D],
@@ -231,6 +231,8 @@ _opcodes = {
     'cast_uint_to_int':         DoNothing,
     'cast_uint_to_float':       jvmgen.PYPYUINTTODOUBLE, 
     'cast_float_to_int':        jvmgen.D2I,
+    #'cast_float_to_longlong':   jvmgen.D2L, #PAUL
+    #'cast_float_to_longlong':   jvmgen.PYPYDOUBLETOLONG, #PAUL
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
     'cast_longlong_to_float':   jvmgen.L2D,
