@@ -45,9 +45,6 @@ class Module(MixedModule):
         'min'           : 'app_functional.min',
         'max'           : 'app_functional.max',
         'enumerate'     : 'app_functional.enumerate',
-        'xrange'        : 'app_functional.xrange',
-        '_install_pickle_support_for_xrange_iterator':
-        'app_functional._install_pickle_support_for_xrange_iterator',
         'sorted'        : 'app_functional.sorted',
         'reversed'      : 'app_functional.reversed',
         '_install_pickle_support_for_reversed_iterator':
@@ -127,6 +124,7 @@ class Module(MixedModule):
         '__import__'    : 'importing.importhook',
 
         'range'         : 'functional.range_int',
+        'xrange'        : 'functional.W_XRange',
         'all'           : 'functional.all',
         'any'           : 'functional.any',
     }

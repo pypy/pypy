@@ -80,6 +80,12 @@ def generator_new(space, __args__):
     return space.wrap(new_generator)
 generator_new.unwrap_spec = [ObjSpace, Arguments]
 
+def xrangeiter_new(space, current, remaining, step):
+    from pypy.module.__builtin__.functional import W_XRangeIterator
+    new_iter = W_XRangeIterator(space, current, remaining, step)
+    return space.wrap(new_iter)
+xrangeiter_new.unwrap_spec = [ObjSpace, int, int, int]
+
 # ___________________________________________________________________
 # Helper functions for internal use
 
