@@ -5,7 +5,6 @@ from pypy.rlib.rarithmetic import normalizedinttype
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
-from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots, pickleable_weakref
 from types import NoneType
 from sys import maxint
 import weakref
@@ -138,9 +137,6 @@ class LowLevelType(object):
 
     def _is_varsize(self):
         return False
-
-    __getstate__ = getstate_with_slots
-    __setstate__ = setstate_with_slots
 
 NFOUND = object()
 
@@ -964,7 +960,7 @@ class _ptr(object):
             obj0 = pointing_to
         else:
             self._set_weak(True)
-            obj0 = pickleable_weakref(pointing_to)
+            obj0 = weakref.ref(pointing_to)
         self._set_solid(solid)
         self._set_obj0(obj0)
         
@@ -1107,9 +1103,6 @@ class _ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
-    __getstate__ = getstate_with_slots
-    __setstate__ = setstate_with_slots
-
     def _cast_to(self, PTRTYPE):
         CURTYPE = self._TYPE
         down_or_up = castable(PTRTYPE, CURTYPE)
@@ -1209,7 +1202,7 @@ class _parentable(_container):
         self._dead = True
 
     def _setparentstructure(self, parent, parentindex):
-        self._wrparent = pickleable_weakref(parent)
+        self._wrparent = weakref.ref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
@@ -1233,9 +1226,6 @@ class _parentable(_container):
         if self._dead:
             raise RuntimeError("accessing freed %r" % self._TYPE)
         self._parentstructure()
-
-    __getstate__ = getstate_with_slots
-    __setstate__ = setstate_with_slots
 
     def _normalizedcontainer(self):
         # if we are the first inlined substructure of a structure,
@@ -1320,11 +1310,6 @@ class _struct(_parentable):
 
     def __str__(self):
         return 'struct %s { %s }' % (self._TYPE._name, self._str_fields())
-
-    def __reduce__(self):
-        return _get_empty_instance_of_struct_variety, (self.__slots__, ), getstate_with_slots(self) 
-
-    __setstate__ = setstate_with_slots
 
     def _getattr(self, field_name, uninitialized_ok=False):
         r = getattr(self, field_name)
@@ -1576,19 +1561,6 @@ class _func(_container):
             return id(self._callable)
         else:
             return id(self)
-
-    def __getstate__(self):
-        import pickle, types
-        __dict__ = self.__dict__.copy()
-        try:
-            pickle.dumps(self._callable)
-        except pickle.PicklingError:
-            __dict__['_callable'] = None
-        return __dict__
-
-    def __setstate__(self, __dict__):
-        import new
-        self.__dict__ = __dict__
 
 class _opaque(_parentable):
     def __init__(self, TYPE, parent=None, parentindex=None, **attrs):
