@@ -109,7 +109,8 @@ class PropertyInit(BinaryOp):
 
 class Array(ListOp):
     def eval(self, ctx):
-        array = W_Array()
+        proto = ctx.get_global().Get('Array').Get('prototype')
+        array = W_Array(ctx, Prototype=proto, Class = proto.Class)
         for i in range(len(self.nodes)):
             array.Put(str(i), self.nodes[i].eval(ctx).GetValue())
         return array

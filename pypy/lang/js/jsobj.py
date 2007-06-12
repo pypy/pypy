@@ -317,21 +317,13 @@ class ActivationObject(W_PrimitiveObject):
 
     def __repr__(self):
         return str(self.propdict)
-        
-def arraycallbi(ctx, args, this):
-    return W_Array()
     
 class W_Array(W_ListObject):
     def __init__(self, ctx=None, Prototype=None, Class='Array',
                  Value=w_Undefined, callfunc=None):
         W_PrimitiveObject.__init__(self, ctx, Prototype, Class, Value, callfunc)
-        toString = W_Builtin(array_str_builtin)
-        self.Put('toString', toString, de=True)
         self.Put('length', W_Number(0))
         self.length = r_uint(0)
-
-    def Construct(self, ctx, args=[]):
-        return self
 
     def Put(self, P, V, dd=False,
             ro=False, de=False, it=False):
@@ -364,14 +356,6 @@ class W_Array(W_ListObject):
         self.length = index+1        
         self.propdict['length'].value = W_Number(index+1)
         return
-    
-    def ToString(self, ctx):
-        return ','.join([self.Get(str(index)).ToString(ctx) 
-                            for index in range(self.length)])
-
-def array_str_builtin(ctx, args, this):
-    return W_String(this.ToString(ctx))
-
 
 
 class W_Boolean(W_Primitive):

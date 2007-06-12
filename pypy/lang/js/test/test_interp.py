@@ -164,7 +164,8 @@ def test_array_initializer():
     assertp("""
     x = [];
     print(x);
-    """, '')
+    print(x.length)
+    """, ['', '0'])
 
 def test_throw():
     assertp("throw(3);", "uncaught exception: 3")

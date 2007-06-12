@@ -81,6 +81,18 @@ class W_StringObject(W_NativeObject):
             return create_object(ctx, 'String', Value = Value)
         return create_object(ctx, 'String', Value = W_String(''))
 
+class W_ArrayObject(W_NativeObject):
+    def Call(self, ctx, args=[], this=None):
+        proto = ctx.get_global().Get('Array').Get('prototype')
+        array = W_Array(ctx, Prototype=proto, Class = proto.Class)
+        for i in range(len(args)):
+            print "yeahh"
+            array.Put(str(i), args[0])
+        return array
+
+    def Construct(self, ctx, args=[]):
+        return self.Call(ctx, args)
+
 TEST = False
 
 def evaljs(ctx, args, this):
@@ -317,6 +329,46 @@ class W_Concat(W_NewBuiltin):
         string += ''.join(others)
         return W_String(string)
 
+class W_IndexOf(W_NewBuiltin):
+    def Call(self, ctx, args=[], this=None):
+        string = this.ToString(ctx)
+        if len(args) < 1:
+            return W_Number(-1.0)
+        substr = args[0].ToString(ctx)
+        size = len(string)
+        subsize = len(substr)
+        if len(args) < 2:
+            pos = 0
+        else:
+            pos = args[1].ToInt32()
+        pos = min(max(pos, 0), size)
+        return W_Number(string.find(substr, pos))
+
+class W_Substring(W_NewBuiltin):
+    def Call(self, ctx, args=[], this=None):
+        string = this.ToString(ctx)
+        size = len(string)
+        if len(args) < 1:
+            start = 0
+        else:
+            start = args[0].ToInt32()
+        if len(args) < 2:
+            end = size
+        else:
+            end = args[1].ToInt32()
+        tmp1 = min(max(start, 0), size)
+        tmp2 = min(max(end, 0), size)
+        start = min(tmp1, tmp2)
+        end = max(tmp1, tmp2)
+        return W_String(string[start:end])
+
+class W_ArrayToString(W_NewBuiltin):
+    def Call(self, ctx, args=[], this=None):
+        length = this.Get('length').ToUInt32()
+        sep = ','
+        return W_String(sep.join([this.Get(str(index)).ToString(ctx) 
+                            for index in range(length)]))
+
 class W_DateFake(W_NewBuiltin): # XXX This is temporary
     def Call(self, ctx, args=[], this=None):
         return create_object(ctx, 'Object')
@@ -327,6 +379,10 @@ class W_DateFake(W_NewBuiltin): # XXX This is temporary
 class Interpreter(object):
     """Creates a js interpreter"""
     def __init__(self):
+        def put_values(obj, dictvalues):
+            for key,value in dictvalues.iteritems():
+                obj.Put(key, value)
+            
         w_Global = W_Object(Class="global")
 
         ctx = global_context(w_Global)
@@ -348,31 +404,40 @@ class Interpreter(object):
         
         w_Object.Put('length', W_Number(1), ro=True, dd=True)
         
-        w_ObjPrototype.Put('constructor', w_Object)
-        w_ObjPrototype.Put('__proto__', w_Null)
         toString = W_ToString(ctx)
-        w_ObjPrototype.Put('toString', toString)
-        w_ObjPrototype.Put('toLocaleString', toString)
-        w_ObjPrototype.Put('valueOf', W_ValueOf(ctx))
-        w_ObjPrototype.Put('hasOwnProperty', W_HasOwnProperty(ctx))
-        w_ObjPrototype.Put('isPrototypeOf', W_IsPrototypeOf(ctx))
-        w_ObjPrototype.Put('propertyIsEnumerable', W_PropertyIsEnumerable(ctx))
+        
+        put_values(w_ObjPrototype, {
+            'constructor': w_Object,
+            '__proto__': w_Null,
+            'toString': toString,
+            'toLocaleString': toString,
+            'valueOf': W_ValueOf(ctx),
+            'hasOwnProperty': W_HasOwnProperty(ctx),
+            'isPrototypeOf': W_IsPrototypeOf(ctx),
+            'propertyIsEnumerable': W_PropertyIsEnumerable(ctx),
+        })
         
         #properties of the function prototype
-        w_FncPrototype.Put('constructor', w_FncPrototype)
-        w_FncPrototype.Put('__proto__', w_ObjPrototype)
-        w_FncPrototype.Put('toString', W_FToString(ctx))
-        w_FncPrototype.Put('apply', W_Apply(ctx))
-        w_FncPrototype.Put('call', W_Call(ctx))
+        put_values(w_FncPrototype, {
+            'constructor': w_FncPrototype,
+            '__proto__': w_ObjPrototype,
+            'toString': W_FToString(ctx),
+            'apply': W_Apply(ctx),
+            'call': W_Call(ctx),        
+        })
         
         w_Boolean = W_BooleanObject('Boolean', w_FncPrototype)
         w_Boolean.Put('constructor', w_FncPrototype)
         
         w_BoolPrototype = create_object(ctx, 'Object', Value=W_Boolean(False))
         w_BoolPrototype.Class = 'Boolean'
-        w_BoolPrototype.Put('constructor', w_FncPrototype)
-        w_BoolPrototype.Put('toString', W_ValueToString(ctx))
-        w_BoolPrototype.Put('valueOf', W_ValueValueOf(ctx))
+        
+        put_values(w_BoolPrototype, {
+            'constructor': w_FncPrototype,
+            '__proto__': w_BoolPrototype,
+            'toString': W_ValueToString(ctx),
+            'valueOf': W_ValueValueOf(ctx),
+        })
 
         w_Boolean.Put('prototype', w_BoolPrototype)
 
@@ -380,20 +445,60 @@ class Interpreter(object):
 
         #Number
         w_Number = W_NumberObject('Number', w_FncPrototype)
-        w_Number.Put('constructor', w_FncPrototype)
 
         w_NumPrototype = create_object(ctx, 'Object', Value=W_Number(0.0))
         w_NumPrototype.Class = 'Number'
-        w_NumPrototype.Put('constructor', w_FncPrototype)
-        w_NumPrototype.Put('toString', W_ValueToString(ctx))
-        w_NumPrototype.Put('valueOf', W_ValueValueOf(ctx))
+        put_values(w_NumPrototype, {
+            'constructor': w_FncPrototype,
+            '__proto__': w_NumPrototype,
+            'toString': W_ValueToString(ctx),
+            'valueOf': W_ValueValueOf(ctx),
+        })
 
-        w_Number.Put('prototype', w_NumPrototype)
-        w_Number.Put('NaN', W_Number(NaN))
-        w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
-        w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
+        put_values(w_Number, {
+            'constructor': w_FncPrototype,
+            'prototype': w_NumPrototype,
+            'NaN': W_Number(NaN),
+            'POSITIVE_INFINITY': W_Number(Infinity),
+            'NEGATIVE_INFINITY': W_Number(-Infinity),
+        })
 
         w_Global.Put('Number', w_Number)
+        
+                
+        #String
+        w_String = W_StringObject('String', w_FncPrototype)
+
+        w_StrPrototype = create_object(ctx, 'Object', Value=W_String(''))
+        w_StrPrototype.Class = 'String'
+        
+        put_values(w_StrPrototype, {
+            'constructor': w_FncPrototype,
+            '__proto__': w_StrPrototype,
+            'toString': W_ValueToString(ctx),
+            'valueOf': W_ValueValueOf(ctx),
+            'charAt': W_CharAt(ctx),
+            'concat': W_Concat(ctx),
+            'indexOf': W_IndexOf(ctx),
+            'substring': W_Substring(ctx),
+        })
+        
+        w_String.Put('prototype', w_StrPrototype)
+        w_Global.Put('String', w_String)
+
+        w_Array = W_ArrayObject('Array', w_FncPrototype)
+
+        w_ArrPrototype = create_object(ctx, 'Object')
+        w_ArrPrototype.Class = 'Array'
+        
+        put_values(w_ArrPrototype, {
+            'constructor': w_FncPrototype,
+            '__proto__': w_ArrPrototype,
+            'toString': W_ArrayToString(ctx),
+        })
+        
+        w_Array.Put('prototype', w_ArrPrototype)
+        w_Global.Put('Array', w_Array)
         
         
         #Math
@@ -408,51 +513,12 @@ class Interpreter(object):
         w_math.Put('E', W_Number(math.e))
         w_math.Put('PI', W_Number(math.pi))
         
-        w_Global.Put('String', W_Builtin(stringjs, Class='String'))
-
-        w_Array = W_Builtin(arrayjs, Class='Array')
-        w_Array.Put('__proto__',  w_ObjPrototype)
-        w_Array.Put('prototype', w_ObjPrototype, dd=True, de=True, ro=True)
-        
-        #Global Properties
-        w_Global.Put('Array', w_Array)
         w_Global.Put('version', W_Builtin(versionjs))
         
         #Date
         w_Date = W_DateFake(ctx, Class='Date')
         w_Global.Put('Date', w_Date)
         
-        #Number
-        w_Number = W_NumberObject('Number', w_FncPrototype)
-        
-        w_NumPrototype = create_object(ctx, 'Object', Value=W_Number(0.0))
-        w_NumPrototype.Class = 'Number'
-        w_NumPrototype.Put('constructor', w_FncPrototype)
-        w_NumPrototype.Put('toString', W_ValueToString(ctx))
-        w_NumPrototype.Put('valueOf', W_ValueValueOf(ctx))
-        
-        w_Number.Put('prototype', w_NumPrototype)
-        w_Number.Put('NaN', W_Number(NaN))
-        w_Number.Put('POSITIVE_INFINITY', W_Number(Infinity))
-        w_Number.Put('NEGATIVE_INFINITY', W_Number(-Infinity))
-        
-        w_Global.Put('Number', w_Number)
-        
-        #String
-        w_String = W_StringObject('String', w_FncPrototype)
-        w_StrPrototype = create_object(ctx, 'Object', Value=W_String(''))
-        w_StrPrototype.Class = 'String'
-        w_StrPrototype.Put('constructor', w_FncPrototype)
-        w_StrPrototype.Put('toString', W_ValueToString(ctx))
-        w_StrPrototype.Put('valueOf', W_ValueValueOf(ctx))
-        w_StrPrototype.Put('charAt', W_CharAt(ctx))
-        w_StrPrototype.Put('concat', W_Concat(ctx))
-        
-        w_String.Put('prototype', w_StrPrototype)
-        
-        w_Global.Put('String', w_String)
-        
-
         w_Global.Put('NaN', W_Number(NaN))
         w_Global.Put('Infinity', W_Number(Infinity))
         w_Global.Put('undefined', w_Undefined)
