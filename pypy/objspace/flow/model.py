@@ -7,7 +7,6 @@ from __future__ import generators
 import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots
 
 """
     memory size before and after introduction of __slots__
@@ -174,9 +173,6 @@ class Link(object):
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
 
-    __getstate__ = getstate_with_slots
-    __setstate__ = setstate_with_slots
-
     def show(self):
         from pypy.translator.tool.graphpage import try_show
         try_show(self)
@@ -253,9 +249,6 @@ class Block(object):
         for exit in exits:
             exit.prevblock = self
         self.exits = exits
-
-    __getstate__ = getstate_with_slots
-    __setstate__ = setstate_with_slots
 
     def show(self):
         from pypy.translator.tool.graphpage import try_show
