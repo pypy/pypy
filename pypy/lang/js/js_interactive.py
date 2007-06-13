@@ -162,9 +162,9 @@ class MyCmd(cmd.Cmd):
             self.reset()
         if (res is not None) and (res is not w_Undefined):
             try:
-                print res.GetValue().ToString()
+                print res.GetValue().ToString(self.interp.w_Global)
             except ThrowException, e:
-                print e.exception.ToString()
+                print e.exception.ToString(self.interp.w_Global)
 
 if __name__ == "__main__":
     import py
