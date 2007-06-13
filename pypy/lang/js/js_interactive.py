@@ -124,6 +124,9 @@ class MyCmd(cmd.Cmd):
         self.lines = []
         self.level = 0
     
+    def emptyline(self):
+        pass
+    
     def default(self, line):
         # let's count lines and continue till matching proper nr of {
         # XXX: '{' will count as well
