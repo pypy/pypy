@@ -7,6 +7,9 @@ into a regular CPython extension module.
 """
 import autopath
 import sys
+import shutil
+import os
+from optparse import OptionParser
 
 from pypy.tool.error import debug
 
@@ -27,6 +30,7 @@ def compilemodule(modname, interactive=False, basepath='pypy.module'):
     w_moduledict = module.getdict()
 
     def __init__(mod):
+        print 'in'
         w_mod = CPyObjSpace.W_Object(mod)
         try:
 ##          space.appexec([w_mod, w_moduledict],
@@ -72,16 +76,42 @@ def compilemodule(modname, interactive=False, basepath='pypy.module'):
     return driver.cbuilder.c_ext_module
 
 def main(argv):
+    usage = """usage: %prog [options] MODULENAME
+
+Compiles a PyPy extension module 
+into a regular CPython extension module.
+
+The module is a package with rpython interplevel code,
+python applevel code,
+and corresponding exports correctly declared."""
+    parser = OptionParser(usage)
+    parser.add_option("-p", "--package",
+                  dest="basepath", default="",
+                  metavar="PACKAGE",
+                  help="""package where the module to compile can be found,
+default value is  pypy/module""")
+    parser.add_option("-d", "--directory", dest="directory", default="",
+                  help="directory where to copy the resulting module")
+
+    (options, argv) = parser.parse_args()
     argvCount = len(argv)
-    if argvCount < 2 or argvCount > 4:
-        print >> sys.stderr, __doc__
-        sys.exit(2)
-    elif len(argv) == 2:
-        c_ext_module = compilemodule(argv[1], interactive=True)
-    elif len(argv) == 3:
-        basepath = argv[2]
-        c_ext_module = compilemodule(argv[1], interactive=True, basepath=basepath)
+    if argvCount <> 1:
+        parser.error('MODULENAME is mandatory.')
+    if options.directory:
+        directory = options.directory
+        if not os.path.exists(directory):
+            parser.error('Target directory [%s] does not exist.' % directory)
+        elif not os.path.isdir(directory):
+            parser.error('Target [%s] is not a directory.' % directory)
+ 
+    if not options.basepath:
+        c_ext_module = compilemodule(argv[0], interactive=True)
+    elif options.basepath:
+        c_ext_module = compilemodule(argv[0], interactive=True, basepath=options.basepath)
     print 'Created %r.' % (c_ext_module.__file__,)
+    if options.directory:
+        shutil.copy(c_ext_module.__file__, options.directory)        
+        print 'Copied to %r.' % (directory,)
 
 
 if __name__ == '__main__':
