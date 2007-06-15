@@ -54,3 +54,11 @@ class DIR(object):
 def opendir(dirname):
     return DIR(dirname)
 opendir._annenforceargs_ = (str,)
+
+# probably we can get an annotation support for not having both implementations
+# here, but let's leave it for now
+def utime_null(path):
+    os.utime(path, None)
+
+def utime_tuple(path, tp):
+    os.utime(path, tp)

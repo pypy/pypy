@@ -314,6 +314,7 @@ LL_OPERATIONS = {
     'zero_malloc_varsize':  LLOp(canraise=(MemoryError,), canunwindgc=True),
     'zero_gc_pointers_inside': LLOp(),
     'flavored_malloc':      LLOp(canraise=(MemoryError,)),
+    'flavored_malloc_varsize' : LLOp(canraise=(MemoryError,)),
     'flavored_free':        LLOp(),
     'getfield':             LLOp(sideeffects=False, canrun=True),
     'getarrayitem':         LLOp(sideeffects=False, canrun=True),

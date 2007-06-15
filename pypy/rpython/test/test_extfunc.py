@@ -116,6 +116,29 @@ def test_register_external_tuple_args():
     # Not a very good assertion, but at least it means _something_ happened.
     assert isinstance(s, annmodel.SomeInteger)
 
+def function_with_list():
+    pass
+register_external(function_with_list, [[int]], int)
+
+def function_returning_list():
+    pass
+register_external(function_returning_list, [], [int])
+
+def test_register_external_return_goes_back():
+    """
+    Check whether it works to pass the same list from one external
+    fun to another
+    [bookkeeper and list joining issues]
+    """
+    def f():
+        return function_with_list(function_returning_list())
+
+    policy = AnnotatorPolicy()
+    policy.allow_someobjects = False
+    a = RPythonAnnotator(policy=policy)
+    s = a.build_types(f, [])
+    assert isinstance(s, annmodel.SomeInteger)
+
 def function_withspecialcase(arg):
     return repr(arg)
 register_external(function_withspecialcase, args=None, result=str)

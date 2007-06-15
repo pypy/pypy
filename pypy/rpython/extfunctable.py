@@ -179,7 +179,6 @@ def strnullannotation(*args):
 
 # external function declarations
 posix = __import__(os.name)
-declare(os.open     , int           , 'll_os/open')
 declare(os.read     , str           , 'll_os/read')
 declare(os.write    , posannotation , 'll_os/write')
 declare(os.close    , noneannotation, 'll_os/close')

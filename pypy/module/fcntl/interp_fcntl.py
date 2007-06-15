@@ -246,7 +246,6 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
     If the arg given is an integer or if none is specified, the result value
     is an integer corresponding to the return value of the ioctl call in the
     C code."""
-
     fd = _conv_descriptor(space, w_fd)
     # Python turns number > sys.maxint into long, we need the signed C value
     op = c_int(op).value
@@ -272,7 +271,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
-        return space.wrap(buf.value)
+        return space.wrap(buf.raw)
     else:
         raise OperationError(space.w_TypeError,
                 space.wrap("an integer or a buffer required"))

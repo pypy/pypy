@@ -44,7 +44,7 @@ class ExtFuncEntry(ExtRegistryEntry):
             iter_args = self.signature_args
         args_r = [rtyper.getrepr(s_arg) for s_arg in iter_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
-        r_result = rtyper.getrepr(self.signature_result)
+        r_result = rtyper.getrepr(hop.s_result)
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
         method_name = rtyper.type_system.name[:2] + 'typeimpl'
@@ -53,7 +53,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
             obj = rtyper.getannmixlevel().delayedfunction(
-                impl, self.signature_args, self.signature_result)
+                impl, self.signature_args, hop.s_result)
         else:
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
                                  name, _external_name=self.name, _callable=fakeimpl)

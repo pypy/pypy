@@ -642,6 +642,12 @@ class LLFrame(object):
         assert self.llinterpreter.gc is None
         return self.heap.malloc(obj, size, zero=True)
 
+    def op_flavored_malloc_varsize(self, flavor, obj, size):
+        # XXX should we keep info about all mallocs for later checks of
+        # frees?
+        assert flavor == 'raw'
+        return self.heap.malloc(obj, size, flavor=flavor)
+
     def op_flavored_malloc(self, flavor, obj):
         assert isinstance(flavor, str)
         if flavor == "stack":

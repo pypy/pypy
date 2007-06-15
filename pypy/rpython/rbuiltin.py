@@ -353,6 +353,7 @@ def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
 
 def rtype_free(hop, i_flavor):
     assert i_flavor == 1
+    hop.exception_cannot_occur()
     vlist = hop.inputargs(hop.args_r[0], lltype.Void)
     vlist.reverse()   # just for confusion
     hop.genop('flavored_free', vlist)
@@ -558,6 +559,7 @@ def rtype_raw_malloc_usage(hop):
 
 def rtype_raw_free(hop):
     v_addr, = hop.inputargs(llmemory.Address)
+    hop.exception_cannot_occur()
     return hop.genop('raw_free', [v_addr])
 
 def rtype_raw_memcopy(hop):

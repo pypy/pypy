@@ -162,7 +162,7 @@ class AppTestFcntl:
         raises(TypeError, fcntl.ioctl, f, "foo")
         raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, float(0))
         raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, 1, "foo")
-        
+
         # buf = array.array('h', [0])
         # fcntl.ioctl(0, TIOCGPGRP, buf, True)
         # buf = array.array('c', "a"*1025)

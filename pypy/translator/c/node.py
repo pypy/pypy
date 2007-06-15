@@ -619,6 +619,8 @@ class FuncNode(ContainerNode):
         self.ptrname = self.name
 
     def make_funcgens(self):
+        if hasattr(self.obj, 'sources'):
+            self.sources = self.obj.sources
         self.funcgens = select_function_code_generators(self.obj, self.db, self.name)
         if self.funcgens:
             argnames = self.funcgens[0].argnames()  #Assume identical for all funcgens

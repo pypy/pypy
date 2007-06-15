@@ -3,7 +3,6 @@ from pypy.rpython.lltypesystem.lltype import typeOf, Void
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, somelettersfrom
 
-
 class CExternalFunctionCodeGenerator(object):
     if USESLOTS:
         __slots__ = """db fnptr FUNCTYPE argtypenames resulttypename""".split()

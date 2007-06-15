@@ -603,6 +603,22 @@ def gen_startupcode(f, database):
     print >> f, '\treturn error;'
     print >> f, '}'
 
+def extra_information(database):
+    includes = {}
+    sources = {}
+    for node in database.globalcontainers():
+        if hasattr(node, 'includes'):
+            for include in node.includes:
+                includes[include] = True
+        if hasattr(node, 'sources'):
+            for source in node.sources:
+                sources[source] = True
+    includes = includes.keys()
+    includes.sort()
+    sources = sources.keys()
+    sources.sort()
+    return includes, sources
+
 def gen_source_standalone(database, modulename, targetdir, 
                           entrypointname, defines={}): 
     assert database.standalone
@@ -632,13 +648,7 @@ def gen_source_standalone(database, modulename, targetdir,
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes = {}
-    for node in database.globalcontainers():
-        if hasattr(node, 'includes'):
-            for include in node.includes:
-                includes[include] = True
-    includes = includes.keys()
-    includes.sort()
+    includes, sources = extra_information(database)
     for include in includes:
         print >> fi, '#include <%s>' % (include,)
     fi.close()
@@ -665,8 +675,8 @@ def gen_source_standalone(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
-    
-    return filename, sg.getextrafiles()
+
+    return filename, sg.getextrafiles() + sources
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
@@ -696,13 +706,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes = {}
-    for node in database.globalcontainers():
-        if hasattr(node, 'includes'):
-            for include in node.includes:
-                includes[include] = True
-    includes = includes.keys()
-    includes.sort()
+    includes, sources = extra_information(database)
     for include in includes:
         print >> fi, '#include <%s>' % (include,)
     fi.close()
@@ -833,7 +837,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     f.write(SETUP_PY % locals())
     f.close()
 
-    return filename, sg.getextrafiles()
+    return filename, sg.getextrafiles() + sources
 
 
 SETUP_PY = '''

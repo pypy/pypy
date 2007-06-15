@@ -708,16 +708,13 @@ if hasattr(posix, 'execv'):
         filename = str(udir.join('test_execv.txt'))
         def does_stuff():
             progname = str(sys.executable)
-            l = ['', '']
-            l[0] = progname
-            l[1] = "-c"
-            l.append('open("%s","w").write("1")' % filename)
+            l = [progname, '-c', 'open("%s","w").write("1")' % filename]
             pid = os.fork()
             if pid == 0:
                 os.execv(progname, l)
             else:
                 os.waitpid(pid, 0)
-        func = compile(does_stuff, [])
+        func = compile(does_stuff, [], backendopt=False)
         func()
         assert open(filename).read() == "1"
 
@@ -752,3 +749,23 @@ if hasattr(posix, 'execv'):
         func()
         assert open(filename).read() == "42"
 
+def test_utime():
+    # XXX utimes & float support
+    path = str(udir.ensure("test_utime.txt"))
+    from time import time, sleep
+    t0 = time()
+    sleep(1)
+
+    def does_stuff():
+        ros.utime_null(path)
+
+    func = compile(does_stuff, [])
+    func()
+    assert os.stat(path).st_atime > t0
+
+    def utime_tuple():
+        ros.utime_tuple(path, (int(t0), int(t0)))
+
+    func = compile(utime_tuple, [])
+    func()
+    assert int(os.stat(path).st_atime) == int(t0)

@@ -7,13 +7,38 @@ from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 
+_annotation_cache = {}
+
+def _annotation_key(t):
+    from pypy.rpython import extregistry
+    if type(t) is list:
+        assert len(t) == 1
+        return ('list', _annotation_key(t[0]))
+    elif type(t) is dict:
+        assert len(t.keys()) == 1
+        return ('dict', _annotation_key(t.items()[0]))
+    elif isinstance(t, tuple):
+        return tuple([_annotation_key(i) for i in t])
+    elif extregistry.is_registered(t):
+        # XXX should it really be always different?
+        return t
+    return t
+
 def annotation(t, bookkeeper=None):
+    if bookkeeper is None:
+        key = _annotation_key(t)
+        try:
+            return _annotation_cache[key]
+        except KeyError:
+            t = _compute_annotation(t, bookkeeper)
+            _annotation_cache[key] = t
+            return t
+    return _compute_annotation(t, bookkeeper)
+
+def _compute_annotation(t, bookkeeper=None):
     from pypy.rpython.lltypesystem import lltype
     from pypy.annotation.bookkeeper import getbookkeeper
     from pypy.rpython import extregistry
-    if bookkeeper is None:
-        bookkeeper = getbookkeeper()
-    
     if isinstance(t, SomeObject):
         return t
     elif isinstance(t, lltype.LowLevelType):
@@ -25,7 +50,6 @@ def annotation(t, bookkeeper=None):
     elif isinstance(t, tuple):
         return SomeTuple(tuple([annotation(i) for i in t]))
     elif isinstance(t, dict):
-        assert bookkeeper
         assert len(t) == 1, "We do not support type joining in dict"
         result = SomeDict(DictDef(bookkeeper, annotation(t.keys()[0]),
                                 annotation(t.values()[0])))

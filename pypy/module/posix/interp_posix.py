@@ -1,24 +1,9 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import ros
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 
 import os
-
-# Turned off for now. posix must support targets without ctypes
-#from pypy.module.posix import ctypes_posix as _c
-
-def wrap_oserror(space, e): 
-    assert isinstance(e, OSError) 
-    errno = e.errno
-    try:
-        msg = os.strerror(errno)
-    except ValueError:
-        msg = 'error %d' % errno
-    w_error = space.call_function(space.w_OSError,
-                                  space.wrap(errno),
-                                  space.wrap(msg))
-    return OperationError(space.w_OSError, w_error)
                           
 def open(space, fname, flag, mode=0777):
     """Open a file (for low level IO).
@@ -431,13 +416,33 @@ def geteuid(space):
 geteuid.unwrap_spec = [ObjSpace]
 
 def execv(space, command, w_args):
+    """ execv(path, args)
+
+Execute an executable path with arguments, replacing current process.
+
+        path: path of executable file
+        args: iterable of strings
+    """
     try:
         os.execv(command, [space.str_w(i) for i in space.unpackiterable(w_args)])
-    except OSError, e: 
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        msg = "execv() arg 2 must be an iterable of strings"
+        raise OperationError(space.w_TypeError, space.wrap(str(msg)))
+    except OSError, e:
         raise wrap_oserror(space, e) 
 execv.unwrap_spec = [ObjSpace, str, W_Root]
 
 def execve(space, command, w_args, w_env):
+    """ execve(path, args, env)
+
+Execute a path with arguments and environment, replacing current process.
+
+        path: path of executable file
+        args: iterable of arguments
+        env: dictionary of strings mapping to strings
+    """
     try:
         args = [space.str_w(i) for i in space.unpackiterable(w_args)]
         env = {}
@@ -453,6 +458,10 @@ def execve(space, command, w_args, w_env):
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
 
 def uname(space):
+    """ uname() -> (sysname, nodename, release, version, machine)
+
+Return a tuple identifying the current operating system.
+    """
     try:
         result = _c.uname()
     except OSError, e: 
@@ -460,3 +469,35 @@ def uname(space):
     return space.newtuple([space.wrap(ob) for ob in result])
 uname.unwrap_spec = [ObjSpace]
 
+def utime(space, path, w_tuple):
+    """ utime(path, (atime, mtime))
+utime(path, None)
+
+Set the access and modified time of the file to the given values.  If the
+second form is used, set the access and modified times to the current time.
+    """
+    if space.is_w(w_tuple, space.w_None):
+        try:
+            ros.utime_null(path)
+            return
+        except OSError, e:
+            raise wrap_oserror(space, e)
+    try:
+        msg = "utime() arg 2 must be a tuple (atime, mtime) or None"
+        args_w = space.unpackiterable(w_tuple)
+        if len(args_w) != 2:
+            raise OperationError(space.w_TypeError, space.wrap(msg))
+        actime = space.int_w(args_w[0])
+        modtime = space.int_w(args_w[1])
+        ros.utime_tuple(path, (actime, modtime))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+utime.unwrap_spec = [ObjSpace, str, W_Root]
+
+def WIFSIGNALED(space, status):
+    return space.newbool(os.WIFSIGNALED(status))
+WIFSIGNALED.unwrap_spec = [ObjSpace, int]

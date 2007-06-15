@@ -4,7 +4,8 @@ Type inference for user-defined classes.
 
 from __future__ import generators
 from pypy.annotation.model import SomePBC, s_ImpossibleValue, unionof
-from pypy.annotation.model import SomeInteger, isdegenerated
+from pypy.annotation.model import SomeInteger, isdegenerated, SomeTuple,\
+     SomeString
 from pypy.annotation import description
 
 
@@ -447,3 +448,12 @@ class NoSuchAttrError(Exception):
 FORCE_ATTRIBUTES_INTO_CLASSES = {
     OSError: {'errno': SomeInteger()},
     }
+
+try:
+    import termios
+except ImportError:
+    pass
+else:
+    FORCE_ATTRIBUTES_INTO_CLASSES[termios.error] = \
+        {'args': SomeTuple([SomeInteger(), SomeString()])}
+

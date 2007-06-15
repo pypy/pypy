@@ -51,7 +51,6 @@
 
 /* prototypes */
 
-int LL_os_open(RPyString *filename, int flag, int mode);
 long LL_read_into(int fd, RPyString *buffer);
 long LL_os_write(int fd, RPyString *buffer);
 void LL_os_close(int fd);
@@ -102,15 +101,6 @@ static int geterrno(void)
 #ifndef PYPY_NOT_MAIN_FILE
 
 #include "ll_osdefs.h"
-
-int LL_os_open(RPyString *filename, int flag, int mode)
-{
-	/* XXX unicode_file_names */
-	int fd = open(RPyString_AsString(filename), flag, mode);
-	if (fd < 0)
-		RPYTHON_RAISE_OSERROR(errno);
-	return fd;
-}
 
 long LL_read_into(int fd, RPyString *buffer)
 {

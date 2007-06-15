@@ -1,6 +1,12 @@
 """
-Dummy low-level implementations for the external functions of the 'os' module.
+Low-level implementations for the external functions of the 'os' module.
 """
+
+# actual idea might be found in doc/rffi.txt
+
+# ------------------------------------------
+# WARNING! old vision, don't use it WARNING!
+# ------------------------------------------
 
 # Idea: each ll_os_xxx() function calls back the os.xxx() function that it
 # is supposed to implement, either directly or indirectly if there is some
@@ -13,7 +19,7 @@ Dummy low-level implementations for the external functions of the 'os' module.
 # 'suggested_primitive' flag is set to another function, if the conversion
 # and buffer preparation stuff is not useful.
 
-import os, errno
+import os
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rlib import ros
@@ -23,74 +29,124 @@ import stat
 from pypy.rpython.extfunc import ExtFuncEntry, register_external
 from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
     s_None
-from pypy.annotation.listdef import s_list_of_strings
-import ctypes
-import pypy.rpython.rctypes.implementation
-from pypy.rpython.rctypes.tool.libc import libc
-from pypy.rpython.rctypes.aerrno import geterrno
+from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype
 
 if hasattr(os, 'execv'):
 
     if os.name == 'nt':
-        os_execv = libc._execv
+        name = '_execv'
     else:
-        os_execv = libc.execv
-    os_execv.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
-    os_execv.restype = ctypes.c_int
+        name = 'execv'
+    os_execv = rffi.llexternal(name, [rffi.CCHARP, rffi.CCHARPP],
+                               lltype.Signed)
 
     def execv_lltypeimpl(path, args):
-        # XXX incredible code to work around rctypes limitations
-        length = len(args) + 1
-        num_bytes = ctypes.sizeof(ctypes.c_char_p) * length
-        buffer = ctypes.create_string_buffer(num_bytes)
-        array = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_char_p))
-        buffer_addr = ctypes.cast(buffer, ctypes.c_void_p).value
-        for num in range(len(args)):
-            adr1 = buffer_addr + ctypes.sizeof(ctypes.c_char_p) * num
-            ptr = ctypes.c_void_p(adr1)
-            arrayitem = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_char_p))
-            arrayitem[0] = args[num]
-        os_execv(path, array)
-        raise OSError(geterrno(), "execv failed")
+        l_path = rffi.str2charp(path)
+        l_args = rffi.liststr2charpp(args)
+        os_execv(l_path, l_args)
+        rffi.free_charpp(l_args)
+        lltype.free(l_path, flavor='raw')
+        raise OSError(rffi.c_errno, "execv failed")
 
     register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
                       execv_lltypeimpl, export_name="ll_os.ll_os_execv")
 
 if os.name == 'nt':
-    os_dup = libc._dup
+    name = '_dup'
 else:
-    os_dup = libc.dup
-os_dup.argtypes = [ctypes.c_int]
-os_dup.restype = ctypes.c_int
+    name = 'dup'
+
+os_dup = rffi.llexternal(name, [lltype.Signed], lltype.Signed,
+                         _callable=os.dup)
 
 def dup_lltypeimpl(fd):
     newfd = os_dup(fd)
     if newfd == -1:
-        raise OSError(geterrno(), "dup failed")
+        raise OSError(rffi.c_errno, "dup failed")
     return newfd
 register_external(os.dup, [int], int, llimpl=dup_lltypeimpl,
-                  export_name="ll_os.ll_os_dup")
+                  export_name="ll_os.ll_os_dup", oofakeimpl=os.dup)
 
 if os.name == 'nt':
-    os_dup2 = libc._dup2
+    name = '_dup2'
 else:
-    os_dup2 = libc.dup2
-os_dup2.argtypes = [ctypes.c_int, ctypes.c_int]
-os_dup2.restype = ctypes.c_int
+    name = 'dup2'
+os_dup2 = rffi.llexternal(name, [lltype.Signed, lltype.Signed], lltype.Signed)
 
 def dup2_lltypeimpl(fd, newfd):
     error = os_dup2(fd, newfd)
     if error == -1:
-        raise OSError(geterrno(), "dup2 failed")
+        raise OSError(rffi.c_errno, "dup2 failed")
 register_external(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
                   export_name="ll_os.ll_os_dup2")
 
+
+UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', rffi.SIZE_T),
+                         ('modtime', rffi.SIZE_T))
+
+# XXX sys/types.h is not portable at all
+ros_utime = rffi.llexternal('utime', [rffi.CCHARP, UTIMEBUFP], lltype.Signed,
+                            includes=['utime.h', 'sys/types.h'])
+
+def utime_null_lltypeimpl(path):
+    l_path = rffi.str2charp(path)
+    error = ros_utime(l_path, lltype.nullptr(UTIMEBUFP.TO))
+    lltype.free(l_path, flavor='raw')
+    if error == -1:
+        raise OSError(rffi.c_errno, "utime_null failed")
+register_external(ros.utime_null, [str], s_None, "ll_os.utime_null",
+                  llimpl=utime_null_lltypeimpl)
+
+def utime_tuple_lltypeimpl(path, tp):
+    # XXX right now they're all ints, might change in future
+    # XXX does not use utimes, even when available
+    l_path = rffi.str2charp(path)
+    l_utimebuf = lltype.malloc(UTIMEBUFP.TO, flavor='raw')
+    l_utimebuf.c_actime, l_utimebuf.c_modtime = tp    
+    error = ros_utime(l_path, l_utimebuf)
+    lltype.free(l_path, flavor='raw')
+    lltype.free(l_utimebuf, flavor='raw')
+    if error == -1:
+        raise OSError(rffi.c_errno, "utime_tuple failed")
+register_external(ros.utime_tuple, [str, (int, int)], s_None, "ll_os.utime_tuple",
+                  llimpl=utime_tuple_lltypeimpl)    
+
+def fake_os_open(l_path, flags, mode):
+    path = rffi.charp2str(l_path)
+    return os.open(path, flags, mode)
+
+os_open = rffi.llexternal('open', [rffi.CCHARP, lltype.Signed, rffi.MODE_T],
+                          lltype.Signed, _callable=fake_os_open)
+
+def os_open_lltypeimpl(path, flags, mode):
+    l_path = rffi.str2charp(path)
+    result = os_open(l_path, flags, mode)
+    lltype.free(l_path, flavor='raw')
+    if result == -1:
+        raise OSError(rffi.c_errno, "os_open failed")
+    return result
+
+def os_open_oofakeimpl(o_path, flags, mode):
+    return os.open(o_path._str, flags, mode)
+
+register_external(os.open, [str, int, int], int, "ll_os.open",
+                  llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
+
+def fake_WIFSIGNALED(status):
+    return int(os.WIFSIGNALED(status))
+
+os_WIFSIGNALED = rffi.llexternal('WIFSIGNALED', [lltype.Signed], lltype.Signed,
+                                 _callable=fake_WIFSIGNALED)
+
+def WIFSIGNALED_lltypeimpl(status):
+    return bool(os_WIFSIGNALED(status))
+
+register_external(os.WIFSIGNALED, [int], int, "ll_os.WIFSIGNALED",
+                  llimpl=WIFSIGNALED_lltypeimpl)
+
 class BaseOS:
     __metaclass__ = ClassMethods
-
-    def ll_os_open(cls, fname, flag, mode):
-        return os.open(cls.from_rstr(fname), flag, mode)
-    ll_os_open.suggested_primitive = True
 
     def ll_os_write(cls, fd, astring):
         return os.write(fd, cls.from_rstr(astring))
@@ -110,14 +166,6 @@ class BaseOS:
     def ll_os_close(cls, fd):
         os.close(fd)
     ll_os_close.suggested_primitive = True
-
-    def ll_os_dup(cls, fd):
-        return os.dup(fd)
-    ll_os_dup.suggested_primitive = True
-
-    def ll_os_dup2(cls, old_fd, new_fd):
-        os.dup2(old_fd, new_fd)
-    ll_os_dup2.suggested_primitive = True
 
     def ll_os_access(cls, path, mode):
         return os.access(cls.from_rstr(path), mode)

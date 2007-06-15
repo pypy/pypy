@@ -1,7 +1,7 @@
 import os
 from pypy.tool.udir import udir
 from pypy.tool.pytest.modcheck import skipimporterror
-skipimporterror("ctypes")
+from pypy.translator.c.test.test_genc import compile
 
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 import sys
@@ -16,22 +16,6 @@ def test_access():
     for mode in os.R_OK, os.W_OK, os.X_OK, os.R_OK | os.W_OK | os.X_OK:
         assert os.access(filename, mode) == impl.ll_os_access(rsfilename, mode)
 
-
-def test_open_read_write_close():
-    filename = str(udir.join('test_open_read_write_close.txt'))
-    rsfilename = impl.to_rstr(filename)
-
-    fd = impl.ll_os_open(rsfilename, os.O_WRONLY | os.O_CREAT, 0777)
-    count = impl.ll_os_write(fd, impl.to_rstr("hello world\n"))
-    assert count == len("hello world\n")
-    impl.ll_os_close(fd)
-
-    fd = impl.ll_os_open(rsfilename, os.O_RDONLY, 0777)
-    data = impl.ll_os_read(fd, 500)
-    assert impl.from_rstr(data) == "hello world\n"
-    impl.ll_os_close(fd)
-
-    os.unlink(filename)
 
 def test_getcwd():
     data = impl.ll_os_getcwd()
@@ -74,11 +58,12 @@ def test_putenv_unsetenv():
 test_src = """
 import os
 from pypy.tool.udir import udir
-from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
+#from pypy.rpython.module.ll_os import 
 
 def test_environ():
     count = 0
     while 1:
+        l
         if not impl.ll_os_environ(count):
             break
         count += 1
@@ -88,6 +73,7 @@ test_environ()
 
 def test_environ():
     import py
+    py.test.skip("Test hangs, should be rewritten to new-style")
     gw = py.execnet.PopenGateway()
     chan = gw.remote_exec(py.code.Source(test_src))
     res = chan.receive()
@@ -116,37 +102,10 @@ def test_opendir_readdir():
     compared_with.sort()
     assert result == compared_with
 
-if hasattr(os, 'execv'):
-    from pypy.rpython.extregistry import lookup
-    os_execv = lookup(os.execv).lltypeimpl
-    
-    def test_execv():
-        filename = str(udir.join('test_execv_ctypes.txt'))
+def test_os_wifsignaled():
+    def fun(s):
+        return os.WIFSIGNALED(s)
 
-        progname = str(sys.executable)
-        l = ['', '']
-        l[0] = progname
-        l[1] = "-c"
-        l.append('open("%s","w").write("1")' % filename)
-        pid = os.fork()
-        if pid == 0:
-            os_execv(progname, l)
-        else:
-            os.waitpid(pid, 0)
-        assert open(filename).read() == "1"
-
-def test_dup():
-    from pypy.rpython.extregistry import lookup
-    os_dup = lookup(os.dup).lltypeimpl
-    testf = udir.join('test.txt')
-    testf.write("foo")
-    path = testf.strpath
-
-    def ff(fi):
-        g = os_dup(fi)
-        return g
-    fi = os.open(path,os.O_RDONLY,0755)
-    g = ff(fi)
-    assert os.fstat(g) == os.fstat(fi)
-
-
+    fn = compile(fun, [int])
+    assert fn(0) == False
+    assert fn(1) == True

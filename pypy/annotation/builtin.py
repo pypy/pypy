@@ -264,6 +264,9 @@ def builtin_slice(*args):
 def OSError_init(s_self, *args):
     pass
 
+def termios_error_init(s_self, *args):
+    pass
+
 def object_init(s_self, *args):
     # ignore - mostly used for abstract classes initialization
     pass
