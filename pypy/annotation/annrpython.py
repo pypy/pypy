@@ -5,6 +5,7 @@ from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair
 from pypy.annotation.bookkeeper import Bookkeeper, getbookkeeper
+from pypy.annotation import signature
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import c_last_exception, checkgraph
@@ -293,10 +294,7 @@ class RPythonAnnotator(object):
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
     def typeannotation(self, t):
-        if isinstance(t, annmodel.SomeObject):
-            return t
-        else:
-            return self.bookkeeper.valueoftype(t)
+        return signature.annotation(t, self.bookkeeper)
 
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         if self.policy.allow_someobjects:
