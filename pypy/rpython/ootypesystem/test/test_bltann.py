@@ -22,8 +22,7 @@ def test_new_bltn():
     
     a = RPythonAnnotator()
     s = a.build_types(new, [])
-    assert isinstance(s.knowntype, ExternalType)
-    assert s.knowntype._class_ is C
+    assert s.knowntype is C
 
 class A(BasicExternal):
     _fields = {

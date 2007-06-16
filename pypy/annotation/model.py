@@ -445,12 +445,10 @@ class SomeExternalObject(SomeObject):
     def can_be_none(self):
         return True
 
-class SomeExternalBuiltin(SomeExternalObject):
+class SomeExternalInstance(SomeExternalObject):
     """Stands for an object of 'external' type, but with custom access to
     attributes as well as methods
     """
-    def can_be_none(self):
-        return True
 
 class SomeCTypesObject(SomeExternalObject):
     """Stands for an object of the ctypes module."""
@@ -614,7 +612,7 @@ def lltype_to_annotation(T):
         elif T == ootype.Class:
             return SomeOOClass(ootype.ROOT)
         elif isinstance(T, ExternalType):
-            return SomeExternalBuiltin(T)
+            return SomeExternalInstance(T._class_)
         else:
             return SomePtr(T)
     else:

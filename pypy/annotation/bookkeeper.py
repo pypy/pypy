@@ -558,9 +558,10 @@ class Bookkeeper:
         try:
             return self.external_class_cache[class_]
         except KeyError:
-            from pypy.rpython.ootypesystem.bltregistry import ExternalType
-            next = ExternalType(class_)
+            from  pypy.rpython.ootypesystem import bltregistry
+            next = bltregistry.ExternalInstanceDesc(class_)
             self.external_class_cache[class_] = next
+            next.setup()
             return next
 
     def pbc_getattr(self, pbc, s_attr):

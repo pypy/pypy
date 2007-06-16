@@ -232,7 +232,7 @@ class AbstractConst(object):
             return StringConst(db, const)
         elif isinstance(const, ootype._dict):
             return DictConst(db, const)
-        elif isinstance(const, bltregistry._external_type):
+        elif isinstance(const, bltregistry._external_inst):
             return ExtObject(db, const)
         elif isinstance(const, ootype._class):
             if const._INSTANCE:

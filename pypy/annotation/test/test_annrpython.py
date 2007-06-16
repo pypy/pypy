@@ -2712,7 +2712,7 @@ class TestAnnotateTestCase:
         P.allow_someobjects = False
         a = self.RPythonAnnotator(policy=P)
         s = a.build_types(f, [bool])
-        assert isinstance(s, annmodel.SomeExternalBuiltin)        
+        assert isinstance(s, annmodel.SomeExternalInstance)        
 
     def test_instance_with_flags(self):
         from pypy.rlib.jit import hint

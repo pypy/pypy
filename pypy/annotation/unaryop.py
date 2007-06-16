@@ -615,6 +615,7 @@ class __extend__(SomeGenericCallable):
         return self.s_result
 
 class __extend__(SomeExternalObject):
+    # XXX kill with extfunctable.py
     def find_method(obj, name):
         "Look for a special-case implementation for the named method."
         type_analyser = builtin.EXTERNAL_TYPE_ANALYZERS[obj.knowntype]
@@ -623,9 +624,31 @@ class __extend__(SomeExternalObject):
             return SomeBuiltin(analyser, obj, name)
         return SomeObject.find_method(obj, name)
 
+    def getattr(p, s_attr):
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            # XXX kill with extfunctable.py
+            if p.knowntype in builtin.EXTERNAL_TYPE_ANALYZERS:
+                return SomeObject.getattr(p, s_attr)
+            
+            attr = s_attr.const
+            entry = extregistry.lookup_type(p.knowntype)
+            s_value = entry.get_field_annotation(p.knowntype, attr)
+            return s_value
+        else:
+            return SomeObject()
+    getattr.can_only_throw = []
+    
+    def setattr(p, s_attr, s_value):
+        assert s_attr.is_constant()
+        attr = s_attr.const
+        entry = extregistry.lookup_type(p.knowntype)
+        entry.set_field_annotation(p.knowntype, attr, s_value)
+    
+    def is_true(p):
+        return s_Bool
 
 # annotation of low-level types
-from pypy.annotation.model import SomePtr, SomeLLADTMeth, SomeExternalBuiltin
+from pypy.annotation.model import SomePtr, SomeLLADTMeth
 from pypy.annotation.model import SomeOOInstance, SomeOOBoundMeth, SomeOOStaticMeth
 from pypy.annotation.model import ll_to_annotation, lltype_to_annotation, annotation_to_lltype
 
@@ -660,29 +683,6 @@ class __extend__(SomePtr):
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 
-    def is_true(p):
-        return s_Bool
-
-class __extend__(SomeExternalBuiltin):
-    def getattr(p, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            entry = extregistry.lookup_type(p.knowntype._class_)
-            s_value = entry.get_field_annotation(p.knowntype, attr)
-            return s_value
-        else:
-            return SomeObject()
-    getattr.can_only_throw = []
-    
-    def setattr(p, s_attr, s_value):
-        assert s_attr.is_constant()
-        attr = s_attr.const
-        entry = extregistry.lookup_type(p.knowntype._class_)
-        entry.set_field_annotation(p.knowntype, attr, s_value)
-    
-    def find_method(obj, name):
-        return obj.knowntype.get_field(name)
-    
     def is_true(p):
         return s_Bool
 

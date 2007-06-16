@@ -15,6 +15,7 @@ from pypy.annotation.pairtype import pairtype
 class __extend__(annmodel.SomeExternalObject):
 
     def rtyper_makerepr(self, rtyper):
+        # XXX kill with extfunctable.py
         if self.knowntype in typetable:
             return ExternalObjRepr(self.knowntype)
         else:
@@ -68,87 +69,3 @@ class ExternalObjRepr(Repr):
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
-
-# ExternalBuiltins
-
-class __extend__(annmodel.SomeExternalBuiltin):
-    
-    def rtyper_makerepr(self, rtyper):
-        return ExternalBuiltinRepr(self.knowntype)
-    
-    def rtyper_makekey(self):
-        return self.__class__, self.knowntype
-    
-class ExternalBuiltinRepr(Repr):
-    def __init__(self, knowntype):
-        self.knowntype = knowntype
-        self.lowleveltype = knowntype
-        self.name = "<class '%s'>" % self.knowntype._class_.__name__
-    
-    def convert_const(self, value):
-        from pypy.rpython.ootypesystem.bltregistry import ExternalType,_external_type
-        return _external_type(self.knowntype, value)
-    
-    def rtype_getattr(self, hop):
-        self.knowntype.check_update()
-        attr = hop.args_s[1].const
-        s_inst = hop.args_s[0]
-        if self.knowntype._methods.has_key(attr):
-            # just return instance - will be handled by simple_call
-            return hop.inputarg(hop.args_r[0], arg=0)
-        vlist = hop.inputargs(self, ootype.Void)
-        return hop.genop("oogetfield", vlist,
-                         resulttype = hop.r_result.lowleveltype)
-
-    def rtype_setattr(self, hop):
-        if self.lowleveltype is ootype.Void:
-            return
-        vlist = [hop.inputarg(self, arg=0), hop.inputarg(ootype.Void, arg=1)]
-        field_name = hop.args_s[1].const
-        obj = self.knowntype._class_._fields[field_name]
-        bookkeeper = hop.rtyper.annotator.bookkeeper
-        # XXX WARNING XXX
-        # annotation() here should not be called, but we somehow
-        # have overwritten _fields. This will do no harm, but may hide some
-        # errors
-        r = hop.rtyper.getrepr(annotation(obj, bookkeeper))
-        r.setup()
-        v = hop.inputarg(r, arg=2)
-        vlist.append(v)
-        return hop.genop('oosetfield', vlist)
-    
-    def call_method(self, name, hop):
-        bookkeeper = hop.rtyper.annotator.bookkeeper
-        args_r = []
-        for s_arg in self.knowntype._fields[name].analyser.s_args:
-            r = hop.rtyper.getrepr(s_arg)
-            r.setup()
-            args_r.append(r)
-        vlist = hop.inputargs(self, *args_r)
-        c_name = hop.inputconst(ootype.Void, name)
-        hop.exception_is_here()
-        return hop.genop('oosend', [c_name] + vlist, resulttype=hop.r_result)
-    
-    def rtype_is_true(self, hop):
-        vlist = hop.inputargs(self)
-        return hop.genop('is_true', vlist, resulttype=lltype.Bool)
-    
-    def ll_str(self, val):
-        return ootype.oostring(self.name, -1)
-    
-    def __getattr__(self, attr):
-        if attr.startswith("rtype_method_"):
-            name = attr[len("rtype_method_"):]
-            return lambda hop: self.call_method(name, hop)
-        else:
-            raise AttributeError(attr)
-
-
-class __extend__(pairtype(ExternalBuiltinRepr, ExternalBuiltinRepr)):
-    def convert_from_to((from_, to), v, llops):
-        type_from = from_.knowntype._class_
-        type_to = to.knowntype._class_
-        if issubclass(type_from, type_to):
-            v.concretetype=to.knowntype
-            return v
-        return NotImplemented
