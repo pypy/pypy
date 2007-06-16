@@ -90,6 +90,7 @@ class ExternalBuiltinRepr(Repr):
         return _external_type(self.knowntype, value)
     
     def rtype_getattr(self, hop):
+        self.knowntype.check_update()
         attr = hop.args_s[1].const
         s_inst = hop.args_s[0]
         if self.knowntype._methods.has_key(attr):
