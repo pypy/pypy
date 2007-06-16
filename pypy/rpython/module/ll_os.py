@@ -142,7 +142,7 @@ os_WIFSIGNALED = rffi.llexternal('WIFSIGNALED', [lltype.Signed], lltype.Signed,
 def WIFSIGNALED_lltypeimpl(status):
     return bool(os_WIFSIGNALED(status))
 
-register_external(os.WIFSIGNALED, [int], int, "ll_os.WIFSIGNALED",
+register_external(os.WIFSIGNALED, [int], bool, "ll_os.WIFSIGNALED",
                   llimpl=WIFSIGNALED_lltypeimpl)
 
 class BaseOS:
