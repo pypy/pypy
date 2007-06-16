@@ -100,6 +100,14 @@ class Analyzer(object):
         self.s_retval = s_retval
         self.s_args = s_args
         self.value = value
+
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.__dict__  == other.__dict__)
     
     def __call__(self, *args):
         args = args[1:]
@@ -130,6 +138,11 @@ class ExternalType(ootype.OOType):
     def _is_compatible(type2):
         return type(type2) is ExternalType
     
+
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and \
+               self._class_ is other._class_
+
     _is_compatible = staticmethod(_is_compatible)
     
     def update_methods(self, _methods):
