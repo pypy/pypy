@@ -4,14 +4,14 @@ A custom graphic renderer for the '.plain' files produced by dot.
 """
 
 from __future__ import generators
-import autopath
 import re, os, math
 import pygame
 from pygame.locals import *
 
 
-FONT = os.path.join(autopath.this_dir, 'cyrvetic.ttf')
-FIXEDFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
+this_dir = os.path.dirname(os.path.abspath(__file__))
+FONT = os.path.join(this_dir, 'cyrvetic.ttf')
+FIXEDFONT = os.path.join(this_dir, 'VeraMoBd.ttf')
 COLOR = {
     'black': (0,0,0),
     'white': (255,255,255),
@@ -55,35 +55,22 @@ def getcolor(name, default):
 class GraphLayout:
     fixedfont = False
 
-    def __init__(self, filename):
-        # parse the layout file (.plain format)
-        lines = open(str(filename), 'r').readlines()
-        for i in range(len(lines)-2, -1, -1):
-            if lines[i].endswith('\\\n'):   # line ending in '\'
-                lines[i] = lines[i][:-2] + lines[i+1]
-                del lines[i+1]
-        header = splitline(lines.pop(0))
-        # XXX very simple-minded way to give a somewhat better error message
-        if header[0] == '<body':
-            raise Exception("the dot on codespeak has very likely crashed")
-        assert header[0] == 'graph'
-        self.scale = float(header[1])
-        self.boundingbox = float(header[2]), float(header[3])
+    def __init__(self, scale, width, height):
+        self.scale = scale
+        self.boundingbox = width, height
         self.nodes = {}
         self.edges = []
-        for line in lines:
-            line = splitline(line)
-            if line[0] == 'node':
-                n = Node(*line[1:])
-                self.nodes[n.name] = n
-            if line[0] == 'edge':
-                self.edges.append(Edge(self.nodes, *line[1:]))
-            if line[0] == 'stop':
-                break
         self.links = {}
 
+    def add_node(self, *args):
+        n = Node(*args)
+        self.nodes[n.name] = n
+
+    def add_edge(self, *args):
+        self.edges.append(Edge(self.nodes, *args))
+
     def get_display(self):
-        from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
+        from graphdisplay import GraphDisplay
         return GraphDisplay(self)      
 
     def display(self):
@@ -241,14 +228,6 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
         return math.hypot(x-x1, y-y1)
     else:
         return abs(vy*(x-x0) - vx*(y-y0))
-
-def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
-    result = []
-    for word in re_word.findall(line):
-        if word.startswith('"'):
-            word = eval(word)
-        result.append(word)
-    return result
 
 
 class GraphRenderer:

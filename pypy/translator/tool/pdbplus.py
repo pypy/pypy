@@ -4,10 +4,6 @@ import code
 import sys
 from pypy.objspace.flow.model import FunctionGraph
 
-class _EnableGraphic:
-    def __init__(self, port=None):
-        self.port = port
-
 class NoTTY(Exception):
     pass
 
@@ -33,16 +29,8 @@ class PdbPlusShow(pdb.Pdb):
     def expose(self, d):
         self.exposed.update(d)
 
-    show = None
-
-    def install_show(self, show):
-        self.show = show
-
     def _show(self, page):
-        if not self.show:
-            print "*** No display"
-            return
-        self.show(page)
+        page.display_background()
 
     def _importobj(self, fullname):
         obj = None
@@ -391,23 +379,6 @@ show class hierarchy graph"""
         from pypy.translator.tool import graphpage           
         self._show(graphpage.ClassHierarchyPage(self.translator))
 
-    def do_enable_graphic(self, arg):
-        """enable_graphic
-enable pygame graph display even from non-graphic mode"""
-        if self.show:
-            print "*** display already there"
-            return
-        raise _EnableGraphic
-
-    def do_graphserve(self, arg):
-        """graphserve <port>
-start serving graphs on <port>    
-"""
-        if self.show:
-            print "*** display already there"
-            return
-        raise _EnableGraphic(int(arg))
-
     def do_interact(self, arg):
         """invoke a code.py sub prompt"""
         ns = self.curframe.f_globals.copy()
@@ -425,7 +396,7 @@ start serving graphs on <port>
         print self.TRYPREFIXES
 
     # start helpers
-    def _run_debugger(self, tb):
+    def start(self, tb):
         if tb is None:
             fn, args = self.set_trace, ()
         else:
@@ -438,37 +409,6 @@ start serving graphs on <port>
             pass # for debugger to land
         except pdb.bdb.BdbQuit:
             pass    
-
-    def _run_debugger_in_thread(self, tb, cleanup=None, cleanup_args=()):
-        def _run_in_thread():
-            try:
-                self._run_debugger(tb)
-            finally:
-                if cleanup is not None:
-                    cleanup(*cleanup_args)
-        import threading
-        return threading.Thread(target=_run_in_thread, args=())
-
-    def start(self, tb, server_setup, graphic=False):
-        port = None
-        if not graphic:
-            try:
-                self._run_debugger(tb)
-            except _EnableGraphic, engraph:
-                port = engraph.port
-            else:
-                return
-        try:
-            start, show, stop = server_setup(port)
-        except Exception, e:
-            print '%s.%s: %s' % (e.__class__.__module__,
-                                 e.__class__.__name__, e)
-            return self.start(tb, server_setup, graphic=False)
-        self.install_show(show)
-        debugger = self._run_debugger_in_thread(tb, stop)
-        debugger.start()
-        start()
-        debugger.join()
 
 
 def pdbcatch(f):

@@ -7,34 +7,7 @@ from pypy.annotation.description import MethodDesc
 from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
 
-
-class GraphPage:
-    """Base class for the server-side content of one of the 'pages'
-    (one graph) sent over to and displayed by the client.
-    """
-    def __init__(self, *args):
-        self.args = args
-
-    def content(self):
-        """Compute the content of the page.
-        This doesn't modify the page in place; it returns a new GraphPage.
-        """
-        if hasattr(self, 'source'):
-            return self
-        else:
-            new = self.__class__()
-            new.source = ''  # '''dot source'''
-            new.links  = {}  # {'word': 'statusbar text'}
-            new.compute(*self.args)   # defined in subclasses
-            return new
-
-    def followlink(self, word):
-        raise KeyError
-
-    def display(self):
-        "Display a graph page locally."
-        from pypy.translator.tool.pygame.graphclient import display_layout
-        display_layout(self)
+from dotviewer.graphpage import GraphPage
 
 
 class VariableHistoryGraphPage(GraphPage):

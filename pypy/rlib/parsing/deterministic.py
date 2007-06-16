@@ -370,7 +370,7 @@ def recognize(runner, i):
         return "\n".join(result)
 
     def view(self):
-        from pypy.translator.tool.pygame import graphclient
+        from dotviewer import graphclient
         p = py.test.ensuretemp("automaton").join("temp.dot")
         dot = self.dot()
         p.write(dot)
@@ -510,7 +510,7 @@ class NFA(object):
         return mapping
 
     def view(self):
-        from pypy.translator.tool.pygame import graphclient
+        from dotviewer import graphclient
         p = py.test.ensuretemp("automaton").join("temp.dot")
         dot = self.dot()
         p.write(dot)

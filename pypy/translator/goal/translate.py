@@ -44,9 +44,6 @@ def goal_options():
     return result
 
 translate_optiondescr = OptionDescription("translate", "XXX", [
-    IntOption("graphserve", """Serve analysis graphs on port number
-(see pypy/translator/tool/pygame/graphclient.py)""",
-              cmdline="--graphserve"),
     StrOption("targetspec", "XXX", default='targetpypystandalone',
               cmdline=None),
     BoolOption("profile",
@@ -211,27 +208,6 @@ def main():
 
     t = translator.TranslationContext(config=config)
 
-    class ServerSetup:
-        async_server = None
-        
-        def __call__(self, port=None, async_only=False):
-            try:
-                t1 = drv.hint_translator
-            except (NameError, AttributeError):
-                t1 = t
-            if self.async_server is not None:
-                return self.async_server
-            elif port is not None:
-                from pypy.translator.tool.graphserver import run_async_server
-                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t1, translateconfig, port)
-                return serv_start, serv_show, serv_stop
-            elif not async_only:
-                from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-                return run_server_for_inprocess_client(t1, translateconfig)
-
-    server_setup = ServerSetup()
-    server_setup(translateconfig.graphserve, async_only=True)
-
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
     def debug(got_error):
@@ -263,7 +239,16 @@ def main():
         
         log.event("start debugger...")
 
-        pdb_plus_show.start(tb, server_setup, graphic=not translateconfig.text)
+        if not translateconfig.text:
+            try:
+                t1 = drv.hint_translator
+            except (NameError, AttributeError):
+                t1 = t
+            from pypy.translator.tool import graphpage
+            page = graphpage.TranslatorPage(t1, translateconfig.huge)
+            page.display_background()
+
+        pdb_plus_show.start(tb)
 
     try:
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, args,

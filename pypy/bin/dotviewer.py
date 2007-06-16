@@ -1,48 +1,11 @@
 #! /usr/bin/env python
 """
-Command-line interface for a dot file viewer -- either viewing normal .dot
-files or connecting to a graph server like a browser.
+Command-line interface for a dot file viewer.
+Run with no arguments for help.
 """
 
 import autopath
-import sys, py
-from pypy.translator.tool.pygame import graphclient
-
-from py.compat import optparse
-
-usage = '''
-        %s filename.dot
-        %s filename.plain
-        %s hostname:port
-        %s :port
-
-In the first form, show the graph contained in a .dot file.
-In the second form, the graph was already compiled to a .plain file.
-In the other forms, connect to a graph server like
-goal/translate.py.
-''' % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
-
-parser = optparse.OptionParser(usage=usage)
-parser.add_option("--reload", action="store_true", dest="reload",
-                  default=False, help="reload the dot file continously")
-
+from dotviewer.dotviewer import main
 
 if __name__ == '__main__':
-    options, args = parser.parse_args()
-    if len(args) != 1:
-        if args:
-            parser.error("too many arguments")
-        else:
-            parser.print_help()
-        sys.exit(2)
-    filename = args[0]
-    if py.path.local(filename).check():
-        graphclient.display_dot_file(filename,
-                                     reload_repeatedly=options.reload)
-    elif filename.count(':') != 1:
-        print >> sys.stderr, 'No such file:', filename
-        sys.exit(1)
-    else:
-        hostname, port = args[0].split(':')
-        port = int(port)
-        graphclient.display_remote_layout(hostname, port)
+    main()

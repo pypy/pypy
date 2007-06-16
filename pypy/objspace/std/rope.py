@@ -90,7 +90,6 @@ class StringNode(object):
         return rope_from_charlist(result)
 
     def view(self):
-        from pypy.translator.tool.pygame import graphclient
         view([self])
 
     def check_balanced(self):
@@ -670,7 +669,7 @@ def construct_restart_positions_node(node):
     return restart
 
 def view(objs):
-    from pypy.translator.tool.pygame import graphclient
+    from dotviewer import graphclient
     content = ["digraph G{"]
     seen = {}
     for i, obj in enumerate(objs):

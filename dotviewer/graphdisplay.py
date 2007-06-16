@@ -1,11 +1,10 @@
 from __future__ import generators
-import autopath
 import os, time, sys
 import pygame
 from pygame.locals import *
-from pypy.translator.tool.pygame.drawgraph import GraphRenderer, FIXEDFONT
-from pypy.translator.tool.pygame.drawgraph import Node, Edge
-from pypy.translator.tool.pygame.drawgraph import EventQueue, wait_for_events
+from drawgraph import GraphRenderer, FIXEDFONT
+from drawgraph import Node, Edge
+from drawgraph import EventQueue, wait_for_events
 
 
 METAKEYS = dict([
@@ -616,9 +615,11 @@ class GraphDisplay(Display):
         if self.click_time is not None and abs(time.time() - self.click_time) < 1:
             # click (no significant dragging)
             self.notifyclick(self.click_origin)
-        self.update_status_bar()
-        self.click_time = None
-        self.notifymousepos(event.pos)
+            self.click_time = None
+        else:
+            self.update_status_bar()
+            self.click_time = None
+            self.notifymousepos(event.pos)
 
     def process_KeyDown(self, event):
         mod = event.mod & self.key_mask
@@ -649,10 +650,13 @@ class GraphDisplay(Display):
         self.quit()
      
     def process_UserEvent(self, event): # new layout request
-        if event.layout is None:
-            self.setstatusbar('')
-        else:
-            self.setlayout(event.layout)
+        if hasattr(event, 'layout'):
+            if event.layout is None:
+                self.setstatusbar('cannot follow this link')
+            else:
+                self.setlayout(event.layout)
+        elif hasattr(event, 'say'):
+            self.setstatusbar(event.say)
     
     def quit(self):
         raise StopIteration
@@ -666,7 +670,7 @@ class GraphDisplay(Display):
         pygame.display.flip()
         self.must_redraw = False
 
-    def run(self):
+    def run1(self):
         self.dragging = self.click_origin = self.click_time = None
         try:
 
@@ -683,6 +687,8 @@ class GraphDisplay(Display):
         except StopIteration:
             pass
 
+    def run(self):
+        self.run1()
         # cannot safely close and re-open the display, depending on
         # Pygame version and platform.
         pygame.display.set_mode((self.width,1))

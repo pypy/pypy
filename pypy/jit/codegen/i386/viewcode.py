@@ -288,7 +288,7 @@ def tab2columns(text):
 # but needs to be a bit more subtle later
 
 from pypy.translator.tool.make_dot import DotGen
-from pypy.translator.tool.pygame.graphclient import display_layout
+from dotviewer.graphclient import display_page
 
 class Graph(DotGen):
 
@@ -302,7 +302,7 @@ class Graph(DotGen):
 
     def display(self):
         "Display a graph page locally."
-        display_layout(_Page(self))
+        display_page(_Page(self))
 
 
 class NoGraph(Exception):
