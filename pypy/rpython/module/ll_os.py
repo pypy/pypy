@@ -130,7 +130,7 @@ def os_open_lltypeimpl(path, flags, mode):
 def os_open_oofakeimpl(o_path, flags, mode):
     return os.open(o_path._str, flags, mode)
 
-register_external(os.open, [str, int, int], int, "ll_os.open",
+register_external(os.open, [str, int, int], int, "ll_os.ll_os_open",
                   llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
 
 def fake_WIFSIGNALED(status):
