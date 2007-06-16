@@ -6,7 +6,7 @@ from pypy.annotation.signature import annotation
 
 import py
 
-class _callable(object):
+class genericcallable(object):
     """ A way to specify the callable annotation, but deferred until
     we have bookkeeper
     """
@@ -15,7 +15,7 @@ class _callable(object):
         self.result = result
 
 class _ext_callable(ExtRegistryEntry):
-    _type_ = _callable
+    _type_ = genericcallable
     # we defer a bit annotation here
 
     def compute_result_annotation(self):

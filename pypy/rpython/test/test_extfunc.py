@@ -1,5 +1,5 @@
 
-from pypy.rpython.extfunc import ExtFuncEntry, _callable, register_external,\
+from pypy.rpython.extfunc import ExtFuncEntry, register_external,\
      is_external
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
