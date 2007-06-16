@@ -4,7 +4,7 @@ from pypy.translator.js.test.runtest import JsTest
 import pypy.translator.oosupport.test_template.string as oostring
 
 
-# ====> ../../../rpython/test/test_str.py
+# ====> ../../../rpython/test/test_rstr.py
 
 class TestJsString(JsTest, oostring.BaseTestString):
     def test_char_unichar_eq(self):

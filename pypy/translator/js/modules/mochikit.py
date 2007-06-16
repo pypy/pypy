@@ -2,7 +2,7 @@
 """ mochikit wrappers
 """
 
-from pypy.rpython.extfunc import _callable, register_external
+from pypy.rpython.extfunc import genericcallable, register_external
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.modules import dom
 
@@ -62,7 +62,7 @@ Event._methods = {
 
 def connect(src, signal, dest):
     print 'connecting signal %s' % (signal,)
-register_external(connect, args=[dom.EventTarget, str, _callable([Event])],
+register_external(connect, args=[dom.EventTarget, str, genericcallable([Event])],
                   result=int)
 
 def disconnect(id):

@@ -21,12 +21,11 @@ import urllib
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
-from pypy.rpython.extfunc import _callable, register_external
+from pypy.rpython.extfunc import genericcallable, register_external
 from xml.dom import minidom
 
 from pypy.annotation.signature import annotation
 from pypy.annotation import model as annmodel
-from pypy.rpython.extfunc import _callable
 
 # EventTarget is the base class for Nodes and Window
 class EventTarget(BasicExternal):
@@ -333,7 +332,7 @@ def some_fun():
 
 def setTimeout(func, delay):
     pass
-register_external(setTimeout, args=[_callable([]), int], result=None)
+register_external(setTimeout, args=[genericcallable([]), int], result=None)
 
 window = Window()
 document = window.document
@@ -343,31 +342,31 @@ Document._render_name = 'document'
 # rtyper stuff
 
 EventTarget._fields = {
-    'onabort' : _callable([Event]),
-    'onblur' : _callable([Event]),
-    'onchange' : _callable([Event]),
-    'onclick' : _callable([MouseEvent]),
-    'onclose' : _callable([MouseEvent]),
-    'ondblclick' : _callable([MouseEvent]),
-    'ondragdrop' : _callable([MouseEvent]),
-    'onerror' : _callable([MouseEvent]),
-    'onfocus' : _callable([Event]),
-    'onkeydown' : _callable([KeyEvent]),
-    'onkeypress' : _callable([KeyEvent]),
-    'onkeyup' : _callable([KeyEvent]),
-    'onload' : _callable([KeyEvent]),
-    'onmousedown' : _callable([MouseEvent]),
-    'onmousemove' : _callable([MouseEvent]),
-    'onmouseup' : _callable([MouseEvent]),
-    'onmouseover' : _callable([MouseEvent]),
-    'onresize' : _callable([Event]),
-    'onscroll' : _callable([MouseEvent]),
-    'onselect' : _callable([MouseEvent]),
-    'onsubmit' : _callable([MouseEvent]),
-    'onunload' : _callable([Event]),
+    'onabort' : genericcallable([Event]),
+    'onblur' : genericcallable([Event]),
+    'onchange' : genericcallable([Event]),
+    'onclick' : genericcallable([MouseEvent]),
+    'onclose' : genericcallable([MouseEvent]),
+    'ondblclick' : genericcallable([MouseEvent]),
+    'ondragdrop' : genericcallable([MouseEvent]),
+    'onerror' : genericcallable([MouseEvent]),
+    'onfocus' : genericcallable([Event]),
+    'onkeydown' : genericcallable([KeyEvent]),
+    'onkeypress' : genericcallable([KeyEvent]),
+    'onkeyup' : genericcallable([KeyEvent]),
+    'onload' : genericcallable([KeyEvent]),
+    'onmousedown' : genericcallable([MouseEvent]),
+    'onmousemove' : genericcallable([MouseEvent]),
+    'onmouseup' : genericcallable([MouseEvent]),
+    'onmouseover' : genericcallable([MouseEvent]),
+    'onresize' : genericcallable([Event]),
+    'onscroll' : genericcallable([MouseEvent]),
+    'onselect' : genericcallable([MouseEvent]),
+    'onsubmit' : genericcallable([MouseEvent]),
+    'onunload' : genericcallable([Event]),
 }
 
-lambda_returning_true = _callable([Event])
+lambda_returning_true = genericcallable([Event])
 
 EventTarget._methods = {
     'addEventListener' : MethodDesc([str, lambda_returning_true, bool]),

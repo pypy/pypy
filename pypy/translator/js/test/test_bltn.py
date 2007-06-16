@@ -5,7 +5,7 @@ import py
 
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
-from pypy.rpython.extfunc import _callable
+from pypy.rpython.extfunc import genericcallable
 from pypy.translator.js import commproxy
 
 # check rendering dom.document
@@ -28,7 +28,7 @@ class SomeProxy(BasicExternal):
     
 class SomeNode(BasicExternal):
     _fields = {
-        'some_callback' : _callable([int], int),
+        'some_callback' : genericcallable([int], int),
     }
 
 SomeProxyInstance = SomeProxy()

@@ -5,7 +5,7 @@
 from pypy.rpython.ootypesystem.bltregistry import described, load_dict_args,\
      MethodDesc
 
-from pypy.rpython.extfunc import _callable
+from pypy.rpython.extfunc import genericcallable
 
 def callback(retval=None, args={}):
     """ Variant of described decorator, which flows
@@ -21,7 +21,7 @@ def callback(retval=None, args={}):
             arg_list = load_dict_args(vars, defs, args)
         else:
             arg_list = args
-        arg_list.append(("callback", _callable(args=[retval])))
+        arg_list.append(("callback", genericcallable(args=[retval])))
         func._method = (func.__name__, MethodDesc(arg_list, retval))
         return func
 

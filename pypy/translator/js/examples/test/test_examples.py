@@ -29,7 +29,7 @@ def test_guestbook_build():
 def test_console_2_build():
     from pypy.translator.js.examples.console import console, client
     assert rpython2javascript(client, console.FUNCTION_LIST,
-                              use_pdb=False)
+                              use_pdb=True)
 
 def test_ping_play1():
     from urllib import URLopener

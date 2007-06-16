@@ -7,7 +7,6 @@ import autopath
 
 from pypy.translator.js.lib import server
 from pypy.translator.js.lib.support import callback
-from pypy.rpython.extfunc import _callable
 from pypy.rpython.ootypesystem.bltregistry import described
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.examples.console import console

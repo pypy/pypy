@@ -16,7 +16,7 @@ from pypy.translator.js.modules.dom import setTimeout, document, window
 from pypy.translator.js.modules.mochikit import connect, disconnect
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
-from pypy.rpython.extfunc import _callable
+from pypy.rpython.extfunc import genericcallable
 
 from pypy.translator.js.lib import support
 from pypy.translator.js.lib import server
@@ -102,8 +102,8 @@ class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS
     _methods = {
         'some_callback' : MethodDesc([('cmd', str),
-                                      ('callback', _callable([{str:str}]))],
-                                     {str:str})
+                          ('callback', genericcallable([{str:str}]))],
+                           {str:str})
     }
     
     _render_xmlhttp = True
