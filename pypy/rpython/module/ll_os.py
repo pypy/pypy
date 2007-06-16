@@ -121,6 +121,7 @@ os_open = rffi.llexternal('open', [rffi.CCHARP, lltype.Signed, rffi.MODE_T],
 
 def os_open_lltypeimpl(path, flags, mode):
     l_path = rffi.str2charp(path)
+    mode = lltype.cast_primitive(rffi.MODE_T, mode)
     result = os_open(l_path, flags, mode)
     lltype.free(l_path, flavor='raw')
     if result == -1:
