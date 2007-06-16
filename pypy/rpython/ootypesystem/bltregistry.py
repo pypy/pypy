@@ -212,6 +212,7 @@ class Entry_basicexternal(ExtRegistryEntry):
     
     def compute_result_annotation(self):
         if self.bookkeeper is None:
+            # XXX diverges from the cache
             return annmodel.SomeExternalBuiltin(ExternalType(self.instance))
         return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc(self.instance))
     
