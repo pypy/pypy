@@ -47,6 +47,10 @@ for _name in 'char short int long'.split():
         TYPES.append(name)
 TYPES += ['long long', 'unsigned long long', 'size_t', 'mode_t']
 
+def newline_repr(d):
+    assert isinstance(d, dict)
+    return "{\n%s\n}" % ",\n".join(["%r:%r" % (k, v) for k, v in d.items()])
+
 def get_type_sizes(filename, platform_key=machine_key(), types=TYPES,
                    compiler_exe=None):
     try:
@@ -68,7 +72,7 @@ def get_type_sizes(filename, platform_key=machine_key(), types=TYPES,
         platforms[platform_key] = value
         comment = "# this is automatically generated cache files for c types\n"
         py.path.local(filename).write(comment + 'platforms = ' +
-                                      repr(platforms) + "\n")
+                                      newline_repr(platforms) + "\n")
         return value
 
 from pypy.tool import autopath
