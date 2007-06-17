@@ -8,20 +8,6 @@ from pypy.tool.udir import udir
 import py
 import sys
 
-class AppTestCurses(object):
-    def setup_class(cls): 
-        cls.space = gettestobjspace(usemodules=['_curses'])
-
-    def test_tigetstr(self):
-        import _curses
-        _curses.setupterm()
-        assert _curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
-
-    def test_tparm(self):
-        import _curses
-        _curses.setupterm()
-        assert _curses.tparm(_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
-
 class TestCurses(object):
     """ We need to fork here, to prevent
     the setup to be done
@@ -56,6 +42,31 @@ class TestCurses(object):
         child = self.spawn(['--withmod-_curses', str(f)])
         child.expect('ok!')
 
+    def test_tigetstr(self):
+        source = py.code.Source("""
+        import _curses
+        _curses.setupterm()
+        assert _curses.tigetstr('cup') == '\x1b[%i%p1%d;%p2%dH'
+        print 'ok!'
+        """)
+        f = udir.join("test_tigetstr.py")
+        f.write(source)
+        child = self.spawn(['--withmod-_curses', str(f)])
+        child.expect('ok!')
+
+    def test_tparm(self):
+        source = py.code.Source("""
+        import _curses
+        _curses.setupterm()
+        assert _curses.tparm(_curses.tigetstr('cup'), 5, 3) == '\033[6;4H'
+        print 'ok!'
+        """)
+        f = udir.join("test_tparm.py")
+        f.write(source)
+        child = self.spawn(['--withmod-_curses', str(f)])
+        child.expect('ok!')
+        
+
 # XXX probably we need to run all the stuff here in pexpect anyway...
 
 class TestCCurses(object):
@@ -86,4 +97,3 @@ class TestCCurses(object):
 
         fn = compile(runs_tparm, [])
         fn(expected_extra_mallocs=-1)
-    
