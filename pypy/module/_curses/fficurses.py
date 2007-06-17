@@ -91,7 +91,6 @@ def tparm_llimpl(s, args):
                      l[7], l[8], l[9])
     lltype.free(ll_s, flavor='raw')
     res = rffi.charp2str(ll_res)
-    lltype.free(ll_res, flavor='raw')
     return res
 
 register_external(interp_curses._curses_tparm, [str, [int]], str,

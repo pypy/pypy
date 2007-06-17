@@ -96,4 +96,4 @@ class TestCCurses(object):
             assert res == '\033[6;4H'
 
         fn = compile(runs_tparm, [])
-        fn(expected_extra_mallocs=-1)
+        fn()
