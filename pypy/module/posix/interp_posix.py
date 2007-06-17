@@ -487,8 +487,8 @@ second form is used, set the access and modified times to the current time.
         args_w = space.unpackiterable(w_tuple)
         if len(args_w) != 2:
             raise OperationError(space.w_TypeError, space.wrap(msg))
-        actime = space.int_w(args_w[0])
-        modtime = space.int_w(args_w[1])
+        actime = space.float_w(args_w[0])
+        modtime = space.float_w(args_w[1])
         ros.utime_tuple(path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror(space, e)
