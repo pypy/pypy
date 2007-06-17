@@ -679,6 +679,9 @@ class AppTestStringObject:
         assert type(s.center(3)) is str
         assert type(s.splitlines()[0]) is str
 
+    def test_unicode_startswith(self):
+        skip("failing")
+        assert 'xxx'.startswith(u'x')
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
