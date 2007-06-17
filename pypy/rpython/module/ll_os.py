@@ -103,13 +103,14 @@ def utime_tuple_lltypeimpl(path, tp):
     # XXX does not use utimes, even when available
     l_path = rffi.str2charp(path)
     l_utimebuf = lltype.malloc(UTIMEBUFP.TO, flavor='raw')
-    l_utimebuf.c_actime, l_utimebuf.c_modtime = tp    
+    actime, modtime = tp
+    l_utimebuf.c_actime, l_utimebuf.c_modtime = int(actime), int(modtime)
     error = ros_utime(l_path, l_utimebuf)
     lltype.free(l_path, flavor='raw')
     lltype.free(l_utimebuf, flavor='raw')
     if error == -1:
         raise OSError(rffi.c_errno, "utime_tuple failed")
-register_external(ros.utime_tuple, [str, (int, int)], s_None, "ll_os.utime_tuple",
+register_external(ros.utime_tuple, [str, (float, float)], s_None, "ll_os.utime_tuple",
                   llimpl=utime_tuple_lltypeimpl)    
 
 def fake_os_open(l_path, flags, mode):
