@@ -20,7 +20,7 @@ class TestJvmInt(JvmTest, BaseTestRint):
         pass # does this make more sense in jvm
     
     def test_float_conversion_implicit(self):
-        py.test.skip("JVM backend lacks appropriate percision")
+        py.test.skip("JVM backend lacks appropriate precision")
         
     def test_neg_abs_ovf(self):
         py.test.skip("Unaware how to handle overflow")
