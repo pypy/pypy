@@ -42,7 +42,6 @@ def make_ebnf_parser():
     lexer = Lexer(regexs1 + list(regexs2), names1 + list(names2),
                   ignore=['IGNORE'])
     parser = PackratParser(rules, "file")
-    transformer
     return parser, lexer, transformer
 
 def parse_ebnf(s):
