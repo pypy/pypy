@@ -16,6 +16,9 @@ def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
     c_source = py.code.Source('''
     // includes
     %s
+    #ifdef _WIN32
+    typedef int mode_t;
+    #endif
 
     // checking code
     int main(void)
