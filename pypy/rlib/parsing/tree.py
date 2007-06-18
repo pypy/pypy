@@ -52,8 +52,13 @@ class Nonterminal(Node):
         yield '"%s" [label="%s"];' % (id(self), self.symbol)
         for child in self.children:
             yield '"%s" -> "%s";' % (id(self), id(child))
-            for line in child.dot():
-                yield line
+            if isinstance(child, Node):
+                for line in child.dot():
+                    yield line
+            else:
+                yield '"%s" [label="%s"];' % (
+                    id(child),
+                    repr(child).replace('"', '').replace("\\", "\\\\"))
 
     def visit(self, visitor):
         "NOT_RPYTHON"
@@ -86,22 +91,16 @@ def make_dispatch_function(__general_nonterminal_visit=None,
             if node.symbol not in dispatch_table:
                 if __general_nonterminal_visit:
                     return __general_nonterminal_visit(self, node)
-                elif __general_visit:
-                    return __general_visit(self, node)
-                else:
-                    raise VisitError(node)
             else:
                 return dispatch_table[node.symbol](self, node)
-        if isinstance(node, Symbol):
+        elif isinstance(node, Symbol):
             if node.symbol not in dispatch_table:
                 if __general_symbol_visit:
                     return __general_symbol_visit(self, node)
-                elif __general_visit:
-                    return __general_visit(self, node)
-                else:
-                    raise VisitError(node)
             else:
                 return dispatch_table[node.symbol](self, node)
+        if __general_visit:
+            return __general_visit(self, node)
         raise VisitError(node)
     return dispatch
 
