@@ -2,6 +2,8 @@ import py
 from pypy.translator.jvm.test.runtest import JvmTest
 from pypy.rpython.test.test_rint import BaseTestRint
 
+# ====> ../../../rpython/test/test_rint.py
+
 class TestJvmInt(JvmTest, BaseTestRint):
     def test_char_constant(self):
         def dummyfn(i):
