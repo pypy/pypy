@@ -679,9 +679,17 @@ class AppTestStringObject:
         assert type(s.center(3)) is str
         assert type(s.splitlines()[0]) is str
 
-    def test_unicode_startswith(self):
+    def test_str_unicode_interchangeable(self):
         skip("failing")
-        assert 'xxx'.startswith(u'x')
+        stuff = ['xxxxx', u'xxxxx']
+        for x in stuff:
+            for y in stuff:
+                assert x.startswith(y)
+                assert x.endswith(y)
+                assert x.count(y) == 1
+                assert x.find(y) != -1
+                assert x.index(y) == 0
+                # ... to be continued once this passes
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
