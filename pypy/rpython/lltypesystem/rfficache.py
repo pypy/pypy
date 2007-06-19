@@ -47,7 +47,7 @@ for _name in 'char short int long'.split():
     for name in (_name, 'unsigned ' + _name):
         TYPES.append(name)
 TYPES += ['long long', 'unsigned long long', 'size_t']
-if os.name == 'posix':
+if sys.platform != 'nt':
     TYPES.append('mode_t')
 
 def newline_repr(d):
