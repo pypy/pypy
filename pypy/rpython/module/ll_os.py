@@ -19,7 +19,6 @@ Low-level implementations for the external functions of the 'os' module.
 # 'suggested_primitive' flag is set to another function, if the conversion
 # and buffer preparation stuff is not useful.
 
-import sys
 import os
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
@@ -118,7 +117,7 @@ def fake_os_open(l_path, flags, mode):
     path = rffi.charp2str(l_path)
     return os.open(path, flags, mode)
 
-if sys.platform == 'nt':
+if os.name == 'nt':
     mode_t = lltype.Signed
 else:
     mode_t = rffi.MODE_T

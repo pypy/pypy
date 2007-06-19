@@ -5,7 +5,6 @@ keeps information about C type sizes on various platforms
 
 import py
 import os
-import sys
 from pypy.translator.tool.cbuild import build_executable
 from subprocess import PIPE, Popen
 from pypy.tool.udir import udir
@@ -47,7 +46,7 @@ for _name in 'char short int long'.split():
     for name in (_name, 'unsigned ' + _name):
         TYPES.append(name)
 TYPES += ['long long', 'unsigned long long', 'size_t']
-if sys.platform != 'nt':
+if os.name != 'nt':
     TYPES.append('mode_t')
 
 def newline_repr(d):
