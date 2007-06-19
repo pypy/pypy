@@ -17,6 +17,12 @@ class RegularExpression(object):
     def __pos__(self):
         return AddExpression(self, self.kleene())
 
+    def __mul__(self, i):
+        result = StringExpression("")
+        for x in range(i):
+            result += self
+        return result
+
     def __invert__(self):
         return NotExpression(self)
 

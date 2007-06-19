@@ -1,4 +1,119 @@
-from pypy.rlib.parsing.regexparse import make_runner
+import py
+from pypy.rlib.parsing.regexparse import make_runner, unescape
+from pypy.rlib.parsing import regex
+import operator
+from pypy.rlib.parsing.makepackrat import PackratParser as _PackratParser
+from pypy.rlib.parsing.deterministic import compress_char_set, DFA
+
+class RegexParser(_PackratParser):
+    r"""
+    EOF:
+        !__any__;
+
+    parse:
+        regex
+        [EOF];
+
+    regex:
+        r1 = concatenation
+        '|'
+        r2 = regex
+        return {r1 | r2}
+      | concatenation;
+
+    concatenation:
+        l = repetition+
+        return {reduce(operator.add, l, regex.StringExpression(""))};
+
+    repetition:
+        r1 = primary
+        '*'
+        return {r1.kleene()}
+      | r1 = primary
+        '+'
+        return {r1 + r1.kleene()}
+      | r1 = primary
+        '?'
+        return {regex.StringExpression("") | r1}
+      | r = primary
+        '{'
+        n = numrange
+        '}'
+        return {r * n[0] + reduce(operator.or_, [r * i for i in range(n[1] - n[0] + 1)], regex.StringExpression(""))}
+      | primary;
+
+    primary:
+        ['('] regex [')']
+      | range
+      | c = char
+        return {regex.StringExpression(c)}
+      | '.'
+        return {regex.RangeExpression(chr(0), chr(255))};
+
+    char:
+        c = QUOTEDCHAR
+        return {unescape(c)}
+      | c = CHAR
+        return {c};
+
+    QUOTEDCHAR:
+        `(\\x[0-9a-fA-F]{2})|(\\.)`;
+
+    CHAR:
+        `[^\*\+\(\)\[\]\{\}\|\.\-\?\,\^]`;
+
+    range:
+        '['
+        s = rangeinner
+        ']'
+        return {reduce(operator.or_, [regex.RangeExpression(a, chr(ord(a) + b - 1)) for a, b in compress_char_set(s)])};
+
+    rangeinner:
+        '^'
+        s = subrange
+        return {set([chr(c) for c in range(256)]) - s}
+      | subrange;
+
+    subrange:
+        l = rangeelement+
+        return {reduce(operator.or_, l)};
+
+    rangeelement:
+        c1 = char
+        '-'
+        c2 = char
+        return {set([chr(i) for i in range(ord(c1), ord(c2) + 1)])}
+      | c = char
+        return {set([c])};
+
+    numrange:
+        n1 = NUM
+        ','
+        n2 = NUM
+        return {n1, n2}
+      | n1 = NUM
+        return {n1, n1};
+
+    NUM:
+        c = `0|([1-9][0-9]*)`
+        return {int(c)};
+    """
+
+
+
+def make_runner(regex, view=False):
+    p = RegexParser(regex)
+    r = p.parse()
+    nfa = r.make_automaton()
+    dfa = nfa.make_deterministic()
+    if view:
+        dfa.view()
+    dfa.optimize()
+    if view:
+        dfa.view()
+    r = dfa.get_runner()
+    return r
+
 
 def test_simple():
     r = make_runner("a*")
