@@ -25,7 +25,7 @@ class TestJvmFloat(JvmTest, BaseTestRfloat):
         py.test.skip("JVM backend unknown opcode float_pow")
         
     def test_float_constant_conversions(self):
-        py.test.skip("JVM backend lacks appropriate percision")
+        py.test.skip("JVM backend lacks appropriate percision; 42.000000614400001 == 42.0")
         
     def test_from_r_uint(self):
         py.test.skip("JVM backend lacks appropriate percision")

@@ -34,6 +34,18 @@ def _check_zer(op):
 def _check_ovf(op):
     # TODO
     return op
+    
+def _check_unary_ovf(op):
+    # TODO  We should just use rlib's overflow dtection
+    # Assume LLONG_MIN = (- LLONG_MAX-1)
+#    if op.operand == LLONG_MIN:
+#        return [TranslateException(
+#            jvmtype.jArithmeticException,
+#            'throwOverflowError',
+#            _proc(op))]
+#    else:
+#        return op
+    return op
 
 # This table maps the opcodes to micro-ops for processing them.
 # It is post-processed by _proc.
