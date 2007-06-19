@@ -24,13 +24,17 @@ class GraphPage(object):
 
     def display(self):
         "Display a graph page."
-        import graphclient
-        graphclient.display_page(self)
+        import graphclient, msgstruct
+        try:
+            graphclient.display_page(self)
+        except msgstruct.RemoteError, e:
+            import sys
+            print >> sys.stderr, "Exception in the graph viewer:", str(e)
 
     def display_background(self):
         "Display a graph page in a background thread."
-        import graphclient, thread
-        thread.start_new_thread(graphclient.display_page, (self,))
+        import thread
+        thread.start_new_thread(self.display, ())
 
 
 class DotFileGraphPage(GraphPage):
