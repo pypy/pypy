@@ -5,6 +5,7 @@ keeps information about C type sizes on various platforms
 
 import py
 import os
+import sys
 from pypy.translator.tool.cbuild import build_executable
 from subprocess import PIPE, Popen
 from pypy.tool.udir import udir
@@ -16,9 +17,6 @@ def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
     c_source = py.code.Source('''
     // includes
     %s
-    #ifdef _WIN32
-    typedef int mode_t;
-    #endif
 
     // checking code
     int main(void)
@@ -48,7 +46,9 @@ TYPES = []
 for _name in 'char short int long'.split():
     for name in (_name, 'unsigned ' + _name):
         TYPES.append(name)
-TYPES += ['long long', 'unsigned long long', 'size_t', 'mode_t']
+TYPES += ['long long', 'unsigned long long', 'size_t']
+if os.name == 'posix':
+    TYPES.append('mode_t')
 
 def newline_repr(d):
     assert isinstance(d, dict)
