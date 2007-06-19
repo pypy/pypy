@@ -6,16 +6,41 @@ import os, sys, re, thread
 import msgstruct
 
 re_nonword = re.compile(r'([^0-9a-zA-Z_.]+)')
+re_plain   = re.compile(r'graph [-0-9.]+ [-0-9.]+ [-0-9.]+$', re.MULTILINE)
+re_digraph = re.compile(r'\b(graph|digraph)\b', re.IGNORECASE)
 
+def guess_type(content):
+    # try to see whether it is a directed graph or not,
+    # or already a .plain file
+    # XXX not a perfect heursitic
+    if re_plain.match(content):
+        return 'plain'     # already a .plain file
+    # look for the word 'graph' or 'digraph' followed by a '{'.
+    bracepos = None
+    lastfound = ''
+    for match in re_digraph.finditer(content):
+        position = match.start()
+        if bracepos is None:
+            bracepos = content.find('{', position)
+            if bracepos < 0:
+                break
+        elif position > bracepos:
+            break
+        lastfound = match.group()
+    if lastfound.lower() == 'digraph':
+        return 'dot'
+    if lastfound.lower() == 'graph':
+        return 'neato'
+    print >> sys.stderr, "Warning: could not guess file type, using 'dot'"
+    return 'unknown'
 
-def dot2plain(content, use_codespeak=False):
-    if content.startswith('graph '):
+def dot2plain(content, contenttype, use_codespeak=False):
+    if contenttype == 'plain':
         # already a .plain file
         return content
 
     if not use_codespeak:
-        # try to see whether it is a directed graph or not:
-        if "digraph" in content:
+        if contenttype != 'neato':
             cmdline = 'dot -Tplain'
         else:
             cmdline = 'neato -Tplain'
@@ -112,10 +137,11 @@ def parse_plain(graph_id, plaincontent, links={}, fixedfont=False):
     yield (msgstruct.CMSG_STOP_GRAPH,)
 
 def parse_dot(graph_id, content, links={}, fixedfont=False):
+    contenttype = guess_type(content)
     try:
-        plaincontent = dot2plain(content, use_codespeak=False)
+        plaincontent = dot2plain(content, contenttype, use_codespeak=False)
         return list(parse_plain(graph_id, plaincontent, links, fixedfont))
     except PlainParseError:
         # failed, retry via codespeak
-        plaincontent = dot2plain(content, use_codespeak=True)
+        plaincontent = dot2plain(content, contenttype, use_codespeak=True)
         return list(parse_plain(graph_id, plaincontent, links, fixedfont))
