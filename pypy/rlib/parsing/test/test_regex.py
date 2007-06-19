@@ -137,6 +137,17 @@ def test_range():
     assert fn("a")
     assert fn("aaaaaAAAAaAAzAzaslwer")
 
+def test_not():
+    r = NotExpression(StringExpression("a"))
+    nda = r.make_automaton()
+    fda = nda.make_deterministic()
+    fda.view()
+    r = fda.get_runner()
+    assert not r.recognize("a")
+    assert r.recognize("b")
+    assert r.recognize("bbbbbbbb")
+    assert r.recognize("arstiow2ie34nvarstbbbbbbbb")
+
 def test_empty():
     a = StringExpression("a")
     empty = StringExpression("")

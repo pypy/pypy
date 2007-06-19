@@ -1,3 +1,4 @@
+import string
 from pypy.rlib.parsing.deterministic import NFA
 
 class RegularExpression(object):
@@ -15,6 +16,9 @@ class RegularExpression(object):
 
     def __pos__(self):
         return AddExpression(self, self.kleene())
+
+    def __invert__(self):
+        return NotExpression(self)
 
     def kleene(self):
         return KleeneClosure(self)
@@ -153,6 +157,26 @@ class OrExpression(RegularExpression):
     def __repr__(self):
         return "OrExpression(%r, %r)" % (self.rega, self.regb)
 
+class NotExpression(RegularExpression):
+    def __init__(self, reg):
+        self.reg = reg
+
+    def make_automaton(self):
+        nfa = self.reg.make_automaton()
+        # add error state
+        error = nfa.add_state("error")
+        for state in range(nfa.num_states):
+            occurring = set(nfa.transitions.get(state, {}).keys())
+            toerror = set([chr(i) for i in range(256)]) - occurring
+            for input in toerror:
+                nfa.add_transition(state, error, input)
+        nfa.final_states = set(range(nfa.num_states)) - nfa.final_states
+        return nfa
+
+    def __invert__(self):
+        return self.reg
+
+
 class LexingOrExpression(RegularExpression):
     def __init__(self, regs, names):
         self.regs = regs
@@ -188,3 +212,5 @@ class LexingOrExpression(RegularExpression):
 
     def __repr__(self):
         return "LexingOrExpression(%r, %r)" % (self.regs, self.names)
+
+
