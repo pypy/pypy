@@ -46,7 +46,7 @@ def test_string():
     def f():
         s = str2charp("xxx")
         res = z(s)
-        lltype.free(s, flavor='raw')
+        free_charp(s)
         return res
 
     xf = compile(f, [], backendopt=False)
@@ -73,7 +73,7 @@ def test_string_reverse():
         l_res = z(s)
         res = charp2str(l_res)
         lltype.free(l_res, flavor='raw')
-        lltype.free(s, flavor='raw')
+        free_charp(s)
         return len(res)
 
     xf = compile(f, [], backendopt=False)

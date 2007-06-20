@@ -51,7 +51,7 @@ def curses_setupterm_llimpl(term, fd):
     try:
         curses_setupterm(ll_s, fd)
     finally:
-        lltype.free(ll_s, flavor='raw')
+        rffi.free_charp(ll_s)
 
 register_external(interp_curses._curses_setupterm_null,
                   [int], llimpl=curses_setupterm_null_llimpl,
@@ -75,7 +75,7 @@ def tigetstr_llimpl(cap):
         res = rffi.charp2str(ll_res)
         return res
     finally:
-        lltype.free(ll_cap, flavor='raw')
+        rffi.free_charp(ll_cap)
     
 register_external(interp_curses._curses_tigetstr, [str], str,
                   export_name='_curses.tigetstr', llimpl=tigetstr_llimpl)
@@ -89,7 +89,7 @@ def tparm_llimpl(s, args):
     # XXX nasty trick stolen from CPython
     ll_res = c_tparm(ll_s, l[0], l[1], l[2], l[3], l[4], l[5], l[6],
                      l[7], l[8], l[9])
-    lltype.free(ll_s, flavor='raw')
+    rffi.free_charp(ll_s)
     res = rffi.charp2str(ll_res)
     return res
 

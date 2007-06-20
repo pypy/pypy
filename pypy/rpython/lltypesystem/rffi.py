@@ -74,6 +74,9 @@ def str2charp(s):
     array[len(s)] = '\x00'
     return array
 
+def free_charp(cp):
+    lltype.free(cp, flavor='raw')
+
 # char* -> str
 # doesn't free char*
 def charp2str(cp):
@@ -99,9 +102,8 @@ def liststr2charpp(l):
 def free_charpp(ref):
     """ frees list of char**, NULL terminated
     """
-    next = ref
     i = 0
-    while next[i]:
-        lltype.free(next[i], flavor='raw')
+    while ref[i]:
+        free_charp(ref[i])
         i += 1
     lltype.free(ref, flavor='raw')

@@ -46,7 +46,7 @@ if hasattr(os, 'execv'):
         l_args = rffi.liststr2charpp(args)
         os_execv(l_path, l_args)
         rffi.free_charpp(l_args)
-        lltype.free(l_path, flavor='raw')
+        rffi.free_charp(l_path)
         raise OSError(rffi.c_errno, "execv failed")
 
     register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
@@ -92,7 +92,7 @@ ros_utime = rffi.llexternal('utime', [rffi.CCHARP, UTIMEBUFP], lltype.Signed,
 def utime_null_lltypeimpl(path):
     l_path = rffi.str2charp(path)
     error = ros_utime(l_path, lltype.nullptr(UTIMEBUFP.TO))
-    lltype.free(l_path, flavor='raw')
+    rffi.free_charp(l_path)
     if error == -1:
         raise OSError(rffi.c_errno, "utime_null failed")
 register_external(ros.utime_null, [str], s_None, "ll_os.utime_null",
@@ -106,7 +106,7 @@ def utime_tuple_lltypeimpl(path, tp):
     actime, modtime = tp
     l_utimebuf.c_actime, l_utimebuf.c_modtime = int(actime), int(modtime)
     error = ros_utime(l_path, l_utimebuf)
-    lltype.free(l_path, flavor='raw')
+    rffi.free_charp(l_path)
     lltype.free(l_utimebuf, flavor='raw')
     if error == -1:
         raise OSError(rffi.c_errno, "utime_tuple failed")
@@ -129,7 +129,7 @@ def os_open_lltypeimpl(path, flags, mode):
     l_path = rffi.str2charp(path)
     mode = lltype.cast_primitive(mode_t, mode)
     result = os_open(l_path, flags, mode)
-    lltype.free(l_path, flavor='raw')
+    rffi.free_charp(l_path)
     if result == -1:
         raise OSError(rffi.c_errno, "os_open failed")
     return result
