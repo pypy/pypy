@@ -1,7 +1,6 @@
 import py
 import sys
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
-from pypy.rlib.parsing.regexparse import parse_regex
 
 class BacktrackException(Exception):
     def __init__(self, error=None):
