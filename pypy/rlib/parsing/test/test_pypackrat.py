@@ -334,3 +334,23 @@ class TestPackrat(object):
         assert p._pos == 2
         assert res == "c"
 
+    def test_if(self):
+        class parser(PackratParser):
+            """
+            INT:
+                c = `[1-9][0-9]*`
+                return {int(c)};
+            b:
+                do
+                    c = INT
+                if {c > 42};
+            """
+        print parser._code
+        p = parser("54")
+        res = p.b()
+        assert res == 54
+        p = parser("12")
+        excinfo = py.test.raises(BacktrackException, p.b)
+        assert excinfo.value.error.pos == 0
+        assert excinfo.value.error.expected == ['condition not met']
+

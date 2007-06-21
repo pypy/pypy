@@ -53,7 +53,7 @@ newline:
     
 
 REGEX:
-     r = `\`[^\\\`]*(\\.[^\\\`]*)*\``
+    r = `\`[^\\\`]*(\\.[^\\\`]*)*\``
     return {Symbol('REGEX', r, None)};
 
 QUOTE:
@@ -105,10 +105,10 @@ command:
 
 simplecommand:
     return_
+  | if_
   | named_command
   | repetition
-  | negation
-  | enclosed;
+  | negation;
 
 return_:
     'return'
@@ -116,6 +116,16 @@ return_:
     code = PYTHONCODE
     IGNORE*
     return {Nonterminal('return', [code])};
+
+if_:
+    'do'
+    newline
+    cmd = command
+    SPACE*
+    'if'
+    SPACE*
+    condition = PYTHONCODE
+    return {Nonterminal('if', [cmd, condition])};
 
 commandchain:
     result = simplecommand+
@@ -473,6 +483,14 @@ class ParserBuilder(RPythonVisitor):
 
     def visit_return(self, t):
         self.emit("_result = (%s)" % (t.children[0].additional_info[1:-1], ))
+
+    def visit_if(self, t):
+        self.dispatch(t.children[0])
+        for _ in self.start_block("if not (%s):" % (
+            t.children[1].additional_info[1:-1], )):
+            self.emit("raise self._BacktrackException(")
+            self.emit("    self._ErrorInformation(")
+            self.emit("         _startingpos, ['condition not met']))")
 
     def visit_call(self, t):
         if t.children[0].startswith("_"):
