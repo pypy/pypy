@@ -51,7 +51,7 @@ if os.name != 'nt':
 
 def newline_repr(d):
     assert isinstance(d, dict)
-    return "{\n%s\n}" % ",\n".join(["%r:%r" % (k, v) for k, v in d.items()])
+    return "{\n%s,\n}" % ",\n".join(["%r:%r" % (k, v) for k, v in d.items()])
 
 def get_type_sizes(filename, platform_key=machine_key(), types=TYPES,
                    compiler_exe=None):
