@@ -101,7 +101,8 @@ def main():
 
     ref_rich, ref_stone = None, None
 
-    for exe in '/usr/local/bin/python2.5 python2.4 python2.3'.split():
+#    for exe in '/usr/local/bin/python2.5 python2.4 python2.3'.split():
+    for exe in 'python2.4 python2.3'.split():
         v = os.popen(exe + ' -c "import sys;print sys.version.split()[0]"').read().strip()
         if not v:
             continue
@@ -131,7 +132,7 @@ def main():
         f = '../microbench/archive/%s.txt' % exe
         if not os.path.exists(f) or os.stat(f).st_size < 100:
             os.chdir('../microbench')
-            run_cmd('./microbench.py python "../goal/%s" > "archive/%s.txt"' % (exe, exe))
+            run_cmd('python2.4 ./microbench.py python2.4 "../goal/%s" > "archive/%s.txt"' % (exe, exe))
             os.chdir('../goal')
             
         r = exe + '_richards'
