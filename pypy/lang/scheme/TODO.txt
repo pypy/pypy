@@ -1,0 +1,27 @@
+Do now
+------
+
+- evaluate simple expressions like
+  (* 6 7) or even (+ 1 2 3 4)
+  - convert nodes from AST tree into W_xxx - tree.dispatch()
+  - evaluate the tree
+    W_xxx object like W_Fixnum should eval to itself despite context
+  - implement basic operations like * / and so on
+
+Do next
+-------
+
+- symbols, variables and execution context
+- control structures
+- functions
+
+Do in some future
+-----------------
+
+Here starts the real fun!
+
+- delayed evaluation
+- macros
+- proper tail-recursion
+- continuations
+

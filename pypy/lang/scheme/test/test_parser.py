@@ -4,7 +4,7 @@ from pypy.rlib.parsing.parsing import Symbol, Nonterminal
 def test_simple_sexpr():
     #parse simple sexpr
     t = parse(r'''(+ 1 2)''')
-    assert isinstance(t, Nonterminal) 
+    assert isinstance(t, Nonterminal)
     assert len(t.children) == 3
 
 def test_string():

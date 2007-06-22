@@ -1,5 +1,21 @@
 import autopath
 
+class ExecutionContext(object):
+    """Execution context implemented as a dict.
+
+    { "IDENTIFIER": W_Root }
+    """
+    def __init__(self, scope):
+        assert scope is not None
+        self.scope = scope
+
+    def __get__(self, name):
+        # shouldn't neme be instance of sth like W_Identifier
+        return self.scope.get(name, None)
+
+    def __put__(self, name, obj):
+        self.scope[name] = obj
+
 class W_Root(object):
     def to_string(self):
         return ''
@@ -12,6 +28,16 @@ class W_Root(object):
 
     def __repr__(self):
         return "<W_Root " + self.to_string + " >"
+
+class W_Symbol(W_Root):
+    def __init__(self, val):
+        self.name = val
+
+    def to_string(self):
+        return self.name
+
+    def __repr__(self):
+        return "<W_Symbol " + self.name + ">"
 
 class W_Boolean(W_Root):
     def __init__(self, val):
