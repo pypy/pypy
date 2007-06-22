@@ -27,7 +27,7 @@ class W_Root(object):
         return self.to_string() + "W"
 
     def __repr__(self):
-        return "<W_Root " + self.to_string + " >"
+        return "<W_Root " + self.to_string() + " >"
 
 class W_Symbol(W_Root):
     def __init__(self, val):

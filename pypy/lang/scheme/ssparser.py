@@ -1,29 +1,60 @@
 import autopath
-from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
-from pypy.rlib.parsing.parsing import ParseError
+from pypy.rlib.parsing.pypackrat import PackratParser
+from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
+from pypy.lang.scheme.object import W_Nil
 
 DEBUG = False
 
-grammar = r'''
-STRING: "\"([^\\\"]|\\\"|\\\\)*\"";
-IDENTIFIER: "[\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]+";
-IGNORE: " |\n|\t|;[^\n]*";
-sexpr: ["("] sexpr* [")"] | <IDENTIFIER> | <STRING>;
-'''
+class SchemeParser(PackratParser):
+    r'''
+    STRING:
+        c = `\"([^\\\"]|\\\"|\\\\)*\"`
+        IGNORE*
+        return {W_String(c)};
 
-try:
-    regexs, rules, ToAST = parse_ebnf(grammar)
-except ParseError, e:
-    #print e.nice_error_message()
-    raise
+    IDENTIFIER:
+        c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
+        IGNORE*
+        return {W_Symbol(c)};
 
-parsef = make_parse_function(regexs, rules, eof=True)
+    FIXNUM:
+        c = `0|([1-9][0-9]*)`
+        IGNORE*
+        return {W_Fixnum(int(c))};
+
+    IGNORE:
+        ` |\n|\t|;[^\n]*`;
+    
+    EOF:
+        !__any__;
+    
+    file:
+        IGNORE*
+        s = sexpr
+        EOF
+        return {s};
+    
+    sexpr:
+        list
+      | FIXNUM
+      | IDENTIFIER
+      | STRING;
+
+    list:
+        '('
+        IGNORE*
+        p = pair
+        ')'
+        IGNORE*
+        return {p};
+
+    pair:
+        car = sexpr
+        cdr = pair
+        return {W_Pair(car, cdr)}
+      | return {W_Nil()};
+    '''
 
 def parse(code):
-    t = parsef(code)
-    #tree = t.visit(ToAST())[0]
-    tree = ToAST().transform(t)
-    if DEBUG:
-        tree.view()
-    return tree
-
+    p = SchemeParser(code)
+    return p.file()
