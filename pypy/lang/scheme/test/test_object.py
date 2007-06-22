@@ -41,10 +41,9 @@ def test_pair():
     assert p.cdr.cdr.cdr == c4
 
 def test_eval_obj():
-    py.test.skip("in progress")
     w_num = W_Pair(W_Symbol("+"),
                    W_Pair(W_Fixnum(4), W_Pair(W_Fixnum(5), W_Nil())))
-    assert w_num.eval(None).to_number() == 20 
+    assert w_num.eval(None).to_number() == 9 
 
 def test_operations_simple():
     w_num1 = W_Fixnum(4)

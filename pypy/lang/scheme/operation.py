@@ -21,4 +21,3 @@ def add(ctx, args_lst):
     else:
         return W_Float(acc)
 
-

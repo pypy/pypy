@@ -27,7 +27,10 @@ class W_Root(object):
         return self.to_string() + "W"
 
     def __repr__(self):
-        return "<W_Root " + self.to_string() + " >"
+        return "<W_Root " + self.to_string() + ">"
+
+    def eval(self, ctx):
+        return self
 
 class W_Symbol(W_Root):
     def __init__(self, val):
@@ -38,6 +41,28 @@ class W_Symbol(W_Root):
 
     def __repr__(self):
         return "<W_Symbol " + self.name + ">"
+
+    def eval(self, ctx):
+        if self.name == '+':
+            return add_lst
+
+        raise NotImplementedError
+
+#not sure though any operations should exist here
+#it its very similar to operation.add
+def add_lst(ctx, lst):
+    acc = 0
+    if not isinstance(lst, W_Pair):
+        #raise argument error
+        raise
+
+    arg = lst
+    while not isinstance(arg, W_Nil):
+        acc += arg.car.eval(ctx).to_number()
+        arg = arg.cdr
+
+    return W_Fixnum(acc)
+
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -103,6 +128,10 @@ class W_Pair(W_Root):
 
     def to_string(self):
         return "(" + self.car.to_string() + " . " + self.cdr.to_string() + ")"
+
+    def eval(self, ctx):
+        oper = self.car.eval(ctx)
+        return oper(ctx, self.cdr)
 
 class W_Nil(W_Root):
     def to_string(self):
