@@ -21,9 +21,12 @@ def unwrap(w_obj):
 def test_simple():
     w_fixnum = parse(r'''1''')
     assert isinstance(w_fixnum, W_Fixnum)
+    assert unwrap(w_fixnum) == 1
     w_fixnum = parse(r'''0''')
+    assert unwrap(w_fixnum) == 0
     assert isinstance(w_fixnum, W_Fixnum)
     w_fixnum = parse(r'''1123''')
+    assert unwrap(w_fixnum) == 1123
     assert isinstance(w_fixnum, W_Fixnum)
     w_fixnum = parse(r'''abfa__''')
     assert isinstance(w_fixnum, W_Symbol)
