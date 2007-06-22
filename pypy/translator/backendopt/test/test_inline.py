@@ -638,6 +638,28 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         res = eval_func([True, 42])
         assert res == expected
 
+    def test_oosend_inherited(self):
+        py.test.skip('fixme, this prevents pypy-cli from being built')
+        class A:
+            def bar(self, x):
+                return x
+        class B(A):
+            def foo(self, x):
+                return self.bar(x)
+        class C(A):
+            pass
+        def fn(x):
+            if x:
+                b_obj = B()
+                return b_obj.foo(x)
+            else:
+                c_obj = C()
+                return c_obj.bar(x)
+        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True)
+        expected = fn(42)
+        res = eval_func([42])
+        assert res == expected
+
     def test_classattr(self):
         class A:
             attr = 666
