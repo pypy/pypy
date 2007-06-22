@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rbigint import rbigint
 
 class W_Type(W_Root):
     pass
@@ -22,6 +23,8 @@ float_dummy = make_dummy(42.0, 42.1)
 uint_dummy  = make_dummy(r_uint(42), r_uint(43))
 str_dummy   = make_dummy('foo', 'bar')
 bool_dummy  = make_dummy(True, False)
+unichars_dummy = make_dummy([u'a', u'b'], [u'c', u'd'])
+bigint_dummy = make_dummy(rbigint([0]), rbigint([1]))
 
 class FakeObjSpace(ObjSpace):
     w_None           = W_Object()
@@ -35,6 +38,7 @@ class FakeObjSpace(ObjSpace):
     w_long           = W_Object()
     w_tuple          = W_Object()
     w_str            = W_Object()
+    w_basestring     = W_Object()
     w_unicode        = W_Object()
     w_type           = W_Object()
     w_instance       = W_Object()
@@ -71,9 +75,13 @@ class FakeObjSpace(ObjSpace):
     int_w             = int_dummy
     uint_w            = uint_dummy
     float_w           = float_dummy
+    unichars_w        = unichars_dummy
+    bigint_w          = bigint_dummy
     iter              = make_dummy()
     type              = make_dummy()
     str               = make_dummy()
+    int               = make_dummy()
+    float             = make_dummy()
     repr              = make_dummy()
     id                = make_dummy()
     len               = make_dummy()
