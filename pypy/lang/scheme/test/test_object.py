@@ -37,3 +37,9 @@ def test_pair():
     assert p.cdr.car == c2
     assert p.cdr.cdr.car == c3
     assert p.cdr.cdr.cdr == c4
+
+def test_eval_obj():
+    py.test.skip("in progress")
+    w_num = W_Pair(W_Symbol("+"),
+                   W_Pair(W_Fixnum(4), W_Pair(W_Fixnum(5), W_Nil())))
+    assert w_num.to_number() == 20 
