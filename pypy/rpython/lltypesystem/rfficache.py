@@ -6,7 +6,7 @@ keeps information about C type sizes on various platforms
 import py
 import os
 from pypy.translator.tool.cbuild import build_executable
-from subprocess import PIPE, Popen
+from py.compat.subprocess import PIPE, Popen
 from pypy.tool.udir import udir
 
 def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
@@ -63,7 +63,7 @@ def get_type_sizes(filename, platform_key=machine_key(), types=TYPES,
         platforms = {}
     try:
         result = platforms[platform_key]
-        if sorted(result.keys()) != sorted(TYPES):
+        if py.builtin.sorted(result.keys()) != py.builtin.sorted(TYPES):
             # invalidate file
             platforms = {}
             raise KeyError
