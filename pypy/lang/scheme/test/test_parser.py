@@ -29,8 +29,9 @@ def test_simple():
     assert isinstance(w_fixnum, W_Symbol)
     w_fixnum = parse(r'''+''')
     assert isinstance(w_fixnum, W_Symbol)
-    t = parse(r'''"don't beleive \"them\""''')
+    t = parse(r'''"don't believe \"them\""''')
     assert isinstance(t, W_String)
+    assert unwrap(t) == 'don\'t believe "them"'
     w_list = parse(r'''(+ 1 2)''')
     assert isinstance(w_list, W_Pair)
     assert isinstance(w_list.car, W_Symbol)
@@ -61,5 +62,4 @@ def check_ident_ch(char):
     assert isinstance(t, W_Pair)
     assert isinstance(t.car, W_Symbol)
     assert isinstance(t.cdr, W_Nil)
-
 

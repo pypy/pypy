@@ -5,12 +5,15 @@ from pypy.lang.scheme.object import W_Nil
 
 DEBUG = False
 
+def unquote(s):
+    return s.replace('\\"', '"')
+
 class SchemeParser(PackratParser):
     r'''
     STRING:
         c = `\"([^\\\"]|\\\"|\\\\)*\"`
         IGNORE*
-        return {W_String(c)};
+        return {W_String(unquote(c[1:-1]))};
 
     IDENTIFIER:
         c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
