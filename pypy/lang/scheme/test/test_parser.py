@@ -64,5 +64,6 @@ def check_ident_ch(char):
     t = parse("(" + char + ")")
     assert isinstance(t, W_Pair)
     assert isinstance(t.car, W_Symbol)
+    assert unwrap(t.car) == char
     assert isinstance(t.cdr, W_Nil)
 
