@@ -36,8 +36,13 @@ def check_ident_ch(char):
     assert isinstance(t, Nonterminal)
     assert isinstance(t.children[0], Symbol)
 
-def test_ast():
-    t = parse(r'''(define var "(+ 1 2 (sqrt 4))")''')
+def eval_expr(expr):
+    t = parse(expr)
     astb = ASTBuilder()
-    astb.dispatch(t)
-    #assert False
+    ast = astb.dispatch(t)
+    # evaluate with no context
+    return ast.eval(None)
+
+def test_eval_obj():
+    w_num = eval_expr(r'''1''')
+    assert w_num.to_number() == 1 
