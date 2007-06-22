@@ -1,4 +1,6 @@
+import py
 from pypy.lang.scheme.object import *
+from pypy.lang.scheme.operation import *
 
 def test_false():
     w_false = W_Boolean(False)
@@ -43,3 +45,26 @@ def test_eval_obj():
     w_num = W_Pair(W_Symbol("+"),
                    W_Pair(W_Fixnum(4), W_Pair(W_Fixnum(5), W_Nil())))
     assert w_num.eval(None).to_number() == 20 
+
+def test_operations_simple():
+    py.test.skip("in progress")
+    w_num1 = W_Fixnum(4)
+    w_num2 = W_Fixnum(5)
+    w_num3 = W_Float(6.1)
+
+    w_num = mul(None, [w_num1])
+    assert w_num.to_number() == w_num1.to_number()
+    w_num = mul(None, [w_num1, w_num2])
+    assert w_num.to_number() == w_num1.to_number() * w_num2.to_number()
+    w_num = mul(None, [w_num1, w_num2, w_num3])
+    assert w_num.to_number() == (w_num2.to_number() * w_num2.to_number()
+            * w_num3.to_number())
+
+    w_num = add(None, [w_num1])
+    assert w_num.to_number() == w_num1.to_number()
+    w_num = add(None, [w_num1, w_num2])
+    assert w_num.to_number() == w_num1.to_number() + w_num2.to_number()
+    w_num = add(None, [w_num1, w_num2, w_num3])
+    assert w_num.to_number() == (w_num2.to_number() + w_num2.to_number()
+            + w_num3.to_number())
+

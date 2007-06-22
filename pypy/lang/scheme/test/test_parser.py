@@ -1,3 +1,4 @@
+import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.astbuilder import ASTBuilder
 from pypy.rlib.parsing.parsing import Symbol, Nonterminal
@@ -43,6 +44,8 @@ def eval_expr(expr):
     # evaluate with no context
     return ast.eval(None)
 
-def test_eval_obj():
+def test_eval_simple():
+    py.test.skip("in progress")
     w_num = eval_expr(r'''1''')
     assert w_num.to_number() == 1 
+
