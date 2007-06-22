@@ -116,7 +116,7 @@ class GcPolicy:
     #    """ factory """
         if gcpolicy == 'boehm':
             # XXX would be nice to localise this sort of thing?
-            assert have_boehm(), 'warning: Boehm GC libary not found in /usr/lib'
+            #assert have_boehm(), 'warning: Boehm GC libary not found in /usr/lib'
             gcpolicy = BoehmGcPolicy(db)
         elif gcpolicy == 'ref':
             gcpolicy = RefcountingGcPolicy(db)
