@@ -1,6 +1,6 @@
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
-from pypy.lang.scheme.object import W_Nil
+from pypy.lang.scheme.object import W_Nil, W_Boolean
 
 def unwrap(w_obj):
     """for testing purposes: unwrap a scheme object into a python object"""
@@ -10,6 +10,8 @@ def unwrap(w_obj):
         return w_obj.strval
     elif isinstance(w_obj, W_Symbol):
         return w_obj.name
+    elif isinstance(w_obj, W_Boolean):
+        return w_obj.boolval
     elif isinstance(w_obj, W_Pair):
         result = []
         while not isinstance(w_obj, W_Nil):
@@ -67,3 +69,8 @@ def check_ident_ch(char):
     assert unwrap(t.car) == char
     assert isinstance(t.cdr, W_Nil)
 
+def test_truth_values():
+    t = parse("#f")
+    assert unwrap(t) == False
+    t = parse("#t")
+    assert unwrap(t) == True

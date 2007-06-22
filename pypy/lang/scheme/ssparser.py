@@ -1,7 +1,7 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
-from pypy.lang.scheme.object import W_Nil
+from pypy.lang.scheme.object import W_Nil, W_Boolean
 
 DEBUG = False
 
@@ -25,6 +25,11 @@ class SchemeParser(PackratParser):
         IGNORE*
         return {W_Fixnum(int(c))};
 
+    BOOLEAN:
+        c = `#(t|f)`
+        IGNORE*
+        return {W_Boolean(c[-1] == 't')};
+
     IGNORE:
         ` |\n|\t|;[^\n]*`;
     
@@ -40,6 +45,7 @@ class SchemeParser(PackratParser):
     sexpr:
         list
       | FIXNUM
+      | BOOLEAN
       | IDENTIFIER
       | STRING;
 
