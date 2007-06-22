@@ -1,4 +1,5 @@
-from pypy.lang.scheme.ssparser import *
+from pypy.lang.scheme.ssparser import parse
+from pypy.lang.scheme.astbuilder import ASTBuilder
 from pypy.rlib.parsing.parsing import Symbol, Nonterminal
 
 def test_simple_sexpr():

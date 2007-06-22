@@ -12,6 +12,7 @@ Do next
 -------
 
 - symbols, variables and execution context
+  global dict for symbols _obarray_
 - control structures
 - functions
 
