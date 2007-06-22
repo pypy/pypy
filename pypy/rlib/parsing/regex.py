@@ -1,5 +1,8 @@
+import py
 import string
 from pypy.rlib.parsing.deterministic import NFA
+
+set = py.builtin.set
 
 class RegularExpression(object):
     def __init__(self):

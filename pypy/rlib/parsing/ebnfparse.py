@@ -8,6 +8,8 @@ from pypy.rlib.parsing.deterministic import DFA
 from pypy.rlib.parsing.lexer import Lexer, DummyLexer
 from pypy.rlib.objectmodel import we_are_translated
 
+set = py.builtin.set
+
 def make_ebnf_parser():
     NONTERMINALNAME = parse_regex("([a-z]|_)[a-z0-9_]*")
     SYMBOLNAME = parse_regex("_*[A-Z]([A-Z]|_)*")

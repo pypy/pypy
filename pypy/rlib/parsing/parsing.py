@@ -187,7 +187,7 @@ class PackratParser(object):
         """NOT_RPYTHON"""
         follows = {}
         for rule in self.rules:
-            follow = set()
+            follow = py.builtin.set()
             follows[rule.nonterminal] = follow
             for expansion in rule.expansions:
                 if expansion and self.is_nonterminal(expansion[0]):

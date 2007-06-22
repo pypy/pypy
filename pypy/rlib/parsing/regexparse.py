@@ -1,7 +1,3 @@
-
-
-
-
 import py
 from pypy.rlib.parsing.parsing import PackratParser, Rule
 from pypy.rlib.parsing.tree import Nonterminal
@@ -9,6 +5,8 @@ from pypy.rlib.parsing.regex import StringExpression, RangeExpression
 from pypy.rlib.parsing.lexer import Lexer, DummyLexer
 from pypy.rlib.parsing.deterministic import compress_char_set, DFA
 import string
+
+set = py.builtin.set
 
 ESCAPES = {
     "\\a": "\a",

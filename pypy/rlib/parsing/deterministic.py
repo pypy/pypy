@@ -3,7 +3,7 @@ import py
 try:
     set
 except NameError:
-    from sets import Set as set, FrozenSet as frozenset
+    from sets import Set as set, ImmutableSet as frozenset
 
 def compress_char_set(chars):
     chars = list(chars)

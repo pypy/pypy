@@ -1,5 +1,7 @@
 from pypy.rlib.parsing.deterministic import *
 
+from sets import Set
+
 def test_DFA_simple():
     a = DFA()
     s0 = a.add_state("start")

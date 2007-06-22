@@ -4,6 +4,7 @@ from pypy.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
 from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from pypy.rlib.parsing.test.test_parse import EvaluateVisitor
 
+from sets import Set
 
 def test_simple():
     regexs, rules, transformer = parse_ebnf("""
