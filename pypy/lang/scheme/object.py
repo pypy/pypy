@@ -128,7 +128,6 @@ class W_Nil(W_Root):
 #not sure though any operations should exist here
 #it its very similar to operation.add
 #############################
-
 def add_lst(ctx, lst):
     return apply_lst(ctx, lambda x, y: x + y, lst)
 
@@ -155,8 +154,15 @@ def apply_lst(ctx, fun, lst):
     else:
         return W_Float(acc)
 
+######################################
+# dict mapping operations to callables
+# callables must have 2 arguments
+# - ctx = execution context
+# - lst = list of arguments
+#######################################
 OPERATION_MAP = \
     {
         '+': add_lst,
         '*': mul_lst,
     }
+

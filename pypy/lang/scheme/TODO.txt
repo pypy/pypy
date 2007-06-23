@@ -3,10 +3,9 @@ Do now
 
 - evaluate simple expressions like
   (* 6 7) or even (+ 1 2 3 4)
-  - convert nodes from AST tree into W_xxx - tree.dispatch()
-  - evaluate the tree
+  - parsing is done by some shiny new Carl's thingy
     W_xxx object like W_Fixnum should eval to itself despite context
-  - implement basic operations like * / and so on
+  - implement basic operations like + * / and so on
 
 Do next
 -------
