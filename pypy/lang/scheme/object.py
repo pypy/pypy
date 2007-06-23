@@ -43,25 +43,11 @@ class W_Symbol(W_Root):
         return "<W_Symbol " + self.name + ">"
 
     def eval(self, ctx):
-        if self.name == '+':
-            return add_lst
-
-        raise NotImplementedError
-
-#not sure though any operations should exist here
-#it its very similar to operation.add
-def add_lst(ctx, lst):
-    acc = 0
-    if not isinstance(lst, W_Pair):
-        #raise argument error
-        raise
-
-    arg = lst
-    while not isinstance(arg, W_Nil):
-        acc += arg.car.eval(ctx).to_number()
-        arg = arg.cdr
-
-    return W_Fixnum(acc)
+        # should be -> get form ctx dict the right method
+        try:
+            return OPERATION_MAP[self.name]
+        except KeyError:
+            raise NotImplementedError
 
 
 class W_Boolean(W_Root):
@@ -137,3 +123,40 @@ class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
+############################
+# operations
+#not sure though any operations should exist here
+#it its very similar to operation.add
+#############################
+
+def add_lst(ctx, lst):
+    return apply_lst(ctx, lambda x, y: x + y, lst)
+
+def mul_lst(ctx, lst):
+    return apply_lst(ctx, lambda x, y: x * y, lst)
+
+def apply_lst(ctx, fun, lst):
+    acc = None
+
+    if not isinstance(lst, W_Pair):
+        #raise argument error
+        raise
+
+    arg = lst
+    while not isinstance(arg, W_Nil):
+        if acc is None:
+            acc = arg.car.eval(ctx).to_number()
+        else:
+            acc = fun(acc, arg.car.eval(ctx).to_number())
+        arg = arg.cdr
+
+    if isinstance(acc, int):
+        return W_Fixnum(acc)
+    else:
+        return W_Float(acc)
+
+OPERATION_MAP = \
+    {
+        '+': add_lst,
+        '*': mul_lst,
+    }

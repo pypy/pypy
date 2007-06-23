@@ -19,7 +19,7 @@ def unwrap(w_obj):
             w_obj = w_obj.cdr
         return result
     raise NotImplementedError("don't know what to do with: %s" % (w_obj, ))
-    
+
 def test_simple():
     w_fixnum = parse(r'''1''')
     assert isinstance(w_fixnum, W_Fixnum)
@@ -55,7 +55,7 @@ def test_complex_sexpr():
     assert isinstance(t, W_Pair)
     assert unwrap(t) == ['define', ['fac', 'n'],
                             ['if', ['<', 'n', 2], 'n',
-                                   ['*', ['fac', ['-', 'n', 1]], 'n']]] 
+                                   ['*', ['fac', ['-', 'n', 1]], 'n']]]
 
 def test_ident_gen():
     ch_list = "+-*/azAZ<=>-_~!$%&:?^"
