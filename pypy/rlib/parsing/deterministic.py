@@ -267,8 +267,10 @@ def recognize(runner, i):
         state_to_chars = {}
         for (state, char), nextstate in self.transitions.iteritems():
             state_to_chars.setdefault(state, {}).setdefault(nextstate, set()).add(char)
+        state_to_chars_sorted = state_to_chars.items()
+        state_to_chars_sorted.sort()
         above = set()
-        for state, nextstates in state_to_chars.iteritems():
+        for state, nextstates in state_to_chars:
             above.add(state)
             result.append("        if state == %s:" % (state, ))
             if state in self.final_states:
