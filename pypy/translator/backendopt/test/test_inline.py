@@ -17,7 +17,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.translator.test.snippet import is_perfect_number
 from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from pypy.conftest import option
-
+from pypy.translator.backendopt import removenoops
 
 def no_missing_concretetype(node):
     if isinstance(node, Block):
@@ -87,7 +87,7 @@ class BaseTestInline:
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
-                            checkvirtual=False):
+                            checkvirtual=False, remove_same_as=False):
         t = self.translate(func, sig)
         if checkvirtual:
             check_virtual_methods()
@@ -105,6 +105,10 @@ class BaseTestInline:
             call_count_pred = lambda lbl: True
             instrument_inline_candidates(t.graphs, threshold)
 
+        if remove_same_as:
+            for graph in t.graphs:
+                removenoops.remove_same_as(graph)
+            
         auto_inlining(t, threshold, call_count_pred=call_count_pred)
 
         sanity_check(t)
@@ -639,25 +643,41 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         assert res == expected
 
     def test_oosend_inherited(self):
-        py.test.skip('fixme, this prevents pypy-cli from being built')
-        class A:
-            def bar(self, x):
-                return x
-        class B(A):
-            def foo(self, x):
-                return self.bar(x)
-        class C(A):
+        class BaseStringFormatter:
+            def __init__(self):
+                self.fmtpos = 0
+            def forward(self):
+                self.fmtpos += 1
+
+        class StringFormatter(BaseStringFormatter):
+            def __init__(self, fmt):
+                BaseStringFormatter.__init__(self)
+                self.fmt = fmt
+            def peekchr(self):
+                return self.fmt[self.fmtpos]
+            def peel_num(self):
+                while True:
+                    self.forward()
+                    c = self.peekchr()
+                    if self.fmtpos == 2: break
+                return 0
+
+        class UnicodeStringFormatter(BaseStringFormatter):
             pass
+        
         def fn(x):
             if x:
-                b_obj = B()
-                return b_obj.foo(x)
+                fmt = StringFormatter('foo')
+                return fmt.peel_num()
             else:
-                c_obj = C()
-                return c_obj.bar(x)
-        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True)
-        expected = fn(42)
-        res = eval_func([42])
+                dummy = UnicodeStringFormatter()
+                dummy.forward()
+                return 0
+
+        eval_func, t = self.check_auto_inlining(fn, [int], checkvirtual=True,
+                                                remove_same_as=True)
+        expected = fn(1)
+        res = eval_func([1])
         assert res == expected
 
     def test_classattr(self):

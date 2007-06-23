@@ -431,7 +431,6 @@ class BaseInliner(object):
         copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
         copiedexceptblock.operations += self.generate_keepalive(linkargs)
 
-      
     def do_inline(self, block, index_operation):
         splitlink = split_block_with_keepalive(block, index_operation)
         afterblock = splitlink.target
@@ -460,6 +459,23 @@ class BaseInliner(object):
                 index = afterblock.inputargs.index(arg)
                 passon_args.append(linktoinlined.args[index])
         passon_args += self.original_passon_vars
+
+        if self.op.opname == 'oosend' and not isinstance(self.op.args[1], Constant):
+            # if we try to inline a graph defined in a superclass, the
+            # type of 'self' on the graph differs from the current
+            linkv = passon_args[0]
+            inputv = copiedstartblock.inputargs[0]
+            LINK_SELF = linkv.concretetype
+            INPUT_SELF = inputv.concretetype
+            if LINK_SELF != INPUT_SELF:
+                # need to insert an upcast
+                assert ootype.isSubclass(LINK_SELF, INPUT_SELF)
+                v = Variable()
+                v.concretetype = INPUT_SELF
+                upcast = SpaceOperation('ooupcast', [linkv], v)
+                block.operations.append(upcast)
+                passon_args[0] = v
+
         #rewire blocks
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args

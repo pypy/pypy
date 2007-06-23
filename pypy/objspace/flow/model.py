@@ -663,9 +663,15 @@ def checkgraph(graph):
             for link in block.exits:
                 assert len(link.args) == len(link.target.inputargs)
                 assert link.prevblock is block
+
+                # checking for exact types is not strictly necessary
+                # for ootype, because upcasting could be implicit, but
+                # forcing them to be explicit makes the life of other
+                # parts of the toolchain much easier
                 for linkv, inputv in zip(link.args, link.target.inputargs):
                     if hasattr(linkv, 'concretetype') and hasattr(inputv, 'concretetype'):
                         assert linkv.concretetype == inputv.concretetype
+
                 exc_link = link in exc_links
                 if exc_link:
                     for v in [link.last_exception, link.last_exc_value]:
