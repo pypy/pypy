@@ -354,3 +354,34 @@ class TestPackrat(object):
         assert excinfo.value.error.pos == 0
         assert excinfo.value.error.expected == ['condition not met']
 
+    def test_parse_arguments(self):
+        class parser(PackratParser):
+            """
+            between(a, b):
+                do
+                    c = __any__
+                if {ord(a) <= ord(c) <= ord(b)}
+                return {c};
+                
+            small_big_small:
+                x = between({'a'}, {'z'})+
+                y = between({'A'}, {'Z'})+
+                z = between({'a'}, {'z'})+
+                return {"".join(x) + "".join(y) + "".join(z)};
+            """
+        p = parser('abc')
+        c = p.between('a', 'z')
+        assert c == 'a'
+        p._pos = 0
+        c = p.between('a', 'z')
+        assert c == 'a'
+        excinfo = py.test.raises(BacktrackException, p.between, 'A', 'Z')
+        assert excinfo.value.error.pos == 1
+        assert excinfo.value.error.expected == ['condition not met']
+        p = parser('aBc')
+        res = p.small_big_small()
+        assert res == 'aBc'
+        p = parser('aaaaarstawfpacawBAAAFPAcccfafp')
+        res = p.small_big_small()
+        assert res == 'aaaaarstawfpacawBAAAFPAcccfafp'
+

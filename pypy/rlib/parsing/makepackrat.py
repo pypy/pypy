@@ -79,14 +79,34 @@ list:
 production:
     name = NAME
     SPACE*
+    args = productionargs
     ':'
     IGNORE*
     what = or_
     IGNORE*
     ';'
     IGNORE*
-    return {Nonterminal('production', [name, what])};
+    return {Nonterminal('production', [name, args, what])};
 
+productionargs:
+    '('
+    IGNORE*
+    args = (
+        NAME
+        [
+            IGNORE*
+            ','
+            IGNORE*
+        ]
+    )*
+    arg = NAME
+    IGNORE*
+    ')'
+    IGNORE*
+    return {Nonterminal('productionargs', args + [arg])}
+  | return {Nonterminal('productionargs', [])};
+        
+    
 or_:
     l = (commands ['|' IGNORE*])+
     last = commands
@@ -179,9 +199,23 @@ primary:
     call | REGEX [IGNORE*] | QUOTE [IGNORE*];
 
 call:
-    x = NAME
+    x = NAME 
+    args = arguments
     IGNORE*
-    return {Nonterminal("call", [x])};
+    return {Nonterminal("call", [x, args])};
+
+arguments:
+    '('
+    IGNORE*
+    args = (
+        PYTHONCODE
+        [IGNORE* ',' IGNORE*]
+    )*
+    last = PYTHONCODE
+    ')'
+    IGNORE*
+    return {Nonterminal("args", args + [last])}
+  | return {Nonterminal("args", [])};
 """
 
 class ErrorInformation(object):
@@ -249,13 +283,17 @@ class ParserBuilder(RPythonVisitor):
         assert starterpart in block, "ended wrong block %s with %s" % (
             block, starterpart)
 
-    def memoize_header(self, name):
+    def memoize_header(self, name, args):
         statusclassname = "self._Status_%s" % (name, )
         dictname = "_dict_%s" % (name, )
         self.emit_initcode("self.%s = {}" % (dictname, ))
-        self.emit("_status = self.%s.get(self._pos, None)" % (dictname, ))
+        if args:
+            self.emit("_key = (self._pos, %s)" % (", ".join(args)))
+        else:
+            self.emit("_key = self._pos")
+        self.emit("_status = self.%s.get(_key, None)" % (dictname, ))
         for _ in self.start_block("if _status is None:"):
-            self.emit("_status = self.%s[self._pos] = %s()" % (
+            self.emit("_status = self.%s[_key] = %s()" % (
                 dictname, statusclassname))
         for _ in self.start_block("elif _status.status == _status.NORMAL:"):
             self.emit("self._pos = _status.pos")
@@ -271,7 +309,8 @@ class ParserBuilder(RPythonVisitor):
                 self.emit("return _status")
             for _ in self.start_block("else:"):
                 self.emit("raise self._BacktrackException(None)")
-        for _ in self.start_block("elif _status.status == _status.SOMESOLUTIONS:"):
+        for _ in self.start_block(
+            "elif _status.status == _status.SOMESOLUTIONS:"):
             self.emit("_status.status = _status.INPROGRESS")
         self.emit("_startingpos = self._pos")
         self.start_block("try:")
@@ -375,13 +414,17 @@ class ParserBuilder(RPythonVisitor):
             raise Exception("name %s appears twice" % (name, ))
         self.names[name] = True
         self.make_status_class(name)
-        for _ in self.start_block("def %s(self):" % (name, )):
-            self.emit("return self._%s().result" % (name, ))
-        self.start_block("def _%s(self):" % (name, ))
-        self.memoize_header(name)
+        otherargs = t.children[1].children
+        argswithself = ", ".join(["self"] + otherargs)
+        argswithoutself = ", ".join(otherargs)
+        for _ in self.start_block("def %s(%s):" % (name, argswithself)):
+            self.emit("return self._%s(%s).result" % (name, argswithoutself))
+        self.start_block("def _%s(%s):" % (name, argswithself, ))
+
+        self.memoize_header(name, otherargs)
         #self.emit("print '%s', self._pos" % (name, ))
         self.resultname = "_result"
-        self.dispatch(t.children[1])
+        self.dispatch(t.children[-1])
         self.memoize_footer(name)
         self.end_block("def")
 
@@ -493,12 +536,14 @@ class ParserBuilder(RPythonVisitor):
             self.emit("         _startingpos, ['condition not met']))")
 
     def visit_call(self, t):
+        args = ", ".join(['(%s)' % (arg.additional_info[1:-1], )
+                              for arg in t.children[1].children])
         if t.children[0].startswith("_"):
             callname = t.children[0]
-            self.emit("_result = self.%s()" % (callname, ))
+            self.emit("_result = self.%s(%s)" % (callname, args))
         else:
             callname = "_" + t.children[0]
-            self.emit("_call_status = self.%s()" % (callname, ))
+            self.emit("_call_status = self.%s(%s)" % (callname, args))
             self.emit("_result = _call_status.result")
             self.emit(
                 "_error = self._combine_errors(_call_status.error, _error)")
