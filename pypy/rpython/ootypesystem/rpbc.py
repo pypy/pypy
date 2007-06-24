@@ -149,7 +149,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
 
     def _get_method_name(self, opname, s_pbc, args_s):
         shape, index, callfamily = self._get_shape_index_callfamily(opname, s_pbc, args_s)
-        mangled = mangle(self.methodname)
+        mangled = mangle(self.methodname, self.rtyper.getconfig())
         row = self.concretetable[shape, index]
         derived_mangled = row_method_name(mangled, row.attrname)
         return derived_mangled

@@ -104,6 +104,11 @@ translation_optiondescription = OptionDescription(
                   "hintannotate", "timeshift"],
                  default=None, cmdline="--fork-before"),
 
+    # options for ootype
+    OptionDescription("ootype", "Object Oriented Typesystem options", [
+        BoolOption("mangle", "Mangle names of class members", default=True),
+    ]),
+
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
         BoolOption("inline", "Do basic inlining and malloc removal",

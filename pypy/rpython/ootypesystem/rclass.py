@@ -137,15 +137,23 @@ def ll_issubclass(meta1, meta2):
 
 # ____________________________________________________________
 
-def mangle(name):
+def mangle(name, config):
     # XXX temporary: for now it looks like a good idea to mangle names
     # systematically to trap bugs related to a confusion between mangled
     # and non-mangled names
-    return 'o' + name
+    if config.translation.ootype.mangle:
+        return 'o' + name
+    else:
+        not_allowed = ('_hash_cache_', 'meta', 'class_')
+        assert name not in not_allowed, "%s is a reserved name" % name
+        return name
 
-def unmangle(mangled):
-    assert mangled.startswith('o')
-    return mangled[1:]
+def unmangle(mangled, config):
+    if config.translation.ootype.mangle:
+        assert mangled.startswith('o')
+        return mangled[1:]
+    else:
+        return mangled
 
 class InstanceRepr(AbstractInstanceRepr):
     def __init__(self, rtyper, classdef, gcflavor='ignored'):
@@ -194,7 +202,7 @@ class InstanceRepr(AbstractInstanceRepr):
         selfattrs = self.classdef.attrs
 
         for name, attrdef in selfattrs.iteritems():
-            mangled = mangle(name)            
+            mangled = mangle(name, self.rtyper.getconfig())
             if not attrdef.readonly:
                 repr = self.rtyper.getrepr(attrdef.s_value)
                 allfields[mangled] = repr
@@ -226,7 +234,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 s_meth = self.classdef.classdesc.s_get_value(self.classdef,
                         meth_name)
                 if isinstance(s_meth, annmodel.SomePBC):
-                    mangled = mangle(meth_name)
+                    mangled = mangle(meth_name, self.rtyper.getconfig())
                     allmethods[mangled] = meth_name, s_meth
                 # else: it's the __init__ of a builtin exception
             
@@ -279,7 +287,7 @@ class InstanceRepr(AbstractInstanceRepr):
             for name, attrdef in classdef.attrs.iteritems():
                 if not attrdef.readonly:
                     continue
-                mangled = mangle(name)
+                mangled = mangle(name, self.rtyper.getconfig())
                 if mangled in allclassattributes:
                     selfdesc = self.classdef.classdesc
                     if name not in selfattrs:
@@ -297,7 +305,7 @@ class InstanceRepr(AbstractInstanceRepr):
                     # a non-method class attribute
                     if not attrdef.s_value.is_constant():
                         classattributes[mangled] = attrdef.s_value, value
-        
+
         ootype.addMethods(self.lowleveltype, methods)
         
         self.allfields = allfields
@@ -344,7 +352,7 @@ class InstanceRepr(AbstractInstanceRepr):
                     # about it
                     repr = self.rtyper.getrepr(attrdef.s_value)
                     oot = repr.lowleveltype
-                    mangled = mangle(name)
+                    mangled = mangle(name, self.rtyper.getconfig())
                     value = self.classdef.classdesc.read_attribute(name)
                     default = repr.convert_desc_or_const(value)
                     overridden_defaults[mangled] = oot, default
@@ -375,7 +383,7 @@ class InstanceRepr(AbstractInstanceRepr):
         v_inst, _ = hop.inputargs(self, ootype.Void)
         s_inst = hop.args_s[0]
         attr = hop.args_s[1].const
-        mangled = mangle(attr)
+        mangled = mangle(attr, self.rtyper.getconfig())
         v_attr = hop.inputconst(ootype.Void, mangled)
         if mangled in self.allfields:
             # regular instance attributes
@@ -409,7 +417,7 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
-        mangled = mangle(attr)
+        mangled = mangle(attr, self.rtyper.getconfig())
         self.lowleveltype._check_field(mangled)
         r_value = self.allfields[mangled]
         v_inst, _, v_newval = hop.inputargs(self, ootype.Void, r_value)
@@ -420,7 +428,7 @@ class InstanceRepr(AbstractInstanceRepr):
         # this method emulates behaviour from the corresponding
         # lltypesystem one. It is referenced in some obscure corners
         # like rtyping of OSError.
-        mangled_name = mangle(attr)
+        mangled_name = mangle(attr, self.rtyper.getconfig())
         cname = inputconst(ootype.Void, mangled_name)
         llops.genop('oosetfield', [vinst, cname, vvalue])
 
@@ -476,7 +484,7 @@ class InstanceRepr(AbstractInstanceRepr):
             elif mangled == '_hash_cache_': # hash() support
                 llattrvalue = hash(value)
             else:
-                name = unmangle(mangled)
+                name = unmangle(mangled, self.rtyper.getconfig())
                 try:
                     attrvalue = getattr(value, name)
                 except AttributeError:

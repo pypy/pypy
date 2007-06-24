@@ -1,3 +1,4 @@
+import py
 from pypy import conftest
 from pypy.rpython.ootypesystem.ootype import *
 from pypy.rpython.ootypesystem import ootype
@@ -10,8 +11,9 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.objectmodel import r_dict
 from pypy.rpython.ootypesystem import ooregistry # side effects
 
-def gengraph(f, args=[], viewBefore=False, viewAfter=False):
+def gengraph(f, args=[], viewBefore=False, viewAfter=False, mangle=True):
     t = TranslationContext()
+    t.config.translation.ootype.mangle = mangle
     t.buildannotator().build_types(f, args)
     if viewBefore or conftest.option.view:
         t.view()
@@ -268,3 +270,21 @@ def test_r_dict_bm():
         d['x'] = 42
         return d['x']
     assert interpret(oof, [], type_system='ootype') == 42
+
+def test_not_mangle_attrs():
+    class Foo:
+        def __init__(self):
+            self.x = 42
+    def fn():
+        return Foo()
+
+    graph = gengraph(fn, mangle=False)
+    FOO = graph.getreturnvar().concretetype
+    assert FOO._fields.keys() == ['x']
+
+    class Bar:
+        def __init__(self):
+            self.meta = 42
+    def fn():
+        return Bar()
+    py.test.raises(AssertionError, gengraph, fn, mangle=False)
