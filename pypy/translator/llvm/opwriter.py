@@ -320,6 +320,17 @@ class OpWriter(object):
         else:
             raise NotImplementedError
 
+    def flavored_malloc_varsize(self, opr):
+        flavor = opr.op.args[0].value
+        if flavor == "raw":
+            arg_type = opr.op.args[1].value
+            node = self.db.obj2node[arg_type]
+            self.db.gcpolicy.var_zeromalloc(self.codewriter, opr.retref,
+                                            opr.rettype, node, opr.argrefs[2],
+                                            atomic=arg_type._is_atomic())
+        else:
+            raise NotImplementedError
+
     def flavored_free(self, opr):
         flavor = opr.op.args[0].value
         if flavor == "raw":
