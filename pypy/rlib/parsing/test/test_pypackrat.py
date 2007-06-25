@@ -268,6 +268,21 @@ class TestPackrat(object):
         assert excinfo.value.error.pos == 2
         assert excinfo.value.error.expected == ['b']
 
+    def test_error_success(self):
+        class parser(PackratParser):
+            """
+            b: 
+                bstar !__any__;
+            bstar:
+                'b'*;
+            """
+        print parser._code
+        p = parser("bbc")
+        print parser._code
+        excinfo = py.test.raises(BacktrackException, p.b)
+        assert excinfo.value.error.pos == 2
+        assert excinfo.value.error.expected == ['b']
+
     def test_leftrecursion(self):
         class parser(PackratParser):
             """
