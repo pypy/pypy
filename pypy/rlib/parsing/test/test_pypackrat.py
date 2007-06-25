@@ -432,3 +432,168 @@ class TestPackrat(object):
         expected.sort()
         assert expected == ['a', 'x', 'y']
 
+    def test_prolog(self):
+        py.test.skip()
+        class PrologParser(PackratParser):
+            r"""
+            VAR:
+                `[A-Z_]([a-zA-Z0-9]|_)*|_`;
+
+            NUMBER:
+                `(0|[1-9][0-9]*)(\.[0-9]+)?`;
+
+            IGNORE:
+                `[ \\n\\t]|(/\\*[^\\*]*(\\*[^/][^\\*]*)*\\*/)|(%[^\\n]*)`;
+
+            ATOM:
+                `([a-z]([a-zA-Z0-9]|_)*)|('[^']*')|\[\]|!|\+|\-`;
+
+            EOF:
+                !__any__;
+
+            fact:
+                toplevel_op_expr ['.'];
+
+            simple:
+                VAR
+                [IGNORE*]
+              | sign = ('+' | '-')
+                IGNORE*
+                num = NUMBER
+                IGNORE*
+                return {XXX}
+              | ATOM
+                [IGNORE*]
+              | '('
+                IGNORE*
+                expr = toplevel_op_expr
+                ')'
+                IGNORE*
+                return {expr};
+              | listexpr;
+
+            listexpr:
+                '['
+                IGNORE*
+                body = listbody
+                ']'
+                return {body};
+            
+            listbody:
+                head = toplevel_op_expr            
+                '|'
+                tail = toplevel_op_expr
+                return {XXX}
+              | list = toplevel_op_expr
+                return {XXX};
+
+            toplevel_op_expr:
+                choose priority in {range(len(self.ops))}
+                expr(priority);
+
+            expr(priority):
+                if {priority < len(self.ops)}
+                choose patternindex in {range(len(self.ops[priority]))}
+                expr_pattern({priority}, {patternindex})
+              | simple;
+
+            expr_pattern(priority, patternindex):
+                choose operator in {self.ops[priority][patternindex]}
+                args = pattern({priority}, {self.pattern[patternindex]},
+                               {operator})
+                return {Term(operator, args)};
+
+            pattern(priority, pattern, operator):
+                loop({priority}, {pattern}, {operator}, {0});
+                
+            loop(priority, pattern, operator, index):
+                (
+                    if {pattern[index] == 'f'}
+                    args1 = op({operator})
+                  | if {pattern[index] == 'x'}
+                    args1 = lower({priority})
+                  | if {pattern[index] == 'y'}
+                    args1 = same({priority})
+                )
+                args2 = loop(
+            
+            op(operator):
+                __chars__({self.ops[priority].xfx[pos]})
+                return {[]}
+                
+            xfx(priority, pos):
+                expr1 = expr({priority + 1})
+                IGNORE*
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority + 1})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            xfy(priority, pos):
+                expr1 = expr({priority + 1})
+                IGNORE*
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            yfx(priority, pos):
+                expr1 = expr({priority + 1})
+                IGNORE*
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            yfy(priority, pos):
+                expr1 = expr({priority})
+                IGNORE*
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            fx(priority, pos):
+                op = __chars__({self.ops[priority].fx[pos]})
+                IGNORE*
+                ex = expr({priority + 1})
+                return {Term(op, [ex])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            fy(priority, pos):
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                ex = expr({priority})
+                return {Term(op, [ex])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            xf(priority, pos):
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority + 1})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+            yf(priority, pos):
+                ex = expr({priority + 1})
+                IGNORE*
+                op = __chars__({self.ops[priority].xfx[pos]})
+                IGNORE*
+                expr2 = expr({priority + 1})
+                return {Term(op, [expr1, expr2])}
+              | do !!__any__ if {len(self.ops[priority].xfx) < pos - 1}
+                xfx({priority}, {pos + 1});
+
+
+     """

@@ -1,11 +1,13 @@
 import py
 import sys
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
+from pypy.rlib.objectmodel import we_are_translated
 
 class BacktrackException(Exception):
     def __init__(self, error=None):
         self.error = error
-        Exception.__init__(self, error)
+        if not we_are_translated():
+            Exception.__init__(self, error)
 
 
 class TreeOptimizer(RPythonVisitor):
@@ -255,10 +257,17 @@ class Status(object):
     INPROGRESS = 2
     LEFTRECURSION = 3
     SOMESOLUTIONS = 4
+    
+    _annspecialcase_ = 'specialize:ctr_location' # polymorphic
     def __repr__(self):
         return "Status(%s, %s, %s, %s)" % (self.pos, self.result, self.error,
                                            self.status)
 
+    def __init__(self):
+        self.pos = 0
+        self.error = None
+        self.status = self.INPROGRESS
+        self.result = None
 
 class ParserBuilder(RPythonVisitor):
     def __init__(self):
@@ -274,7 +283,7 @@ class ParserBuilder(RPythonVisitor):
         return "\n".join(self.code)
 
     def make_parser(self):
-        m = {'_Status': Status,
+        m = {'Status': Status,
              'Nonterminal': Nonterminal,
              'Symbol': Symbol,}
         exec py.code.Source(self.get_code()).compile() in m
@@ -303,7 +312,6 @@ class ParserBuilder(RPythonVisitor):
             block, starterpart)
 
     def memoize_header(self, name, args):
-        statusclassname = "self._Status_%s" % (name, )
         dictname = "_dict_%s" % (name, )
         self.emit_initcode("self.%s = {}" % (dictname, ))
         if args:
@@ -312,32 +320,33 @@ class ParserBuilder(RPythonVisitor):
             self.emit("_key = self._pos")
         self.emit("_status = self.%s.get(_key, None)" % (dictname, ))
         for _ in self.start_block("if _status is None:"):
-            self.emit("_status = self.%s[_key] = %s()" % (
-                dictname, statusclassname))
-        for _ in self.start_block("elif _status.status == _status.NORMAL:"):
-            self.emit("self._pos = _status.pos")
-            self.emit("return _status")
-        for _ in self.start_block("elif _status.status == _status.ERROR:"):
-            self.emit("raise self._BacktrackException(_status.error)")
-        for _ in self.start_block(
-            "elif (_status.status == _status.INPROGRESS or\n"
-            "      _status.status == _status.LEFTRECURSION):"):
-            self.emit("_status.status = _status.LEFTRECURSION")
-            for _ in self.start_block("if _status.result is not None:"):
+            self.emit("_status = self.%s[_key] = Status()" % (
+                dictname, ))
+        for _ in self.start_block("else:"):
+            self.emit("_statusstatus = _status.status")
+            for _ in self.start_block("if _statusstatus == _status.NORMAL:"):
                 self.emit("self._pos = _status.pos")
                 self.emit("return _status")
-            for _ in self.start_block("else:"):
-                self.emit("raise self._BacktrackException(None)")
-        for _ in self.start_block(
-            "elif _status.status == _status.SOMESOLUTIONS:"):
-            self.emit("_status.status = _status.INPROGRESS")
+            for _ in self.start_block("elif _statusstatus == _status.ERROR:"):
+                self.emit("raise BacktrackException(_status.error)")
+            for _ in self.start_block(
+                "elif (_statusstatus == _status.INPROGRESS or\n"
+                "      _statusstatus == _status.LEFTRECURSION):"):
+                self.emit("_status.status = _status.LEFTRECURSION")
+                for _ in self.start_block("if _status.result is not None:"):
+                    self.emit("self._pos = _status.pos")
+                    self.emit("return _status")
+                for _ in self.start_block("else:"):
+                    self.emit("raise BacktrackException(None)")
+            for _ in self.start_block(
+                "elif _statusstatus == _status.SOMESOLUTIONS:"):
+                self.emit("_status.status = _status.INPROGRESS")
         self.emit("_startingpos = self._pos")
         self.start_block("try:")
         self.emit("_result = None")
         self.emit("_error = None")
 
     def memoize_footer(self, name):
-        statusclassname = "self._Status_%s" % (name, )
         dictname = "_dict_%s" % (name, )
         for _ in self.start_block("if _status.status == _status.LEFTRECURSION:"):
             for _ in self.start_block("if _status.result is not None:"):
@@ -357,13 +366,13 @@ class ParserBuilder(RPythonVisitor):
         self.emit("_status.error = _error")
         self.emit("return _status")
         self.end_block("try")
-        for _ in self.start_block("except self._BacktrackException, _exc:"):
+        for _ in self.start_block("except BacktrackException, _exc:"):
             self.emit("_status.pos = -1")
             self.emit("_status.result = None")
             self.emit("_error = self._combine_errors(_error, _exc.error)")
             self.emit("_status.error = _error")
             self.emit("_status.status = _status.ERROR")
-            self.emit("raise self._BacktrackException(_error)")
+            self.emit("raise BacktrackException(_error)")
 
     def choice_point(self, name=None):
         var = "_choice%s" % (self.namecount, )
@@ -373,16 +382,6 @@ class ParserBuilder(RPythonVisitor):
 
     def revert(self, var):
         self.emit("self._pos = %s" % (var, ))
-
-    def make_status_class(self, name):
-        classname = "_Status_%s" % (name, )
-        for _ in self.start_block("class %s(_Status):" % (classname, )):
-            for _ in self.start_block("def __init__(self):"):
-                self.emit("self.pos = 0")
-                self.emit("self.error = None")
-                self.emit("self.status = self.INPROGRESS")
-                self.emit("self.result = None")
-        return classname
 
     def visit_list(self, t):
         self.start_block("class Parser(object):")
@@ -407,7 +406,7 @@ class ParserBuilder(RPythonVisitor):
                     abs(hash(regex)), ))
                 self.start_block("if _runner.last_matched_state == -1:")
                 self.revert(c)
-                self.emit("raise self._BacktrackException")
+                self.emit("raise BacktrackException")
                 self.end_block("if")
                 self.emit("_upto = _runner.last_matched_index + 1")
                 self.emit("_result = self._inputstream[self._pos: _upto]")
@@ -432,7 +431,6 @@ class ParserBuilder(RPythonVisitor):
         if name in self.names:
             raise Exception("name %s appears twice" % (name, ))
         self.names[name] = True
-        self.make_status_class(name)
         otherargs = t.children[1].children
         argswithself = ", ".join(["self"] + otherargs)
         argswithoutself = ", ".join(otherargs)
@@ -457,11 +455,11 @@ class ParserBuilder(RPythonVisitor):
             for _ in self.start_block("try:"):
                 self.dispatch(p)
                 self.emit("break")
-            for _ in self.start_block("except self._BacktrackException, _exc:"):
+            for _ in self.start_block("except BacktrackException, _exc:"):
                 self.emit("_error = self._combine_errors(_error, _exc.error)")
                 self.revert(c)
                 if i == len(possibilities) - 1:
-                    self.emit("raise self._BacktrackException(_error)")
+                    self.emit("raise BacktrackException(_error)")
         self.dispatch(possibilities[-1])
         if len(possibilities) > 1:
             self.emit("break")
@@ -476,7 +474,7 @@ class ParserBuilder(RPythonVisitor):
         c = self.choice_point()
         for _ in self.start_block("try:"):
             self.dispatch(t.children[0])
-        for _ in self.start_block("except self._BacktrackException:"):
+        for _ in self.start_block("except BacktrackException:"):
             self.revert(c)
 
     def visit_repetition(self, t):
@@ -491,7 +489,7 @@ class ParserBuilder(RPythonVisitor):
             for _ in self.start_block("try:"):
                 self.dispatch(t.children[1])
                 self.emit("%s.append(_result)" % (name, ))
-            for _ in self.start_block("except self._BacktrackException, _exc:"):
+            for _ in self.start_block("except BacktrackException, _exc:"):
                 self.emit("_error = self._combine_errors(_error, _exc.error)")
                 self.revert(c)
                 self.emit("break")
@@ -517,7 +515,7 @@ class ParserBuilder(RPythonVisitor):
         self.emit("%s = _result" % (resultname, ))
         for _ in self.start_block("try:"):
             self.dispatch(child)
-        for _ in self.start_block("except self._BacktrackException:"):
+        for _ in self.start_block("except BacktrackException:"):
             self.revert(c)
             self.emit("_result = %s" % (resultname, ))
         for _ in self.start_block("else:"):
@@ -528,7 +526,7 @@ class ParserBuilder(RPythonVisitor):
                         c, child.additional_info[1:-1], )
             else:
                 error = "None"
-            self.emit("raise self._BacktrackException(%s)" % (error, ))
+            self.emit("raise BacktrackException(%s)" % (error, ))
 
     def visit_lookahead(self, t):
         resultname = "_stored_result%i" % (self.namecount, )
@@ -551,7 +549,7 @@ class ParserBuilder(RPythonVisitor):
             self.dispatch(t.children[0])
         for _ in self.start_block("if not (%s):" % (
             t.children[-1].additional_info[1:-1], )):
-            self.emit("raise self._BacktrackException(")
+            self.emit("raise BacktrackException(")
             self.emit("    self._ErrorInformation(")
             self.emit("         _startingpos, ['condition not met']))")
     
@@ -619,6 +617,9 @@ class MetaPackratParser(type):
                                    "__dict__ __module__").split())
         initthere = "__init__" in dct
 
+        #XXX XXX XXX
+        if 'BacktrackException' not in frame.f_globals:
+            raise Exception("must import BacktrackException")
         for key, value in pcls.__dict__.iteritems():
             if isinstance(value, type(lambda: None)):
                 value = new.function(value.func_code, frame.f_globals)
@@ -631,7 +632,6 @@ class MetaPackratParser(type):
 class PackratParser(object):
     __metaclass__ = MetaPackratParser
 
-    _Status = Status
     _ErrorInformation = ErrorInformation
     _BacktrackException = BacktrackException
 
@@ -640,12 +640,12 @@ class PackratParser(object):
         try:
             for i in range(len(chars)):
                 if self._inputstream[self._pos + i] != chars[i]:
-                    raise self._BacktrackException(
+                    raise BacktrackException(
                         self._ErrorInformation(self._pos, [chars]))
             self._pos += len(chars)
             return chars
         except IndexError:
-            raise self._BacktrackException(
+            raise BacktrackException(
                 self._ErrorInformation(self._pos, [chars]))
 
     def  __any__(self):
@@ -654,7 +654,7 @@ class PackratParser(object):
             self._pos += 1
             return result
         except IndexError:
-            raise self._BacktrackException(
+            raise BacktrackException(
                 self._ErrorInformation(self._pos, ['anything']))
 
     def _combine_errors(self, error1, error2):
@@ -686,7 +686,7 @@ def test_generate():
     code = visitor.get_code()
     content = """
 from pypy.rlib.parsing.tree import Nonterminal, Symbol
-from makepackrat import PackratParser, BacktrackException, Status as _Status
+from makepackrat import PackratParser, BacktrackException, Status
 %s
 class PyPackratSyntaxParser(PackratParser):
     def __init__(self, stream):

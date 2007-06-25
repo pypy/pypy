@@ -4,6 +4,7 @@ from pypy.rlib.parsing.lexer import *
 from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing.parsing import *
 from pypy.rlib.parsing import deterministic
+from pypy.rlib.parsing.pypackrat import BacktrackException, Status
 
 
 class TestTranslateLexer(object):
@@ -120,3 +121,39 @@ primary: "(" <additive> ")" | <DECIMAL>;
     func = t.compile_c()
     res2 = func()
     assert res1 == res2
+
+def test_translate_pypackrat():
+    from pypy.rlib.parsing.pypackrat import PackratParser
+    class parser(PackratParser):
+        """
+        expr:
+            additive;
+        additive:
+            a = additive
+            '-'
+            b = multitive
+            return {'(%s - %s)' % (a, b)}
+          | multitive;
+        multitive:
+            a = multitive
+            '*'
+            b = simple
+            return {'(%s * %s)' % (a, b)}
+          | simple;
+        simple:
+            ('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9');
+        """
+    print parser._code
+    def parse(s):
+        p = parser(s)
+        return p.expr()
+    res = parse("5-5-5")
+    assert res == '((5 - 5) - 5)'
+    t = Translation(parse)
+    t.annotate([str])
+    t.rtype()
+    t.backendopt()
+    func = t.compile_c()
+    res = func("5-5-5")
+    assert res == '((5 - 5) - 5)'
+
