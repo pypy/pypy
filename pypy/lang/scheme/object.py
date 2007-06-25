@@ -16,7 +16,7 @@ class W_Root(object):
     def eval(self, ctx):
         return self
 
-class W_Symbol(W_Root):
+class W_Identifier(W_Root):
     def __init__(self, val):
         self.name = val
 
@@ -24,7 +24,7 @@ class W_Symbol(W_Root):
         return self.name
 
     def __repr__(self):
-        return "<W_Symbol " + self.name + ">"
+        return "<W_Identifier " + self.name + ">"
 
     def eval(self, ctx):
 
@@ -37,6 +37,16 @@ class W_Symbol(W_Root):
         else:
             #reference to undefined identifier
             raise NotImplementedError
+
+class W_Symbol(W_Root):
+    def __init__(self, val):
+        self.name = val
+
+    def to_string(self):
+        return self.name
+
+    def __repr__(self):
+        return "<W_symbol " + self.name + ">"
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -164,7 +174,7 @@ class Mul(W_Procedure):
 
 def define(ctx, lst):
     w_identifier = lst.car
-    assert isinstance(w_identifier, W_Symbol)
+    assert isinstance(w_identifier, W_Identifier)
 
     w_val = lst.cdr.car.eval(ctx)
     ctx.put(w_identifier.name, w_val)

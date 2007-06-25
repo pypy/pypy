@@ -1,6 +1,6 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
-from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
+from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Identifier
 from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Float
 
 def unquote(s):
@@ -16,7 +16,7 @@ class SchemeParser(PackratParser):
     IDENTIFIER:
         c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
         IGNORE*
-        return {W_Symbol(c)};
+        return {W_Identifier(c)};
 
     FIXNUM:
         c = `\-?(0|([1-9][0-9]*))`

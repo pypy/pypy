@@ -1,6 +1,7 @@
 from pypy.lang.scheme.ssparser import parse
-from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_Float, W_String
-from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Symbol, ExecutionContext
+from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
+from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
+from pypy.lang.scheme.object import ExecutionContext
 from pypy.lang.scheme.operation import mul, add
 
 def test_operations_simple():
@@ -25,7 +26,7 @@ def test_operations_simple():
             + w_num3.to_number())
 
 def test_eval_obj():
-    w_num = W_Pair(W_Symbol("+"),
+    w_num = W_Pair(W_Identifier("+"),
                    W_Pair(W_Fixnum(4), W_Pair(W_Fixnum(5), W_Nil())))
     assert w_num.eval(None).to_number() == 9 
 

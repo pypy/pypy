@@ -44,6 +44,10 @@ def test_symbol():
     w_sym = W_Symbol("symb")
     assert w_sym.to_string() == "symb"
 
+def test_symbol():
+    w_id = W_Identifier("ident")
+    assert w_id.to_string() == "ident"
+
 def test_ctx():
     w_fnum = W_Fixnum(12)
     w_symb = W_Symbol("symb")
