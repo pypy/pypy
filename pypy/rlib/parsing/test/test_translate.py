@@ -153,6 +153,7 @@ def test_translate_pypackrat():
     t.annotate([str])
     t.rtype()
     t.backendopt()
+    t.view()
     func = t.compile_c()
     res = func("5-5-5")
     assert res == '((5 - 5) - 5)'

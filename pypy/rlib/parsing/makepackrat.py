@@ -17,7 +17,6 @@ class TreeOptimizer(RPythonVisitor):
         return self.general_nonterminal_visit(t)
 
     visit_commands = visit_or
-    visit_toplevel_or = visit_or
 
     def visit_negation(self, t):
         child = self.dispatch(t.children[0])
@@ -348,18 +347,22 @@ class ParserBuilder(RPythonVisitor):
 
     def memoize_footer(self, name):
         dictname = "_dict_%s" % (name, )
-        for _ in self.start_block("if _status.status == _status.LEFTRECURSION:"):
-            for _ in self.start_block("if _status.result is not None:"):
-                for _ in self.start_block("if _status.pos >= self._pos:"):
-                    self.emit("_status.status = _status.NORMAL")
-                    self.emit("self._pos = _status.pos")
-                    self.emit("return _status")
-            self.emit("_status.pos = self._pos")
-            self.emit("_status.status = _status.SOMESOLUTIONS")
-            self.emit("_status.result = %s" % (self.resultname, ))
-            self.emit("_status.error = _error")
-            self.emit("self._pos = _startingpos")
-            self.emit("return self._%s()" % (name, ))
+        if self.have_call:
+            for _ in self.start_block(
+                "if _status.status == _status.LEFTRECURSION:"):
+                for _ in self.start_block("if _status.result is not None:"):
+                    for _ in self.start_block("if _status.pos >= self._pos:"):
+                        self.emit("_status.status = _status.NORMAL")
+                        self.emit("self._pos = _status.pos")
+                        self.emit("return _status")
+                self.emit("_status.pos = self._pos")
+                self.emit("_status.status = _status.SOMESOLUTIONS")
+                self.emit("_status.result = %s" % (self.resultname, ))
+                self.emit("_status.error = _error")
+                self.emit("self._pos = _startingpos")
+                self.emit("return self._%s()" % (name, ))
+        else:
+            self.emit("assert _status.status != _status.LEFTRECURSION")
         self.emit("_status.status = _status.NORMAL")
         self.emit("_status.pos = self._pos")
         self.emit("_status.result = %s" % (self.resultname, ))
@@ -369,7 +372,7 @@ class ParserBuilder(RPythonVisitor):
         for _ in self.start_block("except BacktrackException, _exc:"):
             self.emit("_status.pos = -1")
             self.emit("_status.result = None")
-            self.emit("_error = self._combine_errors(_error, _exc.error)")
+            self.combine_error('_exc.error')
             self.emit("_status.error = _error")
             self.emit("_status.status = _status.ERROR")
             self.emit("raise BacktrackException(_error)")
@@ -441,11 +444,13 @@ class ParserBuilder(RPythonVisitor):
         self.memoize_header(name, otherargs)
         #self.emit("print '%s', self._pos" % (name, ))
         self.resultname = "_result"
+        self.have_call = False
+        self.created_error = False
         self.dispatch(t.children[-1])
         self.memoize_footer(name)
         self.end_block("def")
 
-    def visit_or(self, t):
+    def visit_or(self, t, first=False):
         possibilities = t.children
         if len(possibilities) > 1:
             self.start_block("while 1:")
@@ -455,7 +460,7 @@ class ParserBuilder(RPythonVisitor):
                 self.dispatch(p)
                 self.emit("break")
             for _ in self.start_block("except BacktrackException, _exc:"):
-                self.emit("_error = self._combine_errors(_error, _exc.error)")
+                self.combine_error('_exc.error')
                 self.revert(c)
                 if i == len(possibilities) - 1:
                     self.emit("raise BacktrackException(_error)")
@@ -463,7 +468,6 @@ class ParserBuilder(RPythonVisitor):
         if len(possibilities) > 1:
             self.emit("break")
             self.end_block("while")
-    visit_toplevel_or = visit_or
 
     def visit_commands(self, t):
         for elt in t.children:
@@ -489,7 +493,7 @@ class ParserBuilder(RPythonVisitor):
                 self.dispatch(t.children[1])
                 self.emit("%s.append(_result)" % (name, ))
             for _ in self.start_block("except BacktrackException, _exc:"):
-                self.emit("_error = self._combine_errors(_error, _exc.error)")
+                self.combine_error('_exc.error')
                 self.revert(c)
                 self.emit("break")
         self.emit("_result = %s" % (name, ))
@@ -559,11 +563,12 @@ class ParserBuilder(RPythonVisitor):
                 self.dispatch(t.children[2])
                 self.emit("break")
             for _ in self.start_block("except BacktrackException, _exc:"):
-                self.emit("_error = self._combine_errors(_exc.error, _error)")
+                self.combine_error('_exc.error')
         for _ in self.start_block("else:"):
             self.emit("raise BacktrackException(_error)")
 
     def visit_call(self, t):
+        self.have_call = True
         args = ", ".join(['(%s)' % (arg.additional_info[1:-1], )
                               for arg in t.children[1].children])
         if t.children[0].startswith("_"):
@@ -573,8 +578,7 @@ class ParserBuilder(RPythonVisitor):
             callname = "_" + t.children[0]
             self.emit("_call_status = self.%s(%s)" % (callname, args))
             self.emit("_result = _call_status.result")
-            self.emit(
-                "_error = self._combine_errors(_call_status.error, _error)")
+            self.combine_error('_call_status.error')
 
     def visit_REGEX(self, t):
         r = t.additional_info[1:-1].replace('\\`', '`')
@@ -598,6 +602,14 @@ class ParserBuilder(RPythonVisitor):
         matcher = automaton.make_lexing_code()
         self.matchers[r] = py.code.Source(matcher)
         return matcher
+
+    def combine_error(self, newerror):
+        if self.created_error:
+            self.emit(
+                "_error = self._combine_errors(_error, %s)" % (newerror, ))
+        else:
+            self.emit("_error = %s" % (newerror, ))
+            self.created_error = True
 
 class MetaPackratParser(type):
     def __new__(cls, name_, bases, dct):
