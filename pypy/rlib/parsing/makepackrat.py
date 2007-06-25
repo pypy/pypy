@@ -128,6 +128,7 @@ simplecommand:
   | if_
   | named_command
   | repetition
+  | choose
   | negation;
 
 return_:
@@ -152,6 +153,18 @@ if_:
     condition = PYTHONCODE
     IGNORE*
     return {Nonterminal('if', [condition])};
+
+choose:
+    'choose'
+    SPACE*
+    name = NAME
+    SPACE*
+    'in'
+    SPACE*
+    expr = PYTHONCODE
+    IGNORE*
+    cmds = commands
+    return {Nonterminal('choose', [name, expr, cmds])};
 
 commandchain:
     result = simplecommand+
@@ -541,6 +554,17 @@ class ParserBuilder(RPythonVisitor):
             self.emit("raise self._BacktrackException(")
             self.emit("    self._ErrorInformation(")
             self.emit("         _startingpos, ['condition not met']))")
+    
+    def visit_choose(self, t):
+        for _ in self.start_block("for %s in (%s):" % (
+            t.children[0], t.children[1].additional_info[1:-1], )):
+            for _ in self.start_block("try:"):
+                self.dispatch(t.children[2])
+                self.emit("break")
+            for _ in self.start_block("except BacktrackException, _exc:"):
+                self.emit("_error = self._combine_errors(_exc.error, _error)")
+        for _ in self.start_block("else:"):
+            self.emit("raise BacktrackException(_error)")
 
     def visit_call(self, t):
         args = ", ".join(['(%s)' % (arg.additional_info[1:-1], )

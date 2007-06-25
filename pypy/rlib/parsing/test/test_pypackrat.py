@@ -402,4 +402,33 @@ class TestPackrat(object):
         res = p.small_big_small()
         assert res == 'aaaaarstawfpacawBAAAFPAcccfafp'
 
+    def test_choose(self):
+        # getting more and more like Prolog, not sure that's good
+        class parser(PackratParser):
+            """
+            choice:
+                choose a in {self.possibilities}
+                __chars__({a})+
+                return {a};
+            """
+            possibilities = ['a', 'x', 'y']
+
+        p = parser('aaaaaaa')
+        c = p.choice()
+        assert c == 'a'
+        p = parser('xxxxxxxxxxxx')
+        c = p.choice()
+        assert c == 'x'
+        p = parser('y')
+        c = p.choice()
+        assert c == 'y'
+        p = parser('y')
+        c = p.choice()
+        assert c == 'y'
+        p = parser('vvvvvv')
+        excinfo = py.test.raises(BacktrackException, p.choice)
+        assert excinfo.value.error.pos == 0
+        expected = excinfo.value.error.expected
+        expected.sort()
+        assert expected == ['a', 'x', 'y']
 
