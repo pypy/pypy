@@ -66,3 +66,16 @@ def test_ctx_simple():
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 8.2
 
+def test_ctx_define():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define v1 42)")
+    assert ctx.get("v1").to_number() == 42
+    eval_expr(ctx, "(define v2 2.1)")
+    assert ctx.get("v2").to_number() == 2.1
+
+    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    assert w_num.to_number() == 45.1
+
+    eval_expr(ctx, "(define v2 3.1)")
+    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    assert w_num.to_number() == 46.1

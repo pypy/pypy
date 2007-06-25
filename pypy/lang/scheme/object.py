@@ -162,6 +162,18 @@ class Mul(W_Procedure):
     def eval(self, ctx):
         return mul_lst
 
+def define(ctx, lst):
+    w_identifier = lst.car
+    assert isinstance(w_identifier, W_Symbol)
+
+    w_val = lst.cdr.car.eval(ctx)
+    ctx.put(w_identifier.name, w_val)
+    return w_val
+
+class Define(W_Procedure):
+    def eval(self, ctx):
+        return define
+
 ######################################
 # dict mapping operations to callables
 # callables must have 2 arguments
@@ -172,6 +184,7 @@ OPERATION_MAP = \
     {
         '+': Add("+"),
         '*': Mul("*"),
+        'define': Define("define"),
     }
 
 class ExecutionContext(object):
