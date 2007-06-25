@@ -334,7 +334,7 @@ class TestPackrat(object):
         assert p._pos == 2
         assert res == "c"
 
-    def test_if(self):
+    def test_doif(self):
         class parser(PackratParser):
             """
             INT:
@@ -353,6 +353,23 @@ class TestPackrat(object):
         excinfo = py.test.raises(BacktrackException, p.b)
         assert excinfo.value.error.pos == 0
         assert excinfo.value.error.expected == ['condition not met']
+
+    def test_doif(self):
+        class parser(PackratParser):
+            """
+            b(c):
+                if {c > 42}
+                c = __chars__({str(c)})
+                return {int(c)}
+              | 'xyz';
+            """
+        print parser._code
+        p = parser("54")
+        res = p.b(54)
+        assert res == 54
+        p = parser("xyz")
+        res = p.b(21)
+        assert res == 'xyz'
 
     def test_parse_arguments(self):
         class parser(PackratParser):
@@ -384,4 +401,5 @@ class TestPackrat(object):
         p = parser('aaaaarstawfpacawBAAAFPAcccfafp')
         res = p.small_big_small()
         assert res == 'aaaaarstawfpacawBAAAFPAcccfafp'
+
 

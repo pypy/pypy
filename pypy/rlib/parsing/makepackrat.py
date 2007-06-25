@@ -145,7 +145,13 @@ if_:
     'if'
     SPACE*
     condition = PYTHONCODE
-    return {Nonterminal('if', [cmd, condition])};
+    IGNORE*
+    return {Nonterminal('if', [cmd, condition])}
+  | 'if'
+    SPACE*
+    condition = PYTHONCODE
+    IGNORE*
+    return {Nonterminal('if', [condition])};
 
 commandchain:
     result = simplecommand+
@@ -528,9 +534,10 @@ class ParserBuilder(RPythonVisitor):
         self.emit("_result = (%s)" % (t.children[0].additional_info[1:-1], ))
 
     def visit_if(self, t):
-        self.dispatch(t.children[0])
+        if len(t.children) == 2:
+            self.dispatch(t.children[0])
         for _ in self.start_block("if not (%s):" % (
-            t.children[1].additional_info[1:-1], )):
+            t.children[-1].additional_info[1:-1], )):
             self.emit("raise self._BacktrackException(")
             self.emit("    self._ErrorInformation(")
             self.emit("         _startingpos, ['condition not met']))")
