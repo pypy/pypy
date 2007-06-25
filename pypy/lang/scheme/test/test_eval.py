@@ -35,21 +35,22 @@ def eval_expr(ctx, expr):
 def eval_noctx(expr):
     return parse(expr).eval(None)
 
-def test_eval_simple():
+def test_eval_numerical():
     w_num = eval_noctx('(+ 4)')
     assert w_num.to_number() == 4
-    w_num = eval_noctx('(+ 4 5)')
-    assert w_num.to_number() == 9
-    w_num = eval_noctx('(+ 4 5 6)')
-    assert w_num.to_number() == 15
+    w_num = eval_noctx('(+ 4 -5)')
+    assert w_num.to_number() == -1
+    w_num = eval_noctx('(+ 4 -5 6.1)')
+    assert w_num.to_number() == 5.1
 
     w_num = eval_noctx('(* 4)')
     assert w_num.to_number() == 4
-    w_num = eval_noctx('(* 4 5)')
-    assert w_num.to_number() == 20
-    w_num = eval_noctx('(* 4 5 6)')
-    assert w_num.to_number() == (4 * 5 * 6)
+    w_num = eval_noctx('(* 4 -5)')
+    assert w_num.to_number() == -20
+    w_num = eval_noctx('(* 4 -5 6.1)')
+    assert w_num.to_number() == (4 * -5 * 6.1)
 
-def test_eval_nested():
+def test_eval_numerical_nested():
     w_num = eval_noctx('(+ 4 (* (+ 5) 6) (+ 1 2))')
     assert w_num.to_number() == 37
+
