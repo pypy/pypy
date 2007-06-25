@@ -449,7 +449,6 @@ class ParserBuilder(RPythonVisitor):
         possibilities = t.children
         if len(possibilities) > 1:
             self.start_block("while 1:")
-            self.emit("_error = None")
         for i, p in enumerate(possibilities):
             c = self.choice_point()
             for _ in self.start_block("try:"):
