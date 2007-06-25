@@ -43,12 +43,10 @@ class W_Symbol(W_Root):
         return "<W_Symbol " + self.name + ">"
 
     def eval(self, ctx):
-        # should be -> get form ctx dict the right method
         try:
             return OPERATION_MAP[self.name]
         except KeyError:
             raise NotImplementedError
-
 
 class W_Boolean(W_Root):
     def __init__(self, val):

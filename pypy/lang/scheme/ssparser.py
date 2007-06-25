@@ -1,9 +1,7 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
-from pypy.lang.scheme.object import W_Nil, W_Boolean
-
-DEBUG = False
+from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Float
 
 def unquote(s):
     return s.replace('\\"', '"')
@@ -21,9 +19,14 @@ class SchemeParser(PackratParser):
         return {W_Symbol(c)};
 
     FIXNUM:
-        c = `0|([1-9][0-9]*)`
+        c = `\-?(0|([1-9][0-9]*))`
         IGNORE*
-        return {W_Fixnum(int(c))};
+        return {W_Fixnum(c)};
+
+    FLOAT:
+        c = `\-?[0-9]*\.[0-9]*`
+        IGNORE*
+        return {W_Float(c)};
 
     BOOLEAN:
         c = `#(t|f)`
@@ -44,6 +47,7 @@ class SchemeParser(PackratParser):
     
     sexpr:
         list
+      | FLOAT
       | FIXNUM
       | BOOLEAN
       | IDENTIFIER

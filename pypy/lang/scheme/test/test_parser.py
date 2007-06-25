@@ -1,10 +1,13 @@
+import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Symbol
-from pypy.lang.scheme.object import W_Nil, W_Boolean
+from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Float
 
 def unwrap(w_obj):
     """for testing purposes: unwrap a scheme object into a python object"""
-    if isinstance(w_obj, W_Fixnum):
+    if isinstance(w_obj, W_Float):
+        return w_obj.to_number()
+    elif isinstance(w_obj, W_Fixnum):
         return w_obj.to_number()
     elif isinstance(w_obj, W_String):
         return w_obj.strval
@@ -21,23 +24,37 @@ def unwrap(w_obj):
     raise NotImplementedError("don't know what to do with: %s" % (w_obj, ))
 
 def test_simple():
-    w_fixnum = parse(r'''1''')
+    w_fixnum = parse('1')
     assert isinstance(w_fixnum, W_Fixnum)
     assert unwrap(w_fixnum) == 1
-    w_fixnum = parse(r'''0''')
+    w_fixnum = parse('0')
     assert unwrap(w_fixnum) == 0
     assert isinstance(w_fixnum, W_Fixnum)
-    w_fixnum = parse(r'''1123''')
+    w_fixnum = parse('1123')
     assert unwrap(w_fixnum) == 1123
     assert isinstance(w_fixnum, W_Fixnum)
-    w_fixnum = parse(r'''abfa__''')
-    assert isinstance(w_fixnum, W_Symbol)
-    w_fixnum = parse(r'''+''')
+    w_fixnum = parse('abfa__')
     assert isinstance(w_fixnum, W_Symbol)
     t = parse(r'''"don't believe \"them\""''')
     assert isinstance(t, W_String)
     assert unwrap(t) == 'don\'t believe "them"'
-    w_list = parse(r'''(+ 1 2)''')
+
+def test_objects():
+    #py.test.skip("in progress")
+
+    w_fixnum = parse('-12345')
+    assert isinstance(w_fixnum, W_Fixnum)
+    assert unwrap(w_fixnum) == -12345
+
+    w_float = parse('123456.1234')
+    assert isinstance(w_float, W_Float)
+    assert unwrap(w_float) == 123456.1234
+    w_float = parse('-123456.1234')
+    assert isinstance(w_float, W_Float)
+    assert unwrap(w_float) == -123456.1234
+
+def test_sexpr():
+    w_list = parse('(+ 1 2)')
     assert isinstance(w_list, W_Pair)
     assert isinstance(w_list.car, W_Symbol)
     assert isinstance(w_list.cdr, W_Pair)
