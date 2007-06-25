@@ -2754,6 +2754,25 @@ class TestAnnotateTestCase:
         assert isinstance(s.items[2], annmodel.SomeInstance)
         assert s.items[2].flags == {}
 
+    def test_ctr_location(self):
+        from pypy.rlib.jit import hint
+
+        class A:
+            _annspecialcase_ = 'specialize:ctr_location'
+            def __init__(self, x):
+                self.x = x
+
+        def f(n):
+            a = A(2 * n)
+            a.x = n
+            b = A("")
+            b.x = str(n)
+            return len(b.x) + a.x
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+
+
 def g(n):
     return [0,1,2,n]
 
