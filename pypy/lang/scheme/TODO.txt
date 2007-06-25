@@ -10,15 +10,18 @@ Do now
 - symbols, variables and execution context
   global dict for symbols _obarray_
 
-Do next
--------
-
 - there is need to distinct identifier from symbol
   (define var 11)
   (symbol? var) -> #f
   (symbol? 'var) -> #t
+
+Do next
+-------
+
 - control structures
 - functions
+- implement key funcions
+  (apply, reduce, mapcar and so on)
 
 Do in some future
 -----------------

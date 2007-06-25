@@ -1,21 +1,5 @@
 import autopath
 
-class ExecutionContext(object):
-    """Execution context implemented as a dict.
-
-    { "IDENTIFIER": W_Root }
-    """
-    def __init__(self, scope):
-        assert scope is not None
-        self.scope = scope
-
-    def get(self, name):
-        # shouldn't neme be instance of sth like W_Identifier
-        return self.scope.get(name, None)
-
-    def put(self, name, obj):
-        self.scope[name] = obj
-
 class W_Root(object):
     def to_string(self):
         return ''
@@ -44,14 +28,14 @@ class W_Symbol(W_Root):
 
     def eval(self, ctx):
 
-        if ctx is not None:
-            w_obj = ctx.get(self.name)
-            if w_obj is not None:
-                return w_obj.eval(ctx)
+        if ctx is None:
+            ctx = ExecutionContext()
 
-        try:
-            return OPERATION_MAP[self.name]
-        except KeyError:
+        w_obj = ctx.get(self.name)
+        if w_obj is not None:
+            return w_obj.eval(ctx)
+        else:
+            #reference to undefined identifier
             raise NotImplementedError
 
 class W_Boolean(W_Root):
@@ -117,7 +101,8 @@ class W_Pair(W_Root):
         self.cdr = cdr
 
     def to_string(self):
-        return "(" + self.car.to_string() + " . " + self.cdr.to_string() + ")"
+        return "(" + self.car.to_string() + " . " \
+                + self.cdr.to_string() + ")"
 
     def eval(self, ctx):
         oper = self.car.eval(ctx)
@@ -132,6 +117,17 @@ class W_Nil(W_Root):
 #not sure though any operations should exist here
 #it its very similar to operation.add
 #############################
+class W_Procedure(W_Root):
+
+    def __init__(self, pname=""):
+        self.pname = pname
+
+    def to_string(self):
+        return "#<procedure:%s>" % (self.pname,)
+
+    def eval(self, ctx, lst=None):
+        raise NotImplementedError
+
 def add_lst(ctx, lst):
     return apply_lst(ctx, lambda x, y: x + y, lst)
 
@@ -158,6 +154,14 @@ def apply_lst(ctx, fun, lst):
     else:
         return W_Float(acc)
 
+class Add(W_Procedure):
+    def eval(self, ctx):
+        return add_lst
+
+class Mul(W_Procedure):
+    def eval(self, ctx):
+        return mul_lst
+
 ######################################
 # dict mapping operations to callables
 # callables must have 2 arguments
@@ -166,7 +170,22 @@ def apply_lst(ctx, fun, lst):
 #######################################
 OPERATION_MAP = \
     {
-        '+': add_lst,
-        '*': mul_lst,
+        '+': Add("+"),
+        '*': Mul("*"),
     }
+
+class ExecutionContext(object):
+    """Execution context implemented as a dict.
+
+    { "IDENTIFIER": W_Root }
+    """
+    def __init__(self, scope=OPERATION_MAP):
+        assert scope is not None
+        self.scope = scope
+
+    def get(self, name):
+        return self.scope.get(name, None)
+
+    def put(self, name, obj):
+        self.scope[name] = obj
 

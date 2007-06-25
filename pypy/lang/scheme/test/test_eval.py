@@ -36,26 +36,26 @@ def eval_noctx(expr):
     return parse(expr).eval(None)
 
 def test_numerical():
-    w_num = eval_noctx('(+ 4)')
+    w_num = eval_noctx("(+ 4)")
     assert w_num.to_number() == 4
-    w_num = eval_noctx('(+ 4 -5)')
+    w_num = eval_noctx("(+ 4 -5)")
     assert w_num.to_number() == -1
-    w_num = eval_noctx('(+ 4 -5 6.1)')
+    w_num = eval_noctx("(+ 4 -5 6.1)")
     assert w_num.to_number() == 5.1
 
-    w_num = eval_noctx('(* 4)')
+    w_num = eval_noctx("(* 4)")
     assert w_num.to_number() == 4
-    w_num = eval_noctx('(* 4 -5)')
+    w_num = eval_noctx("(* 4 -5)")
     assert w_num.to_number() == -20
-    w_num = eval_noctx('(* 4 -5 6.1)')
+    w_num = eval_noctx("(* 4 -5 6.1)")
     assert w_num.to_number() == (4 * -5 * 6.1)
 
 def test_numerical_nested():
-    w_num = eval_noctx('(+ 4 (* (+ 5) 6) (+ 1 2))')
+    w_num = eval_noctx("(+ 4 (* (+ 5) 6) (+ 1 2))")
     assert w_num.to_number() == 37
 
 def test_ctx_simple():
-    ctx = ExecutionContext({})
+    ctx = ExecutionContext()
     ctx.put("v1", W_Fixnum(4))
     ctx.put("v2", W_Fixnum(5))
 
