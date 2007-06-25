@@ -354,7 +354,7 @@ class TestPackrat(object):
         assert excinfo.value.error.pos == 0
         assert excinfo.value.error.expected == ['condition not met']
 
-    def test_doif(self):
+    def test_if(self):
         class parser(PackratParser):
             """
             b(c):
