@@ -16,16 +16,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -58,16 +48,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -100,16 +80,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -142,16 +112,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -256,16 +216,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -300,16 +250,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -344,16 +284,6 @@ class Parser(object):
                 return _status
             elif _statusstatus == _status.ERROR:
                 raise BacktrackException(_status.error)
-            elif (_statusstatus == _status.INPROGRESS or
-                  _statusstatus == _status.LEFTRECURSION):
-                _status.status = _status.LEFTRECURSION
-                if _status.result is not None:
-                    self._pos = _status.pos
-                    return _status
-                else:
-                    raise BacktrackException(None)
-            elif _statusstatus == _status.SOMESOLUTIONS:
-                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -402,13 +332,13 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _choice2 = self._pos
-            _stored_result3 = _result
+            _choice0 = self._pos
+            _stored_result1 = _result
             try:
                 _result = self.__any__()
             except BacktrackException:
-                self._pos = _choice2
-                _result = _stored_result3
+                self._pos = _choice0
+                _result = _stored_result1
             else:
                 raise BacktrackException(None)
             if _status.status == _status.LEFTRECURSION:
@@ -463,27 +393,27 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _all4 = []
+            _all0 = []
             while 1:
-                _choice5 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = _call_status.error
-                    _all4.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice5
+                    self._pos = _choice1
                     break
-            _result = _all4
+            _result = _all0
             _call_status = self._list()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
-            _before_discard6 = _result
+            _before_discard2 = _result
             _call_status = self._EOF()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
-            _result = _before_discard6
+            _result = _before_discard2
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
                     if _status.pos >= self._pos:
@@ -536,23 +466,23 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _all7 = []
+            _all0 = []
             _call_status = self._production()
             _result = _call_status.result
             _error = _call_status.error
-            _all7.append(_result)
+            _all0.append(_result)
             while 1:
-                _choice8 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._production()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all7.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice8
+                    self._pos = _choice1
                     break
-            _result = _all7
+            _result = _all0
             content = _result
             _result = (Nonterminal('list', content))
             if _status.status == _status.LEFTRECURSION:
@@ -611,68 +541,68 @@ class Parser(object):
             _result = _call_status.result
             _error = _call_status.error
             name = _result
-            _all9 = []
+            _all0 = []
             while 1:
-                _choice10 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all9.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice10
+                    self._pos = _choice1
                     break
-            _result = _all9
+            _result = _all0
             _call_status = self._productionargs()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             args = _result
             _result = self.__chars__(':')
-            _all11 = []
+            _all2 = []
             while 1:
-                _choice12 = self._pos
+                _choice3 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all11.append(_result)
+                    _all2.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice12
+                    self._pos = _choice3
                     break
-            _result = _all11
+            _result = _all2
             _call_status = self._or_()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             what = _result
-            _all13 = []
+            _all4 = []
             while 1:
-                _choice14 = self._pos
+                _choice5 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all13.append(_result)
+                    _all4.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice14
+                    self._pos = _choice5
                     break
-            _result = _all13
+            _result = _all4
             _result = self.__chars__(';')
-            _all15 = []
+            _all6 = []
             while 1:
-                _choice16 = self._pos
+                _choice7 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all15.append(_result)
+                    _all6.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice16
+                    self._pos = _choice7
                     break
-            _result = _all15
+            _result = _all6
             _result = (Nonterminal('production', [name, args, what]))
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -727,108 +657,108 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice17 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('(')
-                    _all18 = []
+                    _all1 = []
                     while 1:
-                        _choice19 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = _call_status.error
-                            _all18.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice19
+                            self._pos = _choice2
                             break
-                    _result = _all18
-                    _all20 = []
+                    _result = _all1
+                    _all3 = []
                     while 1:
-                        _choice21 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._NAME()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _before_discard22 = _result
-                            _all23 = []
+                            _before_discard5 = _result
+                            _all6 = []
                             while 1:
-                                _choice24 = self._pos
+                                _choice7 = self._pos
                                 try:
                                     _call_status = self._IGNORE()
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
-                                    _all23.append(_result)
+                                    _all6.append(_result)
                                 except BacktrackException, _exc:
                                     _error = self._combine_errors(_error, _exc.error)
-                                    self._pos = _choice24
+                                    self._pos = _choice7
                                     break
-                            _result = _all23
+                            _result = _all6
                             _result = self.__chars__(',')
-                            _all25 = []
+                            _all8 = []
                             while 1:
-                                _choice26 = self._pos
+                                _choice9 = self._pos
                                 try:
                                     _call_status = self._IGNORE()
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
-                                    _all25.append(_result)
+                                    _all8.append(_result)
                                 except BacktrackException, _exc:
                                     _error = self._combine_errors(_error, _exc.error)
-                                    self._pos = _choice26
+                                    self._pos = _choice9
                                     break
-                            _result = _all25
-                            _result = _before_discard22
-                            _all20.append(_result)
+                            _result = _all8
+                            _result = _before_discard5
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice21
+                            self._pos = _choice4
                             break
-                    _result = _all20
+                    _result = _all3
                     args = _result
                     _call_status = self._NAME()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     arg = _result
-                    _all27 = []
+                    _all10 = []
                     while 1:
-                        _choice28 = self._pos
+                        _choice11 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all27.append(_result)
+                            _all10.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice28
+                            self._pos = _choice11
                             break
-                    _result = _all27
+                    _result = _all10
                     _result = self.__chars__(')')
-                    _all29 = []
+                    _all12 = []
                     while 1:
-                        _choice30 = self._pos
+                        _choice13 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all29.append(_result)
+                            _all12.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice30
+                            self._pos = _choice13
                             break
-                    _result = _all29
+                    _result = _all12
                     _result = (Nonterminal('productionargs', args + [arg]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice17
-                _choice31 = self._pos
+                    self._pos = _choice0
+                _choice14 = self._pos
                 try:
                     _result = (Nonterminal('productionargs', []))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice31
+                    self._pos = _choice14
                     raise BacktrackException(_error)
                 _result = (Nonterminal('productionargs', []))
                 break
@@ -885,57 +815,57 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice32 = self._pos
+                _choice0 = self._pos
                 try:
-                    _all33 = []
+                    _all1 = []
                     _call_status = self._commands()
                     _result = _call_status.result
                     _error = _call_status.error
-                    _before_discard34 = _result
+                    _before_discard2 = _result
                     _result = self.__chars__('|')
-                    _all35 = []
+                    _all3 = []
                     while 1:
-                        _choice36 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all35.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice36
+                            self._pos = _choice4
                             break
-                    _result = _all35
-                    _result = _before_discard34
-                    _all33.append(_result)
+                    _result = _all3
+                    _result = _before_discard2
+                    _all1.append(_result)
                     while 1:
-                        _choice37 = self._pos
+                        _choice5 = self._pos
                         try:
                             _call_status = self._commands()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _before_discard38 = _result
+                            _before_discard6 = _result
                             _result = self.__chars__('|')
-                            _all39 = []
+                            _all7 = []
                             while 1:
-                                _choice40 = self._pos
+                                _choice8 = self._pos
                                 try:
                                     _call_status = self._IGNORE()
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
-                                    _all39.append(_result)
+                                    _all7.append(_result)
                                 except BacktrackException, _exc:
                                     _error = self._combine_errors(_error, _exc.error)
-                                    self._pos = _choice40
+                                    self._pos = _choice8
                                     break
-                            _result = _all39
-                            _result = _before_discard38
-                            _all33.append(_result)
+                            _result = _all7
+                            _result = _before_discard6
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice37
+                            self._pos = _choice5
                             break
-                    _result = _all33
+                    _result = _all1
                     l = _result
                     _call_status = self._commands()
                     _result = _call_status.result
@@ -945,8 +875,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice32
-                _choice41 = self._pos
+                    self._pos = _choice0
+                _choice9 = self._pos
                 try:
                     _call_status = self._commands()
                     _result = _call_status.result
@@ -954,7 +884,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice41
+                    self._pos = _choice9
                     raise BacktrackException(_error)
                 _call_status = self._commands()
                 _result = _call_status.result
@@ -1013,7 +943,7 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice42 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._command()
                     _result = _call_status.result
@@ -1022,40 +952,40 @@ class Parser(object):
                     _call_status = self._newline()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all43 = []
+                    _all1 = []
                     _call_status = self._command()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _before_discard44 = _result
+                    _before_discard2 = _result
                     _call_status = self._newline()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _result = _before_discard44
-                    _all43.append(_result)
+                    _result = _before_discard2
+                    _all1.append(_result)
                     while 1:
-                        _choice45 = self._pos
+                        _choice3 = self._pos
                         try:
                             _call_status = self._command()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _before_discard46 = _result
+                            _before_discard4 = _result
                             _call_status = self._newline()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _result = _before_discard46
-                            _all43.append(_result)
+                            _result = _before_discard4
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice45
+                            self._pos = _choice3
                             break
-                    _result = _all43
+                    _result = _all1
                     cmds = _result
                     _result = (Nonterminal('commands', [cmd] + cmds))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice42
-                _choice47 = self._pos
+                    self._pos = _choice0
+                _choice5 = self._pos
                 try:
                     _call_status = self._command()
                     _result = _call_status.result
@@ -1063,7 +993,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice47
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._command()
                 _result = _call_status.result
@@ -1177,7 +1107,7 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice48 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._return_()
                     _result = _call_status.result
@@ -1185,8 +1115,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice48
-                _choice49 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._if_()
                     _result = _call_status.result
@@ -1194,8 +1124,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice49
-                _choice50 = self._pos
+                    self._pos = _choice1
+                _choice2 = self._pos
                 try:
                     _call_status = self._named_command()
                     _result = _call_status.result
@@ -1203,8 +1133,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice50
-                _choice51 = self._pos
+                    self._pos = _choice2
+                _choice3 = self._pos
                 try:
                     _call_status = self._repetition()
                     _result = _call_status.result
@@ -1212,8 +1142,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice51
-                _choice52 = self._pos
+                    self._pos = _choice3
+                _choice4 = self._pos
                 try:
                     _call_status = self._choose()
                     _result = _call_status.result
@@ -1221,8 +1151,8 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice52
-                _choice53 = self._pos
+                    self._pos = _choice4
+                _choice5 = self._pos
                 try:
                     _call_status = self._negation()
                     _result = _call_status.result
@@ -1230,7 +1160,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice53
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._negation()
                 _result = _call_status.result
@@ -1289,36 +1219,36 @@ class Parser(object):
             _result = None
             _error = None
             _result = self.__chars__('return')
-            _all54 = []
+            _all0 = []
             while 1:
-                _choice55 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = _call_status.error
-                    _all54.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice55
+                    self._pos = _choice1
                     break
-            _result = _all54
+            _result = _all0
             _call_status = self._PYTHONCODE()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             code = _result
-            _all56 = []
+            _all2 = []
             while 1:
-                _choice57 = self._pos
+                _choice3 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all56.append(_result)
+                    _all2.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice57
+                    self._pos = _choice3
                     break
-            _result = _all56
+            _result = _all2
             _result = (Nonterminal('return', [code]))
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -1373,7 +1303,7 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice58 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('do')
                     _call_status = self._newline()
@@ -1383,125 +1313,125 @@ class Parser(object):
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     cmd = _result
-                    _all59 = []
+                    _all1 = []
                     while 1:
-                        _choice60 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all59.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice60
+                            self._pos = _choice2
                             break
-                    _result = _all59
+                    _result = _all1
                     _result = self.__chars__('if')
-                    _all61 = []
+                    _all3 = []
                     while 1:
-                        _choice62 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all61.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice62
+                            self._pos = _choice4
                             break
-                    _result = _all61
+                    _result = _all3
                     _call_status = self._PYTHONCODE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     condition = _result
-                    _all63 = []
+                    _all5 = []
                     while 1:
-                        _choice64 = self._pos
+                        _choice6 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all63.append(_result)
+                            _all5.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice64
+                            self._pos = _choice6
                             break
-                    _result = _all63
+                    _result = _all5
                     _result = (Nonterminal('if', [cmd, condition]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice58
-                _choice65 = self._pos
+                    self._pos = _choice0
+                _choice7 = self._pos
                 try:
                     _result = self.__chars__('if')
-                    _all66 = []
+                    _all8 = []
                     while 1:
-                        _choice67 = self._pos
+                        _choice9 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all66.append(_result)
+                            _all8.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice67
+                            self._pos = _choice9
                             break
-                    _result = _all66
+                    _result = _all8
                     _call_status = self._PYTHONCODE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     condition = _result
-                    _all68 = []
+                    _all10 = []
                     while 1:
-                        _choice69 = self._pos
+                        _choice11 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all68.append(_result)
+                            _all10.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice69
+                            self._pos = _choice11
                             break
-                    _result = _all68
+                    _result = _all10
                     _result = (Nonterminal('if', [condition]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice65
+                    self._pos = _choice7
                     raise BacktrackException(_error)
                 _result = self.__chars__('if')
-                _all70 = []
+                _all12 = []
                 while 1:
-                    _choice71 = self._pos
+                    _choice13 = self._pos
                     try:
                         _call_status = self._SPACE()
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
-                        _all70.append(_result)
+                        _all12.append(_result)
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice71
+                        self._pos = _choice13
                         break
-                _result = _all70
+                _result = _all12
                 _call_status = self._PYTHONCODE()
                 _result = _call_status.result
                 _error = self._combine_errors(_error, _call_status.error)
                 condition = _result
-                _all72 = []
+                _all14 = []
                 while 1:
-                    _choice73 = self._pos
+                    _choice15 = self._pos
                     try:
                         _call_status = self._IGNORE()
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
-                        _all72.append(_result)
+                        _all14.append(_result)
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice73
+                        self._pos = _choice15
                         break
-                _result = _all72
+                _result = _all14
                 _result = (Nonterminal('if', [condition]))
                 break
             if _status.status == _status.LEFTRECURSION:
@@ -1557,67 +1487,67 @@ class Parser(object):
             _result = None
             _error = None
             _result = self.__chars__('choose')
-            _all74 = []
+            _all0 = []
             while 1:
-                _choice75 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = _call_status.error
-                    _all74.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice75
+                    self._pos = _choice1
                     break
-            _result = _all74
+            _result = _all0
             _call_status = self._NAME()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             name = _result
-            _all76 = []
+            _all2 = []
             while 1:
-                _choice77 = self._pos
+                _choice3 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all76.append(_result)
+                    _all2.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice77
+                    self._pos = _choice3
                     break
-            _result = _all76
+            _result = _all2
             _result = self.__chars__('in')
-            _all78 = []
+            _all4 = []
             while 1:
-                _choice79 = self._pos
+                _choice5 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all78.append(_result)
+                    _all4.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice79
+                    self._pos = _choice5
                     break
-            _result = _all78
+            _result = _all4
             _call_status = self._PYTHONCODE()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             expr = _result
-            _all80 = []
+            _all6 = []
             while 1:
-                _choice81 = self._pos
+                _choice7 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all80.append(_result)
+                    _all6.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice81
+                    self._pos = _choice7
                     break
-            _result = _all80
+            _result = _all6
             _call_status = self._commands()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
@@ -1675,23 +1605,23 @@ class Parser(object):
         try:
             _result = None
             _error = None
-            _all82 = []
+            _all0 = []
             _call_status = self._simplecommand()
             _result = _call_status.result
             _error = _call_status.error
-            _all82.append(_result)
+            _all0.append(_result)
             while 1:
-                _choice83 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._simplecommand()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all82.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice83
+                    self._pos = _choice1
                     break
-            _result = _all82
+            _result = _all0
             result = _result
             _result = (Nonterminal('commands', result))
             if _status.status == _status.LEFTRECURSION:
@@ -1750,33 +1680,33 @@ class Parser(object):
             _result = _call_status.result
             _error = _call_status.error
             name = _result
-            _all84 = []
+            _all0 = []
             while 1:
-                _choice85 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all84.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice85
+                    self._pos = _choice1
                     break
-            _result = _all84
+            _result = _all0
             _result = self.__chars__('=')
-            _all86 = []
+            _all2 = []
             while 1:
-                _choice87 = self._pos
+                _choice3 = self._pos
                 try:
                     _call_status = self._SPACE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all86.append(_result)
+                    _all2.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice87
+                    self._pos = _choice3
                     break
-            _result = _all86
+            _result = _all2
             _call_status = self._command()
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
@@ -1835,150 +1765,150 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice88 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._enclosed()
                     _result = _call_status.result
                     _error = _call_status.error
                     what = _result
-                    _all89 = []
+                    _all1 = []
                     while 1:
-                        _choice90 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all89.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice90
+                            self._pos = _choice2
                             break
-                    _result = _all89
+                    _result = _all1
                     _result = self.__chars__('?')
-                    _all91 = []
+                    _all3 = []
                     while 1:
-                        _choice92 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all91.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice92
+                            self._pos = _choice4
                             break
-                    _result = _all91
+                    _result = _all3
                     _result = (Nonterminal('maybe', [what]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice88
-                _choice93 = self._pos
+                    self._pos = _choice0
+                _choice5 = self._pos
                 try:
                     _call_status = self._enclosed()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     what = _result
-                    _all94 = []
+                    _all6 = []
                     while 1:
-                        _choice95 = self._pos
+                        _choice7 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all94.append(_result)
+                            _all6.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice95
+                            self._pos = _choice7
                             break
-                    _result = _all94
+                    _result = _all6
                     while 1:
-                        _choice96 = self._pos
+                        _choice8 = self._pos
                         try:
                             _result = self.__chars__('*')
                             break
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice96
-                        _choice97 = self._pos
+                            self._pos = _choice8
+                        _choice9 = self._pos
                         try:
                             _result = self.__chars__('+')
                             break
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice97
+                            self._pos = _choice9
                             raise BacktrackException(_error)
                         _result = self.__chars__('+')
                         break
                     repetition = _result
-                    _all98 = []
+                    _all10 = []
                     while 1:
-                        _choice99 = self._pos
+                        _choice11 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all98.append(_result)
+                            _all10.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice99
+                            self._pos = _choice11
                             break
-                    _result = _all98
+                    _result = _all10
                     _result = (Nonterminal('repetition', [repetition, what]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice93
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._enclosed()
                 _result = _call_status.result
                 _error = self._combine_errors(_error, _call_status.error)
                 what = _result
-                _all100 = []
+                _all12 = []
                 while 1:
-                    _choice101 = self._pos
+                    _choice13 = self._pos
                     try:
                         _call_status = self._SPACE()
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
-                        _all100.append(_result)
+                        _all12.append(_result)
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice101
+                        self._pos = _choice13
                         break
-                _result = _all100
+                _result = _all12
                 while 1:
-                    _choice102 = self._pos
+                    _choice14 = self._pos
                     try:
                         _result = self.__chars__('*')
                         break
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice102
-                    _choice103 = self._pos
+                        self._pos = _choice14
+                    _choice15 = self._pos
                     try:
                         _result = self.__chars__('+')
                         break
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice103
+                        self._pos = _choice15
                         raise BacktrackException(_error)
                     _result = self.__chars__('+')
                     break
                 repetition = _result
-                _all104 = []
+                _all16 = []
                 while 1:
-                    _choice105 = self._pos
+                    _choice17 = self._pos
                     try:
                         _call_status = self._IGNORE()
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
-                        _all104.append(_result)
+                        _all16.append(_result)
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice105
+                        self._pos = _choice17
                         break
-                _result = _all104
+                _result = _all16
                 _result = (Nonterminal('repetition', [repetition, what]))
                 break
             if _status.status == _status.LEFTRECURSION:
@@ -2034,45 +1964,45 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice106 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('!')
-                    _all107 = []
+                    _all1 = []
                     while 1:
-                        _choice108 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._SPACE()
                             _result = _call_status.result
                             _error = _call_status.error
-                            _all107.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice108
+                            self._pos = _choice2
                             break
-                    _result = _all107
+                    _result = _all1
                     _call_status = self._negation()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     what = _result
-                    _all109 = []
+                    _all3 = []
                     while 1:
-                        _choice110 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all109.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice110
+                            self._pos = _choice4
                             break
-                    _result = _all109
+                    _result = _all3
                     _result = (Nonterminal('negation', [what]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice106
-                _choice111 = self._pos
+                    self._pos = _choice0
+                _choice5 = self._pos
                 try:
                     _call_status = self._enclosed()
                     _result = _call_status.result
@@ -2080,7 +2010,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice111
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._enclosed()
                 _result = _call_status.result
@@ -2139,152 +2069,152 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice112 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('<')
-                    _all113 = []
+                    _all1 = []
                     while 1:
-                        _choice114 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = _call_status.error
-                            _all113.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice114
+                            self._pos = _choice2
                             break
-                    _result = _all113
+                    _result = _all1
                     _call_status = self._primary()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     what = _result
-                    _all115 = []
+                    _all3 = []
                     while 1:
-                        _choice116 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all115.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice116
+                            self._pos = _choice4
                             break
-                    _result = _all115
+                    _result = _all3
                     _result = self.__chars__('>')
-                    _all117 = []
+                    _all5 = []
                     while 1:
-                        _choice118 = self._pos
+                        _choice6 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all117.append(_result)
+                            _all5.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice118
+                            self._pos = _choice6
                             break
-                    _result = _all117
+                    _result = _all5
                     _result = (Nonterminal('exclusive', [what]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice112
-                _choice119 = self._pos
+                    self._pos = _choice0
+                _choice7 = self._pos
                 try:
                     _result = self.__chars__('[')
-                    _all120 = []
+                    _all8 = []
                     while 1:
-                        _choice121 = self._pos
+                        _choice9 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all120.append(_result)
+                            _all8.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice121
+                            self._pos = _choice9
                             break
-                    _result = _all120
+                    _result = _all8
                     _call_status = self._or_()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     what = _result
-                    _all122 = []
+                    _all10 = []
                     while 1:
-                        _choice123 = self._pos
+                        _choice11 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all122.append(_result)
+                            _all10.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice123
+                            self._pos = _choice11
                             break
-                    _result = _all122
+                    _result = _all10
                     _result = self.__chars__(']')
-                    _all124 = []
+                    _all12 = []
                     while 1:
-                        _choice125 = self._pos
+                        _choice13 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all124.append(_result)
+                            _all12.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice125
+                            self._pos = _choice13
                             break
-                    _result = _all124
+                    _result = _all12
                     _result = (Nonterminal('ignore', [what]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice119
-                _choice126 = self._pos
+                    self._pos = _choice7
+                _choice14 = self._pos
                 try:
-                    _before_discard127 = _result
+                    _before_discard15 = _result
                     _result = self.__chars__('(')
-                    _all128 = []
+                    _all16 = []
                     while 1:
-                        _choice129 = self._pos
+                        _choice17 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all128.append(_result)
+                            _all16.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice129
+                            self._pos = _choice17
                             break
-                    _result = _all128
-                    _result = _before_discard127
+                    _result = _all16
+                    _result = _before_discard15
                     _call_status = self._or_()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _before_discard130 = _result
+                    _before_discard18 = _result
                     _result = self.__chars__(')')
-                    _all131 = []
+                    _all19 = []
                     while 1:
-                        _choice132 = self._pos
+                        _choice20 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all131.append(_result)
+                            _all19.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice132
+                            self._pos = _choice20
                             break
-                    _result = _all131
-                    _result = _before_discard130
+                    _result = _all19
+                    _result = _before_discard18
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice126
-                _choice133 = self._pos
+                    self._pos = _choice14
+                _choice21 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
@@ -2292,7 +2222,7 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice133
+                    self._pos = _choice21
                     raise BacktrackException(_error)
                 _call_status = self._primary()
                 _result = _call_status.result
@@ -2351,7 +2281,7 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice134 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._call()
                     _result = _call_status.result
@@ -2359,74 +2289,74 @@ class Parser(object):
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice134
-                _choice135 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._REGEX()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _before_discard136 = _result
-                    _all137 = []
+                    _before_discard2 = _result
+                    _all3 = []
                     while 1:
-                        _choice138 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all137.append(_result)
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice138
+                            self._pos = _choice4
                             break
-                    _result = _all137
-                    _result = _before_discard136
+                    _result = _all3
+                    _result = _before_discard2
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice135
-                _choice139 = self._pos
+                    self._pos = _choice1
+                _choice5 = self._pos
                 try:
                     _call_status = self._QUOTE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _before_discard140 = _result
-                    _all141 = []
+                    _before_discard6 = _result
+                    _all7 = []
                     while 1:
-                        _choice142 = self._pos
+                        _choice8 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all141.append(_result)
+                            _all7.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice142
+                            self._pos = _choice8
                             break
-                    _result = _all141
-                    _result = _before_discard140
+                    _result = _all7
+                    _result = _before_discard6
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice139
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _call_status = self._QUOTE()
                 _result = _call_status.result
                 _error = self._combine_errors(_error, _call_status.error)
-                _before_discard143 = _result
-                _all144 = []
+                _before_discard9 = _result
+                _all10 = []
                 while 1:
-                    _choice145 = self._pos
+                    _choice11 = self._pos
                     try:
                         _call_status = self._IGNORE()
                         _result = _call_status.result
                         _error = self._combine_errors(_error, _call_status.error)
-                        _all144.append(_result)
+                        _all10.append(_result)
                     except BacktrackException, _exc:
                         _error = self._combine_errors(_error, _exc.error)
-                        self._pos = _choice145
+                        self._pos = _choice11
                         break
-                _result = _all144
-                _result = _before_discard143
+                _result = _all10
+                _result = _before_discard9
                 break
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -2488,19 +2418,19 @@ class Parser(object):
             _result = _call_status.result
             _error = self._combine_errors(_error, _call_status.error)
             args = _result
-            _all146 = []
+            _all0 = []
             while 1:
-                _choice147 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._IGNORE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
-                    _all146.append(_result)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice147
+                    self._pos = _choice1
                     break
-            _result = _all146
+            _result = _all0
             _result = (Nonterminal("call", [x, args]))
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -2555,95 +2485,95 @@ class Parser(object):
             _result = None
             _error = None
             while 1:
-                _choice148 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('(')
-                    _all149 = []
+                    _all1 = []
                     while 1:
-                        _choice150 = self._pos
+                        _choice2 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = _call_status.error
-                            _all149.append(_result)
+                            _all1.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice150
+                            self._pos = _choice2
                             break
-                    _result = _all149
-                    _all151 = []
+                    _result = _all1
+                    _all3 = []
                     while 1:
-                        _choice152 = self._pos
+                        _choice4 = self._pos
                         try:
                             _call_status = self._PYTHONCODE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _before_discard153 = _result
-                            _all154 = []
+                            _before_discard5 = _result
+                            _all6 = []
                             while 1:
-                                _choice155 = self._pos
+                                _choice7 = self._pos
                                 try:
                                     _call_status = self._IGNORE()
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
-                                    _all154.append(_result)
+                                    _all6.append(_result)
                                 except BacktrackException, _exc:
                                     _error = self._combine_errors(_error, _exc.error)
-                                    self._pos = _choice155
+                                    self._pos = _choice7
                                     break
-                            _result = _all154
+                            _result = _all6
                             _result = self.__chars__(',')
-                            _all156 = []
+                            _all8 = []
                             while 1:
-                                _choice157 = self._pos
+                                _choice9 = self._pos
                                 try:
                                     _call_status = self._IGNORE()
                                     _result = _call_status.result
                                     _error = self._combine_errors(_error, _call_status.error)
-                                    _all156.append(_result)
+                                    _all8.append(_result)
                                 except BacktrackException, _exc:
                                     _error = self._combine_errors(_error, _exc.error)
-                                    self._pos = _choice157
+                                    self._pos = _choice9
                                     break
-                            _result = _all156
-                            _result = _before_discard153
-                            _all151.append(_result)
+                            _result = _all8
+                            _result = _before_discard5
+                            _all3.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice152
+                            self._pos = _choice4
                             break
-                    _result = _all151
+                    _result = _all3
                     args = _result
                     _call_status = self._PYTHONCODE()
                     _result = _call_status.result
                     _error = self._combine_errors(_error, _call_status.error)
                     last = _result
                     _result = self.__chars__(')')
-                    _all158 = []
+                    _all10 = []
                     while 1:
-                        _choice159 = self._pos
+                        _choice11 = self._pos
                         try:
                             _call_status = self._IGNORE()
                             _result = _call_status.result
                             _error = self._combine_errors(_error, _call_status.error)
-                            _all158.append(_result)
+                            _all10.append(_result)
                         except BacktrackException, _exc:
                             _error = self._combine_errors(_error, _exc.error)
-                            self._pos = _choice159
+                            self._pos = _choice11
                             break
-                    _result = _all158
+                    _result = _all10
                     _result = (Nonterminal("args", args + [last]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice148
-                _choice160 = self._pos
+                    self._pos = _choice0
+                _choice12 = self._pos
                 try:
                     _result = (Nonterminal("args", []))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice160
+                    self._pos = _choice12
                     raise BacktrackException(_error)
                 _result = (Nonterminal("args", []))
                 break
@@ -2703,77 +2633,77 @@ class Parser(object):
         self._pos = 0
         self._inputstream = inputstream
     def _regex299149370(self):
-        _choice161 = self._pos
+        _choice13 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_299149370(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice161
+            self._pos = _choice13
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1006631623(self):
-        _choice162 = self._pos
+        _choice14 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1006631623(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice162
+            self._pos = _choice14
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex528667127(self):
-        _choice163 = self._pos
+        _choice15 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_528667127(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice163
+            self._pos = _choice15
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex291086639(self):
-        _choice164 = self._pos
+        _choice16 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_291086639(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice164
+            self._pos = _choice16
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1074651696(self):
-        _choice165 = self._pos
+        _choice17 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1074651696(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice165
+            self._pos = _choice17
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1124192327(self):
-        _choice166 = self._pos
+        _choice18 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1124192327(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice166
+            self._pos = _choice18
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1979538501(self):
-        _choice167 = self._pos
+        _choice19 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1979538501(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice167
+            self._pos = _choice19
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]

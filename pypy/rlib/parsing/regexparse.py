@@ -1,8 +1,3 @@
-
-
-
-
-
 import py
 from pypy.rlib.parsing.parsing import PackratParser, Rule
 from pypy.rlib.parsing.tree import Nonterminal
@@ -198,8 +193,11 @@ def make_runner(regex, view=False):
 
 
 
-# generated code between this line and its other occurence
 
+
+
+
+# generated code between this line and its other occurence
 
 from pypy.rlib.parsing.pypackrat import PackratParser, Status
 from pypy.rlib.parsing.pypackrat import BacktrackException
@@ -213,21 +211,23 @@ class Parser(object):
         _status = self._dict_EOF.get(_key, None)
         if _status is None:
             _status = self._dict_EOF[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -261,7 +261,7 @@ class Parser(object):
         except BacktrackException, _exc:
             _status.pos = -1
             _status.result = None
-            _error = self._combine_errors(_error, _exc.error)
+            _error = _exc.error
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
@@ -272,33 +272,35 @@ class Parser(object):
         _status = self._dict_parse.get(_key, None)
         if _status is None:
             _status = self._dict_parse[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             _call_status = self._regex()
             _result = _call_status.result
-            _error = self._combine_errors(_call_status.error, _error)
-            _before_discard2 = _result
+            _error = _call_status.error
+            _before_discard0 = _result
             _call_status = self._EOF()
             _result = _call_status.result
-            _error = self._combine_errors(_call_status.error, _error)
-            _result = _before_discard2
+            _error = self._combine_errors(_error, _call_status.error)
+            _result = _before_discard0
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
                     if _status.pos >= self._pos:
@@ -330,56 +332,57 @@ class Parser(object):
         _status = self._dict_regex.get(_key, None)
         if _status is None:
             _status = self._dict_regex[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice3 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._concatenation()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     r1 = _result
                     _result = self.__chars__('|')
                     _call_status = self._regex()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     r2 = _result
                     _result = (r1 | r2)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice3
-                _choice4 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._concatenation()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice4
+                    self._pos = _choice1
                     raise BacktrackException(_error)
                 _call_status = self._concatenation()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 break
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -412,42 +415,44 @@ class Parser(object):
         _status = self._dict_concatenation.get(_key, None)
         if _status is None:
             _status = self._dict_concatenation[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
-            _all5 = []
+            _all0 = []
             _call_status = self._repetition()
             _result = _call_status.result
-            _error = self._combine_errors(_call_status.error, _error)
-            _all5.append(_result)
+            _error = _call_status.error
+            _all0.append(_result)
             while 1:
-                _choice6 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._repetition()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
-                    _all5.append(_result)
+                    _error = self._combine_errors(_error, _call_status.error)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice6
+                    self._pos = _choice1
                     break
-            _result = _all5
+            _result = _all0
             l = _result
             _result = (reduce(operator.add, l, regex.StringExpression("")))
             if _status.status == _status.LEFTRECURSION:
@@ -481,93 +486,94 @@ class Parser(object):
         _status = self._dict_repetition.get(_key, None)
         if _status is None:
             _status = self._dict_repetition[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice7 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     r1 = _result
                     _result = self.__chars__('*')
                     _result = (r1.kleene())
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice7
-                _choice8 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     r1 = _result
                     _result = self.__chars__('+')
                     _result = (r1 + r1.kleene())
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice8
-                _choice9 = self._pos
+                    self._pos = _choice1
+                _choice2 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     r1 = _result
                     _result = self.__chars__('?')
                     _result = (regex.StringExpression("") | r1)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice9
-                _choice10 = self._pos
+                    self._pos = _choice2
+                _choice3 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     r = _result
                     _result = self.__chars__('{')
                     _call_status = self._numrange()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     n = _result
                     _result = self.__chars__('}')
                     _result = (r * n[0] + reduce(operator.or_, [r * i for i in range(n[1] - n[0] + 1)], regex.StringExpression("")))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice10
-                _choice11 = self._pos
+                    self._pos = _choice3
+                _choice4 = self._pos
                 try:
                     _call_status = self._primary()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice11
+                    self._pos = _choice4
                     raise BacktrackException(_error)
                 _call_status = self._primary()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 break
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -600,70 +606,71 @@ class Parser(object):
         _status = self._dict_primary.get(_key, None)
         if _status is None:
             _status = self._dict_primary[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice12 = self._pos
+                _choice0 = self._pos
                 try:
-                    _before_discard13 = _result
+                    _before_discard1 = _result
                     _result = self.__chars__('(')
-                    _result = _before_discard13
+                    _result = _before_discard1
                     _call_status = self._regex()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
-                    _before_discard14 = _result
+                    _error = _call_status.error
+                    _before_discard2 = _result
                     _result = self.__chars__(')')
-                    _result = _before_discard14
+                    _result = _before_discard2
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice12
-                _choice15 = self._pos
+                    self._pos = _choice0
+                _choice3 = self._pos
                 try:
                     _call_status = self._range()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice15
-                _choice16 = self._pos
+                    self._pos = _choice3
+                _choice4 = self._pos
                 try:
                     _call_status = self._char()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     c = _result
                     _result = (regex.StringExpression(c))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice16
-                _choice17 = self._pos
+                    self._pos = _choice4
+                _choice5 = self._pos
                 try:
                     _result = self.__chars__('.')
                     _result = (regex.RangeExpression(chr(0), chr(255)))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice17
+                    self._pos = _choice5
                     raise BacktrackException(_error)
                 _result = self.__chars__('.')
                 _result = (regex.RangeExpression(chr(0), chr(255)))
@@ -699,53 +706,54 @@ class Parser(object):
         _status = self._dict_char.get(_key, None)
         if _status is None:
             _status = self._dict_char[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice18 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._QUOTEDCHAR()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     c = _result
                     _result = (unescape(c))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice18
-                _choice19 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._CHAR()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     c = _result
                     _result = (c)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice19
+                    self._pos = _choice1
                     raise BacktrackException(_error)
                 _call_status = self._CHAR()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 c = _result
                 _result = (c)
                 break
@@ -780,38 +788,19 @@ class Parser(object):
         _status = self._dict_QUOTEDCHAR.get(_key, None)
         if _status is None:
             _status = self._dict_QUOTEDCHAR[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             _result = self._regex1380912319()
-            if _status.status == _status.LEFTRECURSION:
-                if _status.result is not None:
-                    if _status.pos >= self._pos:
-                        _status.status = _status.NORMAL
-                        self._pos = _status.pos
-                        return _status
-                _status.pos = self._pos
-                _status.status = _status.SOMESOLUTIONS
-                _status.result = _result
-                _status.error = _error
-                self._pos = _startingpos
-                return self._QUOTEDCHAR()
+            assert _status.status != _status.LEFTRECURSION
             _status.status = _status.NORMAL
             _status.pos = self._pos
             _status.result = _result
@@ -820,7 +809,7 @@ class Parser(object):
         except BacktrackException, _exc:
             _status.pos = -1
             _status.result = None
-            _error = self._combine_errors(_error, _exc.error)
+            _error = _exc.error
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
@@ -831,38 +820,19 @@ class Parser(object):
         _status = self._dict_CHAR.get(_key, None)
         if _status is None:
             _status = self._dict_CHAR[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             _result = self._regex1323868075()
-            if _status.status == _status.LEFTRECURSION:
-                if _status.result is not None:
-                    if _status.pos >= self._pos:
-                        _status.status = _status.NORMAL
-                        self._pos = _status.pos
-                        return _status
-                _status.pos = self._pos
-                _status.status = _status.SOMESOLUTIONS
-                _status.result = _result
-                _status.error = _error
-                self._pos = _startingpos
-                return self._CHAR()
+            assert _status.status != _status.LEFTRECURSION
             _status.status = _status.NORMAL
             _status.pos = self._pos
             _status.result = _result
@@ -871,7 +841,7 @@ class Parser(object):
         except BacktrackException, _exc:
             _status.pos = -1
             _status.result = None
-            _error = self._combine_errors(_error, _exc.error)
+            _error = _exc.error
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
@@ -882,21 +852,23 @@ class Parser(object):
         _status = self._dict_range.get(_key, None)
         if _status is None:
             _status = self._dict_range[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
@@ -904,7 +876,7 @@ class Parser(object):
             _result = self.__chars__('[')
             _call_status = self._rangeinner()
             _result = _call_status.result
-            _error = self._combine_errors(_call_status.error, _error)
+            _error = _call_status.error
             s = _result
             _result = self.__chars__(']')
             _result = (reduce(operator.or_, [regex.RangeExpression(a, chr(ord(a) + b - 1)) for a, b in compress_char_set(s)]))
@@ -939,52 +911,53 @@ class Parser(object):
         _status = self._dict_rangeinner.get(_key, None)
         if _status is None:
             _status = self._dict_rangeinner[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice20 = self._pos
+                _choice0 = self._pos
                 try:
                     _result = self.__chars__('^')
                     _call_status = self._subrange()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     s = _result
                     _result = (set([chr(c) for c in range(256)]) - s)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice20
-                _choice21 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._subrange()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice21
+                    self._pos = _choice1
                     raise BacktrackException(_error)
                 _call_status = self._subrange()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 break
             if _status.status == _status.LEFTRECURSION:
                 if _status.result is not None:
@@ -1017,42 +990,44 @@ class Parser(object):
         _status = self._dict_subrange.get(_key, None)
         if _status is None:
             _status = self._dict_subrange[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
-            _all22 = []
+            _all0 = []
             _call_status = self._rangeelement()
             _result = _call_status.result
-            _error = self._combine_errors(_call_status.error, _error)
-            _all22.append(_result)
+            _error = _call_status.error
+            _all0.append(_result)
             while 1:
-                _choice23 = self._pos
+                _choice1 = self._pos
                 try:
                     _call_status = self._rangeelement()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
-                    _all22.append(_result)
+                    _error = self._combine_errors(_error, _call_status.error)
+                    _all0.append(_result)
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice23
+                    self._pos = _choice1
                     break
-            _result = _all22
+            _result = _all0
             l = _result
             _result = (reduce(operator.or_, l))
             if _status.status == _status.LEFTRECURSION:
@@ -1086,58 +1061,59 @@ class Parser(object):
         _status = self._dict_rangeelement.get(_key, None)
         if _status is None:
             _status = self._dict_rangeelement[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice24 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._char()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     c1 = _result
                     _result = self.__chars__('-')
                     _call_status = self._char()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     c2 = _result
                     _result = (set([chr(i) for i in range(ord(c1), ord(c2) + 1)]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice24
-                _choice25 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._char()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     c = _result
                     _result = (set([c]))
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice25
+                    self._pos = _choice1
                     raise BacktrackException(_error)
                 _call_status = self._char()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 c = _result
                 _result = (set([c]))
                 break
@@ -1172,58 +1148,59 @@ class Parser(object):
         _status = self._dict_numrange.get(_key, None)
         if _status is None:
             _status = self._dict_numrange[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
+            elif (_statusstatus == _status.INPROGRESS or
+                  _statusstatus == _status.LEFTRECURSION):
+                _status.status = _status.LEFTRECURSION
+                if _status.result is not None:
+                    self._pos = _status.pos
+                    return _status
+                else:
+                    raise BacktrackException(None)
+            elif _statusstatus == _status.SOMESOLUTIONS:
+                _status.status = _status.INPROGRESS
         _startingpos = self._pos
         try:
             _result = None
             _error = None
             while 1:
-                _error = None
-                _choice26 = self._pos
+                _choice0 = self._pos
                 try:
                     _call_status = self._NUM()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = _call_status.error
                     n1 = _result
                     _result = self.__chars__(',')
                     _call_status = self._NUM()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     n2 = _result
                     _result = (n1, n2)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice26
-                _choice27 = self._pos
+                    self._pos = _choice0
+                _choice1 = self._pos
                 try:
                     _call_status = self._NUM()
                     _result = _call_status.result
-                    _error = self._combine_errors(_call_status.error, _error)
+                    _error = self._combine_errors(_error, _call_status.error)
                     n1 = _result
                     _result = (n1, n1)
                     break
                 except BacktrackException, _exc:
                     _error = self._combine_errors(_error, _exc.error)
-                    self._pos = _choice27
+                    self._pos = _choice1
                     raise BacktrackException(_error)
                 _call_status = self._NUM()
                 _result = _call_status.result
-                _error = self._combine_errors(_call_status.error, _error)
+                _error = self._combine_errors(_error, _call_status.error)
                 n1 = _result
                 _result = (n1, n1)
                 break
@@ -1258,21 +1235,13 @@ class Parser(object):
         _status = self._dict_NUM.get(_key, None)
         if _status is None:
             _status = self._dict_NUM[_key] = Status()
-        elif _status.status == _status.NORMAL:
-            self._pos = _status.pos
-            return _status
-        elif _status.status == _status.ERROR:
-            raise BacktrackException(_status.error)
-        elif (_status.status == _status.INPROGRESS or
-              _status.status == _status.LEFTRECURSION):
-            _status.status = _status.LEFTRECURSION
-            if _status.result is not None:
+        else:
+            _statusstatus = _status.status
+            if _statusstatus == _status.NORMAL:
                 self._pos = _status.pos
                 return _status
-            else:
-                raise BacktrackException(None)
-        elif _status.status == _status.SOMESOLUTIONS:
-            _status.status = _status.INPROGRESS
+            elif _statusstatus == _status.ERROR:
+                raise BacktrackException(_status.error)
         _startingpos = self._pos
         try:
             _result = None
@@ -1280,18 +1249,7 @@ class Parser(object):
             _result = self._regex1166214427()
             c = _result
             _result = (int(c))
-            if _status.status == _status.LEFTRECURSION:
-                if _status.result is not None:
-                    if _status.pos >= self._pos:
-                        _status.status = _status.NORMAL
-                        self._pos = _status.pos
-                        return _status
-                _status.pos = self._pos
-                _status.status = _status.SOMESOLUTIONS
-                _status.result = _result
-                _status.error = _error
-                self._pos = _startingpos
-                return self._NUM()
+            assert _status.status != _status.LEFTRECURSION
             _status.status = _status.NORMAL
             _status.pos = self._pos
             _status.result = _result
@@ -1300,7 +1258,7 @@ class Parser(object):
         except BacktrackException, _exc:
             _status.pos = -1
             _status.result = None
-            _error = self._combine_errors(_error, _exc.error)
+            _error = _exc.error
             _status.error = _error
             _status.status = _status.ERROR
             raise BacktrackException(_error)
@@ -1323,33 +1281,33 @@ class Parser(object):
         self._pos = 0
         self._inputstream = inputstream
     def _regex1166214427(self):
-        _choice28 = self._pos
+        _choice0 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1166214427(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice28
+            self._pos = _choice0
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1323868075(self):
-        _choice29 = self._pos
+        _choice1 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1323868075(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice29
+            self._pos = _choice1
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
         self._pos = _upto
         return _result
     def _regex1380912319(self):
-        _choice30 = self._pos
+        _choice2 = self._pos
         _runner = self._Runner(self._inputstream, self._pos)
         _i = _runner.recognize_1380912319(self._pos)
         if _runner.last_matched_state == -1:
-            self._pos = _choice30
+            self._pos = _choice2
             raise BacktrackException
         _upto = _runner.last_matched_index + 1
         _result = self._inputstream[self._pos: _upto]
@@ -1523,8 +1481,14 @@ for key, value in Parser.__dict__.iteritems():
     if key not in RegexParser.__dict__ and key not in forbidden:
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
-
 # generated code between this line and its other occurence
+
+
+
+
+
+
+
 
 
 
@@ -1551,10 +1515,9 @@ def test_generate():
     visitor = ParserBuilder()
     t.visit(visitor)
     code = visitor.get_code()
-    content = """
+    content = """\
+%s\
 %s
-%s
-
 from pypy.rlib.parsing.pypackrat import PackratParser, Status
 from pypy.rlib.parsing.pypackrat import BacktrackException
 from pypy.rlib.parsing import regex
@@ -1570,12 +1533,8 @@ for key, value in Parser.__dict__.iteritems():
     if key not in RegexParser.__dict__ and key not in forbidden:
         setattr(RegexParser, key, value)
 RegexParser.init_parser = Parser.__init__.im_func
-
 %s
-%s
+%s\
 """ % (pre, s, code, s, after)
     print content
     f.write(content)
-
-
-
