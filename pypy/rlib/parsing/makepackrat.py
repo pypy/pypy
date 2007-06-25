@@ -10,6 +10,7 @@ class BacktrackException(Exception):
             Exception.__init__(self, error)
 
 
+
 class TreeOptimizer(RPythonVisitor):
     def visit_or(self, t):
         if len(t.children) == 1:
@@ -248,6 +249,33 @@ class ErrorInformation(object):
     def __str__(self):
         return "ErrorInformation(%s, %s)" % (self.pos, self.expected)
 
+    def get_line_column(self, source):
+        uptoerror = source[:self.pos]
+        lineno = uptoerror.count("\n")
+        columnno = self.pos - uptoerror.rfind("\n")
+        return lineno, columnno
+
+    def nice_error_message(self, filename='<filename>', source=""):
+        if source:
+            lineno, columnno = self.get_line_column(source)
+            result = ["  File %s, line %s" % (filename, lineno + 1)]
+            result.append(source.split("\n")[lineno])
+            result.append(" " * columnno + "^")
+        else:
+            result.append("<couldn't get source>")
+        if self.expected:
+            failure_reasons = self.expected
+            if len(failure_reasons) > 1:
+                all_but_one = failure_reasons[:-1]
+                last = failure_reasons[-1]
+                expected = "%s or '%s'" % (
+                    ", ".join(["'%s'" % e for e in all_but_one]), last)
+            else:
+                expected = failure_reasons[0]
+            result.append("ParseError: expected %s" % (expected, ))
+        else:
+            result.append("ParseError")
+        return "\n".join(result)
 
 class Status(object):
     # status codes:
@@ -634,10 +662,27 @@ class MetaPackratParser(type):
         if '__doc__' not in dct or dct['__doc__'] is None:
             return type.__new__(cls, name_, bases, dct)
         from pypackrat import PyPackratSyntaxParser
-        import sys, new
+        import sys, new, inspect
         frame = sys._getframe(1)
-        p = PyPackratSyntaxParser(dct['__doc__'])
-        t = p.file()
+        source = dct['__doc__']
+        p = PyPackratSyntaxParser(source)
+        try:
+            t = p.file()
+        except BacktrackException, exc:
+            print exc.error.nice_error_message("<docstring>", source)
+            lineno, _ = exc.error.get_line_column(source)
+            errorline = source.split("\n")[lineno]
+            try:
+                code = frame.f_code
+                source = inspect.getsource(code)
+                lineno_in_orig = source.split("\n").index(errorline)
+                if lineno_in_orig >= 0:
+                    print "probable error position:"
+                    print "file:", code.co_filename
+                    print "line:", lineno_in_orig + code.co_firstlineno + 1
+            except (IOError, ValueError):
+                pass
+            raise exc
         t = t.visit(TreeOptimizer())
         visitor = ParserBuilder()
         t.visit(visitor)
@@ -649,6 +694,8 @@ class MetaPackratParser(type):
         #XXX XXX XXX
         if 'BacktrackException' not in frame.f_globals:
             raise Exception("must import BacktrackException")
+        if 'Status' not in frame.f_globals:
+            raise Exception("must import Status")
         for key, value in pcls.__dict__.iteritems():
             if isinstance(value, type(lambda: None)):
                 value = new.function(value.func_code, frame.f_globals)
