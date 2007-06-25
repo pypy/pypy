@@ -273,13 +273,12 @@ class ParserBuilder(RPythonVisitor):
         self.code = []
         self.blocks = []
         self.initcode = []
-        self.namecount = 0
         self.names = {}
         self.matchers = {}
 
     def get_code(self):
         assert not self.blocks
-        return "\n".join(self.code)
+        return "\n".join(["    " * depth + line for depth, line in self.code])
 
     def make_parser(self):
         m = {'Status': Status,
@@ -290,7 +289,7 @@ class ParserBuilder(RPythonVisitor):
 
     def emit(self, line):
         for line in line.split("\n"):
-            self.code.append(" " * (4 * len(self.blocks)) + line)
+            self.code.append((len(self.blocks),  line))
 
     def emit_initcode(self, line):
         for line in line.split("\n"):
@@ -310,6 +309,22 @@ class ParserBuilder(RPythonVisitor):
         assert starterpart in block, "ended wrong block %s with %s" % (
             block, starterpart)
 
+    def store_code_away(self):
+        result = self.blocks, self.code
+        self.code = []
+        self.blocks = []
+        return result
+
+    def restore_code(self, (blocks, code)):
+        result = self.blocks, self.code
+        self.code = code
+        self.blocks = blocks
+        return result
+
+    def add_code(self, (blocks, code)):
+        self.code += [(depth + len(self.blocks), line) for depth, line in code]
+        self.blocks += blocks
+        
     def memoize_header(self, name, args):
         dictname = "_dict_%s" % (name, )
         self.emit_initcode("self.%s = {}" % (dictname, ))
@@ -328,18 +343,19 @@ class ParserBuilder(RPythonVisitor):
                 self.emit("return _status")
             for _ in self.start_block("elif _statusstatus == _status.ERROR:"):
                 self.emit("raise BacktrackException(_status.error)")
-            for _ in self.start_block(
-                "elif (_statusstatus == _status.INPROGRESS or\n"
-                "      _statusstatus == _status.LEFTRECURSION):"):
-                self.emit("_status.status = _status.LEFTRECURSION")
-                for _ in self.start_block("if _status.result is not None:"):
-                    self.emit("self._pos = _status.pos")
-                    self.emit("return _status")
-                for _ in self.start_block("else:"):
-                    self.emit("raise BacktrackException(None)")
-            for _ in self.start_block(
-                "elif _statusstatus == _status.SOMESOLUTIONS:"):
-                self.emit("_status.status = _status.INPROGRESS")
+            if self.have_call:
+                for _ in self.start_block(
+                    "elif (_statusstatus == _status.INPROGRESS or\n"
+                    "      _statusstatus == _status.LEFTRECURSION):"):
+                    self.emit("_status.status = _status.LEFTRECURSION")
+                    for _ in self.start_block("if _status.result is not None:"):
+                        self.emit("self._pos = _status.pos")
+                        self.emit("return _status")
+                    for _ in self.start_block("else:"):
+                        self.emit("raise BacktrackException(None)")
+                for _ in self.start_block(
+                    "elif _statusstatus == _status.SOMESOLUTIONS:"):
+                    self.emit("_status.status = _status.INPROGRESS")
         self.emit("_startingpos = self._pos")
         self.start_block("try:")
         self.emit("_result = None")
@@ -440,13 +456,15 @@ class ParserBuilder(RPythonVisitor):
         for _ in self.start_block("def %s(%s):" % (name, argswithself)):
             self.emit("return self._%s(%s).result" % (name, argswithoutself))
         self.start_block("def _%s(%s):" % (name, argswithself, ))
-
-        self.memoize_header(name, otherargs)
-        #self.emit("print '%s', self._pos" % (name, ))
+        self.namecount = 0
         self.resultname = "_result"
         self.have_call = False
         self.created_error = False
+        allother = self.store_code_away()
         self.dispatch(t.children[-1])
+        subsequent = self.restore_code(allother)
+        self.memoize_header(name, otherargs)
+        self.add_code(subsequent)
         self.memoize_footer(name)
         self.end_block("def")
 
