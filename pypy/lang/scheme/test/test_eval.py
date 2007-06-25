@@ -1,6 +1,6 @@
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_Float, W_String
-from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Symbol
+from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Symbol, ExecutionContext
 from pypy.lang.scheme.operation import mul, add
 
 def test_operations_simple():
@@ -35,7 +35,7 @@ def eval_expr(ctx, expr):
 def eval_noctx(expr):
     return parse(expr).eval(None)
 
-def test_eval_numerical():
+def test_numerical():
     w_num = eval_noctx('(+ 4)')
     assert w_num.to_number() == 4
     w_num = eval_noctx('(+ 4 -5)')
@@ -50,7 +50,19 @@ def test_eval_numerical():
     w_num = eval_noctx('(* 4 -5 6.1)')
     assert w_num.to_number() == (4 * -5 * 6.1)
 
-def test_eval_numerical_nested():
+def test_numerical_nested():
     w_num = eval_noctx('(+ 4 (* (+ 5) 6) (+ 1 2))')
     assert w_num.to_number() == 37
+
+def test_ctx_simple():
+    ctx = ExecutionContext({})
+    ctx.put("v1", W_Fixnum(4))
+    ctx.put("v2", W_Fixnum(5))
+
+    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    assert w_num.to_number() == 10
+
+    ctx.put("v2", W_Float(3.2))
+    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    assert w_num.to_number() == 8.2
 

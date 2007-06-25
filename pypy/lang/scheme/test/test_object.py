@@ -39,3 +39,20 @@ def test_pair():
     assert p.cdr.car == c2
     assert p.cdr.cdr.car == c3
     assert p.cdr.cdr.cdr == c4
+
+def test_symbol():
+    w_sym = W_Symbol("symb")
+    assert w_sym.to_string() == "symb"
+
+def test_ctx():
+    w_fnum = W_Fixnum(12)
+    w_symb = W_Symbol("symb")
+
+    ctx = ExecutionContext({})
+    ctx.put("v1", w_fnum)
+    ctx.put("symb", w_symb)
+
+    assert w_symb is ctx.get("symb")
+    assert w_fnum is ctx.get("v1")
+    assert ctx.get("no_such_key") is None
+

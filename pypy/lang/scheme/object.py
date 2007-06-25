@@ -9,11 +9,11 @@ class ExecutionContext(object):
         assert scope is not None
         self.scope = scope
 
-    def __get__(self, name):
+    def get(self, name):
         # shouldn't neme be instance of sth like W_Identifier
         return self.scope.get(name, None)
 
-    def __put__(self, name, obj):
+    def put(self, name, obj):
         self.scope[name] = obj
 
 class W_Root(object):
@@ -43,6 +43,12 @@ class W_Symbol(W_Root):
         return "<W_Symbol " + self.name + ">"
 
     def eval(self, ctx):
+
+        if ctx is not None:
+            w_obj = ctx.get(self.name)
+            if w_obj is not None:
+                return w_obj.eval(ctx)
+
         try:
             return OPERATION_MAP[self.name]
         except KeyError:
