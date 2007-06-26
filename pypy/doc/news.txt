@@ -14,6 +14,18 @@ nonsense, isn't it?  `more...`_
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy Sprint at EuroPython, Vilnius: 12-14th July 2007
+==================================================================
+
+The next EuroPython_ conference will be held in Vilnius from the 9th to
+the 11th of July, 2007.  It now became a tradition to have several PyPy
+talks during the conference, followed by a sprint.  For more information
+on the latter, see the `Vilnius sprint announcement`_.
+
+.. _EuroPython: http://europython.org
+.. _`Vilnius sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2007/announcement.html
+
+
 Review passed with flying colours
 =================================
 
