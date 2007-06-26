@@ -1,6 +1,6 @@
 from pypy.tool import udir
 from pypy.translator.cli.rte import Target
-from pypy.translator.cli.silverpython import DllDef
+from pypy.translator.cli.silverpython import DllDef, export, collect_entrypoints
 from pypy.translator.cli.test.runtest import CliFunctionWrapper, CliTest
 
 TEMPLATE = """
@@ -31,7 +31,6 @@ class TestSilveRPython(CliTest):
         func = CliFunctionWrapper(MyTarget.get())
         return func()
 
-
     def test_compilation(self):
         res = self._csharp(None, 'Console.WriteLine(42);')
         assert res == 42
@@ -56,3 +55,30 @@ class TestSilveRPython(CliTest):
         dll.compile()
         res = self._csharp('test', 'Console.WriteLine("{0}, {1}", Test.foo(42), Test.bar(42));')
         assert res == (43, 84)
+
+    def test_export(self):
+        @export(int, float)
+        def foo(x, y):
+            pass
+        @export(int, float, namespace='test')
+        def bar(x, y):
+            pass
+        @export
+        def baz():
+            pass
+
+        assert foo._inputtypes_ == (int, float)
+        assert not hasattr(foo, '_namespace_')
+        assert bar._inputtypes_ == (int, float)
+        assert bar._namespace_ == 'test'
+        assert baz._inputtypes_ == ()
+
+    def test_collect_entrypoints(self):
+        @export(int, float)
+        def foo(x, y):
+            pass
+        def bar(x, y):
+            pass
+        mydict = dict(foo=foo, bar=bar, x=42)
+        entrypoints = collect_entrypoints(mydict)
+        assert entrypoints == [(foo, (int, float))]
