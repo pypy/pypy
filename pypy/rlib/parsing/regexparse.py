@@ -160,17 +160,6 @@ def parse_regex(s):
     r = p.parse()
     return r
 
-def make_runner(st, view=False):
-    r = parse_regex(st)
-    dfa = r.make_automaton().make_deterministic()
-    if view:
-        dfa.view()
-    dfa.optimize()
-    if view:
-        dfa.view()
-    r = dfa.get_runner()
-    return r
-
 def make_runner(regex, view=False):
     p = RegexParser(regex)
     r = p.parse()
