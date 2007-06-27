@@ -1,6 +1,7 @@
 import py
 import sys
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
+from pypy.rlib.parsing.codebuilder import Codebuilder
 from pypy.rlib.objectmodel import we_are_translated
 
 class BacktrackException(Exception):
@@ -296,17 +297,12 @@ class Status(object):
         self.status = self.INPROGRESS
         self.result = None
 
-class ParserBuilder(RPythonVisitor):
+class ParserBuilder(RPythonVisitor, Codebuilder):
     def __init__(self):
-        self.code = []
-        self.blocks = []
+        Codebuilder.__init__(self)
         self.initcode = []
         self.names = {}
         self.matchers = {}
-
-    def get_code(self):
-        assert not self.blocks
-        return "\n".join(["    " * depth + line for depth, line in self.code])
 
     def make_parser(self):
         m = {'Status': Status,
@@ -315,44 +311,6 @@ class ParserBuilder(RPythonVisitor):
         exec py.code.Source(self.get_code()).compile() in m
         return m['Parser']
 
-    def emit(self, line):
-        for line in line.split("\n"):
-            self.code.append((len(self.blocks),  line))
-
-    def emit_initcode(self, line):
-        for line in line.split("\n"):
-            self.initcode.append(line)
-
-    def start_block(self, blockstarter):
-        assert blockstarter.endswith(":")
-        self.emit(blockstarter)
-        self.blocks.append(blockstarter)
-        def BlockEnder():
-            yield None
-            self.end_block(blockstarter)
-        return BlockEnder()
-
-    def end_block(self, starterpart=""):
-        block = self.blocks.pop()
-        assert starterpart in block, "ended wrong block %s with %s" % (
-            block, starterpart)
-
-    def store_code_away(self):
-        result = self.blocks, self.code
-        self.code = []
-        self.blocks = []
-        return result
-
-    def restore_code(self, (blocks, code)):
-        result = self.blocks, self.code
-        self.code = code
-        self.blocks = blocks
-        return result
-
-    def add_code(self, (blocks, code)):
-        self.code += [(depth + len(self.blocks), line) for depth, line in code]
-        self.blocks += blocks
-        
     def memoize_header(self, name, args):
         dictname = "_dict_%s" % (name, )
         self.emit_initcode("self.%s = {}" % (dictname, ))

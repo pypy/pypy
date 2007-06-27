@@ -1,6 +1,7 @@
 import py
 from pypy.rlib.parsing.parsing import PackratParser, Rule
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
+from pypy.rlib.parsing.codebuilder import Codebuilder
 from pypy.rlib.parsing.regexparse import parse_regex
 import string
 from pypy.rlib.parsing.regex import *
@@ -277,14 +278,12 @@ class ParserBuilder(object):
             all_changes.append(real_changes)
         return all_rules + other_rules, all_changes + other_changes
 
-class TransformerMaker(object):
+class TransformerMaker(Codebuilder):
     def __init__(self, rules, changes):
+        Codebuilder.__init__(self)
         self.rules = rules
         self.changes = changes
         self.nonterminals = dict.fromkeys([rule.nonterminal for rule in rules])
-        self.code = []
-        self.depth = 0
-        self.blocks = []
 
     def make_transformer(self, print_code=False):
         self.start_block("class ToAST(object):")
@@ -309,8 +308,7 @@ class TransformerMaker(object):
         self.emit("return r[0]")
         self.end_block("transform")
         self.end_block("ToAST")
-        assert not self.blocks
-        code = "\n".join(self.code)
+        code = self.get_code()
         if print_code:
             print code
         ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal,
@@ -323,20 +321,6 @@ class TransformerMaker(object):
         ToAST.source = code
         ToAST.changes = self.changes
         return ToAST
-
-    def emit(self, line):
-        for line in line.split("\n"):
-            self.code.append(" " * (4 * len(self.blocks)) + line)
-
-    def start_block(self, blockstarter):
-        assert blockstarter.endswith(":")
-        self.emit(blockstarter)
-        self.blocks.append(blockstarter)
-
-    def end_block(self, starterpart=""):
-        block = self.blocks.pop()
-        assert starterpart in block, "ended wrong block %s with %s" % (
-            block, starterpart)
 
     def dispatch(self, symbol, expr):
         if symbol in self.nonterminals:
