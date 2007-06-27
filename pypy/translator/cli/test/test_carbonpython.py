@@ -1,19 +1,19 @@
 from pypy.tool import udir
 from pypy.translator.cli.rte import Target
-from pypy.translator.cli.silverpython import DllDef, export, collect_entrypoints,\
+from pypy.translator.cli.carbonpython import DllDef, export, collect_entrypoints,\
      collect_class_entrypoints
 from pypy.translator.cli.test.runtest import CliFunctionWrapper, CliTest
 
 TEMPLATE = """
 using System;
-class SilveRPytonTest {
+class CarbonPytonTest {
     public static void Main() {
         %s
     }
 }
 """
 
-class TestSilveRPython(CliTest):
+class TestCarbonPython(CliTest):
     
     def _csharp(self, reference, source):
         tmpfile = udir.udir.join('tmp.cs')
