@@ -255,19 +255,19 @@ class DFA(object):
         result = result.get_code()
         while "\n\n" in result:
             result = result.replace("\n\n", "\n")
-        print result
+        #print result
         d = {'LexerError': LexerError}
         exec py.code.Source(result).compile() in d
         return d['recognize']
         
     def make_lexing_code(self):
-        result = ["""
-def recognize(runner, i):
-    assert i >= 0
-    input = runner.text
-    state = 0
-    while 1:
-"""]
+        from pypy.rlib.parsing.codebuilder import Codebuilder
+        result = Codebuilder()
+        result.start_block("def recognize(runner, i):")
+        result.emit("assert i >= 0")
+        result.emit("input = runner.text")
+        result.emit("state = 0")
+        result.start_block("while 1:")
         state_to_chars = {}
         for (state, char), nextstate in self.transitions.iteritems():
             state_to_chars.setdefault(state, {}).setdefault(nextstate, set()).add(char)
@@ -276,62 +276,66 @@ def recognize(runner, i):
         above = set()
         for state, nextstates in state_to_chars_sorted:
             above.add(state)
-            result.append("        if state == %s:" % (state, ))
-            if state in self.final_states:
-                result.append("            runner.last_matched_index = i - 1")
-                result.append("            runner.last_matched_state = state")
-            result.append("""\
-            try:
-                char = input[i]
-                i += 1
-            except IndexError:
-                runner.state = %s""" % (state, ))
-            if state in self.final_states:
-                result.append("                return i")
-            else:
-                result.append("                return ~i")
-            elif_prefix = ""
-            for nextstate, chars in nextstates.iteritems():
-                final = nextstate in self.final_states
-                compressed = compress_char_set(chars)
-                if nextstate in above:
-                    continue_prefix = "\n" + " " * 16 + "continue"
-                else:
-                    continue_prefix = ""
-                for i, (a, num) in enumerate(compressed):
-                    if num < 3:
-                        for charord in range(ord(a), ord(a) + num):
-                            result.append("""
-            %sif char == %r:
-                state = %s%s""" % (elif_prefix, chr(charord), nextstate, continue_prefix))
+            for _ in result.start_block("if state == %s:" % (state, )):
+                if state in self.final_states:
+                    result.emit("runner.last_matched_index = i - 1")
+                    result.emit("runner.last_matched_state = state")
+                for _ in result.start_block("try:"):
+                    result.emit("char = input[i]")
+                    result.emit("i += 1")
+                for _ in result.start_block("except IndexError:"):
+                    result.emit("runner.state = %s" % (state, ))
+                    if state in self.final_states:
+                        result.emit("return i")
+                    else:
+                        result.emit("return ~i")
+                elif_prefix = ""
+                for nextstate, chars in nextstates.iteritems():
+                    final = nextstate in self.final_states
+                    compressed = compress_char_set(chars)
+                    if nextstate in above:
+                        continue_prefix = "continue"
+                    else:
+                        continue_prefix = ""
+                    for i, (a, num) in enumerate(compressed):
+                        if num < 3:
+                            for charord in range(ord(a), ord(a) + num):
+                                for _ in result.start_block("%sif char == %r:"
+                                        % (elif_prefix, chr(charord))):
+                                    result.emit("state = %s" % (nextstate, ))
+                                    result.emit(continue_prefix)
+                                if not elif_prefix:
+                                    elif_prefix = "el"
+                        else:
+                            for _ in result.start_block(
+                                "%sif %r <= char <= %r:" % (
+                                    elif_prefix, a, chr(ord(a) + num - 1))):
+                                    result.emit("state = %s" % (nextstate, ))
+                                    result.emit(continue_prefix)
                             if not elif_prefix:
                                 elif_prefix = "el"
-                    else:
-                        result.append("""
-            %sif %r <= char <= %r:
-                state = %s%s""" % (elif_prefix, a, chr(ord(a) + num - 1), nextstate, continue_prefix))
-                        if not elif_prefix:
-                            elif_prefix = "el"
-            
-            result.append(" " * 12 + "else:")
-            result.append(" " * 16 + "break")
+                for _ in result.start_block("else:"):
+                    result.emit("break")
         #print state_to_chars.keys()
         for state in range(self.num_states):
             if state in state_to_chars:
                 continue
             assert state in self.final_states
-        result.append("""\
-        runner.last_matched_state = state
-        runner.last_matched_index = i - 1
-        runner.state = state
-        if i == len(input):
-            return i
-        else:
-            return ~i
-        break
-    runner.state = state
-    return ~i""")
-        result = "\n".join(result)
+        result.emit("""
+runner.last_matched_state = state
+runner.last_matched_index = i - 1
+runner.state = state
+if i == len(input):
+    return i
+else:
+    return ~i
+break""")
+        result.end_block("while")
+        result.emit("""
+runner.state = state
+return ~i""")
+        result.end_block("def")
+        result = result.get_code()
         while "\n\n" in result:
             result = result.replace("\n\n", "\n")
         #print result
