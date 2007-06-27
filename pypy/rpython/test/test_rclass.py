@@ -700,7 +700,7 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
-        _, meth = TYPE._lookup("o__del___variant0")
+        _, meth = TYPE._lookup("o__del__")
         assert meth.finalizer
 
     def test_del_inheritance(self):
@@ -734,9 +734,9 @@ class TestOOtype(BaseTestRclass, OORtypeMixin):
         TYPEA = graph.startblock.operations[0].args[0].value
         TYPEB = graph.startblock.operations[2].args[0].value
         TYPEC = graph.startblock.operations[4].args[0].value
-        _, destra = TYPEA._lookup("o__del___variant0")
-        _, destrb = TYPEB._lookup("o__del___variant0")
-        _, destrc = TYPEC._lookup("o__del___variant0")
+        _, destra = TYPEA._lookup("o__del__")
+        _, destrb = TYPEB._lookup("o__del__")
+        _, destrc = TYPEC._lookup("o__del__")
         assert destra == destrc
         assert destrb is not None
         assert destra is not None

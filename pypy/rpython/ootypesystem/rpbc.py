@@ -56,7 +56,10 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
 
 
 def row_method_name(methodname, rowname):
-    return "%s_%s" % (methodname, rowname)
+    if rowname is None:
+        return methodname
+    else:
+        return "%s_%s" % (methodname, rowname)
     
 class MethodImplementations(object):
 

@@ -118,7 +118,7 @@ class TestSilveRPython(CliTest):
         dll.compile()
         res = self._csharp('test', """
             Test.MyClass obj = new Test.MyClass();
-            obj.__init___variant0(39);
-            Console.WriteLine(obj.add_variant0(1, 2));
+            obj.__init__(39);
+            Console.WriteLine(obj.add(1, 2));
         """)
         assert res == 42

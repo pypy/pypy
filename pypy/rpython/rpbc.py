@@ -147,8 +147,11 @@ def build_concrete_calltable(rtyper, callfamily):
         assert biggerrow == row   # otherwise, addrow() is broken
         concretetable[shape, index] = row
 
-    for finalindex, row in enumerate(uniquerows):
-        row.attrname = 'variant%d' % finalindex
+    if len(uniquerows) == 1:
+        uniquerows[0].attrname = None
+    else:
+        for finalindex, row in enumerate(uniquerows):
+            row.attrname = 'variant%d' % finalindex
 
     return concretetable, uniquerows
 
