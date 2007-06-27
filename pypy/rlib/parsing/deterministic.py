@@ -17,7 +17,9 @@ def compress_char_set(chars):
             result.append(1)
     real_result = []
     for i in range(len(result) // 2):
-        real_result.append((result[i * 2], result[i * 2 + 1]))
+        real_result.append((result[i * 2 + 1], result[i * 2]))
+    real_result.sort()
+    real_result = zip(*zip(*real_result)[::-1])
     return real_result
 
 class LexerError(Exception):
