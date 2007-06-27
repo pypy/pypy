@@ -16,7 +16,8 @@ class Codebuilder(object):
 
     def emit(self, line):
         for line in line.split("\n"):
-            self.code.append((len(self.blocks),  line))
+            if line:
+                self.code.append((len(self.blocks),  line))
 
     def emit_initcode(self, line):
         for line in line.split("\n"):
