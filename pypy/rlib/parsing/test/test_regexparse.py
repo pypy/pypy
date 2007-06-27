@@ -3,7 +3,6 @@ from pypy.rlib.parsing.regexparse import make_runner, unescape, RegexParser
 from pypy.rlib.parsing import regex
 import operator
 from pypy.rlib.parsing.makepackrat import PackratParser as _PackratParser
-from pypy.rlib.parsing.deterministic import compress_char_set, DFA
 
 
 
