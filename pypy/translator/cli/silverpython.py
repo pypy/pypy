@@ -9,6 +9,7 @@ import sys
 import new
 import types
 import os.path
+import inspect
 
 from pypy.translator.driver import TranslationDriver
 from pypy.translator.cli.entrypoint import DllEntryPoint
@@ -18,6 +19,9 @@ class DllDef:
         self.name = name
         self.namespace = namespace
         self.functions = functions # [(function, annotation), ...]
+        self.driver = TranslationDriver()
+        self.driver.config.translation.ootype.mangle = False
+        self.driver.setup_library(self)
 
     def add_function(self, func, inputtypes):
         self.functions.append((func, inputtypes))
@@ -31,11 +35,7 @@ class DllDef:
         for func, _ in self.functions:
             if not hasattr(func, '_namespace_'):
                 func._namespace_ = self.namespace
-        driver = TranslationDriver()
-        driver.config.translation.ootype.mangle = False
-        driver.setup_library(self)
-        driver.proceed(['compile_cli'])
-        return driver
+        self.driver.proceed(['compile_cli'])
 
 class export(object):
     def __new__(self, *args, **kwds):
@@ -57,25 +57,76 @@ class export(object):
             func._namespace_ = self.namespace
         return func
 
+def is_exported(obj):
+    return isinstance(obj, (types.FunctionType, types.UnboundMethodType)) \
+           and hasattr(obj, '_inputtypes_')
+
 def collect_entrypoints(dic):
     entrypoints = []
     for item in dic.itervalues():
-        if isinstance(item, types.FunctionType) and hasattr(item, '_inputtypes_'):
+        if is_exported(item):
             entrypoints.append((item, item._inputtypes_))
+        elif isinstance(item, types.ClassType) or isinstance(item, type):
+            entrypoints += collect_class_entrypoints(item)
     return entrypoints
+
+def collect_class_entrypoints(cls):
+    try:
+        __init__ = cls.__init__
+        if not is_exported(__init__):
+            return []
+    except AttributeError:
+        return []
+
+    entrypoints = [(wrap_init(cls, __init__), __init__._inputtypes_)]
+    for item in cls.__dict__.itervalues():
+        if item is not __init__.im_func and is_exported(item):
+            inputtypes = (cls,) + item._inputtypes_
+            entrypoints.append((wrap_method(item), inputtypes))
+    return entrypoints
+
+def getarglist(meth):
+    arglist, starargs, kwargs, defaults = inspect.getargspec(meth)
+    assert starargs is None, '*args not supported yet'
+    assert kwargs is None, '**kwds not supported yet'
+    assert defaults is None, 'default values not supported yet'
+    return arglist
+
+def wrap_init(cls, meth):
+    arglist = getarglist(meth)[1:] # discard self
+    args = ', '.join(arglist)
+    source = 'def __internal__ctor(%s): return %s(%s)' % (
+        args, cls.__name__, args)
+    mydict = {cls.__name__: cls}
+    print source
+    exec source in mydict
+    return mydict['__internal__ctor']
+
+def wrap_method(meth, is_init=False):
+    arglist = getarglist(meth)
+    name = '__internal__%s' % meth.func_name
+    selfvar = arglist[0]
+    args = ', '.join(arglist)
+    params = ', '.join(arglist[1:])
+    source = 'def %s(%s): return %s.%s(%s)' % (
+        name, args, selfvar, meth.func_name, params)
+    mydict = {}
+    print source
+    exec source in mydict
+    return mydict[name]
+
 
 def compile_dll(filename):
     _, name = os.path.split(filename)
     dllname, _ = os.path.splitext(name)
-
     module = new.module(dllname)
-    execfile(filename, module.__dict__)
-    entrypoints = collect_entrypoints(module.__dict__)
     namespace = module.__dict__.get('_namespace_', dllname)
-    
-    dll = DllDef(dllname, namespace, entrypoints)
-    driver = dll.compile()
-    driver.copy_cli_dll()
+    execfile(filename, module.__dict__)
+
+    dll = DllDef(dllname, namespace)
+    dll.functions = collect_entrypoints(module.__dict__)
+    dll.compile()
+    dll.driver.copy_cli_dll()
 
 def main(argv):
     if len(argv) != 2:

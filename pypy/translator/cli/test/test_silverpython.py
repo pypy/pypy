@@ -1,6 +1,7 @@
 from pypy.tool import udir
 from pypy.translator.cli.rte import Target
-from pypy.translator.cli.silverpython import DllDef, export, collect_entrypoints
+from pypy.translator.cli.silverpython import DllDef, export, collect_entrypoints,\
+     collect_class_entrypoints
 from pypy.translator.cli.test.runtest import CliFunctionWrapper, CliTest
 
 TEMPLATE = """
@@ -82,3 +83,42 @@ class TestSilveRPython(CliTest):
         mydict = dict(foo=foo, bar=bar, x=42)
         entrypoints = collect_entrypoints(mydict)
         assert entrypoints == [(foo, (int, float))]
+
+    def test_collect_class_entrypoints(self):
+        class NotExported:
+            def __init__(self):
+                pass
+            
+        class MyClass:
+            @export
+            def __init__(self):
+                pass
+            @export(int)
+            def foo(self, x):
+                return x
+
+        assert collect_class_entrypoints(NotExported) == []
+        entrypoints = collect_class_entrypoints(MyClass)
+        assert len(entrypoints) == 2
+        assert entrypoints[0][1] == () # __init__ inputtypes
+        assert entrypoints[1][1] == (MyClass, int) # foo inputtypes
+        
+    def test_compile_class(self):
+        class MyClass:
+            @export(int)
+            def __init__(self, x):
+                self.x = x
+            @export(int, int)
+            def add(self, y, z):
+                return self.x + y + z
+        MyClass.__module__ = 'Test' # put the class in the Test namespace
+
+        entrypoints = collect_entrypoints({'MyClass': MyClass})
+        dll = DllDef('test', 'Test', entrypoints)
+        dll.compile()
+        res = self._csharp('test', """
+            Test.MyClass obj = new Test.MyClass();
+            obj.__init___variant0(39);
+            Console.WriteLine(obj.add_variant0(1, 2));
+        """)
+        assert res == 42
