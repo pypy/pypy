@@ -194,7 +194,10 @@ class Define(W_Procedure):
 def macro_if(ctx, lst):
     w_condition = lst.car
     w_then = lst.cdr.car
-    w_else = lst.cdr.cdr.car
+    if isinstance(lst.cdr.cdr, W_Nil):
+        w_else = W_Boolean(False)
+    else:
+        w_else = lst.cdr.cdr.car
 
     w_cond_val = w_condition.eval(ctx)
     if w_cond_val.to_boolean() is True:

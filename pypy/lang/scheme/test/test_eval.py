@@ -93,6 +93,10 @@ def test_if_simple():
     assert w_f.to_boolean() is False
     w_f = eval_expr(ctx, "(if 1 #f #t)")
     assert w_f.to_boolean() is False
+    w_f = eval_expr(ctx, "(if #t #t)")
+    assert w_f.to_boolean() is True
+    w_f = eval_expr(ctx, "(if #f #t)")
+    assert w_f.to_boolean() is False
 
 def test_if_evaluation():
     ctx = ExecutionContext()

@@ -9,9 +9,6 @@ Do now
 
 -+variables and execution context
 
-- symbols
-  - global dict for symbols _obarray_
-
 + there is need to distinct identifier from symbol
   (define var 11)
   (symbol? var) -> #f
@@ -22,6 +19,10 @@ Do now
 
 Do next
 -------
+
+- symbols (should be done with next point)
+  - global dict for symbols _obarray_
+- (quote <obj>) and '<obj>, not only symbols
 
 - functions
 - implement key funcions
