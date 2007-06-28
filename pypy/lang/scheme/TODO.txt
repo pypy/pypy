@@ -1,21 +1,10 @@
 Do now
 ------
 
-+ evaluate simple expressions like
-  (* 6 7) or even (+ 1 2 3 4)
-  + parsing is done by some shiny new Carl's thingy
-    W_xxx object like W_Fixnum should eval to itself despite context
-  = implement basic operations like + * / and so on
-
--+variables and execution context
-
-+ there is need to distinct identifier from symbol
-  (define var 11)
-  (symbol? var) -> #f
-  (symbol? 'var) -> #t
-
-- control structures
-  - boolean
+- variables and execution context
+- list operations: cons car cdr list
+- comparison: = < > eq? eqv?
+- lambdas!
 
 Do next
 -------
@@ -24,7 +13,6 @@ Do next
   - global dict for symbols _obarray_
 - (quote <obj>) and '<obj>, not only symbols
 
-- functions
 - implement key funcions
   (apply, reduce, mapcar and so on)
 
