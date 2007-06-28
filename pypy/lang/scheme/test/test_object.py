@@ -14,18 +14,21 @@ def test_string():
     str = "Hello World!"
     w_str = W_String(str)
     assert str == w_str.to_string()
+    assert w_str.to_boolean() is True
     
 def test_fixnum():
     num = 12345
     w_num = W_Fixnum(num)
     assert num == w_num.to_fixnum()
     assert float(num) == w_num.to_float()
+    assert w_num.to_boolean() is True
 
 def test_float():
     num = 12345.567
     w_num = W_Float(num)
     assert num == w_num.to_float()
     assert int(num) == w_num.to_fixnum()
+    assert w_num.to_boolean() is True
 
 def test_pair():
     c1 = W_Fixnum(1)
@@ -39,14 +42,18 @@ def test_pair():
     assert p.cdr.car == c2
     assert p.cdr.cdr.car == c3
     assert p.cdr.cdr.cdr == c4
+    assert p.to_boolean() is True
+    assert c4.to_boolean() is True
 
 def test_symbol():
     w_sym = W_Symbol("symb")
     assert w_sym.to_string() == "symb"
+    assert w_sym.to_boolean() is True
 
 def test_symbol():
     w_id = W_Identifier("ident")
     assert w_id.to_string() == "ident"
+    assert w_id.to_boolean() is True
 
 def test_ctx():
     w_fnum = W_Fixnum(12)

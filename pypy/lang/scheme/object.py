@@ -5,7 +5,7 @@ class W_Root(object):
         return ''
 
     def to_boolean(self):
-        return False
+        return True
 
     def __str__(self):
         return self.to_string() + "W"

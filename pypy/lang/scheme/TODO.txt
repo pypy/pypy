@@ -17,10 +17,12 @@ Do now
   (symbol? var) -> #f
   (symbol? 'var) -> #t
 
+- control structures
+  - boolean
+
 Do next
 -------
 
-- control structures
 - functions
 - implement key funcions
   (apply, reduce, mapcar and so on)
