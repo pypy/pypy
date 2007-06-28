@@ -32,13 +32,11 @@ from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 
+# ------------------------------- os.execv ------------------------------
+
 if hasattr(os, 'execv'):
 
-    if os.name == 'nt':
-        name = '_execv'
-    else:
-        name = 'execv'
-    os_execv = rffi.llexternal(name, [rffi.CCHARP, rffi.CCHARPP],
+    os_execv = rffi.llexternal('execv', [rffi.CCHARP, rffi.CCHARPP],
                                lltype.Signed)
 
     def execv_lltypeimpl(path, args):
@@ -52,12 +50,9 @@ if hasattr(os, 'execv'):
     register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
                       execv_lltypeimpl, export_name="ll_os.ll_os_execv")
 
-if os.name == 'nt':
-    name = '_dup'
-else:
-    name = 'dup'
+# ------------------------------- os.dup --------------------------------
 
-os_dup = rffi.llexternal(name, [lltype.Signed], lltype.Signed,
+os_dup = rffi.llexternal('dup', [lltype.Signed], lltype.Signed,
                          _callable=os.dup)
 
 def dup_lltypeimpl(fd):
@@ -68,11 +63,9 @@ def dup_lltypeimpl(fd):
 register_external(os.dup, [int], int, llimpl=dup_lltypeimpl,
                   export_name="ll_os.ll_os_dup", oofakeimpl=os.dup)
 
-if os.name == 'nt':
-    name = '_dup2'
-else:
-    name = 'dup2'
-os_dup2 = rffi.llexternal(name, [lltype.Signed, lltype.Signed], lltype.Signed)
+# ------------------------------- os.dup2 -------------------------------
+
+os_dup2 = rffi.llexternal('dup2', [lltype.Signed, lltype.Signed], lltype.Signed)
 
 def dup2_lltypeimpl(fd, newfd):
     error = os_dup2(fd, newfd)
@@ -81,6 +74,7 @@ def dup2_lltypeimpl(fd, newfd):
 register_external(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
                   export_name="ll_os.ll_os_dup2")
 
+# ------------------------------- os.utime ------------------------------
 
 UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', rffi.SIZE_T),
                          ('modtime', rffi.SIZE_T))
@@ -111,7 +105,9 @@ def utime_tuple_lltypeimpl(path, tp):
     if error == -1:
         raise OSError(rffi.c_errno, "utime_tuple failed")
 register_external(ros.utime_tuple, [str, (float, float)], s_None, "ll_os.utime_tuple",
-                  llimpl=utime_tuple_lltypeimpl)    
+                  llimpl=utime_tuple_lltypeimpl)
+
+# ------------------------------- os.open -------------------------------
 
 def fake_os_open(l_path, flags, mode):
     path = rffi.charp2str(l_path)
@@ -140,6 +136,9 @@ def os_open_oofakeimpl(o_path, flags, mode):
 register_external(os.open, [str, int, int], int, "ll_os.ll_os_open",
                   llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
 
+# ------------------------------- os.WIFSIGNALED ------------------------
+# XXX this needs to be generated automatically for all os.W*
+
 if hasattr(os, 'WIFSIGNALED'):
     def fake_WIFSIGNALED(status):
         return int(os.WIFSIGNALED(status))
@@ -153,6 +152,24 @@ if hasattr(os, 'WIFSIGNALED'):
 
     register_external(os.WIFSIGNALED, [int], bool, "ll_os.WIFSIGNALED",
                       llimpl=WIFSIGNALED_lltypeimpl)
+
+# ------------------------------- os.ttyname ----------------------------
+
+if hasattr(os, 'ttyname'):
+    def fake_ttyname(fd):
+        return rffi.str2charp(os.ttyname(fd))
+    
+    os_ttyname = rffi.llexternal('ttyname', [lltype.Signed], rffi.CCHARP,
+                                 _callable=fake_ttyname)
+
+    def ttyname_lltypeimpl(fd):
+        l_name = os_ttyname(fd)
+        if not l_name:
+            raise OSError(rffi.c_errno, "ttyname raised")
+        return rffi.charp2str(l_name)
+
+    register_external(os.ttyname, [int], str, "ll_os.ttyname",
+                      llimpl=ttyname_lltypeimpl)
 
 class BaseOS:
     __metaclass__ = ClassMethods
@@ -220,14 +237,6 @@ class BaseOS:
     def ll_os_system(cls, cmd):
         return os.system(cls.from_rstr(cmd))
     ll_os_system.suggested_primitive = True
-
-    #def ll_os_execv(cls, cmd, args):
-    #    os.execv(cmd, args)
-    #ll_os_execv.suggested_primitive = True
-
-    #def ll_os_execve(cls, cmd, args, env):
-    #    env_list = from_rdict(env)
-    #    ll_execve(cmd, args, env_list)
 
     def ll_os_unlink(cls, path):
         os.unlink(cls.from_rstr(path))

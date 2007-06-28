@@ -109,3 +109,24 @@ def test_os_wifsignaled():
     fn = compile(fun, [int])
     assert fn(0) == False
     assert fn(1) == True
+
+class ExpectTestOs:
+    def setup_class(cls):
+        if not hasattr(os, 'ttyname'):
+            py.test.skip("no ttyname")
+    
+    def test_ttyname(self):
+        import os
+        import py
+        from pypy.translator.c.test.test_genc import compile
+        def f(num):
+            try:
+                return os.ttyname(num)
+            except OSError:
+                return ''
+
+        fn = compile(f, [int])
+        assert f(0) == fn(0)
+        assert fn(338) == ''
+
+    
