@@ -32,29 +32,11 @@ unicode_encode     = SMM('encode', 3, defaults=(None, None),
                              ' well as any other name registered'
                              ' with\ncodecs.register_error that can handle'
                              ' UnicodeEncodeErrors.')
-unicode_endswith   = SMM('endswith', 4, defaults=(0,maxint),
-                         doc='S.endswith(suffix[, start[, end]]) ->'
-                             ' bool\n\nReturn True if S ends with the'
-                             ' specified suffix, False otherwise.\nWith'
-                             ' optional start, test S beginning at that'
-                             ' position.\nWith optional end, stop comparing S'
-                             ' at that position.')
 unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
                          doc='S.expandtabs([tabsize]) -> unicode\n\nReturn a'
                              ' copy of S where all tab characters are expanded'
                              ' using spaces.\nIf tabsize is not given, a tab'
                              ' size of 8 characters is assumed.')
-unicode_find       = SMM('find', 4, defaults=(0, maxint),
-                         doc='S.find(sub [,start [,end]]) -> int\n\nReturn the'
-                             ' lowest index in S where substring sub is'
-                             ' found,\nsuch that sub is contained within'
-                             ' s[start,end].  Optional\narguments start and'
-                             ' end are interpreted as in slice'
-                             ' notation.\n\nReturn -1 on failure.')
-unicode_index      = SMM('index', 4, defaults=(0, maxint),
-                         doc='S.index(sub [,start [,end]]) -> int\n\nLike'
-                             ' S.find() but raise ValueError when the'
-                             ' substring is not found.')
 unicode_isalnum    = SMM('isalnum', 1,
                          doc='S.isalnum() -> bool\n\nReturn True if all'
                              ' characters in S are alphanumeric\nand there is'
@@ -109,79 +91,11 @@ unicode_ljust      = SMM('ljust', 3, defaults=(' ',),
 unicode_lower      = SMM('lower', 1,
                          doc='S.lower() -> unicode\n\nReturn a copy of the'
                              ' string S converted to lowercase.')
-unicode_lstrip     = SMM('lstrip', 2, defaults=(None,),
-                         doc='S.lstrip([chars]) -> unicode\n\nReturn a copy of'
-                             ' the string S with leading whitespace'
-                             ' removed.\nIf chars is given and not None,'
-                             ' remove characters in chars instead.\nIf chars'
-                             ' is a str, it will be converted to unicode'
-                             ' before stripping')
-unicode_replace    = SMM('replace', 4, defaults=(-1,),
-                         doc='S.replace (old, new[, maxsplit]) ->'
-                             ' unicode\n\nReturn a copy of S with all'
-                             ' occurrences of substring\nold replaced by new. '
-                             ' If the optional argument maxsplit is\ngiven,'
-                             ' only the first maxsplit occurrences are'
-                             ' replaced.')
-unicode_rfind      = SMM('rfind', 4, defaults=(0, maxint),
-                         doc='S.rfind(sub [,start [,end]]) -> int\n\nReturn'
-                             ' the highest index in S where substring sub is'
-                             ' found,\nsuch that sub is contained within'
-                             ' s[start,end].  Optional\narguments start and'
-                             ' end are interpreted as in slice'
-                             ' notation.\n\nReturn -1 on failure.')
-unicode_rindex     = SMM('rindex', 4, defaults=(0, maxint),
-                         doc='S.rindex(sub [,start [,end]]) -> int\n\nLike'
-                             ' S.rfind() but raise ValueError when the'
-                             ' substring is not found.')
 unicode_rjust      = SMM('rjust', 3, defaults=(' ',),
                          doc='S.rjust(width[, fillchar]) -> unicode\n\nReturn'
                              ' S right justified in a Unicode string of length'
                              ' width. Padding is\ndone using the specified'
                              ' fill character (default is a space).')
-unicode_rstrip     = SMM('rstrip', 2, defaults=(None,),
-                         doc='S.rstrip([chars]) -> unicode\n\nReturn a copy of'
-                             ' the string S with trailing whitespace'
-                             ' removed.\nIf chars is given and not None,'
-                             ' remove characters in chars instead.\nIf chars'
-                             ' is a str, it will be converted to unicode'
-                             ' before stripping')
-unicode_rsplit     = SMM('rsplit', 3, defaults=(None,-1),
-                         doc='S.rsplit([sep [,maxsplit]]) -> list of'
-                             ' strings\n\nReturn a list of the words in S,'
-                             ' using sep as the\ndelimiter string, starting at'
-                             ' the end of the string and\nworking to the'
-                             ' front.  If maxsplit is given, at most'
-                             ' maxsplit\nsplits are done. If sep is not'
-                             ' specified, any whitespace string\nis a'
-                             ' separator.')
-unicode_split      = SMM('split', 3, defaults=(None,-1),
-                         doc='S.split([sep [,maxsplit]]) -> list of'
-                             ' strings\n\nReturn a list of the words in S,'
-                             ' using sep as the\ndelimiter string.  If'
-                             ' maxsplit is given, at most maxsplit\nsplits are'
-                             ' done. If sep is not specified or is None,\nany'
-                             ' whitespace string is a separator.')
-unicode_splitlines = SMM('splitlines', 2, defaults=(0,),
-                         doc='S.splitlines([keepends]]) -> list of'
-                             ' strings\n\nReturn a list of the lines in S,'
-                             ' breaking at line boundaries.\nLine breaks are'
-                             ' not included in the resulting list unless'
-                             ' keepends\nis given and true.')
-unicode_startswith = SMM('startswith', 4, defaults=(0,maxint),
-                         doc='S.startswith(prefix[, start[, end]]) ->'
-                             ' bool\n\nReturn True if S starts with the'
-                             ' specified prefix, False otherwise.\nWith'
-                             ' optional start, test S beginning at that'
-                             ' position.\nWith optional end, stop comparing S'
-                             ' at that position.')
-unicode_strip      = SMM('strip',  2, defaults=(None,),
-                         doc='S.strip([chars]) -> unicode\n\nReturn a copy of'
-                             ' the string S with leading and'
-                             ' trailing\nwhitespace removed.\nIf chars is'
-                             ' given and not None, remove characters in chars'
-                             ' instead.\nIf chars is a str, it will be'
-                             ' converted to unicode before stripping')
 unicode_swapcase   = SMM('swapcase', 1,
                          doc='S.swapcase() -> unicode\n\nReturn a copy of S'
                              ' with uppercase characters converted to'
@@ -207,19 +121,24 @@ unicode_zfill      = SMM('zfill', 2,
                              ' string x with zeros on the left, to fill a'
                              ' field\nof the specified width. The string x is'
                              ' never truncated.')
-unicode_partition  = SMM('partition', 2,
-                         doc='S.partition(sep) -> (head, sep, tail)\n\nSearches'
-                         ' for the separator sep in S, and returns the part before'
-                         ' it,\nthe separator itself, and the part after it.  If'
-                         ' the separator is not\nfound, returns S and two empty'
-                         ' strings.')
-unicode_rpartition = SMM('rpartition', 2,
-                     doc='S.rpartition(sep) -> (tail, sep, head)\n\nSearches'
-                         ' for the separator sep in S, starting at the end of S,'
-                         ' and returns\nthe part before it, the separator itself,'
-                         ' and the part after it.  If the\nseparator is not found,'
-                         ' returns two empty strings and S.')
 
+# stuff imported from stringtype for interoperability
+
+from pypy.objspace.std.stringtype import str_endswith as unicode_endswith
+from pypy.objspace.std.stringtype import str_startswith as unicode_startswith
+from pypy.objspace.std.stringtype import str_find as unicode_find
+from pypy.objspace.std.stringtype import str_index as unicode_index
+from pypy.objspace.std.stringtype import str_replace as unicode_replace
+from pypy.objspace.std.stringtype import str_rfind as unicode_rfind
+from pypy.objspace.std.stringtype import str_rindex as unicode_rindex
+from pypy.objspace.std.stringtype import str_split as unicode_split
+from pypy.objspace.std.stringtype import str_rsplit as unicode_rsplit
+from pypy.objspace.std.stringtype import str_partition as unicode_partition
+from pypy.objspace.std.stringtype import str_rpartition as unicode_rpartition
+from pypy.objspace.std.stringtype import str_splitlines as unicode_splitlines
+from pypy.objspace.std.stringtype import str_strip as unicode_strip
+from pypy.objspace.std.stringtype import str_rstrip as unicode_rstrip
+from pypy.objspace.std.stringtype import str_lstrip as unicode_lstrip
 
 # ____________________________________________________________
 

@@ -680,7 +680,6 @@ class AppTestStringObject:
         assert type(s.splitlines()[0]) is str
 
     def test_str_unicode_interchangeable(self):
-        skip("failing")
         stuff = ['xxxxx', u'xxxxx']
         for x in stuff:
             for y in stuff:
@@ -689,7 +688,17 @@ class AppTestStringObject:
                 assert x.count(y) == 1
                 assert x.find(y) != -1
                 assert x.index(y) == 0
-                # ... to be continued once this passes
+                d = ["x", u"x"]
+                for a in d:
+                    for b in d:
+                        assert x.replace(a, b) == y
+                assert x.rfind(y) != -1
+                assert x.rindex(y) == 0
+                assert x.split(y) == ['', '']
+                assert x.rsplit(y) == ['', '']
+                assert x.strip(y) == ''
+                assert x.rstrip(y) == ''
+                assert x.lstrip(y) == ''
 
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
