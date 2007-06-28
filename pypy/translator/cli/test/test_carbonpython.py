@@ -6,6 +6,7 @@ from pypy.translator.cli.test.runtest import CliFunctionWrapper, CliTest
 
 TEMPLATE = """
 using System;
+using System.Collections;
 class CarbonPytonTest {
     public static void Main() {
         %s
@@ -120,5 +121,22 @@ class TestCarbonPython(CliTest):
             Test.MyClass obj = new Test.MyClass();
             obj.__init__(39);
             Console.WriteLine(obj.add(1, 2));
+        """)
+        assert res == 42
+
+    def test_export_cliclass(self):
+        from pypy.translator.cli.dotnet import CLR
+        
+        @export(CLR.System.Collections.ArrayList, int)
+        def getitem(obj, i):
+            return obj.get_Item(i)
+
+        entrypoints = collect_entrypoints({'getitem': getitem})
+        dll = DllDef('test', 'Test', entrypoints)
+        dll.compile()
+        res = self._csharp('test', """
+            ArrayList obj = new ArrayList();
+            obj.Add(42);
+            Console.WriteLine(Test.getitem(obj, 0));
         """)
         assert res == 42

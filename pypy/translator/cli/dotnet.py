@@ -256,6 +256,8 @@ class Entry(ExtRegistryEntry):
     def compute_annotation(self):
         return SomeCliClass()
 
+    def compute_result_annotation(self):
+        return SomeOOInstance(self.instance._INSTANCE)
 
 class CliNamespace(object):
     def __init__(self, name):
