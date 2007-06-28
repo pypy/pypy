@@ -6,7 +6,10 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.tool.pytest.appsupport import AppFrame, build_pytest_assertion, AppExceptionInfo
-
+import py
+from pypy.tool.udir import udir
+import os
+import sys
 
 def somefunc(x):
     print x
@@ -99,3 +102,54 @@ class AppTestWithWrappedInterplevelAttributes:
 
     def test_values_arrive2(self): 
         assert self.some1 == 42
+
+def test_expectcollect():
+    try:
+        import pexpect
+    except ImportError:
+        py.test.skip("pexpect not found")
+    source = py.code.Source("""
+    class ExpectTestOne:
+        def test_one(self):
+            pass
+    """)
+    from pypy import conftest
+    tdir = udir.ensure("t", dir=True)
+    dest = tdir.join("test_expect.py")
+    dest.write(source)
+    col = conftest.Module(dest)
+    result = col.run()
+    assert len(result) == 1
+
+def test_safename():
+    from pypy.conftest import ExpectTestMethod
+
+    safe_name = ExpectTestMethod.safe_name
+    assert safe_name(['pypy', 'tool', 'test', 'test_pytestsupport.py',
+                      'ExpectTest', '()', 'test_one']) == \
+           'pypy_tool_test_test_pytestsupport_ExpectTest_paren_test_one'
+
+def test_safe_filename():
+    source = py.code.Source("""
+    class ExpectTestOne:
+        def test_one(self):
+            pass
+    """)
+    dest = udir.join("test_expect_safefilename.py")
+    dest.write(source)
+    from pypy import conftest
+    col = conftest.Module(dest)
+    methcol = col.join('ExpectTestOne').join('()').join('test_one')
+    name = 'test_expect_safefilename_ExpectTestOne_paren_test_one.py'
+    assert methcol.safe_filename() == name
+    udir.ensure(name)
+    assert methcol.safe_filename() == name[:-3] + '_1.py'
+
+class ExpectTest:
+    def test_one(self):
+        import os
+        import sys
+        assert os.ttyname(sys.stdin.fileno())
+
+    def test_two(self):
+        import pypy

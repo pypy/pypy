@@ -1,10 +1,12 @@
-import py, sys
+import py, sys, os
 from py.__.test.outcome import Failed
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport
 from pypy.tool.option import make_config, make_objspace
 from inspect import isclass, getmro
+from pypy.tool.udir import udir
+from pypy.tool.autopath import pypydir
 
 rootdir = py.magic.autopath().dirpath()
 
@@ -25,6 +27,9 @@ option = py.test.config.addoptions("pypy options",
         Option('-A', '--runappdirect', action="store_true",
                default=False, dest="runappdirect",
                help="run applevel tests directly on python interpreter (not through PyPy)"),
+        Option('--direct', action="store_true",
+               default=False, dest="rundirect",
+               help="run pexpect tests directly")
     )
 
 _SPACECACHE={}
@@ -183,6 +188,11 @@ class Module(py.test.collect.Module):
             return self.accept_regular_test()
         if name.startswith('AppTest'):
             return True
+        if name.startswith('ExpectTest'):
+            return True
+        #XXX todo
+        #if name.startswith('AppExpectTest'):
+        #    return True
         return False
 
     def setup(self): 
@@ -196,9 +206,19 @@ class Module(py.test.collect.Module):
         obj = getattr(self.obj, name) 
         if isclass(obj): 
             if name.startswith('AppTest'): 
-                return AppClassCollector(name, parent=self) 
-            else: 
-                return IntClassCollector(name, parent=self) 
+                return AppClassCollector(name, parent=self)
+            elif name.startswith('ExpectTest'):
+                if option.rundirect:
+                    return py.test.collect.Class(name, parent=self)
+                return ExpectClassCollector(name, parent=self)
+            # XXX todo
+            #elif name.startswith('AppExpectTest'):
+            #    if option.rundirect:
+            #        return AppClassCollector(name, parent=self)
+            #    return AppExpectClassCollector(name, parent=self)
+            else:
+                return IntClassCollector(name, parent=self)
+            
         elif hasattr(obj, 'func_code'): 
             if name.startswith('app_test_'): 
                 assert not obj.func_code.co_flags & 32, \
@@ -335,7 +355,7 @@ class AppTestMethod(AppTestFunction):
         self.execute_appex(space, func, space, w_instance) 
 
 class PyPyClassCollector(py.test.collect.Class):
-    def setup(self): 
+    def setup(self):
         cls = self.obj 
         cls.space = LazyObjSpaceGetter()
         super(PyPyClassCollector, self).setup() 
@@ -380,3 +400,59 @@ class AppClassCollector(PyPyClassCollector):
                                           space.newtuple([]),
                                           space.newdict())
         self.w_class = w_class 
+
+class ExpectTestMethod(py.test.collect.Function):
+    def safe_name(target):
+        s = "_".join(target)
+        s = s.replace("()", "paren")
+        s = s.replace(".py", "")
+        s = s.replace(".", "_")
+        return s
+
+    safe_name = staticmethod(safe_name)
+
+    def safe_filename(self):
+        name = self.safe_name(self.listnames())
+        num = 0
+        while udir.join(name + '.py').check():
+            num += 1
+            name = self.safe_name(self.listnames()) + "_" + str(num)
+        return name + '.py'
+
+    def _spawn(self, *args, **kwds):
+        import pexpect
+        child = pexpect.spawn(*args, **kwds)
+        child.logfile = sys.stdout
+        return child
+
+    def spawn(self, argv):
+        return self._spawn(sys.executable, argv)
+
+    def execute(self, target, *args):
+        assert not args
+        import pexpect
+        source = py.code.Source(target)[1:].deindent()
+        filename = self.safe_filename()
+        source.lines = ['import sys',
+                      'sys.path.insert(0, %s)' % repr(os.path.dirname(pypydir))
+                        ] + source.lines
+        source.lines.append('print "%s ok!"' % filename)
+        f = udir.join(filename)
+        f.write(source)
+        # run target in the guarded environment
+        child = self.spawn([str(f)])
+        import re
+        child.expect(re.escape(filename + " ok!"))
+
+class ExpectClassInstance(py.test.collect.Instance):
+    Function = ExpectTestMethod
+
+class ExpectClassCollector(py.test.collect.Class):
+    Instance = ExpectClassInstance
+
+    def setup(self):
+        super(ExpectClassCollector, self).setup()
+        try:
+            import pexpect
+        except ImportError:
+            py.test.skip("pexpect not found")
