@@ -1,3 +1,4 @@
+import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
 from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
@@ -71,6 +72,9 @@ def test_ctx_define():
     ctx = ExecutionContext()
     eval_expr(ctx, "(define v1 42)")
     assert ctx.get("v1").to_number() == 42
+    w_num = eval_expr(ctx, "v1")
+    assert w_num.to_number() == 42
+
     eval_expr(ctx, "(define v2 2.1)")
     assert ctx.get("v2").to_number() == 2.1
 
@@ -87,5 +91,20 @@ def test_if_simple():
     assert w_t.to_boolean() is True
     w_f = eval_expr(ctx, "(if #f #t #f)")
     assert w_f.to_boolean() is False
+    w_f = eval_expr(ctx, "(if 1 #f #t)")
+    assert w_f.to_boolean() is False
 
+def test_if_evaluation():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define then #f)")
+    eval_expr(ctx, "(define else #f)")
+    eval_expr(ctx, "(if #t (define then #t) (define else #t))")
+    assert ctx.get("then").to_boolean() is True
+    assert ctx.get("else").to_boolean() is False
+
+    eval_expr(ctx, "(define then #f)")
+    eval_expr(ctx, "(define else #f)")
+    eval_expr(ctx, "(if #f (define then #t) (define else #t))")
+    assert ctx.get("then").to_boolean() is False
+    assert ctx.get("else").to_boolean() is True
 

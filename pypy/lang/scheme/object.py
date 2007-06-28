@@ -36,6 +36,7 @@ class W_Identifier(W_Root):
             return w_obj.eval(ctx)
         else:
             #reference to undefined identifier
+            #unbound
             raise NotImplementedError
 
 class W_Symbol(W_Root):
