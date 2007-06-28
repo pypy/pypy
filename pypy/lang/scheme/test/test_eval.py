@@ -80,3 +80,12 @@ def test_ctx_define():
     eval_expr(ctx, "(define v2 3.1)")
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 46.1
+
+def test_if_simple():
+    ctx = ExecutionContext()
+    w_t = eval_expr(ctx, "(if #t #t #f)")
+    assert w_t.to_boolean() is True
+    w_f = eval_expr(ctx, "(if #f #t #f)")
+    assert w_f.to_boolean() is False
+
+

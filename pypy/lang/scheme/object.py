@@ -190,6 +190,21 @@ class Define(W_Procedure):
     def eval(self, ctx):
         return define
 
+def macro_if(ctx, lst):
+    w_condition = lst.car
+    w_then = lst.cdr.car
+    w_else = lst.cdr.cdr.car
+
+    w_cond_val = w_condition.eval(ctx)
+    if w_cond_val.to_boolean() is True:
+        return w_then.eval(ctx)
+    else:
+        return w_else.eval(ctx)
+
+class MacroIf(W_Procedure):
+    def eval(self, ctx):
+        return macro_if
+
 ######################################
 # dict mapping operations to callables
 # callables must have 2 arguments
@@ -201,6 +216,7 @@ OPERATION_MAP = \
         '+': Add("+"),
         '*': Mul("*"),
         'define': Define("define"),
+        'if': MacroIf("if"),
     }
 
 class ExecutionContext(object):
