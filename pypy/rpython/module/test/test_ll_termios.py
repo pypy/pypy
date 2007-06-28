@@ -9,60 +9,27 @@ from pypy.tool.udir import udir
 
 def setup_module(mod):
     try:
-        import pexpect
-        mod.pexpect = pexpect
-    except ImportError:
-        py.test.skip("Pexpect not found")
-    try:
         import termios
         mod.termios = termios
     except ImportError:
         py.test.skip("termios not found")
-    py_py = py.path.local(pypydir).join('bin', 'py.py')
-    assert py_py.check()
-    mod.py_py = py_py
 
-class TestTermios(object):
-    def _spawn(self, *args, **kwds):
-        print 'SPAWN:', args, kwds
-        child = pexpect.spawn(*args, **kwds)
-        child.logfile = sys.stdout
-        return child
-
-    def spawn(self, argv):
-        return self._spawn(sys.executable, argv)
-
+class ExpectTestLLTermios(object):
     def test_tcgetattr(self):
-        source = py.code.Source("""
-        import sys
-        sys.path.insert(0, '%s')
+
         from pypy.translator.c.test.test_genc import compile
         import termios
         from pypy.rlib import rtermios
         def runs_tcgetattr():
             tpl = list(rtermios.tcgetattr(2)[:-1])
-            print tpl
+            return str(tpl)
 
-        fn = compile(runs_tcgetattr, [], backendopt=False,
-)
-        print 'XXX'
-        fn(expected_extra_mallocs=1)
-        print str(rtermios.tcgetattr(2)[:-1])
-        """ % os.path.dirname(pypydir))
-        f = udir.join("test_tcgetattr.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect("XXX")
-        child.expect('\[([^\]]*)\]')
-        first = child.match.group(1)
-        child.expect('\(([^\]]*)\)')
-        second = child.match.group(1)
-        assert first == second
+        fn = compile(runs_tcgetattr, [], backendopt=False)
+        res = fn()
+        res2 = str(rtermios.tcgetattr(2)[:-1])
+        assert res[1:-1] == res2[1:-1]
 
     def test_tcgetattr2(self):
-        source = py.code.Source("""
-        import sys
-        sys.path.insert(0, '%s')
         from pypy.translator.c.test.test_genc import compile
         from pypy.rpython.module import ll_termios
         from pypy.rlib import rtermios
@@ -76,22 +43,11 @@ class TestTermios(object):
 
         fn = compile(runs_tcgetattr, [], backendopt=False)
         res = fn()
-        if res == 2:
-            print 'OK!'
-        else:
-            print 'fail!'
-        """ % os.path.dirname(pypydir))
-        f = udir.join("test_tcgetattr.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect("OK!")
+        assert res == 2
 
     def test_tcsetattr(self):
         # a test, which doesn't even check anything.
         # I've got no idea how to test it to be honest :-(
-        source = py.code.Source("""
-        import sys
-        sys.path.insert(0, '%s')
         from pypy.translator.c.test.test_genc import compile
         from pypy.rpython.module import ll_termios
         from pypy.rlib import rtermios
@@ -106,17 +62,8 @@ class TestTermios(object):
 
         fn = compile(runs_tcsetattr, [], backendopt=False)
         fn()
-        print 'OK!'
-        """ % os.path.dirname(pypydir))
-        f = udir.join("test_tcsetattr.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect("OK!")
-        
+
     def test_tcrest(self):
-        source = py.code.Source("""
-        import sys
-        sys.path.insert(0, '%s')
         from pypy.translator.c.test.test_genc import compile
         from pypy.rpython.module import ll_termios
         import termios, time
@@ -128,33 +75,15 @@ class TestTermios(object):
 
         fn = compile(runs_tcall, [], backendopt=False)
         fn()
-        print 'OK!'
-        """ % os.path.dirname(pypydir))
-        f = udir.join("test_tcall.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect("OK!")
 
     def test_tcsetattr_icanon(self):
-        source = py.code.Source("""
-        import sys
-        sys.path.insert(0, '%s')
         from pypy.rlib import rtermios
         import termios
-        old_tcsetattr = termios.tcsetattr
         def check(fd, when, attributes):
             count = len([i for i in attributes[-1] if isinstance(i, int)])
             assert count == 2
         termios.tcsetattr = check
-        try:
-            attr = list(rtermios.tcgetattr(2))
-            attr[3] |= termios.ICANON
-            rtermios.tcsetattr(2, termios.TCSANOW, attr)
-        finally:
-            termios.tcsetattr = old_tcsetattr
-        print 'OK!'
-        """ % os.path.dirname(pypydir))
-        f = udir.join("test_tcsetattricanon.py")
-        f.write(source)
-        child = self.spawn([str(f)])
-        child.expect("OK!")
+        attr = list(rtermios.tcgetattr(2))
+        attr[3] |= termios.ICANON
+        rtermios.tcsetattr(2, termios.TCSANOW, attr)
+
