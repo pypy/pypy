@@ -139,10 +139,16 @@ class W_Procedure(W_Root):
         raise NotImplementedError
 
 def add_lst(ctx, lst):
-    return apply_lst(ctx, lambda x, y: x + y, lst)
+    def adder(x, y):
+        return x + y
+
+    return apply_lst(ctx, adder, lst)
 
 def mul_lst(ctx, lst):
-    return apply_lst(ctx, lambda x, y: x * y, lst)
+    def multiplier(x, y):
+        return x * y
+
+    return apply_lst(ctx, multiplier, lst)
 
 def apply_lst(ctx, fun, lst):
     acc = None

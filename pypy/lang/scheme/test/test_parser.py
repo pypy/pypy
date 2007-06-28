@@ -42,8 +42,6 @@ def test_simple():
     assert unwrap(t) == 'don\'t believe "them"'
 
 def test_objects():
-    #py.test.skip("in progress")
-
     w_fixnum = parse('-12345')
     assert isinstance(w_fixnum, W_Fixnum)
     assert unwrap(w_fixnum) == -12345
