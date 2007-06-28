@@ -299,7 +299,18 @@ def entry_point(executable, argv):
             success = run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
             
         if is_interactive():
-            success = run_toplevel(interactive_console, mainmodule)
+            try:
+                import _curses
+                import termios
+                from pyrepl.python_reader import main
+                from pyrepl import cmdrepl
+                #import pdb
+                #pdb.Pdb = cmdrepl.replize(pdb.Pdb, 1)
+            except ImportError:
+                success = run_toplevel(interactive_console, mainmodule)
+            else:
+                main(print_banner=False)
+                success = True
     except SystemExit, e:
         return e.code
     else:
