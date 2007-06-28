@@ -178,7 +178,7 @@ in C#::
     MyClass obj = new MyClass();
     obj.__init__(x);
 
-Note that this is needed only when calling RPython code from the
+Note that this is needed only when calling RPython code from 
 outside; the RPython compiler automatically calls ``__init__``
 whenever an RPython class is instantiated.
 
