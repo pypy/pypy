@@ -1,5 +1,6 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
+from pypy.rlib.parsing.makepackrat import BacktrackException, Status
 from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Identifier
 from pypy.lang.scheme.object import W_Nil, W_Boolean, W_Float
 
