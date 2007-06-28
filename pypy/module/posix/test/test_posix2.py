@@ -1,7 +1,10 @@
 from pypy.objspace.std import StdObjSpace 
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
+from pypy.tool.autopath import pypydir
 import os
+import py
+import sys
 
 def setup_module(mod): 
     mod.space = gettestobjspace(usemodules=['posix'])
@@ -228,3 +231,33 @@ class AppTestEnvironment(object):
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
+
+class TestPexpect(object):
+    # XXX replace with AppExpectTest class as soon as possible
+    def setup_class(cls):
+        try:
+            import pexpect
+        except ImportError:
+            py.test.skip("pexpect not found")
+    
+    def _spawn(self, *args, **kwds):
+        import pexpect
+        print 'SPAWN:', args, kwds
+        child = pexpect.spawn(*args, **kwds)
+        child.logfile = sys.stdout
+        return child
+
+    def spawn(self, argv):
+        py_py = py.path.local(pypydir).join('bin', 'py.py')
+        return self._spawn(sys.executable, [str(py_py)] + argv)
+
+    def test_ttyname(self):
+        source = py.code.Source("""
+        import os, sys
+        assert os.ttyname(sys.stdin.fileno())
+        print 'ok!'
+        """)
+        f = udir.join("test_ttyname.py")
+        f.write(source)
+        child = self.spawn([str(f)])
+        child.expect('ok!')

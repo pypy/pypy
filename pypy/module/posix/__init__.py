@@ -81,6 +81,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execve'] = 'interp_posix.execve'
     #if hasattr(ctypes_posix, 'uname'):
     #    interpleveldefs['uname'] = 'interp_posix.uname'
+    if hasattr(os, 'ttyname'):
+        interpleveldefs['ttyname'] = 'interp_posix.ttyname'
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""

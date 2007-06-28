@@ -501,3 +501,10 @@ utime.unwrap_spec = [ObjSpace, str, W_Root]
 def WIFSIGNALED(space, status):
     return space.newbool(os.WIFSIGNALED(status))
 WIFSIGNALED.unwrap_spec = [ObjSpace, int]
+
+def ttyname(space, fd):
+    try:
+        return space.wrap(os.ttyname(fd))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+ttyname.unwrap_spec = [ObjSpace, int]
