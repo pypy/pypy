@@ -148,6 +148,10 @@ class EmptyDictImplementation(DictImplementation):
         self.space = space
 
     def get(self, w_lookup):
+        space = self.space
+        if not _is_str(space, w_lookup) and not _is_sane_hash(space, w_lookup):
+            # count hash
+            space.hash(w_lookup)
         return None
 
     def setitem(self, w_key, w_value):
@@ -165,7 +169,12 @@ class EmptyDictImplementation(DictImplementation):
     def setitem_str(self, w_key, w_value, shadows_type=True):
         return StrDictImplementation(self.space).setitem_str(w_key, w_value)
         #return SmallStrDictImplementation(self.space, w_key, w_value)
+
     def delitem(self, w_key):
+        space = self.space
+        if not _is_str(space, w_key) and not _is_sane_hash(space, w_key):
+            # count hash
+            space.hash(w_key)
         raise KeyError
     
     def length(self):
