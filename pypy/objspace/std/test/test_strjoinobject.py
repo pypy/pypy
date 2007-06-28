@@ -10,7 +10,9 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
 
     def test_basic(self):
         import __pypy__
-        s = "Hello, " + "World!"
+        # cannot do "Hello, " + "World!" because cpy2.5 optimises this
+        # away on AST level (no idea why it doesn't this one)
+        s = "Hello, ".__add__("World!")
         assert type(s) is str
         assert 'W_StringJoinObject' in __pypy__.internal_repr(s)
 
