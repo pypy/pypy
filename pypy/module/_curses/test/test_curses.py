@@ -67,12 +67,12 @@ class TestCurses(object):
         child.expect('ok!')
         
 
-# XXX probably we need to run all the stuff here in pexpect anyway...
-
-class TestCCurses(object):
+class ExpectTestCCurses(object):
     """ Test compiled version
     """
     def test_csetupterm(self):
+        from pypy.translator.c.test.test_genc import compile
+        from pypy.module._curses import interp_curses
         def runs_setupterm():
             interp_curses._curses_setupterm_null(1)
 
@@ -80,20 +80,25 @@ class TestCCurses(object):
         fn()
 
     def test_ctgetstr(self):
+        from pypy.translator.c.test.test_genc import compile
+        from pypy.module._curses import interp_curses
         def runs_ctgetstr():
             interp_curses._curses_setupterm("xterm", 1)
-            res = interp_curses._curses_tigetstr('cup')
-            assert res == '\x1b[%i%p1%d;%p2%dH'
+            return interp_curses._curses_tigetstr('cup')
 
         fn = compile(runs_ctgetstr, [])
-        fn()
+        res = fn()
+        assert res == '\x1b[%i%p1%d;%p2%dH'
 
     def test_ctparm(self):
+        from pypy.translator.c.test.test_genc import compile
+        from pypy.module._curses import interp_curses
         def runs_tparm():
             interp_curses._curses_setupterm("xterm", 1)
             cup = interp_curses._curses_tigetstr('cup')
-            res = interp_curses._curses_tparm(cup, [5, 3])
-            assert res == '\033[6;4H'
+            return interp_curses._curses_tparm(cup, [5, 3])
 
         fn = compile(runs_tparm, [])
-        fn()
+        res = fn()
+        assert res == '\033[6;4H'
+
