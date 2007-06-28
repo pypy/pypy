@@ -753,16 +753,9 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
         if backend == 'cli':
             from pypy.translator.cli.support import patch
             driver.old_cli_defs = patch()
-
-        if 'target' in targetspec_dic:
-            target = targetspec_dic['target']
-            spec = target(driver, args)
-        else:
-            try:
-                entry_point = targetspec_dic['entry_point']
-            except KeyError:
-                raise ValueError("Target spec doesn't seem to have target nor entry_point")
-            spec = entry_point, None
+        
+        target = targetspec_dic['target']
+        spec = target(driver, args)
 
         try:
             entry_point, inputtypes, policy = spec

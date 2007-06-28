@@ -17,3 +17,8 @@ def debug(msg):
 def entry_point(argv):
     debug("hello world")
     return 0
+
+# _____ Define and setup target ___
+
+def target(*args):
+    return entry_point, None

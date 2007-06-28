@@ -63,15 +63,3 @@ def test_ctr():
                 'run_c', 'prehannotatebackendopt', 'hintannotate', 'timeshift']
 
     assert cmpl(td.exposed, expected)
-
-def test_from_targetspecdic():
-    py.test.raises(ValueError, TranslationDriver.from_targetspec, {})
-    def f(argv):
-        return 0
-    driver = TranslationDriver.from_targetspec({'entry_point':f})
-    assert driver.entry_point is f
-    def target(driver, args):
-        return f, None
-    driver = TranslationDriver.from_targetspec({'target':target})
-    assert driver.entry_point is f
-
