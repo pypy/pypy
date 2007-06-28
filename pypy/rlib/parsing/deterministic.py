@@ -340,7 +340,7 @@ return ~i""")
         result = result.get_code()
         while "\n\n" in result:
             result = result.replace("\n\n", "\n")
-        #print result
+        print result
         exec py.code.Source(result).compile()
         return recognize
 

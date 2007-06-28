@@ -347,7 +347,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         self.emit("_result = None")
         self.emit("_error = None")
 
-    def memoize_footer(self, name):
+    def memoize_footer(self, name, args):
         dictname = "_dict_%s" % (name, )
         if self.have_call:
             for _ in self.start_block(
@@ -362,7 +362,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
                 self.emit("_status.result = %s" % (self.resultname, ))
                 self.emit("_status.error = _error")
                 self.emit("self._pos = _startingpos")
-                self.emit("return self._%s()" % (name, ))
+                self.emit("return self._%s(%s)" % (name, ', '.join(args)))
         else:
             self.emit("assert _status.status != _status.LEFTRECURSION")
         self.emit("_status.status = _status.NORMAL")
@@ -451,7 +451,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         subsequent = self.restore_code(allother)
         self.memoize_header(name, otherargs)
         self.add_code(subsequent)
-        self.memoize_footer(name)
+        self.memoize_footer(name, otherargs)
         self.end_block("def")
 
     def visit_or(self, t, first=False):
