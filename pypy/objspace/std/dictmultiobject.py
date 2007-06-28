@@ -14,7 +14,7 @@ def _is_sane_hash(space, w_lookup_type):
     directly to signal that the key is not in the dict in any case.
     XXX The types should provide such a flag. """
 
-    # XXX there are much more types
+    # XXX there are many more types
     return (space.is_w(w_lookup_type, space.w_NoneType) or
             space.is_w(w_lookup_type, space.w_int) or
             space.is_w(w_lookup_type, space.w_bool) or
@@ -150,7 +150,7 @@ class EmptyDictImplementation(DictImplementation):
     def get(self, w_lookup):
         space = self.space
         if not _is_str(space, w_lookup) and not _is_sane_hash(space, w_lookup):
-            # count hash
+            # give hash a chance to raise an exception
             space.hash(w_lookup)
         return None
 
