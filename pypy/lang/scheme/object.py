@@ -209,18 +209,46 @@ class MacroIf(W_Procedure):
     def eval(self, ctx):
         return macro_if
 
+def cons(ctx, lst):
+    w_car = lst.car.eval(ctx)
+    w_cdr = lst.cdr.car.eval(ctx)
+    return W_Pair(w_car, w_cdr)
+
+class Cons(W_Procedure):
+    def eval(self, ctx):
+        return cons
+
+def car(ctx, lst):
+    w_pair = lst.car.eval(ctx)
+    return w_pair.car
+
+class Car(W_Procedure):
+    def eval(self, ctx):
+        return car
+
+def cdr(ctx, lst):
+    w_pair = lst.car.eval(ctx)
+    return w_pair.cdr
+
+class Cdr(W_Procedure):
+    def eval(self, ctx):
+        return cdr
+
 ######################################
 # dict mapping operations to callables
 # callables must have 2 arguments
 # - ctx = execution context
 # - lst = list of arguments
-#######################################
+######################################
 OPERATION_MAP = \
     {
         '+': Add("+"),
         '*': Mul("*"),
         'define': Define("define"),
         'if': MacroIf("if"),
+        'cons': Cons("cons"),
+        'car': Car("car"),
+        'cdr': Cdr("cdr"),
     }
 
 class ExecutionContext(object):

@@ -112,3 +112,29 @@ def test_if_evaluation():
     assert ctx.get("then").to_boolean() is False
     assert ctx.get("else").to_boolean() is True
 
+def test_cons_simple():
+    w_pair = eval_noctx("(cons 1 2)")
+    assert isinstance(w_pair, W_Pair)
+    assert w_pair.car.to_number() == 1
+    assert w_pair.cdr.to_number() == 2
+
+    w_pair = eval_noctx("(cons 1 (cons 2 3))")
+    assert isinstance(w_pair, W_Pair)
+    assert isinstance(w_pair.cdr, W_Pair)
+    assert w_pair.car.to_number() == 1
+    assert w_pair.cdr.car.to_number() == 2
+    assert w_pair.cdr.cdr.to_number() == 3
+
+def test_car_simple():
+    w_car = eval_noctx("(car (cons 1 2))")
+    assert w_car.to_number() == 1
+
+    w_cdr = eval_noctx("(cdr (cons 1 2))")
+    assert w_cdr.to_number() == 2
+
+    w_cadr = eval_noctx("(car (cdr (cons 1 (cons 2 3))))")
+    assert w_cadr.to_number() == 2
+
+    w_cddr = eval_noctx("(cdr (cdr (cons 1 (cons 2 3))))")
+    assert w_cddr.to_number() == 3
+
