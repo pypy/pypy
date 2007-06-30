@@ -136,22 +136,43 @@ def os_open_oofakeimpl(o_path, flags, mode):
 register_external(os.open, [str, int, int], int, "ll_os.ll_os_open",
                   llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
 
-# ------------------------------- os.WIFSIGNALED ------------------------
-# XXX this needs to be generated automatically for all os.W*
+# ------------------------------- os.* ----------------------------------
 
-if hasattr(os, 'WIFSIGNALED'):
-    def fake_WIFSIGNALED(status):
-        return int(os.WIFSIGNALED(status))
+w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+          'WIFSIGNALED', 'WIFEXITED', 'WEXITSTATUS',
+          'WSTOPSIG', 'WTERMSIG']
+# last 3 are returning int
+w_star_returning_int = dict.fromkeys(w_star[-3:])
 
-    os_WIFSIGNALED = rffi.llexternal('WIFSIGNALED', [lltype.Signed],
-                                     lltype.Signed,
-                                     _callable=fake_WIFSIGNALED)
+def declare_new_w_star(name):
+    """ stupid workaround for the python late-binding
+    'feature'
+    """
+    def fake(status):
+        return int(getattr(os, name)(status))
+    fake.func_name = 'fake_' + name
+    
+    os_c_func = rffi.llexternal(name, [lltype.Signed],
+                                lltype.Signed,
+                                _callable=fake,
+                                includes=["sys/wait.h", "sys/types.h"])
+    
+    if name in w_star_returning_int:
+        def lltypeimpl(status):
+            return os_c_func(status)
+        resulttype = int
+    else:
+        def lltypeimpl(status):
+            return bool(os_c_func(status))
+        resulttype = bool
+    lltypeimpl.func_name = name + '_lltypeimpl'
+    register_external(getattr(os, name), [int], resulttype, "ll_os."+name,
+                      llimpl=lltypeimpl)
 
-    def WIFSIGNALED_lltypeimpl(status):
-        return bool(os_WIFSIGNALED(status))
 
-    register_external(os.WIFSIGNALED, [int], bool, "ll_os.WIFSIGNALED",
-                      llimpl=WIFSIGNALED_lltypeimpl)
+for name in w_star:
+    if hasattr(os, name):
+        declare_new_w_star(name)
 
 # ------------------------------- os.ttyname ----------------------------
 
