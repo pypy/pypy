@@ -2,6 +2,7 @@ from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
+from pypy.rpython.module.ll_os import w_star
 import os
 import py
 import sys
@@ -194,6 +195,19 @@ class AppTestPosix:
         os = self.posix
         raises(TypeError, "os.utime('xxx', 3)")
         raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
+
+    for name in w_star:
+        if hasattr(os, name):
+            values = [0, 1, 127, 128, 255]
+            code = py.code.Source("""
+            def test_wstar(self):
+                os = self.posix
+                %s
+            """ % "\n    ".join(["assert os.%s(%d) == %d" % (name, value,
+                             getattr(os, name)(value)) for value in values]))
+            d = {}
+            exec code.compile() in d
+            locals()['test_' + name] = d['test_wstar']
 
     def test_wifsignaled(self):
         os = self.posix

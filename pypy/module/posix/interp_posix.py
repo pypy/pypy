@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import ros
 from pypy.interpreter.error import OperationError, wrap_oserror
+from pypy.rpython.module.ll_os import w_star, w_star_returning_int
 
 import os
                           
@@ -498,9 +499,20 @@ second form is used, set the access and modified times to the current time.
         raise OperationError(space.w_TypeError, space.wrap(msg))
 utime.unwrap_spec = [ObjSpace, str, W_Root]
 
-def WIFSIGNALED(space, status):
-    return space.newbool(os.WIFSIGNALED(status))
-WIFSIGNALED.unwrap_spec = [ObjSpace, int]
+def declare_new_w_star(name):
+    if name in w_star_returning_int:
+        def WSTAR(space, status):
+            return space.wrap(getattr(os, name)(status))
+    else:
+        def WSTAR(space, status):
+            return space.newbool(getattr(os, name)(status))
+    WSTAR.unwrap_spec = [ObjSpace, int]
+    WSTAR.func_name = name
+    return WSTAR
+
+for name in w_star:
+    func = declare_new_w_star(name)
+    globals()[name] = func
 
 def ttyname(space, fd):
     try:

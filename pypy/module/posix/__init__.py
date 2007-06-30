@@ -1,5 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.rpython.module.ll_os import w_star
 
 #Turned off for now. posix must support targets without ctypes.
 #from pypy.module.posix import ctypes_posix
@@ -52,7 +53,6 @@ corresponding Unix manual entries for more information on calls."""
     #'getuid'    : 'interp_posix.getuid',
     #'geteuid'   : 'interp_posix.geteuid',
     'utime'     : 'interp_posix.utime',
-    'WIFSIGNALED' : 'interp_posix.WIFSIGNALED',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
@@ -83,6 +83,9 @@ corresponding Unix manual entries for more information on calls."""
     #    interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
+    for name in w_star:
+        if hasattr(os, name):
+            interpleveldefs[name] = 'interp_posix.' + name
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
