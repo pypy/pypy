@@ -135,8 +135,9 @@ class PyPyTarget(object):
 
         if config.translation.backend == "cli":
             config.objspace.usemodules.clr = True
-        elif config.objspace.usemodules.clr:
-            config.translation.backend == "clr"
+        # XXX did it ever work?
+        #elif config.objspace.usemodules.clr:
+        #    config.translation.backend == "cli"
 
         config.objspace.nofaking = True
         config.objspace.compiler = "ast"
