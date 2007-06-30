@@ -10,23 +10,3 @@ import os
 from py.path import local 
 
 udir = local.make_numbered_dir(prefix='usession-', keep=3)
-
-# try:
-#     username = os.environ['USER']           #linux, et al
-# except:
-#     try:
-#         username = os.environ['USERNAME']   #windows
-#     except:
-#         username = 'current'
-
-# import os
-# src  = str(udir)
-# dest = src[:src.rfind('-')] + '-' + username
-# try:
-#     os.unlink(dest)
-# except:
-#     pass
-# try:
-#     os.symlink(src, dest)
-# except:
-#     pass
