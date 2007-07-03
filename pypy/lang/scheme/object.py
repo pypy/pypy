@@ -123,11 +123,9 @@ class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
-############################
+##
 # operations
-#not sure though any operations should exist here
-#it its very similar to operation.add
-#############################
+##
 class W_Procedure(W_Root):
     def __init__(self, pname=""):
         self.pname = pname
@@ -216,22 +214,33 @@ class Cdr(W_Procedure):
         w_pair = lst.car.eval(ctx)
         return w_pair.cdr
 
-######################################
-# dict mapping operations to callables
+##
+# Location()
+##
+class Location(object):
+    def __init__(self, w_obj):
+        self.obj = w_obj
+
+##
+# dict mapping operations to W_Xxx objects
 # callables must have 2 arguments
 # - ctx = execution context
 # - lst = list of arguments
-######################################
-OPERATION_MAP = \
+##
+OMAP = \
     {
-        '+': Add("+"),
-        '*': Mul("*"),
-        'define': Define("define"),
-        'if': MacroIf("if"),
-        'cons': Cons("cons"),
-        'car': Car("car"),
-        'cdr': Cdr("cdr"),
+        '+': Add,
+        '*': Mul,
+        'define': Define,
+        'if': MacroIf,
+        'cons': Cons,
+        'car': Car,
+        'cdr': Cdr,
     }
+
+OPERATION_MAP = {}
+for name, cls in OMAP.items():
+    OPERATION_MAP[name] = Location(cls(name))
 
 class ExecutionContext(object):
     """Execution context implemented as a dict.
@@ -242,9 +251,28 @@ class ExecutionContext(object):
         assert scope is not None
         self.scope = scope
 
+    def copy(self):
+        return ExecutionContext(dict(self.scope))
+
     def get(self, name):
-        return self.scope.get(name, None)
+        loc = self.scope.get(name, None)
+
+        if loc is not None:
+            return loc.obj
+        else:
+            return None
+
+    def set(self, name, obj):
+        loc = self.scope.get(name, None)
+
+        if loc is not None:
+            loc.obj = obj
+        else:
+            self.put(name, obj)
 
     def put(self, name, obj):
-        self.scope[name] = obj
+        """Overwrites existing variable location
+        (new location is created)
+        """
+        self.scope[name] = Location(obj)
 
