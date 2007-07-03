@@ -90,6 +90,9 @@ class W_Fixnum(W_Root):
     def to_float(self):
         return float(self.fixnumval)
 
+    def equal(self, w_obj):
+        return self.fixnumval == w_obj.to_number()
+
 class W_Float(W_Root):
     def __init__(self, val):
         self.floatval = float(val)
@@ -105,6 +108,9 @@ class W_Float(W_Root):
 
     def to_float(self):
         return self.floatval
+
+    def equal(self, w_obj):
+        return self.floatval == w_obj.to_number()
 
 class W_Pair(W_Root):
     def __init__(self, car, cdr):
@@ -255,6 +261,12 @@ class Cdr(W_Procedure):
         w_pair = lst.car.eval(ctx)
         return w_pair.cdr
 
+class Equal(W_Procedure):
+    def procedure(self, ctx, lst):
+        w_first = lst.car.eval(ctx)
+        w_second = lst.cdr.car.eval(ctx)
+        return W_Boolean(w_first.equal(w_second))
+
 class Lambda(W_Macro):
     def eval(self, ctx, lst):
         w_args = lst.car
@@ -276,14 +288,19 @@ class Location(object):
 ##
 OMAP = \
     {
+            #arithmetic operations
         '+': Add,
         '-': Sub,
         '*': Mul,
-        'define': Define,
-        'if': MacroIf,
+            #list operations
         'cons': Cons,
         'car': Car,
         'cdr': Cdr,
+            #comparisons
+        '=': Equal,
+            #macros
+        'define': Define,
+        'if': MacroIf,
         'lambda': Lambda,
     }
 

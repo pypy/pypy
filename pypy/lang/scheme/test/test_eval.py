@@ -151,9 +151,30 @@ def test_car_simple():
     w_cddr = eval_noctx("(cdr (cdr (cons 1 (cons 2 3))))")
     assert w_cddr.to_number() == 3
 
+def test_comparison_homonums():
+    w_bool = eval_noctx("(= 1 2)")
+    assert w_bool.to_boolean() is False
+
+    w_bool = eval_noctx("(= 2 2)")
+    assert w_bool.to_boolean() is True
+
+    w_bool = eval_noctx("(= 2.1 1.2)")
+    assert w_bool.to_boolean() is False
+
+    w_bool = eval_noctx("(= 2.1 2.1)")
+    assert w_bool.to_boolean() is True
+
+def test_comparison_heteronums():
+    w_bool = eval_noctx("(= 1 2.2)")
+    assert w_bool.to_boolean() is False
+
+    w_bool = eval_noctx("(= 2.0 2)")
+    assert w_bool.to_boolean() is True
+
 def test_lambda_noargs():
     ctx = ExecutionContext()
     w_lambda = eval_expr(ctx, "(lambda () 12)")
+    assert isinstance(w_lambda, W_Procedure)
     assert isinstance(w_lambda, W_Lambda)
 
     ctx.put("f1", w_lambda)
@@ -185,4 +206,19 @@ def test_lambda_top_ctx():
     w_result = eval_expr(ctx, "(f1 -42)")
     assert isinstance(w_result, W_Fixnum)
     assert w_result.to_number() == 42
+
+def test_lambda_fac():
+    ctx = ExecutionContext()
+    eval_expr(ctx, """
+        (define fac
+            (lambda (n)
+                (if (= n 1)
+                    n
+                    (* (fac (- n 1)) n))))""")
+    assert isinstance(ctx.get("fac"), W_Lambda)
+    w_result = eval_expr(ctx, "(fac 4)")
+    assert w_result.to_number() == 24
+
+    w_result = eval_expr(ctx, "(fac 5)")
+    assert w_result.to_number() == 120
 
