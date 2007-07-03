@@ -33,7 +33,7 @@ class W_Identifier(W_Root):
 
         w_obj = ctx.get(self.name)
         if w_obj is not None:
-            return w_obj.eval(ctx)
+            return w_obj #.eval(ctx)
         else:
             #reference to undefined identifier
             #unbound
@@ -117,7 +117,7 @@ class W_Pair(W_Root):
 
     def eval(self, ctx):
         oper = self.car.eval(ctx)
-        return oper(ctx, self.cdr)
+        return oper.eval(ctx, self.cdr)
 
 class W_Nil(W_Root):
     def to_string(self):
@@ -129,7 +129,6 @@ class W_Nil(W_Root):
 #it its very similar to operation.add
 #############################
 class W_Procedure(W_Root):
-
     def __init__(self, pname=""):
         self.pname = pname
 
@@ -137,19 +136,10 @@ class W_Procedure(W_Root):
         return "#<procedure:%s>" % (self.pname,)
 
     def eval(self, ctx, lst=None):
+        return self.oper(ctx, lst)
+
+    def oper(self, ctx, lst):
         raise NotImplementedError
-
-def add_lst(ctx, lst):
-    def adder(x, y):
-        return x + y
-
-    return apply_lst(ctx, adder, lst)
-
-def mul_lst(ctx, lst):
-    def multiplier(x, y):
-        return x * y
-
-    return apply_lst(ctx, multiplier, lst)
 
 def apply_lst(ctx, fun, lst):
     acc = None
@@ -172,67 +162,59 @@ def apply_lst(ctx, fun, lst):
         return W_Float(acc)
 
 class Add(W_Procedure):
-    def eval(self, ctx):
-        return add_lst
+    def adder(self, x, y):
+        return x + y
+
+    def oper(self, ctx, lst):
+        return apply_lst(ctx, self.adder, lst)
 
 class Mul(W_Procedure):
-    def eval(self, ctx):
-        return mul_lst
+    def multiplier(self, x, y):
+        return x * y
 
-def define(ctx, lst):
-    w_identifier = lst.car
-    assert isinstance(w_identifier, W_Identifier)
-
-    w_val = lst.cdr.car.eval(ctx)
-    ctx.put(w_identifier.name, w_val)
-    return w_val
+    def oper(self, ctx, lst):
+        return apply_lst(ctx, self.multiplier, lst)
 
 class Define(W_Procedure):
-    def eval(self, ctx):
-        return define
+    def oper(self, ctx, lst):
+        w_identifier = lst.car
+        assert isinstance(w_identifier, W_Identifier)
 
-def macro_if(ctx, lst):
-    w_condition = lst.car
-    w_then = lst.cdr.car
-    if isinstance(lst.cdr.cdr, W_Nil):
-        w_else = W_Boolean(False)
-    else:
-        w_else = lst.cdr.cdr.car
-
-    w_cond_val = w_condition.eval(ctx)
-    if w_cond_val.to_boolean() is True:
-        return w_then.eval(ctx)
-    else:
-        return w_else.eval(ctx)
+        w_val = lst.cdr.car.eval(ctx)
+        ctx.put(w_identifier.name, w_val)
+        return w_val
 
 class MacroIf(W_Procedure):
-    def eval(self, ctx):
-        return macro_if
+    def oper(self, ctx, lst):
+        w_condition = lst.car
+        w_then = lst.cdr.car
+        if isinstance(lst.cdr.cdr, W_Nil):
+            w_else = W_Boolean(False)
+        else:
+            w_else = lst.cdr.cdr.car
 
-def cons(ctx, lst):
-    w_car = lst.car.eval(ctx)
-    w_cdr = lst.cdr.car.eval(ctx)
-    return W_Pair(w_car, w_cdr)
+        w_cond_val = w_condition.eval(ctx)
+        if w_cond_val.to_boolean() is True:
+            return w_then.eval(ctx)
+        else:
+            return w_else.eval(ctx)
 
 class Cons(W_Procedure):
-    def eval(self, ctx):
-        return cons
-
-def car(ctx, lst):
-    w_pair = lst.car.eval(ctx)
-    return w_pair.car
+    def oper(self, ctx, lst):
+        w_car = lst.car.eval(ctx)
+        w_cdr = lst.cdr.car.eval(ctx)
+        #cons is always creating a new pair
+        return W_Pair(w_car, w_cdr)
 
 class Car(W_Procedure):
-    def eval(self, ctx):
-        return car
-
-def cdr(ctx, lst):
-    w_pair = lst.car.eval(ctx)
-    return w_pair.cdr
+    def oper(self, ctx, lst):
+        w_pair = lst.car.eval(ctx)
+        return w_pair.car
 
 class Cdr(W_Procedure):
-    def eval(self, ctx):
-        return cdr
+    def oper(self, ctx, lst):
+        w_pair = lst.car.eval(ctx)
+        return w_pair.cdr
 
 ######################################
 # dict mapping operations to callables

@@ -67,3 +67,26 @@ def test_ctx():
     assert w_fnum is ctx.get("v1")
     assert ctx.get("no_such_key") is None
 
+def test_location():
+    w_fnum = W_Fixnum(42)
+    loc = Location(w_fnum)
+    assert isinstance(loc, Location)
+    assert loc.obj is w_fnum
+
+def test_ctx_sets():
+    w_fnum = W_Fixnum(42)
+    w_fnum2 = W_Fixnum(43)
+    w_fnum3 = W_Fixnum(44)
+
+    ctx = ExecutionContext({})
+    ctx.put("v1", w_fnum)
+
+    ctx2 = ctx.copy()
+    assert w_fnum is ctx2.get("v1")
+    ctx.set("v1", w_fnum2)
+    assert w_fnum2 is ctx2.get("v1")
+    assert w_fnum2 is ctx.get("v1")
+
+    ctx2.put("v1", w_fnum3)
+    assert w_fnum3 is ctx2.get("v1")
+

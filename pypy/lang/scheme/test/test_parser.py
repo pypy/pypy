@@ -54,6 +54,14 @@ def test_objects():
     assert unwrap(w_float) == -123456.1234
 
 def test_sexpr():
+    w_list = parse('( 1 )')
+    assert isinstance(w_list, W_Pair)
+    assert isinstance(w_list.car, W_Fixnum)
+    assert isinstance(w_list.cdr, W_Nil)
+
+    #w_list = parse('()')
+    #assert isinstance(w_list, W_Nil)
+
     w_list = parse('(+ 1 2)')
     assert isinstance(w_list, W_Pair)
     assert isinstance(w_list.car, W_Identifier)

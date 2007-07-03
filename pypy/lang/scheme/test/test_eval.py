@@ -2,6 +2,7 @@ import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
 from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
+from pypy.lang.scheme.object import W_Procedure
 from pypy.lang.scheme.object import ExecutionContext
 from pypy.lang.scheme.operation import mul, add
 
@@ -84,6 +85,11 @@ def test_ctx_define():
     eval_expr(ctx, "(define v2 3.1)")
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 46.1
+
+def test_func():
+    ctx = ExecutionContext()
+    w_func = eval_expr(ctx, "+")
+    assert isinstance(w_func, W_Procedure)
 
 def test_if_simple():
     ctx = ExecutionContext()
