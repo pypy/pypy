@@ -123,10 +123,37 @@ class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
-class W_Lambda(W_Root):
-    def __init__(self, args, body):
+class W_Procedure(W_Root):
+    def __init__(self, pname=""):
+        self.pname = pname
+
+    def to_string(self):
+        return "#<primitive-procedure %s>" % (self.pname,)
+
+    def eval(self, ctx, lst):
+        return self.procedure(ctx, lst)
+
+    def procedure(self, ctx, lst):
+        raise NotImplementedError
+
+class W_Macro(W_Root):
+    def __init__(self, pname=""):
+        self.pname = pname
+
+    def to_string(self):
+        return "#<primitive-macro %s>" % (self.pname,)
+
+    def eval(self, ctx, lst=None):
+        raise NotImplementedError
+
+class W_Lambda(W_Procedure):
+    def __init__(self, args, body, pname="#f"):
         self.args = args
         self.body = body
+        self.pname = pname
+
+    def to_string(self):
+        return "#<procedure %s>" % (self.pname,)
 
     def eval(self, ctx, lst):
         name = self.args
@@ -145,29 +172,6 @@ class W_Lambda(W_Root):
 ##
 # operations
 ##
-class W_Procedure(W_Root):
-    def __init__(self, pname=""):
-        self.pname = pname
-
-    def to_string(self):
-        return "#<procedure:%s>" % (self.pname,)
-
-    def eval(self, ctx, lst=None):
-        return self.oper(ctx, lst)
-
-    def oper(self, ctx, lst):
-        raise NotImplementedError
-
-class W_Macro(W_Root):
-    def __init__(self, pname=""):
-        self.pname = pname
-
-    def to_string(self):
-        return "#<macro:%s>" % (self.pname,)
-
-    def eval(self, ctx, lst=None):
-        raise NotImplementedError
-
 def apply_lst(ctx, fun, lst):
     acc = None
 
@@ -188,19 +192,27 @@ def apply_lst(ctx, fun, lst):
     else:
         return W_Float(acc)
 
-class Add(W_Procedure):
-    def adder(self, x, y):
+class ListOper(W_Procedure):
+    def procedure(self, ctx, lst):
+        return apply_lst(ctx, self.oper, lst)
+
+class Add(ListOper):
+    def oper(self, x, y):
         return x + y
 
-    def oper(self, ctx, lst):
-        return apply_lst(ctx, self.adder, lst)
+class Sub(ListOper):
+    def procedure(self, ctx, lst):
+        if isinstance(lst.cdr, W_Nil):
+            return apply_lst(ctx, self.oper, W_Pair( W_Fixnum(0), lst))
+        else:
+            return apply_lst(ctx, self.oper, lst)
 
-class Mul(W_Procedure):
-    def multiplier(self, x, y):
+    def oper(self, x, y):
+        return x - y
+
+class Mul(ListOper):
+    def oper(self, x, y):
         return x * y
-
-    def oper(self, ctx, lst):
-        return apply_lst(ctx, self.multiplier, lst)
 
 class Define(W_Macro):
     def eval(self, ctx, lst):
@@ -227,19 +239,19 @@ class MacroIf(W_Macro):
             return w_else.eval(ctx)
 
 class Cons(W_Procedure):
-    def oper(self, ctx, lst):
+    def procedure(self, ctx, lst):
         w_car = lst.car.eval(ctx)
         w_cdr = lst.cdr.car.eval(ctx)
         #cons is always creating a new pair
         return W_Pair(w_car, w_cdr)
 
 class Car(W_Procedure):
-    def oper(self, ctx, lst):
+    def procedure(self, ctx, lst):
         w_pair = lst.car.eval(ctx)
         return w_pair.car
 
 class Cdr(W_Procedure):
-    def oper(self, ctx, lst):
+    def procedure(self, ctx, lst):
         w_pair = lst.car.eval(ctx)
         return w_pair.cdr
 
@@ -265,6 +277,7 @@ class Location(object):
 OMAP = \
     {
         '+': Add,
+        '-': Sub,
         '*': Mul,
         'define': Define,
         'if': MacroIf,

@@ -53,6 +53,13 @@ def test_numerical():
     w_num = eval_noctx("(* 4 -5 6.1)")
     assert w_num.to_number() == (4 * -5 * 6.1)
 
+    w_num = eval_noctx("(- 4)")
+    assert w_num.to_number() == -4
+    w_num = eval_noctx("(- 4 5)")
+    assert w_num.to_number() == -1
+    w_num = eval_noctx("(- 4 -5 6.1)")
+    assert w_num.to_number() == 4 - (-5) - 6.1
+
 def test_numerical_nested():
     w_num = eval_noctx("(+ 4 (* (+ 5) 6) (+ 1 2))")
     assert w_num.to_number() == 37
