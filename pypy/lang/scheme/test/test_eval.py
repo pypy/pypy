@@ -162,3 +162,20 @@ def test_lambda_args():
     assert isinstance(w_result, W_Fixnum)
     assert w_result.to_number() == 42
 
+    w_result = eval_expr(ctx, "((lambda (n m) (+ n m)) 42 -42)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 0
+
+def test_lambda_top_ctx():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define n 42)")
+    eval_expr(ctx, "(define f1 (lambda (m) (+ n m)))")
+    w_result = eval_expr(ctx, "(f1 -42)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 0
+
+    eval_expr(ctx, "(define n 84)")
+    w_result = eval_expr(ctx, "(f1 -42)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 42
+
