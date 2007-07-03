@@ -144,8 +144,21 @@ def test_car_simple():
     w_cddr = eval_noctx("(cdr (cdr (cons 1 (cons 2 3))))")
     assert w_cddr.to_number() == 3
 
-def test_lambda_definition():
+def test_lambda_noargs():
     ctx = ExecutionContext()
     w_lambda = eval_expr(ctx, "(lambda () 12)")
     assert isinstance(w_lambda, W_Lambda)
+
+    ctx.put("f1", w_lambda)
+    w_result = eval_expr(ctx, "(f1)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 12
+
+def test_lambda_args():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define f1 (lambda (n) n))")
+
+    w_result = eval_expr(ctx, "(f1 42)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 42
 

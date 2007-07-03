@@ -128,6 +128,20 @@ class W_Lambda(W_Root):
         self.args = args
         self.body = body
 
+    def eval(self, ctx, lst):
+        name = self.args
+        val = lst
+        my_ctx = ctx.copy()
+        while not isinstance(name, W_Nil):
+            assert isinstance(name.car, W_Identifier)
+            w_val = val.car.eval(ctx)
+            my_ctx.put(name.car.to_string(), w_val)
+
+            val = val.cdr
+            name = name.cdr
+
+        return self.body.eval(my_ctx)
+
 ##
 # operations
 ##
