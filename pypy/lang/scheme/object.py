@@ -123,6 +123,11 @@ class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
+class W_Lambda(W_Root):
+    def __init__(self, args, body):
+        self.args = args
+        self.body = body
+
 ##
 # operations
 ##
@@ -137,6 +142,16 @@ class W_Procedure(W_Root):
         return self.oper(ctx, lst)
 
     def oper(self, ctx, lst):
+        raise NotImplementedError
+
+class W_Macro(W_Root):
+    def __init__(self, pname=""):
+        self.pname = pname
+
+    def to_string(self):
+        return "#<macro:%s>" % (self.pname,)
+
+    def eval(self, ctx, lst=None):
         raise NotImplementedError
 
 def apply_lst(ctx, fun, lst):
@@ -173,17 +188,17 @@ class Mul(W_Procedure):
     def oper(self, ctx, lst):
         return apply_lst(ctx, self.multiplier, lst)
 
-class Define(W_Procedure):
-    def oper(self, ctx, lst):
+class Define(W_Macro):
+    def eval(self, ctx, lst):
         w_identifier = lst.car
         assert isinstance(w_identifier, W_Identifier)
 
         w_val = lst.cdr.car.eval(ctx)
-        ctx.put(w_identifier.name, w_val)
+        ctx.set(w_identifier.name, w_val)
         return w_val
 
-class MacroIf(W_Procedure):
-    def oper(self, ctx, lst):
+class MacroIf(W_Macro):
+    def eval(self, ctx, lst):
         w_condition = lst.car
         w_then = lst.cdr.car
         if isinstance(lst.cdr.cdr, W_Nil):
@@ -214,6 +229,12 @@ class Cdr(W_Procedure):
         w_pair = lst.car.eval(ctx)
         return w_pair.cdr
 
+class Lambda(W_Macro):
+    def eval(self, ctx, lst):
+        w_args = lst.car
+        w_body = lst.cdr.car
+        return W_Lambda(w_args, w_body)
+
 ##
 # Location()
 ##
@@ -236,6 +257,7 @@ OMAP = \
         'cons': Cons,
         'car': Car,
         'cdr': Cdr,
+        'lambda': Lambda,
     }
 
 OPERATION_MAP = {}

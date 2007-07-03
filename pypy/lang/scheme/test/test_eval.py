@@ -2,7 +2,7 @@ import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
 from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
-from pypy.lang.scheme.object import W_Procedure
+from pypy.lang.scheme.object import W_Procedure, W_Lambda
 from pypy.lang.scheme.object import ExecutionContext
 from pypy.lang.scheme.operation import mul, add
 
@@ -143,4 +143,9 @@ def test_car_simple():
 
     w_cddr = eval_noctx("(cdr (cdr (cons 1 (cons 2 3))))")
     assert w_cddr.to_number() == 3
+
+def test_lambda_definition():
+    ctx = ExecutionContext()
+    w_lambda = eval_expr(ctx, "(lambda () 12)")
+    assert isinstance(w_lambda, W_Lambda)
 
