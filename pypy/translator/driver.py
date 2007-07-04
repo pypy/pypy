@@ -694,6 +694,12 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
         pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
         shutil.copy(dllname, '.')
         shutil.copy(pypylib_dll, '.')
+        
+        # main.exe is a stub but is needed right now because it's
+        # referenced by pypylib.dll.  Will be removed in the future
+        translator_path, _ = os.path.split(__file__)
+        main_exe = os.path.join(translator_path, 'cli/src/main.exe')
+        shutil.copy(main_exe, '.')
 
     def task_run_cli(self):
         pass
