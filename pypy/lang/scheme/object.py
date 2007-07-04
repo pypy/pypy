@@ -137,7 +137,14 @@ class W_Procedure(W_Root):
         return "#<primitive-procedure %s>" % (self.pname,)
 
     def eval(self, ctx, lst):
-        return self.procedure(ctx, lst)
+        #evaluate all arguments into list
+        arg_lst = []
+        arg = lst
+        while not isinstance(arg, W_Nil):
+            arg_lst.append(arg.car.eval(ctx))
+            arg = arg.cdr
+
+        return self.procedure(ctx, arg_lst)
 
     def procedure(self, ctx, lst):
         raise NotImplementedError
@@ -178,29 +185,20 @@ class W_Lambda(W_Procedure):
 ##
 # operations
 ##
-def apply_lst(ctx, fun, lst):
-    acc = None
-
-    if not isinstance(lst, W_Pair):
-        #raise argument error
-        raise
-
-    arg = lst
-    while not isinstance(arg, W_Nil):
-        if acc is None:
-            acc = arg.car.eval(ctx).to_number()
-        else:
-            acc = fun(acc, arg.car.eval(ctx).to_number())
-        arg = arg.cdr
-
-    if isinstance(acc, int):
-        return W_Fixnum(acc)
-    else:
-        return W_Float(acc)
 
 class ListOper(W_Procedure):
     def procedure(self, ctx, lst):
-        return apply_lst(ctx, self.oper, lst)
+        acc = None
+        for arg in lst:
+            if acc is None:
+                acc = arg.eval(ctx).to_number()
+            else:
+                acc = self.oper(acc, arg.eval(ctx).to_number())
+
+        if isinstance(acc, int):
+            return W_Fixnum(acc)
+        else:
+            return W_Float(acc)
 
 class Add(ListOper):
     def oper(self, x, y):
@@ -208,10 +206,10 @@ class Add(ListOper):
 
 class Sub(ListOper):
     def procedure(self, ctx, lst):
-        if isinstance(lst.cdr, W_Nil):
-            return apply_lst(ctx, self.oper, W_Pair( W_Fixnum(0), lst))
+        if len(lst) == 1:
+            return ListOper.procedure(self, ctx, [W_Fixnum(0), lst[0]])
         else:
-            return apply_lst(ctx, self.oper, lst)
+            return ListOper.procedure(self, ctx, lst)
 
     def oper(self, x, y):
         return x - y
@@ -246,25 +244,25 @@ class MacroIf(W_Macro):
 
 class Cons(W_Procedure):
     def procedure(self, ctx, lst):
-        w_car = lst.car.eval(ctx)
-        w_cdr = lst.cdr.car.eval(ctx)
+        w_car = lst[0]
+        w_cdr = lst[1]
         #cons is always creating a new pair
         return W_Pair(w_car, w_cdr)
 
 class Car(W_Procedure):
     def procedure(self, ctx, lst):
-        w_pair = lst.car.eval(ctx)
+        w_pair = lst[0]
         return w_pair.car
 
 class Cdr(W_Procedure):
     def procedure(self, ctx, lst):
-        w_pair = lst.car.eval(ctx)
+        w_pair = lst[0]
         return w_pair.cdr
 
 class Equal(W_Procedure):
     def procedure(self, ctx, lst):
-        w_first = lst.car.eval(ctx)
-        w_second = lst.cdr.car.eval(ctx)
+        w_first = lst[0]
+        w_second = lst[1]
         return W_Boolean(w_first.equal(w_second))
 
 class Lambda(W_Macro):
