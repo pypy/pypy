@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 """
-Usage:  carbonpython.py <module-name>.py
+Usage:  carbonpython.py <module-name> [dll-name]
 
 Compiles an RPython module into a .NET dll.
 """
