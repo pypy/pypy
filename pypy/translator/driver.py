@@ -700,6 +700,7 @@ mono "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's plac
         translator_path, _ = os.path.split(__file__)
         main_exe = os.path.join(translator_path, 'cli/src/main.exe')
         shutil.copy(main_exe, '.')
+        self.log.info("Copied to %s" % os.path.join(os.getcwd(), dllname))
 
     def task_run_cli(self):
         pass
