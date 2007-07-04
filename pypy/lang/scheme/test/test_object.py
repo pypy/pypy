@@ -1,6 +1,5 @@
 import py
 from pypy.lang.scheme.object import *
-from pypy.lang.scheme.operation import *
 
 def test_false():
     w_false = W_Boolean(False)

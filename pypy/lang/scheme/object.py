@@ -161,31 +161,35 @@ class W_Macro(W_Root):
 
 class W_Lambda(W_Procedure):
     def __init__(self, args, body, pname="#f"):
-        self.args = args
+        self.args = []
+        arg = args
+        while not isinstance(arg, W_Nil):
+            #list of argumen names, not evaluated
+            self.args.append(arg.car)
+            arg = arg.cdr
+
         self.body = body
         self.pname = pname
 
     def to_string(self):
         return "#<procedure %s>" % (self.pname,)
 
-    def eval(self, ctx, lst):
-        name = self.args
-        val = lst
-        my_ctx = ctx.copy()
-        while not isinstance(name, W_Nil):
-            assert isinstance(name.car, W_Identifier)
-            w_val = val.car.eval(ctx)
-            my_ctx.put(name.car.to_string(), w_val)
+    def procedure(self, ctx, lst):
+        if len(lst) != len(self.args):
+            #wrong argument count
+            raise
 
-            val = val.cdr
-            name = name.cdr
+        local_ctx = ctx.copy()
+        vars = zip(self.args, lst)
+        for name_val in vars:
+            assert isinstance(name_val[0], W_Identifier)
+            local_ctx.put(name_val[0].to_string(), name_val[1])
 
-        return self.body.eval(my_ctx)
+        return self.body.eval(local_ctx)
 
 ##
 # operations
 ##
-
 class ListOper(W_Procedure):
     def procedure(self, ctx, lst):
         acc = None
