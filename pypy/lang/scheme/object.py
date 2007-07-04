@@ -177,17 +177,16 @@ class W_Lambda(W_Procedure):
         return "#<procedure %s>" % (self.pname,)
 
     def procedure(self, ctx, lst):
+        #ctx is a caller context, which is hoyfully ignored
         if len(lst) != len(self.args):
             raise "Wrong argument count"
 
-        local_ctx = ctx.copy()
-        #ugly hack
-        for (name, val) in self.closure.scope.items():
-            local_ctx.lput(name, val.obj)
+        local_ctx = self.closure.copy()
 
+        #set lambda arguments
         vars = zip(self.args, lst)
         for (name, val) in vars:
-            local_ctx.lput(name, val)
+            local_ctx.put(name, val)
 
         return self.body.eval(local_ctx)
 
@@ -232,7 +231,7 @@ class Define(W_Macro):
         assert isinstance(w_identifier, W_Identifier)
 
         w_val = lst.cdr.car.eval(ctx)
-        ctx.set(w_identifier.name, w_val)
+        ctx.gset(w_identifier.name, w_val)
         return w_val
 
 class MacroIf(W_Macro):
@@ -277,16 +276,12 @@ class Lambda(W_Macro):
     def eval(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr.car
-        return W_Lambda(w_args, w_body, ctx.lcopy())
+        return W_Lambda(w_args, w_body, ctx.copy())
 
 ##
 # Location()
 ##
 class Location(object):
-    def __init__(self, w_obj):
-        self.obj = w_obj
-
-class Closure(Location):
     def __init__(self, w_obj):
         self.obj = w_obj
 
@@ -323,28 +318,31 @@ class ExecutionContext(object):
 
     { "IDENTIFIER": Location(W_Root()) }
     """
-    def __init__(self, scope=OPERATION_MAP):
-        assert scope is not None
-        self.scope = scope
+    def __init__(self, globalscope=None, scope=None):
+        if globalscope is None:
+            self.globalscope = dict(OPERATION_MAP)
+        else:
+            self.globalscope = globalscope
+
+        if scope is None:
+            self.scope = {}
+        else:
+            self.scope = scope
 
     def copy(self):
-        return ExecutionContext(dict(self.scope))
-
-    def lcopy(self):
-        lscope = {}
-        for (name, loc) in self.scope.items():
-            if isinstance(loc, Closure):
-                lscope[name] = loc
-
-        return ExecutionContext(lscope)
+        return ExecutionContext(self.globalscope, dict(self.scope))
 
     def get(self, name):
         loc = self.scope.get(name, None)
 
         if loc is not None:
             return loc.obj
-        else:
-            return None
+
+        loc = self.globalscope.get(name, None)
+        if loc is not None:
+            return loc.obj
+
+        return None
 
     def set(self, name, obj):
         """update existing location or create new location new"""
@@ -355,21 +353,20 @@ class ExecutionContext(object):
         else:
             self.put(name, obj)
 
-    def seta(self, name, obj):
-        """update existing location"""
-        loc = self.scope.get(name, None)
+    def gset(self, name, obj):
+        """update existing location or create new location new"""
+        loc = self.globalscope.get(name, None)
 
         if loc is not None:
             loc.obj = obj
         else:
-            #unbound var
-            raise "Unbound"
+            self.gput(name, obj)
+
+    def gput(self, name, obj):
+        """create new location"""
+        self.globalscope[name] = Location(obj)
 
     def put(self, name, obj):
         """create new location"""
         self.scope[name] = Location(obj)
-
-    def lput(self, name, obj):
-        """create new location"""
-        self.scope[name] = Closure(obj)
 
