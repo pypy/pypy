@@ -164,8 +164,9 @@ class W_Lambda(W_Procedure):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
-            #list of argumen names, not evaluated
-            self.args.append(arg.car)
+            assert isinstance(arg.car, W_Identifier)
+            #list of argument names, not evaluated
+            self.args.append(arg.car.to_string())
             arg = arg.cdr
 
         self.body = body
@@ -181,9 +182,8 @@ class W_Lambda(W_Procedure):
 
         local_ctx = ctx.copy()
         vars = zip(self.args, lst)
-        for name_val in vars:
-            assert isinstance(name_val[0], W_Identifier)
-            local_ctx.put(name_val[0].to_string(), name_val[1])
+        for (name, val) in vars:
+            local_ctx.put(name, val)
 
         return self.body.eval(local_ctx)
 
