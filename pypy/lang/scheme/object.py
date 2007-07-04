@@ -160,7 +160,7 @@ class W_Macro(W_Root):
         raise NotImplementedError
 
 class W_Lambda(W_Procedure):
-    def __init__(self, args, body, clousure, pname="#f"):
+    def __init__(self, args, body, closure, pname="#f"):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
@@ -171,7 +171,7 @@ class W_Lambda(W_Procedure):
 
         self.body = body
         self.pname = pname
-        self.clousure = clousure
+        self.closure = closure
 
     def to_string(self):
         return "#<procedure %s>" % (self.pname,)
@@ -182,7 +182,7 @@ class W_Lambda(W_Procedure):
 
         local_ctx = ctx.copy()
         #ugly hack
-        for (name, val) in self.clousure.scope.items():
+        for (name, val) in self.closure.scope.items():
             local_ctx.lput(name, val.obj)
 
         vars = zip(self.args, lst)
@@ -286,7 +286,7 @@ class Location(object):
     def __init__(self, w_obj):
         self.obj = w_obj
 
-class Clousure(Location):
+class Closure(Location):
     def __init__(self, w_obj):
         self.obj = w_obj
 
@@ -333,7 +333,7 @@ class ExecutionContext(object):
     def lcopy(self):
         lscope = {}
         for (name, loc) in self.scope.items():
-            if isinstance(loc, Clousure):
+            if isinstance(loc, Closure):
                 lscope[name] = loc
 
         return ExecutionContext(lscope)
@@ -371,5 +371,5 @@ class ExecutionContext(object):
 
     def lput(self, name, obj):
         """create new location"""
-        self.scope[name] = Clousure(obj)
+        self.scope[name] = Closure(obj)
 
