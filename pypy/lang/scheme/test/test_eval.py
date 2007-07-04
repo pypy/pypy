@@ -4,28 +4,6 @@ from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
 from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
 from pypy.lang.scheme.object import W_Procedure, W_Lambda
 from pypy.lang.scheme.object import ExecutionContext
-from pypy.lang.scheme.operation import mul, add
-
-def test_operations_simple():
-    w_num1 = W_Fixnum(4)
-    w_num2 = W_Fixnum(5)
-    w_num3 = W_Float(6.1)
-
-    w_num = mul(None, [w_num1])
-    assert w_num.to_number() == w_num1.to_number()
-    w_num = mul(None, [w_num1, w_num2])
-    assert w_num.to_number() == w_num1.to_number() * w_num2.to_number()
-    w_num = mul(None, [w_num1, w_num2, w_num3])
-    assert w_num.to_number() == (w_num1.to_number() * w_num2.to_number()
-            * w_num3.to_number())
-
-    w_num = add(None, [w_num1])
-    assert w_num.to_number() == w_num1.to_number()
-    w_num = add(None, [w_num1, w_num2])
-    assert w_num.to_number() == w_num1.to_number() + w_num2.to_number()
-    w_num = add(None, [w_num1, w_num2, w_num3])
-    assert w_num.to_number() == (w_num1.to_number() + w_num2.to_number()
-            + w_num3.to_number())
 
 def test_eval_obj():
     w_num = W_Pair(W_Identifier("+"),
