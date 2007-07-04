@@ -200,3 +200,18 @@ def test_lambda_fac():
     w_result = eval_expr(ctx, "(fac 5)")
     assert w_result.to_number() == 120
 
+def test_lambda2():
+    ctx = ExecutionContext()
+    eval_expr(ctx, """(define adder (lambda (x) (lambda (y) (+ x y))))""")
+    w_lambda = eval_expr(ctx, "(adder 6)")
+    assert isinstance(w_lambda, W_Lambda)
+
+    eval_expr(ctx, """(define add6 (adder 6))""")
+    w_result = eval_expr(ctx, "(add6 5)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 11
+
+    w_result = eval_expr(ctx, "((adder 6) 5)")
+    assert isinstance(w_result, W_Fixnum)
+    assert w_result.to_number() == 11
+

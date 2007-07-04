@@ -33,11 +33,11 @@ class W_Identifier(W_Root):
 
         w_obj = ctx.get(self.name)
         if w_obj is not None:
-            return w_obj #.eval(ctx)
+            return w_obj
         else:
             #reference to undefined identifier
             #unbound
-            raise NotImplementedError
+            raise "Unbound variable: %s" % (self.name, )
 
 class W_Symbol(W_Root):
     def __init__(self, val):
@@ -160,7 +160,7 @@ class W_Macro(W_Root):
         raise NotImplementedError
 
 class W_Lambda(W_Procedure):
-    def __init__(self, args, body, pname="#f"):
+    def __init__(self, args, body, clousure, pname="#f"):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
@@ -171,19 +171,23 @@ class W_Lambda(W_Procedure):
 
         self.body = body
         self.pname = pname
+        self.clousure = clousure
 
     def to_string(self):
         return "#<procedure %s>" % (self.pname,)
 
     def procedure(self, ctx, lst):
         if len(lst) != len(self.args):
-            #wrong argument count
-            raise
+            raise "Wrong argument count"
 
         local_ctx = ctx.copy()
+        #ugly hack
+        for (name, val) in self.clousure.scope.items():
+            local_ctx.lput(name, val.obj)
+
         vars = zip(self.args, lst)
         for (name, val) in vars:
-            local_ctx.put(name, val)
+            local_ctx.lput(name, val)
 
         return self.body.eval(local_ctx)
 
@@ -273,12 +277,16 @@ class Lambda(W_Macro):
     def eval(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr.car
-        return W_Lambda(w_args, w_body)
+        return W_Lambda(w_args, w_body, ctx.lcopy())
 
 ##
 # Location()
 ##
 class Location(object):
+    def __init__(self, w_obj):
+        self.obj = w_obj
+
+class Clousure(Location):
     def __init__(self, w_obj):
         self.obj = w_obj
 
@@ -313,7 +321,7 @@ for name, cls in OMAP.items():
 class ExecutionContext(object):
     """Execution context implemented as a dict.
 
-    { "IDENTIFIER": W_Root }
+    { "IDENTIFIER": Location(W_Root()) }
     """
     def __init__(self, scope=OPERATION_MAP):
         assert scope is not None
@@ -321,6 +329,14 @@ class ExecutionContext(object):
 
     def copy(self):
         return ExecutionContext(dict(self.scope))
+
+    def lcopy(self):
+        lscope = {}
+        for (name, loc) in self.scope.items():
+            if isinstance(loc, Clousure):
+                lscope[name] = loc
+
+        return ExecutionContext(lscope)
 
     def get(self, name):
         loc = self.scope.get(name, None)
@@ -331,6 +347,7 @@ class ExecutionContext(object):
             return None
 
     def set(self, name, obj):
+        """update existing location or create new location new"""
         loc = self.scope.get(name, None)
 
         if loc is not None:
@@ -338,9 +355,21 @@ class ExecutionContext(object):
         else:
             self.put(name, obj)
 
+    def seta(self, name, obj):
+        """update existing location"""
+        loc = self.scope.get(name, None)
+
+        if loc is not None:
+            loc.obj = obj
+        else:
+            #unbound var
+            raise "Unbound"
+
     def put(self, name, obj):
-        """Overwrites existing variable location
-        (new location is created)
-        """
+        """create new location"""
         self.scope[name] = Location(obj)
+
+    def lput(self, name, obj):
+        """create new location"""
+        self.scope[name] = Clousure(obj)
 
