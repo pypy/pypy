@@ -116,27 +116,41 @@ def wrap_method(meth, is_init=False):
     return mydict[name]
 
 
-def compile_dll(filename):
-    _, name = os.path.split(filename)
-    dllname, _ = os.path.splitext(name)
+def compile_dll(filename, dllname=None, copy_dll=True):
+    dirname, name = os.path.split(filename)
+    if dllname is None:
+        dllname, _ = os.path.splitext(name)
+    elif dllname.endswith('.dll'):
+        dllname, _ = os.path.splitext(dllname)
     module = new.module(dllname)
     namespace = module.__dict__.get('_namespace_', dllname)
+    sys.path.insert(0, dirname)
     execfile(filename, module.__dict__)
+    sys.path.pop(0)
 
     dll = DllDef(dllname, namespace)
     dll.functions = collect_entrypoints(module.__dict__)
     dll.compile()
-    dll.driver.copy_cli_dll()
+    if copy_dll:
+        dll.driver.copy_cli_dll()
 
 def main(argv):
-    if len(argv) != 2:
+    if len(argv) == 2:
+        filename = argv[1]
+        dllname = None
+    elif len(argv) == 3:
+        filename = argv[1]
+        dllname = argv[2]
+    else:
         print >> sys.stderr, __doc__
         sys.exit(2)
-    filename = argv[1]
+
+    if not filename.endswith('.py'):
+        filename += '.py'
     if not os.path.exists(filename):
         print >> sys.stderr, "Cannot find file %s" % filename
         sys.exit(1)
-    compile_dll(filename)    
+    compile_dll(filename, dllname)
 
 if __name__ == '__main__':
     main(sys.argv)

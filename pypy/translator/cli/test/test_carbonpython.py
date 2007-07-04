@@ -1,7 +1,9 @@
+import os
+import os.path
 from pypy.tool import udir
 from pypy.translator.cli.rte import Target
 from pypy.translator.cli.carbonpython import DllDef, export, collect_entrypoints,\
-     collect_class_entrypoints
+     collect_class_entrypoints, compile_dll
 from pypy.translator.cli.test.runtest import CliFunctionWrapper, CliTest
 
 TEMPLATE = """
@@ -138,5 +140,23 @@ class TestCarbonPython(CliTest):
             ArrayList obj = new ArrayList();
             obj.Add(42);
             Console.WriteLine(Test.getitem(obj, 0));
+        """)
+        assert res == 42
+
+    def test_compile_dll(self):
+        cwd, _ = os.path.split(__file__)
+        mylib_py = os.path.join(cwd, 'mylib.py')
+        compile_dll(mylib_py, copy_dll=False)
+        res = self._csharp('mylib', """
+            Console.WriteLine(mylib.sum(20, 22));
+        """)
+        assert res == 42
+
+    def test_compile_dll_alternative_name(self):
+        cwd, _ = os.path.split(__file__)
+        mylib_py = os.path.join(cwd, 'mylib.py')
+        compile_dll(mylib_py, 'mylibxxx.dll', copy_dll=False)
+        res = self._csharp('mylibxxx', """
+            Console.WriteLine(mylibxxx.sum(20, 22));
         """)
         assert res == 42
