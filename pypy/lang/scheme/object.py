@@ -16,6 +16,16 @@ class W_Root(object):
     def eval(self, ctx):
         return self
 
+class W_Symbol(W_Root):
+    def __init__(self, val):
+        self.name = val
+
+    def to_string(self):
+        return self.name
+
+    def __repr__(self):
+        return "<W_symbol " + self.name + ">"
+
 class W_Identifier(W_Root):
     def __init__(self, val):
         self.name = val
@@ -40,17 +50,7 @@ class W_Identifier(W_Root):
         else:
             #reference to undefined identifier
             #unbound
-            raise "Unbound variable: %s" % (self.name, )
-
-class W_Symbol(W_Root):
-    def __init__(self, val):
-        self.name = val
-
-    def to_string(self):
-        return self.name
-
-    def __repr__(self):
-        return "<W_symbol " + self.name + ">"
+            raise Exception("Unbound variable: %s" % (self.name, ))
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -317,9 +317,11 @@ class Lambda(W_Macro):
         w_body = lst.cdr #.car
         return W_Lambda(w_args, w_body, ctx.copy())
 
+def Literal(sexpr):
+    return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
+
 class Quote(W_Macro):
     def symbolize(self, lst):
-
         if isinstance(lst, W_Pair):
             arg = lst
             while not isinstance(arg, W_Nil):
@@ -418,7 +420,7 @@ class ExecutionContext(object):
             loc.obj = obj
             return obj
 
-        raise "Unbound"
+        raise Exception("Unbound variable: %s" % (name, ))
 
     def set(self, name, obj):
         """update existing location or create new location"""

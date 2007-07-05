@@ -79,7 +79,7 @@ def test_sete():
     loc2 = ctx.get_location("x")
     assert ctx.get("x").to_number() == 43
     assert loc1 is loc2
-    py.test.raises("Unbound", eval_expr, ctx, "(set! y 42)")
+    py.test.raises(Exception, eval_expr, ctx, "(set! y 42)")
 
 def test_func():
     ctx = ExecutionContext()
@@ -256,6 +256,34 @@ def test_quote():
     assert w_lst.cdr.cdr.car.to_number() == 3
 
     w_lst = eval_noctx("(quote (a (x y) c))")
+    assert isinstance(w_lst, W_Pair)
+    assert isinstance(w_lst.car, W_Symbol)
+    assert w_lst.car.to_string() == "a"
+    w_pair = w_lst.cdr.car
+    assert isinstance(w_lst.cdr.cdr.car, W_Symbol)
+    assert w_lst.cdr.cdr.car.to_string() == "c"
+
+    assert isinstance(w_pair.car, W_Symbol)
+    assert w_pair.car.to_string() == "x"
+    assert isinstance(w_pair.cdr.car, W_Symbol)
+    assert w_pair.cdr.car.to_string() == "y"
+
+def test_quote_parse():
+    w_fnum = eval_noctx("'42")
+    assert isinstance(w_fnum, W_Fixnum)
+    assert w_fnum.to_number() == 42
+
+    w_sym = eval_noctx("'symbol")
+    assert isinstance(w_sym, W_Symbol)
+    assert w_sym.to_string() == "symbol"
+
+    w_lst = eval_noctx("'(1 2 3)")
+    assert isinstance(w_lst, W_Pair)
+    assert w_lst.car.to_number() == 1
+    assert w_lst.cdr.car.to_number() == 2
+    assert w_lst.cdr.cdr.car.to_number() == 3
+
+    w_lst = eval_noctx("'(a (x y) c)")
     assert isinstance(w_lst, W_Pair)
     assert isinstance(w_lst.car, W_Symbol)
     assert w_lst.car.to_string() == "a"
