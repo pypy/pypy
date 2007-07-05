@@ -188,7 +188,13 @@ class W_Lambda(W_Procedure):
         for (name, val) in vars:
             local_ctx.put(name, val)
 
-        return self.body.eval(local_ctx)
+        body_expression = self.body
+        body_result = None
+        while not isinstance(body_expression, W_Nil):
+            body_result = body_expression.car.eval(local_ctx)
+            body_expression = body_expression.cdr
+
+        return body_result # self.body.eval(local_ctx)
 
 ##
 # operations
@@ -234,6 +240,15 @@ class Define(W_Macro):
         ctx.gset(w_identifier.name, w_val)
         return w_val
 
+class Sete(W_Macro):
+    def eval(self, ctx, lst):
+        w_identifier = lst.car
+        assert isinstance(w_identifier, W_Identifier)
+
+        w_val = lst.cdr.car.eval(ctx)
+        ctx.sete(w_identifier.name, w_val)
+        return w_val
+
 class MacroIf(W_Macro):
     def eval(self, ctx, lst):
         w_condition = lst.car
@@ -275,7 +290,7 @@ class Equal(W_Procedure):
 class Lambda(W_Macro):
     def eval(self, ctx, lst):
         w_args = lst.car
-        w_body = lst.cdr.car
+        w_body = lst.cdr #.car
         return W_Lambda(w_args, w_body, ctx.copy())
 
 ##
@@ -305,6 +320,7 @@ OMAP = \
         '=': Equal,
             #macros
         'define': Define,
+        'set!': Sete,
         'if': MacroIf,
         'lambda': Lambda,
     }
@@ -352,6 +368,21 @@ class ExecutionContext(object):
             loc.obj = obj
         else:
             self.put(name, obj)
+
+    def sete(self, name, obj):
+        """update existing location or raise"""
+        loc = self.scope.get(name, None)
+        if loc is not None:
+            loc.obj = obj
+            return obj
+
+        loc = self.globalscope.get(name, None)
+        if loc is not None:
+            loc.obj = obj
+            return obj
+
+        raise "Unbound"
+
 
     def gset(self, name, obj):
         """update existing location or create new location new"""

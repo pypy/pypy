@@ -71,6 +71,13 @@ def test_ctx_define():
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 46.1
 
+def test_sete():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define x 42)")
+    eval_expr(ctx, "(set! x 43)")
+    assert ctx.get("x").to_number() == 43
+    py.test.raises("Unbound", eval_expr, ctx, "(set! y 42)")
+
 def test_func():
     ctx = ExecutionContext()
     w_func = eval_expr(ctx, "+")
@@ -215,3 +222,9 @@ def test_lambda2():
     assert isinstance(w_result, W_Fixnum)
     assert w_result.to_number() == 11
 
+def test_lambda_long_body():
+    ctx = ExecutionContext()
+    eval_expr(ctx, """(define long_body (lambda () (define x 42) (+ x 1)))""")
+    w_result = eval_expr(ctx, "(long_body)")
+    assert w_result.to_number() == 43
+    #assert ctx.get("x") is None
