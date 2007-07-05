@@ -47,8 +47,7 @@ class SchemeParser(PackratParser):
         return {s};
     
     sexpr:
-        dotted
-      | list
+        list
       | FLOAT
       | FIXNUM
       | BOOLEAN
@@ -63,19 +62,13 @@ class SchemeParser(PackratParser):
         IGNORE*
         return {p};
 
-    dotted:
-        '('
-        IGNORE*
+    pair:
         car = sexpr
         '.'
         IGNORE*
         cdr = sexpr
-        ')'
-        IGNORE*
-        return {W_Pair(car, cdr)};
-        
-    pair:
-        car = sexpr
+        return {W_Pair(car, cdr)}
+      | car = sexpr
         cdr = pair
         return {W_Pair(car, cdr)}
       | return {W_Nil()};

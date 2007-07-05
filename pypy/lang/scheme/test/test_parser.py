@@ -100,9 +100,26 @@ def test_truth_values():
     t = parse("#t")
     assert unwrap(t) == True
 
-def test_dotted():
+def test_list_dotted():
     t = parse("(1 . 2)")
     assert isinstance(t, W_Pair)
     assert unwrap(t.car) == 1
     assert unwrap(t.cdr) == 2
+
+    t = parse("(1 . (2 . 3))")
+    assert unwrap(t.car) == 1
+    assert unwrap(t.cdr.car) == 2
+    assert unwrap(t.cdr.cdr) == 3
+
+    t = parse("(1 . (2 . (3 . ())))")
+    assert unwrap(t) == [1, 2, 3]
+
+def test_list_mixed():
+    t = parse("(1 2 . 3)")
+    assert unwrap(t.car) == 1
+    assert unwrap(t.cdr.car) == 2
+    assert unwrap(t.cdr.cdr) == 3
+
+    t = parse("(1 2 . (3 4))")
+    assert unwrap(t) == [1, 2, 3, 4]
 
