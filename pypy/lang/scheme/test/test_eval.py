@@ -74,8 +74,11 @@ def test_ctx_define():
 def test_sete():
     ctx = ExecutionContext()
     eval_expr(ctx, "(define x 42)")
+    loc1 = ctx.get_location("x")
     eval_expr(ctx, "(set! x 43)")
+    loc2 = ctx.get_location("x")
     assert ctx.get("x").to_number() == 43
+    assert loc1 is loc2
     py.test.raises("Unbound", eval_expr, ctx, "(set! y 42)")
 
 def test_func():
@@ -227,4 +230,5 @@ def test_lambda_long_body():
     eval_expr(ctx, """(define long_body (lambda () (define x 42) (+ x 1)))""")
     w_result = eval_expr(ctx, "(long_body)")
     assert w_result.to_number() == 43
-    #assert ctx.get("x") is None
+    assert ctx.get("x") is None
+

@@ -237,7 +237,7 @@ class Define(W_Macro):
         assert isinstance(w_identifier, W_Identifier)
 
         w_val = lst.cdr.car.eval(ctx)
-        ctx.gset(w_identifier.name, w_val)
+        ctx.set(w_identifier.name, w_val)
         return w_val
 
 class Sete(W_Macro):
@@ -334,7 +334,7 @@ class ExecutionContext(object):
 
     { "IDENTIFIER": Location(W_Root()) }
     """
-    def __init__(self, globalscope=None, scope=None):
+    def __init__(self, globalscope=None, scope=None, closure=False):
         if globalscope is None:
             self.globalscope = dict(OPERATION_MAP)
         else:
@@ -345,12 +345,13 @@ class ExecutionContext(object):
         else:
             self.scope = scope
 
+        self.closure = closure
+
     def copy(self):
-        return ExecutionContext(self.globalscope, dict(self.scope))
+        return ExecutionContext(self.globalscope, dict(self.scope), True)
 
     def get(self, name):
         loc = self.scope.get(name, None)
-
         if loc is not None:
             return loc.obj
 
@@ -360,17 +361,10 @@ class ExecutionContext(object):
 
         return None
 
-    def set(self, name, obj):
-        """update existing location or create new location new"""
-        loc = self.scope.get(name, None)
-
-        if loc is not None:
-            loc.obj = obj
-        else:
-            self.put(name, obj)
-
     def sete(self, name, obj):
-        """update existing location or raise"""
+        """update existing location or raise
+        directly used by (set! <var> <expr>) macro
+        """
         loc = self.scope.get(name, None)
         if loc is not None:
             loc.obj = obj
@@ -383,21 +377,36 @@ class ExecutionContext(object):
 
         raise "Unbound"
 
-
-    def gset(self, name, obj):
+    def set(self, name, obj):
         """update existing location or create new location new"""
-        loc = self.globalscope.get(name, None)
+        if self.closure:
+            loc = self.scope.get(name, None)
+        else:
+            loc = self.globalscope.get(name, None)
 
         if loc is not None:
             loc.obj = obj
         else:
-            self.gput(name, obj)
-
-    def gput(self, name, obj):
-        """create new location"""
-        self.globalscope[name] = Location(obj)
+            self.put(name, obj)
 
     def put(self, name, obj):
         """create new location"""
-        self.scope[name] = Location(obj)
+        if self.closure:
+            self.scope[name] = Location(obj)
+        else:
+            self.globalscope[name] = Location(obj)
+
+    def get_location(self, name):
+        """internal/test use only
+        returns location bound to variable
+        """
+        loc = self.scope.get(name, None)
+        if loc is not None:
+            return loc
+
+        loc = self.globalscope.get(name, None)
+        if loc is not None:
+            return loc
+
+        return None
 
