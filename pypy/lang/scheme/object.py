@@ -26,7 +26,7 @@ class W_Symbol(W_Root):
     def __repr__(self):
         return "<W_symbol " + self.name + ">"
 
-class W_Identifier(W_Root):
+class W_Identifier(W_Symbol):
     def __init__(self, val):
         self.name = val
 
@@ -35,9 +35,6 @@ class W_Identifier(W_Root):
 
     def __repr__(self):
         return "<W_Identifier " + self.name + ">"
-
-    def to_symbol(self):
-        return W_Symbol(self.name)
 
     def eval(self, ctx):
 
@@ -321,21 +318,8 @@ def Literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
-    def symbolize(self, lst):
-        if isinstance(lst, W_Pair):
-            arg = lst
-            while not isinstance(arg, W_Nil):
-                arg.car = self.symbolize(arg.car)
-                arg = arg.cdr
-
-        if isinstance(lst, W_Identifier):
-            lst = lst.to_symbol()
-
-        return lst
-
     def eval(self, ctx, lst):
-        w_obj = self.symbolize(lst.car)
-        return w_obj
+        return lst.car
 
 ##
 # Location()
