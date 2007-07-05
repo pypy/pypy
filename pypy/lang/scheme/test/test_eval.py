@@ -232,3 +232,11 @@ def test_lambda_long_body():
     assert w_result.to_number() == 43
     assert ctx.get("x") is None
 
+def test_lambda_lstarg():
+    ctx = ExecutionContext()
+    w_result = eval_expr(ctx, """((lambda x x) 1 2 3)""")
+    assert isinstance(w_result, W_Pair)
+    assert w_result.car.to_number() == 1
+    assert w_result.cdr.car.to_number() == 2
+    assert w_result.cdr.cdr.car.to_number() == 3
+

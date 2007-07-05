@@ -164,10 +164,14 @@ class W_Lambda(W_Procedure):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
-            assert isinstance(arg.car, W_Identifier)
-            #list of argument names, not evaluated
-            self.args.append(arg.car.to_string())
-            arg = arg.cdr
+            if isinstance(arg, W_Identifier):
+                self.args.append([arg.to_string()])
+                break
+            else:
+                assert isinstance(arg.car, W_Identifier)
+                #list of argument names, not evaluated
+                self.args.append(arg.car.to_string())
+                arg = arg.cdr
 
         self.body = body
         self.pname = pname
@@ -177,16 +181,24 @@ class W_Lambda(W_Procedure):
         return "#<procedure %s>" % (self.pname,)
 
     def procedure(self, ctx, lst):
-        #ctx is a caller context, which is hoyfully ignored
-        if len(lst) != len(self.args):
-            raise "Wrong argument count"
+        #ctx is a caller context, which is joyfully ignored
+        
+        #if len(lst) != len(self.args):
+        #    raise "Wrong argument count"
 
         local_ctx = self.closure.copy()
 
         #set lambda arguments
-        vars = zip(self.args, lst)
-        for (name, val) in vars:
-            local_ctx.put(name, val)
+        for idx in range(len(self.args)):
+            name = self.args[idx]
+            if isinstance(name, list):
+                local_ctx.put(name[0], plst2lst(lst[idx:]))
+            else:
+                local_ctx.put(name, lst[idx])
+
+        #vars = zip(self.args, lst)
+        #for (name, val) in vars:
+        #    local_ctx.put(name, val)
 
         body_expression = self.body
         body_result = None
@@ -195,6 +207,15 @@ class W_Lambda(W_Procedure):
             body_expression = body_expression.cdr
 
         return body_result # self.body.eval(local_ctx)
+
+def plst2lst(plst):
+    """coverts python list() of W_Root into W_Pair scheme list"""
+    w_cdr = W_Nil()
+    plst.reverse()
+    for w_obj in plst:
+        w_cdr = W_Pair(w_obj, w_cdr)
+
+    return w_cdr
 
 ##
 # operations
@@ -378,7 +399,7 @@ class ExecutionContext(object):
         raise "Unbound"
 
     def set(self, name, obj):
-        """update existing location or create new location new"""
+        """update existing location or create new location"""
         if self.closure:
             loc = self.scope.get(name, None)
         else:
