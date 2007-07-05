@@ -26,6 +26,9 @@ class W_Identifier(W_Root):
     def __repr__(self):
         return "<W_Identifier " + self.name + ">"
 
+    def to_symbol(self):
+        return W_Symbol(self.name)
+
     def eval(self, ctx):
 
         if ctx is None:
@@ -314,6 +317,24 @@ class Lambda(W_Macro):
         w_body = lst.cdr #.car
         return W_Lambda(w_args, w_body, ctx.copy())
 
+class Quote(W_Macro):
+    def symbolize(self, lst):
+
+        if isinstance(lst, W_Pair):
+            arg = lst
+            while not isinstance(arg, W_Nil):
+                arg.car = self.symbolize(arg.car)
+                arg = arg.cdr
+
+        if isinstance(lst, W_Identifier):
+            lst = lst.to_symbol()
+
+        return lst
+
+    def eval(self, ctx, lst):
+        w_obj = self.symbolize(lst.car)
+        return w_obj
+
 ##
 # Location()
 ##
@@ -344,6 +365,7 @@ OMAP = \
         'set!': Sete,
         'if': MacroIf,
         'lambda': Lambda,
+        'quote': Quote,
     }
 
 OPERATION_MAP = {}

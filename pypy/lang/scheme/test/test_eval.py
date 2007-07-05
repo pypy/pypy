@@ -240,3 +240,31 @@ def test_lambda_lstarg():
     assert w_result.cdr.car.to_number() == 2
     assert w_result.cdr.cdr.car.to_number() == 3
 
+def test_quote():
+    w_fnum = eval_noctx("(quote 42)")
+    assert isinstance(w_fnum, W_Fixnum)
+    assert w_fnum.to_number() == 42
+
+    w_sym = eval_noctx("(quote symbol)")
+    assert isinstance(w_sym, W_Symbol)
+    assert w_sym.to_string() == "symbol"
+
+    w_lst = eval_noctx("(quote (1 2 3))")
+    assert isinstance(w_lst, W_Pair)
+    assert w_lst.car.to_number() == 1
+    assert w_lst.cdr.car.to_number() == 2
+    assert w_lst.cdr.cdr.car.to_number() == 3
+
+    w_lst = eval_noctx("(quote (a (x y) c))")
+    assert isinstance(w_lst, W_Pair)
+    assert isinstance(w_lst.car, W_Symbol)
+    assert w_lst.car.to_string() == "a"
+    w_pair = w_lst.cdr.car
+    assert isinstance(w_lst.cdr.cdr.car, W_Symbol)
+    assert w_lst.cdr.cdr.car.to_string() == "c"
+
+    assert isinstance(w_pair.car, W_Symbol)
+    assert w_pair.car.to_string() == "x"
+    assert isinstance(w_pair.cdr.car, W_Symbol)
+    assert w_pair.cdr.car.to_string() == "y"
+
