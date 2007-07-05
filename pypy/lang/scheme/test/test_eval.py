@@ -240,6 +240,17 @@ def test_lambda_lstarg():
     assert w_result.cdr.car.to_number() == 2
     assert w_result.cdr.cdr.car.to_number() == 3
 
+def test_lambda_dotted_lstarg():
+    ctx = ExecutionContext()
+    w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4)""")
+    assert isinstance(w_result, W_Nil)
+
+    w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4 5 6)""")
+    assert isinstance(w_result, W_Pair)
+    assert w_result.car.to_number() == 5
+    assert w_result.cdr.car.to_number() == 6
+    assert isinstance(w_result.cdr.cdr, W_Nil)
+
 def test_quote():
     w_fnum = eval_noctx("(quote 42)")
     assert isinstance(w_fnum, W_Fixnum)
