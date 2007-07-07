@@ -7,11 +7,10 @@ js_interactive.py
 import autopath
 import sys
 import getopt
-from pypy.lang.js.interpreter import *
+from pypy.lang.js.interpreter import load_source, Interpreter, load_file
+from pypy.lang.js.jsparser import parse, ParseError
 from pypy.lang.js.jsobj import W_Builtin, W_String, ThrowException, w_Undefined
-from pypy.lang.js import jsparser
-import os
-import cmd
+from pypy.rlib.streamio import open_file_as_stream
 
 help_message = """
 PyPy's JavaScript Interpreter:
@@ -20,10 +19,12 @@ PyPy's JavaScript Interpreter:
  -h show this help message
  -d jump to a pdb in case of failure
 """
+import code
+sys.ps1 = 'js> '
+sys.ps2 = '... '
 
-interactive = True
-
-def setup_readline():
+try:
+    # Setup Readline
     import readline
     import os
     histfile = os.path.join(os.environ["HOME"], ".jspypyhist")
@@ -34,14 +35,13 @@ def setup_readline():
         pass
     import atexit
     atexit.register(readline.write_history_file, histfile)
+except ImportError:
+    pass
 
-class Usage(Exception):
-    def __init__(self, msg):
-        self.msg = msg
 
 def loadjs(ctx, args, this):
-    filename = args[0]
-    t = load_file(filename.ToString())
+    filename = args[0].ToString()
+    t = load_file(filename)
     return t.execute(ctx)
 
 def tracejs(ctx, args, this):
@@ -52,124 +52,99 @@ def tracejs(ctx, args, this):
 def quitjs(ctx, args, this):
     sys.exit(0)
     
-    
-def main(argv=None):
-    # XXX: note. This will not work when translated, because
-    # globals cannot be modified (ie. interactive is always True).
-    # so I'm adding support which will not be translated, probably
-    # for further consideration
-    global interactive
-    debug = False
-    if argv is None:
-        argv = sys.argv
-    try:
+class JSInterpreter(code.InteractiveConsole):
+    def __init__(self, locals=None, filename="<console>"):
+        code.InteractiveConsole.__init__(self, locals, filename)
+        self.interpreter = Interpreter()
+        self.interpreter.w_Global.Put('quit', W_Builtin(quitjs))
+        self.interpreter.w_Global.Put('load', W_Builtin(loadjs))
+        self.interpreter.w_Global.Put('trace', W_Builtin(tracejs))
+
+
+    def runcodefromfile(self, filename):
+        f = open_file_as_stream(filename)
+        self.runsource(f.readall())
+        f.close()
+
+    def runcode(self, ast):
+        """Run the javascript code in the AST. All exceptions raised
+        by javascript code must be caught and handled here. When an
+        exception occurs, self.showtraceback() is called to display a
+        traceback.
+        """
         try:
-            opts, args = getopt.getopt(argv[1:], "hdnf:", ["help",])
-        except getopt.error, msg:
-            raise Usage(msg)
-    
-        # option processing
-        filenames = []
-        for option, value in opts:
-            if option == "-f":
-                filenames.append(value)
-            if option == "-n":
-                interactive = False
-            if option in ("-h", "--help"):
-                raise Usage(help_message)
-            if option == '-d':
-                debug = True
-    
-    except Usage, err:
-        print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
-        print >> sys.stderr, "\t for help use --help"
-        return 2
-    
-    interp = Interpreter()
-        
-    interp.w_Global.Put('quit', W_Builtin(quitjs))
-    interp.w_Global.Put('load', W_Builtin(loadjs))
-    interp.w_Global.Put('trace', W_Builtin(tracejs))
-    for filename in filenames:
+            res = self.interpreter.run(ast)
+            if res not in (None, w_Undefined):
+                try:
+                    print res.GetValue().ToString(self.interpreter.w_Global)
+                except ThrowException, exc:
+                    print exc.exception.ToString(self.interpreter.w_Global)
+        except SystemExit:
+            raise
+        except ThrowException, exc:
+            self.showtraceback(exc)
+        else:
+            if code.softspace(sys.stdout, 0):
+                print
+
+    def runsource(self, source, filename="<input>"):
+        """Parse and run source in the interpreter.
+
+        One of these cases can happen:
+        1) The input is incorrect. Prints a nice syntax error message.
+        2) The input in incomplete. More input is required. Returns None.
+        3) The input is complete. Executes the source code.
+        """
         try:
-            loadjs(interp.global_context, [W_String(filename)], None)
-            # XXX we should catch more stuff here, like not implemented
-            # and such
-        except (jsparser.ParseError, ThrowException), e:
-            if isinstance(e, jsparser.ParseError):
-                print "\nSyntax error!"
-                raise
-            elif isinstance(e, ThrowException):
-                print "\nJS Exception thrown!"
-            return
+            ast = load_source(source)
+        except ParseError, exc:
+            if exc.source_pos.i == len(source):
+                # Case 2
+                return True # True means that more input is needed
+            else:
+                # Case 1
+                self.showsyntaxerror(filename, exc)
+                return False
 
-    #while interactive:
-    #    res = interp.run(load_source(raw_input("js-pypy> ")))
-    #    if res is not None:
-    #        print res
-    if interactive:
-        MyCmd(interp, debug).cmdloop()
+        # Case 3
+        self.runcode(ast)
+        return False
 
-class MyCmd(cmd.Cmd):
-    prompt = "js-pypy> "
-    def __init__(self, interp, debug):
-        cmd.Cmd.__init__(self)
-        setup_readline()
-        self.debug = debug
-        self.interp = interp
-        self.reset()
+    def showtraceback(self, exc):
+        # XXX format exceptions nicier
+        print exc.exception.ToString()
 
-    def reset(self):
-        self.prompt = self.__class__.prompt
-        self.lines = []
-        self.level = 0
-    
-    def emptyline(self):
-        pass
-    
-    def default(self, line):
-        # let's count lines and continue till matching proper nr of {
-        # XXX: '{' will count as well
-        # we can avoid this by using our own's tokeniser, when we possess one
-        if line == 'EOF':
-            print "\nQuitting"
-            sys.exit()
-        opens = line.count('{')
-        closes = line.count('}')
-        self.level += opens - closes
-        self.lines.append(line)
-        if self.level > 0:
-            self.prompt = '     ... '
-            return
-        elif self.level < 0:
-            print "\nError!!! Too many closing braces"
-            self.level = 0
-            return
-        try:
-            try:
-                res = self.interp.run(load_source("\n".join(self.lines)))
-                # XXX we should catch more stuff here, like not implemented
-                # and such
-            except (jsparser.ParseError, ThrowException), e:
-                e_info = sys.exc_info()
-                if self.debug:
-                    import pdb
-                    pdb.post_mortem(e_info[2])
-                else:
-                    if isinstance(e, jsparser.ParseError):
-                        print "\nSyntax error!"
-                    elif isinstance(e, ThrowException):
-                        print e.exception.ToString()
-                return
-        finally:
-            self.reset()
-        if (res is not None) and (res is not w_Undefined):
-            try:
-                print res.GetValue().ToString(self.interp.w_Global)
-            except ThrowException, e:
-                print e.exception.ToString(self.interp.w_Global)
+    def showsyntaxerror(self, filename, exc):
+        # XXX format syntax errors nicier
+        print ' '*4 + \
+              ' '*exc.source_pos.columnno + \
+              '^'
+        print 'Syntax Error'
 
-if __name__ == "__main__":
-    import py
-    py.test.config.parse([])
-    sys.exit(main())
+    def interact(self, banner=None):
+        if banner is None:
+            banner = 'PyPy JavaScript Interpreter'
+        code.InteractiveConsole.interact(self, banner)
+
+def main(inspect=False, filename=None, args=[]):
+    jsi = JSInterpreter()
+    if filename is not None:
+        jsi.runcodefromfile(filename)
+    if (filename is None) or inspect:
+        jsi.interact()
+
+if __name__ == '__main__':
+    from optparse import OptionParser
+    parser = OptionParser(usage='%prog [options] [file] [arg] ...',
+                          description='PyPy JavaScript Interpreter')
+    parser.add_option('-i', dest='inspect',
+                      action='store_true', default=False,
+                      help='inspect interactively after running script')
+    # ... (add other options)
+    opts, args = parser.parse_args()
+
+    if args:
+        main(inspect=opts.inspect, filename=args[0], args=args[1:])
+    else:
+        main(inspect=opts.inspect)
+    sys.exit(0)

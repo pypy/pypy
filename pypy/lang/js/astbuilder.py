@@ -260,8 +260,11 @@ class ASTBuilder(RPythonVisitor):
     def visit_callexpression(self, node):
         pos = self.get_pos(node)
         left = self.dispatch(node.children[0])
-        right = self.dispatch(node.children[1])
-        return operations.Call(pos, left, right)
+        for rightnode in node.children[1:]:
+            right = self.dispatch(rightnode)
+            left = operations.Call(pos, left, right)
+        
+        return left
         
     def visit_assignmentexpression(self, node):
         pos = self.get_pos(node)
