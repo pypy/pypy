@@ -1,20 +1,20 @@
 Do now
 ------
 
-- variables and execution context
-- list operations: cons car cdr list
-- comparison: = < > eq? eqv?
-- lambdas!
+- RPythonize (during EP sprint)
 
 Do next
 -------
 
-- symbols (should be done with next point)
+- definitions: let, let*, letrec
+
+- symbols vs identifier, which name is better
   - global dict for symbols _obarray_
-- (quote <obj>) and '<obj>, not only symbols
 
 - implement key funcions
   (apply, reduce, mapcar and so on)
+
+- comparison: < > eq? eqv?
 
 Do in some future
 -----------------
@@ -23,6 +23,7 @@ Here starts the real fun!
 
 - macros
 - proper tail-recursion
+  - mutulally recursive procedures (r5rs p.12)
 - delayed evaluation
 - continuations
 

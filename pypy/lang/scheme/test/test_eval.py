@@ -307,3 +307,14 @@ def test_quote_parse():
     assert isinstance(w_pair.cdr.car, W_Symbol)
     assert w_pair.cdr.car.to_string() == "y"
 
+def test_list():
+    ctx = ExecutionContext()
+    ctx.put("var", W_Fixnum(42))
+    w_lst = eval_expr(ctx, "(list 1 var (+ 2 1) 'a)")
+    assert isinstance(w_lst, W_Pair)
+    assert w_lst.car.to_number() == 1
+    assert w_lst.cdr.car.to_number() == 42
+    assert w_lst.cdr.cdr.car.to_number() == 3
+    assert w_lst.cdr.cdr.cdr.car.to_string() == "a"
+    assert isinstance(w_lst.cdr.cdr.cdr.cdr, W_Nil)
+

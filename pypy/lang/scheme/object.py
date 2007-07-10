@@ -252,6 +252,10 @@ class Mul(ListOper):
     def oper(self, x, y):
         return x * y
 
+class List(W_Procedure):
+    def procedure(self, ctx, lst):
+        return plst2lst(lst)
+
 class Define(W_Macro):
     def eval(self, ctx, lst):
         w_identifier = lst.car
@@ -344,6 +348,7 @@ OMAP = \
         'cons': Cons,
         'car': Car,
         'cdr': Cdr,
+        'list': List,
             #comparisons
         '=': Equal,
             #macros
