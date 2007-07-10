@@ -23,7 +23,7 @@ class TestInteraction:
         return self._spawn(str(py.magic.autopath().dirpath().dirpath().join('js_interactive.py')), argv)
     
     def prompt_send(self, message):
-        self.child.expect('js-pypy>')
+        self.child.expect('js>')
         self.child.sendline(message)
     
     def expect(self, message):
@@ -33,7 +33,7 @@ class TestInteraction:
         self.child.sendline(message)
     
     def continue_send(self, message):
-        self.child.expect('     ... ')
+        self.child.expect('...')
         self.child.sendline(message)
 
     def setup_method(cls, method):

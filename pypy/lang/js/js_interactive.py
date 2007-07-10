@@ -12,13 +12,6 @@ from pypy.lang.js.jsparser import parse, ParseError
 from pypy.lang.js.jsobj import W_Builtin, W_String, ThrowException, w_Undefined
 from pypy.rlib.streamio import open_file_as_stream
 
-help_message = """
-PyPy's JavaScript Interpreter:
- -f filename - Loads a file
- -n to not be interactive
- -h show this help message
- -d jump to a pdb in case of failure
-"""
 import code
 sys.ps1 = 'js> '
 sys.ps2 = '... '
@@ -126,25 +119,26 @@ class JSInterpreter(code.InteractiveConsole):
             banner = 'PyPy JavaScript Interpreter'
         code.InteractiveConsole.interact(self, banner)
 
-def main(inspect=False, filename=None, args=[]):
+def main(inspect=False, files=[]):
     jsi = JSInterpreter()
-    if filename is not None:
+    for filename in files:
         jsi.runcodefromfile(filename)
     if (filename is None) or inspect:
         jsi.interact()
 
 if __name__ == '__main__':
     from optparse import OptionParser
-    parser = OptionParser(usage='%prog [options] [file] [arg] ...',
+    parser = OptionParser(usage='%prog [options] [files] ...',
                           description='PyPy JavaScript Interpreter')
     parser.add_option('-i', dest='inspect',
-                      action='store_true', default=False,
-                      help='inspect interactively after running script')
+                    action='store_true', default=False,
+                    help='inspect interactively after running script')
+
     # ... (add other options)
     opts, args = parser.parse_args()
 
     if args:
-        main(inspect=opts.inspect, filename=args[0], args=args[1:])
+        main(inspect=opts.inspect, files=args)
     else:
         main(inspect=opts.inspect)
     sys.exit(0)
