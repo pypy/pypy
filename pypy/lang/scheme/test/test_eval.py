@@ -318,3 +318,11 @@ def test_list():
     assert w_lst.cdr.cdr.cdr.car.to_string() == "a"
     assert isinstance(w_lst.cdr.cdr.cdr.cdr, W_Nil)
 
+def test_let():
+    ctx = ExecutionContext()
+    w_global = W_Fixnum(0)
+    ctx.put("var", w_global)
+    w_result = eval_expr(ctx, "(let ((var 42) (x (+ 2 var))) (+ var x))")
+    assert w_result.to_number() == 44
+    assert ctx.get("var") is w_global
+

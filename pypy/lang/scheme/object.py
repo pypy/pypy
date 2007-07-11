@@ -182,9 +182,6 @@ class W_Lambda(W_Procedure):
 
     def procedure(self, ctx, lst):
         #ctx is a caller context, which is joyfully ignored
-        
-        #if len(lst) != len(self.args):
-        #    raise "Wrong argument count"
 
         local_ctx = self.closure.copy()
 
@@ -195,10 +192,6 @@ class W_Lambda(W_Procedure):
                 local_ctx.put(name[0], plst2lst(lst[idx:]))
             else:
                 local_ctx.put(name, lst[idx])
-
-        #vars = zip(self.args, lst)
-        #for (name, val) in vars:
-        #    local_ctx.put(name, val)
 
         body_expression = self.body
         body_result = None
@@ -318,6 +311,26 @@ class Lambda(W_Macro):
         w_body = lst.cdr #.car
         return W_Lambda(w_args, w_body, ctx.copy())
 
+class Let(W_Macro):
+    def eval(slef, ctx, lst):
+        local_ctx = ctx.copy()
+        w_formal = lst.car
+        while not isinstance(w_formal, W_Nil):
+            name = w_formal.car.car.to_string()
+            #evaluate the values in caller ctx
+            val = w_formal.car.cdr.car.eval(ctx)
+            local_ctx.put(name, val)
+            w_formal = w_formal.cdr
+
+        body_expression = lst.cdr
+        body_result = None
+        while not isinstance(body_expression, W_Nil):
+            body_result = body_expression.car.eval(local_ctx)
+            body_expression = body_expression.cdr
+
+        return body_result
+
+
 def Literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
@@ -356,6 +369,7 @@ OMAP = \
         'set!': Sete,
         'if': MacroIf,
         'lambda': Lambda,
+        'let': Let,
         'quote': Quote,
     }
 
