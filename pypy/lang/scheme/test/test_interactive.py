@@ -30,3 +30,10 @@ class TestInteractive:
         child.sendline("(+ 1 2)")
         child.expect("3W")
 
+    def test_multiline(self):
+        child = self.spawn()
+        child.expect("-> ")
+        child.sendline("(+ 1")
+        child.expect(".. ")
+        child.sendline(" 2)")
+        child.expect("3W")
