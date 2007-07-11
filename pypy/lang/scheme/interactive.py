@@ -2,7 +2,7 @@
 """ Interactive (untranslatable) version of the pypy
 scheme interpreter
 """
-
+import autopath
 from pypy.lang.scheme.object import ExecutionContext, SchemeException
 from pypy.lang.scheme.ssparser import parse
 import os, sys
