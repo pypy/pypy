@@ -342,3 +342,7 @@ def test_letrec():
                             (even? (- n 1))))))
                 (even? 12))""")
     assert w_result.to_boolean() is True
+
+def test_quit():
+    py.test.raises(SchemeQuit, eval_noctx, "(quit)")
+

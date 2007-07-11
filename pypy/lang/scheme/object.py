@@ -7,6 +7,9 @@ class UnboundVariable(SchemeException):
     def __str__(self):
         return "Unbound variable %s" % self.args[0]
 
+class SchemeQuit(SchemeException):
+    pass
+
 class W_Root(object):
     def to_string(self):
         return ''
@@ -312,6 +315,10 @@ class Equal(W_Procedure):
         w_second = lst[1]
         return W_Boolean(w_first.equal(w_second))
 
+class Quit(W_Procedure):
+    def procedure(self, ctx, lst):
+        raise SchemeQuit
+
 class Lambda(W_Macro):
     def eval(self, ctx, lst):
         w_args = lst.car
@@ -395,6 +402,7 @@ OMAP = \
         'car': Car,
         'cdr': Cdr,
         'list': List,
+        'quit': Quit,
             #comparisons
         '=': Equal,
             #macros

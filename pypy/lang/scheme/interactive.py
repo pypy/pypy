@@ -3,9 +3,9 @@
 scheme interpreter
 """
 import autopath
-from pypy.lang.scheme.object import ExecutionContext, SchemeException
-from pypy.lang.scheme.ssparser import parse
-from pypy.rlib.parsing.makepackrat import BacktrackException
+from pypy.lang.scheme.object import ExecutionContext, SchemeException, \
+        SchemeQuit
+from pypy.lang.scheme.ssparser import parse, SchemeParsingError
 import os, sys
 
 def check_parens(s):
@@ -26,9 +26,11 @@ def interactive():
         if check_parens(to_exec):
             try:
                 print parse(to_exec).eval(ctx)
+            except SchemeQuit, e:
+                break
             except SchemeException, e:
                 print "error: %s" % e
-            except BacktrackException, e:
+            except SchemeParsingError, e:
                 print "syntax error"
 
             to_exec = ""
