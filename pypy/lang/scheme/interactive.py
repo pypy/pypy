@@ -24,8 +24,13 @@ def interactive():
             ps = '-> '
         sys.stdout.write(ps)
         to_exec += sys.stdin.readline()
-        if check_parens(to_exec):
+        if to_exec == "\n":
+            to_exec = ""
+        elif check_parens(to_exec):
             try:
+                if to_exec == "":
+                    print
+                    raise SchemeQuit
                 print parse(to_exec).eval(ctx)
             except SchemeQuit, e:
                 break

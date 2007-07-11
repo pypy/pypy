@@ -51,3 +51,14 @@ class TestInteractive:
         child.expect("syntax error")
         child.expect("-> ")
 
+    def test_multiline_enter(self):
+        child = self.spawn()
+        child.expect("-> ")
+        child.sendline("")
+        child.expect("-> ")
+        child.sendline("")
+        child.expect("-> ")
+        child.sendline("")
+        child.expect("-> ")
+        child.sendline("")
+        # we cannot sendeof, because pexpect is confused :-(
