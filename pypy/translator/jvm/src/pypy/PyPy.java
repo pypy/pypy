@@ -17,6 +17,12 @@ public class PyPy {
     
     public static Interlink interlink;
 
+    public static final long LONG_MAX = Long.MAX_VALUE;
+    public static final long LONG_MIN = Long.MIN_VALUE;
+    public static final int INT_MAX = Integer.MAX_VALUE;
+    public static final int INT_MIN = Integer.MIN_VALUE;
+
+
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
@@ -114,6 +120,15 @@ public class PyPy {
         assert (loword & 0xFFFF0000) == 0;
         assert (hiword & 0xFFFF0000) == 0;
         return (hiword << 16) + loword;
+    }
+
+    public static long double_to_long(double value)
+    {
+        //if (value <= LONG_MAX)
+        //{
+            return (long)value;
+        //}
+        //TODO: Add some logic here, but I don't think we'll need it
     }
 
     public static long long_bitwise_negate(long value) {
@@ -256,6 +271,202 @@ public class PyPy {
         if (o == null)
             return "None";
         return o.toString();
+    }
+
+    // ----------------------------------------------------------------------
+    // Checked Arithmetic - Overflow protection
+    public static int negate_ovf(int x) 
+    {
+        if (x == INT_MIN)
+        {
+            throwOverflowError();
+        }
+        return -x;
+    }
+
+    public static long negate_ovf(long x) 
+    {
+        if (x == LONG_MIN)
+        {
+            throwOverflowError();
+        }
+        return -x;
+    }
+    
+    public static int abs_ovf(int x) 
+    {
+        if (x == INT_MIN)
+        {
+            throwOverflowError();
+        }
+        return Math.abs(x);
+    }
+
+    public static long abs_ovf(long x) 
+    {
+        if (x == LONG_MIN)
+        {
+            throwOverflowError();
+        }
+        return Math.abs(x);
+    }
+
+    public static int add_ovf(int x, int y) 
+    {
+        int result = x+y;
+        if (!(((result^x) >=0) || ((result^y) >=0)))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+
+    public static int subtract_ovf(int x, int y) 
+    {
+        int result = x-y;
+        if (!(((result^x) >=0) || ((result^(~y)) >=0)))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+
+    private static boolean int_multiply(int x, int y)
+    {
+        double dprod = (double)x * (double)y;
+        long longprod = x * y;
+        double dlongprod = (double)longprod;
+        double diff = dlongprod - dprod;
+        double absdiff = Math.abs(diff);
+        double absprod = Math.abs(dprod);
+
+        if (dlongprod == dprod) //if diff == 0
+            return true;
+        else if (32.0 * absdiff <= absprod) //if we lost some information, are we at least 5 good bits?
+            return true;
+        else
+            return false;
+    }
+    public static int multiply_ovf(int x, int y) 
+    {
+        if (!(int_multiply(x, y)))
+        {
+            throwOverflowError();
+        }
+        return x * y;
+    }
+
+    public static long add_ovf(long x, long y) 
+    {
+        long result = x+y;
+        if (!(((result^x) >=0) || ((result^y) >=0)))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+
+    public static long subtract_ovf(long x, long y) 
+    {
+        long result = x-y;
+        if (!(((result^x) >=0) || ((result^(~y)) >=0)))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+
+    private static boolean long_multiply(long x, long y)
+    {
+        double dprod = (double)x * (double)y;
+        long longprod = x * y;
+        double dlongprod = (double)longprod;
+        double diff = dlongprod - dprod;
+        double absdiff = Math.abs(diff);
+        double absprod = Math.abs(dprod);
+
+        if (dlongprod == dprod) //if diff == 0
+            return true;
+        else if (32.0 * absdiff <= absprod) //if we lost some information, are we at least 5 good bits?
+            return true;
+        else
+            return false;
+    }
+    public static long multiply_ovf(long x, long y) 
+    {
+        //if (long_multiply(x, y))
+        //{
+        //    return x * y;
+        //}
+        //else
+        //    throwOverflowError();
+        if (!(long_multiply(x, y)))
+        {
+            throwOverflowError();
+        }
+        return x*y;
+        //else
+        //    throwOverflowError();
+    }
+
+    /* shifting */
+    /* Talk to Niko about how to get a workaround for PY_* functions in Java */
+
+    /* floor division */
+    public static int floordiv_ovf(int x, int y) 
+    {
+        if ((y == -1) && (x == INT_MIN))
+        {
+            throwOverflowError();
+        }
+        return x/y;
+    }
+
+    public static int floordiv_zer_ovf(int x, int y) 
+    {
+        if (y != 0)
+        {
+            return floordiv_ovf(x,y);
+        }
+        else
+            throw new ArithmeticException("Floor Division with integer by 0");
+    }
+
+    public static long floordiv_ovf(long x, long y) 
+    {
+        if ((y == -1) && (x == LONG_MIN))
+        {
+            throwOverflowError();
+        }
+        return x/y;
+    }
+
+    public static long floordiv_zer_ovf(long x, long y)
+    {
+        if (y != 0)
+        {
+            return floordiv_ovf(x,y);
+        }
+        else
+            throw new ArithmeticException("Floor Division with integer by 0");
+    }
+
+    public static int mod_ovf(int x, int y) 
+    {
+        if ((y == -1) && (x == INT_MIN))
+        {
+            throwOverflowError();
+        }
+        return x%y;
+    }
+
+    public static long mod_ovf(long x, long y) 
+    {
+        if ((y == -1) && (x == LONG_MIN))
+        {
+            throwOverflowError();
+        }
+        return x%y;
     }
 
     // ----------------------------------------------------------------------
@@ -419,7 +630,7 @@ public class PyPy {
     // Helpers
     
     public static byte[] string2bytes(String s) {
-    	return s.getBytes();
+        return s.getBytes();
     }
 
     public static void append(StringBuilder sb, String s) {
@@ -438,7 +649,7 @@ public class PyPy {
     // OOString support
     
     public static String oostring(int n, int base_) {
-    	// XXX needs special case for unsigned ints
+        // XXX needs special case for unsigned ints
         if (base_ == -1)
             base_ = 10;
         if (n < 0 && base_ != 10)
@@ -598,6 +809,10 @@ public class PyPy {
         interlink.throwIndexError();
     }
 
+    public static void throwOverflowError() {
+        interlink.throwOverflowError();
+    }
+    
     // ----------------------------------------------------------------------
     // Self Test
 

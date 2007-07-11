@@ -52,10 +52,11 @@ def _two_comp_64(val):
 class Opcode(object):
     def __init__(self, jvmstr):
         """
-        flags is a set of flags (see above) that describe opcode
+        flags is a set of flags (see above) that describe opcode #UPDATE
         jvmstr is the name for jasmin printouts
         """
         self.jvmstr = jvmstr
+        self.flags = None #Should flags be added to args?
 
     def __repr__(self):
         return "<Opcode %s:%x>" % (self.jvmstr, self.flags)
@@ -363,9 +364,26 @@ LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
 DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
 CHARTOSTRINGC =         Method.s(jCharClass, 'toString', (jChar,), jString)
 MATHIABS =              Method.s(jMath, 'abs', (jInt,), jInt)
+IABSOVF =               Method.s(jPyPy, 'abs_ovf', (jInt,), jInt)
 MATHLABS =              Method.s(jMath, 'abs', (jLong,), jLong)
+LABSOVF =               Method.s(jPyPy, 'abs_ovf', (jLong,), jLong)
 MATHDABS =              Method.s(jMath, 'abs', (jDouble,), jDouble)
+INEGOVF =               Method.s(jPyPy, 'negate_ovf', (jInt,), jInt)
+LNEGOVF =               Method.s(jPyPy, 'negate_ovf', (jInt,), jInt)
+IADDOVF =               Method.s(jPyPy, 'add_ovf', (jInt, jInt), jInt)
+LADDOVF =               Method.s(jPyPy, 'add_ovf', (jLong, jLong), jLong)
+ISUBOVF =               Method.s(jPyPy, 'sub_ovf', (jInt, jInt), jInt)
+LSUBOVF =               Method.s(jPyPy, 'sub_ovf', (jLong, jLong), jLong)
+IMULOVF =               Method.s(jPyPy, 'multiply_ovf', (jInt, jInt), jInt)
+LMULOVF =               Method.s(jPyPy, 'multiply_ovf', (jLong, jLong), jLong)
 MATHFLOOR =             Method.s(jMath, 'floor', (jDouble,), jDouble)
+IFLOORDIVOVF =          Method.s(jPyPy, 'floordiv_ovf', (jInt, jInt), jInt)
+LFLOORDIVOVF =          Method.s(jPyPy, 'floordiv_ovf', (jLong, jLong), jLong)
+IFLOORDIVZEROVF =       Method.s(jPyPy, 'floordiv_zer_ovf', (jInt, jInt), jInt)
+LFLOORDIVZEROVF =       Method.s(jPyPy, 'floordiv_zer_ovf', (jLong, jLong), jLong)
+IREMOVF =               Method.s(jPyPy, 'mod_ovf', (jInt, jInt), jInt)
+LREMOVF =               Method.s(jPyPy, 'mod_ovf', (jLong, jLong), jLong)
+MATHDPOW =              Method.s(jMath, 'pow', (jDouble, jDouble), jDouble)
 PRINTSTREAMPRINTSTR =   Method.v(jPrintStream, 'print', (jString,), jVoid)
 CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
 CLASSISASSIGNABLEFROM = Method.v(jClass, 'isAssignableFrom', (jClass,), jBool)
@@ -375,7 +393,7 @@ PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
 PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
-#PYPYDOUBLETOLONG =      Method.s(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL
+PYPYDOUBLETOLONG =      Method.s(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL
 PYPYLONGBITWISENEGATE = Method.s(jPyPy, 'long_bitwise_negate', (jLong,), jLong)
 PYPYSTRTOINT =          Method.s(jPyPy, 'str_to_int', (jString,), jInt)
 PYPYSTRTOUINT =         Method.s(jPyPy, 'str_to_uint', (jString,), jInt)

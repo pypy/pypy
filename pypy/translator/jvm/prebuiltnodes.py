@@ -8,6 +8,9 @@ def throwZeroDivisionError():
 def throwIndexError():
     raise IndexError
 
+def throwOverflowError():
+    raise OverflowError
+
 # ___________________________________________________________________________
 
 def create_interlink_node(db):

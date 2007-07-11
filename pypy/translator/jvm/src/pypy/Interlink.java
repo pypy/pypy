@@ -12,4 +12,5 @@ package pypy;
 public interface Interlink {
     public void throwZeroDivisionError();
     public void throwIndexError();
+    public void throwOverflowError();
 }

@@ -32,20 +32,8 @@ def _check_zer(op):
         _proc(op))]
 
 def _check_ovf(op):
-    # TODO
     return op
     
-def _check_unary_ovf(op):
-    # TODO  We should just use rlib's overflow dtection
-    # Assume LLONG_MIN = (- LLONG_MAX-1)
-#    if op.operand == LLONG_MIN:
-#        return [TranslateException(
-#            jvmtype.jArithmeticException,
-#            'throwOverflowError',
-#            _proc(op))]
-#    else:
-#        return op
-    return op
 
 # This table maps the opcodes to micro-ops for processing them.
 # It is post-processed by _proc.
@@ -96,9 +84,9 @@ _opcodes = {
 
     'int_is_true':              'not_equals_zero',
     'int_neg':                  jvmgen.INEG,
-    'int_neg_ovf':              None, # How to handle overflow?
+    'int_neg_ovf':              jvmgen.INEGOVF,
     'int_abs':                  'iabs',
-    'int_abs_ovf':              _check_ovf('iabs'),
+    'int_abs_ovf':              jvmgen.IABSOVF,
     'int_invert':               'bitwise_negate',
 
     'int_add':                  jvmgen.IADD,
@@ -118,11 +106,12 @@ _opcodes = {
     'int_lshift':               jvmgen.ISHL,
     'int_rshift':               jvmgen.ISHR,
     'int_xor':                  jvmgen.IXOR,
-    'int_add_ovf':              _check_ovf(jvmgen.IADD),
-    'int_sub_ovf':              _check_ovf(jvmgen.ISUB),
-    'int_mul_ovf':              _check_ovf(jvmgen.IMUL),
+    'int_add_ovf':              jvmgen.IADDOVF,
+    'int_sub_ovf':              jvmgen.ISUBOVF,
+    'int_mul_ovf':              jvmgen.IMULOVF,
     'int_floordiv_ovf':         jvmgen.IDIV, # these can't overflow!
-    'int_mod_ovf':              jvmgen.IREM,
+    'int_mod_zer':              _check_zer(jvmgen.IREM),
+    'int_mod_ovf':              jvmgen.IREMOVF,
     'int_lt_ovf':               'less_than',
     'int_le_ovf':               'less_equals',
     'int_eq_ovf':               'equals',
@@ -138,7 +127,7 @@ _opcodes = {
     'int_rshift_ovf':           jvmgen.ISHR, # these can't overflow!
     'int_xor_ovf':              jvmgen.IXOR,
     'int_floordiv_ovf_zer':     _check_zer(jvmgen.IDIV),
-    'int_mod_ovf_zer':          _check_zer(jvmgen.IREM),
+    'int_mod_ovf_zer':          _check_zer(jvmgen.IREMOVF),
 
     'uint_is_true':             'not_equals_zero',
     'uint_invert':              'bitwise_negate',
@@ -171,7 +160,8 @@ _opcodes = {
     'float_add':                jvmgen.DADD,
     'float_sub':                jvmgen.DSUB,
     'float_mul':                jvmgen.DMUL,
-    'float_truediv':            jvmgen.DDIV, 
+    'float_truediv':            jvmgen.DDIV,
+    'float_pow':                jvmgen.MATHDPOW,
     'float_lt':                 'dbl_less_than',     
     'float_le':                 'dbl_less_equals',   
     'float_eq':                 'dbl_equals',        
@@ -183,8 +173,9 @@ _opcodes = {
                                  jvmgen.LCONST_0,
                                  'long_not_equals'],
     'llong_neg':                jvmgen.LNEG,
-    'llong_neg_ovf':            _check_ovf(jvmgen.LNEG),
+    'llong_neg_ovf':            jvmgen.LNEGOVF,
     'llong_abs':                jvmgen.MATHLABS,
+    'llong_abs_ovf':            jvmgen.LABSOVF,
     'llong_invert':             jvmgen.PYPYLONGBITWISENEGATE,
 
     'llong_add':                jvmgen.LADD,
@@ -193,7 +184,9 @@ _opcodes = {
     'llong_div':                jvmgen.LDIV,
     'llong_truediv':            None, # TODO
     'llong_floordiv':           jvmgen.LDIV,
+    'llong_floordiv_zer':       _check_zer(jvmgen.LDIV),
     'llong_mod':                jvmgen.LREM,
+    'llong_mod_zer':            _check_zer(jvmgen.LREM),
     'llong_lt':                 'long_less_than',     
     'llong_le':                 'long_less_equals',   
     'llong_eq':                 'long_equals',        
@@ -205,6 +198,8 @@ _opcodes = {
     'llong_lshift':             jvmgen.LSHL,
     'llong_rshift':             jvmgen.LSHR,
     'llong_xor':                jvmgen.LXOR,
+    'llong_floordiv_ovf':       jvmgen.LDIV, # these can't overflow!
+    'llong_mod_ovf':            jvmgen.LREMOVF,
 
     'ullong_is_true':           [PushAllArgs,
                                  jvmgen.LCONST_0,
@@ -218,6 +213,7 @@ _opcodes = {
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvmgen.LDIV, # valid?
     'ullong_mod':               jvmgen.LREM, # valid?
+    'ullong_mod_zer':           _check_zer(jvmgen.LREM),
     'ullong_lt':                'ulong_less_than',     
     'ullong_le':                'ulong_less_equals',   
     'ullong_eq':                'ulong_equals',        
@@ -244,7 +240,7 @@ _opcodes = {
     'cast_uint_to_float':       jvmgen.PYPYUINTTODOUBLE, 
     'cast_float_to_int':        jvmgen.D2I,
     #'cast_float_to_longlong':   jvmgen.D2L, #PAUL
-    #'cast_float_to_longlong':   jvmgen.PYPYDOUBLETOLONG, #PAUL
+    'cast_float_to_longlong':   jvmgen.PYPYDOUBLETOLONG, #PAUL
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
     'cast_longlong_to_float':   jvmgen.L2D,
@@ -255,3 +251,4 @@ opcodes = {}
 for opc, val in _opcodes.items():
     opcodes[opc] = _proc(val)
 del _opcodes
+
