@@ -123,7 +123,7 @@ def main(inspect=False, files=[]):
     jsi = JSInterpreter()
     for filename in files:
         jsi.runcodefromfile(filename)
-    if (filename is None) or inspect:
+    if (not files) or inspect:
         jsi.interact()
 
 if __name__ == '__main__':
