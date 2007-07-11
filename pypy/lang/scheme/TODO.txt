@@ -28,5 +28,5 @@ Here starts the real fun!
 - continuations
 - proper tail-recursion
   - mutulally recursive procedures (r5rs p.12)
-- switch to bytecode generation + eval istead of evaluating AST
+- switch to bytecode generation + eval instead of evaluating AST
 
