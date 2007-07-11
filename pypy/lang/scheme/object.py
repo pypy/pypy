@@ -1,5 +1,12 @@
 import autopath
 
+class SchemeException(Exception):
+    pass
+
+class UnboundVariable(SchemeException):
+    def __str__(self):
+        return "Unbound variable %s" % self.args[0]
+        
 class W_Root(object):
     def to_string(self):
         return ''
@@ -47,7 +54,7 @@ class W_Identifier(W_Symbol):
         else:
             #reference to undefined identifier
             #unbound
-            raise Exception("Unbound variable: %s" % (self.name, ))
+            raise UnboundVariable(self.name)
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -423,7 +430,7 @@ class ExecutionContext(object):
             loc.obj = obj
             return obj
 
-        raise Exception("Unbound variable: %s" % (name, ))
+        raise UnboundVariable(name)
 
     def set(self, name, obj):
         """update existing location or create new location"""

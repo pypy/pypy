@@ -37,3 +37,10 @@ class TestInteractive:
         child.expect(".. ")
         child.sendline(" 2)")
         child.expect("3W")
+
+    def test_unbound_variable(self):
+        child = self.spawn()
+        child.expect("-> ")
+        child.sendline("x")
+        child.expect("Unbound variable x")
+        child.expect("-> ")

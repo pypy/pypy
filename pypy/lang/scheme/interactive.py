@@ -3,7 +3,7 @@
 scheme interpreter
 """
 
-from pypy.lang.scheme.object import ExecutionContext
+from pypy.lang.scheme.object import ExecutionContext, SchemeException
 from pypy.lang.scheme.ssparser import parse
 import os, sys
 
@@ -23,7 +23,10 @@ def interactive():
         sys.stdout.write(ps)
         to_exec += sys.stdin.readline()
         if check_parens(to_exec):
-            print parse(to_exec).eval(ctx)
+            try:
+                print parse(to_exec).eval(ctx)
+            except SchemeException, e:
+                print "error: %s" % e
             to_exec = ""
             cont = False
         else:

@@ -1,9 +1,6 @@
 import py
 from pypy.lang.scheme.ssparser import parse
-from pypy.lang.scheme.object import W_Boolean, W_Fixnum, W_Float, W_String
-from pypy.lang.scheme.object import W_Nil, W_Pair, W_Symbol, W_Identifier
-from pypy.lang.scheme.object import W_Procedure, W_Lambda
-from pypy.lang.scheme.object import ExecutionContext
+from pypy.lang.scheme.object import *
 
 def test_eval_obj():
     w_num = W_Pair(W_Identifier("+"),
@@ -79,7 +76,7 @@ def test_sete():
     loc2 = ctx.get_location("x")
     assert ctx.get("x").to_number() == 43
     assert loc1 is loc2
-    py.test.raises(Exception, eval_expr, ctx, "(set! y 42)")
+    py.test.raises(UnboundVariable, eval_expr, ctx, "(set! y 42)")
 
 def test_func():
     ctx = ExecutionContext()
