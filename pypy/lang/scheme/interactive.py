@@ -5,6 +5,7 @@ scheme interpreter
 import autopath
 from pypy.lang.scheme.object import ExecutionContext, SchemeException
 from pypy.lang.scheme.ssparser import parse
+from pypy.rlib.parsing.makepackrat import BacktrackException
 import os, sys
 
 def check_parens(s):
@@ -27,6 +28,9 @@ def interactive():
                 print parse(to_exec).eval(ctx)
             except SchemeException, e:
                 print "error: %s" % e
+            except BacktrackException, e:
+                print "syntax error"
+
             to_exec = ""
             cont = False
         else:

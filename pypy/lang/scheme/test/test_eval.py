@@ -68,6 +68,10 @@ def test_ctx_define():
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 46.1
 
+def text_unbound():
+    ctx = ExecutionContext()
+    py.test.raises(UnboundVariable, eval_expr, ctx, "y")
+
 def test_sete():
     ctx = ExecutionContext()
     eval_expr(ctx, "(define x 42)")
@@ -323,3 +327,18 @@ def test_let():
     assert w_result.to_number() == 44
     assert ctx.get("var") is w_global
 
+def test_letrec():
+    ctx = ExecutionContext()
+    w_result = eval_expr(ctx, """
+        (letrec ((even?
+                    (lambda (n)
+                        (if (= n 0)
+                            #t
+                            (odd? (- n 1)))))
+                 (odd?
+                    (lambda (n)
+                        (if (= n 0)
+                            #f
+                            (even? (- n 1))))))
+                (even? 12))""")
+    assert w_result.to_boolean() is True

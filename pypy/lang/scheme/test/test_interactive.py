@@ -1,4 +1,3 @@
-
 from pypy.lang.scheme.interactive import check_parens
 import py
 import re
@@ -44,3 +43,11 @@ class TestInteractive:
         child.sendline("x")
         child.expect("Unbound variable x")
         child.expect("-> ")
+
+    def test_syntax_error(self):
+        clild = self.spawn()
+        child.expect("-> ")
+        child.sendline("))((")
+        child.expect("syntax error")
+        child.expect("-> ")
+

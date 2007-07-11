@@ -6,7 +6,7 @@ class SchemeException(Exception):
 class UnboundVariable(SchemeException):
     def __str__(self):
         return "Unbound variable %s" % self.args[0]
-        
+
 class W_Root(object):
     def to_string(self):
         return ''
@@ -15,7 +15,7 @@ class W_Root(object):
         return True
 
     def __str__(self):
-        return self.to_string() + "W"
+        return self.to_string()
 
     def __repr__(self):
         return "<W_Root " + self.to_string() + ">"
@@ -319,7 +319,7 @@ class Lambda(W_Macro):
         return W_Lambda(w_args, w_body, ctx.copy())
 
 class Let(W_Macro):
-    def eval(slef, ctx, lst):
+    def eval(self, ctx, lst):
         local_ctx = ctx.copy()
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
@@ -337,6 +337,32 @@ class Let(W_Macro):
 
         return body_result
 
+class Letrec(W_Macro):
+    def eval(self, ctx, lst):
+        local_ctx = ctx.copy()
+
+        #bound variables
+        w_formal = lst.car
+        while not isinstance(w_formal, W_Nil):
+            name = w_formal.car.car.to_string()
+            local_ctx.put(name, W_Nil())
+            w_formal = w_formal.cdr
+
+        #eval in local_ctx and assign values 
+        w_formal = lst.car
+        while not isinstance(w_formal, W_Nil):
+            name = w_formal.car.car.to_string()
+            val = w_formal.car.cdr.car.eval(local_ctx)
+            local_ctx.set(name, val)
+            w_formal = w_formal.cdr
+
+        body_expression = lst.cdr
+        body_result = None
+        while not isinstance(body_expression, W_Nil):
+            body_result = body_expression.car.eval(local_ctx)
+            body_expression = body_expression.cdr
+
+        return body_result
 
 def Literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
@@ -377,6 +403,7 @@ OMAP = \
         'if': MacroIf,
         'lambda': Lambda,
         'let': Let,
+        'letrec': Letrec,
         'quote': Quote,
     }
 
