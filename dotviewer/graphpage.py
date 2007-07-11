@@ -3,6 +3,8 @@ class GraphPage(object):
     """Base class for the client-side content of one of the 'pages'
     (one graph) sent over to and displayed by the external process.
     """
+    save_tmp_file = None
+
     def __init__(self, *args):
         self.args = args
 
@@ -26,7 +28,7 @@ class GraphPage(object):
         "Display a graph page."
         import graphclient, msgstruct
         try:
-            graphclient.display_page(self)
+            graphclient.display_page(self, save_tmp_file=self.save_tmp_file)
         except msgstruct.RemoteError, e:
             import sys
             print >> sys.stderr, "Exception in the graph viewer:", str(e)

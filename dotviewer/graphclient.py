@@ -5,16 +5,16 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 GRAPHSERVER = os.path.join(this_dir, 'graphserver.py')
 
 
-def display_dot_file(dotfile, wait=True):
+def display_dot_file(dotfile, wait=True, save_tmp_file=None):
     """ Display the given dot file in a subprocess.
     """
     if not os.path.exists(str(dotfile)):
         raise IOError("No such file: %s" % (dotfile,))
     import graphpage
     page = graphpage.DotFileGraphPage(str(dotfile))
-    display_page(page, wait=wait)
+    display_page(page, wait=wait, save_tmp_file=save_tmp_file)
 
-def display_page(page, wait=True):
+def display_page(page, wait=True, save_tmp_file=None):
     messages = [(msgstruct.CMSG_INIT, msgstruct.MAGIC)]
     history = [page]
     pagecache = {}
@@ -31,6 +31,10 @@ def display_page(page, wait=True):
 
     def reload(graph_id):
         page = getpage(graph_id)
+        if save_tmp_file:
+            f = open(save_tmp_file, 'w')
+            f.write(page.source)
+            f.close()
         messages.extend(page_messages(page, graph_id))
         send_graph_messages(io, messages)
         del messages[:]
