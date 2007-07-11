@@ -47,7 +47,7 @@ class TestInteractive:
     def test_syntax_error(self):
         child = self.spawn()
         child.expect("-> ")
-        child.sendline("))((")
+        child.sendline(")(")
         child.expect("syntax error")
         child.expect("-> ")
 
