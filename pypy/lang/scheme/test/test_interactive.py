@@ -27,7 +27,7 @@ class TestInteractive:
         child = self.spawn()
         child.expect("->")
         child.sendline("(+ 1 2)")
-        child.expect("3W")
+        child.expect("3")
 
     def test_multiline(self):
         child = self.spawn()
@@ -35,7 +35,7 @@ class TestInteractive:
         child.sendline("(+ 1")
         child.expect(".. ")
         child.sendline(" 2)")
-        child.expect("3W")
+        child.expect("3")
 
     def test_unbound_variable(self):
         child = self.spawn()
@@ -45,7 +45,7 @@ class TestInteractive:
         child.expect("-> ")
 
     def test_syntax_error(self):
-        clild = self.spawn()
+        child = self.spawn()
         child.expect("-> ")
         child.sendline("))((")
         child.expect("syntax error")
