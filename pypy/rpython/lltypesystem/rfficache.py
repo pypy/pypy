@@ -1,6 +1,6 @@
 
-""" This file creates and maintains _cache/rtypes.py, which
-keeps information about C type sizes on various platforms
+""" This file creates and maintains _cache/stdtypes.py, which
+keeps information about C type sizes
 """
 
 import py
@@ -32,13 +32,6 @@ def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
     pipe.wait()
     return int(pipe.stdout.read()) * 8
 
-def machine_key():
-    """ Key unique to machine type, but general enough to share
-    it between eg different kernels
-    """
-    import platform
-    return platform.processor(), platform.architecture(), platform.system()
-
 # XXX add float types as well here
 
 TYPES = []
@@ -53,31 +46,27 @@ def newline_repr(d):
     assert isinstance(d, dict)
     return "{\n%s,\n}" % ",\n".join(["%r:%r" % (k, v) for k, v in d.items()])
 
-def get_type_sizes(filename, platform_key=machine_key(), types=TYPES,
-                   compiler_exe=None):
+def get_type_sizes(filename, compiler_exe=None):
     try:
         mod = {}
         exec py.path.local(filename).read() in mod
-        platforms = mod['platforms']
+        types = mod['types']
     except (ImportError, py.error.ENOENT):
-        platforms = {}
+        types = {}
     try:
-        result = platforms[platform_key]
-        if py.builtin.sorted(result.keys()) != py.builtin.sorted(TYPES):
+        if py.builtin.sorted(types.keys()) != py.builtin.sorted(TYPES):
             # invalidate file
-            platforms = {}
+            types = {}
             raise KeyError
-        return result
+        return types
     except KeyError:
-        value = dict([(i, sizeof_c_type(i, compiler_exe=compiler_exe))
-                      for i in types])
-        platforms[platform_key] = value
-        comment = "# this is automatically generated cache files for c types\n"
-        py.path.local(filename).write(comment + 'platforms = ' +
-                                      newline_repr(platforms) + "\n")
-        return value
+        types = dict([(i, sizeof_c_type(i, compiler_exe=compiler_exe))
+                      for i in TYPES])
+        py.path.local(filename).write('types = ' +
+                                      repr(types) + "\n")
+        return types
 
 from pypy.tool import autopath
-CACHE = py.magic.autopath().dirpath().join('typecache.py')
+CACHE = py.magic.autopath()/'..'/'..'/'..'/'_cache'/'stdtypes.py'
 platform = get_type_sizes(CACHE)
 
