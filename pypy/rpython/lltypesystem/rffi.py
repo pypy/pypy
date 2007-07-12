@@ -60,8 +60,14 @@ def CStruct(name, *fields, **kwds):
 
 c_errno = CConstant('errno', lltype.Signed)
 
+# void *
+VOIDP = lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1))
+
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+
+# int *
+INTP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
 
 # various type mapping
 # str -> char*
