@@ -66,6 +66,9 @@ def get_type_sizes(filename, compiler_exe=None):
                                       repr(types) + "\n")
         return types
 
+import pypy
+import py
+py.path.local(pypy.__file__).new(basename='_cache').ensure(dir=1)
 from pypy.tool import autopath
 CACHE = py.magic.autopath()/'..'/'..'/'..'/'_cache'/'stdtypes.py'
 platform = get_type_sizes(CACHE)
