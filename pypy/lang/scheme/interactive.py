@@ -31,7 +31,7 @@ def interactive():
                 if to_exec == "":
                     print
                     raise SchemeQuit
-                print parse(to_exec).eval(ctx)
+                print parse(to_exec).eval(ctx).to_string()
             except SchemeQuit, e:
                 break
             except BacktrackException, e:

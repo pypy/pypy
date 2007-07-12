@@ -8,7 +8,7 @@ def unquote(s):
     return s.replace('\\"', '"')
 
 class SchemeParser(PackratParser):
-    r'''
+    r"""
     STRING:
         c = `\"([^\\\"]|\\\"|\\\\)*\"`
         IGNORE*
@@ -78,7 +78,7 @@ class SchemeParser(PackratParser):
         cdr = pair
         return {W_Pair(car, cdr)}
       | return {W_Nil()};
-    '''
+    """
 
 def parse(code):
     p = SchemeParser(code)

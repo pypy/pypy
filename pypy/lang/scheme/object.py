@@ -8,6 +8,7 @@ class UnboundVariable(SchemeException):
         return "Unbound variable %s" % self.args[0]
 
 class SchemeQuit(SchemeException):
+    """raised on (quit) evaluation"""
     pass
 
 class W_Root(object):
@@ -16,9 +17,6 @@ class W_Root(object):
 
     def to_boolean(self):
         return True
-
-    def __str__(self):
-        return self.to_string()
 
     def __repr__(self):
         return "<W_Root " + self.to_string() + ">"
