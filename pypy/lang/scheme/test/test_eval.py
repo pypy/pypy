@@ -8,10 +8,10 @@ def test_eval_obj():
     assert w_num.eval(None).to_number() == 9 
 
 def eval_expr(ctx, expr):
-    return parse(expr).eval(ctx)
+    return parse(expr)[0].eval(ctx)
 
 def eval_noctx(expr):
-    return parse(expr).eval(None)
+    return parse(expr)[0].eval(None)
 
 def test_numerical():
     w_num = eval_noctx("(+ 4)")

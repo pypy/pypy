@@ -42,7 +42,7 @@ class SchemeParser(PackratParser):
     BOOLEAN:
         c = `#(t|f)`
         IGNORE*
-        return {W_Boolean(c[-1] == 't')};
+        return {W_Boolean(c[1] == 't')};
 
     IGNORE:
         ` |\n|\t|;[^\n]*`;
@@ -52,7 +52,7 @@ class SchemeParser(PackratParser):
     
     file:
         IGNORE*
-        s = sexpr
+        s = sexpr*
         EOF
         return {s};
     
