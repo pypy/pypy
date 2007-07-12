@@ -1,3 +1,4 @@
+#Why can't I import check?
 #from pypy.translator.jvm.test.runtest import check
 import py
 from pypy.translator.jvm.test.runtest import JvmTest
@@ -14,7 +15,7 @@ class TestJvmOperation(JvmTest):
 #        return ovfcheck(x+y)
 #    except OverflowError:
 #        return 42
-#
+
 #def op_sub(x, y):
 #    try:
 #        return ovfcheck(x-y)
@@ -45,3 +46,4 @@ class TestJvmOperation(JvmTest):
 #    yield check, op_mul, [int, int], (sys.maxint/2 + 1, 2)
 #    yield check, op_lshift, [int, int], (2, 30)
 #    yield check, op_neg, [int], (-sys.maxint-1,)
+

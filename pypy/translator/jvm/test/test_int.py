@@ -19,8 +19,4 @@ class TestJvmInt(JvmTest, BaseTestRint):
     def test_rarithmetic(self):
         pass # does this make more sense in jvm
     
-    #There is an issue that it doesn't correctly call long code over int code
-    def test_neg_abs_ovf(self):
-        py.test.skip("Unaware how to handle overflow")
-
     div_mod_iteration_count = 20
