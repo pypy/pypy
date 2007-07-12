@@ -5,14 +5,24 @@ from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Identifier, \
         W_Nil, W_Boolean, W_Float, Literal
 
 def unquote(s):
-    return s.replace('\\"', '"')
+    str_lst = []
+    last_ch = ''
+    for c in s[1:]:
+        if last_ch == '\\' and c == '"':
+            pass
+        else:
+            str_lst.append(last_ch)
+
+        last_ch = c
+
+    return ''.join(str_lst)
 
 class SchemeParser(PackratParser):
     r"""
     STRING:
         c = `\"([^\\\"]|\\\"|\\\\)*\"`
         IGNORE*
-        return {W_String(unquote(c[1:-1]))};
+        return {W_String(unquote(c))};
 
     IDENTIFIER:
         c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
@@ -22,12 +32,12 @@ class SchemeParser(PackratParser):
     FIXNUM:
         c = `\-?(0|([1-9][0-9]*))`
         IGNORE*
-        return {W_Fixnum(c)};
+        return {W_Fixnum(int(c))};
 
     FLOAT:
         c = `\-?[0-9]*\.[0-9]*`
         IGNORE*
-        return {W_Float(c)};
+        return {W_Float(float(c))};
 
     BOOLEAN:
         c = `#(t|f)`

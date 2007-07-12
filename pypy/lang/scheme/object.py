@@ -84,7 +84,7 @@ class W_String(W_Root):
 
 class W_Fixnum(W_Root):
     def __init__(self, val):
-        self.fixnumval = int(val)
+        self.fixnumval = val
 
     def to_string(self):
         return str(self.fixnumval)
@@ -103,7 +103,7 @@ class W_Fixnum(W_Root):
 
 class W_Float(W_Root):
     def __init__(self, val):
-        self.floatval = float(val)
+        self.floatval = val
 
     def to_string(self):
         return str(self.floatval)
