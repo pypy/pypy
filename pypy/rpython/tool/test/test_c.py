@@ -8,6 +8,13 @@ import ctypes
 
 c_source = """
 void *int_to_void_p(int arg) {}
+
+struct random_strucutre {
+  int one;
+  int *two;
+};
+
+struct random_structure* int_int_to_struct_p(int one, int two) {}
 """
 
 class TestBasic:
