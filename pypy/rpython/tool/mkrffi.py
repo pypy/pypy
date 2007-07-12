@@ -10,7 +10,7 @@ def proc_func(func):
     name = func.__name__
     src = Source("""
     c_%s = rffi.llexternal('%s', [rffi.INT], 
-          lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1)))
+    lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1)))
     """%(name, name))
     return src
 
