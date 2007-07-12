@@ -10,16 +10,20 @@ from pypy.lang.scheme.object import SchemeQuit, ExecutionContext
 
 # __________  Entry point  __________
 
+
 def entry_point(argv):
     if len(argv) == 2:
         f = open_file_as_stream(argv[1])
         t = parse(f.readall())
         ctx = ExecutionContext()
-        w_retval = t.eval(ctx)
-        print w_retval,
+        try:
+            for sexpr in t:
+                w_retval = sexpr.eval(ctx)
+                print w_retval.to_string()
+        except SchemeQuit, e:
+            return 0
+
         return 0
-    elif argv[0] == 'foo':
-        raise SchemeQuit
     else:
         print "Usage: %s schemesourcefile" % argv[0]
         return 1
