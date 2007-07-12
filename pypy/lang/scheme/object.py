@@ -424,7 +424,7 @@ class ExecutionContext(object):
     """
     def __init__(self, globalscope=None, scope=None, closure=False):
         if globalscope is None:
-            self.globalscope = dict(OPERATION_MAP)
+            self.globalscope = OPERATION_MAP.copy()
         else:
             self.globalscope = globalscope
 
