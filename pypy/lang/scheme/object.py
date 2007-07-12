@@ -131,20 +131,25 @@ class W_Pair(W_Root):
 
     def eval(self, ctx):
         oper = self.car.eval(ctx)
-        return oper.eval(ctx, self.cdr)
+        assert isinstance(oper, W_Callable)
+        return oper.call(ctx, self.cdr)
 
 class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
-class W_Procedure(W_Root):
+class W_Callable(W_Root):
+    def call(self, ctx, lst):
+        raise NotImplementedError
+
+class W_Procedure(W_Callable):
     def __init__(self, pname=""):
         self.pname = pname
 
     def to_string(self):
         return "#<primitive-procedure %s>" % (self.pname,)
 
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         #evaluate all arguments into list
         arg_lst = []
         arg = lst
@@ -157,14 +162,14 @@ class W_Procedure(W_Root):
     def procedure(self, ctx, lst):
         raise NotImplementedError
 
-class W_Macro(W_Root):
+class W_Macro(W_Callable):
     def __init__(self, pname=""):
         self.pname = pname
 
     def to_string(self):
         return "#<primitive-macro %s>" % (self.pname,)
 
-    def eval(self, ctx, lst=None):
+    def call(self, ctx, lst=None):
         raise NotImplementedError
 
 class W_Lambda(W_Procedure):
@@ -258,7 +263,7 @@ class List(W_Procedure):
         return plst2lst(lst)
 
 class Define(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         w_identifier = lst.car
         assert isinstance(w_identifier, W_Identifier)
 
@@ -267,7 +272,7 @@ class Define(W_Macro):
         return w_val
 
 class Sete(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         w_identifier = lst.car
         assert isinstance(w_identifier, W_Identifier)
 
@@ -276,7 +281,7 @@ class Sete(W_Macro):
         return w_val
 
 class MacroIf(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         w_condition = lst.car
         w_then = lst.cdr.car
         if isinstance(lst.cdr.cdr, W_Nil):
@@ -318,13 +323,13 @@ class Quit(W_Procedure):
         raise SchemeQuit
 
 class Lambda(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr #.car
         return W_Lambda(w_args, w_body, ctx.copy())
 
 class Let(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         local_ctx = ctx.copy()
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
@@ -343,7 +348,7 @@ class Let(W_Macro):
         return body_result
 
 class Letrec(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         local_ctx = ctx.copy()
 
         #bound variables
@@ -373,7 +378,7 @@ def Literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
-    def eval(self, ctx, lst):
+    def call(self, ctx, lst):
         return lst.car
 
 ##
@@ -436,7 +441,7 @@ class ExecutionContext(object):
         self.closure = closure
 
     def copy(self):
-        return ExecutionContext(self.globalscope, dict(self.scope), True)
+        return ExecutionContext(self.globalscope, self.scope.copy(), True)
 
     def get(self, name):
         loc = self.scope.get(name, None)
