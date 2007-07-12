@@ -3,36 +3,26 @@
 import ctypes
 
 import py
-from py.code import Source
 
+def primitive_pointer_repr(tp_s):
+    return 'lltype.Ptr(lltype.FixedSizeArray(%s, 1))' % tp_s
+
+# XXX any automatic stuff here?
+SIMPLE_TYPE_MAPPING = {
+    ctypes.c_int : 'rffi.INT',
+    ctypes.c_voidp : primitive_pointer_repr('lltype.Void')
+}
+
+def proc_tp(tp):
+    try:
+        return SIMPLE_TYPE_MAPPING[tp]
+    except KeyError:
+        raise NotImplementedError("Not implemented mapping for %s" % tp)
 
 def proc_func(func):
     name = func.__name__
-    src = Source("""
-    c_%s = rffi.llexternal('%s', [rffi.INT], 
-    lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1)))
-    """%(name, name))
+    src = py.code.Source("""
+    c_%s = rffi.llexternal('%s', [%s], %s)
+    """%(name, name, ",".join([proc_tp(arg) for arg in func.argtypes]),
+         proc_tp(func.restype)))
     return src
-
-def proc_module(module):
-
-    ns = module.__dict__
-
-    for key, value in ns.items():
-        print "found:", key
-        if isinstance(value, ctypes._CFuncPtr):
-            proc_func(value)
-
-if __name__ == "__main__":
-    test_1()
-
-
-
-
-
-
-
-
-
-
-

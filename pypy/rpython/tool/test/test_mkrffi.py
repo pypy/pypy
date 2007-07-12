@@ -2,6 +2,7 @@
 import ctypes
 from pypy.rpython.tool.mkrffi import *
 from pypy.rpython.tool.test.test_c import TestBasic
+import py
 
 class TestMkrffi(TestBasic):
     def test_single_func(self):
@@ -10,10 +11,8 @@ class TestMkrffi(TestBasic):
         func.restype = ctypes.c_voidp
 
         src = proc_func(func)
-        assert isinstance(src, Source)
-        _src = Source("""
-        c_int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT], 
-        lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1)))
+        _src = py.code.Source("""
+        c_int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT], lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1)))
         """)
 
         assert src == _src, str(src) + "\n" + str(_src)
