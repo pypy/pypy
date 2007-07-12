@@ -158,3 +158,26 @@ def test_translate_pypackrat():
     res = func("5-5-5")
     assert res == '((5 - 5) - 5)'
 
+def test_translate_pypackrat_regex():
+    from pypy.rlib.parsing.pypackrat import PackratParser
+    class parser(PackratParser):
+        """
+        num:
+            `([1-9][0-9]*)|0`;
+        """
+    print parser._code
+    def parse(s):
+        p = parser(s)
+        return p.num()
+    res = parse("1234")
+    assert res == '1234'
+    t = Translation(parse)
+    t.annotate([str])
+    t.rtype()
+    t.backendopt()
+    t.view()
+    func = t.compile_c()
+    res = func("12345")
+    assert res == '12345'
+    res = func("0")
+    assert res == '0'

@@ -414,7 +414,10 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
                 self.emit("raise BacktrackException")
                 self.end_block("if")
                 self.emit("_upto = _runner.last_matched_index + 1")
-                self.emit("_result = self._inputstream[self._pos: _upto]")
+                self.emit("_pos = self._pos")
+                self.emit("assert _pos >= 0")
+                self.emit("assert _upto >= 0")
+                self.emit("_result = self._inputstream[_pos: _upto]")
                 self.emit("self._pos = _upto")
                 self.emit("return _result")
 
@@ -654,14 +657,19 @@ class MetaPackratParser(type):
             raise Exception("must import BacktrackException")
         if 'Status' not in frame.f_globals:
             raise Exception("must import Status")
+        result = type.__new__(cls, name_, bases, dct)
         for key, value in pcls.__dict__.iteritems():
+            if isinstance(value, type):
+                value.__module__ = result.__module__ #XXX help the annotator
             if isinstance(value, type(lambda: None)):
                 value = new.function(value.func_code, frame.f_globals)
-            if key not in dct and key not in forbidden:
-                dct[key] = value
-        dct['init_parser'] = pcls.__dict__['__init__']
-        dct['_code'] = visitor.get_code()
-        return type.__new__(cls, name_, bases, dct)
+            if not hasattr(result, key) and key not in forbidden:
+                setattr(result, key, value)
+        if result.__init__ is object.__init__:
+            result.__init__ = pcls.__dict__['__init__']
+        result.init_parser = pcls.__dict__['__init__']
+        result._code = visitor.get_code()
+        return result
 
 class PackratParser(object):
     __metaclass__ = MetaPackratParser
