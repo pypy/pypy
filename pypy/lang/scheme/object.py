@@ -172,18 +172,23 @@ class W_Macro(W_Callable):
     def call(self, ctx, lst=None):
         raise NotImplementedError
 
+class Formal(object):
+    def __init__(self, name, islist=False):
+        self.name = name
+        self.islist = islist
+
 class W_Lambda(W_Procedure):
     def __init__(self, args, body, closure, pname="#f"):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
             if isinstance(arg, W_Identifier):
-                self.args.append([arg.to_string()])
+                self.args.append(Formal(arg.to_string(), True))
                 break
             else:
                 assert isinstance(arg.car, W_Identifier)
                 #list of argument names, not evaluated
-                self.args.append(arg.car.to_string())
+                self.args.append(Formal(arg.car.to_string(), False))
                 arg = arg.cdr
 
         self.body = body
@@ -200,11 +205,11 @@ class W_Lambda(W_Procedure):
 
         #set lambda arguments
         for idx in range(len(self.args)):
-            name = self.args[idx]
-            if isinstance(name, list):
-                local_ctx.put(name[0], plst2lst(lst[idx:]))
+            formal = self.args[idx]
+            if formal.islist:
+                local_ctx.put(formal.name, plst2lst(lst[idx:]))
             else:
-                local_ctx.put(name, lst[idx])
+                local_ctx.put(formal.name, lst[idx])
 
         body_expression = self.body
         body_result = None
@@ -231,17 +236,23 @@ class ListOper(W_Procedure):
         acc = None
         for arg in lst:
             if acc is None:
-                acc = arg.eval(ctx).to_number()
+                acc = arg.eval(ctx)
             else:
-                acc = self.oper(acc, arg.eval(ctx).to_number())
+                acc = self.oper(acc, arg.eval(ctx))
 
-        if isinstance(acc, int):
-            return W_Fixnum(acc)
+        return acc
+
+    def oper(self, x, y):
+        if isinstance(x, W_Float) or isinstance(y, W_Float):
+            return W_Float(self.do_oper_float(x.to_number(), y.to_number()))
         else:
-            return W_Float(acc)
+            return W_Fixnum(self.do_oper_int(x.to_number(), y.to_number()))
 
 class Add(ListOper):
-    def oper(self, x, y):
+    def do_oper_int(self, x, y):
+        return x + y
+
+    def do_oper_float(self, x, y):
         return x + y
 
 class Sub(ListOper):
@@ -251,11 +262,17 @@ class Sub(ListOper):
         else:
             return ListOper.procedure(self, ctx, lst)
 
-    def oper(self, x, y):
+    def do_oper_int(self, x, y):
+        return x - y
+
+    def do_oper_float(self, x, y):
         return x - y
 
 class Mul(ListOper):
-    def oper(self, x, y):
+    def do_oper_int(self, x, y):
+        return x * y
+
+    def do_oper_float(self, x, y):
         return x * y
 
 class List(W_Procedure):
