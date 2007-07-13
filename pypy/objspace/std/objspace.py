@@ -120,20 +120,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
         ##                 if w_value is not None:
         ##                     print "CALL_LIKELY_BUILTIN fast"
-                if w_value is None:
-                    varname = OPTIMIZED_BUILTINS[num]
-                    message = "global name '%s' is not defined" % varname
-                    raise OperationError(f.space.w_NameError,
-                                         f.space.wrap(message))
-                nargs = oparg & 0xff
-                w_function = w_value
-                try:
-                    w_result = f.space.call_valuestack(w_function, nargs, f)
-                    # XXX XXX fix the problem of resume points!
-                    #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-                finally:
-                    f.dropvalues(nargs)
-                f.pushvalue(w_result)
+                    if w_value is None:
+                        varname = OPTIMIZED_BUILTINS[num]
+                        message = "global name '%s' is not defined" % varname
+                        raise OperationError(f.space.w_NameError,
+                                             f.space.wrap(message))
+                    nargs = oparg & 0xff
+                    w_function = w_value
+                    try:
+                        w_result = f.space.call_valuestack(w_function, nargs, f)
+                        # XXX XXX fix the problem of resume points!
+                        #rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
+                    finally:
+                        f.dropvalues(nargs)
+                    f.pushvalue(w_result)
 
             if self.config.objspace.std.logspaceoptypes:
                 _space_op_types = []
