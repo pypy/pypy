@@ -17,22 +17,22 @@ def test_string():
     
 def test_fixnum():
     num = 12345
-    w_num = W_Fixnum(num)
+    w_num = W_Integer(num)
     assert num == w_num.to_fixnum()
     assert float(num) == w_num.to_float()
     assert w_num.to_boolean() is True
 
 def test_float():
     num = 12345.567
-    w_num = W_Float(num)
+    w_num = W_Real(num)
     assert num == w_num.to_float()
     assert int(num) == w_num.to_fixnum()
     assert w_num.to_boolean() is True
 
 def test_pair():
-    c1 = W_Fixnum(1)
+    c1 = W_Integer(1)
     c2 = W_String("c2")
-    c3 = W_Float(0.3)
+    c3 = W_Real(0.3)
     c4 = W_Nil()
     p2 = W_Pair(c3, c4)
     p1 = W_Pair(c2, p2)
@@ -55,7 +55,7 @@ def test_symbol():
     assert w_id.to_boolean() is True
 
 def test_ctx():
-    w_fnum = W_Fixnum(12)
+    w_fnum = W_Integer(12)
     w_symb = W_Symbol("symb")
 
     ctx = ExecutionContext({})
@@ -67,15 +67,15 @@ def test_ctx():
     assert ctx.get("no_such_key") is None
 
 def test_location():
-    w_fnum = W_Fixnum(42)
+    w_fnum = W_Integer(42)
     loc = Location(w_fnum)
     assert isinstance(loc, Location)
     assert loc.obj is w_fnum
 
 def test_ctx_sets():
-    w_fnum = W_Fixnum(42)
-    w_fnum2 = W_Fixnum(43)
-    w_fnum3 = W_Fixnum(44)
+    w_fnum = W_Integer(42)
+    w_fnum2 = W_Integer(43)
+    w_fnum3 = W_Integer(44)
 
     ctx = ExecutionContext({})
     ctx.put("v1", w_fnum)

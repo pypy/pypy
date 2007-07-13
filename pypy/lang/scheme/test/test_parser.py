@@ -1,6 +1,6 @@
 import py
 from pypy.lang.scheme.ssparser import parse
-from pypy.lang.scheme.object import W_Boolean, W_Float, W_Fixnum, W_String
+from pypy.lang.scheme.object import W_Boolean, W_Real, W_Integer, W_String
 from pypy.lang.scheme.object import W_Pair, W_Nil, W_Symbol, W_Identifier
 
 def parse_sexpr(expr):
@@ -8,9 +8,9 @@ def parse_sexpr(expr):
 
 def unwrap(w_obj):
     """for testing purposes: unwrap a scheme object into a python object"""
-    if isinstance(w_obj, W_Float):
+    if isinstance(w_obj, W_Real):
         return w_obj.to_number()
-    elif isinstance(w_obj, W_Fixnum):
+    elif isinstance(w_obj, W_Integer):
         return w_obj.to_number()
     elif isinstance(w_obj, W_String):
         return w_obj.strval
@@ -30,14 +30,14 @@ def unwrap(w_obj):
 
 def test_simple():
     w_fixnum = parse_sexpr('1')
-    assert isinstance(w_fixnum, W_Fixnum)
+    assert isinstance(w_fixnum, W_Integer)
     assert unwrap(w_fixnum) == 1
     w_fixnum = parse_sexpr('0')
     assert unwrap(w_fixnum) == 0
-    assert isinstance(w_fixnum, W_Fixnum)
+    assert isinstance(w_fixnum, W_Integer)
     w_fixnum = parse_sexpr('1123')
     assert unwrap(w_fixnum) == 1123
-    assert isinstance(w_fixnum, W_Fixnum)
+    assert isinstance(w_fixnum, W_Integer)
     w_fixnum = parse_sexpr('abfa__')
     assert isinstance(w_fixnum, W_Identifier)
     t = parse_sexpr(r'''"don't believe \"them\""''')
@@ -46,20 +46,20 @@ def test_simple():
 
 def test_objects():
     w_fixnum = parse_sexpr('-12345')
-    assert isinstance(w_fixnum, W_Fixnum)
+    assert isinstance(w_fixnum, W_Integer)
     assert unwrap(w_fixnum) == -12345
 
     w_float = parse_sexpr('123456.1234')
-    assert isinstance(w_float, W_Float)
+    assert isinstance(w_float, W_Real)
     assert unwrap(w_float) == 123456.1234
     w_float = parse_sexpr('-123456.1234')
-    assert isinstance(w_float, W_Float)
+    assert isinstance(w_float, W_Real)
     assert unwrap(w_float) == -123456.1234
 
 def test_sexpr():
     w_list = parse_sexpr('( 1 )')
     assert isinstance(w_list, W_Pair)
-    assert isinstance(w_list.car, W_Fixnum)
+    assert isinstance(w_list.car, W_Integer)
     assert isinstance(w_list.cdr, W_Nil)
 
     #w_list = parse_sexpr('()')
@@ -69,8 +69,8 @@ def test_sexpr():
     assert isinstance(w_list, W_Pair)
     assert isinstance(w_list.car, W_Identifier)
     assert isinstance(w_list.cdr, W_Pair)
-    assert isinstance(w_list.cdr.car, W_Fixnum)
-    assert isinstance(w_list.cdr.cdr.car, W_Fixnum)
+    assert isinstance(w_list.cdr.car, W_Integer)
+    assert isinstance(w_list.cdr.cdr.car, W_Integer)
     assert isinstance(w_list.cdr.cdr.cdr, W_Nil)
 
 def test_complex_sexpr():

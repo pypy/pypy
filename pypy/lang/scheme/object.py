@@ -93,7 +93,7 @@ class W_String(W_Root):
 class W_Number(W_Root):
     pass
 
-class W_Float(W_Number):
+class W_Real(W_Number):
     def __init__(self, val):
         self.exact = False
         self.floatval = val
@@ -124,7 +124,7 @@ class W_Float(W_Number):
 
             return int_part
 
-class W_Fixnum(W_Float):
+class W_Integer(W_Real):
     def __init__(self, val):
         self.fixnumval = val
         self.exact = True
@@ -277,16 +277,16 @@ class ListOper(W_Procedure):
         return acc
 
     def unary_oper(self, x):
-        if isinstance(x, W_Fixnum):
-            return W_Fixnum(self.do_unary_oper(x.to_fixnum()))
+        if isinstance(x, W_Integer):
+            return W_Integer(self.do_unary_oper(x.to_fixnum()))
         else:
-            return W_Float(self.do_unary_oper(x.to_float()))
+            return W_Real(self.do_unary_oper(x.to_float()))
 
     def oper(self, x, y):
-        if isinstance(x, W_Fixnum) and isinstance(y, W_Fixnum):
-            return W_Fixnum(self.do_oper(x.to_fixnum(), y.to_fixnum()))
+        if isinstance(x, W_Integer) and isinstance(y, W_Integer):
+            return W_Integer(self.do_oper(x.to_fixnum(), y.to_fixnum()))
         else:
-            return W_Float(self.do_oper(x.to_float(), y.to_float()))
+            return W_Real(self.do_oper(x.to_float(), y.to_float()))
 
 def create_op_class(oper, unary_oper, title, default_result=None):
     class Op(ListOper):
@@ -317,7 +317,7 @@ def create_op_class(oper, unary_oper, title, default_result=None):
     if default_result is None:
         Op.default_result = None
     else:
-        Op.default_result = W_Fixnum(default_result)
+        Op.default_result = W_Integer(default_result)
 
     Op.__name__ = "Op" + title
     return Op
@@ -367,7 +367,7 @@ class IntegerP(PredicateNumber):
 
 class RealP(PredicateNumber):
     def predicate(self, w_obj):
-        return isinstance(w_obj, W_Float)
+        return isinstance(w_obj, W_Real)
 
 class NumberP(PredicateNumber):
     def predicate(self, w_obj):

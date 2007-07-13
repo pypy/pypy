@@ -1,8 +1,8 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.rlib.parsing.makepackrat import BacktrackException, Status
-from pypy.lang.scheme.object import W_Pair, W_Fixnum, W_String, W_Identifier, \
-        W_Nil, W_Boolean, W_Float, Literal
+from pypy.lang.scheme.object import W_Pair, W_Integer, W_String, W_Identifier, \
+        W_Nil, W_Boolean, W_Real, Literal
 
 def unquote(s):
     str_lst = []
@@ -32,12 +32,12 @@ class SchemeParser(PackratParser):
     FIXNUM:
         c = `\-?(0|([1-9][0-9]*))`
         IGNORE*
-        return {W_Fixnum(int(c))};
+        return {W_Integer(int(c))};
 
     FLOAT:
         c = `\-?[0-9]*\.[0-9]*`
         IGNORE*
-        return {W_Float(float(c))};
+        return {W_Real(float(c))};
 
     BOOLEAN:
         c = `#(t|f)`

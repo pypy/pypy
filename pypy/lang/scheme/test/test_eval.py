@@ -4,7 +4,7 @@ from pypy.lang.scheme.object import *
 
 def test_eval_obj():
     w_num = W_Pair(W_Identifier("+"),
-                   W_Pair(W_Fixnum(4), W_Pair(W_Fixnum(5), W_Nil())))
+                   W_Pair(W_Integer(4), W_Pair(W_Integer(5), W_Nil())))
     assert w_num.eval(None).to_number() == 9 
 
 def eval_expr(ctx, expr):
@@ -54,13 +54,13 @@ def test_numerical_nested():
 
 def test_ctx_simple():
     ctx = ExecutionContext()
-    ctx.put("v1", W_Fixnum(4))
-    ctx.put("v2", W_Fixnum(5))
+    ctx.put("v1", W_Integer(4))
+    ctx.put("v2", W_Integer(5))
 
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 10
 
-    ctx.put("v2", W_Float(3.2))
+    ctx.put("v2", W_Real(3.2))
     w_num = eval_expr(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 8.2
 
@@ -199,7 +199,7 @@ def test_lambda_noargs():
 
     ctx.put("f1", w_lambda)
     w_result = eval_expr(ctx, "(f1)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 12
 
 def test_lambda_args():
@@ -207,11 +207,11 @@ def test_lambda_args():
     eval_expr(ctx, "(define f1 (lambda (n) n))")
 
     w_result = eval_expr(ctx, "(f1 42)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 42
 
     w_result = eval_expr(ctx, "((lambda (n m) (+ n m)) 42 -42)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 0
 
 def test_lambda_top_ctx():
@@ -219,12 +219,12 @@ def test_lambda_top_ctx():
     eval_expr(ctx, "(define n 42)")
     eval_expr(ctx, "(define f1 (lambda (m) (+ n m)))")
     w_result = eval_expr(ctx, "(f1 -42)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 0
 
     eval_expr(ctx, "(define n 84)")
     w_result = eval_expr(ctx, "(f1 -42)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 42
 
 def test_lambda_fac():
@@ -250,11 +250,11 @@ def test_lambda2():
 
     eval_expr(ctx, """(define add6 (adder 6))""")
     w_result = eval_expr(ctx, "(add6 5)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 11
 
     w_result = eval_expr(ctx, "((adder 6) 5)")
-    assert isinstance(w_result, W_Fixnum)
+    assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 11
 
 def test_lambda_long_body():
@@ -285,7 +285,7 @@ def test_lambda_dotted_lstarg():
 
 def test_quote():
     w_fnum = eval_noctx("(quote 42)")
-    assert isinstance(w_fnum, W_Fixnum)
+    assert isinstance(w_fnum, W_Integer)
     assert w_fnum.to_number() == 42
 
     w_sym = eval_noctx("(quote symbol)")
@@ -313,7 +313,7 @@ def test_quote():
 
 def test_quote_parse():
     w_fnum = eval_noctx("'42")
-    assert isinstance(w_fnum, W_Fixnum)
+    assert isinstance(w_fnum, W_Integer)
     assert w_fnum.to_number() == 42
 
     w_sym = eval_noctx("'symbol")
@@ -341,7 +341,7 @@ def test_quote_parse():
 
 def test_list():
     ctx = ExecutionContext()
-    ctx.put("var", W_Fixnum(42))
+    ctx.put("var", W_Integer(42))
     w_lst = eval_expr(ctx, "(list 1 var (+ 2 1) 'a)")
     assert isinstance(w_lst, W_Pair)
     assert w_lst.car.to_number() == 1
@@ -352,7 +352,7 @@ def test_list():
 
 def test_let():
     ctx = ExecutionContext()
-    w_global = W_Fixnum(0)
+    w_global = W_Integer(0)
     ctx.put("var", w_global)
     w_result = eval_expr(ctx, "(let ((var 42) (x (+ 2 var))) (+ var x))")
     assert w_result.to_number() == 44
