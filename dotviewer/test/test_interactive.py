@@ -122,7 +122,12 @@ def test_graphserver():
     host, port = s.getsockname()     # pick a random free port
     s.close()
 
-    cmdargs = [sys.executable, str(pkgdir.join('graphserver.py')),
+    if hasattr(sys, 'pypy_objspaceclass'):
+        python = 'python'
+    else:
+        python = sys.executable
+
+    cmdargs = [python, str(pkgdir.join('graphserver.py')),
                str(port)]
     print '* starting:', ' '.join(cmdargs)
     pid = os.spawnv(os.P_NOWAIT, cmdargs[0], cmdargs)

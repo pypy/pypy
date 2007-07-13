@@ -2,7 +2,7 @@
 Graph file parsing.
 """
 
-import os, sys, re, thread
+import os, sys, re
 import msgstruct
 
 re_nonword = re.compile(r'([^0-9a-zA-Z_.]+)')
@@ -46,7 +46,12 @@ def dot2plain(content, contenttype, use_codespeak=False):
             cmdline = 'neato -Tplain'
         #print >> sys.stderr, '* running:', cmdline
         child_in, child_out = os.popen2(cmdline, 'r')
-        thread.start_new_thread(bkgndwrite, (child_in, content))
+        try:
+            import thread
+        except ImportError:
+            bkgndwrite(child_in, content)
+        else:
+            thread.start_new_thread(bkgndwrite, (child_in, content))
         plaincontent = child_out.read()
         child_out.close()
         if not plaincontent:    # 'dot' is likely not installed

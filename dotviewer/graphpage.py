@@ -35,9 +35,11 @@ class GraphPage(object):
 
     def display_background(self):
         "Display a graph page in a background thread."
-        import thread
-        thread.start_new_thread(self.display, ())
-
+        try:
+            import thread
+            thread.start_new_thread(self.display, ())
+        except ImportError:
+            self.display()
 
 class DotFileGraphPage(GraphPage):
     def compute(self, dotfile):

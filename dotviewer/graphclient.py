@@ -125,7 +125,11 @@ def spawn_handler():
         return msgstruct.SocketIO(s)
 
 def spawn_local_handler():
-    cmdline = '"%s" -u "%s" --stdio' % (sys.executable, GRAPHSERVER)
+    if hasattr(sys, 'pypy_objspaceclass'):
+        python = 'python'
+    else:
+        python = sys.executable
+    cmdline = '"%s" -u "%s" --stdio' % (python, GRAPHSERVER)
     child_in, child_out = os.popen2(cmdline, 'tb', 0)
     io = msgstruct.FileIO(child_out, child_in)
     return io
