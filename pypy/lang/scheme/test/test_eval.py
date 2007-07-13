@@ -377,3 +377,29 @@ def test_letrec():
 def test_quit():
     py.test.raises(SchemeQuit, eval_noctx, "(quit)")
 
+def test_numbers():
+    assert eval_noctx("(integer? 42)").to_boolean()
+    assert eval_noctx("(integer? 42.0)").to_boolean()
+    assert not eval_noctx("(integer? 42.1)").to_boolean()
+
+    assert eval_noctx("(rational? 42)").to_boolean()
+    assert eval_noctx("(rational? 42.1)").to_boolean()
+
+    assert eval_noctx("(real? 42)").to_boolean()
+    assert eval_noctx("(real? 42.1)").to_boolean()
+
+    assert eval_noctx("(complex? 42)").to_boolean()
+    assert eval_noctx("(complex? 42.1)").to_boolean()
+
+    assert eval_noctx("(number? 42)").to_boolean()
+    assert eval_noctx("(number? 42.1)").to_boolean()
+
+    py.test.raises(WrongArgType, eval_noctx, "(number? 'a)" )
+
+def test_exactness():
+    assert eval_noctx("(exact? 42)").to_boolean()
+    assert not eval_noctx("(exact? 42.0)").to_boolean()
+
+    assert not eval_noctx("(inexact? 42)").to_boolean()
+    assert eval_noctx("(inexact? 42.0)").to_boolean()
+

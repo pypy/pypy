@@ -11,6 +11,10 @@ class WrongArgsNumber(SchemeException):
     def __str__(self):
         return "Wrong number of args"
 
+class WrongArgType(SchemeException):
+    def __str__(self):
+        return "Wrong argument type"
+
 class SchemeQuit(SchemeException):
     """raised on (quit) evaluation"""
     pass
@@ -86,27 +90,12 @@ class W_String(W_Root):
     def __repr__(self):
         return "<W_String " + self.strval + " >"
 
-class W_Fixnum(W_Root):
+class W_Number(W_Root):
+    pass
+
+class W_Float(W_Number):
     def __init__(self, val):
-        self.fixnumval = val
-
-    def to_string(self):
-        return str(self.fixnumval)
-
-    def to_number(self):
-        return self.to_fixnum()
-
-    def to_fixnum(self):
-        return self.fixnumval
-
-    def to_float(self):
-        return float(self.fixnumval)
-
-    def equal(self, w_obj):
-        return self.fixnumval == w_obj.to_number()
-
-class W_Float(W_Root):
-    def __init__(self, val):
+        self.exact = False
         self.floatval = val
 
     def to_string(self):
@@ -121,8 +110,36 @@ class W_Float(W_Root):
     def to_float(self):
         return self.floatval
 
-    def equal(self, w_obj):
-        return self.floatval == w_obj.to_number()
+    def round(self):
+        int_part = int(self.floatval)
+        if self.floatval > 0:
+            if self.floatval >= (int_part + 0.5):
+                return int_part + 1
+
+            return int_part
+
+        else:
+            if self.floatval <= (int_part - 0.5):
+                return int_part - 1
+
+            return int_part
+
+class W_Fixnum(W_Float):
+    def __init__(self, val):
+        self.fixnumval = val
+        self.exact = True
+
+    def to_string(self):
+        return str(self.fixnumval)
+
+    def to_number(self):
+        return self.to_fixnum()
+
+    def to_fixnum(self):
+        return self.fixnumval
+
+    def to_float(self):
+        return float(self.fixnumval)
 
 class W_Pair(W_Root):
     def __init__(self, car, cdr):
@@ -260,16 +277,16 @@ class ListOper(W_Procedure):
         return acc
 
     def unary_oper(self, x):
-        if isinstance(x, W_Float):
-            return W_Float(self.do_unary_oper(x.to_float()))
-        else:
+        if isinstance(x, W_Fixnum):
             return W_Fixnum(self.do_unary_oper(x.to_fixnum()))
+        else:
+            return W_Float(self.do_unary_oper(x.to_float()))
 
     def oper(self, x, y):
-        if isinstance(x, W_Float) or isinstance(y, W_Float):
-            return W_Float(self.do_oper(x.to_float(), y.to_float()))
-        else:
+        if isinstance(x, W_Fixnum) and isinstance(y, W_Fixnum):
             return W_Fixnum(self.do_oper(x.to_fixnum(), y.to_fixnum()))
+        else:
+            return W_Float(self.do_oper(x.to_float(), y.to_float()))
 
 def create_op_class(oper, unary_oper, title, default_result=None):
     class Op(ListOper):
@@ -317,6 +334,7 @@ class Equal(W_Procedure):
 
         prev = lst[0]
         for arg in lst[1:]:
+            assert isinstance(arg, W_Number)
             if prev.to_number() != arg.to_number():
                 return W_Boolean(False)
             prev = arg
@@ -327,6 +345,45 @@ class List(W_Procedure):
     def procedure(self, ctx, lst):
         return plst2lst(lst)
 
+##
+# Predicate
+##
+class PredicateNumber(W_Procedure):
+    def procedure(self, ctx, lst):
+        if len(lst) != 1:
+            raise WrongArgsNumber
+
+        if not isinstance(lst[0], W_Number):
+            raise WrongArgType
+
+        return W_Boolean(self.predicate(lst[0]))
+
+class IntegerP(PredicateNumber):
+    def predicate(self, w_obj):
+        if not w_obj.exact:
+            return w_obj.to_float() == w_obj.round()
+
+        return True
+
+class RealP(PredicateNumber):
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Float)
+
+class NumberP(PredicateNumber):
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Number)
+
+class ExactP(PredicateNumber):
+    def predicate(self, w_obj):
+        return w_obj.exact
+
+class InexactP(PredicateNumber):
+    def predicate(self, w_obj):
+        return not w_obj.exact
+
+##
+# Macro
+##
 class Define(W_Macro):
     def call(self, ctx, lst):
         w_identifier = lst.car
@@ -456,6 +513,14 @@ OMAP = \
         'quit': Quit,
             #comparisons
         '=': Equal,
+            #predicates
+        'integer?': IntegerP,
+        'rational?': RealP,
+        'real?': RealP,
+        'complex?': NumberP,
+        'number?': NumberP,
+        'exact?': ExactP,
+        'inexact?': InexactP,
             #macros
         'define': Define,
         'set!': Sete,
