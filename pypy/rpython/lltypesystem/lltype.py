@@ -1411,6 +1411,8 @@ class _array(_parentable):
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
+        if self._ctypes_storage is not None:
+            return self._ctypes_storage._getitem(index)
         try:
             v = self.items[index]
             if isinstance(v, _uninitialized) and not uninitialized_ok:
@@ -1425,6 +1427,9 @@ class _array(_parentable):
             raise
 
     def setitem(self, index, value):
+        if self._ctypes_storage is not None:
+            self._ctypes_storage._setitem(index, value)
+            return
         try:
             self.items[index] = value
         except IndexError:

@@ -63,6 +63,14 @@ def build_ctypes_array(A, max_n=0):
             return bigarray
         _malloc = classmethod(_malloc)
 
+        def _getitem(self, index):
+            cobj = self.items[index]
+            return ctypes2lltype(cobj)
+
+        def _setitem(self, index, value):
+            cobj = lltype2ctypes(value)
+            self.items[index] = cobj
+
     CArray.__name__ = 'ctypes_%s*%d' % (A, max_n)
     return CArray
 
@@ -90,7 +98,19 @@ def convert_struct(container):
     for field_name in STRUCT._names:
         field_value = getattr(container, field_name)
         delattr(container, field_name)
-        setattr(cstruct, field_name, lltype2ctypes(field_value))
+        if not isinstance(field_value, lltype._uninitialized):
+            setattr(cstruct, field_name, lltype2ctypes(field_value))
+
+def convert_array(container):
+    ARRAY = container._TYPE
+    cls = get_ctypes_type(ARRAY)
+    carray = cls._malloc(container.getlength())
+    container._ctypes_storage = carray
+    for i in range(container.getlength()):
+        item_value = container.items[i]    # fish fish
+        container.items[i] = None
+        if not isinstance(item_value, lltype._uninitialized):
+            carray.items[i] = lltype2ctypes(item_value)
 
 def lltype2ctypes(llobj):
     T = lltype.typeOf(llobj)
@@ -99,6 +119,8 @@ def lltype2ctypes(llobj):
         if container._ctypes_storage is None:
             if isinstance(T.TO, lltype.Struct):
                 convert_struct(container)
+            elif isinstance(T.TO, lltype.Array):
+                convert_array(container)
             else:
                 raise NotImplementedError(T)
         return ctypes.pointer(container._ctypes_storage)
