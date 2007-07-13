@@ -126,8 +126,9 @@ class W_Pair(W_Root):
         self.cdr = cdr
 
     def to_string(self):
-        return "(" + self.car.to_string() + " . " \
-                + self.cdr.to_string() + ")"
+        car = self.car.to_string()
+        cdr = self.cdr.to_string()
+        return "(" + car + " . " + cdr + ")"
 
     def eval(self, ctx):
         oper = self.car.eval(ctx)
@@ -250,48 +251,49 @@ class ListOper(W_Procedure):
 
     def unary_oper(self, x):
         if isinstance(x, W_Float):
-            return W_Float(self.do_unary_oper_float(x.to_float()))
+            return W_Float(self.do_unary_oper(x.to_float()))
         else:
-            return W_Fixnum(self.do_unary_oper_int(x.to_fixnum()))
+            return W_Fixnum(self.do_unary_oper(x.to_fixnum()))
 
     def oper(self, x, y):
         if isinstance(x, W_Float) or isinstance(y, W_Float):
-            return W_Float(self.do_oper_float(x.to_float(), y.to_float()))
+            return W_Float(self.do_oper(x.to_float(), y.to_float()))
         else:
-            return W_Fixnum(self.do_oper_int(x.to_fixnum(), y.to_fixnum()))
+            return W_Fixnum(self.do_oper(x.to_fixnum(), y.to_fixnum()))
 
-def create_op_class(oper, unary_oper):
+def create_op_class(oper, unary_oper, title):
     class Op(ListOper):
         pass
 
     local_locals = {}
-    for name in ["int", "float"]:
+    attr_name = "do_oper"
 
-        attr_name = "do_oper_%s" % (name, )
+    code = py.code.Source("""
+    def %s(self, x, y):
+        return x %s y
+        """ % (attr_name, oper))
 
-        code = py.code.Source("""
-        def %s(self, x, y):
-            return x %s y
-            """ % (attr_name, oper))
+    exec code.compile() in local_locals
+    local_locals[attr_name]._annspecialcase_ = 'specialize:argtype(1,2)'
+    setattr(Op, attr_name, local_locals[attr_name])
 
-        exec code.compile() in local_locals
-        setattr(Op, attr_name, local_locals[attr_name])
+    attr_name = "do_unary_oper"
+    code = py.code.Source("""
+    def %s(self, x):
+        return %s x
+        """ % (attr_name, unary_oper))
 
-        attr_name = "do_unary_oper_%s" % (name, )
-        code = py.code.Source("""
-        def %s(self, x):
-            return %s x
-            """ % (attr_name, unary_oper))
+    exec code.compile() in local_locals
+    local_locals[attr_name]._annspecialcase_ = 'specialize:argtype(1)'
+    setattr(Op, attr_name, local_locals[attr_name])
 
-        exec code.compile() in local_locals
-        setattr(Op, attr_name, local_locals[attr_name])
-
+    Op.__name__ = "Op" + title
     return Op
 
-Add = create_op_class('+', '')
-Sub = create_op_class('-', '-')
-Mul = create_op_class('*', '')
-Div = create_op_class('/', '1 /')
+Add = create_op_class('+', '', "Add")
+Sub = create_op_class('-', '-', "Sub")
+Mul = create_op_class('*', '', "Mul")
+Div = create_op_class('/', '1 /', "Div")
 
 class List(W_Procedure):
     def procedure(self, ctx, lst):
