@@ -37,15 +37,13 @@ def build_ctypes_struct(S, max_n=None):
                 _allocated.append(storage)
                 return _ctypes_struct(S, storage)
             else:
-                XXX
                 if n is None:
                     raise TypeError("%r is variable-sized" % (S,))
-                smallercls = build_ctypes_struct(S, n)
-                smallstruct = smallercls()
-                getattr(smallstruct, S._arrayfld).length = n
-                structptr = ctypes.cast(ctypes.pointer(smallstruct),
-                                        ctypes.POINTER(cls))
-                return structptr
+                biggercls = build_ctypes_struct(S, n)
+                bigstruct = biggercls()
+                _allocated.append(bigstruct)
+                getattr(bigstruct, S._arrayfld).length = n
+                return _ctypes_struct(S, bigstruct)
         malloc = classmethod(malloc)
 
     CStruct.__name__ = 'ctypes_%s' % (S,)
@@ -130,10 +128,23 @@ class _ctypes_parentable(lltype._parentable):
             raise RuntimeError("lltype.free() on a pointer that was not "
                                "obtained by lltype.malloc()")
 
+    def _convert_to_ctypes_pointer(self):
+        if self._TYPE._is_varsize():
+            PtrType = ctypes.POINTER(get_ctypes_type(self._TYPE))
+            return ctypes.cast(ctypes.pointer(self._ctypes_storage), PtrType)
+        else:
+            return ctypes.pointer(self._ctypes_storage)
+
 
 class _ctypes_struct(_ctypes_parentable):
     _kind = "structure"
     __slots__ = ()
+
+    def __init__(self, TYPE, ctypes_storage):
+        _ctypes_parentable.__init__(self, TYPE, ctypes_storage)
+        if TYPE._arrayfld is not None:
+            array = getattr(ctypes_storage, TYPE._arrayfld)
+            assert array.length == len(array.items)
 
     def __repr__(self):
         return '<ctypes struct %s at 0x%x>' % (
@@ -155,9 +166,6 @@ class _ctypes_struct(_ctypes_parentable):
         else:
             return ctypes2lltype(getattr(self._ctypes_storage, field_name),
                                  getattr(self._TYPE, field_name))
-
-    def _convert_to_ctypes_pointer(self):
-        return ctypes.pointer(self._ctypes_storage)
 
 class _ctypes_array(_ctypes_parentable):
     _kind = "array"
@@ -182,10 +190,6 @@ class _ctypes_array(_ctypes_parentable):
     def getitem(self, index):
         return ctypes2lltype(self._ctypes_storage.items[index],
                              self._TYPE.OF)
-
-    def _convert_to_ctypes_pointer(self):
-        PtrType = ctypes.POINTER(get_ctypes_type(self._TYPE))
-        return ctypes.cast(ctypes.pointer(self._ctypes_storage), PtrType)
 
 # ____________________________________________________________
 

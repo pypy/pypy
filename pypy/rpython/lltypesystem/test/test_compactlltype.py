@@ -120,14 +120,12 @@ def test_basics():
     iwfreelist(l)
 
 def test_varsizestruct():
-    S1 = GcStruct("s1", ('a', Signed), ('rest', Array(('v', Signed))))
-    py.test.raises(TypeError, "malloc(S1)")
-    s1 = malloc(S1, 4)
+    S1 = Struct("s1", ('a', Signed), ('rest', Array(('v', Signed))))
+    py.test.raises(TypeError, "malloc(S1, flavor='raw')")
+    s1 = malloc(S1, 4, flavor='raw')
     s1.a = 0
     assert s1.a == 0
-    assert isweak(s1.rest, S1.rest)
     assert len(s1.rest) == 4
-    assert isweak(s1.rest[0], S1.rest.OF)
     s1.rest[0].v = 0
     assert typeOf(s1.rest[0].v) == Signed
     assert s1.rest[0].v == 0
@@ -138,35 +136,31 @@ def test_varsizestruct():
     s1.rest[3].v = 5
     assert s1.a == 17
     assert s1.rest[3].v == 5
-
-    py.test.raises(TypeError, "Struct('invalid', ('rest', Array(('v', Signed))), ('a', Signed))")
-    py.test.raises(TypeError, "Struct('invalid', ('rest', GcArray(('v', Signed))), ('a', Signed))")
-    py.test.raises(TypeError, "Struct('invalid', ('x', Struct('s1', ('a', Signed), ('rest', Array(('v', Signed))))))")
-    py.test.raises(TypeError, "Struct('invalid', ('x', S1))")
+    free(s1, flavor='raw')
 
 def test_substructure_ptr():
+    objcount = getobjcount()
     S3 = Struct("s3", ('a', Signed))
     S2 = Struct("s2", ('s3', S3))
-    S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2))
-    p1 = malloc(S1)
-    assert isweak(p1.sub1, S2)
-    assert isweak(p1.sub2, S2)
-    assert isweak(p1.sub1.s3, S3)
-    p2 = p1.sub1
-    assert isweak(p2.s3, S3)
+    S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
+    p1 = malloc(S1, flavor='raw')
+    p1.sub1.s3.a = 123
+    p1.sub2.s3.a = 456
+    assert p1.sub1.s3.a == 123
+    assert p1.sub2.s3.a == 456
+    p2 = p1.sub2
+    py.test.raises(RuntimeError, "free(p2, flavor='raw')")
+    free(p1, flavor='raw')
+    py.test.raises(RuntimeError, "free(p1, flavor='raw')")
 
-def test_gc_substructure_ptr():
-    S1 = GcStruct("s2", ('a', Signed))
-    S2 = Struct("s3", ('a', Signed))
-    S0 = GcStruct("s1", ('sub1', S1), ('sub2', S2))
-    p1 = malloc(S0)
-    assert typeOf(p1.sub1) == Ptr(S1)
-    assert isweak(p1.sub2, S2)
+    p2 = malloc(S1, flavor='raw')
+    free(p2.sub1, flavor='raw')
+    assert objcount == getobjcount()    # check for leaks
 
 def test_cast_simple_widening():
     S2 = Struct("s2", ('a', Signed))
     S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
-    p1 = malloc(S1, immortal=True)
+    p1 = malloc(S1, flavor='raw')
     p2 = p1.sub1
     p3 = p2
     assert typeOf(p3) == Ptr(S2)
