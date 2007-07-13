@@ -244,9 +244,9 @@ class ListOper(W_Procedure):
 
     def oper(self, x, y):
         if isinstance(x, W_Float) or isinstance(y, W_Float):
-            return W_Float(self.do_oper_float(x.to_number(), y.to_number()))
+            return W_Float(self.do_oper_float(x.to_float(), y.to_float()))
         else:
-            return W_Fixnum(self.do_oper_int(x.to_number(), y.to_number()))
+            return W_Fixnum(self.do_oper_int(x.to_fixnum(), y.to_fixnum()))
 
 class Add(ListOper):
     def do_oper_int(self, x, y):

@@ -18,6 +18,8 @@ Do next
 
 - comparison: < > eq? eqv?
 
+- rational, complex number types
+
 Do in some future
 -----------------
 
