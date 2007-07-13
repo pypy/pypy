@@ -1,6 +1,5 @@
-
 from pypy.interpreter.pyparser.grammar import Parser
-
+from pypy.interpreter.pyparser import error
 
 def test_symbols():
     p = Parser()
@@ -88,9 +87,11 @@ class RuleTracer(dict):
         self.trace = []
 
     def __getitem__(self, attr):
-        if attr in ['file_input', 'future_import_list', 'import_from_future',
-                    'future_import_as_names']:
-            return lambda *args: None
+        if attr in ['dotted_name', 'dotted_as_name', 'dotted_as_names',
+                    'import_stmt', 'small_stmt', 'simple_stmt', 'stmt',
+                    'single_input', 'file_input', 'future_import_list',
+                    'import_from_future', 'future_import_as_names']:
+            return None
         
         def record_trace(builder, number):
             result = [t.value for t in get_atoms(builder, number)]
@@ -107,17 +108,25 @@ class MockBuilder(AstBuilder):
         AstBuilder.__init__(self, *args, **kw)
         self.build_rules = RuleTracer()
 
-class TestFuture(object):
 
+class TestFuture(object):
+    
     def setup_class(self):
         from pypy.interpreter.pyparser.pythonparse import make_pyparser
         self.parser = make_pyparser('2.5a')
 
     def setup_method(self, method):
         self.builder = MockBuilder(self.parser, space=FakeSpace())
-    def check_parse(self, tst, expected):
-        self.parser.parse_source(tst, 'exec' , self.builder)
+
+    def check_parse_mode(self, tst, expected, mode):
+        self.parser.parse_source(tst, mode, self.builder)
         assert self.builder.build_rules.trace == expected
+        
+    def check_parse(self, tst, expected):
+        self.check_parse_mode(tst, expected, 'exec')
+        self.builder.build_rules.trace = []
+        self.check_parse_mode(tst, expected, 'single')
+
         
     def test_single_future_import(self):
         tst = 'from __future__ import na\n'
@@ -129,3 +138,40 @@ class TestFuture(object):
         expected = [('future_import_feature', ['na']),
                     ('future_import_feature', ['xx'])]
         self.check_parse(tst, expected)
+
+    def test_two_future_imports(self):
+        tst = 'from __future__ import na;from __future__ import xx\n'
+        expected = [('future_import_feature', ['na']),
+                    ('future_import_feature', ['xx'])]
+        self.check_parse(tst, expected)
+
+    def test_future_imports_nl(self):
+        tst = '''
+from __future__ import na
+from __future__ import xx;
+from __future__ import yy
+'''
+        expected = [('future_import_feature', ['na']),
+                    ('future_import_feature', ['xx']),
+                    ('future_import_feature', ['yy'])]
+        self.check_parse_mode(tst, expected,'exec')
+
+    def test_single_future_as(self):
+        tst = 'from __future__ import na as x\n'
+        expected = [('future_import_feature', ['na', 'as', 'x'])]
+        self.check_parse(tst, expected)
+        
+    def test_single_future_as(self):
+        tst = 'import sys;from __future__ import na as x\n'
+        expected = []
+        try:
+            self.check_parse_mode(tst, expected,'exec')
+            assert False == 'An import before a future import should throw an error.'
+        except error.SyntaxError:
+            pass
+
+    def test_regular_import(self):
+        tst = 'import sys'
+        expected = [('import_name', ['import', 'sys'])]
+        self.check_parse(tst, expected)
+        

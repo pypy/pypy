@@ -24,8 +24,9 @@
 #	file_input is a module or sequence of commands read from an input file;
 #	eval_input is the input for the eval() and input() functions.
 # NB: compound_stmt in single_input is followed by extra NEWLINE!
-single_input:  NEWLINE | future_import_list [';'] | future_import_list ';' simple_stmt | compound_stmt NEWLINE
-file_input: (future_import_list [';'])* (NEWLINE | stmt)* ENDMARKER
+
+single_input:  NEWLINE | future_import_list [';'] | [future_import_list ';'] simple_stmt | compound_stmt NEWLINE
+file_input: (future_import_list [';'] NEWLINE)* (NEWLINE | stmt)* ENDMARKER
 eval_input: testlist NEWLINE* ENDMARKER
 
 future_import_list: import_from_future (';' import_from_future)*
@@ -68,7 +69,8 @@ global_stmt: 'global' NAME (',' NAME)*
 exec_stmt: 'exec' expr ['in' test [',' test]]
 assert_stmt: 'assert' test [',' test]
 
-# with_stmt is added dynamically to compund_stmt if imported from __future__
+# TODO: with_stmt should be added dynamically to compund_stmt if 
+# imported from __future__
 compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | funcdef | classdef
 if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
 while_stmt: 'while' test ':' suite ['else' ':' suite]
