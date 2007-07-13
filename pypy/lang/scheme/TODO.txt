@@ -2,7 +2,6 @@ Do now
 ------
 
 - lambda called with wrong number of args issue
-- RPythonize (during EP sprint)
 
 Do next
 -------
@@ -18,8 +17,7 @@ Do next
 
 - comparison: < > eq? eqv?
 
-- rational, complex number types
-  - exact/inexact
+ - exact/inexact numbers
 
 Do in some future
 -----------------

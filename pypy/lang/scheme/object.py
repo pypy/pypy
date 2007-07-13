@@ -7,6 +7,10 @@ class UnboundVariable(SchemeException):
     def __str__(self):
         return "Unbound variable %s" % self.args[0]
 
+class WrongArgsNumber(SchemeException):
+    def __str__(self):
+        return "Wrong number of args"
+
 class SchemeQuit(SchemeException):
     """raised on (quit) evaluation"""
     pass
@@ -237,6 +241,12 @@ def plst2lst(plst):
 ##
 class ListOper(W_Procedure):
     def procedure(self, ctx, lst):
+        if len(lst) == 0:
+            if self.default_result is None:
+                raise WrongArgsNumber()
+
+            return self.default_result
+
         if len(lst) == 1:
             return self.unary_oper(lst[0].eval(ctx))
 
@@ -261,7 +271,7 @@ class ListOper(W_Procedure):
         else:
             return W_Fixnum(self.do_oper(x.to_fixnum(), y.to_fixnum()))
 
-def create_op_class(oper, unary_oper, title):
+def create_op_class(oper, unary_oper, title, default_result=None):
     class Op(ListOper):
         pass
 
@@ -287,13 +297,31 @@ def create_op_class(oper, unary_oper, title):
     local_locals[attr_name]._annspecialcase_ = 'specialize:argtype(1)'
     setattr(Op, attr_name, local_locals[attr_name])
 
+    if default_result is None:
+        Op.default_result = None
+    else:
+        Op.default_result = W_Fixnum(default_result)
+
     Op.__name__ = "Op" + title
     return Op
 
-Add = create_op_class('+', '', "Add")
+Add = create_op_class('+', '', "Add", 0)
 Sub = create_op_class('-', '-', "Sub")
-Mul = create_op_class('*', '', "Mul")
+Mul = create_op_class('*', '', "Mul", 1)
 Div = create_op_class('/', '1 /', "Div")
+
+class Equal(W_Procedure):
+    def procedure(self, ctx, lst):
+        if len(lst) < 2:
+            return W_Boolean(True)
+
+        prev = lst[0]
+        for arg in lst[1:]:
+            if prev.to_number() != arg.to_number():
+                return W_Boolean(False)
+            prev = arg
+
+        return W_Boolean(True)
 
 class List(W_Procedure):
     def procedure(self, ctx, lst):
@@ -348,12 +376,6 @@ class Cdr(W_Procedure):
     def procedure(self, ctx, lst):
         w_pair = lst[0]
         return w_pair.cdr
-
-class Equal(W_Procedure):
-    def procedure(self, ctx, lst):
-        w_first = lst[0]
-        w_second = lst[1]
-        return W_Boolean(w_first.equal(w_second))
 
 class Quit(W_Procedure):
     def procedure(self, ctx, lst):

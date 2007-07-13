@@ -14,6 +14,8 @@ def eval_noctx(expr):
     return parse(expr)[0].eval(None)
 
 def test_numerical():
+    w_num = eval_noctx("(+)")
+    assert w_num.to_number() == 0
     w_num = eval_noctx("(+ 4)")
     assert w_num.to_number() == 4
     w_num = eval_noctx("(+ 4 -5)")
@@ -21,6 +23,8 @@ def test_numerical():
     w_num = eval_noctx("(+ 4 -5 6.1)")
     assert w_num.to_number() == 5.1
 
+    w_num = eval_noctx("(*)")
+    assert w_num.to_number() == 1
     w_num = eval_noctx("(* 4)")
     assert w_num.to_number() == 4
     w_num = eval_noctx("(* 4 -5)")
@@ -28,6 +32,7 @@ def test_numerical():
     w_num = eval_noctx("(* 4 -5 6.1)")
     assert w_num.to_number() == (4 * -5 * 6.1)
 
+    py.test.raises(WrongArgsNumber, eval_noctx, "(/)")
     w_num = eval_noctx("(/ 4)")
     assert w_num.to_number() == 1 / 4
     w_num = eval_noctx("(/ 4 -5)")
@@ -35,6 +40,7 @@ def test_numerical():
     w_num = eval_noctx("(/ 4 -5 6.1)")
     assert w_num.to_number() == (4 / -5 / 6.1)
 
+    py.test.raises(WrongArgsNumber, eval_noctx, "(-)")
     w_num = eval_noctx("(- 4)")
     assert w_num.to_number() == -4
     w_num = eval_noctx("(- 4 5)")
@@ -148,11 +154,23 @@ def test_car_simple():
     assert w_cddr.to_number() == 3
 
 def test_comparison_homonums():
+    w_bool = eval_noctx("(=)")
+    assert w_bool.to_boolean() is True
+
+    w_bool = eval_noctx("(= 1)")
+    assert w_bool.to_boolean() is True
+
     w_bool = eval_noctx("(= 1 2)")
     assert w_bool.to_boolean() is False
 
     w_bool = eval_noctx("(= 2 2)")
     assert w_bool.to_boolean() is True
+
+    w_bool = eval_noctx("(= 2 2 2 2)")
+    assert w_bool.to_boolean() is True
+
+    w_bool = eval_noctx("(= 2 2 3 2)")
+    assert w_bool.to_boolean() is False
 
     w_bool = eval_noctx("(= 2.1 1.2)")
     assert w_bool.to_boolean() is False
@@ -160,11 +178,17 @@ def test_comparison_homonums():
     w_bool = eval_noctx("(= 2.1 2.1)")
     assert w_bool.to_boolean() is True
 
-def test_comparison_heteronums():
-    w_bool = eval_noctx("(= 1 2.2)")
+    w_bool = eval_noctx("(= 2.1 2.1 2.1 2.1)")
+    assert w_bool.to_boolean() is True
+
+    w_bool = eval_noctx("(= 2.1 2.1 2.1 2)")
     assert w_bool.to_boolean() is False
 
-    w_bool = eval_noctx("(= 2.0 2)")
+def test_comparison_heteronums():
+    w_bool = eval_noctx("(= 1 1.0 1.1)")
+    assert w_bool.to_boolean() is False
+
+    w_bool = eval_noctx("(= 2.0 2 2.0)")
     assert w_bool.to_boolean() is True
 
 def test_lambda_noargs():
