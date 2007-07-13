@@ -1191,16 +1191,19 @@ class _parentable(_container):
                  '_parent_type', '_parent_index', '_keepparent',
                  '_wrparent',
                  '__weakref__',
-                 '_dead')
+                 '_dead',
+                 '_ctypes_storage')
 
     def __init__(self, TYPE):
         self._wrparent = None
         self._TYPE = TYPE
         self._dead = False
+        self._ctypes_storage = None
 
     def _free(self):
         self._check()   # no double-frees
         self._dead = True
+        self._ctypes_storage = None
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = weakref.ref(parent)
@@ -1317,7 +1320,18 @@ class _struct(_parentable):
         if isinstance(r, _uninitialized) and not uninitialized_ok:
             raise UninitializedMemoryAccess("%r.%s"%(self, field_name))
         return r
-    
+
+    def __getattr__(self, field_name):
+        if self._ctypes_storage is not None:
+            return self._ctypes_storage._getattr(field_name)
+        raise AttributeError(field_name)
+
+    def __setattr__(self, field_name, value):
+        if field_name.startswith('_') or self._ctypes_storage is None:
+            _parentable.__setattr__(self, field_name, value)
+        else:
+            self._ctypes_storage._setattr(field_name, value)
+
     # for FixedSizeArray kind of structs:
     
     def getlength(self):
