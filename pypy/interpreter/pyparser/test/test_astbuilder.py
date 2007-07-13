@@ -13,7 +13,7 @@ import py.test
 
 from pypy.interpreter.astcompiler import ast
 
-
+from fakes import FakeSpace
 from expressions import TESTS, SINGLE_INPUTS, EXEC_INPUTS
 
 def arglist_equal(left,right):
@@ -49,7 +49,7 @@ def nodes_equal(left, right, check_lineno=False):
         left_nodes = list(left.getChildren())
         right_nodes = list(right.getChildren())
         if len(left_nodes) != len(right_nodes):
-            print "Number of children mismatch:", left, right 
+            print "Number of children mismatch:", left, right
             return False
         for left_node, right_node in zip(left_nodes, right_nodes):
             if not nodes_equal(left_node, right_node, check_lineno):
@@ -60,7 +60,7 @@ def nodes_equal(left, right, check_lineno=False):
         return left==right
     if left.__class__.__name__ != right.__class__.__name__:
         print "Node type mismatch:", left, right
-        return False    
+        return False
     if isinstance(left,test_ast.Function) and isinstance(right,ast_ast.Function):
         left_nodes = list(left.getChildren())
         right_nodes = [] # generated ast differ here because argnames is a list of nodes in
@@ -118,7 +118,7 @@ def nodes_equal(left, right, check_lineno=False):
         if right.value is None:
             right_nodes = (ast_ast.Const(None),)
         else:
-            right_nodes = right.getChildren()    
+            right_nodes = right.getChildren()
     elif isinstance(left,test_ast.Subscript):
         # test_ast.Subscript is not expressive enough to tell the difference
         # between a[x] and a[x,]  :-(
@@ -131,14 +131,14 @@ def nodes_equal(left, right, check_lineno=False):
         left_nodes = left.getChildren()
         right_nodes = right.getChildren()
     if len(left_nodes)!=len(right_nodes):
-        print "Number of children mismatch:", left, right 
+        print "Number of children mismatch:", left, right
         return False
     for i,j in zip(left_nodes,right_nodes):
         if not nodes_equal(i,j, check_lineno):
             return False
     if check_lineno:
         # left is a stablecompiler.ast node which means and stable compiler
-        # doesn't set a lineno on each Node. 
+        # doesn't set a lineno on each Node.
         # (stablecompiler.ast.Expression doesn't have a lineno attribute)
         if hasattr(left, 'lineno') and left.lineno is not None and left.lineno != right.lineno:
             print "(1) (%s) left: %s, right: %s" % (left, left.lineno, right.lineno)
@@ -175,44 +175,6 @@ EXPECTED = {
     }
 
 
-class FakeSpace:
-    w_None = None
-    w_str = str
-    w_basestring = basestring
-    w_int = int
-    
-    def wrap(self,obj):
-        return obj
-
-    def isinstance(self, obj, wtype ):
-        return isinstance(obj,wtype)
-
-    def is_true(self, obj):
-        return obj
-
-    def eq_w(self, obj1, obj2):
-        return obj1 == obj2
-
-    def is_w(self, obj1, obj2):
-        return obj1 is obj2
-
-    def type(self, obj):
-        return type(obj)
-
-    def newlist(self, lst):
-        return list(lst)
-
-    def newtuple(self, lst):
-        return tuple(lst)
-    
-    def call_method(self, obj, meth, *args):
-        return getattr(obj, meth)(*args)
-
-    def call_function(self, func, *args):
-        return func(*args)
-
-    builtin = dict(int=int, long=long, float=float, complex=complex)
-
 # Create parser from Grammar_stable, not current grammar.
 stable_parser = pythonparse.make_pyparser('stable')
 python_parser = pythonparse.make_pyparser() # 'native') # 2.5a')
@@ -241,7 +203,7 @@ def check_expression(expr, mode='single'):
         check_lineno = False
     print "-" * 30
     print "ORIG :", python_ast
-    print 
+    print
     print "BUILT:", pypy_ast
     print "-" * 30
     assert nodes_equal(python_ast, pypy_ast, check_lineno), 'failed on %r' % (expr)
@@ -258,12 +220,12 @@ def test_exec_inputs():
             yield check_expression, expr, 'exec'
 
 
-NEW_GRAMMAR_SNIPPETS = [    
+NEW_GRAMMAR_SNIPPETS = [
     'snippet_with_1.py',
     'snippet_with_2.py',
     ]
 
-SNIPPETS = [    
+SNIPPETS = [
     'snippet_1.py',
     'snippet_several_statements.py',
     'snippet_simple_function.py',

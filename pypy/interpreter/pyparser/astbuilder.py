@@ -1038,6 +1038,7 @@ ASTRULES_Template = {
     'while_stmt' : build_while_stmt,
     'import_name' : build_import_name,
     'import_from' : build_import_from,
+    'future_import_feature': None,
     'yield_stmt' : build_yield_stmt,
     'continue_stmt' : build_continue_stmt,
     'del_stmt' : build_del_stmt,

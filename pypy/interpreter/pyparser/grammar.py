@@ -112,7 +112,8 @@ class AbstractBuilder(Wrappable):
         # This attribute is here for convenience
         self.debug = debug
         # the parser that represent the grammar used
-        assert isinstance( parser, Parser )
+        # Commented the assert: this eases the testing
+        #assert isinstance( parser, Parser )
         self.parser = parser
 
     def context(self):
@@ -122,13 +123,13 @@ class AbstractBuilder(Wrappable):
     def restore(self, ctx):
         """Accept an opaque context object"""
         pass
-    
+
     def alternative(self, rule, source):
         return False
-    
+
     def sequence(self, rule, source, elts_number):
         return False
-    
+
     def token(self, name, value, source):
         return False
 
@@ -191,7 +192,7 @@ class BaseGrammarBuilder(AbstractBuilder):
                 self.stack.append(SyntaxNode(rule.codename, [], source.current_lineno()))
             else:
                 self.stack.append(TempSyntaxNode(rule.codename, [], source.current_lineno()))
-                
+
         if self.debug:
             self.stack[-1].dumpstr()
         return True
@@ -674,11 +675,11 @@ class Token(GrammarElement):
         else:
             # error unknown or negative integer
         """
-        # XXX (adim): this is trunk's keyword management        
+        # XXX (adim): this is trunk's keyword management
         # if (self.value is not None and builder.keywords is not None
         #     and self.value not in builder.keywords):
         #     return 0
-        
+
         ctx = source.context()
         tk = source.next()
         if tk.codename == self.codename:
@@ -749,7 +750,7 @@ class Parser(object):
         self.symbols = {}   # mapping symbol name -> symbol code
         self.tokens = { 'NULLTOKEN' : -1 }
         self.EmptyToken = Token( self, -1, None )
-        self.tok_name = {}  
+        self.tok_name = {}
         self.tok_values = {}
         self.tok_rvalues = {}
         self._ann_sym_count = -10
@@ -795,7 +796,7 @@ class Parser(object):
                 self.tok_values[value] = val
                 # XXX : this reverse mapping seemed only to be used
                 # because of pycodegen visitAugAssign
-                self.tok_rvalues[val] = value 
+                self.tok_rvalues[val] = value
             return val
         return self.tokens[ tok ]
 
@@ -837,10 +838,10 @@ class Parser(object):
     def build_alternative( self, name_id, args ):
         # assert isinstance( name_id, int )
         assert isinstance(args, list)
-        alt = Alternative( self, name_id, args )        
+        alt = Alternative( self, name_id, args )
         self.all_rules.append( alt )
         return alt
-    
+
     def Alternative_n(self, name, args ):
         # assert isinstance(name, str)
         name_id = self.add_symbol( name )
@@ -851,7 +852,7 @@ class Parser(object):
         alt = Sequence( self, name_id, args )
         self.all_rules.append( alt )
         return alt
-    
+
     def Sequence_n(self, name, args ):
         # assert isinstance(name, str)
         name_id = self.add_symbol( name )
@@ -862,7 +863,7 @@ class Parser(object):
         alt = KleeneStar( self, name_id, _min, _max, rule )
         self.all_rules.append( alt )
         return alt
-    
+
     def KleeneStar_n(self, name, _min = 0, _max = -1, rule = None ):
         # assert isinstance(name, str)
         name_id = self.add_symbol( name )
