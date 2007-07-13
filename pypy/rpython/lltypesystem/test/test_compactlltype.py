@@ -1,64 +1,69 @@
-import py
-from pypy.rpython.lltypesystem.compactlltype import *
+from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem.compactlltype import malloc, getobjcount
 
-def isweak(p, T):
-    return True# p._weak and typeOf(p).TO == T
+py.test.skip("in-progress")
 
-def test_nullptr():
-    S = Struct('s')
-    p0 = nullptr(S)
-    assert not p0
-    assert typeOf(p0) == Ptr(S)
+def isctypes(p):
+    return hasattr(p._obj, '_ctypes_storage')
 
 def test_basics():
-    S0 = GcStruct("s0", ('a', Signed), ('b', Signed))
+    objcount = getobjcount()
+    S0 = Struct("s0", ('a', Signed), ('b', Signed))
     assert S0.a == Signed
     assert S0.b == Signed
-    s0 = malloc(S0)
+    s0 = malloc(S0, flavor='raw')
     print s0
+    assert isctypes(s0)
     assert typeOf(s0) == Ptr(S0)
-    #py.test.raises(UninitializedMemoryAccess, "s0.a") XXX!
+    #py.test.raises(UninitializedMemoryAccess, "s0.a")
     s0.a = 1
     s0.b = s0.a
     assert s0.a == 1
     assert s0.b == 1
     assert typeOf(s0.a) == Signed
+    free(s0, flavor='raw')
+    py.test.raises(RuntimeError, "s0.a")   # accessing freed struct s0
+    py.test.raises(RuntimeError, "free(s0, flavor='raw')")   # double free
     # simple array
-    Ar = GcArray(('v', Signed))
-    x = malloc(Ar,0)
+    Ar = Array(('v', Signed))
+    x = malloc(Ar, 0, flavor='raw')
     print x
+    assert isctypes(x)
     assert len(x) == 0
-    x = malloc(Ar,3)
+    free(x, flavor='raw')
+    x = malloc(Ar, 3, flavor='raw')
     print x
+    assert isctypes(x)
     assert typeOf(x) == Ptr(Ar)
     assert len(x) == 3
-    assert isweak(x[0], Ar.OF)
     assert typeOf(x[0]) == Ptr(Ar.OF)
     x[0].v = 1
     x[1].v = 2
     x[2].v = 3
     assert typeOf(x[0].v) == Signed
     assert [x[z].v for z in range(3)] == [1, 2, 3]
+    free(x, flavor='raw')
     #
     def define_list(T):
-        List_typ = GcStruct("list",
-                ("items", Ptr(GcArray(('item',T)))))
+        List_typ = Struct("list",
+                ("items", Ptr(Array(('item',T)))))
         def newlist():
-            l = malloc(List_typ)
-            items = malloc(List_typ.items.TO, 0)
+            l = malloc(List_typ, flavor='raw')
+            items = malloc(List_typ.items.TO, 0, flavor='raw')
             l.items = items
             return l
 
         def append(l, newitem):
             length = len(l.items)
             print 'append! length', length, 'newitem', newitem
-            newitems = malloc(List_typ.items.TO, length+1)
+            newitems = malloc(List_typ.items.TO, length+1, flavor='raw')
             i = 0
             while i<length:
               newitems[i].item = l.items[i].item
               i += 1
             newitems[length].item = newitem
             print len(newitems)
+            free(l.items, flavor='raw')
             l.items = newitems
             del newitems
             print len(l.items)
@@ -66,9 +71,13 @@ def test_basics():
         def item(l, i):
             return l.items[i].item
 
-        return List_typ, newlist, append, item
+        def freelist(l):
+            free(l.items, flavor='raw')
+            free(l, flavor='raw')
 
-    List_typ, inewlist, iappend, iitem = define_list(Signed)
+        return List_typ, newlist, append, item, freelist
+
+    List_typ, inewlist, iappend, iitem, ifreelist = define_list(Signed)
 
     l = inewlist()
     assert typeOf(l) == Ptr(List_typ)
@@ -77,14 +86,15 @@ def test_basics():
     assert len(l.items) == 2
     assert iitem(l, 0) == 2
     assert iitem(l, 1) == 3
+    ifreelist(l)
 
-    IWrap = GcStruct("iwrap", ('v', Signed))
-    List_typ, iwnewlist, iwappend, iwitem = define_list(Ptr(IWrap))
+    IWrap = Struct("iwrap", ('v', Signed))
+    List_typ, iwnewlist, iwappend, iwitem, iwfreelist = define_list(Ptr(IWrap))
 
     l = iwnewlist()
     assert typeOf(l) == Ptr(List_typ)
-    iw2 = malloc(IWrap)
-    iw3 = malloc(IWrap)
+    iw2 = malloc(IWrap, flavor='raw')
+    iw3 = malloc(IWrap, flavor='raw')
     iw2.v = 2
     iw3.v = 3
     assert iw3.v == 3
@@ -93,13 +103,21 @@ def test_basics():
     assert len(l.items) == 2
     assert iwitem(l, 0).v == 2
     assert iwitem(l, 1).v == 3
+    iwfreelist(l)
+    free(iw2, flavor='raw')
+    free(iw3, flavor='raw')
+
+    assert objcount == getobjcount()   # test for leak
 
     # not allowed
     S = Struct("s", ('v', Signed))
-    List_typ, iwnewlistzzz, iwappendzzz, iwitemzzz = define_list(S) # works but
+    List_typ, iwnewlistzzz, iwappendzzz, iwitemzzz, iwfreelist = define_list(S)
+    # ^^^ works but
     l = iwnewlistzzz()
-    S1 = GcStruct("strange", ('s', S))
-    py.test.raises(TypeError, "iwappendzzz(l, malloc(S1).s)")
+    s1 = malloc(S, flavor='raw')
+    py.test.raises(TypeError, "iwappendzzz(l, s1)")  # a leak - too bad for now
+    free(s1, flavor='raw')
+    iwfreelist(l)
 
 def test_varsizestruct():
     S1 = GcStruct("s1", ('a', Signed), ('rest', Array(('v', Signed))))

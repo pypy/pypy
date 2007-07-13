@@ -1,51 +1,46 @@
-import ctypes, sys, weakref
-from pypy.rpython.lltypesystem.lltype import Signed, Struct, GcStruct, Ptr
-from pypy.rpython.lltypesystem.lltype import ContainerType, Array, GcArray
-from pypy.rpython.lltypesystem.lltype import typeOf, castable
+import sys
+import ctypes
+from pypy.rpython.lltypesystem import lltype
+from pypy.tool.uid import fixid
 
 _Ctypes_PointerType = type(ctypes.POINTER(ctypes.c_int))
 
-
-def cast_pointer(PTRTYPE, ptr):
-    CURTYPE = typeOf(ptr)
-    if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
-        raise TypeError, "can only cast pointers to other pointers"
-    return ptr._cast_to(PTRTYPE)
-
-
-class _parentable(ctypes.Structure):   # won't work with Union
-    __slots__ = ()
+def uaddressof(obj):
+    return fixid(ctypes.addressof(obj))
 
 # ____________________________________________________________
 
+_allocated = []
+
 _ctypes_cache = {
-    Signed: ctypes.c_long,
+    lltype.Signed: ctypes.c_long,
     }
 
-def _build_ctypes_struct(S, max_n=None):
+def build_ctypes_struct(S, max_n=None):
     fields = []
     for fieldname in S._names:
         FIELDTYPE = S._flds[fieldname]
         if max_n is not None and fieldname == S._arrayfld:
-            cls = _build_ctypes_array(FIELDTYPE, max_n)
+            cls = build_ctypes_array(FIELDTYPE, max_n)
         else:
-            cls = _get_ctypes_type(FIELDTYPE)
+            cls = get_ctypes_type(FIELDTYPE)
         fields.append((fieldname, cls))
 
-    class CStruct(_parentable):
+    class CStruct(ctypes.Structure):
         _fields_ = fields
-        _TYPE    = S
 
         def malloc(cls, n=None):
-            S = cls._TYPE
             if S._arrayfld is None:
                 if n is not None:
                     raise TypeError("%r is not variable-sized" % (S,))
-                return ctypes.pointer(cls())
+                storage = cls()
+                _allocated.append(storage)
+                return _ctypes_struct(S, storage)
             else:
+                XXX
                 if n is None:
                     raise TypeError("%r is variable-sized" % (S,))
-                smallercls = _build_ctypes_struct(S, n)
+                smallercls = build_ctypes_struct(S, n)
                 smallstruct = smallercls()
                 getattr(smallstruct, S._arrayfld).length = n
                 structptr = ctypes.cast(ctypes.pointer(smallstruct),
@@ -56,150 +51,152 @@ def _build_ctypes_struct(S, max_n=None):
     CStruct.__name__ = 'ctypes_%s' % (S,)
     return CStruct
 
-def _build_ctypes_array(A, max_n=None):
+def build_ctypes_array(A, max_n=0):
+    assert max_n >= 0
     ITEM = A.OF
-    ctypes_item = _get_ctypes_type(ITEM)
-    if max_n is None:
-        max_n = sys.maxint // ctypes.sizeof(ctypes_item)
-        max_n //= 2   # XXX better safe than sorry about ctypes bugs
+    ctypes_item = get_ctypes_type(ITEM)
 
-    class CArray(_parentable):
+    class CArray(ctypes.Structure):
         _fields_ = [('length', ctypes.c_int),
                     ('items',  max_n * ctypes_item)]
-        _TYPE    = A
 
         def malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
-            smallercls = _build_ctypes_array(cls._TYPE, n)
-            smallarray = smallercls()
-            smallarray.length = n
-            arrayptr = ctypes.cast(ctypes.pointer(smallarray),
-                                   ctypes.POINTER(cls))
-            return arrayptr
+            biggercls = build_ctypes_array(A, n)
+            bigarray = biggercls()
+            _allocated.append(bigarray)
+            bigarray.length = n
+            return _ctypes_array(A, bigarray)
         malloc = classmethod(malloc)
 
-    CArray.__name__ = 'ctypes_%s' % (A,)
+    CArray.__name__ = 'ctypes_%s*%d' % (A, max_n)
     return CArray
 
-def _get_ctypes_type(T):
+def get_ctypes_type(T):
     try:
         return _ctypes_cache[T]
     except KeyError:
-        if isinstance(T, Ptr):
-            cls = ctypes.POINTER(_get_ctypes_type(T.TO))
-        elif isinstance(T, Struct):
-            cls = _build_ctypes_struct(T)
-        elif isinstance(T, Array):
-            cls = _build_ctypes_array(T)
+        if isinstance(T, lltype.Ptr):
+            cls = ctypes.POINTER(get_ctypes_type(T.TO))
+        elif isinstance(T, lltype.Struct):
+            cls = build_ctypes_struct(T)
+        elif isinstance(T, lltype.Array):
+            cls = build_ctypes_array(T)
         else:
             raise NotImplementedError(T)
         _ctypes_cache[T] = cls
         return cls
 
-def _expose(val):
-    if isinstance(type(val), _Ctypes_PointerType):
-        val = val.contents
-    T = typeOf(val)
-    if isinstance(T, ContainerType):
-        val = _ptr(ctypes.pointer(val))
+def ctypes2lltype(val, RESTYPE):
+    if isinstance(RESTYPE, lltype.Struct):
+        return _ctypes_struct(RESTYPE, val)
+    if isinstance(RESTYPE, lltype.Array):
+        return _ctypes_array(RESTYPE, val)
+    if isinstance(RESTYPE, lltype.Ptr):
+        if isinstance(RESTYPE.TO, lltype.Array):
+            ArrayType = build_ctypes_array(RESTYPE.TO,
+                                           max_n=val.contents.length)
+            val = ctypes.cast(val, ctypes.POINTER(ArrayType))
+        obj = ctypes2lltype(val.contents, RESTYPE.TO)
+        return lltype._ptr(RESTYPE, obj, solid=True)
     return val
 
-def _lltype2ctypes(val):
-    T = typeOf(val)
-    if isinstance(T, Ptr):
-        return val._storageptr
+def lltype2ctypes(val):
+    T = lltype.typeOf(val)
+    if isinstance(T, lltype.Ptr):
+        return val._obj._convert_to_ctypes_pointer()
     return val
 
-class _ptr(object):
-    __slots__ = ['_storageptr', '_TYPE']
 
-    def __init__(self, storageptr):
-        assert isinstance(type(storageptr), _Ctypes_PointerType)
-        _ptr._storageptr.__set__(self, storageptr)
-        _ptr._TYPE.__set__(self, Ptr(type(storageptr)._type_._TYPE))
+class _ctypes_parentable(lltype._parentable):
 
-    def __getattr__(self, field_name):
-        if isinstance(self._TYPE.TO, Struct):
-            if field_name in self._TYPE.TO._flds:
-                return _expose(getattr(self._storageptr.contents, field_name))
-        raise AttributeError("%r instance has no field %r" % (self._TYPE.TO,
-                                                              field_name))
+    __slots__ = ('_ctypes_storage',)
+
+    def __init__(self, TYPE, ctypes_storage):
+        lltype._parentable.__init__(self, TYPE)
+        self._ctypes_storage = ctypes_storage
+
+    def _free(self):
+        # XXX REALLY SLOW!
+        myaddress = ctypes.addressof(self._ctypes_storage)
+        for i, obj in enumerate(_allocated):
+            if ctypes.addressof(obj) == myaddress:
+                # found it
+                del _allocated[i]
+                lltype._parentable._free(self)
+                break
+        else:
+            raise RuntimeError("lltype.free() on a pointer that was not "
+                               "obtained by lltype.malloc()")
+
+
+class _ctypes_struct(_ctypes_parentable):
+    _kind = "structure"
+    __slots__ = ()
+
+    def __repr__(self):
+        return '<ctypes struct %s at 0x%x>' % (
+            self._TYPE._name,
+            uaddressof(self._ctypes_storage))
 
     def __setattr__(self, field_name, value):
-        if isinstance(self._TYPE.TO, Struct):
-            if field_name in self._TYPE.TO._flds:
-                setattr(self._storageptr.contents, field_name,
-                        _lltype2ctypes(value))
-                return
-        raise AttributeError("%r instance has no field %r" % (self._TYPE.TO,
-                                                              field_name))
+        if field_name.startswith('_'):
+            lltype._parentable.__setattr__(self, field_name, value)
+        else:
+            setattr(self._ctypes_storage, field_name, lltype2ctypes(value))
 
-    def __nonzero__(self):
-        return bool(self._storageptr)
+    def _getattr(self, field_name, uninitialized_ok=False):
+        return getattr(self, field_name)
 
-    def __len__(self):
-        T = self._TYPE.TO
-        if isinstance(T, Array):# ,FixedSizeArray)):
-            #if self._T._hints.get('nolength', False):
-            #    raise TypeError("%r instance has no length attribute" %
-            #                        (self._T,))
-            return self._storageptr.contents.length
-        raise TypeError("%r instance is not an array" % (T,))
+    def __getattr__(self, field_name):
+        if field_name.startswith('_'):
+            return lltype._parentable.__getattr__(self, field_name)
+        else:
+            return ctypes2lltype(getattr(self._ctypes_storage, field_name),
+                                 getattr(self._TYPE, field_name))
 
-    def __getitem__(self, i):
-        T = self._TYPE.TO
-        if isinstance(T, Array):
-            start, stop = 0, self._storageptr.contents.length
-            if not (start <= i < stop):
-                if isinstance(i, slice):
-                    raise TypeError("array slicing not supported")
-                raise IndexError("array index out of bounds")
-            return _expose(self._storageptr.contents.items[i])
-        raise TypeError("%r instance is not an array" % (T,))
+    def _convert_to_ctypes_pointer(self):
+        return ctypes.pointer(self._ctypes_storage)
 
-    def _cast_to(self, PTRTYPE):
-        CURTYPE = self._TYPE
-        down_or_up = castable(PTRTYPE, CURTYPE)
-        if down_or_up == 0:
-            return self
-        if not self: # null pointer cast
-            return PTRTYPE._defl()
-        WAAA
-        if isinstance(self._obj, int):
-            return _ptr(PTRTYPE, self._obj, solid=True)
-        if down_or_up > 0:
-            p = self
-            while down_or_up:
-                p = getattr(p, typeOf(p).TO._names[0])
-                down_or_up -= 1
-            return _ptr(PTRTYPE, p._obj, solid=self._solid)
-        u = -down_or_up
-        struc = self._obj
-        while u:
-            parent = struc._parentstructure()
-            if parent is None:
-                raise RuntimeError("widening to trash: %r" % self)
-            PARENTTYPE = struc._parent_type
-            if getattr(parent, PARENTTYPE._names[0]) is not struc:
-                raise InvalidCast(CURTYPE, PTRTYPE) # xxx different exception perhaps?
-            struc = parent
-            u -= 1
-        if PARENTTYPE != PTRTYPE.TO:
-            raise RuntimeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
-        return _ptr(PTRTYPE, struc, solid=self._solid)
+class _ctypes_array(_ctypes_parentable):
+    _kind = "array"
+    __slots__ = ()
+
+    def __init__(self, TYPE, ctypes_storage):
+        _ctypes_parentable.__init__(self, TYPE, ctypes_storage)
+        assert ctypes_storage.length == len(ctypes_storage.items)
+
+    def __repr__(self):
+        return '<ctypes array at 0x%x>' % (
+            uaddressof(self._ctypes_storage),)
+
+    def getlength(self):
+        length = self._ctypes_storage.length
+        assert length == len(self._ctypes_storage.items)
+        return length
+
+    def getbounds(self):
+        return 0, self.getlength()
+
+    def getitem(self, index):
+        return ctypes2lltype(self._ctypes_storage.items[index],
+                             self._TYPE.OF)
+
+    def _convert_to_ctypes_pointer(self):
+        PtrType = ctypes.POINTER(get_ctypes_type(self._TYPE))
+        return ctypes.cast(ctypes.pointer(self._ctypes_storage), PtrType)
 
 # ____________________________________________________________
 
-def malloc(T, n=None, immortal=False):
-    if T._gckind != 'gc' and not immortal:# and flavor.startswith('gc'):
-        raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
-    if isinstance(T, (Struct, Array)):
-        cls = _get_ctypes_type(T)
-        return _ptr(cls.malloc(n))
-    else:
-        raise TypeError, "malloc for Structs and Arrays only"
+def malloc(T, n=None, flavor='gc', immortal=False):
+    # XXX for now, let's only worry about raw malloc
+    assert flavor == 'raw'
+    assert T._gckind == 'raw'
+    assert isinstance(T, (lltype.Struct, lltype.Array))
+    cls = get_ctypes_type(T)
+    container = cls.malloc(n)
+    return lltype._ptr(lltype.Ptr(T), container, solid=True)
 
-def nullptr(T):
-    cls = _get_ctypes_type(T)
-    return _ptr(ctypes.POINTER(cls)())
+def getobjcount():
+    return len(_allocated)

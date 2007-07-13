@@ -1199,6 +1199,7 @@ class _parentable(_container):
         self._dead = False
 
     def _free(self):
+        self._check()   # no double-frees
         self._dead = True
 
     def _setparentstructure(self, parent, parentindex):
@@ -1664,7 +1665,7 @@ def free(p, flavor):
     T = typeOf(p)
     if not isinstance(T, Ptr) or p._togckind() != 'raw':
         raise TypeError, "free(): only for pointers to non-gc containers"
-    p._obj._free()
+    p._obj0._free()
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
