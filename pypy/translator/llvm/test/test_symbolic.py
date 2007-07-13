@@ -166,7 +166,17 @@ def test_vararray():
     fn = compile_function(vararray, [int])
     assert fn(21) == 42
 
-
+def test_itemoffset_void():
+    py.test.skip("not supported")
+    A = lltype.GcArray(lltype.Void)
+    s = llmemory.sizeof(A, 1)
+    s += llmemory.sizeof(lltype.Signed)
+    print s
+    def f():
+        return s
+    fn = compile_function(f, [])
+    res = fn()
+    assert res > 0
 
 def test_is_early_constant():
     from pypy.rlib import jit
