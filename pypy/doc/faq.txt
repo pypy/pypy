@@ -368,6 +368,8 @@ How do I compile PyPy?
 
 See the `getting-started`_ guide.
 
+.. _`how do I compile my own interpreters`:
+
 --------------------------------------
 How do I compile my own interpreters?
 --------------------------------------
