@@ -16,6 +16,7 @@ from pypy.objspace.std import stdtypedef
 from pypy.rlib.rarithmetic import base_int
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.jit import hint, we_are_jitted
+from pypy.objspace.flow.flowcontext import PyFrame as FlowPyFrame
 import sys
 import os
 import __builtin__
@@ -58,7 +59,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Import all the object types and implementations
         self.model = StdTypeModel(self.config)
 
-        class StdObjSpaceFrame(pyframe.PyFrame):
+        class StdObjSpaceFrame(FlowPyFrame):
             if self.config.objspace.std.optimized_int_add:
                 if self.config.objspace.std.withsmallint:
                     def BINARY_ADD(f, oparg, *ignored):
@@ -103,19 +104,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         w_result = f.space.getitem(w_1, w_2)
                     f.pushvalue(w_result)
 
-            def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
-                from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
-                from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-                w_globals = f.w_globals
-                num = oparg >> 8
-                assert isinstance(w_globals, W_DictMultiObject)
-                w_value = w_globals.implementation.get_builtin_indexed(num)
-                if w_value is None:
-                    builtins = f.get_builtin()
-                    assert isinstance(builtins, Module)
-                    w_builtin_dict = builtins.w_dict
-                    assert isinstance(w_builtin_dict, W_DictMultiObject)
-                    w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
+            if self.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
+                def CALL_LIKELY_BUILTIN(f, oparg, *ignored):
+                    from pypy.module.__builtin__ import OPTIMIZED_BUILTINS, Module
+                    from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+                    w_globals = f.w_globals
+                    num = oparg >> 8
+                    assert isinstance(w_globals, W_DictMultiObject)
+                    w_value = w_globals.implementation.get_builtin_indexed(num)
+                    if w_value is None:
+                        builtins = f.get_builtin()
+                        assert isinstance(builtins, Module)
+                        w_builtin_dict = builtins.w_dict
+                        assert isinstance(w_builtin_dict, W_DictMultiObject)
+                        w_value = w_builtin_dict.implementation.get_builtin_indexed(num)
         ##                 if w_value is not None:
         ##                     print "CALL_LIKELY_BUILTIN fast"
                 if w_value is None:
