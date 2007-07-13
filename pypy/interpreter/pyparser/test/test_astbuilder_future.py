@@ -5,7 +5,7 @@ from pypy.interpreter.pyparser import astbuilder
 from fakes import FakeSpace
 
 
-class ParserStub():
+class ParserStub:
     def __init__(self):
         self.tokens = {}
         self._sym_count = 0
