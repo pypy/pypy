@@ -6,10 +6,10 @@ keeps information about C type sizes
 import py
 import os
 from pypy.translator.tool.cbuild import build_executable
-from py.compat.subprocess import PIPE, Popen
 from pypy.tool.udir import udir
 
 def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
+    from py.compat.subprocess import PIPE, Popen
     includes['stdio.h'] = True
     includes['sys' + os.path.sep + 'types.h'] = True
     include_string = "\n".join(["#include <%s>" % i for i in includes.keys()])
