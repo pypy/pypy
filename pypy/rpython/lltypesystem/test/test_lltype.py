@@ -427,7 +427,9 @@ def test_flavor_malloc():
     p = malloc(S, flavor="raw")
     assert typeOf(p).TO == S
     assert not isweak(p, S)
+    p.x = 2
     free(p, flavor="raw")
+    py.test.raises(RuntimeError, "p.x")
     T = GcStruct('T', ('y', Signed))
     p = malloc(T, flavor="gc")
     assert typeOf(p).TO == T

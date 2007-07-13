@@ -1664,6 +1664,7 @@ def free(p, flavor):
     T = typeOf(p)
     if not isinstance(T, Ptr) or p._togckind() != 'raw':
         raise TypeError, "free(): only for pointers to non-gc containers"
+    p._obj._free()
 
 def functionptr(TYPE, name, **attrs):
     if not isinstance(TYPE, FuncType):
