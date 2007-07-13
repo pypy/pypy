@@ -229,6 +229,8 @@ class Bookkeeper:
                     if clsdef.issubclass(clsdef2) and clsdef is not clsdef2:
                         del self.needs_hash_support[clsdef]
                         break
+
+            self.annotator.policy.compute_at_fixpoint(self.annotator)
         finally:
             self.leave()
 
@@ -531,6 +533,9 @@ class Bookkeeper:
             return result
 
     def see_mutable(self, x):
+        if x.__class__.__name__ == 'ExecutionContext':
+            import pdb
+            pdb.set_trace()
         if x in self.seen_mutable:
             return
         clsdef = self.getuniqueclassdef(x.__class__)        

@@ -6,6 +6,7 @@ from pypy.rpython import rmodel
 from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.objectmodel import debug_assert
 from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel
@@ -251,6 +252,7 @@ class FrameworkGCTransformer(GCTransformer):
             _alloc_flavor_ = 'raw'
             def setup_root_stack():
                 stackbase = lladdress.raw_malloc(rootstacksize)
+                debug_assert(bool(stackbase), "could not allocate root stack")
                 lladdress.raw_memclear(stackbase, rootstacksize)
                 gcdata.root_stack_top  = stackbase
                 gcdata.root_stack_base = stackbase

@@ -243,8 +243,8 @@ class GCTransformer(object):
             self.graphs_to_inline[graph] = True
         return self.mixlevelannotator.graph2delayed(graph)
 
-    def inittime_helper(self, ll_helper, ll_args, ll_result):
-        ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=True)
+    def inittime_helper(self, ll_helper, ll_args, ll_result, inline=True):
+        ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=inline)
         return Constant(ptr, lltype.typeOf(ptr))
 
     def finish_helpers(self):

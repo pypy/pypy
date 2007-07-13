@@ -10,6 +10,83 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy import conftest
 
+class LLInterpedTranformerTests:
+
+    def llinterpreter_for_transformed_graph(self, f, args_s):
+        from pypy.rpython.llinterp import LLInterpreter
+        from pypy.translator.c.genc import CStandaloneBuilder
+        from pypy.translator.c import gc
+
+        t = rtype(f, args_s)
+        # XXX we shouldn't need an actual gcpolicy here.
+        cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
+        db = cbuild.generate_graphs_for_llinterp()
+        graph = cbuild.getentrypointptr()._obj.graph
+        llinterp = LLInterpreter(t.rtyper)
+        if conftest.option.view:
+            t.view()
+        return llinterp, graph
+
+
+    def test_simple(self):
+        from pypy.annotation.model import SomeInteger
+
+        class C:
+            pass
+        c = C()
+        c.x = 1
+        def g(x):
+            if x:
+                return c
+            else:
+                d = C()
+                d.x = 2
+                return d
+        def f(x):
+            return g(x).x
+
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
+
+        res = llinterp.eval_graph(graph, [0])
+        assert res == f(0)
+        res = llinterp.eval_graph(graph, [1])
+        assert res == f(1)
+
+    def test_simple_varsize(self):
+        from pypy.annotation.model import SomeInteger
+
+        def f(x):
+            r = []
+            for i in range(x):
+                if i % 2:
+                    r.append(x)
+            return len(r)
+
+
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeInteger()])
+
+        res = llinterp.eval_graph(graph, [0])
+        assert res == f(0)
+        res = llinterp.eval_graph(graph, [10])
+        assert res == f(10)
+
+    def test_str(self):
+        from pypy.annotation.model import SomeString
+        from pypy.rpython.lltypesystem.rstr import string_repr
+
+        def f(x):
+            return len(x + 'a')
+
+
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeString()])
+
+        cc = string_repr.convert_const
+
+        res = llinterp.eval_graph(graph, [cc('a')])
+        assert res == f('a')
+        res = llinterp.eval_graph(graph, [cc('brrrrrr')])
+        assert res == f('brrrrrr')
+
 class _TestGCTransformer(GCTransformer):
 
     def push_alive_nopyobj(self, var, llops):

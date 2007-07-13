@@ -4,7 +4,7 @@ from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rlib.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 
@@ -97,7 +97,10 @@ class DummyGC(GCBase):
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             size += length * self.varsize_item_sizes(typeid)
-        return raw_malloc(size)
+        result = raw_malloc(size)
+        if not result:
+            raise memoryError
+        return result
          
     def collect(self):
         self.get_roots() #this is there so that the annotator thinks get_roots is a function
@@ -182,6 +185,8 @@ class MarkSweepGC(GCBase):
         except OverflowError:
             raise memoryError
         result = raw_malloc(tot_size)
+        if not result:
+            raise memoryError
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
         if has_finalizer:
@@ -208,6 +213,8 @@ class MarkSweepGC(GCBase):
         except OverflowError:
             raise memoryError
         result = raw_malloc(tot_size)
+        if not result:
+            raise memoryError
         raw_memclear(result, tot_size)
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
@@ -238,6 +245,8 @@ class MarkSweepGC(GCBase):
         except OverflowError:
             raise memoryError
         result = raw_malloc(tot_size)
+        if not result:
+            raise memoryError
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
@@ -270,6 +279,8 @@ class MarkSweepGC(GCBase):
         except OverflowError:
             raise memoryError
         result = raw_malloc(tot_size)
+        if not result:
+            raise memoryError
         raw_memclear(result, tot_size)        
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
@@ -942,8 +953,10 @@ class SemiSpaceGC(GCBase):
 
     def setup(self):
         self.tospace = raw_malloc(self.space_size)
+        debug_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
         self.fromspace = raw_malloc(self.space_size)
+        debug_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
 
     def free_memory(self):
@@ -1125,6 +1138,8 @@ class DeferredRefcountingGC(GCBase):
         size_gc_header = self.size_gc_header()
         result = raw_malloc(size + size_gc_header)
 ##         print "mallocing %s, size %s at %s" % (typeid, size, result)
+        if not result:
+            raise memoryError
         result.signed[0] = 0 # refcount
         result.signed[1] = typeid
         return result + size_gc_header

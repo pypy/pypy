@@ -48,6 +48,15 @@ class BasicGcPolicy(object):
     def gc_startup_code(self):
         return []
 
+    def struct_setup(self, structdefnode, rtti):
+        return None
+
+    def array_setup(self, arraydefnode):
+        return None
+
+    def rtti_type(self):
+        return ''
+
     def OP_GC_PUSH_ALIVE_PYOBJ(self, funcgen, op):
         expr = funcgen.expr(op.args[0])
         if expr == 'NULL':
@@ -108,14 +117,6 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     # zero malloc impl
 
-    def zero_malloc(self, TYPE, esize, eresult):
-        assert TYPE._gckind == 'gc'   # we don't really support this
-        typename = self.db.gettype(TYPE)
-        erestype = cdecl(typename, '*')
-        return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize, eresult, erestype)
-
-    malloc = zero_malloc
-
     def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         line = '%s(%s);' % (args[0], ', '.join(args[1:]))
@@ -171,43 +172,17 @@ class BoehmInfo:
 class BoehmGcPolicy(BasicGcPolicy):
     transformerclass = boehm.BoehmGCTransformer
 
-    def setup_gcinfo(self, defnode):
-        transformer = defnode.db.gctransformer
-        fptr = transformer.finalizer_funcptr_for_type(defnode.LLTYPE)
-        if fptr:
-            defnode.gcinfo = BoehmInfo()
-            defnode.gcinfo.finalizer = defnode.db.get(fptr)
-
     def array_setup(self, arraydefnode):
-        self.setup_gcinfo(arraydefnode)
+        pass
 
     def struct_setup(self, structdefnode, rtti):
-        self.setup_gcinfo(structdefnode)
+        pass
 
     def rtti_type(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode.typename
 
     def rtti_node_factory(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode
-
-    def zero_malloc(self, TYPE, esize, eresult):
-        gcinfo = self.db.gettypedefnode(TYPE).gcinfo
-        assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
-        is_atomic = TYPE._is_atomic()
-        is_varsize = TYPE._is_varsize()
-        typename = self.db.gettype(TYPE)
-        erestype = cdecl(typename, '*')
-        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (esize,
-                                                            eresult,
-                                                            erestype,
-                                                            is_atomic,
-                                                            is_varsize)
-        if gcinfo and gcinfo.finalizer:
-            result += ('\nGC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);'
-                       % (eresult, gcinfo.finalizer))
-        return result
-
-    malloc = zero_malloc
 
     def gc_libraries(self):
         if sys.platform == 'win32':
@@ -292,7 +267,6 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
         yield "#include <gc/gc_typed.h>"
 
     def struct_setup(self, structdefnode, rtti):
-        self.setup_gcinfo(structdefnode)
         T = structdefnode.STRUCT
         if T._is_atomic():
             malloc_exact = False
@@ -327,37 +301,11 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
                 self.get_descr_name(defnode), T)
             yield "}"
 
-    def zero_malloc(self, TYPE, esize, eresult):
-        defnode = self.db.gettypedefnode(TYPE)
-        gcinfo = defnode.gcinfo
-        if gcinfo:
-            if not gcinfo.malloc_exact:
-                assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
-                is_atomic = TYPE._is_atomic()
-                is_varsize = TYPE._is_varsize()
-                typename = self.db.gettype(TYPE)
-                erestype = cdecl(typename, '*')
-                result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (
-                    esize, eresult, erestype, is_atomic, is_varsize)
-            else:
-                result = '%s = GC_MALLOC_EXPLICITLY_TYPED(%s, %s);' % (
-                    eresult, esize, self.get_descr_name(defnode))
-            if gcinfo.finalizer:
-                result += ('\nGC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);'
-                       % (eresult, gcinfo.finalizer))
-        else:
-            return super(MoreExactBoehmGcPolicy, self).zero_malloc(
-                TYPE, esize, eresult)
-        return result
-
-    malloc = zero_malloc
 
 # to get an idea how it looks like with no refcount/gc at all
 
 class NoneGcPolicy(BoehmGcPolicy):
 
-    zero_malloc = RefcountingGcPolicy.zero_malloc.im_func
-    malloc = RefcountingGcPolicy.malloc.im_func
     gc_libraries = RefcountingGcPolicy.gc_libraries.im_func
     gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
 
@@ -411,11 +359,6 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def common_gcheader_initdata(self, defnode):
         o = top_container(defnode.obj)
         return defnode.db.gctransformer.gc_field_values_for(o)
-
-    def zero_malloc(self, TYPE, esize, eresult):
-        assert False, "a malloc operation in a framework build??"
-
-    malloc = zero_malloc
 
 class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = stacklessframework.StacklessFrameworkGCTransformer

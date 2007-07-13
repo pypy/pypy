@@ -8,11 +8,7 @@
 
 #define OP_RAW_MALLOC(size, r, restype)  {				\
 		r = (restype) PyObject_Malloc(size);			\
-		if (r == NULL) {					\
-			FAIL_EXCEPTION(PyExc_MemoryError,		\
-				       "out of memory");		\
-		} 							\
-		else {							\
+		if (r != NULL) {					\
 			memset((void*)r, 0, size);			\
 			COUNT_MALLOC;					\
 		}							\
@@ -22,13 +18,9 @@
 
 #define OP_RAW_MALLOC(size, r, restype)  {				\
 		r = (restype) PyObject_Malloc(size);			\
-		if (r == NULL) {					\
-			FAIL_EXCEPTION(PyExc_MemoryError,		\
-				       "out of memory");		\
-		} 							\
-		else {							\
+		if (r != NULL) {					\
 			COUNT_MALLOC;					\
-		}							\
+		} 							\
 	}
 
 #endif
@@ -124,11 +116,8 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 
 #define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)   {             \
 	r = (restype) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
-	if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");}  \
-        else {                                                               \
-            if (is_atomic)  /* the non-atomic versions return cleared memory */  \
-                memset((void*) r, 0, size);                                   \
-        }                                                                     \
+	if (r && is_atomic)  /* the non-atomic versions return cleared memory */ \
+                memset((void*) r, 0, size);				\
   }
 
 /* as we said in rbuiltin.py: 

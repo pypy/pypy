@@ -1,6 +1,6 @@
 import py
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.lltypesystem.lltype import Void
+from pypy.rpython.lltypesystem import lltype
 from pypy.translator.tool.cbuild import check_boehm_presence
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
@@ -62,7 +62,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test__del__(self):
         from pypy.rpython.lltypesystem.lloperation import llop
-        from pypy.rpython.lltypesystem import lltype
         class State:
             pass
         s = State()
@@ -98,7 +97,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_weakgcaddress_is_weak(self):
         from pypy.rpython.lltypesystem.lloperation import llop
-        from pypy.rpython.lltypesystem import lltype
         from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         class State:
             pass
@@ -130,7 +128,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_del_raises(self):
         from pypy.rpython.lltypesystem.lloperation import llop
-        from pypy.rpython.lltypesystem import lltype
         import os
         class A(object):
             def __del__(self):
@@ -160,7 +157,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert res > 0
 
     def test_memory_error_varsize(self):
-        from pypy.rpython.lltypesystem import lltype
         N = int(2**31-1)
         A = lltype.GcArray(lltype.Char)
         def alloc(n):
@@ -183,7 +179,7 @@ class TestUsingBoehm(AbstractGCTestClass):
         def prob_with_pyobj(b):
             return 3, b
         def collect():
-            llop.gc__collect(Void)
+            llop.gc__collect(lltype.Void)
         f = self.getcompiled(prob_with_pyobj, [object])
         c = self.getcompiled(collect, [])
         from sys import getrefcount as g
@@ -201,6 +197,23 @@ class TestUsingBoehm(AbstractGCTestClass):
         c()
         after = g(obj)
         assert abs(before - after) < 5
+
+    def test_zero_malloc(self):
+        T = lltype.GcStruct("C", ('x', lltype.Signed))
+        def fixed_size():
+            t = lltype.malloc(T, zero=True)
+            return t.x
+        c_fixed_size = self.getcompiled(fixed_size, [])
+        res = c_fixed_size()
+        assert res == 0
+        A = lltype.GcArray(lltype.Signed)
+        def var_size():
+            a = lltype.malloc(A, 1, zero=True)
+            return a[0]
+        c_var_size = self.getcompiled(var_size, [])
+        res = c_var_size()
+        assert res == 0
+
 
 
 class TestUsingExactBoehm(TestUsingBoehm):

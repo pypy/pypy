@@ -52,6 +52,10 @@ def somelettersfrom(s):
     else:
         return s[:2].lower()
 
+def is_pointer_to_forward_ref(T):
+    if not isinstance(T, lltype.Ptr):
+        return False
+    return isinstance(T.TO, lltype.ForwardReference)
 
 def llvalue_from_constant(c):
     try:
@@ -64,7 +68,12 @@ def llvalue_from_constant(c):
         if T == lltype.Void:
             return None
         else:
-            assert lltype.typeOf(c.value) == T
+            ACTUAL_TYPE = lltype.typeOf(c.value)
+            # If the type is still uncomputed, we can't make this
+            # check.  Something else will blow up instead, probably
+            # very confusingly.
+            if not is_pointer_to_forward_ref(ACTUAL_TYPE):
+                assert ACTUAL_TYPE == T
             return c.value
 
 

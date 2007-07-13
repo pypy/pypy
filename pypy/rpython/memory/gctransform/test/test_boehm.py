@@ -3,8 +3,13 @@ from pypy.rpython.memory.gctransform.test.test_transform import rtype_and_transf
 from pypy.rpython.memory.gctransform.test.test_refcounting import make_deallocator
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.translator import graphof
+from pypy.translator.c.gc import BoehmGcPolicy
+from pypy.rpython.memory.gctransform.test.test_transform import LLInterpedTranformerTests
 from pypy import conftest
 import py
+
+class TestLLInterpedBoehm(LLInterpedTranformerTests):
+    gcpolicy = BoehmGcPolicy
 
 def make_boehm_finalizer(TYPE):
     return make_deallocator(TYPE, attr="finalizer_funcptr_for_type",

@@ -510,62 +510,17 @@ class FunctionCodeGenerator(object):
                                      self.expr(op.args[0]),
                                      self.expr(op.args[1]))
 
-    def OP_ZERO_MALLOC(self, op):
-        TYPE = self.lltypemap(op.result).TO
-        typename = self.db.gettype(TYPE)
-        eresult = self.expr(op.result)
-        esize = 'sizeof(%s)' % cdecl(typename, '')
+    def OP_BOEHM_MALLOC(self, op):
+        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 0, 0);' % (self.expr(op.args[0]),
+                                                               self.expr(op.result))
 
-        return self.gcpolicy.zero_malloc(TYPE, esize, eresult)
+    def OP_BOEHM_MALLOC_ATOMIC(self, op):
+        return 'OP_BOEHM_ZERO_MALLOC(%s, %s, void*, 1, 0);' % (self.expr(op.args[0]),
+                                                               self.expr(op.result))
 
-    def OP_MALLOC(self, op):
-        TYPE = self.lltypemap(op.result).TO
-        typename = self.db.gettype(TYPE)
-        eresult = self.expr(op.result)
-        esize = 'sizeof(%s)' % cdecl(typename, '')
-
-        return self.gcpolicy.malloc(TYPE, esize, eresult)
-
-    OP_ZERO_MALLOC = OP_MALLOC
-    
-    def OP_MALLOC_VARSIZE(self, op):
-        TYPE = self.lltypemap(op.result).TO
-        typename = self.db.gettype(TYPE)
-        lenfld = 'length'
-        nodedef = self.db.gettypedefnode(TYPE)
-        if isinstance(TYPE, Struct):
-            arfld = TYPE._arrayfld
-            lenfld = "%s.length" % nodedef.c_struct_field_name(arfld)
-            VARPART = TYPE._flds[TYPE._arrayfld]
-        else:
-            VARPART = TYPE
-        assert isinstance(VARPART, Array)
-        itemtypename = self.db.gettype(VARPART.OF)
-        elength = self.expr(op.args[1])
-        eresult = self.expr(op.result)
-        if VARPART.OF is Void:    # strange
-            esize = 'sizeof(%s)' % (cdecl(typename, ''),)
-            result = '{\n'
-        else:
-            itemtype = cdecl(itemtypename, '')
-            result = 'IF_VARSIZE_OVERFLOW(%s, %s, %s)\nelse {\n' % (
-                elength,
-                itemtype,
-                eresult)
-            esize = 'sizeof(%s)-sizeof(%s)+%s*sizeof(%s)' % (
-                cdecl(typename, ''),
-                itemtype,
-                elength,
-                itemtype)
-        result += self.gcpolicy.zero_malloc(TYPE, esize, eresult)
-
-        # ctypes Arrays have no length field
-        if not VARPART._hints.get('nolength', False):
-            result += '\nif(%s) %s->%s = %s;' % (eresult, eresult, lenfld, elength)
-        result += '\n}'
-        return result
-    
-    OP_ZERO_MALLOC_VARSIZE = OP_MALLOC_VARSIZE
+    def OP_BOEHM_REGISTER_FINALIZER(self, op):
+        return 'GC_REGISTER_FINALIZER(%s, (GC_finalization_proc)%s, NULL, NULL, NULL);' \
+               % (self.expr(op.args[0]), self.expr(op.args[1]))
 
     def OP_RAW_MALLOC(self, op):
         eresult = self.expr(op.result)
@@ -573,6 +528,7 @@ class FunctionCodeGenerator(object):
         return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
 
     def OP_FLAVORED_MALLOC(self, op):
+        # XXX this function should DIE!
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
@@ -590,6 +546,7 @@ class FunctionCodeGenerator(object):
             raise NotImplementedError
 
     def OP_FLAVORED_MALLOC_VARSIZE(self, op):
+        # XXX this function should DIE!, at least twice over
         # XXX I know this working in just one case, probably makes
         # sense to assert it here, rest is just copied
         flavor = op.args[0].value

@@ -22,8 +22,8 @@ class AddressOffset(Symbolic):
             return NotImplemented
         return CompositeOffset(self, other)
 
-    def raw_malloc(self, rest, zero):
-        raise NotImplementedError("raw_malloc(%r, %r)" % (self, rest))
+    def _raw_malloc(self, rest, zero):
+        raise NotImplementedError("_raw_malloc(%r, %r)" % (self, rest))
 
     def raw_memcopy(self, srcadr, dstsrc):
         raise NotImplementedError("raw_memcopy(%r)" % (self,))
@@ -67,7 +67,7 @@ class ItemOffset(AddressOffset):
         else:
             raise TypeError('got %r, expected %r' % (A, self.TYPE))
 
-    def raw_malloc(self, rest, zero):
+    def _raw_malloc(self, rest, zero):
         assert not rest
         if (isinstance(self.TYPE, lltype.ContainerType)
             and self.TYPE._gckind == 'gc'):
@@ -118,12 +118,12 @@ class FieldOffset(AddressOffset):
         else:
             return lltype.direct_fieldptr(struct, self.fldname)
 
-    def raw_malloc(self, rest, parenttype=None, zero=False):
+    def _raw_malloc(self, rest, parenttype=None, zero=False):
         if self.fldname != self.TYPE._arrayfld:
             # for the error msg
-            return AddressOffset.raw_malloc(self, rest, zero=zero)
+            return AddressOffset._raw_malloc(self, rest, zero=zero)
         assert rest
-        return rest[0].raw_malloc(rest[1:], parenttype=parenttype or self.TYPE,
+        return rest[0]._raw_malloc(rest[1:], parenttype=parenttype or self.TYPE,
                                             zero=zero)
 
     def raw_memcopy(self, srcadr, dstadr):
@@ -171,8 +171,8 @@ class CompositeOffset(AddressOffset):
             ptr = item.ref(ptr)
         return ptr
 
-    def raw_malloc(self, rest, zero):
-        return self.offsets[0].raw_malloc(self.offsets[1:] + rest, zero=zero)
+    def _raw_malloc(self, rest, zero):
+        return self.offsets[0]._raw_malloc(self.offsets[1:] + rest, zero=zero)
 
     def raw_memcopy(self, srcadr, dstadr):
         for o in self.offsets[:-1]:
@@ -198,7 +198,7 @@ class ArrayItemsOffset(AddressOffset):
         else:
             return lltype.direct_arrayitems(arrayptr)
 
-    def raw_malloc(self, rest, parenttype=None, zero=False):
+    def _raw_malloc(self, rest, parenttype=None, zero=False):
         if rest:
             assert len(rest) == 1
             assert isinstance(rest[0], ItemOffset)
@@ -245,11 +245,11 @@ class GCHeaderOffset(AddressOffset):
         gcptr = self.gcheaderbuilder.object_from_header(headerptr)
         return gcptr
 
-    def raw_malloc(self, rest, zero):
+    def _raw_malloc(self, rest, zero):
         assert rest
         if isinstance(rest[0], GCHeaderAntiOffset):
-            return rest[1].raw_malloc(rest[2:], zero=zero)    # just for fun
-        gcobjadr = rest[0].raw_malloc(rest[1:], zero=zero)
+            return rest[1]._raw_malloc(rest[2:], zero=zero)    # just for fun
+        gcobjadr = rest[0]._raw_malloc(rest[1:], zero=zero)
         headerptr = self.gcheaderbuilder.new_header(gcobjadr.ptr)
         return cast_ptr_to_adr(headerptr)
 
@@ -271,10 +271,10 @@ class GCHeaderAntiOffset(AddressOffset):
         headerptr = self.gcheaderbuilder.header_of_object(gcptr)
         return headerptr
 
-    def raw_malloc(self, rest, zero):
+    def _raw_malloc(self, rest, zero):
         assert len(rest) >= 2
         assert isinstance(rest[0], GCHeaderOffset)
-        return rest[1].raw_malloc(rest[2:], zero=zero)
+        return rest[1]._raw_malloc(rest[2:], zero=zero)
 
 # ____________________________________________________________
 
@@ -543,7 +543,7 @@ WEAKNULL = fakeweakaddress(None)
 def raw_malloc(size):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
-    return size.raw_malloc([], zero=False)
+    return size._raw_malloc([], zero=False)
 
 def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
@@ -568,7 +568,7 @@ def raw_memclear(adr, size):
     if not isinstance(size, AddressOffset):
         raise NotImplementedError(size)
     assert lltype.typeOf(adr) == Address
-    zeroadr = size.raw_malloc([], zero=True)
+    zeroadr = size._raw_malloc([], zero=True)
     size.raw_memcopy(zeroadr, adr)
 
 def raw_memcopy(source, dest, size):
@@ -615,7 +615,7 @@ class ArenaRange(AddressOffset):
         self.unitsize = unitsize
         self.n = n
 
-    def raw_malloc(self, rest, zero=False):
+    def _raw_malloc(self, rest, zero=False):
         assert not rest
         arena = _arena(self, zero=zero)
         return arena.getitemaddr(0)

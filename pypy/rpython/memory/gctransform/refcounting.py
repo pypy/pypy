@@ -45,7 +45,9 @@ class RefcountingGCTransformer(GCTransformer):
 
         # create incref, etc  graph
 
+        memoryError = MemoryError()
         HDRPTR = lltype.Ptr(self.HDR)
+
         def ll_incref(adr):
             if adr:
                 gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
@@ -71,6 +73,8 @@ class RefcountingGCTransformer(GCTransformer):
         def ll_malloc_fixedsize(size):
             size = gc_header_offset + size
             result = lladdress.raw_malloc(size)
+            if not result:
+                raise memoryError
             lladdress.raw_memclear(result, size)
             result += gc_header_offset
             return result
@@ -80,8 +84,10 @@ class RefcountingGCTransformer(GCTransformer):
                 varsize = ovfcheck(itemsize * length)
                 tot_size = ovfcheck(fixsize + varsize)
             except OverflowError:
-                raise MemoryError
+                raise memoryError
             result = lladdress.raw_malloc(tot_size)
+            if not result:
+                raise memoryError
             lladdress.raw_memclear(result, tot_size)
             result += gc_header_offset
             return result
@@ -149,6 +155,8 @@ class RefcountingGCTransformer(GCTransformer):
                           resulttype=llmemory.Address)
         hop.cast_result(v_raw)
 
+    gct_zero_malloc = gct_malloc
+
     def gct_malloc_varsize(self, hop):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
 
@@ -183,6 +191,8 @@ class RefcountingGCTransformer(GCTransformer):
                                 c_const_size, c_item_size, intconst(offset_to_length)],
                                resulttype=llmemory.Address)
         hop.cast_result(v_raw)
+
+    gct_zero_malloc_varsize = gct_malloc_varsize
 
     def gct_gc_deallocate(self, hop):
         TYPE = hop.spaceop.args[0].value
