@@ -19,6 +19,7 @@ Do next
 - comparison: < > eq? eqv?
 
 - rational, complex number types
+  - exact/inexact
 
 Do in some future
 -----------------

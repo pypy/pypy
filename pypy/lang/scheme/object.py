@@ -1,4 +1,4 @@
-import autopath
+import py
 
 class SchemeException(Exception):
     pass
@@ -142,6 +142,15 @@ class W_Callable(W_Root):
     def call(self, ctx, lst):
         raise NotImplementedError
 
+    def eval_body(self, ctx, body):
+        body_expression = body
+        body_result = None
+        while not isinstance(body_expression, W_Nil):
+            body_result = body_expression.car.eval(ctx)
+            body_expression = body_expression.cdr
+
+        return body_result
+
 class W_Procedure(W_Callable):
     def __init__(self, pname=""):
         self.pname = pname
@@ -211,13 +220,7 @@ class W_Lambda(W_Procedure):
             else:
                 local_ctx.put(formal.name, lst[idx])
 
-        body_expression = self.body
-        body_result = None
-        while not isinstance(body_expression, W_Nil):
-            body_result = body_expression.car.eval(local_ctx)
-            body_expression = body_expression.cdr
-
-        return body_result # self.body.eval(local_ctx)
+        return self.eval_body(local_ctx, self.body)
 
 def plst2lst(plst):
     """coverts python list() of W_Root into W_Pair scheme list"""
@@ -233,6 +236,9 @@ def plst2lst(plst):
 ##
 class ListOper(W_Procedure):
     def procedure(self, ctx, lst):
+        if len(lst) == 1:
+            return self.unary_oper(lst[0].eval(ctx))
+
         acc = None
         for arg in lst:
             if acc is None:
@@ -242,38 +248,50 @@ class ListOper(W_Procedure):
 
         return acc
 
+    def unary_oper(self, x):
+        if isinstance(x, W_Float):
+            return W_Float(self.do_unary_oper_float(x.to_float()))
+        else:
+            return W_Fixnum(self.do_unary_oper_int(x.to_fixnum()))
+
     def oper(self, x, y):
         if isinstance(x, W_Float) or isinstance(y, W_Float):
             return W_Float(self.do_oper_float(x.to_float(), y.to_float()))
         else:
             return W_Fixnum(self.do_oper_int(x.to_fixnum(), y.to_fixnum()))
 
-class Add(ListOper):
-    def do_oper_int(self, x, y):
-        return x + y
+def create_op_class(oper, unary_oper):
+    class Op(ListOper):
+        pass
 
-    def do_oper_float(self, x, y):
-        return x + y
+    local_locals = {}
+    for name in ["int", "float"]:
 
-class Sub(ListOper):
-    def procedure(self, ctx, lst):
-        if len(lst) == 1:
-            return ListOper.procedure(self, ctx, [W_Fixnum(0), lst[0]])
-        else:
-            return ListOper.procedure(self, ctx, lst)
+        attr_name = "do_oper_%s" % (name, )
 
-    def do_oper_int(self, x, y):
-        return x - y
+        code = py.code.Source("""
+        def %s(self, x, y):
+            return x %s y
+            """ % (attr_name, oper))
 
-    def do_oper_float(self, x, y):
-        return x - y
+        exec code.compile() in local_locals
+        setattr(Op, attr_name, local_locals[attr_name])
 
-class Mul(ListOper):
-    def do_oper_int(self, x, y):
-        return x * y
+        attr_name = "do_unary_oper_%s" % (name, )
+        code = py.code.Source("""
+        def %s(self, x):
+            return %s x
+            """ % (attr_name, unary_oper))
 
-    def do_oper_float(self, x, y):
-        return x * y
+        exec code.compile() in local_locals
+        setattr(Op, attr_name, local_locals[attr_name])
+
+    return Op
+
+Add = create_op_class('+', '')
+Sub = create_op_class('-', '-')
+Mul = create_op_class('*', '')
+Div = create_op_class('/', '1 /')
 
 class List(W_Procedure):
     def procedure(self, ctx, lst):
@@ -356,13 +374,7 @@ class Let(W_Macro):
             local_ctx.put(name, val)
             w_formal = w_formal.cdr
 
-        body_expression = lst.cdr
-        body_result = None
-        while not isinstance(body_expression, W_Nil):
-            body_result = body_expression.car.eval(local_ctx)
-            body_expression = body_expression.cdr
-
-        return body_result
+        return self.eval_body(local_ctx, lst.cdr)
 
 class Letrec(W_Macro):
     def call(self, ctx, lst):
@@ -383,13 +395,7 @@ class Letrec(W_Macro):
             local_ctx.set(name, val)
             w_formal = w_formal.cdr
 
-        body_expression = lst.cdr
-        body_result = None
-        while not isinstance(body_expression, W_Nil):
-            body_result = body_expression.car.eval(local_ctx)
-            body_expression = body_expression.cdr
-
-        return body_result
+        return self.eval_body(local_ctx, lst.cdr)
 
 def Literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
@@ -417,6 +423,7 @@ OMAP = \
         '+': Add,
         '-': Sub,
         '*': Mul,
+        '/': Div,
             #list operations
         'cons': Cons,
         'car': Car,
