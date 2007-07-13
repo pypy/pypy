@@ -879,6 +879,14 @@ def build_import_from(builder, nb):
     builder.push(ast.From(from_name, names, atoms[0].lineno))
 
 
+def build_future_import_feature(builder, nb):
+    """
+    future_import_feature: NAME [('as'|NAME) NAME]
+
+    Enables python language future imports. Called once per feature imported,
+    no matter how you got to this one particular feature.
+    """
+
 def build_yield_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
     builder.push(ast.Yield(atoms[1], atoms[0].lineno))
@@ -1038,7 +1046,8 @@ ASTRULES_Template = {
     'while_stmt' : build_while_stmt,
     'import_name' : build_import_name,
     'import_from' : build_import_from,
-    'future_import_feature': None,
+    'future_import_feature': build_future_import_feature,
+    'import_from_future': build_import_from,
     'yield_stmt' : build_yield_stmt,
     'continue_stmt' : build_continue_stmt,
     'del_stmt' : build_del_stmt,
