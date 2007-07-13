@@ -36,67 +36,6 @@ class GcPolicy:
                     exc_flag=False):
         raise NotImplementedError, 'GcPolicy should not be used directly'
 
-    def zeromalloc(self, codewriter, targetvar, type_, size=1, atomic=False,
-                   exc_flag=False):
-        uword = self.db.get_machine_uword()
-        malloc_ptr = '%malloc_ptr' + self.get_count(True)
-        malloc_size = '%malloc_size' + self.get_count()
-        malloc_sizeu = '%malloc_sizeu' + self.get_count()
-        
-        codewriter.getelementptr(malloc_size, type_, 'null',
-                                 [(uword, size)], getptr=False)
-        codewriter.cast(malloc_sizeu, type_, malloc_size, uword)
-        self._zeromalloc(codewriter, malloc_ptr, malloc_sizeu, atomic, exc_flag)
-        codewriter.cast(targetvar, 'sbyte*', malloc_ptr, type_)            
-
-    def var_zeromalloc(self, codewriter, targetvar,
-                       type_, node, len, atomic=False):
-
-        word = lentype = self.db.get_machine_word()
-        uword = self.db.get_machine_uword()
-        malloc_ptr = '%malloc_ptr' + self.get_count(True)
-        malloc_size = '%malloc_size' + self.get_count()
-        malloc_sizeu = '%malloc_sizeu' + self.get_count()
-        actuallen = '%actuallen' + self.get_count()
-        arraylength = '%arraylength' + self.get_count()
-        
-        ARRAY, indices_to_array = node.var_malloc_info()
-        
-        #varsized arrays and structs look like this: 
-        #Array: {int length , elemtype*}
-        #Struct: {...., Array}
-        
-        # the following indices access the last element in the array
-        elemtype = self.db.repr_type(ARRAY.OF)
-        word = lentype = self.db.get_machine_word()
-        uword = self.db.get_machine_uword()
-        
-        # need room for NUL terminator
-        if ARRAY is STR.chars:
-            codewriter.binaryop('add', actuallen, lentype, len, 1)
-        else:
-            codewriter.cast(actuallen, lentype, len, lentype)
-            
-        elemindices = list(indices_to_array)
-        elemindices += [('uint', 1), (lentype, actuallen)]
-        codewriter.getelementptr(malloc_size, type_, 'null', elemindices) 
-        codewriter.cast(malloc_sizeu, elemtype + '*', malloc_size, uword)
-        
-        self._zeromalloc(codewriter, malloc_ptr, malloc_sizeu, atomic=atomic)
-
-        indices_to_arraylength = tuple(indices_to_array) + (('uint', 0),)
-
-        codewriter.cast(targetvar, 'sbyte*', malloc_ptr, type_)
-
-        #XXX ctypes Arrays have no length field
-        #XXXif not VARPART._hints.get('nolength', False):
-
-        # the following accesses the length field of the array 
-        codewriter.getelementptr(arraylength, type_, 
-                                 targetvar,  indices_to_arraylength)
-        codewriter.store(lentype, len, arraylength)
-
-
     def op_call_rtti_destructor(self, codewriter, opr):
         raise Exception, 'GcPolicy should not be used directly'
      
@@ -201,14 +140,14 @@ def GC_get_heap_size_wrapper():
 ##            atomic = False 
 
         # malloc_size is unsigned right now
-        sizei = '%malloc_sizei' + self.get_count()        
-        codewriter.cast(sizei, uword, size, word)
-        codewriter.call(targetvar, 'sbyte*', fnname, [word], [sizei])
+        sizeu = '%malloc_sizeu' + self.get_count()        
+        codewriter.cast(sizeu, word, size, uword)
+        codewriter.call(targetvar, 'sbyte*', fnname, [word], [size])
 
         if atomic:
             codewriter.call(None, 'void', '%llvm.memset' + postfix(),
                             ['sbyte*', 'ubyte', uword, uword],
-                            [targetvar, 0, size, boundary_size],
+                            [targetvar, 0, sizeu, boundary_size],
                             cconv='ccc')        
 
 

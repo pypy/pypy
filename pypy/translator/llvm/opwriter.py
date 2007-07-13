@@ -279,36 +279,15 @@ class OpWriter(object):
     # is of type Void, which is removed by direct_call
     indirect_call = direct_call
 
-    def malloc(self, opr):
-        arg_type = opr.op.args[0].value
+    def boehm_malloc(self, opr):
+        self.db.gcpolicy._zeromalloc(self.codewriter, opr.retref, opr.argrefs[0], atomic=False)
 
-        # XXX hack better to look at the actual structure
-        name = str(opr.op.args[0])
-        exc = False
-        if 'Exception' in name or 'Error' in name:
-            exc = True
+    def boehm_malloc_atomic(self, opr):
+        self.db.gcpolicy._zeromalloc(self.codewriter, opr.retref, opr.argrefs[0], atomic=True)
 
-        self.db.gcpolicy.zeromalloc(self.codewriter, opr.retref, opr.rettype,
-                                    atomic=arg_type._is_atomic(), exc_flag=exc)
-
-    zero_malloc = malloc
-
-    def malloc_varsize(self, opr):
-
-        # XXX transformation perhaps?
-        arg_type = opr.op.args[0].value
-        if isinstance(arg_type, lltype.Array) and arg_type.OF is lltype.Void:
-            # This is a backend decision to NOT represent a void array with
-            # anything and save space - therefore not varsized anymore
-            self.malloc(opr)
-            return
-
-        node = self.db.obj2node[arg_type]
-        self.db.gcpolicy.var_zeromalloc(self.codewriter, opr.retref,
-                                        opr.rettype, node, opr.argrefs[1],
-                                        atomic=arg_type._is_atomic())
-
-    zero_malloc_varsize = malloc_varsize
+    def boehm_register_finalizer(self, opr):
+        # ha, ha
+        pass
 
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
