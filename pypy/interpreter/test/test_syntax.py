@@ -491,6 +491,30 @@ if 1:
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
         
+    def test_with_as_keyword_and_docstring(self):
+        try:
+            exec "'Docstring'\nfrom __future__ import with_statement\nwith = 9"
+        except SyntaxError:
+            pass
+        else:
+            assert False, 'Assignment to with did not raise SyntaxError'
+        
+    def test_with_as_keyword_compound(self):
+        try:
+            exec "from __future__ import generators, with_statement\nwith = 9"
+        except SyntaxError:
+            pass
+        else:
+            assert False, 'Assignment to with did not raise SyntaxError'
+        
+    def test_with_as_keyword_multiple(self):
+        try:
+            exec "from __future__ import generators\nfrom __future__ import with_statement\nwith = 9"
+        except SyntaxError:
+            pass
+        else:
+            assert False, 'Assignment to with did not raise SyntaxError'
+        
     def test_as_as_identifier(self):
         exec "as = 9"
         exec "import sys as foo"

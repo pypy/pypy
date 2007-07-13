@@ -2,7 +2,6 @@
 from pypy.interpreter.pyparser.grammar import Parser
 
 
-
 def test_symbols():
     p = Parser()
     x1 = p.add_symbol('sym')
@@ -43,3 +42,90 @@ def test_load():
     assert v == 6
     v = p.add_symbol( 'sym3' )
     assert v == 9
+
+class FakeSpace:
+    w_None = None
+    w_str = str
+    w_basestring = basestring
+    w_int = int
+    
+    def wrap(self,obj):
+        return obj
+
+    def isinstance(self, obj, wtype ):
+        return isinstance(obj,wtype)
+
+    def is_true(self, obj):
+        return obj
+
+    def eq_w(self, obj1, obj2):
+        return obj1 == obj2
+
+    def is_w(self, obj1, obj2):
+        return obj1 is obj2
+
+    def type(self, obj):
+        return type(obj)
+
+    def newlist(self, lst):
+        return list(lst)
+
+    def newtuple(self, lst):
+        return tuple(lst)
+    
+    def call_method(self, obj, meth, *args):
+        return getattr(obj, meth)(*args)
+
+    def call_function(self, func, *args):
+        return func(*args)
+
+    builtin = dict(int=int, long=long, float=float, complex=complex)
+
+from pypy.interpreter.pyparser.asthelper import get_atoms
+class RuleTracer(dict):
+    
+    def __init__(self, *args, **kw):
+        self.trace = []
+
+    def __getitem__(self, attr):
+        if attr in ['file_input', 'future_import_list', 'import_from_future',
+                    'future_import_as_names']:
+            return lambda *args: None
+        
+        def record_trace(builder, number):
+            result = [t.value for t in get_atoms(builder, number)]
+            self.trace.append((attr, result))
+        return record_trace
+
+    def get(self, attr, default):
+        return self.__getitem__(attr)
+    
+from pypy.interpreter.pyparser.astbuilder import AstBuilder
+class MockBuilder(AstBuilder):
+
+    def __init__(self, *args, **kw):
+        AstBuilder.__init__(self, *args, **kw)
+        self.build_rules = RuleTracer()
+
+class TestFuture(object):
+
+    def setup_class(self):
+        from pypy.interpreter.pyparser.pythonparse import make_pyparser
+        self.parser = make_pyparser('2.5a')
+
+    def setup_method(self, method):
+        self.builder = MockBuilder(self.parser, space=FakeSpace())
+    def check_parse(self, tst, expected):
+        self.parser.parse_source(tst, 'exec' , self.builder)
+        assert self.builder.build_rules.trace == expected
+        
+    def test_single_future_import(self):
+        tst = 'from __future__ import na\n'
+        expected = [('future_import_feature', ['na'])]
+        self.check_parse(tst, expected)
+        
+    def test_double_future_import(self):
+        tst = 'from __future__ import na, xx\n'
+        expected = [('future_import_feature', ['na']),
+                    ('future_import_feature', ['xx'])]
+        self.check_parse(tst, expected)
