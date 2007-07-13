@@ -1,3 +1,4 @@
+from pypy.interpreter.pyparser.asthelper import get_atoms
 from pypy.interpreter.pyparser.grammar import Parser
 from pypy.interpreter.pyparser import error
 from fakes import FakeSpace
@@ -45,17 +46,18 @@ def test_load():
     assert v == 9
 
 
-from pypy.interpreter.pyparser.asthelper import get_atoms
 class RuleTracer(dict):
 
     def __init__(self, *args, **kw):
         self.trace = []
+        self.exclude_rules = [
+            'dotted_name', 'dotted_as_name', 'dotted_as_names',
+            'import_stmt', 'small_stmt', 'simple_stmt', 'stmt',
+            'single_input', 'file_input', 'future_import_list',
+            'import_from_future', 'future_import_as_names']
 
     def __getitem__(self, attr):
-        if attr in ['dotted_name', 'dotted_as_name', 'dotted_as_names',
-                    'import_stmt', 'small_stmt', 'simple_stmt', 'stmt',
-                    'single_input', 'file_input', 'future_import_list',
-                    'import_from_future', 'future_import_as_names']:
+        if attr in self.exclude_rules:
             return None
 
         def record_trace(builder, number):
@@ -140,3 +142,19 @@ from __future__ import yy
         expected = [('import_name', ['import', 'sys'])]
         self.check_parse(tst, expected)
 
+    def test_future_import_atoms(self):
+        self.builder.build_rules.exclude_rules.remove('import_from_future')
+        self.builder.build_rules.exclude_rules.append('future_import_feature')
+        tst = 'from __future__ import na as x\n'
+        expected = [('import_from_future',
+                     ['from', '__future__', 'import', 'na', 'as', 'x'])]
+        self.check_parse(tst, expected)
+
+    def test_regular_from(self):
+        self.builder.build_rules.exclude_rules.extend([
+            'import_as_name', 'import_as_names'])
+
+        tst = 'from stuff import na as x\n'
+        expected = [('import_from',
+                     ['from', 'stuff', 'import', 'na', 'as', 'x'])]
+        self.check_parse(tst, expected)

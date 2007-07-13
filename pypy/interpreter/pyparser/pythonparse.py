@@ -90,7 +90,7 @@ class PythonParser(grammar.Parser):
         'single' : "single_input",
         'exec' : "file_input",
         }
-    
+
     def __init__(self): # , predefined_symbols=None):
         grammar.Parser.__init__(self)
         pytoken.setup_tokens(self)
@@ -102,7 +102,7 @@ class PythonParser(grammar.Parser):
 
     def is_base_token(self, tokvalue):
         return tokvalue < 0 or tokvalue >= self._basetokens_count
-            
+
     def parse_source(self, textsrc, mode, builder, flags=0):
         """Parse a python source according to goal"""
         goal = self.targets[mode]
@@ -149,7 +149,7 @@ class PythonParser(grammar.Parser):
                     if real_rule is not rule.args[i]:
                         rule.args[i] = real_rule
 
-    
+
     def insert_rule(self, ruledef):
         """parses <ruledef> and inserts corresponding rules in the parser"""
         # parse the ruledef(s)

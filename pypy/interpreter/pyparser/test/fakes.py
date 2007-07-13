@@ -5,7 +5,10 @@ class FakeSpace:
     w_basestring = basestring
     w_int = int
 
-    def wrap(self,obj):
+    def wrap(self, obj):
+        return obj
+
+    def unwrap(self, obj):
         return obj
 
     def isinstance(self, obj, wtype ):

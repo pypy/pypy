@@ -886,6 +886,20 @@ def build_future_import_feature(builder, nb):
     Enables python language future imports. Called once per feature imported,
     no matter how you got to this one particular feature.
     """
+    atoms = peek_atoms(builder, nb)
+    feature_name = atoms[0].value
+    space = builder.space
+    w_feature_code = space.appexec([space.wrap(feature_name)],
+        """(feature):
+            import __future__ as f
+            feature = getattr(f, feature, None)
+            return feature and feature.compiler_flag or 0
+        """)
+
+    # We will call a method on the parser (the method exists only in unit
+    # tests).
+    builder.parser.add_production(space.unwrap(w_feature_code))
+
 
 def build_yield_stmt(builder, nb):
     atoms = get_atoms(builder, nb)
@@ -1062,7 +1076,7 @@ ASTRULES_Template = {
     'eval_input' : build_eval_input,
     'with_stmt' : build_with_stmt,
     }
-    
+
 
 class AstBuilderContext(AbstractContext):
     """specific context management for AstBuidler"""
@@ -1088,7 +1102,7 @@ class AstBuilder(BaseGrammarBuilder):
         self.with_enabled = True
         # XXX
         # self.keywords.update({'with':None, 'as': None})
-        
+
     def context(self):
         return AstBuilderContext(self.rule_stack)
 

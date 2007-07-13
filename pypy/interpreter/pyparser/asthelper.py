@@ -417,6 +417,26 @@ def get_atoms(builder, nb):
     atoms.reverse()
     return atoms
 
+
+def peek_atoms(builder, nb):
+    atoms = []
+
+    i = nb
+    current = len(builder.rule_stack) - 1
+    while i > 0:
+        assert current >= 0
+        obj = builder.rule_stack[current]
+        if isinstance(obj, BaseRuleObject):
+            i += obj.count
+        else:
+            atoms.append( obj )
+        i -= 1
+        current -= 1
+
+    atoms.reverse()
+    return atoms
+
+
 #def eval_string(value):
 #    """temporary implementation
 #
