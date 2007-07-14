@@ -175,6 +175,17 @@ def test_no_multiple_transform():
     etrafo2 = exceptiontransform.ExceptionTransformer(t)
     py.test.raises(AssertionError, etrafo2.create_exception_handling, g)
 
+def test_preserve_can_raise():
+    def f(x):
+        raise ValueError
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    g = graphof(t, f)
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.create_exception_handling(g)    
+    assert etrafo.raise_analyzer.analyze_direct_call(g)
+
 def test_inserting_zeroing_op():
     from pypy.rpython.lltypesystem import lltype
     S = lltype.GcStruct("S", ('x', lltype.Signed))

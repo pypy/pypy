@@ -180,6 +180,7 @@ class ExceptionTransformer(object):
             assert self.exc_data_ptr._same_obj(graph.exceptiontransformed)
             return
         else:
+            self.raise_analyzer.analyze_direct_call(graph)
             graph.exceptiontransformed = self.exc_data_ptr
 
         self.always_exc_clear = always_exc_clear
