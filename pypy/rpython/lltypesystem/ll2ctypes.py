@@ -2,6 +2,11 @@ import sys
 import ctypes
 import ctypes.util
 from pypy.rpython.lltypesystem import lltype
+from pypy.tool.uid import fixid
+
+
+def uaddressof(obj):
+    return fixid(ctypes.addressof(obj))
 
 
 _ctypes_cache = {
@@ -48,6 +53,9 @@ def build_ctypes_struct(S, max_n=None):
             cobj = lltype2ctypes(value)
             setattr(self, field_name, cobj)
 
+        def _eq(self, other):
+            return ctypes.addressof(self) == ctypes.addressof(other)
+
     CStruct.__name__ = 'ctypes_%s' % (S,)
     if max_n is not None:
         CStruct._normalized_ctype = get_ctypes_type(S)
@@ -75,13 +83,29 @@ def build_ctypes_array(A, max_n=0):
             return bigarray
         _malloc = classmethod(_malloc)
 
-        def _getitem(self, index):
-            cobj = self.items[index]
+        def _indexable(self, index):
+            PtrType = ctypes.POINTER((index+1) * ctypes_item)
+            p = ctypes.cast(ctypes.pointer(self.items), PtrType)
+            return p.contents
+
+        def _getitem(self, index, boundscheck=True):
+            if boundscheck:
+                items = self.items
+            else:
+                items = self._indexable(index)
+            cobj = items[index]
             return ctypes2lltype(ITEM, cobj)
 
-        def _setitem(self, index, value):
+        def _setitem(self, index, value, boundscheck=True):
+            if boundscheck:
+                items = self.items
+            else:
+                items = self._indexable(index)
             cobj = lltype2ctypes(value)
-            self.items[index] = cobj
+            items[index] = cobj
+
+        def _eq(self, other):
+            return ctypes.addressof(self) == ctypes.addressof(other)
 
     CArray.__name__ = 'ctypes_%s*%d' % (A, max_n)
     if max_n > 0:
@@ -111,9 +135,14 @@ def convert_struct(container):
     container._ctypes_storage = cstruct
     for field_name in STRUCT._names:
         field_value = getattr(container, field_name)
-        delattr(container, field_name)
         if not isinstance(field_value, lltype._uninitialized):
             setattr(cstruct, field_name, lltype2ctypes(field_value))
+    remove_regular_struct_content(container)
+
+def remove_regular_struct_content(container):
+    STRUCT = container._TYPE
+    for field_name in STRUCT._names:
+        delattr(container, field_name)
 
 def convert_array(container):
     ARRAY = container._TYPE
@@ -122,9 +151,31 @@ def convert_array(container):
     container._ctypes_storage = carray
     for i in range(container.getlength()):
         item_value = container.items[i]    # fish fish
-        container.items[i] = None
         if not isinstance(item_value, lltype._uninitialized):
             carray.items[i] = lltype2ctypes(item_value)
+    remove_regular_array_content(container)
+
+def remove_regular_array_content(container):
+    for i in range(container.getlength()):
+        container.items[i] = None
+
+class _array_of_unknown_length(lltype._parentable):
+    _kind = "array"
+
+    __slots__ = ()
+
+    def __repr__(self):
+        return '<C array at 0x%x>' % (uaddressof(self._ctypes_storage),)
+
+    def getbounds(self):
+        # we have no clue, so we allow whatever index
+        return 0, sys.maxint
+
+    def getitem(self, index, uninitialized_ok=False):
+        return self._ctypes_storage._getitem(index, boundscheck=False)
+
+    def setitem(self, index, value):
+        self._ctypes_storage._setitem(index, value, boundscheck=False)
 
 # ____________________________________________________________
 
@@ -160,6 +211,21 @@ def ctypes2lltype(T, cobj):
     """
     if T is lltype.Char:
         llobj = chr(cobj)
+    elif isinstance(T, lltype.Ptr):
+        if isinstance(T.TO, lltype.Struct):
+            # XXX var-sized structs
+            container = lltype._struct(T.TO)
+            container._ctypes_storage = cobj.contents
+            remove_regular_struct_content(container)
+        elif isinstance(T.TO, lltype.Array):
+            if T.TO._hints.get('nolength', False):
+                container = _array_of_unknown_length(T.TO)
+                container._ctypes_storage = cobj.contents
+            else:
+                raise NotImplementedError("array with an explicit length")
+        else:
+            raise NotImplementedError(T)
+        llobj = lltype._ptr(T, container, solid=True)
     else:
         llobj = cobj
 

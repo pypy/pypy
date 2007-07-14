@@ -1248,6 +1248,18 @@ class _parentable(_container):
     def _setup_extra_args(self):
         pass
 
+    def __eq__(self, other):
+        if not isinstance(other, _parentable):
+            return False
+        if (self._ctypes_storage is not None and
+            other._ctypes_storage is not None):
+            return self._ctypes_storage._eq(other._ctypes_storage)
+        else:
+            return self is other
+
+    def __ne__(self, other):
+        return not (self == other)
+
 def _struct_variety(flds, cache={}):
     flds = list(flds)
     flds.sort()
