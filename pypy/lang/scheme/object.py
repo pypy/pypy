@@ -29,7 +29,7 @@ class SchemeQuit(SchemeException):
     pass
 
 class W_Root(object):
-    #__slots__ = []
+    __slots__ = []
 
     def to_string(self):
         return ''
@@ -553,7 +553,7 @@ class MacroIf(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_condition = lst.car
-        lst_cdr = lst.get_cdr_as_pair() 
+        lst_cdr = lst.get_cdr_as_pair()
         w_then = lst_cdr.car
         if isinstance(lst_cdr.cdr, W_Nil):
             w_else = W_Boolean(False)
@@ -581,7 +581,7 @@ class Let(W_Macro):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil):
+        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
             name = w_formal.get_car_as_pair().car.to_string()
             #evaluate the values in caller ctx
             val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(ctx)
@@ -599,14 +599,14 @@ class Letrec(W_Macro):
 
         #bound variables
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil):
+        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
             name = w_formal.get_car_as_pair().car.to_string()
             local_ctx.put(name, W_Nil())
             w_formal = w_formal.cdr
 
         #eval in local_ctx and assign values 
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil):
+        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
             name = w_formal.get_car_as_pair().car.to_string()
             val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(local_ctx)
             local_ctx.set(name, val)
