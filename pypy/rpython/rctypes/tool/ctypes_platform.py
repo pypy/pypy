@@ -86,7 +86,7 @@ def configure(CConfig):
         print >> f, '}'
         print >> f
 
-    print >> f, 'int main(void) {'
+    print >> f, 'int main(int argc, char *argv[]) {'
     for key, entry in entries:
         print >> f, '\tprintf("-+- %s\\n");' % (key,)
         print >> f, '\tdump_section_%s();' % (key,)
