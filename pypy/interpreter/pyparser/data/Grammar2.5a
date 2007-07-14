@@ -69,15 +69,12 @@ global_stmt: 'global' NAME (',' NAME)*
 exec_stmt: 'exec' expr ['in' test [',' test]]
 assert_stmt: 'assert' test [',' test]
 
-# TODO: with_stmt should be added dynamically to compund_stmt if 
-# imported from __future__
 compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | funcdef | classdef
 if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
 while_stmt: 'while' test ':' suite ['else' ':' suite]
 for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
 try_stmt: ('try' ':' suite (except_clause ':' suite)+ #diagram:break
            ['else' ':' suite] | 'try' ':' suite 'finally' ':' suite)
-with_stmt: 'with' test [ 'as' expr ] ':' suite
 # NB compile.c makes sure that the default except clause is last
 except_clause: 'except' [test [',' test]]
 suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT

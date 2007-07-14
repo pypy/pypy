@@ -28,8 +28,9 @@ class ParserStub:
             return val
         return self.tokens[ tok ]
 
-    def add_production(self, rule):
+    def insert_rule(self, rule):
         self.trace.append(rule)
+
 
 class RuleStub:
     def __init__(self, name, root=False):
@@ -48,6 +49,11 @@ class FakeSpaceForFeatureLookup(FakeSpace):
     def appexec(self, posargs_w, code):
         feature_name = posargs_w[0]
         return self.feature_code_lookup.get(feature_name, 0)
+
+def assert_stripped_lines(text1, text2):
+    lines1 = [line.strip() for line in text1.strip().split('\n')]
+    lines2 = [line.strip() for line in text2.strip().split('\n')]
+    assert lines1 == lines2
 
 
 class TestBuilderFuture:
@@ -71,8 +77,24 @@ class TestBuilderFuture:
         for val in token_values:
             self.builder.push(TokenForTest(val, self.parser))
 
-        astbuilder.build_future_import_feature(self.builder, len(token_values))
+        assert 'with_stmt' not in self.builder.build_rules
+
+        result = astbuilder.build_future_import_feature(
+            self.builder, len(token_values))
+        assert result
+        
         assert ([rule.value for rule in self.builder.rule_stack] ==
                 token_values)
-        assert self.parser.trace == [32768]
+        assert_stripped_lines(self.parser.trace[0],
+            """
+            compound_stmt: (if_stmt | while_stmt | for_stmt | try_stmt |
+                            funcdef | classdef | with_stmt)
+            with_stmt: 'with' test [ 'as' expr ] ':' suite
+            """)
+        assert len(self.parser.trace) == 1
+
+        assert (self.builder.build_rules['with_stmt'] ==
+                astbuilder.build_with_stmt)
+
+
 
