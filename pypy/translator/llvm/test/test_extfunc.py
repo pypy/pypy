@@ -8,6 +8,8 @@ from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import ros
 
+py.test.skip("Extfunc support in llvm needs refactoring")
+
 from pypy.translator.llvm.test.runtest import *
 
 def test_external_function_ll_os_dup():
