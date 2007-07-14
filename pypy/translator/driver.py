@@ -678,6 +678,8 @@ class TranslationDriver(SimpleTaskEngine):
             os.makedirs(dirname)
         shutil.copy(main_exe, dirname)
         shutil.copy(pypylib_dll, dirname)
+        if bool(os.getenv('PYPY_GENCLI_COPYIL')):
+            shutil.copy(os.path.join(usession_path, 'main.il'), dirname)
         newexename = basename
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
