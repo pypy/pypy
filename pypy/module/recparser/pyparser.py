@@ -14,7 +14,7 @@ from pypy.interpreter.pyparser import grammar, symbol, pytoken
 from pypy.interpreter.argument import Arguments
 
 # backward compat (temp)
-PYTHON_PARSER = make_pyparser()
+
 
 __all__ = [ "ASTType", "STType", "suite", "expr" ]
 
@@ -151,10 +151,11 @@ STType.typedef = TypeDef("parser.st",
 )
 
 def parse_python_source(space, source, mode):
-    builder = grammar.BaseGrammarBuilder(debug=False, parser=PYTHON_PARSER)
+    parser = make_pyparser(space.config.objspace.pyversion)
+    builder = grammar.BaseGrammarBuilder(debug=False, parser=parser)
     builder.space = space
     try:
-        PYTHON_PARSER.parse_source(source, mode, builder )
+        parser.parse_source(source, mode, builder)
         return builder.stack[-1]
     except SyntaxError, e:
         raise OperationError(space.w_SyntaxError,

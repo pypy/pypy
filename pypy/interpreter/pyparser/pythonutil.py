@@ -23,7 +23,7 @@ def dirname(filename):
     i = filename.rfind(os.sep) + 1
     assert i >= 0
     return filename[:i]
-    
+
 
 def get_grammar_file(version):
     """returns the python grammar corresponding to our CPython version"""
@@ -66,7 +66,7 @@ def build_parser_for_version(version, parser=None):
     return build_parser(gramfile, parser)
 
 
-## XXX: the below code should probably go elsewhere 
+## XXX: the below code should probably go elsewhere
 
 ## convenience functions for computing AST objects using recparser
 def ast_from_input(input, mode, transformer, parser):
@@ -88,7 +88,6 @@ def ast_from_input(input, mode, transformer, parser):
 
 def pypy_parse(source, mode='exec', lineno=False):
     from pypy.interpreter.pyparser.pythonparse import PythonParser, make_pyparser
-    from pypy.interpreter.pyparser.astbuilder import AstBuilder
     # parser = build_parser_for_version("2.4", PythonParser())
     parser = make_pyparser('stable')
     builder = TupleBuilder(parser)
@@ -100,10 +99,10 @@ def source2ast(source, mode='exec', version='2.4', space=None):
     from pypy.interpreter.pyparser.pythonparse import PythonParser, make_pyparser
     from pypy.interpreter.pyparser.astbuilder import AstBuilder
     parser = make_pyparser(version)
-    builder = AstBuilder(parser, space=space)
+    builder = AstBuilder(parser, version, space=space)
     parser.parse_source(source, mode, builder)
     return builder.rule_stack[-1]
-    
+
 
 ## convenience functions around CPython's parser functions
 def python_parsefile(filename, lineno=False):

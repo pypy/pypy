@@ -63,8 +63,7 @@ class TestBuilderFuture:
 
     def setup_method(self, method):
         self.builder = astbuilder.AstBuilder(
-            self.parser, space=FakeSpaceForFeatureLookup(),
-            grammar_version="2.5a")
+            self.parser, "2.5a", space=FakeSpaceForFeatureLookup())
 
     def test_future_rules(self):
         assert (self.builder.build_rules['future_import_feature'] is

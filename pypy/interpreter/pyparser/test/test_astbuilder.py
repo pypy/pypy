@@ -174,17 +174,17 @@ EXPECTED = {
     "\t # hello\n": "Module(None, Stmt([]))",
     }
 
-
 # Create parser from Grammar_stable, not current grammar.
 stable_parser = pythonparse.make_pyparser('stable')
-python_parser = pythonparse.make_pyparser() # 'native') # 2.5a')
 
 def tuple_parse_expr(expr, target='single'):
     t = Transformer("dummyfile")
     return ast_from_input(expr, target, t, stable_parser)
 
 def source2ast(source, mode, space=FakeSpace()):
-    builder = AstBuilder(space=space, parser=python_parser)
+    version = '2.4'
+    python_parser = pythonparse.make_pyparser(version)
+    builder = AstBuilder(python_parser, version, space=space)
     python_parser.parse_source(source, mode, builder)
     return builder.rule_stack[-1]
 

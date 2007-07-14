@@ -78,12 +78,15 @@ class MockBuilder(AstBuilder):
 
 class TestFuture(object):
 
+    _grammar_ver = '2.5a'
+
     def setup_class(self):
         from pypy.interpreter.pyparser.pythonparse import make_pyparser
-        self.parser = make_pyparser('2.5a')
+        self.parser = make_pyparser(self._grammar_ver)
 
     def setup_method(self, method):
-        self.builder = MockBuilder(self.parser, space=FakeSpace())
+        self.builder = MockBuilder(self.parser, self._grammar_ver,
+                                   space=FakeSpace())
 
     def check_parse_mode(self, tst, expected, mode):
         self.parser.parse_source(tst, mode, self.builder)

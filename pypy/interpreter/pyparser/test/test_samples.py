@@ -173,7 +173,7 @@ def test_single_inputs():
     for snippet in snippets:
         yield check_parse_input, snippet, 'single'
 
-    
+
 def test_bad_inputs():
     inputs = ['x = (', 'x = (\n', 'x = (\n\n']
     for inp in inputs:

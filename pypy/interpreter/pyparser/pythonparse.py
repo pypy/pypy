@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""This module loads the python Grammar (2.3 or 2.4) and builds
-the parser for this grammar in the global PYTHON_PARSER
+"""This module loads the python Grammar (2.3, 2.4 or 2.5)
 
 helper functions are provided that use the grammar to parse
 using file_input, single_input and eval_input targets
@@ -9,7 +8,6 @@ import sys
 import os
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import gateway
-from pypy.interpreter.pycompiler import ENABLE_GRAMMAR_VERSION
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
@@ -166,11 +164,11 @@ class PythonParser(grammar.Parser):
         # recompute first sets
         self.build_first_sets()
 
-def make_pyparser(version=ENABLE_GRAMMAR_VERSION):
+
+def make_pyparser(version):
     parser = PythonParser()
     return build_parser_for_version(version, parser=parser)
 
-PYTHON_PARSER = make_pyparser()
 
 def translation_target(grammardef):
     parser = PythonParser() # predefined_symbols=symbol.sym_name)
@@ -194,7 +192,7 @@ def translation_target(grammardef):
 
 def grammar_rules( space ):
     w_rules = space.newdict()
-    parser = make_pyparser()
+    parser = make_pyparser(space.config.objspace.pyversion)
     for key, value in parser.rules.iteritems():
         space.setitem(w_rules, space.wrap(key), space.wrap(value))
     return w_rules

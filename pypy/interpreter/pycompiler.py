@@ -5,8 +5,6 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from codeop import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
 
-ENABLE_GRAMMAR_VERSION = "2.4"
-
 class AbstractCompiler:
     """Abstract base class for a bytecode compiler."""
 
@@ -201,13 +199,13 @@ class PythonAstCompiler(PyCodeCompiler):
          of incomplete inputs (e.g. we shouldn't re-compile from sracth
          the whole source after having only added a new '\n')
     """
-    def __init__(self, space, grammar_version=ENABLE_GRAMMAR_VERSION):
-        from pyparser.pythonparse import PYTHON_PARSER
-        PyCodeCompiler.__init__(self, space)
-        self.parser = PYTHON_PARSER
-        self.additional_rules = {}
-        self.grammar_version = grammar_version
+    def __init__(self, space, override_version=None):
 
+        from pyparser.pythonparse import make_pyparser
+        PyCodeCompiler.__init__(self, space)
+        self.grammar_version = override_version or space.config.objspace.pyversion
+        self.parser = make_pyparser(self.grammar_version)
+        self.additional_rules = {}
 
     def compile(self, source, filename, mode, flags):
         from pyparser.error import SyntaxError
@@ -223,8 +221,7 @@ class PythonAstCompiler(PyCodeCompiler):
         flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
-            builder = AstBuilder(self.parser, space=space,
-                                 grammar_version=self.grammar_version)
+            builder = AstBuilder(self.parser, self.grammar_version, space=space)
             for rulename, buildfunc in self.additional_rules.iteritems():
                 assert isinstance(buildfunc, Function)
                 builder.user_build_rules[rulename] = buildfunc

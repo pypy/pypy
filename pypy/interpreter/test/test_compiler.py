@@ -570,12 +570,12 @@ class TestPyCCompiler(BaseTestCompiler):
 
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, grammar_version="2.4")
+        self.compiler = PythonAstCompiler(self.space, "2.4")
 
 
 class TestPythonAstCompiler_25_grammar:
     def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space, grammar_version="2.5a")
+        self.compiler = PythonAstCompiler(self.space, "2.5a")
 
     def test_from_future_import(self):
         source = """from __future__ import with_statement

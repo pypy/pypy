@@ -11,7 +11,6 @@ from pypy.interpreter.astcompiler import ast, consts
 #import pypy.interpreter.pyparser.pytoken as tok
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
-from pypy.interpreter.pycompiler import ENABLE_GRAMMAR_VERSION
 from pypy.interpreter.gateway import interp2app
 from asthelper import *
 
@@ -1102,8 +1101,7 @@ class AstBuilderContext(AbstractContext):
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
 
-    def __init__(self, parser, debug=0, space=None,
-                 grammar_version=ENABLE_GRAMMAR_VERSION):
+    def __init__(self, parser, grammar_version, debug=0, space=None):
         BaseGrammarBuilder.__init__(self, parser, debug)
         self.rule_stack = []
         self.space = space
