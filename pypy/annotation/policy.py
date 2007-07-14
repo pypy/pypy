@@ -13,9 +13,6 @@ import types
 class BasicAnnotatorPolicy(object):
     allow_someobjects = True
 
-    def compute_at_fixpoint(self, annotator):
-        pass
-
     def event(pol, bookkeeper, what, *args):
         pass
 
