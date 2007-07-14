@@ -1,7 +1,9 @@
 import py
+import sys
 import ctypes
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
+from pypy.rlib.rarithmetic import r_uint
 
 
 def test_primitive():
@@ -11,6 +13,11 @@ def test_primitive():
     assert ctypes2lltype(lltype.Signed, 5) == 5
     assert ctypes2lltype(lltype.Char, ord('a')) == 'a'
     assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'
+    assert lltype2ctypes(5.25) == 5.25
+    assert ctypes2lltype(lltype.Float, 5.25) == 5.25
+    assert lltype2ctypes(r_uint(-1)) == sys.maxint * 2 + 1
+    res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
+    assert (res, type(res)) == (r_uint(-1), r_uint)
 
 def test_simple_struct():
     S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
@@ -184,3 +191,23 @@ def test_frexp():
     assert res == 0.625
     assert p[0] == 2
     lltype.free(p, flavor='raw')
+
+def test_rand():
+    rand = rffi.llexternal('rand', [], lltype.Signed,
+                           includes=['stdlib.h'])
+    srand = rffi.llexternal('srand', [lltype.Unsigned], lltype.Void,
+                            includes=['stdlib.h'])
+    srand(r_uint(123))
+    res1 = rand()
+    res2 = rand()
+    res3 = rand()
+    srand(r_uint(123))
+    res1b = rand()
+    res2b = rand()
+    res3b = rand()
+    assert res1 == res1b
+    assert res2 == res2b
+    assert res3 == res3b
+
+# def test_qsort():...
+# def test_signal():...

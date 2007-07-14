@@ -3,6 +3,7 @@ import ctypes
 import ctypes.util
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import fixid
+from pypy.rlib.rarithmetic import r_uint
 
 
 def uaddressof(obj):
@@ -10,9 +11,10 @@ def uaddressof(obj):
 
 
 _ctypes_cache = {
-    lltype.Signed: ctypes.c_long,
-    lltype.Char:   ctypes.c_ubyte,
-    lltype.Float:  ctypes.c_double,
+    lltype.Signed:   ctypes.c_long,
+    lltype.Unsigned: ctypes.c_ulong,
+    lltype.Char:     ctypes.c_ubyte,
+    lltype.Float:    ctypes.c_double,
     }
 
 def build_ctypes_struct(S, max_n=None):
@@ -210,9 +212,7 @@ def ctypes2lltype(T, cobj):
     """Convert the ctypes object 'cobj' to its lltype equivalent.
     'T' is the expected lltype type.
     """
-    if T is lltype.Char:
-        llobj = chr(cobj)
-    elif isinstance(T, lltype.Ptr):
+    if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.Struct):
             # XXX var-sized structs
             container = lltype._struct(T.TO)
@@ -227,6 +227,10 @@ def ctypes2lltype(T, cobj):
         else:
             raise NotImplementedError(T)
         llobj = lltype._ptr(T, container, solid=True)
+    elif T is lltype.Char:
+        llobj = chr(cobj)
+    elif T is lltype.Unsigned:
+        llobj = r_uint(cobj)
     else:
         llobj = cobj
 
@@ -275,7 +279,10 @@ def get_ctypes_callable(funcptr):
 
     # get_ctypes_type() can raise NotImplementedError too
     cfunc.argtypes = [get_ctypes_type(T) for T in FUNCTYPE.ARGS]
-    cfunc.restype = get_ctypes_type(FUNCTYPE.RESULT)
+    if FUNCTYPE.RESULT is lltype.Void:
+        cfunc.restype = None
+    else:
+        cfunc.restype = get_ctypes_type(FUNCTYPE.RESULT)
     return cfunc
 
 def make_callable_via_ctypes(funcptr):
