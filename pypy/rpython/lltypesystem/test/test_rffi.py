@@ -173,3 +173,25 @@ def test_external_callable():
 
     res = interpret(f, [])
     assert res == 3
+
+def test_extra_include_dirs():
+    udir.ensure("incl", dir=True)
+    udir.join("incl", "incl.h").write("#define C 3")
+    c_file = udir.join("test_extra_include_dirs.c")
+    c_source = """
+    #include <incl.h>
+    int fun ()
+    {
+        return (C);
+    }
+    """
+    c_file.write(c_source)
+    z = llexternal('fun', [], Signed, sources=[str(c_file)], include_dirs=
+                   [str(udir.join("incl"))])
+
+    def f():
+        return z()
+
+    res = compile(f, [])
+    assert res() == 3
+

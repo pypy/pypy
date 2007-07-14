@@ -18,12 +18,14 @@ class CConstant(Symbolic):
     def lltype(self):
         return self.TP
 
-def llexternal(name, args, result, _callable=None, sources=[], includes=[], libraries=[]):
+def llexternal(name, args, result, _callable=None, sources=[], includes=[],
+               libraries=[], include_dirs=[]):
     ext_type = lltype.FuncType(args, result)
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  sources=tuple(sources),
                                  includes=tuple(includes),
                                  libraries=tuple(libraries),
+                                 include_dirs=tuple(include_dirs),
                                  _callable=_callable)
     if _callable is None:
         from pypy.rpython.lltypesystem import ll2ctypes
