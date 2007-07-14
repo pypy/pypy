@@ -25,7 +25,5 @@ Here starts the real fun!
 - quasi-quotations
 - macros
 - continuations
-- proper tail-recursion
-  - mutually recursive procedures (r5rs p.12)
 - switch to byte-code generation + eval instead of evaluating AST
 

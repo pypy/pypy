@@ -468,12 +468,12 @@ def test_evaluator():
     ctx = ExecutionContext()
     eval_expr(ctx, "(define a 0)")
     w_obj = parse("(let () (set! a 42) a)")[0]
-    (w_expr, new_ctx) = w_obj.eval1(ctx)
+    (w_expr, new_ctx) = w_obj.eval_tr(ctx)
     assert ctx.get("a").to_number() == 42
     assert isinstance(w_expr, W_Identifier)
     assert new_ctx is not ctx
     assert isinstance(new_ctx, ExecutionContext)
-    (w_obj, newer_ctx) = w_expr.eval1(new_ctx)
+    (w_obj, newer_ctx) = w_expr.eval_tr(new_ctx)
     assert isinstance(w_obj, W_Number)
     assert w_obj.to_number() == 42
     assert newer_ctx is None

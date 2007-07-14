@@ -41,13 +41,13 @@ class W_Root(object):
     def eval(self, ctx):
         w_expr = self
         while ctx is not None:
-            (w_expr, ctx) = w_expr.eval1(ctx)
+            (w_expr, ctx) = w_expr.eval_tr(ctx)
 
         assert isinstance(w_expr, W_Root)
         return w_expr
         #return self
 
-    def eval1(self, ctx):
+    def eval_tr(self, ctx):
         return (self, None)
 
 class W_Symbol(W_Root):
@@ -70,7 +70,7 @@ class W_Identifier(W_Symbol):
     def __repr__(self):
         return "<W_Identifier " + self.name + ">"
 
-    def eval1(self, ctx):
+    def eval_tr(self, ctx):
         w_obj = ctx.get(self.name)
         if w_obj is not None:
             return (w_obj, None)
@@ -169,31 +169,34 @@ class W_Pair(W_Root):
         cdr = self.cdr.to_string()
         return "(" + car + " . " + cdr + ")"
 
-    def eval1(self, ctx):
+    def eval_tr(self, ctx):
         oper = self.car.eval(ctx)
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
-        return oper.call1(ctx, self.cdr)
+        return oper.call_tr(ctx, self.cdr)
 
 class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
 class W_Callable(W_Root):
-    def call1(self, ctx, lst):
+    def call_tr(self, ctx, lst):
+        #usually tail-recursive call is normal call
+        # which returns tuple with no further ExecutionContext
+        return (self.call(ctx, lst), None)
+
+    def call(self, ctx, lst):
         raise NotImplementedError
 
-    def eval1_body(self, ctx, body):
+    def eval_body(self, ctx, body):
         body_expression = body
-        while True: #not isinstance(body_expression, W_Nil):
+        while True:
             if isinstance(body_expression.cdr, W_Nil):
                 return (body_expression.car, ctx)
             else:
                 body_expression.car.eval(ctx)
 
             body_expression = body_expression.cdr
-
-        #return body_result
 
 class W_Procedure(W_Callable):
     def __init__(self, pname=""):
@@ -202,7 +205,7 @@ class W_Procedure(W_Callable):
     def to_string(self):
         return "#<primitive-procedure %s>" % (self.pname,)
 
-    def call1(self, ctx, lst):
+    def call_tr(self, ctx, lst):
         #evaluate all arguments into list
         arg_lst = []
         arg = lst
@@ -213,12 +216,14 @@ class W_Procedure(W_Callable):
             arg_lst.append(w_obj)
             arg = arg.cdr
 
-        return self.procedure1(ctx, arg_lst)
+        return self.procedure_tr(ctx, arg_lst)
 
     def procedure(self, ctx, lst):
         raise NotImplementedError
 
-    def procedure1(self, ctx, lst):
+    def procedure_tr(self, ctx, lst):
+        #usually tail-recursive procedure is normal procedure
+        # which returns tuple with no further ExecutionContext
         return (self.procedure(ctx, lst), None)
 
 class W_Macro(W_Callable):
@@ -227,9 +232,6 @@ class W_Macro(W_Callable):
 
     def to_string(self):
         return "#<primitive-macro %s>" % (self.pname,)
-
-    def call1(self, ctx, lst=None):
-        raise NotImplementedError
 
 class Formal(object):
     def __init__(self, name, islist=False):
@@ -260,7 +262,8 @@ class W_Lambda(W_Procedure):
     def to_string(self):
         return "#<procedure %s>" % (self.pname,)
 
-    def procedure1(self, ctx, lst):
+    def procedure_tr(self, ctx, lst):
+        """must be tail-recursive aware, uses eval_body"""
         #ctx is a caller context, which is joyfully ignored
 
         local_ctx = self.closure.copy()
@@ -273,7 +276,7 @@ class W_Lambda(W_Procedure):
             else:
                 local_ctx.put(formal.name, lst[idx])
 
-        return self.eval1_body(local_ctx, self.body)
+        return self.eval_body(local_ctx, self.body)
 
 def plst2lst(plst):
     """coverts python list() of W_Root into W_Pair scheme list"""
@@ -495,7 +498,7 @@ class EvenP(PredicateNumber):
 # Macro
 ##
 class Define(W_Macro):
-    def call1(self, ctx, lst):
+    def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
@@ -504,10 +507,10 @@ class Define(W_Macro):
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.set(w_identifier.name, w_val)
-        return (w_val, None)
+        return w_val
 
 class Sete(W_Macro):
-    def call1(self, ctx, lst):
+    def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
@@ -516,10 +519,11 @@ class Sete(W_Macro):
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.sete(w_identifier.name, w_val)
-        return (w_val, None)
+        return w_val
 
 class MacroIf(W_Macro):
-    def call1(self, ctx, lst):
+    def call_tr(self, ctx, lst):
+        """if needs to be tail-recursive aware"""
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_condition = lst.car
@@ -536,13 +540,14 @@ class MacroIf(W_Macro):
             return (w_else, ctx)
 
 class Lambda(W_Macro):
-    def call1(self, ctx, lst):
+    def call(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr
-        return (W_Lambda(w_args, w_body, ctx), None)
+        return W_Lambda(w_args, w_body, ctx)
 
 class Let(W_Macro):
-    def call1(self, ctx, lst):
+    def call_tr(self, ctx, lst):
+        """let uses eval_body, so it is tail-recursive aware"""
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
@@ -554,10 +559,11 @@ class Let(W_Macro):
             local_ctx.put(name, val)
             w_formal = w_formal.cdr
 
-        return self.eval1_body(local_ctx, lst.cdr)
+        return self.eval_body(local_ctx, lst.cdr)
 
 class Letrec(W_Macro):
-    def call1(self, ctx, lst):
+    def call_tr(self, ctx, lst):
+        """letrec uses eval_body, so it is tail-recursive aware"""
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
@@ -577,30 +583,30 @@ class Letrec(W_Macro):
             local_ctx.set(name, val)
             w_formal = w_formal.cdr
 
-        return self.eval1_body(local_ctx, lst.cdr)
+        return self.eval_body(local_ctx, lst.cdr)
 
 def literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
-    def call1(self, ctx, lst):
+    def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         if not isinstance(lst.cdr, W_Nil):
             raise SchemeSyntaxError
 
-        return (lst.car, None)
+        return lst.car
 
 class Delay(W_Macro):
-    def call1(self, ctx, lst):
+    def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         if not isinstance(lst.cdr, W_Nil):
             raise SchemeSyntaxError
 
-        return (W_Promise(lst.car, ctx), None)
+        return W_Promise(lst.car, ctx)
 
 ##
 # Location()
