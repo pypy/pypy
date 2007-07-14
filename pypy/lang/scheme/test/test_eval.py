@@ -430,3 +430,35 @@ def test_number_predicates():
     assert not eval_noctx("(even? 1)").to_boolean()
     py.test.raises(WrongArgType, eval_noctx, "(even? 1.1)" )
 
+def test_delay_promise_force():
+    ctx = ExecutionContext()
+    w_promise = eval_expr(ctx, "(delay (+ 1 2))")
+    assert isinstance(w_promise, W_Promise)
+    ctx.put("d", w_promise)
+    w_promise2 = eval_expr(ctx, "d")
+    assert w_promise2 is w_promise
+    py.test.raises(NotCallable, eval_expr, ctx, "(d)")
+
+    w_value = eval_expr(ctx, "(force d)")
+    assert w_value.to_number() == 3
+    py.test.raises(WrongArgType, eval_noctx, "(force 'a)")
+
+    eval_expr(ctx, "(define d2 (delay (+ 1 x)))")
+    eval_expr(ctx, "(define x 42)")
+    w_result = eval_expr(ctx, "(force d2)")
+    assert w_result.to_number() == 43
+    eval_expr(ctx, "(set! x 0)")
+    w_result = eval_expr(ctx, "(force d2)")
+    assert w_result.to_number() == 43
+
+def test_lambda_context():
+    ctx = ExecutionContext()
+    eval_expr(ctx, """
+            (define b (lambda ()
+                        (define lam (lambda () (set! a 42)))
+                        (define a 12)
+                        (lam)
+                        a))
+                        """)
+    w_num = eval_expr(ctx, "(b)")
+    assert w_num.to_number() == 42

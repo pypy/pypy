@@ -272,6 +272,21 @@ def plst2lst(plst):
 
     return w_cdr
 
+class W_Promise(W_Root):
+    def __init__(self, expr, ctx):
+        self.expr = expr
+        self.result = None
+        self.closure = ctx
+
+    def to_string(self):
+        return "#<promise: %s>" % self.expr.to_string()
+
+    def force(self, ctx):
+        if self.result is None:
+            self.result = self.expr.eval(self.closure.copy())
+
+        return self.result
+
 ##
 # operations
 ##
@@ -373,6 +388,42 @@ class List(W_Procedure):
     def procedure(self, ctx, lst):
         return plst2lst(lst)
 
+class Cons(W_Procedure):
+    def procedure(self, ctx, lst):
+        w_car = lst[0]
+        w_cdr = lst[1]
+        #cons is always creating a new pair
+        return W_Pair(w_car, w_cdr)
+
+class Car(W_Procedure):
+    def procedure(self, ctx, lst):
+        w_pair = lst[0]
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
+        return w_pair.car
+
+class Cdr(W_Procedure):
+    def procedure(self, ctx, lst):
+        w_pair = lst[0]
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
+        return w_pair.cdr
+
+class Quit(W_Procedure):
+    def procedure(self, ctx, lst):
+        raise SchemeQuit
+
+class Force(W_Procedure):
+    def procedure(self, ctx, lst):
+        if len(lst) != 1:
+            raise WrongArgsNumber
+
+        w_promise = lst[0]
+        if not isinstance(w_promise, W_Promise):
+            raise WrongArgType(w_promise, "Promise")
+
+        return w_promise.force(ctx)
+
 ##
 # Predicate
 ##
@@ -472,36 +523,11 @@ class MacroIf(W_Macro):
         else:
             return w_else.eval(ctx)
 
-class Cons(W_Procedure):
-    def procedure(self, ctx, lst):
-        w_car = lst[0]
-        w_cdr = lst[1]
-        #cons is always creating a new pair
-        return W_Pair(w_car, w_cdr)
-
-class Car(W_Procedure):
-    def procedure(self, ctx, lst):
-        w_pair = lst[0]
-        if not isinstance(w_pair, W_Pair):
-            raise WrongArgType(w_pair, "Pair")
-        return w_pair.car
-
-class Cdr(W_Procedure):
-    def procedure(self, ctx, lst):
-        w_pair = lst[0]
-        if not isinstance(w_pair, W_Pair):
-            raise WrongArgType(w_pair, "Pair")
-        return w_pair.cdr
-
-class Quit(W_Procedure):
-    def procedure(self, ctx, lst):
-        raise SchemeQuit
-
 class Lambda(W_Macro):
     def call(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr
-        return W_Lambda(w_args, w_body, ctx.copy())
+        return W_Lambda(w_args, w_body, ctx)
 
 class Let(W_Macro):
     def call(self, ctx, lst):
@@ -548,7 +574,21 @@ class Quote(W_Macro):
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
+
+        if not isinstance(lst.cdr, W_Nil):
+            raise SchemeSyntaxError
+
         return lst.car
+
+class Delay(W_Macro):
+    def call(self, ctx, lst):
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
+
+        if not isinstance(lst.cdr, W_Nil):
+            raise SchemeSyntaxError
+
+        return W_Promise(lst.car, ctx)
 
 ##
 # Location()
@@ -589,6 +629,9 @@ OMAP = \
         'zero?': ZeroP,
         'odd?': OddP,
         'even?': EvenP,
+            #delayed evaluation
+        'force': Force,
+        'delay': Delay, #macro
             #macros
         'define': Define,
         'set!': Sete,

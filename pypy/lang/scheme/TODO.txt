@@ -24,7 +24,6 @@ Here starts the real fun!
 
 - quasi-quotations
 - macros
-- delayed evaluation
 - continuations
 - proper tail-recursion
   - mutually recursive procedures (r5rs p.12)
