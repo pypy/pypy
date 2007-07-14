@@ -34,7 +34,8 @@ SIMPLE_TYPE_MAPPING = {
 }
 
 class RffiSource(object):
-    def __init__(self, structs=None, source=None):
+    def __init__(self, structs=None, source=None, includes=[], libraries=[],
+            include_dirs=[]):
         # set of ctypes structs
         if structs is None:
             self.structs = set()
@@ -44,6 +45,11 @@ class RffiSource(object):
             self.source = py.code.Source()
         else:
             self.source = source
+        includes = includes and "includes=%s, " % repr(tuple(includes)) or ''
+        libraries = libraries and "libraries=%s, " % repr(tuple(libraries)) or ''
+        include_dirs = include_dirs and \
+            "include_dirs=%s, " % repr(tuple(include_dirs)) or ''
+        self.extra_args = includes+libraries+include_dirs
 
     def __str__(self):
         return str(self.source)
@@ -90,10 +96,9 @@ class RffiSource(object):
         print "proc_func", func
         name = func.__name__
         src = py.code.Source("""
-        %s = rffi.llexternal('%s', [%s], %s)
-        """%(name, name, ", ".join([self.proc_tp(arg) for
-                                   arg in func.argtypes]),
-             self.proc_tp(func.restype)))
+        %s = rffi.llexternal('%s', [%s], %s, %s)
+        """%(name, name, ", ".join([self.proc_tp(arg) for arg in func.argtypes]),
+             self.proc_tp(func.restype), self.extra_args))
         self.source = py.code.Source(self.source, src)
 
     def proc_namespace(self, ns):

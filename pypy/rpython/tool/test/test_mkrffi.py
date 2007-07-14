@@ -40,7 +40,7 @@ class TestMkrffi(TestBasic):
         src = RffiSource()
         src.proc_func(func)
         _src = py.code.Source("""
-        int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT], rffi.VOIDP)
+        int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT], rffi.VOIDP, )
         """)
 
         assert src.source == _src, str(src) + "\n" + str(_src)
@@ -55,7 +55,7 @@ class TestMkrffi(TestBasic):
         _src = py.code.Source("""
         random_structure = lltype.Struct('random_structure', ('one', rffi.INT), ('two', lltype.Ptr(lltype.Array(rffi.INT, hints={'nolength': True}))),  hints={'external':'C'})
 
-        int_int_to_struct_p = rffi.llexternal('int_int_to_struct_p', [rffi.INT, rffi.INT], lltype.Ptr(random_structure))
+        int_int_to_struct_p = rffi.llexternal('int_int_to_struct_p', [rffi.INT, rffi.INT], lltype.Ptr(random_structure), )
         """)
         src = rffi_source.source
         assert src.strip() == _src.strip(), str(src) + "\n" + str(_src)
