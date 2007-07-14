@@ -11,6 +11,7 @@ from pypy.interpreter.astcompiler import ast, consts
 #import pypy.interpreter.pyparser.pytoken as tok
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
+from pypy.interpreter.pyparser.pythonparse import ENABLE_GRAMMAR_VERSION
 from pypy.interpreter.gateway import interp2app
 from asthelper import *
 
@@ -888,6 +889,7 @@ def build_future_import_feature(builder, nb):
     """
     atoms = peek_atoms(builder, nb)
     feature_name = atoms[0].get_value()
+    assert type(feature_name) is str
     space = builder.space
     w_feature_code = space.appexec([space.wrap(feature_name)],
         """(feature):
@@ -1060,8 +1062,6 @@ ASTRULES_Template = {
     'while_stmt' : build_while_stmt,
     'import_name' : build_import_name,
     'import_from' : build_import_from,
-    'future_import_feature': build_future_import_feature,
-    'import_from_future': build_import_from,
     'yield_stmt' : build_yield_stmt,
     'continue_stmt' : build_continue_stmt,
     'del_stmt' : build_del_stmt,
@@ -1087,7 +1087,8 @@ class AstBuilderContext(AbstractContext):
 class AstBuilder(BaseGrammarBuilder):
     """A builder that directly produce the AST"""
 
-    def __init__(self, parser, debug=0, space=None):
+    def __init__(self, parser, debug=0, space=None,
+                 grammar_version=ENABLE_GRAMMAR_VERSION):
         BaseGrammarBuilder.__init__(self, parser, debug)
         self.rule_stack = []
         self.space = space
@@ -1095,6 +1096,11 @@ class AstBuilder(BaseGrammarBuilder):
         self.with_enabled = False
         self.build_rules = ASTRULES_Template
         self.user_build_rules = {}
+        if grammar_version >= "2.5":
+            self.build_rules.update({
+                'future_import_feature': build_future_import_feature,
+                'import_from_future': build_import_from,
+                })
 
     def enable_with(self):
         if self.with_enabled:

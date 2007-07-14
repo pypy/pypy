@@ -28,6 +28,8 @@ from pypy.interpreter.pyparser import symbol
 
 from codeop import PyCF_DONT_IMPLY_DEDENT
 
+ENABLE_GRAMMAR_VERSION = "2.4"
+
 
 ##  files encoding management ############################################
 _recode_to_utf8 = gateway.applevel(r'''
@@ -165,7 +167,7 @@ class PythonParser(grammar.Parser):
         # recompute first sets
         self.build_first_sets()
 
-def make_pyparser(version="2.4"):
+def make_pyparser(version=ENABLE_GRAMMAR_VERSION):
     parser = PythonParser()
     return build_parser_for_version(version, parser=parser)
 
