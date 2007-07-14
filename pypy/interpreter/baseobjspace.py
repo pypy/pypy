@@ -38,7 +38,7 @@ class W_Root(object):
             space.set_str_keyed_item(w_dict, w_attr, w_value, shadows_type)
             return True
         return False
-    
+
     def deldictvalue(self, space, w_name):
         w_dict = self.getdict()
         if w_dict is not None:
@@ -153,7 +153,7 @@ class SpaceCache(Cache):
             self.space.leave_cache_building_mode(val)
     def ready(self, result):
         pass
-        
+
 class UnpackValueError(ValueError):
     def __init__(self, msg):
         self.msg = msg
@@ -166,10 +166,10 @@ class DescrMismatch(Exception):
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
-    
+
     full_exceptions = True  # full support for exceptions (normalization & more)
 
-    def __init__(self, config=None, **kw): 
+    def __init__(self, config=None, **kw):
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
@@ -189,7 +189,7 @@ class ObjSpace(object):
         self.pending_actions = []
         self.setoptions(**kw)
 
-#        if self.config.objspace.logbytecodes:            
+#        if self.config.objspace.logbytecodes:
 #            self.bytecodecounts = {}
 
         self.initialize()
@@ -228,14 +228,14 @@ class ObjSpace(object):
         if self.config.objspace.std.logspaceoptypes:
             for s in self.FrameClass._space_op_types:
                 print s
-    
+
     def reportbytecodecounts(self):
         os.write(2, "Starting bytecode report.\n")
         fd = os.open('bytecode.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
         for opcode, count in self.bytecodecounts.items():
             os.write(fd, str(opcode) + ", " + str(count) + "\n")
         os.close(fd)
-        os.write(2, "Reporting done.\n")        
+        os.write(2, "Reporting done.\n")
 
     def __repr__(self):
         try:
@@ -247,19 +247,19 @@ class ObjSpace(object):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
         import sys
 
-        fullname = "pypy.module.%s" % importname 
+        fullname = "pypy.module.%s" % importname
 
-        Module = __import__(fullname, 
+        Module = __import__(fullname,
                             None, None, ["Module"]).Module
         if Module.applevel_name is not None:
             name = Module.applevel_name
         else:
             name = importname
 
-        w_name = self.wrap(name) 
-        w_mod = self.wrap(Module(self, w_name)) 
+        w_name = self.wrap(name)
+        w_mod = self.wrap(Module(self, w_name))
         w_modules = self.sys.get('modules')
-        self.setitem(w_modules, w_name, w_mod) 
+        self.setitem(w_modules, w_name, w_mod)
         return name
 
     def getbuiltinmodule(self, name):
@@ -291,7 +291,7 @@ class ObjSpace(object):
             for modname in self.ALL_BUILTIN_MODULES:
                 if not (os.path.exists(
                         os.path.join(os.path.dirname(pypy.__file__),
-                                     'lib', modname+'.py'))):            
+                                     'lib', modname+'.py'))):
                     modules.append('faked+'+modname)
 
         self._builtinmodule_list = modules
@@ -308,25 +308,25 @@ class ObjSpace(object):
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
-        from pypy.module.sys import Module 
+        from pypy.module.sys import Module
         w_name = self.wrap('sys')
-        self.sys = Module(self, w_name) 
+        self.sys = Module(self, w_name)
         w_modules = self.sys.get('modules')
         self.setitem(w_modules, w_name, self.wrap(self.sys))
 
-        from pypy.module.__builtin__ import Module 
+        from pypy.module.__builtin__ import Module
         w_name = self.wrap('__builtin__')
-        self.builtin = Module(self, w_name) 
+        self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
-        self.setitem(w_modules, w_name, w_builtin) 
-        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
+        self.setitem(w_modules, w_name, w_builtin)
+        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
         bootstrap_modules = ['sys', '__builtin__', 'exceptions']
         installed_builtin_modules = bootstrap_modules[:]
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
-            if name.startswith('w_') and not name.endswith('Type'): 
+            if name.startswith('w_') and not name.endswith('Type'):
                 name = name[2:]
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.builtin.w_dict, self.wrap(name), value)
@@ -350,7 +350,7 @@ class ObjSpace(object):
                      w_builtin_module_names)
 
     def install_mixedmodule(self, mixedname, installed_builtin_modules):
-        """NOT_RPYTHON"""        
+        """NOT_RPYTHON"""
         modname = self.setbuiltinmodule(mixedname)
         if modname:
             assert modname not in installed_builtin_modules, (
@@ -407,7 +407,7 @@ class ObjSpace(object):
         # for reasons related to the specialization of the framestack attribute
         # so we make sure there is no executioncontext at freeze-time
         self.threadlocals.setvalue(None)
-        return True 
+        return True
 
     def createexecutioncontext(self):
         "Factory function for execution contexts."
@@ -461,7 +461,7 @@ class ObjSpace(object):
 
     def set_str_keyed_item(self, w_obj, w_key, w_value, shadows_type=True):
         return self.setitem(w_obj, w_key, w_value)
-    
+
     def finditem(self, w_obj, w_key):
         try:
             return self.getitem(w_obj, w_key)
@@ -529,7 +529,7 @@ class ObjSpace(object):
             raise DescrMismatch()
         return obj
     descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
-    
+
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal
@@ -698,7 +698,7 @@ class ObjSpace(object):
     def recursive_issubclass(self, w_obj, w_cls):
         if self.is_w(w_obj, w_cls):
             return self.w_True
-        for w_base in self.unpackiterable(self.getattr(w_obj, 
+        for w_base in self.unpackiterable(self.getattr(w_obj,
                                                        self.wrap('__bases__'))):
             if self.is_true(self.recursive_issubclass(w_base, w_cls)):
                 return self.w_True
@@ -763,7 +763,7 @@ class ObjSpace(object):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 
-    def appexec(self, posargs_w, source): 
+    def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
             EXPERIMENTAL. The source must look like
                '''(x, y):
@@ -842,7 +842,7 @@ class AppExecCache(SpaceCache):
     def build(cache, source):
         """ NOT_RPYTHON """
         space = cache.space
-        # XXX will change once we have our own compiler 
+        # XXX will change once we have our own compiler
         import py
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)

@@ -11,7 +11,7 @@ from pypy.interpreter.astcompiler import ast, consts
 #import pypy.interpreter.pyparser.pytoken as tok
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
-from pypy.interpreter.pyparser.pythonparse import ENABLE_GRAMMAR_VERSION
+from pypy.interpreter.pycompiler import ENABLE_GRAMMAR_VERSION
 from pypy.interpreter.gateway import interp2app
 from asthelper import *
 

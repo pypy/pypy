@@ -5,6 +5,8 @@ Compiler instances are stored into 'space.getexecutioncontext().compiler'.
 from codeop import PyCF_DONT_IMPLY_DEDENT
 from pypy.interpreter.error import OperationError
 
+ENABLE_GRAMMAR_VERSION = "2.4"
+
 class AbstractCompiler:
     """Abstract base class for a bytecode compiler."""
 
@@ -199,11 +201,12 @@ class PythonAstCompiler(PyCodeCompiler):
          of incomplete inputs (e.g. we shouldn't re-compile from sracth
          the whole source after having only added a new '\n')
     """
-    def __init__(self, space):
+    def __init__(self, space, grammar_version=ENABLE_GRAMMAR_VERSION):
         from pyparser.pythonparse import PYTHON_PARSER
         PyCodeCompiler.__init__(self, space)
         self.parser = PYTHON_PARSER
         self.additional_rules = {}
+        self.grammar_version = grammar_version
 
 
     def compile(self, source, filename, mode, flags):
@@ -220,7 +223,8 @@ class PythonAstCompiler(PyCodeCompiler):
         flags |= stdlib___future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
-            builder = AstBuilder(self.parser, space=space)
+            builder = AstBuilder(self.parser, space=space,
+                                 grammar_version=self.grammar_version)
             for rulename, buildfunc in self.additional_rules.iteritems():
                 assert isinstance(buildfunc, Function)
                 builder.user_build_rules[rulename] = buildfunc

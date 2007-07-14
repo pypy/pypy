@@ -9,6 +9,7 @@ import sys
 import os
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import gateway
+from pypy.interpreter.pycompiler import ENABLE_GRAMMAR_VERSION
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
@@ -27,8 +28,6 @@ from pypy.interpreter.pyparser import symbol
 #     import symbol
 
 from codeop import PyCF_DONT_IMPLY_DEDENT
-
-ENABLE_GRAMMAR_VERSION = "2.4"
 
 
 ##  files encoding management ############################################

@@ -567,11 +567,30 @@ class TestPyCCompiler(BaseTestCompiler):
             py.test.skip("syntax not supported by the CPython 2.4 compiler")
         test_continue_in_nested_finally = skip_on_2_4
 
+
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
-        self.compiler = PythonAstCompiler(self.space)
+        self.compiler = PythonAstCompiler(self.space, grammar_version="2.4")
 
 
+class TestPythonAstCompiler_25_grammar:
+    def setup_method(self, method):
+        self.compiler = PythonAstCompiler(self.space, grammar_version="2.5a")
+
+    def test_from_future_import(self):
+        source = """from __future__ import with_statement
+with somtehing as stuff:
+    pass
+        """
+        code = self.compiler.compile(source, '<filename>', 'exec', 0)
+        assert isinstance(code, PyCode)
+        assert code.co_filename == '<filename>'
+
+        source2 = "with = 3"
+
+        code = self.compiler.compile(source, '<filename2>', 'exec', 0)
+        assert isinstance(code, PyCode)
+        assert code.co_filename == '<filename2>'
 
 
 class AppTestOptimizer:
