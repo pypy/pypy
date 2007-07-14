@@ -5,7 +5,11 @@ class SchemeException(Exception):
 
 class UnboundVariable(SchemeException):
     def __str__(self):
-        return "Unbound variable %s" % self.args[0]
+        return "Unbound variable %s" % (self.args[0], )
+
+class NotCallable(SchemeException):
+    def __str__(self):
+        return "%s is not a callable" % (self.args[0].to_string(), )
 
 class WrongArgsNumber(SchemeException):
     def __str__(self):
@@ -13,7 +17,12 @@ class WrongArgsNumber(SchemeException):
 
 class WrongArgType(SchemeException):
     def __str__(self):
-        return "Wrong argument type: {%s}!=%s" % (self.args[0], self.args[1])
+        return "Wrong argument type: %s is not %s" % \
+                (self.args[0].to_string(), self.args[1])
+
+class SchemeSyntaxError(SchemeException):
+    def __str__(self):
+        return "Syntax error"
 
 class SchemeQuit(SchemeException):
     """raised on (quit) evaluation"""
@@ -157,7 +166,8 @@ class W_Pair(W_Root):
 
     def eval(self, ctx):
         oper = self.car.eval(ctx)
-        assert isinstance(oper, W_Callable)
+        if not isinstance(oper, W_Callable):
+            raise NotCallable(oper)
         return oper.call(ctx, self.cdr)
 
 class W_Nil(W_Root):
@@ -189,7 +199,8 @@ class W_Procedure(W_Callable):
         arg_lst = []
         arg = lst
         while not isinstance(arg, W_Nil):
-            assert isinstance(arg, W_Pair)
+            if not isinstance(arg, W_Pair):
+                raise SchemeSyntaxError
             arg_lst.append(arg.car.eval(ctx))
             arg = arg.cdr
 
@@ -222,8 +233,10 @@ class W_Lambda(W_Procedure):
                 self.args.append(Formal(arg.to_string(), True))
                 break
             else:
-                assert isinstance(arg, W_Pair)
-                assert isinstance(arg.car, W_Identifier)
+                if not isinstance(arg, W_Pair):
+                    raise SchemeSyntaxError
+                if not isinstance(arg.car, W_Identifier):
+                    raise WrongArgType(arg.car, "Identifier")
                 #list of argument names, not evaluated
                 self.args.append(Formal(arg.car.to_string(), False))
                 arg = arg.cdr
@@ -271,14 +284,18 @@ class ListOper(W_Procedure):
             return self.default_result
 
         if len(lst) == 1:
-            return self.unary_oper(lst[0].eval(ctx))
+            if not isinstance(lst[0], W_Number):
+                raise WrongArgType(lst[0], "Number")
+            return self.unary_oper(lst[0])
 
         acc = None
         for arg in lst:
+            if not isinstance(arg, W_Number):
+                raise WrongArgType(arg, "Number")
             if acc is None:
-                acc = arg.eval(ctx)
+                acc = arg
             else:
-                acc = self.oper(acc, arg.eval(ctx))
+                acc = self.oper(acc, arg)
 
         return acc
 
@@ -339,8 +356,13 @@ class Equal(W_Procedure):
             return W_Boolean(True)
 
         prev = lst[0]
+        if not isinstance(prev, W_Number):
+            raise WrongArgType(prev, "Number")
+
         for arg in lst[1:]:
-            assert isinstance(arg, W_Number)
+            if not isinstance(arg, W_Number):
+                raise WrongArgType(arg, "Number")
+
             if prev.to_number() != arg.to_number():
                 return W_Boolean(False)
             prev = arg
@@ -359,10 +381,11 @@ class PredicateNumber(W_Procedure):
         if len(lst) != 1:
             raise WrongArgsNumber
 
-        if not isinstance(lst[0], W_Number):
-            raise WrongArgType(1, 'Number')
+        w_obj = lst[0]
+        if not isinstance(w_obj, W_Number):
+            raise WrongArgType(w_obj, 'Number')
 
-        return W_Boolean(self.predicate(lst[0]))
+        return W_Boolean(self.predicate(w_obj))
 
 class IntegerP(PredicateNumber):
     def predicate(self, w_obj):
@@ -394,14 +417,14 @@ class ZeroP(PredicateNumber):
 class OddP(PredicateNumber):
     def predicate(self, w_obj):
         if not w_obj.is_integer():
-            raise WrongArgType(1, "Integer")
+            raise WrongArgType(w_obj, "Integer")
 
         return w_obj.round() % 2 != 0
 
 class EvenP(PredicateNumber):
     def predicate(self, w_obj):
         if not w_obj.is_integer():
-            raise WrongArgType(1, "Integer")
+            raise WrongArgType(w_obj, "Integer")
 
         return w_obj.round() % 2 == 0
 
@@ -410,9 +433,11 @@ class EvenP(PredicateNumber):
 ##
 class Define(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         w_identifier = lst.car
-        assert isinstance(w_identifier, W_Identifier)
+        if not isinstance(w_identifier, W_Identifier):
+            raise WrongArgType(w_identifier, "Identifier")
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.set(w_identifier.name, w_val)
@@ -420,9 +445,11 @@ class Define(W_Macro):
 
 class Sete(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         w_identifier = lst.car
-        assert isinstance(w_identifier, W_Identifier)
+        if not isinstance(w_identifier, W_Identifier):
+            raise WrongArgType(w_identifier, "Identifier")
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.sete(w_identifier.name, w_val)
@@ -430,7 +457,8 @@ class Sete(W_Macro):
 
 class MacroIf(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         w_condition = lst.car
         w_then = lst.cdr.car
         if isinstance(lst.cdr.cdr, W_Nil):
@@ -454,13 +482,15 @@ class Cons(W_Procedure):
 class Car(W_Procedure):
     def procedure(self, ctx, lst):
         w_pair = lst[0]
-        assert isinstance(w_pair, W_Pair)
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
         return w_pair.car
 
 class Cdr(W_Procedure):
     def procedure(self, ctx, lst):
         w_pair = lst[0]
-        assert isinstance(w_pair, W_Pair)
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
         return w_pair.cdr
 
 class Quit(W_Procedure):
@@ -475,7 +505,8 @@ class Lambda(W_Macro):
 
 class Let(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         local_ctx = ctx.copy()
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
@@ -489,7 +520,8 @@ class Let(W_Macro):
 
 class Letrec(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         local_ctx = ctx.copy()
 
         #bound variables
@@ -514,7 +546,8 @@ def literal(sexpr):
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
-        assert isinstance(lst, W_Pair)
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
         return lst.car
 
 ##

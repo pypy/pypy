@@ -48,6 +48,15 @@ def test_numerical():
     w_num = eval_noctx("(- 4 -5 6.1)")
     assert w_num.to_number() == 4 - (-5) - 6.1
 
+    py.test.raises(WrongArgType, eval_noctx, "(+ 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(+ 1 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(- 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(- 1 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(* 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(* 1 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(/ 'a)")
+    py.test.raises(WrongArgType, eval_noctx, "(/ 1 'a)")
+
 def test_numerical_nested():
     w_num = eval_noctx("(+ 4 (* (+ 5) 6) (+ 1 2))")
     assert w_num.to_number() == 37
@@ -183,6 +192,8 @@ def test_comparison_homonums():
 
     w_bool = eval_noctx("(= 2.1 2.1 2.1 2)")
     assert w_bool.to_boolean() is False
+
+    py.test.raises(WrongArgType, eval_noctx, "(= 'a 1)")
 
 def test_comparison_heteronums():
     w_bool = eval_noctx("(= 1 1.0 1.1)")
