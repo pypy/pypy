@@ -29,6 +29,8 @@ class SchemeQuit(SchemeException):
     pass
 
 class W_Root(object):
+    #__slots__ = []
+
     def to_string(self):
         return ''
 
@@ -159,7 +161,10 @@ class W_Integer(W_Real):
     def to_float(self):
         return float(self.intval)
 
-class W_Pair(W_Root):
+class W_List(W_Root):
+    pass
+
+class W_Pair(W_List):
     def __init__(self, car, cdr):
         self.car = car
         self.cdr = cdr
@@ -173,9 +178,14 @@ class W_Pair(W_Root):
         oper = self.car.eval(ctx)
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
+
+        #a propper (oper args ...) call
+        # self.cdr has to be a proper list
+        if not isinstance(self.cdr, W_List):
+            raise SchemeSyntaxError
         return oper.call_tr(ctx, self.cdr)
 
-class W_Nil(W_Root):
+class W_Nil(W_List):
     def to_string(self):
         return "()"
 
@@ -541,6 +551,8 @@ class MacroIf(W_Macro):
 
 class Lambda(W_Macro):
     def call(self, ctx, lst):
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError(lst, "Pair")
         w_args = lst.car
         w_body = lst.cdr
         return W_Lambda(w_args, w_body, ctx)
