@@ -887,7 +887,7 @@ def build_future_import_feature(builder, nb):
     no matter how you got to this one particular feature.
     """
     atoms = peek_atoms(builder, nb)
-    feature_name = atoms[0].value
+    feature_name = atoms[0].get_value()
     space = builder.space
     w_feature_code = space.appexec([space.wrap(feature_name)],
         """(feature):
