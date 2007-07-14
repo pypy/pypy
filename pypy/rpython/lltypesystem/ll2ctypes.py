@@ -12,6 +12,7 @@ def uaddressof(obj):
 _ctypes_cache = {
     lltype.Signed: ctypes.c_long,
     lltype.Char:   ctypes.c_ubyte,
+    lltype.Float:  ctypes.c_double,
     }
 
 def build_ctypes_struct(S, max_n=None):

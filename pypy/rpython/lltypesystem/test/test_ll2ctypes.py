@@ -172,3 +172,15 @@ def test_strchr():
     assert res[2] == 'd'
     assert res[3] == '\x00'
     rffi.free_charp(s)
+
+def test_frexp():
+    A = lltype.FixedSizeArray(lltype.Signed, 1)
+    frexp = rffi.llexternal('frexp', [lltype.Float, lltype.Ptr(A)],
+                            lltype.Float,   # lltype.Float == C "double" :-/
+                            includes=['math.h'],
+                            libraries=['m'])
+    p = lltype.malloc(A, flavor='raw')
+    res = frexp(2.5, p)
+    assert res == 0.625
+    assert p[0] == 2
+    lltype.free(p, flavor='raw')
