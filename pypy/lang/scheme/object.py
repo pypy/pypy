@@ -39,7 +39,16 @@ class W_Root(object):
         return "<W_Root " + self.to_string() + ">"
 
     def eval(self, ctx):
-        return self
+        w_expr = self
+        while ctx is not None:
+            (w_expr, ctx) = w_expr.eval1(ctx)
+
+        assert isinstance(w_expr, W_Root)
+        return w_expr
+        #return self
+
+    def eval1(self, ctx):
+        return (self, None)
 
 class W_Symbol(W_Root):
     def __init__(self, val):
@@ -61,14 +70,10 @@ class W_Identifier(W_Symbol):
     def __repr__(self):
         return "<W_Identifier " + self.name + ">"
 
-    def eval(self, ctx):
-
-        if ctx is None:
-            ctx = ExecutionContext()
-
+    def eval1(self, ctx):
         w_obj = ctx.get(self.name)
         if w_obj is not None:
-            return w_obj
+            return (w_obj, None)
         else:
             #reference to undefined identifier
             #unbound
@@ -164,28 +169,31 @@ class W_Pair(W_Root):
         cdr = self.cdr.to_string()
         return "(" + car + " . " + cdr + ")"
 
-    def eval(self, ctx):
+    def eval1(self, ctx):
         oper = self.car.eval(ctx)
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
-        return oper.call(ctx, self.cdr)
+        return oper.call1(ctx, self.cdr)
 
 class W_Nil(W_Root):
     def to_string(self):
         return "()"
 
 class W_Callable(W_Root):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         raise NotImplementedError
 
-    def eval_body(self, ctx, body):
+    def eval1_body(self, ctx, body):
         body_expression = body
-        body_result = None
-        while not isinstance(body_expression, W_Nil):
-            body_result = body_expression.car.eval(ctx)
+        while True: #not isinstance(body_expression, W_Nil):
+            if isinstance(body_expression.cdr, W_Nil):
+                return (body_expression.car, ctx)
+            else:
+                body_expression.car.eval(ctx)
+
             body_expression = body_expression.cdr
 
-        return body_result
+        #return body_result
 
 class W_Procedure(W_Callable):
     def __init__(self, pname=""):
@@ -194,20 +202,24 @@ class W_Procedure(W_Callable):
     def to_string(self):
         return "#<primitive-procedure %s>" % (self.pname,)
 
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         #evaluate all arguments into list
         arg_lst = []
         arg = lst
         while not isinstance(arg, W_Nil):
             if not isinstance(arg, W_Pair):
                 raise SchemeSyntaxError
-            arg_lst.append(arg.car.eval(ctx))
+            w_obj = arg.car.eval(ctx)
+            arg_lst.append(w_obj)
             arg = arg.cdr
 
-        return self.procedure(ctx, arg_lst)
+        return self.procedure1(ctx, arg_lst)
 
     def procedure(self, ctx, lst):
         raise NotImplementedError
+
+    def procedure1(self, ctx, lst):
+        return (self.procedure(ctx, lst), None)
 
 class W_Macro(W_Callable):
     def __init__(self, pname=""):
@@ -216,7 +228,7 @@ class W_Macro(W_Callable):
     def to_string(self):
         return "#<primitive-macro %s>" % (self.pname,)
 
-    def call(self, ctx, lst=None):
+    def call1(self, ctx, lst=None):
         raise NotImplementedError
 
 class Formal(object):
@@ -248,7 +260,7 @@ class W_Lambda(W_Procedure):
     def to_string(self):
         return "#<procedure %s>" % (self.pname,)
 
-    def procedure(self, ctx, lst):
+    def procedure1(self, ctx, lst):
         #ctx is a caller context, which is joyfully ignored
 
         local_ctx = self.closure.copy()
@@ -261,7 +273,7 @@ class W_Lambda(W_Procedure):
             else:
                 local_ctx.put(formal.name, lst[idx])
 
-        return self.eval_body(local_ctx, self.body)
+        return self.eval1_body(local_ctx, self.body)
 
 def plst2lst(plst):
     """coverts python list() of W_Root into W_Pair scheme list"""
@@ -483,7 +495,7 @@ class EvenP(PredicateNumber):
 # Macro
 ##
 class Define(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
@@ -492,10 +504,10 @@ class Define(W_Macro):
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.set(w_identifier.name, w_val)
-        return w_val
+        return (w_val, None)
 
 class Sete(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
@@ -504,10 +516,10 @@ class Sete(W_Macro):
 
         w_val = lst.cdr.car.eval(ctx)
         ctx.sete(w_identifier.name, w_val)
-        return w_val
+        return (w_val, None)
 
 class MacroIf(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_condition = lst.car
@@ -519,18 +531,18 @@ class MacroIf(W_Macro):
 
         w_cond_val = w_condition.eval(ctx)
         if w_cond_val.to_boolean() is True:
-            return w_then.eval(ctx)
+            return (w_then, ctx)
         else:
-            return w_else.eval(ctx)
+            return (w_else, ctx)
 
 class Lambda(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         w_args = lst.car
         w_body = lst.cdr
-        return W_Lambda(w_args, w_body, ctx)
+        return (W_Lambda(w_args, w_body, ctx), None)
 
 class Let(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
@@ -542,10 +554,10 @@ class Let(W_Macro):
             local_ctx.put(name, val)
             w_formal = w_formal.cdr
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return self.eval1_body(local_ctx, lst.cdr)
 
 class Letrec(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
@@ -565,30 +577,30 @@ class Letrec(W_Macro):
             local_ctx.set(name, val)
             w_formal = w_formal.cdr
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return self.eval1_body(local_ctx, lst.cdr)
 
 def literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         if not isinstance(lst.cdr, W_Nil):
             raise SchemeSyntaxError
 
-        return lst.car
+        return (lst.car, None)
 
 class Delay(W_Macro):
-    def call(self, ctx, lst):
+    def call1(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         if not isinstance(lst.cdr, W_Nil):
             raise SchemeSyntaxError
 
-        return W_Promise(lst.car, ctx)
+        return (W_Promise(lst.car, ctx), None)
 
 ##
 # Location()
@@ -682,6 +694,7 @@ class ExecutionContext(object):
         """update existing location or raise
         directly used by (set! <var> <expr>) macro
         """
+        assert isinstance(obj, W_Root)
         loc = self.scope.get(name, None)
         if loc is not None:
             loc.obj = obj
@@ -696,6 +709,7 @@ class ExecutionContext(object):
 
     def set(self, name, obj):
         """update existing location or create new location"""
+        assert isinstance(obj, W_Root)
         if self.closure:
             loc = self.scope.get(name, None)
         else:
@@ -708,6 +722,7 @@ class ExecutionContext(object):
 
     def put(self, name, obj):
         """create new location"""
+        assert isinstance(obj, W_Root)
         if self.closure:
             self.scope[name] = Location(obj)
         else:

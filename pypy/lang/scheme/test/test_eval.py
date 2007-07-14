@@ -5,13 +5,13 @@ from pypy.lang.scheme.object import *
 def test_eval_obj():
     w_num = W_Pair(W_Identifier("+"),
                    W_Pair(W_Integer(4), W_Pair(W_Integer(5), W_Nil())))
-    assert w_num.eval(None).to_number() == 9 
+    assert w_num.eval(ExecutionContext()).to_number() == 9 
 
 def eval_expr(ctx, expr):
     return parse(expr)[0].eval(ctx)
 
 def eval_noctx(expr):
-    return parse(expr)[0].eval(None)
+    return parse(expr)[0].eval(ExecutionContext())
 
 def test_numerical():
     w_num = eval_noctx("(+)")
@@ -215,7 +215,8 @@ def test_lambda_noargs():
 
 def test_lambda_args():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define f1 (lambda (n) n))")
+    w_lam = eval_expr(ctx, "(define f1 (lambda (n) n))")
+    assert isinstance(w_lam, W_Lambda)
 
     w_result = eval_expr(ctx, "(f1 42)")
     assert isinstance(w_result, W_Integer)
@@ -462,3 +463,17 @@ def test_lambda_context():
                         """)
     w_num = eval_expr(ctx, "(b)")
     assert w_num.to_number() == 42
+
+def test_evaluator():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define a 0)")
+    w_obj = parse("(let () (set! a 42) a)")[0]
+    (w_expr, new_ctx) = w_obj.eval1(ctx)
+    assert ctx.get("a").to_number() == 42
+    assert isinstance(w_expr, W_Identifier)
+    assert new_ctx is not ctx
+    assert isinstance(new_ctx, ExecutionContext)
+    (w_obj, newer_ctx) = w_expr.eval1(new_ctx)
+    assert isinstance(w_obj, W_Number)
+    assert w_obj.to_number() == 42
+    assert newer_ctx is None
