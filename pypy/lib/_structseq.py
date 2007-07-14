@@ -23,7 +23,7 @@ class structseqfield(object):
         if obj is None:
             return self
         if self.index is None:
-            return getattr(obj, 'data_' + self.__name__)
+            return obj.__dict__[self.__name__]
         else:
             return obj[self.index]
 
@@ -36,13 +36,11 @@ class structseqtype(type):
     def __new__(metacls, classname, bases, dict):
         assert not bases
         fields_by_index = {}
-        slots = []
         for name, field in dict.items():
             if isinstance(field, structseqfield):
                 assert field._index not in fields_by_index
                 fields_by_index[field._index] = field
                 field.__name__ = name
-                slots.append('data_' + name)
         dict['n_fields'] = len(fields_by_index)
 
         extra_fields = fields_by_index.items()
@@ -62,7 +60,6 @@ class structseqtype(type):
         dict['_extra_fields'] = tuple(extra_fields)
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
-        dict['__slots__'] = tuple(slots)
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
@@ -94,12 +91,11 @@ def structseq_new(cls, sequence, dict={}):
             dict[name] = value
         sequence = sequence[:N]
     result = tuple.__new__(cls, sequence)
+    result.__dict__ = dict
     for field in cls._extra_fields:
         name = field.__name__
         if name not in dict:
             dict[name] = field._default(result)
-    for k, v in dict.iteritems():
-        setattr(result, k, v)
     return result
 
 def structseq_reduce(self):
