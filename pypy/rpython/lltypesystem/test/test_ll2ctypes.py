@@ -313,3 +313,6 @@ def test_qsort():
     lltype.free(a, flavor='raw')
 
 # def test_signal():...
+
+def test_substructures():
+    py.test.skip("XXX test and implement substructures")
