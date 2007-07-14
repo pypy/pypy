@@ -20,11 +20,15 @@ class CConstant(Symbolic):
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[], libraries=[]):
     ext_type = lltype.FuncType(args, result)
-    return lltype.functionptr(ext_type, name, external='C',
-                              sources=tuple(sources),
-                              includes=tuple(includes),
-                              libraries=tuple(libraries),
-                              _callable=_callable)
+    funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 sources=tuple(sources),
+                                 includes=tuple(includes),
+                                 libraries=tuple(libraries),
+                                 _callable=_callable)
+    if _callable is None:
+        from pypy.rpython.lltypesystem import ll2ctypes
+        ll2ctypes.make_callable_via_ctypes(funcptr)
+    return funcptr
 
 def setup():
     """ creates necessary c-level types
