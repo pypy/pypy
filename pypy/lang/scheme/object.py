@@ -13,7 +13,7 @@ class WrongArgsNumber(SchemeException):
 
 class WrongArgType(SchemeException):
     def __str__(self):
-        return "Wrong argument type"
+        return "Wrong argument type: {%s}!=%s" % (self.args[0], self.args[1])
 
 class SchemeQuit(SchemeException):
     """raised on (quit) evaluation"""
@@ -96,50 +96,54 @@ class W_Number(W_Root):
 class W_Real(W_Number):
     def __init__(self, val):
         self.exact = False
-        self.floatval = val
+        self.realval = val
 
     def to_string(self):
-        return str(self.floatval)
+        return str(self.realval)
 
     def to_number(self):
         return self.to_float()
 
     def to_fixnum(self):
-        return int(self.floatval)
+        return int(self.realval)
 
     def to_float(self):
-        return self.floatval
+        return self.realval
 
     def round(self):
-        int_part = int(self.floatval)
-        if self.floatval > 0:
-            if self.floatval >= (int_part + 0.5):
+        int_part = int(self.realval)
+        if self.realval > 0:
+            if self.realval >= (int_part + 0.5):
                 return int_part + 1
 
             return int_part
 
         else:
-            if self.floatval <= (int_part - 0.5):
+            if self.realval <= (int_part - 0.5):
                 return int_part - 1
 
             return int_part
 
+    def is_integer(self):
+        return self.realval == self.round()
+
 class W_Integer(W_Real):
     def __init__(self, val):
-        self.fixnumval = val
+        self.intval = val
+        self.realval = val
         self.exact = True
 
     def to_string(self):
-        return str(self.fixnumval)
+        return str(self.intval)
 
     def to_number(self):
         return self.to_fixnum()
 
     def to_fixnum(self):
-        return self.fixnumval
+        return self.intval
 
     def to_float(self):
-        return float(self.fixnumval)
+        return float(self.intval)
 
 class W_Pair(W_Root):
     def __init__(self, car, cdr):
@@ -185,6 +189,7 @@ class W_Procedure(W_Callable):
         arg_lst = []
         arg = lst
         while not isinstance(arg, W_Nil):
+            assert isinstance(arg, W_Pair)
             arg_lst.append(arg.car.eval(ctx))
             arg = arg.cdr
 
@@ -217,6 +222,7 @@ class W_Lambda(W_Procedure):
                 self.args.append(Formal(arg.to_string(), True))
                 break
             else:
+                assert isinstance(arg, W_Pair)
                 assert isinstance(arg.car, W_Identifier)
                 #list of argument names, not evaluated
                 self.args.append(Formal(arg.car.to_string(), False))
@@ -301,7 +307,7 @@ def create_op_class(oper, unary_oper, title, default_result=None):
         """ % (attr_name, oper))
 
     exec code.compile() in local_locals
-    local_locals[attr_name]._annspecialcase_ = 'specialize:argtype(1,2)'
+    local_locals[attr_name]._annspecialcase_ = 'specialize:argtype(1)'
     setattr(Op, attr_name, local_locals[attr_name])
 
     attr_name = "do_unary_oper"
@@ -354,14 +360,14 @@ class PredicateNumber(W_Procedure):
             raise WrongArgsNumber
 
         if not isinstance(lst[0], W_Number):
-            raise WrongArgType
+            raise WrongArgType(1, 'Number')
 
         return W_Boolean(self.predicate(lst[0]))
 
 class IntegerP(PredicateNumber):
     def predicate(self, w_obj):
         if not w_obj.exact:
-            return w_obj.to_float() == w_obj.round()
+            return w_obj.is_integer()
 
         return True
 
@@ -381,11 +387,30 @@ class InexactP(PredicateNumber):
     def predicate(self, w_obj):
         return not w_obj.exact
 
+class ZeroP(PredicateNumber):
+    def predicate(self, w_obj):
+        return w_obj.to_number() == 0.0
+
+class OddP(PredicateNumber):
+    def predicate(self, w_obj):
+        if not w_obj.is_integer():
+            raise WrongArgType(1, "Integer")
+
+        return w_obj.round() % 2 != 0
+
+class EvenP(PredicateNumber):
+    def predicate(self, w_obj):
+        if not w_obj.is_integer():
+            raise WrongArgType(1, "Integer")
+
+        return w_obj.round() % 2 == 0
+
 ##
 # Macro
 ##
 class Define(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         w_identifier = lst.car
         assert isinstance(w_identifier, W_Identifier)
 
@@ -395,6 +420,7 @@ class Define(W_Macro):
 
 class Sete(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         w_identifier = lst.car
         assert isinstance(w_identifier, W_Identifier)
 
@@ -404,6 +430,7 @@ class Sete(W_Macro):
 
 class MacroIf(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         w_condition = lst.car
         w_then = lst.cdr.car
         if isinstance(lst.cdr.cdr, W_Nil):
@@ -427,11 +454,13 @@ class Cons(W_Procedure):
 class Car(W_Procedure):
     def procedure(self, ctx, lst):
         w_pair = lst[0]
+        assert isinstance(w_pair, W_Pair)
         return w_pair.car
 
 class Cdr(W_Procedure):
     def procedure(self, ctx, lst):
         w_pair = lst[0]
+        assert isinstance(w_pair, W_Pair)
         return w_pair.cdr
 
 class Quit(W_Procedure):
@@ -441,11 +470,12 @@ class Quit(W_Procedure):
 class Lambda(W_Macro):
     def call(self, ctx, lst):
         w_args = lst.car
-        w_body = lst.cdr #.car
+        w_body = lst.cdr
         return W_Lambda(w_args, w_body, ctx.copy())
 
 class Let(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         local_ctx = ctx.copy()
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
@@ -459,6 +489,7 @@ class Let(W_Macro):
 
 class Letrec(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         local_ctx = ctx.copy()
 
         #bound variables
@@ -478,11 +509,12 @@ class Letrec(W_Macro):
 
         return self.eval_body(local_ctx, lst.cdr)
 
-def Literal(sexpr):
+def literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
+        assert isinstance(lst, W_Pair)
         return lst.car
 
 ##
@@ -521,6 +553,9 @@ OMAP = \
         'number?': NumberP,
         'exact?': ExactP,
         'inexact?': InexactP,
+        'zero?': ZeroP,
+        'odd?': OddP,
+        'even?': EvenP,
             #macros
         'define': Define,
         'set!': Sete,

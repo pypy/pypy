@@ -2,7 +2,7 @@ import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.rlib.parsing.makepackrat import BacktrackException, Status
 from pypy.lang.scheme.object import W_Pair, W_Integer, W_String, W_Identifier, \
-        W_Nil, W_Boolean, W_Real, Literal
+        W_Nil, W_Boolean, W_Real, literal
 
 def unquote(s):
     str_lst = []
@@ -59,7 +59,7 @@ class SchemeParser(PackratParser):
     literal:
        `'`
        s = sexpr
-       return {Literal(s)};
+       return {literal(s)};
     
     sexpr:
         list

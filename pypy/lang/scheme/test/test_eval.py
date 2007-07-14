@@ -399,7 +399,23 @@ def test_numbers():
 def test_exactness():
     assert eval_noctx("(exact? 42)").to_boolean()
     assert not eval_noctx("(exact? 42.0)").to_boolean()
+    py.test.raises(WrongArgType, eval_noctx, "(exact? 'a)" )
 
     assert not eval_noctx("(inexact? 42)").to_boolean()
     assert eval_noctx("(inexact? 42.0)").to_boolean()
+    py.test.raises(WrongArgType, eval_noctx, "(inexact? 'a)" )
+
+def test_number_predicates():
+    assert eval_noctx("(zero? 0)").to_boolean()
+    assert eval_noctx("(zero? 0.0)").to_boolean()
+    assert not eval_noctx("(zero? 1.0)").to_boolean()
+    py.test.raises(WrongArgType, eval_noctx, "(zero? 'a)" )
+
+    assert not eval_noctx("(odd? 0)").to_boolean()
+    assert eval_noctx("(odd? 1)").to_boolean()
+    py.test.raises(WrongArgType, eval_noctx, "(odd? 1.1)" )
+
+    assert eval_noctx("(even? 0)").to_boolean()
+    assert not eval_noctx("(even? 1)").to_boolean()
+    py.test.raises(WrongArgType, eval_noctx, "(even? 1.1)" )
 
