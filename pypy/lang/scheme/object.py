@@ -599,14 +599,14 @@ class Letrec(W_Macro):
 
         #bound variables
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
+        while isinstance(w_formal, W_Pair):
             name = w_formal.get_car_as_pair().car.to_string()
             local_ctx.put(name, W_Nil())
             w_formal = w_formal.cdr
 
         #eval in local_ctx and assign values 
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
+        while isinstance(w_formal, W_Pair):
             name = w_formal.get_car_as_pair().car.to_string()
             val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(local_ctx)
             local_ctx.set(name, val)
@@ -619,20 +619,14 @@ def literal(sexpr):
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
-        if not isinstance(lst, W_Pair):
-            raise SchemeSyntaxError
-
-        if not isinstance(lst.cdr, W_Nil):
+        if not isinstance(lst, W_List):
             raise SchemeSyntaxError
 
         return lst.car
 
 class Delay(W_Macro):
     def call(self, ctx, lst):
-        if not isinstance(lst, W_Pair):
-            raise SchemeSyntaxError
-
-        if not isinstance(lst.cdr, W_Nil):
+        if not isinstance(lst, W_List):
             raise SchemeSyntaxError
 
         return W_Promise(lst.car, ctx)
