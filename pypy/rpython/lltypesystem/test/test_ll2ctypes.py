@@ -1,6 +1,6 @@
 import ctypes
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.lltype2ctypes import lltype2ctypes
+from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes
 
 
 def test_primitive():
