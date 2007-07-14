@@ -1,6 +1,7 @@
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib import rarithmetic
@@ -28,7 +29,6 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                                  include_dirs=tuple(include_dirs),
                                  _callable=_callable)
     if _callable is None:
-        from pypy.rpython.lltypesystem import ll2ctypes
         ll2ctypes.make_callable_via_ctypes(funcptr)
     return funcptr
 
@@ -66,8 +66,8 @@ def CStruct(name, *fields, **kwds):
 
 c_errno = CConstant('errno', lltype.Signed)
 
-# void *
-VOIDP = lltype.Ptr(lltype.FixedSizeArray(lltype.Void, 1))
+# void *   - for now, represented as char *
+VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
@@ -119,3 +119,5 @@ def free_charpp(ref):
         free_charp(ref[i])
         i += 1
     lltype.free(ref, flavor='raw')
+
+force_cast = ll2ctypes.force_cast     # cast a ptr to another with no typecheck

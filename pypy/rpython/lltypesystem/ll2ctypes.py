@@ -1,7 +1,8 @@
 import sys
 import ctypes
 import ctypes.util
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_uint
 
@@ -120,7 +121,15 @@ def get_ctypes_type(T):
         return _ctypes_cache[T]
     except KeyError:
         if isinstance(T, lltype.Ptr):
-            cls = ctypes.POINTER(get_ctypes_type(T.TO))
+            if isinstance(T.TO, lltype.FuncType):
+                argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS]
+                if T.TO.RESULT is lltype.Void:
+                    restype = None
+                else:
+                    restype = get_ctypes_type(T.TO.RESULT)
+                cls = ctypes.CFUNCTYPE(restype, *argtypes)
+            else:
+                cls = ctypes.POINTER(get_ctypes_type(T.TO))
         elif isinstance(T, lltype.Struct):
             cls = build_ctypes_struct(T)
         elif isinstance(T, lltype.Array):
@@ -190,6 +199,24 @@ def lltype2ctypes(llobj, normalize=True):
     T = lltype.typeOf(llobj)
     if isinstance(T, lltype.Ptr):
         container = llobj._obj
+        if isinstance(T.TO, lltype.FuncType):
+            if not hasattr(container, '_callable'):
+                raise NotImplementedError("ctypes wrapper for ll function "
+                                          "without a _callable")
+            else:
+                ctypes_func_type = get_ctypes_type(T)
+                def callback(*cargs):
+                    assert len(cargs) == len(T.TO.ARGS)
+                    llargs = [ctypes2lltype(ARG, cargs)
+                              for ARG, cargs in zip(T.TO.ARGS, cargs)]
+                    llres = container._callable(*llargs)
+                    assert lltype.typeOf(llres) == T.TO.RESULT
+                    if T.TO.RESULT is lltype.Void:
+                        return None
+                    else:
+                        return lltype2ctypes(llres)
+                return ctypes_func_type(callback)
+
         if container._ctypes_storage is None:
             if isinstance(T.TO, lltype.Struct):
                 convert_struct(container)
@@ -202,6 +229,12 @@ def lltype2ctypes(llobj, normalize=True):
         if normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
         return p
+
+    if isinstance(llobj, Symbolic):
+        if isinstance(llobj, llmemory.ItemOffset):
+            llobj = ctypes.sizeof(get_ctypes_type(llobj.TYPE)) * llobj.repeat
+        else:
+            raise NotImplementedError(llobj)  # don't know about symbolic value
 
     if T is lltype.Char:
         return ord(llobj)
@@ -224,6 +257,10 @@ def ctypes2lltype(T, cobj):
                 container._ctypes_storage = cobj.contents
             else:
                 raise NotImplementedError("array with an explicit length")
+        elif isinstance(T.TO, lltype.FuncType):
+            funcptr = lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'))
+            make_callable_via_ctypes(funcptr, cfunc=cobj)
+            return funcptr
         else:
             raise NotImplementedError(T)
         llobj = lltype._ptr(T, container, solid=True)
@@ -285,9 +322,10 @@ def get_ctypes_callable(funcptr):
         cfunc.restype = get_ctypes_type(FUNCTYPE.RESULT)
     return cfunc
 
-def make_callable_via_ctypes(funcptr):
+def make_callable_via_ctypes(funcptr, cfunc=None):
     try:
-        cfunc = get_ctypes_callable(funcptr)
+        if cfunc is None:
+            cfunc = get_ctypes_callable(funcptr)
     except NotImplementedError, e:
         def invoke_via_ctypes(*argvalues):
             raise NotImplementedError, e
@@ -298,3 +336,10 @@ def make_callable_via_ctypes(funcptr):
             cres = cfunc(*cargs)
             return ctypes2lltype(RESULT, cres)
     funcptr._obj._callable = invoke_via_ctypes
+
+def force_cast(PTRTYPE, ptr):
+    """Cast a pointer to another pointer with no typechecking."""
+    CPtrType = get_ctypes_type(PTRTYPE)
+    cptr = lltype2ctypes(ptr)
+    cptr = ctypes.cast(cptr, CPtrType)
+    return ctypes2lltype(PTRTYPE, cptr)

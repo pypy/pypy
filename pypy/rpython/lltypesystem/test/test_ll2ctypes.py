@@ -1,8 +1,10 @@
 import py
-import sys
+import sys, struct
 import ctypes
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
+from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import r_uint
 
 
@@ -18,6 +20,12 @@ def test_primitive():
     assert lltype2ctypes(r_uint(-1)) == sys.maxint * 2 + 1
     res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
     assert (res, type(res)) == (r_uint(-1), r_uint)
+
+    res = lltype2ctypes(llmemory.sizeof(lltype.Signed))
+    assert res == struct.calcsize("l")
+    S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+    res = lltype2ctypes(llmemory.sizeof(S))
+    assert res == struct.calcsize("ll")
 
 def test_simple_struct():
     S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
@@ -209,5 +217,99 @@ def test_rand():
     assert res2 == res2b
     assert res3 == res3b
 
-# def test_qsort():...
+def test_force_cast():
+    import array
+    A = lltype.Array(lltype.Signed, hints={'nolength': True})
+    B = lltype.Array(lltype.Char, hints={'nolength': True})
+    a = lltype.malloc(A, 10, flavor='raw')
+    for i in range(10):
+        a[i] = i*i
+
+    b = rffi.force_cast(lltype.Ptr(B), a)
+
+    checker = array.array('l')
+    for i in range(10):
+        checker.append(i*i)
+    expected = checker.tostring()
+
+    for i in range(len(expected)):
+        assert b[i] == expected[i]
+
+    c = rffi.force_cast(rffi.VOIDP, a)
+    addr = lltype2ctypes(c)
+    #assert addr == ctypes.addressof(a._obj._ctypes_storage)
+    d = ctypes2lltype(rffi.VOIDP, addr)
+    assert lltype.typeOf(d) == rffi.VOIDP
+    assert c == d
+    e = rffi.force_cast(lltype.Ptr(A), d)
+    for i in range(10):
+        assert e[i] == i*i
+
+    lltype.free(a, flavor='raw')
+
+def test_funcptr1():
+    def dummy(n):
+        return n+1
+
+    FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
+    cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
+    assert isinstance(cdummy, ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+    res = cdummy(41)
+    assert res == 42
+    lldummy = ctypes2lltype(lltype.Ptr(FUNCTYPE), cdummy)
+    assert lltype.typeOf(lldummy) == lltype.Ptr(FUNCTYPE)
+    res = lldummy(41)
+    assert res == 42
+
+def test_funcptr2():
+    FUNCTYPE = lltype.FuncType([rffi.CCHARP], lltype.Signed)
+    cstrlen = standard_c_lib.strlen
+    llstrlen = ctypes2lltype(lltype.Ptr(FUNCTYPE), cstrlen)
+    assert lltype.typeOf(llstrlen) == lltype.Ptr(FUNCTYPE)
+    p = rffi.str2charp("hi there")
+    res = llstrlen(p)
+    assert res == 8
+    cstrlen2 = lltype2ctypes(llstrlen)
+    cp = lltype2ctypes(p)
+    assert cstrlen2.restype == ctypes.c_long
+    res = cstrlen2(cp)
+    assert res == 8
+    rffi.free_charp(p)
+
+def test_qsort():
+    # XXX Signed => size_t
+    CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], lltype.Signed)
+    qsort = rffi.llexternal('qsort', [rffi.VOIDP,
+                                      lltype.Signed,
+                                      lltype.Signed,
+                                      lltype.Ptr(CMPFUNC)],
+                            lltype.Void)
+
+    lst = [23, 43, 24, 324, 242, 34, 78, 5, 3, 10]
+    A = lltype.Array(lltype.Signed, hints={'nolength': True})
+    a = lltype.malloc(A, 10, flavor='raw')
+    for i in range(10):
+        a[i] = lst[i]
+
+    INTPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
+
+    def my_compar(p1, p2):
+        p1 = rffi.force_cast(INTPTR, p1)
+        p2 = rffi.force_cast(INTPTR, p2)
+        print 'my_compar:', p1[0], p2[0]
+        return cmp(p1[0], p2[0])
+
+    qsort(rffi.force_cast(rffi.VOIDP, a),
+          10,
+          llmemory.sizeof(lltype.Signed),
+          llhelper(lltype.Ptr(CMPFUNC), my_compar))
+
+    for i in range(10):
+        print a[i],
+    print
+    lst.sort()
+    for i in range(10):
+        assert a[i] == lst[i]
+    lltype.free(a, flavor='raw')
+
 # def test_signal():...
