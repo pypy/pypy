@@ -148,42 +148,42 @@ class CPythonCompiler(PyCodeCompiler):
     def _warn_explicit(self, message, category, filename, lineno,
                        module=None, registry=None):
         if hasattr(category, '__bases__') and \
-           issubclass(category, SyntaxWarning): 
+           issubclass(category, SyntaxWarning):
             assert isinstance(message, str)
             space = self.space
             w_mod = space.sys.getmodule('warnings')
-            if w_mod is not None: 
-                w_dict = w_mod.getdict() 
-                w_reg = space.call_method(w_dict, 'setdefault', 
-                                          space.wrap("__warningregistry__"),     
+            if w_mod is not None:
+                w_dict = w_mod.getdict()
+                w_reg = space.call_method(w_dict, 'setdefault',
+                                          space.wrap("__warningregistry__"),
                                           space.newdict())
-                try: 
-                    space.call_method(w_mod, 'warn_explicit', 
-                                      space.wrap(message), 
-                                      space.w_SyntaxWarning, 
-                                      space.wrap(filename), 
-                                      space.wrap(lineno), 
-                                      space.w_None, 
-                                      space.w_None) 
-                except OperationError, e: 
-                    if e.match(space, space.w_SyntaxWarning): 
+                try:
+                    space.call_method(w_mod, 'warn_explicit',
+                                      space.wrap(message),
+                                      space.w_SyntaxWarning,
+                                      space.wrap(filename),
+                                      space.wrap(lineno),
+                                      space.w_None,
+                                      space.w_None)
+                except OperationError, e:
+                    if e.match(space, space.w_SyntaxWarning):
                         raise OperationError(
-                                space.w_SyntaxError, 
+                                space.w_SyntaxError,
                                 space.wrap(message))
-                    raise 
+                    raise
 
     def setup_warn_explicit(self, warnings):
         """
-        this is a hack until we have our own parsing/compiling 
-        in place: we bridge certain warnings to the applevel 
+        this is a hack until we have our own parsing/compiling
+        in place: we bridge certain warnings to the applevel
         warnings module to let it decide what to do with
-        a syntax warning ... 
-        """ 
+        a syntax warning ...
+        """
         # there is a hack to make the flow space happy:
         # 'warnings' should not look like a Constant
-        old_warn_explicit = warnings.warn_explicit 
+        old_warn_explicit = warnings.warn_explicit
         warnings.warn_explicit = self._warn_explicit
-        return old_warn_explicit 
+        return old_warn_explicit
 
     def restore_warn_explicit(self, warnings, old_warn_explicit):
         warnings.warn_explicit = old_warn_explicit
@@ -204,7 +204,7 @@ class PythonAstCompiler(PyCodeCompiler):
         PyCodeCompiler.__init__(self, space)
         self.parser = PYTHON_PARSER
         self.additional_rules = {}
-    
+
 
     def compile(self, source, filename, mode, flags):
         from pyparser.error import SyntaxError
@@ -285,7 +285,7 @@ def insert_grammar_rule(space, w_rule, w_buildfuncs):
             break
     space.default_compiler.additional_rules = buildfuncs
     space.default_compiler.parser.insert_rule(rule)
-    
+
 # XXX cyclic import
 #from pypy.interpreter.baseobjspace import ObjSpace
 #insert_grammar_rule.unwrap_spec = [ObjSpace, str, dict]

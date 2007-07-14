@@ -278,7 +278,7 @@ class AppTestWith(Py25AppTest):
     def test_with_simple(self):
 
         s = """from __future__ import with_statement
-if 1:        
+if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -288,7 +288,7 @@ if 1:
 
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
-            
+
         acontext = Context()
         with acontext:
             pass
@@ -296,7 +296,7 @@ if 1:
         exec s
 
         assert acontext.calls == '__enter__ __exit__'.split()
-        
+
     def test_with_as_var(self):
 
         s = """from __future__ import with_statement
@@ -308,7 +308,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -322,7 +322,7 @@ if 1:
 
         assert acontextfact.exit_params == (None, None, None)
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
-        
+
     def test_with_raise_exception(self):
 
         s = """from __future__ import with_statement
@@ -334,7 +334,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -369,7 +369,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -400,7 +400,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -419,7 +419,7 @@ if 1:
 
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
-        
+
     def test_with_continue(self):
 
         s = """from __future__ import with_statement
@@ -431,7 +431,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -450,7 +450,7 @@ if 1:
 
         assert acontextfact.calls == '__enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
-        
+
     def test_with_return(self):
         s = """from __future__ import with_statement
 if 1:
@@ -461,7 +461,7 @@ if 1:
             def __enter__(self):
                 self.calls.append('__enter__')
                 return self.calls
-            
+
             def __exit__(self, exc_type, exc_value, exc_tb):
                 self.calls.append('__exit__')
                 self.exit_params = (exc_type, exc_value, exc_tb)
@@ -479,7 +479,7 @@ if 1:
 
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
-        
+
     def test_with_as_identifier(self):
         exec "with = 9"
 
@@ -490,7 +490,7 @@ if 1:
             pass
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
-        
+
     def test_with_as_keyword_and_docstring(self):
         try:
             exec "'Docstring'\nfrom __future__ import with_statement\nwith = 9"
@@ -498,7 +498,7 @@ if 1:
             pass
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
-        
+
     def test_with_as_keyword_compound(self):
         try:
             exec "from __future__ import generators, with_statement\nwith = 9"
@@ -506,7 +506,7 @@ if 1:
             pass
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
-        
+
     def test_with_as_keyword_multiple(self):
         try:
             exec "from __future__ import generators\nfrom __future__ import with_statement\nwith = 9"
@@ -514,11 +514,11 @@ if 1:
             pass
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
-        
+
     def test_as_as_identifier(self):
         exec "as = 9"
         exec "import sys as foo"
-        
+
     def test_as_as_keyword(self):
         try:
             exec "from __future__ import with_statement\nas = 9"

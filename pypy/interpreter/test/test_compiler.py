@@ -76,14 +76,14 @@ class BaseTestCompiler:
         assert space.int_w(w_a) == 1
 
     def test_scope_unoptimized_clash1(self):
-        # mostly taken from test_scope.py 
+        # mostly taken from test_scope.py
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def unoptimized_clash1(strip):
                 def f(s):
                     from string import *
                     return strip(s) # ambiguity: free or local
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_unoptimized_clash1_b(self):
@@ -91,14 +91,14 @@ class BaseTestCompiler:
         # by the interpreter so a SyntaxError is not required, but
         # let's give one anyway for "compatibility"...
 
-        # mostly taken from test_scope.py 
+        # mostly taken from test_scope.py
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def unoptimized_clash1(strip):
                 def f():
                     from string import *
                     return s # ambiguity: free or local (? no, global or local)
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_exec_in_nested(self):
@@ -108,7 +108,7 @@ class BaseTestCompiler:
                     exec "z=3"
                     return x
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_exec_with_nested_free(self):
@@ -118,17 +118,17 @@ class BaseTestCompiler:
                 def f():
                     return x
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_importstar_in_nested(self):
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def unoptimized_clash1(x):
                 def f():
-                    from string import * 
+                    from string import *
                     return x
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_importstar_with_nested_free(self):
@@ -138,7 +138,7 @@ class BaseTestCompiler:
                 def f(s):
                     return strip(s)
                 return f""", '', 'exec', 0)
-        ex = e.value 
+        ex = e.value
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_toplevel_docstring(self):
@@ -209,7 +209,7 @@ class BaseTestCompiler:
         ex = e.value
         ex.normalize_exception(self.space)
         assert ex.match(self.space, self.space.w_SyntaxError)
-        
+
     def test_debug_assignment(self):
         code = '__debug__ = 1'
         e = py.test.raises(OperationError, self.compiler.compile, code, '', 'single', 0)
@@ -302,7 +302,7 @@ class BaseTestCompiler:
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
         filter_arg = Arguments(space, [ space.wrap('error') ],
                        dict(module=space.wrap('<tmp>')))
-                        
+
         for code in ('''
 def wrong1():
     a = 1
@@ -323,7 +323,7 @@ def wrong3():
             space.call_args(w_filterwarnings, filter_arg)
             e = py.test.raises(OperationError, self.compiler.compile,
                                code, '<tmp>', 'exec', 0)
-            space.call_method(w_mod, 'resetwarnings') 
+            space.call_method(w_mod, 'resetwarnings')
             ex = e.value
             ex.normalize_exception(space)
             assert ex.match(space, space.w_SyntaxError)
@@ -580,7 +580,7 @@ class AppTestOptimizer:
         class Folder:
             def defaultvisit(self, node):
                 return node
-            
+
             def __getattr__(self, attrname):
                 if attrname.startswith('visit'):
                     return self.defaultvisit
@@ -597,7 +597,7 @@ class AppTestOptimizer:
 
         def hook(ast, enc, filename):
             return ast.mutate(Folder())
-        
+
         parser.install_compiler_hook(hook)
         code = compile("1+2", "", "eval")
         parser.install_compiler_hook(None)
@@ -611,5 +611,5 @@ class AppTestOptimizer:
             sys.stdout = so
         output = s.getvalue()
         assert 'BINARY_ADD' not in output
-        
-        
+
+
