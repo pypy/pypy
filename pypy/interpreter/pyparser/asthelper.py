@@ -565,7 +565,6 @@ class TokenObject(ast.Node):
 
     def __init__(self, name, value, lineno, parser):
         self.name = name
-        assert value is None or type(value) is str
         self.value = value
         self.count = 0
         # self.line = 0 # src.getline()
