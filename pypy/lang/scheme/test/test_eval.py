@@ -383,7 +383,7 @@ def test_letrec():
                         (if (= n 0)
                             #f
                             (even? (- n 1))))))
-                (even? 12))""")
+                (even? 2000))""")
     assert w_result.to_boolean() is True
 
 def test_quit():
@@ -477,3 +477,17 @@ def test_evaluator():
     assert isinstance(w_obj, W_Number)
     assert w_obj.to_number() == 42
     assert newer_ctx is None
+
+def test_deep_recursion():
+    ctx = ExecutionContext()
+    eval_expr(ctx, "(define a 0)")
+    eval_expr(ctx, """
+        (define loop (lambda (n)
+                        (set! a (+ a 1))
+                        (if (= n 0)
+                            n
+                            (loop (- n 1)))))""")
+
+    eval_expr(ctx, "(loop 2000)")
+    assert ctx.get("a").to_number() == 2001
+
