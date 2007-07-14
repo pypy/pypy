@@ -133,21 +133,23 @@ class CBuilder(object):
             from pypy.translator.c.symboltable import SymbolTable
             # XXX fix symboltable
             #self.symboltable = SymbolTable()
-            cfile, extra = gen_source(db, modulename, targetdir,
-                                      defines = defines,
-                                      exports = self.exports,
-                                      symboltable = self.symboltable)
+            cfile, extra, extraincludes = gen_source(db, modulename, targetdir,
+                                                defines = defines,
+                                                exports = self.exports,
+                                                symboltable = self.symboltable)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
                 if not self.config.translation.no__thread:
                     defines['USE___THREAD'] = 1
-            cfile, extra = gen_source_standalone(db, modulename, targetdir,
-                                                 entrypointname = pfname,
-                                                 defines = defines)
+            cfile, extra, extraincludes = \
+                   gen_source_standalone(db, modulename, targetdir,
+                                         entrypointname = pfname,
+                                         defines = defines)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = extra
+        self.extraincludes = extraincludes.keys()
         if self.standalone:
             self.gen_makefile(targetdir)
         return cfile
@@ -176,9 +178,10 @@ class CExtModuleBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename 
         assert not self._compiled
+        extra_includes = self.extraincludes
         compile_c_module([self.c_source_filename] + self.extrafiles,
                          self.c_source_filename.purebasename,
-                         include_dirs = [autopath.this_dir],
+                         include_dirs = [autopath.this_dir] + extra_includes,
                          libraries=self.libraries)
         self._compiled = True
 
@@ -241,7 +244,8 @@ class CStandaloneBuilder(CBuilder):
     def compile(self):
         assert self.c_source_filename
         assert not self._compiled
-        compiler = self.getccompiler(extra_includes=[str(self.targetdir)])
+        compiler = self.getccompiler(extra_includes=[str(self.targetdir)] +
+                                     self.extraincludes)
         if sys.platform == 'darwin':
             compiler.compile_extra.append('-mdynamic-no-pic')
         if self.config.translation.compilerflags:
@@ -606,6 +610,7 @@ def gen_startupcode(f, database):
 def extra_information(database):
     includes = {}
     sources = {}
+    include_dirs = {}
     for node in database.globalcontainers():
         if hasattr(node, 'includes'):
             for include in node.includes:
@@ -613,11 +618,14 @@ def extra_information(database):
         if hasattr(node, 'sources'):
             for source in node.sources:
                 sources[source] = True
+        if hasattr(node, 'include_dirs'):
+            for include_dir in node.include_dirs:
+                include_dirs[include_dir] = True
     includes = includes.keys()
     includes.sort()
     sources = sources.keys()
     sources.sort()
-    return includes, sources
+    return includes, sources, include_dirs
 
 def gen_source_standalone(database, modulename, targetdir, 
                           entrypointname, defines={}): 
@@ -648,7 +656,7 @@ def gen_source_standalone(database, modulename, targetdir,
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes, sources = extra_information(database)
+    includes, sources, include_dirs = extra_information(database)
     for include in includes:
         print >> fi, '#include <%s>' % (include,)
     fi.close()
@@ -676,7 +684,7 @@ def gen_source_standalone(database, modulename, targetdir,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    return filename, sg.getextrafiles() + sources
+    return filename, sg.getextrafiles() + sources, include_dirs
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
@@ -706,7 +714,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     for line in database.gcpolicy.pre_gc_code():
         print >> fi, line
 
-    includes, sources = extra_information(database)
+    includes, sources, include_dirs = extra_information(database)
     for include in includes:
         print >> fi, '#include <%s>' % (include,)
     fi.close()
@@ -837,7 +845,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     f.write(SETUP_PY % locals())
     f.close()
 
-    return filename, sg.getextrafiles() + sources
+    return filename, sg.getextrafiles() + sources, include_dirs
 
 
 SETUP_PY = '''

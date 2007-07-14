@@ -613,6 +613,8 @@ class FuncNode(ContainerNode):
                          db.namespace.uniquename('g_' + self.basename()))
         if hasattr(obj, 'libraries'):
             self.libraries = obj.libraries
+        if hasattr(obj, 'include_dirs'):
+            self.include_dirs = obj.include_dirs
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)
