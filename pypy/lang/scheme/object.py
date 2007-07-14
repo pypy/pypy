@@ -181,9 +181,23 @@ class W_Pair(W_List):
 
         #a propper (oper args ...) call
         # self.cdr has to be a proper list
-        if not isinstance(self.cdr, W_List):
+        cdr = self.cdr
+        if isinstance(cdr, W_List):
+            return oper.call_tr(ctx, cdr)
+        else:
             raise SchemeSyntaxError
-        return oper.call_tr(ctx, self.cdr)
+
+    def get_car_as_pair(self):
+        res = self.car
+        if not isinstance(res, W_Pair):
+            raise SchemeSyntaxError
+        return res
+
+    def get_cdr_as_pair(self):
+        res = self.cdr
+        if not isinstance(res, W_Pair):
+            raise SchemeSyntaxError
+        return res
 
 class W_Nil(W_List):
     def to_string(self):
@@ -201,7 +215,9 @@ class W_Callable(W_Root):
     def eval_body(self, ctx, body):
         body_expression = body
         while True:
-            if isinstance(body_expression.cdr, W_Nil):
+            if not isinstance(body_expression, W_Pair):
+                raise SchemeSyntaxError
+            elif isinstance(body_expression.cdr, W_Nil):
                 return (body_expression.car, ctx)
             else:
                 body_expression.car.eval(ctx)
@@ -515,7 +531,7 @@ class Define(W_Macro):
         if not isinstance(w_identifier, W_Identifier):
             raise WrongArgType(w_identifier, "Identifier")
 
-        w_val = lst.cdr.car.eval(ctx)
+        w_val = lst.get_cdr_as_pair().car.eval(ctx)
         ctx.set(w_identifier.name, w_val)
         return w_val
 
@@ -527,7 +543,7 @@ class Sete(W_Macro):
         if not isinstance(w_identifier, W_Identifier):
             raise WrongArgType(w_identifier, "Identifier")
 
-        w_val = lst.cdr.car.eval(ctx)
+        w_val = lst.get_cdr_as_pair().car.eval(ctx)
         ctx.sete(w_identifier.name, w_val)
         return w_val
 
@@ -537,11 +553,12 @@ class MacroIf(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_condition = lst.car
-        w_then = lst.cdr.car
-        if isinstance(lst.cdr.cdr, W_Nil):
+        lst_cdr = lst.get_cdr_as_pair() 
+        w_then = lst_cdr.car
+        if isinstance(lst_cdr.cdr, W_Nil):
             w_else = W_Boolean(False)
         else:
-            w_else = lst.cdr.cdr.car
+            w_else = lst_cdr.get_cdr_as_pair().car
 
         w_cond_val = w_condition.eval(ctx)
         if w_cond_val.to_boolean() is True:
@@ -565,9 +582,9 @@ class Let(W_Macro):
         local_ctx = ctx.copy()
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
-            name = w_formal.car.car.to_string()
+            name = w_formal.get_car_as_pair().car.to_string()
             #evaluate the values in caller ctx
-            val = w_formal.car.cdr.car.eval(ctx)
+            val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(ctx)
             local_ctx.put(name, val)
             w_formal = w_formal.cdr
 
@@ -583,15 +600,15 @@ class Letrec(W_Macro):
         #bound variables
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
-            name = w_formal.car.car.to_string()
+            name = w_formal.get_car_as_pair().car.to_string()
             local_ctx.put(name, W_Nil())
             w_formal = w_formal.cdr
 
         #eval in local_ctx and assign values 
         w_formal = lst.car
         while not isinstance(w_formal, W_Nil):
-            name = w_formal.car.car.to_string()
-            val = w_formal.car.cdr.car.eval(local_ctx)
+            name = w_formal.get_car_as_pair().car.to_string()
+            val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(local_ctx)
             local_ctx.set(name, val)
             w_formal = w_formal.cdr
 
