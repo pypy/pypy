@@ -38,7 +38,7 @@ class PyPyCJITTests(object):
         child_stdout.close()
         assert result
         assert result.splitlines()[-1].strip() == 'OK :-)'
-        #assert logfilepath.check()
+        assert logfilepath.check()
 
 
     def test_f(self):
