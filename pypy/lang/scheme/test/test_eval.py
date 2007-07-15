@@ -295,6 +295,13 @@ def test_lambda_dotted_lstarg():
     assert w_result.cdr.car.to_number() == 6
     assert isinstance(w_result.cdr.cdr, W_Nil)
 
+def test_define_lambda_sugar():
+    ctx = ExecutionContext()
+    eval_expr(ctx, """(define (f x) (+ x 1))""")
+    w_result = eval_expr(ctx, "(f 1)")
+    assert isinstance(w_result, W_Integer)
+    assert w_result.to_number() == 2
+
 def test_quote():
     w_fnum = eval_noctx("(quote 42)")
     assert isinstance(w_fnum, W_Integer)
