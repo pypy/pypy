@@ -5,7 +5,6 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
 from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rlib.rarithmetic import r_uint
 
 
 def test_primitive():
@@ -17,9 +16,9 @@ def test_primitive():
     assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'
     assert lltype2ctypes(5.25) == 5.25
     assert ctypes2lltype(lltype.Float, 5.25) == 5.25
-    assert lltype2ctypes(r_uint(-1)) == sys.maxint * 2 + 1
+    assert lltype2ctypes(rffi.r_uint(-1)) == sys.maxint * 2 + 1
     res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
-    assert (res, type(res)) == (r_uint(-1), r_uint)
+    assert (res, type(res)) == (rffi.r_uint(-1), rffi.r_uint)
 
     res = lltype2ctypes(llmemory.sizeof(lltype.Signed))
     assert res == struct.calcsize("l")
@@ -90,16 +89,16 @@ def test_charp():
     assert sc.contents.items[0] == ord('H')
 
 def test_strlen():
-    strlen = rffi.llexternal('strlen', [rffi.CCHARP], lltype.Signed,
+    strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
                              includes=['string.h'])
     s = rffi.str2charp("xxx")
     res = strlen(s)
     rffi.free_charp(s)
-    assert res == 3
+    assert res == 3     # actually r_size_t(3)
     s = rffi.str2charp("")
     res = strlen(s)
     rffi.free_charp(s)
-    assert res == 0
+    assert res == 0     # actually r_size_t(0)
 
 def test_func_not_in_clib():
     foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed)
@@ -176,8 +175,7 @@ def test_carray_to_ll():
     lltype.free(a2, flavor='raw')
 
 def test_strchr():
-    # XXX int vs long issues
-    strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
+    strchr = rffi.llexternal('strchr', [rffi.CCHARP, rffi.INT],
                              rffi.CCHARP,
                              includes=['string.h'])
     s = rffi.str2charp("hello world")
@@ -186,12 +184,13 @@ def test_strchr():
     assert res[1] == 'l'
     assert res[2] == 'd'
     assert res[3] == '\x00'
+    # XXX maybe we should also allow res[-1], res[-2]...
     rffi.free_charp(s)
 
 def test_frexp():
-    A = lltype.FixedSizeArray(lltype.Signed, 1)
-    frexp = rffi.llexternal('frexp', [lltype.Float, lltype.Ptr(A)],
-                            lltype.Float,   # lltype.Float == C "double" :-/
+    A = lltype.FixedSizeArray(rffi.INT, 1)
+    frexp = rffi.llexternal('frexp', [rffi.DOUBLE, lltype.Ptr(A)],
+                            rffi.DOUBLE,
                             includes=['math.h'],
                             libraries=['m'])
     p = lltype.malloc(A, flavor='raw')
@@ -201,15 +200,15 @@ def test_frexp():
     lltype.free(p, flavor='raw')
 
 def test_rand():
-    rand = rffi.llexternal('rand', [], lltype.Signed,
+    rand = rffi.llexternal('rand', [], rffi.INT,
                            includes=['stdlib.h'])
-    srand = rffi.llexternal('srand', [lltype.Unsigned], lltype.Void,
+    srand = rffi.llexternal('srand', [rffi.UINT], lltype.Void,
                             includes=['stdlib.h'])
-    srand(r_uint(123))
+    srand(rffi.r_uint(123))
     res1 = rand()
     res2 = rand()
     res3 = rand()
-    srand(r_uint(123))
+    srand(rffi.r_uint(123))
     res1b = rand()
     res2b = rand()
     res3b = rand()
@@ -277,11 +276,10 @@ def test_funcptr2():
     rffi.free_charp(p)
 
 def test_qsort():
-    # XXX Signed => size_t
-    CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], lltype.Signed)
+    CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], rffi.INT)
     qsort = rffi.llexternal('qsort', [rffi.VOIDP,
-                                      lltype.Signed,
-                                      lltype.Signed,
+                                      rffi.SIZE_T,
+                                      rffi.SIZE_T,
                                       lltype.Ptr(CMPFUNC)],
                             lltype.Void)
 
@@ -291,11 +289,11 @@ def test_qsort():
     for i in range(10):
         a[i] = lst[i]
 
-    INTPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
+    SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
 
     def my_compar(p1, p2):
-        p1 = rffi.force_cast(INTPTR, p1)
-        p2 = rffi.force_cast(INTPTR, p2)
+        p1 = rffi.force_cast(SIGNEDPTR, p1)
+        p2 = rffi.force_cast(SIGNEDPTR, p2)
         print 'my_compar:', p1[0], p2[0]
         return cmp(p1[0], p2[0])
 

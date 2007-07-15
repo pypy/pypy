@@ -49,6 +49,22 @@ def setup():
         globals()[llname] = lltype.build_number(llname, inttype)
 
 setup()
+# ^^^ this creates at least the following names:
+# --------------------------------------------------------------------
+#        Type           RPython integer class doing wrap-around
+# --------------------------------------------------------------------
+#        CHAR           r_char
+#        UCHAR          r_uchar
+#        SHORT          r_short
+#        USHORT         r_ushort
+#        INT            r_int
+#        UINT           r_uint
+#        LONG           r_long
+#        ULONG          r_ulong
+#        LONGLONG       r_longlong
+#        ULONGLONG      r_ulonglong
+#        SIZE_T         r_size_t
+# --------------------------------------------------------------------
 
 def CStruct(name, *fields, **kwds):
     """ A small helper to create external C structure, not the
@@ -65,6 +81,9 @@ def CStruct(name, *fields, **kwds):
     return lltype.Ptr(lltype.Struct(name, *c_fields, **kwds))
 
 c_errno = CConstant('errno', lltype.Signed)
+
+# double  - XXX there is no support for the C type 'float' in the C backend yet
+DOUBLE = lltype.Float
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
