@@ -18,14 +18,12 @@ class CarbonPytonTest {
 
 class TestCarbonPython(CliTest):
     
-    def _csharp(self, reference, source):
+    def _csharp(self, source, references=[], netmodules=[]):
         tmpfile = udir.udir.join('tmp.cs')
         tmpfile.write(TEMPLATE % source)
-        if reference is None:
-            flags = []
-        else:
-            flags = ['/r:%s' % reference]
-
+        flags = ['/r:%s' % ref for ref in references]
+        flags += ['/addmodule:%s' % mod for mod in netmodules]
+        
         class MyTarget(Target):
             SOURCES = [str(tmpfile)]
             FLAGS = flags
@@ -36,7 +34,7 @@ class TestCarbonPython(CliTest):
         return func()
 
     def test_compilation(self):
-        res = self._csharp(None, 'Console.WriteLine(42);')
+        res = self._csharp('Console.WriteLine(42);')
         assert res == 42
 
     def test_func_namespace(self):
@@ -57,7 +55,7 @@ class TestCarbonPython(CliTest):
         dll = DllDef('test', 'Test', [(foo, [int]),
                                       (bar, [int])])
         dll.compile()
-        res = self._csharp('test', 'Console.WriteLine("{0}, {1}", Test.foo(42), Test.bar(42));')
+        res = self._csharp('Console.WriteLine("{0}, {1}", Test.foo(42), Test.bar(42));', ['test'])
         assert res == (43, 84)
 
     def test_export(self):
@@ -119,11 +117,11 @@ class TestCarbonPython(CliTest):
         entrypoints = collect_entrypoints({'MyClass': MyClass})
         dll = DllDef('test', 'Test', entrypoints)
         dll.compile()
-        res = self._csharp('test', """
+        res = self._csharp("""
             Test.MyClass obj = new Test.MyClass();
             obj.__init__(39);
             Console.WriteLine(obj.add(1, 2));
-        """)
+        """, ['test'])
         assert res == 42
 
     def test_export_cliclass(self):
@@ -136,27 +134,36 @@ class TestCarbonPython(CliTest):
         entrypoints = collect_entrypoints({'getitem': getitem})
         dll = DllDef('test', 'Test', entrypoints)
         dll.compile()
-        res = self._csharp('test', """
+        res = self._csharp("""
             ArrayList obj = new ArrayList();
             obj.Add(42);
             Console.WriteLine(Test.getitem(obj, 0));
-        """)
+        """, ['test'])
         assert res == 42
 
     def test_compile_dll(self):
         cwd, _ = os.path.split(__file__)
         mylib_py = os.path.join(cwd, 'mylib.py')
         compile_dll(mylib_py, copy_dll=False)
-        res = self._csharp('mylib', """
+        res = self._csharp("""
             Console.WriteLine(mylib.sum(20, 22));
-        """)
+        """, ['mylib'])
         assert res == 42
 
     def test_compile_dll_alternative_name(self):
         cwd, _ = os.path.split(__file__)
         mylib_py = os.path.join(cwd, 'mylib.py')
         compile_dll(mylib_py, 'mylibxxx.dll', copy_dll=False)
-        res = self._csharp('mylibxxx', """
+        res = self._csharp("""
             Console.WriteLine(mylibxxx.sum(20, 22));
-        """)
+        """, ['mylibxxx'])
         assert res == 42
+
+    def test_compile_netmodule(self):
+        def foo(x):
+            return x+1
+        dll = DllDef('mymodule', 'Test', [(foo, [int])], isnetmodule=True)
+        dll.compile()
+        res = self._csharp('Console.WriteLine("{0}", Test.foo(41));',
+                           netmodules = ['mymodule'])
+        

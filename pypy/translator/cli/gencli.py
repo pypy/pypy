@@ -76,7 +76,8 @@ class GenCli(GenOO):
         if USE_STACKOPT:
             return StackOptGenerator(out, self.assembly_name, self.config)
         else:
-            return IlasmGenerator(out, self.assembly_name, self.config)
+            isnetmodule = self.entrypoint.isnetmodule
+            return IlasmGenerator(out, self.assembly_name, self.config, isnetmodule)
 
     def build_exe(self):        
         if getoption('source'):
@@ -87,13 +88,15 @@ class GenCli(GenOO):
 
         ilasm = SDK.ilasm()
         tmpfile = self.tmpfile.strpath
-        self._exec_helper(ilasm, [tmpfile]+self.entrypoint.ilasm_flags(),
+        self.outfile = self.entrypoint.output_filename(tmpfile)
+        argv = [tmpfile,'/output:' + self.outfile] + self.entrypoint.ilasm_flags()
+        self._exec_helper(ilasm, argv,
                           'ilasm failed to assemble (%s):\n%s\n%s',
                           timeout = 900)
         # Mono's ilasm occasionally deadlocks.  We set a timer to avoid
         # blocking automated test runs forever.
 
-        self.outfile = self.entrypoint.output_filename(tmpfile)
+
         if getoption('verify'):
             peverify = SDK.peverify()
             self._exec_helper(peverify, [outfile], 'peverify failed to verify (%s):\n%s\n%s')

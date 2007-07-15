@@ -82,6 +82,13 @@ class PyPyLibDLL(Target):
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
+class RPythonNetModule(Target):
+    SOURCES = []
+    OUTPUT = 'rpython.netmodule'
+
+    def compile(cls, sources, out):
+        pass
+
 class Query(Target):
     SOURCES = ['query.cs']
     OUTPUT = 'query.exe'

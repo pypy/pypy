@@ -15,12 +15,14 @@ from pypy.translator.driver import TranslationDriver
 from pypy.translator.cli.entrypoint import DllEntryPoint
 
 class DllDef:
-    def __init__(self, name, namespace, functions=[]):
+    def __init__(self, name, namespace, functions=[], dontmangle=True, isnetmodule=False):
         self.name = name
         self.namespace = namespace
         self.functions = functions # [(function, annotation), ...]
+        self.isnetmodule = isnetmodule
         self.driver = TranslationDriver()
-        self.driver.config.translation.ootype.mangle = False
+        if dontmangle:
+            self.driver.config.translation.ootype.mangle = False
         self.driver.setup_library(self)
 
     def add_function(self, func, inputtypes):
@@ -28,13 +30,14 @@ class DllDef:
 
     def get_entrypoint(self, bk):
         graphs = [bk.getdesc(f).cachedgraph(None) for f, _ in self.functions]
-        return DllEntryPoint(self.name, graphs)
+        return DllEntryPoint(self.name, graphs, self.isnetmodule)
 
     def compile(self):
         # add all functions to the appropriate namespace
-        for func, _ in self.functions:
-            if not hasattr(func, '_namespace_'):
-                func._namespace_ = self.namespace
+        if self.namespace:
+            for func, _ in self.functions:
+                if not hasattr(func, '_namespace_'):
+                    func._namespace_ = self.namespace
         self.driver.proceed(['compile_cli'])
 
 class export(object):

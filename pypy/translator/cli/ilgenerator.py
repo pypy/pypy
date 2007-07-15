@@ -46,15 +46,18 @@ class CodeGenerator(object):
 
 class IlasmGenerator(object):
     """
-    Generate IL code by writing to a file and compiling it with ilasm
+    Generate IL code by writing to a file and compiling it with ilasm.
     """
-    def __init__(self, outfile, name, config):
+    def __init__(self, outfile, name, config, isnetmodule=False):
         self.out = outfile
         self.config = config
         self.code = CodeGenerator(self.out)
         self.code.writeline('.assembly extern mscorlib {}')
         self.code.writeline('.assembly extern pypylib {}')
-        self.code.writeline('.assembly %s {}' % name)
+        if isnetmodule:
+            self.code.writeline('.module %s.netmodule' % name)
+        else:
+            self.code.writeline('.assembly %s {}' % name)
         self.code.writeline('.field static object last_exception') # XXX
 
     def close(self):

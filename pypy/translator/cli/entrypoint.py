@@ -15,6 +15,8 @@ def get_entrypoint(graph):
         return TestEntryPoint(graph)
 
 class BaseEntryPoint(Node):
+    isnetmodule = False
+    
     def set_db(self, db):
         self.db = db
         self.cts = CTS(db)
@@ -24,6 +26,7 @@ class BaseEntryPoint(Node):
 
     def output_filename(self, il_filename):
         return il_filename.replace('.il', '.exe')
+
 
 class StandaloneEntryPoint(BaseEntryPoint):
     """
@@ -67,18 +70,22 @@ class StandaloneEntryPoint(BaseEntryPoint):
         self.db.pending_function(self.graph)
 
 class DllEntryPoint(BaseEntryPoint):
-    def __init__(self, name, graphs):
+    def __init__(self, name, graphs, isnetmodule=False):
         self.name = name
         self.graphs = graphs
+        self.isnetmodule = isnetmodule
 
     def get_name(self):
         return self.name
 
     def ilasm_flags(self):
-        return ['/dll']
+        return BaseEntryPoint.ilasm_flags(self) + ['/dll']
 
     def output_filename(self, il_filename):
-        return il_filename.replace('.il', '.dll')
+        ext = '.dll'
+        if self.isnetmodule:
+            ext = '.netmodule'
+        return il_filename.replace('.il', ext)
 
     def render(self, ilasm):
         for graph in self.graphs:
