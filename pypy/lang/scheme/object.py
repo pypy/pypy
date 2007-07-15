@@ -170,6 +170,7 @@ class W_Pair(W_List):
         self.cdr = cdr
 
     def to_string(self):
+        # XXX This should do things differently if (list? self).
         car = self.car.to_string()
         cdr = self.cdr.to_string()
         return "(" + car + " . " + cdr + ")"
