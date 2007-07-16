@@ -6,8 +6,12 @@ from pypy.annotation.model import SomePBC
 from pypy.annotation.description import MethodDesc
 from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
+from pypy.tool.udir import udir
 
-from dotviewer.graphpage import GraphPage
+from dotviewer.graphpage import GraphPage as BaseGraphPage
+
+class GraphPage(BaseGraphPage):
+    save_tmp_file = str(udir.join('graph.dot'))
 
 
 class VariableHistoryGraphPage(GraphPage):
