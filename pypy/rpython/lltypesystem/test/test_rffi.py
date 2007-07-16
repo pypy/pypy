@@ -195,3 +195,5 @@ def test_extra_include_dirs():
     res = compile(f, [])
     assert res() == 3
 
+def test_size_t_sign():
+    assert r_size_t(-1) > 0
