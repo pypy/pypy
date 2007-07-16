@@ -285,8 +285,14 @@ def ctypes2lltype(T, cobj):
         llobj = lltype._ptr(T, container, solid=True)
     elif T is lltype.Char:
         llobj = chr(cobj)
-    elif T is lltype.Unsigned:
-        llobj = r_uint(cobj)
+    elif T is not lltype.Signed:
+        from pypy.rpython.lltypesystem import rffi
+        try:
+            inttype = rffi.numbertype_to_rclass[T]
+        except KeyError:
+            llobj = cobj
+        else:
+            llobj = inttype(cobj)
     else:
         llobj = cobj
 
@@ -370,9 +376,26 @@ def make_callable_via_ctypes(funcptr, cfunc=None):
             return ctypes2lltype(RESULT, cres)
     funcptr._obj._callable = invoke_via_ctypes
 
-def force_cast(PTRTYPE, ptr):
-    """Cast a pointer to another pointer with no typechecking."""
-    CPtrType = get_ctypes_type(PTRTYPE)
-    cptr = lltype2ctypes(ptr)
-    cptr = ctypes.cast(cptr, CPtrType)
-    return ctypes2lltype(PTRTYPE, cptr)
+def force_cast(RESTYPE, value):
+    """Cast a value to a result type, trying to use the same rules as C."""
+    TYPE1 = lltype.typeOf(value)
+    cvalue = lltype2ctypes(value)
+    cresulttype = get_ctypes_type(RESTYPE)
+    if isinstance(TYPE1, lltype.Ptr):
+        if isinstance(RESTYPE, lltype.Ptr):
+            # shortcut: ptr->ptr cast
+            cptr = ctypes.cast(cvalue, cresulttype)
+            return ctypes2lltype(RESTYPE, cptr)
+        # first cast the input pointer to an integer
+        cvalue = ctypes.c_void_p(cvalue).value
+    elif isinstance(cvalue, (str, unicode)):
+        cvalue = ord(cvalue)     # character -> integer
+
+    if not isinstance(cvalue, (int, long)):
+        raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
+
+    if isinstance(RESTYPE, lltype.Ptr):
+        cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
+    else:
+        cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+    return ctypes2lltype(RESTYPE, cvalue)

@@ -32,6 +32,8 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
         ll2ctypes.make_callable_via_ctypes(funcptr)
     return funcptr
 
+numbertype_to_rclass = {}     # {USHORT: r_ushort, ...}
+
 def setup():
     """ creates necessary c-level types
     """
@@ -45,10 +47,13 @@ def setup():
         name = name.replace(' ', '')
         llname = name.upper()
         inttype = rarithmetic.build_int('r_' + name, signed, bits)
+        NUMBERTYPE = lltype.build_number(llname, inttype)
         globals()['r_' + name] = inttype
-        globals()[llname] = lltype.build_number(llname, inttype)
+        globals()[llname] = NUMBERTYPE
+        numbertype_to_rclass[NUMBERTYPE] = inttype
 
 setup()
+numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------
 #        Type           RPython integer class doing wrap-around
@@ -143,4 +148,4 @@ def free_charpp(ref):
         i += 1
     lltype.free(ref, flavor='raw')
 
-force_cast = ll2ctypes.force_cast     # cast a ptr to another with no typecheck
+cast = ll2ctypes.force_cast      # a forced, no-checking cast

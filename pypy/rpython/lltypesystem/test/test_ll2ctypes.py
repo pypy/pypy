@@ -217,7 +217,14 @@ def test_rand():
     assert res2 == res2b
     assert res3 == res3b
 
-def test_force_cast():
+def test_simple_cast():
+    assert rffi.cast(rffi.SIGNEDCHAR, 0x123456) == 0x56
+    assert rffi.cast(rffi.SIGNEDCHAR, 0x123481) == -127
+    assert rffi.cast(rffi.CHAR, 0x123456) == '\x56'
+    assert rffi.cast(rffi.CHAR, 0x123481) == '\x81'
+    assert rffi.cast(rffi.UCHAR, 0x123481) == 0x81
+
+def test_forced_ptr_cast():
     import array
     A = lltype.Array(lltype.Signed, hints={'nolength': True})
     B = lltype.Array(lltype.Char, hints={'nolength': True})
@@ -225,7 +232,7 @@ def test_force_cast():
     for i in range(10):
         a[i] = i*i
 
-    b = rffi.force_cast(lltype.Ptr(B), a)
+    b = rffi.cast(lltype.Ptr(B), a)
 
     checker = array.array('l')
     for i in range(10):
@@ -235,13 +242,13 @@ def test_force_cast():
     for i in range(len(expected)):
         assert b[i] == expected[i]
 
-    c = rffi.force_cast(rffi.VOIDP, a)
+    c = rffi.cast(rffi.VOIDP, a)
     addr = lltype2ctypes(c)
     #assert addr == ctypes.addressof(a._obj._ctypes_storage)
     d = ctypes2lltype(rffi.VOIDP, addr)
     assert lltype.typeOf(d) == rffi.VOIDP
     assert c == d
-    e = rffi.force_cast(lltype.Ptr(A), d)
+    e = rffi.cast(lltype.Ptr(A), d)
     for i in range(10):
         assert e[i] == i*i
 
@@ -277,7 +284,6 @@ def test_funcptr2():
     rffi.free_charp(p)
 
 def test_qsort():
-    py.test.skip("in-progress: size_t vs. Signed")
     CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], rffi.INT)
     qsort = rffi.llexternal('qsort', [rffi.VOIDP,
                                       rffi.SIZE_T,
@@ -294,14 +300,14 @@ def test_qsort():
     SIGNEDPTR = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
 
     def my_compar(p1, p2):
-        p1 = rffi.force_cast(SIGNEDPTR, p1)
-        p2 = rffi.force_cast(SIGNEDPTR, p2)
+        p1 = rffi.cast(SIGNEDPTR, p1)
+        p2 = rffi.cast(SIGNEDPTR, p2)
         print 'my_compar:', p1[0], p2[0]
         return cmp(p1[0], p2[0])
 
-    qsort(rffi.force_cast(rffi.VOIDP, a),
-          10,
-          llmemory.sizeof(lltype.Signed),
+    qsort(rffi.cast(rffi.VOIDP, a),
+          rffi.cast(rffi.SIZE_T, 10),
+          rffi.cast(rffi.SIZE_T, llmemory.sizeof(lltype.Signed)),
           llhelper(lltype.Ptr(CMPFUNC), my_compar))
 
     for i in range(10):
