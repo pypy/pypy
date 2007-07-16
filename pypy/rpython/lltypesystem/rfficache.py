@@ -35,10 +35,11 @@ def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
 # XXX add float types as well here
 
 TYPES = []
-for _name in 'char short int long'.split():
+for _name in 'short int long'.split():
     for name in (_name, 'unsigned ' + _name):
         TYPES.append(name)
-TYPES += ['long long', 'unsigned long long', 'size_t']
+TYPES += ['signed char', 'unsigned char',
+          'long long', 'unsigned long long', 'size_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
 

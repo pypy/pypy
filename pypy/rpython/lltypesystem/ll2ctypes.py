@@ -11,12 +11,27 @@ def uaddressof(obj):
     return fixid(ctypes.addressof(obj))
 
 
-_ctypes_cache = {
-    lltype.Signed:   ctypes.c_long,
-    lltype.Unsigned: ctypes.c_ulong,
-    lltype.Char:     ctypes.c_ubyte,
-    lltype.Float:    ctypes.c_double,
-    }
+_ctypes_cache = {}
+
+def _setup_ctypes_cache():
+    from pypy.rpython.lltypesystem import rffi
+    _ctypes_cache.update({
+        lltype.Signed:   ctypes.c_long,
+        lltype.Unsigned: ctypes.c_ulong,
+        lltype.Char:     ctypes.c_ubyte,
+        rffi.DOUBLE:     ctypes.c_double,
+        rffi.SIGNEDCHAR: ctypes.c_byte,
+        rffi.UCHAR:      ctypes.c_ubyte,
+        rffi.SHORT:      ctypes.c_short,
+        rffi.USHORT:     ctypes.c_ushort,
+        rffi.INT:        ctypes.c_int,
+        rffi.UINT:       ctypes.c_uint,
+        rffi.LONG:       ctypes.c_long,
+        rffi.ULONG:      ctypes.c_ulong,
+        rffi.LONGLONG:   ctypes.c_longlong,
+        rffi.ULONGLONG:  ctypes.c_ulonglong,
+        rffi.SIZE_T:     ctypes.c_size_t,
+        })
 
 def build_ctypes_struct(S, max_n=None):
     fields = []
@@ -135,6 +150,9 @@ def get_ctypes_type(T):
         elif isinstance(T, lltype.Array):
             cls = build_ctypes_array(T)
         else:
+            _setup_ctypes_cache()
+            if T in _ctypes_cache:
+                return _ctypes_cache[T]
             raise NotImplementedError(T)
         _ctypes_cache[T] = cls
         return cls
@@ -147,8 +165,7 @@ def convert_struct(container):
     container._ctypes_storage = cstruct
     for field_name in STRUCT._names:
         field_value = getattr(container, field_name)
-        if not isinstance(field_value, lltype._uninitialized):
-            setattr(cstruct, field_name, lltype2ctypes(field_value))
+        setattr(cstruct, field_name, lltype2ctypes(field_value))
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
@@ -163,8 +180,7 @@ def convert_array(container):
     container._ctypes_storage = carray
     for i in range(container.getlength()):
         item_value = container.items[i]    # fish fish
-        if not isinstance(item_value, lltype._uninitialized):
-            carray.items[i] = lltype2ctypes(item_value)
+        carray.items[i] = lltype2ctypes(item_value)
     remove_regular_array_content(container)
 
 def remove_regular_array_content(container):
@@ -196,6 +212,9 @@ def lltype2ctypes(llobj, normalize=True):
     'normalize' should only be False in tests, where we want to
     inspect the resulting ctypes object manually.
     """
+    if isinstance(llobj, lltype._uninitialized):
+        return uninitialized2ctypes(llobj.TYPE)
+
     T = lltype.typeOf(llobj)
     if isinstance(T, lltype.Ptr):
         container = llobj._obj
@@ -273,6 +292,20 @@ def ctypes2lltype(T, cobj):
 
     assert lltype.typeOf(llobj) == T
     return llobj
+
+def uninitialized2ctypes(T):
+    "For debugging, create a ctypes object filled with 0xDD."
+    ctype = get_ctypes_type(T)
+    cobj = ctype()
+    size = ctypes.sizeof(cobj)
+    p = ctypes.cast(ctypes.pointer(cobj),
+                    ctypes.POINTER(ctypes.c_ubyte * size))
+    for i in range(size):
+        p.contents[i] = 0xDD
+    if isinstance(T, lltype.Primitive):
+        return cobj.value
+    else:
+        return cobj
 
 # __________ the standard C library __________
 

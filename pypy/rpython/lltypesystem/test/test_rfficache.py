@@ -9,10 +9,10 @@ def test_sizeof_c_type():
 
 def test_gettypesizes():
     tmpfile = udir.join("somecrappyfile.py")
-    assert get_type_sizes(tmpfile)['char'] == 8
+    assert get_type_sizes(tmpfile)['signed char'] == 8
     # this should not invoke a compiler
     res = get_type_sizes(tmpfile, compiler_exe='xxx')
-    assert res['char'] == 8
+    assert res['unsigned char'] == 8
 
 def test_types_present():
     for name in TYPES:

@@ -41,7 +41,7 @@ def setup():
             name = 'u' + name[9:]
             signed = False
         else:
-            signed = True
+            signed = (name != 'size_t')
         name = name.replace(' ', '')
         llname = name.upper()
         inttype = rarithmetic.build_int('r_' + name, signed, bits)
@@ -53,7 +53,7 @@ setup()
 # --------------------------------------------------------------------
 #        Type           RPython integer class doing wrap-around
 # --------------------------------------------------------------------
-#        CHAR           r_char
+#        SIGNEDCHAR     r_signedchar
 #        UCHAR          r_uchar
 #        SHORT          r_short
 #        USHORT         r_ushort
@@ -81,6 +81,10 @@ def CStruct(name, *fields, **kwds):
     return lltype.Ptr(lltype.Struct(name, *c_fields, **kwds))
 
 c_errno = CConstant('errno', lltype.Signed)
+
+# char, represented as a Python character
+# (use SIGNEDCHAR or UCHAR for the small integer types)
+CHAR = lltype.Char
 
 # double  - XXX there is no support for the C type 'float' in the C backend yet
 DOUBLE = lltype.Float
