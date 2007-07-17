@@ -1,5 +1,6 @@
 import py
 from pypy.lang.scheme.object import *
+from pypy.lang.scheme.execution import ExecutionContext, Location
 
 def test_false():
     w_false = W_Boolean(False)
@@ -58,7 +59,7 @@ def test_ctx():
     w_fnum = W_Integer(12)
     w_symb = W_Symbol("symb")
 
-    ctx = ExecutionContext({})
+    ctx = ExecutionContext()
     ctx.put("v1", w_fnum)
     ctx.put("symb", w_symb)
 
@@ -77,7 +78,7 @@ def test_ctx_sets():
     w_fnum2 = W_Integer(43)
     w_fnum3 = W_Integer(44)
 
-    ctx = ExecutionContext({})
+    ctx = ExecutionContext()
     ctx.put("v1", w_fnum)
 
     ctx2 = ctx.copy()

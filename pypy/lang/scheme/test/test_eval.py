@@ -1,5 +1,6 @@
 import py
 from pypy.lang.scheme.ssparser import parse
+from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.object import *
 
 def test_eval_obj():

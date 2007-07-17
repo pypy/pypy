@@ -3,8 +3,8 @@
 scheme interpreter
 """
 import autopath
-from pypy.lang.scheme.object import ExecutionContext, SchemeException, \
-        SchemeQuit
+from pypy.lang.scheme.object import SchemeException, SchemeQuit
+from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.ssparser import parse
 from pypy.rlib.parsing.makepackrat import BacktrackException
 import os, sys
