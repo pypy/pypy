@@ -541,25 +541,24 @@ class Define(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_first = lst.car
+        w_second = lst.get_cdr_as_pair()
         if isinstance(w_first, W_Identifier):
-            w_val = lst.get_cdr_as_pair().car.eval(ctx)
+            w_val = w_second.car.eval(ctx)
             ctx.set(w_first.name, w_val)
             return w_val
         elif isinstance(w_first, W_Pair):
-            return self.call(ctx, self._convert_lambda(lst))
+            #we have lambda definition here!
+            w_name = w_first.car
+            if not isinstance(w_name, W_Identifier):
+                raise SchemeSyntaxError
+
+            formals = w_first.cdr #isinstance of W_List
+            body = w_second
+            w_lambda = W_Lambda(formals, body, ctx, pname=w_name.name)
+            ctx.set(w_name.name, w_lambda)
+            return w_lambda
         else:
             raise WrongArgType(w_first, "Identifier")
-
-    def _convert_lambda(self, lst):
-        # turn (define (<name> . <formals>) <body>) into
-        # (define <name> (lambda <formals> <body>))
-        # a more declarative version of this would be good...
-        lst_car = lst.get_car_as_pair()
-        return W_Pair(lst_car.car,
-                      W_Pair(W_Pair(Lambda(self.pname),
-                                    W_Pair(lst_car.cdr,
-                                           lst.cdr)),
-                             W_Nil()))
 
 class Sete(W_Macro):
     def call(self, ctx, lst):

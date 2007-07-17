@@ -89,20 +89,3 @@ def test_ctx_sets():
     ctx2.put("v1", w_fnum3)
     assert w_fnum3 is ctx2.get("v1")
 
-def test_define_sugar():
-    # this is one of those tests that looks very much like the
-    # implementation of the thing it is testing :/
-    define = Define("define")
-    identifier = W_Identifier("f")
-    formals = W_Pair(W_Identifier("x"), W_Nil())
-    body = W_Pair(W_Identifier("+"),
-                        W_Pair(W_Identifier("x"),
-                               W_Pair(W_Integer(1),
-                                      W_Nil())))
-    lst = W_Pair(W_Pair(identifier, formals), body)
-    converted = define._convert_lambda(lst)
-    assert converted.car == identifier
-    assert isinstance(converted.cdr.car.car, Lambda)
-    assert converted.cdr.car.cdr.car == formals
-    assert converted.cdr.car.cdr.cdr == body
-

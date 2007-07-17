@@ -313,7 +313,7 @@ def test_define_lambda_sugar():
     assert w_result.car.to_number() == 1
     assert w_result.cdr.car.to_number() == 2
 
-    eval_expr(ctx, """(define (f4 x . y) y)""")
+    eval_expr(ctx, """(define (f4 x . y) x y)""")
     w_result = eval_expr(ctx, "(f4 1 2)")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 2
