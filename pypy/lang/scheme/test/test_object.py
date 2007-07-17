@@ -92,7 +92,6 @@ def test_ctx_sets():
 def test_define_sugar():
     # this is one of those tests that looks very much like the
     # implementation of the thing it is testing :/
-    ctx = ExecutionContext({})
     define = Define("define")
     identifier = W_Identifier("f")
     formals = W_Pair(W_Identifier("x"), W_Nil())
@@ -106,3 +105,4 @@ def test_define_sugar():
     assert isinstance(converted.cdr.car.car, Lambda)
     assert converted.cdr.car.cdr.car == formals
     assert converted.cdr.car.cdr.cdr == body
+

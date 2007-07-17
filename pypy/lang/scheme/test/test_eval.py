@@ -302,6 +302,23 @@ def test_define_lambda_sugar():
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 2
 
+    eval_expr(ctx, """(define (f2) (+ 1 1))""")
+    w_result = eval_expr(ctx, "(f2)")
+    assert isinstance(w_result, W_Integer)
+    assert w_result.to_number() == 2
+
+    eval_expr(ctx, """(define (f3 . x) x)""")
+    w_result = eval_expr(ctx, "(f3 1 2)")
+    assert isinstance(w_result, W_Pair)
+    assert w_result.car.to_number() == 1
+    assert w_result.cdr.car.to_number() == 2
+
+    eval_expr(ctx, """(define (f4 x . y) y)""")
+    w_result = eval_expr(ctx, "(f4 1 2)")
+    assert isinstance(w_result, W_Pair)
+    assert w_result.car.to_number() == 2
+    assert isinstance(w_result.cdr, W_Nil)
+
 def test_quote():
     w_fnum = eval_noctx("(quote 42)")
     assert isinstance(w_fnum, W_Integer)

@@ -106,10 +106,7 @@ class W_String(W_Root):
     def __repr__(self):
         return "<W_String " + self.strval + " >"
 
-class W_Number(W_Root):
-    pass
-
-class W_Real(W_Number):
+class W_Real(W_Root):
     def __init__(self, val):
         self.exact = False
         self.realval = val
@@ -142,6 +139,8 @@ class W_Real(W_Number):
 
     def is_integer(self):
         return self.realval == self.round()
+
+W_Number = W_Real
 
 class W_Integer(W_Real):
     def __init__(self, val):
@@ -359,14 +358,24 @@ class ListOper(W_Procedure):
     def unary_oper(self, x):
         if isinstance(x, W_Integer):
             return W_Integer(self.do_unary_oper(x.to_fixnum()))
-        else:
+        elif isinstance(x, W_Number):
             return W_Real(self.do_unary_oper(x.to_float()))
+        else:
+            raise WrongArgType(x, "Number")
 
     def oper(self, x, y):
         if isinstance(x, W_Integer) and isinstance(y, W_Integer):
             return W_Integer(self.do_oper(x.to_fixnum(), y.to_fixnum()))
-        else:
+        elif isinstance(x, W_Number) or isinstance(y, W_Number):
             return W_Real(self.do_oper(x.to_float(), y.to_float()))
+        else:
+            raise WrongArgType(x, "Number")
+
+    def do_oper(self, x, y):
+        raise NotImplementedError
+
+    def do_unary_oper(self, x):
+        raise NotImplementedError
 
 def create_op_class(oper, unary_oper, title, default_result=None):
     class Op(ListOper):
@@ -480,6 +489,9 @@ class PredicateNumber(W_Procedure):
 
         return W_Boolean(self.predicate(w_obj))
 
+    def predicate(self, w_obj):
+        raise NotImplementedError
+
 class IntegerP(PredicateNumber):
     def predicate(self, w_obj):
         if not w_obj.exact:
@@ -537,16 +549,17 @@ class Define(W_Macro):
             return self.call(ctx, self._convert_lambda(lst))
         else:
             raise WrongArgType(w_first, "Identifier")
+
     def _convert_lambda(self, lst):
         # turn (define (<name> . <formals>) <body>) into
         # (define <name> (lambda <formals> <body>))
         # a more declarative version of this would be good...
-        return W_Pair(lst.car.car,
+        lst_car = lst.get_car_as_pair()
+        return W_Pair(lst_car.car,
                       W_Pair(W_Pair(Lambda(self.pname),
-                                    W_Pair(lst.car.cdr,
+                                    W_Pair(lst_car.cdr,
                                            lst.cdr)),
                              W_Nil()))
-
 
 class Sete(W_Macro):
     def call(self, ctx, lst):

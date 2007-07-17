@@ -25,5 +25,6 @@ Here starts the real fun!
 - quasi-quotations
 - macros
 - continuations
+- move syntax checking to parsing
 - switch to byte-code generation + eval instead of evaluating AST
 
