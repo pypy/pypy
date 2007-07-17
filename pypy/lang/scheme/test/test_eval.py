@@ -394,6 +394,12 @@ def test_let():
     assert w_result.to_number() == 44
     assert ctx.get("var") is w_global
 
+    w_result = eval_expr(ctx, """
+        (let ((x (lambda () 1)))
+            (let ((y (lambda () (x)))
+                  (x (lambda () 2))) (y)))""")
+    assert w_result.to_number() == 1
+
     py.test.raises(UnboundVariable, eval_noctx, "(let ((y 0) (x y)) x)")
 
 def test_letrec():
@@ -411,6 +417,12 @@ def test_letrec():
                             (even? (- n 1))))))
                 (even? 2000))""")
     assert w_result.to_boolean() is True
+
+    w_result = eval_expr(ctx, """
+        (let ((x (lambda () 1)))
+            (letrec ((y (lambda () (x)))
+                     (x (lambda () 2))) (y)))""")
+    assert w_result.to_number() == 2
 
     py.test.raises(UnboundVariable, eval_noctx, "(letrec ((y 0) (x y)) x)")
 

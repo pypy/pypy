@@ -628,7 +628,29 @@ class LetStar(W_Macro):
 
         return self.eval_body(local_ctx, lst.cdr)
 
-Letrec = Let
+class Letrec(W_Macro):
+    def call_tr(self, ctx, lst):
+        """let uses eval_body, so it is tail-recursive aware"""
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
+        local_ctx = ctx.copy()
+        map_name_expr = {}
+        w_formal = lst.car
+        while isinstance(w_formal, W_Pair):
+            w_def = w_formal.get_car_as_pair()
+            name = w_def.car.to_string()
+            map_name_expr[name] = w_def.get_cdr_as_pair().car
+            local_ctx.bound(name)
+            w_formal = w_formal.cdr
+
+        map_name_val = {}
+        for (name, expr) in map_name_expr.items():
+            map_name_val[name] = expr.eval(local_ctx)
+
+        for (name, w_val) in map_name_val.items():
+            local_ctx.sete(name, w_val)
+
+        return self.eval_body(local_ctx, lst.cdr)
 
 def literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
@@ -728,10 +750,14 @@ class ExecutionContext(object):
     def get(self, name):
         loc = self.scope.get(name, None)
         if loc is not None:
+            if loc.obj is None:
+                raise UnboundVariable(name)
             return loc.obj
 
         loc = self.globalscope.get(name, None)
         if loc is not None:
+            if loc.obj is None:
+                raise UnboundVariable(name)
             return loc.obj
 
         raise UnboundVariable(name)
@@ -773,6 +799,13 @@ class ExecutionContext(object):
             self.scope[name] = Location(obj)
         else:
             self.globalscope[name] = Location(obj)
+
+    def bound(self, name):
+        """create new location"""
+        if self.closure:
+            self.scope[name] = Location(None)
+        else:
+            self.globalscope[name] = Location(None)
 
     def get_location(self, name):
         """internal/test use only
