@@ -1191,19 +1191,19 @@ class _parentable(_container):
                  '_parent_type', '_parent_index', '_keepparent',
                  '_wrparent',
                  '__weakref__',
-                 '_dead',
-                 '_ctypes_storage')
+                 '_storage')
 
     def __init__(self, TYPE):
         self._wrparent = None
         self._TYPE = TYPE
-        self._dead = False
-        self._ctypes_storage = None
+        self._storage = True    # means "use default storage", as opposed to:
+                                #    None            - container was freed
+                                #    <ctypes object> - using ctypes
+                                #                      (see ll2ctypes.py)
 
     def _free(self):
         self._check()   # no double-frees
-        self._dead = True
-        self._ctypes_storage = None
+        self._storage = None
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = weakref.ref(parent)
@@ -1227,7 +1227,7 @@ class _parentable(_container):
         return None
 
     def _check(self):
-        if self._dead:
+        if self._storage is None:
             raise RuntimeError("accessing freed %r" % self._TYPE)
         self._parentstructure()
 
@@ -1247,18 +1247,6 @@ class _parentable(_container):
 
     def _setup_extra_args(self):
         pass
-
-    def __eq__(self, other):
-        if not isinstance(other, _parentable):
-            return False
-        if (self._ctypes_storage is not None and
-            other._ctypes_storage is not None):
-            return self._ctypes_storage._eq(other._ctypes_storage)
-        else:
-            return self is other
-
-    def __ne__(self, other):
-        return not (self == other)
 
 def _struct_variety(flds, cache={}):
     flds = list(flds)
@@ -1332,17 +1320,6 @@ class _struct(_parentable):
         if isinstance(r, _uninitialized) and not uninitialized_ok:
             raise UninitializedMemoryAccess("%r.%s"%(self, field_name))
         return r
-
-    def __getattr__(self, field_name):
-        if self._ctypes_storage is not None:
-            return self._ctypes_storage._getattr(field_name)
-        raise AttributeError(field_name)
-
-    def __setattr__(self, field_name, value):
-        if field_name.startswith('_') or self._ctypes_storage is None:
-            _parentable.__setattr__(self, field_name, value)
-        else:
-            self._ctypes_storage._setattr(field_name, value)
 
     # for FixedSizeArray kind of structs:
     
@@ -1423,8 +1400,6 @@ class _array(_parentable):
         return 0, stop
 
     def getitem(self, index, uninitialized_ok=False):
-        if self._ctypes_storage is not None:
-            return self._ctypes_storage._getitem(index)
         try:
             v = self.items[index]
             if isinstance(v, _uninitialized) and not uninitialized_ok:
@@ -1439,9 +1414,6 @@ class _array(_parentable):
             raise
 
     def setitem(self, index, value):
-        if self._ctypes_storage is not None:
-            self._ctypes_storage._setitem(index, value)
-            return
         try:
             self.items[index] = value
         except IndexError:

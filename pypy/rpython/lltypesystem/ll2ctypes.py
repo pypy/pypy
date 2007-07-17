@@ -63,18 +63,6 @@ def build_ctypes_struct(S, max_n=None):
                 return bigstruct
         _malloc = classmethod(_malloc)
 
-        def _getattr(self, field_name):
-            T = getattr(S, field_name)
-            cobj = getattr(self, field_name)
-            return ctypes2lltype(T, cobj)
-
-        def _setattr(self, field_name, value):
-            cobj = lltype2ctypes(value)
-            setattr(self, field_name, cobj)
-
-        def _eq(self, other):
-            return ctypes.addressof(self) == ctypes.addressof(other)
-
     CStruct.__name__ = 'ctypes_%s' % (S,)
     if max_n is not None:
         CStruct._normalized_ctype = get_ctypes_type(S)
@@ -123,9 +111,6 @@ def build_ctypes_array(A, max_n=0):
             cobj = lltype2ctypes(value)
             items[index] = cobj
 
-        def _eq(self, other):
-            return ctypes.addressof(self) == ctypes.addressof(other)
-
     CArray.__name__ = 'ctypes_%s*%d' % (A, max_n)
     if max_n > 0:
         CArray._normalized_ctype = get_ctypes_type(A)
@@ -162,7 +147,7 @@ def convert_struct(container):
     STRUCT = container._TYPE
     cls = get_ctypes_type(STRUCT)
     cstruct = cls._malloc()
-    container._ctypes_storage = cstruct
+    add_storage(container, _struct_mixin, cstruct)
     for field_name in STRUCT._names:
         field_value = getattr(container, field_name)
         setattr(cstruct, field_name, lltype2ctypes(field_value))
@@ -177,7 +162,7 @@ def convert_array(container):
     ARRAY = container._TYPE
     cls = get_ctypes_type(ARRAY)
     carray = cls._malloc(container.getlength())
-    container._ctypes_storage = carray
+    add_storage(container, _array_mixin, carray)
     for i in range(container.getlength()):
         item_value = container.items[i]    # fish fish
         carray.items[i] = lltype2ctypes(item_value)
@@ -187,23 +172,99 @@ def remove_regular_array_content(container):
     for i in range(container.getlength()):
         container.items[i] = None
 
-class _array_of_unknown_length(lltype._parentable):
-    _kind = "array"
+# ____________________________________________________________
+# Ctypes-aware subclasses of the _parentable classes
 
+def get_common_subclass(cls1, cls2, cache={}):
+    """Return a unique subclass with (cls1, cls2) as bases."""
+    try:
+        return cache[cls1, cls2]
+    except KeyError:
+        subcls = type('_ctypes_%s' % (cls1.__name__,),
+                      (cls1, cls2),
+                      {'__slots__': ()})
+        assert '__dict__' not in dir(subcls)   # use __slots__ everywhere
+        cache[cls1, cls2] = subcls
+        return subcls
+
+def add_storage(instance, mixin_cls, ctypes_storage):
+    """Put ctypes_storage on the instance, changing its __class__ so that it
+    sees the methods of the given mixin class."""
+    assert not isinstance(instance, _parentable_mixin)  # not yet
+    subcls = get_common_subclass(mixin_cls, instance.__class__)
+    instance.__class__ = subcls
+    instance._storage = ctypes_storage
+
+class _parentable_mixin(object):
+    """Mixin added to _parentable containers when they become ctypes-based.
+    (This is done by changing the __class__ of the instance to reference
+    a subclass of both its original class and of this mixin class.)
+    """
     __slots__ = ()
 
+    def __eq__(self, other):
+        if not isinstance(other, lltype._parentable):
+            return False
+        if self._storage is None or other._storage is None:
+            raise RuntimeError("pointer comparison with a freed structure")
+        if other._storage is True:
+            return False    # the other container is not ctypes-based
+        # both containers are ctypes-based, compare by address
+        return (ctypes.addressof(self._storage) ==
+                ctypes.addressof(other._storage))
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def __repr__(self):
-        return '<C array at 0x%x>' % (uaddressof(self._ctypes_storage),)
+        if self._storage is None:
+            return '<freed C object %s>' % (self._TYPE,)
+        else:
+            return '<C object %s at 0x%x>' % (self._TYPE,
+                                              uaddressof(self._storage),)
+
+    def __str__(self):
+        return repr(self)
+
+class _struct_mixin(_parentable_mixin):
+    """Mixin added to _struct containers when they become ctypes-based."""
+    __slots__ = ()
+
+    def __getattr__(self, field_name):
+        T = getattr(self._TYPE, field_name)
+        cobj = getattr(self._storage, field_name)
+        return ctypes2lltype(T, cobj)
+
+    def __setattr__(self, field_name, value):
+        if field_name.startswith('_'):
+            object.__setattr__(self, field_name, value)  # '_xxx' attributes
+        else:
+            cobj = lltype2ctypes(value)
+            setattr(self._storage, field_name, cobj)
+
+class _array_mixin(_parentable_mixin):
+    """Mixin added to _array containers when they become ctypes-based."""
+    __slots__ = ()
+
+    def getitem(self, index, uninitialized_ok=False):
+        return self._storage._getitem(index)
+
+    def setitem(self, index, value):
+        self._storage._setitem(index, value)
+
+class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
+    _kind = "array"
+    __slots__ = ()
 
     def getbounds(self):
         # we have no clue, so we allow whatever index
         return 0, sys.maxint
 
     def getitem(self, index, uninitialized_ok=False):
-        return self._ctypes_storage._getitem(index, boundscheck=False)
+        return self._storage._getitem(index, boundscheck=False)
 
     def setitem(self, index, value):
-        self._ctypes_storage._setitem(index, value, boundscheck=False)
+        self._storage._setitem(index, value, boundscheck=False)
 
 # ____________________________________________________________
 
@@ -236,14 +297,17 @@ def lltype2ctypes(llobj, normalize=True):
                         return lltype2ctypes(llres)
                 return ctypes_func_type(callback)
 
-        if container._ctypes_storage is None:
+        if container._storage is None:
+            raise RuntimeError("attempting to pass a freed structure to C")
+        if container._storage is True:
+            # container has regular lltype storage, convert it to ctypes
             if isinstance(T.TO, lltype.Struct):
                 convert_struct(container)
             elif isinstance(T.TO, lltype.Array):
                 convert_array(container)
             else:
                 raise NotImplementedError(T)
-        storage = container._ctypes_storage
+        storage = container._storage
         p = ctypes.pointer(storage)
         if normalize and hasattr(storage, '_normalized_ctype'):
             p = ctypes.cast(p, ctypes.POINTER(storage._normalized_ctype))
@@ -268,12 +332,12 @@ def ctypes2lltype(T, cobj):
         if isinstance(T.TO, lltype.Struct):
             # XXX var-sized structs
             container = lltype._struct(T.TO)
-            container._ctypes_storage = cobj.contents
+            add_storage(container, _struct_mixin, cobj.contents)
             remove_regular_struct_content(container)
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
                 container = _array_of_unknown_length(T.TO)
-                container._ctypes_storage = cobj.contents
+                container._storage = cobj.contents
             else:
                 raise NotImplementedError("array with an explicit length")
         elif isinstance(T.TO, lltype.FuncType):
