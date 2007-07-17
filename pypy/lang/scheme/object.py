@@ -74,12 +74,7 @@ class W_Identifier(W_Symbol):
 
     def eval_tr(self, ctx):
         w_obj = ctx.get(self.name)
-        if w_obj is not None:
-            return (w_obj, None)
-        else:
-            #reference to undefined identifier
-            #unbound
-            raise UnboundVariable(self.name)
+        return (w_obj, None)
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -606,38 +601,34 @@ class Let(W_Macro):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
         w_formal = lst.car
-        while not isinstance(w_formal, W_Nil) and isinstance(w_formal, W_Pair):
-            name = w_formal.get_car_as_pair().car.to_string()
+        while isinstance(w_formal, W_Pair):
+            w_def = w_formal.get_car_as_pair()
+            name = w_def.car.to_string()
             #evaluate the values in caller ctx
-            val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(ctx)
-            local_ctx.put(name, val)
+            w_val = w_def.get_cdr_as_pair().car.eval(ctx)
+            local_ctx.put(name, w_val)
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
 
-class Letrec(W_Macro):
+class LetStar(W_Macro):
     def call_tr(self, ctx, lst):
-        """letrec uses eval_body, so it is tail-recursive aware"""
+        """let* uses eval_body, so it is tail-recursive aware"""
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
-
-        #bound variables
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
-            name = w_formal.get_car_as_pair().car.to_string()
-            local_ctx.put(name, W_Nil())
-            w_formal = w_formal.cdr
-
-        #eval in local_ctx and assign values 
-        w_formal = lst.car
-        while isinstance(w_formal, W_Pair):
-            name = w_formal.get_car_as_pair().car.to_string()
-            val = w_formal.get_car_as_pair().get_cdr_as_pair().car.eval(local_ctx)
-            local_ctx.set(name, val)
+            w_def = w_formal.get_car_as_pair()
+            name = w_def.car.to_string()
+            #evaluate the values in local ctx
+            w_val = w_def.get_cdr_as_pair().car.eval(local_ctx)
+            local_ctx.put(name, w_val)
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
+
+Letrec = Let
 
 def literal(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
@@ -660,7 +651,7 @@ class Delay(W_Macro):
 # Location()
 ##
 class Location(object):
-    def __init__(self, w_obj):
+    def __init__(self, w_obj=None):
         self.obj = w_obj
 
 ##
@@ -704,6 +695,7 @@ OMAP = \
         'if': MacroIf,
         'lambda': Lambda,
         'let': Let,
+        'let*': LetStar,
         'letrec': Letrec,
         'quote': Quote,
     }
@@ -742,7 +734,7 @@ class ExecutionContext(object):
         if loc is not None:
             return loc.obj
 
-        return None
+        raise UnboundVariable(name)
 
     def sete(self, name, obj):
         """update existing location or raise

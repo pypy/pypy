@@ -64,7 +64,7 @@ def test_ctx():
 
     assert w_symb is ctx.get("symb")
     assert w_fnum is ctx.get("v1")
-    assert ctx.get("no_such_key") is None
+    py.test.raises(UnboundVariable, ctx.get, "no_such_key")
 
 def test_location():
     w_fnum = W_Integer(42)

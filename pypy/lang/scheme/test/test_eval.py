@@ -274,7 +274,7 @@ def test_lambda_long_body():
     eval_expr(ctx, """(define long_body (lambda () (define x 42) (+ x 1)))""")
     w_result = eval_expr(ctx, "(long_body)")
     assert w_result.to_number() == 43
-    assert ctx.get("x") is None
+    py.test.raises(UnboundVariable, ctx.get, "x")
 
 def test_lambda_lstarg():
     ctx = ExecutionContext()
@@ -394,6 +394,8 @@ def test_let():
     assert w_result.to_number() == 44
     assert ctx.get("var") is w_global
 
+    py.test.raises(UnboundVariable, eval_noctx, "(let ((y 0) (x y)) x)")
+
 def test_letrec():
     ctx = ExecutionContext()
     w_result = eval_expr(ctx, """
@@ -409,6 +411,19 @@ def test_letrec():
                             (even? (- n 1))))))
                 (even? 2000))""")
     assert w_result.to_boolean() is True
+
+    py.test.raises(UnboundVariable, eval_noctx, "(letrec ((y 0) (x y)) x)")
+
+def test_letstar():
+    #test for (let* ...)
+    w_result = eval_noctx("""
+        (let* ((x 42)
+                (y (- x 42))
+                (z (+ x y)))
+                z)""")
+    assert w_result.to_number() == 42
+
+    py.test.raises(UnboundVariable, eval_noctx, "(let* ((x (+ 1 y)) (y 0)) x)")
 
 def test_quit():
     py.test.raises(SchemeQuit, eval_noctx, "(quit)")

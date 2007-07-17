@@ -6,8 +6,6 @@ Do now
 Do next
 -------
 
-- definitions: let*
-
 - symbols vs identifier, which name is better
   - global dict for symbols _obarray_
 
