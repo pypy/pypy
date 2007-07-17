@@ -76,8 +76,9 @@ register_external(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
 
 # ------------------------------- os.utime ------------------------------
 
-UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', rffi.SIZE_T),
-                         ('modtime', rffi.SIZE_T))
+TIME_T = rffi.INT    # XXX do the right thing
+UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', TIME_T),
+                                    ('modtime', TIME_T))
 
 # XXX sys/types.h is not portable at all
 ros_utime = rffi.llexternal('utime', [rffi.CCHARP, UTIMEBUFP], lltype.Signed,
