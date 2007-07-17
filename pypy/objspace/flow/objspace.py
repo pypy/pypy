@@ -184,6 +184,11 @@ class FlowObjSpace(ObjSpace):
     def getexecutioncontext(self):
         return getattr(self, 'executioncontext', None)
 
+    def createcompiler(self):
+        # no parser/compiler needed - don't build one, it takes too much time
+        # because it is done each time a FlowExecutionContext is built
+        return None
+
     def setup_executioncontext(self, ec):
         self.executioncontext = ec
         from pypy.objspace.flow import specialcase
