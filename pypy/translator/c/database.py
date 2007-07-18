@@ -25,9 +25,11 @@ class LowLevelDatabase(object):
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
                  stacklesstransformer=None,
-                 thread_enabled=False):
+                 thread_enabled=False,
+                 sandbox=False):
         self.translator = translator
         self.standalone = standalone
+        self.sandbox    = sandbox
         self.stacklesstransformer = stacklesstransformer
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
@@ -354,3 +356,7 @@ class LowLevelDatabase(object):
         for node in self.structdefnodes.values():
             produce(node)
         return result
+
+    def need_sandboxing(self, fnobj):
+        return self.sandbox and (
+            not getattr(fnobj, '_safe_not_sandboxed', False))

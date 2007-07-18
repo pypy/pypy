@@ -57,6 +57,8 @@ translation_optiondescription = OptionDescription(
                default=0),
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
                cmdline=None),
+    BoolOption("sandbox", "Produce a fully-sandboxed executable",
+               default=False, cmdline="--sandbox"),
 
     # misc
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),

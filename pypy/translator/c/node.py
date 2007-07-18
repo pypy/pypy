@@ -605,7 +605,7 @@ class FuncNode(ContainerNode):
         self.db = db
         self.T = T
         self.obj = obj
-        if hasattr(obj, 'includes'):
+        if hasattr(obj, 'includes') and not db.need_sandboxing(obj):
             self.includes = obj.includes
             self.name = forcename or self.basename()
         else:
@@ -695,13 +695,16 @@ class FuncNode(ContainerNode):
         funcgen.implementation_end()
 
 def select_function_code_generators(fnobj, db, functionname):
+    sandbox = db.need_sandboxing(fnobj)
     if hasattr(fnobj, '_external_name'):
+        assert not sandbox
         db.externalfuncs[fnobj._external_name] = fnobj
         return []
     elif fnobj._callable in extfunc.EXTERNALS:
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
         # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
+        assert not sandbox
         db.externalfuncs[fnobj._callable] = fnobj
         return []
     elif getattr(fnobj._callable, 'suggested_primitive', False):
@@ -712,10 +715,16 @@ def select_function_code_generators(fnobj, db, functionname):
         return [FunctionCodeGenerator(fnobj.graph, db, exception_policy,
                                       functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
-        # deprecated case
         if hasattr(fnobj, 'includes'):
-            return []   # assume no wrapper needed
+            # apply the sandbox transformation
+            if sandbox:
+                from pypy.translator.c.sandbox import getSandboxFuncCodeGen
+                return [getSandboxFuncCodeGen(fnobj, db)]
+            else:
+                return []   # assume no wrapper needed
         else:
+            # deprecated case
+            assert not sandbox
             return [CExternalFunctionCodeGenerator(fnobj, db)]
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)

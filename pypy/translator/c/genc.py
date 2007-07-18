@@ -58,7 +58,8 @@ class CBuilder(object):
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
                               stacklesstransformer=stacklesstransformer,
-                              thread_enabled=self.config.translation.thread)
+                              thread_enabled=self.config.translation.thread,
+                              sandbox=self.config.translation.sandbox)
         # pass extra options into pyobjmaker
         if pyobj_options:
             for key, value in pyobj_options.items():
