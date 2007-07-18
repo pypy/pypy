@@ -52,6 +52,8 @@ def readall_not_sandboxed(fd, length):
         count = rffi.cast(lltype.Signed, ll_read_not_sandboxed(fd, p, size1))
         if count < 0:
             raise IOError
+        if count == 0:
+            raise EOFError
         got += count
         p = lltype.direct_ptradd(lltype.direct_arrayitems(p), count)
         p = rffi.cast(rffi.CCHARP, p)
