@@ -720,9 +720,9 @@ class QuasiQuote(W_Macro):
             raise SchemeSyntaxError
 
         if isinstance(w_lst, W_Pair):
-            w_car = w_lst.car
-            if isinstance(w_car, W_Identifier):
-                if w_car.to_string() == "unquote":
+            w_oper = w_lst.car
+            if isinstance(w_oper, W_Identifier):
+                if w_oper.to_string() == "unquote":
                     if deep == 1:
                         return w_lst.get_cdr_as_pair().car.eval(ctx)
 
@@ -731,17 +731,54 @@ class QuasiQuote(W_Macro):
                                 w_lst.get_cdr_as_pair().car,
                                 deep-1)
 
-                        return W_Pair(w_car, W_Pair(w_unq, W_Nil()))
+                        return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
 
-                if w_car.to_string() == "quasiquote":
+                if w_oper.to_string() == "quasiquote":
                     w_unq = self.unquote(ctx,
                             w_lst.get_cdr_as_pair().car,
                             deep+1)
-                    return W_Pair(w_car, W_Pair(w_unq, W_Nil()))
+                    return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
 
-            return W_Pair(self.unquote(ctx, w_car, deep),
+                if w_oper.to_string() == "unquote-splicing":
+                    if deep > 1:
+                        w_unq = self.unquote(ctx,
+                                w_lst.get_cdr_as_pair().car,
+                                deep-1)
+
+                        return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
+
+            #for unquote-splice we need to check one level earlier
+            #cond = if we have w_oper = (unquote-splice <sexpr>)
+            if deep == 1 and isinstance(w_oper, W_Pair) and \
+                    isinstance(w_oper.car, W_Identifier) and \
+                    w_oper.car.to_string() == "unquote-splicing":
+
+                #rest of list, needed for "stripping away" closing parens
+                w_unq_cdr = self.unquote(ctx, w_lst.cdr, deep)
+
+                #unquote into list
+                w_unq = w_oper.get_cdr_as_pair().car.eval(ctx)
+                #w_unq must be proper list
+                if isinstance(w_unq, W_Nil):
+                    #if nil: reeturn only rest of list
+                    return w_unq_cdr
+
+                #traverse w_unq to find last cdr and set it to w_cdr
+                w_pair = w_unq
+                while isinstance(w_pair, W_Pair):
+                    if isinstance(w_pair.cdr, W_Nil):
+                        w_pair.cdr = w_unq_cdr
+                        break
+
+                    w_pair = w_pair.cdr
+
+                return w_unq
+
+            #no special cases, traverse tree
+            return W_Pair(self.unquote(ctx, w_oper, deep),
                     self.unquote(ctx, w_lst.cdr, deep))
 
+        #trivial case, just return
         return w_lst
 
 class Delay(W_Macro):
