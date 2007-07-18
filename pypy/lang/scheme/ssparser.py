@@ -2,9 +2,9 @@ import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.rlib.parsing.makepackrat import BacktrackException, Status
 from pypy.lang.scheme.object import W_Pair, W_Integer, W_String, W_Identifier, \
-        W_Nil, W_Boolean, W_Real, literal
+        W_Nil, W_Boolean, W_Real, quote, qq, unquote, unquote_splicing
 
-def unquote(s):
+def str_unquote(s):
     str_lst = []
     last_ch = ''
     for c in s[1:]:
@@ -22,7 +22,7 @@ class SchemeParser(PackratParser):
     STRING:
         c = `\"([^\\\"]|\\\"|\\\\)*\"`
         IGNORE*
-        return {W_String(unquote(c))};
+        return {W_String(str_unquote(c))};
 
     IDENTIFIER:
         c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
@@ -56,14 +56,33 @@ class SchemeParser(PackratParser):
         EOF
         return {s};
     
-    literal:
+    quote:
        `'`
        s = sexpr
-       return {literal(s)};
+       return {quote(s)};
+    
+    qq:
+       `\``
+       s = sexpr
+       return {qq(s)};
+       
+       
+    unquote_splicing:
+       `\,@`
+       s = sexpr
+       return {unquote_splicing(s)};
+
+    unquote:
+       `\,`
+       s = sexpr
+       return {unquote(s)};
     
     sexpr:
         list
-      | literal
+      | quote
+      | qq
+      | unquote_splicing
+      | unquote
       | FLOAT
       | FIXNUM
       | BOOLEAN

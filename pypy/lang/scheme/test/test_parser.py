@@ -126,3 +126,32 @@ def test_list_mixed():
     t = parse_sexpr("(1 2 . (3 4))")
     assert unwrap(t) == [1, 2, 3, 4]
 
+def test_quote():
+    t = parse_sexpr("'a")
+    assert unwrap(t) == ['quote', 'a']
+
+    t = parse_sexpr("'(1 '2 3)")
+    assert unwrap(t) == ['quote', [1, ['quote', 2], 3]]
+
+def test_qq():
+    t = parse_sexpr("`a")
+    assert unwrap(t) == ['quasiquote', 'a']
+
+    t = parse_sexpr("`(1 `2 3)")
+    assert unwrap(t) == ['quasiquote', [1, ['quasiquote', 2], 3]]
+
+def test_unquote():
+    t = parse_sexpr(",a")
+    assert unwrap(t) == ['unquote', 'a']
+
+    t = parse_sexpr(",(1 ,2 3)")
+    assert unwrap(t) == ['unquote', [1, ['unquote', 2], 3]]
+
+def test_unquote_splicing():
+    t = parse_sexpr(",@a")
+    assert unwrap(t) == ['unquote-splicing', 'a']
+
+    t = parse_sexpr(",@(list ,@b 3)")
+    assert unwrap(t) == ['unquote-splicing', ['list',
+                                ['unquote-splicing', 'b'], 3]]
+

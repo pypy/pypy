@@ -688,8 +688,17 @@ class Letrec(W_Macro):
 
         return self.eval_body(local_ctx, lst.cdr)
 
-def literal(sexpr):
+def quote(sexpr):
     return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
+
+def qq(sexpr):
+    return W_Pair(W_Identifier('quasiquote'), W_Pair(sexpr, W_Nil()))
+
+def unquote(sexpr):
+    return W_Pair(W_Identifier('unquote'), W_Pair(sexpr, W_Nil()))
+
+def unquote_splicing(sexpr):
+    return W_Pair(W_Identifier('unquote-splicing'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
     def call(self, ctx, lst):

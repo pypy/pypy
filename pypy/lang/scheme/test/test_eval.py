@@ -591,7 +591,7 @@ def test_quasiquote_nested():
                                 e))
                             f))""")
     assert w_res.to_string() == \
-            "(a (quasiquote (b (unquote (+ 1 2)) (unquote (foo 4 d)) e)) f)"
+        "(a (quasiquote (b (unquote (+ 1 2)) (unquote (foo 4 d)) e)) f)"
 
     w_res = eval_noctx("""
                 (let ((name1 'x)
@@ -603,5 +603,6 @@ def test_quasiquote_nested():
                                                         (unquote name2)))
                                              d))
                                  e)))""")
-    assert w_res.to_string() == "(a (quasiquote (b (unquote x) (unquote (quote y)) d)) e)"
+    assert w_res.to_string() == \
+        "(a (quasiquote (b (unquote x) (unquote (quote y)) d)) e)"
 
