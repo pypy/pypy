@@ -21,6 +21,8 @@ OMAP = \
         'cons': Cons,
         'car': Car,
         'cdr': Cdr,
+        'set-car!': SetCar,
+        'set-cdr!': SetCdr,
         'list': List,
         'quit': Quit,
             #comparisons

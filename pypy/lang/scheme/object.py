@@ -190,7 +190,7 @@ class W_Pair(W_List):
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
 
-        #a propper (oper args ...) call
+        #a proper (oper args ...) call
         # self.cdr has to be a proper list
         cdr = self.cdr
         if isinstance(cdr, W_List):
@@ -471,6 +471,26 @@ class Cdr(W_Procedure):
             raise WrongArgType(w_pair, "Pair")
         return w_pair.cdr
 
+class SetCar(W_Procedure):
+    def procedure(self, crx, lst):
+        w_pair = lst[0]
+        w_obj = lst[1]
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
+
+        w_pair.car = w_obj
+        return w_obj
+
+class SetCdr(W_Procedure):
+    def procedure(self, crx, lst):
+        w_pair = lst[0]
+        w_obj = lst[1]
+        if not isinstance(w_pair, W_Pair):
+            raise WrongArgType(w_pair, "Pair")
+
+        w_pair.cdr = w_obj
+        return w_obj #unspec
+
 class Quit(W_Procedure):
     def procedure(self, ctx, lst):
         raise SchemeQuit
@@ -556,7 +576,7 @@ class Define(W_Macro):
         if isinstance(w_first, W_Identifier):
             w_val = w_second.car.eval(ctx)
             ctx.set(w_first.name, w_val)
-            return w_val
+            return w_val #unspec
         elif isinstance(w_first, W_Pair):
             #we have lambda definition here!
             w_name = w_first.car
@@ -567,7 +587,7 @@ class Define(W_Macro):
             body = w_second
             w_lambda = W_Lambda(formals, body, ctx, pname=w_name.name)
             ctx.set(w_name.name, w_lambda)
-            return w_lambda
+            return w_lambda #unspec
         else:
             raise WrongArgType(w_first, "Identifier")
 
@@ -581,7 +601,7 @@ class Sete(W_Macro):
 
         w_val = lst.get_cdr_as_pair().car.eval(ctx)
         ctx.sete(w_identifier.name, w_val)
-        return w_val
+        return w_val #unspec
 
 class MacroIf(W_Macro):
     def call_tr(self, ctx, lst):

@@ -543,3 +543,30 @@ def test_deep_recursion():
     eval_expr(ctx, "(loop 2000)")
     assert ctx.get("a").to_number() == 2001
 
+def test_setcar():
+    ctx = ExecutionContext()
+    w_pair = eval_expr(ctx, "(define lst '(1 2 3 4))")
+    eval_expr(ctx, "(set-car! lst 11)")
+    assert w_pair is eval_expr(ctx, "lst")
+    assert eval_expr(ctx, "(car lst)").to_number() == 11
+
+    eval_expr(ctx, "(set-car! (cdr lst) 12)")
+    assert eval_expr(ctx, "(car (cdr lst))").to_number() == 12
+
+def test_setcdr():
+    ctx = ExecutionContext()
+    w_pair = eval_expr(ctx, "(define lst '(1 2 3 4))")
+    eval_expr(ctx, "(set-cdr! lst (cdr (cdr lst)))")
+    w_lst = eval_expr(ctx, "lst")
+    assert w_pair is w_lst
+    assert w_lst.to_string() == "(1 3 4)"
+
+    eval_expr(ctx, "(set-cdr! (cdr lst) '(12))")
+    w_lst = eval_expr(ctx, "lst")
+    assert w_lst.to_string() == "(1 3 12)"
+
+    #warning circural list
+    eval_expr(ctx, "(set-cdr! (cdr (cdr lst)) lst)")
+    w_lst = eval_expr(ctx, "lst")
+    assert w_lst is eval_expr(ctx, "(cdr (cdr (cdr lst)))")
+
