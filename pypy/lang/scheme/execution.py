@@ -50,6 +50,7 @@ OMAP = \
         'let*': LetStar,
         'letrec': Letrec,
         'quote': Quote,
+        'quasiquote': QuasiQuote,
     }
 
 OPERATION_MAP = {}

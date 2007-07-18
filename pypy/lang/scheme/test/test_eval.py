@@ -570,3 +570,38 @@ def test_setcdr():
     w_lst = eval_expr(ctx, "lst")
     assert w_lst is eval_expr(ctx, "(cdr (cdr (cdr lst)))")
 
+def test_quasiquote():
+    w_res = eval_noctx("(quasiquote (list (unquote (+ 1 2)) 4))")
+    assert w_res.to_string() == "(list 3 4)"
+
+    w_res = eval_noctx("""
+                (let ((name 'a))
+                    (quasiquote (list (unquote name)
+                                      (quote (unquote name)))))""")
+    assert w_res.to_string() == "(list a (quote a))"
+
+def test_quasiquote_nested():
+    w_res = eval_noctx("""
+                (quasiquote
+                    (a (quasiquote
+                           (b (unquote (+ 1 2))
+                              (unquote (foo
+                                       (unquote (+ 1 3))
+                                       d))
+                                e))
+                            f))""")
+    assert w_res.to_string() == \
+            "(a (quasiquote (b (unquote (+ 1 2)) (unquote (foo 4 d)) e)) f)"
+
+    w_res = eval_noctx("""
+                (let ((name1 'x)
+                      (name2 'y))
+                    (quasiquote (a
+                                (quasiquote (b
+                                             (unquote (unquote name1))
+                                             (unquote (quote
+                                                        (unquote name2)))
+                                             d))
+                                 e)))""")
+    assert w_res.to_string() == "(a (quasiquote (b (unquote x) (unquote (quote y)) d)) e)"
+

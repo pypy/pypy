@@ -698,6 +698,43 @@ class Quote(W_Macro):
 
         return lst.car
 
+class QuasiQuote(W_Macro):
+    def call(self, ctx, lst):
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
+
+        w_lst = self.unquote(ctx, lst.car, 1)
+        return w_lst
+
+    def unquote(self, ctx, w_lst, deep):
+        if deep < 1:
+            raise SchemeSyntaxError
+
+        if isinstance(w_lst, W_Pair):
+            w_car = w_lst.car
+            if isinstance(w_car, W_Identifier):
+                if w_car.to_string() == "unquote":
+                    if deep == 1:
+                        return w_lst.get_cdr_as_pair().car.eval(ctx)
+
+                    if deep > 1:
+                        w_unq = self.unquote(ctx,
+                                w_lst.get_cdr_as_pair().car,
+                                deep-1)
+
+                        return W_Pair(w_car, W_Pair(w_unq, W_Nil()))
+
+                if w_car.to_string() == "quasiquote":
+                    w_unq = self.unquote(ctx,
+                            w_lst.get_cdr_as_pair().car,
+                            deep+1)
+                    return W_Pair(w_car, W_Pair(w_unq, W_Nil()))
+
+            return W_Pair(self.unquote(ctx, w_car, deep),
+                    self.unquote(ctx, w_lst.cdr, deep))
+
+        return w_lst
+
 class Delay(W_Macro):
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
