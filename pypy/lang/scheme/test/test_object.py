@@ -51,7 +51,7 @@ def test_symbol():
     assert w_sym.to_boolean() is True
 
 def test_symbol():
-    w_id = W_Identifier("ident")
+    w_id = W_Symbol("ident")
     assert w_id.to_string() == "ident"
     assert w_id.to_boolean() is True
 

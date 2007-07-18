@@ -1,7 +1,7 @@
 import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Boolean, W_Real, W_Integer, W_String
-from pypy.lang.scheme.object import W_Pair, W_Nil, W_Symbol, W_Identifier
+from pypy.lang.scheme.object import W_Pair, W_Nil, W_Symbol, W_Symbol
 
 def parse_sexpr(expr):
     return parse(expr)[0]
@@ -14,7 +14,7 @@ def unwrap(w_obj):
         return w_obj.to_number()
     elif isinstance(w_obj, W_String):
         return w_obj.strval
-    elif isinstance(w_obj, W_Identifier):
+    elif isinstance(w_obj, W_Symbol):
         return w_obj.name
     elif isinstance(w_obj, W_Symbol):
         return w_obj.name
@@ -39,7 +39,7 @@ def test_simple():
     assert unwrap(w_fixnum) == 1123
     assert isinstance(w_fixnum, W_Integer)
     w_fixnum = parse_sexpr('abfa__')
-    assert isinstance(w_fixnum, W_Identifier)
+    assert isinstance(w_fixnum, W_Symbol)
     t = parse_sexpr(r'''"don't believe \"them\""''')
     assert isinstance(t, W_String)
     assert unwrap(t) == 'don\'t believe "them"'
@@ -67,7 +67,7 @@ def test_sexpr():
 
     w_list = parse_sexpr('(+ 1 2)')
     assert isinstance(w_list, W_Pair)
-    assert isinstance(w_list.car, W_Identifier)
+    assert isinstance(w_list.car, W_Symbol)
     assert isinstance(w_list.cdr, W_Pair)
     assert isinstance(w_list.cdr.car, W_Integer)
     assert isinstance(w_list.cdr.cdr.car, W_Integer)
@@ -93,7 +93,7 @@ def test_ident_gen():
 def check_ident_ch(char):
     t = parse_sexpr("(" + char + ")")
     assert isinstance(t, W_Pair)
-    assert isinstance(t.car, W_Identifier)
+    assert isinstance(t.car, W_Symbol)
     assert unwrap(t.car) == char
     assert isinstance(t.cdr, W_Nil)
 

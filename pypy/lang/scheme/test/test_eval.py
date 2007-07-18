@@ -4,7 +4,7 @@ from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.object import *
 
 def test_eval_obj():
-    w_num = W_Pair(W_Identifier("+"),
+    w_num = W_Pair(W_Symbol("+"),
                    W_Pair(W_Integer(4), W_Pair(W_Integer(5), W_Nil())))
     assert w_num.eval(ExecutionContext()).to_number() == 9 
 
@@ -522,7 +522,7 @@ def test_evaluator():
     w_obj = parse("(let () (set! a 42) a)")[0]
     (w_expr, new_ctx) = w_obj.eval_tr(ctx)
     assert ctx.get("a").to_number() == 42
-    assert isinstance(w_expr, W_Identifier)
+    assert isinstance(w_expr, W_Symbol)
     assert new_ctx is not ctx
     assert isinstance(new_ctx, ExecutionContext)
     (w_obj, newer_ctx) = w_expr.eval_tr(new_ctx)

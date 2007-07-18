@@ -62,16 +62,6 @@ class W_Symbol(W_Root):
     def __repr__(self):
         return "<W_Symbol " + self.name + ">"
 
-class W_Identifier(W_Symbol):
-    def __init__(self, val):
-        self.name = val
-
-    def to_string(self):
-        return self.name
-
-    def __repr__(self):
-        return "<W_Identifier " + self.name + ">"
-
     def eval_tr(self, ctx):
         w_obj = ctx.get(self.name)
         return (w_obj, None)
@@ -280,13 +270,13 @@ class W_Lambda(W_Procedure):
         self.args = []
         arg = args
         while not isinstance(arg, W_Nil):
-            if isinstance(arg, W_Identifier):
+            if isinstance(arg, W_Symbol):
                 self.args.append(Formal(arg.to_string(), True))
                 break
             else:
                 if not isinstance(arg, W_Pair):
                     raise SchemeSyntaxError
-                if not isinstance(arg.car, W_Identifier):
+                if not isinstance(arg.car, W_Symbol):
                     raise WrongArgType(arg.car, "Identifier")
                 #list of argument names, not evaluated
                 self.args.append(Formal(arg.car.to_string(), False))
@@ -573,14 +563,14 @@ class Define(W_Macro):
             raise SchemeSyntaxError
         w_first = lst.car
         w_second = lst.get_cdr_as_pair()
-        if isinstance(w_first, W_Identifier):
+        if isinstance(w_first, W_Symbol):
             w_val = w_second.car.eval(ctx)
             ctx.set(w_first.name, w_val)
             return w_val #unspec
         elif isinstance(w_first, W_Pair):
             #we have lambda definition here!
             w_name = w_first.car
-            if not isinstance(w_name, W_Identifier):
+            if not isinstance(w_name, W_Symbol):
                 raise SchemeSyntaxError
 
             formals = w_first.cdr #isinstance of W_List
@@ -596,7 +586,7 @@ class Sete(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
-        if not isinstance(w_identifier, W_Identifier):
+        if not isinstance(w_identifier, W_Symbol):
             raise WrongArgType(w_identifier, "Identifier")
 
         w_val = lst.get_cdr_as_pair().car.eval(ctx)
@@ -689,16 +679,16 @@ class Letrec(W_Macro):
         return self.eval_body(local_ctx, lst.cdr)
 
 def quote(sexpr):
-    return W_Pair(W_Identifier('quote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('quote'), W_Pair(sexpr, W_Nil()))
 
 def qq(sexpr):
-    return W_Pair(W_Identifier('quasiquote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('quasiquote'), W_Pair(sexpr, W_Nil()))
 
 def unquote(sexpr):
-    return W_Pair(W_Identifier('unquote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('unquote'), W_Pair(sexpr, W_Nil()))
 
 def unquote_splicing(sexpr):
-    return W_Pair(W_Identifier('unquote-splicing'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('unquote-splicing'), W_Pair(sexpr, W_Nil()))
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
@@ -721,7 +711,7 @@ class QuasiQuote(W_Macro):
 
         if isinstance(w_lst, W_Pair):
             w_oper = w_lst.car
-            if isinstance(w_oper, W_Identifier):
+            if isinstance(w_oper, W_Symbol):
                 if w_oper.to_string() == "unquote":
  
                     #simply unquote
@@ -754,7 +744,7 @@ class QuasiQuote(W_Macro):
             #for unquote-splice we need to check one level earlier
             #cond = if we have w_oper = (unquote-splice <sexpr>)
             if deep == 1 and isinstance(w_oper, W_Pair) and \
-                    isinstance(w_oper.car, W_Identifier) and \
+                    isinstance(w_oper.car, W_Symbol) and \
                     w_oper.car.to_string() == "unquote-splicing":
 
                 #rest of list, needed for "stripping away" closing parens
