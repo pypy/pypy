@@ -164,10 +164,26 @@ class W_Pair(W_List):
         self.cdr = cdr
 
     def to_string(self):
-        # XXX This should do things differently if (list? self).
         car = self.car.to_string()
-        cdr = self.cdr.to_string()
-        return "(" + car + " . " + cdr + ")"
+        cdr = self.cdr
+        if isinstance(cdr, W_Pair): #proper list
+            return "(" + car + " " + cdr.to_lstring() + ")"
+        elif isinstance(cdr, W_Nil): #one element proper list
+            return "(" + car + ")"
+
+        #dotted list/pair
+        return "(" + car + " . " + cdr.to_string() + ")"
+
+    def to_lstring(self):
+        car = self.car.to_string()
+        cdr = self.cdr
+        if isinstance(cdr, W_Pair): #still proper list
+            return car + " " + cdr.to_lstring()
+        elif isinstance(cdr, W_Nil): #end of proper list
+            return car
+
+        #end proper list with dotted
+        return car + " . " + cdr.to_string()
 
     def eval_tr(self, ctx):
         oper = self.car.eval(ctx)
@@ -640,7 +656,7 @@ class Letrec(W_Macro):
             w_def = w_formal.get_car_as_pair()
             name = w_def.car.to_string()
             map_name_expr[name] = w_def.get_cdr_as_pair().car
-            local_ctx.bound(name)
+            local_ctx.bind(name)
             w_formal = w_formal.cdr
 
         map_name_val = {}
@@ -657,14 +673,14 @@ def literal(sexpr):
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
-        if not isinstance(lst, W_List):
+        if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         return lst.car
 
 class Delay(W_Macro):
     def call(self, ctx, lst):
-        if not isinstance(lst, W_List):
+        if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
 
         return W_Promise(lst.car, ctx)

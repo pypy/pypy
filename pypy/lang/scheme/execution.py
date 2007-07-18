@@ -128,8 +128,8 @@ class ExecutionContext(object):
         else:
             self.globalscope[name] = Location(obj)
 
-    def bound(self, name):
-        """create new location"""
+    def bind(self, name):
+        """create new empty binding (location)"""
         if self.closure:
             self.scope[name] = Location(None)
         else:
