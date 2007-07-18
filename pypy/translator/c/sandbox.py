@@ -39,6 +39,8 @@ def writeall_not_sandboxed(fd, buf, length):
         count = rffi.cast(lltype.Signed, ll_write_not_sandboxed(fd, buf, size))
         if count < 0:
             raise IOError
+        if count == 0:
+            raise EOFError
         length -= count
         buf = lltype.direct_ptradd(lltype.direct_arrayitems(buf), count)
         buf = rffi.cast(rffi.CCHARP, buf)
