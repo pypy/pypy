@@ -35,4 +35,6 @@ There are various use cases:
 
   As above, but all fields will be cleared.
 
- - lltype.malloc(U, raw=True) – 
+**lltype.malloc(U, raw=True) – U is not a GC container**
+
+  Blah.
