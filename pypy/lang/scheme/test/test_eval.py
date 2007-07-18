@@ -580,6 +580,8 @@ def test_quasiquote():
                                       (quote (unquote name)))))""")
     assert w_res.to_string() == "(list a (quote a))"
 
+    py.test.raises(UnboundVariable, eval_noctx, "`(,,(+ 1 2))")
+
 def test_quasiquote_nested():
     w_res = eval_noctx("""
                 (quasiquote
@@ -609,6 +611,7 @@ def test_quasiquote_nested():
 def test_quasiquote_splicing():
     w_res = eval_noctx("""`(1 2 ,@(list 3 4) 5 6)""")
     assert w_res.to_string() == "(1 2 3 4 5 6)"
+    py.test.raises(UnboundVariable, eval_noctx, "`(,@(list 1 ,@(list 2 3)))")
 
     w_res = eval_noctx("""`(1 2 ,@(list 3 4) . ,(+ 2 3))""")
     assert w_res.to_string() == "(1 2 3 4 . 5)"
@@ -618,4 +621,6 @@ def test_quasiquote_splicing():
 
 def test_quasiquote_splicing2():
     w_res = eval_noctx("""`(1 `(2 ,@(list ,@(list 3 4) 5 6 ,(+ 0 7))))""")
-    assert w_res.to_string() == "(1 (quasiquote (2 (unquote-splicing (list 3 4 5 6 7)))))"
+    assert w_res.to_string() == \
+        "(1 (quasiquote (2 (unquote-splicing (list 3 4 5 6 7)))))"
+

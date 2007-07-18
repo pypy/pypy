@@ -60,7 +60,7 @@ class W_Symbol(W_Root):
         return self.name
 
     def __repr__(self):
-        return "<W_symbol " + self.name + ">"
+        return "<W_Symbol " + self.name + ">"
 
 class W_Identifier(W_Symbol):
     def __init__(self, val):
@@ -723,9 +723,12 @@ class QuasiQuote(W_Macro):
             w_oper = w_lst.car
             if isinstance(w_oper, W_Identifier):
                 if w_oper.to_string() == "unquote":
+ 
+                    #simply unquote
                     if deep == 1:
                         return w_lst.get_cdr_as_pair().car.eval(ctx)
 
+                    #not first level, look deeper, with lower nesting level
                     if deep > 1:
                         w_unq = self.unquote(ctx,
                                 w_lst.get_cdr_as_pair().car,
@@ -733,19 +736,20 @@ class QuasiQuote(W_Macro):
 
                         return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
 
+                #increment nesting level
                 if w_oper.to_string() == "quasiquote":
                     w_unq = self.unquote(ctx,
                             w_lst.get_cdr_as_pair().car,
                             deep+1)
                     return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
 
-                if w_oper.to_string() == "unquote-splicing":
-                    if deep > 1:
-                        w_unq = self.unquote(ctx,
-                                w_lst.get_cdr_as_pair().car,
-                                deep-1)
+                #not first level, look deeper, with lower nesting level
+                if deep > 1 and w_oper.to_string() == "unquote-splicing":
+                    w_unq = self.unquote(ctx,
+                            w_lst.get_cdr_as_pair().car,
+                            deep-1)
 
-                        return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
+                    return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
 
             #for unquote-splice we need to check one level earlier
             #cond = if we have w_oper = (unquote-splice <sexpr>)

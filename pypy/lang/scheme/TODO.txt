@@ -20,7 +20,6 @@ Do in some future
 
 Here starts the real fun!
 
-- quasi-quotations: unquote-splicing
 - macros
 - continuations
 - move syntax checking to parsing
