@@ -202,3 +202,11 @@ def test_cast():
     res = cast(SIZE_T, -1)
     assert type(res) is r_size_t
     assert res == r_size_t(-1)
+
+def test_compile_cast():
+    def f(n):
+        return cast(SIZE_T, n)
+
+    f1 = compile(f, [int])
+    res = f1(-1)
+    assert res == r_size_t(-1)

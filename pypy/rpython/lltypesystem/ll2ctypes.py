@@ -2,9 +2,12 @@ import sys
 import ctypes
 import ctypes.util
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_uint
+from pypy.annotation import model as annmodel
+from pypy.rpython.rbuiltin import gen_cast
 
 
 def uaddressof(obj):
@@ -463,3 +466,20 @@ def force_cast(RESTYPE, value):
     else:
         cvalue = cresulttype(cvalue).value   # mask high bits off if needed
     return ctypes2lltype(RESTYPE, cvalue)
+
+class ForceCastEntry(ExtRegistryEntry):
+    _about_ = force_cast
+
+    def compute_result_annotation(self, s_RESTYPE, s_value):
+        assert s_RESTYPE.is_constant()
+        RESTYPE = s_RESTYPE.const
+        return annmodel.lltype_to_annotation(RESTYPE)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        s_RESTYPE = hop.args_s[0]
+        assert s_RESTYPE.is_constant()
+        RESTYPE = s_RESTYPE.const
+        v_arg = hop.inputarg(hop.args_r[1], arg=1)
+        TYPE1 = v_arg.concretetype
+        return gen_cast(hop.llops, RESTYPE, v_arg)
