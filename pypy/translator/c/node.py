@@ -701,6 +701,7 @@ def select_function_code_generators(fnobj, db, functionname):
         db.externalfuncs[fnobj._external_name] = fnobj
         return []
     elif fnobj._callable in extfunc.EXTERNALS:
+        # -- deprecated case --
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
         # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.

@@ -23,9 +23,6 @@ except ImportError:
 # references to functions, so we cannot insert classmethods here.
 
 EXTERNALS = {
-    impl.ll_read_into:          'LL_read_into', # it's a staticmethod
-    impl.ll_os_write.im_func:   'LL_os_write',
-    impl.ll_os_close.im_func:   'LL_os_close',
     impl.ll_os_access.im_func:  'LL_os_access',
     impl.ll_os_stat.im_func:    'LL_os_stat',
     impl.ll_os_fstat.im_func:   'LL_os_fstat',

@@ -51,9 +51,6 @@
 
 /* prototypes */
 
-long LL_read_into(int fd, RPyString *buffer);
-long LL_os_write(int fd, RPyString *buffer);
-void LL_os_close(int fd);
 int LL_os_access(RPyString *filename, int mode);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
@@ -101,28 +98,6 @@ static int geterrno(void)
 #ifndef PYPY_NOT_MAIN_FILE
 
 #include "ll_osdefs.h"
-
-long LL_read_into(int fd, RPyString *buffer)
-{
-	long n = read(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
-	if (n < 0)
-		RPYTHON_RAISE_OSERROR(errno);
-	return n;
-}
-
-long LL_os_write(int fd, RPyString *buffer)
-{
-	long n = write(fd, RPyString_AsString(buffer), RPyString_Size(buffer));
-	if (n < 0)
-		RPYTHON_RAISE_OSERROR(errno);
-	return n;
-}
-
-void LL_os_close(int fd)
-{
-	if (close(fd) < 0)
-		RPYTHON_RAISE_OSERROR(errno);
-}
 
 int LL_os_access(RPyString *filename, int mode) {
 	int n = access(RPyString_AsString(filename), mode);

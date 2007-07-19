@@ -32,10 +32,6 @@ class Implementation(BaseOS, OOSupport):
         return tup
     ll_stat_result = staticmethod(ll_stat_result)
 
-    def ll_os_read(cls, fd, count):
-        return cls.to_rstr(os.read(fd, count))
-    ll_os_read.suggested_primitive = True
-
     def ll_pipe_result(fd1, fd2):
         tup = ootype.new(PIPE_RESULT)
         tup.item0 = fd1

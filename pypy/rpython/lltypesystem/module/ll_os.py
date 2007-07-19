@@ -34,18 +34,6 @@ class Implementation(BaseOS, LLSupport):
         return tup
     ll_pipe_result = staticmethod(ll_pipe_result)
 
-    def ll_os_read(cls, fd, count):
-        from pypy.rpython.lltypesystem.rstr import mallocstr
-        if count < 0:
-            raise OSError(errno.EINVAL, None)
-        buffer = mallocstr(count)
-        n = cls.ll_read_into(fd, buffer)
-        if n != count:
-            s = mallocstr(n)
-            ll_strcpy(s, buffer, n)
-            buffer = s
-        return buffer
-
     def ll_os_readlink(cls, path):
         from pypy.rpython.lltypesystem.rstr import mallocstr
         bufsize = 1023
