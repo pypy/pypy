@@ -2455,6 +2455,17 @@ class TestAnnotateTestCase:
         assert not s.nonneg
         py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
 
+    def test_sig_bug(self):
+        py.test.skip("_annenforceargs_ does not work for default arguments")
+        def g(x, y=5):
+            return y == 5
+        g._annenforceargs_ = (int, int)
+        def fun(x):
+            return g(x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int])
+        assert not s.is_constant()
+
     def test_slots_check(self):
         class Base(object):
             __slots__ = 'x'
