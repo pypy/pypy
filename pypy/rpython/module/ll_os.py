@@ -167,6 +167,20 @@ def os_read_oofakeimpl(fd, count):
 register_external(os.read, [int, int], str, "ll_os.ll_os_read",
                   llimpl=os_read_lltypeimpl, oofakeimpl=os_read_oofakeimpl)
 
+# '--sandbox' support
+def os_read_marshal_input(msg, fd, buf, size):
+    msg.packnum(rffi.cast(lltype.Signed, fd))
+    msg.packsize_t(size)
+def os_read_unmarshal_output(msg, fd, buf, size):
+    data = msg.nextstring()
+    if len(data) > rffi.cast(lltype.Signed, size):
+        raise OverflowError
+    for i in range(len(data)):
+        buf[i] = data[i]
+    return rffi.cast(rffi.SIZE_T, len(data))
+os_read._obj._marshal_input = os_read_marshal_input
+os_read._obj._unmarshal_output = os_read_unmarshal_output
+
 # ------------------------------- os.write ------------------------------
 
 os_write = rffi.llexternal('write', [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
@@ -192,6 +206,12 @@ def os_write_oofakeimpl(fd, data):
 
 register_external(os.write, [int, str], int, "ll_os.ll_os_write",
                   llimpl=os_write_lltypeimpl, oofakeimpl=os_write_oofakeimpl)
+
+# '--sandbox' support
+def os_write_marshal_input(msg, fd, buf, size):
+    msg.packnum(rffi.cast(lltype.Signed, fd))
+    msg.packbuf(buf, 0, rffi.cast(lltype.Signed, size))
+os_write._obj._marshal_input = os_write_marshal_input
 
 # ------------------------------- os.close ------------------------------
 

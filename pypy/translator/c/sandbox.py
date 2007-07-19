@@ -13,6 +13,7 @@ from pypy.translator.c.sandboxmsg import MessageBuilder, LLMessage
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.annotation import model as annmodel
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.c import funcgen
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
@@ -70,6 +71,77 @@ def buf2num(buf, index=0):
         c0 -= 0x100
     return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3
 
+def build_default_marshal_input(FUNCTYPE, namehint, cache={}):
+    # return a default 'marshal_input' function
+    try:
+        return cache[FUNCTYPE]
+    except KeyError:
+        pass
+    unroll_args = []
+    for i, ARG in enumerate(FUNCTYPE.ARGS):
+        if ARG == rffi.INT:       # 'int' argument
+            methodname = "packnum"
+        elif ARG == rffi.SIZE_T:  # 'size_t' argument
+            methodname = "packsize_t"
+        elif ARG == rffi.CCHARP:  # 'char*' argument, assumed zero-terminated
+            methodname = "packccharp"
+        else:
+            raise NotImplementedError("external function %r argument type %s" %
+                                      (namehint, ARG))
+        unroll_args.append((i, methodname))
+    unroll_args = unrolling_iterable(unroll_args)
+
+    def marshal_input(msg, *args):
+        assert len(args) == len(FUNCTYPE.ARGS)
+        for index, methodname in unroll_args:
+            getattr(msg, methodname)(args[index])
+
+    cache[FUNCTYPE] = marshal_input
+    return marshal_input
+
+def unmarshal_int(msg, *args):    return msg.nextnum()
+def unmarshal_size_t(msg, *args): return msg.nextsize_t()
+def unmarshal_void(msg, *args):   pass
+
+def build_default_unmarshal_output(FUNCTYPE, namehint,
+                                   cache={rffi.INT   : unmarshal_int,
+                                          rffi.SIZE_T: unmarshal_size_t,
+                                          lltype.Void: unmarshal_void}):
+    try:
+        return cache[FUNCTYPE.RESULT]
+    except KeyError:
+        raise NotImplementedError("exernal function %r return type %s" % (
+            namehint, FUNCTYPE.RESULT))
+
+CFalse = CDefinedIntSymbolic('0')    # hack hack
+
+def sandboxed_io(msg):
+    STDIN = 0
+    STDOUT = 1
+    buf = msg.as_rffi_buf()
+    if CFalse:  # hack hack to force a method to be properly annotated/rtyped
+        msg.packstring(chr(CFalse) + chr(CFalse))
+        msg.packsize_t(rffi.cast(rffi.SIZE_T, CFalse))
+        msg.packbuf(buf, CFalse * 5, CFalse * 6)
+    try:
+        writeall_not_sandboxed(STDOUT, buf, msg.getlength())
+    finally:
+        lltype.free(buf, flavor='raw')
+    # wait for the answer
+    buf = readall_not_sandboxed(STDIN, 4)
+    try:
+        length = buf2num(buf)
+    finally:
+        lltype.free(buf, flavor='raw')
+    length -= 4     # the original length includes the header
+    if length < 0:
+        raise IOError
+    buf = readall_not_sandboxed(STDIN, length)
+    msg = LLMessage(buf, 0, length)
+    if CFalse:  # hack hack to force a method to be properly annotated/rtyped
+        msg.nextstring()
+        msg.nextsize_t()
+    return msg
 
 def get_external_function_sandbox_graph(fnobj, db):
     """Build the graph of a helper trampoline function to be used
@@ -78,60 +150,34 @@ def get_external_function_sandbox_graph(fnobj, db):
     and waits for an answer on STDIN.
     """
     # XXX for now, only supports function with int and string arguments
-    # and returning an int.
+    # and returning an int or void.  Other cases need a custom
+    # _marshal_input and/or _unmarshal_output function on fnobj.
     FUNCTYPE = lltype.typeOf(fnobj)
-    unroll_args = []
-    for i, ARG in enumerate(FUNCTYPE.ARGS):
-        if ARG == rffi.INT:       # 'int' argument
-            methodname = "packnum"
-        elif ARG == rffi.CCHARP:  # 'char*' argument, assumed zero-terminated
-            methodname = "packccharp"
-        else:
-            raise NotImplementedError("external function %r argument type %s" %
-                                      (fnobj, ARG))
-        unroll_args.append((i, methodname))
-    if FUNCTYPE.RESULT != rffi.INT:
-        raise NotImplementedError("exernal function %r return type %s" % (
-            fnobj, FUNCTYPE.RESULT))
-    unroll_args = unrolling_iterable(unroll_args)
     fnname = fnobj._name
+    if hasattr(fnobj, '_marshal_input'):
+        marshal_input = fnobj._marshal_input
+    else:
+        marshal_input = build_default_marshal_input(FUNCTYPE, fnname)
+    if hasattr(fnobj, '_unmarshal_output'):
+        unmarshal_output = fnobj._unmarshal_output
+    else:
+        unmarshal_output = build_default_unmarshal_output(FUNCTYPE, fnname)
 
     def execute(*args):
-        STDIN = 0
-        STDOUT = 1
-        assert len(args) == len(FUNCTYPE.ARGS)
         # marshal the input arguments
         msg = MessageBuilder()
         msg.packstring(fnname)
-        for index, methodname in unroll_args:
-            getattr(msg, methodname)(args[index])
-        buf = msg.as_rffi_buf()
-        try:
-            writeall_not_sandboxed(STDOUT, buf, msg.getlength())
-        finally:
-            lltype.free(buf, flavor='raw')
-
-        # wait for the answer
-        buf = readall_not_sandboxed(STDIN, 4)
-        try:
-            length = buf2num(buf)
-        finally:
-            lltype.free(buf, flavor='raw')
-
-        length -= 4     # the original length includes the header
-        if length < 0:
-            raise IOError
-        buf = readall_not_sandboxed(STDIN, length)
+        marshal_input(msg, *args)
+        # send the buffer and wait for the answer
+        msg = sandboxed_io(msg)
         try:
             # decode the answer
-            msg = LLMessage(buf, 0, length)
             errcode = msg.nextnum()
             if errcode != 0:
                 raise IOError
-            result = msg.nextnum()
+            result = unmarshal_output(msg, *args)
         finally:
-            lltype.free(buf, flavor='raw')
-
+            lltype.free(msg.value, flavor='raw')
         return result
     execute = func_with_new_name(execute, 'sandboxed_' + fnname)
 

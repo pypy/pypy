@@ -2,7 +2,7 @@ import sys, os
 import struct
 import select
 
-from pypy.annotation import policy, model as annmodel
+from pypy.rpython.lltypesystem import rffi, lltype
 
 # ____________________________________________________________
 #
@@ -14,28 +14,43 @@ class MessageBuilder(object):
         self.value = ['\xFF', '\xFF', '\xFF', '\xFF']
 
     def packstring(self, s):
-        self.packnum(len(s), "s")
+        self.value.append("s")
+        self._pack4(len(s))
         self.value += s
         return self
-    packstring._annenforceargs_ = policy.Sig(None, str)
 
     def packccharp(self, p):
         length = 0
         while p[length] != '\x00':
             length += 1
-        self.packnum(length, "s")
+        self.value.append("s")
+        self._pack4(length)
         for i in range(length):
             self.value.append(p[i])
         return self
 
-    def packnum(self, n, prefix="i"):
-        self.value.append(prefix)
+    def packbuf(self, buf, start, stop):
+        self.value.append("s")
+        self._pack4(stop - start)
+        for i in range(start, stop):
+            self.value.append(buf[i])
+        return self
+
+    def _pack4(self, n):
         self.value.append(chr((n >> 24) & 0xFF))
         self.value.append(chr((n >> 16) & 0xFF))
         self.value.append(chr((n >>  8) & 0xFF))
         self.value.append(chr((n      ) & 0xFF))
+
+    def packnum(self, n):
+        self.value.append("i")
+        self._pack4(n)
         return self
-    packnum._annenforceargs_ = policy.Sig(None, int, annmodel.SomeChar())
+
+    def packsize_t(self, n):
+        self.value.append("I")
+        self._pack4(rffi.cast(lltype.Signed, n))
+        return self
 
     def _fixlength(self):
         n = len(self.value)
@@ -65,6 +80,7 @@ class MessageBuilder(object):
 class LLMessage(object):
     def __init__(self, value, start, stop):
         self.value = value
+        assert 0 <= start <= stop
         self.pos = start
         self.stop = stop
 
@@ -76,7 +92,12 @@ class LLMessage(object):
         return self.value[i]
 
     def nextstring(self):
-        length = self.nextnum("s")
+        t = self._char()
+        if t != "s":
+            raise ValueError
+        length = self._next4()
+        if length < 0:
+            raise ValueError
         i = self.pos
         self.pos = i + length
         if self.pos > self.stop:
@@ -85,16 +106,32 @@ class LLMessage(object):
         # not sliceable.  See also the Message subclass.
         return ''.join([self.value[index] for index in range(i, self.pos)])
 
-    def nextnum(self, prefix="i"):
+    def nextnum(self):
         t = self._char()
-        if t != prefix:
+        if t != "i":
             raise ValueError
+        return self._next4()
+
+    def nextsize_t(self):
+        t = self._char()
+        if t != "I":
+            raise ValueError
+        return rffi.cast(rffi.SIZE_T, self._next4_unsigned())
+
+    def _next4(self):
         c0 = ord(self._char())
         c1 = ord(self._char())
         c2 = ord(self._char())
         c3 = ord(self._char())
         if c0 >= 0x80:
             c0 -= 0x100
+        return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3
+
+    def _next4_unsigned(self):
+        c0 = ord(self._char())
+        c1 = ord(self._char())
+        c2 = ord(self._char())
+        c3 = ord(self._char())
         return (c0 << 24) | (c1 << 16) | (c2 << 8) | c3
 
     def end(self):
@@ -109,7 +146,10 @@ class Message(LLMessage):
         LLMessage.__init__(self, buf, start=0, stop=len(buf))
 
     def nextstring(self):
-        length = self.nextnum("s")
+        t = self._char()
+        if t != "s":
+            raise ValueError
+        length = self._next4()
         i = self.pos
         self.pos = i + length
         if self.pos > self.stop:

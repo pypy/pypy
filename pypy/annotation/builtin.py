@@ -65,8 +65,11 @@ def builtin_range(*args):
         if step == 0:
             raise Exception, "range() with step zero"
         if s_start.is_constant() and s_stop.is_constant():
-            if len(xrange(s_start.const, s_stop.const, step)) == 0:
-                empty = True
+            try:
+                if len(xrange(s_start.const, s_stop.const, step)) == 0:
+                    empty = True
+            except TypeError:   # if one of the .const is a Symbolic
+                pass
     if empty:
         s_item = s_ImpossibleValue
     else:
