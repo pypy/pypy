@@ -1,7 +1,7 @@
 import autopath
 from pypy.rlib.parsing.pypackrat import PackratParser
 from pypy.rlib.parsing.makepackrat import BacktrackException, Status
-from pypy.lang.scheme.object import W_Pair, W_Integer, W_String, W_Symbol, \
+from pypy.lang.scheme.object import W_Pair, W_Integer, W_String, symbol, \
         W_Nil, W_Boolean, W_Real, quote, qq, unquote, unquote_splicing
 
 def str_unquote(s):
@@ -27,7 +27,7 @@ class SchemeParser(PackratParser):
     SYMBOL:
         c = `[\+\-\*\^\?a-zA-Z!<=>_~/$%&:][\+\-\*\^\?a-zA-Z0-9!<=>_~/$%&:]*`
         IGNORE*
-        return {W_Symbol(c)};
+        return {symbol(c)};
 
     FIXNUM:
         c = `\-?(0|([1-9][0-9]*))`

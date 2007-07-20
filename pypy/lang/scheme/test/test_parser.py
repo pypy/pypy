@@ -94,7 +94,7 @@ def check_ident_ch(char):
     t = parse_sexpr("(" + char + ")")
     assert isinstance(t, W_Pair)
     assert isinstance(t.car, W_Symbol)
-    assert unwrap(t.car) == char
+    assert unwrap(t.car) == char.lower()
     assert isinstance(t.cdr, W_Nil)
 
 def test_truth_values():

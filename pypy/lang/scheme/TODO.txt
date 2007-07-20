@@ -6,9 +6,6 @@ Do now
 Do next
 -------
 
-- symbols vs identifier, which name is better
-  - global dict for symbols _obarray_
-
 - implement key functions
   (apply, reduce, mapcar and so on)
   # reduce will not make into python 3.0 ;)

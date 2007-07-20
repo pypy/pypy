@@ -46,6 +46,7 @@ OMAP = \
         'set!': Sete,
         'if': MacroIf,
         'lambda': Lambda,
+        'begin': Begin,
         'let': Let,
         'let*': LetStar,
         'letrec': Letrec,

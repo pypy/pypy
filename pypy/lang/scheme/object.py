@@ -52,7 +52,14 @@ class W_Root(object):
     def eval_tr(self, ctx):
         return (self, None)
 
+class W_Undefined(W_Root):
+    def to_string(self):
+        return "#<undefined>"
+
 class W_Symbol(W_Root):
+    #class dictionary for symbol storage
+    obarray = {}
+
     def __init__(self, val):
         self.name = val
 
@@ -65,6 +72,22 @@ class W_Symbol(W_Root):
     def eval_tr(self, ctx):
         w_obj = ctx.get(self.name)
         return (w_obj, None)
+
+    def eq_symbol(self, w_symb):
+        return w_symb is self
+
+def symbol(name):
+    #use this to create new symbols, it stores all symbols
+    #in W_Symbol.obarray dict
+    #if already in obarray return it 
+    name = name.lower()
+    w_symb = W_Symbol.obarray.get(name, None)
+    if w_symb is None:
+        w_symb = W_Symbol(name)
+        W_Symbol.obarray[name] = w_symb
+
+    assert isinstance(w_symb, W_Symbol)
+    return w_symb
 
 class W_Boolean(W_Root):
     def __init__(self, val):
@@ -462,24 +485,24 @@ class Cdr(W_Procedure):
         return w_pair.cdr
 
 class SetCar(W_Procedure):
-    def procedure(self, crx, lst):
+    def procedure(self, ctx, lst):
         w_pair = lst[0]
         w_obj = lst[1]
         if not isinstance(w_pair, W_Pair):
             raise WrongArgType(w_pair, "Pair")
 
         w_pair.car = w_obj
-        return w_obj
+        return W_Undefined()
 
 class SetCdr(W_Procedure):
-    def procedure(self, crx, lst):
+    def procedure(self, ctx, lst):
         w_pair = lst[0]
         w_obj = lst[1]
         if not isinstance(w_pair, W_Pair):
             raise WrongArgType(w_pair, "Pair")
 
         w_pair.cdr = w_obj
-        return w_obj #unspec
+        return W_Undefined()
 
 class Quit(W_Procedure):
     def procedure(self, ctx, lst):
@@ -620,9 +643,14 @@ class Lambda(W_Macro):
         w_body = lst.cdr
         return W_Lambda(w_args, w_body, ctx)
 
+class Begin(W_Macro):
+    def call_tr(self, ctx, lst):
+        #begin uses eval_body, so it is tail-recursive aware
+        return self.eval_body(ctx, lst)
+
 class Let(W_Macro):
     def call_tr(self, ctx, lst):
-        """let uses eval_body, so it is tail-recursive aware"""
+        #let uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
