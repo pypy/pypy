@@ -52,6 +52,7 @@ OMAP = \
         'letrec': Letrec,
         'quote': Quote,
         'quasiquote': QuasiQuote,
+        'syntax-rules': SyntaxRules,
     }
 
 OPERATION_MAP = {}

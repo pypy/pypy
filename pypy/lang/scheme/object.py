@@ -813,3 +813,66 @@ class Delay(W_Macro):
 
         return W_Promise(lst.car, ctx)
 
+class SyntaxRules(W_Macro):
+    def call(self, ctx, lst):
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
+
+        w_literals = lst.car
+        if not isinstance(w_literals, W_List):
+            raise SchemeSyntaxError
+
+        w_syntax_lst = lst.cdr
+        syntax_lst = []
+        while isinstance(w_syntax_lst, W_Pair):
+            w_syntax = w_syntax_lst.car
+            if not isinstance(w_syntax, W_Pair):
+                raise SchemeSyntaxError
+
+            w_pattern = w_syntax.car
+            w_template = w_syntax.get_cdr_as_pair().car
+
+            #do stuff with w_syntax rules
+            syntax_lst.append(SyntaxRule(w_pattern, w_template))
+            
+            w_syntax_lst = w_syntax_lst.cdr
+
+        return W_Transformer(syntax_lst)
+
+class SyntaxRule(object):
+    def __init__(self, pattern, template):
+        self.pattern = pattern
+        self.template = template
+
+    def __str__(self):
+        return self.pattern.to_string() + " -> " + self.template.to_string()
+
+    def match(self, w_expr):
+        w_patt = self.pattern
+        while isinstance(w_patt, W_Pair):
+            if w_expr is w_nil:
+                return False
+
+            if isinstance(w_patt, W_Symbol) and not isinstance(w_expr, W_Symbol):
+                return False
+
+            w_patt = w_patt.cdr
+            w_expr = w_expr.cdr
+
+        if w_expr is w_nil:
+            return True
+
+        return False
+
+class W_Transformer(W_Procedure):
+    def __init__(self, syntax_lst, pname=""):
+        self.pname = pname
+        self.syntax_lst = syntax_lst
+
+    def match(self, w_expr):
+        for rule in self.syntax_lst:
+            if rule.match(w_expr):
+                return rule.template
+
+        return False
+
