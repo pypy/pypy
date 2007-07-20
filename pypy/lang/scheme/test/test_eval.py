@@ -5,7 +5,7 @@ from pypy.lang.scheme.object import *
 
 def test_eval_obj():
     w_num = W_Pair(W_Symbol("+"),
-                   W_Pair(W_Integer(4), W_Pair(W_Integer(5), W_Nil())))
+                   W_Pair(W_Integer(4), W_Pair(W_Integer(5), w_nil)))
     assert w_num.eval(ExecutionContext()).to_number() == 9 
 
 def eval_expr(ctx, expr):
@@ -288,13 +288,13 @@ def test_lambda_lstarg():
 def test_lambda_dotted_lstarg():
     ctx = ExecutionContext()
     w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4)""")
-    assert isinstance(w_result, W_Nil)
+    assert w_result is w_nil
 
     w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4 5 6)""")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 5
     assert w_result.cdr.car.to_number() == 6
-    assert isinstance(w_result.cdr.cdr, W_Nil)
+    assert w_result.cdr.cdr is w_nil
 
 def test_define_lambda_sugar():
     ctx = ExecutionContext()
@@ -318,7 +318,7 @@ def test_define_lambda_sugar():
     w_result = eval_expr(ctx, "(f4 1 2)")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 2
-    assert isinstance(w_result.cdr, W_Nil)
+    assert w_result.cdr is w_nil
 
 def test_quote():
     w_fnum = eval_noctx("(quote 42)")
@@ -385,7 +385,7 @@ def test_list():
     assert w_lst.cdr.car.to_number() == 42
     assert w_lst.cdr.cdr.car.to_number() == 3
     assert w_lst.cdr.cdr.cdr.car.to_string() == "a"
-    assert isinstance(w_lst.cdr.cdr.cdr.cdr, W_Nil)
+    assert w_lst.cdr.cdr.cdr.cdr is w_nil
 
 def test_begin():
     ctx = ExecutionContext()

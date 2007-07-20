@@ -47,7 +47,6 @@ class W_Root(object):
 
         assert isinstance(w_expr, W_Root)
         return w_expr
-        #return self
 
     def eval_tr(self, ctx):
         return (self, None)
@@ -55,6 +54,8 @@ class W_Root(object):
 class W_Undefined(W_Root):
     def to_string(self):
         return "#<undefined>"
+
+w_undefined = W_Undefined()
 
 class W_Symbol(W_Root):
     #class dictionary for symbol storage
@@ -171,6 +172,12 @@ class W_Integer(W_Real):
 class W_List(W_Root):
     pass
 
+class W_Nil(W_List):
+    def to_string(self):
+        return "()"
+
+w_nil = W_Nil()
+
 class W_Pair(W_List):
     def __init__(self, car, cdr):
         self.car = car
@@ -181,7 +188,7 @@ class W_Pair(W_List):
         cdr = self.cdr
         if isinstance(cdr, W_Pair): #proper list
             return "(" + car + " " + cdr.to_lstring() + ")"
-        elif isinstance(cdr, W_Nil): #one element proper list
+        elif cdr is w_nil: #one element proper list
             return "(" + car + ")"
 
         #dotted list/pair
@@ -192,7 +199,7 @@ class W_Pair(W_List):
         cdr = self.cdr
         if isinstance(cdr, W_Pair): #still proper list
             return car + " " + cdr.to_lstring()
-        elif isinstance(cdr, W_Nil): #end of proper list
+        elif cdr is w_nil: #end of proper list
             return car
 
         #end proper list with dotted
@@ -223,10 +230,6 @@ class W_Pair(W_List):
             raise SchemeSyntaxError
         return res
 
-class W_Nil(W_List):
-    def to_string(self):
-        return "()"
-
 class W_Callable(W_Root):
     def call_tr(self, ctx, lst):
         #usually tail-recursive call is normal call
@@ -241,7 +244,7 @@ class W_Callable(W_Root):
         while True:
             if not isinstance(body_expression, W_Pair):
                 raise SchemeSyntaxError
-            elif isinstance(body_expression.cdr, W_Nil):
+            elif body_expression.cdr is w_nil:
                 return (body_expression.car, ctx)
             else:
                 body_expression.car.eval(ctx)
@@ -259,7 +262,7 @@ class W_Procedure(W_Callable):
         #evaluate all arguments into list
         arg_lst = []
         arg = lst
-        while not isinstance(arg, W_Nil):
+        while not arg is w_nil:
             if not isinstance(arg, W_Pair):
                 raise SchemeSyntaxError
             w_obj = arg.car.eval(ctx)
@@ -292,7 +295,7 @@ class W_Lambda(W_Procedure):
     def __init__(self, args, body, closure, pname="#f"):
         self.args = []
         arg = args
-        while not isinstance(arg, W_Nil):
+        while not arg is w_nil:
             if isinstance(arg, W_Symbol):
                 self.args.append(Formal(arg.to_string(), True))
                 break
@@ -330,7 +333,7 @@ class W_Lambda(W_Procedure):
 
 def plst2lst(plst):
     """coverts python list() of W_Root into W_Pair scheme list"""
-    w_cdr = W_Nil()
+    w_cdr = w_nil
     plst.reverse()
     for w_obj in plst:
         w_cdr = W_Pair(w_obj, w_cdr)
@@ -492,7 +495,7 @@ class SetCar(W_Procedure):
             raise WrongArgType(w_pair, "Pair")
 
         w_pair.car = w_obj
-        return W_Undefined()
+        return w_undefined
 
 class SetCdr(W_Procedure):
     def procedure(self, ctx, lst):
@@ -502,7 +505,7 @@ class SetCdr(W_Procedure):
             raise WrongArgType(w_pair, "Pair")
 
         w_pair.cdr = w_obj
-        return W_Undefined()
+        return w_undefined
 
 class Quit(W_Procedure):
     def procedure(self, ctx, lst):
@@ -624,7 +627,7 @@ class MacroIf(W_Macro):
         w_condition = lst.car
         lst_cdr = lst.get_cdr_as_pair()
         w_then = lst_cdr.car
-        if isinstance(lst_cdr.cdr, W_Nil):
+        if lst_cdr.cdr is w_nil:
             w_else = W_Boolean(False)
         else:
             w_else = lst_cdr.get_cdr_as_pair().car
@@ -707,16 +710,16 @@ class Letrec(W_Macro):
         return self.eval_body(local_ctx, lst.cdr)
 
 def quote(sexpr):
-    return W_Pair(W_Symbol('quote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('quote'), W_Pair(sexpr, w_nil))
 
 def qq(sexpr):
-    return W_Pair(W_Symbol('quasiquote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('quasiquote'), W_Pair(sexpr, w_nil))
 
 def unquote(sexpr):
-    return W_Pair(W_Symbol('unquote'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('unquote'), W_Pair(sexpr, w_nil))
 
 def unquote_splicing(sexpr):
-    return W_Pair(W_Symbol('unquote-splicing'), W_Pair(sexpr, W_Nil()))
+    return W_Pair(W_Symbol('unquote-splicing'), W_Pair(sexpr, w_nil))
 
 class Quote(W_Macro):
     def call(self, ctx, lst):
@@ -752,14 +755,14 @@ class QuasiQuote(W_Macro):
                                 w_lst.get_cdr_as_pair().car,
                                 deep-1)
 
-                        return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
+                        return W_Pair(w_oper, W_Pair(w_unq, w_nil))
 
                 #increment nesting level
                 if w_oper.to_string() == "quasiquote":
                     w_unq = self.unquote(ctx,
                             w_lst.get_cdr_as_pair().car,
                             deep+1)
-                    return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
+                    return W_Pair(w_oper, W_Pair(w_unq, w_nil))
 
                 #not first level, look deeper, with lower nesting level
                 if deep > 1 and w_oper.to_string() == "unquote-splicing":
@@ -767,7 +770,7 @@ class QuasiQuote(W_Macro):
                             w_lst.get_cdr_as_pair().car,
                             deep-1)
 
-                    return W_Pair(w_oper, W_Pair(w_unq, W_Nil()))
+                    return W_Pair(w_oper, W_Pair(w_unq, w_nil))
 
             #for unquote-splice we need to check one level earlier
             #cond = if we have w_oper = (unquote-splice <sexpr>)
@@ -781,14 +784,14 @@ class QuasiQuote(W_Macro):
                 #unquote into list
                 w_unq = w_oper.get_cdr_as_pair().car.eval(ctx)
                 #w_unq must be proper list
-                if isinstance(w_unq, W_Nil):
+                if w_unq is w_nil:
                     #if nil: reeturn only rest of list
                     return w_unq_cdr
 
                 #traverse w_unq to find last cdr and set it to w_cdr
                 w_pair = w_unq
                 while isinstance(w_pair, W_Pair):
-                    if isinstance(w_pair.cdr, W_Nil):
+                    if w_pair.cdr is w_nil:
                         w_pair.cdr = w_unq_cdr
                         break
 

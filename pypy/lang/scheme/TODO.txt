@@ -8,7 +8,6 @@ Do next
 
 - implement key functions
   (apply, reduce, mapcar and so on)
-  # reduce will not make into python 3.0 ;)
 
 - comparison: < > eq? eqv?
 
