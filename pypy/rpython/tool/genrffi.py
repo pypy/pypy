@@ -6,6 +6,9 @@ from pypy.rpython.lltypesystem import lltype
 
 import py
 
+#rffi.UINT = rffi.INT # XXX
+#rffi.UCHAR = lltype.Char # XXX
+
 # XXX any automatic stuff here?
 SIMPLE_TYPE_MAPPING = {
     ctypes.c_ubyte     : rffi.UCHAR,
@@ -47,8 +50,14 @@ class RffiBuilder(object):
         name = tp.__name__
         struct = self.ns.get(name)
         if struct is None:
-            fields = [(name_, self.proc_tp(field_tp))
-                      for name_, field_tp in tp._fields_]
+            fields = []
+            if not hasattr(tp, '_fields_'):
+                raise NotImplementedError("no _fields")
+            for field in tp._fields_:
+                if len(field) != 2:
+                    raise NotImplementedError("field length")
+                name_, field_tp = field
+                fields.append((name_, self.proc_tp(field_tp)))
             struct = lltype.Struct(name, *fields, **{'hints':{'external':'C'}})
             self.ns[name] = struct
         return struct
@@ -88,8 +97,11 @@ class RffiBuilder(object):
             if isinstance(value, ctypes._CFuncPtr):
                 try:    
                     self.proc_func(value)
-                except NotImplementedError:
-                    print "genrffi: skipped:", key, value
+                except NotImplementedError, e:
+                    print "genrffi: skipped:", key, value, e
+                except TypeError, e:
+                    print "genrffi: skipped:", key, value, e
+
 
 
 
