@@ -43,10 +43,6 @@ TYPES += ['signed char', 'unsigned char',
 if os.name != 'nt':
     TYPES.append('mode_t')
 
-def newline_repr(d):
-    assert isinstance(d, dict)
-    return "{\n%s,\n}" % ",\n".join(["%r:%r" % (k, v) for k, v in d.items()])
-
 def get_type_sizes(filename, compiler_exe=None):
     try:
         mod = {}
