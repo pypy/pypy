@@ -2,6 +2,7 @@
 """ genjs constant database module
 """
 
+import py
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.js.opcodes import opcodes
 from pypy.translator.js.function import Function
@@ -413,9 +414,6 @@ class ClassConst(AbstractConst):
         super(ClassConst, self).__init__(db, const)
         self.cts.lltype_to_cts(const._INSTANCE) # force scheduling of class
     
-    def get_name(self):
-        return "const_class"
-    
     def get_key(self):
         return self.get_name()
     
@@ -483,7 +481,7 @@ class ExtObject(AbstractConst):
         return self.name
     
     def get_name(self):
-        return self.const._TYPE._name.split('.')[-1][:-2]
+        return self.const._TYPE._name
     
     def init(self, ilasm):
         _class = self.const._TYPE._class_

@@ -56,7 +56,7 @@ class EE(BasicExternal):
 ee = EE()
 ee._render_name = 'ee'
 
-def test_prebuild_basicexternal():
+def test_prebuilt_basicexternal():
     def tt_fun():
         ee.bb()
     

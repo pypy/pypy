@@ -335,9 +335,9 @@ def setTimeout(func, delay):
 register_external(setTimeout, args=[genericcallable([]), int], result=None)
 
 window = Window()
+window._render_name = 'window'
 document = window.document
-Window._render_name = 'window'
-Document._render_name = 'document'
+document._render_name = 'document'
 
 # rtyper stuff
 
