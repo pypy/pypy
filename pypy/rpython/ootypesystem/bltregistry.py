@@ -194,7 +194,10 @@ class ExternalType(ootype.OOType):
 
     def __init__(self, class_):
         self._class_ = class_
-        self._name = str(class_) # xxx fragile
+        if hasattr(self._class_, '_render_name'):
+            self._name = self._class_._render_name
+        else:
+            self._name = self._class_.__name__
         self._superclass = None
         self._root = True
 
