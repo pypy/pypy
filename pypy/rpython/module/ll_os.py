@@ -204,7 +204,8 @@ def os_write_lltypeimpl(fd, data):
 def os_write_oofakeimpl(fd, data):
     return os.write(fd, OOSupport.from_rstr(data))
 
-register_external(os.write, [int, str], int, "ll_os.ll_os_write",
+register_external(os.write, [int, str], SomeInteger(nonneg=True)
+                  , "ll_os.ll_os_write",
                   llimpl=os_write_lltypeimpl, oofakeimpl=os_write_oofakeimpl)
 
 # '--sandbox' support
