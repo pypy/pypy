@@ -160,28 +160,30 @@ def a2b_base64(s):
         for A, B, C, D in quadruplets_gen(s[:-4])]
 
     if s:
-        final = s[-4:]
-        if final[2] == '=':
-            A = table_a2b_base64[final[0]]
-            B = table_a2b_base64[final[1]]
-            snippet =  chr(A << 2 | ((B >> 4) & 0x3))
-        elif final[3] == '=':
-            A = table_a2b_base64[final[0]]
-            B = table_a2b_base64[final[1]]
-            C = table_a2b_base64[final[2]]
-            snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                    chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf))
-        else:
-            A = table_a2b_base64[final[0]]
-            B = table_a2b_base64[final[1]]
-            C = table_a2b_base64[final[2]]
-            D = table_a2b_base64[final[3]]
-            snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                    chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + \
-                    chr((C & 0x3) << 6 | D )
-        result.append(snippet)
-
-    return ''.join(result) 
+        try:
+            final = s[-4:]
+            if final[2] == '=':
+                A = table_a2b_base64[final[0]]
+                B = table_a2b_base64[final[1]]
+                snippet =  chr(A << 2 | ((B >> 4) & 0x3))
+            elif final[3] == '=':
+                A = table_a2b_base64[final[0]]
+                B = table_a2b_base64[final[1]]
+                C = table_a2b_base64[final[2]]
+                snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                          chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf))
+            else:
+                A = table_a2b_base64[final[0]]
+                B = table_a2b_base64[final[1]]
+                C = table_a2b_base64[final[2]]
+                D = table_a2b_base64[final[3]]
+                snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                          chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + \
+                          chr((C & 0x3) << 6 | D )
+            result.append(snippet)
+            return ''.join(result)
+        except KeyError:
+            raise Error('Incorrect padding')
     
 table_b2a_base64 = \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
