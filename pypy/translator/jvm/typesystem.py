@@ -114,6 +114,7 @@ class JvmType(object):
         self.descriptor = descriptor  # public
         self.name = None              # public, string like "java.lang.Object"
                                       # (None for scalars and arrays)
+
     def lookup_field(self, fieldnm):
         """ If the class has a field named 'fieldnm', returns a
         jvmgen.Field or jvmgen.Property object that represents it and can
@@ -303,3 +304,32 @@ class JvmCallbackInterface(JvmInterfaceType):
 jPyPyHashCode = JvmCallbackInterface('pypy.HashCode', [jObject], jInt)
 jPyPyEquals = JvmCallbackInterface('pypy.Equals', [jObject, jObject], jBool)
 
+class JvmNativeClass(JvmClassType):
+    def __init__(self, db, OOTYPE):
+        self.OOTYPE = OOTYPE
+        self.db = db
+        # XXX fixed java.lang?
+        self.methods = {}
+        JvmClassType.__init__(self, "java.util." + OOTYPE._name)
+        self._add_methods()
+
+    def __eq__(self, other):
+        return isinstance(other, JvmNativeClass) and other.OOTYPE == self.OOTYPE
+    
+    def __hash__(self):
+        return hash(("JvmNativeClass", self.OOTYPE))
+
+    def lookup_field(self):
+        XXX
+
+    def lookup_method(self, methname):
+        return self.methods[methname]
+
+    def _add_methods(self):
+        from pypy.translator.jvm.generator import Method
+        for methname, methspec in self.OOTYPE._class_._methods.items():
+            argtypes = [self.db.annotation_to_cts(arg._type) for arg in
+                        methspec.args]
+            restype = self.db.annotation_to_cts(methspec.retval._type)
+            self.methods[methname] = Method.v(self, methname,
+                                              argtypes, restype)

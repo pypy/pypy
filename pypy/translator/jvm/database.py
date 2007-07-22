@@ -14,12 +14,14 @@ from pypy.translator.jvm.generator import Method, Property, Field
 import pypy.translator.jvm.constant as jvmconst
 from pypy.translator.jvm.typesystem import \
      jStringBuilder, jInt, jVoid, jString, jChar, jPyPyConst, jObject, \
-     jThrowable
+     jThrowable, JvmNativeClass
 from pypy.translator.jvm.builtin import JvmBuiltInType
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 
 from pypy.translator.oosupport.database import Database as OODatabase
-
+from pypy.rpython.ootypesystem.bltregistry import ExternalType
+from pypy.annotation.signature import annotation
+from pypy.annotation.model import annotation_to_lltype
 
 # ______________________________________________________________________
 # Database object
@@ -492,8 +494,17 @@ class Database(OODatabase):
             return self._translate_record(OOT)
         if isinstance(OOT, ootype.StaticMethod):
             return self.record_delegate(OOT)
+
+        # handle externals
+        if isinstance(OOT, ExternalType):
+            return JvmNativeClass(self, OOT)
         
         assert False, "Untranslatable type %s!" % OOT
+
+    def annotation_to_cts(self, _tp):
+        s_tp = annotation(_tp)
+        TP = annotation_to_lltype(s_tp)
+        return self.lltype_to_cts(TP)
 
     def exception_root_object(self):
         """
