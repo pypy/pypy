@@ -28,7 +28,7 @@ class SomeProxy(BasicExternal):
     
 class SomeNode(BasicExternal):
     _fields = {
-        'some_callback' : genericcallable([int], int),
+        'some_callback' : genericcallable([int], str),
     }
 
 SomeProxyInstance = SomeProxy()
@@ -51,7 +51,7 @@ SomeNodeInstance._render_name = 's'
 # next will try out the callback
 def test_callback():
     def callback(a):
-        return a
+        return str(a)
     
     def callback_stuff():
         SomeNodeInstance.some_callback = callback
