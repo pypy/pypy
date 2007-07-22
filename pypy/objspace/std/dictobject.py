@@ -1,10 +1,3 @@
-"""
-Reviewed 03-06-22
-All common dictionary methods are correctly implemented,
-tested, and complete. The only missing feature is support
-for order comparisons.
-"""
-
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
