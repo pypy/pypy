@@ -169,15 +169,6 @@ def debug(drv, use_pdb=True):
 
     log.event("start debugger...")
 
-    def server_setup(port=None):
-        if port is not None:
-            from pypy.translator.tool.graphserver import run_async_server
-            serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, options, port)
-            return serv_start, serv_show, serv_stop
-        else:
-            from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-            return run_server_for_inprocess_client(t, options)
-
     if use_pdb:
         pdb_plus_show = PdbPlusShow(t)
-        pdb_plus_show.start(tb, server_setup, graphic=True)
+        pdb_plus_show.start(tb, graphic=True)
