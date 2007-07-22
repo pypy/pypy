@@ -103,9 +103,6 @@ class AbstractContext(object):
     restore states"""
     pass
 
-from pypy.interpreter.baseobjspace import Wrappable
-
-
 class AbstractBuilder(Wrappable):
     """Abstract base class for builder objects"""
     def __init__(self, parser, debug=0 ):
@@ -214,14 +211,12 @@ class GrammarElement(Wrappable):
 
     def __init__(self, parser, codename):
         # the rule name
-        #assert type(codename)==int
         assert isinstance(parser, Parser)
         self.parser = parser
-        self.codename = codename # integer mapping to either a token value or rule symbol value
+        # integer mapping to either a token value or rule symbol value
+        self.codename = codename 
         self.args = []
         self.first_set = []
-        self.first_set_complete = False
-        # self._processing = False
         self._trace = False
 
     def is_root(self):
@@ -244,6 +239,7 @@ class GrammarElement(Wrappable):
 
         returns None if no match or an object build by builder
         """
+
         if not USE_LOOKAHEAD:
             return self._match(source, builder, level)
         pos1 = -1 # make the annotator happy
@@ -872,15 +868,8 @@ class Parser(object):
     def Token_n(self, name, value = None ):
         # assert isinstance( name, str)
         # assert value is None or isinstance( value, str)
-        name_id = self.add_token( name, value )
-        return self.build_token( name_id, value )
-
-    def build_token(self, name_id, value = None ):
-        # assert isinstance( name_id, int )
-        # assert value is None or isinstance( value, str)
-        tok = Token( self, name_id, value )
-        return tok
-
+        name_id = self.add_token(name, value)
+        return Token(self, name_id, value)
 
     # Debugging functions
     def show_rules(self, name):

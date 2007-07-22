@@ -155,7 +155,7 @@ class EBNFBuilder(AbstractBuilder):
         """Returns a new or existing Token"""
         if codename in self.tokens:
             return self.tokens[codename]
-        token = self.tokens[codename] = self.parser.build_token(codename)
+        token = self.tokens[codename] = Token(self.parser, codename, None)
         return token
 
     def get_symbolcode(self, name):
@@ -270,12 +270,12 @@ class EBNFBuilder(AbstractBuilder):
         if value in self.parser.tok_values:
             # punctuation
             tokencode = self.parser.tok_values[value]
-            tok = self.parser.build_token( tokencode, None )
+            tok = Token(self.parser, tokencode, None)
         else:
             if not is_py_name(value):
                 raise RuntimeError("Unknown STRING value ('%s')" % value)
             # assume a keyword
-            tok = self.parser.build_token( self.parser.tokens['NAME'], value)
+            tok = Token(self.parser, self.parser.tokens['NAME'], value)
             if value not in self.keywords:
                 self.keywords.append(value)
         self.rule_stack.append(tok)

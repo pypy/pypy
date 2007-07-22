@@ -1,8 +1,8 @@
 # This module contains the grammar parser
 # and the symbol mappings
 
-from grammar import Alternative, Sequence, Token, KleeneStar, \
-     GrammarElement, Parser
+# XXX Why are we doing these imports?
+from grammar import Alternative, Sequence, Token, KleeneStar, Parser
 
 class GrammarParser(Parser):
     pass

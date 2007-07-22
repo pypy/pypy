@@ -136,7 +136,7 @@ class GrammarSource(TokenSource):
         end = len(self.input)
         pos = self.skip_empty_lines(inp,pos,end)
         if pos==end:
-            return _p.build_token( _p.EOF, None)
+            return Token(_p, _p.EOF, None)
 
         # at this point nextchar is not a white space nor \n
         nextchr = inp[pos]
@@ -148,22 +148,22 @@ class GrammarSource(TokenSource):
             self.pos = npos
             _endpos = npos - 1
             assert _endpos>=0
-            return _p.build_token( _p.TOK_STRING, inp[pos+1:_endpos])
+            return Token(_p, _p.TOK_STRING, inp[pos+1:_endpos])
         else:
             npos = match_symbol( inp, pos, end)
             if npos!=pos:
                 self.pos = npos
                 if npos!=end and inp[npos]==":":
                     self.pos += 1
-                    return _p.build_token( _p.TOK_SYMDEF, inp[pos:npos])
+                    return Token(_p, _p.TOK_SYMDEF, inp[pos:npos])
                 else:
-                    return _p.build_token( _p.TOK_SYMBOL, inp[pos:npos])
+                    return Token(_p, _p.TOK_SYMBOL, inp[pos:npos])
 
         # we still have pos!=end here
         chr = inp[pos]
         if chr in "[]()*+|":
             self.pos = pos+1
-            return _p.build_token( _p.tok_values[chr], chr)
+            return Token(_p, _p.tok_values[chr], chr)
         self.RaiseError( "Unknown token" )
 
     def peek(self):

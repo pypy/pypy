@@ -145,6 +145,11 @@ from __future__ import yy
         expected = [('import_name', ['import', 'sys'])]
         self.check_parse(tst, expected)
 
+    def test_future_import(self):
+        tst = 'import __future__'
+        expected = [('import_name', ['import', '__future__'])]
+        self.check_parse(tst, expected)
+
     def test_future_import_atoms(self):
         self.builder.build_rules.exclude_rules.remove('import_from_future')
         self.builder.build_rules.exclude_rules.append('future_import_feature')
