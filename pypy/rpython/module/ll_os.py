@@ -52,8 +52,7 @@ if hasattr(os, 'execv'):
 
 # ------------------------------- os.dup --------------------------------
 
-os_dup = rffi.llexternal('dup', [rffi.INT], rffi.INT,
-                         _callable=os.dup)
+os_dup = rffi.llexternal('dup', [rffi.INT], rffi.INT)
 
 def dup_lltypeimpl(fd):
     newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
@@ -112,17 +111,13 @@ register_external(ros.utime_tuple, [str, (float, float)], s_None, "ll_os.utime_t
 
 # ------------------------------- os.open -------------------------------
 
-def fake_os_open(l_path, flags, mode):
-    path = rffi.charp2str(l_path)
-    return os.open(path, flags, mode)
-
 if os.name == 'nt':
     mode_t = rffi.INT
 else:
     mode_t = rffi.MODE_T
 
 os_open = rffi.llexternal('open', [rffi.CCHARP, rffi.INT, mode_t],
-                          rffi.INT, _callable=fake_os_open)
+                          rffi.INT)
 
 def os_open_lltypeimpl(path, flags, mode):
     l_path = rffi.str2charp(path)
@@ -241,10 +236,10 @@ def declare_new_w_star(name):
     def fake(status):
         return int(getattr(os, name)(status))
     fake.func_name = 'fake_' + name
+
     
     os_c_func = rffi.llexternal(name, [lltype.Signed],
-                                lltype.Signed,
-                                _callable=fake,
+                                lltype.Signed, _callable=fake,
                                 includes=["sys/wait.h", "sys/types.h"])
     
     if name in w_star_returning_int:
@@ -267,11 +262,7 @@ for name in w_star:
 # ------------------------------- os.ttyname ----------------------------
 
 if hasattr(os, 'ttyname'):
-    def fake_ttyname(fd):
-        return rffi.str2charp(os.ttyname(fd))
-    
-    os_ttyname = rffi.llexternal('ttyname', [lltype.Signed], rffi.CCHARP,
-                                 _callable=fake_ttyname)
+    os_ttyname = rffi.llexternal('ttyname', [lltype.Signed], rffi.CCHARP)
 
     def ttyname_lltypeimpl(fd):
         l_name = os_ttyname(fd)
