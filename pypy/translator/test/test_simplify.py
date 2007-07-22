@@ -11,6 +11,8 @@ def translate(func, argtypes, backend_optimize=True):
     t.buildrtyper().specialize()
     if backend_optimize:
         backend_optimizations(t)
+    if conftest.option.view:
+        t.view()
     return graphof(t, func), t
 
 def test_remove_direct_call_without_side_effects():
@@ -27,7 +29,7 @@ def test_dont_remove_external_calls():
     def f(x):
         os.close(x)
     graph, _ = translate(f, [int])
-    assert len(graph.startblock.operations) == 1
+    assert len(graph.startblock.operations) == 2
 
 def test_remove_recursive_call():
     def rec(a):
