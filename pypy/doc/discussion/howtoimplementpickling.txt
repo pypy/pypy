@@ -1,6 +1,10 @@
 Designing thread pickling or "the Essence of Stackless Python"
 --------------------------------------------------------------
 
+Note from 2007-07-22: This document is slightly out of date
+and should be turned into a description of pickling.
+Some research is necessary to get rid of explicit resume points, etc...
+
 Thread pickling is a unique feature in Stackless Python
 and should be implemented for PyPy pretty soon.
 
