@@ -171,4 +171,4 @@ def debug(drv, use_pdb=True):
 
     if use_pdb:
         pdb_plus_show = PdbPlusShow(t)
-        pdb_plus_show.start(tb, graphic=True)
+        pdb_plus_show.start(tb)
