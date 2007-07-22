@@ -1,2 +1,2 @@
-Use chose Python language version for a translated interpreter.
-Right now supported versions are 2.4 and 2.5.
+Use this option to chose the CPython version the interpreter should try to be
+compatible with.
