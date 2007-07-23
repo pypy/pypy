@@ -120,7 +120,8 @@ def format_simple_call(annotator, oper, what, msg):
         msg.append("  function %s <%s, line %s> returning" % (func.func_name,
                    func.func_code.co_filename, func.func_code.co_firstlineno))
         graph = desc.getuniquegraph()
-        msg.append("      %s" % annotator.bindings[graph.returnblock.inputargs[0]])
+        msg.append("      %s" % annotator.binding(
+            graph.returnblock.inputargs[0], "(no annotation)"))
         msg.append("")
 
 def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
