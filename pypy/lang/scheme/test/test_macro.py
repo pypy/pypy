@@ -3,7 +3,7 @@ from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.object import *
 
-def eval_expr(ctx, expr):
+def eval_(ctx, expr):
     return parse(expr)[0].eval(ctx)
 
 def eval_noctx(expr):
@@ -29,18 +29,25 @@ def test_syntax_rules_match():
     assert w_transformer.match(w_expr).to_boolean()
     w_expr = parse("(foo bar)")[0]
     assert w_transformer.match(w_expr).to_string() == "foo"
-    assert w_transformer.match_dict["foo"] == "bar"
+    assert w_transformer.match_dict["foo"].to_string() == "bar"
 
     w_expr = parse("(foo bar boo)")[0]
     assert not w_transformer.match(w_expr)
     assert w_transformer.match_dict == {}
+
+    w_transformer = eval_noctx("(syntax-rules () ((foo (bar)) bar))")
+    w_expr = parse("(_ fuzz)")[0]
+    assert not w_transformer.match(w_expr)
+    w_expr = parse("(_ (fuzz))")[0]
+    assert w_transformer.match(w_expr)
+    assert w_transformer.match_dict["bar"].to_string() == "fuzz"
 
 def test_syntax_rules_literals():
     ctx = ExecutionContext()
 
     # => is literal, should be matched exactly
     # w_transformer created in ctx
-    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
 
     w_expr = parse("(foo bar boo)")[0]
     assert not w_transformer.match(w_expr, ctx)
@@ -56,18 +63,52 @@ def test_syntax_rules_literals():
     # different lexical scope, not the same bindings for => in ctx and closure
     closure = ctx.copy()
     closure.put("=>", w_42)
-    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
     assert not w_transformer.match(w_expr, closure)
 
     # different lexical scope, not the same bindings for => in ctx and closure
     ctx.put("=>", W_Number(12))
     assert ctx.get("=>") is not closure.get("=>")
-    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
     assert not w_transformer.match(w_expr, closure)
 
     # the same binding for => in ctx and closure
     ctx.put("=>", w_42)
     assert ctx.get("=>") is closure.get("=>")
-    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
     assert w_transformer.match(w_expr, closure)
+
+def test_syntax_rules_expand_simple():
+    ctx = ExecutionContext()
+
+    w_transformer = eval_(ctx, """(syntax-rules () ((_) #t)
+                                                   ((_ foo) foo))""")
+
+    w_expr = parse("(foo)")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert isinstance(w_expanded, W_Boolean)
+    assert w_expanded.to_boolean() == True
+
+    w_expr = parse("(foo bar)")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert isinstance(w_expanded, W_Symbol)
+    assert w_expanded.to_string() == "bar"
+
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                        ((let1 var val body)
+                                         (let ((var val)) body)))""")
+
+    w_expr = parse("(let1 var 12 (+ 1 var))")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert isinstance(w_expanded, W_Pair)
+    assert w_expanded.to_string() == "(let ((var 12)) (+ 1 var))"
+
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                        ((let1 (var val) body)
+                                         (let ((var val)) body)))""")
+
+    w_expr = parse("(let1 (var 12) (+ 1 var))")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert isinstance(w_expanded, W_Pair)
+    assert w_expanded.to_string() == "(let ((var 12)) (+ 1 var))"
 

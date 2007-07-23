@@ -863,14 +863,19 @@ class SyntaxRule(object):
     def __str__(self):
         return self.pattern.to_string() + " -> " + self.template.to_string()
 
-    def match(self, w_expr, ctx):
-        w_patt = self.pattern
+    def match(self, w_expr, ctx, pattern=None):
+        if pattern is None:
+            w_patt = self.pattern
+        else:
+            w_patt = pattern
+
         match_dict = {}
         while isinstance(w_patt, W_Pair):
             if w_expr is w_nil:
-                return (False, None)
+                return (False, {})
+            w_pattcar = w_patt.car
 
-            w_literal = self.literals.get(w_patt.car.to_string(), None)
+            w_literal = self.literals.get(w_pattcar.to_string(), None)
             if w_literal is not None:
                 try:
                     w_form = ctx.get(w_expr.car.to_string())
@@ -878,16 +883,26 @@ class SyntaxRule(object):
                     w_form = w_expr.car
 
                 if w_form is not w_literal:
-                    return (False, None)
+                    return (False, {})
 
-            match_dict[w_patt.car.to_string()] = w_expr.car.to_string()
+            if isinstance(w_pattcar, W_Pair):
+                if not isinstance(w_expr.car, W_Pair):
+                    return (False, {})
+
+                (matched, match_nested) = self.match(w_expr.car, ctx, w_pattcar)
+                if not matched:
+                    return (False, {})
+
+                match_dict.update(match_nested)
+
+            match_dict[w_pattcar.to_string()] = w_expr.car
             w_patt = w_patt.cdr
             w_expr = w_expr.cdr
 
         if w_expr is w_nil:
             return (True, match_dict)
 
-        return (False, None)
+        return (False, {})
 
 class W_Transformer(W_Procedure):
     def __init__(self, syntax_lst, ctx, pname=""):
@@ -907,5 +922,28 @@ class W_Transformer(W_Procedure):
                 return rule.template
 
         self.match_dict = {}
-        return False
+        return None
 
+    def expand(self, w_expr, ctx):
+        template = self.match(w_expr, ctx)
+
+        if template is None :
+            raise SchemeSyntaxError
+
+        return self.substitute(template)
+
+    def substitute(self, sexpr):
+        if isinstance(sexpr, W_Symbol):
+            w_sub = self.match_dict.get(sexpr.to_string(), None)
+            if w_sub is not None:
+                return w_sub
+
+            return sexpr
+
+        elif isinstance(sexpr, W_Pair):
+            return W_Pair(self.substitute(sexpr.car),
+                    self.substitute(sexpr.cdr))
+
+        else:
+            return sexpr
+            
