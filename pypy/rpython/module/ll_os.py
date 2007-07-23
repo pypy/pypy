@@ -18,6 +18,19 @@ from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 
+# a simple, yet usefull factory
+def register_os_function_returning_int(fun, name, **kwds):
+    c_func = rffi.llexternal(name, [], rffi.INT, **kwds)
+    def c_func_lltypeimpl():
+        res = c_func()
+        if res == -1:
+            raise OSError(rffi.c_errno, "%s failed" % name)
+        return res
+    c_func_lltypeimpl.func_name = name + '_llimpl'
+
+    register_external(fun, [], int, llimpl=c_func_lltypeimpl,
+                      export_name='ll_os.ll_os_' + name)
+
 # ------------------------------- os.execv ------------------------------
 
 if hasattr(os, 'execv'):
@@ -137,6 +150,14 @@ if hasattr(os, 'uname'):
 
     register_external(os.uname, [], (str, str, str, str, str),
                       "ll_os.ll_uname", llimpl=uname_lltypeimpl)
+
+# ------------------------------- os.getuid/geteuid ---------------------
+
+getuid_incl = ['unistd.h', 'sys/types.h']
+register_os_function_returning_int(os.getuid, 'getuid',
+                                   includes=getuid_incl)
+register_os_function_returning_int(os.geteuid, 'geteuid',
+                                   includes=getuid_incl)
 
 # ------------------------------- os.open -------------------------------
 

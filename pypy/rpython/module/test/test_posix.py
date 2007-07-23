@@ -101,11 +101,17 @@ class BaseTestPosix(BaseRtypingTest):
         func = self.interpret(f,[fi,6]) 
         assert os.fstat(fi).st_size == 6
 
+    def test_getuid(self):
+        def f():
+            return os.getuid()
+        assert self.interpret(f, []) == f()
+
 if not hasattr(os, 'ftruncate'):
     del BaseTestPosix.test_ftruncate
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     # XXX segfaulting while run on top of llinterp
+    # XXX but should be there for backends reusing it
     if hasattr(os, 'uname'):
         def test_os_uname(self):
             from pypy.translator.c.test.test_genc import compile
