@@ -2,22 +2,8 @@
 Low-level implementations for the external functions of the 'os' module.
 """
 
-# actual idea might be found in doc/rffi.txt
-
-# ------------------------------------------
-# WARNING! old vision, don't use it WARNING!
-# ------------------------------------------
-
-# Idea: each ll_os_xxx() function calls back the os.xxx() function that it
-# is supposed to implement, either directly or indirectly if there is some
-# argument decoding and buffering preparation that can be done here.
-
-# The specific function that calls back to os.xxx() is tagged with the
-# 'suggested_primitive' flag.  The back-end should special-case it and really
-# implement it.  The back-end can actually choose to special-case any function:
-# it can for example special-case ll_os_xxx() directly even if the
-# 'suggested_primitive' flag is set to another function, if the conversion
-# and buffer preparation stuff is not useful.
+# Implementation details about those functions
+# might be found in doc/rffi.txt
 
 import os, errno
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill, OOSupport
