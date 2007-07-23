@@ -181,9 +181,9 @@ def a2b_base64(s):
                           chr((B & 0xf) << 4 | ((C >> 2 ) & 0xf)) + \
                           chr((C & 0x3) << 6 | D )
             result.append(snippet)
-            return ''.join(result)
         except KeyError:
             raise Error('Incorrect padding')
+    return ''.join(result)
     
 table_b2a_base64 = \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
