@@ -29,4 +29,45 @@ def test_syntax_rules_match():
     assert w_transformer.match(w_expr).to_boolean()
     w_expr = parse("(foo bar)")[0]
     assert w_transformer.match(w_expr).to_string() == "foo"
+    assert w_transformer.match_dict["foo"] == "bar"
+
+    w_expr = parse("(foo bar boo)")[0]
+    assert not w_transformer.match(w_expr)
+    assert w_transformer.match_dict == {}
+
+def test_syntax_rules_literals():
+    ctx = ExecutionContext()
+
+    # => is literal, should be matched exactly
+    # w_transformer created in ctx
+    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+
+    w_expr = parse("(foo bar boo)")[0]
+    assert not w_transformer.match(w_expr, ctx)
+
+    # exact match
+    w_expr = parse("(foo => boo)")[0]
+
+    # within the same context
+    assert w_transformer.match(w_expr, ctx)
+
+    w_42 = W_Number(42)
+
+    # different lexical scope, not the same bindings for => in ctx and closure
+    closure = ctx.copy()
+    closure.put("=>", w_42)
+    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    assert not w_transformer.match(w_expr, closure)
+
+    # different lexical scope, not the same bindings for => in ctx and closure
+    ctx.put("=>", W_Number(12))
+    assert ctx.get("=>") is not closure.get("=>")
+    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    assert not w_transformer.match(w_expr, closure)
+
+    # the same binding for => in ctx and closure
+    ctx.put("=>", w_42)
+    assert ctx.get("=>") is closure.get("=>")
+    w_transformer = eval_expr(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
+    assert w_transformer.match(w_expr, closure)
 

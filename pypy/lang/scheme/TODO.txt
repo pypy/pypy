@@ -1,13 +1,13 @@
 Do now
 ------
 
-- lambda called with wrong number of args issue
+- lambda called with wrong number of arguments issue
 
 Do next
 -------
 
 - implement key functions
-  (apply, reduce, mapcar and so on)
+  (apply, reduce, map and so on)
 
 - comparison: < > eq? eqv?
 
@@ -17,6 +17,7 @@ Do in some future
 Here starts the real fun!
 
 - macros
+  * macros are not first-class objects
 - continuations
 - move syntax checking to parsing
 - switch to byte-code generation + eval instead of evaluating AST

@@ -822,6 +822,21 @@ class SyntaxRules(W_Macro):
         if not isinstance(w_literals, W_List):
             raise SchemeSyntaxError
 
+        literals_map = {}
+        while isinstance(w_literals, W_Pair):
+            if not isinstance(w_literals.car, W_Symbol):
+                raise SchemeSyntaxError
+
+            literal_name = w_literals.car.to_string()
+            try:
+                w_temp = ctx.get(literal_name)
+            except UnboundVariable:
+                w_temp = w_literals.car
+
+            literals_map[literal_name] = w_temp
+
+            w_literals = w_literals.cdr
+
         w_syntax_lst = lst.cdr
         syntax_lst = []
         while isinstance(w_syntax_lst, W_Pair):
@@ -833,46 +848,64 @@ class SyntaxRules(W_Macro):
             w_template = w_syntax.get_cdr_as_pair().car
 
             #do stuff with w_syntax rules
-            syntax_lst.append(SyntaxRule(w_pattern, w_template))
+            syntax_lst.append(SyntaxRule(w_pattern, w_template, literals_map))
             
             w_syntax_lst = w_syntax_lst.cdr
 
-        return W_Transformer(syntax_lst)
+        return W_Transformer(syntax_lst, ctx)
 
 class SyntaxRule(object):
-    def __init__(self, pattern, template):
+    def __init__(self, pattern, template, literals):
         self.pattern = pattern
         self.template = template
+        self.literals = literals
 
     def __str__(self):
         return self.pattern.to_string() + " -> " + self.template.to_string()
 
-    def match(self, w_expr):
+    def match(self, w_expr, ctx):
         w_patt = self.pattern
+        match_dict = {}
         while isinstance(w_patt, W_Pair):
             if w_expr is w_nil:
-                return False
+                return (False, None)
 
-            if isinstance(w_patt, W_Symbol) and not isinstance(w_expr, W_Symbol):
-                return False
+            w_literal = self.literals.get(w_patt.car.to_string(), None)
+            if w_literal is not None:
+                try:
+                    w_form = ctx.get(w_expr.car.to_string())
+                except UnboundVariable:
+                    w_form = w_expr.car
 
+                if w_form is not w_literal:
+                    return (False, None)
+
+            match_dict[w_patt.car.to_string()] = w_expr.car.to_string()
             w_patt = w_patt.cdr
             w_expr = w_expr.cdr
 
         if w_expr is w_nil:
-            return True
+            return (True, match_dict)
 
-        return False
+        return (False, None)
 
 class W_Transformer(W_Procedure):
-    def __init__(self, syntax_lst, pname=""):
+    def __init__(self, syntax_lst, ctx, pname=""):
         self.pname = pname
         self.syntax_lst = syntax_lst
+        self.match_dict = {}
+        self.closure = ctx
 
-    def match(self, w_expr):
+    def match(self, w_expr, ctx=None):
+        if ctx is None:
+            ctx = self.closure
+
         for rule in self.syntax_lst:
-            if rule.match(w_expr):
+            (matched, temp_dict) = rule.match(w_expr, ctx)
+            if matched:
+                self.match_dict = temp_dict
                 return rule.template
 
+        self.match_dict = {}
         return False
 
