@@ -42,6 +42,7 @@ TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long', 'size_t']
 if os.name != 'nt':
     TYPES.append('mode_t')
+    TYPES.append('pid_t')
 
 def get_type_sizes(filename, compiler_exe=None):
     try:

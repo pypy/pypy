@@ -109,6 +109,21 @@ def utime_tuple_lltypeimpl(path, tp):
 register_external(ros.utime_tuple, [str, (float, float)], s_None, "ll_os.utime_tuple",
                   llimpl=utime_tuple_lltypeimpl)
 
+# ------------------------------- os.setsid -----------------------------
+
+if hasattr(os, 'setsid'):
+    os_setsid = rffi.llexternal('setsid', [], rffi.PID_T,
+                                includes=['unistd.h'])
+
+    def setsid_lltypeimpl():
+        result = rffi.cast(lltype.Signed, os_setsid())
+        if result == -1:
+            raise OSError(rffi.c_errno, "os_setsid failed")
+        return result
+
+    register_external(os.setsid, [], int, export_name="ll_os.ll_os_setsid",
+                      llimpl=setsid_lltypeimpl)
+
 # ------------------------------- os.open -------------------------------
 
 if os.name == 'nt':
