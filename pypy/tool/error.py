@@ -111,7 +111,18 @@ def format_blocked_annotation_error(annotator, blocked_blocks):
     for block, graph in blocked_blocks.items():
         text.append(gather_error(annotator, block, graph))
     return '\n'.join(text)
-    
+
+def format_simple_call(annotator, oper, what, msg):
+    msg.append("Simple call of incompatible family:")
+    descs = annotator.bindings[oper.args[0]].descriptions
+    for desc in descs.keys():
+        func = desc.pyobj
+        msg.append("  function %s <%s, line %s> returning" % (func.func_name,
+                   func.func_code.co_filename, func.func_code.co_firstlineno))
+        graph = desc.getuniquegraph()
+        msg.append("      %s" % annotator.bindings[graph.returnblock.inputargs[0]])
+        msg.append("")
+
 def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
     #block = getattr(annotator, 'flowin_block', None) or block
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
@@ -119,7 +130,10 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
         graph, block, operindex = position_key
         if operindex is not None:
             oper = block.operations[operindex]
-            msg.append(str(oper))
+            if oper.opname == 'simple_call':
+                format_simple_call(annotator, oper, what, msg)
+            else:
+                msg.append(str(oper))
         else:
             msg.append("at the start of the block with input arguments:")
             for v in block.inputargs:

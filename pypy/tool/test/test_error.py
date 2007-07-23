@@ -84,3 +84,23 @@ def test_basicexternal_attribute():
         return A().g()
 
     py.test.raises(NoSuchAttrError, compile_function, g, [])
+
+def test_someobject_from_call():
+    def one(x):
+        return str(x)
+
+    def two(x):
+        return int(x)
+
+    def fn(n):
+        if n:
+            to_call = one
+        else:
+            to_call = two
+        return to_call(n)
+
+    try:
+        compile_function(fn, [int])
+    except AnnotatorError, e:
+        assert 'function one' in e.args[0]
+        assert 'function two' in e.args[0]
