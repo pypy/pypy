@@ -85,6 +85,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'setsid'):
         interpleveldefs['setsid'] = 'interp_posix.setsid'
+    if hasattr(os, 'getuid'):
+        interpleveldefs['getuid'] = 'interp_posix.getuid'
+        interpleveldefs['geteuid'] = 'interp_posix.geteuid'
     
     for name in w_star:
         if hasattr(os, name):

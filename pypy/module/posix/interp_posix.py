@@ -524,6 +524,30 @@ def uname(space):
     return space.newtuple(l_w)
 uname.unwrap_spec = [ObjSpace]
 
+def getuid(space):
+    """ getuid() -> uid
+
+    Return the current process's user id.
+    """
+    try:
+        result = os.getuid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(result)
+getuid.unwrap_spec = [ObjSpace]
+
+def getuid(space):
+    """ geteuid() -> euid
+
+    Return the current process's effective user id.
+    """
+    try:
+        result = os.geteuid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(result)
+getuid.unwrap_spec = [ObjSpace]
+
 def declare_new_w_star(name):
     if name in w_star_returning_int:
         def WSTAR(space, status):
