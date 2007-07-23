@@ -110,6 +110,34 @@ if hasattr(os, 'setsid'):
     register_external(os.setsid, [], int, export_name="ll_os.ll_os_setsid",
                       llimpl=setsid_lltypeimpl)
 
+# ------------------------------- os.uname ------------------------------
+
+if hasattr(os, 'uname'):
+    UTSNAMEP = rffi.CStruct('utsname', ('sysname', rffi.CCHARP),
+                            ('nodename', rffi.CCHARP),
+                            ('release', rffi.CCHARP),
+                            ('version', rffi.CCHARP),
+                            ('machine', rffi.CCHARP),
+                            ('stuff', rffi.CCHARP))
+    
+    os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,
+                               includes=['sys/utsname.h'])
+
+    def uname_lltypeimpl():
+        l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
+        result = os_uname(l_utsbuf)
+        if result == -1:
+            raise OSError(rffi.c_errno, "os_uname failed")
+        fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
+                l_utsbuf.c_release, l_utsbuf.c_version, l_utsbuf.c_machine]
+        l = [rffi.charp2str(i) for i in fields]
+        retval = (l[0], l[1], l[2], l[3], l[4])
+        lltype.free(l_utsbuf, flavor='raw')
+        return retval
+
+    register_external(os.uname, [], (str, str, str, str, str),
+                      "ll_os.ll_uname", llimpl=uname_lltypeimpl)
+
 # ------------------------------- os.open -------------------------------
 
 if os.name == 'nt':

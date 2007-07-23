@@ -2,7 +2,7 @@ from pypy.tool.pytest.modcheck import skipimporterror
 skipimporterror("ctypes")
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.tool.udir import udir 
+from pypy.tool.udir import udir
 import os
 exec 'import %s as posix' % os.name
 
@@ -105,7 +105,15 @@ if not hasattr(os, 'ftruncate'):
     del BaseTestPosix.test_ftruncate
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
-    pass
+    # XXX segfaulting while run on top of llinterp
+    if hasattr(os, 'uname'):
+        def test_os_uname(self):
+            from pypy.translator.c.test.test_genc import compile
+            for num in range(5):
+                def fun():
+                    return os.uname()[num]
+                fn = compile(fun, [])
+                assert fn() == os.uname()[num]
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass
