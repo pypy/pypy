@@ -2,9 +2,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.rpython.module.ll_os import w_star
 
-#Turned off for now. posix must support targets without ctypes.
-#from pypy.module.posix import ctypes_posix
-
 import os
 exec 'import %s as posix' % os.name
 
