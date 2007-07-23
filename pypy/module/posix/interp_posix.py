@@ -499,6 +499,18 @@ second form is used, set the access and modified times to the current time.
         raise OperationError(space.w_TypeError, space.wrap(msg))
 utime.unwrap_spec = [ObjSpace, str, W_Root]
 
+def setsid(space):
+    """setsid() -> pid
+    
+    Creates a new session with this process as the leader.
+    """
+    try:
+        result = os.setsid()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(result)
+setsid.unwrap_spec = [ObjSpace]
+
 def declare_new_w_star(name):
     if name in w_star_returning_int:
         def WSTAR(space, status):
