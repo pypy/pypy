@@ -511,6 +511,19 @@ def setsid(space):
     return space.wrap(result)
 setsid.unwrap_spec = [ObjSpace]
 
+def uname(space):
+    """ uname() -> (sysname, nodename, release, version, machine)
+
+    Return a tuple identifying the current operating system.
+    """
+    try:
+        r = os.uname()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    l_w = [space.wrap(i) for i in [r[0], r[1], r[2], r[3], r[4]]]
+    return space.newtuple(l_w)
+uname.unwrap_spec = [ObjSpace]
+
 def declare_new_w_star(name):
     if name in w_star_returning_int:
         def WSTAR(space, status):
