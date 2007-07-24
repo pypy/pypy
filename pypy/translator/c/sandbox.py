@@ -17,6 +17,10 @@ from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.c import funcgen
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+from pypy.tool.ansi_print import ansi_log
+import py
+log = py.log.Producer("sandbox")
+py.log.setconsumer("sandbox", ansi_log)
 
 def getSandboxFuncCodeGen(fnobj, db):
     graph = get_external_function_sandbox_graph(fnobj, db)
@@ -143,6 +147,14 @@ def sandboxed_io(msg):
         msg.nextsize_t()
     return msg
 
+def not_implemented_stub(msg):
+    STDERR = 2
+    buf = rffi.str2charp(msg + '\n')
+    writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
+    rffi.free_charp(buf)
+    raise RuntimeError(msg)  # XXX in RPython, the msg is ignored at the moment
+not_implemented_stub._annenforceargs_ = [str]
+
 def get_external_function_sandbox_graph(fnobj, db):
     """Build the graph of a helper trampoline function to be used
     in place of real calls to the external function 'fnobj'.  The
@@ -154,31 +166,38 @@ def get_external_function_sandbox_graph(fnobj, db):
     # _marshal_input and/or _unmarshal_output function on fnobj.
     FUNCTYPE = lltype.typeOf(fnobj)
     fnname = fnobj._name
-    if hasattr(fnobj, '_marshal_input'):
-        marshal_input = fnobj._marshal_input
-    else:
-        marshal_input = build_default_marshal_input(FUNCTYPE, fnname)
-    if hasattr(fnobj, '_unmarshal_output'):
-        unmarshal_output = fnobj._unmarshal_output
-    else:
-        unmarshal_output = build_default_unmarshal_output(FUNCTYPE, fnname)
+    try:
+        if hasattr(fnobj, '_marshal_input'):
+            marshal_input = fnobj._marshal_input
+        else:
+            marshal_input = build_default_marshal_input(FUNCTYPE, fnname)
+        if hasattr(fnobj, '_unmarshal_output'):
+            unmarshal_output = fnobj._unmarshal_output
+        else:
+            unmarshal_output = build_default_unmarshal_output(FUNCTYPE, fnname)
+    except NotImplementedError, e:
+        msg = 'Not Implemented: %s' % (e,)
+        log.WARNING(msg)
+        def execute(*args):
+            not_implemented_stub(msg)
 
-    def execute(*args):
-        # marshal the input arguments
-        msg = MessageBuilder()
-        msg.packstring(fnname)
-        marshal_input(msg, *args)
-        # send the buffer and wait for the answer
-        msg = sandboxed_io(msg)
-        try:
-            # decode the answer
-            errcode = msg.nextnum()
-            if errcode != 0:
-                raise IOError
-            result = unmarshal_output(msg, *args)
-        finally:
-            lltype.free(msg.value, flavor='raw')
-        return result
+    else:
+        def execute(*args):
+            # marshal the input arguments
+            msg = MessageBuilder()
+            msg.packstring(fnname)
+            marshal_input(msg, *args)
+            # send the buffer and wait for the answer
+            msg = sandboxed_io(msg)
+            try:
+                # decode the answer
+                errcode = msg.nextnum()
+                if errcode != 0:
+                    raise IOError
+                result = unmarshal_output(msg, *args)
+            finally:
+                lltype.free(msg.value, flavor='raw')
+            return result
     execute = func_with_new_name(execute, 'sandboxed_' + fnname)
 
     ann = MixLevelHelperAnnotator(db.translator.rtyper)

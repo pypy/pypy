@@ -64,7 +64,6 @@ class MessageBuilder(object):
         return ''.join(self.value)
 
     def as_rffi_buf(self):
-        from pypy.rpython.lltypesystem import lltype, rffi
         self._fixlength()
         value = self.value
         length = len(value)
