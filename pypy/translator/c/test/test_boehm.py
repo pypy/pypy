@@ -96,6 +96,7 @@ class TestUsingBoehm(AbstractGCTestClass):
         assert 0 < res <= 84
 
     def test_weakgcaddress_is_weak(self):
+        py.test.skip("weakgcaddress as we know it is fragile")
         from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         class State:
