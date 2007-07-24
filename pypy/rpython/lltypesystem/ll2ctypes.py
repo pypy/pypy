@@ -355,7 +355,7 @@ def ctypes2lltype(T, cobj):
     elif T is not lltype.Signed:
         from pypy.rpython.lltypesystem import rffi
         try:
-            inttype = rffi.numbertype_to_rclass[T]
+            inttype = rffi.platform.numbertype_to_rclass[T]
         except KeyError:
             llobj = cobj
         else:

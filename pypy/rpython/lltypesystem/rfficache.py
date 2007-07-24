@@ -7,8 +7,10 @@ import py
 import os
 from pypy.translator.tool.cbuild import build_executable
 from pypy.tool.udir import udir
+from pypy.rlib import rarithmetic
+from pypy.rpython.lltypesystem import lltype
 
-def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
+def ask_gcc(question, includes={}, add_source="", compiler_exe=None):
     from py.compat.subprocess import PIPE, Popen
     includes['stdio.h'] = True
     includes['sys' + os.path.sep + 'types.h'] = True
@@ -17,57 +19,110 @@ def sizeof_c_type(c_typename, includes={}, compiler_exe=None):
     // includes
     %s
 
+    %s
+
     // checking code
     int main(void)
     {
-       printf("%%d\\n", sizeof(%s));
+       %s
        return (0);
     }
-    ''' % (include_string, c_typename))
-    c_file = udir.join("typetest.c")
+    ''' % (include_string, add_source, str(question)))
+    c_file = udir.join("gcctest.c")
     c_file.write(c_source)
 
     c_exec = build_executable([str(c_file)], compiler_exe=compiler_exe)
     pipe = Popen(c_exec, stdout=PIPE)
     pipe.wait()
-    return int(pipe.stdout.read()) * 8
+    return pipe.stdout.read()
 
-# XXX add float types as well here
+def sizeof_c_type(c_typename, **kwds):
+    question = 'printf("%%d", sizeof(%s));' % (c_typename,);
+    return int(ask_gcc(question, **kwds)) * 8
 
-TYPES = []
-for _name in 'short int long'.split():
-    for name in (_name, 'unsigned ' + _name):
-        TYPES.append(name)
-TYPES += ['signed char', 'unsigned char',
-          'long long', 'unsigned long long', 'size_t']
-if os.name != 'nt':
-    TYPES.append('mode_t')
-    TYPES.append('pid_t')
+def c_ifdefined(c_def, **kwds):
+    question = py.code.Source("""
+    #ifdef %s
+      printf("0");
+    #endif
+    """ % (c_def,))
+    return ask_gcc(question, **kwds) == '0'
 
-def get_type_sizes(filename, compiler_exe=None):
-    try:
-        mod = {}
-        exec py.path.local(filename).read() in mod
-        types = mod['types']
-    except (ImportError, py.error.ENOENT):
-        types = {}
-    try:
-        if py.builtin.sorted(types.keys()) != py.builtin.sorted(TYPES):
-            # invalidate file
-            types = {}
-            raise KeyError
-        return types
-    except KeyError:
-        types = dict([(i, sizeof_c_type(i, compiler_exe=compiler_exe))
-                      for i in TYPES])
-        py.path.local(filename).write('types = ' +
-                                      repr(types) + "\n")
-        return types
+def c_defined_int(c_def, **kwds):
+    question = 'printf("%%d", %s);' % (c_def,)
+    return int(ask_gcc(question, **kwds))
+
+class RffiCache(object):
+    """ Class holding all of the c-level caches, eventually loaded from
+    the file, like #ifdefs, typesizes, int-level #defines
+    """
+    def __init__(self, filename):
+        self.filename = filename
+        self.numbertype_to_rclass = {}
+        self.types = {}
+        try:
+            mod = {}
+            exec py.path.local(filename).read() in mod
+            self.cache = mod['cache']
+            self.type_names = mod['type_names']
+            self._build_types()
+        except (py.error.ENOENT, KeyError):
+            self.cache = {}
+            self.type_names = {}
+
+    def _build_types(self):
+        for name, (c_name, signed) in self.type_names.items():
+            bits = self.cache[c_name]
+            inttype = rarithmetic.build_int('r_' + name, signed, bits)
+            tp = lltype.build_number(name, inttype)
+            self.numbertype_to_rclass[tp] = inttype
+            self.types[name] = tp
+
+    def inttype(self, name, c_name, signed, **kwds):
+        # XXX sign should be inferred somehow automatically
+        try:
+            return self.types[name]
+        except KeyError:
+            bits = sizeof_c_type(c_name, **kwds)
+            inttype = rarithmetic.build_int('r_' + name, signed, bits)
+            self.cache[c_name] = bits
+            self.type_names[name] = (c_name, signed)
+            tp = lltype.build_number(name, inttype)
+            self.numbertype_to_rclass[tp] = inttype
+            self.types[name] = tp
+            self._store_cache()
+            return tp
+
+    def defined(self, name, **kwds):
+        try:
+            return self.cache[name]
+        except KeyError:
+            res = c_ifdefined(name, **kwds)
+            self.cache[name] = res
+            self._store_cache()
+            return res
+
+    def intdefined(self, name, **kwds):
+        try:
+            return self.cache[name]
+        except KeyError:
+            res = c_defined_int(name, **kwds)
+            self.cache[name] = res
+            self._store_cache()
+            return res
+
+    # optimal way of caching it, would be to store file on __del__,
+    # but since we cannot rely on __del__ having all modules, let's
+    # do it after each change :-(
+    def _store_cache(self):
+        types = 'type_names = ' + repr(self.type_names) + '\n'
+        py.path.local(self.filename).write('cache = ' + repr(self.cache)
+                                           + '\n' + types)
 
 import pypy
 import py
 py.path.local(pypy.__file__).new(basename='_cache').ensure(dir=1)
 from pypy.tool import autopath
 CACHE = py.magic.autopath()/'..'/'..'/'..'/'_cache'/'stdtypes.py'
-platform = get_type_sizes(CACHE)
+platform = RffiCache(CACHE)
 

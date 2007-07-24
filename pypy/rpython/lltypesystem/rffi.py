@@ -5,6 +5,7 @@ from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib import rarithmetic
+import os
 
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.
@@ -32,28 +33,35 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
         ll2ctypes.make_callable_via_ctypes(funcptr)
     return funcptr
 
-numbertype_to_rclass = {}     # {USHORT: r_ushort, ...}
+from pypy.rpython.lltypesystem.rfficache import platform
+
+TYPES = []
+for _name in 'short int long'.split():
+    for name in (_name, 'unsigned ' + _name):
+        TYPES.append(name)
+TYPES += ['signed char', 'unsigned char',
+          'long long', 'unsigned long long', 'size_t']
+if os.name != 'nt':
+    TYPES.append('mode_t')
+    TYPES.append('pid_t')
 
 def setup():
     """ creates necessary c-level types
     """
-    from pypy.rpython.lltypesystem.rfficache import platform
-    for name, bits in platform.items():
+    for name in TYPES:
+        c_name = name
         if name.startswith('unsigned'):
             name = 'u' + name[9:]
             signed = False
         else:
             signed = (name != 'size_t')
         name = name.replace(' ', '')
-        llname = name.upper()
-        inttype = rarithmetic.build_int('r_' + name, signed, bits)
-        NUMBERTYPE = lltype.build_number(llname, inttype)
-        globals()['r_' + name] = inttype
-        globals()[llname] = NUMBERTYPE
-        numbertype_to_rclass[NUMBERTYPE] = inttype
+        tp = platform.inttype(name.upper(), c_name, signed)
+        globals()['r_' + name] = platform.numbertype_to_rclass[tp]
+        globals()[name.upper()] = tp
 
 setup()
-numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
+platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------
 #        Type           RPython integer class doing wrap-around
