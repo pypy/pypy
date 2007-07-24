@@ -3,7 +3,7 @@ In place of real calls to any external function, this code builds
 trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
-from pypy.translator.c.sandboxmsg import MessageBuilder, LLMessage
+from pypy.translator.sandbox.sandboxmsg import MessageBuilder, LLMessage
 
 # ____________________________________________________________
 #
@@ -14,7 +14,6 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.annotation import model as annmodel
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.translator.c import funcgen
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.tool.ansi_print import ansi_log
@@ -22,9 +21,6 @@ import py
 log = py.log.Producer("sandbox")
 py.log.setconsumer("sandbox", ansi_log)
 
-def getSandboxFuncCodeGen(fnobj, db):
-    graph = get_external_function_sandbox_graph(fnobj, db)
-    return funcgen.FunctionCodeGenerator(graph, db)
 
 # a version of os.read() and os.write() that are not mangled
 # by the sandboxing mechanism

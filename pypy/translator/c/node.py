@@ -723,8 +723,9 @@ def select_function_code_generators(fnobj, db, functionname):
         if hasattr(fnobj, 'includes'):
             # apply the sandbox transformation
             if sandbox:
-                from pypy.translator.c.sandbox import getSandboxFuncCodeGen
-                return [getSandboxFuncCodeGen(fnobj, db)]
+                from pypy.translator.sandbox import rsandbox
+                graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
+                return [FunctionCodeGenerator(graph, db)]
             else:
                 return []   # assume no wrapper needed
         else:

@@ -2,7 +2,8 @@ import sys, os
 import struct
 
 from pypy.rpython.lltypesystem import rffi
-from pypy.translator.c.sandboxmsg import Message, MessageBuilder, read_message
+from pypy.translator.sandbox.sandboxmsg import Message, MessageBuilder
+from pypy.translator.sandbox.sandboxmsg import read_message
 from pypy.translator.interactive import Translation
 
 
