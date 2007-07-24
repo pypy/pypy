@@ -29,6 +29,13 @@ class TestLL2Ctypes(object):
         res = lltype2ctypes(llmemory.sizeof(S))
         assert res == struct.calcsize("ll")
 
+        p = lltype.nullptr(S)
+        cptr = lltype2ctypes(p)
+        assert not cptr
+        py.test.raises(ValueError, 'cptr.contents')   # NULL pointer access
+        res = ctypes2lltype(lltype.Ptr(S), cptr)
+        assert res == p
+
     def test_simple_struct(self):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
         s = lltype.malloc(S, flavor='raw')

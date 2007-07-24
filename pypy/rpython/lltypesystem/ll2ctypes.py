@@ -281,6 +281,9 @@ def lltype2ctypes(llobj, normalize=True):
 
     T = lltype.typeOf(llobj)
     if isinstance(T, lltype.Ptr):
+        if not llobj:   # NULL pointer
+            return get_ctypes_type(T)()
+
         container = llobj._obj
         if isinstance(T.TO, lltype.FuncType):
             if not hasattr(container, '_callable'):
@@ -332,6 +335,8 @@ def ctypes2lltype(T, cobj):
     'T' is the expected lltype type.
     """
     if isinstance(T, lltype.Ptr):
+        if not cobj:   # NULL pointer
+            return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
             # XXX var-sized structs
             container = lltype._struct(T.TO)
