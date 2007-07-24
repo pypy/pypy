@@ -11,6 +11,8 @@ from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype
 
 def ask_gcc(question, includes={}, add_source="", compiler_exe=None):
+    if isinstance(includes, list):
+        includes = dict.fromkeys(includes)
     from py.compat.subprocess import PIPE, Popen
     includes['stdio.h'] = True
     includes['sys' + os.path.sep + 'types.h'] = True
