@@ -1,0 +1,42 @@
+Some discussion about external objects in ootype
+================================================
+
+Current approaches:
+
+* BasicExternal, used for js backend
+
+* SomeCliXxx for .NET backend
+
+BasicExternal
+=============
+
+* Is using types to make rpython happy (ie, every single method or field
+  is hardcoded)
+
+* Supports callbacks by SomeGenericCallable
+
+* Supports fields, also with callable fields
+
+SomeCliXxx
+==========
+
+* Supports method overloading
+
+* Supports inheritance in a better way
+
+* Supports static methods
+
+Would be extremely cool to have just one approach instead of two,
+so here are some notes:
+
+* There should be one mechanism, factored out nicely out of any backend,
+  to support any possible backend (cli, js, jvm for now).
+
+* This approach might be eventually extended by a backend itself, but
+  as much as possible code should be factored out.
+
+* Backend should take care itself about creating such classes, either
+  manually or automatically.
+
+* Should support superset of needs of all backends (ie callbacks,
+  method overloading, etc.)
