@@ -110,16 +110,15 @@ if not hasattr(os, 'ftruncate'):
     del BaseTestPosix.test_ftruncate
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
-    # XXX segfaulting while run on top of llinterp
-    # XXX but should be there for backends reusing it
     if hasattr(os, 'uname'):
         def test_os_uname(self):
-            from pypy.translator.c.test.test_genc import compile
+            py.test.skip("Cannot do it (yet) because ll2ctypes cannot handle str -> fixedsizearray")
+            #from pypy.translator.c.test.test_genc import compile
             for num in range(5):
                 def fun():
                     return os.uname()[num]
-                fn = compile(fun, [])
-                assert fn() == os.uname()[num]
+                #fn = compile(fun, [])
+                assert self.interpret(fun, []) == os.uname()[num]
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass

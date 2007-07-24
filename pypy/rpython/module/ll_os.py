@@ -16,6 +16,7 @@ from pypy.rpython.extfunc import ExtFuncEntry, register_external
 from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
     s_None
 from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.lltypesystem import lltype
 
 # a simple, yet usefull factory
@@ -126,12 +127,18 @@ if hasattr(os, 'setsid'):
 # ------------------------------- os.uname ------------------------------
 
 if hasattr(os, 'uname'):
-    UTSNAMEP = rffi.CStruct('utsname', ('sysname', rffi.CCHARP),
-                            ('nodename', rffi.CCHARP),
-                            ('release', rffi.CCHARP),
-                            ('version', rffi.CCHARP),
-                            ('machine', rffi.CCHARP),
-                            ('stuff', rffi.CCHARP))
+    lgt = platform.intdefined('_UTSNAME_LENGTH', includes=['sys/utsname.h'])
+    UTCHARP = lltype.FixedSizeArray(lltype.Char, lgt)
+    fields = [('sysname', UTCHARP),
+              ('nodename', UTCHARP),
+              ('release', UTCHARP),
+              ('version', UTCHARP),
+              ('machine', UTCHARP)]
+    # heh, that's a valid question whether asking for defines NOW
+    # makes any sense
+    if platform.defined('_GNU_SOURCE'):
+        fields.append('domainname', UTCHARP)
+    UTSNAMEP = rffi.CStruct('utsname', *fields)
     
     os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,
                                includes=['sys/utsname.h'])
