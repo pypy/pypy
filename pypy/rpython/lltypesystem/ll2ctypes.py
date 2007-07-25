@@ -1,6 +1,7 @@
 import sys
 import ctypes
 import ctypes.util
+import os
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic
@@ -437,6 +438,8 @@ def get_ctypes_callable(funcptr):
         cfunc = None
         for libname in libraries:
             libpath = ctypes.util.find_library(libname)
+            if not libpath and os.path.isabs(libname):
+                libpath = libname
             if libpath:
                 clib = ctypes.cdll.LoadLibrary(libpath)
                 cfunc = getattr(clib, funcname, None)
