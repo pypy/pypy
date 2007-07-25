@@ -153,6 +153,24 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
     finally:
         lastdir.chdir()
 
+def cache_c_module(cfiles, modname, cache_dir=None,
+                   include_dirs=None, libraries=[]):
+    """ Same as build c module, but instead caches results and
+    checks timestamps (eventually, not supported yet)
+    """
+    from pypy.tool.autopath import pypydir
+    if cache_dir is None:
+        cache_dir = py.path.local(pypydir).join('_cache')
+    else:
+        cache_dir = py.path.local(cache_dir)
+    if cache_dir.check(dir=1):
+        # XXX check timestamps of all cfiles
+        if not cache_dir.join(modname + '.so').check():
+            modname = str(cache_dir.join(modname))
+            compile_c_module(cfiles, modname, include_dirs=include_dirs,
+                             libraries=libraries)
+            
+
 def make_module_from_c(cfile, include_dirs=None, libraries=[]):
     cfile = py.path.local(cfile)
     modname = cfile.purebasename
