@@ -39,4 +39,6 @@ class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
         
     def test_builtin_math_modf(self):
         py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
-        
+
+    def test_os_dup(self):
+        py.test.skip("not implemented")
