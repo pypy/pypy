@@ -133,11 +133,8 @@ if hasattr(os, 'uname'):
               ('nodename', UTCHARP),
               ('release', UTCHARP),
               ('version', UTCHARP),
-              ('machine', UTCHARP)]
-    # heh, that's a valid question whether asking for defines NOW
-    # makes any sense
-    if platform.defined('_GNU_SOURCE'):
-        fields.append('domainname', UTCHARP)
+              ('machine', UTCHARP),
+              ('domainname', UTCHARP)]
     UTSNAMEP = rffi.CStruct('utsname', *fields)
     
     os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,

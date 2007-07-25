@@ -113,16 +113,6 @@ def test_os_wstar():
         for value in [0, 1, 127, 128, 255]:
             assert fn(value) == fun(value)
 
-def test_os_uname():
-    if not hasattr(os, 'uname'):
-        py.test.skip("os.uname does not exist")
-    from pypy.translator.c.test.test_genc import compile
-    for num in range(5):
-        def fun():
-            return os.uname()[num]
-        fn = compile(fun, [])
-        assert fn() == os.uname()[num]
-
 class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):

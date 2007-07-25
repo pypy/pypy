@@ -110,13 +110,11 @@ if not hasattr(os, 'ftruncate'):
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     if hasattr(os, 'uname'):
         def test_os_uname(self):
-            py.test.skip("Cannot do it (yet) because ll2ctypes cannot handle str -> fixedsizearray")
-            #from pypy.translator.c.test.test_genc import compile
             for num in range(5):
                 def fun():
                     return os.uname()[num]
-                #fn = compile(fun, [])
-                assert self.interpret(fun, []) == os.uname()[num]
+                res = self.interpret(fun, [])
+                assert self.ll_to_string(res) == os.uname()[num]
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass
