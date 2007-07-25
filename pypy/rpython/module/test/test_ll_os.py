@@ -121,15 +121,16 @@ class ExpectTestOs:
     def test_ttyname(self):
         import os
         import py
-        from pypy.translator.c.test.test_genc import compile
+        from pypy.rpython.test.test_llinterp import interpret
+
+        def ll_to_string(s):
+            return ''.join(s.chars)
+        
         def f(num):
             try:
                 return os.ttyname(num)
             except OSError:
                 return ''
 
-        fn = compile(f, [int])
-        assert f(0) == fn(0)
-        assert fn(338) == ''
-
-    
+        assert ll_to_string(interpret(f, [0])) == f(0)
+        assert ll_to_string(interpret(f, [338])) == ''
