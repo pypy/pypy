@@ -123,9 +123,6 @@ def test_os_uname(self):
         fn = compile(fun, [])
         assert fn() == os.uname()[num]
 
-def test_os_uname():
-    
-
 class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):
