@@ -140,6 +140,14 @@ if hasattr(os, 'uname'):
     os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,
                                includes=['sys/utsname.h'])
 
+    def utcharp2str(cp):
+        l = []
+        i = 0
+        while cp[i] != '\x00' and i < lgt:
+            l.append(cp[i])
+            i += 1
+        return "".join(l)
+
     def uname_lltypeimpl():
         l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
         result = os_uname(l_utsbuf)
@@ -147,7 +155,7 @@ if hasattr(os, 'uname'):
             raise OSError(rffi.c_errno, "os_uname failed")
         fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
                 l_utsbuf.c_release, l_utsbuf.c_version, l_utsbuf.c_machine]
-        l = [rffi.charp2str(i) for i in fields]
+        l = [utcharp2str(i) for i in fields]
         retval = (l[0], l[1], l[2], l[3], l[4])
         lltype.free(l_utsbuf, flavor='raw')
         return retval
