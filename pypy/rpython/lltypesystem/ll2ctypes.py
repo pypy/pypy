@@ -150,20 +150,40 @@ def get_ctypes_type(T):
         return cls
 
 
-def convert_struct(container):
+def convert_struct(container, cstruct=None):
     STRUCT = container._TYPE
-    cls = get_ctypes_type(STRUCT)
-    cstruct = cls._malloc()
+    if cstruct is None:
+        # if 'container' is an inlined substructure, convert the whole
+        # bigger structure at once
+        parent, parentindex = lltype.parentlink(container)
+        if parent is not None:
+            convert_struct(parent)
+            return
+        # regular case: allocate a new ctypes Structure of the proper type
+        cls = get_ctypes_type(STRUCT)
+        cstruct = cls._malloc()
     add_storage(container, _struct_mixin, cstruct)
     for field_name in STRUCT._names:
+        FIELDTYPE = getattr(STRUCT, field_name)
         field_value = getattr(container, field_name)
-        setattr(cstruct, field_name, lltype2ctypes(field_value))
+        if not isinstance(FIELDTYPE, lltype.ContainerType):
+            # regular field
+            setattr(cstruct, field_name, lltype2ctypes(field_value))
+        else:
+            # inlined substructure/subarray
+            if isinstance(FIELDTYPE, lltype.Struct):
+                csubstruct = getattr(cstruct, field_name)
+                convert_struct(field_value, csubstruct)
+            else:
+                raise NotImplementedError('inlined field', FIELDTYPE)
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
     STRUCT = container._TYPE
     for field_name in STRUCT._names:
-        delattr(container, field_name)
+        FIELDTYPE = getattr(STRUCT, field_name)
+        if not isinstance(FIELDTYPE, lltype.ContainerType):
+            delattr(container, field_name)
 
 def convert_array(container):
     ARRAY = container._TYPE

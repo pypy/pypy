@@ -371,4 +371,36 @@ class TestLL2Ctypes(object):
         checkval(sc.contents.y, 'l')
 
     def test_substructures(self):
-        py.test.skip("XXX test and implement substructures")
+        S1  = lltype.Struct('S1', ('x', lltype.Signed))
+        BIG = lltype.Struct('BIG', ('s1a', S1), ('s1b', S1))
+        s = lltype.malloc(BIG, flavor='raw')
+        s.s1a.x = 123
+        s.s1b.x = 456
+        sc = lltype2ctypes(s)
+        assert sc.contents.s1a.x == 123
+        assert sc.contents.s1b.x == 456
+        sc.contents.s1a.x += 1
+        sc.contents.s1b.x += 10
+        assert s.s1a.x == 124
+        assert s.s1b.x == 466
+        s.s1a.x += 3
+        s.s1b.x += 30
+        assert sc.contents.s1a.x == 127
+        assert sc.contents.s1b.x == 496
+        lltype.free(s, flavor='raw')
+
+        s = lltype.malloc(BIG, flavor='raw')
+        s1ac = lltype2ctypes(s.s1a)
+        s1ac.contents.x = 53
+        sc = lltype2ctypes(s)
+        assert sc.contents.s1a.x == 53
+        sc.contents.s1a.x += 1
+        assert s1ac.contents.x == 54
+        assert s.s1a.x == 54
+        s.s1a.x += 2
+        assert s1ac.contents.x == 56
+        assert sc.contents.s1a.x == 56
+        sc.contents.s1a.x += 3
+        assert s1ac.contents.x == 59
+        assert s.s1a.x == 59
+        lltype.free(s, flavor='raw')
