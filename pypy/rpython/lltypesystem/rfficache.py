@@ -7,17 +7,16 @@ import py
 import os
 from pypy.translator.tool.cbuild import build_executable
 from pypy.tool.udir import udir
+from pypy.tool.autopath import pypydir
 from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype
 
-def ask_gcc(question, includes={}, add_source="", include_dirs=[],
+def ask_gcc(question, includes=[], add_source="", include_dirs=[],
             compiler_exe=None):
-    if isinstance(includes, list):
-        includes = dict.fromkeys(includes)
     from py.compat.subprocess import PIPE, Popen
-    includes['stdio.h'] = True
-    includes['sys' + os.path.sep + 'types.h'] = True
-    include_string = "\n".join(["#include <%s>" % i for i in includes.keys()])
+    includes.append('stdio.h')
+    includes.append('sys' + os.path.sep + 'types.h')
+    include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes
     %s
@@ -33,6 +32,10 @@ def ask_gcc(question, includes={}, add_source="", include_dirs=[],
     ''' % (include_string, add_source, str(question)))
     c_file = udir.join("gcctest.c")
     c_file.write(c_source)
+
+    # always include pypy include dir
+    pypypath = py.path.local(pypydir)
+    include_dirs.append(str(pypypath.join('translator', 'c', 'src')))
 
     c_exec = build_executable([str(c_file)], include_dirs=include_dirs,
                               compiler_exe=compiler_exe)
