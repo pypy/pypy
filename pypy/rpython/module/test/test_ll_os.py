@@ -5,6 +5,7 @@ from pypy.translator.c.test.test_genc import compile
 
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 import sys
+import py
 
 def test_access():
     filename = str(udir.join('test_access.txt'))
@@ -111,6 +112,19 @@ def test_os_wstar():
         fn = compile(fun, [int])
         for value in [0, 1, 127, 128, 255]:
             assert fn(value) == fun(value)
+
+def test_os_uname(self):
+    if not hasattr(os, 'uname'):
+        py.test.skip("os.uname does not exist")
+    from pypy.translator.c.test.test_genc import compile
+    for num in range(5):
+        def fun():
+            return os.uname()[num]
+        fn = compile(fun, [])
+        assert fn() == os.uname()[num]
+
+def test_os_uname():
+    
 
 class ExpectTestOs:
     def setup_class(cls):
