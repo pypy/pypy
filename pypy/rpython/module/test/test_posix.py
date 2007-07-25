@@ -1,6 +1,4 @@
-from pypy.tool.pytest.modcheck import skipimporterror
-skipimporterror("ctypes")
-
+import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.tool.udir import udir
 import os
