@@ -91,7 +91,7 @@ def test_syntax_rules_expand_simple():
 
     w_expr = parse("(foo bar)")[0]
     w_expanded = w_transformer.expand(w_expr, ctx)
-    assert isinstance(w_expanded, W_Symbol)
+    #assert isinstance(w_expanded, W_Symbol)
     assert w_expanded.to_string() == "bar"
 
     w_transformer = eval_(ctx, """(syntax-rules ()
@@ -111,4 +111,68 @@ def test_syntax_rules_expand_simple():
     w_expanded = w_transformer.expand(w_expr, ctx)
     assert isinstance(w_expanded, W_Pair)
     assert w_expanded.to_string() == "(let ((var 12)) (+ 1 var))"
+
+def test_syntax_rules_expand():
+    ctx = ExecutionContext()
+
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                       ((_ var)
+                                        (let ((temp 1)) (+ var temp))))""")
+
+    w_expr = parse("(_ 12)")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert w_expanded.to_string() == "(let ((temp 1)) (+ 12 temp))"
+    assert w_transformer.expand_eval(w_expr, ctx).to_number() == 13
+
+    #transparency
+    eval_(ctx, "(define temp 12)")
+    w_expr = parse("(_ temp)")[0]
+    w_expanded = w_transformer.expand(w_expr, ctx)
+    assert w_expanded.to_string() == "(let ((temp 1)) (+ temp temp))"
+    assert w_transformer.expand_eval(w_expr, ctx).to_number() == 13
+
+    #define in closure, should not affect macro eval
+    closure = ctx.copy()
+    eval_(closure, "(define + -)")
+    assert w_transformer.expand_eval(w_expr, closure).to_number() == 13
+
+    #define in top level - should affect macro eval
+    eval_(ctx, "(define + -)")
+    assert w_transformer.expand_eval(w_expr, ctx).to_number() == 11
+
+def test_syntax_rules_hygenic_expansion():
+    ctx = ExecutionContext()
+
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                     ((dotimes count body)
+                                      (letrec ((loop
+                                       (lambda (counter)
+                                         (if (= counter 0)
+                                             ()
+                                             (begin
+                                                body
+                                                (loop (- counter 1)))))))
+                                        (loop count))))""")
+
+    w_expr = parse("(_ 5 (set! counter (+ counter 1)))")[0]
+    py.test.raises(UnboundVariable, w_transformer.expand_eval, w_expr, ctx)
+
+    eval_(ctx, "(define counter 0)")
+    w_expr = parse("(_ 5 (set! counter (+ counter 1)))")[0]
+    w_transformer.expand_eval(w_expr, ctx)
+    assert ctx.get("counter").to_number() == 5
+
+def test_shadow():
+    py.test.skip("in progress")
+    ctx = ExecutionContext()
+
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                     ((shadow used-arg body)
+                                      (let ((used-arg 5)) body)))""")
+
+    w_expr = parse("(shadow test test)")[0]
+    assert w_transformer.expand_eval(w_expr, ctx).to_number() == 5
+
+    eval_(ctx, "(define test 7)")
+    assert w_transformer.expand_eval(w_expr, ctx).to_number() == 5
 

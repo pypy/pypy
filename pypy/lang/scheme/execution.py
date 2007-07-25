@@ -57,7 +57,7 @@ OMAP = \
 
 OPERATION_MAP = {}
 for name, cls in OMAP.items():
-    OPERATION_MAP[name] = Location(cls(name))
+    OPERATION_MAP[name] = cls(name)
 
 class ExecutionContext(object):
     """Execution context implemented as a dict.
@@ -66,7 +66,10 @@ class ExecutionContext(object):
     """
     def __init__(self, globalscope=None, scope=None, closure=False):
         if globalscope is None:
-            self.globalscope = OPERATION_MAP.copy()
+            self.globalscope = {}
+            for name, oper in OPERATION_MAP.items():
+                self.globalscope[name] = Location(oper)
+
         else:
             self.globalscope = globalscope
 

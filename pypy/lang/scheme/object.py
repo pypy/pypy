@@ -904,6 +904,19 @@ class SyntaxRule(object):
 
         return (False, {})
 
+class SyntacticClosure(W_Root):
+    def __init__(self, ctx, sexpr):
+        self.sexpr = sexpr
+        self.closure = ctx
+
+    def eval_tr(self, ctx):
+        #this symbol is in Syntactic Closure 
+        return self.sexpr.eval_tr(self.closure)
+
+    def to_string(self):
+        #return "#<closure: " + self.sexpr.to_string() + ">"
+        return self.sexpr.to_string()
+
 class W_Transformer(W_Procedure):
     def __init__(self, syntax_lst, ctx, pname=""):
         self.pname = pname
@@ -930,20 +943,29 @@ class W_Transformer(W_Procedure):
         if template is None :
             raise SchemeSyntaxError
 
-        return self.substitute(template)
+        return self.substitute(template, ctx)
 
-    def substitute(self, sexpr):
+    def substitute(self, sexpr, ctx):
         if isinstance(sexpr, W_Symbol):
             w_sub = self.match_dict.get(sexpr.to_string(), None)
             if w_sub is not None:
-                return w_sub
+                return SyntacticClosure(ctx, w_sub)
 
             return sexpr
 
         elif isinstance(sexpr, W_Pair):
-            return W_Pair(self.substitute(sexpr.car),
-                    self.substitute(sexpr.cdr))
+            return W_Pair(self.substitute(sexpr.car, ctx),
+                    self.substitute(sexpr.cdr, ctx))
 
-        else:
-            return sexpr
+        return sexpr
             
+    def expand_eval(self, sexpr, ctx):
+        #we have lexical scopes:
+        # 1. in which macro was defined - self.closure
+        # 2. in which macro is called   - ctx
+        # 3. in which macro is expanded - expand_ctx 
+
+        expand_ctx = self.closure.copy()
+        expanded = self.expand(sexpr, ctx)
+        return expanded.eval(expand_ctx)
+
