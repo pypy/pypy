@@ -10,7 +10,8 @@ from pypy.tool.udir import udir
 from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype
 
-def ask_gcc(question, includes={}, add_source="", compiler_exe=None):
+def ask_gcc(question, includes={}, add_source="", include_dirs=[],
+            compiler_exe=None):
     if isinstance(includes, list):
         includes = dict.fromkeys(includes)
     from py.compat.subprocess import PIPE, Popen
@@ -33,14 +34,15 @@ def ask_gcc(question, includes={}, add_source="", compiler_exe=None):
     c_file = udir.join("gcctest.c")
     c_file.write(c_source)
 
-    c_exec = build_executable([str(c_file)], compiler_exe=compiler_exe)
+    c_exec = build_executable([str(c_file)], include_dirs=include_dirs,
+                              compiler_exe=compiler_exe)
     pipe = Popen(c_exec, stdout=PIPE)
     pipe.wait()
     return pipe.stdout.read()
 
 def sizeof_c_type(c_typename, **kwds):
     question = 'printf("%%d", sizeof(%s));' % (c_typename,);
-    return int(ask_gcc(question, **kwds)) * 8
+    return int(ask_gcc(question, **kwds))
 
 def c_ifdefined(c_def, **kwds):
     question = py.code.Source("""
@@ -53,6 +55,18 @@ def c_ifdefined(c_def, **kwds):
 def c_defined_int(c_def, **kwds):
     question = 'printf("%%d", %s);' % (c_def,)
     return int(ask_gcc(question, **kwds))
+
+def create_cache_access_method(acc_func, meth_name):
+    def method(self, name, **kwds):
+        try:
+            return self.cache[name]
+        except KeyError:
+            res = acc_func(name, **kwds)
+            self.cache[name] = res
+            self._store_cache()
+            return res
+    method.func_name = meth_name
+    return method
 
 class RffiCache(object):
     """ Class holding all of the c-level caches, eventually loaded from
@@ -85,7 +99,7 @@ class RffiCache(object):
         try:
             return self.types[name]
         except KeyError:
-            bits = sizeof_c_type(c_name, **kwds)
+            bits = sizeof_c_type(c_name, **kwds) * 8
             inttype = rarithmetic.build_int('r_' + name, signed, bits)
             self.cache[c_name] = bits
             self.type_names[name] = (c_name, signed)
@@ -95,23 +109,9 @@ class RffiCache(object):
             self._store_cache()
             return tp
 
-    def defined(self, name, **kwds):
-        try:
-            return self.cache[name]
-        except KeyError:
-            res = c_ifdefined(name, **kwds)
-            self.cache[name] = res
-            self._store_cache()
-            return res
-
-    def intdefined(self, name, **kwds):
-        try:
-            return self.cache[name]
-        except KeyError:
-            res = c_defined_int(name, **kwds)
-            self.cache[name] = res
-            self._store_cache()
-            return res
+    defined = create_cache_access_method(c_ifdefined, 'defined')
+    intdefined = create_cache_access_method(c_defined_int, 'intdefined')
+    sizeof = create_cache_access_method(sizeof_c_type, 'sizeof')
 
     # optimal way of caching it, would be to store file on __del__,
     # but since we cannot rely on __del__ having all modules, let's

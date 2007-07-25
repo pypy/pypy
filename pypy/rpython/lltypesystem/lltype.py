@@ -1655,6 +1655,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, extra_args=(), zero=False):
         o = _struct(T, n, initialization=initialization)
     elif isinstance(T, Array):
         o = _array(T, n, initialization=initialization)
+    elif isinstance(T, OpaqueType):
+        o = _opaque(T, n, initialization=initialization)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):

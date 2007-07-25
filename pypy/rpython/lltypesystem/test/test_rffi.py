@@ -227,7 +227,8 @@ def test_opaque_type():
     h_file = udir.join("opaque.h")
     h_file.write(h_source)
 
-    STUFFP = COpaque('stuff')
+    STUFFP = COpaque('struct stuff', includes=['opaque.h'],
+                     include_dirs=[str(udir)])
 
     ll_get = llexternal('get', [STUFFP], lltype.Char, includes=['opaque.h'],
                         include_dirs=[str(udir)])

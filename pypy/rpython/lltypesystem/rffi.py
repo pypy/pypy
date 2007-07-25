@@ -93,11 +93,14 @@ def CStruct(name, *fields, **kwds):
     c_fields = [('c_' + key, value) for key, value in fields]
     return lltype.Ptr(lltype.Struct(name, *c_fields, **kwds))
 
-def COpaque(name, hints=None):
+def COpaque(name, hints=None, **kwds):
     if hints is None:
         hints = {}
+    else:
+        hints = hints.copy()
     hints['external'] = 'C'
     hints['c_name'] = name
+    hints['size'] = platform.sizeof(name, **kwds)
     return lltype.Ptr(lltype.OpaqueType(name, hints))
 
 c_errno = CConstant('errno', lltype.Signed)

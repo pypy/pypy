@@ -226,6 +226,17 @@ class TestLL2Ctypes(object):
         assert res2 == res2b
         assert res3 == res3b
 
+    def test_opaque_obj(self):
+        includes = ['sys/time.h', 'time.h']
+        TIMEVALP = rffi.COpaque('struct timeval', includes=includes)
+        TIMEZONEP = rffi.COpaque('struct timezone', includes=includes)
+        gettimeofday = rffi.llexternal('gettimeofday', [TIMEVALP, TIMEZONEP],
+                                       rffi.INT, includes=includes)
+        ll_timevalp = lltype.malloc(TIMEVALP.TO, flavor='raw')
+        ll_timezonep = lltype.malloc(TIMEZONEP.TO, flavor='raw')
+        res = gettimeofday(ll_timevalp, ll_timezonep)
+        assert res != -1
+
     def test_simple_cast(self):
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123456) == 0x56
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123481) == -127

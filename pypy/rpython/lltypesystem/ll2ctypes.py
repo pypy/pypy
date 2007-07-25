@@ -137,6 +137,10 @@ def get_ctypes_type(T):
             cls = build_ctypes_struct(T)
         elif isinstance(T, lltype.Array):
             cls = build_ctypes_array(T)
+        elif isinstance(T, lltype.OpaqueType):
+            if T.hints.get('external', None) != 'C':
+                raise TypeError("%s is not external" % T)
+            cls = ctypes.c_char * T.hints['size']
         else:
             _setup_ctypes_cache()
             if T in _ctypes_cache:
@@ -311,6 +315,9 @@ def lltype2ctypes(llobj, normalize=True):
                 convert_struct(container)
             elif isinstance(T.TO, lltype.Array):
                 convert_array(container)
+            elif isinstance(T.TO, lltype.OpaqueType):
+                container._storage = ctypes.create_string_buffer(
+                    T.TO.hints['size'])
             else:
                 raise NotImplementedError(T)
         storage = container._storage
@@ -352,6 +359,8 @@ def ctypes2lltype(T, cobj):
             funcptr = lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'))
             make_callable_via_ctypes(funcptr, cfunc=cobj)
             return funcptr
+        elif isinstance(T.TO, lltype.OpaqueType):
+            container = lltype._opaque(T.TO)
         else:
             raise NotImplementedError(T)
         llobj = lltype._ptr(T, container, solid=True)
