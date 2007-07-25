@@ -24,6 +24,8 @@ class AppTestPosix:
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_path = space.wrap(str(path))
         cls.w_pdir = space.wrap(str(pdir))
+        cls.w_getuid = space.wrap(os.getuid())
+        cls.w_geteuid = space.wrap(os.geteuid())
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
@@ -221,6 +223,11 @@ class AppTestPosix:
         for i in res:
             assert isinstance(i, str)
         assert isinstance(res, tuple)
+
+    def test_os_getuid(self):
+        os = self.posix
+        os.getuid() == self.getuid
+        os.geteuid() == self.geteuid
 
 class AppTestEnvironment(object):
     def setup_class(cls): 

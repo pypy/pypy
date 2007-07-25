@@ -408,14 +408,6 @@ def _exit(space, status):
     os._exit(status)
 _exit.unwrap_spec = [ObjSpace, int]
 
-def getuid(space):
-    return space.wrap(intmask(_c.getuid()))
-getuid.unwrap_spec = [ObjSpace]
-
-def geteuid(space):
-    return space.wrap(intmask(_c.geteuid()))
-geteuid.unwrap_spec = [ObjSpace]
-
 def execv(space, command, w_args):
     """ execv(path, args)
 
@@ -464,7 +456,7 @@ def uname(space):
 Return a tuple identifying the current operating system.
     """
     try:
-        result = _c.uname()
+        result = os.uname()
     except OSError, e: 
         raise wrap_oserror(space, e) 
     return space.newtuple([space.wrap(ob) for ob in result])
@@ -529,24 +521,16 @@ def getuid(space):
 
     Return the current process's user id.
     """
-    try:
-        result = os.getuid()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return space.wrap(result)
+    return space.wrap(os.getuid())
 getuid.unwrap_spec = [ObjSpace]
 
-def getuid(space):
+def geteuid(space):
     """ geteuid() -> euid
 
     Return the current process's effective user id.
     """
-    try:
-        result = os.geteuid()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return space.wrap(result)
-getuid.unwrap_spec = [ObjSpace]
+    return space.wrap(os.geteuid())
+geteuid.unwrap_spec = [ObjSpace]
 
 def declare_new_w_star(name):
     if name in w_star_returning_int:
