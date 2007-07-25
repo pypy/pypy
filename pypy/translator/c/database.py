@@ -129,6 +129,8 @@ class LowLevelDatabase(object):
                 if who_asks is not None:
                     who_asks.dependencies[node] = True
                 return 'struct %s @' % node.name
+            elif T.hints.get('external', None) == 'C':
+                return 'struct %s @' % T.hints['c_name']
             else:
                 #raise Exception("don't know about opaque type %r" % (T,))
                 return 'struct %s @' % (

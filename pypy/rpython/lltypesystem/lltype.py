@@ -451,9 +451,10 @@ class FuncType(ContainerType):
 class OpaqueType(ContainerType):
     _gckind = 'raw'
     
-    def __init__(self, tag):
+    def __init__(self, tag, hints={}):
         self.tag = tag
         self.__name__ = tag
+        self.hints = frozendict(hints)
 
     def __str__(self):
         return "%s (opaque)" % self.tag

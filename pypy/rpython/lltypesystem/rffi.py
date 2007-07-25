@@ -93,6 +93,13 @@ def CStruct(name, *fields, **kwds):
     c_fields = [('c_' + key, value) for key, value in fields]
     return lltype.Ptr(lltype.Struct(name, *c_fields, **kwds))
 
+def COpaque(name, hints=None):
+    if hints is None:
+        hints = {}
+    hints['external'] = 'C'
+    hints['c_name'] = name
+    return lltype.Ptr(lltype.OpaqueType(name, hints))
+
 c_errno = CConstant('errno', lltype.Signed)
 
 # char, represented as a Python character
@@ -157,3 +164,4 @@ def free_charpp(ref):
     lltype.free(ref, flavor='raw')
 
 cast = ll2ctypes.force_cast      # a forced, no-checking cast
+    

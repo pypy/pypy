@@ -210,3 +210,33 @@ def test_compile_cast():
     f1 = compile(f, [int])
     res = f1(-1)
     assert res == r_size_t(-1)
+
+def test_opaque_type():
+    h_source = py.code.Source("""
+    struct stuff {
+       char data[38];
+    };
+
+    char get(struct stuff* x)
+    {
+       x->data[13] = 'a';
+       return x->data[13];
+    }
+    """)
+    # if it doesn't segfault, than we probably malloced it :-)
+    h_file = udir.join("opaque.h")
+    h_file.write(h_source)
+
+    STUFFP = COpaque('stuff')
+
+    ll_get = llexternal('get', [STUFFP], lltype.Char, includes=['opaque.h'],
+                        include_dirs=[str(udir)])
+
+    def f():
+        ll_stuff = lltype.malloc(STUFFP.TO, flavor='raw')
+        result = ll_get(ll_stuff)
+        lltype.free(ll_stuff, flavor='raw')
+        return result
+
+    f1 = compile(f, [])
+    assert f1() == 'a'
