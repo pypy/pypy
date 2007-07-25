@@ -450,18 +450,6 @@ Execute a path with arguments and environment, replacing current process.
         raise wrap_oserror(space, e)
 execve.unwrap_spec = [ObjSpace, str, W_Root, W_Root]
 
-def uname(space):
-    """ uname() -> (sysname, nodename, release, version, machine)
-
-Return a tuple identifying the current operating system.
-    """
-    try:
-        result = os.uname()
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    return space.newtuple([space.wrap(ob) for ob in result])
-uname.unwrap_spec = [ObjSpace]
-
 def utime(space, path, w_tuple):
     """ utime(path, (atime, mtime))
 utime(path, None)
