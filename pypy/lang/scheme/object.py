@@ -660,13 +660,9 @@ class Let(W_Macro):
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
-            name = w_def.car.to_string()
             #evaluate the values in caller ctx
             w_val = w_def.get_cdr_as_pair().car.eval(ctx)
-            if isinstance(w_def.car, SyntacticClosure):
-                local_ctx.sput(name, w_val)
-            else:
-                local_ctx.put(name, w_val)
+            local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
@@ -680,10 +676,9 @@ class LetStar(W_Macro):
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
-            name = w_def.car.to_string()
             #evaluate the values in local ctx
             w_val = w_def.get_cdr_as_pair().car.eval(local_ctx)
-            local_ctx.put(name, w_val)
+            local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
@@ -971,6 +966,6 @@ class W_Transformer(W_Procedure):
         # 2. in which macro is called   - ctx
         # 3. in which macro is expanded, and can introduce new bindings - expand_ctx 
         expanded = self.expand(sexpr, ctx)
-        expand_ctx = self.closure.macro(ctx)
+        expand_ctx = self.closure.copy()
         return expanded.eval(expand_ctx)
 

@@ -80,11 +80,17 @@ class ExecutionContext(object):
 
         self.closure = closure
 
+    def _dispatch(self, symb):
+        if isinstance(symb, W_Symbol):
+            return (self, symb.name)
+        elif isinstance(symb, SyntacticClosure) and \
+                isinstance(symb.sexpr, W_Symbol):
+            return (symb.closure, symb.sexpr.name)
+
+        raise SchemeSyntaxError
+
     def copy(self):
         return ExecutionContext(self.globalscope, self.scope.copy(), True)
-
-    def macro(self, rctx):
-        return MacroClosure(self.globalscope, self.scope.copy(), rctx)
 
     def get(self, name):
         loc = self.scope.get(name, None)
@@ -131,6 +137,10 @@ class ExecutionContext(object):
         else:
             self.put(name, obj)
 
+    def sput(self, symb, obj):
+        (ctx, name) = self._dispatch(symb)
+        ctx.put(name, obj)
+
     def put(self, name, obj):
         """create new location"""
         assert isinstance(obj, W_Root)
@@ -159,24 +169,3 @@ class ExecutionContext(object):
             return loc
 
         return None
-
-class MacroClosure(ExecutionContext):
-    def __init__(self, globalscope=None, scope=None, rctx=None):
-        self.globalscope = globalscope
-
-        if scope is None:
-            self.scope = {}
-        else:
-            self.scope = scope
-
-        self.closure = True
-        self.macro = True
-        self.rctx = rctx
-
-    def copy(self):
-        return MacroClosure(self.globalscope, self.scope, self.rctx)
-
-    def sput(self, name, obj):
-        print name, obj
-        return self.rctx.put(name, obj)
-
