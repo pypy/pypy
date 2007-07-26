@@ -23,7 +23,7 @@ if py.path.local.sysfind("js") is None:
 results = open('results.txt', 'w')
 for f in pwd.dirpath('test', 'ecma').visit(filter):
     print f.basename
-    cmd = './js_interactive.py -n -f %s -f %s'%(shell, f)
+    cmd = './js_interactive.py %s %s'%(shell, f)
     p = Popen(cmd, shell=True, stdout=PIPE)
     
     passed = 0

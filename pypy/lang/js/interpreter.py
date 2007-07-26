@@ -12,13 +12,14 @@ ASTBUILDER = ASTBuilder()
 def writer(x):
     print x
 
-def load_source(script_source):
+def load_source(script_source, sourcename):
     temp_tree = parse(script_source)
+    ASTBUILDER.sourcename = sourcename
     return ASTBUILDER.dispatch(temp_tree)
 
 def load_file(filename):
     f = open_file_as_stream(filename)
-    t = load_source(f.readall())
+    t = load_source(f.readall(), filename)
     f.close()
     return t
 
@@ -104,7 +105,7 @@ def evaljs(ctx, args, this):
     else:
         code = W_String('')
     try:
-        node = load_source(code.ToString(ctx))
+        node = load_source(code.ToString(ctx), 'evalcode')
     except ParseError, e:
         raise ThrowException(W_String('SintaxError: '+str(e)))    
     

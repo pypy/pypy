@@ -19,7 +19,7 @@ def assertp(code, prints):
     jsint = interpreter.Interpreter()
     ctx = jsint.w_Global
     try:
-        jsint.run(interpreter.load_source(code))
+        jsint.run(interpreter.load_source(code, ''))
     except ThrowException, excpt:
         l.append("uncaught exception: "+str(excpt.exception.ToString(ctx)))
     print l, prints
@@ -32,7 +32,7 @@ def assertv(code, value):
     jsint = interpreter.Interpreter()
     ctx = jsint.w_Global
     try:
-        code_val = jsint.run(interpreter.load_source(code)).GetValue()
+        code_val = jsint.run(interpreter.load_source(code, '')).GetValue()
     except ThrowException, excpt:
         code_val = excpt.exception
     print code_val, value
@@ -49,7 +49,7 @@ def assertv(code, value):
 
 def asserte(code, value):
     jsint = interpreter.Interpreter()
-    py.test.raises(value, 'jsint.run(interpreter.load_source(code))')
+    py.test.raises(value, 'jsint.run(interpreter.load_source(code, ""))')
     
     
 def test_interp_parse():

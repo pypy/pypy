@@ -46,6 +46,13 @@ class ASTBuilder(RPythonVisitor):
         '{': operations.ObjectInit,
     }
     
+    def __init__(self):
+        self.sourcename = ""
+        RPythonVisitor.__init__(self)
+    
+    def set_sourcename(self, sourcename):
+        self.sourcename = sourcename #XXX I should call this
+    
     def get_pos(self, node):
         value = ''
         source_pos = None
@@ -219,7 +226,7 @@ class ASTBuilder(RPythonVisitor):
                 nodes.append(node)
         var_decl = self.varlists.pop().keys()
         func_decl = self.funclists.pop()
-        return operations.SourceElements(pos, var_decl, func_decl, nodes)
+        return operations.SourceElements(pos, var_decl, func_decl, nodes, self.sourcename)
     
     def functioncommon(self, node, declaration=True):
         pos = self.get_pos(node)

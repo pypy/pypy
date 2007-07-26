@@ -7,7 +7,9 @@ def to_ast(s):
     print s
     tp = parse(s)
     print tp
-    return ASTBuilder().dispatch(tp)
+    astb = ASTBuilder()
+    astb.sourcename = "test"
+    return astb.dispatch(tp)
 
 def test_simple():
     yield to_ast, "1;"
@@ -31,3 +33,7 @@ def test_callcall():
     c1 = p.body.nodes[0]
     assert isinstance(c1, Call)
     assert isinstance(c1.left, Call)
+
+def test_sourcename():    
+    p = to_ast('x()()').body
+    assert p.sourcename == 'test'

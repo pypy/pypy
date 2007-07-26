@@ -56,7 +56,7 @@ class JSInterpreter(code.InteractiveConsole):
 
     def runcodefromfile(self, filename):
         f = open_file_as_stream(filename)
-        self.runsource(f.readall())
+        self.runsource(f.readall(), filename)
         f.close()
 
     def runcode(self, ast):
@@ -89,7 +89,7 @@ class JSInterpreter(code.InteractiveConsole):
         3) The input is complete. Executes the source code.
         """
         try:
-            ast = load_source(source)
+            ast = load_source(source, filename)
         except ParseError, exc:
             if exc.source_pos.i == len(source):
                 # Case 2

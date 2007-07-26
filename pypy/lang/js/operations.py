@@ -775,11 +775,12 @@ class SourceElements(Statement):
     """
     SourceElements nodes are found on each function declaration and in global code
     """
-    def __init__(self, pos, var_decl, func_decl, nodes):
+    def __init__(self, pos, var_decl, func_decl, nodes, sourcename = ''):
         self.pos = pos
         self.var_decl = var_decl
         self.func_decl = func_decl
         self.nodes = nodes
+        self.sourcename = sourcename
 
     def execute(self, ctx):
         for varname in self.var_decl:
@@ -798,7 +799,7 @@ class SourceElements(Statement):
                 return e.value
             else:
                 # TODO: proper exception handling
-                print "exception in line: %s, on: %s%s"%(node.pos.lineno, node, os.linesep)
+                print "%s:%d: %s"%(self.sourcename, node.pos.lineno, node)
                 raise
     
 
