@@ -28,9 +28,9 @@ FLOAT_PRECISION = 8
 # CLI duplicate.  Needs compile_function support (see above) -Paul
 #     check is used in test_overflow
 #def check(func, annotation, args):
-#    mono = compile_function(func, annotation)
+#    jvm = compile_function(func, annotation)
 #    res1 = func(*args)
-#    res2 = mono(*args)
+#    res2 = jvm(*args)
 #
 #    if type(res1) is float:
 #        assert round(res1, FLOAT_PRECISION) == round(res2, FLOAT_PRECISION)

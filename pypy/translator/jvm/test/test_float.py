@@ -25,11 +25,11 @@ class TestJvmFloat(JvmTest, BaseTestRfloat):
     def test_float_constant_conversions(self):
         py.test.skip("JVM backend lacks appropriate percision; 42.000000614400001 == 42.0")
     
-    #The JVM doesn't even have uints
+    #The JVM doesn't even have uints, these numbers are totally off
     def test_from_r_uint(self):
         py.test.skip("JVM backend lacks appropriate percision")
     
-    #The jvm doesn't even have uints
+    #The jvm doesn't even have uints, these numbers are totally off
     def test_to_r_uint(self):
         py.test.skip("JVM backend lacks appropriate percision")
         

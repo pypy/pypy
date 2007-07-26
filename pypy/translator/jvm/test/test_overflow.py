@@ -1,5 +1,5 @@
-#Why can't I import check?
-#from pypy.translator.jvm.test.runtest import check
+# check does not exist because it involves an extensive overhaul on runtest.  See CLI's runtest for an example.
+#from pypy.translator.jvm.test.runtest import check 
 import py
 from pypy.translator.jvm.test.runtest import JvmTest
 from pypy.rlib.rarithmetic import ovfcheck
@@ -15,7 +15,7 @@ class TestJvmOperation(JvmTest):
 #        return ovfcheck(x+y)
 #    except OverflowError:
 #        return 42
-
+#
 #def op_sub(x, y):
 #    try:
 #        return ovfcheck(x-y)

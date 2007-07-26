@@ -54,7 +54,8 @@ _opcodes = {
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
-    'oonewcustomdict':          [NewCustomDict, StoreResult],
+    'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
+	'oonewcustomdict':          [NewCustomDict, StoreResult],
     #
     'same_as':                  DoNothing,
     'hint':                     [PushArg(0), StoreResult],

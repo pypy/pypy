@@ -18,8 +18,8 @@ class TestJvmString(JvmTest, oostring.BaseTestString):
         py.test.skip("eval has trouble with evaluation of null literals")
     test_lower = test_upper
 
-    def test_float(self):
-        py.test.skip("JVM does not yet support ooparse_float")
+    #def test_float(self):
+    #    py.test.skip("JVM does not yet support ooparse_float")
 
     def test_getitem_exc(self):
         # This test is supposed to crash in a system specific way;
