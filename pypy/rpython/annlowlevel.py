@@ -415,23 +415,6 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
 
 # ____________________________________________________________
 
-## XXX finish me
-##def cast_instance_to_ptr(Class, instance):
-##    raise NotImplementedError("cast_instance_to_ptr")
-
-##class CastInstanceToPtrEntry(extregistry.ExtRegistryEntry):
-##    _about_ = cast_instance_to_ptr
-
-##    def compute_result_annotation(self, s_Class, s_instance):
-##        assert s_Class.is_constant()
-##        pol = self.bookkeeper.annotator.policy
-##        s_Instance, r_Instance = pol.annhelper.s_r_instanceof(s_Class.const)
-##        return annmodel.SomePtr(r_Instance.lowleveltype)
-
-##    ...
-
-# ____________________________________________________________
-
 def placeholder_sigarg(s):
     if s == "self":
         def expand(s_self, *args_s):
