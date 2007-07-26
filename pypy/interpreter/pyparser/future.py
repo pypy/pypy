@@ -111,17 +111,12 @@ class FutureAutomaton(object):
                     return
                 elif c == '\\':
                     # Deal with linefeeds
-                    if self.s[self.pos] not in '\r\n':
+                    if self.s[self.pos] != '\r':
                         self.pos += 1
-                        continue
-                    elif self.s[self.pos] == '\r':
+                    else:
                         self.pos += 1
                         if self.s[self.pos] == '\n':
                             self.pos += 1
-                        continue
-                    else: # '\n' is the only option left
-                        self.pos += 1
-                        continue
                 elif c in '\r\n':
                     # Syntax error
                     return

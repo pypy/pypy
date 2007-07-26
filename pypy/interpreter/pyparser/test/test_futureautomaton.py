@@ -12,9 +12,10 @@ def run(s):
     return f
 
 def test_docstring():
-    s = '"Docstring"\n'
+    s = '"Docstring\\" "\nfrom  __future__ import division\n'
     f = run(s)
     assert f.pos == len(s)
+    assert f.flags == CO_FUTURE_DIVISION
 
 def test_comment():
     s = '# A comment about nothing ;\n'
