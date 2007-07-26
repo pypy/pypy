@@ -30,10 +30,9 @@ breaks in it. It even has a \n"""
     assert f.pos == len(s)
 
 def test_escapedquote_in_tripledocstring():
-    py.test.skip("wrong handling of backslash escapes in triple quoted strings")
     s = '''""" This is a
 docstring with line
-breaks in it. \"""It even has an escaped quote!"""
+breaks in it. \\"""It even has an escaped quote!"""
 '''
     f = run(s)
     assert f.pos == len(s)

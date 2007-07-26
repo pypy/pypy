@@ -89,7 +89,9 @@ class FutureAutomaton(object):
             self.s[self.pos] == self.s[self.pos+2]):
             self.pos += 3
             while 1: # Deal with a triple quoted docstring
-                if self.s[self.pos] != endchar:
+                if self.s[self.pos] == '\\':
+                    self.pos += 2
+                elif self.s[self.pos] != endchar:
                     self.pos += 1
                 else:
                     self.pos += 1
