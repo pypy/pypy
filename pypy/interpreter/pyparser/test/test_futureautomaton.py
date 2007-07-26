@@ -1,3 +1,4 @@
+import py
 import pypy.interpreter.pyparser.future as future
 from pypy.interpreter.astcompiler.consts import CO_GENERATOR_ALLOWED, \
     CO_FUTURE_DIVISION, CO_FUTURE_WITH_STATEMENT
@@ -27,6 +28,17 @@ breaks in it. It even has a \n"""
 '''
     f = run(s)
     assert f.pos == len(s)
+
+def test_escapedquote_in_tripledocstring():
+    py.test.skip("wrong handling of backslash escapes in triple quoted strings")
+    s = '''""" This is a
+docstring with line
+breaks in it. \"""It even has an escaped quote!"""
+'''
+    f = run(s)
+    assert f.pos == len(s)
+
+
 
 def test_empty_line():
     s = ' \t   \f \n   \n'
