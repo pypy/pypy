@@ -126,7 +126,7 @@ if hasattr(os, 'setsid'):
 
 # ------------------------------- os.uname ------------------------------
 
-if hasattr(os, 'uname'):
+if False and hasattr(os, 'uname'): # make it more portable
     lgt = platform.intdefined('_UTSNAME_LENGTH', includes=['sys/utsname.h'])
     UTCHARP = lltype.FixedSizeArray(lltype.Char, lgt)
     fields = [('sysname', UTCHARP),
