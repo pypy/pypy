@@ -162,7 +162,6 @@ def test_syntax_rules_hygenic_expansion():
     assert ctx.get("counter").to_number() == 5
 
 def test_shadow():
-    py.test.skip("in progress")
     ctx = ExecutionContext()
 
     w_transformer = eval_(ctx, """(syntax-rules ()

@@ -663,7 +663,10 @@ class Let(W_Macro):
             name = w_def.car.to_string()
             #evaluate the values in caller ctx
             w_val = w_def.get_cdr_as_pair().car.eval(ctx)
-            local_ctx.put(name, w_val)
+            if isinstance(w_def.car, SyntacticClosure):
+                local_ctx.sput(name, w_val)
+            else:
+                local_ctx.put(name, w_val)
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
@@ -967,8 +970,7 @@ class W_Transformer(W_Procedure):
         # 1. in which macro was defined - self.closure
         # 2. in which macro is called   - ctx
         # 3. in which macro is expanded, and can introduce new bindings - expand_ctx 
-
-        expand_ctx = self.closure.copy()
         expanded = self.expand(sexpr, ctx)
+        expand_ctx = self.closure.macro(ctx)
         return expanded.eval(expand_ctx)
 

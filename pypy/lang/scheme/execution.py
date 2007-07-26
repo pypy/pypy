@@ -64,7 +64,7 @@ class ExecutionContext(object):
 
     { "IDENTIFIER": Location(W_Root()) }
     """
-    def __init__(self, globalscope=None, scope=None, closure=False):
+    def __init__(self, globalscope=None, scope=None, closure=False, macro=False):
         if globalscope is None:
             self.globalscope = {}
             for name, oper in OPERATION_MAP.items():
@@ -82,6 +82,9 @@ class ExecutionContext(object):
 
     def copy(self):
         return ExecutionContext(self.globalscope, self.scope.copy(), True)
+
+    def macro(self, rctx):
+        return MacroClosure(self.globalscope, self.scope.copy(), rctx)
 
     def get(self, name):
         loc = self.scope.get(name, None)
@@ -156,4 +159,24 @@ class ExecutionContext(object):
             return loc
 
         return None
+
+class MacroClosure(ExecutionContext):
+    def __init__(self, globalscope=None, scope=None, rctx=None):
+        self.globalscope = globalscope
+
+        if scope is None:
+            self.scope = {}
+        else:
+            self.scope = scope
+
+        self.closure = True
+        self.macro = True
+        self.rctx = rctx
+
+    def copy(self):
+        return MacroClosure(self.globalscope, self.scope, self.rctx)
+
+    def sput(self, name, obj):
+        print name, obj
+        return self.rctx.put(name, obj)
 
