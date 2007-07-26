@@ -852,6 +852,7 @@ class SyntaxRules(W_Macro):
             
             w_syntax_lst = w_syntax_lst.cdr
 
+        #closes template in syntactic enviroment at the point of definition
         return W_Transformer(syntax_lst, ctx)
 
 class SyntaxRule(object):
@@ -949,6 +950,8 @@ class W_Transformer(W_Procedure):
         if isinstance(sexpr, W_Symbol):
             w_sub = self.match_dict.get(sexpr.to_string(), None)
             if w_sub is not None:
+                # Hygenic macros close their input forms in the syntactic
+                # enviroment at the point of use
                 return SyntacticClosure(ctx, w_sub)
 
             return sexpr
@@ -963,7 +966,7 @@ class W_Transformer(W_Procedure):
         #we have lexical scopes:
         # 1. in which macro was defined - self.closure
         # 2. in which macro is called   - ctx
-        # 3. in which macro is expanded - expand_ctx 
+        # 3. in which macro is expanded, and can introduce new bindings - expand_ctx 
 
         expand_ctx = self.closure.copy()
         expanded = self.expand(sexpr, ctx)

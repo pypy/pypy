@@ -91,7 +91,6 @@ def test_syntax_rules_expand_simple():
 
     w_expr = parse("(foo bar)")[0]
     w_expanded = w_transformer.expand(w_expr, ctx)
-    #assert isinstance(w_expanded, W_Symbol)
     assert w_expanded.to_string() == "bar"
 
     w_transformer = eval_(ctx, """(syntax-rules ()
@@ -154,11 +153,11 @@ def test_syntax_rules_hygenic_expansion():
                                                 (loop (- counter 1)))))))
                                         (loop count))))""")
 
-    w_expr = parse("(_ 5 (set! counter (+ counter 1)))")[0]
+    w_expr = parse("(dotimes 5 (set! counter (+ counter 1)))")[0]
     py.test.raises(UnboundVariable, w_transformer.expand_eval, w_expr, ctx)
 
     eval_(ctx, "(define counter 0)")
-    w_expr = parse("(_ 5 (set! counter (+ counter 1)))")[0]
+    w_expr = parse("(dotimes 5 (set! counter (+ counter 1)))")[0]
     w_transformer.expand_eval(w_expr, ctx)
     assert ctx.get("counter").to_number() == 5
 
