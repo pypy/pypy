@@ -811,6 +811,9 @@ class Delay(W_Macro):
 
         return W_Promise(lst.car, ctx)
 
+##
+# DerivedMacros
+##
 class SyntaxRules(W_Macro):
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
@@ -869,36 +872,35 @@ class SyntaxRule(object):
             w_patt = pattern
 
         match_dict = {}
-        while isinstance(w_patt, W_Pair):
-            if w_expr is w_nil:
-                return (False, {})
+        while isinstance(w_patt, W_Pair) and isinstance(w_expr, W_Pair):
             w_pattcar = w_patt.car
+            w_exprcar = w_expr.car
 
             w_literal = self.literals.get(w_pattcar.to_string(), None)
             if w_literal is not None:
                 try:
-                    w_form = ctx.get(w_expr.car.to_string())
+                    w_form = ctx.get(w_exprcar.to_string())
                 except UnboundVariable:
-                    w_form = w_expr.car
+                    w_form = w_exprcar
 
                 if w_form is not w_literal:
                     return (False, {})
 
             if isinstance(w_pattcar, W_Pair):
-                if not isinstance(w_expr.car, W_Pair):
+                if not isinstance(w_exprcar, W_Pair):
                     return (False, {})
 
-                (matched, match_nested) = self.match(w_expr.car, ctx, w_pattcar)
+                (matched, match_nested) = self.match(w_exprcar, ctx, w_pattcar)
                 if not matched:
                     return (False, {})
 
                 match_dict.update(match_nested)
 
-            match_dict[w_pattcar.to_string()] = w_expr.car
+            match_dict[w_pattcar.to_string()] = w_exprcar
             w_patt = w_patt.cdr
             w_expr = w_expr.cdr
 
-        if w_expr is w_nil:
+        if w_expr is w_nil and w_patt is w_nil:
             return (True, match_dict)
 
         return (False, {})
@@ -964,8 +966,35 @@ class W_Transformer(W_Procedure):
         #we have lexical scopes:
         # 1. in which macro was defined - self.closure
         # 2. in which macro is called   - ctx
-        # 3. in which macro is expanded, and can introduce new bindings - expand_ctx 
+        # 3. in which macro is expanded, can introduce new bindings - expand_ctx 
         expanded = self.expand(sexpr, ctx)
         expand_ctx = self.closure.copy()
         return expanded.eval(expand_ctx)
 
+    def procedure(self, ctx, lst):
+        return self.expand_eval(lst[0], ctx)
+
+class DefineSyntax(W_Macro):
+    def call(self, ctx, lst):
+        if not isinstance(lst, W_Pair):
+            raise SchemeSyntaxError
+
+        w_def = lst.car
+        if not isinstance(w_def, W_Symbol):
+            raise SchemeSyntaxError
+
+        w_syntax_rules = lst.get_cdr_as_pair().car
+        w_transformer = w_syntax_rules.eval(ctx)
+        assert isinstance(w_transformer, W_Transformer)
+
+        w_macro = W_DerivedMacro(w_def.name, w_transformer)
+        ctx.set(w_def.name, w_macro)
+        return w_macro
+ 
+class W_DerivedMacro(W_Macro):
+    def __init__(self, name, transformer):
+        self.name = name
+        self.transformer = transformer
+
+    def call(self, ctx, lst):
+        return self.transformer.expand_eval(W_Pair(W_Symbol(self.name), lst), ctx)

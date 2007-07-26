@@ -147,7 +147,7 @@ def test_syntax_rules_hygenic_expansion():
                                       (letrec ((loop
                                        (lambda (counter)
                                          (if (= counter 0)
-                                             ()
+                                             #f
                                              (begin
                                                 body
                                                 (loop (- counter 1)))))))
@@ -173,4 +173,27 @@ def test_shadow():
 
     eval_(ctx, "(define test 7)")
     assert w_transformer.expand_eval(w_expr, ctx).to_number() == 5
+
+def test_transformer_eval():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define foo (syntax-rules ()
+                                     ((_) #t)
+                                     ((_ bar) bar)))""")
+
+    w_foo = eval_(ctx, "(foo '(_))")
+    assert w_foo.to_boolean()
+
+    w_foobar = eval_(ctx, """(foo '(_ 42))""")
+    assert w_foobar.to_number() == 42
+
+def test_define_syntax():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax foo (syntax-rules ()
+                                     ((_) #t)
+                                     ((_ bar) bar)))""")
+    w_foo = eval_(ctx, """(foo)""")
+    assert w_foo.to_boolean()
+
+    w_foobar = eval_(ctx, """(foo 42)""")
+    assert w_foobar.to_number() == 42
 

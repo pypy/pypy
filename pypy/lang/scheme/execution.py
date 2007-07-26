@@ -53,6 +53,7 @@ OMAP = \
         'quote': Quote,
         'quasiquote': QuasiQuote,
         'syntax-rules': SyntaxRules,
+        'define-syntax': DefineSyntax,
     }
 
 OPERATION_MAP = {}
@@ -83,9 +84,11 @@ class ExecutionContext(object):
     def _dispatch(self, symb):
         if isinstance(symb, W_Symbol):
             return (self, symb.name)
-        elif isinstance(symb, SyntacticClosure) and \
-                isinstance(symb.sexpr, W_Symbol):
-            return (symb.closure, symb.sexpr.name)
+
+        elif isinstance(symb, SyntacticClosure):
+            symbol = symb.sexpr
+            if isinstance(symbol, W_Symbol):
+                return (symb.closure, symbol.name)
 
         raise SchemeSyntaxError
 
