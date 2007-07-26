@@ -44,7 +44,7 @@ class __extend__(annmodel.SomeGenericCallable):
 
     def rtyper_makekey(self):
         return self.__class__, tuple([i.rtyper_makekey() for i in self.args_s]),\
-              self.s_result.rtyper_makekey(), tuple(self.descriptions.keys())
+              self.s_result.rtyper_makekey()
 
 class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractGenericCallableRepr)):
     def convert_from_to((pbcrepr, gencallrepr), v, llops):

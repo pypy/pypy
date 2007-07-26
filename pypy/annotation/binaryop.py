@@ -703,7 +703,6 @@ class __extend__(pairtype(SomeGenericCallable, SomePBC)):
             s_result = bk.emulate_pbc_call(unique_key, pbc, gencall.args_s)
             s_result = unionof(s_result, gencall.s_result)
             assert gencall.s_result.contains(s_result)
-        gencall.descriptions.update(pbc.descriptions)
         return gencall
 
 class __extend__(pairtype(SomePBC, SomeGenericCallable)):

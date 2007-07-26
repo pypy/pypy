@@ -405,7 +405,6 @@ class SomeGenericCallable(SomeObject):
     def __init__(self, args, result):
         self.args_s = args
         self.s_result = result
-        self.descriptions = {}
 
     def can_be_None(self):
         return True
