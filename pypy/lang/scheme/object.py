@@ -947,15 +947,15 @@ class W_Transformer(W_Procedure):
                 # Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
 
-                #not always needed, because w_sub can have no W_Symbols inside
-                
                 #already is a SyntacticClosure
                 if isinstance(w_sub, SyntacticClosure):
                     assert w_sub.closure is ctx
 
-                    return w_sub
+                #not always needed, because w_sub can have no W_Symbol inside
+                if isinstance(w_sub, W_Symbol) or isinstance(w_sub, W_Pair):
+                    return SyntacticClosure(ctx, w_sub)
 
-                return SyntacticClosure(ctx, w_sub)
+                return w_sub
 
             return sexpr
 
