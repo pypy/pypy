@@ -15,28 +15,6 @@ from pypy.translator.jvm.option import getoption
 
 FLOAT_PRECISION = 8
 
-# CLI duplicate.  Needs JVMtest support -Paul
-#     check function depends on this function
-#def compile_function(func, annotation=[], graph=None, backendopt=True):
-#    olddefs = patch()
-#    gen = _build_gen(func, annotation, graph, backendopt)
-#    gen.generate_source()
-#    exe_name = gen.build_exe()
-#    unpatch(*olddefs) # restore original values
-#    return CliFunctionWrapper(exe_name)
-
-# CLI duplicate.  Needs compile_function support (see above) -Paul
-#     check is used in test_overflow
-#def check(func, annotation, args):
-#    jvm = compile_function(func, annotation)
-#    res1 = func(*args)
-#    res2 = jvm(*args)
-#
-#    if type(res1) is float:
-#        assert round(res1, FLOAT_PRECISION) == round(res2, FLOAT_PRECISION)
-#    else:
-#        assert res1 == res2
-
 class StructTuple(tuple):
     def __getattr__(self, name):
         if name.startswith('item'):
