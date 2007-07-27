@@ -14,12 +14,15 @@ class TestJvmString(JvmTest, oostring.BaseTestString):
     test_char_unichar_eq = test_unichar_const
     test_char_unichar_eq_2 = test_unichar_const
 
+    def test_convert_char_to_unichar(self):
+        py.test.skip("Fails with arguments, Expected to find an object/array on the stack")
+
     def test_upper(self):
         py.test.skip("eval has trouble with evaluation of null literals")
     test_lower = test_upper
 
-    #def test_float(self):
-    #    py.test.skip("JVM does not yet support ooparse_float")
+    def test_float(self):
+        py.test.skip("JVM does not yet support ooparse_float")
 
     def test_getitem_exc(self):
         # This test is supposed to crash in a system specific way;

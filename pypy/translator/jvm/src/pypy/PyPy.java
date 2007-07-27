@@ -418,8 +418,6 @@ public class PyPy {
         //    throwOverflowError();
     }
 
-    /* shifting */
-    /* Talk to Niko about how to get a workaround for PY_* functions in Java */
 
     /* floor division */
     public static int floordiv_ovf(int x, int y) 
@@ -460,6 +458,7 @@ public class PyPy {
             throw new ArithmeticException("Floor Division with integer by 0");
     }
 
+    /* modulo */
     public static int mod_ovf(int x, int y) 
     {
         if ((y == -1) && (x == INT_MIN))
@@ -478,6 +477,7 @@ public class PyPy {
         return x%y;
     }
 
+    /* shifting */
     public static int lshift_ovf(int x, int y) // x << y
     {
         int result = x << y;
