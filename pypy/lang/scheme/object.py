@@ -922,47 +922,52 @@ class W_Transformer(W_Procedure):
     def __init__(self, syntax_lst, ctx, pname=""):
         self.pname = pname
         self.syntax_lst = syntax_lst
-        self.match_dict = {}
         self.closure = ctx
 
     def match(self, ctx, w_expr):
         for rule in self.syntax_lst:
-            (matched, temp_dict) = rule.match(ctx, w_expr)
+            (matched, match_dict) = rule.match(ctx, w_expr)
             if matched:
-                self.match_dict = temp_dict
-                return rule.template
+                return (rule.template, match_dict)
 
-        self.match_dict = {}
-        return None
+        return (None, {})
 
     def expand(self, ctx, w_expr):
-        template = self.match(ctx, w_expr)
+        (template, match_dict) = self.match(ctx, w_expr)
 
         if template is None :
             raise SchemeSyntaxError
 
-        return self.substitute(ctx, template)
+        return self.substitute(ctx, template, match_dict)
 
-    def substitute(self, ctx, sexpr):
+    def substitute(self, ctx, sexpr, match_dict):
         if isinstance(sexpr, W_Symbol):
-            w_sub = self.match_dict.get(sexpr.name, None)
+            w_sub = match_dict.get(sexpr.name, None)
             if w_sub is not None:
                 # Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
 
                 #not always needed, because w_sub can have no W_Symbols inside
+                
+                #already is a SyntacticClosure
+                if isinstance(w_sub, SyntacticClosure):
+                    assert w_sub.closure is ctx
+
+                    return w_sub
+
                 return SyntacticClosure(ctx, w_sub)
 
             return sexpr
 
         elif isinstance(sexpr, W_Pair):
-            w_pair = W_Pair(self.substitute(ctx, sexpr.car),
-                    self.substitute(ctx, sexpr.cdr))
+            w_pair = W_Pair(self.substitute(ctx, sexpr.car, match_dict),
+                    self.substitute(ctx, sexpr.cdr, match_dict))
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):
                 try:
                     w_macro = ctx.get(w_paircar.name)
+
                     # recursive macro expansion
                     if isinstance(w_macro, W_DerivedMacro):
                         return w_macro.expand(ctx, w_pair)
@@ -978,6 +983,7 @@ class W_Transformer(W_Procedure):
                     # recursive macro expansion
                     if isinstance(w_macro, W_DerivedMacro):
                         return w_macro.expand(ctx, w_pair)
+
                 except UnboundVariable:
                     pass
 

@@ -16,32 +16,35 @@ def test_syntax_rules_match():
 
     w_transformer = eval_noctx("(syntax-rules ())")
     w_expr = parse("(foo)")[0]
-    assert not w_transformer.match(ctx, w_expr)
+    assert not w_transformer.match(ctx, w_expr)[0]
 
     w_transformer = eval_noctx("(syntax-rules () ((foo) #t))")
     w_expr = parse("(bar)")[0]
-    assert w_transformer.match(ctx, w_expr)
+    assert w_transformer.match(ctx, w_expr)[0]
     w_expr = parse("(foo bar)")[0]
-    assert not w_transformer.match(ctx, w_expr)
+    assert not w_transformer.match(ctx, w_expr)[0]
 
     w_transformer = eval_noctx("""(syntax-rules () ((_) #t)
                                                    ((_ foo) foo))""")
     w_expr = parse("(foo)")[0]
-    assert w_transformer.match(ctx, w_expr).to_boolean()
+    assert w_transformer.match(ctx, w_expr)[0].to_boolean()
     w_expr = parse("(foo bar)")[0]
-    assert w_transformer.match(ctx, w_expr).to_string() == "foo"
-    assert w_transformer.match_dict["foo"].to_string() == "bar"
+    (template, match_dict) = w_transformer.match(ctx, w_expr)
+    assert template.to_string() == "foo"
+    assert match_dict["foo"].to_string() == "bar"
 
     w_expr = parse("(foo bar boo)")[0]
-    assert not w_transformer.match(ctx, w_expr)
-    assert w_transformer.match_dict == {}
+    (template, match_dict) = w_transformer.match(ctx, w_expr)
+    assert not template
+    assert match_dict == {}
 
     w_transformer = eval_noctx("(syntax-rules () ((foo (bar)) bar))")
     w_expr = parse("(_ fuzz)")[0]
-    assert not w_transformer.match(ctx, w_expr)
+    assert not w_transformer.match(ctx, w_expr)[0]
     w_expr = parse("(_ (fuzz))")[0]
-    assert w_transformer.match(ctx, w_expr)
-    assert w_transformer.match_dict["bar"].to_string() == "fuzz"
+    (template, match_dict) = w_transformer.match(ctx, w_expr)
+    assert template
+    assert match_dict["bar"].to_string() == "fuzz"
 
 def test_syntax_rules_literals():
     ctx = ExecutionContext()
@@ -51,13 +54,13 @@ def test_syntax_rules_literals():
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
 
     w_expr = parse("(foo bar boo)")[0]
-    assert not w_transformer.match(ctx, w_expr)
+    assert not w_transformer.match(ctx, w_expr)[0]
 
     # exact match
     w_expr = parse("(foo => boo)")[0]
 
     # within the same context
-    assert w_transformer.match(ctx, w_expr)
+    assert w_transformer.match(ctx, w_expr)[0]
 
     w_42 = W_Number(42)
 
@@ -65,19 +68,19 @@ def test_syntax_rules_literals():
     closure = ctx.copy()
     closure.put("=>", w_42)
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
-    assert not w_transformer.match(closure, w_expr)
+    assert not w_transformer.match(closure, w_expr)[0]
 
     # different lexical scope, not the same bindings for => in ctx and closure
     ctx.put("=>", W_Number(12))
     assert ctx.get("=>") is not closure.get("=>")
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
-    assert not w_transformer.match(closure, w_expr)
+    assert not w_transformer.match(closure, w_expr)[0]
 
     # the same binding for => in ctx and closure
     ctx.put("=>", w_42)
     assert ctx.get("=>") is closure.get("=>")
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
-    assert w_transformer.match(closure, w_expr)
+    assert w_transformer.match(closure, w_expr)[0]
 
 def test_syntax_rules_expand_simple():
     ctx = ExecutionContext()
@@ -203,15 +206,23 @@ def test_recursive_macro():
                                     ((my-or arg1 arg2)
                                      (if arg1
                                          arg1
-                                         (my-or arg2)))))""")
+                                         (my-or arg2)))
+                                    ((my-or arg1 arg2 arg3)
+                                     (if arg1
+                                         arg1
+                                         (my-or arg2 arg3)))))""")
 
     assert eval_(ctx, "(my-or)").to_boolean() is False
     assert eval_(ctx, "(my-or 12)").to_number() == 12
 
-    #should expand recursively and after that eval, how to check it?
+    #should expand recursively and after that eval
     w_expr = parse("(my-or 12 42)")[0]
     assert ctx.get("my-or").expand(ctx, w_expr).to_string() == \
             "(if 12 12 42)"
+    w_expr = parse("(my-or 12 42 82)")[0]
+    assert ctx.get("my-or").expand(ctx, w_expr).to_string() == \
+            "(if 12 12 (if 42 42 82))"
     assert eval_(ctx, "(my-or 12 42)").to_number() == 12
     assert eval_(ctx, "(my-or #f 42)").to_number() == 42
+    assert eval_(ctx, "(my-or #f #f 82)").to_number() == 82
 
