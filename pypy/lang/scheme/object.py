@@ -907,6 +907,8 @@ class SyntaxRule(object):
 
 class SyntacticClosure(W_Root):
     def __init__(self, ctx, sexpr):
+        assert not isinstance(sexpr, SyntacticClosure)
+        assert isinstance(sexpr, W_Root)
         self.sexpr = sexpr
         self.closure = ctx
 
@@ -947,10 +949,6 @@ class W_Transformer(W_Procedure):
                 # Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
 
-                #already is a SyntacticClosure
-                if isinstance(w_sub, SyntacticClosure):
-                    assert w_sub.closure is ctx
-
                 #not always needed, because w_sub can have no W_Symbol inside
                 if isinstance(w_sub, W_Symbol) or isinstance(w_sub, W_Pair):
                     return SyntacticClosure(ctx, w_sub)
@@ -978,7 +976,7 @@ class W_Transformer(W_Procedure):
                     isinstance(w_paircar.sexpr, W_Symbol):
                 try:
                     #ops, which context?
-                    w_macro = ctx.get(w_paircar.sexpr.name)
+                    w_macro = ctx.get(w_paircar.sexpr.to_string())
 
                     # recursive macro expansion
                     if isinstance(w_macro, W_DerivedMacro):

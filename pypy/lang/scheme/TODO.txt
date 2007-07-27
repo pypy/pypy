@@ -19,6 +19,5 @@ Here starts the real fun!
 - macros
   * macros are not first-class objects
 - continuations
-- move syntax checking to parsing
 - switch to byte-code generation + eval instead of evaluating AST
 
