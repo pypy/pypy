@@ -229,8 +229,7 @@ _opcodes = {
     # trick. #THIS COMMENT NEEDS TO BE VALIDATED AND UPDATED
     'cast_bool_to_int':         DoNothing,
     'cast_bool_to_uint':        DoNothing,
-    #'cast_bool_to_float':       [PushAllArgs, 'not_equals_zero', jvmgen.I2D],
-    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL
+    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL, This should be replaced with JASMIN code later for spee, This should be replaced with JASMIN code later for speedd
     
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      DoNothing,

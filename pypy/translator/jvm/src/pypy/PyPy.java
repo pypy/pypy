@@ -199,7 +199,7 @@ public class PyPy {
         return s.charAt(0);
     }
 
-    public static double bool_to_double(boolean b) {
+    public static double bool_to_double(boolean b) { //This should be replaced with JASMIN code later
         double result;
         if (b)
             result = 1.0;
