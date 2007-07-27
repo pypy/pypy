@@ -199,6 +199,15 @@ public class PyPy {
         return s.charAt(0);
     }
 
+    public static double bool_to_double(boolean b) {
+        double result;
+        if (b)
+            result = 1.0;
+        else
+            result = 0.0;
+        return result;
+    }
+
     // Used in testing:
 
     public static void dump(String text) {

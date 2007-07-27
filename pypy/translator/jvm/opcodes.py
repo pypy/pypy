@@ -229,7 +229,8 @@ _opcodes = {
     # trick. #THIS COMMENT NEEDS TO BE VALIDATED AND UPDATED
     'cast_bool_to_int':         DoNothing,
     'cast_bool_to_uint':        DoNothing,
-    'cast_bool_to_float':       [PushAllArgs, 'not_equals_zero', jvmgen.I2D],
+    #'cast_bool_to_float':       [PushAllArgs, 'not_equals_zero', jvmgen.I2D],
+    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL
     
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      DoNothing,
@@ -241,7 +242,6 @@ _opcodes = {
     'cast_uint_to_int':         DoNothing,
     'cast_uint_to_float':       jvmgen.PYPYUINTTODOUBLE, 
     'cast_float_to_int':        jvmgen.D2I,
-    #'cast_float_to_longlong':   jvmgen.D2L, #PAUL
     'cast_float_to_longlong':   jvmgen.PYPYDOUBLETOLONG, #PAUL
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
