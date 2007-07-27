@@ -865,7 +865,7 @@ class SyntaxRule(object):
     def __str__(self):
         return self.pattern.to_string() + " -> " + self.template.to_string()
 
-    def match(self, w_expr, ctx, pattern=None):
+    def match(self, ctx, w_expr, pattern=None):
         if pattern is None:
             w_patt = self.pattern
         else:
@@ -890,7 +890,7 @@ class SyntaxRule(object):
                 if not isinstance(w_exprcar, W_Pair):
                     return (False, {})
 
-                (matched, match_nested) = self.match(w_exprcar, ctx, w_pattcar)
+                (matched, match_nested) = self.match(ctx, w_exprcar, w_pattcar)
                 if not matched:
                     return (False, {})
 
@@ -925,12 +925,9 @@ class W_Transformer(W_Procedure):
         self.match_dict = {}
         self.closure = ctx
 
-    def match(self, w_expr, ctx=None):
-        if ctx is None:
-            ctx = self.closure
-
+    def match(self, ctx, w_expr):
         for rule in self.syntax_lst:
-            (matched, temp_dict) = rule.match(w_expr, ctx)
+            (matched, temp_dict) = rule.match(ctx, w_expr)
             if matched:
                 self.match_dict = temp_dict
                 return rule.template
@@ -938,41 +935,67 @@ class W_Transformer(W_Procedure):
         self.match_dict = {}
         return None
 
-    def expand(self, w_expr, ctx):
-        template = self.match(w_expr, ctx)
+    def expand(self, ctx, w_expr):
+        template = self.match(ctx, w_expr)
 
         if template is None :
             raise SchemeSyntaxError
 
-        return self.substitute(template, ctx)
+        return self.substitute(ctx, template)
 
-    def substitute(self, sexpr, ctx):
+    def substitute(self, ctx, sexpr):
         if isinstance(sexpr, W_Symbol):
-            w_sub = self.match_dict.get(sexpr.to_string(), None)
+            w_sub = self.match_dict.get(sexpr.name, None)
             if w_sub is not None:
                 # Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
+
+                #not always needed, because w_sub can have no W_Symbols inside
                 return SyntacticClosure(ctx, w_sub)
 
             return sexpr
 
         elif isinstance(sexpr, W_Pair):
-            return W_Pair(self.substitute(sexpr.car, ctx),
-                    self.substitute(sexpr.cdr, ctx))
+            w_pair = W_Pair(self.substitute(ctx, sexpr.car),
+                    self.substitute(ctx, sexpr.cdr))
+
+            w_paircar = w_pair.car
+            if isinstance(w_paircar, W_Symbol):
+                try:
+                    w_macro = ctx.get(w_paircar.name)
+                    # recursive macro expansion
+                    if isinstance(w_macro, W_DerivedMacro):
+                        return w_macro.expand(ctx, w_pair)
+                except UnboundVariable:
+                    pass
+
+            elif isinstance(w_paircar, SyntacticClosure) and \
+                    isinstance(w_paircar.sexpr, W_Symbol):
+                try:
+                    #ops, which context?
+                    w_macro = ctx.get(w_paircar.sexpr.name)
+
+                    # recursive macro expansion
+                    if isinstance(w_macro, W_DerivedMacro):
+                        return w_macro.expand(ctx, w_pair)
+                except UnboundVariable:
+                    pass
+
+            return w_pair
 
         return sexpr
             
-    def expand_eval(self, sexpr, ctx):
+    def expand_eval(self, ctx, sexpr):
         #we have lexical scopes:
         # 1. in which macro was defined - self.closure
         # 2. in which macro is called   - ctx
         # 3. in which macro is expanded, can introduce new bindings - expand_ctx 
-        expanded = self.expand(sexpr, ctx)
+        expanded = self.expand(ctx, sexpr)
         expand_ctx = self.closure.copy()
         return expanded.eval(expand_ctx)
 
     def procedure(self, ctx, lst):
-        return self.expand_eval(lst[0], ctx)
+        return self.expand_eval(ctx, lst[0])
 
 class DefineSyntax(W_Macro):
     def call(self, ctx, lst):
@@ -996,5 +1019,12 @@ class W_DerivedMacro(W_Macro):
         self.name = name
         self.transformer = transformer
 
+    def to_string(self):
+        return "#<derived-macro %s>" % (self.name,)
+
     def call(self, ctx, lst):
-        return self.transformer.expand_eval(W_Pair(W_Symbol(self.name), lst), ctx)
+        return self.transformer.expand_eval(ctx, W_Pair(W_Symbol(self.name), lst))
+
+    def expand(self, ctx, lst):
+        return self.transformer.expand(ctx, lst)
+
