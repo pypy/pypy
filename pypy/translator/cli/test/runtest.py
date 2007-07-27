@@ -25,16 +25,6 @@ from pypy.translator.cli.support import patch, unpatch
 
 FLOAT_PRECISION = 8
 
-def check(func, annotation, args):
-    mono = compile_function(func, annotation)
-    res1 = func(*args)
-    res2 = mono(*args)
-
-    if type(res1) is float:
-        assert round(res1, FLOAT_PRECISION) == round(res2, FLOAT_PRECISION)
-    else:
-        assert res1 == res2
-
 def format_object(TYPE, cts, ilasm):
     if TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
