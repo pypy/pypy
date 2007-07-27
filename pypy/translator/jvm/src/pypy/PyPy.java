@@ -469,6 +469,27 @@ public class PyPy {
         return x%y;
     }
 
+    public static int lshift_ovf(int x, int y) // x << y
+    {
+        int result = x << y;
+        if (x != (result >> y))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+
+    public static long lshift_ovf(long x, long y) // x << y
+    {
+        long result = x << y;
+        if (x != (result >> y))
+        {
+            throwOverflowError();
+        }
+        return result;
+    }
+    
+
     // ----------------------------------------------------------------------
     // String
 

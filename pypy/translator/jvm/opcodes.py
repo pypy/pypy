@@ -54,8 +54,8 @@ _opcodes = {
     'oohash':                   [PushAllArgs, jvmgen.OBJHASHCODE, StoreResult], 
     'oostring':                 [OOString, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
-    'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
-	'oonewcustomdict':          [NewCustomDict, StoreResult],
+    #'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
+    'oonewcustomdict':          [NewCustomDict, StoreResult],
     #
     'same_as':                  DoNothing,
     'hint':                     [PushArg(0), StoreResult],
@@ -122,8 +122,8 @@ _opcodes = {
     'int_and_ovf':              jvmgen.IAND,
     'int_or_ovf':               jvmgen.IOR,
 
-    'int_lshift_ovf':           _check_ovf(jvmgen.ISHL),
-    'int_lshift_ovf_val':       _check_ovf(jvmgen.ISHL), # VAL??
+    'int_lshift_ovf':           jvmgen.ISHLOVF,
+    'int_lshift_ovf_val':       jvmgen.ISHLOVF, # VAL... what is val used for??
 
     'int_rshift_ovf':           jvmgen.ISHR, # these can't overflow!
     'int_xor_ovf':              jvmgen.IXOR,
@@ -201,6 +201,7 @@ _opcodes = {
     'llong_xor':                jvmgen.LXOR,
     'llong_floordiv_ovf':       jvmgen.LDIV, # these can't overflow!
     'llong_mod_ovf':            jvmgen.LREMOVF,
+    'llong_lshift_ovf':         jvmgen.LSHLOVF,
 
     'ullong_is_true':           [PushAllArgs,
                                  jvmgen.LCONST_0,
