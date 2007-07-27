@@ -1,6 +1,6 @@
 
 from pypy.rpython.extfunc import ExtFuncEntry, register_external,\
-     is_external
+     is_external, lazy_register
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation.policy import AnnotatorPolicy
@@ -154,12 +154,18 @@ def test_register_external_specialcase():
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeString)
 
-#def test_is_external():
-#    assert is_external(BTestFuncEntry)
-#    def f():
-#        pass
-#    assert not is_external(f)
-#    f.suggested_primitive = True
-#    assert is_external(f)
-#    f.suggested_primitive = False
-#    assert not is_external(f)
+def test_lazy_register():
+    def f():
+        return 3
+
+    def g():
+        return f()
+    
+    def reg_func():
+        1/0
+
+    lazy_register(f, reg_func)
+
+    from pypy.rpython.test.test_llinterp import interpret
+
+    interpret(g, [])

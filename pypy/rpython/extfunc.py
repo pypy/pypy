@@ -4,7 +4,21 @@ from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import unionof
 from pypy.annotation.signature import annotation
 
-import py
+import py, sys
+
+def lazy_register(func, register_func):
+    """ Lazily register external function. Will create a function,
+    which explodes when llinterpd/translated, but does not explode
+    earlier
+    """
+    try:
+        register_func()
+    except:
+        exc, exc_inst, tb = sys.exc_info()
+        class ExtRaisingEntry(ExtRegistryEntry):
+            _about_ = func
+            def compute_result_annotation(self, *args_s):
+                raise exc, exc_inst, tb
 
 class genericcallable(object):
     """ A way to specify the callable annotation, but deferred until
