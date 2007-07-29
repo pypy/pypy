@@ -12,328 +12,340 @@ from pypy.rlib import ros
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
-from pypy.rpython.extfunc import ExtFuncEntry, register_external
+from pypy.rpython.extfunc import BaseLazyRegistering, registering
 from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
     s_None
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.lltypesystem import lltype
 
-# a simple, yet usefull factory
-def register_os_function_returning_int(fun, name, **kwds):
-    c_func = rffi.llexternal(name, [], rffi.INT, **kwds)
-    def c_func_lltypeimpl():
-        res = c_func()
-        if res == -1:
-            raise OSError(rffi.c_errno, "%s failed" % name)
-        return res
-    c_func_lltypeimpl.func_name = name + '_llimpl'
+class RegisterOs(BaseLazyRegistering):
+    def __init__(self):
+        self.getuid_incl = ['unistd.h', 'sys/types.h']
+    
+    # a simple, yet usefull factory
+    def register_os_function_returning_int(self, fun, name, **kwds):
+        c_func = rffi.llexternal(name, [], rffi.INT, **kwds)
+        def c_func_lltypeimpl():
+            res = c_func()
+            if res == -1:
+                raise OSError(rffi.c_errno, "%s failed" % name)
+            return res
+        c_func_lltypeimpl.func_name = name + '_llimpl'
 
-    register_external(fun, [], int, llimpl=c_func_lltypeimpl,
+        self.register(fun, [], int, llimpl=c_func_lltypeimpl,
                       export_name='ll_os.ll_os_' + name)
 
-# ------------------------------- os.execv ------------------------------
+    if hasattr(os, 'execv'):
+        @registering(os.execv)
+        def register_os_execv(self):
+            os_execv = rffi.llexternal('execv', [rffi.CCHARP, rffi.CCHARPP],
+                                       rffi.INT)
 
-if hasattr(os, 'execv'):
+            def execv_lltypeimpl(path, args):
+                l_path = rffi.str2charp(path)
+                l_args = rffi.liststr2charpp(args)
+                os_execv(l_path, l_args)
+                rffi.free_charpp(l_args)
+                rffi.free_charp(l_path)
+                raise OSError(rffi.c_errno, "execv failed")
 
-    os_execv = rffi.llexternal('execv', [rffi.CCHARP, rffi.CCHARPP],
-                               rffi.INT)
+            self.register(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
+                          execv_lltypeimpl, export_name="ll_os.ll_os_execv")
 
-    def execv_lltypeimpl(path, args):
-        l_path = rffi.str2charp(path)
-        l_args = rffi.liststr2charpp(args)
-        os_execv(l_path, l_args)
-        rffi.free_charpp(l_args)
-        rffi.free_charp(l_path)
-        raise OSError(rffi.c_errno, "execv failed")
+    @registering(os.dup)
+    def register_os_dup(self):
+        os_dup = rffi.llexternal('dup', [rffi.INT], rffi.INT)
 
-    register_external(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
-                      execv_lltypeimpl, export_name="ll_os.ll_os_execv")
+        def dup_lltypeimpl(fd):
+            newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
+            if newfd == -1:
+                raise OSError(rffi.c_errno, "dup failed")
+            return newfd
+        
+        self.register(os.dup, [int], int, llimpl=dup_lltypeimpl,
+                      export_name="ll_os.ll_os_dup", oofakeimpl=os.dup)
 
-# ------------------------------- os.dup --------------------------------
+    @registering(os.dup2)
+    def register_os_dup2(self):
+        os_dup2 = rffi.llexternal('dup2', [rffi.INT, rffi.INT], rffi.INT)
 
-os_dup = rffi.llexternal('dup', [rffi.INT], rffi.INT)
-
-def dup_lltypeimpl(fd):
-    newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
-    if newfd == -1:
-        raise OSError(rffi.c_errno, "dup failed")
-    return newfd
-register_external(os.dup, [int], int, llimpl=dup_lltypeimpl,
-                  export_name="ll_os.ll_os_dup", oofakeimpl=os.dup)
-
-# ------------------------------- os.dup2 -------------------------------
-
-os_dup2 = rffi.llexternal('dup2', [rffi.INT, rffi.INT], rffi.INT)
-
-def dup2_lltypeimpl(fd, newfd):
-    error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
+        def dup2_lltypeimpl(fd, newfd):
+            error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
-    if error == -1:
-        raise OSError(rffi.c_errno, "dup2 failed")
-register_external(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
-                  export_name="ll_os.ll_os_dup2")
+            if error == -1:
+                raise OSError(rffi.c_errno, "dup2 failed")
 
-# ------------------------------- os.utime ------------------------------
+        self.register(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
+                      export_name="ll_os.ll_os_dup2")
 
-TIME_T = rffi.INT    # XXX do the right thing
-UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', TIME_T),
-                                    ('modtime', TIME_T))
+    @registering(os.utime)
+    def register_os_utime(self):
+        TIME_T = rffi.INT    # XXX do the right thing
+        UTIMEBUFP = rffi.CStruct('utimbuf', ('actime', TIME_T),
+                                 ('modtime', TIME_T))
 
-# XXX sys/types.h is not portable at all
-ros_utime = rffi.llexternal('utime', [rffi.CCHARP, UTIMEBUFP], rffi.INT,
-                            includes=['utime.h', 'sys/types.h'])
+        # XXX sys/types.h is not portable at all
+        ros_utime = rffi.llexternal('utime', [rffi.CCHARP, UTIMEBUFP],
+                                    rffi.INT,
+                                    includes=['utime.h', 'sys/types.h'])
 
-def utime_null_lltypeimpl(path):
-    l_path = rffi.str2charp(path)
-    error = rffi.cast(lltype.Signed, ros_utime(l_path,
-                                               lltype.nullptr(UTIMEBUFP.TO)))
-    rffi.free_charp(l_path)
-    if error == -1:
-        raise OSError(rffi.c_errno, "utime_null failed")
-register_external(ros.utime_null, [str], s_None, "ll_os.utime_null",
-                  llimpl=utime_null_lltypeimpl)
+        def utime_null_lltypeimpl(path):
+            l_path = rffi.str2charp(path)
+            error = rffi.cast(lltype.Signed, ros_utime(l_path,
+                              lltype.nullptr(UTIMEBUFP.TO)))
+            rffi.free_charp(l_path)
+            if error == -1:
+                raise OSError(rffi.c_errno, "utime_null failed")
+            
+        self.register(ros.utime_null, [str], s_None, "ll_os.utime_null",
+                      llimpl=utime_null_lltypeimpl)
 
-def utime_tuple_lltypeimpl(path, tp):
-    # XXX right now they're all ints, might change in future
-    # XXX does not use utimes, even when available
-    l_path = rffi.str2charp(path)
-    l_utimebuf = lltype.malloc(UTIMEBUFP.TO, flavor='raw')
-    actime, modtime = tp
-    l_utimebuf.c_actime, l_utimebuf.c_modtime = int(actime), int(modtime)
-    error = rffi.cast(lltype.Signed, ros_utime(l_path, l_utimebuf))
-    rffi.free_charp(l_path)
-    lltype.free(l_utimebuf, flavor='raw')
-    if error == -1:
-        raise OSError(rffi.c_errno, "utime_tuple failed")
-register_external(ros.utime_tuple, [str, (float, float)], s_None, "ll_os.utime_tuple",
-                  llimpl=utime_tuple_lltypeimpl)
+        def utime_tuple_lltypeimpl(path, tp):
+            # XXX right now they're all ints, might change in future
+            # XXX does not use utimes, even when available
+            l_path = rffi.str2charp(path)
+            l_utimebuf = lltype.malloc(UTIMEBUFP.TO, flavor='raw')
+            actime, modtime = tp
+            l_utimebuf.c_actime, l_utimebuf.c_modtime = int(actime), int(modtime)
+            error = rffi.cast(lltype.Signed, ros_utime(l_path, l_utimebuf))
+            rffi.free_charp(l_path)
+            lltype.free(l_utimebuf, flavor='raw')
+            if error == -1:
+                raise OSError(rffi.c_errno, "utime_tuple failed")
+        
+        self.register(ros.utime_tuple, [str, (float, float)], s_None,
+                      "ll_os.utime_tuple",
+                      llimpl=utime_tuple_lltypeimpl)
 
-# ------------------------------- os.setsid -----------------------------
+    if hasattr(os, 'setsid'):
+        @registering(os.setsid)
+        def register_os_setsid(self):
+            os_setsid = rffi.llexternal('setsid', [], rffi.PID_T,
+                                        includes=['unistd.h'])
 
-if hasattr(os, 'setsid'):
-    os_setsid = rffi.llexternal('setsid', [], rffi.PID_T,
-                                includes=['unistd.h'])
+            def setsid_lltypeimpl():
+                result = rffi.cast(lltype.Signed, os_setsid())
+                if result == -1:
+                    raise OSError(rffi.c_errno, "os_setsid failed")
+                return result
 
-    def setsid_lltypeimpl():
-        result = rffi.cast(lltype.Signed, os_setsid())
-        if result == -1:
-            raise OSError(rffi.c_errno, "os_setsid failed")
-        return result
+            self.register(os.setsid, [], int, export_name="ll_os.ll_os_setsid",
+                          llimpl=setsid_lltypeimpl)
 
-    register_external(os.setsid, [], int, export_name="ll_os.ll_os_setsid",
-                      llimpl=setsid_lltypeimpl)
-
-# ------------------------------- os.uname ------------------------------
-
-if False and hasattr(os, 'uname'): # make it more portable
-    lgt = platform.intdefined('_UTSNAME_LENGTH', includes=['sys/utsname.h'])
-    UTCHARP = lltype.FixedSizeArray(lltype.Char, lgt)
-    fields = [('sysname', UTCHARP),
-              ('nodename', UTCHARP),
-              ('release', UTCHARP),
-              ('version', UTCHARP),
-              ('machine', UTCHARP),
-              ('domainname', UTCHARP)]
-    UTSNAMEP = rffi.CStruct('utsname', *fields)
+    if False and hasattr(os, 'uname'): # make it more portable
+        @registering(os.uname)
+        def register_os_uname(self):
+            lgt = platform.intdefined('_UTSNAME_LENGTH',
+                                      includes=['sys/utsname.h'])
+            UTCHARP = lltype.FixedSizeArray(lltype.Char, lgt)
+            fields = [('sysname', UTCHARP),
+                      ('nodename', UTCHARP),
+                      ('release', UTCHARP),
+                      ('version', UTCHARP),
+                      ('machine', UTCHARP),
+                      ('domainname', UTCHARP)]
+            UTSNAMEP = rffi.CStruct('utsname', *fields)
     
-    os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,
-                               includes=['sys/utsname.h'])
+            os_uname = rffi.llexternal('uname', [UTSNAMEP], rffi.INT,
+                                       includes=['sys/utsname.h'])
 
-    def utcharp2str(cp):
-        l = []
-        i = 0
-        while cp[i] != '\x00' and i < lgt:
-            l.append(cp[i])
-            i += 1
-        return "".join(l)
+            def utcharp2str(cp):
+                l = []
+                i = 0
+                while cp[i] != '\x00' and i < lgt:
+                    l.append(cp[i])
+                    i += 1
+                return "".join(l)
 
-    def uname_lltypeimpl():
-        l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
-        result = os_uname(l_utsbuf)
-        if result == -1:
-            raise OSError(rffi.c_errno, "os_uname failed")
-        fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
-                l_utsbuf.c_release, l_utsbuf.c_version, l_utsbuf.c_machine]
-        l = [utcharp2str(i) for i in fields]
-        retval = (l[0], l[1], l[2], l[3], l[4])
-        lltype.free(l_utsbuf, flavor='raw')
-        return retval
+            def uname_lltypeimpl():
+                l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
+                result = os_uname(l_utsbuf)
+                if result == -1:
+                    raise OSError(rffi.c_errno, "os_uname failed")
+                fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
+                          l_utsbuf.c_release, l_utsbuf.c_version,
+                          l_utsbuf.c_machine]
+                l = [utcharp2str(i) for i in fields]
+                retval = (l[0], l[1], l[2], l[3], l[4])
+                lltype.free(l_utsbuf, flavor='raw')
+                return retval
 
-    register_external(os.uname, [], (str, str, str, str, str),
-                      "ll_os.ll_uname", llimpl=uname_lltypeimpl)
+            self.register(os.uname, [], (str, str, str, str, str),
+                          "ll_os.ll_uname", llimpl=uname_lltypeimpl)
 
-# ------------------------------- os.getuid/geteuid ---------------------
+    @registering(os.getuid)
+    def register_os_getuid(self):
+        self.register_os_function_returning_int(os.getuid, 'getuid',
+                                                includes=self.getuid_incl)
 
-getuid_incl = ['unistd.h', 'sys/types.h']
-register_os_function_returning_int(os.getuid, 'getuid',
-                                   includes=getuid_incl)
-register_os_function_returning_int(os.geteuid, 'geteuid',
-                                   includes=getuid_incl)
+    @registering(os.geteuid)
+    def register_os_geteuid(self):
+        self.register_os_function_returning_int(os.geteuid, 'geteuid',
+                                                includes=self.getuid_incl)
 
-# ------------------------------- os.open -------------------------------
+    @registering(os.open)
+    def register_os_open(self):
+        if os.name == 'nt':
+            mode_t = rffi.INT
+        else:
+            mode_t = rffi.MODE_T
+        os_open = rffi.llexternal('open', [rffi.CCHARP, rffi.INT, mode_t],
+                                  rffi.INT)
 
-if os.name == 'nt':
-    mode_t = rffi.INT
-else:
-    mode_t = rffi.MODE_T
+        def os_open_lltypeimpl(path, flags, mode):
+            l_path = rffi.str2charp(path)
+            result = rffi.cast(lltype.Signed, os_open(l_path,
+                               rffi.cast(rffi.INT, flags),
+                               rffi.cast(mode_t, mode)))
+            rffi.free_charp(l_path)
+            if result == -1:
+                raise OSError(rffi.c_errno, "os_open failed")
+            return result
 
-os_open = rffi.llexternal('open', [rffi.CCHARP, rffi.INT, mode_t],
-                          rffi.INT)
+        def os_open_oofakeimpl(o_path, flags, mode):
+            return os.open(o_path._str, flags, mode)
 
-def os_open_lltypeimpl(path, flags, mode):
-    l_path = rffi.str2charp(path)
-    result = rffi.cast(lltype.Signed, os_open(l_path,
-                                              rffi.cast(rffi.INT, flags),
-                                              rffi.cast(mode_t, mode)))
-    rffi.free_charp(l_path)
-    if result == -1:
-        raise OSError(rffi.c_errno, "os_open failed")
-    return result
-
-def os_open_oofakeimpl(o_path, flags, mode):
-    return os.open(o_path._str, flags, mode)
-
-register_external(os.open, [str, int, int], int, "ll_os.ll_os_open",
-                  llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
+        self.register(os.open, [str, int, int], int, "ll_os.ll_os_open",
+                      llimpl=os_open_lltypeimpl, oofakeimpl=os_open_oofakeimpl)
 
 # ------------------------------- os.read -------------------------------
 
-os_read = rffi.llexternal('read', [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
-                          rffi.SIZE_T)
+    @registering(os.read)
+    def register_os_read(self):
+        os_read = rffi.llexternal('read', [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
+                                  rffi.SIZE_T)
 
-def os_read_lltypeimpl(fd, count):
-    if count < 0:
-        raise OSError(errno.EINVAL, None)
-    inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
-    try:
-        got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
-                                               inbuf,
-                                               rffi.cast(rffi.SIZE_T, count)))
-        if got < 0:
-            raise OSError(rffi.c_errno, "os_read failed")
-        # XXX too many copies of the data!
-        l = [inbuf[i] for i in range(got)]
-    finally:
-        lltype.free(inbuf, flavor='raw')
-    return ''.join(l)
+        def os_read_lltypeimpl(fd, count):
+            if count < 0:
+                raise OSError(errno.EINVAL, None)
+            inbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
+            try:
+                got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
+                                inbuf, rffi.cast(rffi.SIZE_T, count)))
+                if got < 0:
+                    raise OSError(rffi.c_errno, "os_read failed")
+                # XXX too many copies of the data!
+                l = [inbuf[i] for i in range(got)]
+            finally:
+                lltype.free(inbuf, flavor='raw')
+            return ''.join(l)
 
-def os_read_oofakeimpl(fd, count):
-    return OOSupport.to_rstr(os.read(fd, count))
+        def os_read_oofakeimpl(fd, count):
+            return OOSupport.to_rstr(os.read(fd, count))
 
-register_external(os.read, [int, int], str, "ll_os.ll_os_read",
-                  llimpl=os_read_lltypeimpl, oofakeimpl=os_read_oofakeimpl)
+        self.register(os.read, [int, int], str, "ll_os.ll_os_read",
+                      llimpl=os_read_lltypeimpl, oofakeimpl=os_read_oofakeimpl)
 
-# '--sandbox' support
-def os_read_marshal_input(msg, fd, buf, size):
-    msg.packnum(rffi.cast(lltype.Signed, fd))
-    msg.packsize_t(size)
-def os_read_unmarshal_output(msg, fd, buf, size):
-    data = msg.nextstring()
-    if len(data) > rffi.cast(lltype.Signed, size):
-        raise OverflowError
-    for i in range(len(data)):
-        buf[i] = data[i]
-    return rffi.cast(rffi.SIZE_T, len(data))
-os_read._obj._marshal_input = os_read_marshal_input
-os_read._obj._unmarshal_output = os_read_unmarshal_output
+        # '--sandbox' support
+        def os_read_marshal_input(msg, fd, buf, size):
+            msg.packnum(rffi.cast(lltype.Signed, fd))
+            msg.packsize_t(size)
+        def os_read_unmarshal_output(msg, fd, buf, size):
+            data = msg.nextstring()
+            if len(data) > rffi.cast(lltype.Signed, size):
+                raise OverflowError
+            for i in range(len(data)):
+                buf[i] = data[i]
+            return rffi.cast(rffi.SIZE_T, len(data))
+        os_read._obj._marshal_input = os_read_marshal_input
+        os_read._obj._unmarshal_output = os_read_unmarshal_output
 
-# ------------------------------- os.write ------------------------------
+    @registering(os.write)
+    def register_os_write(self):
+        os_write = rffi.llexternal('write', [rffi.INT, rffi.VOIDP,
+                                   rffi.SIZE_T], rffi.SIZE_T)
 
-os_write = rffi.llexternal('write', [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
-                           rffi.SIZE_T)
+        def os_write_lltypeimpl(fd, data):
+            count = len(data)
+            outbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
+            try:
+                for i in range(count):
+                    outbuf[i] = data[i]
+                written = rffi.cast(lltype.Signed, os_write(
+                    rffi.cast(rffi.INT, fd),
+                    outbuf, rffi.cast(rffi.SIZE_T, count)))
+                if written < 0:
+                    raise OSError(rffi.c_errno, "os_write failed")
+            finally:
+                lltype.free(outbuf, flavor='raw')
+            return written
 
-def os_write_lltypeimpl(fd, data):
-    count = len(data)
-    outbuf = lltype.malloc(rffi.CCHARP.TO, count, flavor='raw')
-    try:
-        for i in range(count):
-            outbuf[i] = data[i]
-        written = rffi.cast(lltype.Signed, os_write(rffi.cast(rffi.INT, fd),
-                                                    outbuf,
-                                                rffi.cast(rffi.SIZE_T, count)))
-        if written < 0:
-            raise OSError(rffi.c_errno, "os_write failed")
-    finally:
-        lltype.free(outbuf, flavor='raw')
-    return written
+        def os_write_oofakeimpl(fd, data):
+            return os.write(fd, OOSupport.from_rstr(data))
 
-def os_write_oofakeimpl(fd, data):
-    return os.write(fd, OOSupport.from_rstr(data))
+        self.register(os.write, [int, str], SomeInteger(nonneg=True),
+                      "ll_os.ll_os_write", llimpl=os_write_lltypeimpl,
+                      oofakeimpl=os_write_oofakeimpl)
 
-register_external(os.write, [int, str], SomeInteger(nonneg=True)
-                  , "ll_os.ll_os_write",
-                  llimpl=os_write_lltypeimpl, oofakeimpl=os_write_oofakeimpl)
+        # '--sandbox' support
+        def os_write_marshal_input(msg, fd, buf, size):
+            msg.packnum(rffi.cast(lltype.Signed, fd))
+            msg.packbuf(buf, 0, rffi.cast(lltype.Signed, size))
+        os_write._obj._marshal_input = os_write_marshal_input
 
-# '--sandbox' support
-def os_write_marshal_input(msg, fd, buf, size):
-    msg.packnum(rffi.cast(lltype.Signed, fd))
-    msg.packbuf(buf, 0, rffi.cast(lltype.Signed, size))
-os_write._obj._marshal_input = os_write_marshal_input
+    @registering(os.close)
+    def register_os_close(self):
+        os_close = rffi.llexternal('close', [rffi.INT], rffi.INT)
+        
+        def close_lltypeimpl(fd):
+            error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
+            if error == -1:
+                raise OSError(rffi.c_errno, "close failed")
 
-# ------------------------------- os.close ------------------------------
+        self.register(os.close, [int], s_None, llimpl=close_lltypeimpl,
+                      export_name="ll_os.ll_os_close", oofakeimpl=os.close)
 
-os_close = rffi.llexternal('close', [rffi.INT], rffi.INT)
+    # ------------------------------- os.W* ---------------------------------
 
-def close_lltypeimpl(fd):
-    error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
-    if error == -1:
-        raise OSError(rffi.c_errno, "close failed")
+    w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
+              'WIFSIGNALED', 'WIFEXITED', 'WEXITSTATUS',
+              'WSTOPSIG', 'WTERMSIG']
+    # last 3 are returning int
+    w_star_returning_int = dict.fromkeys(w_star[-3:])
 
-register_external(os.close, [int], s_None, llimpl=close_lltypeimpl,
-                  export_name="ll_os.ll_os_close", oofakeimpl=os.close)
+    def declare_new_w_star(self, name):
+        """ stupid workaround for the python late-binding
+        'feature'
+        """
+        def fake(status):
+            return int(getattr(os, name)(status))
+        fake.func_name = 'fake_' + name
 
-# ------------------------------- os.* ----------------------------------
-
-w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
-          'WIFSIGNALED', 'WIFEXITED', 'WEXITSTATUS',
-          'WSTOPSIG', 'WTERMSIG']
-# last 3 are returning int
-w_star_returning_int = dict.fromkeys(w_star[-3:])
-
-def declare_new_w_star(name):
-    """ stupid workaround for the python late-binding
-    'feature'
-    """
-    def fake(status):
-        return int(getattr(os, name)(status))
-    fake.func_name = 'fake_' + name
-
+        os_c_func = rffi.llexternal(name, [lltype.Signed],
+                                    lltype.Signed, _callable=fake,
+                                    includes=["sys/wait.h", "sys/types.h"])
     
-    os_c_func = rffi.llexternal(name, [lltype.Signed],
-                                lltype.Signed, _callable=fake,
-                                includes=["sys/wait.h", "sys/types.h"])
-    
-    if name in w_star_returning_int:
-        def lltypeimpl(status):
-            return os_c_func(status)
-        resulttype = int
-    else:
-        def lltypeimpl(status):
-            return bool(os_c_func(status))
-        resulttype = bool
-    lltypeimpl.func_name = name + '_lltypeimpl'
-    register_external(getattr(os, name), [int], resulttype, "ll_os."+name,
+        if name in self.w_star_returning_int:
+            def lltypeimpl(status):
+                return os_c_func(status)
+            resulttype = int
+        else:
+            def lltypeimpl(status):
+                return bool(os_c_func(status))
+            resulttype = bool
+        lltypeimpl.func_name = name + '_lltypeimpl'
+        self.register(getattr(os, name), [int], resulttype, "ll_os."+name,
                       llimpl=lltypeimpl)
 
+    for name in w_star:
+        if hasattr(os, name):
+            locals()['register_w_' + name] = registering(getattr(os, name))(
+                     lambda self, xname=name : self.declare_new_w_star(xname))
 
-for name in w_star:
-    if hasattr(os, name):
-        declare_new_w_star(name)
+    if hasattr(os, 'ttyname'):
+        @registering(os.ttyname)
+        def register_os_ttyname(self):
+            os_ttyname = rffi.llexternal('ttyname', [lltype.Signed], rffi.CCHARP)
 
-# ------------------------------- os.ttyname ----------------------------
+            def ttyname_lltypeimpl(fd):
+                l_name = os_ttyname(fd)
+                if not l_name:
+                    raise OSError(rffi.c_errno, "ttyname raised")
+                return rffi.charp2str(l_name)
 
-if hasattr(os, 'ttyname'):
-    os_ttyname = rffi.llexternal('ttyname', [lltype.Signed], rffi.CCHARP)
-
-    def ttyname_lltypeimpl(fd):
-        l_name = os_ttyname(fd)
-        if not l_name:
-            raise OSError(rffi.c_errno, "ttyname raised")
-        return rffi.charp2str(l_name)
-
-    register_external(os.ttyname, [int], str, "ll_os.ttyname",
-                      llimpl=ttyname_lltypeimpl)
+            self.register(os.ttyname, [int], str, "ll_os.ttyname",
+                          llimpl=ttyname_lltypeimpl)
 
 class BaseOS:
     __metaclass__ = ClassMethods

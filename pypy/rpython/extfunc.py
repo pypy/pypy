@@ -6,19 +6,56 @@ from pypy.annotation.signature import annotation
 
 import py, sys
 
-def lazy_register(func, register_func):
+def lazy_register(func_or_list, register_func):
     """ Lazily register external function. Will create a function,
     which explodes when llinterpd/translated, but does not explode
     earlier
     """
+    if isinstance(func_or_list, list):
+        funcs = func_or_list
+    else:
+        funcs = [func_or_list]
     try:
-        register_func()
+        return register_func()
     except:
         exc, exc_inst, tb = sys.exc_info()
-        class ExtRaisingEntry(ExtRegistryEntry):
-            _about_ = func
-            def compute_result_annotation(self, *args_s):
-                raise exc, exc_inst, tb
+        for func in funcs:
+            class ExtRaisingEntry(ExtRegistryEntry):
+                _about_ = func
+                def compute_result_annotation(self, *args_s):
+                    raise exc, exc_inst, tb
+
+def registering(func):
+    def decorator(method):
+        method._registering_func = func
+        return method
+    return decorator
+
+class LazyRegisteringMeta(type):
+    def __new__(self, _name, _type, _vars):
+        retval = type.__new__(self, _name, _type, _vars)
+        allfuncs = []
+        for varname in _vars:
+            attr = getattr(retval, varname)
+            f = getattr(attr, '_registering_func', None)
+            if f:
+                allfuncs.append(f)
+        instance = lazy_register(allfuncs, retval)
+        if instance is not None:
+            for varname in _vars:
+                attr = getattr(instance, varname)
+                f = getattr(attr, '_registering_func', None)
+                if f:
+                    lazy_register(f, attr)
+        retval.instance = instance
+        # override __init__ to avoid confusion
+        def raising(self):
+            raise TypeError("Cannot call __init__ directly, use cls.instance to access singleton")
+        retval.__init__ = raising
+        return retval
+
+class BaseLazyRegistering(object):
+    __metaclass__ = LazyRegisteringMeta
 
 class genericcallable(object):
     """ A way to specify the callable annotation, but deferred until
@@ -75,10 +112,10 @@ class ExtFuncEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 
-def register_external(function, args, result=None, export_name=None,
-                      llimpl=None, ooimpl=None,
-                      llfakeimpl=None, oofakeimpl=None,
-                      annotation_hook=None):
+def _register_external(function, args, result=None, export_name=None,
+                       llimpl=None, ooimpl=None,
+                       llfakeimpl=None, oofakeimpl=None,
+                       annotation_hook=None):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
@@ -112,6 +149,8 @@ def register_external(function, args, result=None, export_name=None,
         FunEntry.__name__ = export_name
     else:
         FunEntry.__name__ = function.func_name
+
+BaseLazyRegistering.register = staticmethod(_register_external)
 
 def is_external(func):
     if hasattr(func, 'value'):

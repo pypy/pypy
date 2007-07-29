@@ -1,5 +1,5 @@
 
-from pypy.rpython.extfunc import ExtFuncEntry, register_external,\
+from pypy.rpython.extfunc import ExtFuncEntry, _register_external,\
      is_external, lazy_register
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
@@ -79,7 +79,7 @@ def test_callback():
 def dd():
     pass
 
-register_external(dd, [int], int)
+_register_external(dd, [int], int)
 
 def test_register_external_signature():
     def f():
@@ -98,7 +98,7 @@ def function_with_tuple_arg():
     an argument so that register_external's behavior for tuple-taking functions
     can be verified.
     """
-register_external(function_with_tuple_arg, [(int,)], int)
+_register_external(function_with_tuple_arg, [(int,)], int)
 
 def test_register_external_tuple_args():
     """
@@ -118,11 +118,11 @@ def test_register_external_tuple_args():
 
 def function_with_list():
     pass
-register_external(function_with_list, [[int]], int)
+_register_external(function_with_list, [[int]], int)
 
 def function_returning_list():
     pass
-register_external(function_returning_list, [], [int])
+_register_external(function_returning_list, [], [int])
 
 def test_register_external_return_goes_back():
     """
@@ -141,7 +141,7 @@ def test_register_external_return_goes_back():
 
 def function_withspecialcase(arg):
     return repr(arg)
-register_external(function_withspecialcase, args=None, result=str)
+_register_external(function_withspecialcase, args=None, result=str)
 
 def test_register_external_specialcase():
     def f():
@@ -153,19 +153,3 @@ def test_register_external_specialcase():
     a = RPythonAnnotator(policy=policy)
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeString)
-
-def test_lazy_register():
-    def f():
-        return 3
-
-    def g():
-        return f()
-    
-    def reg_func():
-        1/0
-
-    lazy_register(f, reg_func)
-
-    from pypy.rpython.test.test_llinterp import interpret
-
-    interpret(g, [])

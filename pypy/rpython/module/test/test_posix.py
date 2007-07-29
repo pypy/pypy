@@ -108,7 +108,7 @@ if not hasattr(os, 'ftruncate'):
     del BaseTestPosix.test_ftruncate
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
-    if hasattr(os, 'uname'):
+    if False and hasattr(os, 'uname'):
         def test_os_uname(self):
             for num in range(5):
                 def fun():

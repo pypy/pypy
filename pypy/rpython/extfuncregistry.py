@@ -1,7 +1,7 @@
 # this registry use the new interface for external functions
 # all the above declarations in extfunctable should be moved here at some point.
 
-from extfunc import register_external
+from extfunc import _register_external
 
 # ___________________________
 # math functions
@@ -24,7 +24,7 @@ simple_math_functions = [
     'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
     ]
 for name in simple_math_functions:
-    register_external(getattr(math, name), [float], float, "ll_math.ll_math_%s" % name)
+    _register_external(getattr(math, name), [float], float, "ll_math.ll_math_%s" % name)
 
 def frexp_hook():
     from pypy.rpython.extfunctable import record_call
@@ -52,9 +52,9 @@ for name, args, res, hook in complex_math_functions:
     func = getattr(math, name)
     llfake = getattr(ll_math, 'll_math_%s' % name, None)
     oofake = getattr(oo_math, 'll_math_%s' % name, None)
-    register_external(func, args, res, 'll_math.ll_math_%s' % name,
-                      llfakeimpl=llfake, oofakeimpl=oofake,
-                      annotation_hook = hook)
+    _register_external(func, args, res, 'll_math.ll_math_%s' % name,
+                       llfakeimpl=llfake, oofakeimpl=oofake,
+                       annotation_hook = hook)
 
 
 # ___________________________
@@ -81,4 +81,4 @@ path_functions = [
 for name, args, res in path_functions:
     func = getattr(os.path, name)
     llimpl = func_with_new_name(func, name)
-    register_external(func, args, res, 'll_os_path.ll_%s' % name, llimpl=llimpl)
+    _register_external(func, args, res, 'll_os_path.ll_%s' % name, llimpl=llimpl)

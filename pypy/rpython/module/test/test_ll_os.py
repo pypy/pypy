@@ -104,8 +104,8 @@ def test_opendir_readdir():
     assert result == compared_with
 
 def test_os_wstar():
-    from pypy.rpython.module.ll_os import w_star
-    for name in w_star:
+    from pypy.rpython.module.ll_os import RegisterOs
+    for name in RegisterOs.w_star:
         def fun(s):
             return getattr(os, name)(s)
 
