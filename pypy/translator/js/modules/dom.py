@@ -21,7 +21,8 @@ import urllib
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
-from pypy.rpython.extfunc import genericcallable, register_external
+from pypy.rpython.extfunc import genericcallable
+from pypy.rpython.extfunc import _register_external as register_external
 from xml.dom import minidom
 
 from pypy.annotation.signature import annotation
