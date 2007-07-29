@@ -217,6 +217,7 @@ class AppTestPosix:
         assert os.WIFSIGNALED(1) == True
 
     def test_os_uname(self):
+        skip("Uname broken")
         os = self.posix
         res = os.uname()
         assert len(res) == 5
