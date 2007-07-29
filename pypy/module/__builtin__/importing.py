@@ -146,13 +146,10 @@ def check_sys_modules(space, w_modulename):
 
 def importhook(space, modulename, w_globals=None,
                w_locals=None, w_fromlist=None):
-    if not isinstance(modulename, str):
-        try:
-            helper = ', not ' + modulename.__class__.__name__
-        except AttributeError:
-            helper = ''
-        raise OperationError(space.w_TypeError,
-              space.wrap("__import__() argument 1 must be string" + helper))
+    if not modulename:
+        raise OperationError(
+            space.w_ValueError,
+            space.wrap("Empty module name"))
     w = space.wrap
 
     ctxt_name = None

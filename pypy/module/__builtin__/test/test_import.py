@@ -248,6 +248,9 @@ class AppTestImport:
         finally:
             os.chmod(p, 0775)
 
+    def test__import__empty_string(self):
+        raises(ValueError, __import__, "")
+
     def test_invalid__name__(self):
         glob = {}
         exec "__name__ = None; import sys" in glob
