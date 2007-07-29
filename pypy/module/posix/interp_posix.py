@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import ros
 from pypy.interpreter.error import OperationError, wrap_oserror
-from pypy.rpython.module.ll_os import w_star, w_star_returning_int
+from pypy.rpython.module.ll_os import RegisterOs
 
 import os
                           
@@ -521,7 +521,7 @@ def geteuid(space):
 geteuid.unwrap_spec = [ObjSpace]
 
 def declare_new_w_star(name):
-    if name in w_star_returning_int:
+    if name in RegisterOs.w_star_returning_int:
         def WSTAR(space, status):
             return space.wrap(getattr(os, name)(status))
     else:
@@ -531,7 +531,7 @@ def declare_new_w_star(name):
     WSTAR.func_name = name
     return WSTAR
 
-for name in w_star:
+for name in RegisterOs.w_star:
     func = declare_new_w_star(name)
     globals()[name] = func
 

@@ -1,6 +1,6 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.rpython.module.ll_os import w_star
+from pypy.rpython.module.ll_os import RegisterOs
 
 import os
 exec 'import %s as posix' % os.name
@@ -86,7 +86,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getuid'] = 'interp_posix.getuid'
         interpleveldefs['geteuid'] = 'interp_posix.geteuid'
     
-    for name in w_star:
+    for name in RegisterOs.w_star:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.' + name
 

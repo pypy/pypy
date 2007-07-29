@@ -2,7 +2,7 @@ from pypy.objspace.std import StdObjSpace
 from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
-from pypy.rpython.module.ll_os import w_star
+from pypy.rpython.module.ll_os import RegisterOs
 import os
 import py
 import sys
@@ -198,7 +198,7 @@ class AppTestPosix:
         raises(TypeError, "os.utime('xxx', 3)")
         raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
 
-    for name in w_star:
+    for name in RegisterOs.w_star:
         if hasattr(os, name):
             values = [0, 1, 127, 128, 255]
             code = py.code.Source("""
