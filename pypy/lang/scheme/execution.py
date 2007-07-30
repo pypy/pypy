@@ -111,6 +111,10 @@ class ExecutionContext(object):
 
         raise UnboundVariable(name)
 
+    def ssete(self, symb, obj):
+        (ctx, name) = self._dispatch(symb)
+        ctx.sete(name, obj)
+
     def sete(self, name, obj):
         """update existing location or raise
         directly used by (set! <var> <expr>) macro
@@ -152,6 +156,10 @@ class ExecutionContext(object):
             self.scope[name] = Location(obj)
         else:
             self.globalscope[name] = Location(obj)
+
+    def sbind(self, symb):
+        (ctx, name) = self._dispatch(symb)
+        ctx.bind(name)
 
     def bind(self, name):
         """create new empty binding (location)"""

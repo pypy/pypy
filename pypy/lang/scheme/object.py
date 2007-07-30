@@ -605,18 +605,16 @@ class Define(W_Macro):
             ctx.set(w_name.name, w_lambda)
             return w_lambda #undefined
         else:
-            raise WrongArgType(w_first, "Identifier")
+            raise SchemeSyntaxError
 
 class Sete(W_Macro):
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_identifier = lst.car
-        if not isinstance(w_identifier, W_Symbol):
-            raise WrongArgType(w_identifier, "Identifier")
 
         w_val = lst.get_cdr_as_pair().car.eval(ctx)
-        ctx.sete(w_identifier.name, w_val)
+        ctx.ssete(w_identifier, w_val)
         return w_val #undefined
 
 class MacroIf(W_Macro):
@@ -690,12 +688,14 @@ class Letrec(W_Macro):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
         map_name_expr = {}
+        map_name_symb = {}
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
             name = w_def.car.to_string()
             map_name_expr[name] = w_def.get_cdr_as_pair().car
-            local_ctx.bind(name)
+            map_name_symb[name] = w_def.car
+            local_ctx.sbind(w_def.car)
             w_formal = w_formal.cdr
 
         map_name_val = {}
@@ -703,7 +703,7 @@ class Letrec(W_Macro):
             map_name_val[name] = expr.eval(local_ctx)
 
         for (name, w_val) in map_name_val.items():
-            local_ctx.sete(name, w_val)
+            local_ctx.ssete(map_name_symb[name], w_val)
 
         return self.eval_body(local_ctx, lst.cdr)
 
@@ -1001,6 +1001,21 @@ class W_Transformer(W_Procedure):
     def procedure(self, ctx, lst):
         return self.expand_eval(ctx, lst[0])
 
+class W_DerivedMacro(W_Macro):
+    def __init__(self, name, transformer):
+        self.name = name
+        self.transformer = transformer
+
+    def to_string(self):
+        return "#<derived-macro %s>" % (self.name,)
+
+    def call(self, ctx, lst):
+        return self.transformer.expand_eval(ctx,
+                W_Pair(W_Symbol(self.name), lst))
+
+    def expand(self, ctx, lst):
+        return self.transformer.expand(ctx, lst)
+
 class DefineSyntax(W_Macro):
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
@@ -1019,21 +1034,6 @@ class DefineSyntax(W_Macro):
         ctx.set(w_def.name, w_macro)
         return w_macro #undefined
  
-class W_DerivedMacro(W_Macro):
-    def __init__(self, name, transformer):
-        self.name = name
-        self.transformer = transformer
-
-    def to_string(self):
-        return "#<derived-macro %s>" % (self.name,)
-
-    def call(self, ctx, lst):
-        return self.transformer.expand_eval(ctx,
-                W_Pair(W_Symbol(self.name), lst))
-
-    def expand(self, ctx, lst):
-        return self.transformer.expand(ctx, lst)
-
 class LetSyntax(W_Macro):
     def call_tr(self, ctx, lst):
         #let uses eval_body, so it is tail-recursive aware

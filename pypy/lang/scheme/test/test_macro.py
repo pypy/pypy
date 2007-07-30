@@ -178,6 +178,16 @@ def test_shadow():
     eval_(ctx, "(define test 7)")
     assert w_transformer.expand_eval(ctx, w_expr).to_number() == 5
 
+    w_transformer = eval_(ctx, """(syntax-rules ()
+                                     ((shadow used-arg body)
+                                      (letrec ((used-arg 5)) body)))""")
+
+    w_expr = parse("(shadow test test)")[0]
+    assert w_transformer.expand_eval(ctx, w_expr).to_number() == 5
+
+    eval_(ctx, "(define test 7)")
+    assert w_transformer.expand_eval(ctx, w_expr).to_number() == 5
+
 def test_transformer_eval():
     ctx = ExecutionContext()
     eval_(ctx, """(define foo (syntax-rules ()
@@ -240,4 +250,13 @@ def test_let_syntax():
     assert w_result.to_boolean() is True
     py.test.raises(UnboundVariable, ctx.get, "foo")
     py.test.raises(UnboundVariable, ctx.get, "bar")
+
+def test_sete():
+    ctx = ExecutionContext()
+    eval_(ctx, "(define a 42)")
+    eval_(ctx, """(let-syntax ((foo (syntax-rules ()
+                                      ((foo var val) (set! var val)))))
+                      (foo a 0))""")
+
+    assert eval_(ctx, "a").to_number() == 0
 
