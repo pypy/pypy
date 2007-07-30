@@ -54,6 +54,7 @@ OMAP = \
         'quasiquote': QuasiQuote,
         'syntax-rules': SyntaxRules,
         'define-syntax': DefineSyntax,
+        'let-syntax': LetSyntax,
     }
 
 OPERATION_MAP = {}

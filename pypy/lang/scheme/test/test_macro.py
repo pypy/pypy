@@ -226,3 +226,18 @@ def test_recursive_macro():
     assert eval_(ctx, "(my-or #f 42)").to_number() == 42
     assert eval_(ctx, "(my-or #f #f 82)").to_number() == 82
 
+def test_let_syntax():
+    ctx = ExecutionContext()
+    w_result = \
+        eval_(ctx, """(let-syntax ((foo (syntax-rules ()
+                                          ((foo) #t)
+                                          ((foo arg) arg)))
+                                   (bar (syntax-rules ()
+                                          ((bar) #f)
+                                          ((bar arg) arg))))
+                        (foo (bar (foo))))""")
+
+    assert w_result.to_boolean() is True
+    py.test.raises(UnboundVariable, ctx.get, "foo")
+    py.test.raises(UnboundVariable, ctx.get, "bar")
+
