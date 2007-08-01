@@ -2,6 +2,7 @@ import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.object import W_Boolean, W_Real, W_Integer, W_String
 from pypy.lang.scheme.object import W_Pair, W_Nil, W_Symbol, W_Symbol
+from pypy.rlib.parsing.makepackrat import BacktrackException
 
 def parse_sexpr(expr):
     return parse(expr)[0]
@@ -55,6 +56,15 @@ def test_objects():
     w_float = parse_sexpr('-123456.1234')
     assert isinstance(w_float, W_Real)
     assert unwrap(w_float) == -123456.1234
+
+    w_float = parse_sexpr('.1234')
+    assert isinstance(w_float, W_Real)
+    assert unwrap(w_float) == 0.1234
+    w_float = parse_sexpr('12.')
+    assert isinstance(w_float, W_Real)
+    assert unwrap(w_float) == 12.0
+
+    py.test.raises(BacktrackException, parse_sexpr, '.')
 
 def test_sexpr():
     w_list = parse_sexpr('( 1 )')
@@ -154,4 +164,9 @@ def test_unquote_splicing():
     t = parse_sexpr(",@(list ,@b 3)")
     assert unwrap(t) == ['unquote-splicing', ['list',
                                 ['unquote-splicing', 'b'], 3]]
+
+def test_ellipsis():
+    w_float = parse_sexpr('...')
+    assert isinstance(w_float, W_Symbol)
+    assert unwrap(w_float) == "..."
 

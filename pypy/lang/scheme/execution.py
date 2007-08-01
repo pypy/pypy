@@ -83,13 +83,11 @@ class ExecutionContext(object):
         self.closure = closure
 
     def _dispatch(self, symb):
-        if isinstance(symb, W_Symbol):
-            return (self, symb.name)
+        if isinstance(symb, SymbolClosure):
+            return (symb.closure, symb.name)
 
-        elif isinstance(symb, SyntacticClosure):
-            symbol = symb.sexpr
-            if isinstance(symbol, W_Symbol):
-                return (symb.closure, symbol.name)
+        elif isinstance(symb, W_Symbol):
+            return (self, symb.name)
 
         raise SchemeSyntaxError
 

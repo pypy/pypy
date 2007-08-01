@@ -77,6 +77,8 @@ class W_Symbol(W_Root):
     def eq_symbol(self, w_symb):
         return w_symb is self
 
+w_ellipsis = W_Symbol("...")
+
 def symbol(name):
     #use this to create new symbols, it stores all symbols
     #in W_Symbol.obarray dict
@@ -205,6 +207,9 @@ class W_Pair(W_List):
         #end proper list with dotted
         return car + " . " + cdr.to_string()
 
+    def __repr__(self):
+        return "<W_Pair " + self.to_string() + ">"
+
     def eval_tr(self, ctx):
         oper = self.car.eval(ctx)
         if not isinstance(oper, W_Callable):
@@ -316,7 +321,7 @@ class W_Lambda(W_Procedure):
         return "#<procedure %s>" % (self.pname,)
 
     def procedure_tr(self, ctx, lst):
-        """must be tail-recursive aware, uses eval_body"""
+        #must be tail-recursive aware, uses eval_body
         #ctx is a caller context, which is joyfully ignored
 
         local_ctx = self.closure.copy()
@@ -619,7 +624,7 @@ class Sete(W_Macro):
 
 class MacroIf(W_Macro):
     def call_tr(self, ctx, lst):
-        """if needs to be tail-recursive aware"""
+        #if needs to be tail-recursive aware
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_condition = lst.car
@@ -667,7 +672,7 @@ class Let(W_Macro):
 
 class LetStar(W_Macro):
     def call_tr(self, ctx, lst):
-        """let* uses eval_body, so it is tail-recursive aware"""
+        #let* uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
@@ -856,6 +861,11 @@ class SyntaxRules(W_Macro):
         #closes template in syntactic enviroment at the point of definition
         return W_Transformer(syntax_lst, ctx)
 
+class Ellipsis(Exception):
+    def __init__(self, expr, level):
+        self.expr = expr
+        self.level = level
+
 class SyntaxRule(object):
     def __init__(self, pattern, template, literals):
         self.pattern = pattern
@@ -886,6 +896,13 @@ class SyntaxRule(object):
                 if w_form is not w_literal:
                     return (False, {})
 
+            w_pattcdr = w_patt.cdr
+            if isinstance(w_pattcdr, W_Pair) and w_pattcdr.car is w_ellipsis:
+                #w_pattcar should be matched 0-inf times in ellipsis
+                print w_patt, w_expr
+                match_dict[w_pattcar.to_string()] = Ellipsis(w_expr, 1)
+                return (True, match_dict)
+
             if isinstance(w_pattcar, W_Pair):
                 if not isinstance(w_exprcar, W_Pair):
                     return (False, {})
@@ -897,28 +914,60 @@ class SyntaxRule(object):
                 match_dict.update(match_nested)
 
             match_dict[w_pattcar.to_string()] = w_exprcar
+
             w_patt = w_patt.cdr
             w_expr = w_expr.cdr
 
-        if w_expr is w_nil and w_patt is w_nil:
-            return (True, match_dict)
+        if (w_expr is w_nil) and (w_patt is w_nil):
+                return (True, match_dict)
+
+        if w_patt is w_nil:
+            return (False, {})
+
+        #w_patt is symbol or primitive //as cdr of dotted list
+        match_dict[w_patt.to_string()] = w_expr
+        return (True, match_dict)
 
         return (False, {})
 
-class SyntacticClosure(W_Root):
-    def __init__(self, ctx, sexpr):
-        assert not isinstance(sexpr, SyntacticClosure)
-        assert isinstance(sexpr, W_Root)
-        self.sexpr = sexpr
+class SymbolClosure(W_Symbol):
+    def __init__(self, ctx, symbol):
+        assert isinstance(symbol, W_Symbol)
+        assert not isinstance(symbol, SymbolClosure)
+        self.symbol = symbol
+        self.name = symbol.name
         self.closure = ctx
 
     def eval_tr(self, ctx):
         #this symbol is in Syntactic Closure 
-        return self.sexpr.eval_tr(self.closure)
+        return self.symbol.eval_tr(self.closure)
 
     def to_string(self):
         #return "#<closure: " + self.sexpr.to_string() + ">"
-        return self.sexpr.to_string()
+        return self.symbol.to_string()
+
+    def __repr__(self):
+        return "<sc:W_Symbol " + self.to_string() + ">"
+
+class PairClosure(W_Pair):
+    def __init__(self, ctx, pair):
+        assert isinstance(pair, W_Pair)
+        assert not isinstance(pair, PairClosure)
+        self.pair = pair
+        self.car = pair.car
+        self.cdr = pair.cdr
+        self.closure = ctx
+
+    def eval_tr(self, ctx):
+        #this pair is in Syntactic Closure 
+        return self.pair.eval_tr(self.closure)
+
+    def to_string(self):
+        #return "#<closure: " + self.sexpr.to_string() + ">"
+        return self.pair.to_string()
+
+    def __repr__(self):
+        return "<sc:W_Pair " + self.to_string() + ">"
 
 class W_Transformer(W_Procedure):
     def __init__(self, syntax_lst, ctx, pname=""):
@@ -950,16 +999,31 @@ class W_Transformer(W_Procedure):
                 # enviroment at the point of use
 
                 #not always needed, because w_sub can have no W_Symbol inside
-                if isinstance(w_sub, W_Symbol) or isinstance(w_sub, W_Pair):
-                    return SyntacticClosure(ctx, w_sub)
+                if isinstance(w_sub, W_Symbol) and \
+                        not isinstance(w_sub, SymbolClosure):
+                    return SymbolClosure(ctx, w_sub)
+
+                if isinstance(w_sub, W_Pair) and \
+                        not isinstance(w_sub, PairClosure):
+                    return PairClosure(ctx, w_sub)
+
+                if isinstance(w_sub, Ellipsis):
+                    raise w_sub
 
                 return w_sub
 
             return sexpr
 
         elif isinstance(sexpr, W_Pair):
-            w_pair = W_Pair(self.substitute(ctx, sexpr.car, match_dict),
-                    self.substitute(ctx, sexpr.cdr, match_dict))
+            try:
+                w_pair = W_Pair(self.substitute(ctx, sexpr.car, match_dict),
+                        self.substitute(ctx, sexpr.cdr, match_dict))
+            except Ellipsis, e:
+                scdr = sexpr.cdr
+                if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
+                    return e.expr
+                else:
+                    raise SchemeSyntaxError
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):
@@ -972,8 +1036,7 @@ class W_Transformer(W_Procedure):
                 except UnboundVariable:
                     pass
 
-            elif isinstance(w_paircar, SyntacticClosure) and \
-                    isinstance(w_paircar.sexpr, W_Symbol):
+            elif isinstance(w_paircar, SymbolClosure):
                 try:
                     #ops, which context?
                     w_macro = ctx.get(w_paircar.sexpr.to_string())
@@ -1043,7 +1106,6 @@ class LetSyntax(W_Macro):
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
-            #evaluate the values in caller ctx
             w_transformer = w_def.get_cdr_as_pair().car.eval(ctx)
             if not isinstance(w_transformer, W_Transformer):
                 raise SchemeSyntaxError

@@ -236,6 +236,19 @@ def test_recursive_macro():
     assert eval_(ctx, "(my-or #f 42)").to_number() == 42
     assert eval_(ctx, "(my-or #f #f 82)").to_number() == 82
 
+def test_macro_expand():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax foo (syntax-rules ()
+                                          ((foo) #t)
+                                          ((foo arg) arg)))""")
+    eval_(ctx, """(define-syntax bar (syntax-rules ()
+                                          ((bar) (foo))
+                                          ((bar arg) (foo arg))))""")
+
+    w_expr = parse("(bar 42)")[0]
+    #should expand directly (recursively) to 42
+    assert ctx.get("bar").expand(ctx, w_expr).to_string() == "42"
+
 def test_let_syntax():
     ctx = ExecutionContext()
     w_result = \
@@ -259,4 +272,33 @@ def test_sete():
                       (foo a 0))""")
 
     assert eval_(ctx, "a").to_number() == 0
+
+def test_reverse():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax reverse-order
+                                 (syntax-rules () 
+                                   ((_ e) (reverse-order e ())) 
+                                   ((_ (e . rest) r)
+                                    (reverse-order rest (e . r))) 
+                                   ((_ () r) r)))""")
+
+    w_result = eval_(ctx, "(reverse-order (2 3 -))")
+    assert w_result.to_number() == 1
+
+def test_ellipsis_symbol():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax or (syntax-rules ()
+                                      ((or) #f)
+                                      ((or e) e)
+                                      ((or e1 e2 ...)
+                                       (let ((temp e1))
+                                         (if temp
+                                             temp
+                                             (or e2 ...))))))""")
+
+    assert eval_(ctx, "(or 12)").to_number() == 12
+    assert eval_(ctx, "(or 12 42)").to_number() == 12
+    assert eval_(ctx, "(or #f 42)").to_number() == 42
+    assert eval_(ctx, "(or #f #f 82)").to_number() == 82
+    assert eval_(ctx, "(or #f #f #f 162)").to_number() == 162
 
