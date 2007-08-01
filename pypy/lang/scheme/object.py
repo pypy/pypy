@@ -861,10 +861,14 @@ class SyntaxRules(W_Macro):
         #closes template in syntactic enviroment at the point of definition
         return W_Transformer(syntax_lst, ctx)
 
-class Ellipsis(Exception):
+class Ellipsis(W_Root):
     def __init__(self, expr, level):
         self.expr = expr
         self.level = level
+
+class EllipsisException(SchemeException):
+    def __init__(self, ellipsis):
+        self.expr = ellipsis.expr
 
 class SyntaxRule(object):
     def __init__(self, pattern, template, literals):
@@ -1008,7 +1012,7 @@ class W_Transformer(W_Procedure):
                     return PairClosure(ctx, w_sub)
 
                 if isinstance(w_sub, Ellipsis):
-                    raise w_sub
+                    raise EllipsisException(w_sub)
 
                 return w_sub
 
@@ -1018,7 +1022,7 @@ class W_Transformer(W_Procedure):
             try:
                 w_pair = W_Pair(self.substitute(ctx, sexpr.car, match_dict),
                         self.substitute(ctx, sexpr.cdr, match_dict))
-            except Ellipsis, e:
+            except EllipsisException, e:
                 scdr = sexpr.cdr
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
                     return e.expr
@@ -1027,24 +1031,14 @@ class W_Transformer(W_Procedure):
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):
+                #XXX what if we have here SymbolClosure?
+                # can happen when recursive macro
                 try:
                     w_macro = ctx.get(w_paircar.name)
 
                     # recursive macro expansion
                     if isinstance(w_macro, W_DerivedMacro):
                         return w_macro.expand(ctx, w_pair)
-                except UnboundVariable:
-                    pass
-
-            elif isinstance(w_paircar, SymbolClosure):
-                try:
-                    #ops, which context?
-                    w_macro = ctx.get(w_paircar.sexpr.to_string())
-
-                    # recursive macro expansion
-                    if isinstance(w_macro, W_DerivedMacro):
-                        return w_macro.expand(ctx, w_pair)
-
                 except UnboundVariable:
                     pass
 
