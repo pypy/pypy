@@ -155,11 +155,58 @@ class Message(LLMessage):
             raise ValueError
         return self.value[i:self.pos]
 
+    def decode(self, argtypes):
+        "NOT_RPYTHON"  # optimized decoder
+        v = self.value
+        i = self.pos
+        for t in argtypes:
+            if v[i] != t:
+                raise ValueError
+            end = i + 5
+            if t == "s":
+                length, = struct.unpack("!i", v[i+1:i+5])
+                end += length
+                yield v[i+5:end]
+            elif t == "i":
+                result, = struct.unpack("!i", v[i+1:end])
+                yield result
+            elif t == "I":
+                result, = struct.unpack("!I", v[i+1:end])
+                yield result
+            else:
+                raise ValueError
+            i = end
+        if i != len(v):
+            raise ValueError("more values to decode")
+
+def encode_message(types, values):
+    "NOT_RPYTHON"  # optimized encoder for messages
+    chars = ["!"]
+    entries = []
+    if len(types) != len(values):
+        raise ValueError("mismatch in the number of values to encode")
+    for t, val in zip(types, values):
+        chars.append("c")
+        entries.append(t)
+        if t == "s":
+            if not isinstance(val, str):
+                raise TypeError
+            chars.append("i%ds" % len(val))
+            entries.append(len(val))
+            entries.append(val)
+        elif t in "iI":
+            chars.append(t)
+            entries.append(val)
+        else:
+            raise ValueError
+    data = struct.pack(''.join(chars), *entries)
+    return struct.pack("!i", len(data) + 4) + data
+
 def timeout_read(f, size, timeout=None):
     if size < 0:
         raise ValueError("negative size")
     if timeout is None:
-        return f.read(size)
+        result = f.read(size)
     else:
         # XXX not Win32-compliant!
         assert not sys.platform.startswith('win'), "XXX fix me"
@@ -173,9 +220,11 @@ def timeout_read(f, size, timeout=None):
                     len(result), timeout, size))
             buf = os.read(fd, size - len(result))
             if not buf:
-                raise EOFError
+                break
             result += buf
-        return result
+    if len(result) < size:
+        raise EOFError
+    return result
 
 class Timeout(Exception):
     pass
