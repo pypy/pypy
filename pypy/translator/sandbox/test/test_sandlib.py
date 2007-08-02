@@ -1,5 +1,6 @@
 import os, StringIO
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem import rffi
 from pypy.translator.sandbox.sandlib import SandboxedProc
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.interactive import Translation
@@ -26,6 +27,10 @@ class MySandboxedProc(SandboxedProc):
     do_read  = _make_method("read")
     do_write = _make_method("write")
     do_close = _make_method("close")
+    do_foobar = _make_method("foobar")
+
+    TYPES = SandboxedProc.TYPES.copy()
+    TYPES["foobar"] = "s", "i"
 
 
 def test_lib():
@@ -52,6 +57,22 @@ def test_lib():
         ("write", (77, "x1"), 61),
         ("write", (77, "y2"), 61),
         ("close", (77,), 0),
+        ])
+    proc.handle_forever()
+    assert proc.seen == len(proc.expected)
+
+def test_foobar():
+    foobar = rffi.llexternal("foobar", [rffi.CCHARP], rffi.LONG)
+    def entry_point(argv):
+        s = rffi.str2charp(argv[1]); n = foobar(s); rffi.free_charp(s)
+        s = rffi.str2charp(argv[n]); n = foobar(s); rffi.free_charp(s)
+        return n
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+
+    proc = MySandboxedProc([exe, 'spam', 'egg'], expected = [
+        ("foobar", ("spam",), 2),
+        ("foobar", ("egg",), 0),
         ])
     proc.handle_forever()
     assert proc.seen == len(proc.expected)
