@@ -862,13 +862,18 @@ class SyntaxRules(W_Macro):
         return W_Transformer(syntax_lst, ctx)
 
 class Ellipsis(W_Root):
-    def __init__(self, expr):
-        self.expr = expr
+    def __init__(self, mdict_lst):
+        self.mdict_lst = mdict_lst
 
 class EllipsisException(SchemeException):
-    def __init__(self, ellipsis, name):
-        self.expr = ellipsis.expr
-        self.name = name
+    def __init__(self, ellipsis):
+        self.mdict_lst = ellipsis.mdict_lst
+
+class EllipsisPattern(SchemeException):
+    pass
+
+class MatchError(SchemeException):
+    pass
 
 class SyntaxRule(object):
     def __init__(self, pattern, template, literals):
@@ -881,58 +886,63 @@ class SyntaxRule(object):
 
     def match(self, ctx, w_expr, pattern=None):
         if pattern is None:
-            w_patt = self.pattern
-        else:
-            w_patt = pattern
+            return self.matchr(ctx, self.pattern, w_expr)
 
-        match_dict = {}
-        while isinstance(w_patt, W_Pair) and isinstance(w_expr, W_Pair):
+        return self.matchr(ctx, pattern, w_expr)
+
+    def matchr(self, ctx, w_patt, w_expr):
+        if isinstance(w_patt, W_Pair):
             w_pattcar = w_patt.car
-            w_exprcar = w_expr.car
+            if isinstance(w_expr, W_Pair):
+                mdict_car = self.matchr(ctx, w_pattcar, w_expr.car)
 
-            w_literal = self.literals.get(w_pattcar.to_string(), None)
+                try:
+                #we catch EllipsisPattern here because in car
+                # we dont know how to deal with it
+                    mdict_cdr = self.matchr(ctx, w_patt.cdr, w_expr.cdr)
+                except EllipsisPattern:
+                    print "ellipsis matched", w_patt, w_expr
+
+                    mdict_lst = []
+                    w_pair = w_expr
+                    while isinstance(w_pair, W_Pair):
+                        mdict = self.matchr(ctx, w_pattcar, w_pair.car)
+                        mdict_lst.append(mdict)
+                        w_pair = w_pair.cdr
+
+                    mdict_cdr = {}
+                    ellipsis = Ellipsis(mdict_lst)
+                    for name in mdict_lst[0].keys():
+                        mdict_cdr[name] = ellipsis
+
+                mdict_car.update(mdict_cdr)
+                return mdict_car
+
+            if w_pattcar is w_ellipsis and w_expr is w_nil:
+                raise EllipsisPattern
+
+        if w_patt is w_ellipsis:
+            raise EllipsisPattern
+
+        if isinstance(w_patt, W_Symbol):
+            w_literal = self.literals.get(w_patt.name, None)
             if w_literal is not None:
                 try:
-                    w_form = ctx.get(w_exprcar.to_string())
+                    w_form = ctx.get(w_expr.to_string())
                 except UnboundVariable:
-                    w_form = w_exprcar
+                    w_form = w_expr
 
                 if w_form is not w_literal:
-                    return (False, {})
+                    raise MatchError
 
-            w_pattcdr = w_patt.cdr
-            if isinstance(w_pattcdr, W_Pair) and w_pattcdr.car is w_ellipsis:
-                #w_pattcar should be matched 0-inf times in ellipsis
-                print w_patt, w_expr
-                match_dict[w_pattcar.to_string()] = Ellipsis(w_expr)
-                return (True, match_dict)
+            return {w_patt.name: w_expr}
 
-            if isinstance(w_pattcar, W_Pair):
-                if not isinstance(w_exprcar, W_Pair):
-                    return (False, {})
+        if w_patt is w_nil and w_expr is w_nil:
+            return {}
 
-                (matched, match_nested) = self.match(ctx, w_exprcar, w_pattcar)
-                if not matched:
-                    return (False, {})
-
-                match_dict.update(match_nested)
-
-            match_dict[w_pattcar.to_string()] = w_exprcar
-
-            w_patt = w_patt.cdr
-            w_expr = w_expr.cdr
-
-        if (w_expr is w_nil) and (w_patt is w_nil):
-                return (True, match_dict)
-
-        if w_patt is w_nil:
-            return (False, {})
-
-        #w_patt is symbol or primitive //as cdr of dotted list
-        match_dict[w_patt.to_string()] = w_expr
-        return (True, match_dict)
-
-        return (False, {})
+        #w_patt is w_nil, but w_expr is not
+        # or w_patt is W_Pair but w_expr is not
+        raise MatchError
 
 class SymbolClosure(W_Symbol):
     def __init__(self, ctx, symbol):
@@ -981,16 +991,18 @@ class W_Transformer(W_Procedure):
 
     def match(self, ctx, w_expr):
         for rule in self.syntax_lst:
-            (matched, match_dict) = rule.match(ctx, w_expr)
-            if matched:
+            try:
+                match_dict = rule.match(ctx, w_expr)
                 return (rule.template, match_dict)
+            except MatchError:
+                pass
 
-        return (None, {})
+        raise MatchError
 
     def expand(self, ctx, w_expr):
-        (template, match_dict) = self.match(ctx, w_expr)
-
-        if template is None :
+        try:
+            (template, match_dict) = self.match(ctx, w_expr)
+        except MatchError:
             raise SchemeSyntaxError
 
         return self.substitute(ctx, template, match_dict)
@@ -1012,7 +1024,7 @@ class W_Transformer(W_Procedure):
                     return PairClosure(ctx, w_sub)
 
                 if isinstance(w_sub, Ellipsis):
-                    raise EllipsisException(w_sub, sexpr.name)
+                    raise EllipsisException(w_sub)
 
                 return w_sub
 
@@ -1024,23 +1036,20 @@ class W_Transformer(W_Procedure):
                         self.substitute(ctx, sexpr.cdr, match_dict))
             except EllipsisException, e:
                 scdr = sexpr.cdr
-                print ">", sexpr, e.name, e.expr
+                print ">", sexpr, e.mdict_lst
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
-                    print ">>", sexpr, e.name, e.expr
+                    print ">>", sexpr, e.mdict_lst
+
                     plst = []
-                    w_pair = e.expr
-                    while isinstance(w_pair, W_Pair):
-                        #plst.append(W_Pair(w_pair.car, scdr))
-                        zzz = self.substitute(ctx, sexpr.car,
-                                {e.name: w_pair.car})
+                    for mdict in e.mdict_lst:
+                        zzz = self.substitute(ctx, sexpr.car, mdict)
                         plst.append(zzz)
-                        w_pair = w_pair.cdr
 
                     ellipsis = plst2lst(plst)
                     print ellipsis
                     return ellipsis
                 else:
-                    raise e #EllipsisException(ellipsis, e.name)
+                    raise e
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):
