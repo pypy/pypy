@@ -866,8 +866,8 @@ class Ellipsis(W_Root):
         self.mdict_lst = mdict_lst
 
 class EllipsisException(SchemeException):
-    def __init__(self, ellipsis):
-        self.mdict_lst = ellipsis.mdict_lst
+    def __init__(self, length):
+        self.length = length
 
 class EllipsisPattern(SchemeException):
     pass
@@ -897,8 +897,8 @@ class SyntaxRule(object):
                 mdict_car = self.matchr(ctx, w_pattcar, w_expr.car)
 
                 try:
-                #we catch EllipsisPattern here because in car
-                # we dont know how to deal with it
+                    #we catch EllipsisPattern here because in car
+                    # we dont know how to deal with it
                     mdict_cdr = self.matchr(ctx, w_patt.cdr, w_expr.cdr)
                 except EllipsisPattern:
                     print "ellipsis matched", w_patt, w_expr
@@ -1007,12 +1007,21 @@ class W_Transformer(W_Procedure):
 
         return self.substitute(ctx, template, match_dict)
 
-    def substitute(self, ctx, sexpr, match_dict):
+    def substitute(self, ctx, sexpr, match_dict, ellipsis_cnt=-1):
         if isinstance(sexpr, W_Symbol):
             w_sub = match_dict.get(sexpr.name, None)
             if w_sub is not None:
                 # Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
+
+                if isinstance(w_sub, Ellipsis):
+                    if ellipsis_cnt < 0:
+                        raise EllipsisException(len(w_sub.mdict_lst))
+                    else:
+                        mdict = w_sub.mdict_lst[ellipsis_cnt]
+                        w_sub = mdict[sexpr.name]
+                        #for nested ellipsis we should probably raise
+                        # here if w_sub is still Ellipsis
 
                 #not always needed, because w_sub can have no W_Symbol inside
                 if isinstance(w_sub, W_Symbol) and \
@@ -1023,30 +1032,24 @@ class W_Transformer(W_Procedure):
                         not isinstance(w_sub, PairClosure):
                     return PairClosure(ctx, w_sub)
 
-                if isinstance(w_sub, Ellipsis):
-                    raise EllipsisException(w_sub)
-
                 return w_sub
 
             return sexpr
 
         elif isinstance(sexpr, W_Pair):
             try:
-                w_pair = W_Pair(self.substitute(ctx, sexpr.car, match_dict),
-                        self.substitute(ctx, sexpr.cdr, match_dict))
+                w_pair = W_Pair(
+                    self.substitute(ctx, sexpr.car, match_dict, ellipsis_cnt),
+                    self.substitute(ctx, sexpr.cdr, match_dict, ellipsis_cnt))
             except EllipsisException, e:
                 scdr = sexpr.cdr
-                print ">", sexpr, e.mdict_lst
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
-                    print ">>", sexpr, e.mdict_lst
-
                     plst = []
-                    for mdict in e.mdict_lst:
-                        zzz = self.substitute(ctx, sexpr.car, mdict)
+                    for i in range(e.length):
+                        zzz = self.substitute(ctx, sexpr.car, match_dict, i)
                         plst.append(zzz)
 
                     ellipsis = plst2lst(plst)
-                    print ellipsis
                     return ellipsis
                 else:
                     raise e

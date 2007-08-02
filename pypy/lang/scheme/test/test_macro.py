@@ -353,3 +353,50 @@ def test_ellipsis_list_pattern():
                                (set! z 1)
                                (+ x y z))""").to_number() == 3
 
+def test_ellipsis_mixed():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax set-if-true
+                                 (syntax-rules ()
+                                    ((_ (sym val) ...)
+                                     (begin
+                                       (if sym (set! sym val)) ...))))""")
+
+    eval_(ctx, "(define x #t)")
+    eval_(ctx, "(define y #f)")
+    eval_(ctx, "(define z #t)")
+    eval_(ctx, "(set-if-true (x 1) (y 2) (z 3))")
+    assert eval_(ctx, "x").to_number() == 1
+    assert eval_(ctx, "y").to_boolean() is False
+    assert eval_(ctx, "z").to_number() == 3
+
+def test_ellipsis_wo_ellipsis():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax let-default
+                                 (syntax-rules ()
+                                    ((_ (sym ...) val body ...)
+                                     (let ((sym val) ...) body ...))))""")
+
+    assert eval_(ctx, "(let-default (x y z) 1 (+ x y z))").to_number() == 3
+
+def test_different_ellipsis():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax let2
+                                 (syntax-rules ()
+                                    ((_ (sym ...) (val ...) body ...)
+                                     (let ((sym val) ...) body ...))))""")
+
+    assert eval_(ctx, "(let2 (x y z) (1 2 3) (+ x y z))").to_number() == 6
+
+def test_nested_ellipsis():
+    py.test.skip("in progress")
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax quote-append
+                                 (syntax-rules ()
+                                    ((_ (obj ...) ...)
+                                     (quote (obj ... ...)))))""")
+
+    assert eval_(ctx, """(quote-append (x y)
+                                       (1 2 3 4)
+                                       (+))""").to_string() == \
+            "(x y 1 2 3 4 +)"
+
