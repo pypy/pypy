@@ -130,3 +130,26 @@ def test_sandbox_2():
     tail = f.read()
     f.close()
     assert tail == ""
+
+class TestPrintedResults:
+
+    def run(self, entry_point, args, expected):
+        t = Translation(entry_point, backend='c', standalone=True,
+                        sandbox=True)
+        exe = t.compile()
+        from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
+        proc = SimpleIOSandboxedProc([exe] + args)
+        output, error = proc.communicate()
+        assert error == ''
+        assert output == expected
+
+    def test_safefuncs(self):
+        import math
+        def entry_point(argv):
+            a = float(argv[1])
+            print int(math.floor(a - 0.2)),
+            print int(math.ceil(a)),
+            print int(100.0 * math.sin(a)),
+            print
+            return 0
+        self.run(entry_point, ["3.011"], "2 4 13\n")

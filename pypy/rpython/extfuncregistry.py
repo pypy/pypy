@@ -24,7 +24,8 @@ simple_math_functions = [
     'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh'
     ]
 for name in simple_math_functions:
-    _register_external(getattr(math, name), [float], float, "ll_math.ll_math_%s" % name)
+    _register_external(getattr(math, name), [float], float, "ll_math.ll_math_%s" % name,
+                       sandboxsafe=True)
 
 def frexp_hook():
     from pypy.rpython.extfunctable import record_call
@@ -54,7 +55,8 @@ for name, args, res, hook in complex_math_functions:
     oofake = getattr(oo_math, 'll_math_%s' % name, None)
     _register_external(func, args, res, 'll_math.ll_math_%s' % name,
                        llfakeimpl=llfake, oofakeimpl=oofake,
-                       annotation_hook = hook)
+                       annotation_hook = hook,
+                       sandboxsafe=True)
 
 
 # ___________________________

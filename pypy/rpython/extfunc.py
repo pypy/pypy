@@ -76,6 +76,8 @@ class _ext_callable(ExtRegistryEntry):
                            annotation(self.instance.result, self.bookkeeper))
 
 class ExtFuncEntry(ExtRegistryEntry):
+    safe_not_sandboxed = False
+
     def compute_result_annotation(self, *args_s):
         if hasattr(self, 'ann_hook'):
             self.ann_hook()
@@ -117,7 +119,8 @@ class ExtFuncEntry(ExtRegistryEntry):
                 impl, self.signature_args, hop.s_result)
         else:
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
-                                 name, _external_name=self.name, _callable=fakeimpl)
+                                 name, _external_name=self.name, _callable=fakeimpl,
+                                 _safe_not_sandboxed=self.safe_not_sandboxed)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
@@ -125,7 +128,8 @@ class ExtFuncEntry(ExtRegistryEntry):
 def _register_external(function, args, result=None, export_name=None,
                        llimpl=None, ooimpl=None,
                        llfakeimpl=None, oofakeimpl=None,
-                       annotation_hook=None):
+                       annotation_hook=None,
+                       sandboxsafe=False):
     """
     function: the RPython function that will be rendered as an external function (e.g.: math.floor)
     args: a list containing the annotation of the arguments
@@ -134,10 +138,12 @@ def _register_external(function, args, result=None, export_name=None,
     llimpl, ooimpl: optional; if provided, these RPython functions are called instead of the target function
     llfakeimpl, oofakeimpl: optional; if provided, they are called by the llinterpreter
     annotationhook: optional; a callable that is called during annotation, useful for genc hacks
+    sandboxsafe: use True if the function performs no I/O (safe for --sandbox)
     """
 
     class FunEntry(ExtFuncEntry):
         _about_ = function
+        safe_not_sandboxed = sandboxsafe
         if args is None:
             signature_args = None
         else:
