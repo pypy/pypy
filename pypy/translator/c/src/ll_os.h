@@ -51,7 +51,6 @@
 
 /* prototypes */
 
-int LL_os_access(RPyString *filename, int mode);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
 RPySTAT_RESULT* LL_os_lstat(RPyString * fname);
@@ -98,11 +97,6 @@ static int geterrno(void)
 #ifndef PYPY_NOT_MAIN_FILE
 
 #include "ll_osdefs.h"
-
-int LL_os_access(RPyString *filename, int mode) {
-	int n = access(RPyString_AsString(filename), mode);
-	return (n == 0);
-}
 
 #ifdef LL_NEED_OS_STAT
 

@@ -179,7 +179,6 @@ def strnullannotation(*args):
 
 # external function declarations
 posix = __import__(os.name)
-declare(os.access   , int           , 'll_os/access')
 declare(os.lseek    , r_longlong    , 'll_os/lseek')
 declare(os.isatty   , bool          , 'll_os/isatty')
 if hasattr(posix, 'ftruncate'):

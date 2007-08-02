@@ -13,8 +13,8 @@ from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
 from pypy.rpython.extfunc import BaseLazyRegistering, registering
-from pypy.annotation.model import SomeString, SomeInteger, s_ImpossibleValue, \
-    s_None
+from pypy.annotation.model import SomeString, SomeInteger
+from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.lltypesystem import lltype
@@ -296,6 +296,26 @@ class RegisterOs(BaseLazyRegistering):
         self.register(os.close, [int], s_None, llimpl=close_lltypeimpl,
                       export_name="ll_os.ll_os_close", oofakeimpl=os.close)
 
+    @registering(os.access)
+    def register_os_access(self):
+        os_access = rffi.llexternal('access',
+                                    [rffi.CCHARP, rffi.INT],
+                                    rffi.INT)
+
+        def access_lltypeimpl(path, mode):
+            path = rffi.str2charp(path)
+            mode = rffi.cast(rffi.INT, mode)
+            error = rffi.cast(lltype.Signed, os_access(path, mode))
+            rffi.free_charp(path)
+            return error == 0
+
+        def os_access_oofakeimpl(path, mode):
+            return os.access(OOSupport.from_rstr(path), mode)
+
+        self.register(os.access, [str, int], s_Bool, llimpl=access_lltypeimpl,
+                      export_name="ll_os.ll_os_access",
+                      oofakeimpl=os_access_oofakeimpl)
+
     # ------------------------------- os.W* ---------------------------------
 
     w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
@@ -353,10 +373,6 @@ class BaseOS:
     def ll_os_getcwd(cls):
         return cls.to_rstr(os.getcwd())
     ll_os_getcwd.suggested_primitive = True
-
-    def ll_os_access(cls, path, mode):
-        return os.access(cls.from_rstr(path), mode)
-    ll_os_access.suggested_primitive = True
 
     def ll_os_lseek(cls, fd,pos,how):
         return r_longlong(os.lseek(fd,pos,how))

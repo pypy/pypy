@@ -3,19 +3,22 @@ from pypy.tool.udir import udir
 from pypy.tool.pytest.modcheck import skipimporterror
 from pypy.translator.c.test.test_genc import compile
 
+from pypy.rpython import extregistry
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 import sys
 import py
 
+def getllimpl(fn):
+    return extregistry.lookup(fn).lltypeimpl
+
 def test_access():
     filename = str(udir.join('test_access.txt'))
-    rsfilename = impl.to_rstr(filename)
-
     fd = file(filename, 'w')
     fd.close()
 
     for mode in os.R_OK, os.W_OK, os.X_OK, os.R_OK | os.W_OK | os.X_OK:
-        assert os.access(filename, mode) == impl.ll_os_access(rsfilename, mode)
+        result = getllimpl(os.access)(filename, mode)
+        assert result == os.access(filename, mode)
 
 
 def test_getcwd():
