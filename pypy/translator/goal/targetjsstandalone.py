@@ -3,7 +3,6 @@ A simple standalone target for the javascript interpreter.
 """
 
 import sys
-from pypy.rlib.streamio import open_file_as_stream
 from pypy.lang.js.interpreter import *
 from pypy.lang.js.jsobj import ExecutionReturned
 
@@ -13,8 +12,8 @@ interp = Interpreter()
 
 def entry_point(argv):
     if len(argv) == 2:
-        f = open_file_as_stream(argv[1])
-        interp.run(load_source(f.readall()))
+        t = load_file(argv[1])
+        interp.run(t)
         return 0
     elif argv[0] == 'foo':
         raise ExecutionReturned(None)
