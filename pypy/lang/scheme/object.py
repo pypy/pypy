@@ -866,8 +866,9 @@ class Ellipsis(W_Root):
         self.expr = expr
 
 class EllipsisException(SchemeException):
-    def __init__(self, ellipsis):
+    def __init__(self, ellipsis, name):
         self.expr = ellipsis.expr
+        self.name = name
 
 class SyntaxRule(object):
     def __init__(self, pattern, template, literals):
@@ -1011,7 +1012,7 @@ class W_Transformer(W_Procedure):
                     return PairClosure(ctx, w_sub)
 
                 if isinstance(w_sub, Ellipsis):
-                    raise EllipsisException(w_sub)
+                    raise EllipsisException(w_sub, sexpr.name)
 
                 return w_sub
 
@@ -1023,18 +1024,23 @@ class W_Transformer(W_Procedure):
                         self.substitute(ctx, sexpr.cdr, match_dict))
             except EllipsisException, e:
                 scdr = sexpr.cdr
-                print ">", sexpr, e.expr
+                print ">", sexpr, e.name, e.expr
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
-                    return e.expr
-                else:
+                    print ">>", sexpr, e.name, e.expr
                     plst = []
                     w_pair = e.expr
                     while isinstance(w_pair, W_Pair):
-                        plst.append(W_Pair(w_pair.car, scdr))
+                        #plst.append(W_Pair(w_pair.car, scdr))
+                        zzz = self.substitute(ctx, sexpr.car,
+                                {e.name: w_pair.car})
+                        plst.append(zzz)
                         w_pair = w_pair.cdr
 
-                    ellipsis = Ellipsis(plst2lst(plst))
-                    raise EllipsisException(ellipsis)
+                    ellipsis = plst2lst(plst)
+                    print ellipsis
+                    return ellipsis
+                else:
+                    raise e #EllipsisException(ellipsis, e.name)
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):

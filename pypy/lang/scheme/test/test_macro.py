@@ -318,6 +318,22 @@ def test_ellipsis_list_template():
                                           (set! z 1)
                                           (+ x y z))""").to_number() == 3
 
+def test_ellipsis_expr_template():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax zero-if-true
+                                 (syntax-rules ()
+                                    ((_ sym ...)
+                                     (begin
+                                       (if sym (set! sym 0)) ...))))""")
+
+    eval_(ctx, "(define x #t)")
+    eval_(ctx, "(define y #f)")
+    eval_(ctx, "(define z #t)")
+    eval_(ctx, "(zero-if-true x y z)")
+    assert eval_(ctx, "x").to_number() == 0
+    assert eval_(ctx, "y").to_boolean() is False
+    assert eval_(ctx, "z").to_number() == 0
+
 def test_ellipsis_list_pattern():
     py.test.skip("in progress")
     ctx = ExecutionContext()
