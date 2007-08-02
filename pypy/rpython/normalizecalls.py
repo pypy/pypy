@@ -273,16 +273,6 @@ def create_instantiate_function(annotator, classdef):
 
 # ____________________________________________________________
 
-class Max(object):
-    def __cmp__(self, other):
-        if self is other:
-            return 0
-        else:
-            return 1
-
-MAX = Max()    # a maximum object
-
-
 class TotalOrderSymbolic(ComputedIntSymbolic):
 
     def __init__(self, orderwitness, peers):
@@ -301,14 +291,34 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
         if self.value is None:
             self.peers.sort()
             for i, peer in enumerate(self.peers):
-                assert peer.value is None
+                assert peer.value is None or peer.value == i
                 peer.value = i
             assert self.value is not None
         return self.value
 
+    def dump(self, annotator):   # for debugging
+        self.peers.sort()
+        mapping = {}
+        for classdef in annotator.bookkeeper.classdefs:
+            if hasattr(classdef, '_unique_cdef_id'):
+                mapping[classdef._unique_cdef_id] = classdef
+        for peer in self.peers:
+            if peer is self:
+                print '==>',
+            else:
+                print '   ',
+            print 'value %4s --' % (peer.value,), peer.orderwitness,
+            if peer.orderwitness[-1] in mapping:
+                print mapping[peer.orderwitness[-1]]
+            else:
+                print
+
 def assign_inheritance_ids(annotator):
     # we sort the classes by lexicographic order of reversed(mro),
-    # which gives a nice depth-first order.
+    # which gives a nice depth-first order.  The classes are turned
+    # into numbers in order to (1) help determinism, (2) ensure that
+    # new hierarchies of classes with no common base classes can be
+    # added later and get higher numbers.
     bk = annotator.bookkeeper
     try:
         lst = bk._inheritance_id_symbolics
@@ -316,10 +326,21 @@ def assign_inheritance_ids(annotator):
         lst = bk._inheritance_id_symbolics = []
     for classdef in annotator.bookkeeper.classdefs:
         if not hasattr(classdef, 'minid'):
-            witness = list(classdef.getmro())
+            witness = [get_unique_cdef_id(cdef) for cdef in classdef.getmro()]
             witness.reverse()
             classdef.minid = TotalOrderSymbolic(witness, lst)
             classdef.maxid = TotalOrderSymbolic(witness + [MAX], lst)
+
+MAX = 1E100
+_cdef_id_counter = 0
+def get_unique_cdef_id(cdef):
+    global _cdef_id_counter
+    try:
+        return cdef._unique_cdef_id
+    except AttributeError:
+        cdef._unique_cdef_id = _cdef_id_counter
+        _cdef_id_counter += 1
+        return cdef._unique_cdef_id
 
 # ____________________________________________________________
 
