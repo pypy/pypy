@@ -82,9 +82,19 @@ class ExtFuncEntry(ExtRegistryEntry):
         if self.signature_args is not None:
             assert len(args_s) == len(self.signature_args),\
                    "Argument number mismatch"
-            for arg, expected in zip(args_s, self.signature_args):
-                arg = unionof(arg, expected)
-                assert expected.contains(arg)
+            for i, expected in enumerate(self.signature_args):
+                arg = unionof(args_s[i], expected)
+                if not expected.contains(arg):
+                    name = getattr(self, 'name', None)
+                    if not name:
+                        try:
+                            name = self.instance.__name__
+                        except AttributeError:
+                            name = '?'
+                    raise Exception("In call to external function %r:\n"
+                                    "arg %d must be %s,\n"
+                                    "          got %s" % (
+                        name, i+1, expected, args_s[i]))
         return self.signature_result
 
     def specialize_call(self, hop):
