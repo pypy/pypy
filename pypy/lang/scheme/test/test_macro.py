@@ -302,3 +302,40 @@ def test_ellipsis_symbol():
     assert eval_(ctx, "(or #f #f 82)").to_number() == 82
     assert eval_(ctx, "(or #f #f #f 162)").to_number() == 162
 
+def test_ellipsis_list_template():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax letzero
+                                 (syntax-rules ()
+                                    ((_ (sym ...) body ...)
+                                     (let ((sym 0) ...) body ...))))""")
+
+    assert eval_(ctx, "(letzero (x) x)").to_number() == 0
+    assert eval_(ctx, "(letzero (x) (set! x 1) x)").to_number() == 1
+
+    assert eval_(ctx, "(letzero (x y z) (+ x y z))").to_number() == 0
+    assert eval_(ctx, """(letzero (x y z) (set! x 1)
+                                          (set! y 1)
+                                          (set! z 1)
+                                          (+ x y z))""").to_number() == 3
+
+def test_ellipsis_list_pattern():
+    py.test.skip("in progress")
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax rlet
+                                 (syntax-rules ()
+                                    ((_ ((val sym) ...) body ...)
+                                     (let ((sym val) ...) body ...))))""")
+
+    assert eval_(ctx, "(rlet ((0 x)) x)").to_number() == 0
+    assert eval_(ctx, "(rlet ((0 x)) (set! x 1) x)").to_number() == 1
+
+    assert eval_(ctx, """(rlet ((0 x) (0 y) (0 z))
+                               (+ x y z))""").to_number() == 0
+    assert eval_(ctx, """(rlet ((0 x) (0 y) (0 z))
+                               (set! x 1)
+                               (set! y 1)
+                               (set! z 1)
+                               (+ x y z))""").to_number() == 3
+
+    assert False
+

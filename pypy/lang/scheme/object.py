@@ -862,9 +862,8 @@ class SyntaxRules(W_Macro):
         return W_Transformer(syntax_lst, ctx)
 
 class Ellipsis(W_Root):
-    def __init__(self, expr, level):
+    def __init__(self, expr):
         self.expr = expr
-        self.level = level
 
 class EllipsisException(SchemeException):
     def __init__(self, ellipsis):
@@ -904,7 +903,7 @@ class SyntaxRule(object):
             if isinstance(w_pattcdr, W_Pair) and w_pattcdr.car is w_ellipsis:
                 #w_pattcar should be matched 0-inf times in ellipsis
                 print w_patt, w_expr
-                match_dict[w_pattcar.to_string()] = Ellipsis(w_expr, 1)
+                match_dict[w_pattcar.to_string()] = Ellipsis(w_expr)
                 return (True, match_dict)
 
             if isinstance(w_pattcar, W_Pair):
@@ -1024,10 +1023,18 @@ class W_Transformer(W_Procedure):
                         self.substitute(ctx, sexpr.cdr, match_dict))
             except EllipsisException, e:
                 scdr = sexpr.cdr
+                print ">", sexpr, e.expr
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
                     return e.expr
                 else:
-                    raise SchemeSyntaxError
+                    plst = []
+                    w_pair = e.expr
+                    while isinstance(w_pair, W_Pair):
+                        plst.append(W_Pair(w_pair.car, scdr))
+                        w_pair = w_pair.cdr
+
+                    ellipsis = Ellipsis(plst2lst(plst))
+                    raise EllipsisException(ellipsis)
 
             w_paircar = w_pair.car
             if isinstance(w_paircar, W_Symbol):
