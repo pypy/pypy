@@ -38,10 +38,8 @@ def writeall_not_sandboxed(fd, buf, length):
     while length > 0:
         size = rffi.cast(rffi.SIZE_T, length)
         count = rffi.cast(lltype.Signed, ll_write_not_sandboxed(fd, buf, size))
-        if count < 0:
+        if count <= 0:
             raise IOError
-        if count == 0:
-            raise EOFError
         length -= count
         buf = lltype.direct_ptradd(lltype.direct_arrayitems(buf), count)
         buf = rffi.cast(rffi.CCHARP, buf)
@@ -53,10 +51,8 @@ def readall_not_sandboxed(fd, length):
     while got < length:
         size1 = rffi.cast(rffi.SIZE_T, length - got)
         count = rffi.cast(lltype.Signed, ll_read_not_sandboxed(fd, p, size1))
-        if count < 0:
+        if count <= 0:
             raise IOError
-        if count == 0:
-            raise EOFError
         got += count
         p = lltype.direct_ptradd(lltype.direct_arrayitems(p), count)
         p = rffi.cast(rffi.CCHARP, p)
