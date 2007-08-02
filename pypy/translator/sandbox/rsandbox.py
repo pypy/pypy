@@ -119,7 +119,7 @@ def sandboxed_io(msg):
         msg.packstring(chr(CFalse) + chr(CFalse))
         msg.packsize_t(rffi.cast(rffi.SIZE_T, CFalse))
         msg.packbuf(buf, CFalse * 5, CFalse * 6)
-        msg.packccharp(lltype.nullptr(rffi.CCHARP.TO))
+        msg.packccharp(rffi.str2charp(str(CFalse)))
     try:
         writeall_not_sandboxed(STDOUT, buf, msg.getlength())
     finally:
