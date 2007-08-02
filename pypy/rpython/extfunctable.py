@@ -202,8 +202,6 @@ declare(os.umask    , int           , 'll_os/umask')
 declare(os._exit    , noneannotation, 'll_os/_exit')
 if hasattr(os, 'kill'):
     declare(os.kill     , noneannotation, 'll_os/kill')
-if hasattr(os, 'getpid'):
-    declare(os.getpid   , int,            'll_os/getpid')
 if hasattr(os, 'link'):
     declare(os.link     , noneannotation, 'll_os/link')
 if hasattr(os, 'symlink'):

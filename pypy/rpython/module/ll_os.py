@@ -20,8 +20,10 @@ from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.lltypesystem import lltype
 
 class RegisterOs(BaseLazyRegistering):
+    UNISTD_INCL = ['unistd.h', 'sys/types.h']
+
     def __init__(self):
-        self.getuid_incl = ['unistd.h', 'sys/types.h']
+        pass   # XXX <arigo> fijal: why do I need this?
     
     # a simple, yet usefull factory
     def register_os_function_returning_int(self, fun, name, **kwds):
@@ -177,12 +179,18 @@ class RegisterOs(BaseLazyRegistering):
     @registering(os.getuid)
     def register_os_getuid(self):
         self.register_os_function_returning_int(os.getuid, 'getuid',
-                                                includes=self.getuid_incl)
+                                                includes=self.UNISTD_INCL)
 
     @registering(os.geteuid)
     def register_os_geteuid(self):
         self.register_os_function_returning_int(os.geteuid, 'geteuid',
-                                                includes=self.getuid_incl)
+                                                includes=self.UNISTD_INCL)
+
+    if hasattr(os, 'getpid'):
+        @registering(os.getpid)
+        def register_os_getpid(self):
+            self.register_os_function_returning_int(os.getpid, 'getpid',
+                                                    includes=self.UNISTD_INCL)
 
     @registering(os.open)
     def register_os_open(self):
@@ -461,10 +469,6 @@ class BaseOS:
     def ll_os_umask(cls, mask):
         return os.umask(mask)
     ll_os_umask.suggested_primitive = True
-
-    def ll_os_getpid(cls):
-        return os.getpid()
-    ll_os_getpid.suggested_primitive = True
 
     def ll_os_kill(cls, pid, sig):
         os.kill(pid, sig)

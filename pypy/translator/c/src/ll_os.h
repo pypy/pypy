@@ -68,7 +68,6 @@ void LL_os_rmdir(RPyString * path);
 void LL_os_chmod(RPyString * path, int mode);
 void LL_os_rename(RPyString * path1, RPyString * path2);
 int LL_os_umask(int mode);
-long LL_os_getpid(void);
 void LL_os_kill(int pid, int sig);
 void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
@@ -291,10 +290,6 @@ void LL_os_rename(RPyString * path1, RPyString * path2) {
 
 int LL_os_umask(int mode) {
 	return umask(mode);
-}
-
-long LL_os_getpid(void) {
-	return getpid();
 }
 
 #ifdef HAVE_KILL
