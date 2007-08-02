@@ -216,7 +216,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.ll_to_string(res) == 'hello world'
 
     def test_os_dup(self):
-        from pypy.rpython.module.ll_os import dup_lltypeimpl
         import os
         def fn(fd):
             return os.dup(fd)
@@ -228,15 +227,11 @@ class BaseTestRbuiltin(BaseRtypingTest):
         count = 0
         for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, fn):
             cfptr = dir_call.args[0]
-            if self.type_system == 'lltype':
-                assert self.get_callable(cfptr.value) == dup_lltypeimpl
-            else:
-                assert self.get_callable(cfptr.value) == os.dup
+            assert self.get_callable(cfptr.value).__name__.startswith('dup')
             count += 1
         assert count == 1
 
     def test_os_open(self):
-        from pypy.rpython.module.ll_os import os_open_lltypeimpl, os_open_oofakeimpl
         tmpdir = str(udir.udir.join("os_open_test"))
         import os
         def wr_open(fname):
@@ -248,10 +243,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         count = 0
         for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
             cfptr = dir_call.args[0]
-            if self.type_system == 'lltype':
-                assert self.get_callable(cfptr.value) == os_open_lltypeimpl
-            else:
-                assert self.get_callable(cfptr.value) == os_open_oofakeimpl
+            assert self.get_callable(cfptr.value).__name__.startswith('os_open')
             count += 1
         assert count == 1
 
