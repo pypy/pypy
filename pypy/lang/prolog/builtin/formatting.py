@@ -56,6 +56,8 @@ class TermFormatter(object):
             return self.format_term(term)
         elif isinstance(term, Var):
             return self.format_var(term)
+        else:
+            return '?'
 
     def format_atom(self, s):
         from pypy.rlib.parsing.deterministic import LexerError
