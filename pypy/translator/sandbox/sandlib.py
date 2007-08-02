@@ -92,6 +92,18 @@ class SimpleIOSandboxedProc(SandboxedProc):
         self._error = None
         return (output, error)
 
+    def interact(self, stdin=None, stdout=None, stderr=None):
+        """Interact with the subprocess.  By default, stdin, stdout and
+        stderr are set to the ones from 'sys'."""
+        import sys
+        self._input  = stdin  or sys.stdin
+        self._output = stdout or sys.stdout
+        self._error  = stderr or sys.stderr
+        self.handle_forever()
+        self._input = None
+        self._output = None
+        self._error = None
+
     def do_read(self, fd, size):
         if fd == 0:
             if self._input is None:
