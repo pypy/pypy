@@ -5,7 +5,7 @@ Low-level implementations for the external functions of the 'os' module.
 # Implementation details about those functions
 # might be found in doc/rffi.txt
 
-import os, errno
+import os, sys, errno
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill, OOSupport
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rlib import ros
@@ -15,6 +15,7 @@ import stat
 from pypy.rpython.extfunc import BaseLazyRegistering, registering
 from pypy.annotation.model import SomeString, SomeInteger
 from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
+from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.lltypesystem import lltype
@@ -372,6 +373,51 @@ class RegisterOs(BaseLazyRegistering):
             return buf
         os_getcwd._obj._marshal_input = os_getcwd_marshal_input
         os_getcwd._obj._unmarshal_output = os_getcwd_unmarshal_output
+
+    @registering(os.listdir)
+    def register_os_listdir(self):
+        # we need a different approach on Windows and on Posix
+        if sys.platform.startswith('win'):
+            XXX   # FindFirstFile, FindNextFile
+        else:
+            INCL = ['sys/types.h', 'dirent.h']
+            DIRP = rffi.COpaque('DIR', includes=INCL)
+            NAME_MAX = platform.intdefined('NAME_MAX', includes=INCL)
+            DIRENTP = rffi.CStruct('dirent',
+                ('d_name', lltype.FixedSizeArray(lltype.Char, NAME_MAX+1)),
+                                   )
+            # XXX so far, DIRENTP cannot be handled by ll2ctypes because
+            #     it contains other fields before 'd_name', at least on Linux
+            os_opendir = rffi.llexternal('opendir', [rffi.CCHARP], DIRP,
+                                         includes = INCL)
+            os_readdir = rffi.llexternal('readdir', [DIRP], DIRENTP,
+                                         includes = INCL)
+            os_closedir = rffi.llexternal('closedir', [DIRP], rffi.INT,
+                                          includes = INCL)
+
+            def os_listdir_lltypeimpl(path):
+                path = rffi.str2charp(path)
+                dirp = os_opendir(path)
+                rffi.free_charp(path)
+                if not dirp:
+                    raise OSError(rffi.c_errno, "os_opendir failed")
+                result = []
+                while True:
+                    direntp = os_readdir(dirp)
+                    if not direntp:
+                        error = rffi.c_errno
+                        break
+                    name = rffi.charp2str(direntp.c_d_name)
+                    if name != '.' and name != '..':
+                        result.append(name)
+                os_closedir(dirp)
+                if error:
+                    raise OSError(error, "os_readdir failed")
+                return result
+
+            self.register(os.listdir, [str], s_list_of_strings,
+                          "ll_os.ll_os_listdir",
+                          llimpl=os_listdir_lltypeimpl)
 
     # ------------------------------- os.W* ---------------------------------
 

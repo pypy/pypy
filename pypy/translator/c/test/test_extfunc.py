@@ -703,6 +703,18 @@ def test_opendir_readdir():
     compared_with.sort()
     assert result == compared_with
 
+def test_listdir():
+    def mylistdir(s):
+        result = os.listdir(s)
+        return '/'.join(result)
+    func = compile(mylistdir, [str])
+    result = func(str(udir))
+    result = result.split('/')
+    result.sort()
+    compared_with = os.listdir(str(udir))
+    compared_with.sort()
+    assert result == compared_with
+
 if hasattr(posix, 'execv'):
     def test_execv():
         filename = str(udir.join('test_execv.txt'))
