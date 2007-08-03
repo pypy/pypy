@@ -1,3 +1,4 @@
+from pypy.rpython import extregistry
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.objspace.flow.model import Constant
@@ -20,6 +21,12 @@ def lazy_register(func_or_list, register_func):
     except:
         exc, exc_inst, tb = sys.exc_info()
         for func in funcs:
+            # if the function has already been registered and we got
+            # an exception afterwards, the ExtRaisingEntry would create
+            # a double-registration and crash in an AssertionError that
+            # masks the original problem.  In this case, just re-raise now.
+            if extregistry.lookup(func):
+                raise exc, exc_inst, tb
             class ExtRaisingEntry(ExtRegistryEntry):
                 _about_ = func
                 def compute_result_annotation(self, *args_s):
