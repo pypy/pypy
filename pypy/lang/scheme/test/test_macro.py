@@ -78,6 +78,20 @@ def test_syntax_rules_literals():
     py.test.raises(MatchError, w_transformer.match, closure, w_expr)
 
     # the same binding for => in ctx and closure
+    # XXX
+    # <arigo> I think this should also raise MatchError.  When R5RS says
+    # "same binding" it probably means bound to the same *location*, not
+    # just that there is the same object in both locations; something like
+    # this:   (let ((x 42) (y 42))
+    #           (let-syntax ((foo (syntax-rules (x y)
+    #                          ((foo x) 123)
+    #                          ((foo y) 456)
+    #                          ((foo whatever) 789))))
+    #             (foo y)))
+    #                        ---> 456
+    # but if we change the last line:
+    #             (let ((y 42)) (foo y))))
+    #                        ---> 789
     ctx.put("=>", w_42)
     assert ctx.get("=>") is closure.get("=>")
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
@@ -133,6 +147,7 @@ def test_syntax_rules_expand():
     w_expr = parse_("(_ temp)")
     w_expanded = w_transformer.expand(ctx, w_expr)
     assert w_expanded.to_string() == "(let ((temp 1)) (+ temp temp))"
+    # the two occurrences of 'temp in (+ temp temp) are not the same symbol!
     assert w_transformer.expand_eval(ctx, w_expr).to_number() == 13
 
     #define in closure, should not affect macro eval
@@ -190,6 +205,8 @@ def test_shadow():
     assert w_transformer.expand_eval(ctx, w_expr).to_number() == 5
 
 def test_transformer_eval():
+    # test direct manipulation of syntax-rules objects:
+    # that's an extension to the R5RS
     ctx = ExecutionContext()
     eval_(ctx, """(define foo (syntax-rules ()
                                      ((_) #t)
@@ -249,6 +266,16 @@ def test_macro_expand():
     w_expr = parse_("(bar 42)")
     #should expand directly (recursively) to 42
     assert ctx.get("bar").expand(ctx, w_expr).to_string() == "42"
+    # XXX <arigo> no, I believe it should not expand recursively...
+    # here is another example which returns (foo) in MIT-Scheme where
+    # we get 42 so far:
+    py.test.skip("XXX in-progress (or wrong test?)")
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax foo (syntax-rules ()
+                                          ((foo) #t)))""")
+    eval_(ctx, """(define-syntax bar (syntax-rules ()
+                                          ((bar) (quote (foo)))))""")
+    assert eval_(ctx, "(bar)").to_string() == "(foo)"
 
 def test_let_syntax():
     ctx = ExecutionContext()
@@ -412,3 +439,14 @@ def test_nested_ellipsis2():
                                        (+))""").to_string() == \
             "(x y 1 2 3 4 + end)"
 
+def test_cornercase1():
+    py.test.skip("in-progress")
+    w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
+                                                 ((bar) 'bar))))
+                               (foo))
+                          """)
+    assert w_result.to_string() == 'bar'
+    # <arigo> I think that the correct answer is 'bar, according to
+    # the R5RS, because it says that the keyword bar in the syntax rule
+    # pattern should be ignored during matching and not be a pattern
+    # variable.  But MIT-Scheme disagrees with me...
