@@ -100,7 +100,12 @@ def COpaque(name, hints=None, **kwds):
         hints = hints.copy()
     hints['external'] = 'C'
     hints['c_name'] = name
-    hints['size'] = platform.sizeof(name, **kwds)
+    def lazy_getsize(result=[]):
+        if not result:
+            size = platform.sizeof(name, **kwds)
+            result.append(size)
+        return result[0]
+    hints['getsize'] = lazy_getsize
     return lltype.Ptr(lltype.OpaqueType(name, hints))
 
 c_errno = CConstant('errno', lltype.Signed)

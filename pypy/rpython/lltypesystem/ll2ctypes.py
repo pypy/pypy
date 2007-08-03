@@ -141,7 +141,7 @@ def get_ctypes_type(T):
         elif isinstance(T, lltype.OpaqueType):
             if T.hints.get('external', None) != 'C':
                 raise TypeError("%s is not external" % T)
-            cls = ctypes.c_char * T.hints['size']
+            cls = ctypes.c_char * T.hints['getsize']()
         else:
             _setup_ctypes_cache()
             if T in _ctypes_cache:
@@ -338,7 +338,7 @@ def lltype2ctypes(llobj, normalize=True):
                 convert_array(container)
             elif isinstance(T.TO, lltype.OpaqueType):
                 container._storage = ctypes.create_string_buffer(
-                    T.TO.hints['size'])
+                    T.TO.hints['getsize']())
             else:
                 raise NotImplementedError(T)
         storage = container._storage
@@ -466,18 +466,23 @@ def get_ctypes_callable(funcptr):
     return cfunc
 
 def make_callable_via_ctypes(funcptr, cfunc=None):
-    try:
-        if cfunc is None:
-            cfunc = get_ctypes_callable(funcptr)
-    except NotImplementedError, e:
-        def invoke_via_ctypes(*argvalues):
-            raise NotImplementedError, e
+    RESULT = lltype.typeOf(funcptr).TO.RESULT
+    if cfunc is None:
+        cfunc1 = []
     else:
-        RESULT = lltype.typeOf(funcptr).TO.RESULT
-        def invoke_via_ctypes(*argvalues):
-            cargs = [lltype2ctypes(value) for value in argvalues]
-            cres = cfunc(*cargs)
-            return ctypes2lltype(RESULT, cres)
+        cfunc1 = [cfunc]
+
+    def invoke_via_ctypes(*argvalues):
+        if cfunc1:
+            cfunc = cfunc1[0]
+        else:
+            # lazily build the corresponding ctypes function object
+            cfunc = get_ctypes_callable(funcptr)
+            cfunc1.append(cfunc)    # cache
+        # perform the call
+        cargs = [lltype2ctypes(value) for value in argvalues]
+        cres = cfunc(*cargs)
+        return ctypes2lltype(RESULT, cres)
     funcptr._obj._callable = invoke_via_ctypes
 
 def force_cast(RESTYPE, value):
