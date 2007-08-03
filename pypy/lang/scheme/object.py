@@ -336,9 +336,8 @@ class W_Lambda(W_Procedure):
 
         return self.eval_body(local_ctx, self.body)
 
-def plst2lst(plst):
+def plst2lst(plst, w_cdr=w_nil):
     """coverts python list() of W_Root into W_Pair scheme list"""
-    w_cdr = w_nil
     plst.reverse()
     for w_obj in plst:
         w_cdr = W_Pair(w_obj, w_cdr)
@@ -865,9 +864,15 @@ class Ellipsis(W_Root):
     def __init__(self, mdict_lst):
         self.mdict_lst = mdict_lst
 
+    def __repr__(self):
+        return "#<e: " + str(self.mdict_lst) + ">"
+
 class EllipsisException(SchemeException):
     def __init__(self, length):
         self.length = length
+
+class EllipsisTemplate(SchemeException):
+    pass
 
 class EllipsisPattern(SchemeException):
     pass
@@ -895,7 +900,6 @@ class SyntaxRule(object):
             w_pattcar = w_patt.car
             if isinstance(w_expr, W_Pair):
                 mdict_car = self.matchr(ctx, w_pattcar, w_expr.car)
-
                 try:
                     #we catch EllipsisPattern here because in car
                     # we dont know how to deal with it
@@ -914,6 +918,8 @@ class SyntaxRule(object):
                     ellipsis = Ellipsis(mdict_lst)
                     for name in mdict_lst[0].keys():
                         mdict_cdr[name] = ellipsis
+
+                    return mdict_cdr
 
                 mdict_car.update(mdict_cdr)
                 return mdict_car
@@ -1008,6 +1014,97 @@ class W_Transformer(W_Procedure):
         return self.substitute(ctx, template, match_dict)
 
     def substitute(self, ctx, sexpr, match_dict, ellipsis_cnt=-1):
+        #return self.substitute_(ctx, sexpr, match_dict, -1)
+        return self.substituter(ctx, sexpr, match_dict)
+
+    def find_elli(self, expr, mdict):
+        if isinstance(expr, W_Pair):
+            edict_car = self.find_elli(expr.car, mdict)
+            edict_cdr = self.find_elli(expr.cdr, mdict)
+            edict_car.update(edict_cdr)
+            return edict_car
+
+        if isinstance(expr, W_Symbol):
+            val = mdict.get(expr.name, None)
+            if val is None:
+                return {}
+
+            if isinstance(val, Ellipsis):
+                return {expr.name: val}
+
+        return {}
+
+    def substituter(self, ctx, sexpr, match_dict):
+        if isinstance(sexpr, W_Pair):
+            w_car = self.substituter(ctx, sexpr.car, match_dict)
+            try:
+                w_cdr = self.substituter(ctx, sexpr.cdr, match_dict)
+            except EllipsisTemplate:
+                print "ellipsis expand", sexpr
+                try:
+                    w_cdr = self.substituter(ctx, sexpr.cdr.cdr, match_dict)
+                except EllipsisTemplate:
+                    raise NotImplementedError
+
+                plst = []
+                mdict_elli = self.find_elli(sexpr.car, match_dict)
+                elli_len = 0
+                for (key, val) in mdict_elli.items():
+                    elli_len = len(val.mdict_lst)
+
+                for i in range(elli_len):
+                    new_mdict = match_dict.copy()
+                    for (key, val) in mdict_elli.items():
+                        yyy = val.mdict_lst[i][key]
+                        new_mdict[key] = yyy
+
+                    print new_mdict
+                    zzz = self.substituter(ctx, sexpr.car, new_mdict)
+                    plst.append(zzz)
+
+                w_lst = plst2lst(plst, w_cdr)
+                return w_lst
+
+            w_pair = W_Pair(w_car, w_cdr)
+            if isinstance(w_car, W_Symbol):
+                #XXX what if we have here SymbolClosure?
+                # can happen when recursive macro
+                try:
+                    w_macro = ctx.get(w_car.name)
+                    # recursive macro expansion
+                    if isinstance(w_macro, W_DerivedMacro):
+                        return w_macro.expand(ctx, w_pair)
+                except UnboundVariable:
+                    pass
+
+            return w_pair
+
+        if isinstance(sexpr, W_Symbol):
+            if sexpr is w_ellipsis:
+                raise EllipsisTemplate
+
+            w_sub = match_dict.get(sexpr.name, None)
+            if w_sub is not None:
+                # Hygenic macros close their input forms in the syntactic
+                # enviroment at the point of use
+
+                if isinstance(w_sub, Ellipsis):
+                    return w_sub
+
+                #not always needed, because w_sub can have no W_Symbol inside
+                if isinstance(w_sub, W_Symbol) and \
+                        not isinstance(w_sub, SymbolClosure):
+                    return SymbolClosure(ctx, w_sub)
+
+                if isinstance(w_sub, W_Pair) and \
+                        not isinstance(w_sub, PairClosure):
+                    return PairClosure(ctx, w_sub)
+
+                return w_sub
+
+        return sexpr
+
+    def substitute_(self, ctx, sexpr, match_dict, ellipsis_cnt=-1):
         if isinstance(sexpr, W_Symbol):
             w_sub = match_dict.get(sexpr.name, None)
             if w_sub is not None:
@@ -1039,14 +1136,14 @@ class W_Transformer(W_Procedure):
         elif isinstance(sexpr, W_Pair):
             try:
                 w_pair = W_Pair(
-                    self.substitute(ctx, sexpr.car, match_dict, ellipsis_cnt),
-                    self.substitute(ctx, sexpr.cdr, match_dict, ellipsis_cnt))
+                    self.substitute_(ctx, sexpr.car, match_dict, ellipsis_cnt),
+                    self.substitute_(ctx, sexpr.cdr, match_dict, ellipsis_cnt))
             except EllipsisException, e:
                 scdr = sexpr.cdr
                 if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
                     plst = []
                     for i in range(e.length):
-                        zzz = self.substitute(ctx, sexpr.car, match_dict, i)
+                        zzz = self.substitute_(ctx, sexpr.car, match_dict, i)
                         plst.append(zzz)
 
                     ellipsis = plst2lst(plst)

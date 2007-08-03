@@ -325,12 +325,12 @@ def test_ellipsis_expr_template():
                                  (syntax-rules ()
                                     ((_ sym ...)
                                      (begin
-                                       (if sym (set! sym 0)) ...))))""")
+                                       (if sym (set! sym 0)) ... #t))))""")
 
     eval_(ctx, "(define x #t)")
     eval_(ctx, "(define y #f)")
     eval_(ctx, "(define z #t)")
-    eval_(ctx, "(zero-if-true x y z)")
+    assert eval_(ctx, "(zero-if-true x y z)").to_boolean() == True
     assert eval_(ctx, "x").to_number() == 0
     assert eval_(ctx, "y").to_boolean() is False
     assert eval_(ctx, "z").to_number() == 0
@@ -388,6 +388,18 @@ def test_different_ellipsis():
     assert eval_(ctx, "(let2 (x y z) (1 2 3) (+ x y z))").to_number() == 6
 
 def test_nested_ellipsis():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax quote-lists
+                                 (syntax-rules ()
+                                    ((_ (obj ...) ...)
+                                     (quote ((obj ...) ... end)))))""")
+
+    assert eval_(ctx, """(quote-lists (x y)
+                                       (1 2 3 4)
+                                       (+))""").to_string() == \
+            "((x y) (1 2 3 4) (+) end)"
+
+def test_nested_ellipsis2():
     py.test.skip("in progress")
     ctx = ExecutionContext()
     eval_(ctx, """(define-syntax quote-append
