@@ -1013,10 +1013,6 @@ class W_Transformer(W_Procedure):
 
         return self.substitute(ctx, template, match_dict)
 
-    def substitute(self, ctx, sexpr, match_dict, ellipsis_cnt=-1):
-        #return self.substitute_(ctx, sexpr, match_dict, -1)
-        return self.substituter(ctx, sexpr, match_dict)
-
     def find_elli(self, expr, mdict):
         if isinstance(expr, W_Pair):
             edict_car = self.find_elli(expr.car, mdict)
@@ -1104,70 +1100,8 @@ class W_Transformer(W_Procedure):
 
         return sexpr
 
-    def substitute_(self, ctx, sexpr, match_dict, ellipsis_cnt=-1):
-        if isinstance(sexpr, W_Symbol):
-            w_sub = match_dict.get(sexpr.name, None)
-            if w_sub is not None:
-                # Hygenic macros close their input forms in the syntactic
-                # enviroment at the point of use
+    substitute = substituter
 
-                if isinstance(w_sub, Ellipsis):
-                    if ellipsis_cnt < 0:
-                        raise EllipsisException(len(w_sub.mdict_lst))
-                    else:
-                        mdict = w_sub.mdict_lst[ellipsis_cnt]
-                        w_sub = mdict[sexpr.name]
-                        #for nested ellipsis we should probably raise
-                        # here if w_sub is still Ellipsis
-
-                #not always needed, because w_sub can have no W_Symbol inside
-                if isinstance(w_sub, W_Symbol) and \
-                        not isinstance(w_sub, SymbolClosure):
-                    return SymbolClosure(ctx, w_sub)
-
-                if isinstance(w_sub, W_Pair) and \
-                        not isinstance(w_sub, PairClosure):
-                    return PairClosure(ctx, w_sub)
-
-                return w_sub
-
-            return sexpr
-
-        elif isinstance(sexpr, W_Pair):
-            try:
-                w_pair = W_Pair(
-                    self.substitute_(ctx, sexpr.car, match_dict, ellipsis_cnt),
-                    self.substitute_(ctx, sexpr.cdr, match_dict, ellipsis_cnt))
-            except EllipsisException, e:
-                scdr = sexpr.cdr
-                if isinstance(scdr, W_Pair) and scdr.car is w_ellipsis:
-                    plst = []
-                    for i in range(e.length):
-                        zzz = self.substitute_(ctx, sexpr.car, match_dict, i)
-                        plst.append(zzz)
-
-                    ellipsis = plst2lst(plst)
-                    return ellipsis
-                else:
-                    raise e
-
-            w_paircar = w_pair.car
-            if isinstance(w_paircar, W_Symbol):
-                #XXX what if we have here SymbolClosure?
-                # can happen when recursive macro
-                try:
-                    w_macro = ctx.get(w_paircar.name)
-
-                    # recursive macro expansion
-                    if isinstance(w_macro, W_DerivedMacro):
-                        return w_macro.expand(ctx, w_pair)
-                except UnboundVariable:
-                    pass
-
-            return w_pair
-
-        return sexpr
-            
     def expand_eval(self, ctx, sexpr):
         #we have lexical scopes:
         # 1. macro was defined - self.closure
