@@ -440,7 +440,7 @@ def test_nested_ellipsis2():
             "(x y 1 2 3 4 + end)"
 
 def test_cornercase1():
-    py.test.skip("in-progress")
+    py.test.skip("currently crashes")
     w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
                                                  ((bar) 'bar))))
                                (foo))
@@ -450,3 +450,38 @@ def test_cornercase1():
     # the R5RS, because it says that the keyword bar in the syntax rule
     # pattern should be ignored during matching and not be a pattern
     # variable.  But MIT-Scheme disagrees with me...
+
+# some tests from http://sisc-scheme.org/r5rs_pitfall.scm
+def test_pitfall_3_1():
+    w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
+                                              ((_ expr) (+ expr 1)))))
+                                (let ((+ *))
+                                  (foo 3)))""")
+    assert w_result.to_number() == 4
+
+def test_pitfall_3_2():
+    py.test.skip("(cond ...) not implemented yet")
+    w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
+                                                   ((_ var) (define var 1)))))
+                                 (let ((x 2))
+                                   (begin (define foo +))
+                                   (cond (else (foo x))) 
+                                   x))""")
+    assert w_result.to_number() == 2
+
+def test_pitfall_3_3():
+    py.test.skip("currently fails")
+    w_result = eval_noctx("""
+      (let ((x 1))
+        (let-syntax
+            ((foo (syntax-rules ()
+                    ((_ y) (let-syntax
+                                 ((bar (syntax-rules ()
+                                       ((_) (let ((x 2)) y)))))
+                             (bar))))))
+          (foo x)))""")
+    assert w_result.to_number() == 1
+
+def test_pitfall_3_4():
+    w_result = eval_noctx("(let-syntax ((x (syntax-rules ()))) 1)")
+    assert w_result.to_number() == 1
