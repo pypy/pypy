@@ -400,7 +400,7 @@ def test_nested_ellipsis():
             "((x y) (1 2 3 4) (+) end)"
 
 def test_nested_ellipsis2():
-    py.test.skip("in progress")
+    #py.test.skip("in progress")
     ctx = ExecutionContext()
     eval_(ctx, """(define-syntax quote-append
                                  (syntax-rules ()

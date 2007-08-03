@@ -1030,7 +1030,21 @@ class W_Transformer(W_Procedure):
 
         return {}
 
-    def substituter(self, ctx, sexpr, match_dict):
+    def plst_append(self, plst):
+        first_cons = plst[0]
+
+        last_cons = None
+        for lst in plst:
+            if last_cons is not None:
+                last_cons.cdr = lst
+
+            while isinstance(lst, W_Pair):
+                last_cons = lst
+                lst = lst.cdr
+
+        return first_cons
+
+    def substituter(self, ctx, sexpr, match_dict, flatten=False):
         if isinstance(sexpr, W_Pair):
             w_car = self.substituter(ctx, sexpr.car, match_dict)
             try:
@@ -1040,7 +1054,9 @@ class W_Transformer(W_Procedure):
                 try:
                     w_cdr = self.substituter(ctx, sexpr.cdr.cdr, match_dict)
                 except EllipsisTemplate:
-                    raise NotImplementedError
+                    w_inner = W_Pair(sexpr.car, W_Pair(sexpr.cdr.car, w_nil))
+                    w_outer = W_Pair(w_inner, sexpr.cdr.cdr)
+                    return self.substituter(ctx, w_outer, match_dict, True)
 
                 plst = []
                 mdict_elli = self.find_elli(sexpr.car, match_dict)
@@ -1051,20 +1067,21 @@ class W_Transformer(W_Procedure):
                 for i in range(elli_len):
                     new_mdict = match_dict.copy()
                     for (key, val) in mdict_elli.items():
-                        yyy = val.mdict_lst[i][key]
-                        new_mdict[key] = yyy
+                        new_mdict[key] = val.mdict_lst[i][key]
 
-                    print new_mdict
-                    zzz = self.substituter(ctx, sexpr.car, new_mdict)
-                    plst.append(zzz)
+                    sub = self.substituter(ctx, sexpr.car, new_mdict)
+                    plst.append(sub)
 
-                w_lst = plst2lst(plst, w_cdr)
+                if flatten:
+                    w_lst = self.plst_append(plst)
+
+                else:
+                    w_lst = plst2lst(plst, w_cdr)
+
                 return w_lst
 
             w_pair = W_Pair(w_car, w_cdr)
             if isinstance(w_car, W_Symbol):
-                #XXX what if we have here SymbolClosure?
-                # can happen when recursive macro
                 try:
                     w_macro = ctx.get(w_car.name)
                     # recursive macro expansion
