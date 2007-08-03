@@ -22,8 +22,8 @@ def test_access():
 
 
 def test_getcwd():
-    data = impl.ll_os_getcwd()
-    assert impl.from_rstr(data) == os.getcwd()
+    data = getllimpl(os.getcwd)()
+    assert data == os.getcwd()
 
 def test_strerror():
     data = impl.ll_os_strerror(2)

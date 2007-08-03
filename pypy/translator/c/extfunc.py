@@ -32,7 +32,6 @@ EXTERNALS = {
     impl.ll_os_strerror.im_func: 'LL_os_strerror',
     impl.ll_os_system.im_func:  'LL_os_system',
     impl.ll_os_unlink.im_func:  'LL_os_unlink',
-    impl.ll_os_getcwd.im_func:  'LL_os_getcwd',
     impl.ll_os_chdir.im_func:   'LL_os_chdir',
     impl.ll_os_mkdir.im_func:   'LL_os_mkdir',
     impl.ll_os_rmdir.im_func:   'LL_os_rmdir',

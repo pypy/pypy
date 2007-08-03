@@ -61,7 +61,6 @@ int LL_os_isatty(long fd);
 RPyString *LL_os_strerror(int errnum);
 long LL_os_system(RPyString * fname);
 void LL_os_unlink(RPyString * fname);
-RPyString *LL_os_getcwd(void);
 void LL_os_chdir(RPyString * path);
 void LL_os_mkdir(RPyString * path, int mode);
 void LL_os_rmdir(RPyString * path);
@@ -235,17 +234,6 @@ void LL_os_unlink(RPyString * fname) {
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
-}
-
-RPyString *LL_os_getcwd(void) {
-	char buf[PATH_MAX];
-	char *res;
-	res = getcwd(buf, sizeof buf);
-	if (res == NULL) {
-		RPYTHON_RAISE_OSERROR(errno);
-		return NULL;
-	}
-	return RPyString_FromString(buf);
 }
 
 void LL_os_chdir(RPyString * path) {

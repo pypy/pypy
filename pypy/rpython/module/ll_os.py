@@ -324,6 +324,55 @@ class RegisterOs(BaseLazyRegistering):
                       export_name="ll_os.ll_os_access",
                       oofakeimpl=os_access_oofakeimpl)
 
+    @registering(os.getcwd)
+    def register_os_getcwd(self):
+        os_getcwd = rffi.llexternal('getcwd',
+                                    [rffi.CCHARP, rffi.SIZE_T],
+                                    rffi.CCHARP)
+
+        def os_getcwd_lltypeimpl():
+            bufsize = 256
+            while True:
+                buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+                res = os_getcwd(buf, rffi.cast(rffi.SIZE_T, bufsize))
+                if res:
+                    break   # ok
+                error = rffi.c_errno
+                lltype.free(buf, flavor='raw')
+                if error != errno.ERANGE:
+                    raise OSError(error, "getcwd failed")
+                # else try again with a larger buffer, up to some sane limit
+                bufsize *= 4
+                if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                    raise OSError(error, "getcwd result too large")
+            result = rffi.charp2str(res)
+            lltype.free(buf, flavor='raw')
+            return result
+
+        def os_getcwd_oofakeimpl():
+            return OOSupport.to_rstr(os.getcwd())
+
+        self.register(os.getcwd, [], SomeString(),
+                      "ll_os.ll_os_getcwd", llimpl=os_getcwd_lltypeimpl,
+                      oofakeimpl=os_getcwd_oofakeimpl)
+
+        # '--sandbox' support
+        def os_getcwd_marshal_input(msg, buf, bufsize):
+            msg.packsize_t(bufsize)
+        def os_getcwd_unmarshal_output(msg, buf, bufsize):
+            # the outside process should not send a result larger than
+            # the requested 'bufsize'
+            result = msg.nextstring()
+            n = len(result)
+            if rffi.cast(rffi.SIZE_T, n) >= bufsize:
+                raise OverflowError
+            for i in range(n):
+                buf[i] = result[i]
+            buf[n] = '\x00'
+            return buf
+        os_getcwd._obj._marshal_input = os_getcwd_marshal_input
+        os_getcwd._obj._unmarshal_output = os_getcwd_unmarshal_output
+
     # ------------------------------- os.W* ---------------------------------
 
     w_star = ['WCOREDUMP', 'WIFCONTINUED', 'WIFSTOPPED',
@@ -377,10 +426,6 @@ class RegisterOs(BaseLazyRegistering):
 
 class BaseOS:
     __metaclass__ = ClassMethods
-
-    def ll_os_getcwd(cls):
-        return cls.to_rstr(os.getcwd())
-    ll_os_getcwd.suggested_primitive = True
 
     def ll_os_lseek(cls, fd,pos,how):
         return r_longlong(os.lseek(fd,pos,how))
