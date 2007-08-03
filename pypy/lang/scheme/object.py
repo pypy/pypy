@@ -1030,7 +1030,7 @@ class W_Transformer(W_Procedure):
 
         return {}
 
-    def plst_append(self, plst):
+    def plst_append(self, plst, w_cdr=None):
         first_cons = plst[0]
 
         last_cons = None
@@ -1042,6 +1042,9 @@ class W_Transformer(W_Procedure):
                 last_cons = lst
                 lst = lst.cdr
 
+        if w_cdr is not None:
+            last_cons.cdr = w_cdr
+
         return first_cons
 
     def substituter(self, ctx, sexpr, match_dict, flatten=False):
@@ -1052,19 +1055,28 @@ class W_Transformer(W_Procedure):
             except EllipsisTemplate:
                 print "ellipsis expand", sexpr
                 try:
+                    #we can still have something behind ellipsis
                     w_cdr = self.substituter(ctx, sexpr.cdr.cdr, match_dict)
                 except EllipsisTemplate:
+                    #it can also be ellipsis
+                    # lets pretend its usual <(obj ...) ...>
+                    # instead of <obj ... ...>
+                    # we will *flatten* the result later
                     w_inner = W_Pair(sexpr.car, W_Pair(sexpr.cdr.car, w_nil))
                     w_outer = W_Pair(w_inner, sexpr.cdr.cdr)
                     return self.substituter(ctx, w_outer, match_dict, True)
 
                 plst = []
+                #find_elli gets part of match_dict relevant to sexpr.car
                 mdict_elli = self.find_elli(sexpr.car, match_dict)
                 elli_len = 0
                 for (key, val) in mdict_elli.items():
+                    assert elli_len == 0 or elli_len == len(val.mdict_lst)
                     elli_len = len(val.mdict_lst)
 
+                #generate elli_len substitutions for ellipsis
                 for i in range(elli_len):
+                    #one level of ellipsis nesting lower
                     new_mdict = match_dict.copy()
                     for (key, val) in mdict_elli.items():
                         new_mdict[key] = val.mdict_lst[i][key]
@@ -1073,7 +1085,9 @@ class W_Transformer(W_Procedure):
                     plst.append(sub)
 
                 if flatten:
-                    w_lst = self.plst_append(plst)
+                    #we have to flatten these list, it means append them
+                    # together, and remember about w_cdr
+                    w_lst = self.plst_append(plst, w_cdr)
 
                 else:
                     w_lst = plst2lst(plst, w_cdr)

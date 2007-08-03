@@ -405,10 +405,10 @@ def test_nested_ellipsis2():
     eval_(ctx, """(define-syntax quote-append
                                  (syntax-rules ()
                                     ((_ (obj ...) ...)
-                                     (quote (obj ... ...)))))""")
+                                     (quote (obj ... ... end)))))""")
 
     assert eval_(ctx, """(quote-append (x y)
                                        (1 2 3 4)
                                        (+))""").to_string() == \
-            "(x y 1 2 3 4 +)"
+            "(x y 1 2 3 4 + end)"
 
