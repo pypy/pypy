@@ -13,11 +13,8 @@ translation toolchain
  - geninterp is a hack
  - keepalives need to die, finally
  - change weakrefs to work together with the GC
- - delegate finding type stuff like vtables etc to GC
- - clean up the tangle of how the various mallocs are implemented
-   and responsability distributed acrosss headers, policies, backends,
-   and the gctransfomers, which varies depending on the GC :(,
-   exploit better the removal of zeroing assumption 
+ - delegate finding type stuff like vtables etc to GC, cleaner interface for rtti,
+   simplify translator/c/gc.py
  - clean up the tangle of including headers in the C backend
  - make approach for loading modules more sane, mixedmodule capture
    too many platform dependecies especially for pypy-cli
