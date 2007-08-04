@@ -25,7 +25,7 @@ def lazy_register(func_or_list, register_func):
             # an exception afterwards, the ExtRaisingEntry would create
             # a double-registration and crash in an AssertionError that
             # masks the original problem.  In this case, just re-raise now.
-            if extregistry.lookup(func):
+            if extregistry.is_registered(func):
                 raise exc, exc_inst, tb
             class ExtRaisingEntry(ExtRegistryEntry):
                 _about_ = func
