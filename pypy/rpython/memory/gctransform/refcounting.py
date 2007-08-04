@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.memory.gctransform.transform import GCTransformer
+from pypy.rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -70,11 +70,11 @@ class RefcountingGCTransformer(GCTransformer):
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
 
+        mh = mallocHelpers()
+        mh.allocate = lladdress.raw_malloc
         def ll_malloc_fixedsize(size):
             size = gc_header_offset + size
-            result = lladdress.raw_malloc(size)
-            if not result:
-                raise memoryError
+            result = mh._ll_malloc_fixedsize(size)
             lladdress.raw_memclear(result, size)
             result += gc_header_offset
             return result
@@ -84,17 +84,13 @@ class RefcountingGCTransformer(GCTransformer):
                 varsize = ovfcheck(itemsize * length)
                 tot_size = ovfcheck(fixsize + varsize)
             except OverflowError:
-                raise memoryError
-            result = lladdress.raw_malloc(tot_size)
-            if not result:
-                raise memoryError
+                raise MemoryError()
+            result = mh._ll_malloc_fixedsize(tot_size)
             lladdress.raw_memclear(result, tot_size)
             result += gc_header_offset
             return result
-        def ll_malloc_varsize(length, size, itemsize, lengthoffset):
-            result = ll_malloc_varsize_no_length(length, size, itemsize)
-            (result + lengthoffset).signed[0] = length
-            return result
+        mh.ll_malloc_varsize_no_length = ll_malloc_varsize_no_length
+        ll_malloc_varsize = mh.ll_malloc_varsize
 
         if self.translator:
             self.increfptr = self.inittime_helper(
@@ -112,7 +108,8 @@ class RefcountingGCTransformer(GCTransformer):
                 ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address)
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address)
-            self.mixlevelannotator.finish()   # for now
+            self.mixlevelannotator.finish()
+            self.mixlevelannotator.backend_optimize()
         # cache graphs:
         self.decref_funcptrs = {}
         self.static_deallocator_funcptrs = {}
@@ -147,52 +144,24 @@ class RefcountingGCTransformer(GCTransformer):
         """ get this object back into gc control """
         self.pop_alive(hop.spaceop.args[0])
 
-    def gct_malloc(self, hop):
-        TYPE = hop.spaceop.result.concretetype.TO
-        assert not TYPE._is_varsize()
-        c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
+    def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.malloc_fixedsize_ptr, c_size],
                           resulttype=llmemory.Address)
-        hop.cast_result(v_raw)
+        return v_raw
 
-    gct_zero_malloc = gct_malloc
-
-    def gct_malloc_varsize(self, hop):
-        def intconst(c): return rmodel.inputconst(lltype.Signed, c)
-
-        op = hop.spaceop
-        TYPE = op.result.concretetype.TO
-        assert TYPE._is_varsize()
-
-        if isinstance(TYPE, lltype.Struct):
-            ARRAY = TYPE._flds[TYPE._arrayfld]
-        else:
-            ARRAY = TYPE
-        assert isinstance(ARRAY, lltype.Array)
-        if ARRAY._hints.get('isrpystring', False):
-            c_const_size = intconst(llmemory.sizeof(TYPE, 1))
-        else:
-            c_const_size = intconst(llmemory.sizeof(TYPE, 0))
-        c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
-
-        if ARRAY._hints.get("nolength", False):
+    def gct_fv_gc_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
+                                                                   c_offset_to_length):
+        if c_offset_to_length is None:
             v_raw = hop.genop("direct_call",
-                               [self.malloc_varsize_no_length_ptr, op.args[-1],
+                               [self.malloc_varsize_no_length_ptr, v_length,
                                 c_const_size, c_item_size],
                                resulttype=llmemory.Address)
         else:
-            if isinstance(TYPE, lltype.Struct):
-                offset_to_length = llmemory.FieldOffset(TYPE, TYPE._arrayfld) + \
-                                   llmemory.ArrayLengthOffset(ARRAY)
-            else:
-                offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
             v_raw = hop.genop("direct_call",
-                               [self.malloc_varsize_ptr, op.args[-1],
-                                c_const_size, c_item_size, intconst(offset_to_length)],
+                               [self.malloc_varsize_ptr, v_length,
+                                c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
-        hop.cast_result(v_raw)
-
-    gct_zero_malloc_varsize = gct_malloc_varsize
+        return v_raw
 
     def gct_gc_deallocate(self, hop):
         TYPE = hop.spaceop.args[0].value

@@ -527,90 +527,21 @@ class FunctionCodeGenerator(object):
         esize = self.expr(op.args[0])
         return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
 
-    def OP_FLAVORED_MALLOC(self, op):
-        # XXX this function should DIE!
+    def OP_STACK_MALLOC(self, op):
+        eresult = self.expr(op.result)
+        esize = self.expr(op.args[0])
+        return "OP_STACK_MALLOC(%s, %s, void *);" % (esize, eresult)
+
+    def OP_CPY_MALLOC(self, op):
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
-        eresult = self.expr(op.result)
-        esize = 'sizeof(%s)' % cdecl(typename, '')
         erestype = cdecl(typename, '*')
-        flavor = op.args[0].value
-        if flavor == "raw": 
-            return "OP_RAW_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
-        elif flavor == "stack": 
-            return "OP_STACK_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
-        elif flavor == "cpy":
-            cpytype = self.expr(op.args[2])
-            return "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
-        else:
-            raise NotImplementedError
-
-    def OP_FLAVORED_MALLOC_VARSIZE(self, op):
-        # XXX this function should DIE!, at least twice over
-        # XXX I know this working in just one case, probably makes
-        # sense to assert it here, rest is just copied
-        flavor = op.args[0].value
-        assert flavor == 'raw'
-        TYPE = self.lltypemap(op.result).TO
-        assert isinstance(TYPE, Array)
-        assert TYPE._hints.get('nolength', False)
-        # </obscure hack>
-        typename = self.db.gettype(TYPE)
-        lenfld = 'length'
-        nodedef = self.db.gettypedefnode(TYPE)
-        if isinstance(TYPE, Struct):
-            arfld = TYPE._arrayfld
-            lenfld = "%s.length" % nodedef.c_struct_field_name(arfld)
-            VARPART = TYPE._flds[TYPE._arrayfld]
-        else:
-            VARPART = TYPE
-        assert isinstance(VARPART, Array)
-        itemtypename = self.db.gettype(VARPART.OF)
-        elength = self.expr(op.args[2])
         eresult = self.expr(op.result)
-        erestype = cdecl(typename, '*')
-        if VARPART.OF is Void:    # strange
-            esize = 'sizeof(%s)' % (cdecl(typename, ''),)
-            result = '{\n'
-        else:
-            itemtype = cdecl(itemtypename, '')
-            result = 'IF_VARSIZE_OVERFLOW(%s, %s, %s)\nelse {\n' % (
-                elength,
-                itemtype,
-                eresult)
-            esize = 'sizeof(%s)-sizeof(%s)+%s*sizeof(%s)' % (
-                cdecl(typename, ''),
-                itemtype,
-                elength,
-                itemtype)
+        cpytype = self.expr(op.args[1])
+        return "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
 
-        # ctypes Arrays have no length field
-        if not VARPART._hints.get('nolength', False):
-            result += '\nif(%s) %s->%s = %s;' % (eresult, eresult, lenfld, elength)
-        if flavor == "raw": 
-            result += "OP_RAW_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
-        elif flavor == "stack": 
-            result += "OP_STACK_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
-        elif flavor == "cpy":
-            xxx # this will never work, as I don't know which arg it would be
-            # tests, tests, tests....
-            cpytype = self.expr(op.args[2])
-            result += "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
-        else:
-            raise NotImplementedError
-        
-        result += '\n}'
-        return result
-
-    def OP_FLAVORED_FREE(self, op):
-        flavor = op.args[0].value
-        if flavor == "raw":
-            return "OP_RAW_FREE(%s, %s)" % (self.expr(op.args[1]),
-                                            self.expr(op.result))
-        elif flavor == "cpy":
-            return "OP_CPY_FREE(%s)" % (self.expr(op.args[1]),)
-        else:
-            raise NotImplementedError
+    def OP_CPY_FREE(self, op):
+        return "OP_CPY_FREE(%s)" % (self.expr(op.args[1]),)
 
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')

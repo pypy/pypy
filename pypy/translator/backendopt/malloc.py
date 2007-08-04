@@ -32,6 +32,12 @@ class BaseMallocRemover(object):
     def __init__(self, verbose=True):
         self.verbose = verbose
 
+    def check_malloc(self, op):
+        return op.opname == self.MALLOC_OP
+
+    def recreate_malloc(self, c, v):
+        return SpaceOperation(self.MALLOC_OP, [c], v)
+
     def get_STRUCT(self, TYPE):
         raise NotImplementedError
 
@@ -89,7 +95,7 @@ class BaseMallocRemover(object):
                     if c.value == op.args[0].value:
                         progress = False   # replacing a malloc with
                                            # the same malloc!
-                    newop = SpaceOperation(self.MALLOC_OP, [c], v)
+                    newop = self.recreate_malloc(c, v)
                     self.newops.append(newop)
                     newvarsmap[key] = v
                 count[0] += progress
@@ -191,7 +197,7 @@ class BaseMallocRemover(object):
             if cp[0] != "op":
                 return False
             op = cp[2]
-            if op.opname != self.MALLOC_OP:
+            if not self.check_malloc(op):
                 return False
             if not self.inline_type(op.args[0].value):
                 return False
@@ -282,7 +288,7 @@ class BaseMallocRemover(object):
             # look for variables created inside the block by a malloc
             vars_created_here = []
             for op in block.operations:
-                if op.opname == self.MALLOC_OP and op.result in vars:
+                if self.check_malloc(op) and op.result in vars:
                     vars_created_here.append(op.result)
             for var in vars_created_here:
                 self.flowin(block, count, var, newvarsmap=None)
@@ -332,6 +338,19 @@ class LLTypeMallocRemover(BaseMallocRemover):
     CHECK_ARRAY_INDEX = dict.fromkeys(["getarrayitem",
                                        "setarrayitem",
                                        "getarraysubstruct"])
+
+    def check_malloc(self, op):
+        if op.opname == 'malloc':
+            flags = op.args[1].value
+            if flags == {'flavor': 'gc'}:
+                return True
+        return False
+
+    def recreate_malloc(self, c, v):
+        return SpaceOperation(self.MALLOC_OP, [c,
+                                               Constant({'flavor': 'gc'},
+                                                        lltype.Void)],
+                              v)
 
     def get_STRUCT(self, TYPE):
         STRUCT = TYPE.TO

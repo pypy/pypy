@@ -1,23 +1,11 @@
-from pypy.rpython.memory.gctransform.transform import \
-     MinimalGCTransformer, var_ispyobj
-from pypy.rpython.memory.gctransform.framework import \
-     FrameworkGCTransformer
+from pypy.rpython.memory.gctransform.transform import var_ispyobj
+from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer
 from pypy.rpython.lltypesystem import lltype, llmemory
-
-class StacklessFrameworkMinimalGCTransformer(MinimalGCTransformer):
-    def gct_flavored_malloc(self, hop):
-        flavor = hop.spaceop.args[0].value
-        if flavor == 'gc_nocollect':
-            return self.parenttransformer.gct_flavored_malloc(hop)
-        else:
-            self.default(hop)
-    gct_flavored_malloc_varsize = gct_flavored_malloc
 
 
 class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
     use_stackless = True
     extra_static_slots = 1     # for the stack_capture()'d frame
-    MinimalGCTransformer = StacklessFrameworkMinimalGCTransformer
 
     def __init__(self, translator):
         FrameworkGCTransformer.__init__(self, translator)

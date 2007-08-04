@@ -1,11 +1,11 @@
-from pypy.rpython.memory.gctransform.transform import GCTransformer
+from pypy.rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
 from pypy.rpython.memory.gctransform.support import type_contains_pyobjs, \
      get_rtti, _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython import rmodel
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.flow.model import Constant
+from pypy.rpython.lltypesystem.lloperation import llop
 
 class BoehmGCTransformer(GCTransformer):
     FINALIZER_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address], lltype.Void))
@@ -13,37 +13,25 @@ class BoehmGCTransformer(GCTransformer):
     def __init__(self, translator, inline=False):
         super(BoehmGCTransformer, self).__init__(translator, inline=inline)
         self.finalizer_funcptrs = {}
-        memoryError = MemoryError()
 
-        def ll_malloc_fixedsize(size, finalizer):
-            result = llop.boehm_malloc(llmemory.Address, size)
-            if not result:
-                raise memoryError
+        atomic_mh = mallocHelpers()
+        atomic_mh.allocate = lambda size: llop.boehm_malloc_atomic(llmemory.Address, size)
+        def ll_malloc_fixedsize_atomic(size, finalizer):
+            result = atomic_mh._ll_malloc_fixedsize(size)
             if finalizer: # XXX runtime check here is bad?
                 llop.boehm_register_finalizer(lltype.Void, result, finalizer)
             return result
-        def ll_malloc_fixedsize_atomic(size, finalizer):
-            result = llop.boehm_malloc_atomic(llmemory.Address, size)
-            if not result:
-                raise memoryError
+
+        mh = mallocHelpers()
+        mh.allocate = lambda size: llop.boehm_malloc(llmemory.Address, size)
+        def ll_malloc_fixedsize(size, finalizer):
+            result = mh._ll_malloc_fixedsize(size)
             if finalizer: # XXX runtime check here is bad?
                 llop.boehm_register_finalizer(lltype.Void, result, finalizer)
             return result
         # XXX, do we need/want an atomic version of this function?
-        def ll_malloc_varsize_no_length(length, size, itemsize):
-            try:
-                varsize = ovfcheck(itemsize * length)
-                tot_size = ovfcheck(size + varsize)
-            except OverflowError:
-                raise memoryError
-            result = llop.boehm_malloc(llmemory.Address, tot_size)
-            if not result:
-                raise memoryError
-            return result
-        def ll_malloc_varsize(length, size, itemsize, lengthoffset):
-            result = ll_malloc_varsize_no_length(length, size, itemsize)
-            (result + lengthoffset).signed[0] = length
-            return result
+        ll_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
+        ll_malloc_varsize = mh.ll_malloc_varsize
 
         if self.translator:
             self.malloc_fixedsize_ptr = self.inittime_helper(
@@ -71,10 +59,8 @@ class BoehmGCTransformer(GCTransformer):
         """ for boehm it is enough to do nothing"""
         pass
 
-    def gct_malloc(self, hop):
-        TYPE = hop.spaceop.result.concretetype.TO
-        assert not TYPE._is_varsize()
-        c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
+    def gct_fv_gc_malloc(self, hop, flags, TYPE, c_size):
+        # XXX same behavior for zero=True: in theory that's wrong
         if TYPE._is_atomic():
             funcptr = self.malloc_fixedsize_atomic_ptr
         else:
@@ -83,49 +69,23 @@ class BoehmGCTransformer(GCTransformer):
         v_raw = hop.genop("direct_call",
                           [funcptr, c_size, c_finalizer_ptr],
                           resulttype=llmemory.Address)
-        hop.cast_result(v_raw)
+        return v_raw
 
-    # XXX In theory this is wrong:
-    gct_zero_malloc = gct_malloc
 
-    def gct_malloc_varsize(self, hop):
-        def intconst(c): return rmodel.inputconst(lltype.Signed, c)
-
-        op = hop.spaceop
-        TYPE = op.result.concretetype.TO
-        assert TYPE._is_varsize()
-
-        assert not self.finalizer_funcptr_for_type(TYPE)
-
-        if isinstance(TYPE, lltype.Struct):
-            ARRAY = TYPE._flds[TYPE._arrayfld]
-        else:
-            ARRAY = TYPE
-        assert isinstance(ARRAY, lltype.Array)
-        if ARRAY._hints.get('isrpystring', False):
-            c_const_size = intconst(llmemory.sizeof(TYPE, 1))
-        else:
-            c_const_size = intconst(llmemory.sizeof(TYPE, 0))
-        c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
-
-        if ARRAY._hints.get("nolength", False):
+    def gct_fv_gc_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
+                                                                   c_offset_to_length):
+        # XXX same behavior for zero=True: in theory that's wrong        
+        if c_offset_to_length is None:
             v_raw = hop.genop("direct_call",
-                               [self.malloc_varsize_no_length_ptr, op.args[-1],
+                               [self.malloc_varsize_no_length_ptr, v_length,
                                 c_const_size, c_item_size],
                                resulttype=llmemory.Address)
         else:
-            if isinstance(TYPE, lltype.Struct):
-                offset_to_length = llmemory.FieldOffset(TYPE, TYPE._arrayfld) + \
-                                   llmemory.ArrayLengthOffset(ARRAY)
-            else:
-                offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
             v_raw = hop.genop("direct_call",
-                               [self.malloc_varsize_ptr, op.args[-1],
-                                c_const_size, c_item_size, intconst(offset_to_length)],
+                               [self.malloc_varsize_ptr, v_length,
+                                c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
-        hop.cast_result(v_raw)
-
-    gct_zero_malloc_varsize = gct_malloc_varsize
+        return v_raw
 
     def finalizer_funcptr_for_type(self, TYPE):
         if TYPE in self.finalizer_funcptrs:

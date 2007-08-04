@@ -105,13 +105,14 @@ class CloneFnEntry(ExtRegistryEntry):
         r_tuple = hop.r_result
 
         c_CLONE       = hop.inputconst(lltype.Void, X_CLONE)
+        c_flags       = hop.inputconst(lltype.Void, {'flavor': 'gc'})
         c_gcobjectptr = hop.inputconst(lltype.Void, "gcobjectptr")
         c_pool        = hop.inputconst(lltype.Void, "pool")
 
         v_gcobject, v_pool = hop.inputargs(hop.args_r[0], r_pool_ptr)
         v_gcobjectptr = hop.genop('cast_opaque_ptr', [v_gcobject],
                                   resulttype = llmemory.GCREF)
-        v_clonedata = hop.genop('malloc', [c_CLONE],
+        v_clonedata = hop.genop('malloc', [c_CLONE, c_flags],
                                 resulttype = X_CLONE_PTR)
         hop.genop('setfield', [v_clonedata, c_gcobjectptr, v_gcobjectptr])
         hop.genop('setfield', [v_clonedata, c_pool, v_pool])

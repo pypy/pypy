@@ -84,7 +84,8 @@ class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         v_len = llops.gencapicall('PyString_Size', [v], resulttype=Signed)
         cstr = inputconst(Void, STR)
-        v_result = llops.genop('malloc_varsize', [cstr, v_len],
+        cflags = inputconst(Void, {'flavor': 'gc'})
+        v_result = llops.genop('malloc_varsize', [cstr, cflags, v_len],
                                resulttype=Ptr(STR))
         cchars = inputconst(Void, "chars")
         v_chars = llops.genop('getsubstruct', [v_result, cchars],
@@ -707,7 +708,8 @@ class LLHelpers(AbstractLLHelpers):
         things = cls.parse_fmt_string(s)
         size = inputconst(Signed, len(things)) # could be unsigned?
         cTEMP = inputconst(Void, TEMP)
-        vtemp = hop.genop("malloc_varsize", [cTEMP, size],
+        cflags = inputconst(Void, {'flavor': 'gc'})
+        vtemp = hop.genop("malloc_varsize", [cTEMP, cflags, size],
                           resulttype=Ptr(TEMP))
         # XXX hash
         r_tuple = hop.args_r[1]

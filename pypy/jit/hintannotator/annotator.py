@@ -28,25 +28,25 @@ class HintAnnotator(RPythonAnnotator):
     def getuserclassdefinitions(self):
         return []
 
-    def consider_op_malloc(self, hs_TYPE):
+    def consider_op_malloc(self, hs_TYPE, hs_flags):
         TYPE = hs_TYPE.const
+        flags = hs_flags.const
+        assert flags['flavor'] == 'gc'
         if self.policy.novirtualcontainer:
             return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
         else:
             vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
             return hintmodel.SomeLLAbstractContainer(vstructdef)
 
-    consider_op_zero_malloc = consider_op_malloc
-
-    def consider_op_malloc_varsize(self, hs_TYPE, hs_length):
+    def consider_op_malloc_varsize(self, hs_TYPE, hs_flags, hs_length):
         TYPE = hs_TYPE.const
+        flags = hs_flags.const
+        assert flags['flavor'] == 'gc'        
         if self.policy.novirtualcontainer:
             return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
         else:
             vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
             return hintmodel.SomeLLAbstractContainer(vcontainerdef)
-
-    consider_op_zero_malloc_varsize = consider_op_malloc_varsize
 
     def consider_op_zero_gc_pointers_inside(self, hs_v):
         pass

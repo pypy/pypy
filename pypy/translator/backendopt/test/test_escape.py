@@ -4,6 +4,8 @@ from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import instantiate
 
+import py
+
 def build_adi(function, types):
     t = TranslationContext()
     t.buildannotator().build_types(function, types)
@@ -26,7 +28,8 @@ def check_malloc_removal(function, types, args, expected_result, must_remove=Tru
     if must_remove:
         for block in graph.iterblocks():
             for op in block.operations:
-                assert op.opname != "malloc"
+                if op.opname == "malloc":
+                    assert op.args[1].value['flavor'] == 'stack'
     res = interp.eval_graph(graph, args)
     assert res == expected_result
     return t
@@ -382,6 +385,7 @@ def test_big():
     t, adi, graph = build_adi(entrypoint, [int])
 
 def test_extfunc_onheaparg():
+    py.test.skip("not a valid test anymore")
     import os
     def f(i):
         s = str(i)

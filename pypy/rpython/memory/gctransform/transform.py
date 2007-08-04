@@ -12,12 +12,14 @@ from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, annlowlevel
-from pypy.rpython.memory import gc, lladdress
+from pypy.rpython.memory import gc
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rlib.rarithmetic import ovfcheck
 import sets, os, sys
+from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem.lloperation import llop
 
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
@@ -83,8 +85,9 @@ class GcHighLevelOp(object):
             assert v_new != var
             self.llops[-1].result = v_result
 
+# ________________________________________________________________
 
-class GCTransformer(object):
+class BaseGCTransformer(object):
     finished_helpers = False
 
     def __init__(self, translator, inline=False):
@@ -103,7 +106,7 @@ class GCTransformer(object):
             self.minimalgctransformer = self.MinimalGCTransformer(self)
         else:
             self.minimalgctransformer = None
-
+            
     def get_lltype_of_exception_value(self):
         if self.translator is not None:
             exceptiondata = self.translator.rtyper.getexceptiondata()
@@ -189,6 +192,7 @@ class GCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs[graph] = True
+
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
         # for sanity, we need an empty block at the start of the graph
@@ -323,9 +327,10 @@ class GCTransformer(object):
     def gct_zero_gc_pointers_inside(self, hop):
         pass
 
-class MinimalGCTransformer(GCTransformer):
+
+class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):
-        GCTransformer.__init__(self, parenttransformer.translator)
+        BaseGCTransformer.__init__(self, parenttransformer.translator)
         self.parenttransformer = parenttransformer
 
     def push_alive(self, var, llops=None):
@@ -334,5 +339,174 @@ class MinimalGCTransformer(GCTransformer):
     def pop_alive(self, var, llops=None):
         pass
 
-GCTransformer.MinimalGCTransformer = MinimalGCTransformer
+    def gct_malloc(self, hop):
+        flags = hop.spaceop.args[1].value
+        flavor = flags['flavor']
+        assert flavor == 'raw'
+        return self.parenttransformer.gct_malloc(hop)
+
+    def gct_malloc_varsize(self, hop):
+        flags = hop.spaceop.args[1].value
+        flavor = flags['flavor']
+        assert flavor == 'raw'
+        return self.parenttransformer.gct_malloc_varsize(hop)
+    
+    def gct_free(self, hop):
+        flavor = hop.spaceop.args[1].value
+        assert flavor == 'raw'
+        return self.parenttransformer.gct_free(hop)
+
+BaseGCTransformer.MinimalGCTransformer = MinimalGCTransformer
 MinimalGCTransformer.MinimalGCTransformer = None
+
+# ________________________________________________________________
+
+def mallocHelpers():
+    class _MallocHelpers(object):
+        def _freeze_(self):
+            return True
+    mh = _MallocHelpers()
+
+    def _ll_malloc_fixedsize(size):
+        result = mh.allocate(size)
+        if not result:
+            raise MemoryError()
+        return result
+    mh._ll_malloc_fixedsize = _ll_malloc_fixedsize
+    
+    def _ll_malloc_varsize_no_length(length, size, itemsize):
+        try:
+            varsize = ovfcheck(itemsize * length)
+            tot_size = ovfcheck(size + varsize)
+        except OverflowError:
+            raise MemoryError()
+        result = mh.allocate(tot_size)
+        if not result:
+            raise MemoryError()
+        return result
+    mh._ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
+    mh.ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
+
+    def ll_malloc_varsize(length, size, itemsize, lengthoffset):
+        result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
+        (result + lengthoffset).signed[0] = length
+        return result
+    mh.ll_malloc_varsize = ll_malloc_varsize
+
+    return mh
+
+class GCTransformer(BaseGCTransformer):
+
+    def __init__(self, translator, inline=False):
+        super(GCTransformer, self).__init__(translator, inline=inline)
+
+        mh = mallocHelpers()
+        mh.allocate = lladdress.raw_malloc
+        ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
+        ll_raw_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
+        ll_raw_malloc_varsize = mh.ll_malloc_varsize
+
+        stack_mh = mallocHelpers()
+        stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.Address, size)
+        ll_stack_malloc_fixedsize = stack_mh._ll_malloc_fixedsize
+        
+        if self.translator:
+            self.raw_malloc_fixedsize_ptr = self.inittime_helper(
+                ll_raw_malloc_fixedsize, [lltype.Signed], llmemory.Address)
+            self.raw_malloc_varsize_no_length_ptr = self.inittime_helper(
+                ll_raw_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
+            self.raw_malloc_varsize_ptr = self.inittime_helper(
+                ll_raw_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
+
+            self.stack_malloc_fixedsize_ptr = self.inittime_helper(
+                ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
+
+    def gct_malloc(self, hop):
+        TYPE = hop.spaceop.result.concretetype.TO
+        assert not TYPE._is_varsize()
+        flags = hop.spaceop.args[1].value
+        flavor = flags['flavor']
+        meth = getattr(self, 'gct_fv_%s_malloc' % flavor, None)
+        assert meth, "%s has no support for malloc with flavor %r" % (self, flavor) 
+        c_size = rmodel.inputconst(lltype.Signed, llmemory.sizeof(TYPE))
+        v_raw = meth(hop, flags, TYPE, c_size)
+        hop.cast_result(v_raw)
+
+    def gct_fv_raw_malloc(self, hop, flags, TYPE, c_size):
+        v_raw = hop.genop("direct_call", [self.raw_malloc_fixedsize_ptr, c_size],
+                          resulttype=llmemory.Address)
+        return v_raw
+
+    def gct_fv_stack_malloc(self, hop, flags, TYPE, c_size):
+        v_raw = hop.genop("direct_call", [self.stack_malloc_fixedsize_ptr, c_size],
+                          resulttype=llmemory.Address)
+        return v_raw        
+
+    def gct_fv_cpy_malloc(self, hop, flags, TYPE, c_size): # xxx
+        op = hop.spaceop
+        args = op.args[:]
+        del args[1]
+        return hop.genop('cpy_malloc', args, resulttype=op.result.concretetype)
+
+    def gct_malloc_varsize(self, hop):
+        def intconst(c): return rmodel.inputconst(lltype.Signed, c)
+
+        op = hop.spaceop
+        TYPE = op.result.concretetype.TO
+        assert TYPE._is_varsize()
+        flags = hop.spaceop.args[1].value
+        flavor = flags['flavor']
+        meth = getattr(self, 'gct_fv_%s_malloc_varsize' % flavor, None)
+        assert meth, "%s has no support for malloc_varsize with flavor %r" % (self, flavor) 
+
+        if isinstance(TYPE, lltype.Struct):
+            ARRAY = TYPE._flds[TYPE._arrayfld]
+        else:
+            ARRAY = TYPE
+        assert isinstance(ARRAY, lltype.Array)
+        if ARRAY._hints.get('isrpystring', False):
+            c_const_size = intconst(llmemory.sizeof(TYPE, 1))
+        else:
+            c_const_size = intconst(llmemory.sizeof(TYPE, 0))
+        c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
+
+        if ARRAY._hints.get("nolength", False):
+            c_offset_to_length = None
+        else:
+            if isinstance(TYPE, lltype.Struct):
+                offset_to_length = llmemory.FieldOffset(TYPE, TYPE._arrayfld) + \
+                                   llmemory.ArrayLengthOffset(ARRAY)
+            else:
+                offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
+            c_offset_to_length = intconst(offset_to_length)
+
+        v_raw = meth(hop, flags, TYPE, op.args[-1], c_const_size, c_item_size,
+                                                    c_offset_to_length)
+
+        hop.cast_result(v_raw)
+
+    def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
+                                                                    c_offset_to_length):
+        if c_offset_to_length is None:
+            v_raw = hop.genop("direct_call",
+                               [self.raw_malloc_varsize_no_length_ptr, v_length,
+                                c_const_size, c_item_size],
+                               resulttype=llmemory.Address)
+        else:
+            v_raw = hop.genop("direct_call",
+                               [self.raw_malloc_varsize_ptr, v_length,
+                                c_const_size, c_item_size, c_offset_to_length],
+                               resulttype=llmemory.Address)
+        return v_raw
+
+    def gct_free(self, hop):
+        op = hop.spaceop
+        flavor = op.args[1].value
+        v = op.args[0]
+        if flavor == 'raw':
+            v = hop.genop("cast_ptr_to_adr", [v], resulttype=llmemory.Address)
+            hop.genop('raw_free', [v])
+        elif flavor == 'cpy':
+            hop.genop('cpy_free', [v]) # xxx
+        else:
+            assert False, "%s has no support for free with flavor %r" % (self, flavor)           

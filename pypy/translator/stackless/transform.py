@@ -152,10 +152,8 @@ class FrameTyper:
     def __init__(self, stackless_gc=False, transformer=None):
         self.frametypes = {}
         self.stackless_gc = stackless_gc
-        self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
         self.transformer = transformer
         
-
     def _key_for_types(self, TYPES):
         counts = {}
         for EXACT_TYPE in TYPES:
@@ -173,16 +171,13 @@ class FrameTyper:
         save_block = model.Block([v_exception, v_restart])
         
         llops = LowLevelOpList()
+        flags = {'flavor': 'gc'}
         if self.stackless_gc:
-            v_state = llops.genop(
-                'flavored_malloc',
-                [self.c_gc_nocollect, model.Constant(FRAME_TYPE, lltype.Void)],
-                resulttype=lltype.Ptr(FRAME_TYPE))
-        else:
-            v_state = llops.genop(
-                'malloc',
-                [model.Constant(FRAME_TYPE, lltype.Void)],
-                resulttype=lltype.Ptr(FRAME_TYPE))
+            flags['nocollect'] = True
+        v_state = llops.genop('malloc',
+                              [model.Constant(FRAME_TYPE, lltype.Void),
+                               model.Constant(flags, lltype.Void)],
+                              resulttype=lltype.Ptr(FRAME_TYPE))
 
         for fieldname in FRAME_TYPE._names[1:]: # skip the 'header' field
             v_arg = varoftype(FRAME_TYPE._flds[fieldname])
@@ -263,7 +258,12 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
             return True
         elif op.opname == 'resume_state_create':
             return True
-        return self.stackless_gc and LL_OPERATIONS[op.opname].canunwindgc
+        if self.stackless_gc:
+            if op.opname in ('malloc', 'malloc_varsize'):
+                flags = op.args[1].value
+                return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
+            return  LL_OPERATIONS[op.opname].canunwindgc
+        return False
 
     def analyze_external_call(self, op):
         callable = op.args[0].value._obj._callable
@@ -452,7 +452,7 @@ class StacklessTransformer(object):
         self.c_minus_one = model.Constant(-1, lltype.Signed)
         self.c_null_state = model.Constant(null_state,
                                            lltype.typeOf(null_state))
-        self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
+        self.c_gc_nocollect = model.Constant({'flavor': 'gc', 'nocollect': True}, lltype.Void)
 
         self.is_finished = False
 
@@ -662,7 +662,8 @@ class StacklessTransformer(object):
         # it to the saving function, then read the thus created state
         # out of and then clear global_state.top
         c_EXC = model.Constant(self.unwind_exception_type.TO, lltype.Void)
-        v_exc = llops.genop('malloc', [c_EXC],
+        c_flags = model.Constant({'flavor': 'gc'}, lltype.Void)
+        v_exc = llops.genop('malloc', [c_EXC, c_flags],
                             resulttype = self.unwind_exception_type)
 
         realvarsforcall = []
@@ -1177,7 +1178,7 @@ class StacklessTransformer(object):
         for block in graph.iterblocks():
             for i, op in enumerate(block.operations):
                 if op.opname.startswith('malloc'):
-                    newop = model.SpaceOperation('flavored_' + op.opname,
-                                                 [self.c_gc_nocollect]+op.args,
-                                                 op.result)
+                    newargs = op.args[:]
+                    newargs[1] = self.c_gc_nocollect
+                    newop = model.SpaceOperation(op.opname, newargs, op.result)
                     block.operations[i] = newop

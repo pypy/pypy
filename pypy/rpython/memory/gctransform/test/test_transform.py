@@ -1,4 +1,4 @@
-from pypy.rpython.memory.gctransform.transform import GCTransformer
+from pypy.rpython.memory.gctransform.transform import BaseGCTransformer
 from pypy.objspace.flow.model import c_last_exception, Variable
 from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.translator.backendopt.support import var_needsgc
@@ -87,7 +87,7 @@ class LLInterpedTranformerTests:
         res = llinterp.eval_graph(graph, [cc('brrrrrr')])
         assert res == f('brrrrrr')
 
-class _TestGCTransformer(GCTransformer):
+class _TestGCTransformer(BaseGCTransformer):
 
     def push_alive_nopyobj(self, var, llops):
         llops.genop("gc_push_alive", [var])

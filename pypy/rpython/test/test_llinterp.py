@@ -410,8 +410,7 @@ def test_stack_malloc():
         a.i = 1
         return a.i
     interp, graph = get_interpreter(f, [])
-    graph.startblock.operations[0].opname = "flavored_malloc"
-    graph.startblock.operations[0].args.insert(0, inputconst(Void, "stack"))
+    graph.startblock.operations[0].args[1] = inputconst(Void, {'flavor': "stack"})
     result = interp.eval_graph(graph, [])
     assert result == 1
 
@@ -432,8 +431,7 @@ def test_invalid_stack_access():
         return globala.next.i
     interp, graph = get_interpreter(h, [])
     fgraph = graph.startblock.operations[0].args[0].value._obj.graph
-    fgraph.startblock.operations[0].opname = "flavored_malloc"
-    fgraph.startblock.operations[0].args.insert(0, inputconst(Void, "stack"))
+    fgraph.startblock.operations[0].args[1] = inputconst(Void, {'flavor': "stack"})
     py.test.raises(AttributeError, "interp.eval_graph(graph, [])")
 
 #__________________________________________________________________

@@ -17,6 +17,9 @@ def find_malloc_creps(graph, adi, translator):
         if op.opname == 'malloc':
             STRUCT = op.args[0].value
             # must not remove mallocs of structures that have a RTTI with a destructor
+            flags = op.args[1].value
+            if flags != {'flavor': 'gc'}:
+                continue
             try:
                 destr_ptr = lltype.getRuntimeTypeInfo(
                     STRUCT)._obj.destructor_funcptr

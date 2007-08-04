@@ -43,6 +43,7 @@ gv_Void = gv_TYPE(lltype.Void)
 gv_Signed = gv_TYPE(lltype.Signed)
 gv_Bool = gv_TYPE(lltype.Bool)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
+gv_flavor_gc = LLConst(llimpl.placeholder({'flavor': 'gc'}))
 
 gv_Address = gv_TYPE(llmemory.Address)
 
@@ -209,14 +210,14 @@ class LLBuilder(GenBuilder):
     def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_malloc_fixedsize: bad currently_writing")
-        vars_gv = [gv_TYPE.v]
+        vars_gv = [gv_TYPE.v, gv_flavor_gc.v]
         return LLVar(llimpl.genop(self.b, 'malloc', vars_gv,
                                   gv_PTRTYPE.v))
 
     def genop_malloc_varsize(self, (gv_TYPE, gv_PTRTYPE), gv_length):
         debug_assert(self.rgenop.currently_writing is self,
                      "genop_malloc_varsize: bad currently_writing")
-        vars_gv = [gv_TYPE.v, gv_length.v]
+        vars_gv = [gv_TYPE.v, gv_flavor_gc.v, gv_length.v]
         return LLVar(llimpl.genop(self.b, 'malloc_varsize', vars_gv,
                                   gv_PTRTYPE.v))
 

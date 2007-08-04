@@ -185,19 +185,21 @@ class AbstractDataFlowInterpreter(object):
         args = self.getstates(op.args)
         #print "args:", args
         opimpl = getattr(self, 'op_'+op.opname, None)
-        if opimpl is None:
-            if isonheap(op.result) or filter(None, args):
-                for arg in args:
-                    if arg is not None:
-                        changed = arg.setchanges()
-                        self.handle_changed(changed)
-                        changed = arg.setescapes()
-                        self.handle_changed(changed)
-                #raise NotImplementedError("can't handle %s" % (op.opname, ))
+        if opimpl is not None:
+            res = opimpl(op, *args)
+            if res is not NotImplemented:
+                self.setstate(op.result, res)
+                return
+            
+        if isonheap(op.result) or filter(None, args):
+            for arg in args:
+                if arg is not None:
+                    changed = arg.setchanges()
+                    self.handle_changed(changed)
+                    changed = arg.setescapes()
+                    self.handle_changed(changed)
+            #raise NotImplementedError("can't handle %s" % (op.opname, ))
             #print "assuming that '%s' is irrelevant" % op
-            return
-        res = opimpl(op, *args)
-        self.setstate(op.result, res)
         
     def complete(self):
         while self.scheduled:
@@ -235,10 +237,18 @@ class AbstractDataFlowInterpreter(object):
     # _____________________________________________________________________
     # operation implementations
 
-    def op_malloc(self, op, typestate):
+    def op_malloc(self, op, typestate, flagsstate):
+        assert flagsstate is None
+        flags = op.args[1].value
+        if flags != {'flavor': 'gc'}:
+            return NotImplemented
         return VarState(self.get_creationpoint(op.result, "malloc"))
 
-    def op_malloc_varsize(self, op, typestate, lengthstate):
+    def op_malloc_varsize(self, op, typestate, flagsstate, lengthstate):
+        assert flagsstate is None
+        flags = op.args[1].value
+        if flags != {'flavor': 'gc'}:
+            return NotImplemented
         return VarState(self.get_creationpoint(op.result, "malloc_varsize"))
 
     def op_keepalive(self, op, state):
@@ -391,8 +401,9 @@ def malloc_to_stack(t):
                 if not crep.escapes:
                     if block not in loop_blocks:
                         print "moving object from heap to stack %s in %s" % (op, graph.name)
-                        op.opname = 'flavored_malloc'
-                        op.args.insert(0, inputconst(lltype.Void, 'stack'))
+                        flags = op.args[1].value
+                        assert flags == {'flavor': 'gc'}
+                        op.args[1] = Constant({'flavor': 'stack'}, lltype.Void)
                     else:
                         print "%s in %s is a non-escaping malloc in a loop" % (op, graph.name)
 

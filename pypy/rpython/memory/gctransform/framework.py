@@ -16,8 +16,11 @@ import sys
 
 class CollectAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
-        return op.opname in ("malloc", "malloc_varsize", "gc__collect",
-                             "gc_x_become", "zero_malloc_varsize", "zero_malloc")
+        if op.opname in ('gc__collect', 'gc_x_become'):
+            return True
+        if op.opname in ('malloc', 'malloc_varsize'):
+            flags = op.args[1].value
+            return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
 
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
@@ -479,22 +482,11 @@ class FrameworkGCTransformer(GCTransformer):
 
     gct_indirect_call = gct_direct_call
 
-    def gct_malloc(self, hop):
+    def gct_fv_gc_malloc(self, hop, flags, TYPE, *args):
         op = hop.spaceop
+        flavor = flags['flavor']
+        c_can_collect = rmodel.inputconst(lltype.Bool, not flags.get('nocollect', False))
 
-        if op.opname.startswith('flavored_'):
-            flavor = op.args[0].value
-            TYPE = op.args[1].value
-        else:
-            flavor = 'gc'
-            TYPE = op.args[0].value
-
-        if not flavor.startswith('gc'):
-            self.default(hop)
-            return
-
-        c_can_collect = rmodel.inputconst(lltype.Bool,
-                                          flavor != 'gc_nocollect')
         PTRTYPE = op.result.concretetype
         assert PTRTYPE.TO == TYPE
         type_id = self.get_type_id(TYPE)
@@ -504,7 +496,8 @@ class FrameworkGCTransformer(GCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
         if not op.opname.endswith('_varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
-            if op.opname.startswith('zero'):
+            zero = flags.get('zero', False)
+            if zero:
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
@@ -528,13 +521,9 @@ class FrameworkGCTransformer(GCTransformer):
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop)
-        hop.cast_result(v_result)
+        return v_result
 
-    gct_zero_malloc = gct_malloc
-    gct_malloc_varsize = gct_malloc
-    gct_zero_malloc_varsize = gct_malloc
-    gct_flavored_malloc = gct_malloc
-    gct_flavored_malloc_varsize = gct_malloc
+    gct_fv_gc_malloc_varsize = gct_fv_gc_malloc
 
     def gct_gc__collect(self, hop):
         op = hop.spaceop

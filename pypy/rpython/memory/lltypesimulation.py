@@ -194,7 +194,7 @@ class simulatorptr(object):
         return self._address
 
 # for now use the simulators raw_malloc
-def malloc(T, n=None, immortal=False, flavor='gc'):
+def malloc(T, n=None, immortal=False, flavor='gc', zero=True):
     fixedsize = get_fixed_size(T)
     varsize = get_variable_size(T)
     if n is None:

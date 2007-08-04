@@ -889,7 +889,7 @@ class HintRTyper(RPythonTyper):
         assert isinstance(hop.r_result, RedRepr)
         PTRTYPE = originalconcretetype(hop.s_result)
         TYPE = PTRTYPE.TO
-        v_size = hop.inputarg(self.getredrepr(lltype.Signed), arg=1)
+        v_size = hop.inputarg(self.getredrepr(lltype.Signed), arg=2)
         if isinstance(TYPE, lltype.Struct):
             return hop.r_result.create_varsize(hop, v_size)
         

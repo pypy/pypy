@@ -330,12 +330,15 @@ def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
     v_flavor, v_extra_args, v_zero = parse_kwds(hop, (i_flavor, lltype.Void),
                                                      (i_extra_args, None),
                                                      (i_zero, None))
+
+    flags = {'flavor': 'gc'}
     if v_flavor is not None:
-        vlist.insert(0, v_flavor)
-        opname = 'flavored_' + opname
+        flags['flavor'] = v_flavor.value
     if i_zero is not None:
         assert i_extra_args is i_flavor is None
-        opname = 'zero_' + opname
+        flags['zero'] = v_zero.value
+    vlist.append(hop.inputconst(lltype.Void, flags))
+        
     if hop.nb_args == 2:
         vlist.append(hop.inputarg(lltype.Signed, arg=1))
         opname += '_varsize'
@@ -355,8 +358,7 @@ def rtype_free(hop, i_flavor):
     assert i_flavor == 1
     hop.exception_cannot_occur()
     vlist = hop.inputargs(hop.args_r[0], lltype.Void)
-    vlist.reverse()   # just for confusion
-    hop.genop('flavored_free', vlist)
+    hop.genop('free', vlist)
 
 def rtype_const_result(hop):
     return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
@@ -595,9 +597,9 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 def rtype_free_non_gc_object(hop):
     vinst, = hop.inputargs(hop.args_r[0])
     flavor = hop.args_r[0].gcflavor
-    assert not flavor.startswith('gc')
+    assert flavor != 'gc'
     cflavor = hop.inputconst(lltype.Void, flavor)
-    return hop.genop('flavored_free', [cflavor, vinst])
+    return hop.genop('free', [vinst, cflavor])
     
 BUILTIN_TYPER[objectmodel.free_non_gc_object] = rtype_free_non_gc_object
 

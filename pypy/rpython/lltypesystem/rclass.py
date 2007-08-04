@@ -504,21 +504,19 @@ class InstanceRepr(AbstractInstanceRepr):
 
     def new_instance(self, llops, classcallhop=None, v_cpytype=None):
         """Build a new instance, without calling __init__."""
-        mallocop = 'malloc'
+        flavor = self.gcflavor
+        flags = {'flavor': flavor }
         ctype = inputconst(Void, self.object_type)
-        vlist = [ctype]
+        cflags = inputconst(Void, flags)
+        vlist = [ctype, cflags]
         if self.classdef is not None:
-            flavor = self.gcflavor
-            if flavor != 'gc': # not default flavor
-                mallocop = 'flavored_malloc'
-                vlist.insert(0, inputconst(Void, flavor))
-                if flavor == 'cpy':
-                    if v_cpytype is None:
-                        from pypy.rpython import rcpy
-                        cpytype = rcpy.build_pytypeobject(self)
-                        v_cpytype = inputconst(Ptr(PyObject), cpytype)
-                    vlist.append(v_cpytype)
-        vptr = llops.genop(mallocop, vlist,
+            if flavor == 'cpy':
+                if v_cpytype is None:
+                    from pypy.rpython import rcpy
+                    cpytype = rcpy.build_pytypeobject(self)
+                    v_cpytype = inputconst(Ptr(PyObject), cpytype)
+                vlist.append(v_cpytype)
+        vptr = llops.genop('malloc', vlist,
                            resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)

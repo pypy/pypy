@@ -613,53 +613,48 @@ class LLFrame(object):
         return lltype._cast_whatever(TGT, result)
     op_adr_call.need_result_type = True
 
-    def op_malloc(self, obj):
-        if self.llinterpreter.gc is not None:
+    def op_malloc(self, obj, flags):
+        flavor = flags['flavor']
+        zero = flags.get('zero', False)
+        if self.llinterpreter.gc is not None and flavor == 'gc':
+            assert not zero
             args = self.llinterpreter.gc.get_arg_malloc(obj)
             malloc = self.llinterpreter.gc.get_funcptr_malloc()
             result = self.op_direct_call(malloc, *args)
             return self.llinterpreter.gc.adjust_result_malloc(result, obj)
-        else:
-            return self.heap.malloc(obj)
-
-    def op_zero_malloc(self, obj):
-        assert self.llinterpreter.gc is None
-        return self.heap.malloc(obj, zero=True)
-
-    def op_malloc_varsize(self, obj, size):
-        if self.llinterpreter.gc is not None:
-            args = self.llinterpreter.gc.get_arg_malloc(obj, size)
-            malloc = self.llinterpreter.gc.get_funcptr_malloc()
-            result = self.op_direct_call(malloc, *args)
-            return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
-        else:
-            try:
-                return self.heap.malloc(obj, size)
-            except MemoryError:
-                self.make_llexception()
-
-    def op_zero_malloc_varsize(self, obj, size):
-        assert self.llinterpreter.gc is None
-        return self.heap.malloc(obj, size, zero=True)
-
-    def op_flavored_malloc_varsize(self, flavor, obj, size):
-        # XXX should we keep info about all mallocs for later checks of
-        # frees?
-        assert flavor == 'raw'
-        return self.heap.malloc(obj, size, flavor=flavor)
-
-    def op_flavored_malloc(self, flavor, obj):
-        assert isinstance(flavor, str)
-        if flavor == "stack":
+        elif flavor == "stack":
             if isinstance(obj, lltype.Struct) and obj._arrayfld is None:
                 result = self.heap.malloc(obj)
                 self.alloca_objects.append(result)
                 return result
             else:
                 raise ValueError("cannot allocate variable-sized things on the stack")
-        return self.heap.malloc(obj, flavor=flavor)
+            
+        return self.heap.malloc(obj, zero=zero, flavor=flavor)
 
-    def op_flavored_free(self, flavor, obj):
+    # only after gc transform
+    def op_cpy_malloc(self, obj, cpytype): # xxx
+        return self.heap.malloc(obj, flavor='cpy', extra_args=(cpytype,))
+
+    def op_cpy_free(self, obj):
+        return self.heap.free(obj, flavor='cpy') # xxx ?
+
+    def op_malloc_varsize(self, obj, flags, size):
+        flavor = flags['flavor']
+        zero = flags.get('zero', False)
+        if self.llinterpreter.gc is not None and flavor == 'gc':
+            assert not zero
+            args = self.llinterpreter.gc.get_arg_malloc(obj, size)
+            malloc = self.llinterpreter.gc.get_funcptr_malloc()
+            result = self.op_direct_call(malloc, *args)
+            return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
+        assert flavor in ('gc', 'raw')
+        try:
+            return self.heap.malloc(obj, size, zero=zero, flavor=flavor)
+        except MemoryError:
+            self.make_llexception()
+
+    def op_free(self, obj, flavor):
         assert isinstance(flavor, str)
         self.heap.free(obj, flavor=flavor)
 
@@ -790,6 +785,9 @@ class LLFrame(object):
         checkadr(addr)
         assert lltype.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
+
+    def op_stack_malloc(self, size): # mmh
+        raise NotImplementedError("backend only")
 
     # ______ for the JIT ____________
     def op_call_boehm_gc_alloc(self):

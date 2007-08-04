@@ -30,7 +30,9 @@ class TupleRepr(AbstractTupleRepr):
         if len(r_tuple.items_r) == 0:
             return inputconst(Void, ())    # a Void empty tuple
         c1 = inputconst(Void, r_tuple.lowleveltype.TO)
-        v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
+        cflags = inputconst(Void, {'flavor': 'gc'})
+        v_result = llops.genop('malloc', [c1, cflags],
+                                         resulttype = r_tuple.lowleveltype)
         for i in range(len(r_tuple.items_r)):
             cname = inputconst(Void, r_tuple.fieldnames[i])
             llops.genop('setfield', [v_result, cname, items_v[i]])
