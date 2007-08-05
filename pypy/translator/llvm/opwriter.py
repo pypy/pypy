@@ -289,6 +289,7 @@ class OpWriter(object):
         # ha, ha
         pass
 
+    # XXX not needed anymore
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
         type_  = opr.rettype[:-1] #XXX stripping of *
@@ -318,6 +319,7 @@ class OpWriter(object):
             self.codewriter.comment('***Skipping free of stack allocated data')
         else:
             raise NotImplementedError
+    # XXX /not needed anymore
 
     def call_boehm_gc_alloc(self, opr):
         word = self.db.get_machine_word()

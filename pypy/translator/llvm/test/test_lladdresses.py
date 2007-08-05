@@ -132,7 +132,6 @@ def test_flavored_malloc_stack():
     def f(x):
         a = A(x + 1)
         result = a.val
-        free_non_gc_object(a)
         return result
     fn = compile_function(f, [int])
     assert fn(1) == 2 
