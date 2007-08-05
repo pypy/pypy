@@ -120,6 +120,8 @@ def compile_graph(rgenop, graph, random_seed=0):
 def generate_operation(rgenop, builder, op, var2gv):
     # XXX only supports some operations for now
     if op.opname == 'malloc':
+        flags = op.args[1].value
+        assert flags['flavor'] == 'gc'
         token = rgenop.allocToken(op.args[0].value)
         gv_result = builder.genop_malloc_fixedsize(token)
     elif op.opname == 'getfield':
@@ -134,9 +136,11 @@ def generate_operation(rgenop, builder, op, var2gv):
                                            var2gv(op.args[0]),
                                            var2gv(op.args[2]))
     elif op.opname == 'malloc_varsize':
+        flags = op.args[1].value
+        assert flags['flavor'] == 'gc'
         token = rgenop.varsizeAllocToken(op.args[0].value)
         gv_result = builder.genop_malloc_varsize(token,
-                                                 var2gv(op.args[1]))
+                                                 var2gv(op.args[2]))
     elif op.opname == 'getarrayitem':
         token = rgenop.arrayToken(op.args[0].concretetype.TO)
         gv_result = builder.genop_getarrayitem(token,
