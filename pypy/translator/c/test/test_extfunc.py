@@ -704,7 +704,14 @@ def test_opendir_readdir():
     assert result == compared_with
 
 def test_listdir():
+    py.test.skip("in-progress")
     def mylistdir(s):
+        try:
+            os.listdir('this/directory/really/cannot/exist')
+        except OSError:
+            pass
+        else:
+            raise AssertionError("should have failed!")
         result = os.listdir(s)
         return '/'.join(result)
     func = compile(mylistdir, [str])
