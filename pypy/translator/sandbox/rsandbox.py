@@ -43,6 +43,7 @@ def writeall_not_sandboxed(fd, buf, length):
         length -= count
         buf = lltype.direct_ptradd(lltype.direct_arrayitems(buf), count)
         buf = rffi.cast(rffi.CCHARP, buf)
+writeall_not_sandboxed._annenforceargs_ = [int, rffi.CCHARP, int]
 
 def readall_not_sandboxed(fd, length):
     buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw')
@@ -57,6 +58,7 @@ def readall_not_sandboxed(fd, length):
         p = lltype.direct_ptradd(lltype.direct_arrayitems(p), count)
         p = rffi.cast(rffi.CCHARP, p)
     return buf
+readall_not_sandboxed._annenforceargs_ = [int, int]
 
 def buf2num(buf, index=0):
     c0 = ord(buf[index  ])
@@ -106,7 +108,7 @@ def build_default_unmarshal_output(FUNCTYPE, namehint,
     try:
         return cache[FUNCTYPE.RESULT]
     except KeyError:
-        raise NotImplementedError("exernal function %r return type %s" % (
+        raise NotImplementedError("external function %r return type %s" % (
             namehint, FUNCTYPE.RESULT))
 
 CFalse = CDefinedIntSymbolic('0')    # hack hack
