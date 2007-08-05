@@ -1,7 +1,6 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
@@ -48,8 +47,6 @@ def name_signed(value, db):
             return str(value.expr)
         elif isinstance(value, ComputedIntSymbolic):
             value = value.compute_fn()
-        elif isinstance(value, CConstant):
-            return value.c_name
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:

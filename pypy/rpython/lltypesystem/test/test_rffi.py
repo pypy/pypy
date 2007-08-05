@@ -144,21 +144,22 @@ def test_struct():
     fn = compile(f, [], backendopt=False)
     assert fn() == 8
 
-def test_constant():
+def test_externvar():
     import os
 
     def f():
-        return c_errno
+        set_errno(12)
+        return get_errno()
 
     def g():
         try:
             os.write(12312312, "xxx")
         except OSError:
             pass
-        return c_errno
+        return get_errno()
 
     fn = compile(f, [])
-    assert fn() == 0
+    assert fn() == 12
     gn = compile(g, [])
     import errno
     assert gn() == errno.EBADF

@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lltype import \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
@@ -168,6 +169,8 @@ class LowLevelDatabase(object):
             else:
                 raise Exception("don't know about %r" % (T,))
         else:
+            if isinstance(obj, CConstant):
+                return obj.c_name  # without further checks
             T = typeOf(obj)
             if isinstance(T, Primitive):
                 return PrimitiveName[T](obj, self)

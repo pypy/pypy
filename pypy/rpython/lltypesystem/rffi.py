@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import ll2ctypes
 from pypy.annotation.model import lltype_to_annotation
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib import rarithmetic
 import os
@@ -108,7 +109,25 @@ def COpaque(name, hints=None, **kwds):
     hints['getsize'] = lazy_getsize
     return lltype.Ptr(lltype.OpaqueType(name, hints))
 
-c_errno = CConstant('errno', lltype.Signed)
+def CExternVariable(TYPE, name):
+    """Return a pair of functions - a getter and a setter - to access
+    the given global C variable.
+    """
+    # XXX THIS IS ONLY A QUICK HACK TO MAKE IT WORK
+    # In general, we need to re-think a few things to be more consistent,
+    # e.g. what if a CStruct, COpaque or CExternVariable requires
+    # some #include...
+    assert not isinstance(TYPE, lltype.ContainerType)
+    CTYPE = lltype.FixedSizeArray(TYPE, 1)
+    c_variable_ref = CConstant('(&%s)' % (name,), lltype.Ptr(CTYPE))
+    def getter():
+        return c_variable_ref[0]
+    def setter(newvalue):
+        c_variable_ref[0] = newvalue
+    return (func_with_new_name(getter, '%s_getter' % (name,)),
+            func_with_new_name(setter, '%s_setter' % (name,)))
+
+get_errno, set_errno = CExternVariable(lltype.Signed, 'errno')
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)

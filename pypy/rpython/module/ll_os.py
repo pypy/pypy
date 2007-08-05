@@ -32,7 +32,7 @@ class RegisterOs(BaseLazyRegistering):
         def c_func_lltypeimpl():
             res = c_func()
             if res == -1:
-                raise OSError(rffi.c_errno, "%s failed" % name)
+                raise OSError(rffi.get_errno(), "%s failed" % name)
             return res
         c_func_lltypeimpl.func_name = name + '_llimpl'
 
@@ -51,7 +51,7 @@ class RegisterOs(BaseLazyRegistering):
                 os_execv(l_path, l_args)
                 rffi.free_charpp(l_args)
                 rffi.free_charp(l_path)
-                raise OSError(rffi.c_errno, "execv failed")
+                raise OSError(rffi.get_errno(), "execv failed")
 
             self.register(os.execv, [str, [str]], s_ImpossibleValue, llimpl=
                           execv_lltypeimpl, export_name="ll_os.ll_os_execv")
@@ -63,7 +63,7 @@ class RegisterOs(BaseLazyRegistering):
         def dup_lltypeimpl(fd):
             newfd = rffi.cast(lltype.Signed, os_dup(rffi.cast(rffi.INT, fd)))
             if newfd == -1:
-                raise OSError(rffi.c_errno, "dup failed")
+                raise OSError(rffi.get_errno(), "dup failed")
             return newfd
         
         self.register(os.dup, [int], int, llimpl=dup_lltypeimpl,
@@ -77,7 +77,7 @@ class RegisterOs(BaseLazyRegistering):
             error = rffi.cast(lltype.Signed, os_dup2(rffi.cast(rffi.INT, fd),
                                              rffi.cast(rffi.INT, newfd)))
             if error == -1:
-                raise OSError(rffi.c_errno, "dup2 failed")
+                raise OSError(rffi.get_errno(), "dup2 failed")
 
         self.register(os.dup2, [int, int], s_None, llimpl=dup2_lltypeimpl,
                       export_name="ll_os.ll_os_dup2")
@@ -99,7 +99,7 @@ class RegisterOs(BaseLazyRegistering):
                               lltype.nullptr(UTIMEBUFP.TO)))
             rffi.free_charp(l_path)
             if error == -1:
-                raise OSError(rffi.c_errno, "utime_null failed")
+                raise OSError(rffi.get_errno(), "utime_null failed")
             
         self.register(ros.utime_null, [str], s_None, "ll_os.utime_null",
                       llimpl=utime_null_lltypeimpl)
@@ -115,7 +115,7 @@ class RegisterOs(BaseLazyRegistering):
             rffi.free_charp(l_path)
             lltype.free(l_utimebuf, flavor='raw')
             if error == -1:
-                raise OSError(rffi.c_errno, "utime_tuple failed")
+                raise OSError(rffi.get_errno(), "utime_tuple failed")
         
         self.register(ros.utime_tuple, [str, (float, float)], s_None,
                       "ll_os.utime_tuple",
@@ -130,7 +130,7 @@ class RegisterOs(BaseLazyRegistering):
             def setsid_lltypeimpl():
                 result = rffi.cast(lltype.Signed, os_setsid())
                 if result == -1:
-                    raise OSError(rffi.c_errno, "os_setsid failed")
+                    raise OSError(rffi.get_errno(), "os_setsid failed")
                 return result
 
             self.register(os.setsid, [], int, export_name="ll_os.ll_os_setsid",
@@ -165,7 +165,7 @@ class RegisterOs(BaseLazyRegistering):
                 l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
                 result = os_uname(l_utsbuf)
                 if result == -1:
-                    raise OSError(rffi.c_errno, "os_uname failed")
+                    raise OSError(rffi.get_errno(), "os_uname failed")
                 fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
                           l_utsbuf.c_release, l_utsbuf.c_version,
                           l_utsbuf.c_machine]
@@ -209,7 +209,7 @@ class RegisterOs(BaseLazyRegistering):
                                rffi.cast(mode_t, mode)))
             rffi.free_charp(l_path)
             if result == -1:
-                raise OSError(rffi.c_errno, "os_open failed")
+                raise OSError(rffi.get_errno(), "os_open failed")
             return result
 
         def os_open_oofakeimpl(o_path, flags, mode):
@@ -233,7 +233,7 @@ class RegisterOs(BaseLazyRegistering):
                 got = rffi.cast(lltype.Signed, os_read(rffi.cast(rffi.INT, fd),
                                 inbuf, rffi.cast(rffi.SIZE_T, count)))
                 if got < 0:
-                    raise OSError(rffi.c_errno, "os_read failed")
+                    raise OSError(rffi.get_errno(), "os_read failed")
                 # XXX too many copies of the data!
                 l = [inbuf[i] for i in range(got)]
             finally:
@@ -275,7 +275,7 @@ class RegisterOs(BaseLazyRegistering):
                     rffi.cast(rffi.INT, fd),
                     outbuf, rffi.cast(rffi.SIZE_T, count)))
                 if written < 0:
-                    raise OSError(rffi.c_errno, "os_write failed")
+                    raise OSError(rffi.get_errno(), "os_write failed")
             finally:
                 lltype.free(outbuf, flavor='raw')
             return written
@@ -300,7 +300,7 @@ class RegisterOs(BaseLazyRegistering):
         def close_lltypeimpl(fd):
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
             if error == -1:
-                raise OSError(rffi.c_errno, "close failed")
+                raise OSError(rffi.get_errno(), "close failed")
 
         self.register(os.close, [int], s_None, llimpl=close_lltypeimpl,
                       export_name="ll_os.ll_os_close", oofakeimpl=os.close)
@@ -338,7 +338,7 @@ class RegisterOs(BaseLazyRegistering):
                 res = os_getcwd(buf, rffi.cast(rffi.SIZE_T, bufsize))
                 if res:
                     break   # ok
-                error = rffi.c_errno
+                error = rffi.get_errno()
                 lltype.free(buf, flavor='raw')
                 if error != errno.ERANGE:
                     raise OSError(error, "getcwd failed")
@@ -400,12 +400,13 @@ class RegisterOs(BaseLazyRegistering):
                 dirp = os_opendir(path)
                 rffi.free_charp(path)
                 if not dirp:
-                    raise OSError(rffi.c_errno, "os_opendir failed")
+                    raise OSError(rffi.get_errno(), "os_opendir failed")
+                rffi.set_errno(0)
                 result = []
                 while True:
                     direntp = os_readdir(dirp)
                     if not direntp:
-                        error = rffi.c_errno
+                        error = rffi.get_errno()
                         break
                     namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
                     name = rffi.charp2str(namep)
@@ -465,7 +466,7 @@ class RegisterOs(BaseLazyRegistering):
             def ttyname_lltypeimpl(fd):
                 l_name = os_ttyname(fd)
                 if not l_name:
-                    raise OSError(rffi.c_errno, "ttyname raised")
+                    raise OSError(rffi.get_errno(), "ttyname raised")
                 return rffi.charp2str(l_name)
 
             self.register(os.ttyname, [int], str, "ll_os.ttyname",
