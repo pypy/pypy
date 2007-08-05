@@ -407,7 +407,8 @@ class RegisterOs(BaseLazyRegistering):
                     if not direntp:
                         error = rffi.c_errno
                         break
-                    name = rffi.charp2str(direntp.c_d_name)
+                    namep = rffi.cast(rffi.CCHARP, direntp.c_d_name)
+                    name = rffi.charp2str(namep)
                     if name != '.' and name != '..':
                         result.append(name)
                 os_closedir(dirp)
