@@ -1,6 +1,7 @@
 import platform
 import os, stat, errno
 import py
+from py.builtin import sorted
 from pypy.tool import udir
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
@@ -105,18 +106,9 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         res = self.ll_to_string(self.interpret(fn, []))
         # XXX assert something about res
 
-    def test_os_opendir(self):
-        from pypy.rlib import ros
+    def test_os_listdir(self):
         def fn():
-            d = ros.opendir('.')
-            res = []
-            while True:
-                current = d.readdir()
-                if current is None:
-                    break
-                res.append(current)
-            d.closedir()
-            return res
+            return os.listdir('.')
         res = self.ll_to_list(self.interpret(fn, []))
         res = [self.ll_to_string(s) for s in res]
         res.sort()

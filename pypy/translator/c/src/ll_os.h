@@ -423,6 +423,7 @@ RPyString* LL_os_environ(int idx) {
 }
 
 /******************** opendir/readdir/closedir ********************/
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 #if defined(MS_WINDOWS) && !defined(HAVE_OPENDIR)
 
 /* emulation of opendir, readdir, closedir */
@@ -450,6 +451,7 @@ typedef struct dirent {
     char arg[1]; /*also used as flag */
 } DIR;
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 static DIR *opendir(char *dirname)
 {
     int lng = strlen(dirname);
@@ -473,6 +475,7 @@ static DIR *opendir(char *dirname)
     return d;
 }
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 static struct dirent *readdir(DIR *d)
 {
     if (d->arg[0])
@@ -489,6 +492,7 @@ static struct dirent *readdir(DIR *d)
     return d->d_name ? d : NULL;
 }
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 static int closedir(DIR *d)
 {
     HANDLE hFind = d->hFind;
@@ -503,6 +507,7 @@ static int closedir(DIR *d)
 
 #endif /* defined(MS_WINDOWS) && !defined(HAVE_OPENDIR) */
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname)
 {
     DIR *dir = opendir(RPyString_AsString(dirname));
@@ -511,6 +516,7 @@ struct RPyOpaque_DIR *LL_os_opendir(RPyString *dirname)
     return (struct RPyOpaque_DIR *) dir;
 }
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir)
 {
     struct dirent *d;
@@ -523,6 +529,7 @@ RPyString *LL_os_readdir(struct RPyOpaque_DIR *dir)
     return NULL;
 }
 
+/* XXX old interface no longer used in PyPy, will be removed at some point */
 void LL_os_closedir(struct RPyOpaque_DIR *dir)
 {
     if (closedir((DIR *) dir) < 0)

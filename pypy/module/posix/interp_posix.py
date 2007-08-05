@@ -287,16 +287,6 @@ def unsetenv(space, name):
 unsetenv.unwrap_spec = [ObjSpace, str]
 
 
-def enumeratedir(space, dir):
-    result = []
-    while True:
-        nextentry = dir.readdir()
-        if nextentry is None:
-            break
-        if nextentry not in ('.' , '..'):
-            result.append(space.wrap(nextentry))
-    return space.newlist(result)
-
 def listdir(space, dirname):
     """Return a list containing the names of the entries in the directory.
 
@@ -305,15 +295,11 @@ def listdir(space, dirname):
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
     try:
-        dir = ros.opendir(dirname)
-    except OSError, e: 
-        raise wrap_oserror(space, e) 
-    try:
-        # sub-function call to make sure that 'try:finally:' will catch
-        # everything including MemoryErrors
-        return enumeratedir(space, dir)
-    finally:
-        dir.closedir()
+        result = os.listdir(dirname)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    result_w = [space.wrap(s) for s in result]
+    return space.newlist(result_w)
 listdir.unwrap_spec = [ObjSpace, str]
 
 def pipe(space):

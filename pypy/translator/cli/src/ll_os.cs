@@ -463,6 +463,25 @@ namespace pypy.builtin
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
+        public static pypy.runtime.List<string> ll_os_listdir(string path)
+        {
+            if (path == "")
+                Helpers.raise_OSError(Errno.ENOENT);
+
+            DirectoryInfo dir = new DirectoryInfo(path);
+            if (!dir.Exists)
+                Helpers.raise_OSError(Errno.ENOENT);
+
+            pypy.runtime.List<string> names = new pypy.runtime.List<string>();
+            foreach(DirectoryInfo d in dir.GetDirectories())
+                names.Add(d.Name);
+            foreach(FileInfo f in dir.GetFiles())
+                names.Add(f.Name);
+
+            return names;
+        }
+
+        /* XXX old interface, will be removed at some point */
         public static object ll_os_opendir(string path)
         {
             if (path == "")
@@ -481,6 +500,7 @@ namespace pypy.builtin
             return names.GetEnumerator();
         }
 
+        /* XXX old interface, will be removed at some point */
         public static string ll_os_readdir(object obj)
         {
             IEnumerator<string> names = (IEnumerator<string>)obj;
@@ -490,6 +510,7 @@ namespace pypy.builtin
                 return null;
         }
 
+        /* XXX old interface, will be removed at some point */
         public static void ll_os_closedir(object obj)
         {
         }
