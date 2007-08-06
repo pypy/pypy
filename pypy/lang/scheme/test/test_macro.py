@@ -54,6 +54,9 @@ def test_syntax_rules_literals():
     # w_transformer created in ctx
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
 
+    w_expr = parse_("(foo 12 boo)")
+    py.test.raises(MatchError, w_transformer.match, ctx, w_expr)
+
     w_expr = parse_("(foo bar boo)")
     py.test.raises(MatchError, w_transformer.match, ctx, w_expr)
 
@@ -77,29 +80,35 @@ def test_syntax_rules_literals():
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
     py.test.raises(MatchError, w_transformer.match, closure, w_expr)
 
-    # the same binding for => in ctx and closure
-    # XXX
+    # the same object for => in ctx and closure, but different bindings
     # <arigo> I think this should also raise MatchError.  When R5RS says
     # "same binding" it probably means bound to the same *location*, not
-    # just that there is the same object in both locations; something like
-    # this:   (let ((x 42) (y 42))
-    #           (let-syntax ((foo (syntax-rules (x y)
-    #                          ((foo x) 123)
-    #                          ((foo y) 456)
-    #                          ((foo whatever) 789))))
-    #             (foo y)))
-    #                        ---> 456
-    # but if we change the last line:
-    #             (let ((y 42)) (foo y))))
-    #                        ---> 789
+    # just that there is the same object in both locations
     ctx.put("=>", w_42)
     assert ctx.get("=>") is closure.get("=>")
     w_transformer = eval_(ctx, "(syntax-rules (=>) ((foo => bar) #t))")
-    assert w_transformer.match(closure, w_expr)[0].to_boolean()
+    py.test.raises(MatchError, w_transformer.match, closure, w_expr)
+
+def test_literals_eval():
+    ctx = ExecutionContext()
+    w_result = eval_(ctx, """(let ((x 42) (y 42))
+                                (let-syntax ((foo (syntax-rules (x y)
+                                              ((foo x) 123)
+                                              ((foo y) 456)
+                                              ((foo whatever) 789))))
+                                   (foo y)))""")
+    assert w_result.to_number() == 456
+
+    w_result = eval_(ctx, """(let ((x 42) (y 42))
+                                (let-syntax ((foo (syntax-rules (x y)
+                                              ((foo x) 123)
+                                              ((foo y) 456)
+                                              ((foo whatever) 789))))
+                                   (let ((y x)) (foo y))))""")
+    assert w_result.to_number() == 789
 
 def test_syntax_rules_expand_simple():
     ctx = ExecutionContext()
-
     w_transformer = eval_(ctx, """(syntax-rules () ((_) #t)
                                                    ((_ foo) foo))""")
 
@@ -264,13 +273,9 @@ def test_macro_expand():
                                           ((bar arg) (foo arg))))""")
 
     w_expr = parse_("(bar 42)")
-    #should expand directly (recursively) to 42
-    assert ctx.get("bar").expand(ctx, w_expr).to_string() == "42"
-    # XXX <arigo> no, I believe it should not expand recursively...
-    # here is another example which returns (foo) in MIT-Scheme where
-    # we get 42 so far:
-    py.test.skip("XXX in-progress (or wrong test?)")
-    ctx = ExecutionContext()
+    assert ctx.get("bar").expand(ctx, w_expr).to_string() == "(foo 42)"
+    assert eval_(ctx, "(bar 42)").to_number() == 42
+
     eval_(ctx, """(define-syntax foo (syntax-rules ()
                                           ((foo) #t)))""")
     eval_(ctx, """(define-syntax bar (syntax-rules ()
@@ -440,11 +445,10 @@ def test_nested_ellipsis2():
             "(x y 1 2 3 4 + end)"
 
 def test_cornercase1():
-    py.test.skip("currently crashes")
     w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
                                                  ((bar) 'bar))))
-                               (foo))
-                          """)
+                               (foo)) """)
+
     assert w_result.to_string() == 'bar'
     # <arigo> I think that the correct answer is 'bar, according to
     # the R5RS, because it says that the keyword bar in the syntax rule
@@ -461,8 +465,9 @@ def test_pitfall_3_1():
 
 def test_pitfall_3_2():
     py.test.skip("(cond ...) not implemented yet")
+    #define inside macors can and sometimes can not introduce new binding
     w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
-                                                   ((_ var) (define var 1)))))
+                                                 ((_ var) (define var 1)))))
                                  (let ((x 2))
                                    (begin (define foo +))
                                    (cond (else (foo x))) 
@@ -470,7 +475,6 @@ def test_pitfall_3_2():
     assert w_result.to_number() == 2
 
 def test_pitfall_3_3():
-    py.test.skip("currently fails")
     w_result = eval_noctx("""
       (let ((x 1))
         (let-syntax
@@ -485,3 +489,4 @@ def test_pitfall_3_3():
 def test_pitfall_3_4():
     w_result = eval_noctx("(let-syntax ((x (syntax-rules ()))) 1)")
     assert w_result.to_number() == 1
+

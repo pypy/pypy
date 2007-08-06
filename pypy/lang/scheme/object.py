@@ -440,6 +440,7 @@ def create_op_class(oper, unary_oper, title, default_result=None):
         Op.default_result = W_Integer(default_result)
 
     Op.__name__ = "Op" + title
+    Op._symbol_name = oper
     return Op
 
 Add = create_op_class('+', '', "Add", 0)
@@ -448,6 +449,8 @@ Mul = create_op_class('*', '', "Mul", 1)
 Div = create_op_class('/', '1 /', "Div")
 
 class Equal(W_Procedure):
+    _symbol_name = "="
+
     def procedure(self, ctx, lst):
         if len(lst) < 2:
             return W_Boolean(True)
@@ -467,10 +470,14 @@ class Equal(W_Procedure):
         return W_Boolean(True)
 
 class List(W_Procedure):
+    _symbol_name = "list"
+
     def procedure(self, ctx, lst):
         return plst2lst(lst)
 
 class Cons(W_Procedure):
+    _symbol_name = "cons"
+
     def procedure(self, ctx, lst):
         w_car = lst[0]
         w_cdr = lst[1]
@@ -478,6 +485,8 @@ class Cons(W_Procedure):
         return W_Pair(w_car, w_cdr)
 
 class Car(W_Procedure):
+    _symbol_name = "car"
+
     def procedure(self, ctx, lst):
         w_pair = lst[0]
         if not isinstance(w_pair, W_Pair):
@@ -485,6 +494,8 @@ class Car(W_Procedure):
         return w_pair.car
 
 class Cdr(W_Procedure):
+    _symbol_name = "cdr"
+
     def procedure(self, ctx, lst):
         w_pair = lst[0]
         if not isinstance(w_pair, W_Pair):
@@ -492,6 +503,8 @@ class Cdr(W_Procedure):
         return w_pair.cdr
 
 class SetCar(W_Procedure):
+    _symbol_name = "set-car!"
+
     def procedure(self, ctx, lst):
         w_pair = lst[0]
         w_obj = lst[1]
@@ -502,6 +515,8 @@ class SetCar(W_Procedure):
         return w_undefined
 
 class SetCdr(W_Procedure):
+    _symbol_name = "set-cdr!"
+
     def procedure(self, ctx, lst):
         w_pair = lst[0]
         w_obj = lst[1]
@@ -512,10 +527,14 @@ class SetCdr(W_Procedure):
         return w_undefined
 
 class Quit(W_Procedure):
+    _symbol_name = "quit"
+
     def procedure(self, ctx, lst):
         raise SchemeQuit
 
 class Force(W_Procedure):
+    _symbol_name = "force"
+
     def procedure(self, ctx, lst):
         if len(lst) != 1:
             raise WrongArgsNumber
@@ -544,6 +563,8 @@ class PredicateNumber(W_Procedure):
         raise NotImplementedError
 
 class IntegerP(PredicateNumber):
+    _symbol_name = "integer?"
+
     def predicate(self, w_obj):
         if not w_obj.exact:
             return w_obj.is_integer()
@@ -551,26 +572,44 @@ class IntegerP(PredicateNumber):
         return True
 
 class RealP(PredicateNumber):
+    _symbol_name = "real?"
+
     def predicate(self, w_obj):
         return isinstance(w_obj, W_Real)
 
+class RationalP(RealP):
+    _symbol_name = "rational?"
+
 class NumberP(PredicateNumber):
+    _symbol_name = "number?"
+
     def predicate(self, w_obj):
         return isinstance(w_obj, W_Number)
 
+class ComplexP(NumberP):
+    _symbol_name = "complex?"
+
 class ExactP(PredicateNumber):
+    _symbol_name = "exact?"
+
     def predicate(self, w_obj):
         return w_obj.exact
 
 class InexactP(PredicateNumber):
+    _symbol_name = "inexact?"
+
     def predicate(self, w_obj):
         return not w_obj.exact
 
 class ZeroP(PredicateNumber):
+    _symbol_name = "zero?"
+
     def predicate(self, w_obj):
         return w_obj.to_number() == 0.0
 
 class OddP(PredicateNumber):
+    _symbol_name = "odd?"
+
     def predicate(self, w_obj):
         if not w_obj.is_integer():
             raise WrongArgType(w_obj, "Integer")
@@ -578,6 +617,8 @@ class OddP(PredicateNumber):
         return w_obj.round() % 2 != 0
 
 class EvenP(PredicateNumber):
+    _symbol_name = "even?"
+
     def predicate(self, w_obj):
         if not w_obj.is_integer():
             raise WrongArgType(w_obj, "Integer")
@@ -588,6 +629,8 @@ class EvenP(PredicateNumber):
 # Macro
 ##
 class Define(W_Macro):
+    _symbol_name = "define"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -612,6 +655,8 @@ class Define(W_Macro):
             raise SchemeSyntaxError
 
 class Sete(W_Macro):
+    _symbol_name = "set!"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -622,6 +667,8 @@ class Sete(W_Macro):
         return w_val #undefined
 
 class MacroIf(W_Macro):
+    _symbol_name = "if"
+
     def call_tr(self, ctx, lst):
         #if needs to be tail-recursive aware
         if not isinstance(lst, W_Pair):
@@ -641,6 +688,8 @@ class MacroIf(W_Macro):
             return (w_else, ctx)
 
 class Lambda(W_Macro):
+    _symbol_name = "lambda"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError(lst, "Pair")
@@ -649,11 +698,15 @@ class Lambda(W_Macro):
         return W_Lambda(w_args, w_body, ctx)
 
 class Begin(W_Macro):
+    _symbol_name = "begin"
+
     def call_tr(self, ctx, lst):
         #begin uses eval_body, so it is tail-recursive aware
         return self.eval_body(ctx, lst)
 
 class Let(W_Macro):
+    _symbol_name = "let"
+
     def call_tr(self, ctx, lst):
         #let uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):
@@ -670,6 +723,8 @@ class Let(W_Macro):
         return self.eval_body(local_ctx, lst.cdr)
 
 class LetStar(W_Macro):
+    _symbol_name = "let*"
+
     def call_tr(self, ctx, lst):
         #let* uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):
@@ -686,6 +741,8 @@ class LetStar(W_Macro):
         return self.eval_body(local_ctx, lst.cdr)
 
 class Letrec(W_Macro):
+    _symbol_name = "letrec"
+
     def call_tr(self, ctx, lst):
         """let uses eval_body, so it is tail-recursive aware"""
         if not isinstance(lst, W_Pair):
@@ -724,6 +781,8 @@ def unquote_splicing(sexpr):
     return W_Pair(W_Symbol('unquote-splicing'), W_Pair(sexpr, w_nil))
 
 class Quote(W_Macro):
+    _symbol_name = "quote"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -731,6 +790,8 @@ class Quote(W_Macro):
         return lst.car
 
 class QuasiQuote(W_Macro):
+    _symbol_name = "quasiquote"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -809,6 +870,8 @@ class QuasiQuote(W_Macro):
         return w_lst
 
 class Delay(W_Macro):
+    _symbol_name = "delay"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -819,6 +882,8 @@ class Delay(W_Macro):
 # DerivedMacros
 ##
 class SyntaxRules(W_Macro):
+    _symbol_name = "syntax-rules"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -832,11 +897,9 @@ class SyntaxRules(W_Macro):
             if not isinstance(w_literals.car, W_Symbol):
                 raise SchemeSyntaxError
 
+            #XXX locations here
             literal_name = w_literals.car.to_string()
-            try:
-                w_temp = ctx.get(literal_name)
-            except UnboundVariable:
-                w_temp = w_literals.car
+            w_temp = ctx.get_location(literal_name)
 
             literals_map[literal_name] = w_temp
 
@@ -890,10 +953,11 @@ class SyntaxRule(object):
         return self.pattern.to_string() + " -> " + self.template.to_string()
 
     def match(self, ctx, w_expr, pattern=None):
+        #we use .cdr here, because keyword should not be a macro variable
         if pattern is None:
-            return self.matchr(ctx, self.pattern, w_expr)
+            return self.matchr(ctx, self.pattern.cdr, w_expr.cdr)
 
-        return self.matchr(ctx, pattern, w_expr)
+        return self.matchr(ctx, pattern.cdr, w_expr.cdr)
 
     def matchr(self, ctx, w_patt, w_expr):
         if isinstance(w_patt, W_Pair):
@@ -931,15 +995,21 @@ class SyntaxRule(object):
             raise EllipsisPattern
 
         if isinstance(w_patt, W_Symbol):
-            w_literal = self.literals.get(w_patt.name, None)
-            if w_literal is not None:
-                try:
-                    w_form = ctx.get(w_expr.to_string())
-                except UnboundVariable:
-                    w_form = w_expr
+            try:
+                w_literal = self.literals[w_patt.name]
+                if not isinstance(w_expr, W_Symbol):
+                    raise MatchError
+
+                if w_patt.name != w_expr.name:
+                    raise MatchError
+
+                w_form = ctx.get_location(w_expr.name)
 
                 if w_form is not w_literal:
                     raise MatchError
+
+            except KeyError:
+                pass
 
             return {w_patt.name: w_expr}
 
@@ -1100,7 +1170,8 @@ class W_Transformer(W_Procedure):
                     w_macro = ctx.get(w_car.name)
                     # recursive macro expansion
                     if isinstance(w_macro, W_DerivedMacro):
-                        return w_macro.expand(ctx, w_pair)
+                        if w_macro.transformer is self:
+                            return w_macro.expand(ctx, w_pair)
                 except UnboundVariable:
                     pass
 
@@ -1161,6 +1232,8 @@ class W_DerivedMacro(W_Macro):
         return self.transformer.expand(ctx, lst)
 
 class DefineSyntax(W_Macro):
+    _symbol_name = "define-syntax"
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
@@ -1179,6 +1252,8 @@ class DefineSyntax(W_Macro):
         return w_macro #undefined
  
 class LetSyntax(W_Macro):
+    _symbol_name = "let-syntax"
+
     def call_tr(self, ctx, lst):
         #let uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):

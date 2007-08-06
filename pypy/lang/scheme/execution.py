@@ -1,72 +1,25 @@
-from pypy.lang.scheme.object import *
+import pypy.lang.scheme.object as ssobject
+#from pypy.lang.scheme.object import *
 
 class Location(object):
     def __init__(self, w_obj=None):
         self.obj = w_obj
 
-##
-# dict mapping operations to W_Xxx objects
-# callables must have 2 arguments
-# - ctx = execution context
-# - lst = list of arguments
-##
-OMAP = \
-    {
-            #arithmetic operations
-        '+': Add,
-        '-': Sub,
-        '*': Mul,
-        '/': Div,
-            #list operations
-        'cons': Cons,
-        'car': Car,
-        'cdr': Cdr,
-        'set-car!': SetCar,
-        'set-cdr!': SetCdr,
-        'list': List,
-        'quit': Quit,
-            #comparisons
-        '=': Equal,
-            #predicates
-        'integer?': IntegerP,
-        'rational?': RealP,
-        'real?': RealP,
-        'complex?': NumberP,
-        'number?': NumberP,
-        'exact?': ExactP,
-        'inexact?': InexactP,
-        'zero?': ZeroP,
-        'odd?': OddP,
-        'even?': EvenP,
-            #delayed evaluation
-        'force': Force,
-        'delay': Delay, #macro
-            #macros
-        'define': Define,
-        'set!': Sete,
-        'if': MacroIf,
-        'lambda': Lambda,
-        'begin': Begin,
-        'let': Let,
-        'let*': LetStar,
-        'letrec': Letrec,
-        'quote': Quote,
-        'quasiquote': QuasiQuote,
-        'syntax-rules': SyntaxRules,
-        'define-syntax': DefineSyntax,
-        'let-syntax': LetSyntax,
-    }
-
 OPERATION_MAP = {}
-for name, cls in OMAP.items():
-    OPERATION_MAP[name] = cls(name)
+for obj_name in dir(ssobject):
+    obj = getattr(ssobject, obj_name)
+    try:
+        issubclass(obj, ssobject.W_Callable)
+        OPERATION_MAP[obj._symbol_name] = obj(obj._symbol_name)
+    except (TypeError, AttributeError):
+        pass
 
 class ExecutionContext(object):
     """Execution context implemented as a dict.
 
     { "IDENTIFIER": Location(W_Root()) }
     """
-    def __init__(self, globalscope=None, scope=None, closure=False, macro=False):
+    def __init__(self, globalscope=None, scope=None, closure=False):
         if globalscope is None:
             self.globalscope = {}
             for name, oper in OPERATION_MAP.items():
@@ -83,13 +36,13 @@ class ExecutionContext(object):
         self.closure = closure
 
     def _dispatch(self, symb):
-        if isinstance(symb, SymbolClosure):
+        if isinstance(symb, ssobject.SymbolClosure):
             return (symb.closure, symb.name)
 
-        elif isinstance(symb, W_Symbol):
+        elif isinstance(symb, ssobject.W_Symbol):
             return (self, symb.name)
 
-        raise SchemeSyntaxError
+        raise ssobject.SchemeSyntaxError
 
     def copy(self):
         return ExecutionContext(self.globalscope, self.scope.copy(), True)
@@ -98,16 +51,16 @@ class ExecutionContext(object):
         loc = self.scope.get(name, None)
         if loc is not None:
             if loc.obj is None:
-                raise UnboundVariable(name)
+                raise ssobject.UnboundVariable(name)
             return loc.obj
 
         loc = self.globalscope.get(name, None)
         if loc is not None:
             if loc.obj is None:
-                raise UnboundVariable(name)
+                raise ssobject.UnboundVariable(name)
             return loc.obj
 
-        raise UnboundVariable(name)
+        raise ssobject.UnboundVariable(name)
 
     def ssete(self, symb, obj):
         (ctx, name) = self._dispatch(symb)
@@ -117,7 +70,7 @@ class ExecutionContext(object):
         """update existing location or raise
         directly used by (set! <var> <expr>) macro
         """
-        assert isinstance(obj, W_Root)
+        assert isinstance(obj, ssobject.W_Root)
         loc = self.scope.get(name, None)
         if loc is not None:
             loc.obj = obj
@@ -128,11 +81,11 @@ class ExecutionContext(object):
             loc.obj = obj
             return obj
 
-        raise UnboundVariable(name)
+        raise ssobject.UnboundVariable(name)
 
     def set(self, name, obj):
         """update existing location or create new location"""
-        assert isinstance(obj, W_Root)
+        assert isinstance(obj, ssobject.W_Root)
         if self.closure:
             loc = self.scope.get(name, None)
         else:
@@ -149,7 +102,7 @@ class ExecutionContext(object):
 
     def put(self, name, obj):
         """create new location"""
-        assert isinstance(obj, W_Root)
+        assert isinstance(obj, ssobject.W_Root)
         if self.closure:
             self.scope[name] = Location(obj)
         else:
@@ -179,3 +132,4 @@ class ExecutionContext(object):
             return loc
 
         return None
+
