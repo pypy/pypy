@@ -120,6 +120,7 @@ class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):
             py.test.skip("no ttyname")
+        py.test.skip("XXX get_errno() does not work with ll2ctypes")
     
     def test_ttyname(self):
         import os
