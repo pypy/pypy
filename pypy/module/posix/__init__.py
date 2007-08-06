@@ -50,6 +50,7 @@ corresponding Unix manual entries for more information on calls."""
     #'getuid'    : 'interp_posix.getuid',
     #'geteuid'   : 'interp_posix.geteuid',
     'utime'     : 'interp_posix.utime',
+    'tmpfile'   : 'interp_posix.tmpfile',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'

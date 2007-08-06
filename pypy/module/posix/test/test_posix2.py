@@ -262,6 +262,15 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
+    def test_tmpfile(self):
+        os = self.os
+        f = os.tmpfile()
+        f.write("xxx")
+        f.flush()
+        f.seek(0, 0)
+        assert isinstance(f, file)
+        assert f.read() == 'xxx'
+
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible
     def setup_class(cls):

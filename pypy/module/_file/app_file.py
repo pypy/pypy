@@ -38,6 +38,14 @@ Note:  open() is an alias for file().
         return f
     fdopen = classmethod(fdopen)
 
+    def tmpfile(cls, stream):
+        f = cls.__new__(cls)
+        fd = stream.try_to_find_file_descriptor()
+        assert fd != -1
+        f._fdopenstream(fd, "w+b", -1, "<tmpfile>", stream)
+        return f
+    tmpfile = classmethod(tmpfile)
+
     def _fdopenstream(self, fd, mode, buffering, name, stream):
         self.fd = fd
         self._name = name

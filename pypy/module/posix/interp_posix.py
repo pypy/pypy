@@ -3,6 +3,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import ros
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rpython.module.ll_os import RegisterOs
+from pypy.module._file.interp_file import W_Stream, wrap_oserror_as_ioerror
 
 import os
                           
@@ -527,3 +528,13 @@ def ttyname(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 ttyname.unwrap_spec = [ObjSpace, int]
+
+def tmpfile(space):
+    try:
+        stream = ros.tmpfile()
+        w_stream = space.wrap(W_Stream(space, stream))
+        w_fobj = space.getattr(space.getbuiltinmodule('__builtin__'), space.wrap('file'))
+        return space.call_function(space.getattr(w_fobj, space.wrap('tmpfile')), w_stream)
+    except OSError, e:
+        raise wrap_oserror_as_ioerror(space, e)
+tmpfile.unwrap_spec = [ObjSpace]
