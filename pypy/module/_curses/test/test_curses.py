@@ -8,6 +8,13 @@ from pypy.tool.udir import udir
 import py
 import sys
 
+def setup_module(mod):
+    try:
+        import curses
+        curses.setupterm()
+    except:
+        py.test.skip("Cannot test this here")
+
 class TestCurses(object):
     """ We need to fork here, to prevent
     the setup to be done
