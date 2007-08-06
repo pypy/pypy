@@ -104,6 +104,46 @@ class BaseTestPosix(BaseRtypingTest):
             return os.getuid()
         assert self.interpret(f, []) == f()
 
+    def test_tmpfile(self):
+        py.test.skip("XXX get_errno() does not work with ll2ctypes")
+        from pypy.rlib import ros
+        def f():
+            f = ros.tmpfile()
+            f.write('xxx')
+            f.flush()
+            return f.try_to_find_file_descriptor()
+
+        def f2(num):
+            os.close(num)
+
+        fd = self.interpret(f, [])
+        realfile = os.fdopen(fd)
+        realfile.seek(0)
+        assert realfile.read() == 'xxx'
+        self.interpret(f2, [fd])
+
+def test_tmpfile_translate():
+    from pypy.rlib import ros
+    def f():
+        f = ros.tmpfile()
+        f.write('xxx')
+        f.flush()
+        return f.try_to_find_file_descriptor()
+    
+    def f2(num):
+        os.close(num)
+
+    from pypy.translator.c.test.test_genc import compile
+
+    fn1 = compile(f, [])
+    fn2 = compile(f2, [int])
+
+    fd = fn1()
+    realfile = os.fdopen(fd)
+    realfile.seek(0)
+    assert realfile.read() == 'xxx'
+    fn2(fd)
+
 if not hasattr(os, 'ftruncate'):
     del BaseTestPosix.test_ftruncate
 
@@ -118,4 +158,3 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass
-

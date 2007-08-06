@@ -3,6 +3,7 @@ Helper file for Python equivalents of os specific calls.
 """
 
 import os
+from pypy.rlib.streamio import fdopen_as_stream
 
 def putenv(name_eq_value):
     # we fake it with the real one
@@ -62,3 +63,18 @@ def utime_null(path):
 
 def utime_tuple(path, tp):
     os.utime(path, tp)
+
+# ARGH! strange hack to allow os.tmpfile not to be deleted
+# (it should guess it based on getting file desc)
+# this is only when run on top of cpython
+# this will eventually lead to two closes (when this list is deleted), but
+# well.., unsure we can do anything with that.
+KEEP_ME_ALIVE_PLEASE = []
+
+def _tmpfile():
+    tmpfile = os.tmpfile()
+    KEEP_ME_ALIVE_PLEASE.append(tmpfile)
+    return tmpfile.fileno()
+
+def tmpfile():
+    return fdopen_as_stream(_tmpfile(), "w+b", True)

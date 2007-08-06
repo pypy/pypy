@@ -12,7 +12,8 @@ from pypy.rlib import ros
 from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
-from pypy.rpython.extfunc import BaseLazyRegistering, registering
+from pypy.rpython.extfunc import BaseLazyRegistering, registering,\
+     lazy_register, _register_external
 from pypy.annotation.model import SomeString, SomeInteger
 from pypy.annotation.model import s_ImpossibleValue, s_None, s_Bool
 from pypy.annotation.listdef import s_list_of_strings
@@ -471,6 +472,28 @@ class RegisterOs(BaseLazyRegistering):
 
             self.register(os.ttyname, [int], str, "ll_os.ttyname",
                           llimpl=ttyname_lltypeimpl)
+
+def register_tmpfile():
+    from pypy.rpython.lltypesystem import rffi
+    includes = ['stdio.h']
+
+    FILEP = rffi.COpaque('FILE', includes=includes)
+
+    c_tmpfile = rffi.llexternal('tmpfile', [], FILEP, includes=includes)
+    c_fileno = rffi.llexternal('fileno', [FILEP], rffi.INT, includes=includes)
+
+    def _tmpfile_llimpl():
+        fileobj = c_tmpfile()
+        if not fileobj:
+            raise OSError(rffi.get_errno(), "tmpfile failed")
+        ret = c_fileno(fileobj)
+        if ret == -1:
+            raise OSError(rffi.get_errno(), "fileno failed")
+        return ret
+
+    _register_external(ros._tmpfile, [], int, export_name='ros._tmpfile',
+                       llimpl=_tmpfile_llimpl)
+lazy_register(ros._tmpfile, register_tmpfile)
 
 class BaseOS:
     __metaclass__ = ClassMethods

@@ -114,7 +114,7 @@ def test_os_wstar():
 
         fn = compile(fun, [int])
         for value in [0, 1, 127, 128, 255]:
-            assert fn(value) == fun(value)
+            assert fn(value) == fun(value)        
 
 class ExpectTestOs:
     def setup_class(cls):
