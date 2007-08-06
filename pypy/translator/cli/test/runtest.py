@@ -127,13 +127,13 @@ class TestEntryPoint(BaseEntryPoint):
             assert False, 'Input type %s not supported' % arg_type
 
 
-def compile_function(func, annotation=[], graph=None, backendopt=True):
+def compile_function(func, annotation=[], graph=None, backendopt=True, auto_raise_exc=False):
     olddefs = patch()
     gen = _build_gen(func, annotation, graph, backendopt)
     gen.generate_source()
     exe_name = gen.build_exe()
     unpatch(*olddefs) # restore original values
-    return CliFunctionWrapper(exe_name)
+    return CliFunctionWrapper(exe_name, func.__name__, auto_raise_exc)
 
 def _build_gen(func, annotation, graph=None, backendopt=True):
     try: 
@@ -172,8 +172,10 @@ def _build_gen(func, annotation, graph=None, backendopt=True):
     return GenCli(tmpdir, t, TestEntryPoint(main_graph, True))
 
 class CliFunctionWrapper(object):
-    def __init__(self, exe_name):
+    def __init__(self, exe_name, name=None, auto_raise_exc=False):
         self._exe = exe_name
+        self.__name__ = name or exe_name
+        self.auto_raise_exc = auto_raise_exc
 
     def run(self, *args):
         if self._exe is None:
@@ -199,6 +201,13 @@ class CliFunctionWrapper(object):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
         elif isinstance(res, list):
             res = OOList(res)
+        elif self.auto_raise_exc and isinstance(res, ExceptionWrapper):
+            excname = res.class_name
+            if excname.startswith('exceptions.'):
+                import exceptions
+                raise eval(excname)
+            else:
+                raise res # probably it's a .NET exception with no RPython equivalent
         return res
 
 class StructTuple(tuple):
@@ -233,13 +242,14 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._cli_func = None
 
-    def _compile(self, fn, args, ann=None, backendopt=True):
+    def _compile(self, fn, args, ann=None, backendopt=True, auto_raise_exc=False):
         if ann is None:
             ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
             return self._cli_func
         else:
-            self._cli_func = compile_function(fn, ann, backendopt=backendopt)
+            self._cli_func = compile_function(fn, ann, backendopt=backendopt,
+                                              auto_raise_exc=auto_raise_exc)
             self._func = fn
             self._ann = ann
             return self._cli_func

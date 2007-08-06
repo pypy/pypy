@@ -1,3 +1,4 @@
+import py
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.test.runtest import FLOAT_PRECISION
 from pypy.annotation.listdef import s_list_of_strings
@@ -64,3 +65,10 @@ class TestRunTest(CliTest):
             else:
                 return None
         assert self.interpret(fn, [False]) is None
+
+    def test_auto_raise_exc(self):
+        def fn():
+            raise ValueError
+        f = self._compile(fn, [], auto_raise_exc=True)
+        py.test.raises(ValueError, f)
+        
