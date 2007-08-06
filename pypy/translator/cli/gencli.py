@@ -49,7 +49,7 @@ class GenCli(GenOO):
     DictConst = constant.CLIDictConst
     WeakRefConst = constant.CLIWeakRefConst
 
-    def __init__(self, tmpdir, translator, entrypoint, config=None):
+    def __init__(self, tmpdir, translator, entrypoint, config=None, exctrans=False):
         GenOO.__init__(self, tmpdir, translator, entrypoint, config)
         for node in get_prebuilt_nodes(translator, self.db):
             self.db.pending_node(node)
@@ -61,6 +61,11 @@ class GenCli(GenOO):
             for graph in translator.graphs:
                 SSI_to_SSA(graph)
                 build_trees(graph)
+
+        if exctrans:
+            etrafo = translator.getexceptiontransformer()
+            for graph in translator.graphs:
+                etrafo.create_exception_handling(graph)
 
     def generate_source(self):
         GenOO.generate_source(self)

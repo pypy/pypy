@@ -127,15 +127,16 @@ class TestEntryPoint(BaseEntryPoint):
             assert False, 'Input type %s not supported' % arg_type
 
 
-def compile_function(func, annotation=[], graph=None, backendopt=True, auto_raise_exc=False):
+def compile_function(func, annotation=[], graph=None, backendopt=True,
+                     auto_raise_exc=False, exctrans=False):
     olddefs = patch()
-    gen = _build_gen(func, annotation, graph, backendopt)
+    gen = _build_gen(func, annotation, graph, backendopt, exctrans)
     gen.generate_source()
     exe_name = gen.build_exe()
     unpatch(*olddefs) # restore original values
     return CliFunctionWrapper(exe_name, func.__name__, auto_raise_exc)
 
-def _build_gen(func, annotation, graph=None, backendopt=True):
+def _build_gen(func, annotation, graph=None, backendopt=True, exctrans=False):
     try: 
         func = func.im_func
     except AttributeError: 
@@ -169,7 +170,7 @@ def _build_gen(func, annotation, graph=None, backendopt=True):
     else:
         tmpdir = udir
 
-    return GenCli(tmpdir, t, TestEntryPoint(main_graph, True))
+    return GenCli(tmpdir, t, TestEntryPoint(main_graph, True), exctrans=exctrans)
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name, name=None, auto_raise_exc=False):
