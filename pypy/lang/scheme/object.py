@@ -945,6 +945,7 @@ class MatchError(SchemeException):
 
 class SyntaxRule(object):
     def __init__(self, pattern, template, literals):
+        assert isinstance(pattern, W_Pair)
         self.pattern = pattern
         self.template = template
         self.literals = literals
@@ -952,12 +953,10 @@ class SyntaxRule(object):
     def __str__(self):
         return self.pattern.to_string() + " -> " + self.template.to_string()
 
-    def match(self, ctx, w_expr, pattern=None):
+    def match(self, ctx, w_expr):
         #we use .cdr here, because keyword should not be a macro variable
-        if pattern is None:
-            return self.matchr(ctx, self.pattern.cdr, w_expr.cdr)
-
-        return self.matchr(ctx, pattern.cdr, w_expr.cdr)
+        assert isinstance(w_expr, W_Pair)
+        return self.matchr(ctx, self.pattern.cdr, w_expr.cdr)
 
     def matchr(self, ctx, w_patt, w_expr):
         if isinstance(w_patt, W_Pair):
@@ -1124,16 +1123,17 @@ class W_Transformer(W_Procedure):
                 w_cdr = self.substituter(ctx, sexpr.cdr, match_dict)
             except EllipsisTemplate:
                 print "ellipsis expand", sexpr
+                sexprcdr = sexpr.get_cdr_as_pair()
                 try:
                     #we can still have something behind ellipsis
-                    w_cdr = self.substituter(ctx, sexpr.cdr.cdr, match_dict)
+                    w_cdr = self.substituter(ctx, sexprcdr.cdr, match_dict)
                 except EllipsisTemplate:
                     #it can also be ellipsis
                     # lets pretend its usual <(obj ...) ...>
                     # instead of <obj ... ...>
                     # we will *flatten* the result later
-                    w_inner = W_Pair(sexpr.car, W_Pair(sexpr.cdr.car, w_nil))
-                    w_outer = W_Pair(w_inner, sexpr.cdr.cdr)
+                    w_inner = W_Pair(sexpr.car, W_Pair(sexprcdr.car, w_nil))
+                    w_outer = W_Pair(w_inner, sexprcdr.cdr)
                     return self.substituter(ctx, w_outer, match_dict, True)
 
                 plst = []
