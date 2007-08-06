@@ -113,7 +113,7 @@ class TranslationContext(object):
             raise ValueError("no rtyper")
         if self.exceptiontransformer is not None:
             return self.exceptiontransformer
-        from pypy.translator.c.exceptiontransform import ExceptionTransformer
+        from pypy.translator.exceptiontransform import ExceptionTransformer
         self.exceptiontransformer = ExceptionTransformer(self)
         return self.exceptiontransformer
 

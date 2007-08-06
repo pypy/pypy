@@ -3,7 +3,7 @@ from pypy.objspace.flow.model import c_last_exception, Variable
 from pypy.rpython.memory.gctransform.support import var_ispyobj
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.translator.c.exceptiontransform import ExceptionTransformer
+from pypy.translator.exceptiontransform import ExceptionTransformer
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow.model import Variable
 from pypy.annotation import model as annmodel

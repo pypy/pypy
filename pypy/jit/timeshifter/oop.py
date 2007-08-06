@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue, rtimeshift
-from pypy.translator.c import exceptiontransform
+from pypy.translator import exceptiontransform
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.tool.sourcetools import func_with_new_name
 

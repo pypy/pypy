@@ -312,7 +312,7 @@ class LLFrame(object):
                         tracer.dump('raise')
                     exc_data.exc_type  = lltype.typeOf(etype )._defl()
                     exc_data.exc_value = lltype.typeOf(evalue)._defl()
-                    from pypy.translator.c import exceptiontransform
+                    from pypy.translator import exceptiontransform
                     T = resultvar.concretetype
                     errvalue = exceptiontransform.error_value(T)
                     # check that the exc-transformed graph returns the error
@@ -402,7 +402,7 @@ class LLFrame(object):
                     evalue = e.args[1]
                     exc_data.exc_type  = etype
                     exc_data.exc_value = evalue
-                    from pypy.translator.c import exceptiontransform
+                    from pypy.translator import exceptiontransform
                     retval = exceptiontransform.error_value(
                         operation.result.concretetype)
                 else:

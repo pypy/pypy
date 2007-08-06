@@ -514,7 +514,7 @@ def test_llinterp_fail():
     res = interp.eval_graph(graph, [1])
 
 def test_half_exceptiontransformed_graphs():
-    from pypy.translator.c import exceptiontransform
+    from pypy.translator import exceptiontransform
     def f1(x):
         if x < 0:
             raise ValueError
@@ -564,7 +564,7 @@ def test_half_exceptiontransformed_graphs():
     assert res == 7
 
 def test_exceptiontransformed_add_ovf():
-    from pypy.translator.c import exceptiontransform
+    from pypy.translator import exceptiontransform
     def f(x, y):
         try:
             return ovfcheck(x + y)

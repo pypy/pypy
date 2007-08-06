@@ -1,7 +1,8 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.simplify import join_blocks
-from pypy.translator.c import exceptiontransform, genc, gc
+from pypy.translator import exceptiontransform
+from pypy.translator.c import genc, gc
 from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.translator.c.test.test_genc import compile
