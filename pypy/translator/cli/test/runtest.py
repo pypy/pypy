@@ -90,14 +90,27 @@ class TestEntryPoint(BaseEntryPoint):
                     ilasm.leave('return')
                 ilasm.end_catch()
 
+            # check for USE_LAST exceptions
             ilasm.label('check_last_exception')
             ilasm.opcode('ldsfld', 'object last_exception')
-            ilasm.opcode('brnull', 'print_result')
+            ilasm.opcode('brnull', 'check_etrafo_exception')
             # there is a pending exception
             ilasm.opcode('ldsfld', 'object last_exception')
             ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
             ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
             ilasm.opcode('br', 'return')
+
+            # check for exception tranformer exceptions
+            ilasm.label('check_etrafo_exception')
+            if hasattr(self.db, 'exceptiontransformer'):
+                ilasm.opcode('call', 'bool rpyexc_occured()')
+                ilasm.opcode('brfalse', 'print_result') # no exceptions
+                ilasm.opcode('call', 'Object rpyexc_fetch_value()')
+                ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
+                ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
+                ilasm.opcode('br', 'return')
+            else:
+                ilasm.opcode('br', 'print_result')
 
         ilasm.label('print_result')
         if return_type != 'void':

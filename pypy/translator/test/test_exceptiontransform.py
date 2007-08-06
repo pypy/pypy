@@ -220,5 +220,4 @@ class TestOOType(BaseTestExceptionTransform):
 
     def compile(self, fn, inputargs):
         from pypy.translator.cli.test.runtest import compile_function
-        # XXX: set exctrans=True
-        return compile_function(fn, inputargs, auto_raise_exc=True, exctrans=False)
+        return compile_function(fn, inputargs, auto_raise_exc=True, exctrans=True)

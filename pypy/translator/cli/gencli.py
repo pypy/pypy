@@ -51,21 +51,24 @@ class GenCli(GenOO):
 
     def __init__(self, tmpdir, translator, entrypoint, config=None, exctrans=False):
         GenOO.__init__(self, tmpdir, translator, entrypoint, config)
+        if exctrans:
+            self.db.exceptiontransformer = translator.getexceptiontransformer()
+
         for node in get_prebuilt_nodes(translator, self.db):
             self.db.pending_node(node)
         self.assembly_name = entrypoint.get_name()
         self.tmpfile = tmpdir.join(self.assembly_name + '.il')
         self.const_stat = str(tmpdir.join('const_stat'))
 
+        if exctrans:
+            etrafo = self.db.exceptiontransformer
+            for graph in translator.graphs:
+                etrafo.create_exception_handling(graph)
+
         if translator.config.translation.backendopt.stack_optimization:
             for graph in translator.graphs:
                 SSI_to_SSA(graph)
                 build_trees(graph)
-
-        if exctrans:
-            etrafo = translator.getexceptiontransformer()
-            for graph in translator.graphs:
-                etrafo.create_exception_handling(graph)
 
     def generate_source(self):
         GenOO.generate_source(self)

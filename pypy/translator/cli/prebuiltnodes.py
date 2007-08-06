@@ -50,4 +50,17 @@ def get_prebuilt_nodes(translator, db):
     prebuilt_nodes = _build_helpers(translator, db)
     raise_OSError_graph = translator.rtyper.exceptiondata.fn_raise_OSError.graph
     prebuilt_nodes.append(Helper(db, raise_OSError_graph, 'raise_OSError'))
+
+    try:
+        etrafo = db.exceptiontransformer
+    except AttributeError:
+        pass
+    else:
+        for name in ('rpyexc_clear',
+                     'rpyexc_fetch_type',
+                     'rpyexc_fetch_value',
+                     'rpyexc_occured',
+                     'rpyexc_raise'):
+            sm = getattr(etrafo, name+'_ptr').value
+            prebuilt_nodes.append(Function(db, sm.graph, name))
     return prebuilt_nodes

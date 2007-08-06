@@ -171,8 +171,6 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
 
     def __init__(self, *args, **kwargs):
         OOFunction.__init__(self, *args, **kwargs)
-        self._set_args()
-        self._set_locals()
         namespace = getattr(self.graph.func, '_namespace_', None)
         str
         if namespace:
@@ -196,6 +194,9 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
             OOFunction.record_ll_meta_exc(self, ll_meta_exc)
 
     def begin_render(self):
+        self._set_args()
+        self._set_locals()
+        
         returntype, returnvar = self.cts.llvar_to_cts(self.graph.getreturnvar())
         if self.is_method:
             args = self.args[1:] # self is implicit
