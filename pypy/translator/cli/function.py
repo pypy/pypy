@@ -193,6 +193,21 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         if NATIVE_INSTANCE is None:
             OOFunction.record_ll_meta_exc(self, ll_meta_exc)
 
+    def _trace_enabled(self):
+        return getoption('trace')
+
+    def _trace(self, s, writeline=False):
+        self.ilasm.stderr(s, writeline=writeline)
+
+    def _trace_value(self, prompt, v):
+        self.ilasm.stderr('  ' + prompt + ': ', writeline=False)
+        self.ilasm.load_stderr()
+        self.load(v)
+        if v.concretetype is not ootype.String:
+            from pypy.translator.cli.test.runtest import format_object
+            format_object(v.concretetype, self.cts, self.ilasm)
+        self.ilasm.write_stderr()
+
     def begin_render(self):
         self._set_args()
         self._set_locals()

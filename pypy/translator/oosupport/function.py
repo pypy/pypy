@@ -242,11 +242,29 @@ class Function(object):
             self.generator.load(to_load)
             self.generator.store(to_store)
 
+    def _trace_enabled(self):
+        return False
+
+    def _trace(self, s):
+        raise NotImplementedError
+
+    def _trace_value(self, prompt, v):
+        raise NotImplementedError
+
     def _render_op(self, op):
         instr_list = self.db.genoo.opcodes.get(op.opname, None)
         assert instr_list is not None, 'Unknown opcode: %s ' % op
         assert isinstance(instr_list, InstructionList)
+
+        if self._trace_enabled():
+            self._trace(str(op), writeline=True)
+            for i, arg in enumerate(op.args):
+                self._trace_value('Arg %02d' % i, arg)
+
         instr_list.render(self.generator, op)
+ 
+        if self._trace_enabled():
+            self._trace_value('Result', op.result)
 
     def _render_sub_op(self, sub_op):
         op = sub_op.op

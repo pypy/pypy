@@ -337,7 +337,9 @@ class GraphFunction(OOFunction, Function):
             
         self.ilasm.throw()
 
-    def _trace(self, str):
+    def _trace(self, str, writeline=False):
+        if writeline:
+            str += '\n'
         jvmgen.SYSTEMERR.load(self.generator)
         self.generator.load_string(str)
         jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
@@ -381,19 +383,13 @@ class GraphFunction(OOFunction, Function):
             self.generator.emit(jvmgen.PRINTSTREAMPRINTSTR)
             self._trace("\n")
 
+    def _trace_enabled(self):
+        return getoption('trace')
+
     def _render_op(self, op):
         self.generator.add_comment(str(op))
-        
-        if getoption('trace'):
-            self._trace(str(op)+"\n")
-
-            for i, arg in enumerate(op.args):
-                self._trace_value('Arg %02d' % i, arg)
-
         OOFunction._render_op(self, op)
 
-        if getoption('trace'):
-            self._trace_value('Result', op.result)
 
 class StaticMethodInterface(Node, JvmClassType):
     """

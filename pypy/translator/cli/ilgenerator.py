@@ -252,12 +252,22 @@ class IlasmGenerator(object):
         self.code.write(opcode + ' ')
         self.code.writeline(' '.join(map(str, args)))
 
-    def stderr(self, msg, cond=True):
+    def stderr(self, msg, cond=True, writeline=True):
         from pypy.translator.cli.support import string_literal
         if cond:
-            self.call('class [mscorlib]System.IO.TextWriter class [mscorlib]System.Console::get_Error()')
+            self.load_stderr()
             self.opcode('ldstr', string_literal(msg))
-            self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)
+            self.write_stderr(writeline)
+
+    def load_stderr(self):
+        self.call('class [mscorlib]System.IO.TextWriter class [mscorlib]System.Console::get_Error()')
+
+    def write_stderr(self, writeline=True):
+        if writeline:
+            meth = 'WriteLine'
+        else:
+            meth = 'Write'
+        self.call_method('void class [mscorlib]System.IO.TextWriter::%s(string)' % meth, virtual=True)
 
     def add_comment(self, text):
         self.code.writeline('// %s' % text)

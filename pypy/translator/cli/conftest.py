@@ -28,6 +28,9 @@ option = py.test.config.addoptions\
 
           Option('--nostackopt', action='store_true', dest='nostackopt', default=False,
                  help="don't optimize stack load/store operations"),
+
+          Option('--trace', action='store_true', dest='trace', default=False,
+                 help='Trace execution of generated code'),
           )
 
 
