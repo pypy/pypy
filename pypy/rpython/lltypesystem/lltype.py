@@ -1097,7 +1097,12 @@ class _ptr(object):
                 raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
             for a, ARG in zip(args, self._T.ARGS):
                 if typeOf(a) != ARG:
-                    raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
+                    try:
+                        args_repr = [arg._T for arg in args]
+                    except:
+                        # well...
+                        args_repr = args
+                    raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args_repr)
             callb = self._obj._callable
             if callb is None:
                 raise RuntimeError,"calling undefined function"
