@@ -1,6 +1,7 @@
 
 from pypy.module.thread.ll_thread import *
 from pypy.translator.c.test.test_genc import compile
+from pypy.rpython.lltypesystem import lltype
 import py
 
 def test_lock():
@@ -16,25 +17,28 @@ def test_thread_error():
     l = ll_allocate_lock()
     py.test.raises(ThreadError, ll_release_lock, l)
 
-def test_thread_init_new():
-    """ This test works only after translation
-    """
-    py.test.skip("does not work")
+def test_start_new_thread():
     import time
-    import thread
-
-    class X(BaseBootstrapper):
+    class Y:
+        _alloc_flavor_ = 'raw'
+        
         def __init__(self):
             self.top = []
 
         def bootstrap(self):
-            self.top.append(1)
+            self.top.append(ll_get_ident())
     
     def f():
-        x = X()
-        ll_start_new_thread(X.bootstrap, x)
-        time.sleep(.3)
-        return len(x.top)
+        y = Y()
+        start_new_thread(Y.bootstrap, y)
+        time.sleep(1)
+        res = len(y.top)
+        lltype.free(y.top, flavor='raw')
+        lltype.free(y, flavor='raw')
+        return res == ll_get_ident()
 
+    # XXX is this testable on top of llinterp at all?
     fn = compile(f, [])
-    assert fn() == 1
+    # XXX where does additional malloc come from???
+    assert fn(expected_extra_mallocs=1) == False
+    
