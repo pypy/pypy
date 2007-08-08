@@ -1,6 +1,9 @@
 
 /* #ifdef logic from CPython */
 
+#ifndef __PYPY_THREAD_H
+#define __PYPY_THREAD_H
+
 #ifndef _POSIX_THREADS
 /* This means pthreads are not implemented in libc headers, hence the macro
    not present in unistd.h. But they still can be implemented as an external
@@ -33,5 +36,7 @@
 #define RPyThreadStaticTLS_Create(key) RPyThreadTLS_Create(key)
 #define RPyThreadStaticTLS_Get(key)    RPyThreadTLS_Get(key)
 #define RPyThreadStaticTLS_Set(key, value) RPyThreadTLS_Set(key, value)
+
+#endif
 
 #endif
