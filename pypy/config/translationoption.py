@@ -195,7 +195,8 @@ translation_optiondescription = OptionDescription(
 
     OptionDescription("cli", "GenCLI options", [
         BoolOption("trace_calls", "Trace function calls", default=False,
-                   cmdline="--cli-trace-calls")
+                   cmdline="--cli-trace-calls"),
+        BoolOption("exception_transformer", "Use exception transformer", default=False),
     ]),
 ])
 

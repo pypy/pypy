@@ -51,6 +51,7 @@ class GenCli(GenOO):
 
     def __init__(self, tmpdir, translator, entrypoint, config=None, exctrans=False):
         GenOO.__init__(self, tmpdir, translator, entrypoint, config)
+        exctrans = exctrans or translator.config.translation.cli.exception_transformer
         if exctrans:
             self.db.exceptiontransformer = translator.getexceptiontransformer()
 
