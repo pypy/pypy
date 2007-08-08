@@ -3,6 +3,12 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_exception import BaseTestException
 
 class TestCliException(CliTest, BaseTestException):
+    use_exception_transformer = False
+
+    def interpret(self, *args, **kwds):
+        kwds['exctrans'] = self.use_exception_transformer
+        return CliTest.interpret(self, *args, **kwds)
+
     def test_nested_try(self):
         def helper(x):
             if x == 0:
@@ -55,3 +61,6 @@ class TestCliException(CliTest, BaseTestException):
                 obj = Derived()
             return obj.foo()
         assert self.interpret(fn, [0]) == 42
+
+class TestCliExceptionTransformer(TestCliException):
+    use_exception_transformer = True

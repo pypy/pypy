@@ -159,13 +159,6 @@ class MapException(MicroInstruction):
         self.mapping = mapping
 
     def render(self, generator, op):
-        from pypy.translator.cli.function import LastExceptionHandler
-        if isinstance(generator, LastExceptionHandler):
-            self.render_last(generator, op)
-        else:
-            self.render_native(generator, op)
-
-    def render_native(self, generator, op):
         ilasm = generator.ilasm
         label = '__check_block_%d' % MapException.COUNT
         MapException.COUNT += 1
@@ -179,25 +172,6 @@ class MapException(MicroInstruction):
             ilasm.opcode('throw')
             ilasm.end_catch()
         ilasm.label(label)
-        ilasm.opcode('nop')
-
-    def render_last(self, generator, op):
-        ilasm = generator.ilasm
-        stdflow = '__check_block_%d' % MapException.COUNT
-        MapException.COUNT += 1
-        premature_return = '__check_block_%d' % MapException.COUNT
-        MapException.COUNT += 1
-        ilasm.begin_try()
-        self.instr.render(generator, op)
-        ilasm.leave(stdflow)
-        ilasm.end_try()
-        for cli_exc, py_exc in self.mapping:
-            ilasm.begin_catch(cli_exc)
-            ilasm.new('instance void class %s::.ctor()' % py_exc)
-            ilasm.opcode('stsfld', 'object last_exception')
-            ilasm.leave(stdflow)
-            ilasm.end_catch()
-        ilasm.label(stdflow)
         ilasm.opcode('nop')
 
 class _Box(MicroInstruction): 

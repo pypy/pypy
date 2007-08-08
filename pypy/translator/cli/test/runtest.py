@@ -73,7 +73,7 @@ class TestEntryPoint(BaseEntryPoint):
         if return_type != 'void':
             ilasm.opcode('stloc', 'res')
         if self.wrap_exceptions:
-            ilasm.leave('check_last_exception')
+            ilasm.leave('check_etrafo_exception')
         else:
             ilasm.leave('print_result')
 
@@ -89,16 +89,6 @@ class TestEntryPoint(BaseEntryPoint):
                     ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
                     ilasm.leave('return')
                 ilasm.end_catch()
-
-            # check for USE_LAST exceptions
-            ilasm.label('check_last_exception')
-            ilasm.opcode('ldsfld', 'object last_exception')
-            ilasm.opcode('brnull', 'check_etrafo_exception')
-            # there is a pending exception
-            ilasm.opcode('ldsfld', 'object last_exception')
-            ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
-            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
-            ilasm.opcode('br', 'return')
 
             # check for exception tranformer exceptions
             ilasm.label('check_etrafo_exception')
@@ -256,14 +246,15 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._cli_func = None
 
-    def _compile(self, fn, args, ann=None, backendopt=True, auto_raise_exc=False):
+    def _compile(self, fn, args, ann=None, backendopt=True, auto_raise_exc=False, exctrans=False):
         if ann is None:
             ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
             return self._cli_func
         else:
             self._cli_func = compile_function(fn, ann, backendopt=backendopt,
-                                              auto_raise_exc=auto_raise_exc)
+                                              auto_raise_exc=auto_raise_exc,
+                                              exctrans=exctrans)
             self._func = fn
             self._ann = ann
             return self._cli_func
@@ -276,17 +267,17 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         if platform.processor() == 'powerpc':
             py.test.skip('PowerPC --> %s' % reason)
 
-    def interpret(self, fn, args, annotation=None, backendopt=True):
-        f = self._compile(fn, args, annotation, backendopt)
+    def interpret(self, fn, args, annotation=None, backendopt=True, exctrans=False):
+        f = self._compile(fn, args, annotation, backendopt=backendopt, exctrans=exctrans)
         res = f(*args)
         if isinstance(res, ExceptionWrapper):
             raise res
         return res
 
-    def interpret_raises(self, exception, fn, args):
+    def interpret_raises(self, exception, fn, args, exctrans=False):
         import exceptions # needed by eval
         try:
-            self.interpret(fn, args)
+            self.interpret(fn, args, exctrans=exctrans)
         except ExceptionWrapper, ex:
             assert issubclass(eval(ex.class_name), exception)
         else:
