@@ -255,7 +255,7 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
 
         true_label = self.next_label('link_true')
         self.generator.load(block.exitswitch)
-        self.generator.branch_conditionally(link.exitcase, true_label)
+        self.generator.branch_conditionally(True, true_label)
         self._follow_link(link_false) # if here, the exitswitch is false
         self.set_label(true_label)
         self._follow_link(link_true)  # if here, the exitswitch is true
