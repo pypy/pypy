@@ -1,7 +1,10 @@
 Do now
 ------
 
-- lambda called with wrong number of arguments issue
+- continuations
+
+continuation frame must be saved fot every non tail-call
+(for tail calls there is no cc)
 
 Do next
 -------
@@ -16,8 +19,8 @@ Do in some future
 
 Here starts the real fun!
 
-- macros
-  * macros are not first-class objects
-- continuations
+- lambda called with wrong number of arguments issue
+- macros *are* not first-class objects
+
 - switch to byte-code generation + eval instead of evaluating AST
 

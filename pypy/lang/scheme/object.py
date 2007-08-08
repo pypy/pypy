@@ -244,17 +244,33 @@ class W_Callable(W_Root):
     def call(self, ctx, lst):
         raise NotImplementedError
 
-    def eval_body(self, ctx, body):
+    def eval_body(self, ctx, body, cnt=False):
         body_expression = body
-        while True:
-            if not isinstance(body_expression, W_Pair):
-                raise SchemeSyntaxError
-            elif body_expression.cdr is w_nil:
-                return (body_expression.car, ctx)
+        while isinstance(body_expression, W_Pair):
+            if body_expression.cdr is w_nil:
+                if cnt is False:
+                    return (body_expression.car, ctx)
+
+                if ctx is None:
+                    result = body_expression.car
+                else:
+                    result = body_expression.car.eval(ctx)
+
+                if len(ctx.cont_stack) == 0:
+                    raise ContinuationReturn(result)
+
+                cont = ctx.cont_stack.pop()
+                return cont.run(ctx, result)
+
             else:
+                ctx.cont_stack.append(
+                        ContinuationFrame(self, body_expression.cdr))
                 body_expression.car.eval(ctx)
+                ctx.cont_stack.pop()
 
             body_expression = body_expression.cdr
+
+        raise SchemeSyntaxError
 
 class W_Procedure(W_Callable):
     def __init__(self, pname=""):
@@ -264,17 +280,45 @@ class W_Procedure(W_Callable):
         return "#<primitive-procedure %s>" % (self.pname,)
 
     def call_tr(self, ctx, lst):
+        return self.continue_tr(ctx, lst, [], False)
+
+    def continue_tr(self, ctx, lst, elst, cnt=True):
         #evaluate all arguments into list
-        arg_lst = []
+        arg_lst = elst
         arg = lst
-        while not arg is w_nil:
-            if not isinstance(arg, W_Pair):
-                raise SchemeSyntaxError
+        while isinstance(arg, W_Pair):
+            #this is non tail-call, it should create continuation frame
+            # continuation frame consist:
+            #  - plst of arleady evaluated arguments
+            #  - arg (W_Pair) = arg.cdr as a pointer to not evaluated
+            #    arguments
+            #  - actual context
+            ctx.cont_stack.append(ContinuationFrame(self, arg.cdr, arg_lst))
             w_obj = arg.car.eval(ctx)
+            ctx.cont_stack.pop()
+
             arg_lst.append(w_obj)
             arg = arg.cdr
 
-        return self.procedure_tr(ctx, arg_lst)
+        if arg is not w_nil:
+            raise SchemeSyntaxError
+
+        procedure_result = self.procedure_tr(ctx, arg_lst)
+        if cnt is False:
+            return procedure_result
+
+        #if procedure_result still has to be evaluated
+        # this can happen in case if self isinstance of W_Lambda
+        if procedure_result[1] is None:
+            procedure_result = procedure_result[0]
+        else:
+            procedure_result = procedure_result[0].eval(procedure_result[1])
+
+        if len(ctx.cont_stack) == 0:
+            raise ContinuationReturn(procedure_result)
+
+        cont = ctx.cont_stack.pop()
+        return cont.run(ctx, procedure_result)
 
     def procedure(self, ctx, lst):
         raise NotImplementedError
@@ -290,6 +334,10 @@ class W_Macro(W_Callable):
 
     def to_string(self):
         return "#<primitive-macro %s>" % (self.pname,)
+
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        lst = W_Pair(elst[0], lst)
+        return self.eval_body(ctx, lst, cnt=True)
 
 class Formal(object):
     def __init__(self, name, islist=False):
@@ -1083,6 +1131,7 @@ class W_Transformer(W_Procedure):
         return self.substitute(ctx, template, match_dict)
 
     def find_elli(self, expr, mdict):
+        #filter mdict, returning only ellipsis which appear in expr
         if isinstance(expr, W_Pair):
             edict_car = self.find_elli(expr.car, mdict)
             edict_cdr = self.find_elli(expr.cdr, mdict)
@@ -1137,12 +1186,17 @@ class W_Transformer(W_Procedure):
                     return self.substituter(ctx, w_outer, match_dict, True)
 
                 plst = []
-                #find_elli gets part of match_dict relevant to sexpr.car
+                #find_elli gets ellipses from match_dict relevant to sexpr.car
                 mdict_elli = self.find_elli(sexpr.car, match_dict)
                 elli_len = 0
                 for (key, val) in mdict_elli.items():
-                    assert elli_len == 0 or elli_len == len(val.mdict_lst)
-                    elli_len = len(val.mdict_lst)
+                    if elli_len == 0 or elli_len == len(val.mdict_lst):
+                        elli_len = len(val.mdict_lst)
+                    else:
+                        #we can treat is as an error if ellipsis has
+                        # different match length
+                        # # or get the shortest one
+                        raise SchemeSyntaxError
 
                 #generate elli_len substitutions for ellipsis
                 for i in range(elli_len):
@@ -1183,7 +1237,7 @@ class W_Transformer(W_Procedure):
 
             w_sub = match_dict.get(sexpr.name, None)
             if w_sub is not None:
-                # Hygenic macros close their input forms in the syntactic
+                #Hygenic macros close their input forms in the syntactic
                 # enviroment at the point of use
 
                 if isinstance(w_sub, Ellipsis):
@@ -1276,4 +1330,59 @@ class LetSyntax(W_Macro):
             w_formal = w_formal.cdr
 
         return self.eval_body(local_ctx, lst.cdr)
+
+class ContinuationReturn(SchemeException):
+    def __init__(self, result):
+        self.result = result
+
+class ContinuationFrame(object):
+    def __init__(self, callable, continuation, evaluated_args = []):
+        assert isinstance(callable, W_Callable)
+        self.callable = callable
+        assert isinstance(continuation, W_Root)
+        self.continuation = continuation
+        assert isinstance(evaluated_args, list)
+        #XXX copying of evaluated_args here is SLOW,
+        # it should ocur only on continuation capture
+        self.evaluated_args = evaluated_args[:]
+
+    def run(self, ctx, arg):
+        elst = self.evaluated_args[:]
+        elst.append(arg)
+        print self.callable.to_string(), elst, self.continuation
+        return self.callable.continue_tr(ctx, self.continuation, elst, True)
+
+class Continuation(W_Procedure):
+    def __init__(self, ctx, continuation):
+        self.closure = ctx #XXX to .copy() ot not to .copy()
+        #copy of continuation stack
+        self.cont_stack = continuation[:]
+        try:
+            self.continuation = self.cont_stack.pop()
+        except IndexError:
+            #continuation captured on top-level
+            self.continuation = None
+
+    def procedure_tr(self, ctx, lst):
+        if len(lst) == 0:
+            lst.append(w_undefined)
+
+        print "Continuation called"
+        self.closure.cont_stack = self.cont_stack[:]
+        cont = self.continuation
+        if cont is None:
+            raise ContinuationReturn(lst[0])
+
+        return cont.run(self.closure, lst[0])
+
+class CallCC(W_Procedure):
+    _symbol_name = "call/cc"
+
+    def procedure_tr(self, ctx, lst):
+        if len(lst) != 1 or not isinstance(lst[0], W_Procedure):
+            raise SchemeSyntaxError
+
+        w_lambda = lst[0]
+        cc = Continuation(ctx, ctx.cont_stack)
+        return w_lambda.call_tr(ctx, W_Pair(cc, w_nil))
 

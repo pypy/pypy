@@ -19,7 +19,8 @@ class ExecutionContext(object):
 
     { "IDENTIFIER": Location(W_Root()) }
     """
-    def __init__(self, globalscope=None, scope=None, closure=False):
+    def __init__(self, globalscope=None, scope=None, closure=False,
+            cont_stack=None):
         if globalscope is None:
             self.globalscope = {}
             for name, oper in OPERATION_MAP.items():
@@ -35,6 +36,11 @@ class ExecutionContext(object):
 
         self.closure = closure
 
+        if cont_stack is None:
+            self.cont_stack = []
+        else:
+            self.cont_stack = cont_stack
+
     def _dispatch(self, symb):
         if isinstance(symb, ssobject.SymbolClosure):
             return (symb.closure, symb.name)
@@ -45,7 +51,8 @@ class ExecutionContext(object):
         raise ssobject.SchemeSyntaxError
 
     def copy(self):
-        return ExecutionContext(self.globalscope, self.scope.copy(), True)
+        return ExecutionContext(self.globalscope, self.scope.copy(), True,
+                self.cont_stack)
 
     def get(self, name):
         loc = self.scope.get(name, None)
