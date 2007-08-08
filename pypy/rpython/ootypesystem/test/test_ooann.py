@@ -149,6 +149,18 @@ def test_unionof():
 
     assert s == annmodel.SomeOOInstance(C1)
 
+def test_record():
+    R = Record({'foo': Signed})
+    r = new(R)
+    
+    def oof():
+        return r
+
+    a = RPythonAnnotator()
+    s = a.build_types(oof, [])
+    assert isinstance(s, annmodel.SomeOOInstance)
+    assert s.ootype == R
+
 def test_static_method():
     F = StaticMethod([Signed, Signed], Signed)
     def f_(a, b):

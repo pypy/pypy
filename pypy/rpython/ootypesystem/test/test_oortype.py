@@ -288,3 +288,14 @@ def test_not_mangle_attrs():
     def fn():
         return Bar()
     py.test.raises(AssertionError, gengraph, fn, mangle=False)
+
+def test_pbc_record():
+    R = Record({'foo': Signed})
+    r = new(R)
+    r.foo = 42
+
+    def oof():
+        return r.foo
+    
+    res = interpret(oof, [], type_system='ootype')
+    assert res == 42
