@@ -19,7 +19,6 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
-from pypy.translator.cli.stackopt import StackOptGenerator
 from pypy.translator.cli import query
 from pypy.translator.cli import constant
 
@@ -27,10 +26,6 @@ try:
     set
 except NameError:
     from sets import Set as set
-
-#USE_STACKOPT = True and not getoption('nostackopt')
-USE_STACKOPT = False
-
 
 class GenCli(GenOO):
     TypeSystem = CTS
@@ -81,12 +76,8 @@ class GenCli(GenOO):
         out = self.tmpfile.open('w')
         if getoption('stdout'):
             out = Tee(sys.stdout, out)
-
-        if USE_STACKOPT:
-            return StackOptGenerator(out, self.assembly_name, self.config)
-        else:
-            isnetmodule = self.entrypoint.isnetmodule
-            return IlasmGenerator(out, self.assembly_name, self.config, isnetmodule)
+        isnetmodule = self.entrypoint.isnetmodule
+        return IlasmGenerator(out, self.assembly_name, self.config, isnetmodule)
 
     def build_exe(self):        
         if getoption('source'):
