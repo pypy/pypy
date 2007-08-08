@@ -16,7 +16,7 @@ def pystones_main(loops):
     if loops >= 0:
         s = ("RPystone(%s) time for %d passes = %f" %
              (VERSION, loops, benchtime) + '\n' + (
-             "This machine benchmarks at %f pystones/second" % stones))
+             "This machine benchmarks at %f pystones/second\n" % stones))
     os.write(1, s)
     if loops == 12345:
         pystones_main(loops-1)
