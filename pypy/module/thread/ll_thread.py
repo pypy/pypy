@@ -81,7 +81,10 @@ def start_new_thread(x, y):
 def ll_start_new_thread(l_func, arg):
     l_arg = cast_instance_to_base_ptr(arg)
     l_arg = rffi.cast(rffi.VOIDP, l_arg)
-    return c_thread_start(l_func, l_arg)
+    ident = c_thread_start(l_func, l_arg)
+    if ident == -1:
+        raise ThreadError("can't start new thread")
+    return ident
 
 class LLStartNewThread(ExtRegistryEntry):
     _about_ = start_new_thread
