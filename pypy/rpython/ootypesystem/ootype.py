@@ -6,10 +6,6 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import objectmodel
 from pypy.tool.uid import uid
 
-try:
-    set
-except NameError:
-    from sets import Set as set
 
 STATICNESS = True
 
@@ -923,7 +919,7 @@ class OverloadingResolver(object):
         self._check_overloadings()
 
     def _check_overloadings(self):
-        signatures = set()
+        signatures = py.builtin.set()
         for meth in self.overloadings:
             ARGS = meth._TYPE.ARGS
             if ARGS in signatures:
