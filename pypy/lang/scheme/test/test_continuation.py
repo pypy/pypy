@@ -9,6 +9,21 @@ def eval_(ctx, expr):
     except ContinuationReturn, e:
         return e.result
 
+def test_callcc_callcc():
+    ctx = ExecutionContext()
+    w_procedure = eval_(ctx, "(call/cc call/cc)")
+    assert isinstance(w_procedure, W_Procedure)
+    print w_procedure
+
+    eval_(ctx, "(define cont 'none)")
+    w_result = eval_(ctx, """((call/cc call/cc) (lambda (k)
+                                                     (set! cont k)
+                                                     'done))""")
+    assert w_result.to_string() == "done"
+    assert isinstance(eval_(ctx, "cont"), W_Procedure)
+    eval_(ctx, "(cont +)")
+    assert eval_(ctx, "cont") is ctx.get("+")
+
 def test_callcc():
     ctx = ExecutionContext()
 
@@ -106,4 +121,18 @@ def test_the_continuation_x2():
     assert eval_(ctx, "(con)").to_number() == 4
     assert eval_(ctx, "(con2)").to_number() == 8
     assert eval_(ctx, "(+ 1 (con2))").to_number() == 10
+
+def test_escape_continuation():
+    ctx = ExecutionContext()
+
+    eval_(ctx, "(define ret-failed #f)")
+    w_result = eval_(ctx, """
+        (let ((test 17))
+          (call/cc (lambda (return)
+                     (if (odd? test) (return 'odd))
+                     (set! ret-failed #t)
+                     'even)))""")
+
+    assert w_result.to_string() == "odd"
+    assert eval_(ctx, "ret-failed").to_boolean() == False
 

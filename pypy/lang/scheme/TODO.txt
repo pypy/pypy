@@ -10,7 +10,7 @@ Do next
 -------
 
 - implement key functions
-  (apply, reduce, map and so on)
+  (apply, map and so on)
 
 - comparison: < > eq? eqv?
 

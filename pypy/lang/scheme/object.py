@@ -105,7 +105,7 @@ class W_Boolean(W_Root):
         return self.boolval
 
     def __repr__(self):
-        return "<W_Boolean " + str(self.boolval) + " >"
+        return "<W_Boolean " + str(self.boolval) + ">"
 
 class W_String(W_Root):
     def __init__(self, val):
@@ -115,7 +115,7 @@ class W_String(W_Root):
         return self.strval
 
     def __repr__(self):
-        return "<W_String " + self.strval + " >"
+        return "<W_String \"" + self.strval + "\">"
 
 class W_Real(W_Root):
     def __init__(self, val):
@@ -210,8 +210,32 @@ class W_Pair(W_List):
     def __repr__(self):
         return "<W_Pair " + self.to_string() + ">"
 
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        oper = elst[0]
+        if not isinstance(oper, W_Callable):
+            raise NotCallable(oper)
+
+        cdr = lst
+        if isinstance(cdr, W_List):
+            result = oper.call_tr(ctx, cdr)
+        else:
+            raise SchemeSyntaxError
+
+        if result[1] is None:
+            result = result[0]
+        else:
+            result = result[0].eval(result[1])
+
+        if len(ctx.cont_stack) == 0:
+            raise ContinuationReturn(result)
+
+        cont = ctx.cont_stack.pop()
+        return cont.run(ctx, result)
+
     def eval_tr(self, ctx):
+        ctx.cont_stack.append(ContinuationFrame(self, self.cdr))
         oper = self.car.eval(ctx)
+        ctx.cont_stack.pop()
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
 
@@ -244,7 +268,14 @@ class W_Callable(W_Root):
     def call(self, ctx, lst):
         raise NotImplementedError
 
-    def eval_body(self, ctx, body, cnt=False):
+class Body(W_Root):
+    def __init__(self, body):
+        self.body = body
+
+    def eval_tr(self, ctx):
+        return self.continue_tr(ctx, self.body, [], False)
+
+    def continue_tr(self, ctx, body, elst, cnt=True):
         body_expression = body
         while isinstance(body_expression, W_Pair):
             if body_expression.cdr is w_nil:
@@ -335,10 +366,6 @@ class W_Macro(W_Callable):
     def to_string(self):
         return "#<primitive-macro %s>" % (self.pname,)
 
-    def continue_tr(self, ctx, lst, elst, cnt=True):
-        lst = W_Pair(elst[0], lst)
-        return self.eval_body(ctx, lst, cnt=True)
-
 class Formal(object):
     def __init__(self, name, islist=False):
         self.name = name
@@ -361,7 +388,7 @@ class W_Lambda(W_Procedure):
                 self.args.append(Formal(arg.car.to_string(), False))
                 arg = arg.cdr
 
-        self.body = body
+        self.body = Body(body)
         self.pname = pname
         self.closure = closure
 
@@ -382,7 +409,7 @@ class W_Lambda(W_Procedure):
             else:
                 local_ctx.put(formal.name, lst[idx])
 
-        return self.eval_body(local_ctx, self.body)
+        return self.body.eval_tr(local_ctx)
 
 def plst2lst(plst, w_cdr=w_nil):
     """coverts python list() of W_Root into W_Pair scheme list"""
@@ -673,6 +700,20 @@ class EvenP(PredicateNumber):
 
         return w_obj.round() % 2 == 0
 
+#XXX no tests for it
+class PairP(W_Procedure):
+    _symbol_name = "pair?"
+
+    def procedure(self, ctx, lst):
+        if len(lst) != 1:
+            raise WrongArgsNumber
+
+        w_obj = lst[0]
+        if isinstance(w_obj, W_Pair):
+            return W_Boolean(True)
+
+        return W_Boolean(False)
+
 ##
 # Macro
 ##
@@ -750,7 +791,7 @@ class Begin(W_Macro):
 
     def call_tr(self, ctx, lst):
         #begin uses eval_body, so it is tail-recursive aware
-        return self.eval_body(ctx, lst)
+        return Body(lst).eval_tr(ctx)
 
 class Let(W_Macro):
     _symbol_name = "let"
@@ -768,7 +809,7 @@ class Let(W_Macro):
             local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return Body(lst.cdr).eval_tr(local_ctx)
 
 class LetStar(W_Macro):
     _symbol_name = "let*"
@@ -786,7 +827,7 @@ class LetStar(W_Macro):
             local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return Body(lst.cdr).eval_tr(local_ctx)
 
 class Letrec(W_Macro):
     _symbol_name = "letrec"
@@ -814,7 +855,7 @@ class Letrec(W_Macro):
         for (name, w_val) in map_name_val.items():
             local_ctx.ssete(map_name_symb[name], w_val)
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return Body(lst.cdr).eval_tr(local_ctx)
 
 def quote(sexpr):
     return W_Pair(W_Symbol('quote'), W_Pair(sexpr, w_nil))
@@ -1329,7 +1370,7 @@ class LetSyntax(W_Macro):
             local_ctx.put(w_name.name, w_macro)
             w_formal = w_formal.cdr
 
-        return self.eval_body(local_ctx, lst.cdr)
+        return Body(lst.cdr).eval_tr(local_ctx)
 
 class ContinuationReturn(SchemeException):
     def __init__(self, result):
@@ -1337,7 +1378,7 @@ class ContinuationReturn(SchemeException):
 
 class ContinuationFrame(object):
     def __init__(self, callable, continuation, evaluated_args = []):
-        assert isinstance(callable, W_Callable)
+        assert hasattr(callable, "continue_tr")
         self.callable = callable
         assert isinstance(continuation, W_Root)
         self.continuation = continuation
@@ -1363,11 +1404,14 @@ class Continuation(W_Procedure):
             #continuation captured on top-level
             self.continuation = None
 
+    def to_string(self):
+        return "#<continuation -> %s>" % (self.continuation,)
+
     def procedure_tr(self, ctx, lst):
         if len(lst) == 0:
             lst.append(w_undefined)
 
-        print "Continuation called"
+        print "Continuation called", self.cont_stack
         self.closure.cont_stack = self.cont_stack[:]
         cont = self.continuation
         if cont is None:
