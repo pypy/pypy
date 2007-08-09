@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
