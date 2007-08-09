@@ -9,21 +9,6 @@ def eval_(ctx, expr):
     except ContinuationReturn, e:
         return e.result
 
-def test_callcc_callcc():
-    ctx = ExecutionContext()
-    w_procedure = eval_(ctx, "(call/cc call/cc)")
-    assert isinstance(w_procedure, W_Procedure)
-    print w_procedure
-
-    eval_(ctx, "(define cont 'none)")
-    w_result = eval_(ctx, """((call/cc call/cc) (lambda (k)
-                                                     (set! cont k)
-                                                     'done))""")
-    assert w_result.to_string() == "done"
-    assert isinstance(eval_(ctx, "cont"), W_Procedure)
-    eval_(ctx, "(cont +)")
-    assert eval_(ctx, "cont") is ctx.get("+")
-
 def test_callcc():
     ctx = ExecutionContext()
 
@@ -40,6 +25,21 @@ def test_callcc():
     assert w_result.to_number() == 3
     w_result = eval_(ctx, "(+ 1 (cont #t))")
     assert w_result.to_boolean() is True
+
+def test_callcc_callcc():
+    ctx = ExecutionContext()
+    w_procedure = eval_(ctx, "(call/cc call/cc)")
+    assert isinstance(w_procedure, W_Procedure)
+    print w_procedure
+
+    eval_(ctx, "(define cont 'none)")
+    w_result = eval_(ctx, """((call/cc call/cc) (lambda (k)
+                                                     (set! cont k)
+                                                     'done))""")
+    assert w_result.to_string() == "done"
+    assert isinstance(eval_(ctx, "cont"), W_Procedure)
+    eval_(ctx, "(cont +)")
+    assert eval_(ctx, "cont") is ctx.get("+")
 
 def test_simple_multi_shot():
     ctx = ExecutionContext()

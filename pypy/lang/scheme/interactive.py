@@ -3,7 +3,8 @@
 scheme interpreter
 """
 import autopath
-from pypy.lang.scheme.object import SchemeException, SchemeQuit
+from pypy.lang.scheme.object import SchemeException, SchemeQuit,\
+        ContinuationReturn
 from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.ssparser import parse
 from pypy.rlib.parsing.makepackrat import BacktrackException
@@ -34,10 +35,12 @@ def interactive():
                 print parse(to_exec)[0].eval(ctx).to_string()
             except SchemeQuit, e:
                 break
-            except BacktrackException, e:
-                print "syntax error"
+            except ContinuationReturn, e:
+                print e.result.to_string()
             except SchemeException, e:
                 print "error: %s" % e
+            except BacktrackException, e:
+                print "syntax error"
 
             to_exec = ""
             cont = False

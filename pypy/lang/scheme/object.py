@@ -40,6 +40,9 @@ class W_Root(object):
     def __repr__(self):
         return "<W_Root " + self.to_string() + ">"
 
+    def eval_cf(self, ctx, caller, cont, elst=[]):
+        return self.eval(ctx)
+
     def eval(self, ctx):
         w_expr = self
         while ctx is not None:
@@ -171,12 +174,36 @@ class W_Integer(W_Real):
     def to_float(self):
         return float(self.intval)
 
-class W_List(W_Root):
+class W_Eval(W_Root):
+    #this class is for objects which does more than
+    # evaluate to themselves
+    def eval_cf(self, ctx, caller, cont, elst=[]):
+        #eval with continuation frame!
+        ctx.cont_stack.append(ContinuationFrame(caller, cont, elst))
+        result = self.eval(ctx)
+        ctx.cont_stack.pop()
+        return result
+
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        raise NotImplementedError
+
+class W_List(W_Eval):
     pass
 
 class W_Nil(W_List):
+    def __repr__(self):
+        return "<W_Nil ()>"
+
     def to_string(self):
         return "()"
+
+    def eval_cf(self, ctx, caller, cont, elst=[]):
+        #XXX not tests here
+        raise SchemeSyntaxError
+
+    def eval_tr(self, ctx):
+        #XXX not tests here
+        raise SchemeSyntaxError
 
 w_nil = W_Nil()
 
@@ -233,9 +260,7 @@ class W_Pair(W_List):
         return cont.run(ctx, result)
 
     def eval_tr(self, ctx):
-        ctx.cont_stack.append(ContinuationFrame(self, self.cdr))
-        oper = self.car.eval(ctx)
-        ctx.cont_stack.pop()
+        oper = self.car.eval_cf(ctx, self, self.cdr)
         if not isinstance(oper, W_Callable):
             raise NotCallable(oper)
 
@@ -259,7 +284,7 @@ class W_Pair(W_List):
             raise SchemeSyntaxError
         return res
 
-class W_Callable(W_Root):
+class W_Callable(W_Eval):
     def call_tr(self, ctx, lst):
         #usually tail-recursive call is normal call
         # which returns tuple with no further ExecutionContext
@@ -268,7 +293,7 @@ class W_Callable(W_Root):
     def call(self, ctx, lst):
         raise NotImplementedError
 
-class Body(W_Root):
+class Body(W_Eval):
     def __init__(self, body):
         self.body = body
 
@@ -294,10 +319,7 @@ class Body(W_Root):
                 return cont.run(ctx, result)
 
             else:
-                ctx.cont_stack.append(
-                        ContinuationFrame(self, body_expression.cdr))
-                body_expression.car.eval(ctx)
-                ctx.cont_stack.pop()
+                body_expression.car.eval_cf(ctx, self, body_expression.cdr)
 
             body_expression = body_expression.cdr
 
@@ -324,9 +346,7 @@ class W_Procedure(W_Callable):
             #  - arg (W_Pair) = arg.cdr as a pointer to not evaluated
             #    arguments
             #  - actual context
-            ctx.cont_stack.append(ContinuationFrame(self, arg.cdr, arg_lst))
-            w_obj = arg.car.eval(ctx)
-            ctx.cont_stack.pop()
+            w_obj = arg.car.eval_cf(ctx, self, arg.cdr, arg_lst)
 
             arg_lst.append(w_obj)
             arg = arg.cdr
