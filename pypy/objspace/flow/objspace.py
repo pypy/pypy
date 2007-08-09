@@ -237,6 +237,9 @@ class FlowObjSpace(ObjSpace):
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         code = func.func_code
+        if code.co_flags & 32:
+            # generator
+            raise TypeError("%r is a generator" % (func,))
         code = PyCode._from_code(self, code)
         if func.func_closure is None:
             closure = None

@@ -825,6 +825,11 @@ class TestFlowObjSpace(Base):
         assert all_ops['simple_call'] == 2
         assert all_ops['getattr'] == 1
 
+    def test_generator(self):
+        def f():
+            yield 3
+
+        py.test.raises(TypeError, "self.codetest(f)")
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
