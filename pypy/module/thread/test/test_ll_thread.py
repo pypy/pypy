@@ -5,17 +5,22 @@ from pypy.rpython.lltypesystem import lltype
 import py
 
 def test_lock():
-    l = ll_allocate_lock()
-    ok1 = ll_acquire_lock(l, 1)
-    ok2 = ll_acquire_lock(l, 0)
-    ll_release_lock(l)
-    ok3 = ll_acquire_lock(l, 0)
+    l = allocate_lock()
+    ok1 = l.acquire(True)
+    ok2 = l.acquire(False)
+    l.release()
+    ok3 = l.acquire(False)
     res = ok1 and not ok2 and ok3
     assert res == 1
 
 def test_thread_error():
-    l = ll_allocate_lock()
-    py.test.raises(ThreadError, ll_release_lock, l)
+    l = allocate_lock()
+    try:
+        l.release()
+    except error:
+        pass
+    else:
+        py.test.fail("Did not raise")
 
 def test_start_new_thread():
     import time
@@ -26,19 +31,29 @@ def test_start_new_thread():
             self.top = []
 
         def bootstrap(self):
-            self.top.append(ll_get_ident())
-    
+            self.top.append(get_ident())
+
     def f():
         y = Y()
-        start_new_thread(Y.bootstrap, y)
-        time.sleep(1)
+        start_new_thread(Y.bootstrap, (y,))
+        time.sleep(.3)
         res = len(y.top)
-        lltype.free(y.top, flavor='raw')
         lltype.free(y, flavor='raw')
-        return res == ll_get_ident()
+        return 1 == get_ident()
 
+    # for some reason, refcounting does not handle _alloc_flavor_ = 'raw'
     # XXX is this testable on top of llinterp at all?
-    fn = compile(f, [])
-    # XXX where does additional malloc come from???
-    assert fn(expected_extra_mallocs=1) == False
+    fn = compile(f, [], gcpolicy='boehm')
+    assert fn() == False
+
+def test_prebuilt_lock():
+    l = allocate_lock()
+
+    def f():
+        l.acquire(True)
+        l.release()
+
+    fn = compile(f, [], gcpolicy='boehm')
+    fn()
+
     

@@ -3,7 +3,6 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.rffi import platform
 from pypy.rpython.extfunc import genericcallable
-from pypy.module.thread.os_thread import Bootstrapper
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.translator.tool.cbuild import cache_c_module
 from pypy.rpython.lltypesystem import llmemory
@@ -11,28 +10,19 @@ import thread, py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.nonconst import NonConstant
 
-class BaseBootstrapper:
-    def bootstrap(self):
-        pass
-
-class ThreadError(Exception):
+class error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-class Lock(object):
-    """ Container for low-level implementation
-    of a lock object
-    """
-    def __init__(self, ll_lock):
-        self._lock = ll_lock
-
 includes = ['unistd.h', 'src/thread.h']
-from pypy.tool.autopath import pypydir
-pypydir = py.path.local(pypydir)
-srcdir = pypydir.join('translator', 'c', 'src')
 
 def setup_thread_so():
+    from pypy.tool.autopath import pypydir
+    pypydir = py.path.local(pypydir)
+    srcdir = pypydir.join('translator', 'c', 'src')
     files = [srcdir.join('thread.c')]
     modname = '_thread'
     cache_c_module(files, modname, include_dirs=[str(srcdir)])
@@ -54,40 +44,26 @@ c_thread_acuirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                  rffi.INT)
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
 
-def ll_allocate_lock():
+def allocate_lock():
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
     res = c_thread_lock_init(ll_lock)
     if res == -1:
-        raise ThreadError("out of resources")
+        raise error("out of resources")
     return Lock(ll_lock)
 
-def ll_acquire_lock(lock, waitflag):
-    return c_thread_acuirelock(lock._lock, waitflag)
-
-def ll_release_lock(lock):
-    try:
-        if ll_acquire_lock(lock, 0):
-            raise ThreadError("bad lock")
-    finally:
-        c_thread_releaselock(lock._lock)
-
-# a simple wrapper, not to expose C functions (is this really necessary?)
-def ll_get_ident():
-    return c_thread_get_ident()
-
-def start_new_thread(x, y):
-    raise NotImplementedError("Should never be invoked directly")
+def _start_new_thread(x, y):
+    return thread.start_new_thread(x, (y,))
 
 def ll_start_new_thread(l_func, arg):
     l_arg = cast_instance_to_base_ptr(arg)
     l_arg = rffi.cast(rffi.VOIDP, l_arg)
     ident = c_thread_start(l_func, l_arg)
     if ident == -1:
-        raise ThreadError("can't start new thread")
+        raise error("can't start new thread")
     return ident
 
 class LLStartNewThread(ExtRegistryEntry):
-    _about_ = start_new_thread
+    _about_ = _start_new_thread
     
     def compute_result_annotation(self, s_func, s_arg):
         bookkeeper = self.bookkeeper
@@ -116,3 +92,38 @@ class LLStartNewThread(ExtRegistryEntry):
                  #hop.inputarg(args_r[0], 0),
                  hop.inputarg(args_r[1], 1)]
         return hop.genop('direct_call', vlist, r_result)
+
+# wrappers...
+
+def get_ident():
+    return c_thread_get_ident()
+
+def start_new_thread(x, y):
+    return _start_new_thread(x, y[0])
+
+class Lock(object):
+    """ Container for low-level implementation
+    of a lock object
+    """
+    def __init__(self, ll_lock):
+        self._lock = ll_lock
+
+    def acquire(self, flag):
+        return bool(c_thread_acuirelock(self._lock, int(flag)))
+
+    def release(self):
+        try:
+            if self.acquire(False):
+                # XXX the annotator trick to annotate it with non-const
+                # string, probably should be put into bltn-analyzers
+                raise error(NonConstant("bad lock"))
+        finally:
+            c_thread_releaselock(self._lock)
+
+    def fused_release_acquire(self):
+        self.release()
+        self.acquire(True)
+
+    def __del__(self):
+        lltype.free(self._lock, flavor='raw')
+
