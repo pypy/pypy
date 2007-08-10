@@ -280,12 +280,14 @@ class GraphFunction(OOFunction, Function):
     def set_label(self, blocklbl):
         self.ilasm.mark(blocklbl)
 
-    def begin_try(self):
-        self.ilasm.begin_try()
+    def begin_try(self, cond):
+        if cond:
+            self.ilasm.begin_try()
 
-    def end_try(self, exit_label):
+    def end_try(self, exit_label, cond):
         self.ilasm.branch_unconditionally(exit_label)
-        self.ilasm.end_try()
+        if cond:
+            self.ilasm.end_try()
 
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase

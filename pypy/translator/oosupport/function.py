@@ -11,6 +11,8 @@ from pypy.translator.oosupport.metavm import InstructionList, StoreResult
 
 
 class Function(object):
+    
+    auto_propagate_exceptions = False
 
     def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):
         self.db = db
@@ -140,9 +142,17 @@ class Function(object):
         for op in block.operations[:-1]:
             self._render_op(op)
 
+        anyHandler = False
+        for link in block.exits:
+            if link.exitcase is None:
+                continue
+            if not self._is_raise_block(link.target):
+                anyHandler = True
+        anyHandler = anyHandler or not self.auto_propagate_exceptions
+        
         # render the last one (if any!) and prepend a .try
         if block.operations:
-            self.begin_try()
+            self.begin_try(anyHandler)
             self._render_op(block.operations[-1])
 
         # search for the "default" block to be executed when no
@@ -150,7 +160,7 @@ class Function(object):
         for link in block.exits:
             if link.exitcase is None:
                 self._setup_link(link)
-                self.end_try(self._get_block_name(link.target))
+                self.end_try(self._get_block_name(link.target), anyHandler)
                 break
         else:
             assert False, "No non-exceptional case from exc_handling block"
@@ -160,6 +170,8 @@ class Function(object):
             if link.exitcase is None:
                 continue # see above
             assert issubclass(link.exitcase, py.builtin.BaseException)
+            if self._is_raise_block(link.target) and self.auto_propagate_exceptions:
+                continue # let the exception propagate
             ll_meta_exc = link.llexitcase
             self.record_ll_meta_exc(ll_meta_exc)
             self.begin_catch(link.llexitcase)

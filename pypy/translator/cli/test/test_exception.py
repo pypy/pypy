@@ -62,5 +62,20 @@ class TestCliException(CliTest, BaseTestException):
             return obj.foo()
         assert self.interpret(fn, [0]) == 42
 
+    def test_missing_handler(self):
+        def foo(x):
+            if x:
+                raise ValueError
+        
+        def fn(x):
+            try:
+                foo(x)
+            except ValueError:
+                raise
+            return 42
+        assert self.interpret(fn, [0], backendopt=False) == 42
+        self.interpret_raises(ValueError, fn, [1], backendopt=False)
+
+
 class TestCliExceptionTransformer(TestCliException):
     use_exception_transformer = True

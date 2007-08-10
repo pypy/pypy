@@ -20,10 +20,15 @@ from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
 class Function(OOFunction, Node, CLIBaseGenerator):
 
+    auto_propagate_exceptions = True
+
     def __init__(self, *args, **kwargs):
         OOFunction.__init__(self, *args, **kwargs)
+
+        if hasattr(self.db.genoo, 'exceptiontransformer'):
+            self.auto_propagate_exceptions = False
+        
         namespace = getattr(self.graph.func, '_namespace_', None)
-        str
         if namespace:
             if '.' in namespace:
                 self.namespace, self.classname = namespace.rsplit('.', 1)
@@ -94,12 +99,16 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             self.load(return_var)
         self.ilasm.opcode('ret')
 
-    def begin_try(self):
-        self.ilasm.begin_try()
+    def begin_try(self, cond):
+        if cond:
+            self.ilasm.begin_try()
 
-    def end_try(self, target_label):
-        self.ilasm.leave(target_label)
-        self.ilasm.end_try()
+    def end_try(self, target_label, cond):
+        if cond:
+            self.ilasm.leave(target_label)
+            self.ilasm.end_try()
+        else:
+            self.ilasm.branch(target_label)
 
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase

@@ -274,10 +274,10 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
             raise res
         return res
 
-    def interpret_raises(self, exception, fn, args, exctrans=False):
+    def interpret_raises(self, exception, fn, args, backendopt=True, exctrans=False):
         import exceptions # needed by eval
         try:
-            self.interpret(fn, args, exctrans=exctrans)
+            self.interpret(fn, args, backendopt=backendopt, exctrans=exctrans)
         except ExceptionWrapper, ex:
             assert issubclass(eval(ex.class_name), exception)
         else:

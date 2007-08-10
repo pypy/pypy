@@ -195,9 +195,10 @@ class Function(function.Function, BaseGenerator):
     def render_raise_block(self, block):
         self.ilasm.throw(block.inputargs[1])
 
-    def end_try(self, target_label):
+    def end_try(self, target_label, cond):
         self.ilasm.jump_block(self.block_map[target_label])
-        self.ilasm.catch()
+        if cond:
+            self.ilasm.catch()
         #self.ilasm.close_branch()
 
     def record_ll_meta_exc(self, ll_meta_exc):
@@ -226,8 +227,9 @@ class Function(function.Function, BaseGenerator):
         self.ilasm.write_case(self.block_map[label])
         #self.ilasm.label(label)
 
-    def begin_try(self):
-        self.ilasm.begin_try()
+    def begin_try(self, cond):
+        if cond:
+            self.ilasm.begin_try()
 
     def clean_stack(self):
         self.ilasm.clean_stack()
