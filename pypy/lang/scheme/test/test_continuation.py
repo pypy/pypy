@@ -88,7 +88,7 @@ def test_the_continuation():
         (define (test)
           (let ((i 0))
             (call/cc (lambda (k) (set! con k)))
-            ; The next time tc is called, we start here.
+            ; The next time con is called, we start here.
             (set! i (+ i 1))
             i))""")
 
@@ -135,4 +135,47 @@ def test_escape_continuation():
 
     assert w_result.to_string() == "odd"
     assert eval_(ctx, "ret-failed").to_boolean() == False
+
+def test_loop():
+    ctx = ExecutionContext()
+
+    eval_(ctx, "(define k 'none)")
+    eval_(ctx, "(define num 'none)")
+    w_result = eval_(ctx, """
+        (call/cc
+            (lambda (return)
+                (letrec ((loop
+                          (lambda (n)
+                            (if (zero? n)
+                                0
+                                (begin
+                                  (call/cc (lambda (cc)
+                                             (set! k cc)
+                                             (return n)))
+                                  (set! num n)
+                                  (loop (- n 1)))))))
+                      (loop 10))))""")
+
+    assert w_result.to_number() == 10
+    assert isinstance(ctx.get("k"), Continuation)
+    assert ctx.get("num").to_string() == "none"
+
+    for i in range(9, -1, -1):
+        w_result = eval_(ctx, "(k)")
+        assert w_result.to_number() == i
+        assert ctx.get("num").to_number() == i+1
+
+    w_result = eval_(ctx, "(k)")
+    assert w_result.to_number() == 0
+    assert ctx.get("num").to_number() == 1
+
+def test_let_define():
+    ctx = ExecutionContext()
+    
+    eval_(ctx, """(define oo
+                          (let ((cont (call/cc (lambda (k) k))))
+                               cont))""")
+    assert isinstance(ctx.get("oo"), Continuation)
+    eval_(ctx, "(oo +)")
+    assert ctx.get("oo") is ctx.get("+")
 

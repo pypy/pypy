@@ -40,7 +40,7 @@ class W_Root(object):
     def __repr__(self):
         return "<W_Root " + self.to_string() + ">"
 
-    def eval_cf(self, ctx, caller, cont, elst=[]):
+    def eval_cf(self, ctx, caller, cont, elst=[], enum=0):
         return self.eval(ctx)
 
     def eval(self, ctx):
@@ -177,9 +177,9 @@ class W_Integer(W_Real):
 class W_Eval(W_Root):
     #this class is for objects which does more than
     # evaluate to themselves
-    def eval_cf(self, ctx, caller, cont, elst=[]):
+    def eval_cf(self, ctx, caller, cont, elst=[], enum=0):
         #eval with continuation frame!
-        ctx.cont_stack.append(ContinuationFrame(caller, cont, elst))
+        ctx.cont_stack.append(ContinuationFrame(caller, cont, elst, enum))
         result = self.eval(ctx)
         ctx.cont_stack.pop()
         return result
@@ -197,7 +197,7 @@ class W_Nil(W_List):
     def to_string(self):
         return "()"
 
-    def eval_cf(self, ctx, caller, cont, elst=[]):
+    def eval_cf(self, ctx, caller, cont, elst=[], enum=0):
         #XXX not tests here
         raise SchemeSyntaxError
 
@@ -338,6 +338,7 @@ class W_Procedure(W_Callable):
     def continue_tr(self, ctx, lst, elst, cnt=True):
         #evaluate all arguments into list
         arg_lst = elst
+        arg_num = 0
         arg = lst
         while isinstance(arg, W_Pair):
             #this is non tail-call, it should create continuation frame
@@ -346,8 +347,9 @@ class W_Procedure(W_Callable):
             #  - arg (W_Pair) = arg.cdr as a pointer to not evaluated
             #    arguments
             #  - actual context
-            w_obj = arg.car.eval_cf(ctx, self, arg.cdr, arg_lst)
+            w_obj = arg.car.eval_cf(ctx, self, arg.cdr, arg_lst, arg_num)
 
+            arg_num += 1
             arg_lst.append(w_obj)
             arg = arg.cdr
 
@@ -740,13 +742,25 @@ class PairP(W_Procedure):
 class Define(W_Macro):
     _symbol_name = "define"
 
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        w_first = elst[0]
+        w_val = elst[1]
+        if isinstance(w_first, W_Symbol):
+            ctx.set(w_first.name, w_val)
+            return (w_val, None)
+        elif isinstance(w_first, W_Pair):
+            #XXX no tests here
+            raise NotImplementedError
+
+        raise SchemeSyntaxError
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         w_first = lst.car
         w_second = lst.get_cdr_as_pair()
         if isinstance(w_first, W_Symbol):
-            w_val = w_second.car.eval(ctx)
+            w_val = w_second.car.eval_cf(ctx, self, w_first, [w_first], 1)
             ctx.set(w_first.name, w_val)
             return w_val #undefined
         elif isinstance(w_first, W_Pair):
@@ -760,8 +774,8 @@ class Define(W_Macro):
             w_lambda = W_Lambda(formals, body, ctx, pname=w_name.name)
             ctx.set(w_name.name, w_lambda)
             return w_lambda #undefined
-        else:
-            raise SchemeSyntaxError
+
+        raise SchemeSyntaxError
 
 class Sete(W_Macro):
     _symbol_name = "set!"
@@ -1397,25 +1411,24 @@ class ContinuationReturn(SchemeException):
         self.result = result
 
 class ContinuationFrame(object):
-    def __init__(self, callable, continuation, evaluated_args = []):
+    def __init__(self, callable, continuation, evaluated_args = [], enum=0):
         assert hasattr(callable, "continue_tr")
         self.callable = callable
         assert isinstance(continuation, W_Root)
         self.continuation = continuation
         assert isinstance(evaluated_args, list)
-        #XXX copying of evaluated_args here is SLOW,
-        # it should ocur only on continuation capture
-        self.evaluated_args = evaluated_args[:]
+        self.evaluated_args = evaluated_args
+        self.evaluated_args_num = enum
 
     def run(self, ctx, arg):
-        elst = self.evaluated_args[:]
+        elst = self.evaluated_args[:self.evaluated_args_num]
         elst.append(arg)
         print self.callable.to_string(), elst, self.continuation
         return self.callable.continue_tr(ctx, self.continuation, elst, True)
 
 class Continuation(W_Procedure):
     def __init__(self, ctx, continuation):
-        self.closure = ctx #XXX to .copy() ot not to .copy()
+        self.closure = ctx #to .copy() ot not to .copy()
         #copy of continuation stack
         self.cont_stack = continuation[:]
         try:
