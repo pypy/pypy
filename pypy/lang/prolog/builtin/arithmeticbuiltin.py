@@ -41,10 +41,20 @@ def impl_arith_%s(engine, num1, num2):
     eq = False
     if isinstance(num1, term.Number):
         if isinstance(num2, term.Number):
-            eq = num1.num %s num2.num
-    elif isinstance(num1, term.Float):
-        if isinstance(num2, term.Float):
-            eq = num1.floatval %s num2.floatval
+            if not (num1.num %s num2.num):
+                raise error.UnificationFailed()
+            else:
+                return
+        n1 = num1.num
+    else:
+        assert isinstance(num1, term.Float)
+        n1 = num1.floatval
+    if isinstance(num2, term.Number):
+        n2 = num2.num
+    else:
+        assert isinstance(num2, term.Float)
+        n2 = num2.floatval
+    eq = n1 %s n2
     if not eq:
         raise error.UnificationFailed()""" % (ext, python, python)).compile()
     expose_builtin(globals()["impl_arith_%s" % (ext, )], prolog,

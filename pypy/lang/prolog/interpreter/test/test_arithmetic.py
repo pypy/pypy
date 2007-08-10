@@ -99,5 +99,6 @@ def test_comparison():
     assert_true("1 + 0.001 >= 1 + 0.001.")
     assert_true("1 + 0.001 =< 1 + 0.001.")
     assert_false("1 > 1.")
+    assert_true("1.1 > 1.")
     assert_false("1 =\\= 1.0.")
     assert_true("1 =\\= 32.")
