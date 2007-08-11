@@ -17,12 +17,12 @@ class error(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-includes = ['unistd.h', 'src/thread.h']
+from pypy.tool.autopath import pypydir
+pypydir = py.path.local(pypydir)
+srcdir = pypydir.join('translator', 'c', 'src')
+includes = ['unistd.h', 'thread.h']
 
 def setup_thread_so():
-    from pypy.tool.autopath import pypydir
-    pypydir = py.path.local(pypydir)
-    srcdir = pypydir.join('translator', 'c', 'src')
     files = [srcdir.join('thread.c')]
     modname = '_thread'
     cache_c_module(files, modname, include_dirs=[str(srcdir)])
@@ -31,7 +31,7 @@ libraries = [setup_thread_so()]
 
 def llexternal(name, args, result):
     return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=libraries)
+                           libraries=libraries, include_dirs=[str(srcdir)])
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
