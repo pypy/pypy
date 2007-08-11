@@ -35,6 +35,7 @@ def ask_gcc(question, includes=[], add_source="", include_dirs=[],
 
     # always include pypy include dir
     pypypath = py.path.local(pypydir)
+    include_dirs = include_dirs[:]
     include_dirs.append(str(pypypath.join('translator', 'c', 'src')))
 
     c_exec = build_executable([str(c_file)], include_dirs=include_dirs,
