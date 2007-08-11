@@ -94,6 +94,7 @@ class compile_function(object):
                 assert out[1] == 'undefined' or out[1] == ""
                 output = out[0]
                 port += 1
+            return self.reinterpret(output)
         else:
 #            cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
 #            log(cmd)
