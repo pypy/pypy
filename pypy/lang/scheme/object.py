@@ -867,7 +867,7 @@ class LetStar(W_Macro):
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
             w_val = w_def.get_cdr_as_pair().car.eval_cf(ctx, \
-                    self, lst.cdr, [elst[0], w_def.car], 2)
+                    self, w_formal.cdr, [elst[0], w_def.car], 2)
             ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
@@ -1446,7 +1446,7 @@ class ContinuationReturn(SchemeException):
 
 class ContinuationFrame(object):
     def __init__(self, callable, continuation, evaluated_args = [], enum=0):
-        assert hasattr(callable, "continue_tr")
+        #assert hasattr(callable, "continue_tr")
         self.callable = callable
         assert isinstance(continuation, W_Root)
         self.continuation = continuation
