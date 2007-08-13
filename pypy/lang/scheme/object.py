@@ -845,6 +845,7 @@ class Let(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
+        body = Body(lst.cdr)
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
@@ -853,7 +854,7 @@ class Let(W_Macro):
             local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
-        return Body(lst.cdr).eval_tr(local_ctx)
+        return body.eval_tr(local_ctx)
 
 class LetStar(W_Macro):
     _symbol_name = "let*"
@@ -865,7 +866,6 @@ class LetStar(W_Macro):
         w_formal = lst
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
-            #evaluate the values in local ctx
             w_val = w_def.get_cdr_as_pair().car.eval_cf(ctx, \
                     self, lst.cdr, [elst[0], w_def.car], 2)
             ctx.sput(w_def.car, w_val)
@@ -904,6 +904,7 @@ class Letrec(W_Macro):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
+        body = Body(lst.cdr)
         map_name_expr = {}
         map_name_symb = {}
         w_formal = lst.car
@@ -922,7 +923,7 @@ class Letrec(W_Macro):
         for (name, w_val) in map_name_val.items():
             local_ctx.ssete(map_name_symb[name], w_val)
 
-        return Body(lst.cdr).eval_tr(local_ctx)
+        return body.eval_tr(local_ctx)
 
 def quote(sexpr):
     return W_Pair(W_Symbol('quote'), W_Pair(sexpr, w_nil))
