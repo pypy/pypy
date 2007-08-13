@@ -106,16 +106,6 @@ def test_opendir_readdir():
     compared_with.sort()
     assert result == compared_with
 
-def test_os_wstar():
-    from pypy.rpython.module.ll_os import RegisterOs
-    for name in RegisterOs.w_star:
-        def fun(s):
-            return getattr(os, name)(s)
-
-        fn = compile(fun, [int])
-        for value in [0, 1, 127, 128, 255]:
-            assert fn(value) == fun(value)        
-
 class ExpectTestOs:
     def setup_class(cls):
         if not hasattr(os, 'ttyname'):

@@ -122,6 +122,15 @@ class BaseTestPosix(BaseRtypingTest):
         assert realfile.read() == 'xxx'
         self.interpret(f2, [fd])
 
+    def test_os_wstar(self):
+        from pypy.rpython.module.ll_os import RegisterOs
+        for name in RegisterOs.w_star:
+            def fun(s):
+                return getattr(os, name)(s)
+
+            for value in [0, 1, 127, 128, 255]:
+                assert self.interpret(fun, [value]) == fun(value)        
+
 def test_tmpfile_translate():
     from pypy.rlib import ros
     def f():
