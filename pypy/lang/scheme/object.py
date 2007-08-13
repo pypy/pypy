@@ -1270,6 +1270,7 @@ class W_Transformer(W_Procedure):
                 lst = lst.cdr
 
         if w_cdr is not None:
+            assert isinstance(last_cons, W_Pair)
             last_cons.cdr = w_cdr
 
         return first_cons
@@ -1494,6 +1495,8 @@ class CallCC(W_Procedure):
             raise SchemeSyntaxError
 
         w_lambda = lst[0]
+        if not isinstance(w_lambda, W_Procedure):
+            raise SchemeSyntaxError
         cc = Continuation(ctx, ctx.cont_stack)
         return w_lambda.call_tr(ctx, W_Pair(cc, w_nil))
 
