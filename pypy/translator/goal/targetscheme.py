@@ -6,7 +6,8 @@ import autopath
 import sys
 from pypy.rlib.streamio import open_file_as_stream
 from pypy.lang.scheme.ssparser import parse
-from pypy.lang.scheme.object import SchemeQuit, ExecutionContext
+from pypy.lang.scheme.object import SchemeQuit
+from pypy.lang.scheme.execution import ExecutionContext
 
 # __________  Entry point  __________
 
