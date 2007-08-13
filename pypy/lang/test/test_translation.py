@@ -25,7 +25,6 @@ class TestTranslation:
         drv.proceed('compile')
 
     def test_scheme(self):
-        py.test.skip("Doesn't work and this is a known issue")
         self.translate('targetscheme')
 
     def test_js(self):
