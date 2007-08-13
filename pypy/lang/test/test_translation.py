@@ -14,12 +14,14 @@ class TestTranslation:
     def translate(self, targetname):
         config = get_combined_translation_config(translating=True)
         config.translation.backend = 'c'
+        config.translation.gc = 'boehm'
         targetspec = 'pypy.translator.goal.' + targetname
         mod = __import__(targetspec)
         targetspec_dic = sys.modules[targetspec].__dict__
         t = translator.TranslationContext()
         drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, [],
                                                        empty_translator=t)
+        drv.exe_name = None
         drv.proceed('compile')
 
     def test_scheme(self):
