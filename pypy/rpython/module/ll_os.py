@@ -25,7 +25,8 @@ class RegisterOs(BaseLazyRegistering):
     UNISTD_INCL = ['unistd.h', 'sys/types.h']
 
     def __init__(self):
-        pass   # XXX <arigo> fijal: why do I need this?
+        pass   # We need this, because we override __init__ with raising,
+        # and we want to do it on an instance level, rather than class
     
     # a simple, yet usefull factory
     def register_os_function_returning_int(self, fun, name, **kwds):
