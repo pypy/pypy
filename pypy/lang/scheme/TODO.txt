@@ -3,7 +3,7 @@ Do now
 
 - continuations
 
-continuation frame must be saved fot every non tail-call
+continuation frame must be saved for every non tail-call
 (for tail calls there is no cc)
 
 Do next
@@ -22,5 +22,7 @@ Here starts the real fun!
 - lambda called with wrong number of arguments issue
 - macros *are* not first-class objects
 
+- input/output operations
+- missing datatypes: chars, strings, vectors
 - switch to byte-code generation + eval instead of evaluating AST
 

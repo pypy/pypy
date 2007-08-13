@@ -297,6 +297,12 @@ class Body(W_Eval):
     def __init__(self, body):
         self.body = body
 
+    def __repr__(self):
+        return "<Body " + self.to_string() + ">"
+
+    def to_string(self):
+        return self.body.to_string()
+
     def eval_tr(self, ctx):
         return self.continue_tr(ctx, self.body, [], False)
 
@@ -743,14 +749,15 @@ class Define(W_Macro):
     _symbol_name = "define"
 
     def continue_tr(self, ctx, lst, elst, cnt=True):
-        w_first = elst[0]
-        w_val = elst[1]
+        w_first = lst
+        w_val = elst[0]
         if isinstance(w_first, W_Symbol):
             ctx.set(w_first.name, w_val)
-            return (w_val, None)
-        elif isinstance(w_first, W_Pair):
-            #XXX no tests here
-            raise NotImplementedError
+            if len(ctx.cont_stack) == 0:
+                raise ContinuationReturn(w_val)
+
+            cont = ctx.cont_stack.pop()
+            return cont.run(ctx, w_val)
 
         raise SchemeSyntaxError
 
@@ -760,7 +767,7 @@ class Define(W_Macro):
         w_first = lst.car
         w_second = lst.get_cdr_as_pair()
         if isinstance(w_first, W_Symbol):
-            w_val = w_second.car.eval_cf(ctx, self, w_first, [w_first], 1)
+            w_val = w_second.car.eval_cf(ctx, self, w_first)
             ctx.set(w_first.name, w_val)
             return w_val #undefined
         elif isinstance(w_first, W_Pair):
@@ -771,7 +778,10 @@ class Define(W_Macro):
 
             formals = w_first.cdr #isinstance of W_List
             body = w_second
+            #remember this! ContinuationFrame creation
+            ctx.cont_stack.append(ContinuationFrame(self, w_first))
             w_lambda = W_Lambda(formals, body, ctx, pname=w_name.name)
+            ctx.cont_stack.pop()
             ctx.set(w_name.name, w_lambda)
             return w_lambda #undefined
 
@@ -848,20 +858,43 @@ class Let(W_Macro):
 class LetStar(W_Macro):
     _symbol_name = "let*"
 
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        ctx = ctx.copy()
+        (body, w_def, w_val) = elst
+        ctx.sput(w_def, w_val)
+        w_formal = lst
+        while isinstance(w_formal, W_Pair):
+            w_def = w_formal.get_car_as_pair()
+            #evaluate the values in local ctx
+            w_val = w_def.get_cdr_as_pair().car.eval_cf(ctx, \
+                    self, lst.cdr, [elst[0], w_def.car], 2)
+            ctx.sput(w_def.car, w_val)
+            w_formal = w_formal.cdr
+
+        w_result = body.eval(ctx)
+
+        if len(ctx.cont_stack) == 0:
+            raise ContinuationReturn(w_result)
+
+        cont = ctx.cont_stack.pop()
+        return cont.run(ctx, w_result)
+
     def call_tr(self, ctx, lst):
         #let* uses eval_body, so it is tail-recursive aware
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
         local_ctx = ctx.copy()
+        body = Body(lst.cdr)
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
             #evaluate the values in local ctx
-            w_val = w_def.get_cdr_as_pair().car.eval(local_ctx)
+            w_val = w_def.get_cdr_as_pair().car.eval_cf(local_ctx, \
+                    self, w_formal.cdr, [body, w_def.car], 2)
             local_ctx.sput(w_def.car, w_val)
             w_formal = w_formal.cdr
 
-        return Body(lst.cdr).eval_tr(local_ctx)
+        return body.eval_tr(local_ctx)
 
 class Letrec(W_Macro):
     _symbol_name = "letrec"

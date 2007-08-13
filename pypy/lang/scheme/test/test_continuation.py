@@ -179,3 +179,101 @@ def test_let_define():
     eval_(ctx, "(oo +)")
     assert ctx.get("oo") is ctx.get("+")
 
+def test_lambda_call():
+    ctx = ExecutionContext()
+
+    eval_(ctx, "(define c1 'none)")
+    eval_(ctx, "(define c2 'none)")
+    eval_(ctx, """(define fun (lambda (x y z)
+                                (call/cc (lambda (k)
+                                           (set! c1 k)))
+                                (+ x y z)))""")
+
+    assert ctx.get("c1").to_string() == "none"
+    assert ctx.get("c2").to_string() == "none"
+
+    eval_(ctx, """(fun (call/cc (lambda (k)
+                                  (set! c2 k)
+                                  1))
+                       2 3)""")
+
+    w_result = eval_(ctx, "(c1)")
+    assert w_result.to_number() == 6
+
+    w_result = eval_(ctx, "(c2 0)")
+    assert w_result.to_number() == 5
+    w_result = eval_(ctx, "(c1)")
+    assert w_result.to_number() == 5
+
+    w_result = eval_(ctx, "(c2 5)")
+    assert w_result.to_number() == 10
+    w_result = eval_(ctx, "(c1)")
+    assert w_result.to_number() == 10
+
+def test_pitfall_1_1():
+    ctx = ExecutionContext()
+    w_result = eval_(ctx, """
+        (let ((cont #f))
+           (letrec ((x (call/cc (lambda (c) (set! cont c) 0)))
+                    (y (call/cc (lambda (c) (set! cont c) 0))))
+             (if cont
+                 (let ((c cont))
+                   (set! cont #f)
+                   (set! x 1)
+                   (set! y 1)
+                   (c 0))
+                 (+ x y))))""")
+
+    assert w_result.to_number() == 0
+
+def test_pitfall_1_2():
+    py.test.skip("(cond ...) and (procedure? ...) not implemented")
+    ctx = ExecutionContext()
+    w_result = eval_(ctx, """
+      (letrec ((x (call/cc list)) (y (call/cc list)))
+        (cond ((procedure? x) (x (pair? y)))
+          ((procedure? y) (y (pair? x))))
+        (let ((x (car x)) (y (car y)))
+          (and (call/cc x) (call/cc y) (call/cc x)))))""")
+
+    assert isinstance(w_result, W_Boolean)
+    assert w_result.to_boolean() is True
+
+def test_pitfall_1_3():
+    py.test.skip("(eq? ...) not implemented, letrec not cf")
+    ctx = ExecutionContext()
+    w_result = eval_(ctx, """
+      (letrec ((x (call/cc
+                    (lambda (c)
+                        (list #t c)))))
+          (if (car x)
+              ((car (cdr x)) (list #f (lambda () x)))
+              (eq? x ((car (cdr x))))))""")
+
+    assert isinstance(w_result, W_Boolean)
+    assert w_result.to_boolean() is True
+
+def test_pitfall_7_4():
+    ctx = ExecutionContext()
+    w_result = eval_(ctx, """
+        (let ((x '())
+              (y 0))
+            (call/cc 
+             (lambda (escape)
+               (let* ((yin ((lambda (foo) 
+                              (set! x (cons y x))
+                              (if (= y 10)
+                                  (escape x)
+                                  (begin
+                                    (set! y 0)
+                                    foo)))
+                            (call/cc (lambda (bar) bar))))
+                      (yang ((lambda (foo) 
+                               (set! y (+ y 1))
+                               foo)
+                             (call/cc (lambda (baz) baz)))))
+                 (yin yang)))))""")
+
+    assert isinstance(w_result, W_Pair)
+    assert w_result.to_string() == "(10 9 8 7 6 5 4 3 2 1 0)"
+
