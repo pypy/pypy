@@ -40,7 +40,10 @@ def interactive():
             except SchemeException, e:
                 print "error: %s" % e
             except BacktrackException, e:
-                print "syntax error"
+                (line, col) = e.error.get_line_column(to_exec)
+                expected = " ".join(e.error.expected)
+                print "parse error: in line %s, column %s expected: %s" % \
+                        (line, col, expected)
 
             to_exec = ""
             cont = False

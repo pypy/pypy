@@ -48,7 +48,7 @@ class TestInteractive:
         child = self.spawn()
         child.expect("-> ")
         child.sendline(")(")
-        child.expect("syntax error")
+        child.expect("parse error")
         child.expect("-> ")
 
     def test_multiline_enter(self):
