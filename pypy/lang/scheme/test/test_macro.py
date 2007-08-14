@@ -464,9 +464,10 @@ def test_pitfall_3_1():
     assert w_result.to_number() == 4
 
 def test_pitfall_3_2():
-    py.test.skip("(cond ...) not implemented yet")
+    ctx = ExecutionContext()
+
     #define inside macors can and sometimes can not introduce new binding
-    w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
+    w_result = eval_(ctx, """(let-syntax ((foo (syntax-rules ()
                                                  ((_ var) (define var 1)))))
                                  (let ((x 2))
                                    (begin (define foo +))

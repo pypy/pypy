@@ -211,7 +211,6 @@ def test_lambda_call():
     assert w_result.to_number() == 10
 
 def test_pitfall_1_1():
-    py.test.skip("letrec not cf")
     ctx = ExecutionContext()
     w_result = eval_(ctx, """
         (let ((cont #f))
@@ -228,20 +227,20 @@ def test_pitfall_1_1():
     assert w_result.to_number() == 1
 
 def test_pitfall_1_2():
-    py.test.skip("(cond ...) and (procedure? ...) not implemented")
+    #py.test.skip("(cond ...), (and ...) not implemented")
     ctx = ExecutionContext()
+
     w_result = eval_(ctx, """
       (letrec ((x (call/cc list)) (y (call/cc list)))
         (cond ((procedure? x) (x (pair? y)))
-          ((procedure? y) (y (pair? x))))
+              ((procedure? y) (y (pair? x))))
         (let ((x (car x)) (y (car y)))
-          (and (call/cc x) (call/cc y) (call/cc x)))))""")
+          (and (call/cc x) (call/cc y) (call/cc x))))""")
 
     assert isinstance(w_result, W_Boolean)
     assert w_result.to_boolean() is True
 
 def test_pitfall_1_3():
-    py.test.skip("(eq? ...) not implemented, letrec not cf")
     ctx = ExecutionContext()
     w_result = eval_(ctx, """
       (letrec ((x (call/cc

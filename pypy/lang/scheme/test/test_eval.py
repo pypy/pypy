@@ -8,7 +8,7 @@ def test_eval_obj():
                    W_Pair(W_Integer(4), W_Pair(W_Integer(5), w_nil)))
     assert w_num.eval(ExecutionContext()).to_number() == 9 
 
-def eval_expr(ctx, expr):
+def eval_(ctx, expr):
     return parse(expr)[0].eval(ctx)
 
 def eval_noctx(expr):
@@ -67,73 +67,73 @@ def test_ctx_simple():
     ctx.put("v1", W_Integer(4))
     ctx.put("v2", W_Integer(5))
 
-    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    w_num = eval_(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 10
 
     ctx.put("v2", W_Real(3.2))
-    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    w_num = eval_(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 8.2
 
 def test_ctx_define():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define v1 42)")
+    eval_(ctx, "(define v1 42)")
     assert ctx.get("v1").to_number() == 42
-    w_num = eval_expr(ctx, "v1")
+    w_num = eval_(ctx, "v1")
     assert w_num.to_number() == 42
 
-    eval_expr(ctx, "(define v2 2.1)")
+    eval_(ctx, "(define v2 2.1)")
     assert ctx.get("v2").to_number() == 2.1
 
-    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    w_num = eval_(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 45.1
 
-    eval_expr(ctx, "(define v2 3.1)")
-    w_num = eval_expr(ctx, "(+ 1 v1 v2)")
+    eval_(ctx, "(define v2 3.1)")
+    w_num = eval_(ctx, "(+ 1 v1 v2)")
     assert w_num.to_number() == 46.1
 
 def text_unbound():
     ctx = ExecutionContext()
-    py.test.raises(UnboundVariable, eval_expr, ctx, "y")
+    py.test.raises(UnboundVariable, eval_, ctx, "y")
 
 def test_sete():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define x 42)")
+    eval_(ctx, "(define x 42)")
     loc1 = ctx.get_location("x")
-    eval_expr(ctx, "(set! x 43)")
+    eval_(ctx, "(set! x 43)")
     loc2 = ctx.get_location("x")
     assert ctx.get("x").to_number() == 43
     assert loc1 is loc2
-    py.test.raises(UnboundVariable, eval_expr, ctx, "(set! y 42)")
+    py.test.raises(UnboundVariable, eval_, ctx, "(set! y 42)")
 
 def test_func():
     ctx = ExecutionContext()
-    w_func = eval_expr(ctx, "+")
+    w_func = eval_(ctx, "+")
     assert isinstance(w_func, W_Procedure)
 
 def test_if_simple():
     ctx = ExecutionContext()
-    w_t = eval_expr(ctx, "(if #t #t #f)")
+    w_t = eval_(ctx, "(if #t #t #f)")
     assert w_t.to_boolean() is True
-    w_f = eval_expr(ctx, "(if #f #t #f)")
+    w_f = eval_(ctx, "(if #f #t #f)")
     assert w_f.to_boolean() is False
-    w_f = eval_expr(ctx, "(if 1 #f #t)")
+    w_f = eval_(ctx, "(if 1 #f #t)")
     assert w_f.to_boolean() is False
-    w_f = eval_expr(ctx, "(if #t #t)")
+    w_f = eval_(ctx, "(if #t #t)")
     assert w_f.to_boolean() is True
-    w_f = eval_expr(ctx, "(if #f #t)")
+    w_f = eval_(ctx, "(if #f #t)")
     assert w_f.to_boolean() is False
 
 def test_if_evaluation():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define then #f)")
-    eval_expr(ctx, "(define else #f)")
-    eval_expr(ctx, "(if #t (define then #t) (define else #t))")
+    eval_(ctx, "(define then #f)")
+    eval_(ctx, "(define else #f)")
+    eval_(ctx, "(if #t (define then #t) (define else #t))")
     assert ctx.get("then").to_boolean() is True
     assert ctx.get("else").to_boolean() is False
 
-    eval_expr(ctx, "(define then #f)")
-    eval_expr(ctx, "(define else #f)")
-    eval_expr(ctx, "(if #f (define then #t) (define else #t))")
+    eval_(ctx, "(define then #f)")
+    eval_(ctx, "(define else #f)")
+    eval_(ctx, "(if #f (define then #t) (define else #t))")
     assert ctx.get("then").to_boolean() is False
     assert ctx.get("else").to_boolean() is True
 
@@ -205,81 +205,81 @@ def test_comparison_heteronums():
 
 def test_lambda_noargs():
     ctx = ExecutionContext()
-    w_lambda = eval_expr(ctx, "(lambda () 12)")
+    w_lambda = eval_(ctx, "(lambda () 12)")
     assert isinstance(w_lambda, W_Procedure)
     assert isinstance(w_lambda, W_Lambda)
 
     ctx.put("f1", w_lambda)
-    w_result = eval_expr(ctx, "(f1)")
+    w_result = eval_(ctx, "(f1)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 12
 
 def test_lambda_args():
     ctx = ExecutionContext()
-    w_lam = eval_expr(ctx, "(define f1 (lambda (n) n))")
+    w_lam = eval_(ctx, "(define f1 (lambda (n) n))")
     assert isinstance(w_lam, W_Lambda)
 
-    w_result = eval_expr(ctx, "(f1 42)")
+    w_result = eval_(ctx, "(f1 42)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 42
 
-    w_result = eval_expr(ctx, "((lambda (n m) (+ n m)) 42 -42)")
+    w_result = eval_(ctx, "((lambda (n m) (+ n m)) 42 -42)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 0
 
 def test_lambda_top_ctx():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define n 42)")
-    eval_expr(ctx, "(define f1 (lambda (m) (+ n m)))")
-    w_result = eval_expr(ctx, "(f1 -42)")
+    eval_(ctx, "(define n 42)")
+    eval_(ctx, "(define f1 (lambda (m) (+ n m)))")
+    w_result = eval_(ctx, "(f1 -42)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 0
 
-    eval_expr(ctx, "(define n 84)")
-    w_result = eval_expr(ctx, "(f1 -42)")
+    eval_(ctx, "(define n 84)")
+    w_result = eval_(ctx, "(f1 -42)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 42
 
 def test_lambda_fac():
     ctx = ExecutionContext()
-    eval_expr(ctx, """
+    eval_(ctx, """
         (define fac
             (lambda (n)
                 (if (= n 1)
                     n
                     (* (fac (- n 1)) n))))""")
     assert isinstance(ctx.get("fac"), W_Lambda)
-    w_result = eval_expr(ctx, "(fac 4)")
+    w_result = eval_(ctx, "(fac 4)")
     assert w_result.to_number() == 24
 
-    w_result = eval_expr(ctx, "(fac 5)")
+    w_result = eval_(ctx, "(fac 5)")
     assert w_result.to_number() == 120
 
 def test_lambda2():
     ctx = ExecutionContext()
-    eval_expr(ctx, """(define adder (lambda (x) (lambda (y) (+ x y))))""")
-    w_lambda = eval_expr(ctx, "(adder 6)")
+    eval_(ctx, """(define adder (lambda (x) (lambda (y) (+ x y))))""")
+    w_lambda = eval_(ctx, "(adder 6)")
     assert isinstance(w_lambda, W_Lambda)
 
-    eval_expr(ctx, """(define add6 (adder 6))""")
-    w_result = eval_expr(ctx, "(add6 5)")
+    eval_(ctx, """(define add6 (adder 6))""")
+    w_result = eval_(ctx, "(add6 5)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 11
 
-    w_result = eval_expr(ctx, "((adder 6) 5)")
+    w_result = eval_(ctx, "((adder 6) 5)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 11
 
 def test_lambda_long_body():
     ctx = ExecutionContext()
-    eval_expr(ctx, """(define long_body (lambda () (define x 42) (+ x 1)))""")
-    w_result = eval_expr(ctx, "(long_body)")
+    eval_(ctx, """(define long_body (lambda () (define x 42) (+ x 1)))""")
+    w_result = eval_(ctx, "(long_body)")
     assert w_result.to_number() == 43
     py.test.raises(UnboundVariable, ctx.get, "x")
 
 def test_lambda_lstarg():
     ctx = ExecutionContext()
-    w_result = eval_expr(ctx, """((lambda x x) 1 2 3)""")
+    w_result = eval_(ctx, """((lambda x x) 1 2 3)""")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 1
     assert w_result.cdr.car.to_number() == 2
@@ -287,10 +287,10 @@ def test_lambda_lstarg():
 
 def test_lambda_dotted_lstarg():
     ctx = ExecutionContext()
-    w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4)""")
+    w_result = eval_(ctx, """((lambda (x y . z) z) 3 4)""")
     assert w_result is w_nil
 
-    w_result = eval_expr(ctx, """((lambda (x y . z) z) 3 4 5 6)""")
+    w_result = eval_(ctx, """((lambda (x y . z) z) 3 4 5 6)""")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 5
     assert w_result.cdr.car.to_number() == 6
@@ -298,24 +298,24 @@ def test_lambda_dotted_lstarg():
 
 def test_define_lambda_sugar():
     ctx = ExecutionContext()
-    eval_expr(ctx, """(define (f x) (+ x 1))""")
-    w_result = eval_expr(ctx, "(f 1)")
+    eval_(ctx, """(define (f x) (+ x 1))""")
+    w_result = eval_(ctx, "(f 1)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 2
 
-    eval_expr(ctx, """(define (f2) (+ 1 1))""")
-    w_result = eval_expr(ctx, "(f2)")
+    eval_(ctx, """(define (f2) (+ 1 1))""")
+    w_result = eval_(ctx, "(f2)")
     assert isinstance(w_result, W_Integer)
     assert w_result.to_number() == 2
 
-    eval_expr(ctx, """(define (f3 . x) x)""")
-    w_result = eval_expr(ctx, "(f3 1 2)")
+    eval_(ctx, """(define (f3 . x) x)""")
+    w_result = eval_(ctx, "(f3 1 2)")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 1
     assert w_result.cdr.car.to_number() == 2
 
-    eval_expr(ctx, """(define (f4 x . y) x y)""")
-    w_result = eval_expr(ctx, "(f4 1 2)")
+    eval_(ctx, """(define (f4 x . y) x y)""")
+    w_result = eval_(ctx, "(f4 1 2)")
     assert isinstance(w_result, W_Pair)
     assert w_result.car.to_number() == 2
     assert w_result.cdr is w_nil
@@ -379,7 +379,7 @@ def test_quote_parse():
 def test_list():
     ctx = ExecutionContext()
     ctx.put("var", W_Integer(42))
-    w_lst = eval_expr(ctx, "(list 1 var (+ 2 1) 'a)")
+    w_lst = eval_(ctx, "(list 1 var (+ 2 1) 'a)")
     assert isinstance(w_lst, W_Pair)
     assert w_lst.car.to_number() == 1
     assert w_lst.cdr.car.to_number() == 42
@@ -391,7 +391,7 @@ def test_begin():
     ctx = ExecutionContext()
     w_global = W_Integer(0)
     ctx.put("var", w_global)
-    w_result = eval_expr(ctx, "(begin (set! var 11) (+ var 33))")
+    w_result = eval_(ctx, "(begin (set! var 11) (+ var 33))")
     assert w_result.to_number() == 44
     assert ctx.get("var").to_number() == 11
 
@@ -399,11 +399,11 @@ def test_let():
     ctx = ExecutionContext()
     w_global = W_Integer(0)
     ctx.put("var", w_global)
-    w_result = eval_expr(ctx, "(let ((var 42) (x (+ 2 var))) (+ var x))")
+    w_result = eval_(ctx, "(let ((var 42) (x (+ 2 var))) (+ var x))")
     assert w_result.to_number() == 44
     assert ctx.get("var") is w_global
 
-    w_result = eval_expr(ctx, """
+    w_result = eval_(ctx, """
         (let ((x (lambda () 1)))
             (let ((y (lambda () (x)))
                   (x (lambda () 2))) (y)))""")
@@ -413,7 +413,7 @@ def test_let():
 
 def test_letrec():
     ctx = ExecutionContext()
-    w_result = eval_expr(ctx, """
+    w_result = eval_(ctx, """
         (letrec ((even?
                     (lambda (n)
                         (if (= n 0)
@@ -427,7 +427,7 @@ def test_letrec():
                 (even? 2000))""")
     assert w_result.to_boolean() is True
 
-    w_result = eval_expr(ctx, """
+    w_result = eval_(ctx, """
         (let ((x (lambda () 1)))
             (letrec ((y (lambda () (x)))
                      (x (lambda () 2))) (y)))""")
@@ -493,40 +493,40 @@ def test_number_predicates():
 
 def test_delay_promise_force():
     ctx = ExecutionContext()
-    w_promise = eval_expr(ctx, "(delay (+ 1 2))")
+    w_promise = eval_(ctx, "(delay (+ 1 2))")
     assert isinstance(w_promise, W_Promise)
     ctx.put("d", w_promise)
-    w_promise2 = eval_expr(ctx, "d")
+    w_promise2 = eval_(ctx, "d")
     assert w_promise2 is w_promise
-    py.test.raises(NotCallable, eval_expr, ctx, "(d)")
+    py.test.raises(NotCallable, eval_, ctx, "(d)")
 
-    w_value = eval_expr(ctx, "(force d)")
+    w_value = eval_(ctx, "(force d)")
     assert w_value.to_number() == 3
     py.test.raises(WrongArgType, eval_noctx, "(force 'a)")
 
-    eval_expr(ctx, "(define d2 (delay (+ 1 x)))")
-    eval_expr(ctx, "(define x 42)")
-    w_result = eval_expr(ctx, "(force d2)")
+    eval_(ctx, "(define d2 (delay (+ 1 x)))")
+    eval_(ctx, "(define x 42)")
+    w_result = eval_(ctx, "(force d2)")
     assert w_result.to_number() == 43
-    eval_expr(ctx, "(set! x 0)")
-    w_result = eval_expr(ctx, "(force d2)")
+    eval_(ctx, "(set! x 0)")
+    w_result = eval_(ctx, "(force d2)")
     assert w_result.to_number() == 43
 
 def test_lambda_context():
     ctx = ExecutionContext()
-    eval_expr(ctx, """
+    eval_(ctx, """
             (define b (lambda ()
                         (define lam (lambda () (set! a 42)))
                         (define a 12)
                         (lam)
                         a))
                         """)
-    w_num = eval_expr(ctx, "(b)")
+    w_num = eval_(ctx, "(b)")
     assert w_num.to_number() == 42
 
 def test_evaluator():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define a 0)")
+    eval_(ctx, "(define a 0)")
     w_obj = parse("(let () (set! a 42) a)")[0]
     (w_expr, new_ctx) = w_obj.eval_tr(ctx)
     assert ctx.get("a").to_number() == 42
@@ -540,43 +540,43 @@ def test_evaluator():
 
 def test_deep_recursion():
     ctx = ExecutionContext()
-    eval_expr(ctx, "(define a 0)")
-    eval_expr(ctx, """
+    eval_(ctx, "(define a 0)")
+    eval_(ctx, """
         (define loop (lambda (n)
                         (set! a (+ a 1))
                         (if (= n 0)
                             n
                             (loop (- n 1)))))""")
 
-    eval_expr(ctx, "(loop 2000)")
+    eval_(ctx, "(loop 2000)")
     assert ctx.get("a").to_number() == 2001
 
 def test_setcar():
     ctx = ExecutionContext()
-    w_pair = eval_expr(ctx, "(define lst '(1 2 3 4))")
-    eval_expr(ctx, "(set-car! lst 11)")
-    assert w_pair is eval_expr(ctx, "lst")
-    assert eval_expr(ctx, "(car lst)").to_number() == 11
+    w_pair = eval_(ctx, "(define lst '(1 2 3 4))")
+    eval_(ctx, "(set-car! lst 11)")
+    assert w_pair is eval_(ctx, "lst")
+    assert eval_(ctx, "(car lst)").to_number() == 11
 
-    eval_expr(ctx, "(set-car! (cdr lst) 12)")
-    assert eval_expr(ctx, "(car (cdr lst))").to_number() == 12
+    eval_(ctx, "(set-car! (cdr lst) 12)")
+    assert eval_(ctx, "(car (cdr lst))").to_number() == 12
 
 def test_setcdr():
     ctx = ExecutionContext()
-    w_pair = eval_expr(ctx, "(define lst '(1 2 3 4))")
-    eval_expr(ctx, "(set-cdr! lst (cdr (cdr lst)))")
-    w_lst = eval_expr(ctx, "lst")
+    w_pair = eval_(ctx, "(define lst '(1 2 3 4))")
+    eval_(ctx, "(set-cdr! lst (cdr (cdr lst)))")
+    w_lst = eval_(ctx, "lst")
     assert w_pair is w_lst
     assert w_lst.to_string() == "(1 3 4)"
 
-    eval_expr(ctx, "(set-cdr! (cdr lst) '(12))")
-    w_lst = eval_expr(ctx, "lst")
+    eval_(ctx, "(set-cdr! (cdr lst) '(12))")
+    w_lst = eval_(ctx, "lst")
     assert w_lst.to_string() == "(1 3 12)"
 
     #warning circural list
-    eval_expr(ctx, "(set-cdr! (cdr (cdr lst)) lst)")
-    w_lst = eval_expr(ctx, "lst")
-    assert w_lst is eval_expr(ctx, "(cdr (cdr (cdr lst)))")
+    eval_(ctx, "(set-cdr! (cdr (cdr lst)) lst)")
+    w_lst = eval_(ctx, "lst")
+    assert w_lst is eval_(ctx, "(cdr (cdr (cdr lst)))")
 
 def test_quasiquote():
     w_res = eval_noctx("(quasiquote (list (unquote (+ 1 2)) 4))")
@@ -631,4 +631,31 @@ def test_quasiquote_splicing2():
     w_res = eval_noctx("""`(1 `(2 ,@(list ,@(list 3 4) 5 6 ,(+ 0 7))))""")
     assert w_res.to_string() == \
         "(1 (quasiquote (2 (unquote-splicing (list 3 4 5 6 7)))))"
+
+def test_nil_eval():
+    ctx = ExecutionContext()
+    py.test.raises(SchemeSyntaxError, eval_, ctx, "()")
+
+def test_type_predicates():
+    ctx = ExecutionContext()
+
+    assert eval_(ctx, "(pair? 1)").to_boolean() is False
+    assert eval_(ctx, "(pair? '())").to_boolean() is False
+    assert eval_(ctx, "(pair? +)").to_boolean() is False
+    assert eval_(ctx, "(pair? (lambda () 1))").to_boolean() is False
+    assert eval_(ctx, "(pair? '(1))").to_boolean() is True
+    assert eval_(ctx, "(pair? (list 1))").to_boolean() is True
+    assert eval_(ctx, "(pair? (cons 1 2))").to_boolean() is True
+
+    assert eval_(ctx, "(procedure? 1)").to_boolean() is False
+    assert eval_(ctx, "(procedure? '())").to_boolean() is False
+    assert eval_(ctx, "(procedure? '(1))").to_boolean() is False
+    assert eval_(ctx, "(procedure? (list 1))").to_boolean() is False
+    assert eval_(ctx, "(procedure? (cons 1 2))").to_boolean() is False
+    assert eval_(ctx, "(procedure? +)").to_boolean() is True
+    assert eval_(ctx, "(procedure? (lambda () 1))").to_boolean() is True
+
+def test_eq():
+    #XXX must be added soon!
+    py.test.skip("to lazy to write it now")
 

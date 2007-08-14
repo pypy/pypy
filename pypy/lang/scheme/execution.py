@@ -1,5 +1,6 @@
 import pypy.lang.scheme.object as ssobject
-#from pypy.lang.scheme.object import *
+from pypy.lang.scheme.ssparser import parse
+import py
 
 class Location(object):
     def __init__(self, w_obj=None):
@@ -14,6 +15,10 @@ for obj_name in dir(ssobject):
     except (TypeError, AttributeError):
         pass
 
+de_file = py.magic.autopath().dirpath().join("r5rs_derived_expr.ss")
+de_code = de_file.read()
+de_expr_lst = parse(de_code)
+
 class ExecutionContext(object):
     """Execution context implemented as a dict.
 
@@ -21,14 +26,6 @@ class ExecutionContext(object):
     """
     def __init__(self, globalscope=None, scope=None, closure=False,
             cont_stack=None):
-        if globalscope is None:
-            self.globalscope = {}
-            for name, oper in OPERATION_MAP.items():
-                self.globalscope[name] = Location(oper)
-
-        else:
-            self.globalscope = globalscope
-
         if scope is None:
             self.scope = {}
         else:
@@ -40,6 +37,17 @@ class ExecutionContext(object):
             self.cont_stack = []
         else:
             self.cont_stack = cont_stack
+
+        if globalscope is None:
+            self.globalscope = {}
+            for name, oper in OPERATION_MAP.items():
+                self.globalscope[name] = Location(oper)
+
+            for expr in de_expr_lst:
+                expr.eval(self)
+
+        else:
+            self.globalscope = globalscope
 
     def _dispatch(self, symb):
         if isinstance(symb, ssobject.SymbolClosure):

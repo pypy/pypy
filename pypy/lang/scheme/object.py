@@ -198,11 +198,9 @@ class W_Nil(W_List):
         return "()"
 
     def eval_cf(self, ctx, caller, cont, elst=[], enum=0):
-        #XXX not tests here
         raise SchemeSyntaxError
 
     def eval_tr(self, ctx):
-        #XXX not tests here
         raise SchemeSyntaxError
 
 w_nil = W_Nil()
@@ -648,6 +646,16 @@ class Force(W_Procedure):
 
         return w_promise.force(ctx)
 
+#XXX no tests in eval
+class EqP(W_Procedure):
+    _symbol_name = "eq?"
+
+    def procedure(self, ctx, lst):
+        if len(lst) != 2:
+            raise WrongArgsNumber
+
+        return W_Boolean(lst[0] is lst[1])
+
 ##
 # Predicate
 ##
@@ -728,7 +736,10 @@ class EvenP(PredicateNumber):
 
         return w_obj.round() % 2 == 0
 
-#XXX no tests for it
+##
+# Type Pradicates
+##
+
 class PairP(W_Procedure):
     _symbol_name = "pair?"
 
@@ -736,11 +747,16 @@ class PairP(W_Procedure):
         if len(lst) != 1:
             raise WrongArgsNumber
 
-        w_obj = lst[0]
-        if isinstance(w_obj, W_Pair):
-            return W_Boolean(True)
+        return W_Boolean(isinstance(lst[0], W_Pair))
 
-        return W_Boolean(False)
+class ProcedureP(W_Procedure):
+    _symbol_name = "procedure?"
+
+    def procedure(self, ctx, lst):
+        if len(lst) != 1:
+            raise WrongArgsNumber
+
+        return W_Boolean(isinstance(lst[0], W_Procedure))
 
 ##
 # Macro
@@ -896,8 +912,34 @@ class LetStar(W_Macro):
 
         return body.eval_tr(local_ctx)
 
+class DictWrapper(W_Root):
+    def __init__(self, w_dict):
+        self.d = w_dict
+
 class Letrec(W_Macro):
     _symbol_name = "letrec"
+
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        ctx = ctx.copy()
+        (body, name_symb, name_val, cont_val) = elst
+        assert isinstance(name_symb, DictWrapper)
+        assert isinstance(name_val, DictWrapper)
+        assert isinstance(lst, W_Symbol)
+
+        cont_name = lst.name
+        for (name, w_val) in name_val.d.items():
+            if name == cont_name:
+                ctx.ssete(lst, cont_val)
+            else:
+                ctx.ssete(name_symb.d[name], w_val)
+
+        w_result = body.eval(ctx)
+
+        if len(ctx.cont_stack) == 0:
+            raise ContinuationReturn(w_result)
+
+        cont = ctx.cont_stack.pop()
+        return cont.run(ctx, w_result)
 
     def call_tr(self, ctx, lst):
         """let uses eval_body, so it is tail-recursive aware"""
@@ -907,6 +949,7 @@ class Letrec(W_Macro):
         body = Body(lst.cdr)
         map_name_expr = {}
         map_name_symb = {}
+        w_name_symb = DictWrapper(map_name_symb)
         w_formal = lst.car
         while isinstance(w_formal, W_Pair):
             w_def = w_formal.get_car_as_pair()
@@ -917,8 +960,12 @@ class Letrec(W_Macro):
             w_formal = w_formal.cdr
 
         map_name_val = {}
+        w_name_val = DictWrapper(map_name_val)
         for (name, expr) in map_name_expr.items():
-            map_name_val[name] = expr.eval(local_ctx)
+            #map_name_val[name] = expr.eval(local_ctx)
+            map_name_val[name] = expr.eval_cf(local_ctx, self,
+                    map_name_symb[name],
+                    [body, w_name_symb, w_name_val], 3)
 
         for (name, w_val) in map_name_val.items():
             local_ctx.ssete(map_name_symb[name], w_val)
@@ -1116,14 +1163,16 @@ class SyntaxRule(object):
         return self.matchr(ctx, self.pattern.cdr, w_expr.cdr)
 
     def matchr(self, ctx, w_patt, w_expr):
+        print "  >", w_patt.to_string(), w_expr.to_string()
         if isinstance(w_patt, W_Pair):
             w_pattcar = w_patt.car
+            w_pattcdr = w_patt.cdr
             if isinstance(w_expr, W_Pair):
                 mdict_car = self.matchr(ctx, w_pattcar, w_expr.car)
                 try:
                     #we catch EllipsisPattern here because in car
                     # we dont know how to deal with it
-                    mdict_cdr = self.matchr(ctx, w_patt.cdr, w_expr.cdr)
+                    mdict_cdr = self.matchr(ctx, w_pattcdr, w_expr.cdr)
                 except EllipsisPattern:
                     print "ellipsis matched", w_patt, w_expr
 
@@ -1144,8 +1193,19 @@ class SyntaxRule(object):
                 mdict_car.update(mdict_cdr)
                 return mdict_car
 
-            if w_pattcar is w_ellipsis and w_expr is w_nil:
-                raise EllipsisPattern
+            if w_expr is w_nil:
+                #one matched to ellipsis
+                if w_pattcar is w_ellipsis:
+                    raise EllipsisPattern
+
+                #zero matched to ellipsis
+                if isinstance(w_pattcdr, W_Pair) and \
+                        w_pattcdr.car is w_ellipsis:
+                    if not isinstance(w_pattcar, W_Symbol):
+                        #XXX this must be added 
+                        #print w_patt, "matched to ()"
+                        raise NotImplementedError
+                    return {w_pattcar.name: Ellipsis([])}
 
         if w_patt is w_ellipsis:
             raise EllipsisPattern
@@ -1224,6 +1284,7 @@ class W_Transformer(W_Procedure):
     def match(self, ctx, w_expr):
         for rule in self.syntax_lst:
             try:
+                print "m>", rule.pattern.to_string()
                 match_dict = rule.match(ctx, w_expr)
                 return (rule.template, match_dict)
             except MatchError:
@@ -1233,6 +1294,7 @@ class W_Transformer(W_Procedure):
 
     def expand(self, ctx, w_expr):
         try:
+            print w_expr.to_string()
             (template, match_dict) = self.match(ctx, w_expr)
         except MatchError:
             raise SchemeSyntaxError
