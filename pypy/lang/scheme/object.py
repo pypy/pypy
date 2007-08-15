@@ -54,6 +54,11 @@ class W_Root(object):
     def eval_tr(self, ctx):
         return (self, None)
 
+    def eqv(self, w_obj):
+        return self is w_obj
+
+    eq = eqv
+
 class W_Undefined(W_Root):
     def to_string(self):
         return "#<undefined>"
@@ -76,9 +81,6 @@ class W_Symbol(W_Root):
     def eval_tr(self, ctx):
         w_obj = ctx.get(self.name)
         return (w_obj, None)
-
-    def eq_symbol(self, w_symb):
-        return w_symb is self
 
 w_ellipsis = W_Symbol("...")
 
@@ -109,6 +111,13 @@ class W_Boolean(W_Root):
 
     def __repr__(self):
         return "<W_Boolean " + str(self.boolval) + ">"
+
+    def eqv(self, w_obj):
+        if isinstance(w_obj, W_Boolean):
+            return self.boolval is w_obj.boolval
+        return False
+
+    eq = eqv
 
 class W_String(W_Root):
     def __init__(self, val):
@@ -153,6 +162,11 @@ class W_Real(W_Root):
 
     def is_integer(self):
         return self.realval == self.round()
+
+    def eqv(self, w_obj):
+        return isinstance(w_obj, W_Real) \
+                and self.exact is w_obj.exact \
+                and self.realval == w_obj.realval
 
 W_Number = W_Real
 
@@ -646,7 +660,6 @@ class Force(W_Procedure):
 
         return w_promise.force(ctx)
 
-#XXX no tests in eval
 class EqP(W_Procedure):
     _symbol_name = "eq?"
 
@@ -654,7 +667,18 @@ class EqP(W_Procedure):
         if len(lst) != 2:
             raise WrongArgsNumber
 
-        return W_Boolean(lst[0] is lst[1])
+        (a, b) = lst
+        return W_Boolean(a.eq(b))
+
+class EqvP(W_Procedure):
+    _symbol_name = "eqv?"
+
+    def procedure(self, ctx, lst):
+        if len(lst) != 2:
+            raise WrongArgsNumber
+
+        (a, b) = lst
+        return W_Boolean(a.eqv(b))
 
 ##
 # Predicate
@@ -1202,7 +1226,7 @@ class SyntaxRule(object):
                 if isinstance(w_pattcdr, W_Pair) and \
                         w_pattcdr.car is w_ellipsis:
                     if not isinstance(w_pattcar, W_Symbol):
-                        #XXX this must be added 
+                        #XXX this must be added (with tests)
                         #print w_patt, "matched to ()"
                         raise NotImplementedError
                     return {w_pattcar.name: Ellipsis([])}

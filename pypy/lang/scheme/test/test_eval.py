@@ -655,7 +655,71 @@ def test_type_predicates():
     assert eval_(ctx, "(procedure? +)").to_boolean() is True
     assert eval_(ctx, "(procedure? (lambda () 1))").to_boolean() is True
 
+def test_eqv():
+    ctx = ExecutionContext()
+
+    assert eval_(ctx, "(eqv? #t #t)").to_boolean() is True
+    assert eval_(ctx, "(eqv? #f #f)").to_boolean() is True
+    assert eval_(ctx, "(eqv? 'symb 'symb)").to_boolean() is True
+    assert eval_(ctx, "(eqv? 'symb 'SYMB)").to_boolean() is True
+    assert eval_(ctx, "(eqv? 42 42)").to_boolean() is True
+    assert eval_(ctx, "(eqv? 42.1 42.1)").to_boolean() is True
+    #assert eval_(ctx, "(eqv? #\a #\a)").to_boolean() is True
+    assert eval_(ctx, "(eqv? '() '())").to_boolean() is True
+    assert eval_(ctx, """(let ((p (cons 1 2)))
+                           (eqv? p p))""").to_boolean() is True
+    #assert eval_(ctx, """(let ((p "a string"))
+    #                       (eqv? p p))""").to_boolean() is True
+    assert eval_(ctx, """(let ((p (lambda (x) x)))
+                           (eqv? p p))""").to_boolean() is True
+
+    assert eval_(ctx, "(eqv? #t 'symb)").to_boolean() is False
+    assert eval_(ctx, "(eqv? #f 42)").to_boolean() is False
+    assert eval_(ctx, "(eqv? #t #f)").to_boolean() is False
+    assert eval_(ctx, "(eqv? 'symb1 'symb2)").to_boolean() is False
+    assert eval_(ctx, "(eqv? 42 42.0)").to_boolean() is False
+    assert eval_(ctx, "(eqv? 42.0 42)").to_boolean() is False
+    assert eval_(ctx, "(eqv? 42 43)").to_boolean() is False
+    assert eval_(ctx, "(eqv? 42.1 42.2)").to_boolean() is False
+    #assert eval_(ctx, "(eqv? #\a #\b)").to_boolean() is False
+    assert eval_(ctx, "(eqv? (cons 1 2) (cons 1 2))").to_boolean() is False
+    #assert eval_(ctx, """(eqv? "a string"
+    #                            "a string")""").to_boolean() is False
+    assert eval_(ctx, """(eqv? (lambda () 1)
+                               (lambda () 2))""").to_boolean() is False
+
 def test_eq():
-    #XXX must be added soon!
-    py.test.skip("to lazy to write it now")
+    ctx = ExecutionContext()
+
+    assert eval_(ctx, "(eq? #t #t)").to_boolean() is True
+    assert eval_(ctx, "(eq? #f #f)").to_boolean() is True
+    assert eval_(ctx, "(eq? 'symb 'symb)").to_boolean() is True
+    assert eval_(ctx, "(eq? 'symb 'SYMB)").to_boolean() is True
+    assert eval_(ctx, "(eq? '() '())").to_boolean() is True
+    assert eval_(ctx, """(let ((n 42))
+                           (eq? n n))""").to_boolean() is True
+    assert eval_(ctx, """(let ((p (cons 1 2)))
+                           (eq? p p))""").to_boolean() is True
+    #assert eval_(ctx, """(let ((p "a string"))
+    #                       (eq? p p))""").to_boolean() is True
+    assert eval_(ctx, """(let ((p (lambda (x) x)))
+                           (eq? p p))""").to_boolean() is True
+
+    assert eval_(ctx, "(eq? #t 'symb)").to_boolean() is False
+    assert eval_(ctx, "(eq? #f 42)").to_boolean() is False
+    assert eval_(ctx, "(eq? #t #f)").to_boolean() is False
+    assert eval_(ctx, "(eq? 'symb1 'symb2)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42 42)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42.1 42.1)").to_boolean() is False
+    #assert eval_(ctx, "(eq? #\a #\a)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42 42.0)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42.0 42)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42 43)").to_boolean() is False
+    assert eval_(ctx, "(eq? 42.1 42.2)").to_boolean() is False
+    #assert eval_(ctx, "(eq? #\a #\b)").to_boolean() is False
+    assert eval_(ctx, "(eq? (cons 1 2) (cons 1 2))").to_boolean() is False
+    #assert eval_(ctx, """(eq? "a string"
+    #                            "a string")""").to_boolean() is False
+    assert eval_(ctx, """(eq? (lambda () 1)
+                               (lambda () 2))""").to_boolean() is False
 
