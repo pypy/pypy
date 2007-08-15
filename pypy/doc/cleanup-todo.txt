@@ -23,7 +23,9 @@ translation toolchain
    we can have more than one translator/annotator around (with the
    timeshifter)
  - unicode strings in RPython
- - finish rctypes rewrite (some of items of this list depend on it)
+ - finish rctypes removal
+ - think about approaches to id, especially concerning boehm, where the id will
+   keep the object alive and concerning a moving GC
 
 interpreter
 -----------
