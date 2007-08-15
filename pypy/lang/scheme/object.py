@@ -1218,18 +1218,15 @@ class SyntaxRule(object):
                 return mdict_car
 
             if w_expr is w_nil:
-                #one matched to ellipsis
+                #one matched to ellipsis, previous (up) w_expr.car
                 if w_pattcar is w_ellipsis:
                     raise EllipsisPattern
 
                 #zero matched to ellipsis
                 if isinstance(w_pattcdr, W_Pair) and \
                         w_pattcdr.car is w_ellipsis:
-                    if not isinstance(w_pattcar, W_Symbol):
-                        #XXX this must be added (with tests)
-                        #print w_patt, "matched to ()"
-                        raise NotImplementedError
-                    return {w_pattcar.name: Ellipsis([])}
+                    #all symbols from w_pattcar match zero length Ellipsis
+                    return self.dict_traverse_expr(w_pattcar, Ellipsis([]))
 
         if w_patt is w_ellipsis:
             raise EllipsisPattern
@@ -1259,6 +1256,18 @@ class SyntaxRule(object):
         #w_patt is w_nil, but w_expr is not
         # or w_patt is W_Pair but w_expr is not
         raise MatchError
+
+    def dict_traverse_expr(self, expr, val=None):
+        if isinstance(expr, W_Pair):
+            dict_car = self.dict_traverse_expr(expr.car, val)
+            dict_cdr = self.dict_traverse_expr(expr.cdr, val)
+            dict_car.update(dict_cdr)
+            return dict_car
+
+        if isinstance(expr, W_Symbol) and not expr is w_ellipsis:
+            return {expr.name: val}
+
+        return {}
 
 class SymbolClosure(W_Symbol):
     def __init__(self, ctx, symbol):
@@ -1344,6 +1353,8 @@ class W_Transformer(W_Procedure):
         return {}
 
     def plst_append(self, plst, w_cdr=None):
+        if len(plst) == 0:
+            return w_cdr
         first_cons = plst[0]
 
         last_cons = None

@@ -332,6 +332,7 @@ def test_ellipsis_symbol():
     assert eval_(ctx, "(or 12)").to_number() == 12
     assert eval_(ctx, "(or 12 42)").to_number() == 12
     
+    assert eval_(ctx, "(or #f 42)").to_number() == 42
     assert eval_(ctx, "(or #f #f 82)").to_number() == 82
     assert eval_(ctx, "(or #f #f #f 162)").to_number() == 162
 
@@ -455,6 +456,49 @@ def test_cornercase1():
     # pattern should be ignored during matching and not be a pattern
     # variable.  But MIT-Scheme disagrees with me...
 
+def test_ellipsis_nil():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax or (syntax-rules ()
+                                      ((or) #f)
+                                      ((or e1 e2 ...)
+                                       (let ((temp e1))
+                                         (if temp
+                                             temp
+                                             (or e2 ...))))))""")
+
+    #here <e2 ...> should match zero elements
+    assert eval_(ctx, "(or 12)").to_number() == 12
+    assert eval_(ctx, "(or #f)").to_boolean() is False
+    assert eval_(ctx, "(or #f 42)").to_number() == 42
+    assert eval_(ctx, "(or #f #f 82)").to_number() == 82
+    assert eval_(ctx, "(or #f #f #f 162)").to_number() == 162
+
+def test_ellipsis_nested_nil():
+    ctx = ExecutionContext()
+    eval_(ctx, """(define-syntax or (syntax-rules ()
+                                      ((or) #f)
+                                      ((or (e1) (e2 ...) ...)
+                                       (let ((temp e1))
+                                         (if temp
+                                             temp
+                                             (or (e2) ... ...))))))""")
+
+    assert eval_(ctx, "(or (12))").to_number() == 12
+    assert eval_(ctx, "(or (#f))").to_boolean() is False
+    assert eval_(ctx, "(or (#f) (42))").to_number() == 42
+    assert eval_(ctx, "(or (#f) (#f) (82))").to_number() == 82
+    assert eval_(ctx, "(or (#f) (#f) (#f) (162))").to_number() == 162
+
+    #here scheme48 does not agree with me, it expands to:
+    # (let ((temp #f))
+    #   (if temp
+    #       temp
+    #       (or (#f #f 162))))
+    #       ^ this should be (my and mzscheme opinion)
+    #       (or (#f) (#f) (162))))
+    assert eval_(ctx, "(or (#f) (#f #f 162))").to_number() == 162
+    assert eval_(ctx, "(or (#f) (#f #f) (#f #f 322))").to_number() == 322
+
 # some tests from http://sisc-scheme.org/r5rs_pitfall.scm
 def test_pitfall_3_1():
     w_result = eval_noctx("""(let-syntax ((foo (syntax-rules ()
@@ -490,4 +534,3 @@ def test_pitfall_3_3():
 def test_pitfall_3_4():
     w_result = eval_noctx("(let-syntax ((x (syntax-rules ()))) 1)")
     assert w_result.to_number() == 1
-
