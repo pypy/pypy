@@ -12,7 +12,7 @@ Do next
 - implement key functions
   (apply, map and so on)
 
-- comparison: < > eq? eqv?
+- comparison: < >
 
 Do in some future
 -----------------

@@ -440,6 +440,8 @@ class W_Lambda(W_Procedure):
         #ctx is a caller context, which is joyfully ignored
 
         local_ctx = self.closure.copy()
+        #if lambda procedure should keep caller cont_stack
+        local_ctx.cont_stack = ctx.cont_stack #[:]
 
         #set lambda arguments
         for idx in range(len(self.args)):
@@ -470,6 +472,7 @@ class W_Promise(W_Root):
 
     def force(self, ctx):
         if self.result is None:
+            #XXX cont_stack copy to be cont. friendly
             self.result = self.expr.eval(self.closure.copy())
 
         return self.result
@@ -783,6 +786,24 @@ class ProcedureP(W_Procedure):
         return W_Boolean(isinstance(lst[0], W_Procedure))
 
 ##
+# Input/Output procedures
+##
+#class Display(W_Procedure):
+#    _symbol_name = "display"
+#
+#    def procedure(self, ctx, lst):
+#        if len(lst) == 1:
+#            obj = lst[0]
+#        elif len(lst) == 2:
+#            (obj, port) = lst
+#            raise NotImplementedError
+#        else:
+#            raise WrongArgsNumber
+#
+#        print obj.to_string()
+#        return w_undefined
+
+##
 # Macro
 ##
 class Define(W_Macro):
@@ -830,13 +851,24 @@ class Define(W_Macro):
 class Sete(W_Macro):
     _symbol_name = "set!"
 
+    def continue_tr(self, ctx, lst, elst, cnt=True):
+        assert cnt == True
+        w_symbol = lst
+        w_val = elst[0]
+        ctx.ssete(w_symbol, w_val)
+        if len(ctx.cont_stack) == 0:
+            raise ContinuationReturn(w_val)
+
+        cont = ctx.cont_stack.pop()
+        return cont.run(ctx, w_val)
+
     def call(self, ctx, lst):
         if not isinstance(lst, W_Pair):
             raise SchemeSyntaxError
-        w_identifier = lst.car
+        w_symbol = lst.car
 
-        w_val = lst.get_cdr_as_pair().car.eval(ctx)
-        ctx.ssete(w_identifier, w_val)
+        w_val = lst.get_cdr_as_pair().car.eval_cf(ctx, self, w_symbol)
+        ctx.ssete(w_symbol, w_val)
         return w_val #undefined
 
 class MacroIf(W_Macro):
@@ -1187,7 +1219,7 @@ class SyntaxRule(object):
         return self.matchr(ctx, self.pattern.cdr, w_expr.cdr)
 
     def matchr(self, ctx, w_patt, w_expr):
-        print "  >", w_patt.to_string(), w_expr.to_string()
+        #print "  >", w_patt.to_string(), w_expr.to_string()
         if isinstance(w_patt, W_Pair):
             w_pattcar = w_patt.car
             w_pattcdr = w_patt.cdr
@@ -1198,7 +1230,7 @@ class SyntaxRule(object):
                     # we dont know how to deal with it
                     mdict_cdr = self.matchr(ctx, w_pattcdr, w_expr.cdr)
                 except EllipsisPattern:
-                    print "ellipsis matched", w_patt, w_expr
+                    #print "ellipsis matched", w_patt, w_expr
 
                     mdict_lst = []
                     w_pair = w_expr
@@ -1317,7 +1349,7 @@ class W_Transformer(W_Procedure):
     def match(self, ctx, w_expr):
         for rule in self.syntax_lst:
             try:
-                print "m>", rule.pattern.to_string()
+                #print "m>", rule.pattern.to_string()
                 match_dict = rule.match(ctx, w_expr)
                 return (rule.template, match_dict)
             except MatchError:
@@ -1327,7 +1359,7 @@ class W_Transformer(W_Procedure):
 
     def expand(self, ctx, w_expr):
         try:
-            print w_expr.to_string()
+            #print w_expr.to_string()
             (template, match_dict) = self.match(ctx, w_expr)
         except MatchError:
             raise SchemeSyntaxError
@@ -1378,7 +1410,7 @@ class W_Transformer(W_Procedure):
             try:
                 w_cdr = self.substituter(ctx, sexpr.cdr, match_dict)
             except EllipsisTemplate:
-                print "ellipsis expand", sexpr
+                #print "ellipsis expand", sexpr
                 sexprcdr = sexpr.get_cdr_as_pair()
                 try:
                     #we can still have something behind ellipsis
@@ -1543,9 +1575,9 @@ class ContinuationReturn(SchemeException):
         self.result = result
 
 class ContinuationFrame(object):
-    def __init__(self, callable, continuation, evaluated_args = [], enum=0):
-        #assert hasattr(callable, "continue_tr")
-        self.callable = callable
+    def __init__(self, caller, continuation, evaluated_args = [], enum=0):
+        #assert hasattr(caller, "continue_tr")
+        self.caller = caller
         assert isinstance(continuation, W_Root)
         self.continuation = continuation
         assert isinstance(evaluated_args, list)
@@ -1555,13 +1587,14 @@ class ContinuationFrame(object):
     def run(self, ctx, arg):
         elst = self.evaluated_args[:self.evaluated_args_num]
         elst.append(arg)
-        print self.callable.to_string(), elst, self.continuation
-        return self.callable.continue_tr(ctx, self.continuation, elst, True)
+        #print 'c>', self.caller, elst, self.continuation
+        return self.caller.continue_tr(ctx, self.continuation, elst, True)
 
 class Continuation(W_Procedure):
     def __init__(self, ctx, continuation):
-        self.closure = ctx #to .copy() ot not to .copy()
-        #copy of continuation stack
+        self.closure = ctx
+        #copy of continuation stack this means that cont_stack is not
+        # global, so watch out with closures
         self.cont_stack = continuation[:]
         try:
             self.continuation = self.cont_stack.pop()
@@ -1569,14 +1602,18 @@ class Continuation(W_Procedure):
             #continuation captured on top-level
             self.continuation = None
 
+    def __repr__(self):
+        return self.to_string()
+
     def to_string(self):
         return "#<continuation -> %s>" % (self.continuation,)
 
     def procedure_tr(self, ctx, lst):
+        #caller ctx is ignored
         if len(lst) == 0:
             lst.append(w_undefined)
 
-        print "Continuation called", self.cont_stack
+        #print "Continuation called", self.cont_stack
         self.closure.cont_stack = self.cont_stack[:]
         cont = self.continuation
         if cont is None:
@@ -1589,6 +1626,7 @@ class CallCC(W_Procedure):
 
     def procedure_tr(self, ctx, lst):
         if len(lst) != 1 or not isinstance(lst[0], W_Procedure):
+            #print lst[0]
             raise SchemeSyntaxError
 
         w_lambda = lst[0]

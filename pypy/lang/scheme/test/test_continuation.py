@@ -277,3 +277,74 @@ def test_pitfall_7_4():
     assert isinstance(w_result, W_Pair)
     assert w_result.to_string() == "(10 9 8 7 6 5 4 3 2 1 0)"
 
+def test_hefty1_computation():
+    ctx = ExecutionContext()
+
+    eval_(ctx, "(define side-effects '())")
+    eval_(ctx, """
+        (define (hefty-computation do-other-stuff)
+            (letrec
+              ((loop (lambda (n)
+                  (set! side-effects (cons (list 'hefty-a n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (set! side-effects (cons (list 'hefty-b n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (set! side-effects (cons (list 'hefty-c n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (if (zero? n)
+                      '()
+                      (loop (- n 1))))))
+               (loop 1)))""")
+
+    eval_(ctx, """
+        (define (superfluous-computation do-other-stuff)
+            (letrec
+              ((loop (lambda ()
+                        (set! side-effects (cons 'break side-effects))
+                        (set! do-other-stuff (call/cc do-other-stuff))
+                        (loop))))
+              (loop)))""")
+
+    eval_(ctx, "(hefty-computation superfluous-computation)")
+
+    assert ctx.get("side-effects").to_string() == \
+            """(break (hefty-c 0) break (hefty-b 0) break (hefty-a 0) break (hefty-c 1) break (hefty-b 1) break (hefty-a 1))"""
+
+def test_hefty2_computation():
+    ctx = ExecutionContext()
+
+    eval_(ctx, "(define side-effects '())")
+    eval_(ctx, """
+        (define (hefty-computation do-other-stuff)
+            (letrec
+              ((loop (lambda (n)
+                  (set! side-effects (cons (list 'hefty-a n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (set! side-effects (cons (list 'hefty-b n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (set! side-effects (cons (list 'hefty-c n) side-effects))
+                  (set! do-other-stuff (call/cc do-other-stuff))
+                  (if (zero? n)
+                      '()
+                      (loop (- n 1))))))
+               (loop 1)))""")
+
+    eval_(ctx, """
+        (define (superfluous-computation do-other-stuff)
+            (letrec
+              ((loop (lambda ()
+                  (lst-loop '(straight quarter-past half quarter-til))
+                  (loop)))
+               (lst-loop (lambda (lst) 
+                  (if (pair? lst)
+                      (let ((graphic (car lst)))
+                        (set! side-effects (cons graphic side-effects))
+                        (set! do-other-stuff (call/cc do-other-stuff))
+                        (lst-loop (cdr lst)))))))
+              (loop)))""")
+
+
+    eval_(ctx, "(hefty-computation superfluous-computation)")
+    assert ctx.get("side-effects").to_string() == \
+            """(quarter-past (hefty-c 0) straight (hefty-b 0) quarter-til (hefty-a 0) half (hefty-c 1) quarter-past (hefty-b 1) straight (hefty-a 1))"""
+
