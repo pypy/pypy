@@ -723,3 +723,19 @@ def test_eq():
     assert eval_(ctx, """(eq? (lambda () 1)
                                (lambda () 2))""").to_boolean() is False
 
+def test_apply():
+    ctx = ExecutionContext()
+    assert eval_(ctx, "(apply + (list 3 4))").to_number() == 7
+
+    eval_(ctx, """(define compose
+                    (lambda (f g)
+                      (lambda args
+                        (f (apply g args)))))""")
+    w_result = eval_(ctx, "((compose (lambda (x) (* x x)) +) 3 5)")
+    assert w_result.to_number() == 64
+
+    assert eval_(ctx, "(apply + '())").to_number() == 0
+    py.test.raises(WrongArgsNumber, eval_, ctx, "(apply 1)")
+    py.test.raises(WrongArgType, eval_, ctx, "(apply 1 '(1))")
+    py.test.raises(WrongArgType, eval_, ctx, "(apply + 42)")
+

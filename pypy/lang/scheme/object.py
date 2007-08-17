@@ -644,6 +644,22 @@ class SetCdr(W_Procedure):
         w_pair.cdr = w_obj
         return w_undefined
 
+class Apply(W_Procedure):
+    _symbol_name = "apply"
+
+    def procedure_tr(self, ctx, lst):
+        if len(lst) != 2:
+            raise WrongArgsNumber
+
+        (w_procedure, w_lst) = lst
+        if not isinstance(w_procedure, W_Procedure):
+            raise WrongArgType(w_procedure, "Procedure")
+
+        if not isinstance(w_lst, W_List):
+            raise WrongArgType(w_lst, "List")
+
+        return w_procedure.call_tr(ctx, w_lst)
+
 class Quit(W_Procedure):
     _symbol_name = "quit"
 
@@ -693,7 +709,7 @@ class PredicateNumber(W_Procedure):
 
         w_obj = lst[0]
         if not isinstance(w_obj, W_Number):
-            raise WrongArgType(w_obj, 'Number')
+            raise WrongArgType(w_obj, "Number")
 
         return W_Boolean(self.predicate(w_obj))
 
@@ -1018,7 +1034,6 @@ class Letrec(W_Macro):
         map_name_val = {}
         w_name_val = DictWrapper(map_name_val)
         for (name, expr) in map_name_expr.items():
-            #map_name_val[name] = expr.eval(local_ctx)
             map_name_val[name] = expr.eval_cf(local_ctx, self,
                     map_name_symb[name],
                     [body, w_name_symb, w_name_val], 3)
@@ -1576,7 +1591,6 @@ class ContinuationReturn(SchemeException):
 
 class ContinuationFrame(object):
     def __init__(self, caller, continuation, evaluated_args = [], enum=0):
-        #assert hasattr(caller, "continue_tr")
         self.caller = caller
         assert isinstance(continuation, W_Root)
         self.continuation = continuation

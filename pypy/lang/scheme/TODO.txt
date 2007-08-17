@@ -23,7 +23,9 @@ Here starts the real fun!
 - macros *are* not first-class objects
 
 - input/output operations
-- missing datatypes: chars, strings, vectors
+- missing datatypes: chars, vectors
+- datatypes manipulation procedures
+
 - switch to byte-code generation + eval instead of evaluating AST
 - random code stress test
 
