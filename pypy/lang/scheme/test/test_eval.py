@@ -640,6 +640,8 @@ def test_type_predicates():
     ctx = ExecutionContext()
 
     assert eval_(ctx, "(pair? 1)").to_boolean() is False
+    assert eval_(ctx, "(pair? 'symb)").to_boolean() is False
+    assert eval_(ctx, "(pair? #f)").to_boolean() is False
     assert eval_(ctx, "(pair? '())").to_boolean() is False
     assert eval_(ctx, "(pair? +)").to_boolean() is False
     assert eval_(ctx, "(pair? (lambda () 1))").to_boolean() is False
@@ -648,12 +650,35 @@ def test_type_predicates():
     assert eval_(ctx, "(pair? (cons 1 2))").to_boolean() is True
 
     assert eval_(ctx, "(procedure? 1)").to_boolean() is False
+    assert eval_(ctx, "(procedure? 'symb)").to_boolean() is False
+    assert eval_(ctx, "(procedure? #f)").to_boolean() is False
     assert eval_(ctx, "(procedure? '())").to_boolean() is False
     assert eval_(ctx, "(procedure? '(1))").to_boolean() is False
     assert eval_(ctx, "(procedure? (list 1))").to_boolean() is False
     assert eval_(ctx, "(procedure? (cons 1 2))").to_boolean() is False
     assert eval_(ctx, "(procedure? +)").to_boolean() is True
     assert eval_(ctx, "(procedure? (lambda () 1))").to_boolean() is True
+
+    assert eval_(ctx, "(symbol? 1)").to_boolean() is False
+    assert eval_(ctx, "(symbol? 'symb)").to_boolean() is True
+    assert eval_(ctx, "(symbol? #f)").to_boolean() is False
+    assert eval_(ctx, "(symbol? '())").to_boolean() is False
+    assert eval_(ctx, "(symbol? '(1))").to_boolean() is False
+    assert eval_(ctx, "(symbol? (list 1))").to_boolean() is False
+    assert eval_(ctx, "(symbol? (cons 1 2))").to_boolean() is False
+    assert eval_(ctx, "(symbol? +)").to_boolean() is False
+    assert eval_(ctx, "(symbol? (lambda () 1))").to_boolean() is False
+
+    assert eval_(ctx, "(boolean? 1)").to_boolean() is False
+    assert eval_(ctx, "(boolean? 'symb)").to_boolean() is False
+    assert eval_(ctx, "(boolean? #f)").to_boolean() is True
+    assert eval_(ctx, "(boolean? #t)").to_boolean() is True
+    assert eval_(ctx, "(boolean? '())").to_boolean() is False
+    assert eval_(ctx, "(boolean? '(1))").to_boolean() is False
+    assert eval_(ctx, "(boolean? (list 1))").to_boolean() is False
+    assert eval_(ctx, "(boolean? (cons 1 2))").to_boolean() is False
+    assert eval_(ctx, "(boolean? +)").to_boolean() is False
+    assert eval_(ctx, "(boolean? (lambda () 1))").to_boolean() is False
 
 def test_eqv():
     ctx = ExecutionContext()
@@ -723,6 +748,41 @@ def test_eq():
     assert eval_(ctx, """(eq? (lambda () 1)
                                (lambda () 2))""").to_boolean() is False
 
+def test_equal():
+    ctx = ExecutionContext()
+
+    assert eval_(ctx, "(equal? #t #t)").to_boolean() is True
+    assert eval_(ctx, "(equal? #f #f)").to_boolean() is True
+    assert eval_(ctx, "(equal? 'symb 'symb)").to_boolean() is True
+    assert eval_(ctx, "(equal? 'symb 'SYMB)").to_boolean() is True
+    assert eval_(ctx, "(equal? 42 42)").to_boolean() is True
+    assert eval_(ctx, "(equal? 42.1 42.1)").to_boolean() is True
+    #assert eval_(ctx, "(equal? #\a #\a)").to_boolean() is True
+    assert eval_(ctx, "(equal? '() '())").to_boolean() is True
+    assert eval_(ctx, """(let ((p (cons 1 2)))
+                           (equal? p p))""").to_boolean() is True
+    #assert eval_(ctx, """(let ((p "a string"))
+    #                       (equal? p p))""").to_boolean() is True
+    assert eval_(ctx, """(let ((p (lambda (x) x)))
+                           (equal? p p))""").to_boolean() is True
+
+    assert eval_(ctx, "(equal? #t 'symb)").to_boolean() is False
+    assert eval_(ctx, "(equal? #f 42)").to_boolean() is False
+    assert eval_(ctx, "(equal? #t #f)").to_boolean() is False
+    assert eval_(ctx, "(equal? 'symb1 'symb2)").to_boolean() is False
+    assert eval_(ctx, "(equal? 42 42.0)").to_boolean() is False
+    assert eval_(ctx, "(equal? 42.0 42)").to_boolean() is False
+    assert eval_(ctx, "(equal? 42 43)").to_boolean() is False
+    assert eval_(ctx, "(equal? 42.1 42.2)").to_boolean() is False
+    #assert eval_(ctx, "(equal? #\a #\b)").to_boolean() is False
+    assert eval_(ctx, "(equal? (cons 1 2) (cons 1 2))").to_boolean() is True
+    #assert eval_(ctx, """(equal? "a string"
+    #                            "a string")""").to_boolean() is True
+    assert eval_(ctx, """(equal? (lambda () 1)
+                               (lambda () 2))""").to_boolean() is False
+    assert eval_(ctx, "(equal? '(a (b) c) '(a (b) c))").to_boolean() is True
+    assert eval_(ctx, "(equal? '(a (b) c) '(a (e) c))").to_boolean() is False
+
 def test_apply():
     ctx = ExecutionContext()
     assert eval_(ctx, "(apply + (list 3 4))").to_number() == 7
@@ -738,4 +798,3 @@ def test_apply():
     py.test.raises(WrongArgsNumber, eval_, ctx, "(apply 1)")
     py.test.raises(WrongArgType, eval_, ctx, "(apply 1 '(1))")
     py.test.raises(WrongArgType, eval_, ctx, "(apply + 42)")
-

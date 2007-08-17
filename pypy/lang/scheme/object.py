@@ -54,10 +54,10 @@ class W_Root(object):
     def eval_tr(self, ctx):
         return (self, None)
 
-    def eqv(self, w_obj):
+    def eq(self, w_obj):
         return self is w_obj
-
-    eq = eqv
+    eqv = eq
+    equal = eqv
 
 class W_Undefined(W_Root):
     def to_string(self):
@@ -116,8 +116,8 @@ class W_Boolean(W_Root):
         if isinstance(w_obj, W_Boolean):
             return self.boolval is w_obj.boolval
         return False
-
     eq = eqv
+    equal = eqv
 
 class W_String(W_Root):
     def __init__(self, val):
@@ -167,6 +167,7 @@ class W_Real(W_Root):
         return isinstance(w_obj, W_Real) \
                 and self.exact is w_obj.exact \
                 and self.realval == w_obj.realval
+    equal = eqv
 
 W_Number = W_Real
 
@@ -295,6 +296,11 @@ class W_Pair(W_List):
         if not isinstance(res, W_Pair):
             raise SchemeSyntaxError
         return res
+
+    def equal(self, w_obj):
+        return isinstance(w_obj, W_Pair) and \
+                self.car.equal(w_obj.car) and \
+                self.cdr.equal(w_obj.cdr)
 
 class W_Callable(W_Eval):
     def call_tr(self, ctx, lst):
@@ -699,6 +705,15 @@ class EqvP(W_Procedure):
         (a, b) = lst
         return W_Boolean(a.eqv(b))
 
+class EqualP(W_Procedure):
+    _symbol_name = "equal?"
+
+    def procedure(self, ctx, lst):
+        if len(lst) != 2:
+            raise WrongArgsNumber
+
+        (a, b) = lst
+        return W_Boolean(a.equal(b))
 ##
 # Predicate
 ##
@@ -782,24 +797,36 @@ class EvenP(PredicateNumber):
 ##
 # Type Pradicates
 ##
+class TypePredicate(W_Procedure):
+    def procedure(self, ctx, lst):
+        if len(lst) != 1:
+            raise WrongArgsNumber
 
-class PairP(W_Procedure):
+        return W_Boolean(self.predicate(lst[0]))
+
+class BooleanP(TypePredicate):
+    _symbol_name = "boolean?"
+
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Boolean)
+
+class SymbolP(TypePredicate):
+    _symbol_name = "symbol?"
+
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Symbol)
+
+class PairP(TypePredicate):
     _symbol_name = "pair?"
 
-    def procedure(self, ctx, lst):
-        if len(lst) != 1:
-            raise WrongArgsNumber
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Pair)
 
-        return W_Boolean(isinstance(lst[0], W_Pair))
-
-class ProcedureP(W_Procedure):
+class ProcedureP(TypePredicate):
     _symbol_name = "procedure?"
 
-    def procedure(self, ctx, lst):
-        if len(lst) != 1:
-            raise WrongArgsNumber
-
-        return W_Boolean(isinstance(lst[0], W_Procedure))
+    def predicate(self, w_obj):
+        return isinstance(w_obj, W_Procedure)
 
 ##
 # Input/Output procedures
@@ -1560,6 +1587,7 @@ class DefineSyntax(W_Macro):
         return w_macro #undefined
  
 class LetSyntax(W_Macro):
+    #XXX letrec-syntax missing
     _symbol_name = "let-syntax"
 
     def call_tr(self, ctx, lst):
