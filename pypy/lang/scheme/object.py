@@ -685,39 +685,38 @@ class Force(W_Procedure):
 
         return w_promise.force(ctx)
 
-class EqP(W_Procedure):
+##
+# Equivalnece Predicates
+##
+class EquivalnecePredicate(W_Procedure):
+    def procedure(self, ctx, lst):
+        if len(lst) != 2:
+            raise WrongArgsNumber
+        (a, b) = lst
+        return W_Boolean(self.predicate(a, b))
+
+class EqP(EquivalnecePredicate):
     _symbol_name = "eq?"
 
-    def procedure(self, ctx, lst):
-        if len(lst) != 2:
-            raise WrongArgsNumber
+    def predicate(self, a, b):
+        return a.eq(b)
 
-        (a, b) = lst
-        return W_Boolean(a.eq(b))
-
-class EqvP(W_Procedure):
+class EqvP(EquivalnecePredicate):
     _symbol_name = "eqv?"
 
-    def procedure(self, ctx, lst):
-        if len(lst) != 2:
-            raise WrongArgsNumber
+    def predicate(self, a, b):
+        return a.eqv(b)
 
-        (a, b) = lst
-        return W_Boolean(a.eqv(b))
-
-class EqualP(W_Procedure):
+class EqualP(EquivalnecePredicate):
     _symbol_name = "equal?"
 
-    def procedure(self, ctx, lst):
-        if len(lst) != 2:
-            raise WrongArgsNumber
+    def predicate(self, a, b):
+        return a.equal(b)
 
-        (a, b) = lst
-        return W_Boolean(a.equal(b))
 ##
-# Predicate
+# Number Predicates
 ##
-class PredicateNumber(W_Procedure):
+class NumberPredicate(W_Procedure):
     def procedure(self, ctx, lst):
         if len(lst) != 1:
             raise WrongArgsNumber
@@ -731,7 +730,7 @@ class PredicateNumber(W_Procedure):
     def predicate(self, w_obj):
         raise NotImplementedError
 
-class IntegerP(PredicateNumber):
+class IntegerP(NumberPredicate):
     _symbol_name = "integer?"
 
     def predicate(self, w_obj):
@@ -740,7 +739,7 @@ class IntegerP(PredicateNumber):
 
         return True
 
-class RealP(PredicateNumber):
+class RealP(NumberPredicate):
     _symbol_name = "real?"
 
     def predicate(self, w_obj):
@@ -749,7 +748,7 @@ class RealP(PredicateNumber):
 class RationalP(RealP):
     _symbol_name = "rational?"
 
-class NumberP(PredicateNumber):
+class NumberP(NumberPredicate):
     _symbol_name = "number?"
 
     def predicate(self, w_obj):
@@ -758,25 +757,25 @@ class NumberP(PredicateNumber):
 class ComplexP(NumberP):
     _symbol_name = "complex?"
 
-class ExactP(PredicateNumber):
+class ExactP(NumberPredicate):
     _symbol_name = "exact?"
 
     def predicate(self, w_obj):
         return w_obj.exact
 
-class InexactP(PredicateNumber):
+class InexactP(NumberPredicate):
     _symbol_name = "inexact?"
 
     def predicate(self, w_obj):
         return not w_obj.exact
 
-class ZeroP(PredicateNumber):
+class ZeroP(NumberPredicate):
     _symbol_name = "zero?"
 
     def predicate(self, w_obj):
         return w_obj.to_number() == 0.0
 
-class OddP(PredicateNumber):
+class OddP(NumberPredicate):
     _symbol_name = "odd?"
 
     def predicate(self, w_obj):
@@ -785,7 +784,7 @@ class OddP(PredicateNumber):
 
         return w_obj.round() % 2 != 0
 
-class EvenP(PredicateNumber):
+class EvenP(NumberPredicate):
     _symbol_name = "even?"
 
     def predicate(self, w_obj):
