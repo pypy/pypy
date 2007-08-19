@@ -79,12 +79,6 @@ class MultipleSpaceTarget(PyPyTarget):
         space2.exec_(open(filename).read(), w_dict, w_dict)
         w_entry_point_2 = space2.getitem(w_dict, space2.wrap('entry_point'))
 
-        # sanity-check: call the entry point
-        res = entry_point(["pypy", "app_basic_example.py"])
-        assert res == 0
-        res = entry_point(["pypy", "--space2", "app_basic_example.py"])
-        assert res == 0
-
         return entry_point, None, PyPyAnnotatorPolicy()
 
 
