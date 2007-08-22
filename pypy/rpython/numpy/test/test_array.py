@@ -10,7 +10,7 @@ from pypy.translator.translator import TranslationContext
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.rctypes import rcarithmetic
+from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.rint import IntegerRepr
 from pypy.rpython.numpy.rarray import ArrayRepr
 
@@ -28,7 +28,7 @@ class Test_annotation:
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(access_array, [int])
-        assert s.knowntype == rcarithmetic.rcint
+        assert s.knowntype == rffi.r_int
 
     def test_annotate_array_access_float(self):
         t = TranslationContext()
@@ -65,7 +65,7 @@ class Test_annotation:
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(access_with_variable, [])
-        assert s.knowntype == rcarithmetic.rcint
+        assert s.knowntype == rffi.r_int
 
 class Test_specialization:
     def test_specialize_array_create(self):

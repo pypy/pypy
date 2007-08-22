@@ -3,25 +3,24 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeFloat, SomeString, SomeChar
 from pypy.annotation.listdef import ListDef
-from pypy.rpython.rctypes import rcarithmetic
 from pypy.tool.error import AnnotatorError
+from pypy.rpython.lltypesystem import rffi
 
 import numpy
 
 class SomeArray(SomeExternalObject):
     """Stands for an object from the numpy module."""
-    from pypy.rpython.rctypes import rcarithmetic
     typecode_to_item = {
-        'b' : SomeInteger(knowntype=rcarithmetic.rcbyte),
-        'h' : SomeInteger(knowntype=rcarithmetic.rcshort),
-        'i' : SomeInteger(knowntype=rcarithmetic.rcint),
-        'l' : SomeInteger(knowntype=rcarithmetic.rclong),
-        'q' : SomeInteger(knowntype=rcarithmetic.rclonglong),
-        'B' : SomeInteger(knowntype=rcarithmetic.rcubyte),
-        'H' : SomeInteger(knowntype=rcarithmetic.rcushort),
-        'I' : SomeInteger(knowntype=rcarithmetic.rcuint),
-        'L' : SomeInteger(knowntype=rcarithmetic.rculong),
-        'Q' : SomeInteger(knowntype=rcarithmetic.rculonglong),
+        'b' : SomeInteger(knowntype=rffi.r_signedchar),
+        'h' : SomeInteger(knowntype=rffi.r_uchar),
+        'i' : SomeInteger(knowntype=rffi.r_int),
+        'l' : SomeInteger(knowntype=rffi.r_long),
+        'q' : SomeInteger(knowntype=rffi.r_longlong),
+        'B' : SomeInteger(knowntype=rffi.r_uchar),
+        'H' : SomeInteger(knowntype=rffi.r_ushort),
+        'I' : SomeInteger(knowntype=rffi.r_uint),
+        'L' : SomeInteger(knowntype=rffi.r_ulong),
+        'Q' : SomeInteger(knowntype=rffi.r_ulonglong),
         'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
@@ -61,21 +60,20 @@ class __extend__(pairtype(SomeArray, SomeInteger)):
         return s_cto.get_item_type()
 
 numpy_typedict = {
-    (SomeInteger, rcarithmetic.rcbyte) : 'b', 
-    (SomeInteger, rcarithmetic.rcshort) : 'h', 
-    (SomeInteger, rcarithmetic.rcint) : 'i', 
-    (SomeInteger, rcarithmetic.rclong) : 'l', 
+    (SomeInteger, rffi.r_signedchar) : 'b', 
+    (SomeInteger, rffi.r_short) : 'h', 
+    (SomeInteger, rffi.r_int) : 'i', 
+    (SomeInteger, rffi.r_long) : 'l', 
     (SomeInteger, int) : 'l', 
-    (SomeInteger, rcarithmetic.rclonglong) : 'q', 
-    (SomeInteger, rcarithmetic.rcubyte) : 'B', 
-    (SomeInteger, rcarithmetic.rcushort) : 'H', 
-    (SomeInteger, rcarithmetic.rcuint) : 'I', 
-    (SomeInteger, rcarithmetic.rculong) : 'L', 
-    (SomeInteger, rcarithmetic.rculonglong) : 'Q', 
+    (SomeInteger, rffi.r_longlong) : 'q', 
+    (SomeInteger, rffi.r_uchar) : 'B', 
+    (SomeInteger, rffi.r_ushort) : 'H', 
+    (SomeInteger, rffi.r_uint) : 'I', 
+    (SomeInteger, rffi.r_ulong) : 'L', 
+    (SomeInteger, rffi.r_ulonglong) : 'Q', 
     (SomeFloat, float) : 'f', 
     (SomeFloat, float) : 'd', 
 }
-
 valid_typecodes='bhilqBHILQfd'
 
 class CallEntry(ExtRegistryEntry):
