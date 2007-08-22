@@ -117,15 +117,4 @@ class Test_compile:
         assert fn(0) == 1
         assert fn(1) == 99
         
-        t = TranslationContext()
-        t.buildannotator().build_types(access_array, [int])
-        t.buildrtyper().specialize()
-        graph = t.buildflowgraph(access_array)
-        
-        from pypy.translator.tool.make_dot import make_dot
-        filename = make_dot('access_array', graph)
-
-        from pypy.translator.c.genc import CExtModuleBuilder
-        b = CExtModuleBuilder(t, access_array)
-        filename = b.generate_source()
 
