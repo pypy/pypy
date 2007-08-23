@@ -31,9 +31,9 @@
 #include "src/int.h"
 #include "src/char.h"
 #include "src/float.h"
+#include "src/address.h"
 #ifndef AVR
 #include "src/unichar.h"
-#include "src/address.h"
 #endif
 
 #include "src/instrument.h"
