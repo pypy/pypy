@@ -13,3 +13,13 @@ class TestSnippets(BaseTestSnippets, CliTest):
         res = self.ll_to_list(self.interpret(fn, []))
         assert res == [52, 53, 54]
 
+    def test_mangle(self):
+        class Foo:
+            def le(self):
+                return 42
+
+        def fn():
+            f = Foo()
+            return f.le()
+        res = self.interpret(fn, [], backendopt=False)
+        

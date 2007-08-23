@@ -122,7 +122,8 @@ class CTS(object):
     "readonly", "refanytype", "refanyval", "rem", "ret", "rethrow",
     "shl", "shr", "sizeof", "starg", "stelem", "stfld", "stind",
     "stloc", "stobj", "stsfld", "sub", "switch", "tail", "throw",
-    "unaligned", "unbox", "volatile", "xor"])
+    "unaligned", "unbox", "volatile", "xor", "ole"])
+    # ole is not a keyword, but mono ilasm fails if you use it as a field/method name
 
     def __init__(self, db):
         self.db = db
@@ -235,7 +236,7 @@ class CTS(object):
                 METH = meth._TYPE
                 virtual = getattr(meth, '_virtual', True)
             class_name = self.db.class_name(TYPE)
-            full_name = 'class %s::%s' % (class_name, name)
+            full_name = 'class %s::%s' % (class_name, self.escape_name(name))
             returntype = self.lltype_to_cts(METH.RESULT)
             arg_types = [self.lltype_to_cts(ARG) for ARG in METH.ARGS if ARG is not ootype.Void]
             arg_list = ', '.join(arg_types)
