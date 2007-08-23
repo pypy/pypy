@@ -24,3 +24,8 @@ class TestCliString(CliTest, oostring.BaseTestString):
     def test_getitem_exc(self):
         py.test.skip('fixme!')
 
+    def test_compare(self):
+        strings = ['aa', 'ZZ']
+        def fn(i, j):
+            return strings[i] < strings[j]
+        assert self.interpret(fn, [0, 1], backendopt=False) == fn(0, 1)

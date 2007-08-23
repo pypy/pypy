@@ -201,7 +201,7 @@ namespace pypy.runtime
 
         public static int ll_strcmp(string s1, string s2)
         {
-            return string.Compare(s1, s2);
+            return string.Compare(s1, s2, StringComparison.Ordinal);
         }
 
         public static bool ll_startswith(string s1, string s2)
