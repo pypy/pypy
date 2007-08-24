@@ -3,6 +3,7 @@
 import ctypes
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
+from pypy.rlib.unroll import unrolling_iterable
 
 import py
 
@@ -10,7 +11,7 @@ import py
 #rffi.UCHAR = lltype.Char # XXX
 
 # XXX any automatic stuff here?
-SIMPLE_TYPE_MAPPING = {
+_TYPE_MAPPING = {
     ctypes.c_ubyte     : rffi.UCHAR,
     ctypes.c_byte      : rffi.CHAR,
     ctypes.c_char      : rffi.CHAR,
@@ -35,6 +36,22 @@ SIMPLE_TYPE_MAPPING = {
     ctypes.c_double    : rffi.lltype.Float, # XXX make a type in rffi
 }
 
+
+def softwrapper(funcptr, arg_tps):
+    # Here we wrap with a function that does some simple type coercion.
+    unrolling_arg_tps = unrolling_iterable(enumerate(arg_tps))
+    def softfunc(*args):
+        real_args = ()
+        for i, tp in unrolling_arg_tps:
+            if tp == rffi.lltype.Float:
+                real_args = real_args + (float(args[i]),)
+            else:
+                real_args = real_args + (args[i],)
+        result = funcptr(*real_args)
+        return result
+    return softfunc
+
+
 class RffiBuilder(object):
     def __init__(self, ns=None, includes=[], libraries=[], include_dirs=[]):
         if ns is None:
@@ -58,13 +75,13 @@ class RffiBuilder(object):
                     raise NotImplementedError("field length")
                 name_, field_tp = field
                 fields.append((name_, self.proc_tp(field_tp)))
-            struct = lltype.Struct(name, *fields, **{'hints':{'external':'C'}})
+            struct = lltype.Struct(name, *fields, **{'hints':{'external':'C', 'c_name':name}})
             self.ns[name] = struct
         return struct
 
     def proc_tp(self, tp):
         try:
-            return SIMPLE_TYPE_MAPPING[tp]
+            return _TYPE_MAPPING[tp]
         except KeyError:
             pass
         if issubclass(tp, ctypes._Pointer):
@@ -77,17 +94,20 @@ class RffiBuilder(object):
             ll_tp = self.proc_struct(tp)
         else:
             raise NotImplementedError("Not implemented mapping for %s" % tp)
-        return ll_tp # store in SIMPLE_TYPE_MAPPING ?
+        _TYPE_MAPPING[tp] = ll_tp
+        return ll_tp
 
     def proc_func(self, func):
         name = func.__name__
+        arg_tps = [self.proc_tp(arg) for arg in func.argtypes]
         ll_item = rffi.llexternal(
-            name, [self.proc_tp(arg) for arg in func.argtypes],
+            name, arg_tps,
             self.proc_tp(func.restype), 
             includes=self.includes, libraries=self.libraries, 
             include_dirs=self.include_dirs)
-        self.ns[name] = ll_item
-        return ll_item
+        soft = softwrapper(ll_item, arg_tps)
+        self.ns[name] = soft
+        return soft
 
     def proc_namespace(self, ns):
         exempt = set(id(value) for value in ctypes.__dict__.values())
