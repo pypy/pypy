@@ -265,9 +265,9 @@ class LazyConstGenerator(StaticFieldConstGenerator):
 class CLIBaseConstMixin(object):
     """ A mix-in with a few extra methods the CLI backend uses """
     
-    def get_type(self, include_class=True):
+    def get_type(self):
         """ Returns the CLI type for this constant's representation """
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
+        return self.cts.lltype_to_cts(self.value._TYPE)
     
     def push_inline(self, gen, TYPE):
         """ Overload the oosupport version so that we use the CLI opcode

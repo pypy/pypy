@@ -53,7 +53,7 @@ class TestEntryPoint(BaseEntryPoint):
 
         RETURN_TYPE = self.graph.getreturnvar().concretetype
         return_type = self.cts.lltype_to_cts(RETURN_TYPE)
-        if return_type != 'void':
+        if return_type != CTS.types.void:
             ilasm.locals([(return_type, 'res')])
 
         if self.wrap_exceptions:
@@ -70,7 +70,7 @@ class TestEntryPoint(BaseEntryPoint):
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(self.cts.graph_to_signature(self.graph))
-        if return_type != 'void':
+        if return_type != CTS.types.void:
             ilasm.opcode('stloc', 'res')
         if self.wrap_exceptions:
             ilasm.leave('check_etrafo_exception')
@@ -103,7 +103,7 @@ class TestEntryPoint(BaseEntryPoint):
                 ilasm.opcode('br', 'print_result')
 
         ilasm.label('print_result')
-        if return_type != 'void':
+        if return_type != CTS.types.void:
             ilasm.opcode('ldloc', 'res')
         format_object(RETURN_TYPE, self.cts, ilasm)
         ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
@@ -115,13 +115,13 @@ class TestEntryPoint(BaseEntryPoint):
 
     def __convert_method(self, arg_type):
         _conv = {
-            'int32': 'ToInt32',
-            'unsigned int32': 'ToUInt32',
-            'int64': 'ToInt64',
-            'unsigned int64': 'ToUInt64',
-            'bool': 'ToBoolean',
-            'float64': 'ToDouble',
-            'char': 'ToChar',
+            CTS.types.int32: 'ToInt32',
+            CTS.types.uint32: 'ToUInt32',
+            CTS.types.int64: 'ToInt64',
+            CTS.types.uint64: 'ToUInt64',
+            CTS.types.bool: 'ToBoolean',
+            CTS.types.float64: 'ToDouble',
+            CTS.types.char: 'ToChar',
             }
 
         try:

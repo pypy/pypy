@@ -30,7 +30,7 @@ class Record(Node):
         for f_name, (FIELD_TYPE, f_default) in self.record._fields.iteritems():
             f_name = self.cts.escape_name(f_name)
             cts_type = self.cts.lltype_to_cts(FIELD_TYPE)
-            if cts_type != 'void':
+            if cts_type != CTS.types.void:
                 ilasm.field(f_name, cts_type)
         self._ctor()
         self._toString()
@@ -74,13 +74,12 @@ class Record(Node):
 
     def _equals(self):
         # field by field comparison
-        record_type = self.cts.lltype_to_cts(self.record, include_class=False)
-        class_record_type = self.cts.lltype_to_cts(self.record, include_class=True)
+        record_type = self.cts.lltype_to_cts(self.record)
         self.ilasm.begin_function('Equals', [('object', 'obj')], 'bool',
                                   False, 'virtual', 'instance', 'default')
-        self.ilasm.locals([(class_record_type, 'self')])
+        self.ilasm.locals([(record_type, 'self')])
         self.ilasm.opcode('ldarg.1')
-        self.ilasm.opcode('castclass', record_type)
+        self.ilasm.opcode('castclass', record_type.classname())
         self.ilasm.opcode('stloc.0')
 
         equal = 'bool [pypylib]pypy.runtime.Utils::Equal<%s>(!!0, !!0)'
@@ -91,9 +90,9 @@ class Record(Node):
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
             f_name = self.cts.escape_name(f_name)
             self.ilasm.opcode('ldarg.0')
-            self.ilasm.get_field((f_type, record_type, f_name))
+            self.ilasm.get_field((f_type, record_type.classname(), f_name))
             self.ilasm.opcode('ldloc.0')
-            self.ilasm.get_field((f_type, record_type, f_name))
+            self.ilasm.get_field((f_type, record_type.classname(), f_name))
             self.ilasm.call(equal % f_type)
             self.ilasm.opcode('and')
 
@@ -102,7 +101,7 @@ class Record(Node):
 
     def _getHashCode(self):
         # return the hash of the first field. XXX: it can lead to a bad distribution
-        record_type = self.cts.lltype_to_cts(self.record, include_class=False)
+        record_type = self.cts.lltype_to_cts(self.record)
         self.ilasm.begin_function('GetHashCode', [], 'int32', False, 'virtual', 'instance', 'default')
         gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
         if self.record._fields:
@@ -113,7 +112,7 @@ class Record(Node):
                 f_name = self.cts.escape_name(f_name)
                 f_type = self.cts.lltype_to_cts(FIELD_TYPE)
                 self.ilasm.opcode('ldarg.0')
-                self.ilasm.get_field((f_type, record_type, f_name))
+                self.ilasm.get_field((f_type, record_type.classname(), f_name))
                 self.ilasm.call(gethash % f_type)
         else:
             self.ilasm.opcode('ldc.i4.0')

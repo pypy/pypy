@@ -113,8 +113,8 @@ class Function(OOFunction, Node, CLIBaseGenerator):
     def begin_catch(self, llexitcase):
         ll_meta_exc = llexitcase
         ll_exc = ll_meta_exc._inst.class_._INSTANCE
-        cts_exc = self.cts.lltype_to_cts(ll_exc, False)
-        self.ilasm.begin_catch(cts_exc)
+        cts_exc = self.cts.lltype_to_cts(ll_exc)
+        self.ilasm.begin_catch(cts_exc.classname())
 
     def end_catch(self, target_label):
         self.ilasm.leave(target_label)

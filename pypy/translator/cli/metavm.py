@@ -38,7 +38,9 @@ class _Call(MicroInstruction):
             self._load_arg_or_null(generator, func_arg)
         cts = generator.cts
         ret_type = cts.lltype_to_cts(funcdesc._TYPE.RESULT)
-        arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc._TYPE.ARGS if arg is not ootype.Void]
+        arg_types = [cts.lltype_to_cts(arg).typename()
+                     for arg in funcdesc._TYPE.ARGS
+                     if arg is not ootype.Void]
         arg_list = ', '.join(arg_types)
         signature = '%s %s::%s(%s)' % (ret_type, funcdesc._cls._name, funcdesc._name, arg_list)
         generator.call_signature(signature)
@@ -70,8 +72,10 @@ class _Call(MicroInstruction):
             METH = this.concretetype._METHODS[method_name]
             cts = generator.cts
             ret_type = cts.lltype_to_cts(METH.RESULT)
-            arg_types = [cts.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
-            arg_types.insert(0, cts.lltype_to_cts(ootype.String))
+            arg_types = [cts.lltype_to_cts(arg).typename()
+                         for arg in METH.ARGS
+                         if arg is not ootype.Void]
+            arg_types.insert(0, cts.lltype_to_cts(ootype.String).typename())
             arg_list = ', '.join(arg_types)
             signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
             generator.call_signature(signature)

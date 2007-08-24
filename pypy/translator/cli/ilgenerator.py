@@ -322,8 +322,8 @@ class CLIBaseGenerator(Generator):
         self.ilasm.call(signature)
 
     def cast_to(self, lltype):
-        cts_type = self.cts.lltype_to_cts(lltype, False)
-        self.ilasm.opcode('castclass', cts_type)
+        cts_type = self.cts.lltype_to_cts(lltype)
+        self.ilasm.opcode('castclass', cts_type.classname())
 
     def new(self, obj):
         self.ilasm.new(self.cts.ctor_name(obj))

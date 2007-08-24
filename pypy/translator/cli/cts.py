@@ -4,61 +4,146 @@ Translate between PyPy ootypesystem and .NET Common Type System
 
 import exceptions
 
-from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from py.builtin import set
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
-try:
-    set
-except NameError:
-    from sets import Set as set
-
 from pypy.tool.ansi_print import ansi_log
 import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
-WEAKREF = '[mscorlib]System.WeakReference'
-PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
-PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
-PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
+class CliType(object):
+    def typename(self):
+        raise NotImplementedError
+
+    def __str__(self):
+        return self.typename()
+
+    def __hash__(self):
+        return hash(self.typename())
+
+    def __eq__(self, other):
+        return self.typename() == other.typename()
+
+    def __ne__(self, other):
+        return self.typename() != other.typename()
+
+
+class CliPrimitiveType(CliType):
+    def __init__(self, name):
+        self.name = name
+
+    def typename(self):
+        return self.name
+
+
+class CliReferenceType(CliType):
+    def typename(self):
+        return 'class ' + self.classname()
+
+    def classname(self):
+        raise NotImplementedError
+
+
+class CliClassType(CliReferenceType):
+    def __init__(self, assembly, name):
+        self.assembly = assembly
+        self.name = name
+
+    def classname(self):
+        if self.assembly:
+            return '[%s]%s' % (self.assembly, self.name)
+        else:
+            return self.name
+
+
+class CliGenericType(CliReferenceType):
+    def __init__(self, assembly, name, numparam):
+        self.assembly = assembly
+        self.name = name
+        self.numparam = numparam
+
+    def classname(self):
+        paramtypes = [self.paramtype(i) for i in range(self.numparam)]
+        thistype = self.specialize(*paramtypes)
+        return thistype.classname()
+
+    def specialize(self, *types):
+        assert len(types) == self.numparam
+        return CliSpecializedType(self, types)
+
+    def paramtype(self, num):
+        assert 0 <= num < self.numparam
+        return CliPrimitiveType('!%d' % num)
+
+class CliSpecializedType(CliReferenceType):
+    def __init__(self, generic_type, arg_types):
+        self.generic_type = generic_type
+        self.arg_types = arg_types
+
+    def classname(self):
+        assembly = self.generic_type.assembly
+        name = self.generic_type.name
+        numparam = self.generic_type.numparam
+        arglist = ', '.join([arg.typename() for arg in self.arg_types])
+        return '[%s]%s`%d<%s>' % (assembly, name, numparam, arglist)
+
+
+T = CliPrimitiveType
+class types:
+    void =    T('void')
+    int32 =   T('int32')
+    uint32 =  T('unsigned int32')
+    int64 =   T('int64')
+    uint64 =  T('unsigned int64')
+    bool =    T('bool')
+    float64 = T('float64')
+    char =    T('char')
+    string =  T('string')
+
+    weakref = CliClassType('mscorlib', 'System.WeakReference')
+    type = CliClassType('mscorlib', 'System.Type')
+    object = CliClassType('mscorlib', 'System.Object')
+    list = CliGenericType('pypylib', 'pypy.runtime.List', 1)
+    list_of_void = CliClassType('pypylib', 'pypy.runtime.ListOfVoid')
+    dict = CliGenericType('pypylib', 'pypy.runtime.Dict', 2)
+    dict_void_void = CliClassType('pypylib', 'pypy.runtime.DictVoidVoid')
+    dict_items_iterator = CliGenericType('pypylib', 'pypy.runtime.DictItemsIterator', 2)
+    string_builder = CliClassType('pypylib', 'pypy.runtime.StringBuilder')
+del T
+
+WEAKREF = types.weakref.classname()
 PYPY_DICT_OF_VOID = '[pypylib]pypy.runtime.DictOfVoid`2<%s, int32>'
-PYPY_DICT_VOID_VOID = '[pypylib]pypy.runtime.DictVoidVoid'
-PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
-PYPY_STRING_BUILDER = '[pypylib]pypy.runtime.StringBuilder'
+
 
 _lltype_to_cts = {
-    ootype.Void: 'void',
-    ootype.Signed: 'int32',    
-    ootype.Unsigned: 'unsigned int32',
-    SignedLongLong: 'int64',
-    UnsignedLongLong: 'unsigned int64',
-    ootype.Bool: 'bool',
-    ootype.Float: 'float64',
-    ootype.Char: 'char',
-    ootype.UniChar: 'char',
-    ootype.Class: 'class [mscorlib]System.Type',
-    ootype.String: 'string',
-    ootype.StringBuilder: 'class ' + PYPY_STRING_BUILDER,
-    WeakGcAddress: 'class ' + WEAKREF,
+    ootype.Void: types.void,
+    ootype.Signed: types.int32,    
+    ootype.Unsigned: types.uint32,
+    ootype.SignedLongLong: types.int64,
+    ootype.UnsignedLongLong: types.uint64,
+    ootype.Bool: types.bool,
+    ootype.Float: types.float64,
+    ootype.Char: types.char,
+    ootype.UniChar: types.char,
+    ootype.Class: types.type,
+    ootype.String: types.string,
+    ootype.StringBuilder: types.string_builder,
+    WeakGcAddress: types.weakref,
 
     # maps generic types to their ordinal
-    ootype.List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),
-    ootype.List.ITEMTYPE_T: '!0',
-    ootype.Dict.SELFTYPE_T: 'class ' + (PYPY_DICT % ('!0', '!1')),
-    ootype.Dict.KEYTYPE_T: '!0',
-    ootype.Dict.VALUETYPE_T: '!1',
-    ootype.DictItemsIterator.SELFTYPE_T: 'class ' + (PYPY_DICT_ITEMS_ITERATOR % ('!0', '!1')),
-    ootype.DictItemsIterator.KEYTYPE_T: '!0',
-    ootype.DictItemsIterator.VALUETYPE_T: '!1',
-    }
-
-_pyexception_to_cts = {
-    exceptions.Exception: '[mscorlib]System.Exception',
-    exceptions.OverflowError: '[mscorlib]System.OverflowException'
+    ootype.List.SELFTYPE_T: types.list,
+    ootype.List.ITEMTYPE_T: types.list.paramtype(0),
+    ootype.Dict.SELFTYPE_T: types.dict,
+    ootype.Dict.KEYTYPE_T: types.dict.paramtype(0),
+    ootype.Dict.VALUETYPE_T: types.dict.paramtype(1),
+    ootype.DictItemsIterator.SELFTYPE_T: types.dict_items_iterator,
+    ootype.DictItemsIterator.KEYTYPE_T: types.dict_items_iterator.paramtype(0),
+    ootype.DictItemsIterator.VALUETYPE_T: types.dict_items_iterator.paramtype(1),
     }
 
 
@@ -125,14 +210,10 @@ class CTS(object):
     "unaligned", "unbox", "volatile", "xor", "ole"])
     # ole is not a keyword, but mono ilasm fails if you use it as a field/method name
 
+    types = types # for convenience
+
     def __init__(self, db):
         self.db = db
-
-    def __class(self, result, include_class):
-        if include_class:
-            return 'class ' + result
-        else:
-            return result
 
     def escape_name(self, name):
         """Mangle then name if it's a ilasm reserved word"""
@@ -141,46 +222,47 @@ class CTS(object):
         else:
             return name
 
-    def lltype_to_cts(self, t, include_class=True):
+    def lltype_to_cts(self, t):
         if t is ootype.ROOT:
-            return self.__class('[mscorlib]System.Object', include_class)
+            return types.object
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
-            return self.__class('[mscorlib]System.Object', include_class)
+            return types.object
         elif isinstance(t, ootype.Instance):
             NATIVE_INSTANCE = t._hints.get('NATIVE_INSTANCE', None)
             if NATIVE_INSTANCE:
-                return self.__class(NATIVE_INSTANCE._name, include_class)
+                return CliClassType(None, NATIVE_INSTANCE._name)
             else:
                 name = self.db.pending_class(t)
-                return self.__class(name, include_class)
+                return CliClassType(None, name)
         elif isinstance(t, ootype.Record):
             name = self.db.pending_record(t)
-            return self.__class(name, include_class)
+            return CliClassType(None, name)
         elif isinstance(t, ootype.StaticMethod):
             delegate = self.db.record_delegate(t)
-            return self.__class(delegate, include_class)
+            return CliClassType(None, delegate)
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
-            if item_type == 'void': # special case: List of Void
-                return self.__class(PYPY_LIST_OF_VOID, include_class)
-            return self.__class(PYPY_LIST % item_type, include_class)
+            if item_type == types.void: # special case: List of Void
+                return types.list_of_void
+            return types.list.specialize(item_type)
         elif isinstance(t, ootype.Dict):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
-            if value_type == 'void': # special cases: Dict with voids
-                if key_type == 'void':
-                    return self.__class(PYPY_DICT_VOID_VOID, include_class)
+            if value_type == types.void: # special cases: Dict with voids
+                if key_type == types.void:
+                    return types.dict_void_void
                 else:
-                    return self.__class(PYPY_DICT_OF_VOID % key_type, include_class)
-            return self.__class(PYPY_DICT % (key_type, value_type), include_class)
+                    # XXX
+                    return CliClassType(None, PYPY_DICT_OF_VOID % key_type)
+            return types.dict.specialize(key_type, value_type)
         elif isinstance(t, ootype.DictItemsIterator):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
-            if key_type == 'void':
-                key_type = 'int32' # placeholder
-            if value_type == 'void':
-                value_type = 'int32' # placeholder
-            return self.__class(PYPY_DICT_ITEMS_ITERATOR % (key_type, value_type), include_class)
+            if key_type == types.void:
+                key_type = types.int32 # placeholder
+            if value_type == types.void:
+                value_type = types.int32 # placeholder
+            return types.dict_items_iterator.specialize(key_type, value_type)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
 
@@ -205,7 +287,7 @@ class CTS(object):
         if is_method:
             args = args[1:]
 
-        arg_types = [self.lltype_to_cts(arg.concretetype) for arg in args]
+        arg_types = [self.lltype_to_cts(arg.concretetype).typename() for arg in args]
         arg_list = ', '.join(arg_types)
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
@@ -217,7 +299,7 @@ class CTS(object):
         args = [arg for arg in op.args[1:]
                     if arg.concretetype is not ootype.Void]
 
-        arg_types = [self.lltype_to_cts(arg.concretetype) for arg in args]
+        arg_types = [self.lltype_to_cts(arg.concretetype).typename() for arg in args]
         arg_list = ', '.join(arg_types)
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
@@ -238,7 +320,7 @@ class CTS(object):
             class_name = self.db.class_name(TYPE)
             full_name = 'class %s::%s' % (class_name, self.escape_name(name))
             returntype = self.lltype_to_cts(METH.RESULT)
-            arg_types = [self.lltype_to_cts(ARG) for ARG in METH.ARGS if ARG is not ootype.Void]
+            arg_types = [self.lltype_to_cts(ARG).typename() for ARG in METH.ARGS if ARG is not ootype.Void]
             arg_list = ', '.join(arg_types)
             return '%s %s(%s)' % (returntype, full_name, arg_list), virtual
 
@@ -256,16 +338,16 @@ class CTS(object):
                 name = name_or_desc
                 if KEY is ootype.Void and VALUE is ootype.Void and name == 'll_get_items_iterator':
                     # ugly, ugly special case
-                    ret_type = 'class ' + PYPY_DICT_ITEMS_ITERATOR % ('int32', 'int32')
+                    ret_type = types.dict_items_iterator.specialize(types.int32, types.int32)
                 elif VALUE is ootype.Void and METH.RESULT is ootype.Dict.VALUETYPE_T:
-                    ret_type = 'void'
+                    ret_type = types.void
                 else:
                     ret_type = self.lltype_to_cts(METH.RESULT)
                     ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
             else:
                 ret_type = self.lltype_to_cts(METH.RESULT)
             generic_types = getattr(TYPE, '_generic_types', {})
-            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if
+            arg_types = [self.lltype_to_cts(arg).typename() for arg in METH.ARGS if
                          arg is not ootype.Void and \
                          generic_types.get(arg, arg) is not ootype.Void]
             arg_list = ', '.join(arg_types)
@@ -278,6 +360,6 @@ def dict_of_void_ll_copy_hack(TYPE, ret_type):
     # XXX: ugly hack to make the ll_copy signature correct when
     # CustomDict is special-cased to DictOfVoid.
     if isinstance(TYPE, ootype.CustomDict) and TYPE._VALUETYPE is ootype.Void:
-        return ret_type.replace('Dict`2', 'DictOfVoid`2')
+        return ret_type.typename().replace('Dict`2', 'DictOfVoid`2')
     else:
         return ret_type

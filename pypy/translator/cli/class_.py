@@ -84,7 +84,7 @@ class Class(Node):
         for f_name, (f_type, f_default) in self.INSTANCE._fields.iteritems():
             cts_type = self.cts.lltype_to_cts(f_type)
             f_name = self.cts.escape_name(f_name)
-            if cts_type != 'void':
+            if cts_type != CTS.types.void:
                 ilasm.field(f_name, cts_type)
 
         self._ctor()
@@ -134,7 +134,7 @@ class Class(Node):
             INSTANCE_DEF, _ = self.INSTANCE._lookup_field(f_name)
             cts_type = self.cts.lltype_to_cts(F_TYPE)
             f_name = self.cts.escape_name(f_name)
-            if cts_type != 'void':
+            if cts_type != CTS.types.void:
                 self.ilasm.opcode('ldarg.0')
                 push_constant(self.db, F_TYPE, f_default, self.gen)
                 class_name = self.db.class_name(INSTANCE_DEF)
