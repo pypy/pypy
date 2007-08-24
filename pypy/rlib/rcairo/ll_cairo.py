@@ -8,7 +8,7 @@ def _build():
 
     builder = genrffi.RffiBuilder(
         includes=['cairo.h'], libraries=['cairo'], 
-        include_dirs=['/usr/local/include/cairo'])
+        include_dirs=['/usr/local/include/cairo', '/usr/include/cairo'])
     ns = _cairo.__dict__
     builder.proc_namespace(ns)
     
