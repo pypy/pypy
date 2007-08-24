@@ -23,3 +23,21 @@ class TestSnippets(BaseTestSnippets, CliTest):
             return f.le()
         res = self.interpret(fn, [], backendopt=False)
         
+    def test_link_vars_overlapping(self):
+        from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+        def fn(maxofs):
+            lastofs = 0
+            ofs = 1
+            while ofs < maxofs:
+                lastofs = ofs
+                try:
+                    ofs = ovfcheck_lshift(ofs, 1)
+                except OverflowError:
+                    ofs = maxofs
+                else:
+                    ofs = ofs + 1
+            return lastofs
+        res = self.interpret(fn, [64])
+        expected = fn(64)
+        assert res == expected
+        

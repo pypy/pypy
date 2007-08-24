@@ -245,13 +245,22 @@ class Function(object):
 
     def _setup_link(self, link):
         target = link.target
+        linkvars = []
         for to_load, to_store in zip(link.args, target.inputargs):
             if isinstance(to_load, flowmodel.Variable) and to_load.name == to_store.name:
                 continue
             if to_load.concretetype is ootype.Void:
                 continue
-            self.generator.add_comment("%r --> %r" % (to_load, to_store))
+            linkvars.append((to_load, to_store))
+
+        # after SSI_to_SSA it can happen to have to_load = [a, b] and
+        # to_store = [b, c].  If we store each variable sequentially,
+        # 'b' would be overwritten before being read.  To solve, we
+        # first load all the values on the stack, then store in the
+        # appropriate places.
+        for to_load, to_store in linkvars:
             self.generator.load(to_load)
+        for to_load, to_store in reversed(linkvars):
             self.generator.store(to_store)
 
     def _trace_enabled(self):
