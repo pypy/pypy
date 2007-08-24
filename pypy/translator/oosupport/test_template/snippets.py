@@ -48,3 +48,16 @@ class BaseTestSnippets(object):
             obj.x = x + y
             return obj.x
         assert self.interpret(fn, [1,3]) == 4
+
+    def test_link(self):
+        def fn():
+            plus = False
+            for c in 'a':
+                if c == 'b':
+                    plus = True
+                elif c == 'c':
+                    binary = True
+            return plus
+        res = self.interpret(fn, [])
+        expected = fn()
+        assert res == expected

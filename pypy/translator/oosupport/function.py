@@ -230,13 +230,17 @@ class Function(object):
     def render_numeric_switch_naive(self, block):
         for link in block.exits:
             target_label = self._get_block_name(link.target)
-            self._setup_link(link)
             if link.exitcase == 'default':
+                self._setup_link(link)
                 self.generator.branch_unconditionally(target_label)
             else:
+                next_case = self.next_label('next_case')
                 self.generator.push_primitive_constant(block.exitswitch.concretetype, link.exitcase)
                 self.generator.load(block.exitswitch)
-                self.generator.branch_if_equal(target_label)
+                self.generator.branch_if_not_equal(next_case)
+                self._setup_link(link)
+                self.generator.branch_unconditionally(target_label)
+                self.set_label(next_case)
 
     def _follow_link(self, link):
         target_label = self._get_block_name(link.target)
@@ -258,6 +262,13 @@ class Function(object):
         # 'b' would be overwritten before being read.  To solve, we
         # first load all the values on the stack, then store in the
         # appropriate places.
+
+        if self._trace_enabled():
+            self._trace('link', writeline=True)
+            for to_load, to_store in linkvars:
+                self._trace_value('%s <-- %s' % (to_store, to_load), to_load)
+            self._trace('', writeline=True)
+
         for to_load, to_store in linkvars:
             self.generator.load(to_load)
         for to_load, to_store in reversed(linkvars):
