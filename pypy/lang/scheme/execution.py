@@ -1,5 +1,7 @@
 import pypy.lang.scheme.object as ssobject
-import pypy.lang.scheme.macro as ssmacro
+import pypy.lang.scheme.syntax as procedure
+import pypy.lang.scheme.procedure as syntax
+import pypy.lang.scheme.macro as macro
 from pypy.lang.scheme.ssparser import parse
 import py
 
@@ -8,7 +10,7 @@ class Location(object):
         self.obj = w_obj
 
 OPERATION_MAP = {}
-for mod in (ssobject, ssmacro):
+for mod in (ssobject, syntax, procedure, macro):
     for obj_name in dir(mod):
         obj = getattr(mod, obj_name)
         try:
@@ -52,7 +54,7 @@ class ExecutionContext(object):
             self.globalscope = globalscope
 
     def _dispatch(self, symb):
-        if isinstance(symb, ssmacro.SymbolClosure):
+        if isinstance(symb, macro.SymbolClosure):
             return (symb.closure, symb.name)
 
         elif isinstance(symb, ssobject.W_Symbol):
