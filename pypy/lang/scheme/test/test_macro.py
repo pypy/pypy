@@ -2,6 +2,7 @@ import py
 from pypy.lang.scheme.ssparser import parse
 from pypy.lang.scheme.execution import ExecutionContext
 from pypy.lang.scheme.object import *
+from pypy.lang.scheme.macro import *
 
 def eval_(ctx, expr):
     return parse(expr)[0].eval(ctx)

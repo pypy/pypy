@@ -1,4 +1,5 @@
 import pypy.lang.scheme.object as ssobject
+import pypy.lang.scheme.macro as ssmacro
 from pypy.lang.scheme.ssparser import parse
 import py
 
@@ -7,13 +8,14 @@ class Location(object):
         self.obj = w_obj
 
 OPERATION_MAP = {}
-for obj_name in dir(ssobject):
-    obj = getattr(ssobject, obj_name)
-    try:
-        issubclass(obj, ssobject.W_Callable)
-        OPERATION_MAP[obj._symbol_name] = obj(obj._symbol_name)
-    except (TypeError, AttributeError):
-        pass
+for mod in (ssobject, ssmacro):
+    for obj_name in dir(mod):
+        obj = getattr(mod, obj_name)
+        try:
+            issubclass(obj, ssobject.W_Callable)
+            OPERATION_MAP[obj._symbol_name] = obj(obj._symbol_name)
+        except (TypeError, AttributeError):
+            pass
 
 de_file = py.magic.autopath().dirpath().join("r5rs_derived_expr.ss")
 de_code = de_file.read()
@@ -50,7 +52,7 @@ class ExecutionContext(object):
             self.globalscope = globalscope
 
     def _dispatch(self, symb):
-        if isinstance(symb, ssobject.SymbolClosure):
+        if isinstance(symb, ssmacro.SymbolClosure):
             return (symb.closure, symb.name)
 
         elif isinstance(symb, ssobject.W_Symbol):
