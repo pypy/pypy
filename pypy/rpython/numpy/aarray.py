@@ -1,10 +1,10 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
-from pypy.annotation.model import SomeInteger, SomeFloat, SomeString, SomeChar
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.model import SomeObject, SomeInteger, SomeFloat, SomeString, SomeChar
 from pypy.tool.error import AnnotatorError
 from pypy.rpython.lltypesystem import rffi
+from pypy.rlib import rarithmetic
 
 import numpy
 
@@ -21,13 +21,13 @@ class SomeArray(SomeExternalObject):
         'I' : SomeInteger(knowntype=rffi.r_uint),
         'L' : SomeInteger(knowntype=rffi.r_ulong),
         'Q' : SomeInteger(knowntype=rffi.r_ulonglong),
-        'f' : SomeFloat(), # XX single precision float XX
+        #'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
-    def __init__(self, knowntype, typecode):
-        self.knowntype = knowntype
+    def __init__(self, knowntype, typecode, rank=1):
+        self.knowntype = knowntype # == numpy.ndarray (do we need this for anything?)
         self.typecode = typecode
-        self.rank = 1
+        self.rank = rank
 
     def can_be_none(self):
         return True
@@ -47,9 +47,24 @@ class SomeArray(SomeExternalObject):
         return self.typecode_to_item[self.typecode]
 
 class __extend__(pairtype(SomeArray, SomeArray)):
-    def add((s_arr1,s_arr2)):
-        # TODO: coerce the array types
-        return SomeArray(s_arr1.knowntype, s_arr1.typecode)
+
+    def union((s_arr1, s_arr2)):
+        item1 = s_arr1.get_item_type()
+        item2 = s_arr2.get_item_type()
+        typecode = None
+        if float in (item1.knowntype, item2.knowntype):
+            typecode = 'd'
+        else:
+            item_knowntype = rarithmetic.compute_restype(item1.knowntype, item2.knowntype)
+            for typecode, s_item in SomeArray.typecode_to_item.items():
+                if s_item.knowntype == item_knowntype:
+                    break
+        if typecode is None:
+            raise AnnotatorError()
+        return SomeArray(s_arr1.knowntype, typecode)
+
+    add = sub = mul = div = truediv = union
+
 
 class __extend__(pairtype(SomeArray, SomeInteger)):
     def setitem((s_cto, s_index), s_value):
@@ -71,7 +86,7 @@ numpy_typedict = {
     (SomeInteger, rffi.r_uint) : 'I', 
     (SomeInteger, rffi.r_ulong) : 'L', 
     (SomeInteger, rffi.r_ulonglong) : 'Q', 
-    (SomeFloat, float) : 'f', 
+    #(SomeFloat, float) : 'f', 
     (SomeFloat, float) : 'd', 
 }
 valid_typecodes='bhilqBHILQfd'
@@ -87,7 +102,7 @@ class CallEntry(ExtRegistryEntry):
         # First guess type from input list
         listitem = arg_list.listdef.listitem
         key = type(listitem.s_value), listitem.s_value.knowntype
-        typecode = numpy_typedict.get( key, None )
+        typecode = numpy_typedict.get(key, None)
 
         # now see if the dtype arg over-rides the typecode
         dtype = None
@@ -118,6 +133,11 @@ class NumpyObjEntry(ExtRegistryEntry):
     def get_repr(self, rtyper, s_array):
         from pypy.rpython.numpy.rarray import ArrayRepr
         return ArrayRepr(rtyper, s_array)
+
+    def get_field_annotation(self, knowntype, fieldname):
+        if fieldname in ('transpose',):
+            # XX knowntype is not enough to learn annotation from XX
+            return SomeArray()
 
 
 
