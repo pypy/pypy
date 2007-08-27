@@ -216,6 +216,9 @@ class EquivalnecePredicate(W_Procedure):
         (a, b) = lst
         return W_Boolean(self.predicate(a, b))
 
+    def predicate(self, a, b):
+        raise NotImplementedError
+
 class EqP(EquivalnecePredicate):
     _symbol_name = "eq?"
 
@@ -323,6 +326,9 @@ class TypePredicate(W_Procedure):
             raise WrongArgsNumber
 
         return W_Boolean(self.predicate(lst[0]))
+
+    def predicate(self, w_obj):
+        raise NotImplementedError
 
 class BooleanP(TypePredicate):
     _symbol_name = "boolean?"
