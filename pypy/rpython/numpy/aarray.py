@@ -1,7 +1,8 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
-from pypy.annotation.model import SomeObject, SomeInteger, SomeFloat, SomeString, SomeChar
+from pypy.annotation.model import SomeObject, SomeInteger, SomeFloat, SomeString, SomeChar,\
+    SomeGenericCallable
 from pypy.tool.error import AnnotatorError
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import rarithmetic
@@ -45,6 +46,19 @@ class SomeArray(SomeExternalObject):
 
     def get_item_type(self):
         return self.typecode_to_item[self.typecode]
+
+    def getattr(s_array, s_attr):
+        s = None
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
+            if attr in ('transpose',):
+                s_result = SomeArray(s_array.knowntype, s_array.typecode, s_array.rank)
+                s = SomeGenericCallable([], s_result)
+            elif attr == 'shape':
+                s = SomeTuple([SomeInteger()]*s_array.rank)
+        if s is None:
+            return SomeObject()
+        return s
 
 class __extend__(pairtype(SomeArray, SomeArray)):
 
@@ -133,11 +147,6 @@ class NumpyObjEntry(ExtRegistryEntry):
     def get_repr(self, rtyper, s_array):
         from pypy.rpython.numpy.rarray import ArrayRepr
         return ArrayRepr(rtyper, s_array)
-
-    def get_field_annotation(self, knowntype, fieldname):
-        if fieldname in ('transpose',):
-            # XX knowntype is not enough to learn annotation from XX
-            return SomeArray()
 
 
 
