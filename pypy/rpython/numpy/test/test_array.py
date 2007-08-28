@@ -5,6 +5,7 @@ Test the numpy implementation.
 import py
 import pypy.rpython.numpy.implementation
 from pypy.annotation import model as annmodel
+from pypy.annotation.model import SomeTuple
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
@@ -25,13 +26,13 @@ def access_array(item):
     return my_array[0]
 
 class Test_annotation:
-    def test_array_access_int(self):
+    def test_annotate_array_access_int(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(access_array, [int])
         assert s.knowntype == rffi.r_int
 
-    def test_array_access_float(self):
+    def test_annotate_array_access_float(self):
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(access_array, [float])
@@ -40,7 +41,7 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_array_access_bytype(self):
+    def test_annotate_array_access_bytype(self):
         def access_array_bytype(dummy):
             my_array = numpy.array([1],'d')
             return my_array[0]
@@ -53,7 +54,7 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_array_access_variable(self):
+    def test_annotate_array_access_variable(self):
         def access_with_variable():
             my_array = numpy.array(range(10))
             my_array[2] = 2
@@ -68,7 +69,7 @@ class Test_annotation:
         s = a.build_types(access_with_variable, [])
         assert s.knowntype == rffi.r_int
 
-    def test_array_add(self):
+    def test_annotate_array_add(self):
         def f():
             a1 = numpy.array([1,2])
             a2 = numpy.array([6,9])
@@ -79,7 +80,7 @@ class Test_annotation:
         s = a.build_types(f, [])
         assert s.typecode == 'i'
 
-    def test_array_add_coerce(self):
+    def test_annotate_array_add_coerce(self):
         def f():
             a1 = numpy.array([1,2])
             a2 = numpy.array([6.,9.])
@@ -90,7 +91,17 @@ class Test_annotation:
         s = a.build_types(f, [])
         assert s.typecode == 'd'
 
-    def test_array_method(self):
+    def test_annotate_array_attr(self):
+        def f():
+            a1 = numpy.array([1,2])
+            return a1.shape
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert type(s) == SomeTuple
+
+    def test_annotate_array_method(self):
         def f():
             a1 = numpy.array([1,2])
             return a1.transpose()
@@ -133,6 +144,23 @@ class Test_specialization:
         res = interpret(create_array, [])
         assert res.data[0] == 7
         assert res.data[1] == 11
+
+    def test_specialize_array_attr(self):
+        def create_array():
+            a = numpy.array([1,2])
+            return a.ndim
+
+        res = interpret(create_array, [])
+        assert res == 1
+
+    def test_specialize_array_method(self):
+        def create_array():
+            a = numpy.array([1,2])
+            return a.transpose()
+
+        res = interpret(create_array, [])
+        assert res.data[0] == 1
+        assert res.data[1] == 2
 
 class Test_compile:
     def setup_class(self):

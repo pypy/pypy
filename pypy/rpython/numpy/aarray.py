@@ -2,14 +2,14 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeObject, SomeInteger, SomeFloat, SomeString, SomeChar,\
-    SomeGenericCallable
+    SomeTuple
 from pypy.tool.error import AnnotatorError
 from pypy.rpython.lltypesystem import rffi
 from pypy.rlib import rarithmetic
 
 import numpy
 
-class SomeArray(SomeExternalObject):
+class SomeArray(SomeObject):
     """Stands for an object from the numpy module."""
     typecode_to_item = {
         'b' : SomeInteger(knowntype=rffi.r_signedchar),
@@ -25,10 +25,10 @@ class SomeArray(SomeExternalObject):
         #'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
-    def __init__(self, knowntype, typecode, rank=1):
+    def __init__(self, knowntype, typecode, ndim=1):
         self.knowntype = knowntype # == numpy.ndarray (do we need this for anything?)
         self.typecode = typecode
-        self.rank = rank
+        self.ndim = ndim
 
     def can_be_none(self):
         return True
@@ -51,14 +51,16 @@ class SomeArray(SomeExternalObject):
         s = None
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            if attr in ('transpose',):
-                s_result = SomeArray(s_array.knowntype, s_array.typecode, s_array.rank)
-                s = SomeGenericCallable([], s_result)
-            elif attr == 'shape':
-                s = SomeTuple([SomeInteger()]*s_array.rank)
+            if attr == 'shape':
+                s = SomeTuple([SomeInteger()]*s_array.ndim)
+            elif attr == 'ndim':
+                s = SomeInteger()
         if s is None:
-            return SomeObject()
+            return SomeObject.getattr(s_array, s_attr)
         return s
+
+    def method_transpose(self):
+        return SomeArray(self.knowntype, self.typecode, self.ndim)
 
 class __extend__(pairtype(SomeArray, SomeArray)):
 
@@ -85,7 +87,7 @@ class __extend__(pairtype(SomeArray, SomeInteger)):
         pass
 
     def getitem((s_cto, s_index)):
-        # TODO: higher ranked arrays have getitem returns SomeArray
+        # TODO: higher ndimed arrays have getitem returns SomeArray
         return s_cto.get_item_type()
 
 numpy_typedict = {
