@@ -5,8 +5,9 @@ Test the numpy implementation.
 import py
 import pypy.rpython.numpy.implementation
 from pypy.annotation import model as annmodel
-from pypy.annotation.model import SomeTuple
+from pypy.annotation.model import SomeObject, SomeTuple
 from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.tool.error import AnnotatorError
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
 import sys
@@ -69,6 +70,30 @@ class Test_annotation:
         s = a.build_types(access_with_variable, [])
         assert s.knowntype == rffi.r_int
 
+    def test_annotate_zeros(self):
+        def f():
+            a = numpy.zeros((3,4,5))
+            return a
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'd'
+        assert s.ndim == 3
+
+    def test_annotate_indexing(self):
+        def f():
+            a = numpy.zeros((3,4,5))
+            b = a[0]
+            a[0,1,2] = 1.
+            b[0,1] = a[2]
+            return b
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.ndim == 2
+
     def test_annotate_array_add(self):
         def f():
             a1 = numpy.array([1,2])
@@ -85,6 +110,27 @@ class Test_annotation:
             a1 = numpy.array([1,2])
             a2 = numpy.array([6.,9.])
             return a1 + a2
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'd'
+
+    def test_annotate_array_dtype(self):
+        def f():
+            a1 = numpy.array([1,2], dtype='d')
+            return a1
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'd'
+
+    def test_annotate_array_array(self):
+        def f():
+            a1 = numpy.array([1,2], dtype='d')
+            a2 = numpy.array(a1)
+            return a2
 
         t = TranslationContext()
         a = t.buildannotator()
@@ -116,11 +162,21 @@ class Test_annotation:
 class Test_specialization:
     def test_specialize_array_create(self):
         def create_array():
-            return numpy.array([1,2])
+            a = numpy.array([1,20])
+            b = numpy.array(a)
+            return b
 
         res = interpret(create_array, [])
         assert res.data[0] == 1
-        assert res.data[1] == 2
+        assert res.data[1] == 20
+
+    def test_specialize_array_zeros(self):
+        def create_array(n, m):
+            a = numpy.zeros((n, m))
+            return a
+
+        res = interpret(create_array, [3, 4])
+        assert res.ndim == 2
 
     def test_specialize_array_access(self):
         def access_with_variable():
@@ -137,7 +193,7 @@ class Test_specialization:
 
     def test_specialize_array_add(self):
         def create_array():
-            a1 = numpy.array([1,2])
+            a1 = numpy.array([1.,2.])
             a2 = numpy.array([6,9])
             return a1 + a2
 
@@ -153,6 +209,26 @@ class Test_specialization:
         res = interpret(create_array, [])
         assert res == 1
 
+    def test_specialize_array_attr_shape(self):
+        def create_array():
+            a = numpy.zeros((2,3))
+            return list(a.shape)
+
+        res = interpret(create_array, [])
+        assert res[0] == 2
+        assert res[1] == 3
+
+    def test_specialize_array_strides(self):
+        def create_array():
+            a = numpy.zeros((3,4,5))
+            return a
+
+        res = interpret(create_array, [])
+        assert res.strides[0] == 20
+        assert res.strides[1] == 5
+        assert res.strides[2] == 1
+        #assert len(res.data) == 3*4*5 # GcArray has nolength
+
     def test_specialize_array_method(self):
         def create_array():
             a = numpy.array([1,2])
@@ -161,6 +237,14 @@ class Test_specialization:
         res = interpret(create_array, [])
         assert res.data[0] == 1
         assert res.data[1] == 2
+
+    def X_test_specialize_view(self):
+        t = TranslationContext()
+        a = t.buildannotator()
+        a = a.build_types(f, [])
+        r = t.buildrtyper()
+        r.specialize()
+        t.view()
 
 class Test_compile:
     def setup_class(self):
@@ -172,12 +256,20 @@ class Test_compile:
 
     def test_compile_array_access(self):
         def access_array(index):
-            my_array = numpy.array([3,99,2])
-            my_array[0] = 1
-            return my_array[index]
+            a = numpy.array([3,99,2])
+            a[0] = 1
+            return a[index]
 
         fn = self.compile(access_array, [int])
         assert fn(0) == 1
         assert fn(1) == 99
+        
+    def test_compile_2d(self):
+        def access_array(index):
+            a = numpy.zeros((5,6))
+            a[0,0] = 2
+            return 0
+
+        fn = self.compile(access_array, [int])
         
 
