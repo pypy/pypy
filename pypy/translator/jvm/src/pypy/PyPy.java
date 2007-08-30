@@ -103,10 +103,9 @@ public class PyPy {
         if (value >= 0)
             return value;
         else {
-            int loword = value & 0xFFFF;
-            double result = loword;
-            int hiword = value >>> 16;
-            result += hiword * BITS16;
+            long loword = value & 0xFFFF;
+            long hiword = value >>> 16;
+            double result = (hiword << 16) | loword;
             return result;
         }
     }
@@ -115,11 +114,10 @@ public class PyPy {
         if (value <= Integer.MAX_VALUE)
             return (int)value;
 
-        int loword = (int)(value % BITS16);
-        int hiword = (int)(Math.floor(value / BITS16));
-        assert (loword & 0xFFFF0000) == 0;
-        assert (hiword & 0xFFFF0000) == 0;
-        return (hiword << 16) + loword;
+        long v = (long)value;
+        int loword = (int)(v & 0xFFFF);
+        int hiword = (int)(v >>> 16);
+        return (hiword << 16) | loword;
     }
 
     public static long double_to_long(double value)
@@ -193,6 +191,15 @@ public class PyPy {
         }
     }
 
+    public static double ooparse_float(String s) {
+        try {
+            return Double.parseDouble(s);
+        } catch(NumberFormatException ex) {
+            interlink.throwValueError();
+            return 0.0; // not reached
+        }
+    }
+
     public static char str_to_char(String s) {
         if (s.length() != 1)
             throw new RuntimeException("String not single character: '"+s+"'");
@@ -222,9 +229,9 @@ public class PyPy {
         if (i >= 0)
             return Integer.toString(i);
         else {
-            int loword = i & 0xFFFF;
-            int hiword = i >>> 16;
-            long res = loword + (hiword*0xFFFF);
+            long loword = i & 0xFFFF;
+            long hiword = i >>> 16;
+            long res = (hiword << 16) | loword;
             return Long.toString(res);
         }
     }
@@ -841,6 +848,10 @@ public class PyPy {
 
     public static void throwOverflowError() {
         interlink.throwOverflowError();
+    }
+
+    public static void throwValueError() {
+        interlink.throwValueError();
     }
     
     // ----------------------------------------------------------------------

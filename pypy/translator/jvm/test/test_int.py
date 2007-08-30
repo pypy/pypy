@@ -10,9 +10,6 @@ class TestJvmInt(JvmTest, BaseTestRint):
             return chr(i)
         res = self.interpret(dummyfn, [ord(' ')])
         assert res == ' '
-        # Is the following test supported by JVM?
-##        res = self.interpret(dummyfn, [0])
-##        assert res == '\0'
         res = self.interpret(dummyfn, [ord('a')])
         assert res == 'a'
 

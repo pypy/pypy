@@ -11,6 +11,9 @@ def throwIndexError():
 def throwOverflowError():
     raise OverflowError
 
+def throwValueError():
+    raise ValueError
+
 # ___________________________________________________________________________
 
 def create_interlink_node(db):

@@ -416,6 +416,7 @@ PYPYSERIALIZEOBJECT =   Method.s(jPyPy, 'serializeObject', (jObject,), jString)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
 PYPYARRAYTOLIST =       Method.s(jPyPy, 'array_to_list', (jObjectArray,), jArrayList)
+PYPYOOPARSEFLOAT =      Method.s(jPyPy, 'ooparse_float', (jString,), jDouble)
 OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
 CUSTOMDICTMAKE =        Method.s(jPyPyCustomDict, 'make',

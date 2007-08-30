@@ -90,9 +90,9 @@ class BaseTestRfloat(BaseRtypingTest):
             return float(r_uint(n)) / 2
 
         res = self.interpret(fn, [41])
-        assert res == 20.5
+        assert self.float_eq(res, 20.5)
         res = self.interpret(fn, [-9])
-        assert res == 0.5 * ((sys.maxint+1)*2 - 9)
+        assert self.float_eq(res, 0.5 * ((sys.maxint+1)*2 - 9))
 
     def test_float_constant_conversions(self):
         DIV = r_longlong(10 ** 10)
@@ -100,7 +100,7 @@ class BaseTestRfloat(BaseRtypingTest):
             return 420000000000.0 / DIV
 
         res = self.interpret(fn, [])
-        assert res == 42.0
+        assert self.float_eq(res, 42.0)
 
     def test_pow(self):
         def fn(x, y):

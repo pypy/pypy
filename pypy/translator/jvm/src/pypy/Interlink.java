@@ -13,4 +13,5 @@ public interface Interlink {
     public void throwZeroDivisionError();
     public void throwIndexError();
     public void throwOverflowError();
+    public void throwValueError();
 }
