@@ -8,7 +8,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.model import SomeObject, SomeTuple
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.tool.error import AnnotatorError
-from pypy.translator.translator import TranslationContext
+from pypy.translator.translator import TranslationContext, graphof
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
@@ -160,7 +160,8 @@ class Test_annotation:
         s = a.build_types(f, [])
         assert type(s) == SomeArray
 
-
+from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
+from pypy.translator.backendopt.malloc import LLTypeMallocRemover
 
 class Test_specialization:
     def test_specialize_array_create(self):
@@ -247,7 +248,6 @@ class Test_specialization:
             b = numpy.array([5,55,555])
             a[:] = b
             return a
-        #self.specialize_view(f)
         res = interpret(f, [])
         assert res.data[0] == 5
         assert res.data[1] == 55
@@ -260,21 +260,29 @@ class Test_specialization:
         r = t.buildrtyper()
         r.specialize()
         from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(t, inline=True)
+        backend_optimizations(t)
         t.view()
 
-#from pypy.rlib.unroll import unrolling_iterable, unrolling_zero
-#unroller = unrolling_iterable((1,2,3))
-#def deep_f(result, i):
-#    result += 1
-#    if i<5:
-#        result *= deep_f(result, i+1)
-#    return result
-#
-#def deep_unroll():
-##    i = unrolling_zero
-#    i = 0
-#    return deep_f(0, i)
+    def test_malloc_remove(self):
+        def f():
+            a = numpy.zeros((3,), dtype='i')
+            b = numpy.array([5,55,555])
+            a[:] = b
+            return a
+        t = TranslationContext()
+        a = t.buildannotator()
+        a = a.build_types(f, [])
+        r = t.buildrtyper()
+        r.specialize()
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t)
+        from pypy.rpython.numpy.rarray import ll_setitem_from_array
+        graph = graphof(t, ll_setitem_from_array)
+        #graph.show()
+        from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval
+        TestLLTypeMallocRemoval.check_malloc_removed(graph)
+
+
 
 class Test_compile:
     def setup_class(self):
@@ -286,13 +294,16 @@ class Test_compile:
 
     def test_compile_array_access(self):
         def access_array(index):
-            a = numpy.array([3,99,2])
+            a = numpy.zeros((3,), dtype='i')
+            b = numpy.array([5,55,555])
+            a[:] = b
             a[0] = 1
             return a[index]
 
         fn = self.compile(access_array, [int])
         assert fn(0) == 1
-        assert fn(1) == 99
+        assert fn(1) == 55
+        assert fn(2) == 555
         
     def test_compile_2d(self):
         py.test.skip()
