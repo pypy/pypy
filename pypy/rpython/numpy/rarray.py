@@ -2,14 +2,18 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.rrange import AbstractRangeRepr
 from pypy.rpython.rint import IntegerRepr
 from pypy.rpython.rlist import AbstractBaseListRepr
+from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import \
-     GcArray, GcStruct, Signed, Ptr, Unsigned, malloc, Void
+    GcArray, GcStruct, Signed, Ptr, Unsigned, Void, FixedSizeArray, Bool,\
+    malloc, direct_arrayitems, direct_ptradd
+from pypy.rpython.lltypesystem.rtuple import TupleRepr
 from pypy.annotation.model import SomeObject, SomeInteger
 from pypy.rpython.numpy.aarray import SomeArray
-from pypy.annotation.pairtype import pairtype
+from pypy.annotation.pairtype import pairtype, pair
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.annotation import listdef
 from pypy.rpython.memory.lltypelayout import sizeof
@@ -40,47 +44,110 @@ def gen_get_shape(ndim):
         return shape
     return ll_get_shape
 
+NPY_INTP = Signed # index type (see Py_intptr_t)
+def ARRAY_ITER(ARRAY, INDEXARRAY):
+    ITER = Ptr(
+        GcStruct("array_iter",
+            ("nd_m1", Signed), # number of dimensions - 1 
+            ("index", NPY_INTP),
+            ("size", NPY_INTP),
+            ("coordinates", INDEXARRAY), 
+            ("dims_m1", INDEXARRAY),
+            ("strides", INDEXARRAY),
+            ("backstrides", INDEXARRAY),
+            #("factors", INDEXARRAY),
+            ("ao", ARRAY),
+            ("dataptr", Ptr(FixedSizeArray(ARRAY.TO.data.TO.OF, 1))), # pointer to current item
+            #("contiguous", Bool),
+        ))
+    return ITER
+
+def ll_mul_list(items, n):
+    result = 1
+    while n:
+        result *= items[n-1]
+        n -= 1
+    return result
+
+def gen_iter_funcs(ndim):
+    unroll_ndim = unrolling_iterable(range(ndim))
+    unroll_ndim_rev = unrolling_iterable(reversed(range(ndim)))
+
+    def ll_iter_reset(it):
+        it.index = 0
+        it.dataptr = direct_arrayitems(it.ao.data)
+        for i in unroll_ndim:
+            it.coordinates[i] = 0
+
+    def ll_iter_new(ITER, ao):
+        it = malloc(ITER)
+        it.nd_m1 = ndim - 1
+        it.size = ll_mul_list(ao.shape, ndim)
+        it.ao = ao
+        #it.factors[nd-1] = 1
+        for i in unroll_ndim:
+            it.dims_m1[i] = ao.shape[i]-1
+            it.strides[i] = ao.strides[i]
+            it.backstrides[i] = it.strides[i] * it.dims_m1[i]
+            #if i > 0:
+                #it.factors[nd-i-1] = it.factors[nd]*ao.shape[nd-i]
+    #    ll_iter_reset(it)
+        it.index = 0
+        it.dataptr = direct_arrayitems(it.ao.data)
+        for i in unroll_ndim:
+            it.coordinates[i] = 0
+        return it
+    ll_iter_new._always_inline_ = True
+    
+    def ll_iter_next(it):
+        it.index += 1
+        for i in unroll_ndim_rev:
+            if it.coordinates[i] < it.dims_m1[i]:
+                it.coordinates[i] += 1
+                it.dataptr = direct_ptradd(it.dataptr, it.strides[i])
+                break
+            it.coordinates[i] = 0
+            it.dataptr = direct_ptradd(it.dataptr, -it.backstrides[i])
+            i -= 1
+    ll_iter_next._always_inline_ = True
+
+    return ll_iter_new, ll_iter_next
+
+def ll_setitem_from_array(iter_new0, iter_next0, ITER0, array0, 
+                          slice, 
+                          iter_new1, iter_next1, ITER1, array1):
+    it0 = iter_new0(ITER0, array0)
+    it1 = iter_new1(ITER1, array1)
+    while it0.index < it0.size:
+        it0.dataptr[0] = it1.dataptr[0]
+        iter_next0(it0)
+        iter_next1(it1)
 
 class ArrayRepr(Repr):
     def __init__(self, rtyper, s_array):
         self.s_array = s_array
         self.s_value = s_array.get_item_type()
-        self.item_repr = rtyper.getrepr(self.s_value)
-        ITEM = self.item_repr.lowleveltype
-        ITEMARRAY = GcArray(ITEM, hints={'nolength':True})
-        SIZEARRAY = GcArray(Signed, hints={'nolength':True})
-        self.PTR_SIZEARRAY = Ptr(SIZEARRAY)
-        self.itemsize = sizeof(ITEM)
         self.ndim = s_array.ndim
+        self.item_repr = rtyper.getrepr(self.s_value)
+        self.ITEM = self.item_repr.lowleveltype
+        ITEMARRAY = GcArray(self.ITEM, hints={'nolength':True})
+        self.INDEXARRAY = FixedSizeArray(NPY_INTP, self.ndim)
+        self.itemsize = sizeof(self.ITEM)
         self.ARRAY = Ptr(
             GcStruct("array",
                 ("data", Ptr(ITEMARRAY)), # pointer to raw data buffer 
-                ("ndim", Signed), # number of dimensions
-                ("shape", self.PTR_SIZEARRAY), # size in each dimension
-                ("strides", self.PTR_SIZEARRAY), # bytes (?) to jump to get to the
+                ("ndim", Signed), # number of dimensions (do we need this ?)
+                ("shape", self.INDEXARRAY), # size in each dimension
+                ("strides", self.INDEXARRAY), # elements to jump to get to the
                                                  # next element in each dimension 
             ))
         self.lowleveltype = self.ARRAY
+        self.ITER = ARRAY_ITER(self.ARRAY, self.INDEXARRAY)
 
     def build_from_array(self, llops, v_array):
         cARRAY = inputconst(lltype.Void, self.lowleveltype.TO) 
         return llops.gendirectcall(ll_build_alias, cARRAY, v_array)
 
-#    def build_from_shape(self, llops, r_tuple, v_tuple):
-#        cARRAY = inputconst(lltype.Void, self.lowleveltype.TO) 
-#        cTUPLE = inputconst(lltype.Void, r_tuple.lowleveltype.TO)
-#        ndim = self.ndim
-#        c_ndim = inputconst(lltype.Signed, ndim)
-#        assert ndim == len(r_tuple.items_r)
-#        v_array = llops.gendirectcall(ll_allocate, cARRAY, c_ndim)
-#        c_attr = inputconst(lltype.Void, 'shape')
-#        v_shape = llops.genop('getfield', [v_array, c_attr], self.PTR_SIZEARRAY)
-#        for i in range(ndim):
-#            v_size = r_tuple.getitem_internal(llops, v_tuple, i)
-#            v_i = inputconst(lltype.Signed, i)
-#            llops.genop('setarrayitem', [v_shape, v_i, v_size])
-#        return v_array
-        
     def build_from_shape(self, llops, r_tuple, v_tuple):
         cARRAY = inputconst(lltype.Void, self.lowleveltype.TO) 
         cTUPLE = inputconst(lltype.Void, r_tuple.lowleveltype.TO)
@@ -130,20 +197,56 @@ class __extend__(SomeArray):
 
 
 class __extend__(pairtype(ArrayRepr, ArrayRepr)):
-    def rtype_add((r_arr1,r_arr2), hop):
+    def rtype_add((r_arr1, r_arr2), hop):
         v_arr1, v_arr2 = hop.inputargs(r_arr1, r_arr2)
         cARRAY = hop.inputconst(Void, hop.r_result.ARRAY.TO)
         return hop.gendirectcall(ll_add, cARRAY, v_arr1, v_arr2)
 
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
-    def rtype_setitem((r_arr,r_int), hop):
+    def rtype_setitem((r_arr, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_arr, Signed, r_arr.item_repr)
         return hop.gendirectcall(ll_setitem, v_array, v_index, v_item)
 
-    def rtype_getitem((r_arr,r_int), hop):
+    def rtype_getitem((r_arr, r_int), hop):
         v_array, v_index = hop.inputargs(r_arr, Signed)
         return hop.gendirectcall(ll_getitem, v_array, v_index)
+
+#class __extend__(pairtype(ArrayRepr, AbstractTupleRepr)):
+#    def rtype_setitem((r_arr, r_tpl), hop):
+#        v_array, v_tuple, v_item = hop.inputargs(r_arr, r_tpl, r_arr)
+#        return hop.gendirectcall(ll_setitem_from_array, v_array, v_tuple, v_item)
+#
+#    def rtype_getitem((r_arr, r_tpl), hop):
+#        return NotImplemented
+
+
+class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
+    def rtype_setitem((r_arr, r_slc), hop):
+        r_item = hop.args_r[2]
+        v_array, v_slc, v_item = hop.inputargs(r_arr, r_slc, r_item)
+        cITER0 = hop.inputconst(Void, r_arr.ITER.TO)
+        cITER1 = hop.inputconst(Void, r_item.ITER.TO)
+        iter_new0, iter_next0 = gen_iter_funcs(r_arr.ndim)        
+        iter_new1, iter_next1 = gen_iter_funcs(r_item.ndim)        
+        cnew0 = hop.inputconst(Void, iter_new0)
+        cnext0 = hop.inputconst(Void, iter_next0)
+        cnew1 = hop.inputconst(Void, iter_new1)
+        cnext1 = hop.inputconst(Void, iter_next1)
+#        return hop.gendirectcall(ll_setitem_from_array, cnext, cITER0, v_array, v_slc, cITER1, v_item)
+        return hop.gendirectcall(ll_setitem_from_array,
+            cnew0, cnext0, cITER0, v_array, v_slc, cnew1, cnext1, cITER1, v_item)
+        
+
+#class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
+#    # promote and delegate  XX doesn't work
+#    def rtype_setitem((r_arr, r_slc), hop):
+#        r_tpl = TupleRepr(hop.rtyper, [r_slc])
+#        return pair(r_arr, r_tpl).rtype_setitem(hop)
+#
+#    def rtype_getitem((r_arr, r_slc), hop):
+#        r_tpl = TupleRepr(hop.rtyper, [r_slc])
+#        return pair(r_arr, r_tpl).rtype_getitem(hop)
 
 class __extend__(pairtype(AbstractBaseListRepr, ArrayRepr)):
     def convert_from_to((r_lst, r_arr), v, llops):
@@ -163,8 +266,8 @@ class __extend__(pairtype(AbstractRangeRepr, ArrayRepr)):
 def ll_allocate(ARRAY, ndim):
     array = malloc(ARRAY)
     array.ndim = ndim
-    array.shape = malloc(ARRAY.shape.TO, array.ndim)
-    array.strides = malloc(ARRAY.strides.TO, array.ndim)
+    #array.shape = malloc(ARRAY.shape.TO, array.ndim)
+    #array.strides = malloc(ARRAY.strides.TO, array.ndim)
     return array
 
 def ll_build_from_list(ARRAY, lst):

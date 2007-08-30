@@ -72,20 +72,6 @@ class __extend__(pairtype(SomeArray, SomeArray)):
     add = sub = mul = div = truediv = union
 
 
-class __extend__(pairtype(SomeArray, SomeInteger)):
-    def setitem((s_array, s_index), s_value):
-        if s_array.ndim == 0:
-            raise AnnotatorError()
-        if isinstance(s_value, SomeArray):
-            assert s_array.ndim == s_value.ndim + 1
-
-    def getitem((s_array, s_index)):
-        if s_array.ndim == 0:
-            raise AnnotatorError()
-        if s_array.ndim > 1:
-            return SomeArray(s_array.typecode, s_array.ndim-1)
-        return s_array.get_item_type()
-
 class __extend__(pairtype(SomeArray, SomeTuple)):
     def get_leftover_dim((s_array, s_index)):
         ndim = s_array.ndim
@@ -100,8 +86,10 @@ class __extend__(pairtype(SomeArray, SomeTuple)):
 
     def setitem((s_array, s_index), s_value):
         ndim = pair(s_array, s_index).get_leftover_dim()
+        if len(s_index.items)>s_array.ndim:
+            raise AnnotatorError("invalid index")
         if isinstance(s_value, SomeArray):
-            if s_value.ndim + ndim != s_array.ndim:
+            if s_value.ndim != ndim:
                 # XX allow broadcasting..
                 raise AnnotatorError("shape mismatch")
         elif ndim > 0:
@@ -109,11 +97,32 @@ class __extend__(pairtype(SomeArray, SomeTuple)):
 
     def getitem((s_array, s_index)):
         ndim = pair(s_array, s_index).get_leftover_dim()
+        if len(s_index.items)>s_array.ndim:
+            raise AnnotatorError("invalid index")
         if s_array.ndim == 0 and len(s_index.items):
             raise AnnotatorError("indexing rank zero array with nonempty tuple")
         if ndim > 0:
             return SomeArray(s_array.typecode, ndim)
         return s_array.get_item_type()
+
+# These two up-cast the index to SomeTuple and call above.
+class __extend__(pairtype(SomeArray, SomeSlice)):
+    def setitem((s_array, s_index), s_value):
+        s_tuple = SomeTuple([s_index])
+        return pair(s_array, s_tuple).setitem(s_value)
+
+    def getitem((s_array, s_index)):
+        s_tuple = SomeTuple([s_index])
+        return pair(s_array, s_tuple).getitem()
+
+class __extend__(pairtype(SomeArray, SomeInteger)):
+    def setitem((s_array, s_index), s_value):
+        s_tuple = SomeTuple([s_index])
+        return pair(s_array, s_tuple).setitem(s_value)
+
+    def getitem((s_array, s_index)):
+        s_tuple = SomeTuple([s_index])
+        return pair(s_array, s_tuple).getitem()
 
 numpy_typedict = {
     (SomeInteger, rffi.r_signedchar) : 'b', 
@@ -159,9 +168,9 @@ class ArrayCallEntry(ExtRegistryEntry):
             raise AnnotatorError("List item type not supported")
         return SomeArray(typecode, ndim)
 
-    def specialize_call(self, hop):
+    def specialize_call(self, hop, i_dtype=None):
         r_array = hop.r_result
-        [v_lst] = hop.inputargs(r_array) # coerce list arg to array arg
+        v_lst = hop.inputarg(r_array, 0) # coerce list arg to array arg
         v_result = r_array.build_from_array(hop.llops, v_lst)
         return v_result
 
@@ -197,10 +206,10 @@ class ZeroesCallEntry(ExtRegistryEntry):
 #        v_result = r_array.build_from_shape(hop.llops, r_lst, v_lst)
 #        return v_result
 
-    def specialize_call(self, hop):
+    def specialize_call(self, hop, i_dtype=None):
         r_tpl = hop.args_r[0]
         # XX also call with single int arg
-        [v_tpl] = hop.inputargs(r_tpl)
+        v_tpl = hop.inputarg(r_tpl, 0)
         r_array = hop.r_result
         v_result = r_array.build_from_shape(hop.llops, r_tpl, v_tpl)
         return v_result

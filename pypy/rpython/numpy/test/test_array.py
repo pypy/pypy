@@ -86,7 +86,10 @@ class Test_annotation:
             a = numpy.zeros((3,4,5))
             b = a[0]
             a[0,1,2] = 1.
-            b[0,1] = a[2]
+            b[0,1] = 2.
+            b[:] = a[1]
+            b[:,:] = a[1]
+            b[0,:] = a[1,2]
             return b
 
         t = TranslationContext()
@@ -180,7 +183,7 @@ class Test_specialization:
 
     def test_specialize_array_access(self):
         def access_with_variable():
-            my_array = numpy.array(range(10))
+            my_array = numpy.array(range(10), dtype='i')
             my_array[2] = 2
             sum = 0
             for idx in range(10):
@@ -238,13 +241,40 @@ class Test_specialization:
         assert res.data[0] == 1
         assert res.data[1] == 2
 
-    def X_test_specialize_view(self):
+    def test_specialize_indexing(self):
+        def f():
+            a = numpy.zeros((3,), dtype='i')
+            b = numpy.array([5,55,555])
+            a[:] = b
+            return a
+        #self.specialize_view(f)
+        res = interpret(f, [])
+        assert res.data[0] == 5
+        assert res.data[1] == 55
+        assert res.data[2] == 555
+
+    def specialize_view(self, f, args=[]):
         t = TranslationContext()
         a = t.buildannotator()
-        a = a.build_types(f, [])
+        a = a.build_types(f, args)
         r = t.buildrtyper()
         r.specialize()
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t, inline=True)
         t.view()
+
+#from pypy.rlib.unroll import unrolling_iterable, unrolling_zero
+#unroller = unrolling_iterable((1,2,3))
+#def deep_f(result, i):
+#    result += 1
+#    if i<5:
+#        result *= deep_f(result, i+1)
+#    return result
+#
+#def deep_unroll():
+##    i = unrolling_zero
+#    i = 0
+#    return deep_f(0, i)
 
 class Test_compile:
     def setup_class(self):
@@ -265,6 +295,7 @@ class Test_compile:
         assert fn(1) == 99
         
     def test_compile_2d(self):
+        py.test.skip()
         def access_array(index):
             a = numpy.zeros((5,6))
             a[0,0] = 2
