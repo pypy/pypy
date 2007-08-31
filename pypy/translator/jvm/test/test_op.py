@@ -6,9 +6,6 @@ from pypy.translator.oosupport.test_template.operations import BaseTestOperation
 
 class TestOperations(JvmTest, BaseTestOperations):
 
-    def test_and_not(self):
-        py.test.skip("VerifyError happens. Accessing uninit reg")
-        
     def test_modulo(self):
         py.test.skip("Backend lacks appropriate precision")
         

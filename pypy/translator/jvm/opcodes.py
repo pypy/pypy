@@ -154,9 +154,7 @@ _opcodes = {
     'uint_rshift':              jvmgen.IUSHR,
     'uint_xor':                 jvmgen.IXOR,
 
-    'float_is_true':            [PushAllArgs,
-                                 jvmgen.DCONST_0,
-                                 'dbl_not_equals'],
+    'float_is_true':            [PushAllArgs, jvmgen.DCONST_0, 'dbl_not_equals', StoreResult],
     'float_neg':                jvmgen.DNEG,
     'float_abs':                'dbl_abs',
 
@@ -172,9 +170,7 @@ _opcodes = {
     'float_gt':                 'dbl_greater_than',  
     'float_ge':                 'dbl_greater_equals',
 
-    'llong_is_true':            [PushAllArgs,
-                                 jvmgen.LCONST_0,
-                                 'long_not_equals'],
+    'llong_is_true':            [PushAllArgs, jvmgen.LCONST_0, 'long_not_equals', StoreResult],
     'llong_neg':                jvmgen.LNEG,
     'llong_neg_ovf':            jvmgen.LNEGOVF,
     'llong_abs':                jvmgen.MATHLABS,
@@ -205,9 +201,7 @@ _opcodes = {
     'llong_mod_ovf':            jvmgen.LREMOVF,
     'llong_lshift_ovf':         jvmgen.LSHLOVF,
 
-    'ullong_is_true':           [PushAllArgs,
-                                 jvmgen.LCONST_0,
-                                 'long_not_equals'],
+    'ullong_is_true':           [PushAllArgs, jvmgen.LCONST_0, 'long_not_equals', StoreResult],
     'ullong_invert':            jvmgen.PYPYLONGBITWISENEGATE,
 
     'ullong_add':               jvmgen.LADD,

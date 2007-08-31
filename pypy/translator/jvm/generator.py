@@ -1342,7 +1342,7 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        #self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
