@@ -96,6 +96,34 @@ def gen_iter_funcs(ndim):
         return it
     ll_iter_new._always_inline_ = True
 
+    def ll_iter_broadcast_to_shape(ITER, ao, shape, iter_reset=ll_iter_reset):
+        if ao.ndim > ndim:
+            raise Exception("array is not broadcastable to correct shape") # XX raise here ?
+        diff = j = ndim - ao.ndim
+        for i in range(ao.ndim):
+            if ao.shape[i] != 1 and ao.shape[i] != shape[j]:
+                raise Exception("array is not broadcastable to correct shape") # XX raise here ?
+            j += 1
+        it = malloc(ITER)
+        it.ao = ao
+        it.size = ll_mul_list(ao.shape, ndim)
+        it.nd_m1 = ndim - 1
+        #it.factors[nd-1] = 1
+        for i in unroll_ndim:
+            it.dims_m1[i] = ao.shape[i]-1
+            k = i - diff
+            if k<0 or ao.shape[k] != shape[i]:
+                #it.contiguous = False
+                it.strides[i] = 0
+            else:
+                it.strides[i] = ao.strides[k]
+            it.backstrides[i] = it.strides[i] * it.dims_m1[i]
+            #if i > 0:
+                #it.factors[nd-i-1] = it.factors[nd-i]*shape[nd-i]
+        iter_reset(it)
+        return it
+    ll_iter_broadcast_to_shape._always_inline_ = True    
+    
     def ll_iter_next(it):
         it.index += 1
         for i in unroll_ndim_rev:
@@ -107,6 +135,7 @@ def gen_iter_funcs(ndim):
             it.dataptr = direct_ptradd(it.dataptr, -it.backstrides[i])
     ll_iter_next._always_inline_ = True
 
+#    return ll_iter_new, ll_iter_broadcast_to_shape, ll_iter_next
     return ll_iter_new, ll_iter_next
 
 def ll_unary_op(p0, p1, op=lambda x:x):
