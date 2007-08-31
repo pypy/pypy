@@ -164,22 +164,33 @@ from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
 from pypy.translator.backendopt.malloc import LLTypeMallocRemover
 
 class Test_specialization:
+    def specialize_view(self, f, args=[], opt=False):
+        t = TranslationContext()
+        a = t.buildannotator()
+        a = a.build_types(f, args)
+        r = t.buildrtyper()
+        r.specialize()
+        if opt:
+            from pypy.translator.backendopt.all import backend_optimizations
+            backend_optimizations(t)
+        t.view()
+
     def test_specialize_array_create(self):
-        def create_array():
+        def f():
             a = numpy.array([1,20])
             b = numpy.array(a)
             return b
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res.data[0] == 1
         assert res.data[1] == 20
 
     def test_specialize_array_zeros(self):
-        def create_array(n, m):
+        def f(n, m):
             a = numpy.zeros((n, m))
             return a
 
-        res = interpret(create_array, [3, 4])
+        res = interpret(f, [3, 4])
         assert res.ndim == 2
 
     def test_specialize_array_access(self):
@@ -196,49 +207,58 @@ class Test_specialization:
         assert res == 45
 
     def test_specialize_array_add(self):
-        def create_array():
+        def f():
             a1 = numpy.array([1.,2.])
             a2 = numpy.array([6,9])
             return a1 + a2
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res.data[0] == 7
         assert res.data[1] == 11
 
     def test_specialize_array_attr(self):
-        def create_array():
+        def f():
             a = numpy.array([1,2])
             return a.ndim
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res == 1
 
+    def test_specialize_base(self):
+        def f():
+            a = numpy.array([1,2])
+            b = numpy.array(a)
+            return b.base is a
+
+        res = interpret(f, [])
+        assert res
+
     def test_specialize_array_attr_shape(self):
-        def create_array():
+        def f():
             a = numpy.zeros((2,3))
             return list(a.shape)
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res[0] == 2
         assert res[1] == 3
 
     def test_specialize_array_strides(self):
-        def create_array():
+        def f():
             a = numpy.zeros((3,4,5))
             return a
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res.strides[0] == 20
         assert res.strides[1] == 5
         assert res.strides[2] == 1
         #assert len(res.data) == 3*4*5 # GcArray has nolength
 
     def test_specialize_array_method(self):
-        def create_array():
+        def f():
             a = numpy.array([1,2])
             return a.transpose()
 
-        res = interpret(create_array, [])
+        res = interpret(f, [])
         assert res.data[0] == 1
         assert res.data[1] == 2
 
@@ -253,16 +273,6 @@ class Test_specialization:
         assert res.data[1] == 55
         assert res.data[2] == 555
 
-    def specialize_view(self, f, args=[]):
-        t = TranslationContext()
-        a = t.buildannotator()
-        a = a.build_types(f, args)
-        r = t.buildrtyper()
-        r.specialize()
-        from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(t)
-        t.view()
-
     def test_malloc_remove(self):
         def f():
             a = numpy.zeros((3,), dtype='i')
@@ -276,8 +286,8 @@ class Test_specialization:
         r.specialize()
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
-        from pypy.rpython.numpy.rarray import ll_setitem_from_array
-        graph = graphof(t, ll_setitem_from_array)
+        from pypy.rpython.numpy.rarray import ll_array_unary_op
+        graph = graphof(t, ll_array_unary_op)
         #graph.show()
         from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval
         TestLLTypeMallocRemoval.check_malloc_removed(graph)

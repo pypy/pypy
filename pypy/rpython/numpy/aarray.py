@@ -25,11 +25,15 @@ class SomeArray(SomeObject):
         #'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
-    def __init__(self, typecode, ndim=1):
+    def __init__(self, typecode, ndim=1, s_base=None):
         if not typecode in self.typecode_to_item:
             raise AnnotatorError("bad typecode: %r"%typecode)
         self.typecode = typecode
         self.ndim = ndim
+        self.s_base = s_base # we are a view into this 
+
+    def get_base_annotation(self):
+        return self.s_base or self
 
     def can_be_none(self):
         return True
@@ -45,6 +49,8 @@ class SomeArray(SomeObject):
                 s = SomeTuple([SomeInteger()]*s_array.ndim)
             elif attr == 'ndim':
                 s = SomeInteger()
+            elif attr == 'base':
+                s = s_array.get_base_annotation()
         if s is None:
             return SomeObject.getattr(s_array, s_attr)
         return s
@@ -102,7 +108,7 @@ class __extend__(pairtype(SomeArray, SomeTuple)):
         if s_array.ndim == 0 and len(s_index.items):
             raise AnnotatorError("indexing rank zero array with nonempty tuple")
         if ndim > 0:
-            return SomeArray(s_array.typecode, ndim)
+            return SomeArray(s_array.typecode, ndim, s_array.get_base_annotation())
         return s_array.get_item_type()
 
 # These two up-cast the index to SomeTuple and call above.
