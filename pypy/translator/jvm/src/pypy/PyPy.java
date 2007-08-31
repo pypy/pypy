@@ -163,8 +163,15 @@ public class PyPy {
     }
 
     public static long str_to_ulong(String s) {
-        // oh bother
-        throw new RuntimeException("TODO--- str to ulong");
+        long res = 0;
+        s = s.trim();
+        for(int i=0; i<s.length(); i++) {
+            char ch = s.charAt(i);
+            if (!Character.isDigit(ch))
+                throw new RuntimeException("Invalid ulong: " + s);
+            res = res*10 + Character.getNumericValue(ch);
+        }
+        return res;
     }
 
     public static boolean str_to_bool(String s) {

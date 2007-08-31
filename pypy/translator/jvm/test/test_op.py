@@ -6,18 +6,6 @@ from pypy.translator.oosupport.test_template.operations import BaseTestOperation
 
 class TestOperations(JvmTest, BaseTestOperations):
 
-    def test_eq(self):
-        py.test.skip("Str to long is not implemented, needed for test")
-        
-    def test_ne(self):
-        py.test.skip("Str to long is not implemented, needed for test")
-        
-    def test_ge(self):
-        py.test.skip("Str to long is not implemented, needed for test")
-        
-    def test_le(self):
-        py.test.skip("Str to long is not implemented, needed for test")
-        
     def test_and_not(self):
         py.test.skip("VerifyError happens. Accessing uninit reg")
         
