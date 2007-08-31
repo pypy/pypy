@@ -215,20 +215,42 @@ class __extend__(pairtype(ArrayRepr, ArrayRepr)):
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):
     def rtype_setitem((r_arr, r_int), hop):
         v_array, v_index, v_item = hop.inputargs(r_arr, Signed, r_arr.item_repr)
-        return hop.gendirectcall(ll_setitem, v_array, v_index, v_item)
+        return hop.gendirectcall(ll_setitem1, v_array, v_index, v_item)
 
     def rtype_getitem((r_arr, r_int), hop):
         v_array, v_index = hop.inputargs(r_arr, Signed)
-        return hop.gendirectcall(ll_getitem, v_array, v_index)
+        return hop.gendirectcall(ll_getitem1, v_array, v_index)
 
-#class __extend__(pairtype(ArrayRepr, AbstractTupleRepr)):
-#    def rtype_setitem((r_arr, r_tpl), hop):
-#        v_array, v_tuple, v_item = hop.inputargs(r_arr, r_tpl, r_arr)
-#        return hop.gendirectcall(ll_setitem_from_array, v_array, v_tuple, v_item)
-#
-#    def rtype_getitem((r_arr, r_tpl), hop):
-#        return NotImplemented
+def gen_getset_item(ndim):
+    unrolling_dims = unrolling_iterable(range(ndim))
+    def ll_get_item(ARRAY, ao, tpl):
+        array = ll_allocate(ARRAY, ndim)
+        idx = 0
+        for i in unrolling_dims:
+            idx += ao.strides[i] * getattr(tpl, 'item%d'%i)
+        return ao.data[idx]
 
+    def ll_set_item(ARRAY, ao, tpl, value):
+        array = ll_allocate(ARRAY, ndim)
+        idx = 0
+        for i in unrolling_dims:
+            idx += ao.strides[i] * getattr(tpl, 'item%d'%i)
+        ao.data[idx] = value
+
+    return ll_get_item, ll_set_item
+
+class __extend__(pairtype(ArrayRepr, AbstractTupleRepr)):
+    def rtype_getitem((r_arr, r_tpl), hop):
+        v_array, v_tuple = hop.inputargs(r_arr, r_tpl)
+        cARRAY = hop.inputconst(Void, r_arr.ARRAY.TO)
+        get_item, set_item = gen_getset_item(r_arr.ndim)
+        return hop.gendirectcall(get_item, cARRAY, v_array, v_tuple)
+
+    def rtype_setitem((r_arr, r_tpl), hop):
+        v_array, v_tuple, v_item = hop.inputargs(r_arr, r_tpl, hop.args_r[2])
+        cARRAY = hop.inputconst(Void, r_arr.ARRAY.TO)
+        get_item, set_item = gen_getset_item(r_arr.ndim)
+        return hop.gendirectcall(set_item, cARRAY, v_array, v_tuple, v_item)
 
 class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
     def rtype_setitem((r_arr, r_slc), hop):
@@ -242,7 +264,6 @@ class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
         cnext0 = hop.inputconst(Void, iter_next0)
         cnew1 = hop.inputconst(Void, iter_new1)
         cnext1 = hop.inputconst(Void, iter_next1)
-#        return hop.gendirectcall(ll_setitem_from_array, cnext, cITER0, v_array, v_slc, cITER1, v_item)
         return hop.gendirectcall(ll_array_unary_op,
             cnew0, cnext0, cITER0, v_array, cnew1, cnext1, cITER1, v_item)
         
@@ -302,10 +323,10 @@ def ll_build_alias(ARRAY, array):
         new_array.strides[i] = array.strides[i]
     return new_array
 
-def ll_setitem(l, index, item):
+def ll_setitem1(l, index, item):
     l.data[index] = item
 
-def ll_getitem(l, index):
+def ll_getitem1(l, index):
     return l.data[index]
 
 def ll_add(ARRAY, a1, a2):

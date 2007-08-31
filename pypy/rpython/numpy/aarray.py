@@ -181,9 +181,9 @@ class ArrayCallEntry(ExtRegistryEntry):
         return v_result
 
 
-class ZeroesCallEntry(ExtRegistryEntry):
-    "Annotation and rtyping of calls to numpy.zeroes"
-    _about_ = numpy.zeros
+class EmptyCallEntry(ExtRegistryEntry):
+    "Annotation and rtyping of calls to numpy.empty"
+    _about_ = numpy.empty
 
     def compute_result_annotation(self, s_tuple, s_dtype=None):
         if isinstance(s_tuple, SomeTuple):

@@ -70,9 +70,9 @@ class Test_annotation:
         s = a.build_types(access_with_variable, [])
         assert s.knowntype == rffi.r_int
 
-    def test_annotate_zeros(self):
+    def test_annotate_empty(self):
         def f():
-            a = numpy.zeros((3,4,5))
+            a = numpy.empty((3,4,5))
             return a
 
         t = TranslationContext()
@@ -83,7 +83,7 @@ class Test_annotation:
 
     def test_annotate_indexing(self):
         def f():
-            a = numpy.zeros((3,4,5))
+            a = numpy.empty((3,4,5))
             b = a[0]
             a[0,1,2] = 1.
             b[0,1] = 2.
@@ -185,9 +185,9 @@ class Test_specialization:
         assert res.data[0] == 1
         assert res.data[1] == 20
 
-    def test_specialize_array_zeros(self):
+    def test_specialize_array_empty(self):
         def f(n, m):
-            a = numpy.zeros((n, m))
+            a = numpy.empty((n, m))
             return a
 
         res = interpret(f, [3, 4])
@@ -235,7 +235,7 @@ class Test_specialization:
 
     def test_specialize_array_attr_shape(self):
         def f():
-            a = numpy.zeros((2,3))
+            a = numpy.empty((2,3))
             return list(a.shape)
 
         res = interpret(f, [])
@@ -244,7 +244,7 @@ class Test_specialization:
 
     def test_specialize_array_strides(self):
         def f():
-            a = numpy.zeros((3,4,5))
+            a = numpy.empty((3,4,5))
             return a
 
         res = interpret(f, [])
@@ -264,7 +264,7 @@ class Test_specialization:
 
     def test_specialize_indexing(self):
         def f():
-            a = numpy.zeros((3,), dtype='i')
+            a = numpy.empty((3,), dtype='i')
             b = numpy.array([5,55,555])
             a[:] = b
             return a
@@ -273,9 +273,19 @@ class Test_specialization:
         assert res.data[1] == 55
         assert res.data[2] == 555
 
+    def test_specialize_multi(self):
+        def f(ii, jj):
+            a = numpy.empty((4, 5), dtype='i')
+            for i in range(4):
+                for j in range(5):
+                    a[i, j] = i*j
+            return a[ii, jj]
+        assert interpret(f, [0, 0]) == 0
+        assert interpret(f, [3, 4]) == 12
+
     def test_malloc_remove(self):
         def f():
-            a = numpy.zeros((3,), dtype='i')
+            a = numpy.empty((3,), dtype='i')
             b = numpy.array([5,55,555])
             a[:] = b
             return a
@@ -304,7 +314,7 @@ class Test_compile:
 
     def test_compile_array_access(self):
         def access_array(index):
-            a = numpy.zeros((3,), dtype='i')
+            a = numpy.empty((3,), dtype='i')
             b = numpy.array([5,55,555])
             a[:] = b
             a[0] = 1
@@ -316,12 +326,14 @@ class Test_compile:
         assert fn(2) == 555
         
     def test_compile_2d(self):
-        py.test.skip()
-        def access_array(index):
-            a = numpy.zeros((5,6))
-            a[0,0] = 2
-            return 0
+        def f(ii, jj):
+            a = numpy.empty((4, 5), dtype='i')
+            for i in range(4):
+                for j in range(5):
+                    a[i, j] = i*j
+            return a[ii, jj]
 
-        fn = self.compile(access_array, [int])
+        fn = self.compile(f, [int, int])
+        assert fn(2,3) == 2*3
         
 
