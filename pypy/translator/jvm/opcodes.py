@@ -33,6 +33,8 @@ def _check_zer(op):
 
 def _check_ovf(op):
     return op
+
+Ignore = []
     
 
 # This table maps the opcodes to micro-ops for processing them.
@@ -65,7 +67,7 @@ _opcodes = {
     'cast_ptr_to_weakadr':      [CastPtrToWeakAddress],
     'cast_weakadr_to_ptr':      CastWeakAddressToPtr,
     #'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
-    #'resume_point':             Ignore,
+    'resume_point':             Ignore,
 
     'debug_assert':              [], # TODO: implement?
 
@@ -197,7 +199,7 @@ _opcodes = {
     'llong_and':                jvmgen.LAND,
     'llong_or':                 jvmgen.LOR,
     'llong_lshift':             jvmgen.LSHL,
-    'llong_rshift':             jvmgen.LSHR,
+    'llong_rshift':             [PushAllArgs, jvmgen.L2I, jvmgen.LSHR, StoreResult],
     'llong_xor':                jvmgen.LXOR,
     'llong_floordiv_ovf':       jvmgen.LDIV, # these can't overflow!
     'llong_mod_ovf':            jvmgen.LREMOVF,

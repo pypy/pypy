@@ -5,18 +5,7 @@ from pypy.translator.oosupport.test_template.operations import BaseTestOperation
 # ====> ../../oosupport/test_template/operations.py
 
 class TestOperations(JvmTest, BaseTestOperations):
-    def test_two_overflows(self):
-        py.test.skip("Backend lacks appropriate precision")
-        
-    def test_ignore_resume_point(self):
-        py.test.skip("Unknown opcode resume_point")
-        
-    def test_rshift(self):
-        py.test.skip("VerifyError happens. Expecting int on the stack")
-        
-    def test_uint_neg(self):
-        py.test.skip("Backend lacks appropriate precision")
-       
+
     def test_eq(self):
         py.test.skip("Str to long is not implemented, needed for test")
         
