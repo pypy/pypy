@@ -393,6 +393,7 @@ PYPYAPPEND =            Method.s(jPyPy, 'append',
                                  (jStringBuilder, jString), jVoid)
 PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
 PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
+PYPYUINTMOD =           Method.s(jPyPy, 'uint_mod', (jInt, jInt), jInt)
 PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
 PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
 PYPYDOUBLETOLONG =      Method.s(jPyPy, 'double_to_long', (jDouble,), jLong) #PAUL

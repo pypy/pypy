@@ -66,6 +66,12 @@ public class PyPy {
         return VALUE2BIGGER;
     }
 
+    public static int uint_mod(int x, int y) {
+        double dx = uint_to_double(x);
+        double modulo = Math.IEEEremainder(dx, y);
+        return (int)modulo;
+    }
+
     public static int ulong_cmp(long value1, long value2) {
         final int VALUE2BIGGER = -1;
         final int VALUE1BIGGER = 1;

@@ -141,7 +141,7 @@ _opcodes = {
     'uint_div':                 jvmgen.IDIV,  # valid?
     'uint_truediv':             None,    # TODO
     'uint_floordiv':            jvmgen.IDIV,  # valid?
-    'uint_mod':                 jvmgen.IREM,  # valid?
+    'uint_mod':                 jvmgen.PYPYUINTMOD,
     'uint_lt':                  'u_less_than',
     'uint_le':                  'u_less_equals',
     'uint_eq':                  'u_equals',
