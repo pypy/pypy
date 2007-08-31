@@ -30,6 +30,7 @@ def gen_build_from_shape(ndim):
             array.strides[i] = itemsize
             itemsize *= size
         array.data = malloc(ARRAY.data.TO, itemsize)
+        array.dataptr = direct_arrayitems(array.data)
         return array
     return ll_build_from_shape
 
@@ -44,7 +45,8 @@ def gen_get_shape(ndim):
         return shape
     return ll_get_shape
 
-NPY_INTP = Signed # index type (see Py_intptr_t)
+NPY_INTP = Signed # XX index type (see Py_intptr_t)
+
 def ARRAY_ITER(ARRAY, INDEXARRAY):
     ITER = Ptr(
         GcStruct("array_iter",
@@ -57,7 +59,7 @@ def ARRAY_ITER(ARRAY, INDEXARRAY):
             ("backstrides", INDEXARRAY),
             #("factors", INDEXARRAY),
             ("ao", ARRAY),
-            ("dataptr", Ptr(FixedSizeArray(ARRAY.TO.data.TO.OF, 1))), # pointer to current item
+            ("dataptr", ARRAY.TO.dataptr), # pointer to current item
             #("contiguous", Bool),
         ))
     return ITER
@@ -75,12 +77,13 @@ def gen_iter_funcs(ndim):
 
     def ll_iter_reset(it):
         it.index = 0
-        it.dataptr = direct_arrayitems(it.ao.data)
+        it.dataptr = it.ao.dataptr
         for i in unroll_ndim:
             it.coordinates[i] = 0
     ll_iter_reset._always_inline_ = True
 
     def ll_iter_new(ITER, ao, iter_reset=ll_iter_reset):
+        assert ao.dataptr
         it = malloc(ITER)
         it.ao = ao
         it.nd_m1 = ndim - 1
@@ -165,8 +168,10 @@ class ArrayRepr(Repr):
         self.INDEXARRAY = FixedSizeArray(NPY_INTP, self.ndim)
         self.itemsize = sizeof(self.ITEM)
         FORWARD = GcForwardReference()
+        DATA_PTR = Ptr(FixedSizeArray(self.ITEM, 1))
         STRUCT = GcStruct("array",
             ("data", Ptr(ITEMARRAY)), # pointer to raw data buffer 
+            ("dataptr", DATA_PTR), # pointer to first element
             ("ndim", Signed), # number of dimensions
             ("shape", self.INDEXARRAY), # size in each dimension
             ("strides", self.INDEXARRAY), # elements to jump to get to the
@@ -326,31 +331,34 @@ def ll_allocate(ARRAY, ndim):
     array = malloc(ARRAY)
     array.ndim = ndim
     array.base = nullptr(ARRAY)
+    array.data = nullptr(ARRAY.data.TO)
+    array.dataptr = nullptr(ARRAY.dataptr.TO)
     return array
 
 def ll_build_from_list(ARRAY, lst):
     size = lst.ll_length()
     array = ll_allocate(ARRAY, 1)
-    for i in range(array.ndim):
-        array.shape[i] = size
-        array.strides[i] = 1
-    data = array.data = malloc(ARRAY.data.TO, size)
+    array.shape[0] = size
+    array.strides[0] = 1
+    array.data = malloc(ARRAY.data.TO, size)
     i = 0
     while i < size:
-        data[i] = lst.ll_getitem_fast(i)
+        array.data[i] = lst.ll_getitem_fast(i)
         i += 1
+    array.dataptr = direct_arrayitems(array.data)
     return array
 
-def ll_build_alias(ARRAY, array):
-    new_array = ll_allocate(ARRAY, array.ndim)
-    new_array.data = array.data # alias data
-    new_array.base = array
-    if array.base:
-        new_array.base = array.base
-    for i in range(array.ndim):
-        new_array.shape[i] = array.shape[i]
-        new_array.strides[i] = array.strides[i]
-    return new_array
+def ll_build_alias(ARRAY, ao):
+    array = ll_allocate(ARRAY, ao.ndim)
+    array.data = ao.data # alias data
+    array.base = ao
+    if ao.base:
+        array.base = ao.base
+    for i in range(ao.ndim):
+        array.shape[i] = ao.shape[i]
+        array.strides[i] = ao.strides[i]
+    array.dataptr = ao.dataptr
+    return array
 
 def ll_setitem1(l, index, item):
     l.data[index] = item
@@ -368,6 +376,7 @@ def ll_add(ARRAY, a1, a2):
     while i < size:
         array.data[i] = a1.data[i] + a2.data[i]
         i += 1
+    array.dataptr = direct_arrayitems(array.data)
     return array
 
 def ll_transpose(ARRAY, a1):

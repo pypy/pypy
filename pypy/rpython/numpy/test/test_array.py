@@ -250,6 +250,8 @@ class Test_specialization:
             return a
 
         res = interpret(f, [])
+        # Note that the real numpy defines strides to be a byte-count
+        # but we return an element count ATM.
         assert res.strides[0] == 20
         assert res.strides[1] == 5
         assert res.strides[2] == 1
