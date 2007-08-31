@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import \
     GcArray, GcStruct, Signed, Ptr, Unsigned, Void, FixedSizeArray, Bool,\
-    GcForwardReference, malloc, direct_arrayitems, direct_ptradd, _cast_whatever
+    GcForwardReference, malloc, direct_arrayitems, direct_ptradd, nullptr
 from pypy.rpython.lltypesystem.rtuple import TupleRepr
 from pypy.annotation.model import SomeObject, SomeInteger
 from pypy.rpython.numpy.aarray import SomeArray
@@ -322,11 +322,10 @@ class __extend__(pairtype(AbstractRangeRepr, ArrayRepr)):
         cARRAY = inputconst(lltype.Void, r_arr.lowleveltype.TO) 
         return llops.gendirectcall(ll_build_from_list, cARRAY, v)
 
-from pypy.rpython.memory.lladdress import NULL
 def ll_allocate(ARRAY, ndim):
     array = malloc(ARRAY)
     array.ndim = ndim
-    #array.base = NULL # how to do this ?????
+    array.base = nullptr(ARRAY)
     return array
 
 def ll_build_from_list(ARRAY, lst):
@@ -345,8 +344,9 @@ def ll_build_from_list(ARRAY, lst):
 def ll_build_alias(ARRAY, array):
     new_array = ll_allocate(ARRAY, array.ndim)
     new_array.data = array.data # alias data
-#    new_array.base = array.base or array # this is broken until we set base to NULL above
     new_array.base = array
+    if array.base:
+        new_array.base = array.base
     for i in range(array.ndim):
         new_array.shape[i] = array.shape[i]
         new_array.strides[i] = array.strides[i]

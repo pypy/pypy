@@ -228,7 +228,9 @@ class Test_specialization:
         def f():
             a = numpy.array([1,2])
             b = numpy.array(a)
-            return b.base is a
+            # Aha: a.base is a phantom array we made 
+            # when converting from a list.
+            return b.base is a.base
 
         res = interpret(f, [])
         assert res
