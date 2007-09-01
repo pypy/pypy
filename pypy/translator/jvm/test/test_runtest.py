@@ -1,6 +1,8 @@
+import sys
 from pypy.translator.jvm.test.runtest import JvmTest
 from pypy.translator.jvm.test.runtest import FLOAT_PRECISION
 from pypy.annotation.listdef import s_list_of_strings
+from pypy.rlib.rarithmetic import r_ulonglong
 
 def ident(x):
     return x
@@ -64,3 +66,6 @@ class TestRunTest(JvmTest):
             else:
                 return None
         assert self.interpret(fn, [False]) is None
+
+    def test_ullong(self):
+        assert self.interpret(ident, [r_ulonglong(sys.maxint+1)]) == sys.maxint+1

@@ -404,6 +404,7 @@ class Database(OODatabase):
         ootype.Signed:jvmgen.INTTOSTRINGI,
         ootype.Unsigned:jvmgen.PYPYSERIALIZEUINT,
         ootype.SignedLongLong:jvmgen.LONGTOSTRINGL,
+        ootype.UnsignedLongLong: jvmgen.PYPYSERIALIZEULONG,
         ootype.Float:jvmgen.DOUBLETOSTRINGD,
         ootype.Bool:jvmgen.PYPYSERIALIZEBOOLEAN,
         ootype.Void:jvmgen.PYPYSERIALIZEVOID,

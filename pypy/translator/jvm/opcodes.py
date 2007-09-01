@@ -210,8 +210,8 @@ _opcodes = {
     'ullong_div':               jvmgen.LDIV, # valid?
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvmgen.LDIV, # valid?
-    'ullong_mod':               jvmgen.LREM, # valid?
-    'ullong_mod_zer':           _check_zer(jvmgen.LREM),
+    'ullong_mod':               jvmgen.PYPYULONGMOD,
+    'ullong_mod_zer':           _check_zer(jvmgen.PYPYULONGMOD),
     'ullong_lt':                'ulong_less_than',     
     'ullong_le':                'ulong_less_equals',   
     'ullong_eq':                'ulong_equals',        

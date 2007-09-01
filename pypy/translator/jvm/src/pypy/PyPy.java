@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Map;
+import java.text.DecimalFormat;
 
 /**
  * Class with a number of utility routines.
@@ -72,6 +73,12 @@ public class PyPy {
         return (int)modulo;
     }
 
+    public static long ulong_mod(long x, long y) {
+        double dx = ulong_to_double(x);
+        double modulo = Math.IEEEremainder(dx, y);
+        return (long)modulo;
+    }
+
     public static int ulong_cmp(long value1, long value2) {
         final int VALUE2BIGGER = -1;
         final int VALUE1BIGGER = 1;
@@ -112,6 +119,17 @@ public class PyPy {
             long loword = value & 0xFFFF;
             long hiword = value >>> 16;
             double result = (hiword << 16) | loword;
+            return result;
+        }
+    }
+
+    public static double ulong_to_double(long value) {
+        if (value >= 0)
+            return value;
+        else {
+            long lopart = value & 0xFFFFFFFF;
+            long hipart = value >>> 32;
+            double result = (hipart << 32) | lopart;
             return result;
         }
     }
@@ -247,6 +265,13 @@ public class PyPy {
             long res = (hiword << 16) | loword;
             return Long.toString(res);
         }
+    }
+
+    public static String serialize_ulonglong(long value)
+    {
+        double d = ulong_to_double(value);
+        DecimalFormat fmt = new DecimalFormat("0");
+        return fmt.format(d);
     }
 
     public static String serialize_boolean(boolean l) {
