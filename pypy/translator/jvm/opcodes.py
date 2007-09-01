@@ -7,10 +7,11 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField, DownCast, RuntimeNew, OOString, CastTo
+     SetField, GetField, DownCast, RuntimeNew, OOString, CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
      CastPtrToWeakAddress, CastWeakAddressToPtr
+from pypy.rpython.ootypesystem import ootype
 
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
@@ -241,6 +242,7 @@ _opcodes = {
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
     'cast_longlong_to_float':   jvmgen.L2D,
+    'is_early_constant':        [PushPrimitive(ootype.Bool, False), StoreResult]
     
 }
 
