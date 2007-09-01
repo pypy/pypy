@@ -73,6 +73,20 @@ public class PyPy {
         return (int)modulo;
     }
 
+    public static int uint_mul(int x, int y)
+    {
+        long xx = uint_to_long(x);
+        long yy = uint_to_long(y);
+        return long_to_uint(xx * yy);
+    }
+
+    public static int uint_div(int x, int y)
+    {
+        long xx = uint_to_long(x);
+        long yy = uint_to_long(y);
+        return long_to_uint(xx / yy);
+    }
+
     public static long ulong_mod(long x, long y) {
         double dx = ulong_to_double(x);
         double modulo = Math.IEEEremainder(dx, y);
@@ -113,14 +127,7 @@ public class PyPy {
     public static final double BITS16 = (double)0xFFFF;
 
     public static double uint_to_double(int value) {
-        if (value >= 0)
-            return value;
-        else {
-            long loword = value & 0xFFFF;
-            long hiword = value >>> 16;
-            double result = (hiword << 16) | loword;
-            return result;
-        }
+        return (double)uint_to_long(value);
     }
 
     public static double ulong_to_double(long value) {
@@ -137,11 +144,22 @@ public class PyPy {
     public static int double_to_uint(double value) {
         if (value <= Integer.MAX_VALUE)
             return (int)value;
+        return long_to_uint((long)value);
+    }
 
-        long v = (long)value;
-        int loword = (int)(v & 0xFFFF);
-        int hiword = (int)(v >>> 16);
+    public static int long_to_uint(long value)
+    {
+        int loword = (int)(value & 0xFFFF);
+        int hiword = (int)(value >>> 16);
         return (hiword << 16) | loword;
+    }
+
+    public static long uint_to_long(int value)
+    {
+        long loword = value & 0xFFFF;
+        long hiword = value >>> 16;
+        long res = (hiword << 16) | loword;
+        return res;
     }
 
     public static long double_to_long(double value)
@@ -259,12 +277,8 @@ public class PyPy {
     public static String serialize_uint(int i) {
         if (i >= 0)
             return Integer.toString(i);
-        else {
-            long loword = i & 0xFFFF;
-            long hiword = i >>> 16;
-            long res = (hiword << 16) | loword;
-            return Long.toString(res);
-        }
+        else 
+            return Long.toString(uint_to_long(i));
     }
 
     public static String serialize_ulonglong(long value)

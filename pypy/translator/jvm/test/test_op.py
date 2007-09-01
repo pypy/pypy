@@ -6,9 +6,6 @@ from pypy.translator.oosupport.test_template.operations import BaseTestOperation
 
 class TestOperations(JvmTest, BaseTestOperations):
 
-    def test_operations(self):
-        py.test.skip("Backend lacks appropriate precision")
-        
     def test_abs(self):
         py.test.skip("Backend lacks appropriate precision")
         
