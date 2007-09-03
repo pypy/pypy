@@ -101,26 +101,25 @@ class TestConstant(JvmTest):
         assert self.interpret(fn2, [1]) == True
 
     def test_customdict_circular(self):
-        py.test.skip("Circular dicts are not supported in JVM")
-#        from pypy.rlib.objectmodel import r_dict
-#        def key_eq(a, b):
-#            return a.x[0] == b.x[0]
-#        def key_hash(a):
-#            return ord(a.x[0])
-#
-#        class A:
-#            def __init__(self, x):
-#                self.x = x
-#        a = A('foo')
-#        a.dict = r_dict(key_eq, key_hash)
-#        a.dict[a] = 42
-#        def fn(b):
-#            if b:
-#                s = A('foo')
-#            else:
-#                s = A('bar')
-#            return a.dict[s]
-#        assert self.interpret(fn, [True]) == 42
+        from pypy.rlib.objectmodel import r_dict
+        def key_eq(a, b):
+            return a.x[0] == b.x[0]
+        def key_hash(a):
+            return ord(a.x[0])
+
+        class A:
+            def __init__(self, x):
+                self.x = x
+        a = A('foo')
+        a.dict = r_dict(key_eq, key_hash)
+        a.dict[a] = 42
+        def fn(b):
+            if b:
+                s = A('foo')
+            else:
+                s = A('bar')
+            return a.dict[s]
+        assert self.interpret(fn, [True]) == 42
 
     def test_multiple_step(self):
         from pypy.translator.oosupport import constant

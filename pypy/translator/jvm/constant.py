@@ -88,6 +88,8 @@ class JVMCustomDictConst(CustomDictConst):
         # key_eq is a Python function and graph is, well, a method
         # graph that seems to be added to the function pointer
         # somewhere.  Adapted from cli/constant.py
+        if self.value is ootype.null(self.value._TYPE):
+            return
         self.eq_jcls = self.db.record_delegate_standalone_func_impl(
             self.value._dict.key_eq.graph)
         self.hash_jcls = self.db.record_delegate_standalone_func_impl(
