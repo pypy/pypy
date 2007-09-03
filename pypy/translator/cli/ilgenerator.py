@@ -308,6 +308,10 @@ class CLIBaseGenerator(Generator):
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
 
+    def call_primitive(self, op, module, name):
+        func_name = '[pypylib]pypy.builtin.%s::%s' % (module, name)
+        self.call_op(op, func_name)
+        
     def call_graph(self, graph, func_name=None):
         if func_name is None: # else it is a suggested primitive
             self.db.pending_function(graph)

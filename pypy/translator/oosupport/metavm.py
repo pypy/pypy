@@ -172,7 +172,7 @@ class Generator(object):
         Stack: argN, arg2, arg1, this, ... -> ret, ... """
         raise NotImplementedError
 
-    def call_primitive(self, graph):
+    def call_primitive(self, op, module, name):
         """ Like call_graph, but it has been suggested that the method be
         rendered as a primitive.
 
@@ -395,23 +395,34 @@ class BranchIfFalse(MicroInstruction):
     def render(self, generator, op):
         generator.branch_conditionally(False, self.label)
 
+
 class _Call(MicroInstruction):
+
+    def _get_primitive_name(self, callee):
+        try:
+            graph = callee.graph
+        except AttributeError:
+            return callee._name.rsplit('.', 1)
+        else:
+            if getattr(graph.func, 'suggested_primitive', False):
+                _, module = graph.func.__module__.rsplit('.', 1)
+                return module, graph.func.func_name
+            else:
+                return None
+
     def render(self, generator, op):
         callee = op.args[0].value
-        graph = callee.graph
-        method_name = None # XXX oopspec.get_method_name(graph, op)
+        is_primitive = self._get_primitive_name(callee)
 
         for arg in op.args[1:]:
             generator.load(arg)
         
-        if method_name is None:
-            if getattr(graph.func, 'suggested_primitive', False):
-                generator.call_primitive(graph)
-            else:
-                generator.call_graph(graph)
+        if is_primitive:
+            module, name = is_primitive
+            generator.call_primitive(op, module, name)
         else:
-            this = op.args[1]
-            generator.call_method(this.concretetype, method_name)
+            generator.call_graph(callee.graph)
+
             
 class _CallMethod(MicroInstruction):
     def render(self, generator, op):

@@ -2,36 +2,21 @@ from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
      PushAllArgs, StoreResult, GetField, SetField, DownCast
+from pypy.translator.oosupport.metavm import _Call as _OOCall
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.cts import WEAKREF
 from pypy.translator.cli.dotnet import _static_meth, NativeInstance
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
-class _Call(MicroInstruction):
+class _Call(_OOCall):
+    
     def render(self, generator, op):
         callee = op.args[0].value
         if isinstance(callee, _static_meth):
             self._render_native_function(generator, callee, op.args)
-        elif hasattr(callee, "graph"):
-            graph = callee.graph
-            method_name = oopspec.get_method_name(graph, op)
-            if method_name is None:
-                self._render_function(generator, graph, op.args)
-            else:
-                self._render_method(generator, method_name, op.args[1:])
         else:
-            self._render_primitive_function(generator, callee, op)
-
-
-    def _load_arg_or_null(self, generator, arg):
-        if arg.concretetype is ootype.Void:
-            if arg.value is None:
-                generator.ilasm.opcode('ldnull') # special-case: use None as a null value
-            else:
-                assert False, "Don't know how to load this arg"
-        else:
-            generator.load(arg)
+            _OOCall.render(self, generator, op)
 
     def _render_native_function(self, generator, funcdesc, args):
         for func_arg in args[1:]: # push parameters
@@ -45,17 +30,20 @@ class _Call(MicroInstruction):
         signature = '%s %s::%s(%s)' % (ret_type, funcdesc._cls._name, funcdesc._name, arg_list)
         generator.call_signature(signature)
 
-    def _render_function(self, generator, graph, args):
-        primitive = getattr(graph.func, 'suggested_primitive', False)
-        for func_arg in args[1:]: # push parameters
-            generator.load(func_arg)
-
-        if primitive:
-            _, module = graph.func.__module__.rsplit('.', 1)
-            func_name = '[pypylib]pypy.builtin.%s::%s' % (module, graph.func.func_name)
-            generator.call_graph(graph, func_name)
+    def _load_arg_or_null(self, generator, arg):
+        if arg.concretetype is ootype.Void:
+            if arg.value is None:
+                generator.ilasm.opcode('ldnull') # special-case: use None as a null value
+            else:
+                assert False, "Don't know how to load this arg"
         else:
-            generator.call_graph(graph)
+            generator.load(arg)
+
+
+class _CallMethod(_Call):
+    def render(self, generator, op):
+        method = op.args[0]
+        self._render_method(generator, method.value, op.args[1:])
 
     def _render_method(self, generator, method_name, args):
         this = args[0]
@@ -95,20 +83,8 @@ class _Call(MicroInstruction):
                      method_name == 'll_current_key')):
                 generator.ilasm.pop()
 
-    def _render_primitive_function(self, generator, callee, op):
-        for func_arg in op.args[1:]: # push parameters
-            self._load_arg_or_null(generator, func_arg)
-        module, name = callee._name.split(".")
-        func_name = '[pypylib]pypy.builtin.%s::%s' % (module, name)
-        generator.call_op(op, func_name)
 
-class _CallMethod(_Call):
-    def render(self, generator, op):
-        method = op.args[0]
-        self._render_method(generator, method.value, op.args[1:])
-
-
-class _IndirectCall(_Call):
+class _IndirectCall(_CallMethod):
     def render(self, generator, op):
         # discard the last argument because it's used only for analysis
         self._render_method(generator, 'Invoke', op.args[:-1])

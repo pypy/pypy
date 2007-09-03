@@ -1014,7 +1014,8 @@ class JVMGenerator(Generator):
             # we have to "deal with it"
             self.prepare_generic_result(RETTYPE)
 
-    def call_primitive(self, graph):
+    def call_primitive(self, op, module, name):
+        graph = op.args[0].value # XXX
         argtypes, rettype = self.db.types_for_graph(graph)
         mthd = Method.s(jPyPy, graph.func.func_name, argtypes, rettype)
         self.emit(mthd)
