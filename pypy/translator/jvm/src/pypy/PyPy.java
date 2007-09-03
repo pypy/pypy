@@ -884,6 +884,19 @@ public class PyPy {
     }
 
     // ----------------------------------------------------------------------
+    // ll_math
+
+    public static double ll_math_floor(double x)
+    {
+        return Math.floor(x);
+    }
+
+    public static double ll_math_fmod(double x, double y)
+    {
+        return x % y;
+    }
+
+    // ----------------------------------------------------------------------
     // Convenient Helpers for throwing exceptions
     //
     // Also, an abstraction barrier: at a later date we may want to

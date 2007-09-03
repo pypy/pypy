@@ -1015,9 +1015,9 @@ class JVMGenerator(Generator):
             self.prepare_generic_result(RETTYPE)
 
     def call_primitive(self, op, module, name):
-        graph = op.args[0].value # XXX
-        argtypes, rettype = self.db.types_for_graph(graph)
-        mthd = Method.s(jPyPy, graph.func.func_name, argtypes, rettype)
+        callee = op.args[0].value
+        argtypes, rettype = self.db.types_for_signature(callee._TYPE.ARGS, callee._TYPE.RESULT)
+        mthd = Method.s(jPyPy, name, argtypes, rettype)
         self.emit(mthd)
 
     def call_oostring(self, OOTYPE):

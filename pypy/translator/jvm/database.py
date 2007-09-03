@@ -119,12 +119,15 @@ class Database(OODatabase):
         then the return would be:
           ( (jString, jString), jBool )
         """
-        argtypes = [arg.concretetype for arg in graph.getargs()
-                    if arg.concretetype is not ootype.Void]
-        jargtypes = tuple([self.lltype_to_cts(argty) for argty in argtypes])
-        rettype = graph.getreturnvar().concretetype
-        jrettype = self.lltype_to_cts(rettype)
-        return jargtypes, jrettype        
+        ARGS = [v.concretetype for v in graph.getargs()]
+        RESULT = graph.getreturnvar().concretetype
+        return self.types_for_signature(ARGS, RESULT)
+
+    def types_for_signature(self, ARGS, RESULT):
+        ARGS = [ARG for ARG in ARGS if ARG is not ootype.Void]
+        jargtypes = tuple([self.lltype_to_cts(ARG) for ARG in ARGS])
+        jrettype = self.lltype_to_cts(RESULT)
+        return jargtypes, jrettype
     
     def _function_for_graph(self, classobj, funcnm, is_static, graph):
         
