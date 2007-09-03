@@ -648,11 +648,7 @@ class DictConst(AbstractConst):
             gen.add_comment('  key=%r value=%r' % (key,value))
             push_constant(self.db, KEYTYPE, key, gen)
             gen.prepare_generic_argument(KEYTYPE)
-            if VALUETYPE is ootype.Void:
-                # special case dict of Void; for now store the key as value?
-                gen.dup(KEYTYPE)
-            else:
-                push_constant(self.db, VALUETYPE, value, gen)
+            push_constant(self.db, VALUETYPE, value, gen)
             gen.prepare_generic_argument(VALUETYPE)
             gen.call_method(SELFTYPE, 'll_set')
 
