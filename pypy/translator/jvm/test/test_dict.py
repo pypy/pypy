@@ -10,8 +10,7 @@ class TestJvmDict(JvmTest, oodict.BaseTestDict):
         py.test.skip("JVM doesn't support recursive dicts")
 
 class TestJvmEmptyDict(JvmTest, oodict.BaseTestEmptyDict):
-    def test_iterate_over_empty_dict(self):
-        py.test.skip("Iteration over empty dict is not supported, yet")
+    pass
 
 class TestJvmConstantDict(JvmTest, oodict.BaseTestConstantDict):
     pass

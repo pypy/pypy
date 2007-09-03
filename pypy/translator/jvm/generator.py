@@ -712,6 +712,8 @@ class JVMGenerator(Generator):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
         assert varidx < self.curfunc.next_offset
+        if jvartype is jVoid:
+            return
         opc = LOAD.for_type(jvartype)
         self.add_comment("     load_jvm_jar: jvartype=%s varidx=%s" % (
             repr(jvartype), repr(varidx)))
