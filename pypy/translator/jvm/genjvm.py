@@ -108,21 +108,27 @@ class JvmGeneratedSource(object):
     def _compile_helper(self, clsnms):
         # HACK: compile the Java helper class.  Should eventually
         # use rte.py
-        tocompile = []
-        for clsnm in clsnms:
-            pypycls = self.classdir.join(clsnm + '.class')
-            if not pypycls.check():
-                tocompile.append(clsnm)
-        if tocompile:
-            thisdir = py.magic.autopath().dirpath()
-            javasrcs = [str(thisdir.join('src/pypy', clsnm + '.java')) for
-                        clsnm in tocompile]
-            self._invoke([getoption('javac'),
-                          '-nowarn',
-                          '-d', str(self.classdir)]+
-                         javasrcs,
-                         True)
-        
+        thisdir = py.magic.autopath().dirpath()
+        rootdir = thisdir.join('src')
+        srcdir = rootdir.join('pypy')
+        javafiles = srcdir.listdir('*.java')
+        classfiles = srcdir.listdir('*.class')
+
+        recompile = True
+        if classfiles:
+           last_modified_java = max([java.mtime() for java in javafiles])
+           last_modified_class = max([cls.mtime() for cls in classfiles])
+           if last_modified_java < last_modified_class:
+               recompile = False
+
+        if recompile:
+           log.red('Compiling java classes')               
+           javasrcs = [str(srcdir.join(clsnm + '.java')) for clsnm in clsnms]
+           self._invoke([getoption('javac'), '-nowarn', '-d', str(rootdir)] + javasrcs, True)
+
+        # copy .class files to classdir
+        for classfile in srcdir.listdir('*.class'):
+           classfile.copy(self.classdir.join('pypy'))
 
     def compile(self):
         """
