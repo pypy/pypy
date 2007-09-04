@@ -22,6 +22,17 @@ import numpy
 test_c_compile = True
 test_llvm_compile = False
 
+def fromlist1(lst, dtype=''):
+    if dtype:
+        a = numpy.empty((len(lst),), dtype=dtype)
+    else:
+        a = numpy.empty((len(lst),))
+    idx = 0
+    while idx < len(lst):
+        a[idx] = lst[idx]
+        idx += 1
+    return a
+
 def access_array(item):
     my_array = numpy.array([item])
     return my_array[0]
@@ -98,20 +109,22 @@ class Test_annotation:
         assert s.ndim == 2
 
     def test_annotate_array_add(self):
+        py.test.skip()
         def f():
-            a1 = numpy.array([1,2])
-            a2 = numpy.array([6,9])
+            a1 = fromlist1([1,2])
+            a2 = fromlist1([6,9])
             return a1 + a2
 
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(f, [])
-        assert s.typecode == 'i'
+        #assert s.typecode == 'i'
 
     def test_annotate_array_add_coerce(self):
+        py.test.skip()
         def f():
-            a1 = numpy.array([1,2])
-            a2 = numpy.array([6.,9.])
+            a1 = fromlist1([1,2])
+            a2 = fromlist1([6.,9.])
             return a1 + a2
 
         t = TranslationContext()
@@ -121,7 +134,7 @@ class Test_annotation:
 
     def test_annotate_array_dtype(self):
         def f():
-            a1 = numpy.array([1,2], dtype='d')
+            a1 = fromlist1([1,2], dtype='d')
             return a1
 
         t = TranslationContext()
@@ -131,8 +144,8 @@ class Test_annotation:
 
     def test_annotate_array_array(self):
         def f():
-            a1 = numpy.array([1,2], dtype='d')
-            a2 = numpy.array(a1)
+            a1 = fromlist1([1,2], dtype='d')
+            a2 = fromlist1(a1)
             return a2
 
         t = TranslationContext()
@@ -142,7 +155,7 @@ class Test_annotation:
 
     def test_annotate_array_attr(self):
         def f():
-            a1 = numpy.array([1,2])
+            a1 = fromlist1([1,2])
             return a1.shape
 
         t = TranslationContext()
@@ -152,13 +165,28 @@ class Test_annotation:
 
     def test_annotate_array_method(self):
         def f():
-            a1 = numpy.array([1,2])
+            a1 = fromlist1([1,2])
             return a1.transpose()
 
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(f, [])
         assert type(s) == SomeArray
+
+    def test_annotate_indexing(self):
+        def f():
+            a = numpy.empty((4,3), dtype='i')
+            c = a[:,0]
+            return c
+        t = TranslationContext()
+        a = t.buildannotator()
+        s_array = a.build_types(f, [])
+        assert type(s_array) == SomeArray
+        assert type(s_array.s_base) == SomeArray
+        assert s_array.ndim == 1
+        assert s_array.s_base.ndim == 2
+        assert s_array.s_base.s_base == None
+
 
 from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
 from pypy.translator.backendopt.malloc import LLTypeMallocRemover
@@ -177,8 +205,13 @@ class Test_specialization:
 
     def test_specialize_array_create(self):
         def f():
-            a = numpy.array([1,20])
-            b = numpy.array(a)
+#            a = numpy.empty((2,))
+#            a[0] = 1
+#            a[1] = 20
+#            return a
+            a = fromlist1([1,20])
+#            b = numpy.array(a) # XX
+            b = a
             return b
 
         res = interpret(f, [])
@@ -195,7 +228,7 @@ class Test_specialization:
 
     def test_specialize_array_access(self):
         def access_with_variable():
-            my_array = numpy.array(range(10), dtype='i')
+            my_array = fromlist1(range(10), dtype='i')
             my_array[2] = 2
             sum = 0
             for idx in range(10):
@@ -207,9 +240,10 @@ class Test_specialization:
         assert res == 45
 
     def test_specialize_array_add(self):
+        py.test.skip()
         def f():
-            a1 = numpy.array([1.,2.])
-            a2 = numpy.array([6,9])
+            a1 = fromlist1([1.,2.])
+            a2 = fromlist1([6,9])
             return a1 + a2
 
         res = interpret(f, [])
@@ -218,7 +252,7 @@ class Test_specialization:
 
     def test_specialize_array_attr(self):
         def f():
-            a = numpy.array([1,2])
+            a = fromlist1([1,2])
             return a.ndim
 
         res = interpret(f, [])
@@ -226,11 +260,9 @@ class Test_specialization:
 
     def test_specialize_base(self):
         def f():
-            a = numpy.array([1,2])
-            b = numpy.array(a)
-            # Aha: a.base is a phantom array we made 
-            # when converting from a list.
-            return b.base is a.base
+            a = numpy.empty((2,))
+            b = a[:,]
+            return b.base is a
 
         res = interpret(f, [])
         assert res
@@ -259,23 +291,27 @@ class Test_specialization:
 
     def test_specialize_array_method(self):
         def f():
-            a = numpy.array([1,2])
+            a = numpy.empty((2,))
             return a.transpose()
 
         res = interpret(f, [])
-        assert res.data[0] == 1
-        assert res.data[1] == 2
+#        assert res.data[0] == 1
+#        assert res.data[1] == 2
 
     def test_specialize_indexing(self):
         def f():
-            a = numpy.empty((3,), dtype='i')
-            b = numpy.array([5,55,555])
-            a[:] = b
-            return a
+            a = numpy.empty((4,3), dtype='i')
+            a[0,0] = 5
+            a[1,0] = 55
+            a[2,0] = 555
+            c = a[:,0]
+            return c
         res = interpret(f, [])
-        assert res.data[0] == 5
-        assert res.data[1] == 55
-        assert res.data[2] == 555
+        assert res.dataptr[0] == 5
+        assert res.dataptr[3] == 55
+        assert res.dataptr[6] == 555
+        assert res.shape.item0 == 4
+        assert res.strides.item0 == 3
 
     def test_specialize_multi(self):
         def f(ii, jj):
@@ -288,9 +324,10 @@ class Test_specialization:
         assert interpret(f, [3, 4]) == 12
 
     def test_malloc_remove(self):
+        py.test.skip('this test requires _always_inline_ magic hook')
         def f():
             a = numpy.empty((3,), dtype='i')
-            b = numpy.array([5,55,555])
+            b = fromlist1([5,55,555], dtype='i')
             a[:] = b
             return a
         t = TranslationContext()
@@ -319,7 +356,7 @@ class Test_compile:
     def test_compile_array_access(self):
         def access_array(index):
             a = numpy.empty((3,), dtype='i')
-            b = numpy.array([5,55,555])
+            b = fromlist1([5,55,555], dtype='i')
             a[:] = b
             a[0] = 1
             return a[index]
