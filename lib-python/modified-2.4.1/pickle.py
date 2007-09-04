@@ -32,7 +32,6 @@ from copy_reg import _extension_registry, _inverted_registry, _extension_cache
 import marshal
 import sys
 import struct
-import re
 import warnings
 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
@@ -163,7 +162,7 @@ LONG4           = '\x8b'  # push really big long
 _tuplesize2code = [EMPTY_TUPLE, TUPLE1, TUPLE2, TUPLE3]
 
 
-__all__.extend([x for x in dir() if re.match("[A-Z][A-Z0-9_]+$",x)])
+__all__.extend([x for x in dir() if x[0].isalpha() and x == x.upper()])
 del x
 
 
