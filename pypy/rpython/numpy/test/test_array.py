@@ -22,16 +22,6 @@ import numpy
 test_c_compile = True
 test_llvm_compile = False
 
-def fromlist1(lst, dtype=''):
-    if dtype:
-        a = numpy.empty((len(lst),), dtype=dtype)
-    else:
-        a = numpy.empty((len(lst),))
-    idx = 0
-    while idx < len(lst):
-        a[idx] = lst[idx]
-        idx += 1
-    return a
 
 def access_array(item):
     my_array = numpy.array([item])
@@ -109,22 +99,20 @@ class Test_annotation:
         assert s.ndim == 2
 
     def test_annotate_array_add(self):
-        py.test.skip()
         def f():
-            a1 = fromlist1([1,2])
-            a2 = fromlist1([6,9])
+            a1 = numpy.array([1,2])
+            a2 = numpy.array([6,9])
             return a1 + a2
 
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(f, [])
-        #assert s.typecode == 'i'
+        assert s.typecode == 'i'
 
     def test_annotate_array_add_coerce(self):
-        py.test.skip()
         def f():
-            a1 = fromlist1([1,2])
-            a2 = fromlist1([6.,9.])
+            a1 = numpy.array([1,2])
+            a2 = numpy.array([6.,9.])
             return a1 + a2
 
         t = TranslationContext()
@@ -134,7 +122,7 @@ class Test_annotation:
 
     def test_annotate_array_dtype(self):
         def f():
-            a1 = fromlist1([1,2], dtype='d')
+            a1 = numpy.array([1,2], dtype='d')
             return a1
 
         t = TranslationContext()
@@ -144,8 +132,8 @@ class Test_annotation:
 
     def test_annotate_array_array(self):
         def f():
-            a1 = fromlist1([1,2], dtype='d')
-            a2 = fromlist1(a1)
+            a1 = numpy.array([1,2], dtype='d')
+            a2 = numpy.array(a1)
             return a2
 
         t = TranslationContext()
@@ -155,7 +143,7 @@ class Test_annotation:
 
     def test_annotate_array_attr(self):
         def f():
-            a1 = fromlist1([1,2])
+            a1 = numpy.array([1,2])
             return a1.shape
 
         t = TranslationContext()
@@ -165,7 +153,7 @@ class Test_annotation:
 
     def test_annotate_array_method(self):
         def f():
-            a1 = fromlist1([1,2])
+            a1 = numpy.array([1,2])
             return a1.transpose()
 
         t = TranslationContext()
@@ -206,7 +194,7 @@ class Test_specialization:
 #            a[0] = 1
 #            a[1] = 20
 #            return a
-            a = fromlist1([1,20])
+            a = numpy.array([1,20])
 #            b = numpy.array(a) # XX
             b = a
             return b
@@ -225,7 +213,7 @@ class Test_specialization:
 
     def test_specialize_array_access(self):
         def access_with_variable():
-            my_array = fromlist1(range(10), dtype='i')
+            my_array = numpy.array(range(10), dtype='i')
             my_array[2] = 2
             sum = 0
             for idx in range(10):
@@ -237,10 +225,9 @@ class Test_specialization:
         assert res == 45
 
     def test_specialize_array_add(self):
-        py.test.skip()
         def f():
-            a1 = fromlist1([1.,2.])
-            a2 = fromlist1([6,9])
+            a1 = numpy.array([1.,2.])
+            a2 = numpy.array([6,9])
             return a1 + a2
 
         res = interpret(f, [])
@@ -249,7 +236,7 @@ class Test_specialization:
 
     def test_specialize_array_attr(self):
         def f():
-            a = fromlist1([1,2])
+            a = numpy.array([1,2])
             return a.ndim
 
         res = interpret(f, [])
@@ -315,7 +302,7 @@ class Test_specialization:
         py.test.skip('this test requires _always_inline_ magic hook')
         def f():
             a = numpy.empty((3,), dtype='i')
-            b = fromlist1([5,55,555], dtype='i')
+            b = numpy.array([5,55,555], dtype='i')
             a[:] = b
             return a
         t = TranslationContext()
@@ -344,7 +331,7 @@ class Test_compile:
     def test_compile_array_access(self):
         def access_array(index):
             a = numpy.empty((3,), dtype='i')
-            b = fromlist1([5,55,555], dtype='i')
+            b = numpy.array([5,55,555], dtype='i')
             a[:] = b
             a[0] = 1
             return a[index]

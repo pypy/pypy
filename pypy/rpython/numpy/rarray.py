@@ -352,8 +352,6 @@ class __extend__(pairtype(ArrayRepr, ArrayRepr)):
 
 class __extend__(pairtype(AbstractBaseListRepr, ArrayRepr)):
     def convert_from_to((r_lst, r_arr), v, llops):
-        #import py;py.test.skip()
-        assert 0
         if r_lst.listitem is None:
             return NotImplemented
         if r_lst.item_repr != r_arr.item_repr:
@@ -364,8 +362,6 @@ class __extend__(pairtype(AbstractBaseListRepr, ArrayRepr)):
 
 class __extend__(pairtype(AbstractRangeRepr, ArrayRepr)):
     def convert_from_to((r_rng, r_arr), v, llops):
-        #import py;py.test.skip()
-        assert 0
         cARRAY = inputconst(lltype.Void, r_arr.lowleveltype.TO) 
         return llops.gendirectcall(ll_build_from_list, cARRAY, v)
 
