@@ -95,6 +95,8 @@ class JVMCustomDictConst(CustomDictConst):
         self.hash_jcls = self.db.record_delegate_standalone_func_impl(
             self.value._dict.key_hash.graph)
         
+        CustomDictConst.record_dependencies(self)
+        
     def create_pointer(self, gen):
         gen.new_with_jtype(self.eq_jcls)
         gen.new_with_jtype(self.hash_jcls)

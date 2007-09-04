@@ -67,7 +67,7 @@ _opcodes = {
 
     'cast_ptr_to_weakadr':      [CastPtrToWeakAddress],
     'cast_weakadr_to_ptr':      CastWeakAddressToPtr,
-    #'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
+    'gc__collect':              jvmgen.SYSTEMGC,
     'resume_point':             Ignore,
 
     'debug_assert':              [], # TODO: implement?

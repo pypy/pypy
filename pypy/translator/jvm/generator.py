@@ -10,7 +10,7 @@ from pypy.translator.jvm.typesystem import \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
      jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
-     jPyPyHashCode, jMap, jWeakRef
+     jPyPyHashCode, jMap, jWeakRef, jSystem
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -359,6 +359,7 @@ class Method(object):
 OBJHASHCODE =           Method.v(jObject, 'hashCode', (), jInt)
 OBJTOSTRING =           Method.v(jObject, 'toString', (), jString)
 OBJEQUALS =             Method.v(jObject, 'equals', (jObject,), jBool)
+SYSTEMGC =              Method.s(jSystem, 'gc', (), jVoid)
 INTTOSTRINGI =          Method.s(jIntegerClass, 'toString', (jInt,), jString)
 LONGTOSTRINGL =         Method.s(jLongClass, 'toString', (jLong,), jString)
 DOUBLETOSTRINGD =       Method.s(jDoubleClass, 'toString', (jDouble,), jString)
@@ -1070,7 +1071,8 @@ class JVMGenerator(Generator):
     def push_null(self, OOTYPE):
         self.emit(ACONST_NULL)
 
-    DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
+    DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1,
+                             '0 /* we are not jitted here */': 0}
                             
     def push_primitive_constant(self, TYPE, value):
         if TYPE is ootype.Void:
