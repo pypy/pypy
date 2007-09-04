@@ -129,3 +129,14 @@ class TestConstant(JvmTest):
         def fn(x, y):
             return c1[x] + c2[y]
         assert self.interpret(fn, [0, 0]) == 3
+
+    def test_many_constants(self):
+        py.test.skip('fixme!')
+        N = 7500
+        class A:
+            pass
+        mylist = [A() for i in range(N)]
+        def fn(x):
+            return mylist[x]
+        res = self.interpret(fn, [0])
+        assert self.class_name(res) == 'A'
