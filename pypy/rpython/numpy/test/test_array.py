@@ -182,10 +182,7 @@ class Test_annotation:
         a = t.buildannotator()
         s_array = a.build_types(f, [])
         assert type(s_array) == SomeArray
-        assert type(s_array.s_base) == SomeArray
         assert s_array.ndim == 1
-        assert s_array.s_base.ndim == 2
-        assert s_array.s_base.s_base == None
 
 
 from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
@@ -257,15 +254,6 @@ class Test_specialization:
 
         res = interpret(f, [])
         assert res == 1
-
-    def test_specialize_base(self):
-        def f():
-            a = numpy.empty((2,))
-            b = a[:,]
-            return b.base is a
-
-        res = interpret(f, [])
-        assert res
 
     def test_specialize_array_attr_shape(self):
         def f():

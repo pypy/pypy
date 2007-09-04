@@ -25,18 +25,11 @@ class SomeArray(SomeObject):
         #'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
-    def __init__(self, typecode, ndim=1, s_base=None):
+    def __init__(self, typecode, ndim=1):
         if not typecode in self.typecode_to_item:
             raise AnnotatorError("bad typecode: %r"%typecode)
         self.typecode = typecode
         self.ndim = ndim
-        self.s_base = s_base # we are a view into this 
-        if s_base is not None:
-            assert s_base.s_base is None # shallow bases
-
-    def get_base_annotation(self):
-        return self.s_base or self
-        # can't set s_base to self because this screws up __eq__
 
     def can_be_none(self):
         return True
@@ -52,14 +45,12 @@ class SomeArray(SomeObject):
                 s = SomeTuple([SomeInteger()]*s_array.ndim)
             elif attr == 'ndim':
                 s = SomeInteger()
-            elif attr == 'base':
-                s = s_array.get_base_annotation()
         if s is None:
             return SomeObject.getattr(s_array, s_attr)
         return s
 
     def method_transpose(self):
-        return SomeArray(self.typecode, self.ndim, self)
+        return SomeArray(self.typecode, self.ndim)
 
 class __extend__(pairtype(SomeArray, SomeArray)):
 
@@ -111,7 +102,7 @@ class __extend__(pairtype(SomeArray, SomeTuple)):
         if s_array.ndim == 0 and len(s_index.items):
             raise AnnotatorError("indexing rank zero array with nonempty tuple")
         if ndim > 0:
-            return SomeArray(s_array.typecode, ndim, s_array.get_base_annotation())
+            return SomeArray(s_array.typecode, ndim)
         return s_array.get_item_type()
 
 # These two up-cast the index to SomeTuple and call above.
@@ -155,7 +146,6 @@ class ArrayCallEntry(ExtRegistryEntry):
     _about_ = numpy.array
 
     def compute_result_annotation(self, s_list, s_dtype=None):
-        s_base = None
         if isinstance(s_list, SomeList):
             # First guess type from input list
             listitem = s_list.listdef.listitem
@@ -165,7 +155,6 @@ class ArrayCallEntry(ExtRegistryEntry):
         elif isinstance(s_list, SomeArray):
             typecode = s_list.typecode
             ndim = s_list.ndim
-            s_base = s_list
         else:
             raise AnnotatorError("cannot build array from %s"%s_list)
 
@@ -178,11 +167,7 @@ class ArrayCallEntry(ExtRegistryEntry):
         if typecode is None or typecode not in valid_typecodes:
             raise AnnotatorError("List item type not supported")
 
-        if isinstance(s_list, SomeList):
-            # make phantom array annotation
-            s_base = SomeArray(typecode, ndim)
-    
-        return SomeArray(typecode, ndim, s_base)
+        return SomeArray(typecode, ndim)
 
     def specialize_call(self, hop, i_dtype=None):
         r_array = hop.r_result
