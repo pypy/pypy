@@ -90,6 +90,19 @@ class SomeStatResult(annmodel.SomeObject):
         TYPE = STAT_FIELD_TYPES[attrname]
         return annmodel.lltype_to_annotation(TYPE)
 
+    def _get_rmarshall_support_(self):     # for rlib.rmarshal
+        # reduce and recreate stat_result objects from 10-tuples
+        # (we ignore the extra values here for simplicity and portability)
+        def stat_result_reduce(st):
+            return (st[0], st[1], st[2], st[3], st[4],
+                    st[5], st[6], st[7], st[8], st[9])
+        def stat_result_recreate(tup):
+            return make_stat_result(tup + extra_zeroes)
+        s_reduced = annmodel.SomeTuple([annmodel.lltype_to_annotation(TYPE)
+                                       for name, TYPE in PORTABLE_STAT_FIELDS])
+        extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
+        return s_reduced, stat_result_reduce, stat_result_recreate
+
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
     def getitem((s_sta, s_int)):
         assert s_int.is_constant(), "os.stat()[index]: index must be constant"

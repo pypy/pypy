@@ -8,7 +8,6 @@ from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rlib.rarithmetic import formatd, r_longlong, intmask
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython import controllerentry
 
 class CannotMarshal(Exception):
     pass
@@ -303,10 +302,28 @@ def weakly_contains(s_bigger, s_smaller):
 class __extend__(pairtype(MTag, annmodel.SomeObject)):
 
     def install_marshaller((tag, s_obj)):
-        raise CannotMarshal(s_obj)
+        if not hasattr(s_obj, '_get_rmarshall_support_'):
+            raise CannotMarshal(s_obj)
+        # special support for custom annotation like SomeStatResult:
+        # the annotation tells us how to turn an object into something
+        # else that can be marshalled
+        def dump_with_custom_reduce(buf, x):
+            reduced_obj = fn_reduce(x)
+            reduceddumper(buf, reduced_obj)
+        s_reduced_obj, fn_reduce, fn_recreate = s_obj._get_rmarshall_support_()
+        reduceddumper = get_marshaller(s_reduced_obj)
+        add_dumper(s_obj, dump_with_custom_reduce)
 
     def install_unmarshaller((tag, s_obj)):
-        raise CannotUnmarshall(s_obj)
+        if not hasattr(s_obj, '_get_rmarshall_support_'):
+            raise CannotUnmarshall(s_obj)
+        # special support for custom annotation like SomeStatResult
+        def load_with_custom_recreate(loader):
+            reduced_obj = reducedloader(loader)
+            return fn_recreate(reduced_obj)
+        s_reduced_obj, fn_reduce, fn_recreate = s_obj._get_rmarshall_support_()
+        reducedloader = get_loader(s_reduced_obj)
+        add_loader(s_obj, load_with_custom_recreate)
 
 
 class __extend__(pairtype(MTag, annmodel.SomeList)):
@@ -380,23 +397,24 @@ class __extend__(pairtype(MTag, annmodel.SomeTuple)):
         add_loader(s_tuple, load_tuple)
 
 
-class __extend__(pairtype(MTag, controllerentry.SomeControlledInstance)):
-    # marshal a ControlledInstance by marshalling the underlying object
+## -- not used any more right now --
+##class __extend__(pairtype(MTag, controllerentry.SomeControlledInstance)):
+##    # marshal a ControlledInstance by marshalling the underlying object
 
-    def install_marshaller((tag, s_obj)):
-        def dump_controlled_instance(buf, x):
-            real_obj = controllerentry.controlled_instance_unbox(controller, x)
-            realdumper(buf, real_obj)
+##    def install_marshaller((tag, s_obj)):
+##        def dump_controlled_instance(buf, x):
+##            real_obj = controllerentry.controlled_instance_unbox(controller, x)
+##            realdumper(buf, real_obj)
 
-        controller = s_obj.controller
-        realdumper = get_marshaller(s_obj.s_real_obj)
-        add_dumper(s_obj, dump_controlled_instance)
+##        controller = s_obj.controller
+##        realdumper = get_marshaller(s_obj.s_real_obj)
+##        add_dumper(s_obj, dump_controlled_instance)
 
-    def install_unmarshaller((tag, s_obj)):
-        def load_controlled_instance(loader):
-            real_obj = realloader(loader)
-            return controllerentry.controlled_instance_box(controller,
-                                                           real_obj)
-        controller = s_obj.controller
-        realloader = get_loader(s_obj.s_real_obj)
-        add_loader(s_obj, load_controlled_instance)
+##    def install_unmarshaller((tag, s_obj)):
+##        def load_controlled_instance(loader):
+##            real_obj = realloader(loader)
+##            return controllerentry.controlled_instance_box(controller,
+##                                                           real_obj)
+##        controller = s_obj.controller
+##        realloader = get_loader(s_obj.s_real_obj)
+##        add_loader(s_obj, load_controlled_instance)

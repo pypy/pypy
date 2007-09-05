@@ -116,21 +116,10 @@ def test_llinterp_unmarshal():
     res = ''.join(res.chars)
     assert res == '5=hello;7=world;'
 
-def test_tuple_stat_result():
-    from pypy.rpython.module.ll_os_stat import STAT_FIELDS, s_tuple_StatResult
-    marshaller = get_marshaller(s_tuple_StatResult)
-    unmarshaller = get_unmarshaller(s_tuple_StatResult)
-
-    sttuple = (0,) * len(STAT_FIELDS)
-    buf = []
-    marshaller(buf, sttuple)
-    res = unmarshaller(''.join(buf))
-    assert res == sttuple
-
 def test_stat_result():
     import os
     from pypy.translator.c.test.test_genc import compile
-    from pypy.rpython.module.ll_os_stat import STAT_FIELDS, s_StatResult
+    from pypy.rpython.module.ll_os_stat import s_StatResult
     marshal_stat_result = get_marshaller(s_StatResult)
     unmarshal_stat_result = get_unmarshaller(s_StatResult)
     def f(path):
@@ -152,4 +141,4 @@ def test_stat_result():
     assert sttuple[3] == st[3]
     assert sttuple[4] == st[4]
     assert sttuple[5] == st[5]
-    assert len(sttuple) == len(STAT_FIELDS)
+    assert len(sttuple) == 10
