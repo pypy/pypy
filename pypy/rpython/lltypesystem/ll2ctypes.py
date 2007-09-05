@@ -1,6 +1,11 @@
 import sys
-import ctypes
-import ctypes.util
+
+try:
+    import ctypes
+    import ctypes.util
+except ImportError:
+    ctypes = None
+
 import os
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
@@ -417,16 +422,17 @@ def uninitialized2ctypes(T):
 
 # __________ the standard C library __________
 
-if sys.platform == 'win32':
-    # trying to guess the correct libc... only a few tests fail if there
-    # is a mismatch between the one used by python2x.dll and the one
-    # loaded here
-    if sys.version_info < (2, 4):
-        standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
+if ctypes:
+    if sys.platform == 'win32':
+        # trying to guess the correct libc... only a few tests fail if there
+        # is a mismatch between the one used by python2x.dll and the one
+        # loaded here
+        if sys.version_info < (2, 4):
+            standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
+        else:
+            standard_c_lib = ctypes.cdll.LoadLibrary('msvcr71.dll')
     else:
-        standard_c_lib = ctypes.cdll.LoadLibrary('msvcr71.dll')
-else:
-    standard_c_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+        standard_c_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
 # ____________________________________________
 
