@@ -276,7 +276,7 @@ class RegisterOs(BaseLazyRegistering):
             l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
             try:
                 result = os_times(l_tmsbuf)
-                if result == -1:
+                if result == rffi.cast(self.CLOCK_T, -1):
                     raise OSError(rffi.get_errno(), "times failed")
                 return (
                     l_tmsbuf.c_tms_utime / CLOCK_TICKS_PER_SECOND,
