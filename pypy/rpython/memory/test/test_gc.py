@@ -106,8 +106,9 @@ class GCTestOnLLInterp(GCTest):
 class TestMarkSweepGC(GCTest):
     GCClass = MarkSweepGC
 
-class TestMarkSweepGCRunningOnLLinterp(GCTestOnLLInterp):
-    GCClass = MarkSweepGC
+if 0:   ## - - - disabling this: the simulator is getting deprecated
+    class TestMarkSweepGCRunningOnLLinterp(GCTestOnLLInterp):
+        GCClass = MarkSweepGC
 
 class TestSemiSpaceGC(GCTest):
     GCClass = SemiSpaceGC
