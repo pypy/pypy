@@ -10,7 +10,7 @@ from pypy.translator.oosupport.metavm import \
      SetField, GetField, DownCast, RuntimeNew, OOString, CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
-     CastPtrToWeakAddress, CastWeakAddressToPtr
+     CastPtrToWeakAddress, CastWeakAddressToPtr, CastPrimitive
 from pypy.rpython.ootypesystem import ootype
 
 import pypy.translator.jvm.generator as jvmgen
@@ -243,6 +243,7 @@ _opcodes = {
     'cast_float_to_uint':       jvmgen.PYPYDOUBLETOUINT,
     'truncate_longlong_to_int': jvmgen.L2I,
     'cast_longlong_to_float':   jvmgen.L2D,
+    'cast_primitive':           [PushAllArgs, CastPrimitive, StoreResult],
     'is_early_constant':        [PushPrimitive(ootype.Bool, False), StoreResult]
     
 }

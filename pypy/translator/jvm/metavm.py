@@ -1,3 +1,4 @@
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
 import pypy.translator.jvm.generator as jvmgen
@@ -130,3 +131,19 @@ class _CastWeakAddressToPtr(MicroInstruction):
         generator.cast_weak_address_to_ptr(RESULTTYPE)
 CastWeakAddressToPtr = _CastWeakAddressToPtr()
 
+
+CASTS = {
+#   FROM                      TO
+    (ootype.Signed,           ootype.UnsignedLongLong): jvmgen.I2L,
+    (ootype.SignedLongLong,   ootype.Signed):           jvmgen.L2I,
+    (ootype.UnsignedLongLong, ootype.SignedLongLong):   None,
+    }
+
+class _CastPrimitive(MicroInstruction):
+    def render(self, generator, op):
+        FROM = op.args[0].concretetype
+        TO = op.result.concretetype
+        opcode = CASTS[(FROM, TO)]
+        if opcode:
+            generator.emit(opcode)
+CastPrimitive = _CastPrimitive()
