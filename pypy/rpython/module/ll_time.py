@@ -47,25 +47,33 @@ class RegisterTime(BaseLazyRegistering):
 
     @registering(time.time)
     def register_time_time(self):
+        # Note: time.time() is used by the framework GC during collect(),
+        # which means that we have to be very careful about not allocating
+        # GC memory here.  This is the reason for the _nowrapper=True.
+
         # AWFUL
         if self.HAVE_GETTIMEOFDAY:
             if self.GETTIMEOFDAY_NO_TZ:
                 c_gettimeofday = self.llexternal('gettimeofday',
-                                 [self.TIMEVALP], rffi.INT)
+                                 [self.TIMEVALP], rffi.INT,
+                                                 _nowrapper=True)
             else:
                 c_gettimeofday = self.llexternal('gettimeofday',
-                                 [self.TIMEVALP, rffi.VOIDP], rffi.INT)
+                                 [self.TIMEVALP, rffi.VOIDP], rffi.INT,
+                                                 _nowrapper=True)
         else:
             c_gettimeofday = None
 
         if self.HAVE_FTIME:
             self.configure(CConfigForFTime)
             c_ftime = self.llexternal('ftime', [lltype.Ptr(self.TIMEB)],
-                                      lltype.Void)
+                                      lltype.Void,
+                                      _nowrapper=True)
         else:
             c_ftime = None    # to not confuse the flow space
 
-        c_time = self.llexternal('time', [rffi.VOIDP], self.TIME_T)
+        c_time = self.llexternal('time', [rffi.VOIDP], self.TIME_T,
+                                 _nowrapper=True)
 
         def time_time_llimpl():
             void = lltype.nullptr(rffi.VOIDP.TO)

@@ -28,7 +28,7 @@ class CConstant(Symbolic):
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                libraries=[], include_dirs=[], sandboxsafe=False,
-               canraise=False, stringpolicy='noauto'):
+               canraise=False, stringpolicy='noauto', _nowrapper=False):
     """ String policies:
     autocast - automatically cast to ll_string, but don't delete it
     fullauto - automatically cast + delete is afterwards
@@ -51,6 +51,9 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                                  canraise=canraise)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
+
+    if _nowrapper:
+        return funcptr
 
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
