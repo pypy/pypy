@@ -259,6 +259,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     truediv.can_only_throw = [ZeroDivisionError]
     truediv_ovf = _clone(truediv, [ZeroDivisionError, OverflowError])
 
+    inplace_div = div
+    inplace_truediv = truediv
+
     def sub((int1, int2)):
         knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
         return SomeInteger(knowntype=knowntype)
@@ -286,6 +289,12 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
                            knowntype=knowntype)
     pow.can_only_throw = [ZeroDivisionError]
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
+
+    def inplace_pow((int1, int2)):
+        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        return SomeInteger(nonneg = int1.nonneg,
+                           knowntype=knowntype)
+    inplace_pow.can_only_throw = [ZeroDivisionError]
 
     def _compare_helper((int1, int2), opname, operation):
         r = SomeBool()
@@ -413,18 +422,29 @@ class __extend__(pairtype(SomeString, SomeObject)):
         getbookkeeper().count('strformat', str, args)
         return SomeString()
 
-
 class __extend__(pairtype(SomeFloat, SomeFloat)):
     
     def union((flt1, flt2)):
         return SomeFloat()
 
-    add = sub = mul = div = truediv = union
+    add = sub = mul = union
+
+    def div((flt1, flt2)):
+        return SomeFloat()
+    div.can_only_throw = []
+    truediv = div
 
     def pow((flt1, flt2), obj3):
         return SomeFloat()
-    pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]    
+    pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]
 
+    # repeat these in order to copy the 'can_only_throw' attribute
+    inplace_div = div
+    inplace_truediv = truediv
+
+    def inplace_pow((flt1, flt2)):
+        return SomeFloat()
+    inplace_pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]
 
 class __extend__(pairtype(SomeList, SomeList)):
 

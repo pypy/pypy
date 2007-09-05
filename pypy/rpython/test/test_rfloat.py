@@ -108,6 +108,16 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [2.0, 3.0])
         assert res == 8.0
 
+    def test_exceptions(self):
+        def fn(x, y, z):
+            try:
+                # '/', when float-based, cannot raise in RPython!
+                # the try:finally: only tests an annotation bug.
+                x /= (y / z)
+            finally:
+                return x
+        self.interpret(fn, [1.0, 2.0, 3.0])
+
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
 
     def test_hash(self):

@@ -17,16 +17,15 @@ class BaseOsPath:
     def ll_os_path_exists(cls, path):
         """Test whether a path exists"""
         try:
-            st = os.stat(cls.from_rstr(path))
+            st = os.stat(cls.from_rstr_nonnull(path))
         except OSError:
             return False
         return True
 
     def ll_os_path_isdir(cls, path):
         try:
-            (stat0, stat1, stat2, stat3, stat4,
-             stat5, stat6, stat7, stat8, stat9) = os.stat(cls.from_rstr(path))
+            st = os.stat(cls.from_rstr_nonnull(path))
         except OSError:
             return False
-        return stat.S_ISDIR(stat0)
+        return stat.S_ISDIR(st[0])
 

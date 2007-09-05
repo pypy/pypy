@@ -1,5 +1,5 @@
 
-from pypy.rpython.lltypesystem.rfficache import *
+from pypy.rpython.tool.rfficache import *
 from pypy.rpython.lltypesystem import rffi
 from pypy.tool.udir import udir
 
@@ -13,6 +13,10 @@ def test_c_ifdefined():
 
 def test_c_defined_int():
     assert c_defined_int('X', add_source='#define X 3') == 3
+
+def test_c_existing_symbol():
+    assert have_c_obj('X', add_source='int X(int, int, int);')
+    assert not have_c_obj('xxx')
 
 def test_rfficache():
     cache = RffiCache(udir.join('cache.py'))
@@ -28,6 +32,8 @@ def test_rfficache():
     assert cache.defined('STUFF')
     assert cache.inttype('uchar', 'unsigned char', False, compiler_exe='xxx')._type.BITS == 8
     assert cache.sizeof('short', compiler_exe='xxx') == 2
+    assert cache.intdefined('STUFFZ', add_source='#define STUFFZ 0') == 0
+    assert cache.defined('STUFFZ', add_source='#define STUFFZ 0')
 
 def test_types_present():
     for name in rffi.TYPES:
@@ -36,3 +42,4 @@ def test_types_present():
         name = name.replace(' ', '')
         assert hasattr(rffi, 'r_' + name)
         assert hasattr(rffi, name.upper())
+

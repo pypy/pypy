@@ -24,6 +24,7 @@ class BaseTestPosix(BaseRtypingTest):
         assert type(func) == int
 
     def test_fstat(self):
+        import py; py.test.skip("XXX cannot run os.stat() on the llinterp yet")
         def fo(fi):
             g = posix.fstat(fi)
             return g
@@ -33,6 +34,17 @@ class BaseTestPosix(BaseRtypingTest):
         for i in range(len(stat)):
             stat0 = getattr(func, 'item%d' % i)
             assert stat0 == stat[i]
+
+
+    def test_times(self):
+        import py; py.test.skip("llinterp does not like tuple returns")
+        from pypy.rpython.test.test_llinterp import interpret
+        times = interpret(lambda: posix.times(), ())
+        assert isinstance(times, tuple)
+        assert len(times) == 5
+        for value in times:
+            assert isinstance(value, int)
+
 
     def test_lseek(self):
         def f(fi,pos):
@@ -92,69 +104,31 @@ class BaseTestPosix(BaseRtypingTest):
         res = self.interpret(f,[fi])
         raises( OSError, os.fstat, fi)
 
-    def test_ftruncate(self):
-        def f(fi,len):
-            posix.ftruncate(fi,len)
-        fi = os.open(path,os.O_RDWR,0777)
-        func = self.interpret(f,[fi,6]) 
-        assert os.fstat(fi).st_size == 6
+    if hasattr(os, 'ftruncate'):
+        def test_ftruncate(self):
+            def f(fi,len):
+                os.ftruncate(fi,len)
+            fi = os.open(path,os.O_RDWR,0777)
+            func = self.interpret(f,[fi,6]) 
+            assert os.fstat(fi).st_size == 6
 
-    def test_getuid(self):
-        def f():
-            return os.getuid()
-        assert self.interpret(f, []) == f()
-
-    def test_tmpfile(self):
-        py.test.skip("XXX get_errno() does not work with ll2ctypes")
-        from pypy.rlib import ros
-        def f():
-            f = ros.tmpfile()
-            f.write('xxx')
-            f.flush()
-            return f.try_to_find_file_descriptor()
-
-        def f2(num):
-            os.close(num)
-
-        fd = self.interpret(f, [])
-        realfile = os.fdopen(fd)
-        realfile.seek(0)
-        assert realfile.read() == 'xxx'
-        self.interpret(f2, [fd])
+    if hasattr(os, 'getuid'):
+        def test_getuid(self):
+            def f():
+                return os.getuid()
+            assert self.interpret(f, []) == f()
 
     def test_os_wstar(self):
         from pypy.rpython.module.ll_os import RegisterOs
         for name in RegisterOs.w_star:
+            if not hasattr(os, name):
+                continue
             def fun(s):
                 return getattr(os, name)(s)
 
             for value in [0, 1, 127, 128, 255]:
-                assert self.interpret(fun, [value]) == fun(value)        
-
-def test_tmpfile_translate():
-    from pypy.rlib import ros
-    def f():
-        f = ros.tmpfile()
-        f.write('xxx')
-        f.flush()
-        return f.try_to_find_file_descriptor()
-    
-    def f2(num):
-        os.close(num)
-
-    from pypy.translator.c.test.test_genc import compile
-
-    fn1 = compile(f, [])
-    fn2 = compile(f2, [int])
-
-    fd = fn1()
-    realfile = os.fdopen(fd)
-    realfile.seek(0)
-    assert realfile.read() == 'xxx'
-    fn2(fd)
-
-if not hasattr(os, 'ftruncate'):
-    del BaseTestPosix.test_ftruncate
+                res = self.interpret(fun, [value])
+                assert res == fun(value)
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
     if False and hasattr(os, 'uname'):
@@ -167,3 +141,4 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass
+

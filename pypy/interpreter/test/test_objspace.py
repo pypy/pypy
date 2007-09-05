@@ -2,6 +2,7 @@ from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
+from pypy.rlib.rarithmetic import r_longlong
 import sys
 
 # this test isn't so much to test that the objspace interface *works*
@@ -163,6 +164,16 @@ class TestObjSpace:
             assert "foobar" in e.errorstr(self.space)
         else:
             assert 0, "should have raised"
+
+    def test_r_longlong_w(self):
+        w_value = self.space.wrap(12)
+        res = self.space.r_longlong_w(w_value)
+        assert res == 12
+        assert type(res) is r_longlong
+        w_value = self.space.wrap(r_longlong(-sys.maxint * 42))
+        res = self.space.r_longlong_w(w_value)
+        assert res == -sys.maxint * 42
+        assert type(res) is r_longlong
 
 
 class TestModuleMinimal: 

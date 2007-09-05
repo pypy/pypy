@@ -7,6 +7,12 @@ from pypy.annotation.signature import annotation
 
 import py, sys
 
+class extdef(object):
+
+    def __init__(self, *args, **kwds):
+        self.def_args = args
+        self.def_kwds = kwds
+
 def lazy_register(func_or_list, register_func):
     """ Lazily register external function. Will create a function,
     which explodes when llinterpd/translated, but does not explode
@@ -17,8 +23,20 @@ def lazy_register(func_or_list, register_func):
     else:
         funcs = [func_or_list]
     try:
-        return register_func()
+        val = register_func()
+        if isinstance(val, extdef):
+            assert len(funcs) == 1
+            register_external(funcs[0], *val.def_args, **val.def_kwds)
+            return
+        return val
+    except (SystemExit, MemoryError, KeyboardInterrupt), e:
+        raise
     except:
+        if 0:
+            import traceback
+            print >> sys.stderr, 'WARNING: cannot register', func_or_list, ':'
+            traceback.print_exc()
+            import pdb; pdb.set_trace()
         exc, exc_inst, tb = sys.exc_info()
         for func in funcs:
             # if the function has already been registered and we got
@@ -29,7 +47,9 @@ def lazy_register(func_or_list, register_func):
                 raise exc, exc_inst, tb
             class ExtRaisingEntry(ExtRegistryEntry):
                 _about_ = func
-                def compute_result_annotation(self, *args_s):
+                def __getattr__(self, attr):
+                    if attr == '_about_' or attr == '__dict__':
+                        return super(ExtRegistryEntry, self).__getattr__(attr)
                     raise exc, exc_inst, tb
 
 def registering(func):
@@ -38,31 +58,71 @@ def registering(func):
         return method
     return decorator
 
+def registering_if(ns, name):
+    try:
+        func = getattr(ns, name)
+    except AttributeError:
+        return lambda method: None
+    else:
+        return registering(func)
+
 class LazyRegisteringMeta(type):
     def __new__(self, _name, _type, _vars):
-        retval = type.__new__(self, _name, _type, _vars)
+        RegisteringClass = type.__new__(self, _name, _type, _vars)
         allfuncs = []
         for varname in _vars:
-            attr = getattr(retval, varname)
+            attr = getattr(RegisteringClass, varname)
             f = getattr(attr, '_registering_func', None)
             if f:
                 allfuncs.append(f)
-        instance = lazy_register(allfuncs, retval)
-        if instance is not None:
+        registering_inst = lazy_register(allfuncs, RegisteringClass)
+        if registering_inst is not None:
             for varname in _vars:
-                attr = getattr(instance, varname)
+                attr = getattr(registering_inst, varname)
                 f = getattr(attr, '_registering_func', None)
                 if f:
                     lazy_register(f, attr)
-        retval.instance = instance
+        RegisteringClass.instance = registering_inst
         # override __init__ to avoid confusion
         def raising(self):
             raise TypeError("Cannot call __init__ directly, use cls.instance to access singleton")
-        retval.__init__ = raising
-        return retval
+        RegisteringClass.__init__ = raising
+        return RegisteringClass
 
 class BaseLazyRegistering(object):
     __metaclass__ = LazyRegisteringMeta
+
+    __ATTRIBUTES = ['includes', 'include_dirs']
+
+    def configure(self, CConfig):
+        classes_seen = self.__dict__.setdefault('__classes_seen', {})
+        if CConfig in classes_seen:
+            return
+        from pypy.rpython.tool import rffi_platform as platform
+        # copy some stuff
+        for item in self.__ATTRIBUTES:
+            value = getattr(CConfig, '_%s_' % item, None)
+            if value:
+                setattr(self, '_%s_' % item, value)
+        self.__dict__.update(platform.configure(CConfig))
+        classes_seen[CConfig] = True
+
+    def llexternal(self, *args, **kwds):
+        kwds = kwds.copy()
+        from pypy.rpython.lltypesystem import rffi
+
+        for item in self.__ATTRIBUTES:
+            if item not in kwds:
+                kwds[item] = getattr(self, '_%s_' % item, [])
+            else:
+                kwds[item] += getattr(self, '_%s_' % item, [])
+        stringpolicy = getattr(self, '_stringpolicy_', None)
+        if stringpolicy and 'stringpolicy' not in kwds:
+            kwds['stringpolicy'] = stringpolicy
+        return rffi.llexternal(*args, **kwds)
+
+    def _freeze_(self):
+        return True
 
 class genericcallable(object):
     """ A way to specify the callable annotation, but deferred until
@@ -85,34 +145,37 @@ class _ext_callable(ExtRegistryEntry):
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
 
+    # common case: args is a list of annotation or types
+    def normalize_args(self, *args_s):
+        args = self.signature_args
+        signature_args = [annotation(arg, None) for arg in args]
+        assert len(args_s) == len(signature_args),\
+               "Argument number mismatch"
+        for i, expected in enumerate(signature_args):
+            arg = unionof(args_s[i], expected)
+            if not expected.contains(arg):
+                name = getattr(self, 'name', None)
+                if not name:
+                    try:
+                        name = self.instance.__name__
+                    except AttributeError:
+                        name = '?'
+                raise Exception("In call to external function %r:\n"
+                                "arg %d must be %s,\n"
+                                "          got %s" % (
+                    name, i+1, expected, args_s[i]))
+        return signature_args
+
     def compute_result_annotation(self, *args_s):
         if hasattr(self, 'ann_hook'):
             self.ann_hook()
-        if self.signature_args is not None:
-            assert len(args_s) == len(self.signature_args),\
-                   "Argument number mismatch"
-            for i, expected in enumerate(self.signature_args):
-                arg = unionof(args_s[i], expected)
-                if not expected.contains(arg):
-                    name = getattr(self, 'name', None)
-                    if not name:
-                        try:
-                            name = self.instance.__name__
-                        except AttributeError:
-                            name = '?'
-                    raise Exception("In call to external function %r:\n"
-                                    "arg %d must be %s,\n"
-                                    "          got %s" % (
-                        name, i+1, expected, args_s[i]))
+        self.normalize_args(*args_s)   # check arguments
         return self.signature_result
 
     def specialize_call(self, hop):
         rtyper = hop.rtyper
-        if self.signature_args is None:
-            iter_args = hop.args_s
-        else:
-            iter_args = self.signature_args
-        args_r = [rtyper.getrepr(s_arg) for s_arg in iter_args]
+        signature_args = self.normalize_args(*hop.args_s)
+        args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
         r_result = rtyper.getrepr(hop.s_result)
         ll_result = r_result.lowleveltype
@@ -122,9 +185,22 @@ class ExtFuncEntry(ExtRegistryEntry):
         impl = getattr(self, method_name, None)
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
+            if rtyper.annotator.translator.config.translation.sandbox:
+                impl.dont_inline = True
+            # store some attributes to the 'impl' function, where
+            # the eventual call to rtyper.getcallable() will find them
+            # and transfer them to the final lltype.functionptr().
+            impl._llfnobjattrs_ = {
+                '_name': self.name,
+                '_safe_not_sandboxed': self.safe_not_sandboxed,
+                }
             obj = rtyper.getannmixlevel().delayedfunction(
-                impl, self.signature_args, hop.s_result)
+                impl, signature_args, hop.s_result)
         else:
+            #if not self.safe_not_sandboxed:
+            #    print '>>>>>>>>>>>>>-----------------------------------'
+            #    print name, self.name
+            #    print '<<<<<<<<<<<<<-----------------------------------'
             obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
                                  name, _external_name=self.name, _callable=fakeimpl,
                                  _safe_not_sandboxed=self.safe_not_sandboxed)
@@ -132,7 +208,7 @@ class ExtFuncEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 
-def _register_external(function, args, result=None, export_name=None,
+def register_external(function, args, result=None, export_name=None,
                        llimpl=None, ooimpl=None,
                        llfakeimpl=None, oofakeimpl=None,
                        annotation_hook=None,
@@ -151,10 +227,16 @@ def _register_external(function, args, result=None, export_name=None,
     class FunEntry(ExtFuncEntry):
         _about_ = function
         safe_not_sandboxed = sandboxsafe
+
         if args is None:
-            signature_args = None
-        else:
-            signature_args = [annotation(arg, None) for arg in args]
+            def normalize_args(self, *args_s):
+                return args_s    # accept any argument unmodified
+        elif callable(args):
+            # custom annotation normalizer (see e.g. os.utime())
+            normalize_args = staticmethod(args)
+        else: # use common case behavior
+            signature_args = args
+
         signature_result = annotation(result, None)
         name=export_name
         if llimpl:
@@ -173,7 +255,7 @@ def _register_external(function, args, result=None, export_name=None,
     else:
         FunEntry.__name__ = function.func_name
 
-BaseLazyRegistering.register = staticmethod(_register_external)
+BaseLazyRegistering.register = staticmethod(register_external)
 
 def is_external(func):
     if hasattr(func, 'value'):

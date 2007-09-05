@@ -2,7 +2,8 @@
 import types
 from pypy.annotation.model import SomeBool, SomeInteger, SomeString,\
      SomeFloat, SomeList, SomeDict, s_None, SomeExternalObject,\
-     SomeObject, SomeInstance, SomeTuple, lltype_to_annotation
+     SomeObject, SomeInstance, SomeTuple, lltype_to_annotation,\
+     unionof
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -129,6 +130,7 @@ class Sig(object):
                                                               len(args_s),
                                                               len(inputcells)))
         for i, (s_arg, s_input) in enumerate(zip(args_s, inputcells)):
+            s_input = unionof(s_input, s_arg)
             if not s_arg.contains(s_input):
                 raise Exception("%r argument %d:\n"
                                 "expected %s,\n"

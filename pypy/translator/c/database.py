@@ -363,5 +363,9 @@ class LowLevelDatabase(object):
         return result
 
     def need_sandboxing(self, fnobj):
-        return self.sandbox and (
-            not getattr(fnobj, '_safe_not_sandboxed', False))
+        if not self.sandbox:
+            return False
+        if hasattr(fnobj, '_safe_not_sandboxed'):
+            return not fnobj._safe_not_sandboxed
+        else:
+            return "if_external"

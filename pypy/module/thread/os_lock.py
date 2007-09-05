@@ -2,14 +2,14 @@
 Python locks, based on true threading locks provided by the OS.
 """
 
-import thread
+from pypy.module.thread import ll_thread as thread
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.interpreter.typedef import TypeDef
 
 # Force the declaration of the type 'thread.LockType' for RPython
-import pypy.module.thread.rpython.exttable
+#import pypy.module.thread.rpython.exttable
 
 
 ##import sys
@@ -42,10 +42,12 @@ The blocking operation is not interruptible."""
         # XXX Usage of threadlocals.GIL in this function is considered hackish.
         #     Ideally, all GIL knowledge should be in gil.py.
         mylock = self.lock
-        GIL = space.threadlocals.GIL
-        GIL.release()
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None:
+            GIL.release()
         result = mylock.acquire(bool(waitflag))
-        GIL.acquire(True)
+        if GIL is not None:
+            GIL.acquire(True)
         return space.newbool(result)
 
     def descr_lock_release(self, space):

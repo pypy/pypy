@@ -6,9 +6,9 @@ import sys
 import py
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rlib import ros
 
 py.test.skip("Extfunc support in llvm needs refactoring")
+# XXX in particular, try to share the tests from c/test/test_extfunc!
 
 from pypy.translator.llvm.test.runtest import *
 
@@ -319,80 +319,6 @@ def test_mkdir_rmdir():
 
 # more from translator/c/test/test_extfunc.py Revision: 19054
 
-
-def _real_getenv(var):
-    cmd = '''%s -c "import os; x=os.environ.get('%s'); print (x is None) and 'F' or ('T'+x)"''' % (
-        sys.executable, var)
-    g = os.popen(cmd, 'r')
-    output = g.read().strip()
-    g.close()
-    if output == 'F':
-        return None
-    elif output.startswith('T'):
-        return output[1:]
-    else:
-        raise ValueError, 'probing for env var returned %r' % (output,)
-
-def _real_envkeys():
-    cmd = '''%s -c "import os; print os.environ.keys()"''' % sys.executable
-    g = os.popen(cmd, 'r')
-    output = g.read().strip()
-    g.close()
-    if output.startswith('[') and output.endswith(']'):
-        return eval(output)
-    else:
-        raise ValueError, 'probing for all env vars returned %r' % (output,)
-
-def test_putenv():
-    s = 'abcdefgh=12345678'
-    def put():
-        ros.putenv(s)
-        return 0
-    func = compile_function(put, [], isolate=False)
-    func()
-    assert _real_getenv('abcdefgh') == '12345678'
-
-posix = __import__(os.name)
-if hasattr(posix, "unsetenv"):
-    def test_unsetenv():
-        def unsetenv():
-            os.unsetenv("ABCDEF")
-            return 0
-        f = compile_function(unsetenv, [], isolate=False)
-        os.putenv("ABCDEF", "a")
-        assert _real_getenv('ABCDEF') == 'a'
-        f()
-        assert _real_getenv('ABCDEF') is None
-        f()
-        assert _real_getenv('ABCDEF') is None
-
-def test_opendir_readdir():
-    s = str(udir)
-    result = []
-    def mylistdir():
-        dir = ros.opendir(s)
-        try:
-            while True:
-                nextentry = dir.readdir()
-                if nextentry is None:
-                    break
-                result.append(nextentry)
-        finally:
-            dir.closedir()
-        return 0
-    func = compile_function(mylistdir, [])
-    result = func()
-    py.test.skip("XXX need to check result - somehow")
-
-    result = result.split('\x00')
-    assert '.' in result
-    assert '..' in result
-    result.remove('.')
-    result.remove('..')
-    result.sort()
-    compared_with = os.listdir(str(udir))
-    compared_with.sort()
-    assert result == compared_with
 
 def test_lock():
     py.test.skip("XXX does not work with exception transform (why not?)")

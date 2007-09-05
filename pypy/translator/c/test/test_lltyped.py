@@ -305,3 +305,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(f, [int])
         res = fn(10)
         assert res == 0
+
+    def test_cast_primitive(self):
+        def f(x):
+            x = cast_primitive(UnsignedLongLong, x)
+            x <<= 60
+            x /= 3
+            x <<= 1
+            x = cast_primitive(SignedLongLong, x)
+            x >>= 32
+            return cast_primitive(Signed, x)
+        fn = self.getcompiled(f, [int])
+        res = fn(14)
+        assert res == -1789569707

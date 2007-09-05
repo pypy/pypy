@@ -33,6 +33,7 @@ def test_ntpath():
     interpret(f, [])
 
 def test_isdir():
+    import py; py.test.skip("XXX cannot run os.stat() on the llinterp yet")
     s = str(udir.join('test_isdir'))
     def f():
         return os.path.isdir(s)

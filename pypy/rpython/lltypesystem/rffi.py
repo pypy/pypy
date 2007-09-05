@@ -1,4 +1,5 @@
 
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import ll2ctypes
@@ -6,6 +7,10 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import Symbolic, CDefinedIntSymbolic
 from pypy.rlib import rarithmetic
+from pypy.rpython.rbuiltin import parse_kwds
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.tool.sourcetools import func_with_new_name
 import os
 
 class CConstant(Symbolic):
@@ -22,19 +27,69 @@ class CConstant(Symbolic):
         return self.TP
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
-               libraries=[], include_dirs=[]):
+               libraries=[], include_dirs=[], sandboxsafe=False,
+               canraise=False, stringpolicy='noauto'):
+    """ String policies:
+    autocast - automatically cast to ll_string, but don't delete it
+    fullauto - automatically cast + delete is afterwards
+    noauto - don't do anything
+
+    WARNING: It's likely that in future we'll decide to use fullauto by
+             default
+    """
     ext_type = lltype.FuncType(args, result)
+    if _callable is None:
+        _callable = ll2ctypes.LL2CtypesCallable(ext_type)
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  sources=tuple(sources),
                                  includes=tuple(includes),
                                  libraries=tuple(libraries),
                                  include_dirs=tuple(include_dirs),
-                                 _callable=_callable)
-    if _callable is None:
-        ll2ctypes.make_callable_via_ctypes(funcptr)
-    return funcptr
+                                 _callable=_callable,
+                                 _safe_not_sandboxed=sandboxsafe,
+                                 _debugexc=True, # on top of llinterp
+                                 canraise=canraise)
+    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        _callable.funcptr = funcptr
 
-from pypy.rpython.lltypesystem.rfficache import platform
+    unrolling_arg_tps = unrolling_iterable(enumerate(args))
+    def wrapper(*args):
+        # XXX the next line is a workaround for the annotation bug
+        # shown in rpython.test.test_llann:test_pbctype.  Remove it
+        # when the test is fixed...
+        assert isinstance(lltype.Signed, lltype.Number)
+        real_args = ()
+        if stringpolicy == 'fullauto':
+            to_free = ()
+        for i, tp in unrolling_arg_tps:
+            ll_str = None
+            if isinstance(tp, lltype.Number):
+                real_args = real_args + (cast(tp, args[i]),)
+            elif tp is lltype.Float:
+                real_args = real_args + (float(args[i]),)
+            elif tp is CCHARP and (stringpolicy == 'fullauto' or
+                     stringpolicy == 'autocast'):
+                ll_str = str2charp(args[i])
+                real_args = real_args + (ll_str,)
+            else:
+                real_args = real_args + (args[i],)
+            if stringpolicy == 'fullauto':
+                if tp is CCHARP:
+                    to_free = to_free + (ll_str,)
+                else:
+                    to_free = to_free + (None,)
+        result = funcptr(*real_args)
+        if stringpolicy == 'fullauto':
+            for i, tp in unrolling_arg_tps:
+                if tp is CCHARP:
+                    lltype.free(to_free[i], flavor='raw')
+        return result
+    wrapper._always_inline_ = True
+    # for debugging, stick ll func ptr to that
+    wrapper._ptr = funcptr
+    return func_with_new_name(wrapper, name)
+
+from pypy.rpython.tool.rfficache import platform
 
 TYPES = []
 for _name in 'short int long'.split():
@@ -45,6 +100,9 @@ TYPES += ['signed char', 'unsigned char',
 if os.name != 'nt':
     TYPES.append('mode_t')
     TYPES.append('pid_t')
+else:
+    MODE_T = lltype.Signed
+    PID_T = lltype.Signed
 
 def setup():
     """ creates necessary c-level types
@@ -92,7 +150,16 @@ def CStruct(name, *fields, **kwds):
     # Hack: prefix all attribute names with 'c_' to cope with names starting
     # with '_'.  The genc backend removes the 'c_' prefixes...
     c_fields = [('c_' + key, value) for key, value in fields]
-    return lltype.Ptr(lltype.Struct(name, *c_fields, **kwds))
+    return lltype.Struct(name, *c_fields, **kwds)
+
+def CStructPtr(*args, **kwds):
+    return lltype.Ptr(CStruct(*args, **kwds))
+
+def CFixedArray(tp, size):
+    return lltype.FixedSizeArray(tp, size)
+
+def CArray(tp):
+    return lltype.Array(tp, hints={'nolength': True})
 
 def COpaque(name, hints=None, **kwds):
     if hints is None:
@@ -107,7 +174,10 @@ def COpaque(name, hints=None, **kwds):
             result.append(size)
         return result[0]
     hints['getsize'] = lazy_getsize
-    return lltype.Ptr(lltype.OpaqueType(name, hints))
+    return lltype.OpaqueType(name, hints)
+
+def COpaquePtr(*args, **kwds):
+    return lltype.Ptr(COpaque(*args, **kwds))
 
 def CExternVariable(TYPE, name):
     """Return a pair of functions - a getter and a setter - to access
@@ -144,6 +214,9 @@ CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
 # int *
 INTP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+
+# double *
+DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 
 # various type mapping
 # str -> char*
@@ -191,4 +264,64 @@ def free_charpp(ref):
     lltype.free(ref, flavor='raw')
 
 cast = ll2ctypes.force_cast      # a forced, no-checking cast
-    
+
+
+def size_and_sign(tp):
+    size = sizeof(tp)
+    try:
+        unsigned = not tp._type.SIGNED
+    except AttributeError:
+        if tp in [lltype.Char, lltype.Float, lltype.Signed] or\
+               isinstance(tp, lltype.Ptr):
+            unsigned = False
+        else:
+            unsigned = False
+    return size, unsigned
+
+def sizeof(tp):
+    if isinstance(tp, lltype.FixedSizeArray):
+        return sizeof(tp.OF) * tp.length
+    if isinstance(tp, lltype.Ptr):
+        tp = ULONG
+    if tp is lltype.Char:
+        return 1
+    if tp is lltype.Float:
+        return 8
+    assert isinstance(tp, lltype.Number)
+    if tp is lltype.Signed:
+        return ULONG._type.BITS/8
+    return tp._type.BITS/8
+
+# ********************** some helpers *******************
+
+def make(STRUCT, **fields):
+    """ Malloc a structure and populate it's fields
+    """
+    ptr = lltype.malloc(STRUCT, flavor='raw')
+    for name, value in fields.items():
+        setattr(ptr, name, value)
+    return ptr
+
+class MakeEntry(ExtRegistryEntry):
+    _about_ = make
+
+    def compute_result_annotation(self, s_type, **s_fields):
+        TP = s_type.const
+        if not isinstance(TP, lltype.Struct):
+            raise TypeError("make called with %s instead of Struct as first argument" % TP)
+        return annmodel.SomePtr(lltype.Ptr(TP))
+
+    def specialize_call(self, hop, **fields):
+        assert hop.args_s[0].is_constant()
+        vlist = [hop.inputarg(lltype.Void, arg=0)]
+        flags = {'flavor':'raw'}
+        vlist.append(hop.inputconst(lltype.Void, flags))
+        v_ptr = hop.genop('malloc', vlist, resulttype=hop.r_result.lowleveltype)
+        hop.has_implicit_exception(MemoryError)   # record that we know about it
+        hop.exception_is_here()
+        for name, i in fields.items():
+            name = name[2:]
+            v_arg = hop.inputarg(hop.args_r[i], arg=i)
+            v_name = hop.inputconst(lltype.Void, name)
+            hop.genop('setfield', [v_ptr, v_name, v_arg])
+        return v_ptr

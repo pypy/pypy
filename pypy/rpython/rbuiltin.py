@@ -352,6 +352,8 @@ def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
             v = r_tup.getitem(hop.llops, v_extra_args, n)
             vlist.append(v)
 
+    hop.has_implicit_exception(MemoryError)   # record that we know about it
+    hop.exception_is_here()
     return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
 def rtype_free(hop, i_flavor):

@@ -117,6 +117,13 @@ class Controller(object):
         from pypy.rpython.rcontrollerentry import rtypedelegate
         return rtypedelegate(self.setitem, hop)
 
+    def ctrl_delitem(self, s_obj, s_key):
+        return delegate(self.delitem, s_obj, s_key)
+
+    def rtype_delitem(self, hop):
+        from pypy.rpython.rcontrollerentry import rtypedelegate
+        return rtypedelegate(self.delitem, hop)
+
     def ctrl_is_true(self, s_obj):
         return delegate(self.is_true, s_obj)
 
@@ -236,6 +243,9 @@ class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
 
     def setitem((s_cin, s_key), s_value):
         s_cin.controller.ctrl_setitem(s_cin.s_real_obj, s_key, s_value)
+
+    def delitem((s_cin, s_key)):
+        s_cin.controller.ctrl_delitem(s_cin.s_real_obj, s_key)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):

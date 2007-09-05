@@ -4,7 +4,10 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rlib.objectmodel import free_non_gc_object
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret as llinterpret
+
+def interpret(f, args):
+    return llinterpret(f, args, malloc_check=False)
 
 def test_free_non_gc_object():
     class TestClass(object):

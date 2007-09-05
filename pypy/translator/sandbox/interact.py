@@ -12,6 +12,6 @@ from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print >> sys.stderr, __doc_
+        print >> sys.stderr, __doc__
         sys.exit(2)
     SimpleIOSandboxedProc(sys.argv[1:]).interact()

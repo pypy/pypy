@@ -127,6 +127,8 @@ class CBuilder(object):
         defines = defines.copy()
         if self.config.translation.countmallocs:
             defines['COUNT_OP_MALLOCS'] = 1
+        if self.config.translation.sandbox:
+            defines['RPY_SANDBOXED'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = check_under_under_thread()
         if not self.standalone:
@@ -370,6 +372,15 @@ class SourceGenerator:
 #        graph.simulate()
 #        graph.optimize()
 #        self.funcnodes = graph.ordered_funcnodes()
+
+    def write_extra_sources(self, sources):
+        basename = 'additional_node.c'
+        retval = []
+        for source in sorted(sources.keys()):
+            f = self.makefile(self.uniquecname(basename))
+            for include in sources[source]:
+                print >>f, "#include <%s>" % (include,)
+            print >>f, str(source)
 
     def uniquecname(self, name):
         assert name.endswith('.c')
@@ -618,14 +629,12 @@ def extra_information(database):
                 includes[include] = True
         if hasattr(node, 'sources'):
             for source in node.sources:
-                sources[source] = True
+                sources[source] = getattr(node, 'includes', [])
         if hasattr(node, 'include_dirs'):
             for include_dir in node.include_dirs:
                 include_dirs[include_dir] = True
     includes = includes.keys()
     includes.sort()
-    sources = sources.keys()
-    sources.sort()
     return includes, sources, include_dirs
 
 def gen_source_standalone(database, modulename, targetdir, 
@@ -672,6 +681,7 @@ def gen_source_standalone(database, modulename, targetdir,
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
+    sg.write_extra_sources(sources)
 
     # 3) start-up code
     print >> f
@@ -685,7 +695,7 @@ def gen_source_standalone(database, modulename, targetdir,
         print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
         fi.close()
 
-    return filename, sg.getextrafiles() + sources, include_dirs
+    return filename, sg.getextrafiles(), include_dirs
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
@@ -733,6 +743,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
+    sg.write_extra_sources(sources)
 
     #
     # Debugging info
@@ -846,7 +857,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     f.write(SETUP_PY % locals())
     f.close()
 
-    return filename, sg.getextrafiles() + sources, include_dirs
+    return filename, sg.getextrafiles(), include_dirs
 
 
 SETUP_PY = '''
@@ -887,6 +898,9 @@ debug_exc:
 
 debug_mem:
 \tmake CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
+
+llsafer:
+\tmake CFLAGS="-O2 -DRPY_LL_ASSERT"
 
 profile:
 \tmake CFLAGS="-g -pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"

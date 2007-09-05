@@ -145,7 +145,7 @@ class StructDefNode:
                 return '(*(%s) %s)' % (cdecl(self.db.gettype(FIRST), '*'),
                                        baseexpr)
         fldname = self.c_struct_field_name(fldname)
-        return '%s->%s' % (baseexpr, fldname)
+        return 'RPyField(%s, %s)' % (baseexpr, fldname)
 
     def definition(self):
         if self.fields is None:   # external definition only
@@ -240,7 +240,14 @@ class ArrayDefNode:
         return '%s.items[%d]' % (baseexpr, index)
 
     def ptr_access_expr(self, baseexpr, index):
-        return '%s->items[%d]' % (baseexpr, index)
+        assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
+        return self.itemindex_access_expr(baseexpr, index)
+
+    def itemindex_access_expr(self, baseexpr, indexexpr):
+        if self.ARRAY._hints.get('nolength', False):
+            return 'RPyNLenItem(%s, %s)' % (baseexpr, indexexpr)
+        else:
+            return 'RPyItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
         gcpolicy = self.db.gcpolicy
@@ -321,9 +328,16 @@ class FixedSizeArrayDefNode:
         if not isinstance(index, int):
             assert index.startswith('item')
             index = int(index[4:])
+        if not (0 <= index < self.FIXEDARRAY.length):
+            raise IndexError("refusing to generate a statically out-of-bounds"
+                             " array indexing")
         return '%s[%d]' % (baseexpr, index)
 
     ptr_access_expr = access_expr
+
+    def itemindex_access_expr(self, baseexpr, indexexpr):
+        return 'RPyFxItem(%s, %s, %d)' % (baseexpr, indexexpr,
+                                          self.FIXEDARRAY.length)
 
     def definition(self):
         return []    # no declaration is needed
@@ -694,10 +708,28 @@ class FuncNode(ContainerNode):
         del bodyiter
         funcgen.implementation_end()
 
+def sandbox_stub(fnobj, db):
+    # unexpected external function for --sandbox translation: replace it
+    # with a "Not Implemented" stub.  To support these functions, port them
+    # to the new style registry (e.g. rpython.module.ll_os.RegisterOs).
+    from pypy.translator.sandbox import rsandbox
+    graph = rsandbox.get_external_function_sandbox_graph(fnobj, db,
+                                                      force_stub=True)
+    return [FunctionCodeGenerator(graph, db)]
+
+def sandbox_transform(fnobj, db):
+    # for --sandbox: replace a function like os_open_llimpl() with
+    # code that communicates with the external process to ask it to
+    # perform the operation.
+    from pypy.translator.sandbox import rsandbox
+    graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
+    return [FunctionCodeGenerator(graph, db)]
+
 def select_function_code_generators(fnobj, db, functionname):
     sandbox = db.need_sandboxing(fnobj)
     if hasattr(fnobj, '_external_name'):
-        assert not sandbox
+        if sandbox:
+            return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._external_name] = fnobj
         return []
     elif fnobj._callable in extfunc.EXTERNALS:
@@ -705,32 +737,31 @@ def select_function_code_generators(fnobj, db, functionname):
         # 'fnobj' is one of the ll_xyz() functions with the suggested_primitive
         # flag in pypy.rpython.module.*.  The corresponding C wrappers are
         # written by hand in src/ll_*.h, and declared in extfunc.EXTERNALS.
-        assert (not sandbox
-                or fnobj._name.startswith('ll_strtod_')   # XXX!! TEMPORARY!
+        if sandbox and not (
+                   fnobj._name.startswith('ll_strtod_')   # XXX!! TEMPORARY!
                 or fnobj._name.startswith('ll_time_')   # XXX!! TEMPORARY!
                 or fnobj._name.startswith('ll_stack_')   # XXX!! TEMPORARY!
-                )
+                ):
+            return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._callable] = fnobj
         return []
     elif getattr(fnobj._callable, 'suggested_primitive', False):
         raise ValueError, "trying to compile suggested primitive %r" % (
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
+        if sandbox and sandbox != "if_external":
+            # apply the sandbox transformation
+            return sandbox_transform(fnobj, db)
         exception_policy = getattr(fnobj, 'exception_policy', None)
         return [FunctionCodeGenerator(fnobj.graph, db, exception_policy,
                                       functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
+        if sandbox:
+            return sandbox_stub(fnobj, db)
         if hasattr(fnobj, 'includes'):
-            # apply the sandbox transformation
-            if sandbox:
-                from pypy.translator.sandbox import rsandbox
-                graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
-                return [FunctionCodeGenerator(graph, db)]
-            else:
-                return []   # assume no wrapper needed
+            return []   # assume no wrapper needed
         else:
             # deprecated case
-            assert not sandbox
             return [CExternalFunctionCodeGenerator(fnobj, db)]
     else:
         raise ValueError, "don't know how to generate code for %r" % (fnobj,)

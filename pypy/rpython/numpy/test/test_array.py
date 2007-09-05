@@ -14,10 +14,16 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.rint import IntegerRepr
+
+def setup_module(mod):
+    try:
+        import numpy
+    except ImportError:
+        py.test.skip("numpy not found")
+    mod.numpy = numpy
+
 from pypy.rpython.numpy.rarray import ArrayRepr
 from pypy.rpython.numpy.aarray import SomeArray
-
-import numpy
 
 test_c_compile = True
 test_llvm_compile = False

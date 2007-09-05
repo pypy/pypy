@@ -44,8 +44,6 @@ class TranslationContext(object):
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
 
-        self._implicitly_called_by_externals = []
-
     def create_flowspace_config(self):
         # XXX this is a hack: we create a new config, which is only used
         # for the flow object space. The problem is that the flow obj space

@@ -7,55 +7,13 @@ from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_os
 from pypy.rpython.module import ll_stackless, ll_stack
-from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
-from pypy.rpython.lltypesystem.module.ll_os import WAITPID_RESULT
-from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_strtod
-from pypy.rlib import ros
-
-try:
-    from pypy.module.thread.rpython import ll_thread
-except ImportError:
-    ll_thread = None
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
 # references to functions, so we cannot insert classmethods here.
 
 EXTERNALS = {
-    impl.ll_os_stat.im_func:    'LL_os_stat',
-    impl.ll_os_fstat.im_func:   'LL_os_fstat',
-    impl.ll_os_lstat.im_func:   'LL_os_lstat',
-    impl.ll_os_lseek.im_func:   'LL_os_lseek',
-    impl.ll_os_isatty.im_func:  'LL_os_isatty',
-    impl.ll_os_ftruncate.im_func:'LL_os_ftruncate',
-    impl.ll_os_strerror.im_func: 'LL_os_strerror',
-    impl.ll_os_system.im_func:  'LL_os_system',
-    impl.ll_os_unlink.im_func:  'LL_os_unlink',
-    impl.ll_os_chdir.im_func:   'LL_os_chdir',
-    impl.ll_os_mkdir.im_func:   'LL_os_mkdir',
-    impl.ll_os_rmdir.im_func:   'LL_os_rmdir',
-    impl.ll_os_putenv.im_func:  'LL_os_putenv',
-    impl.ll_os_unsetenv.im_func:'LL_os_unsetenv',
-    impl.ll_os_environ.im_func: 'LL_os_environ',
-    impl.ll_os_opendir.im_func: 'LL_os_opendir',
-    impl.ll_os_readdir.im_func: 'LL_os_readdir',
-    impl.ll_os_closedir.im_func:'LL_os_closedir',
-    impl.ll_os_pipe.im_func:    'LL_os_pipe',
-    impl.ll_os_chmod.im_func:   'LL_os_chmod',
-    impl.ll_os_rename.im_func:  'LL_os_rename',
-    impl.ll_os_umask.im_func:   'LL_os_umask',
-    impl.ll_os_kill.im_func:    'LL_os_kill',
-    impl.ll_os_link.im_func:    'LL_os_link',
-    impl.ll_os_symlink.im_func: 'LL_os_symlink',
-    impl.ll_readlink_into:      'LL_readlink_into',
-    impl.ll_os_fork.im_func:    'LL_os_fork',
-    impl.ll_os_spawnv.im_func:  'LL_os_spawnv',
-    impl.ll_os_waitpid.im_func: 'LL_os_waitpid',
-    impl.ll_os__exit.im_func:   'LL_os__exit',
-    ll_time.ll_time_clock: 'LL_time_clock',
-    ll_time.ll_time_sleep: 'LL_time_sleep',
-    ll_time.ll_time_time:  'LL_time_time',
     ll_strtod.Implementation.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
     ll_strtod.Implementation.ll_strtod_formatd:
@@ -65,15 +23,6 @@ EXTERNALS = {
     ll_stack.ll_stack_unwind: 'LL_stack_unwind',
     ll_stack.ll_stack_too_big: 'LL_stack_too_big',
     }
-
-if ll_thread: EXTERNALS.update({
-    ll_thread.ll_newlock:            'LL_thread_newlock',
-    ll_thread.ll_acquirelock:        'LL_thread_acquirelock',
-    ll_thread.ll_releaselock:        'LL_thread_releaselock',
-    ll_thread.ll_fused_releaseacquirelock: 'LL_thread_fused_releaseacquirelock',
-    ll_thread.ll_thread_start:     'LL_thread_start',
-    ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
-    })
 
 #______________________________________________________
 # insert 'simple' math functions into EXTERNALs table:
@@ -85,8 +34,9 @@ if ll_thread: EXTERNALS.update({
 math_functions = [
     'acos', 'asin', 'atan', 'ceil', 'cos', 'cosh', 'exp', 'fabs',
     'floor', 'log', 'log10', 'sin', 'sinh', 'sqrt', 'tan', 'tanh',
-    'frexp', 'pow', 'atan2', 'fmod', 'ldexp', 'modf', 'hypot'
+    'pow', 'atan2', 'fmod', 'ldexp', 'hypot'
     ]
+# frexp and modf have been ported to the new rffi style already
 
 import math
 for name in math_functions:
@@ -109,11 +59,6 @@ def predeclare_common_types(db, rtyper):
     LIST_OF_STR = find_list_of_str(rtyper)
     if LIST_OF_STR is not None:
         yield ('RPyListOfString', LIST_OF_STR)
-    yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
-    yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
-    yield ('RPySTAT_RESULT', STAT_RESULT)
-    yield ('RPyPIPE_RESULT', PIPE_RESULT)
-    yield ('RPyWAITPID_RESULT', WAITPID_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
@@ -160,24 +105,6 @@ def predeclare_utility_functions(db, rtyper):
                 db.helper2ptr[LIST_OF_STR, fname] = graph
                 yield (fname, graph)
 
-
-def get_extfunc_helper_ptrs(db, rtyper):
-
-    def annotate(func, args):
-        fptr = rtyper.annotate_helper(func, args)
-        db.helper2ptr[func] = fptr
-        return (func.__name__, fptr)
-
-    for func, args, symb in db.translator._implicitly_called_by_externals:
-        yield annotate(func, args)
-
-def predeclare_extfunc_helpers(db, rtyper):
-    def decl(func):
-        return (func.__name__, db.helper2ptr[func])
-
-    for func, args, symb in db.translator._implicitly_called_by_externals:
-        yield decl(func)
-        yield ('LL_NEED_' + symb, 1)
 
 def predeclare_extfuncs(db, rtyper):
     modules = {}
@@ -234,7 +161,6 @@ def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
-               predeclare_extfunc_helpers,
                predeclare_extfuncs,
                ]:
         for t in fn(db, rtyper):
@@ -245,7 +171,6 @@ def get_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
-               get_extfunc_helper_ptrs,
                predeclare_extfuncs,
                ]:
         for t in fn(db, rtyper):

@@ -1,13 +1,10 @@
-import thread
+from pypy.module.thread import ll_thread as thread
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import GetSetProperty, descr_get_dict
 from pypy.interpreter.typedef import descr_set_dict
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
-
-# Force the declaration of thread.start_new_thread() & co. for RPython
-import pypy.module.thread.rpython.exttable
 
 
 class Local(Wrappable):

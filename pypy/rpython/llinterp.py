@@ -42,7 +42,8 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, typer, heap=llheap, tracing=True, exc_data_ptr=None):
+    def __init__(self, typer, heap=llheap, tracing=True, exc_data_ptr=None,
+                 malloc_check=True):
         self.bindings = {}
         self.typer = typer
         self.heap = heap  #module that provides malloc, etc for lltypes
@@ -52,7 +53,9 @@ class LLInterpreter(object):
         # prepare_graphs_and_create_gc might already use the llinterpreter!
         self.gc = None
         self.tracer = None
+        self.malloc_check = malloc_check
         self.frame_class = LLFrame
+        self.mallocs = {}
         if hasattr(heap, "prepare_graphs_and_create_gc"):
             flowgraphs = typer.annotator.translator.graphs
             self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
@@ -158,6 +161,12 @@ class LLInterpreter(object):
             return self.exc_data_ptr
         return None
 
+    def remember_malloc(self, ptr, llframe):
+        # err....
+        self.mallocs[ptr._obj] = llframe
+
+    def remember_free(self, ptr):
+        del self.mallocs[ptr._obj]
 
 def checkptr(ptr):
     assert isinstance(lltype.typeOf(ptr), lltype.Ptr)
@@ -439,8 +448,12 @@ class LLFrame(object):
             return obj._callable(*args)
         except LLException, e:
             raise
-        except Exception:
+        except Exception, e:
             if getattr(obj, '_debugexc', False):
+                log.ERROR('The llinterpreter got an '
+                          'unexpected exception when calling')
+                log.ERROR('the external function %r:' % (fptr,))
+                log.ERROR('%s: %s' % (e.__class__.__name__, e))
                 import sys
                 from pypy.translator.tool.pdbplus import PdbPlusShow
                 PdbPlusShow(None).post_mortem(sys.exc_info()[2])
@@ -629,8 +642,11 @@ class LLFrame(object):
                 return result
             else:
                 raise ValueError("cannot allocate variable-sized things on the stack")
-            
-        return self.heap.malloc(obj, zero=zero, flavor=flavor)
+
+        ptr = self.heap.malloc(obj, zero=zero, flavor=flavor)
+        if flavor == 'raw' and self.llinterpreter.malloc_check:
+            self.llinterpreter.remember_malloc(ptr, self)
+        return ptr
 
     # only after gc transform
     def op_cpy_malloc(self, obj, cpytype): # xxx
@@ -650,12 +666,17 @@ class LLFrame(object):
             return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
         assert flavor in ('gc', 'raw')
         try:
-            return self.heap.malloc(obj, size, zero=zero, flavor=flavor)
+            ptr = self.heap.malloc(obj, size, zero=zero, flavor=flavor)
+            if flavor == 'raw' and self.llinterpreter.malloc_check:
+                self.llinterpreter.remember_malloc(ptr, self)
+            return ptr
         except MemoryError:
             self.make_llexception()
 
     def op_free(self, obj, flavor):
         assert isinstance(flavor, str)
+        if flavor == 'raw' and self.llinterpreter.malloc_check:
+            self.llinterpreter.remember_free(obj)
         self.heap.free(obj, flavor=flavor)
 
     def op_zero_gc_pointers_inside(self, obj):

@@ -2,6 +2,7 @@
 /* Posix threads interface (from CPython) */
 
 #include <pthread.h>
+#include <stdio.h>
 #include <errno.h>
 
 /* The POSIX spec says that implementations supporting the sem_*

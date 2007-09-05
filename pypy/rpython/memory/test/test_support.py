@@ -94,5 +94,5 @@ def test_linked_list_annotate():
     assert f()
     from pypy.rpython.memory.lladdress import raw_malloc, raw_free
     AddressLinkedList = get_address_linked_list()
-    res = interpret(f, [])
+    res = interpret(f, [], malloc_check=False)
     assert res

@@ -145,7 +145,6 @@ namespace pypy.builtin
         private static Dictionary<int, IFile> FileDescriptors;
         private static int fdcount;
         private static Dictionary<int, string> ErrorMessages;
-        private static SortedList MyEnviron;
         
         // NB: these values are those used by Windows and they differs
         // from the Unix ones; the os module is patched with these
@@ -167,8 +166,6 @@ namespace pypy.builtin
         static ll_os()
         {
             ErrorMessages = new Dictionary<int, string>();
-            MyEnviron = new SortedList(Environment.GetEnvironmentVariables());
-
             FileDescriptors = new Dictionary<int, IFile>();
             // XXX: what about CRLF conversion for stdin, stdout and stderr?
             // It seems that Posix let you read from stdout and
@@ -347,31 +344,43 @@ namespace pypy.builtin
             File.Delete(path);
         }
 
-        public static string ll_os_environ(int index)
+        public static void ll_os_putenv(string key, string value)
         {
-            try {
-                string key = (string)MyEnviron.GetKey(index);
-                string value = (string)MyEnviron.GetByIndex(index);
-                return string.Format("{0}={1}", key, value);
-            }
-            catch(ArgumentOutOfRangeException) {
-                return null;
-            }
+            Environment.SetEnvironmentVariable(key, value);
         }
 
-        public static void ll_os_putenv(string s)
+        public static string ll_os_getenv(string key)
         {
-            char[] delim = {'='};
-            string[] parts = s.Split(delim, 2);
-            Environment.SetEnvironmentVariable(parts[0], parts[1]);
+            return Environment.GetEnvironmentVariable(key);
         }
 
         public static void ll_os_unsetenv(string s)
         {
             Environment.SetEnvironmentVariable(s, null);
         }
+
+        public static pypy.runtime.List<Record_String_String> ll_os_envitems()
+        {
+            pypy.runtime.List<Record_String_String> env = new pypy.runtime.List<Record_String_String>();
+            foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+                {
+                    Record_String_String var = new Record_String_String();
+                    var.item0 = (string)entry.Key;
+                    var.item1 = (string)entry.Value;
+                    env.Add(var);
+                }
+            return env;
+        }
+
+        public static pypy.runtime.List<string> ll_os_envkeys()
+        {
+            pypy.runtime.List<string> keys = new pypy.runtime.List<string>();
+            foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+                keys.Add((string)entry.Key);
+            return keys;
+        }
      
-        public static long ll_os_lseek(int fd, int offset, int whence)
+        public static long ll_os_lseek(int fd, long offset, int whence)
         {
             SeekOrigin origin = SeekOrigin.Begin;
             switch(whence)

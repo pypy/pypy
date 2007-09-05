@@ -1316,6 +1316,14 @@ class TestAnnotateTestCase:
         # result should be an integer
         assert s.knowntype == int
 
+    def test_inplace_div(self):
+        def f(n):
+            n /= 2
+            return n / 2
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.knowntype == int
+
     def test_prime(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.prime, [int])
@@ -2464,6 +2472,19 @@ class TestAnnotateTestCase:
             return g(x)
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int])
+        assert not s.is_constant()
+
+    def test_sig_list(self):
+        def g(buf):
+            buf.append(5)
+        g._annenforceargs_ = ([int],)
+        def fun():
+            lst = []
+            g(lst)
+            return lst[0]
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [])
+        assert s.knowntype is int
         assert not s.is_constant()
 
     def test_slots_check(self):

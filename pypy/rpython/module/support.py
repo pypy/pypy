@@ -36,6 +36,11 @@ class LLSupport:
             return ''.join([rs.chars[i] for i in range(len(rs.chars))])
     from_rstr = staticmethod(from_rstr)
 
+    def from_rstr_nonnull(rs):
+        assert rs
+        return ''.join([rs.chars[i] for i in range(len(rs.chars))])
+    from_rstr_nonnull = staticmethod(from_rstr_nonnull)
+
 class OOSupport:
     _mixin_ = True
 
@@ -49,6 +54,11 @@ class OOSupport:
         else:
             return "".join([rs.ll_stritem_nonneg(i) for i in range(rs.ll_strlen())])
     from_rstr = staticmethod(from_rstr)        
+
+    def from_rstr_nonnull(rs):
+        assert rs
+        return "".join([rs.ll_stritem_nonneg(i) for i in range(rs.ll_strlen())])
+    from_rstr_nonnull = staticmethod(from_rstr_nonnull)
 
 
 def ll_strcpy(dst_s, src_s, n):

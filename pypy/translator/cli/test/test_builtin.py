@@ -5,6 +5,7 @@ from py.builtin import sorted
 from pypy.tool import udir
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
+from pypy.rpython.module.test.test_ll_time import BaseTestTime
 
 def skip_os(self):
     py.test.skip("CLI doesn't support the os module, yet")
@@ -90,9 +91,14 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         assert contents == long2str(MAGIC)
 
     def test_os_stat(self):
-        def fn():
-            return os.stat('.')[0]
-        mode = self.interpret(fn, [])
+        def fn(flag):
+            if flag:
+                return os.stat('.')[0]
+            else:
+                return os.stat('.').st_mode
+        mode = self.interpret(fn, [0])
+        assert stat.S_ISDIR(mode)
+        mode = self.interpret(fn, [1])
         assert stat.S_ISDIR(mode)
 
     def test_os_stat_oserror(self):
@@ -105,6 +111,21 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
             return os.strerror(errno.ENOTDIR)
         res = self.ll_to_string(self.interpret(fn, []))
         # XXX assert something about res
+
+    def test_environ(self):
+        def fn():
+            os.environ['PYPY_TEST_ENVIRON'] = '42'
+            return os.environ['PYPY_TEST_ENVIRON']
+        assert self.interpret(fn, []) == '42'
+
+    def test_environ_items(self):
+        def fn():
+            env = os.environ.items()
+            env2 = []
+            for key in os.environ.keys():
+                env2.append((key, os.environ[key]))
+            assert env == env2
+        self.interpret(fn, [])
 
     def test_os_listdir(self):
         def fn():
@@ -123,3 +144,14 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
             return os.path.join(a, b)
         res = self.ll_to_string(self.interpret(fn, ['a', 'b']))
         assert res == os.path.join('a', 'b')
+
+class TestCliTime(CliTest, BaseTestTime):
+
+    def test_time_clock(self):
+        import time
+        def f():
+            return time.clock(), time.clock(), time.clock()
+        res = self.interpret(f, [])
+        t1, t2, t3 = self.ll_to_tuple(res)
+        assert 0 <= t1 <= t2 <= t3
+

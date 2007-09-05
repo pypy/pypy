@@ -27,12 +27,3 @@ class Module(MixedModule):
         prev = space.threadlocals.getvalue()
         space.threadlocals = gil.GILThreadLocals()
         space.threadlocals.setvalue(prev)
-        space.threadlocals.enter_thread(space)   # setup the main thread
-        # add the GIL-releasing callback as an action on the space
-        space.pending_actions.append(gil.GILReleaseAction(space.threadlocals))
-
-    def setup_after_space_initialization(self):
-        # the import lock is in imp.py.  Import it after the space is fully
-        # initialized.
-        from pypy.module.__builtin__.importing import importhook
-        importhook(self.space, 'imp')

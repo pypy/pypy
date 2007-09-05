@@ -3,7 +3,7 @@
 """
 
 from pypy.rpython.extfunc import genericcallable
-from pypy.rpython.extfunc import _register_external as register_external
+from pypy.rpython.extfunc import register_external
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.modules import dom
 

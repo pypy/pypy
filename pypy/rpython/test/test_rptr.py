@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lltype import *
@@ -182,6 +182,24 @@ def test_flavored_malloc():
 
     res = interpret(fn, [23])
     assert res == 23
+
+def test_memoryerror():
+    A = Array(Signed)
+    def fn(n):
+        try:
+            a = malloc(A, n, flavor='raw')
+        except MemoryError:
+            return -42
+        else:
+            res = len(a)
+            free(a, flavor='raw')
+            return res
+
+    res = interpret(fn, [123])
+    assert res == 123
+
+    res = interpret(fn, [sys.maxint])
+    assert res == -42
 
 
 def test_call_ptr():

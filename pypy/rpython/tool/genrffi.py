@@ -37,21 +37,6 @@ _TYPE_MAPPING = {
 }
 
 
-def softwrapper(funcptr, arg_tps):
-    # Here we wrap with a function that does some simple type coercion.
-    unrolling_arg_tps = unrolling_iterable(enumerate(arg_tps))
-    def softfunc(*args):
-        real_args = ()
-        for i, tp in unrolling_arg_tps:
-            if tp == rffi.lltype.Float:
-                real_args = real_args + (float(args[i]),)
-            else:
-                real_args = real_args + (args[i],)
-        result = funcptr(*real_args)
-        return result
-    return softfunc
-
-
 class RffiBuilder(object):
     def __init__(self, ns=None, includes=[], libraries=[], include_dirs=[]):
         if ns is None:
@@ -105,9 +90,8 @@ class RffiBuilder(object):
             self.proc_tp(func.restype), 
             includes=self.includes, libraries=self.libraries, 
             include_dirs=self.include_dirs)
-        soft = softwrapper(ll_item, arg_tps)
-        self.ns[name] = soft
-        return soft
+        self.ns[name] = ll_item
+        return ll_item
 
     def proc_namespace(self, ns):
         exempt = set(id(value) for value in ctypes.__dict__.values())

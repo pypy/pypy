@@ -20,6 +20,7 @@ from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
 from pypy.rlib.jit import hint
+from pypy.rlib.rarithmetic import r_longlong
 
 # internal non-translatable parts: 
 import py
@@ -163,7 +164,7 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         app_sig.varargname = argname[2:]
 
     def visit__object(self, typ, app_sig):
-        if typ not in (int, str, float):
+        if typ not in (int, str, float, r_longlong):
             assert False, "unsupported basic type in unwrap_spec"
         self.checked_space_method(typ.__name__, app_sig)
 
@@ -209,7 +210,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append(self.scopenext())
 
     def visit__object(self, typ):
-        if typ not in (int, str, float):
+        if typ not in (int, str, float, r_longlong):
             assert False, "unsupported basic type in uwnrap_spec"
         self.run_args.append("space.%s_w(%s)" %
                              (typ.__name__, self.scopenext()))
@@ -322,7 +323,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         raise FastFuncNotSupported
 
     def visit__object(self, typ):
-        if typ not in (int, str, float):
+        if typ not in (int, str, float, r_longlong):
             assert False, "unsupported basic type in uwnrap_spec"
         self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
                                                self.nextarg()))
@@ -755,6 +756,9 @@ class ApplevelClass:
             self.can_use_geninterp = False
         else:
             self.can_use_geninterp = True
+
+    def __repr__(self):
+        return "<ApplevelClass filename=%r can_use_geninterp=%r>" % (self.filename, self.can_use_geninterp)
 
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)

@@ -1,6 +1,5 @@
 from pypy.module.thread.test.support import GenericTestThread
 
-
 class AppTestThread(GenericTestThread):
 
     def test_start_new_thread(self):

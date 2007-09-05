@@ -40,6 +40,9 @@ class __extend__(pairtype(ControlledInstanceRepr, Repr)):
     def rtype_setitem((r_controlled, r_key), hop):
         return r_controlled.controller.rtype_setitem(hop)
 
+    def rtype_delitem((r_controlled, r_key), hop):
+        return r_controlled.controller.rtype_delitem(hop)
+
 
 def rtypedelegate(callable, hop, revealargs=[0], revealresult=False):
     bk = hop.rtyper.annotator.bookkeeper

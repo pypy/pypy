@@ -42,6 +42,9 @@ class TypeDef:
         # hint for the annotator: track individual constant instances of TypeDef
         return True
 
+    def __repr__(self):
+        return "<%s name=%r>" % (self.__class__.__name__, self.name)
+
 
 # ____________________________________________________________
 #  Hash support

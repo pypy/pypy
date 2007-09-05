@@ -207,6 +207,18 @@ class _TypeOf(MicroInstruction):
         generator.ilasm.opcode('ldtoken', fullname)
         generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
+OOTYPE_TO_MNEMONIC = {
+    ootype.Signed: 'i4',
+    ootype.SignedLongLong: 'i8',
+    ootype.Unsigned: 'u4',
+    ootype.UnsignedLongLong: 'u8',
+    }
+
+class _CastPrimitive(MicroInstruction):
+    def render(self, generator, op):
+        TO = op.result.concretetype
+        mnemonic = OOTYPE_TO_MNEMONIC[TO]
+        generator.ilasm.opcode('conv.%s' % mnemonic)
 
 Call = _Call()
 CallMethod = _CallMethod()
@@ -221,3 +233,4 @@ NewArray = _NewArray()
 GetArrayElem = _GetArrayElem()
 SetArrayElem = _SetArrayElem()
 TypeOf = _TypeOf()
+CastPrimitive = _CastPrimitive()

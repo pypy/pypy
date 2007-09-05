@@ -11,12 +11,21 @@ int LL_stack_too_big(void);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
+#ifndef PYPY_NOINLINE
+# if defined __GNUC__
+#  define PYPY_NOINLINE __attribute__((noinline))
+# else
+// add hints for other compilers here ...
+#  define PYPY_NOINLINE
+# endif
+#endif
+
 void LL_stack_unwind(void)
 {
 	RPyRaiseSimpleException(PyExc_RuntimeError, "Recursion limit exceeded");
 }
 
-long _LL_stack_growing_direction(char *parent)
+long PYPY_NOINLINE _LL_stack_growing_direction(char *parent)
 {
 	char local;
 	if (parent == NULL)

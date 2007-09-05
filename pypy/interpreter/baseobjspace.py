@@ -837,6 +837,14 @@ class ObjSpace(object):
         else:
             return index
 
+    def r_longlong_w(self, w_obj):
+        bigint = self.bigint_w(w_obj)
+        try:
+            return bigint.tolonglong()
+        except OverflowError:
+            raise OperationError(self.w_OverflowError,
+                                 self.wrap('integer too large'))
+
 
 class AppExecCache(SpaceCache):
     def build(cache, source):

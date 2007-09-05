@@ -3,7 +3,7 @@ import py
 from random import random, randint
 from pypy.rlib.rbigint import rbigint, SHIFT, MASK
 from pypy.rlib import rbigint as lobj
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_longlong
 import operator, sys
 
 class TestRLong(object):
@@ -408,7 +408,16 @@ class TestInternalFunctions(object):
         ret = lobj._k_lopsided_mul(f1, f2)
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
-
+    def test_longlong(self):
+        max = 1L << (r_longlong.BITS-1)
+        f1 = rbigint.fromlong(max-1)    # fits in r_longlong
+        f2 = rbigint.fromlong(-max)     # fits in r_longlong
+        f3 = rbigint.fromlong(max)      # overflows
+        f4 = rbigint.fromlong(-max-1)   # overflows
+        assert f1.tolonglong() == max-1
+        assert f2.tolonglong() == -max
+        py.test.raises(OverflowError, f3.tolonglong)
+        py.test.raises(OverflowError, f4.tolonglong)
 
 
 class TestTranslatable(object):

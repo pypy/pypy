@@ -369,6 +369,7 @@ class __extend__(IntegerRepr):
         if self.lowleveltype in (Unsigned, UnsignedLongLong):
             raise TyperError("use intmask() instead of int(r_uint(...))")
         vlist = hop.inputargs(Signed)
+        hop.exception_cannot_occur()
         return vlist[0]
 
     def rtype_float(_, hop):

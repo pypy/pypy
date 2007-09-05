@@ -56,10 +56,23 @@ class TypeSystem(object):
         typ, constr = self.callable_trait
         
         FT = typ(llinputs, lloutput)
+        name = graph.name
         if hasattr(graph, 'func') and callable(graph.func):
-            return constr(FT, graph.name, graph = graph, _callable = graph.func)
+            # the Python function object can have _llfnobjattrs_, specifying
+            # attributes that are forced upon the functionptr().  The idea
+            # for not passing these extra attributes as arguments to
+            # getcallable() itself is that multiple calls to getcallable()
+            # for the same graph should return equal functionptr() objects.
+            if hasattr(graph.func, '_llfnobjattrs_'):
+                fnobjattrs = graph.func._llfnobjattrs_.copy()
+                # can specify a '_name', but use graph.name by default
+                name = fnobjattrs.pop('_name', name)
+            else:
+                fnobjattrs = {}
+            return constr(FT, name, graph = graph, _callable = graph.func,
+                          **fnobjattrs)
         else:
-            return constr(FT, graph.name, graph = graph)
+            return constr(FT, name, graph = graph)
 
     def getexternalcallable(self, ll_args, ll_result, name, **kwds):
         typ, constr = self.callable_trait

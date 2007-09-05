@@ -32,6 +32,7 @@ corresponding Unix manual entries for more information on calls."""
     'dup'       : 'interp_posix.dup',
     'dup2'      : 'interp_posix.dup2',
     'access'    : 'interp_posix.access',
+    'times'     : 'interp_posix.times',
     'system'    : 'interp_posix.system',
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
@@ -47,10 +48,8 @@ corresponding Unix manual entries for more information on calls."""
     'rename'    : 'interp_posix.rename',
     'umask'     : 'interp_posix.umask',
     '_exit'     : 'interp_posix._exit',
-    #'getuid'    : 'interp_posix.getuid',
-    #'geteuid'   : 'interp_posix.geteuid',
     'utime'     : 'interp_posix.utime',
-    'tmpfile'   : 'interp_posix.tmpfile',
+    '_statfields': 'interp_posix.getstatfields(space)',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'

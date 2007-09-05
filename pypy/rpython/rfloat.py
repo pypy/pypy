@@ -138,6 +138,9 @@ class __extend__(FloatRepr):
 
     def rtype_int(_, hop):
         vlist = hop.inputargs(Float)
+        # int(x) never raises in RPython, you need to use
+        # rarithmetic.ovfcheck_float_to_int() if you want this
+        hop.exception_cannot_occur()
         return hop.genop('cast_float_to_int', vlist, resulttype=Signed)
 
     rtype_float = rtype_pos

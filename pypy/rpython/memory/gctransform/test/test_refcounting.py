@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.memory.gctransform.test.test_transform import rtype, rtype_and_transform, getops
 from pypy.rpython.memory.gctransform.test.test_transform import LLInterpedTranformerTests
 from pypy.rpython.memory.gctransform.refcounting import RefcountingGCTransformer
@@ -42,6 +43,36 @@ class TestLLInterpedRefcounting(LLInterpedTranformerTests):
         assert res == 1
         res = llinterp.eval_graph(graph, [0])
         assert res == 3
+
+    def test_raw_instance_flavor(self):
+        # crashes for now because X() is not initialized with zeroes when
+        # it is allocated, but it's probably illegal to try to store
+        # references into a raw-malloced instance
+        py.test.skip("a probably-illegal test")
+        class State:
+            pass
+        state = State()
+        class Y:
+            def __del__(self):
+                state.freed_counter += 1
+        class X:
+            _alloc_flavor_ = 'raw'
+        def g():
+            x = X()
+            x.y = Y()
+            return x
+        def f():
+            from pypy.rlib.objectmodel import free_non_gc_object
+            state.freed_counter = 0
+            x = g()
+            assert state.freed_counter == 0
+            x.y = None
+            assert state.freed_counter == 1
+            free_non_gc_object(x)
+            # for now we have no automatic decref when free_non_gc_object() is
+            # called
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [])
+        llinterp.eval_graph(graph, [])
 
 def test_simple_barrier():
     S = lltype.GcStruct("S", ('x', lltype.Signed))

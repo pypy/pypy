@@ -19,35 +19,36 @@ class error(Exception):
 
 from pypy.tool.autopath import pypydir
 pypydir = py.path.local(pypydir)
-srcdir = pypydir.join('translator', 'c', 'src')
-includes = ['unistd.h', 'thread.h']
+c_dir = pypydir.join('translator', 'c')
+includes = ['unistd.h', 'src/thread.h']
 
 def setup_thread_so():
-    files = [srcdir.join('thread.c')]
+    files = [c_dir.join('src', 'thread.c')]
     modname = '_thread'
-    cache_c_module(files, modname, include_dirs=[str(srcdir)])
+    cache_c_module(files, modname, include_dirs=[str(c_dir)])
     return str(pypydir.join('_cache', modname)) + '.so'
 libraries = [setup_thread_so()]
 
 def llexternal(name, args, result):
     return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=libraries, include_dirs=[str(srcdir)])
+                           libraries=libraries, include_dirs=[str(c_dir)])
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
 c_thread_get_ident = llexternal('RPyThreadGetIdent', [], rffi.INT)
 
-TLOCKP = rffi.COpaque('struct RPyOpaque_ThreadLock', includes=includes)
+TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock', includes=includes)
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
-c_thread_acuirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
-                                 rffi.INT)
+c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
+                                  rffi.INT)
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
 
 def allocate_lock():
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
     res = c_thread_lock_init(ll_lock)
     if res == -1:
+        lltype.free(ll_lock, flavor='raw')
         raise error("out of resources")
     return Lock(ll_lock)
 
@@ -109,7 +110,7 @@ class Lock(object):
         self._lock = ll_lock
 
     def acquire(self, flag):
-        return bool(c_thread_acuirelock(self._lock, int(flag)))
+        return bool(c_thread_acquirelock(self._lock, int(flag)))
 
     def release(self):
         try:

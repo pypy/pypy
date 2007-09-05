@@ -2,38 +2,38 @@
 Thread support based on OS-level threads.
 """
 
-import thread
+from pypy.module.thread import ll_thread as thread
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
+from pypy.rlib.objectmodel import free_non_gc_object
 
-# Force the declaration of thread.start_new_thread() & co. for RPython
-import pypy.module.thread.rpython.exttable
+# This code has subtle memory management issues in order to start
+# a new thread.  It should work correctly with Boehm, but the framework
+# GC will not see the references stored in the raw-malloced Bootstrapper
+# instances => crash.  It crashes with refcounting too
+# (see the skipped test_raw_instance_flavor in
+# rpython/memory/gctransformer/test/test_refcounting).
 
-
-THREAD_STARTUP_LOCK = thread.allocate_lock()
-
-
-class Bootstrapper:
+class Bootstrapper(object):
+    _alloc_flavor_ = 'raw'
+    
     def bootstrap(self):
         space = self.space
-        THREAD_STARTUP_LOCK.release()
         space.threadlocals.enter_thread(space)
         try:
             self.run()
         finally:
-            # release ownership of these objects before we release the GIL
+            # release ownership of these objects before we release the GIL.
+            # (for the refcounting gc it is necessary to reset the fields to
+            # None before we use free_non_gc_object(), because the latter
+            # doesn't know that it needs to decref the fields)
             self.args       = None
             self.w_callable = None
-            # at this point the thread should only have a reference to
-            # an empty 'self'.  We hold the last reference to 'self'; indeed,
-            # the parent thread already forgot about it because the above
-            # enter_thread() must have blocked until long after the call to
-            # start_new_thread() below returned.
-            # (be careful of resetting *all* local variables to None here!)
-
+            # we can free the empty 'self' structure now
+            free_non_gc_object(self)
             # clean up space.threadlocals to remove the ExecutionContext
-            # entry corresponding to the current thread
+            # entry corresponding to the current thread and release the GIL
             space.threadlocals.leave_thread(space)
 
     def run(self):
@@ -50,6 +50,14 @@ class Bootstrapper:
             e.clear(space)
 
 
+def setup_threads(space):
+    if space.threadlocals.setup_threads(space):
+        # the import lock is in imp.py, which registers a custom import
+        # hook with this lock.
+        from pypy.module.__builtin__.importing import importhook
+        importhook(space, 'imp')
+
+
 def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):
     """Start a new thread and return its identifier.  The thread will call the
 function with positional arguments from the tuple args and keyword arguments
@@ -57,6 +65,7 @@ taken from the optional dictionary kwargs.  The thread exits when the
 function returns; the return value is ignored.  The thread will also exit
 when the function raises an unhandled exception; a stack trace will be
 printed unless the exception is SystemExit."""
+    setup_threads(space)
     if not space.is_true(space.isinstance(w_args, space.w_tuple)): 
         raise OperationError(space.w_TypeError, 
                 space.wrap("2nd arg must be a tuple")) 
@@ -72,16 +81,7 @@ printed unless the exception is SystemExit."""
     boot.space      = space
     boot.w_callable = w_callable
     boot.args       = args
-
-    THREAD_STARTUP_LOCK.acquire(True)
-
     ident = thread.start_new_thread(Bootstrapper.bootstrap, (boot,))
-
-    # wait until the thread has really started and acquired a reference to
-    # 'boot'.
-    THREAD_STARTUP_LOCK.acquire(True)
-    THREAD_STARTUP_LOCK.release()
-
     return space.wrap(ident)
 
 

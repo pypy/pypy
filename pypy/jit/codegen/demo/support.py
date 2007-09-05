@@ -1,7 +1,6 @@
 import os, sys
 import py
 from pypy.tool.udir import udir
-from pypy.rlib.ros import putenv
 from pypy.jit.codegen.graph2rgenop import rcompile
 from pypy.rpython.lltypesystem import lltype
 
@@ -83,7 +82,7 @@ def rundemo(entrypoint, *args):
         os.unlink(logfile)
     except OSError:
         pass
-    putenv('PYPYJITLOG=' + logfile)
+    os.environ['PYPYJITLOG'] = logfile
 
     if benchmark:
         py.test.skip("benchmarking: working in progress")

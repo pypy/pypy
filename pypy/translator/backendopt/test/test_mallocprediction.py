@@ -133,6 +133,7 @@ def test_pystone():
     assert total0 + total == 10
 
 def test_richards():
+    py.test.skip("Unsure if this makes any sense any more")
     from pypy.translator.goal.richards import entry_point
     t, graph = rtype(entry_point, [int])
     total0 = preparation(t, t.graphs)

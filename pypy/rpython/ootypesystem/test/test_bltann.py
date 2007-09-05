@@ -168,7 +168,7 @@ def test_callback_field_bound_method():
     assert res == 8.3
 
 def test_mixed_classes():
-    from pypy.rpython.extfunc import _register_external
+    from pypy.rpython.extfunc import register_external
     class One(BasicExternal):
         pass
 
@@ -177,7 +177,7 @@ def test_mixed_classes():
 
     def g(one):
         return 3
-    _register_external(g, args=[One], result=int)
+    register_external(g, args=[One], result=int)
     
     def f(x):
         if x:

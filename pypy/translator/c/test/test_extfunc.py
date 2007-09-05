@@ -2,9 +2,10 @@ import autopath
 import py
 import os, time, sys
 from pypy.tool.udir import udir
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.extfunc import EXTERNALS
-from pypy.rlib import ros
+posix = __import__(os.name)
 
 def test_all_suggested_primitives():
     for modulename in ['ll_os', 'll_os_path', 'll_time']:
@@ -120,6 +121,37 @@ def test_ftruncate():
     f1()
     os.unlink(filename)
 
+def test_largefile():
+    if sys.platform == 'darwin':
+        skip("no sparse files on default Mac OS X file system")    
+    if not hasattr(os, 'ftruncate'):
+        py.test.skip("this os has no ftruncate :-(")
+    if os.name == 'nt':
+        py.test.skip("no sparse files on Windows")
+    filename = str(udir.join('test_largefile'))
+    r4800000000  = r_longlong(4800000000L)
+    r4900000000  = r_longlong(4900000000L)
+    r5000000000  = r_longlong(5000000000L)
+    r5200000000  = r_longlong(5200000000L)
+    r9900000000  = r_longlong(9900000000L)
+    r10000000000 = r_longlong(10000000000L)
+    def does_stuff():
+        fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0666)
+        os.ftruncate(fd, r10000000000)
+        res = os.lseek(fd, r9900000000, 0)
+        assert res == r9900000000
+        res = os.lseek(fd, -r5000000000, 1)
+        assert res == r4900000000
+        res = os.lseek(fd, -r5200000000, 2)
+        assert res == r4800000000
+        os.close(fd)
+        st = os.stat(filename)
+        assert st.st_size == r10000000000
+    does_stuff()
+    os.unlink(filename)
+    f1 = compile(does_stuff, [])
+    f1()
+    os.unlink(filename)
 
 def test_os_access():
     filename = str(py.magic.autopath())
@@ -132,14 +164,29 @@ def test_os_access():
 
 def test_os_stat():
     filename = str(py.magic.autopath())
+    has_blksize = hasattr(os.stat_result, 'st_blksize')
+    has_blocks = hasattr(os.stat_result, 'st_blocks')
     def call_stat():
         st = os.stat(filename)
-        return st
+        res = (st[0], st.st_ino, st.st_ctime)
+        if has_blksize: res += (st.st_blksize,)
+        if has_blocks: res += (st.st_blocks,)
+        return res
     f = compile(call_stat, [])
-    result = f()
-    assert result[0] == os.stat(filename)[0]
-    assert result[1] == os.stat(filename)[1]
-    assert result[2] == os.stat(filename)[2]
+    res = f()
+    assert res[0] == os.stat(filename).st_mode
+    assert res[1] == os.stat(filename).st_ino
+    if sys.platform.startswith('win'):
+        py.test.skip("in-progress - bogus stat().st_time")
+    st_ctime = res[2]
+    if isinstance(st_ctime, float):
+        assert st_ctime == os.stat(filename).st_ctime
+    else:
+        assert st_ctime == int(os.stat(filename).st_ctime)
+    if has_blksize:
+        assert res[3] == os.stat(filename).st_blksize
+        if has_blocks:
+            assert res[4] == os.stat(filename).st_blocks
 
 def test_os_fstat():
     if os.environ.get('PYPY_CC', '').startswith('tcc'):
@@ -148,18 +195,19 @@ def test_os_fstat():
     fd = os.open(filename, os.O_RDONLY, 0777)
     def call_fstat(fd):
         st = os.fstat(fd)
-        return st
+        return (st.st_mode, st[1], st.st_mtime)
     f = compile(call_fstat, [int])
     osstat = os.stat(filename)
-    result = f(fd)
+    st_mode, st_ino, st_mtime = f(fd)
     os.close(fd)
-    import stat
-    for i in range(len(result)):
-        if i == stat.ST_DEV:
-            continue # does give 3 instead of 0 for windows
-        elif i == stat.ST_ATIME:
-            continue # access time will vary
-        assert (i, result[i]) == (i, osstat[i])
+    assert st_mode  == osstat.st_mode
+    assert st_ino   == osstat.st_ino
+    if sys.platform.startswith('win'):
+        py.test.skip("in-progress - bogus stat().st_time")
+    if isinstance(st_mtime, float):
+        assert st_mtime == osstat.st_mtime
+    else:
+        assert st_mtime == int(osstat.st_mtime)
 
 def test_os_isatty():
     def call_isatty(fd):
@@ -182,6 +230,13 @@ def test_strerror():
     f1 = compile(does_stuff, [])
     res = f1()
     assert res == os.strerror(2)
+
+def test_system():
+    def does_stuff(cmd):
+        return os.system(cmd)
+    f1 = compile(does_stuff, [str])
+    res = f1("echo hello")
+    assert res == 0
 
 def test_math_pow():
     import math
@@ -341,6 +396,7 @@ def test_rarith_float_to_str():
     assert eval(res) == 1.5
 
 def test_lock():
+    py.test.skip("XXX out-of-date, and should not be here")
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     def fn():
@@ -360,6 +416,7 @@ def test_lock():
     assert res is True
 
 def test_simple_start_new_thread():
+    py.test.skip("XXX out-of-date, and should not be here")
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     class Arg:
@@ -388,6 +445,7 @@ def test_simple_start_new_thread():
     assert res == 42
 
 def test_start_new_thread():
+    py.test.skip("XXX out-of-date, and should not be here")
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     class Arg:
@@ -411,6 +469,7 @@ def test_start_new_thread():
     assert res == 42
 
 def test_prebuilt_lock():
+    py.test.skip("XXX out-of-date, and should not be here")
     import thread
     import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
     lock0 = thread.allocate_lock()
@@ -540,7 +599,7 @@ def test_os_umask():
         return mask2
     f1 = compile(does_stuff, [])
     res = f1()
-    assert res == 0660
+    assert res == does_stuff()
 
 if hasattr(os, 'getpid'):
     def test_os_getpid():
@@ -592,6 +651,22 @@ if hasattr(os, 'fork'):
         status1 = f1()
         assert os.WIFEXITED(status1)
         assert os.WEXITSTATUS(status1) == 4
+    if hasattr(os, 'kill'):
+        def test_kill():
+            import signal
+            def does_stuff():
+                pid = os.fork()
+                if pid == 0:   # child
+                    time.sleep(5)
+                    os._exit(4)
+                os.kill(pid, signal.SIGTERM)  # in the parent
+                pid1, status1 = os.waitpid(pid, 0)
+                assert pid1 == pid
+                return status1
+            f1 = compile(does_stuff, [])
+            status1 = f1()
+            assert os.WIFSIGNALED(status1)
+            assert os.WTERMSIG(status1) == signal.SIGTERM
 elif hasattr(os, 'waitpid'):
     # windows has no fork but some waitpid to be emulated
     def test_waitpid():
@@ -629,79 +704,116 @@ def _real_getenv(var):
     else:
         raise ValueError, 'probing for env var returned %r' % (output,)
 
-def _real_envkeys():
-    cmd = '''%s -c "import os; print os.environ.keys()"''' % sys.executable
-    g = os.popen(cmd, 'r')
-    output = g.read().strip()
-    g.close()
-    if output.startswith('[') and output.endswith(']'):
-        return eval(output)
-    else:
-        raise ValueError, 'probing for all env vars returned %r' % (output,)
-
-def test_putenv():
-    def put(s):
-        ros.putenv(s)
-    func = compile(put, [str])
-    func('abcdefgh=12345678')
-    assert _real_getenv('abcdefgh') == '12345678'
-
-def test_environ():
-    def env(idx):
-        # need to as if the result is NULL, or we crash
-        ret = ros.environ(idx)
-        if ret is None:
-            return False
-        return ret
-    func = compile(env, [int])
-    keys = []
-    while 1:
-        s = func(len(keys))
-        if not s:
-            break
-        keys.append(s)
-    expected = _real_envkeys()
-    keys.sort()
-    expected.sort()
-    return keys == expected
-
-posix = __import__(os.name)
-if hasattr(posix, "unsetenv"):
-    def test_unsetenv():
-        def unsetenv():
-            os.unsetenv("ABCDEF")
-        f = compile(unsetenv, [])
-        os.putenv("ABCDEF", "a")
-        assert _real_getenv('ABCDEF') == 'a'
-        f()
-        assert _real_getenv('ABCDEF') is None
-        f()
-        assert _real_getenv('ABCDEF') is None
-
-def test_opendir_readdir():
-    def mylistdir(s):
-        result = []
-        dir = ros.opendir(s)
+def test_dictlike_environ_getitem():
+    def fn(s):
         try:
-            while True:
-                nextentry = dir.readdir()
-                if nextentry is None:
-                    break
-                result.append(nextentry)
-        finally:
-            dir.closedir()
+            return os.environ[s]
+        except KeyError:
+            return '--missing--'
+    func = compile(fn, [str])
+    os.environ.setdefault('USER', 'UNNAMED_USER')
+    result = func('USER')
+    assert result == os.environ['USER']
+    result = func('PYPY_TEST_DICTLIKE_MISSING')
+    assert result == '--missing--'
+
+def test_dictlike_environ_get():
+    def fn(s):
+        res = os.environ.get(s)
+        if res is None: res = '--missing--'
+        return res
+    func = compile(fn, [str])
+    os.environ.setdefault('USER', 'UNNAMED_USER')
+    result = func('USER')
+    assert result == os.environ['USER']
+    result = func('PYPY_TEST_DICTLIKE_MISSING')
+    assert result == '--missing--'
+
+def test_dictlike_environ_setitem():
+    def fn(s, t1, t2, t3, t4, t5):
+        os.environ[s] = t1
+        os.environ[s] = t2
+        os.environ[s] = t3
+        os.environ[s] = t4
+        os.environ[s] = t5
+    func = compile(fn, [str, str, str, str, str, str])
+    func('PYPY_TEST_DICTLIKE_ENVIRON', 'a', 'b', 'c', 'FOOBAR', '42',
+         expected_extra_mallocs = (2, 3, 4))   # at least two, less than 5
+    assert _real_getenv('PYPY_TEST_DICTLIKE_ENVIRON') == '42'
+
+def test_dictlike_environ_delitem():
+    def fn(s1, s2, s3, s4, s5):
+        for n in range(10):
+            os.environ[s1] = 't1'
+            os.environ[s2] = 't2'
+            os.environ[s3] = 't3'
+            os.environ[s4] = 't4'
+            os.environ[s5] = 't5'
+            del os.environ[s3]
+            del os.environ[s1]
+            del os.environ[s2]
+            del os.environ[s4]
+            try:
+                del os.environ[s2]
+            except KeyError:
+                pass
+            else:
+                raise Exception("should have raised!")
+            # os.environ[s5] stays
+    func = compile(fn, [str, str, str, str, str])
+    if hasattr(__import__(os.name), 'unsetenv'):
+        expected_extra_mallocs = range(2, 10)
+        # at least 2, less than 10: memory for s1, s2, s3, s4 should be freed
+        # (each kept-alive entry counts as two: the RPython string used as
+        # key in 'envkeepalive.byname' and the raw-allocated char* as value)
+    else:
+        expected_extra_mallocs = range(10, 18)
+        # at least 10, less than 18: memory for the initial s1, s2, s3, s4
+        # should be freed, but replaced by new buffers for empty strings
+    func('PYPY_TEST_DICTLIKE_ENVDEL1',
+         'PYPY_TEST_DICTLIKE_ENVDEL_X',
+         'PYPY_TEST_DICTLIKE_ENVDELFOO',
+         'PYPY_TEST_DICTLIKE_ENVDELBAR',
+         'PYPY_TEST_DICTLIKE_ENVDEL5',
+         expected_extra_mallocs = expected_extra_mallocs)
+    assert not _real_getenv('PYPY_TEST_DICTLIKE_ENVDEL1')
+    assert not _real_getenv('PYPY_TEST_DICTLIKE_ENVDEL_X')
+    assert not _real_getenv('PYPY_TEST_DICTLIKE_ENVDELFOO')
+    assert not _real_getenv('PYPY_TEST_DICTLIKE_ENVDELBAR')
+    assert _real_getenv('PYPY_TEST_DICTLIKE_ENVDEL5') == 't5'
+
+def test_dictlike_environ_keys():
+    def fn():
+        return '\x00'.join(os.environ.keys())
+    func = compile(fn, [])
+    os.environ.setdefault('USER', 'UNNAMED_USER')
+    try:
+        del os.environ['PYPY_TEST_DICTLIKE_ENVKEYS']
+    except:
+        pass
+    result1 = func().split('\x00')
+    os.environ['PYPY_TEST_DICTLIKE_ENVKEYS'] = '42'
+    result2 = func().split('\x00')
+    assert 'USER' in result1
+    assert 'PYPY_TEST_DICTLIKE_ENVKEYS' not in result1
+    assert 'USER' in result2
+    assert 'PYPY_TEST_DICTLIKE_ENVKEYS' in result2
+
+def test_dictlike_environ_items():
+    def fn():
+        result = []
+        for key, value in os.environ.items():
+            result.append('%s/%s' % (key, value))
         return '\x00'.join(result)
-    func = compile(mylistdir, [str])
-    result = func(str(udir))
-    result = result.split('\x00')
-    assert '.' in result
-    assert '..' in result
-    result.remove('.')
-    result.remove('..')
-    result.sort()
-    compared_with = os.listdir(str(udir))
-    compared_with.sort()
-    assert result == compared_with
+    func = compile(fn, [])
+    os.environ.setdefault('USER', 'UNNAMED_USER')
+    result1 = func().split('\x00')
+    os.environ['PYPY_TEST_DICTLIKE_ENVITEMS'] = '783'
+    result2 = func().split('\x00')
+    assert ('USER/%s' % (os.environ['USER'],)) in result1
+    assert 'PYPY_TEST_DICTLIKE_ENVITEMS/783' not in result1
+    assert ('USER/%s' % (os.environ['USER'],)) in result2
+    assert 'PYPY_TEST_DICTLIKE_ENVITEMS/783' in result2
 
 def test_listdir():
     def mylistdir(s):
@@ -722,12 +834,12 @@ def test_listdir():
         compared_with.sort()
         assert result == compared_with
 
-if hasattr(posix, 'execv'):
+if hasattr(posix, 'execv') and hasattr(posix, 'fork'):
     def test_execv():
         filename = str(udir.join('test_execv.txt'))
         def does_stuff():
             progname = str(sys.executable)
-            l = [progname, '-c', 'open("%s","w").write("1")' % filename]
+            l = [progname, '-c', 'open(%r,"w").write("1")' % filename]
             pid = os.fork()
             if pid == 0:
                 os.execv(progname, l)
@@ -754,7 +866,7 @@ if hasattr(posix, 'execv'):
             l = []
             l.append(progname)
             l.append("-c")
-            l.append('import os; open("%s", "w").write(os.environ["STH"])' % filename)
+            l.append('import os; open(%r, "w").write(os.environ["STH"])' % filename)
             env = {}
             env["STH"] = "42"
             env["sthelse"] = "a"
@@ -768,23 +880,41 @@ if hasattr(posix, 'execv'):
         func()
         assert open(filename).read() == "42"
 
+if hasattr(posix, 'spawnv'):
+    def test_spawnv():
+        filename = str(udir.join('test_spawnv.txt'))
+        progname = str(sys.executable)
+        scriptpath = udir.join('test_spawnv.py')
+        scriptpath.write('f=open(%r,"w")\nf.write("2")\nf.close\n' % filename)
+        scriptname = str(scriptpath)
+        def does_stuff():
+            # argument quoting on Windows is completely ill-defined.
+            # don't let yourself be fooled by the idea that if os.spawnv()
+            # takes a list of strings, then the receiving program will
+            # nicely see these strings as arguments with no further quote
+            # processing.  Achieving this is nearly impossible - even
+            # CPython doesn't try at all.
+            l = [progname, scriptname]
+            pid = os.spawnv(os.P_NOWAIT, progname, l)
+            os.waitpid(pid, 0)
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "2"
+
 def test_utime():
-    # XXX utimes & float support
     path = str(udir.ensure("test_utime.txt"))
     from time import time, sleep
     t0 = time()
     sleep(1)
 
-    def does_stuff():
-        ros.utime_null(path)
+    def does_stuff(flag):
+        if flag:
+            os.utime(path, None)
+        else:
+            os.utime(path, (int(t0), int(t0)))
 
-    func = compile(does_stuff, [])
-    func()
+    func = compile(does_stuff, [int])
+    func(1)
     assert os.stat(path).st_atime > t0
-
-    def utime_tuple():
-        ros.utime_tuple(path, (int(t0), int(t0)))
-
-    func = compile(utime_tuple, [])
-    func()
+    func(0)
     assert int(os.stat(path).st_atime) == int(t0)

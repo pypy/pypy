@@ -1,7 +1,7 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, OOString, DownCast, NewCustomDict,\
      CastWeakAdrToPtr, MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
-     TypeOf
+     TypeOf, CastPrimitive
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive
 from pypy.translator.cli.cts import WEAKREF
@@ -210,6 +210,8 @@ opcodes = {
     'ullong_ne':                _not('ceq'),
     'ullong_gt':                'cgt.un',
     'ullong_ge':                _not('clt.un'),
+    'ullong_lshift':            [PushAllArgs, 'conv.u4', 'shl'],
+    'ullong_rshift':            [PushAllArgs, 'conv.i4', 'shr'],
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
@@ -231,6 +233,7 @@ opcodes = {
     'cast_float_to_uint':       'conv.u4',
     'cast_longlong_to_float':   'conv.r8',
     'cast_float_to_longlong':   'conv.i8',
+    'cast_primitive':           [PushAllArgs, CastPrimitive],
     'truncate_longlong_to_int': 'conv.i4',
     'is_early_constant':        [PushPrimitive(ootype.Bool, False)]
 }

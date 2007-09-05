@@ -1,25 +1,21 @@
 import math
-from pypy.rpython.lltypesystem import lltype, rtupletype
+from pypy.rpython.lltypesystem import lltype, rffi
 
-FREXP_RESULT = rtupletype.TUPLE_TYPE([lltype.Float, lltype.Signed]).TO
-MODF_RESULT = rtupletype.TUPLE_TYPE([lltype.Float, lltype.Float]).TO
-
-def ll_frexp_result(mantissa, exponent):
-    tup = lltype.malloc(FREXP_RESULT)
-    tup.item0 = mantissa
-    tup.item1 = exponent
-    return tup
-
-def ll_modf_result(fracpart, intpart):
-    tup = lltype.malloc(MODF_RESULT)
-    tup.item0 = fracpart
-    tup.item1 = intpart
-    return tup
+math_frexp = rffi.llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE,
+                             sandboxsafe=True)
+math_modf  = rffi.llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE,
+                             sandboxsafe=True)
 
 def ll_math_frexp(x):
-    mantissa, exponent = math.frexp(x)
-    return ll_frexp_result(mantissa, exponent)
+    exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    mantissa = math_frexp(x, exp_p)
+    exponent = rffi.cast(lltype.Signed, exp_p[0])
+    lltype.free(exp_p, flavor='raw')
+    return (mantissa, exponent)
 
 def ll_math_modf(x):
-    fracpart, intpart = math.modf(x)
-    return ll_modf_result(fracpart, intpart)
+    intpart_p = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
+    fracpart = math_modf(x, intpart_p)
+    intpart = intpart_p[0]
+    lltype.free(intpart_p, flavor='raw')
+    return (fracpart, intpart)

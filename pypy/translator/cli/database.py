@@ -29,6 +29,9 @@ BUILTIN_RECORDS = {
     ootype.Record({"item0": ootype.Float, "item1": ootype.Float}):
     '[pypylib]pypy.runtime.Record_Float_Float',
 
+    ootype.Record({"item0": ootype.String, "item1": ootype.String}):
+    '[pypylib]pypy.runtime.Record_String_String',
+
     ll_os.STAT_RESULT: '[pypylib]pypy.runtime.Record_Stat_Result',
     }
 

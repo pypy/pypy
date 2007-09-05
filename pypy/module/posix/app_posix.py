@@ -2,6 +2,15 @@
 
 from _structseq import structseqtype, structseqfield
 
+# XXX we need a way to access the current module's globals more directly...
+import sys
+if 'posix' in sys.builtin_module_names:
+    import posix
+elif 'nt' in sys.builtin_module_names:
+    import nt as posix
+else:
+    raise ImportError("XXX")
+
 error = OSError
 
 
@@ -15,10 +24,28 @@ class stat_result:
     st_uid   = structseqfield(4, "user ID of owner")
     st_gid   = structseqfield(5, "group ID of owner")
     st_size  = structseqfield(6, "total size, in bytes")
-    st_atime = structseqfield(7, "time of last access (XXX as an int)")
-    st_mtime = structseqfield(8, "time of last modification (XXX as an int)")
-    st_ctime = structseqfield(9, "time of last change (XXX as an int)")
-    # XXX no extra fields for now
+
+    # NOTE: float times are disabled for now, for compatibility with CPython.
+
+    # access to indices 7 to 9 gives the timestamps as integers:
+    #_integer_atime = structseqfield(7)
+    #_integer_mtime = structseqfield(8)
+    #_integer_ctime = structseqfield(9)
+
+    st_atime = structseqfield(7, "time of last access")
+    st_mtime = structseqfield(8, "time of last modification")
+    st_ctime = structseqfield(9, "time of last status change")
+
+    # further fields, not accessible by index (the numbers are still needed
+    # but not visible because they are no longer consecutive)
+    if "st_blksize" in posix._statfields:
+        st_blksize = structseqfield(20, "blocksize for filesystem I/O")
+    if "st_blocks" in posix._statfields:
+        st_blocks = structseqfield(21, "number of blocks allocated")
+    if "st_rdev" in posix._statfields:
+        st_rdev = structseqfield(22, "device ID (if special file)")
+    if "st_flags" in posix._statfields:
+        st_flags = structseqfield(23, "user defined flags for file")
 
 
 def fdopen(fd, mode='r', buffering=-1):

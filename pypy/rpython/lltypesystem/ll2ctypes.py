@@ -377,9 +377,9 @@ def ctypes2lltype(T, cobj):
             else:
                 raise NotImplementedError("array with an explicit length")
         elif isinstance(T.TO, lltype.FuncType):
-            funcptr = lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'))
-            make_callable_via_ctypes(funcptr, cfunc=cobj)
-            return funcptr
+            _callable = get_ctypes_trampoline(T.TO, cobj)
+            return lltype.functionptr(T.TO, getattr(cobj, '__name__', '?'),
+                                      _callable=_callable)
         elif isinstance(T.TO, lltype.OpaqueType):
             container = lltype._opaque(T.TO)
         else:
@@ -418,14 +418,20 @@ def uninitialized2ctypes(T):
 # __________ the standard C library __________
 
 if sys.platform == 'win32':
-    standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
+    # trying to guess the correct libc... only a few tests fail if there
+    # is a mismatch between the one used by python2x.dll and the one
+    # loaded here
+    if sys.version_info < (2, 4):
+        standard_c_lib = ctypes.cdll.LoadLibrary('msvcrt.dll')
+    else:
+        standard_c_lib = ctypes.cdll.LoadLibrary('msvcr71.dll')
 else:
     standard_c_lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
 # ____________________________________________
 
 def get_ctypes_callable(funcptr):
-    if getattr(funcptr._obj, 'source', None) is not None:
+    if getattr(funcptr._obj, 'sources', None):
         # give up - for tests with an inlined bit of C code
         raise NotImplementedError("cannot call a C function defined in "
                                   "a custom C source snippet")
@@ -434,6 +440,9 @@ def get_ctypes_callable(funcptr):
     libraries = getattr(funcptr._obj, 'libraries', None)
     if not libraries:
         cfunc = getattr(standard_c_lib, funcname, None)
+        # XXX magic: on Windows try to load the function from 'kernel32' too
+        if cfunc is None and hasattr(ctypes, 'windll'):
+            cfunc = getattr(ctypes.windll.kernel32, funcname, None)
     else:
         cfunc = None
         for libname in libraries:
@@ -449,7 +458,7 @@ def get_ctypes_callable(funcptr):
     if cfunc is None:
         # function name not found in any of the libraries
         if not libraries:
-            place = 'the standard C library'
+            place = 'the standard C library (missing libraries=...?)'
         elif len(libraries) == 1:
             place = 'library %r' % (libraries[0],)
         else:
@@ -465,25 +474,29 @@ def get_ctypes_callable(funcptr):
         cfunc.restype = get_ctypes_type(FUNCTYPE.RESULT)
     return cfunc
 
-def make_callable_via_ctypes(funcptr, cfunc=None):
-    RESULT = lltype.typeOf(funcptr).TO.RESULT
-    if cfunc is None:
-        cfunc1 = []
-    else:
-        cfunc1 = [cfunc]
+class LL2CtypesCallable(object):
+    # a special '_callable' object that invokes ctypes
 
-    def invoke_via_ctypes(*argvalues):
-        if cfunc1:
-            cfunc = cfunc1[0]
-        else:
+    def __init__(self, FUNCTYPE):
+        self.FUNCTYPE = FUNCTYPE
+        self.trampoline = None
+        #self.funcptr = ...  set later
+
+    def __call__(self, *argvalues):
+        if self.trampoline is None:
             # lazily build the corresponding ctypes function object
-            cfunc = get_ctypes_callable(funcptr)
-            cfunc1.append(cfunc)    # cache
+            cfunc = get_ctypes_callable(self.funcptr)
+            self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
         # perform the call
+        return self.trampoline(*argvalues)
+
+def get_ctypes_trampoline(FUNCTYPE, cfunc):
+    RESULT = FUNCTYPE.RESULT
+    def invoke_via_ctypes(*argvalues):
         cargs = [lltype2ctypes(value) for value in argvalues]
         cres = cfunc(*cargs)
         return ctypes2lltype(RESULT, cres)
-    funcptr._obj._callable = invoke_via_ctypes
+    return invoke_via_ctypes
 
 def force_cast(RESTYPE, value):
     """Cast a value to a result type, trying to use the same rules as C."""

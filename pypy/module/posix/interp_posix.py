@@ -1,9 +1,10 @@
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.rlib.rarithmetic import intmask
-from pypy.rlib import ros
+from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rpython.module.ll_os import RegisterOs
-from pypy.module._file.interp_file import W_Stream, wrap_oserror_as_ioerror
+from pypy.rpython.module import ll_os_stat
+from pypy.rpython.lltypesystem import lltype
 
 import os
                           
@@ -27,7 +28,7 @@ current position; if how == 2, to the end."""
         raise wrap_oserror(space, e) 
     else: 
         return space.wrap(pos) 
-lseek.unwrap_spec = [ObjSpace, int, int, int]
+lseek.unwrap_spec = [ObjSpace, int, r_longlong, int]
 
 def isatty(space, fd):
     """Return True if 'fd' is an open file descriptor connected to the
@@ -75,16 +76,43 @@ def ftruncate(space, fd, length):
         os.ftruncate(fd, length)
     except OSError, e: 
         raise wrap_oserror(space, e) 
-ftruncate.unwrap_spec = [ObjSpace, int, int]
+ftruncate.unwrap_spec = [ObjSpace, int, r_longlong]
+
+# ____________________________________________________________
+
+# For LL backends, expose all fields.
+# For OO backends, only the portable fields (the first 10).
+STAT_FIELDS = unrolling_iterable(enumerate(ll_os_stat.STAT_FIELDS))
+PORTABLE_STAT_FIELDS = unrolling_iterable(
+                                 enumerate(ll_os_stat.PORTABLE_STAT_FIELDS))
 
 def build_stat_result(space, st):
-    # cannot index tuples with a variable...
-    lst = [st[0], st[1], st[2], st[3], st[4],
-           st[5], st[6], st[7], st[8], st[9]]
-    w_tuple = space.newtuple([space.wrap(intmask(x)) for x in lst])
+    if space.config.translation.type_system == 'ootype':
+        FIELDS = PORTABLE_STAT_FIELDS
+    else:
+        FIELDS = STAT_FIELDS    # also when not translating at all
+    lst = []
+    w_keywords = space.newdict()
+    for i, (name, TYPE) in FIELDS:
+        value = getattr(st, name)
+        #if name in ('st_atime', 'st_mtime', 'st_ctime'):
+        #    value = int(value)   # rounded to an integer for indexed access
+        w_value = space.wrap(value)
+        if i < ll_os_stat.N_INDEXABLE_FIELDS:
+            lst.append(w_value)
+        else:
+            space.setitem(w_keywords, space.wrap(name), w_value)
+
+    # NOTE: float times are disabled for now, for compatibility with CPython
+    # non-rounded values for name-based access
+    #space.setitem(w_keywords, space.wrap('st_atime'), space.wrap(st.st_atime))
+    #space.setitem(w_keywords, space.wrap('st_mtime'), space.wrap(st.st_mtime))
+    #space.setitem(w_keywords, space.wrap('st_ctime'), space.wrap(st.st_ctime))
+
+    w_tuple = space.newtuple(lst)
     w_stat_result = space.getattr(space.getbuiltinmodule(os.name),
                                   space.wrap('stat_result'))
-    return space.call_function(w_stat_result, w_tuple)
+    return space.call_function(w_stat_result, w_tuple, w_keywords)
 
 def fstat(space, fd):
     """Perform a stat system call on the file referenced to by an open
@@ -167,6 +195,21 @@ def access(space, path, mode):
         return space.wrap(ok)
 access.unwrap_spec = [ObjSpace, str, int]
 
+
+def times(space):
+    """
+    times() -> (utime, stime, cutime, cstime, elapsed_time)
+
+    Return a tuple of floating point numbers indicating process times.
+    """
+    try:
+        times = os.times()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(times)
+times.unwrap_spec = [ObjSpace]
+
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
     try:
@@ -237,54 +280,53 @@ def strerror(space, errno):
     return space.wrap(text)
 strerror.unwrap_spec = [ObjSpace, int]
 
+# ____________________________________________________________
 
-# this is a particular case, because we need to supply
-# the storage for the environment variables, at least
-# for some OSes.
+def getstatfields(space):
+    # for app_posix.py: export the list of 'st_xxx' names that we know
+    # about at RPython level
+    if space.config.translation.type_system == 'ootype':
+        FIELDS = PORTABLE_STAT_FIELDS
+    else:
+        FIELDS = STAT_FIELDS    # also when not translating at all
+    return space.newlist([space.wrap(name) for name, _ in FIELDS])
+
 
 class State:
     def __init__(self, space): 
-        self.posix_putenv_garbage = {}
+        self.space = space
         self.w_environ = space.newdict()
     def startup(self, space):
         _convertenviron(space, self.w_environ)
+    def _freeze_(self):
+        # don't capture the environment in the translated pypy
+        self.space.call_method(self.w_environ, 'clear')
+        return True
 
 def get(space): 
     return space.fromcache(State) 
 
 def _convertenviron(space, w_env):
-    idx = 0
-    while 1:
-        s = ros.environ(idx)
-        if s is None:
-            break
-        p = s.find('=')
-        if p >= 0:
-            key = s[:p]
-            value = s[p+1:]
-            space.setitem(w_env, space.wrap(key), space.wrap(value))
-        idx += 1
+    space.call_method(w_env, 'clear')
+    for key, value in os.environ.items():
+        space.setitem(w_env, space.wrap(key), space.wrap(value))
 
 def putenv(space, name, value):
     """Change or add an environment variable."""
-    txt = '%s=%s' % (name, value)
-    ros.putenv(txt)
-    # Install the first arg and newstr in posix_putenv_garbage;
-    # this will cause previous value to be collected.  This has to
-    # happen after the real putenv() call because the old value
-    # was still accessible until then.
-    get(space).posix_putenv_garbage[name] = txt
+    try:
+        os.environ[name] = value
+    except OSError, e:
+        raise wrap_oserror(space, e) 
 putenv.unwrap_spec = [ObjSpace, str, str]
 
 def unsetenv(space, name):
     """Delete an environment variable."""
-    if name in get(space).posix_putenv_garbage:
-        os.unsetenv(name)
-        # Remove the key from posix_putenv_garbage;
-        # this will cause it to be collected.  This has to
-        # happen after the real unsetenv() call because the
-        # old value was still accessible until then.
-        del get(space).posix_putenv_garbage[name]
+    try:
+        del os.environ[name]
+    except KeyError:
+        pass
+    except OSError, e:
+        raise wrap_oserror(space, e) 
 unsetenv.unwrap_spec = [ObjSpace, str]
 
 
@@ -446,7 +488,7 @@ second form is used, set the access and modified times to the current time.
     """
     if space.is_w(w_tuple, space.w_None):
         try:
-            ros.utime_null(path)
+            os.utime(path, None)
             return
         except OSError, e:
             raise wrap_oserror(space, e)
@@ -457,7 +499,7 @@ second form is used, set the access and modified times to the current time.
             raise OperationError(space.w_TypeError, space.wrap(msg))
         actime = space.float_w(args_w[0])
         modtime = space.float_w(args_w[1])
-        ros.utime_tuple(path, (actime, modtime))
+        os.utime(path, (actime, modtime))
     except OSError, e:
         raise wrap_oserror(space, e)
     except OperationError, e:
@@ -528,13 +570,3 @@ def ttyname(space, fd):
     except OSError, e:
         raise wrap_oserror(space, e)
 ttyname.unwrap_spec = [ObjSpace, int]
-
-def tmpfile(space):
-    try:
-        stream = ros.tmpfile()
-        w_stream = space.wrap(W_Stream(space, stream))
-        w_fobj = space.getattr(space.getbuiltinmodule('__builtin__'), space.wrap('file'))
-        return space.call_function(space.getattr(w_fobj, space.wrap('tmpfile')), w_stream)
-    except OSError, e:
-        raise wrap_oserror_as_ioerror(space, e)
-tmpfile.unwrap_spec = [ObjSpace]

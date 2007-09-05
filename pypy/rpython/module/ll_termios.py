@@ -8,7 +8,7 @@ termios module is there
 import termios
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.extfunc import lazy_register, _register_external
+from pypy.rpython.extfunc import lazy_register, register_external
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
@@ -29,9 +29,9 @@ def termios_error_init(self, num, msg):
 
 termios.error.__init__ = termios_error_init
 
-TERMIOSP = rffi.CStruct('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
-                        ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
-                        ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)))
+TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
+                           ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
+                           ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)))
 
 def c_external(name, args, result):
     return rffi.llexternal(name, args, result, includes=includes)
@@ -68,7 +68,7 @@ def tcgetattr_llimpl(fd):
     finally:
         lltype.free(c_struct, flavor='raw')
 
-_register_external(rtermios.tcgetattr, [int], (int, int, int, int, int, int, [str]),
+register_external(rtermios.tcgetattr, [int], (int, int, int, int, int, int, [str]),
                    llimpl=tcgetattr_llimpl, export_name='termios.tcgetattr')
 
 def tcsetattr_llimpl(fd, when, attributes):
@@ -91,7 +91,7 @@ def tcsetattr_llimpl(fd, when, attributes):
         lltype.free(c_struct, flavor='raw')
 
 r_uint = rffi.r_uint
-_register_external(rtermios.tcsetattr, [int, int, (r_uint, r_uint, r_uint,
+register_external(rtermios.tcsetattr, [int, int, (r_uint, r_uint, r_uint,
                   r_uint, r_uint, r_uint, [str])], llimpl=tcsetattr_llimpl,
                   export_name='termios.tcsetattr')
 
@@ -101,7 +101,7 @@ def tcsendbreak_llimpl(fd, duration):
     error = c_tcsendbreak(fd, duration)
     if error == -1:
         raise termios.error(error, 'tcsendbreak failed')
-_register_external(termios.tcsendbreak, [int, int],
+register_external(termios.tcsendbreak, [int, int],
                   llimpl=tcsendbreak_llimpl,
                   export_name='termios.tcsendbreak')
 
@@ -109,19 +109,19 @@ def tcdrain_llimpl(fd):
     error = c_tcdrain(fd)
     if error == -1:
         raise termios.error(error, 'tcdrain failed')
-_register_external(termios.tcdrain, [int], llimpl=tcdrain_llimpl,
+register_external(termios.tcdrain, [int], llimpl=tcdrain_llimpl,
                   export_name='termios.tcdrain')
 
 def tcflush_llimpl(fd, queue_selector):
     error = c_tcflush(fd, queue_selector)
     if error == -1:
         raise termios.error(error, 'tcflush failed')
-_register_external(termios.tcflush, [int, int], llimpl=tcflush_llimpl,
+register_external(termios.tcflush, [int, int], llimpl=tcflush_llimpl,
                   export_name='termios.tcflush')
 
 def tcflow_llimpl(fd, action):
     error = c_tcflow(fd, action)
     if error == -1:
         raise termios.error(error, 'tcflow failed')
-_register_external(termios.tcflow, [int, int], llimpl=tcflow_llimpl,
+register_external(termios.tcflow, [int, int], llimpl=tcflow_llimpl,
                   export_name='termios.tcflow')

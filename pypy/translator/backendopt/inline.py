@@ -694,7 +694,11 @@ def auto_inlining(translator, threshold=None,
     while heap:
         weight, _, graph = heap[0]
         if not valid_weight.get(graph):
-            weight, fixed = heuristic(graph)
+            if hasattr(graph, 'func') and \
+                   getattr(graph.func, '_always_inline_', None):
+                weight, fixed = 0.0, True
+            else:
+                weight, fixed = heuristic(graph)
             #print '  + cost %7.2f %50s' % (weight, graph.name)
             heapreplace(heap, (weight, -len(callers[graph]), graph))
             valid_weight[graph] = True

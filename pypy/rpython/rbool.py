@@ -29,6 +29,7 @@ class __extend__(BoolRepr):
 
     def rtype_int(_, hop):
         vlist = hop.inputargs(Signed)
+        hop.exception_cannot_occur()
         return vlist[0]
 
     def rtype_float(_, hop):

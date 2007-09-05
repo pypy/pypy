@@ -5,7 +5,7 @@ from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing.parsing import *
 from pypy.rlib.parsing import deterministic
 from pypy.rlib.parsing.pypackrat import BacktrackException, Status
-
+from pypy.conftest import option
 
 class TestTranslateLexer(object):
     def get_lexer(self, rexs, names, ignore=None):
@@ -153,7 +153,8 @@ def test_translate_pypackrat():
     t.annotate([str])
     t.rtype()
     t.backendopt()
-    t.view()
+    if option.view:
+        t.view()
     func = t.compile_c()
     res = func("5-5-5")
     assert res == '((5 - 5) - 5)'
@@ -175,7 +176,8 @@ def test_translate_pypackrat_regex():
     t.annotate([str])
     t.rtype()
     t.backendopt()
-    t.view()
+    if option.view:
+        t.view()
     func = t.compile_c()
     res = func("12345")
     assert res == '12345'

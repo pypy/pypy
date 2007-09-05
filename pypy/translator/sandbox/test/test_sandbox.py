@@ -1,34 +1,25 @@
+import py
 import sys, os
 import struct
 
 from pypy.rpython.lltypesystem import rffi
-from pypy.translator.sandbox.sandboxmsg import Message, MessageBuilder
-from pypy.translator.sandbox.sandboxmsg import read_message
 from pypy.translator.interactive import Translation
+from pypy.translator.sandbox.sandlib import read_message, write_message
+from pypy.translator.sandbox.sandlib import write_exception
+
+def expect(f, g, fnname, args, result, resulttype=None):
+    msg = read_message(f, timeout=10.0)
+    assert msg == fnname
+    msg = read_message(f, timeout=10.0)
+    assert msg == args
+    if isinstance(result, Exception):
+        write_exception(g, result)
+    else:
+        write_message(g, 0)
+        write_message(g, result, resulttype)
 
 
-def test_sandbox_message():
-    def num(n):
-        return struct.pack("!i", n)
-    msg = MessageBuilder()
-    msg.packstring("open")
-    msg.packccharp(rffi.str2charp("/tmp/foobar"))
-    msg.packnum(123)
-    res = msg.getvalue()
-    assert res == (num(len(res)) +
-                   "s" + num(4) + "open" +
-                   "s" + num(11) + "/tmp/foobar" +
-                   "i" + num(123))
-
-    msg = Message(res[4:])
-    m1 = msg.nextstring()
-    assert m1 == "open"
-    m2 = msg.nextstring()
-    assert m2 == "/tmp/foobar"
-    m3 = msg.nextnum()
-    assert m3 == 123
-
-def test_sandbox():
+def test_sandbox_1():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
         assert fd == 77
@@ -39,29 +30,8 @@ def test_sandbox():
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
     exe = t.compile()
     g, f = os.popen2(exe, "t", 0)
-
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "open"
-    m2 = msg.nextstring()
-    assert m2 == "/tmp/foobar"
-    m3 = msg.nextnum()
-    assert m3 == os.O_RDONLY
-    m4 = msg.nextnum()
-    assert m4 == 0777
-    assert msg.end()
-
-    g.write(MessageBuilder().packnum(0).packnum(77).getvalue())
-
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "dup"
-    m2 = msg.nextnum()
-    assert m2 == 77
-    assert msg.end()
-
-    g.write(MessageBuilder().packnum(0).packnum(78).getvalue())
-
+    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_dup",  (77,), 78)
     g.close()
     tail = f.read()
     f.close()
@@ -81,51 +51,67 @@ def test_sandbox_2():
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
     exe = t.compile()
     g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
+    expect(f, g, "ll_os.ll_os_write", (77, "world\x00!\x00"), 42)
+    expect(f, g, "ll_os.ll_os_close", (77,), None)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
 
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "open"
-    m2 = msg.nextstring()
-    assert m2 == "/tmp/foobar"
-    m3 = msg.nextnum()
-    assert m3 == os.O_RDONLY
-    m4 = msg.nextnum()
-    assert m4 == 0777
-    assert msg.end()
+def test_sandbox_3():
+    def entry_point(argv):
+        os.dup2(34, 56)
+        y = os.access("spam", 77)
+        return 1 - y
 
-    g.write(MessageBuilder().packnum(0).packnum(77).getvalue())
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+    g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_os.ll_os_dup2",   (34, 56), None)
+    expect(f, g, "ll_os.ll_os_access", ("spam", 77), True)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
 
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "read"
-    m2 = msg.nextnum()
-    assert m2 == 77
-    m3 = msg.nextsize_t()
-    assert m3 == 123
-    assert msg.end()
+def test_sandbox_4():
+    from pypy.rpython.module.ll_os_stat import STAT_FIELDS, s_tuple_StatResult
+    from pypy.rlib.rarithmetic import r_longlong
+    r0x12380000007 = r_longlong(0x12380000007)
 
-    g.write(MessageBuilder().packnum(0).packstring("he\x00llo").getvalue())
+    def entry_point(argv):
+        st = os.stat("somewhere")
+        os.ftruncate(st.st_mode, st.st_size)  # nonsense, just to see outside
+        return 0
 
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "write"
-    m2 = msg.nextnum()
-    assert m2 == 77
-    m3 = msg.nextstring()
-    assert m3 == "world\x00!\x00"
-    assert msg.end()
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+    g, f = os.popen2(exe, "t", 0)
+    sttuple = (55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0)
+    sttuple += (0,) * (len(STAT_FIELDS)-len(sttuple))
+    expect(f, g, "ll_os.ll_os_stat", ("somewhere",), sttuple,
+           resulttype = s_tuple_StatResult)
+    expect(f, g, "ll_os.ll_os_ftruncate", (55, 0x12380000007), None)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
 
-    g.write(MessageBuilder().packnum(0).packsize_t(42).getvalue())
+def test_oserror():
+    def entry_point(argv):
+        try:
+            os.stat("somewhere")
+        except OSError, e:
+            os.close(e.errno)    # nonsense, just to see outside
+        return 0
 
-    msg = read_message(f, timeout=10.0)
-    m1 = msg.nextstring()
-    assert m1 == "close"
-    m2 = msg.nextnum()
-    assert m2 == 77
-    assert msg.end()
-
-    g.write(MessageBuilder().packnum(0).packnum(0).getvalue())
-
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+    g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_os.ll_os_stat", ("somewhere",), OSError(6321, "egg"))
+    expect(f, g, "ll_os.ll_os_close", (6321,), None)
     g.close()
     tail = f.read()
     f.close()
@@ -150,6 +136,16 @@ class TestPrintedResults:
             print int(math.floor(a - 0.2)),
             print int(math.ceil(a)),
             print int(100.0 * math.sin(a)),
+            mantissa, exponent = math.frexp(a)
+            print int(100.0 * mantissa), exponent,
+            fracpart, intpart = math.modf(a)
+            print int(100.0 * fracpart), int(intpart),
             print
             return 0
-        self.run(entry_point, ["3.011"], "2 4 13\n")
+        self.run(entry_point, ["3.011"], "2 4 13 75 2 1 3\n")
+
+    def test_os_path_safe(self):
+        def entry_point(argv):
+            print os.path.join('tmp', argv[1])
+            return 0
+        self.run(entry_point, ["spam"], os.path.join("tmp", "spam")+'\n')

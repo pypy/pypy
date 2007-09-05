@@ -78,8 +78,7 @@ class MachineCodeDumper:
     def open(self):
         if self.log_fd < 0:
             # check the environment for a file name
-            from pypy.rlib.ros import getenv
-            s = getenv('PYPYJITLOG')
+            s = os.environ.get('PYPYJITLOG')
             if not s:
                 self.enabled = False
                 return False

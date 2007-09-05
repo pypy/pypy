@@ -7,17 +7,24 @@ Global Interpreter Lock.
 # all but one will be blocked.  The other threads get a chance to run
 # from time to time, using the executioncontext's XXX
 
-import thread
+from pypy.module.thread import ll_thread as thread
 from pypy.interpreter.miscutils import Action
 from pypy.module.thread.threadlocals import OSThreadLocals
 
-
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
+    GIL = None
 
-    def __init__(self):
-        OSThreadLocals.__init__(self)
-        self.GIL = thread.allocate_lock()
+    def setup_threads(self, space):
+        """Enable threads in the object space, if they haven't already been."""
+        if self.GIL is None:
+            self.GIL = thread.allocate_lock()
+            self.enter_thread(space)   # setup the main thread
+            # add the GIL-releasing callback as an action on the space
+            space.pending_actions.append(GILReleaseAction(self))
+            return True
+        else:
+            return False      # already set up
 
     def enter_thread(self, space):
         "Notification that the current thread is just starting: grab the GIL."

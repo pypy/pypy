@@ -1,6 +1,7 @@
 import py
 import sys
-from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
+from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr,\
+     PyObject, Void, malloc, free
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
@@ -13,6 +14,9 @@ from pypy.rlib.rarithmetic import r_uint, ovfcheck
 from pypy import conftest
 
 # switch on logging of interp to show more info on failing tests
+
+class MallocMismatch(Exception):
+    pass
 
 def setup_module(mod):
     mod.logstate = py.log._getstate()
@@ -62,7 +66,8 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    someobjects=False, type_system="lltype", backendopt=False, config=None):
+                    someobjects=False, type_system="lltype", backendopt=False,
+                    config=None, malloc_check=True):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,
                                                          backendopt)
     try: 
@@ -85,7 +90,7 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
                                    viewbefore, policy, type_system=type_system,
                                    backendopt=backendopt, config=config)
-        interp = LLInterpreter(typer)
+        interp = LLInterpreter(typer, malloc_check=malloc_check)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 
         _lastinterpreted.append(key) 
@@ -98,11 +103,16 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              someobjects=False, type_system="lltype", backendopt=False, config=None):
+              someobjects=False, type_system="lltype", backendopt=False,
+              config=None, malloc_check=True):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                                     someobjects, type_system=type_system,
-                                    backendopt=backendopt, config=config)
-    return interp.eval_graph(graph, values)
+                                    backendopt=backendopt, config=config,
+                                    malloc_check=malloc_check)
+    result = interp.eval_graph(graph, values)
+    if malloc_check and interp.mallocs:
+        raise MallocMismatch(interp.mallocs)
+    return result
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
                      policy=None, someobjects=False, type_system="lltype",
@@ -581,3 +591,21 @@ def test_exceptiontransformed_add_ovf():
     assert res == -63
     res = interp.eval_graph(graph, [1, sys.maxint])
     assert res == -42
+
+def test_malloc_checker():
+    T = lltype.Struct('x')
+    def f(x):
+        t = malloc(T, flavor='raw')
+        if x:
+            free(t, flavor='raw')
+    interpret(f, [1])
+    py.test.raises(MallocMismatch, "interpret(f, [0])")
+    
+    def f():
+        t1 = malloc(T, flavor='raw')
+        t2 = malloc(T, flavor='raw')
+        free(t1, flavor='raw')
+        free(t2, flavor='raw')
+
+    interpret(f, [])
+

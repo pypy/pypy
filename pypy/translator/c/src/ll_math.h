@@ -25,12 +25,10 @@
 
 int ll_math_is_error(double x);
 double LL_math_pow(double x, double y);
-RPyFREXP_RESULT* LL_math_frexp(double x);
 double LL_math_atan2(double x, double y);
 double LL_math_fmod(double x, double y);
 double LL_math_ldexp(double x, long y);
 double LL_math_hypot(double x, double y);
-RPyMODF_RESULT* LL_math_modf(double x);
 double LL_math_acos(double x);
 double LL_math_asin(double x);
 double LL_math_atan(double x);
@@ -72,19 +70,6 @@ double LL_math_pow(double x, double y) {
 	return r;
 }
 
-#ifdef LL_NEED_MATH_FREXP
-
-RPyFREXP_RESULT* LL_math_frexp(double x) {
-	int expo;
-	double m;
-	LL_MATH_ERROR_RESET;
-	m= frexp(x, &expo);
-	LL_MATH_CHECK_ERROR(m, NULL);
-	return ll_frexp_result(m, expo);
-}
-
-#endif
-
 double LL_math_atan2(double x, double y) {
 	double r;
 	LL_MATH_ERROR_RESET;
@@ -117,18 +102,6 @@ double LL_math_hypot(double x, double y) {
 	return r;
 }
 
-
-#ifdef LL_NEED_MATH_MODF
-
-RPyMODF_RESULT* LL_math_modf(double x) {
-	double intpart, fracpart;
-	LL_MATH_ERROR_RESET;
-	fracpart = modf(x, &intpart);
-	LL_MATH_CHECK_ERROR(fracpart, NULL);
-	return ll_modf_result(fracpart, intpart);
-}
-
-#endif
 
 /* simple math function */
 

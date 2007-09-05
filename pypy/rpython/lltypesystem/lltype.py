@@ -1539,9 +1539,9 @@ class _arraylenref(_parentable):
 
 class _func(_container):
     def __init__(self, TYPE, **attrs):
-        self._TYPE = TYPE
-        self._name = "?"
-        self._callable = None
+        attrs.setdefault('_TYPE', TYPE)
+        attrs.setdefault('_name', '?')
+        attrs.setdefault('_callable', None)
         self.__dict__.update(attrs)
 
     def __repr__(self):
@@ -1567,6 +1567,9 @@ class _func(_container):
             return id(self._callable)
         else:
             return id(self)
+
+    def __setattr__(self, attr, value):
+        raise AttributeError("cannot change the attributes of %r" % (self,))
 
 class _opaque(_parentable):
     def __init__(self, TYPE, parent=None, parentindex=None, **attrs):

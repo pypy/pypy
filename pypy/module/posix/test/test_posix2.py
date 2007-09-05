@@ -11,6 +11,7 @@ def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['posix'])
     mod.path = udir.join('posixtestfile.txt') 
     mod.path.write("this is a test")
+    mod.path2 = udir.join('posixtestlargefile')
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
     os.chmod(str(pdir.join('file1')), 0600)
@@ -23,9 +24,11 @@ class AppTestPosix:
         cls.space = space 
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_path = space.wrap(str(path))
+        cls.w_path2 = space.wrap(str(path2))
         cls.w_pdir = space.wrap(str(pdir))
-        cls.w_getuid = space.wrap(os.getuid())
-        cls.w_geteuid = space.wrap(os.geteuid())
+        if hasattr(os, 'getuid'):
+            cls.w_getuid = space.wrap(os.getuid())
+            cls.w_geteuid = space.wrap(os.geteuid())
     
     def test_posix_is_pypy_s(self): 
         assert self.posix.__file__ 
@@ -41,10 +44,38 @@ class AppTestPosix:
         posix.lseek(fd, 5, 0)
         s = posix.read(fd, 1)
         assert s == 'i'
-        stat = posix.fstat(fd) 
-        assert stat  # XXX 
+        st = posix.fstat(fd)
         posix.close(fd2)
         posix.close(fd)
+
+        import sys, stat
+        assert st[0] == st.st_mode
+        assert st[1] == st.st_ino
+        assert st[2] == st.st_dev
+        assert st[3] == st.st_nlink
+        assert st[4] == st.st_uid
+        assert st[5] == st.st_gid
+        assert st[6] == st.st_size
+        assert st[7] == int(st.st_atime)
+        assert st[8] == int(st.st_mtime)
+        assert st[9] == int(st.st_ctime)
+
+        assert stat.S_IMODE(st.st_mode) & stat.S_IRUSR
+        assert stat.S_IMODE(st.st_mode) & stat.S_IWUSR
+        if not sys.platform.startswith('win'):
+            assert not (stat.S_IMODE(st.st_mode) & stat.S_IXUSR)
+
+        assert st.st_size == 14
+        assert st.st_nlink == 1
+
+        #if sys.platform.startswith('linux2'):
+        #    # expects non-integer timestamps - it's unlikely that they are
+        #    # all three integers
+        #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
+        #            (st[7],       st[8],       st[9]))
+        #    assert st.st_blksize * st.st_blocks >= st.st_size
+        if sys.platform.startswith('linux2'):
+            assert hasattr(st, 'st_rdev')
 
     def test_pickle(self):
         import pickle, os
@@ -114,6 +145,19 @@ class AppTestPosix:
         import sys
         if sys.platform != "win32":
             assert not posix.access(pdir, posix.X_OK)
+
+
+    def test_times(self):
+        """
+        posix.times() should return a five-tuple giving float-representations
+        (seconds, effectively) of the four fields from the underlying struct
+        tms and the return value.
+        """
+        result = self.posix.times()
+        assert isinstance(result, tuple)
+        assert len(result) == 5
+        for value in result:
+            assert isinstance(value, float)
 
 
     def test_strerror(self):
@@ -211,10 +255,11 @@ class AppTestPosix:
             exec code.compile() in d
             locals()['test_' + name] = d['test_wstar']
 
-    def test_wifsignaled(self):
-        os = self.posix
-        assert os.WIFSIGNALED(0) == False
-        assert os.WIFSIGNALED(1) == True
+    if hasattr(os, 'WIFSIGNALED'):
+        def test_wifsignaled(self):
+            os = self.posix
+            assert os.WIFSIGNALED(0) == False
+            assert os.WIFSIGNALED(1) == True
 
     def test_os_uname(self):
         skip("Uname broken")
@@ -225,10 +270,31 @@ class AppTestPosix:
             assert isinstance(i, str)
         assert isinstance(res, tuple)
 
-    def test_os_getuid(self):
+    if hasattr(os, 'getuid'):
+        def test_os_getuid(self):
+            os = self.posix
+            assert os.getuid() == self.getuid
+            assert os.geteuid() == self.geteuid
+
+    def test_largefile(self):
         os = self.posix
-        os.getuid() == self.getuid
-        os.geteuid() == self.geteuid
+        import sys
+        if sys.platform == 'darwin':
+            skip("no sparse files on default Mac OS X file system")
+        if os.__name__ == 'nt':
+            skip("no sparse files on Windows")
+        fd = os.open(self.path2, os.O_RDWR | os.O_CREAT, 0666)
+        os.ftruncate(fd, 10000000000L)
+        res = os.lseek(fd, 9900000000L, 0)
+        assert res == 9900000000L
+        res = os.lseek(fd, -5000000000L, 1)
+        assert res == 4900000000L
+        res = os.lseek(fd, -5200000000L, 2)
+        assert res == 4800000000L
+        os.close(fd)
+
+        st = os.stat(self.path2)
+        assert st.st_size == 10000000000L
 
 class AppTestEnvironment(object):
     def setup_class(cls): 
@@ -261,15 +327,6 @@ class AppTestEnvironment(object):
             cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
             res = os.system(cmd)
             assert res == 0
-
-    def test_tmpfile(self):
-        os = self.os
-        f = os.tmpfile()
-        f.write("xxx")
-        f.flush()
-        f.seek(0, 0)
-        assert isinstance(f, file)
-        assert f.read() == 'xxx'
 
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible

@@ -228,8 +228,8 @@ class TestLL2Ctypes(object):
 
     def test_opaque_obj(self):
         includes = ['sys/time.h', 'time.h']
-        TIMEVALP = rffi.COpaque('struct timeval', includes=includes)
-        TIMEZONEP = rffi.COpaque('struct timezone', includes=includes)
+        TIMEVALP = rffi.COpaquePtr('struct timeval', includes=includes)
+        TIMEZONEP = rffi.COpaquePtr('struct timezone', includes=includes)
         gettimeofday = rffi.llexternal('gettimeofday', [TIMEVALP, TIMEZONEP],
                                        rffi.INT, includes=includes)
         ll_timevalp = lltype.malloc(TIMEVALP.TO, flavor='raw')
@@ -404,3 +404,11 @@ class TestLL2Ctypes(object):
         assert s1ac.contents.x == 59
         assert s.s1a.x == 59
         lltype.free(s, flavor='raw')
+
+    def test_recursive_struct(self):
+        py.test.skip("Not implemented")
+        SX = lltype.ForwardReference()
+        S1 = lltype.Struct('S1', ('x', lltype.Ptr(SX)))
+        S1.x.TO.become(S1)
+        s = lltype.malloc(S1, flavor='raw')
+        sc = lltype2ctypes(s)

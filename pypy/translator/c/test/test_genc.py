@@ -51,7 +51,10 @@ def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             expected_extra_mallocs = 0
         res = compiled_fn(*args, **kwds)
         mallocs, frees = module.malloc_counters()
-        assert mallocs - frees == expected_extra_mallocs
+        if isinstance(expected_extra_mallocs, int):
+            assert mallocs - frees == expected_extra_mallocs
+        else:
+            assert mallocs - frees in expected_extra_mallocs
         return res
     return checking_fn
 

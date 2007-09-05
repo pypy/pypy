@@ -346,7 +346,9 @@ class CCompiler:
 
     def build(self, noerr=False):
         basename = self.outputfilename.new(ext='')
+        data = ''
         try:
+            saved_environ = os.environ.copy()
             try:
                 c = stdoutcapture.Capture(mixed_out_err = True)
                 if self.profbased is None:
@@ -362,6 +364,11 @@ class CCompiler:
                     profdrv.probe(str(self.outputfilename),args)
                     profdrv.after()
             finally:
+                # workaround for a distutils bugs where some env vars can
+                # become longer and longer every time it is used
+                for key, value in saved_environ.items():
+                    if os.environ.get(key) != value:
+                        os.environ[key] = value
                 foutput, foutput = c.done()
                 data = foutput.read()
                 if data:

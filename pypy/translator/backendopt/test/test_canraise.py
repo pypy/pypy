@@ -1,5 +1,6 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.conftest import option
 
 def translate(func, sig):
@@ -64,13 +65,29 @@ def test_indirect_call():
     result = ra.can_raise(hgraph.startblock.operations[0])
     assert result
 
-def test_external():
-    import os.path
+def test_llexternal():
+    from pypy.rpython.lltypesystem.rffi import llexternal
+    from pypy.rpython.lltypesystem import lltype
+    z = llexternal('z', [lltype.Signed], lltype.Signed)
     def f(x):
-        return os.path.isdir(str(x))
+        return z(x)
     t, ra = translate(f, [int])
     fgraph = graphof(t, f)
+    backend_optimizations(t)
+    assert fgraph.startblock.operations[0].opname == 'direct_call'
+
     result = ra.can_raise(fgraph.startblock.operations[0])
+    assert not result
+
+    z = llexternal('z', [lltype.Signed], lltype.Signed, canraise=True)
+    def g(x):
+        return z(x)
+    t, ra = translate(g, [int])
+    ggraph = graphof(t, g)
+
+    assert ggraph.startblock.operations[0].opname == 'direct_call'
+
+    result = ra.can_raise(ggraph.startblock.operations[0])
     assert result
 
 def test_instantiate():

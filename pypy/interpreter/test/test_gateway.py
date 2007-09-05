@@ -209,6 +209,28 @@ class TestGateway:
             space.call_function(w_app_g3_if, w(1), w(1.0)),
             w(2.0))
 
+    def test_interp2app_unwrap_spec_r_longlong(self):
+        space = self.space
+        w = space.wrap
+        def g3_ll(space, n):
+            return space.wrap(n * 3)
+        app_g3_ll = gateway.interp2app_temp(g3_ll,
+                                         unwrap_spec=[gateway.ObjSpace,
+                                                      gateway.r_longlong])
+        w_app_g3_ll = space.wrap(app_g3_ll)
+        w_big = w(gateway.r_longlong(10**10))
+        assert space.eq_w(
+            space.call(w_app_g3_ll, 
+                       space.newtuple([w_big]),
+                       space.newdict()),
+            w(gateway.r_longlong(3 * 10**10)))
+        assert space.eq_w(
+            space.call_function(w_app_g3_ll, w_big),
+            w(gateway.r_longlong(3 * 10**10)))
+        w_huge = w(10L**100)
+        space.raises_w(space.w_OverflowError,
+                       space.call_function, w_app_g3_ll, w_huge)
+
     def test_interp2app_unwrap_spec_index(self):
         space = self.space
         w = space.wrap

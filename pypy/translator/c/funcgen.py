@@ -469,29 +469,26 @@ class FunctionCodeGenerator(object):
 
     def OP_GETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
-        items = self.expr(op.args[0])
-        if not isinstance(ARRAY, FixedSizeArray):
-            items += '->items'
-        return self.generic_get(op, '%s[%s]' % (items,
-                                                self.expr(op.args[1])))
+        ptr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        arraydef = self.db.gettypedefnode(ARRAY)
+        return self.generic_get(op, arraydef.itemindex_access_expr(ptr, index))
 
     def OP_SETARRAYITEM(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
-        items = self.expr(op.args[0])
-        if not isinstance(ARRAY, FixedSizeArray):
-            items += '->items'
-        return self.generic_set(op, '%s[%s]' % (items,
-                                                self.expr(op.args[1])))
+        ptr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        arraydef = self.db.gettypedefnode(ARRAY)
+        return self.generic_set(op, arraydef.itemindex_access_expr(ptr, index))
     OP_BARE_SETARRAYITEM = OP_SETARRAYITEM
 
     def OP_GETARRAYSUBSTRUCT(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
-        items = self.expr(op.args[0])
-        if not isinstance(ARRAY, FixedSizeArray):
-            items += '->items'
-        return '%s = %s + %s;' % (self.expr(op.result),
-                                  items,
-                                  self.expr(op.args[1]))
+        ptr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        arraydef = self.db.gettypedefnode(ARRAY)
+        return '%s = &%s;' % (self.expr(op.result),
+                              arraydef.itemindex_access_expr(ptr, index))
 
     def OP_PTR_NONZERO(self, op):
         return '%s = (%s != NULL);' % (self.expr(op.result),

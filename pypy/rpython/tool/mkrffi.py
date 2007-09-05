@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import ctypes
 
 import py
@@ -21,8 +19,6 @@ SIMPLE_TYPE_MAPPING = {
     ctypes.c_uint      : 'rffi.UINT',
     ctypes.c_int32     : 'rffi.INT',
     ctypes.c_uint32    : 'rffi.UINT',
-    #ctypes.c_long      : 'rffi.LONG', # same as c_int..
-    #ctypes.c_ulong     : 'rffi.ULONG',
     ctypes.c_longlong  : 'rffi.LONGLONG',
     ctypes.c_ulonglong : 'rffi.ULONGLONG',
     ctypes.c_int64     : 'rffi.LONGLONG',
@@ -50,6 +46,15 @@ class RffiSource(object):
         include_dirs = include_dirs and \
             "include_dirs=%s, " % repr(tuple(include_dirs)) or ''
         self.extra_args = includes+libraries+include_dirs
+        self.seen = {}
+        self.forward_refs = 0
+        self.forward_refs_to_consider = {}
+
+    def next_forward_reference(self):
+        try:
+            return "forward_ref%d" % self.forward_refs
+        finally:
+            self.forward_refs += 1
 
     def __str__(self):
         return str(self.source)
@@ -75,9 +80,22 @@ class RffiSource(object):
             src = py.code.Source(
                 "%s = lltype.Struct('%s', %s hints={'external':'C'})"%(
                     name, name, fields_repr))
-            self.source = py.code.Source(self.source, src)
+            forward_ref = self.forward_refs_to_consider.get(tp, None)
+            l = [self.source, src]
+            if forward_ref:
+                l.append(py.code.Source("\n%s.become(%s)\n" % (forward_ref, name)))
+            self.source = py.code.Source(*l)
         return name
 
+    def proc_forward_ref(self, tp):
+        name = self.next_forward_reference()
+        src = py.code.Source("""
+        %s = lltype.ForwardReference()
+        """ % (name,) )
+        self.source = py.code.Source(self.source, src)
+        self.forward_refs_to_consider[tp] = name
+        return name
+        
     def proc_tp(self, tp):
         try:
             return SIMPLE_TYPE_MAPPING[tp]
@@ -89,16 +107,26 @@ class RffiSource(object):
                        % self.proc_tp(tp._type_)
             return "lltype.Ptr(%s)" % self.proc_tp(tp._type_)
         elif issubclass(tp, ctypes.Structure):
+            if tp in self.seen:
+                # recursive struct
+                return self.proc_forward_ref(tp)
+            self.seen[tp] = True
             return self.proc_struct(tp)
+        elif issubclass(tp, ctypes.Array):
+            return "lltype.Ptr(lltype.Array(%s, hints={'nolength': True}))" % \
+                   self.proc_tp(tp._type_)
         raise NotImplementedError("Not implemented mapping for %s" % tp)
 
     def proc_func(self, func):
-        print "proc_func", func
         name = func.__name__
+        if not self.extra_args:
+            extra_args = ""
+        else:
+            extra_args = ", " + self.extra_args
         src = py.code.Source("""
-        %s = rffi.llexternal('%s', [%s], %s, %s)
+        %s = rffi.llexternal('%s', [%s], %s%s)
         """%(name, name, ", ".join([self.proc_tp(arg) for arg in func.argtypes]),
-             self.proc_tp(func.restype), self.extra_args))
+             self.proc_tp(func.restype), extra_args))
         self.source = py.code.Source(self.source, src)
 
     def proc_namespace(self, ns):
@@ -107,14 +135,15 @@ class RffiSource(object):
             if id(value) in exempt: 
                 continue
             if isinstance(value, ctypes._CFuncPtr):
-                print "func", key, value
-                try:    
-                    self.proc_func(value)
-                except NotImplementedError:
-                    print "skipped:", value
+                self.proc_func(value)
             #print value, value.__class__.__name__
 
-
-
-
-
+    def compiled(self):
+        # not caching!
+        globs = {}
+        src = py.code.Source("""
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.lltypesystem import rffi
+        """, self.source)
+        exec src.compile() in globs
+        return globs

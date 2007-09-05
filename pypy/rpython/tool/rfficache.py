@@ -5,6 +5,7 @@ keeps information about C type sizes
 
 import py
 import os
+import distutils
 from pypy.translator.tool.cbuild import build_executable
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
@@ -36,7 +37,7 @@ def ask_gcc(question, includes=[], add_source="", include_dirs=[],
     # always include pypy include dir
     pypypath = py.path.local(pypydir)
     include_dirs = include_dirs[:]
-    include_dirs.append(str(pypypath.join('translator', 'c', 'src')))
+    include_dirs.append(str(pypypath.join('translator', 'c')))
 
     c_exec = build_executable([str(c_file)], include_dirs=include_dirs,
                               compiler_exe=compiler_exe)
@@ -60,13 +61,23 @@ def c_defined_int(c_def, **kwds):
     question = 'printf("%%d", %s);' % (c_def,)
     return int(ask_gcc(question, **kwds))
 
+def have_c_obj(c_obj, **kwds):
+    question = c_obj + ';'
+    try:
+        ask_gcc(question, **kwds)
+        return True
+    except distutils.errors.CompileError:
+        # parsing errors here and trying to deduce whether
+        # it's this or not sounds like an overkill
+        return False
+
 def create_cache_access_method(acc_func, meth_name):
     def method(self, name, **kwds):
         try:
-            return self.cache[name]
+            return self.cache[meth_name, name]
         except KeyError:
             res = acc_func(name, **kwds)
-            self.cache[name] = res
+            self.cache[meth_name, name] = res
             self._store_cache()
             return res
     method.func_name = meth_name
@@ -92,7 +103,7 @@ class RffiCache(object):
 
     def _build_types(self):
         for name, (c_name, signed) in self.type_names.items():
-            bits = self.cache[c_name]
+            bits = self.cache['bits', c_name]
             inttype = rarithmetic.build_int('r_' + name, signed, bits)
             tp = lltype.build_number(name, inttype)
             self.numbertype_to_rclass[tp] = inttype
@@ -105,7 +116,7 @@ class RffiCache(object):
         except KeyError:
             bits = sizeof_c_type(c_name, **kwds) * 8
             inttype = rarithmetic.build_int('r_' + name, signed, bits)
-            self.cache[c_name] = bits
+            self.cache['bits', c_name] = bits
             self.type_names[name] = (c_name, signed)
             tp = lltype.build_number(name, inttype)
             self.numbertype_to_rclass[tp] = inttype
@@ -116,6 +127,7 @@ class RffiCache(object):
     defined = create_cache_access_method(c_ifdefined, 'defined')
     intdefined = create_cache_access_method(c_defined_int, 'intdefined')
     sizeof = create_cache_access_method(sizeof_c_type, 'sizeof')
+    has = create_cache_access_method(have_c_obj, 'has')
 
     # optimal way of caching it, would be to store file on __del__,
     # but since we cannot rely on __del__ having all modules, let's

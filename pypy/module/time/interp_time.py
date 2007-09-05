@@ -16,10 +16,5 @@ second may be present if the system clock provides them."""
 def sleep(space, seconds):
     """Delay execution for a given number of seconds.  The argument may
 be a floating point number for subsecond precision."""
-    # XXX Temporary hack: we need to make sure the GIL is released while
-    #     sleeping.  XXX should be done differently !!!
-    GIL = space.threadlocals.getGIL()
-    if GIL is not None: GIL.release()
     time.sleep(seconds)
-    if GIL is not None: GIL.acquire(True)
 sleep.unwrap_spec = [ObjSpace, float]

@@ -1,4 +1,5 @@
-from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong, ovfcheck
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
+from pypy.rlib.rarithmetic import ovfcheck, r_longlong
 
 import math, sys
 
@@ -174,6 +175,9 @@ class rbigint(object):
     def toint(self):
         return _AsLong(self)
 
+    def tolonglong(self):
+        return _AsLongLong(self)
+
     def tobool(self):
         return self.sign != 0
 
@@ -194,16 +198,7 @@ class rbigint(object):
     def toulonglong(self):
         if self.sign == -1:
             raise ValueError("cannot convert negative integer to unsigned int")
-        x = r_ulonglong(0)
-        i = len(self.digits) - 1
-        while i >= 0:
-            prev = x
-            x = (x << SHIFT) + self.digits[i]
-            if (x >> SHIFT) != prev:
-                    raise OverflowError(
-                        "long int too large to convert to unsigned long long int")
-            i -= 1
-        return x
+        return _AsULonglong_ignore_sign(self)
 
     def tofloat(self):
         return _AsDouble(self)
@@ -1556,6 +1551,39 @@ def _AsLong(v):
     if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
         raise OverflowError
     return intmask(x * sign)
+
+ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
+LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))
+
+def _AsLongLong(v):
+    """
+    Get a r_longlong integer from a bigint object.
+    Raises OverflowError if overflow occurs.
+    """
+    x = _AsULonglong_ignore_sign(v)
+    # grr grr grr
+    if x >= ULONGLONG_BOUND:
+        if x == ULONGLONG_BOUND and v.sign < 0:
+            x = LONGLONG_MIN
+        else:
+            raise OverflowError
+    else:
+        x = r_longlong(x)
+        if v.sign < 0:
+            x = -x
+    return x
+
+def _AsULonglong_ignore_sign(v):
+    x = r_ulonglong(0)
+    i = len(v.digits) - 1
+    while i >= 0:
+        prev = x
+        x = (x << SHIFT) + v.digits[i]
+        if (x >> SHIFT) != prev:
+                raise OverflowError(
+                    "long int too large to convert to unsigned long long int")
+        i -= 1
+    return x
 
 def _hash(v):
     # This is designed so that Python ints and longs with the

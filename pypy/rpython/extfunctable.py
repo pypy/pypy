@@ -137,16 +137,6 @@ def declaregcptrtype(typ, tag, **methodsdecl):
 
 # _____________________________________________________________
 
-def record_call(func, args_s, symbol):
-    from pypy.annotation import bookkeeper
-    bk = bookkeeper.getbookkeeper()
-    # this would be nice!
-    #bk.pbc_call(bk.immutablevalue(func),
-    #            bk.build_args("simple_call", args_s),
-    #            emulated=True)
-    bk.annotator.translator._implicitly_called_by_externals.append(
-        (func, args_s, symbol))
-
 def noneannotation(*args):
     return None
 
@@ -154,74 +144,13 @@ def posannotation(*args):
     from pypy.annotation.model import SomeInteger
     return SomeInteger(nonneg=True)
 
-def statannotation(*args):
-    from pypy.rpython.lltypesystem.module.ll_os import Implementation
-    from pypy.annotation.model import SomeInteger, SomeTuple
-    record_call(Implementation.ll_stat_result, [SomeInteger()]*10, 'OS_STAT')
-    return SomeTuple((SomeInteger(),)*10)
-
-def pipeannotation(*args):
-    from pypy.rpython.lltypesystem.module.ll_os import Implementation
-    from pypy.annotation.model import SomeInteger, SomeTuple
-    record_call(Implementation.ll_pipe_result, [SomeInteger()]*2, 'OS_PIPE')
-    return SomeTuple((SomeInteger(),)*2)
-
-def waitpidannotation(*args):
-    from pypy.rpython.lltypesystem.module.ll_os import Implementation
-    from pypy.annotation.model import SomeInteger, SomeTuple
-    record_call(Implementation.ll_waitpid_result, [SomeInteger()]*2,
-                'OS_WAITPID')
-    return SomeTuple((SomeInteger(),)*2)
-
 def strnullannotation(*args):
     from pypy.annotation.model import SomeString
     return SomeString(can_be_None=True)
 
 # external function declarations
-posix = __import__(os.name)
-declare(os.lseek    , r_longlong    , 'll_os/lseek')
-declare(os.isatty   , bool          , 'll_os/isatty')
-if hasattr(posix, 'ftruncate'):
-    declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
-declare(os.fstat    , statannotation, 'll_os/fstat')
-declare(os.stat     , statannotation, 'll_os/stat')
-declare(os.lstat    , statannotation, 'll_os/lstat')
-declare(os.system   , int           , 'll_os/system')
-declare(os.strerror , str           , 'll_os/strerror')
-declare(os.unlink   , noneannotation, 'll_os/unlink')
-declare(os.chdir    , noneannotation, 'll_os/chdir')
-declare(os.mkdir    , noneannotation, 'll_os/mkdir')
-declare(os.rmdir    , noneannotation, 'll_os/rmdir')
-if hasattr(posix, 'unsetenv'):   # note: faked in os
-    declare(os.unsetenv , noneannotation, 'll_os/unsetenv')
-declare(os.pipe     , pipeannotation, 'll_os/pipe')
-declare(os.chmod    , noneannotation, 'll_os/chmod')
-declare(os.rename   , noneannotation, 'll_os/rename')
-declare(os.umask    , int           , 'll_os/umask')
-declare(os._exit    , noneannotation, 'll_os/_exit')
-if hasattr(os, 'kill'):
-    declare(os.kill     , noneannotation, 'll_os/kill')
-if hasattr(os, 'link'):
-    declare(os.link     , noneannotation, 'll_os/link')
-if hasattr(os, 'symlink'):
-    declare(os.symlink  , noneannotation, 'll_os/symlink')
-if hasattr(os, 'readlink'):
-    declare(os.readlink , str,            'll_os/readlink')
-if hasattr(os, 'fork'):
-    declare(os.fork ,     int,            'll_os/fork')
-if hasattr(os, 'spawnv'):
-    declare(os.spawnv,    int,            'll_os/spawnv')
-if hasattr(os, 'waitpid'):
-    declare(os.waitpid ,  waitpidannotation, 'll_os/waitpid')
-#if hasattr(os, 'execv'):
-#    declare(os.execv, noneannotation, 'll_os/execv')
-#    declare(os.execve, noneannotation, 'll_os/execve')
-
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')
-declare(time.time   , float         , 'll_time/time')
-declare(time.clock  , float         , 'll_time/clock')
-declare(time.sleep  , noneannotation, 'll_time/sleep')
 
 # ___________________________________________________________
 # win/NT hack: patch ntpath.isabs() to be RPythonic
@@ -239,16 +168,6 @@ from pypy.rlib import rarithmetic
 declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
 # float->string helper
 declare(rarithmetic.formatd, str, 'll_strtod/formatd')
-
-# ___________________________________________________________
-# special helpers for os with no equivalent
-from pypy.rlib import ros
-declare(ros.putenv, noneannotation, 'll_os/putenv')
-declare(ros.environ, strnullannotation, 'll_os/environ')
-declare(ros.opendir, ros.DIR, 'll_os/opendir')
-declareptrtype(ros.DIR, "DIR",
-               readdir = (strnullannotation, 'll_os/readdir'),
-               closedir = (noneannotation,   'll_os/closedir'))
 
 # ___________________________________________________________
 # stackless

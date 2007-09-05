@@ -18,6 +18,7 @@ from pypy.translator.test.snippet import is_perfect_number
 from pypy.translator.backendopt.all import INLINE_THRESHOLD_FOR_TEST
 from pypy.conftest import option
 from pypy.translator.backendopt import removenoops
+from pypy.objspace.flow.model import summary
 
 def no_missing_concretetype(node):
     if isinstance(node, Block):
@@ -193,6 +194,20 @@ class BaseTestInline:
         assert result == g(0)
         result = eval_func([42])
         assert result == g(42)
+
+    def test_always_inline(self):
+        def f(x, y, z, k):
+            p = (((x, y), z), k)
+            return p[0][0][0] + p[-1]
+        f._always_inline_ = True
+
+        def g(x, y, z, k):
+            a = f(x, y, z, k)
+            return a
+        eval_func, t = self.check_auto_inlining(g, [int, int, int, int], multiplier=0.1)
+        graph = graphof(t, g)
+        s = summary(graph)
+        assert len(s) > 3
 
     def test_inline_exceptions(self):
         def f(x):
@@ -450,14 +465,6 @@ class BaseTestInline:
         eval_func = self.check_inline(f2, f, [int])
         result = eval_func([54])
         assert result == 55
-
-    def test_auto_inline_os_path_isdir(self):
-        directory = "./."
-        def f():
-            return os.path.isdir(directory)
-        eval_func, _ = self.check_auto_inlining(f, [])
-        result = eval_func([])
-        assert result is True
 
     def test_inline_raiseonly(self):
         def f2(x):

@@ -13,29 +13,29 @@ try:
     from pypy.rlib.rcairo._cairo import CAIRO_FORMAT_ARGB32
     from pypy.rlib.rcairo.ll_cairo import *
 except distutils.errors.CompileError, e:
-    py.test.skip(str(e))
+    py.test.skip("Probably cairo not found: " + str(e))
 
 def demo(filename):
     width = 800
     height = 600
     surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,width,height)
     cr = cairo_create(surface)
-    cairo_scale(cr, 1.*width, 1.*height)
+    cairo_scale(cr, width, height)
     cairo_set_line_width(cr, 0.04)
 
     
-    cairo_arc(cr, 0.5, 0.5, 0.3, 0., 2 * pi)
+    cairo_arc(cr, 0.5, 0.5, 0.3, 0, 2 * pi)
     cairo_clip(cr)
     
     cairo_new_path(cr) # current path is not
                        # consumed by cairo_clip()
-    cairo_rectangle(cr, 0., 0., 1., 1.)
+    cairo_rectangle(cr, 0, 0, 1, 1)
     cairo_fill(cr)
-    cairo_set_source_rgb(cr, 0., 1., 0.)
-    cairo_move_to(cr, 0., 0.)
-    cairo_line_to(cr, 1., 1.)
-    cairo_move_to(cr, 1., 0.)
-    cairo_line_to(cr, 0., 1.)
+    cairo_set_source_rgb(cr, 0, 1, 0)
+    cairo_move_to(cr, 0, 0)
+    cairo_line_to(cr, 1, 1)
+    cairo_move_to(cr, 1, 0)
+    cairo_line_to(cr, 0, 1)
     cairo_stroke(cr)
 
     #_cairo_surface_write_to_png(surface, 'foo.png') # XXX why does this fail to compile ??

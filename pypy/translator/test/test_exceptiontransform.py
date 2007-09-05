@@ -2,7 +2,9 @@ import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.simplify import join_blocks
 from pypy.translator import exceptiontransform
+from pypy.objspace.flow.model import summary
 from pypy.rpython.test.test_llinterp import get_interpreter
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy import conftest
 import sys
 
@@ -27,12 +29,14 @@ def interpret(func, values):
 class BaseTestExceptionTransform:
     type_system = None
 
-    def transform_func(self, fn, inputtypes):
+    def transform_func(self, fn, inputtypes, backendopt=False):
         t = TranslationContext()
         t.buildannotator().build_types(fn, inputtypes)
         t.buildrtyper(type_system=self.type_system).specialize()
         if conftest.option.view:
             t.view()
+        if backendopt:
+            backend_optimizations(t)
         g = graphof(t, fn)
         etrafo = exceptiontransform.ExceptionTransformer(t)
         etrafo.create_exception_handling(g)
@@ -214,6 +218,21 @@ class TestLLType(BaseTestExceptionTransform):
         etrafo.create_exception_handling(g)
         ops = dict.fromkeys([o.opname for b, o in g.iterblockops()])
         assert 'zero_gc_pointers_inside' in ops
+
+    def test_llexternal(self):
+        from pypy.rpython.lltypesystem.rffi import llexternal
+        from pypy.rpython.lltypesystem import lltype
+        z = llexternal('z', [lltype.Signed], lltype.Signed)
+        def f(x):
+            y = -1
+            if x > 0:
+                y = z(x)
+            return y + x
+
+        t,g = self.transform_func(f, [int], True)
+        # llexternals normally should not raise, the graph should have no exception
+        # checking
+        assert summary(g) == {'int_gt': 1, 'int_add': 1, 'direct_call': 1}
 
 class TestOOType(BaseTestExceptionTransform):
     type_system = 'ootype'

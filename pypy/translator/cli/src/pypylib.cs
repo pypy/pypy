@@ -588,8 +588,21 @@ namespace pypy.runtime
         public override int GetHashCode() { return item0.GetHashCode(); }
     }
 
+    public class Record_String_String {
+        public string item0;
+        public string item1;
+        public override string ToString() { return string.Format("({0}, {1},)", item0, item1); }
+        public override bool Equals(object obj)
+        {
+            Record_String_String x = (Record_String_String)obj;
+            return item0 == x.item0 && item1 == x.item1;
+        }
+        public override int GetHashCode() { return item0.GetHashCode(); }
+    }
+
     public class Record_Stat_Result {
-        public int item0, item1, item2, item3, item4, item5, item6, item7, item8, item9;
+        public int item0, item3, item4, item5, item7, item8, item9;
+        public long item1, item2, item6;
         public override string ToString() 
         { 
             return string.Format("({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9},)", 

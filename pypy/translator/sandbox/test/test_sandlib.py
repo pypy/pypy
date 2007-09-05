@@ -1,3 +1,4 @@
+import py
 import os, StringIO
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import rffi
@@ -20,17 +21,15 @@ class MySandboxedProc(SandboxedProc):
             assert name == expectedmsg
             assert input == expectedinput
             self.seen += 1
+            if isinstance(output, Exception):
+                raise output
             return output
         return func_with_new_name(do_xxx, 'do_%s' % name)
 
-    do_open  = _make_method("open")
-    do_read  = _make_method("read")
-    do_write = _make_method("write")
-    do_close = _make_method("close")
-    do_foobar = _make_method("foobar")
-
-    TYPES = SandboxedProc.TYPES.copy()
-    TYPES["foobar"] = "s", "i"
+    do_ll_os__ll_os_open  = _make_method("open")
+    do_ll_os__ll_os_read  = _make_method("read")
+    do_ll_os__ll_os_write = _make_method("write")
+    do_ll_os__ll_os_close = _make_method("close")
 
 
 def test_lib():
@@ -56,12 +55,13 @@ def test_lib():
         ("write", (77, exe), 61),
         ("write", (77, "x1"), 61),
         ("write", (77, "y2"), 61),
-        ("close", (77,), 0),
+        ("close", (77,), None),
         ])
     proc.handle_forever()
     assert proc.seen == len(proc.expected)
 
 def test_foobar():
+    py.test.skip("to be updated")
     foobar = rffi.llexternal("foobar", [rffi.CCHARP], rffi.LONG)
     def entry_point(argv):
         s = rffi.str2charp(argv[1]); n = foobar(s); rffi.free_charp(s)
@@ -98,3 +98,20 @@ def test_simpleio():
     output, error = proc.communicate("21\n")
     assert output == "Please enter a number:\nThe double is: 42\n"
     assert error == ""
+
+def test_oserror():
+    def entry_point(argv):
+        try:
+            os.open("/tmp/foobar", os.O_RDONLY, 0777)
+        except OSError, e:
+            os.close(e.errno)    # nonsense, just to see outside
+        return 0
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+
+    proc = MySandboxedProc([exe], expected = [
+        ("open", ("/tmp/foobar", os.O_RDONLY, 0777), OSError(-42, "baz")),
+        ("close", (-42,), None),
+        ])
+    proc.handle_forever()
+    assert proc.seen == len(proc.expected)

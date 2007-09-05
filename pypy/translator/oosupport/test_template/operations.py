@@ -199,3 +199,9 @@ class BaseTestOperations(object):
             return 0
         assert self.interpret(f, [5]) == 0
 
+    def test_ullong_rshift(self):
+        def f(x):
+            return x >> 1
+        x = sys.maxint+1
+        assert self.interpret(f, [r_ulonglong(x)]) == x >> 1
+        

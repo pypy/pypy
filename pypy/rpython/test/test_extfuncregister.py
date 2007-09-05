@@ -5,7 +5,7 @@ of register_external functions work as intendet
 
 import py
 from pypy.rpython.extfunc import lazy_register, BaseLazyRegistering, \
-     registering
+     registering, registering_if, extdef
 from pypy.rpython.test.test_llinterp import interpret
 
 def test_lazy_register():
@@ -49,6 +49,22 @@ def test_lazy_register_class_raising():
     py.test.raises(ZeroDivisionError, interpret, lambda : f(), [])
     assert interpret(lambda : g(), []) == 8
 
+def test_lazy_register_extdef():
+    def g():
+        return 3
+
+    x = []
+
+    def register_g():
+        x.append('g')
+        return extdef([], int, llimpl=lambda : 21)
+
+    nothing = lazy_register(g, register_g)
+
+    assert x == ['g']
+    assert nothing is None
+    assert interpret(lambda : g(), []) == 21    
+    
 def test_lazy_register_raising_init():
     def f():
         return 3
@@ -70,4 +86,22 @@ def test_lazy_register_raising_init():
 
     py.test.raises(ZeroDivisionError, interpret, lambda : f(), [])
     py.test.raises(ZeroDivisionError, interpret, lambda : g(), [])
+
+def test_registering_if():
+    class A:
+        @staticmethod
+        def f():
+            pass
+
+    @registering_if(A, 'f')
+    def foo():
+        pass
+
+    assert foo._registering_func is A.f
     
+    @registering_if(A, 'g')
+    def bar():
+        pass
+
+    assert bar is None
+ 

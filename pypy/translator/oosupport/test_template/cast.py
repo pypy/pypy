@@ -52,3 +52,17 @@ class BaseTestCast:
 
     def test_uint_to_float(self):
         self.check(to_float, [r_uint(sys.maxint+1)])
+
+    def test_cast_primitive(self):
+        from pypy.rpython.lltypesystem.lltype import cast_primitive, \
+             UnsignedLongLong, SignedLongLong, Signed
+        def f(x):
+            x = cast_primitive(UnsignedLongLong, x)
+            x <<= 60
+            x /= 3
+            x <<= 1
+            x = cast_primitive(SignedLongLong, x)
+            x >>= 32
+            return cast_primitive(Signed, x)
+        res = self.interpret(f, [14])
+        assert res == -1789569707

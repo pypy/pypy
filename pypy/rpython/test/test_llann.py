@@ -315,7 +315,25 @@ class TestLowLevelAnnotateTestCase:
         s = self.annotate(llf, [annmodel.SomeInteger()])
         assert s.unsigned == True
 
- 
+    def test_pbctype(self):
+        py.test.skip("annotation crash")
+        TYPE = Void
+        TYPE2 = Signed
+        def g(lst):
+            n = lst[0]
+            if isinstance(TYPE, Number):
+                result = 123
+            else:
+                result = 456
+            if isinstance(TYPE2, Number):
+                result += 1
+            return result + n
+        def llf():
+            lst = [5]
+            g(lst)
+            lst.append(6)
+        self.annotate(llf, [])
+
 def test_pseudohighlevelcallable():
     t = TranslationContext()
     t.buildannotator()
