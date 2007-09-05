@@ -29,7 +29,7 @@ def test_dont_remove_external_calls():
     def f(x):
         os.close(x)
     graph, _ = translate(f, [int])
-    assert len(graph.startblock.operations) == 2
+    assert len(graph.startblock.operations) > 0
 
 def test_remove_recursive_call():
     def rec(a):
@@ -140,13 +140,24 @@ def test_get_graph():
                 print op
                 graph = get_graph(op.args[0], t)
                 assert graph is not None
+    # an external function in RPython turns currently into
+    # a call to a wrapper function which itself contains the
+    # real call to a graph-less external ll function, so
+    # we check recursively
     graph, t = translate(external_function, [], False) 
-    for block in graph.iterblocks():
-        for op in block.operations:
-            if op.opname == "direct_call":
-                print op
-                graph = get_graph(op.args[0], t)
-                assert graph is None
+    found = []
+    def walkgraph(graph):
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == "direct_call":
+                    print op
+                    subgraph = get_graph(op.args[0], t)
+                    if subgraph is None:
+                        found.append(op)
+                    else:
+                        walkgraph(subgraph)
+    walkgraph(graph)
+    assert len(found) == 1
 
 def addone(x):
     return x + 1
