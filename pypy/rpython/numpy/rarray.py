@@ -18,7 +18,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.annotation import listdef
 from pypy.rpython.memory.lltypelayout import sizeof
 
-def gen_build_from_shape(ndim):
+def gen_build_from_shape(ndim, zero=False):
     unrolling_dims = unrolling_iterable(reversed(range(ndim)))
     def ll_build_from_shape(ARRAY, shape):
         array = ll_allocate(ARRAY, ndim)
@@ -29,7 +29,7 @@ def gen_build_from_shape(ndim):
             array.shape[i] = size
             array.strides[i] = itemsize
             itemsize *= size
-        array.data = malloc(ARRAY.data.TO, itemsize)
+        array.data = malloc(ARRAY.data.TO, itemsize, zero=zero)
         array.dataptr = direct_arrayitems(array.data)
         return array
     return ll_build_from_shape
@@ -58,7 +58,7 @@ def ARRAY_ITER(ARRAY, INDEXARRAY):
             ("strides", INDEXARRAY),
             ("backstrides", INDEXARRAY),
             #("factors", INDEXARRAY),
-#            ("ao", ARRAY), # EECK!! this makes too many iter types !!
+            #("ao", ARRAY), # not needed..
             ("dataptr", ARRAY.TO.dataptr), # pointer to current item
             #("contiguous", Bool),
         ))
@@ -147,15 +147,25 @@ def ll_binary_op(p0, p1, p2, op=lambda x,y:x+y):
     p0[0] = op(p1[0], p2[0])
 
 def ll_array_unary_op(iter_new, iter_next, ITER, array0, array1): 
+    assert array0.ndim == array1.ndim
     it0 = iter_new(ITER, array0)
     it1 = iter_new(ITER, array1)
+    assert it0.size == it1.size
     while it0.index < it0.size:
-        ll_unary_op(it0.dataptr, it1.dataptr)
+        it0.dataptr[0] = it1.dataptr[0]
         iter_next(it0)
         iter_next(it1)
 
+def dim_of_ITER(ITER):
+    return ITER.TO.coordinates.length
+
 def dim_of_ARRAY(ARRAY):
     return ARRAY.TO.shape.length
+
+class ArrayIterRepr(Repr):
+    def __init__(self, rtyper, s_iter):
+        self.s_iter = s_iter
+        self.lowleveltype = self.ITER
 
 class ArrayRepr(Repr):
     def __init__(self, rtyper, s_array):
@@ -180,19 +190,26 @@ class ArrayRepr(Repr):
         self.lowleveltype = self.ARRAY
         self.ITER = ARRAY_ITER(self.ARRAY, self.INDEXARRAY)
 
-    def build_from_array(self, llops, v_array):
+    def build_from_array(self, hop, v_array):
         cARRAY = inputconst(lltype.Void, self.lowleveltype.TO) 
-        return llops.gendirectcall(ll_build_alias, cARRAY, v_array)
+        return hop.llops.gendirectcall(ll_build_alias, cARRAY, v_array)
 
-    def build_from_shape(self, llops, r_tuple, v_tuple):
+    def build_from_shape(self, hop, r_arg, v_arg, zero=False):
         cARRAY = inputconst(lltype.Void, self.lowleveltype.TO) 
-        cTUPLE = inputconst(lltype.Void, r_tuple.lowleveltype.TO)
         ndim = self.s_array.ndim
-        ll_build_from_shape = gen_build_from_shape(ndim)
-        c_ndim = inputconst(lltype.Signed, ndim)
-        assert ndim == len(r_tuple.items_r)
-        rval = llops.gendirectcall(ll_build_from_shape, cARRAY, v_tuple)
-        return rval
+        if isinstance(r_arg, TupleRepr):
+            r_tuple, v_tuple = r_arg, v_arg
+            cTUPLE = inputconst(lltype.Void, r_tuple.lowleveltype.TO)
+            ll_build_from_shape = gen_build_from_shape(ndim, zero)
+            c_ndim = inputconst(lltype.Signed, ndim)
+            assert ndim == len(r_tuple.items_r)
+            return hop.llops.gendirectcall(ll_build_from_shape, cARRAY, v_tuple)
+        else:
+            assert ndim == 1
+            v_size = hop.inputarg(Signed, 0)
+            _malloc = lambda tp, size: malloc(tp, size, zero=zero)
+            cmalloc = inputconst(Void, _malloc)
+            return hop.llops.gendirectcall(ll_build_from_size, cARRAY, v_size, cmalloc)
 
     def rtype_method_transpose(self, hop):
         [v_self] = hop.inputargs(self)
@@ -291,11 +308,11 @@ def gen_get_view(r_tpl):
         for src_i, r_item in unroll_r_tpl:
             if isinstance(r_item, IntegerRepr):
                 r_int = r_item
-                dataptr = direct_ptradd(dataptr, getattr(tpl, 'item%d'%src_i))
+                dataptr = direct_ptradd(dataptr, getattr(tpl, 'item%d'%src_i)*ao.strides[src_i])
             else:
                 r_slice = r_item
                 array.shape[tgt_i] = ao.shape[src_i]
-                array.strides[tgt_i] = ao.strides[tgt_i]
+                array.strides[tgt_i] = ao.strides[src_i]
                 tgt_i += 1
         assert tgt_i == ndim
         array.dataptr = dataptr
@@ -325,15 +342,18 @@ class __extend__(pairtype(ArrayRepr, AbstractTupleRepr)):
         v_array, v_tuple, v_item = hop.inputargs(r_arr, r_tpl, r_item)
         ndim = get_view_ndim(r_tpl)
         if isinstance(r_item, ArrayRepr):
+            s_view = SomeArray(r_arr.s_array.typecode, ndim)
+            r_view = hop.rtyper.getrepr(s_view)
+            cARRAY = hop.inputconst(Void, r_view.ARRAY.TO)
             get_view = gen_get_view(r_tpl)
-            cARRAY = hop.inputconst(Void, r_arr.ARRAY.TO)
             v_view = hop.gendirectcall(get_view, cARRAY, v_array, v_tuple)
-            iter_new, iter_next = gen_iter_funcs(r_arr.ndim)        
+            iter_new, iter_next = gen_iter_funcs(ndim)        
             assert ndim == r_item.ndim
+            assert dim_of_ITER(r_item.ITER) == dim_of_ITER(r_view.ITER)
             cnew = hop.inputconst(Void, iter_new)
             cnext = hop.inputconst(Void, iter_next)
             cITER = hop.inputconst(Void, r_item.ITER.TO)
-            return hop.gendirectcall(ll_array_unary_op, cnew, cnext, cITER, v_array, v_view) 
+            return hop.gendirectcall(ll_array_unary_op, cnew, cnext, cITER, v_view, v_item) 
         else:
             # Set from scalar
             assert ndim == 0
@@ -344,10 +364,6 @@ class __extend__(pairtype(ArrayRepr, AbstractTupleRepr)):
 
 class __extend__(pairtype(ArrayRepr, ArrayRepr)):
     def convert_from_to((r_arr0, r_arr1), v, llops):
-        print "%r -> %r"%(
-            (r_arr0, ),
-            (r_arr1, ),
-        )
         assert 0
 
 class __extend__(pairtype(AbstractBaseListRepr, ArrayRepr)):
@@ -370,6 +386,14 @@ def ll_allocate(ARRAY, ndim):
     array.ndim = ndim
     array.data = nullptr(ARRAY.data.TO)
     array.dataptr = nullptr(ARRAY.dataptr.TO)
+    return array
+
+def ll_build_from_size(ARRAY, size, _malloc):
+    array = ll_allocate(ARRAY, 1)
+    array.shape[0] = size
+    array.strides[0] = 1
+    array.data = _malloc(ARRAY.data.TO, size)
+    array.dataptr = direct_arrayitems(array.data)
     return array
 
 def ll_build_from_list(ARRAY, lst):

@@ -69,6 +69,7 @@ class __extend__(pairtype(SomeArray, SomeArray)):
             raise AnnotatorError()
         return SomeArray(typecode, s_arr1.ndim)
 
+    # union ?
     sub = mul = div = add
 
 
@@ -172,7 +173,7 @@ class ArrayCallEntry(ExtRegistryEntry):
     def specialize_call(self, hop, i_dtype=None):
         r_array = hop.r_result
         v_lst = hop.inputarg(r_array, 0) # coerce list arg to array arg
-        v_result = r_array.build_from_array(hop.llops, v_lst)
+        v_result = r_array.build_from_array(hop, v_lst)
         return v_result
 
 
@@ -180,15 +181,17 @@ class EmptyCallEntry(ExtRegistryEntry):
     "Annotation and rtyping of calls to numpy.empty"
     _about_ = numpy.empty
 
-    def compute_result_annotation(self, s_tuple, s_dtype=None):
-        if isinstance(s_tuple, SomeTuple):
+    def compute_result_annotation(self, s_arg, s_dtype=None):
+        if isinstance(s_arg, SomeTuple):
+            s_tuple = s_arg
             for s_item in s_tuple.items:
                 if not isinstance(s_item, SomeInteger):
-                    raise AnnotatorError("shape must be tuple of integers")
+                    raise AnnotatorError("shape arg not understood")
             ndim = len(s_tuple.items)
+        elif isinstance(s_arg, SomeInteger):
+            ndim = 1
         else:
-            # XX also build from single int arg
-            raise AnnotatorError("could not build array shape from %s"%s_list)
+            raise AnnotatorError("shape arg not understood")
 
         typecode = 'd'
         if isinstance(s_dtype, SomeChar) and s_dtype.is_constant():
@@ -196,25 +199,25 @@ class EmptyCallEntry(ExtRegistryEntry):
             s_dtype = None
         return SomeArray(typecode, ndim)
 
-#    def specialize_call(self, hop):
-#        ldef = listdef.ListDef(None, SomeInteger())
-#        r_lst = hop.rtyper.getrepr(SomeList(ldef))
-#        # XX TyperError: don't know how to convert from 
-#        # <TupleRepr * GcStruct tuple2 { item0, item1 }> to 
-#        # <FixedSizeListRepr * GcForwardReference>
-#        [v_lst] = hop.inputargs(r_lst)
-#        r_array = hop.r_result
-#        v_result = r_array.build_from_shape(hop.llops, r_lst, v_lst)
-#        return v_result
-
     def specialize_call(self, hop, i_dtype=None):
-        r_tpl = hop.args_r[0]
+        r_arg = hop.args_r[0]
         # XX also call with single int arg
-        v_tpl = hop.inputarg(r_tpl, 0)
+        v_arg = hop.inputarg(r_arg, 0)
         r_array = hop.r_result
-        v_result = r_array.build_from_shape(hop.llops, r_tpl, v_tpl)
+        v_result = r_array.build_from_shape(hop, r_arg, v_arg)
         return v_result
 
+class ZerosCallEntry(EmptyCallEntry):
+    "Annotation and rtyping of calls to numpy.zeros"
+    _about_ = numpy.zeros
+
+    def specialize_call(self, hop, i_dtype=None):
+        r_arg = hop.args_r[0]
+        # XX also call with single int arg
+        v_arg = hop.inputarg(r_arg, 0)
+        r_array = hop.r_result
+        v_result = r_array.build_from_shape(hop, r_arg, v_arg, zero=True)
+        return v_result
 
 
 # Importing for side effect of registering types with extregistry

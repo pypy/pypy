@@ -190,18 +190,21 @@ class Test_specialization:
 
     def test_specialize_array_create(self):
         def f():
-#            a = numpy.empty((2,))
-#            a[0] = 1
-#            a[1] = 20
-#            return a
             a = numpy.array([1,20])
-#            b = numpy.array(a) # XX
-            b = a
+            b = numpy.array(a)
             return b
 
         res = interpret(f, [])
         assert res.data[0] == 1
         assert res.data[1] == 20
+
+    def test_specialize_array_empty1(self):
+        def f(n):
+            a = numpy.empty(n)
+            return a
+
+        res = interpret(f, [3])
+        assert res.ndim == 1
 
     def test_specialize_array_empty(self):
         def f(n, m):
@@ -209,6 +212,16 @@ class Test_specialization:
             return a
 
         res = interpret(f, [3, 4])
+        assert res.ndim == 2
+
+    def test_specialize_array_zeros(self):
+        def f(n, m):
+            a = numpy.zeros((n, m))
+            return a
+
+        res = interpret(f, [3, 4])
+        for i in range(3*4):
+            assert res.dataptr[i] == 0
         assert res.ndim == 2
 
     def test_specialize_array_access(self):
@@ -266,14 +279,14 @@ class Test_specialization:
 
     def test_specialize_array_method(self):
         def f():
-            a = numpy.empty((2,))
+            a = numpy.array([1,2])
             return a.transpose()
 
         res = interpret(f, [])
-#        assert res.data[0] == 1
-#        assert res.data[1] == 2
+        assert res.data[0] == 1
+        assert res.data[1] == 2
 
-    def test_specialize_indexing(self):
+    def test_specialize_view_0(self):
         def f():
             a = numpy.empty((4,3), dtype='i')
             a[0,0] = 5
@@ -287,6 +300,7 @@ class Test_specialization:
         assert res.dataptr[6] == 555
         assert res.shape.item0 == 4
         assert res.strides.item0 == 3
+        assert res.ndim == 1
 
     def test_specialize_multi(self):
         def f(ii, jj):
@@ -298,6 +312,19 @@ class Test_specialization:
         assert interpret(f, [0, 0]) == 0
         assert interpret(f, [3, 4]) == 12
 
+    def test_specialize_view(self):
+        def f(ii, jj):
+            a = numpy.zeros((4, 5))
+            b = numpy.zeros((3, 4))
+            a[0,1] = 5.
+            a[1,1] = 4.
+            a[2,1] = 3.
+            a[3,1] = 2.
+            b[2,:] = a[:,1]
+            return b[ii, jj]
+
+        assert interpret(f, [2, 3]) == 2
+        
     def test_malloc_remove(self):
         py.test.skip('this test requires _always_inline_ magic hook')
         def f():
@@ -326,7 +353,7 @@ class Test_compile:
             py.test.skip("c compilation disabled")
 
         from pypy.translator.c.test.test_genc import compile
-        self.compile = lambda s, x, y : compile(x, y)
+        self.compile = lambda s, x, y : compile(x, y, backendopt=True)
 
     def test_compile_array_access(self):
         def access_array(index):
@@ -351,5 +378,15 @@ class Test_compile:
 
         fn = self.compile(f, [int, int])
         assert fn(2,3) == 2*3
+        
+    def test_compile_view(self):
+        def f(ii, jj):
+            a = numpy.zeros((4, 5), dtype='i')
+            b = numpy.zeros((3, 4), dtype='i')
+            b[0,:] = a[:,0]
+            return b[ii, jj]
+
+        fn = self.compile(f, [int, int])
+        assert fn(2,3) == 0
         
 
