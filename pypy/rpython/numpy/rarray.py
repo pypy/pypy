@@ -34,6 +34,22 @@ def gen_build_from_shape(ndim, zero=False):
         return array
     return ll_build_from_shape
 
+def gen_build_alias_shape(ndim):
+    unrolling_dims = unrolling_iterable(reversed(range(ndim)))
+    def ll_build_alias_shape(ARRAY, ao, shape):
+        array = ll_allocate(ARRAY, ndim)
+        itemsize = 1
+        for i in unrolling_dims:
+            attr = 'item%d'%i
+            size = getattr(shape, attr)
+            array.shape[i] = size
+            array.strides[i] = itemsize
+            itemsize *= size
+        array.data = ao.data
+        array.dataptr = ao.dataptr
+        return array
+    return ll_build_alias_shape
+
 def gen_get_shape(ndim):
     unrolling_dims = unrolling_iterable(range(ndim))
     def ll_get_shape(ARRAY, TUPLE, array):
@@ -199,7 +215,6 @@ class ArrayRepr(Repr):
         ndim = self.s_array.ndim
         if isinstance(r_arg, TupleRepr):
             r_tuple, v_tuple = r_arg, v_arg
-            cTUPLE = inputconst(lltype.Void, r_tuple.lowleveltype.TO)
             ll_build_from_shape = gen_build_from_shape(ndim, zero)
             c_ndim = inputconst(lltype.Signed, ndim)
             assert ndim == len(r_tuple.items_r)
@@ -215,6 +230,17 @@ class ArrayRepr(Repr):
         [v_self] = hop.inputargs(self)
         cARRAY = hop.inputconst(Void, hop.r_result.ARRAY.TO)
         return hop.gendirectcall(ll_transpose, cARRAY, v_self)
+
+    def rtype_method_reshape(self, hop):
+        r_result = hop.r_result
+        r_tuple = hop.args_r[1]
+        if not isinstance(r_tuple, TupleRepr):
+            raise TyperError()
+        ndim = len(r_tuple.items_r)
+        ll_build_alias_shape = gen_build_alias_shape(ndim)
+        [v_array, v_tuple] = hop.inputargs(self, r_tuple)
+        cARRAY = inputconst(lltype.Void, r_result.lowleveltype.TO) 
+        return hop.llops.gendirectcall(ll_build_alias_shape, cARRAY, v_array, v_tuple)
 
     def get_ndim(self, hop, v_array):
         cname = inputconst(Void, 'ndim')
@@ -437,10 +463,15 @@ def ll_add(ARRAY, a1, a2):
     array.dataptr = direct_arrayitems(array.data)
     return array
 
-def ll_transpose(ARRAY, a1):
-    a2 = ll_build_alias(ARRAY, a1)
-    # XX do something to a2
-    return a2
+def ll_transpose(ARRAY, ao):
+    ndim = ao.ndim
+    array = ll_allocate(ARRAY, ndim)
+    array.data = ao.data # alias data
+    for i in range(ndim):
+        array.shape[i] = ao.shape[ndim-i-1]
+        array.strides[i] = ao.strides[ndim-i-1]
+    array.dataptr = ao.dataptr
+    return array
     
 
 

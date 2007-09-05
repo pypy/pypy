@@ -148,24 +148,33 @@ class Test_annotation:
         assert s.typecode == 'd'
 
     def test_annotate_array_attr(self):
-        def f():
+        def fget():
             a1 = numpy.array([1,2])
             return a1.shape
 
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(f, [])
+        s = a.build_types(fget, [])
         assert type(s) == SomeTuple
 
     def test_annotate_array_method(self):
-        def f():
-            a1 = numpy.array([1,2])
-            return a1.transpose()
+        def f_transpose():
+            a = numpy.zeros((3,4))
+            return a.transpose()
 
         t = TranslationContext()
         a = t.buildannotator()
-        s = a.build_types(f, [])
+        s = a.build_types(f_transpose, [])
         assert type(s) == SomeArray
+        assert s.ndim == 2
+
+        def f_reshape():
+            a = numpy.array(range(12))
+            return a.reshape((3,4))
+
+        s = a.build_types(f_reshape, [])
+        assert type(s) == SomeArray
+        assert s.ndim == 2
 
     def test_annotate_indexing(self):
         def f():
@@ -284,13 +293,27 @@ class Test_specialization:
         #assert len(res.data) == 3*4*5 # GcArray has nolength
 
     def test_specialize_array_method(self):
-        def f():
-            a = numpy.array([1,2])
+        def f_transpose():
+            a = numpy.zeros((3,4))
             return a.transpose()
 
-        res = interpret(f, [])
-        assert res.data[0] == 1
-        assert res.data[1] == 2
+        res = interpret(f_transpose, [])
+        assert res.shape[0] == 4
+        assert res.shape[1] == 3
+
+        def f_reshape():
+            a = numpy.array(range(12))
+            b = a.reshape((3,4))
+            b[1,2] = 0
+            return b
+
+        res = interpret(f_reshape, [])
+        assert res.shape[0] == 3
+        assert res.shape[1] == 4
+        assert res.strides[0] == 4
+        assert res.strides[1] == 1
+        assert res.dataptr[5] == 5
+        assert res.dataptr[6] == 0
 
     def test_specialize_view_0(self):
         def f():

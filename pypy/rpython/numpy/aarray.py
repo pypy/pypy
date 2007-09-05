@@ -49,6 +49,15 @@ class SomeArray(SomeObject):
             return SomeObject.getattr(s_array, s_attr)
         return s
 
+    def method_reshape(self, s_tuple):
+        if not isinstance(s_tuple, SomeTuple):
+            raise AnnotatorError("reshape expects tuple arg")
+        for s_item in s_tuple.items:
+            if not isinstance(s_item, SomeInteger):
+                raise AnnotatorError("bad shape arg")
+        ndim = len(s_tuple.items)
+        return SomeArray(self.typecode, ndim)
+
     def method_transpose(self):
         return SomeArray(self.typecode, self.ndim)
 
@@ -143,7 +152,6 @@ numpy_typedict = {
 valid_typecodes='bhilqBHILQfd'
 
 class ArrayCallEntry(ExtRegistryEntry):
-    "Annotation and rtyping of calls to numpy.array"
     _about_ = numpy.array
 
     def compute_result_annotation(self, s_list, s_dtype=None):
@@ -178,7 +186,6 @@ class ArrayCallEntry(ExtRegistryEntry):
 
 
 class EmptyCallEntry(ExtRegistryEntry):
-    "Annotation and rtyping of calls to numpy.empty"
     _about_ = numpy.empty
 
     def compute_result_annotation(self, s_arg, s_dtype=None):
@@ -191,7 +198,7 @@ class EmptyCallEntry(ExtRegistryEntry):
         elif isinstance(s_arg, SomeInteger):
             ndim = 1
         else:
-            raise AnnotatorError("shape arg not understood")
+            raise AnnotatorError("shape arg not understood: %s"%s_arg)
 
         typecode = 'd'
         if isinstance(s_dtype, SomeChar) and s_dtype.is_constant():
@@ -208,7 +215,6 @@ class EmptyCallEntry(ExtRegistryEntry):
         return v_result
 
 class ZerosCallEntry(EmptyCallEntry):
-    "Annotation and rtyping of calls to numpy.zeros"
     _about_ = numpy.zeros
 
     def specialize_call(self, hop, i_dtype=None):
