@@ -213,6 +213,7 @@ _opcodes = {
     'ullong_floordiv':          jvmgen.LDIV, # valid?
     'ullong_mod':               jvmgen.PYPYULONGMOD,
     'ullong_mod_zer':           _check_zer(jvmgen.PYPYULONGMOD),
+    'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
     'ullong_lt':                'ulong_less_than',     
     'ullong_le':                'ulong_less_equals',   
     'ullong_eq':                'ulong_equals',        
