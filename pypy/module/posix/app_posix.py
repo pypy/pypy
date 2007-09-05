@@ -6,8 +6,10 @@ from _structseq import structseqtype, structseqfield
 import sys
 if 'posix' in sys.builtin_module_names:
     import posix
+    osname = 'posix'
 elif 'nt' in sys.builtin_module_names:
     import nt as posix
+    osname = 'nt'
 else:
     raise ImportError("XXX")
 
@@ -54,6 +56,19 @@ def fdopen(fd, mode='r', buffering=-1):
     Return an open file object connected to a file descriptor."""
 
     return file.fdopen(fd, mode, buffering)
+
+
+def tmpfile():
+    """Create a temporary file.
+
+    The data in the file is freed when you
+    close the file, or automatically by the OS when the program ends."""
+    import tempfile
+    f = tempfile.TemporaryFile()
+    if osname == 'nt':
+        f = f.file     # on NT, with the 2.4 stdlib of CPython,
+                       # we get a _TemporaryFileWrapper for no good reason
+    return f
 
 
 # __________ only if we have os.fork() __________

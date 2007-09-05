@@ -17,6 +17,7 @@ corresponding Unix manual entries for more information on calls."""
     'error'      : 'app_posix.error',
     'stat_result': 'app_posix.stat_result',
     'fdopen'     : 'app_posix.fdopen',
+    'tmpfile'    : 'app_posix.tmpfile',
     }
     
     interpleveldefs = {
