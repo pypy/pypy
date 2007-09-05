@@ -138,6 +138,6 @@ class AppTestThread(GenericTestThread):
             thread.start_new_thread(f, (i, done))
             done_marker.append(done)
         for done in done_marker:
-            self.waitfor(lambda: done) #, timeout=30.0)
+            self.waitfor(lambda: done, delay=3)
             assert done    # see stderr for failures in threads
         assert sorted(lst) == range(120)

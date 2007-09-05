@@ -32,7 +32,7 @@ class AppTestLocal(GenericTestThread):
                 ok.append(success)
         for i in range(20):
             thread.start_new_thread(f, (i,))
-        self.waitfor(lambda: len(ok) == 20) #, timeout=30.0)
+        self.waitfor(lambda: len(ok) == 20, delay=3)
         assert ok == 20*[True] # see stdout/stderr for failures in the threads
 
         self.waitfor(lambda: len(freed) >= 40)
@@ -62,7 +62,7 @@ class AppTestLocal(GenericTestThread):
             seen.append(x.tag)
         for i in range(5):
             thread.start_new_thread(f, ())
-        self.waitfor(lambda: len(seen) == 5) #, timeout=20.0)
+        self.waitfor(lambda: len(seen) == 5, delay=2)
         seen1 = seen[:]
         seen1.sort()
         assert seen1 == [1, 2, 3, 4, 5]
@@ -82,5 +82,5 @@ class AppTestLocal(GenericTestThread):
             done.append(1)
         for i in range(5):
             thread.start_new_thread(f, (i,))
-        self.waitfor(lambda: len(done) == 5) #, timeout=20.0)
+        self.waitfor(lambda: len(done) == 5, delay=2)
         assert len(done) == 5
