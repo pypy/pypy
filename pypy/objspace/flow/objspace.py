@@ -563,7 +563,7 @@ _add_exceptions("""pow""",
                 OverflowError) # for the float case
 del _add_exceptions, _add_except_ovf
 
-def extract_cell_content(c, varname, func):
+def extract_cell_content(c, varname='?', func='?'):
     """Get the value contained in a CPython 'cell', as read through
     the func_closure of a function object."""
     # yuk! this is all I could come up with that works in Python 2.2 too
