@@ -107,6 +107,7 @@ else:
 def setup():
     """ creates necessary c-level types
     """
+    result = []
     for name in TYPES:
         c_name = name
         if name.startswith('unsigned'):
@@ -118,8 +119,10 @@ def setup():
         tp = platform.inttype(name.upper(), c_name, signed)
         globals()['r_' + name] = platform.numbertype_to_rclass[tp]
         globals()[name.upper()] = tp
+        result.append(tp)
+    return result
 
-setup()
+NUMBER_TYPES = setup()
 platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for common cases
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------

@@ -2,6 +2,7 @@ import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress, \
@@ -175,20 +176,14 @@ def define_c_primitive(ll_type, c_name):
     PrimitiveType[ll_type] = '%s @'% c_name
     PrimitiveErrorValue[ll_type] = '((%s) -1)'% c_name
     
-try:
-    import ctypes
-except ImportError:
-    pass
-else:
-    from pypy.rpython.rctypes import rcarithmetic as rcarith
-    for ll_type, c_name in [(rcarith.CByte, 'signed char'),
-                            (rcarith.CUByte, 'unsigned char'),
-                            (rcarith.CShort, 'short'),
-                            (rcarith.CUShort, 'unsigned short'),
-                            (rcarith.CInt, 'int'),
-                            (rcarith.CUInt, 'unsigned int'),
-                            (rcarith.CLong, 'long'),
-                            (rcarith.CULong, 'unsigned long'),
-                            (rcarith.CLonglong, 'long long'),
-                            (rcarith.CULonglong, 'unsigned long long')]:
-        define_c_primitive(ll_type, c_name)
+for ll_type, c_name in [(rffi.SIGNEDCHAR, 'signed char'),
+                        (rffi.UCHAR, 'unsigned char'),
+                        (rffi.SHORT, 'short'),
+                        (rffi.USHORT, 'unsigned short'),
+                        (rffi.INT, 'int'),
+                        (rffi.UINT, 'unsigned int'),
+                        (rffi.LONG, 'long'),
+                        (rffi.ULONG, 'unsigned long'),
+                        (rffi.LONGLONG, 'long long'),
+                        (rffi.ULONGLONG, 'unsigned long long')]:
+    define_c_primitive(ll_type, c_name)

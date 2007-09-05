@@ -318,3 +318,25 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(f, [int])
         res = fn(14)
         assert res == -1789569707
+
+    def test_prebuilt_integers(self):
+        from pypy.rlib.unroll import unrolling_iterable
+        from pypy.rpython.lltypesystem import rffi
+        class Prebuilt:
+            pass
+        p = Prebuilt()
+        NUMBER_TYPES = rffi.NUMBER_TYPES
+        names = unrolling_iterable([TYPE.__name__ for TYPE in NUMBER_TYPES])
+        for name, TYPE in zip(names, NUMBER_TYPES):
+            value = cast_primitive(TYPE, 1)
+            setattr(p, name, value)
+
+        def f(x):
+            total = x
+            for name in names:
+                total += rffi.cast(Signed, getattr(p, name))
+            return total
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 100 + len(list(names))
