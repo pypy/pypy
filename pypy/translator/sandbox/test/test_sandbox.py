@@ -77,7 +77,7 @@ def test_sandbox_3():
     assert tail == ""
 
 def test_sandbox_4():
-    from pypy.rpython.module.ll_os_stat import STAT_FIELDS, s_tuple_StatResult
+    from pypy.rpython.module.ll_os_stat import s_StatResult
     from pypy.rlib.rarithmetic import r_longlong
     r0x12380000007 = r_longlong(0x12380000007)
 
@@ -89,10 +89,9 @@ def test_sandbox_4():
     t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
     exe = t.compile()
     g, f = os.popen2(exe, "t", 0)
-    sttuple = (55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0)
-    sttuple += (0,) * (len(STAT_FIELDS)-len(sttuple))
-    expect(f, g, "ll_os.ll_os_stat", ("somewhere",), sttuple,
-           resulttype = s_tuple_StatResult)
+    st = os.stat_result((55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0))
+    expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
+           resulttype = s_StatResult)
     expect(f, g, "ll_os.ll_os_ftruncate", (55, 0x12380000007), None)
     g.close()
     tail = f.read()

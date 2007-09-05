@@ -6,7 +6,7 @@ for the outer process, which can run CPython or PyPy.
 
 import py
 import marshal, sys, os, posixpath, errno, stat
-from pypy.rpython.module.ll_os_stat import STAT_FIELDS, s_tuple_StatResult
+from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
 from py.compat import subprocess
@@ -273,16 +273,10 @@ class VirtualizedSandboxedProc(SandboxedProc):
         log.vpath('%r => %r' % (vpath, node))
         return node
 
-    def build_stat_result(self, st):
-        result = tuple(st)
-        result += (0,) * (len(STAT_FIELDS) - len(result))
-        return result
-
     def do_ll_os__ll_os_stat(self, vpathname):
         node = self.get_node(vpathname)
-        st = node.stat()
-        return self.build_stat_result(st)
-    do_ll_os__ll_os_stat.resulttype = s_tuple_StatResult
+        return node.stat()
+    do_ll_os__ll_os_stat.resulttype = s_StatResult
 
     do_ll_os__ll_os_lstat = do_ll_os__ll_os_stat
 
