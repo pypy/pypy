@@ -22,7 +22,7 @@ public class PyPy {
     public static final long LONG_MIN = Long.MIN_VALUE;
     public static final int INT_MAX = Integer.MAX_VALUE;
     public static final int INT_MIN = Integer.MIN_VALUE;
-
+    public static final double ULONG_MAX = 18446744073709551616.0;
 
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
@@ -130,14 +130,13 @@ public class PyPy {
         return (double)uint_to_long(value);
     }
 
+    
+    // XXX: broken if the value is too large
     public static double ulong_to_double(long value) {
         if (value >= 0)
             return value;
         else {
-            long lopart = value & 0xFFFFFFFF;
-            long hipart = value >>> 32;
-            double result = (hipart << 32) | lopart;
-            return result;
+            return ULONG_MAX + value;
         }
     }
 
@@ -952,7 +951,7 @@ public class PyPy {
         ensure(ulong_cmp(0xFFFF, 0xFFFFFFFFFFFFFFFFL) < 0);
         ensure(ulong_cmp(0x8000000000000000L, 0xFFFF) > 0);
         ensure(ulong_cmp(0xFFFF, 0x8000000000000000L) < 0);
-        
+
         System.out.println("Total Failures: "+__failures);
     }
 }
