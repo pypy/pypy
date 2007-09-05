@@ -1,4 +1,5 @@
 import py
+py.test.skip("llvm is no longer actively maintained")
 from pypy.tool import isolate
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, llvm_version, gcc_version
 from pypy.translator.llvm.genllvm import GenLLVM
