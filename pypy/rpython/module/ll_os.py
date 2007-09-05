@@ -302,46 +302,40 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([], int, export_name="ll_os.ll_os_setsid",
                       llimpl=setsid_llimpl)
 
-    if False:
-        @registering_if(os, 'uname')
-        def register_os_uname(self):
-            lgt = platform.intdefined('_UTSNAME_LENGTH',
-                                      includes=['sys/utsname.h'])
-            UTCHARP = lltype.FixedSizeArray(lltype.Char, lgt)
-            fields = [('sysname', UTCHARP),
-                      ('nodename', UTCHARP),
-                      ('release', UTCHARP),
-                      ('version', UTCHARP),
-                      ('machine', UTCHARP),
-                      ('domainname', UTCHARP)]
-            UTSNAMEP = rffi.CStructPtr('utsname', *fields)
-    
-            os_uname = self.llexternal('uname', [UTSNAMEP], rffi.INT,
-                                       includes=['sys/utsname.h'])
+    @registering_if(os, 'uname')
+    def register_os_uname(self):
+        CHARARRAY = lltype.FixedSizeArray(lltype.Char, 1)
+        class CConfig:
+            _includes_ = ['sys/utsname.h']
+            UTSNAME = platform.Struct('struct utsname', [
+                ('sysname',  CHARARRAY),
+                ('nodename', CHARARRAY),
+                ('release',  CHARARRAY),
+                ('version',  CHARARRAY),
+                ('machine',  CHARARRAY)])
+        config = platform.configure(CConfig)
+        UTSNAMEP = lltype.Ptr(config['UTSNAME'])
 
-            def utcharp2str(cp):
-                l = []
-                i = 0
-                while cp[i] != '\x00' and i < lgt:
-                    l.append(cp[i])
-                    i += 1
-                return "".join(l)
+        os_uname = self.llexternal('uname', [UTSNAMEP], rffi.INT,
+                                   includes=CConfig._includes_)
 
-            def uname_llimpl():
-                l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
-                result = os_uname(l_utsbuf)
-                if result == -1:
-                    raise OSError(rffi.get_errno(), "os_uname failed")
-                fields = [l_utsbuf.c_sysname, l_utsbuf.c_nodename,
-                          l_utsbuf.c_release, l_utsbuf.c_version,
-                          l_utsbuf.c_machine]
-                l = [utcharp2str(i) for i in fields]
-                retval = (l[0], l[1], l[2], l[3], l[4])
-                lltype.free(l_utsbuf, flavor='raw')
-                return retval
+        def uname_llimpl():
+            l_utsbuf = lltype.malloc(UTSNAMEP.TO, flavor='raw')
+            result = os_uname(l_utsbuf)
+            if result == -1:
+                raise OSError(rffi.get_errno(), "os_uname failed")
+            retval = (
+                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_sysname)),
+                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_nodename)),
+                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_release)),
+                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_version)),
+                rffi.charp2str(rffi.cast(rffi.CCHARP, l_utsbuf.c_machine)),
+                )
+            lltype.free(l_utsbuf, flavor='raw')
+            return retval
 
-            return extdef([], (str, str, str, str, str),
-                          "ll_os.ll_uname", llimpl=uname_llimpl)
+        return extdef([], (str, str, str, str, str),
+                      "ll_os.ll_uname", llimpl=uname_llimpl)
 
     @registering_if(os, 'getuid')
     def register_os_getuid(self):

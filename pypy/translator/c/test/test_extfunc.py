@@ -918,3 +918,14 @@ def test_utime():
     assert os.stat(path).st_atime > t0
     func(0)
     assert int(os.stat(path).st_atime) == int(t0)
+
+if hasattr(os, 'uname'):
+    def test_os_uname():
+        def does_stuff(num):
+            tup = os.uname()
+            lst = [tup[0], tup[1], tup[2], tup[3], tup[4]]
+            return lst[num]
+        func = compile(does_stuff, [int])
+        for i in range(5):
+            res = func(i)
+            assert res == os.uname()[i]

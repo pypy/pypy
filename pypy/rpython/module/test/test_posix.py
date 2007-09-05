@@ -131,13 +131,7 @@ class BaseTestPosix(BaseRtypingTest):
                 assert res == fun(value)
 
 class TestLLtype(BaseTestPosix, LLRtypeMixin):
-    if False and hasattr(os, 'uname'):
-        def test_os_uname(self):
-            for num in range(5):
-                def fun():
-                    return os.uname()[num]
-                res = self.interpret(fun, [])
-                assert self.ll_to_string(res) == os.uname()[num]
+    pass
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
     pass
