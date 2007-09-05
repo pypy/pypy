@@ -122,6 +122,8 @@ class HintRTyper(RPythonTyper):
         self.origportalgraph = origportalgraph
         if origportalgraph:
             self.portalgraph = bk.get_graph_by_key(origportalgraph, None)
+            self.portalgraphcopy = flowmodel.copygraph(self.portalgraph,
+                                                       shallow=True)
             leaveportalgraph = self.portalgraph
         else:
             self.portalgraph = None
@@ -175,18 +177,17 @@ class HintRTyper(RPythonTyper):
             flowmodel.checkgraph(graph)
             base_translator.graphs.append(graph)
 
-    # remember a shared pointer for the portal graph,
-    # so that it can be later patched by rewire_portal.
-    # this pointer is going to be used by the resuming logic
+    # return a fnptr to the given tsgraph - with a special case for
+    # the portal graph, in which case we return a fnptr to the
+    # portalgraphcopy.  The latter will be patched in rewire_portal().
+    # this fnptr is going to be used by the resuming logic
     # and portal (re)entry.
     def naked_tsfnptr(self, tsgraph):
         if tsgraph is self.portalgraph:
-            try:
-                return self.portal_tsfnptr
-            except AttributeError:
-                self.portal_tsfnptr = self.gettscallable(tsgraph)
-                return self.portal_tsfnptr
-        return self.gettscallable(tsgraph)
+            tsgraph2 = self.portalgraphcopy
+        else:
+            tsgraph2 = tsgraph
+        return self.gettscallable(tsgraph, tsgraph2)
         
     def rewire_portal(self):
         origportalgraph = self.origportalgraph
@@ -208,13 +209,17 @@ class HintRTyper(RPythonTyper):
             args_specification.append(arg_spec)
 
         tsportalgraph = portalgraph
-        # patch the shared portal pointer
-        portalgraph = flowmodel.copygraph(tsportalgraph, shallow=True)
+        # patch the shared portal pointer again
+        portalgraphcopy2 = flowmodel.copygraph(portalgraph, shallow=True)
+        portalgraph = self.portalgraphcopy
+        portalgraph.startblock = portalgraphcopy2.startblock
+        portalgraph.returnblock = portalgraphcopy2.returnblock
+        portalgraph.exceptblock = portalgraphcopy2.exceptblock
         portalgraph.tag = 'portal'
         self.annotator.translator.graphs.append(portalgraph)
 
         portal_fnptr = self.naked_tsfnptr(self.portalgraph)
-        portal_fnptr._obj.graph = portalgraph
+        assert portal_fnptr._obj.graph is portalgraph
         
         portal_fn = PseudoHighLevelCallable(
             portal_fnptr,
@@ -537,14 +542,14 @@ class HintRTyper(RPythonTyper):
         args_hs, hs_res = self.get_sig_hs(tsgraph)
         return [self.getrepr(hs_arg) for hs_arg in args_hs]
 
-    def gettscallable(self, tsgraph):
+    def gettscallable(self, tsgraph, tsgraphcopy=None):
         args_r = self.get_args_r(tsgraph)
         ARGS = [self.r_JITState.lowleveltype]
         ARGS += [r.lowleveltype for r in args_r]
         RESULT = self.r_JITState.lowleveltype
         return lltype.functionptr(lltype.FuncType(ARGS, RESULT),
                                   tsgraph.name,
-                                  graph=tsgraph)
+                                  graph=tsgraphcopy or tsgraph)
 
     def get_timeshift_mapper(self, graph2ts):
         # XXX try to share the results between "similar enough" graph2ts'es
