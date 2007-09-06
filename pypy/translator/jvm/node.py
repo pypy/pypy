@@ -94,11 +94,17 @@ class EntryPoint(Node):
         gen.begin_function(
             'main', (), [jStringArray], jVoid, static=True)
 
-        # First thing we do is setup the PyPy helper.  For now this is
-        # a static variable of the PyPy class, though that precludes
-        # running multiple translations.
+        # Initialization:
+        # 
+        #    1. Setup the PyPy helper, which (for now) is a static
+        #    variable of the PyPy class, though that precludes running
+        #    multiple translations.
+        #
+        #    2. Run the initialization method for the constant class.
+        #
         gen.new_with_jtype(gen.db.interlink_class)
         jvmgen.PYPYINTERLINK.store(gen)
+        gen.db.constant_generator.runtime_init(gen)
 
         if self.print_result:
             gen.begin_try()

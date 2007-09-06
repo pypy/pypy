@@ -131,7 +131,7 @@ class TestConstant(JvmTest):
         assert self.interpret(fn, [0, 0]) == 3
 
     def test_many_constants(self):
-        py.test.skip('fixme!')
+        py.test.skip('Initializing a large constant list generates a function too large for the JVM limits')
         N = 7500
         class A:
             pass

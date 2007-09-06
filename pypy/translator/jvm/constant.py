@@ -4,28 +4,55 @@ from pypy.translator.jvm.generator import \
      Field, Method, CUSTOMDICTMAKE
 from pypy.translator.oosupport.constant import \
      BaseConstantGenerator, RecordConst, InstanceConst, ClassConst, \
-     StaticMethodConst, CustomDictConst, WeakRefConst, push_constant
+     StaticMethodConst, CustomDictConst, WeakRefConst, push_constant, \
+     MAX_CONST_PER_STEP
 from pypy.translator.jvm.typesystem import \
-     jPyPyConst, jObject, jVoid, jWeakRef
+     jObject, jVoid, jWeakRef, JvmClassType
+
+jPyPyConstantInit = JvmClassType('pypy.ConstantInit')
+jPyPyConstantInitMethod = Method.s(jPyPyConstantInit, 'init', [], jVoid)
 
 # ___________________________________________________________________________
 # Constant Generator
 
 class JVMConstantGenerator(BaseConstantGenerator):
-    
+
+    def __init__(self, db):
+        BaseConstantGenerator.__init__(self, db)
+        self.num_constants = 0
+        self.ccs = []
+
+    def runtime_init(self, gen):
+        """
+        Called from node.EntryPoint to generate code that initializes
+        all of the constants.  Right now, this invokes a known static
+        method, but this should probably be changed eventually.
+        """
+        gen.emit(jPyPyConstantInitMethod)
+
     # _________________________________________________________________
     # Constant Operations
     #
-    # We store constants in static fields of the jPyPyConst class.
+    # We store constants in static fields of a constant class; we
+    # generate new constant classes every MAX_CONST_PER_STEP constants
+    # to avoid any particular class getting too big.
     
     def _init_constant(self, const):
         # Determine the Java type of the constant: some constants
         # (weakrefs) do not have an OOTYPE, so if it returns None use
-        # jtype()
+        # jtype()                
         JFIELDOOTY = const.OOTYPE()
         if not JFIELDOOTY: jfieldty = const.jtype()
         else: jfieldty = self.db.lltype_to_cts(JFIELDOOTY)
-        const.fieldobj = Field(jPyPyConst.name, const.name, jfieldty, True)
+
+        # Every MAX_CONST_PER_STEP constants, we create a new class.
+        # This prevents any one class from getting too big.
+        if (self.num_constants % MAX_CONST_PER_STEP) == 0:
+            cc_num = len(self.ccs)
+            self.ccs.append(JvmClassType('pypy.Constant_%d' % cc_num))
+        self.num_constants += 1
+
+        const.fieldobj = Field(self.ccs[-1].name, const.name, jfieldty, True)
 
     def push_constant(self, gen, const):
         const.fieldobj.load(gen)
@@ -35,27 +62,71 @@ class JVMConstantGenerator(BaseConstantGenerator):
 
     # _________________________________________________________________
     # Constant Generation
+    #
+    # The JVM constants are generated as follows:
+    #
+    #   First, a set of classes are used as simple structs with static
+    #   fields that store each constant.  These class names have already
+    #   been generated, and they are stored in the member array self.ccs.
+    #   Therefore, the first thing we do is to generate these classes
+    #   by iterating over all constants and declaring their fields.
+    #
+    #   We then generate initialization code the constants in a SEPARATE
+    #   set of classes, named pypy.ConstantInit_NNN.  We generate one such
+    #   class for each "step" of the underlying BaseConstantGenerator.
+    #
+    #   Note that, in this setup, we cannot rely on the JVM's class init
+    #   to initialize our constants for us: instead, we generate a static
+    #   method (jPyPyConstantInitMethod) in _end_gen_constants() that
+    #   invokes each of the ConstantInit_NNN's methods.  
+    #
+    #   Normally, these static field classes and the initialization
+    #   code are stored together.  The JVM stores them seperately,
+    #   because otherwise it is quite hard to ensure that (a) the
+    #   constants are initialized in the right order, and (b) all of
+    #   the constant declarations are emitted when they are needed.
+
+    def gen_constants(self, ilasm):
+        self.step_classes = []
+        
+        # First, create the classes that store the static fields.
+        constants_by_cls = {}
+        for const in self.cache.values():
+            try:
+                constants_by_cls[const.fieldobj.class_name].append(const)
+            except KeyError:
+                constants_by_cls[const.fieldobj.class_name] = [const]
+        for cc in self.ccs:
+            ilasm.begin_class(cc, jObject)
+            for const in constants_by_cls[cc.name]:
+                ilasm.add_field(const.fieldobj)
+            ilasm.end_class()
+
+        # Now, delegate to the normal code for the rest
+        super(JVMConstantGenerator, self).gen_constants(ilasm)
     
     def _begin_gen_constants(self, gen, all_constants):
-        gen.begin_class(jPyPyConst, jObject)
         return gen
 
     def _declare_const(self, gen, const):
-        gen.add_field(const.fieldobj)
+        # in JVM, this is done first, in gen_constants()
+        return
 
     def _declare_step(self, gen, stepnum):
-        next_nm = "constant_init_%d" % stepnum
-        gen.begin_function(next_nm, [], [], jVoid, True)
+        self.step_classes.append(JvmClassType('pypy.ConstantInit_%d' % stepnum))
+        gen.begin_class(self.step_classes[-1], jObject)
+        gen.begin_function('constant_init', [], [], jVoid, True)
 
     def _close_step(self, gen, stepnum):
         gen.return_val(jVoid)
-        gen.end_function()    # end constant_init_N where N == stepnum
+        gen.end_function()    # end constant_init()
+        gen.end_class()       # end pypy.ConstantInit_NNN
     
     def _end_gen_constants(self, gen, numsteps):
-        # The static init code just needs to call constant_init_1..N
-        gen.begin_function('<clinit>', [], [], jVoid, True)
-        for x in range(numsteps):
-            m = Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
+        gen.begin_class(jPyPyConstantInit, jObject)
+        gen.begin_j_function(jPyPyConstantInit, jPyPyConstantInitMethod)
+        for cls in self.step_classes:
+            m = Method.s(cls, "constant_init", [], jVoid)
             gen.emit(m)
         gen.return_val(jVoid)
         gen.end_function()

@@ -13,7 +13,7 @@ import pypy.translator.jvm.generator as jvmgen
 from pypy.translator.jvm.generator import Method, Property, Field
 import pypy.translator.jvm.constant as jvmconst
 from pypy.translator.jvm.typesystem import \
-     jStringBuilder, jInt, jVoid, jString, jChar, jPyPyConst, jObject, \
+     jStringBuilder, jInt, jVoid, jString, jChar, jObject, \
      jThrowable, JvmNativeClass
 from pypy.translator.jvm.builtin import JvmBuiltInType
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress

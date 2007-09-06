@@ -624,9 +624,11 @@ class JVMGenerator(Generator):
         appropriate arguments to define a method on class 'cls_obj' that
         could be invoked with 'method_obj'.
         """
+        if method_obj.is_static(): def_args = []
+        else: def_args = [cls_obj]
         return self.begin_function(method_obj.method_name,
                                    [],
-                                   [cls_obj]+method_obj.argument_types,
+                                   def_args+method_obj.argument_types,
                                    method_obj.return_type,
                                    static=method_obj.is_static(),
                                    abstract=abstract)
@@ -1263,7 +1265,7 @@ class JVMGenerator(Generator):
         
 class JasminGenerator(JVMGenerator):
 
-    def __init__(self, db, outdir, package):
+    def __init__(self, db, outdir):
         JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
@@ -1304,7 +1306,8 @@ class JasminGenerator(JVMGenerator):
         assert self.curclass is None
 
     def add_comment(self, comment):
-        self.curclass.out("  ; %s\n" % comment)
+        if self.curclass:
+            self.curclass.out("  ; %s\n" % comment)
 
     def implements(self, jinterface):
         self.curclass.out(
