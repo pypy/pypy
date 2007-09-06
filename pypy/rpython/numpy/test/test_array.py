@@ -187,6 +187,19 @@ class Test_annotation:
         assert type(s_array) == SomeArray
         assert s_array.ndim == 1
 
+    def test_annotate_broadcast(self):
+        def f():
+            a = numpy.empty((4,3), dtype='i')
+            b = numpy.array([33])
+            a[:] = b
+            return a
+        t = TranslationContext()
+        a = t.buildannotator()
+        s_array = a.build_types(f, [])
+        assert type(s_array) == SomeArray
+        assert s_array.ndim == 2
+
+
 
 from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
 from pypy.translator.backendopt.malloc import LLTypeMallocRemover
@@ -341,6 +354,66 @@ class Test_specialization:
         assert interpret(f, [0, 0]) == 0
         assert interpret(f, [3, 4]) == 12
 
+    def test_specialize_slice_1_0(self):
+        def f():
+            a = numpy.zeros((12,), dtype='i')
+            a[:2] = 1
+            a[5:9] = 2
+            a[10:] = 3
+            a[12:] = 99
+            a[12:0] = 999
+            return a
+        res = interpret(f, [])
+        data = [1,1,0,0,0,2,2,2,2,0,3,3]
+        for i in range(12):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_slice_1_1(self):
+        py.test.skip('this involves a runtime test to see if we need a broadcast iterator')
+        def f():
+            a = numpy.zeros((6,), dtype='i')
+            a[:2] = numpy.array([1])
+            a[5:9] = numpy.array([2])
+            return a
+        res = interpret(f, [])
+        data = [1,1,0,0,0,2]
+        for i in range(6):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_slice_2_0(self):
+        py.test.skip('not implemented')
+        def f():
+            a = numpy.zeros((12,), dtype='i').reshape((3,4))
+            a[:2, 0] = 1
+            return a
+        res = interpret(f, [])
+        data = [1,0,0,0,1,0,0,0,0,0,0,0]
+        for i in range(12):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_slice_2_1(self):
+        def f():
+            a = numpy.zeros((12,), dtype='i').reshape((3,4))
+            a[:2, 0] = numpy.array([1,2])
+            a[1, 1:3] = numpy.array([4,5])
+            a[0:1, 3:] = numpy.array([6,])
+            return a
+        res = interpret(f, [])
+        data = [1, 0, 0, 6, 2, 4, 5, 0, 0, 0, 0, 0]
+        for i in range(12):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_slice_2_2(self):
+        def f():
+            a = numpy.zeros((12,), dtype='i').reshape((3,4))
+            b = numpy.array([1,2,3,4]).reshape((2,2))
+            a[1:3, 2:] = b
+            return a
+        res = interpret(f, [])
+        data = [0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 3, 4]
+        for i in range(12):
+            assert res.dataptr[i] == data[i]
+
     def test_specialize_view(self):
         def f(ii, jj):
             a = numpy.zeros((4, 5))
@@ -354,6 +427,45 @@ class Test_specialization:
 
         assert interpret(f, [2, 3]) == 2
         
+    def test_specialize_view_implicit_slice(self):
+        def f():
+            a = numpy.array(range(12)).reshape((3,4))
+            b = a[0,]
+            return b
+
+        res = interpret(f, [])
+        for i in range(4):
+            assert res.dataptr[i] == i
+        
+    def test_specialize_broadcast(self):
+        def f():
+            a = numpy.empty((4,3), dtype='i')
+            b = numpy.array([33])
+            a[:,:] = b
+            return a
+        res = interpret(f, [])
+        for i in range(4*3):
+            assert res.dataptr[i] == 33
+
+        def f():
+            a = numpy.empty((4,3), dtype='i')
+            b = numpy.array([33])
+            a[:,] = b
+            return a
+        res = interpret(f, [])
+        for i in range(4*3):
+            assert res.dataptr[i] == 33
+
+        def f():
+            a = numpy.empty((4,3,2), dtype='i')
+            a[:] = numpy.array([33])
+            a[0,:] = numpy.array([22])
+            return a
+        res = interpret(f, [])
+        data = [22]*6 + [33]*18
+        for i in range(3*4*2):
+            assert res.dataptr[i] == data[i]
+
     def test_malloc_remove(self):
         py.test.skip('this test requires _always_inline_ magic hook')
         def f():

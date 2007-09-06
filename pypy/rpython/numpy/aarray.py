@@ -99,11 +99,10 @@ class __extend__(pairtype(SomeArray, SomeTuple)):
         if len(s_index.items)>s_array.ndim:
             raise AnnotatorError("invalid index")
         if isinstance(s_value, SomeArray):
-            if s_value.ndim != ndim:
-                # XX allow broadcasting..
+            if s_value.ndim > ndim:
                 raise AnnotatorError("shape mismatch")
-        elif ndim > 0:
-            raise AnnotatorError("need to set from array")
+        #elif ndim > 0:
+        #    raise AnnotatorError("need to set from array")
 
     def getitem((s_array, s_index)):
         ndim = pair(s_array, s_index).get_leftover_dim()
