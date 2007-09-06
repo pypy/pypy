@@ -1,5 +1,5 @@
 import py
-import sys, os
+import sys, os, time
 import struct
 
 from pypy.rpython.lltypesystem import rffi
@@ -19,7 +19,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
         write_message(g, result, resulttype)
 
 
-def test_sandbox_1():
+def test_open_dup():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
         assert fd == 77
@@ -37,7 +37,7 @@ def test_sandbox_1():
     f.close()
     assert tail == ""
 
-def test_sandbox_2():
+def test_read_write():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
         assert fd == 77
@@ -60,7 +60,7 @@ def test_sandbox_2():
     f.close()
     assert tail == ""
 
-def test_sandbox_3():
+def test_dup2_access():
     def entry_point(argv):
         os.dup2(34, 56)
         y = os.access("spam", 77)
@@ -76,7 +76,7 @@ def test_sandbox_3():
     f.close()
     assert tail == ""
 
-def test_sandbox_4():
+def test_stat_ftruncate():
     from pypy.rpython.module.ll_os_stat import s_StatResult
     from pypy.rlib.rarithmetic import r_longlong
     r0x12380000007 = r_longlong(0x12380000007)
@@ -93,6 +93,22 @@ def test_sandbox_4():
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
            resulttype = s_StatResult)
     expect(f, g, "ll_os.ll_os_ftruncate", (55, 0x12380000007), None)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+
+def test_time():
+    def entry_point(argv):
+        t = time.time()
+        os.dup(int(t*1000))
+        return 0
+
+    t = Translation(entry_point, backend='c', standalone=True, sandbox=True)
+    exe = t.compile()
+    g, f = os.popen2(exe, "t", 0)
+    expect(f, g, "ll_time.ll_time_time", (), 3.141592)
+    expect(f, g, "ll_os.ll_os_dup", (3141,), 3)
     g.close()
     tail = f.read()
     f.close()
