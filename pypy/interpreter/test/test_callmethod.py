@@ -103,3 +103,21 @@ class AppTestCallMethod:
             else:
                 raise Exception("did not raise?")
         """
+
+
+class TestCallMethod:
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.opcodes.CALL_METHOD": True})
+
+    def test_space_call_method(self):
+        space = self.space
+        w_lst = space.newlist([])
+        space.call_method(w_lst, 'append', space.w_False)
+        res = space.int_w(space.call_method(w_lst, '__len__'))
+        assert res == 1
+
+    def test_fallback_case(self):
+        space = self.space
+        space.int_w(space.call_method(space.wrap(space.sys),
+                                      'getrecursionlimit'))

@@ -13,6 +13,7 @@ like: (on the left, without the new bytecodes; on the right, with them)
 from pypy.interpreter import pyframe, function
 from pypy.rlib.jit import we_are_jitted
 from pypy.interpreter.argument import Arguments
+from pypy.objspace.std import StdObjSpace
 
 
 def object_getattribute(space):
@@ -68,3 +69,23 @@ class __extend__(pyframe.PyFrame):
         finally:
             f.dropvalues(nargs + 2)
         f.pushvalue(w_result)
+
+
+def call_method(space, w_obj, methname, *arg_w):
+    """An optimized version of space.call_method()
+    based on the same principle as above.
+    """
+    w_name = space.wrap(methname)
+    w_getattribute = space.lookup(w_obj, '__getattribute__')
+    if w_getattribute is object_getattribute(space):
+        w_descr = space.lookup(w_obj, methname)
+        if type(w_descr) is function.Function:
+            w_value = w_obj.getdictvalue_attr_is_in_class(space, w_name)
+            if w_value is None:
+                # fast method path: a function object in the class,
+                # nothing in the instance
+                return space.call_function(w_descr, w_obj, *arg_w)
+    w_meth = space.getattr(w_obj, w_name)
+    return space.call_function(w_meth, *arg_w)
+
+StdObjSpace.call_method = call_method
