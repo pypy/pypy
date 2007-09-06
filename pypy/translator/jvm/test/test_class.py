@@ -6,5 +6,25 @@ class TestJvmClass(JvmTest, BaseTestClass):
     def test_overridden_classattr_as_defaults(self):
         py.test.skip("JVM doesn't support overridden default value yet")
 
+    def test_method_void_arg(self):
+        class Space:
+            def __init__(self):
+                self.x = 40
+            def _freeze_(self):
+                return True
+        space = Space()
+
+        class MyClass:
+            def foo(self, space, x):
+                return space.x + x
+
+        def fn(x):
+            obj = MyClass()
+            return obj.foo(space, x)
+
+        assert self.interpret(fn, [2]) == 42
+            
+        
+
 class TestJvmSpecialCase(JvmTest, BaseTestSpecialcase):
     pass

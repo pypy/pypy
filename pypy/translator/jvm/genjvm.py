@@ -268,7 +268,6 @@ class GenJvm(GenOO):
         """ Creates and returns a Generator object according to the
         configuration.  Right now, however, there is only one kind of
         generator: JasminGenerator """
-        print "Uh...?"
         return JasminGenerator(self.db, self.jvmsrc.javadir)
         
         

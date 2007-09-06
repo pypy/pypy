@@ -61,10 +61,7 @@ class InstanceDumpMethod(BaseDumpMethod):
         for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
 
             if FIELDOOTY is ootype.Void: continue
-
             genprint('"'+fieldnm+'":')
-
-            print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
 
             # Print the value of the field:
             self._print_field_value(fieldnm, FIELDOOTY)

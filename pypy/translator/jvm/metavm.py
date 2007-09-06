@@ -14,6 +14,7 @@ IndirectCall = _IndirectCall()
 class _JvmCallMethod(MicroInstruction):
 
     def _invoke_method(self, gen, db, jmethod, jactargs, args, jactres, res):
+        assert len(args) == len(jactargs)
         for arg, jmthdty in zip(args, jactargs):
             # Load the argument on the stack:
             gen.load(arg)
@@ -44,11 +45,12 @@ class _JvmCallMethod(MicroInstruction):
         jactargs = jmethod.argument_types
         if jmethod.is_static():
             jactargs = jactargs[1:]
-
+            
+        args = [arg for arg in op.args[2:] if arg.concretetype is not ootype.Void]
         # Iterate through the arguments, inserting casts etc as required
         gen.load(this)
         self._invoke_method(gen, gen.db, jmethod,
-                            jactargs, op.args[2:],
+                            jactargs, args,
                             jmethod.return_type, op.result)
 JvmCallMethod = _JvmCallMethod()
 
