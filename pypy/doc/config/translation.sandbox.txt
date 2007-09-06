@@ -10,6 +10,6 @@ marshalled result on its stdin.  This controller process must
 handle these operation requests, in any way it likes, allowing
 full virtualization.
 
-For examples of controller process see
+For examples of controller processes, see
 ``pypy/translator/sandbox/interact.py`` and
 ``pypy/translator/sandbox/pypy_interact.py``.
