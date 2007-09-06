@@ -7,11 +7,13 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 NORMAL_TIMEOUT = 300.0   # 5 minutes
 
 def waitfor(space, w_condition, delay=1):
-    w_sleep = space.appexec([], "():\n import time; return time.sleep")
     adaptivedelay = 0.04
     limit = time.time() + delay * NORMAL_TIMEOUT
     while time.time() <= limit:
-        space.call_function(w_sleep, space.wrap(adaptivedelay))
+        GIL = space.threadlocals.GIL
+        GIL.release()
+        time.sleep(adaptivedelay)
+        GIL.acquire(True)
         gc.collect()
         if space.is_true(space.call_function(w_condition)):
             return
