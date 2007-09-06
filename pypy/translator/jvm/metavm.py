@@ -3,6 +3,7 @@ from pypy.translator.oosupport.metavm import MicroInstruction
 from pypy.translator.jvm.typesystem import JvmScalarType, JvmClassType
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtype
+from pypy.translator.jvm.builtin import JvmBuiltInType
 
 class _IndirectCall(MicroInstruction):
     def render(self, gen, op):
@@ -40,13 +41,20 @@ class _JvmCallMethod(MicroInstruction):
         thisjtype = gen.db.lltype_to_cts(this.concretetype)
         jmethod = thisjtype.lookup_method(method.value)
 
+        # if this is a builtin-type, the signature is exact and we
+        # need to keep Void values; else, the signature does not
+        # include Void values, so we need to drop them.
+        if isinstance(thisjtype, JvmBuiltInType):
+            args = op.args[2:]
+        else:
+            args = [arg for arg in op.args[2:] if arg.concretetype is not ootype.Void]
+
         # Ugly: if jmethod ends up being a static method, then
         # peel off the first argument
         jactargs = jmethod.argument_types
         if jmethod.is_static():
             jactargs = jactargs[1:]
-            
-        args = [arg for arg in op.args[2:] if arg.concretetype is not ootype.Void]
+
         # Iterate through the arguments, inserting casts etc as required
         gen.load(this)
         self._invoke_method(gen, gen.db, jmethod,
