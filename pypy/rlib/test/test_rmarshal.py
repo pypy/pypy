@@ -2,6 +2,7 @@ import py
 import marshal
 from pypy.rlib.rmarshal import *
 from pypy.annotation import model as annmodel
+from pypy.rlib.rarithmetic import formatd
 
 types_that_can_be_none = [
     [int],
@@ -53,8 +54,8 @@ def test_unmarshaller():
     buf = 'i\x05\x00\x00\x00'
     assert get_unmarshaller(int)(buf) == 5
 
-##    buf = 'f\x043.25'
-##    assert get_unmarshaller(float)(buf) == 3.25
+    buf = 'f\x043.25'
+    assert get_unmarshaller(float)(buf) == 3.25
 
     buf = 's\x0c\x00\x00\x00hello, world'
     assert get_unmarshaller(str)(buf) == "hello, world"
@@ -90,31 +91,33 @@ def test_unmarshaller():
 
 def test_llinterp_marshal():
     from pypy.rpython.test.test_llinterp import interpret
-    marshaller = get_marshaller([(int, str)])
+    marshaller = get_marshaller([(int, str, float)])
     def f():
         buf = []
-        marshaller(buf, [(5, "hello"), (7, "world")])
+        marshaller(buf, [(5, "hello", -0.5), (7, "world", 1E100)])
         return ''.join(buf)
     res = interpret(f, [])
     res = ''.join(res.chars)
-    assert res == ('[\x02\x00\x00\x00(\x02\x00\x00\x00i\x05\x00\x00\x00'
-                   's\x05\x00\x00\x00hello(\x02\x00\x00\x00i\x07\x00\x00\x00'
-                   's\x05\x00\x00\x00world')
+    assert res == ('[\x02\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
+                   's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
+                   'i\x07\x00\x00\x00s\x05\x00\x00\x00world'
+                   'f\x061e+100')
 
 def test_llinterp_unmarshal():
     from pypy.rpython.test.test_llinterp import interpret
-    unmarshaller = get_unmarshaller([(int, str)])
-    buf = ('[\x02\x00\x00\x00(\x02\x00\x00\x00i\x05\x00\x00\x00'
-           's\x05\x00\x00\x00hello(\x02\x00\x00\x00i\x07\x00\x00\x00'
-           's\x05\x00\x00\x00world')
+    unmarshaller = get_unmarshaller([(int, str, float)])
+    buf = ('[\x02\x00\x00\x00(\x03\x00\x00\x00i\x05\x00\x00\x00'
+           's\x05\x00\x00\x00hellof\x04-0.5(\x03\x00\x00\x00'
+           'i\x07\x00\x00\x00s\x05\x00\x00\x00world'
+           'f\x061e+100')
     def f():
         result = ''
-        for num, string in unmarshaller(buf):
-            result += '%d=%s;' % (num, string)
+        for num, string, fval in unmarshaller(buf):
+            result += '%d=%s/%s;' % (num, string, formatd('%.17g', fval))
         return result
     res = interpret(f, [])
     res = ''.join(res.chars)
-    assert res == '5=hello;7=world;'
+    assert res == '5=hello/-0.5;7=world/1e+100;'
 
 def test_stat_result():
     import os

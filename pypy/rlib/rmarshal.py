@@ -7,6 +7,7 @@ from pypy.annotation.signature import annotation
 from pypy.annotation.listdef import ListDef, TooLateForChange
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rlib.rarithmetic import formatd, r_longlong, intmask
+from pypy.rlib.rarithmetic import break_up_float, parts_to_float
 from pypy.rlib.unroll import unrolling_iterable
 
 class CannotMarshal(Exception):
@@ -191,11 +192,11 @@ def dump_float(buf, x):
 add_dumper(annmodel.SomeFloat(), dump_float)
 
 def load_float(loader):
-    if loader.readchr() != TYPE_FLOAT:
+    if readchr(loader) != TYPE_FLOAT:
         raise ValueError("expected a float")
-    length = ord(loader.readchr())
-    s = loader.read(length)
-    return xxx # ...mess...
+    length = ord(readchr(loader))
+    s = readstr(loader, length)
+    return parts_to_float(*break_up_float(s))
 add_loader(annmodel.SomeFloat(), load_float)
 
 def dump_string_or_none(buf, x):
