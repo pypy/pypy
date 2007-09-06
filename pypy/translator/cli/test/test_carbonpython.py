@@ -1,3 +1,4 @@
+import py
 import os
 import os.path
 from pypy.tool import udir
