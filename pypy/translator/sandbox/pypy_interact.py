@@ -11,6 +11,7 @@ Options:
     --heapsize=N  limit memory usage to N bytes, or kilo- mega- giga-bytes
                   with the 'k', 'm' or 'g' suffix respectively.
                   ATM this only works if the sandboxed executable uses Boehm.
+    --timeout=N   limit execution time to N (real-time) seconds.
 """
 
 import sys, os
@@ -57,8 +58,9 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
     options, arguments = getopt(sys.argv[1:], 't:h', 
-                                ['tmp=', 'heapsize=', 'help'])
+                                ['tmp=', 'heapsize=', 'timeout=', 'help'])
     tmpdir = None
+    timeout = None
     extraoptions = []
 
     def help():
@@ -86,6 +88,8 @@ if __name__ == '__main__':
             if bytes > sys.maxint:
                 raise OverflowError("--heapsize maximum is %d" % sys.maxint)
             extraoptions[:0] = ['--heapsize', str(bytes)]
+        elif option == '--timeout':
+            timeout = int(value)
         elif option in ['-h', '--help']:
             help()
         else:
@@ -96,4 +100,6 @@ if __name__ == '__main__':
 
     sandproc = PyPySandboxedProc(arguments[0], extraoptions + arguments[1:],
                                  tmpdir=tmpdir)
+    if timeout is not None:
+        sandproc.settimeout(timeout)
     sandproc.interact()

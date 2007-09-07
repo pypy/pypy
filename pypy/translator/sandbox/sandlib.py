@@ -5,7 +5,8 @@ for the outer process, which can run CPython or PyPy.
 """
 
 import py
-import marshal, sys, os, posixpath, errno, stat, time
+import sys, os, posixpath, errno, stat, time
+from pypy.lib import marshal   # see below
 from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
@@ -22,6 +23,13 @@ class MyAnsiLog(AnsiLog):
 log = py.log.Producer("sandlib")
 py.log.setconsumer("sandlib", MyAnsiLog())
 
+
+# Note: we use pypy.lib.marshal instead of the built-in marshal
+# for two reasons.  The built-in module could be made to segfault
+# or be attackable in other ways by sending malicious input to
+# load().  Also, marshal.load(f) blocks with the GIL held when
+# f is a pipe with no data immediately avaialble, preventing the
+# _waiting_thread to run.
 
 def read_message(f, timeout=None):
     # warning: 'timeout' is not really reliable and should only be used
@@ -106,12 +114,62 @@ class SandboxedProc(object):
                                       stdout=subprocess.PIPE,
                                       close_fds=True,
                                       env={})
+        self.popenlock = None
+        self.currenttimeout = None
+
+    def withlock(self, function, *args, **kwds):
+        lock = self.popenlock
+        if lock is not None:
+            lock.acquire()
+        try:
+            return function(*args, **kwds)
+        finally:
+            if lock is not None:
+                lock.release()
+
+    def settimeout(self, timeout):
+        """Start a timeout that will kill the subprocess after the given
+        amount of time.  Only one timeout can be active at a time.
+        """
+        import thread
+        from pypy.tool.killsubprocess import killsubprocess
+
+        def _waiting_thread():
+            while True:
+                t = self.currenttimeout
+                if t is None:
+                    return  # cancelled
+                delay = t - time.time()
+                if delay <= 0.0:
+                    break   # expired!
+                time.sleep(min(delay*1.001, 1))
+            self.withlock(killsubprocess, self.popen)
+
+        def _settimeout():
+            need_new_thread = self.currenttimeout is None
+            self.currenttimeout = time.time() + timeout
+            if need_new_thread:
+                thread.start_new_thread(_waiting_thread, ())
+
+        if self.popenlock is None:
+            self.popenlock = thread.allocate_lock()
+        self.withlock(_settimeout)
+
+    def canceltimeout(self):
+        """Cancel the current timeout."""
+        self.currenttimeout = None
 
     def poll(self):
-        return self.popen.poll()
+        returncode = self.withlock(self.popen.poll)
+        if returncode is not None:
+            self.canceltimeout()
+        return returncode
 
     def wait(self):
-        return self.popen.wait()
+        returncode = self.withlock(self.popen.wait)
+        if returncode is not None:
+            self.canceltimeout()
+        return returncode
 
     def handle_forever(self):
         returncode = self.handle_until_return()
@@ -120,20 +178,22 @@ class SandboxedProc(object):
                 returncode,))
 
     def handle_until_return(self):
+        child_stdin  = self.popen.stdin
+        child_stdout = self.popen.stdout
         if self.os_level_sandboxing and sys.platform.startswith('linux2'):
             # rationale: we wait until the child process started completely,
             # letting the C library do any system calls it wants for
             # initialization.  When the RPython code starts up, it quickly
             # does its first system call.  At this point we turn seccomp on.
             import select
-            select.select([self.popen.stdout], [], [])
+            select.select([child_stdout], [], [])
             f = open('/proc/%d/seccomp' % self.popen.pid, 'w')
             print >> f, 1
             f.close()
         while True:
             try:
-                fnname = read_message(self.popen.stdout)
-                args   = read_message(self.popen.stdout)
+                fnname = read_message(child_stdout)
+                args   = read_message(child_stdout)
             except EOFError, e:
                 break
             if self.debug:
@@ -143,7 +203,7 @@ class SandboxedProc(object):
                 answer, resulttype = self.handle_message(fnname, *args)
             except Exception, e:
                 tb = sys.exc_info()[2]
-                write_exception(self.popen.stdin, e, tb)
+                write_exception(child_stdin, e, tb)
                 if self.debug:
                     if str(e):
                         log.exception('%s: %s' % (e.__class__.__name__, e))
@@ -152,10 +212,10 @@ class SandboxedProc(object):
             else:
                 if self.debug:
                     log.result(shortrepr(answer))
-                write_message(self.popen.stdin, 0)  # error code - 0 for ok
-                write_message(self.popen.stdin, answer, resulttype)
-                self.popen.stdin.flush()
-        returncode = self.popen.wait()
+                write_message(child_stdin, 0)  # error code - 0 for ok
+                write_message(child_stdin, answer, resulttype)
+                child_stdin.flush()
+        returncode = self.wait()
         return returncode
 
     def handle_message(self, fnname, *args):
