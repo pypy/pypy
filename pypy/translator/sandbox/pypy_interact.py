@@ -101,5 +101,5 @@ if __name__ == '__main__':
     sandproc = PyPySandboxedProc(arguments[0], extraoptions + arguments[1:],
                                  tmpdir=tmpdir)
     if timeout is not None:
-        sandproc.settimeout(timeout)
+        sandproc.settimeout(timeout, interrupt_main=True)
     sandproc.interact()

@@ -127,7 +127,7 @@ class SandboxedProc(object):
             if lock is not None:
                 lock.release()
 
-    def settimeout(self, timeout):
+    def settimeout(self, timeout, interrupt_main=False):
         """Start a timeout that will kill the subprocess after the given
         amount of time.  Only one timeout can be active at a time.
         """
@@ -144,6 +144,12 @@ class SandboxedProc(object):
                     break   # expired!
                 time.sleep(min(delay*1.001, 1))
             self.withlock(killsubprocess, self.popen)
+            if interrupt_main:
+                if hasattr(os, 'kill'):
+                    import signal
+                    os.kill(os.getpid(), signal.SIGINT)
+                else:
+                    thread.interrupt_main()
 
         def _settimeout():
             need_new_thread = self.currenttimeout is None
