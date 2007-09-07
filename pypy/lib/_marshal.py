@@ -663,7 +663,10 @@ except NameError:
 #
 # user interface
 
-def dump(x, f):
+version = 1
+
+def dump(x, f, version=version):
+    # XXX 'version' is ignored, we always dump in a version-0-compatible format
     m = _Marshaller(f.write)
     m.dump(x)
 
@@ -671,7 +674,8 @@ def load(f):
     um = _Unmarshaller(f.read)
     return um.load()
 
-def dumps(x):
+def dumps(x, version=version):
+    # XXX 'version' is ignored, we always dump in a version-0-compatible format
     buffer = []
     m = _Marshaller(buffer.append)
     m.dump(x)
