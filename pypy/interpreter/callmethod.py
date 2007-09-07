@@ -14,6 +14,7 @@ from pypy.interpreter import pyframe, function
 from pypy.rlib.jit import we_are_jitted
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std import StdObjSpace
+from pypy.rlib import rstack # for resume points
 
 
 def object_getattribute(space):
@@ -66,6 +67,7 @@ class __extend__(pyframe.PyFrame):
         n = nargs + (w_self is not None)
         try:
             w_result = f.space.call_valuestack(w_callable, n, f)
+            rstack.resume_point("CALL_METHOD", f, nargs, returns=w_result)
         finally:
             f.dropvalues(nargs + 2)
         f.pushvalue(w_result)

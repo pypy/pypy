@@ -219,7 +219,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                                         ec)
             instr = frame.last_instr
             opcode = ord(code[instr])
-            assert opcode == pythonopcode.opmap['CALL_FUNCTION']
+            map = pythonopcode.opmap
+            call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'], map['CALL_FUNCTION_VAR'], 
+                        map['CALL_FUNCTION_VAR_KW'], map['CALL_METHOD']]
+            assert opcode in call_ops
             # ("dispatch_call", self, co_code, next_instr, ec)
             chain = resume_state_create(chain, "dispatch_call", frame, code,
                                         instr+3, ec)
@@ -229,8 +232,12 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 # Only positional arguments
                 nargs = oparg & 0xff
                 # case1: ("CALL_FUNCTION", f, nargs, returns=w_result)
-                chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
-                                            nargs)
+                if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
+                    chain = resume_state_create(chain, 'CALL_METHOD', frame,
+                                                nargs)
+                else:
+                    chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
+                                                nargs)
             else:
                 # case2: ("call_function", f, returns=w_result)
                 chain = resume_state_create(chain, 'call_function', frame)

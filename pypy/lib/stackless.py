@@ -57,7 +57,7 @@ except ImportError: # we are running from CPython
                arguments *argl, **argd
             """
             if self._frame is None or self._frame.dead:
-                self._frame = frame = GWrap()
+                self._frame = frame = MWrap(None)##GWrap()
                 frame.coro = self
             if hasattr(self._frame, 'run') and self._frame.run:
                 raise ValueError("cannot bind a bound coroutine")
@@ -92,6 +92,9 @@ except ImportError: # we are running from CPython
             except AttributeError:
                 return _maincoro
         getcurrent = staticmethod(getcurrent)
+
+        def __reduce__(self):
+            raise TypeError, 'pickling is not possible based upon greenlets'
 
     _maincoro = coroutine()
     maingreenlet = greenlet.getcurrent()
@@ -169,6 +172,36 @@ class bomb(object):
     def raise_(self):
         raise self.type, self.value, self.traceback
 
+#
+# helpers for pickling
+#
+
+_stackless_primitive_registry = {}
+
+def register_stackless_primitive(thang, retval_expr='None'):
+    import types
+    func = thang
+    if isinstance(thang, types.MethodType):
+        func = thang.im_func
+    code = func.func_code
+    _stackless_primitive_registry[code] = retval_expr
+    # It is not too nice to attach info via the code object, but
+    # I can't think of a better solution without a real transform.
+
+def rewrite_stackless_primitive(coro_state, alive, tempval):
+    flags, state, thunk, parent = coro_state
+    for i, frame in enumerate(state):
+        retval_expr = _stackless_primitive_registry.get(frame.f_code)
+        if retval_expr:
+            # this tasklet needs to stop pickling here and return its value.
+            tempval = eval(retval_expr, globals(), frame.f_locals)
+            state = state[:i]
+            coro_state = flags, state, thunk, parent
+    return coro_state, alive, tempval
+
+#
+#
+
 class channel(object):
     """
     A channel object is used for communication between tasklets.
@@ -214,6 +247,7 @@ class channel(object):
         continue immediately, and the sender is put at the end of
         the runnables list.
         The above policy can be changed by setting channel flags.
+        XXX channel flags are not implemented, yet.
         """
         receiver = getcurrent()
         willblock = not self.balance > 0
@@ -232,11 +266,14 @@ class channel(object):
             _scheduler_remove(getcurrent())
             schedule()
             assert not receiver.blocked
-            
+          
+        # XXX wrong. This check should happen on every context switch, not here.  
         msg = receiver.tempval
         if isinstance(msg, bomb):
             msg.raise_()
         return msg
+        
+    register_stackless_primitive(receive, retval_expr='receiver.tempval')
 
     def send_exception(self, exp_type, msg):
         self.send(bomb(exp_type, exp_type(msg)))
@@ -273,6 +310,8 @@ class channel(object):
             schedule()
             assert not sender.blocked
             
+    register_stackless_primitive(send)
+            
 class tasklet(coroutine):
     """
     A tasklet object represents a tiny task in a Python thread.
@@ -282,7 +321,10 @@ class tasklet(coroutine):
     """
     tempval = None
     def __new__(cls, func=None, label=''):
-        return coroutine.__new__(cls)
+        res = coroutine.__new__(cls)
+        res.label = label
+        res._task_id = None
+        return res
 
     def __init__(self, func=None, label=''):
         coroutine.__init__(self)
@@ -354,19 +396,42 @@ class tasklet(coroutine):
         return self
 
     def run(self):
-        if _scheduler_contains(self):
-            return
-        else:
-            _scheduler_append(self)
+        self.insert()
+        _scheduler_switch(getcurrent(), self)
 
+    def insert(self):
+        if self.blocked:
+            raise RuntimeError, "You cannot run a blocked tasklet"
+	   if not self.alive:
+	       raise RuntimeError, "You cannot run an unbound(dead) tasklet"
+        _scheduler_append(self)
+
+    def remove(self):
+        if self.blocked:
+            raise RuntimeError, "You cannot remove a blocked tasklet."
+        if self is getcurrent():
+            raise RuntimeError, "The current tasklet cannot be removed."
+		    # not sure if I will revive this  " Use t=tasklet().capture()"
+        _scheduler_remove(self)
+        
     def __reduce__(self):
-        one, two, three = coroutine.__reduce__(self)
+        one, two, coro_state = coroutine.__reduce__(self)
         assert one is coroutine
         assert two == ()
-        return tasklet, (), (three, self.alive, self.tempval)
+        # we want to get rid of the parent thing.
+        # for now, we just drop it
+        a, b, c, d = coro_state
+        if d:
+            assert isinstance(d, coroutine)
+        coro_state = a, b, c, None
+        coro_state, alive, tempval = rewrite_stackless_primitive(coro_state, self.alive, self.tempval)
+        inst_dict = self.__dict__.copy()
+        del inst_dict['tempval']
+        return self.__class__, (), (coro_state, alive, tempval, inst_dict)
 
-    def __setstate__(self, (coro_state, alive, tempval)):
+    def __setstate__(self, (coro_state, alive, tempval, inst_dict)):
         coroutine.__setstate__(self, coro_state)
+        self.__dict__.update(inst_dict)
         self.alive = alive
         self.tempval = tempval
 
