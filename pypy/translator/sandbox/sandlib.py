@@ -236,7 +236,10 @@ class SandboxedProc(object):
     def handle_message(self, fnname, *args):
         if '__' in fnname:
             raise ValueError("unsafe fnname")
-        handler = getattr(self, 'do_' + fnname.replace('.', '__'))
+        try:
+            handler = getattr(self, 'do_' + fnname.replace('.', '__'))
+        except AttributeError:
+            raise RuntimeError("no handler for this function")
         resulttype = getattr(handler, 'resulttype', None)
         return handler(*args), resulttype
 
