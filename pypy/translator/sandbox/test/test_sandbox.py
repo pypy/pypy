@@ -17,6 +17,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
     else:
         write_message(g, 0)
         write_message(g, result, resulttype)
+        g.flush()
 
 
 def test_open_dup():

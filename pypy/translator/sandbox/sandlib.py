@@ -45,7 +45,6 @@ def write_message(g, msg, resulttype=None):
         buf = []
         get_marshaller(resulttype)(buf, msg)
         g.write(''.join(buf))
-    g.flush()
 
 # keep the table in sync with rsandbox.reraise_error()
 EXCEPTION_TABLE = [
@@ -69,6 +68,7 @@ def write_exception(g, exception, tb=None):
                 if error is None:
                     error = errno.EPERM
                 write_message(g, error)
+            g.flush()
             break
     else:
         # just re-raise the exception
@@ -154,6 +154,7 @@ class SandboxedProc(object):
                     log.result(shortrepr(answer))
                 write_message(self.popen.stdin, 0)  # error code - 0 for ok
                 write_message(self.popen.stdin, answer, resulttype)
+                self.popen.stdin.flush()
         returncode = self.popen.wait()
         return returncode
 
