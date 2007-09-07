@@ -354,6 +354,16 @@ class Test_specialization:
         assert interpret(f, [0, 0]) == 0
         assert interpret(f, [3, 4]) == 12
 
+    def test_specialize_list_rhs(self):
+        def f():
+            a = numpy.zeros((3,4), dtype='i')
+            a[:] = [3,4,4,2]
+            return a
+        res = interpret(f, [])
+        data = [3,4,4,2]*3
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
     def test_specialize_slice_1_0(self):
         def f():
             a = numpy.zeros((12,), dtype='i')
@@ -369,7 +379,7 @@ class Test_specialization:
             assert res.dataptr[i] == data[i]
 
     def test_specialize_slice_1_1(self):
-        py.test.skip('this involves a runtime test to see if we need a broadcast iterator')
+        # This involves a runtime test to see if we need a broadcast iterator
         def f():
             a = numpy.zeros((6,), dtype='i')
             a[:2] = numpy.array([1])
@@ -381,10 +391,9 @@ class Test_specialization:
             assert res.dataptr[i] == data[i]
 
     def test_specialize_slice_2_0(self):
-        py.test.skip('not implemented')
         def f():
             a = numpy.zeros((12,), dtype='i').reshape((3,4))
-            a[:2, 0] = 1
+            a[:2, :1] = 1
             return a
         res = interpret(f, [])
         data = [1,0,0,0,1,0,0,0,0,0,0,0]
@@ -467,7 +476,6 @@ class Test_specialization:
             assert res.dataptr[i] == data[i]
 
     def test_malloc_remove(self):
-        py.test.skip('this test requires _always_inline_ magic hook')
         def f():
             a = numpy.empty((3,), dtype='i')
             b = numpy.array([5,55,555], dtype='i')
@@ -480,8 +488,8 @@ class Test_specialization:
         r.specialize()
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
-        from pypy.rpython.numpy.rarray import ll_array_unary_op
-        graph = graphof(t, ll_array_unary_op)
+        from pypy.rpython.numpy.rarray import ll_array_set
+        graph = graphof(t, ll_array_set)
         #graph.show()
         from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval
         TestLLTypeMallocRemoval.check_malloc_removed(graph)
