@@ -10,7 +10,7 @@ Options:
                   which is the virtual current dir (always read-only for now)
     --heapsize=N  limit memory usage to N bytes, or kilo- mega- giga-bytes
                   with the 'k', 'm' or 'g' suffix respectively.
-                  ATM this only works if the sandboxed executable uses Boehm.
+                  ATM this only works with PyPy translated with Boehm.
     --timeout=N   limit execution time to N (real-time) seconds.
 """
 
