@@ -5,7 +5,7 @@ for the outer process, which can run CPython or PyPy.
 """
 
 import py
-import marshal, sys, os, posixpath, errno, stat
+import marshal, sys, os, posixpath, errno, stat, time
 from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
@@ -230,6 +230,24 @@ class SimpleIOSandboxedProc(SandboxedProc):
             self._error.write(data)
             return len(data)
         raise OSError("trying to write to fd %d" % (fd,))
+
+    # let's allow access to the real time
+    def do_ll_time__ll_time_sleep(self, seconds):
+        time.sleep(seconds)
+
+    def do_ll_time__ll_time_time(self):
+        return time.time()
+
+    def do_ll_time__ll_time_clock(self):
+        # measuring the CPU time of the controller process has
+        # not much meaning, so let's emulate this and return
+        # the real time elapsed since the first call to clock()
+        # (this is one of the behaviors allowed by the docs)
+        try:
+            starttime = self.starttime
+        except AttributeError:
+            starttime = self.starttime = time.time()
+        return time.time() - starttime
 
 
 class VirtualizedSandboxedProc(SandboxedProc):
