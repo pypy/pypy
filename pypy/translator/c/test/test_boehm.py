@@ -266,6 +266,23 @@ class TestUsingBoehm(AbstractGCTestClass):
         res = c_var_size()
         assert res == 0
 
+    def test_gc_set_max_heap_size(self):
+        def g(n):
+            return 'x' * n
+        def fn():
+            from pypy.rlib import rgc
+            rgc.set_max_heap_size(500000)
+            s1 = s2 = s3 = None
+            try:
+                s1 = g(10000)
+                s2 = g(100000)
+                s3 = g(1000000)
+            except MemoryError:
+                pass
+            return (s1 is not None) + (s2 is not None) + (s3 is not None)
+        c_fn = self.getcompiled(fn, [])
+        res = c_fn()
+        assert res == 2
 
 
 class TestUsingExactBoehm(TestUsingBoehm):

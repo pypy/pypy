@@ -1,4 +1,15 @@
+import gc
 from pypy.rpython.extregistry import ExtRegistryEntry
+# ____________________________________________________________
+# General GC features
+
+collect = gc.collect
+
+def set_max_heap_size(nbytes):
+    """Limit the heap size to n bytes.
+    So far only implemented by the Boehm GC."""
+    pass
+
 # ____________________________________________________________
 # Framework GC features
 
@@ -127,7 +138,6 @@ class CloneFnEntry(ExtRegistryEntry):
         return rtuple.newtuple(hop.llops, r_tuple, [v_gcobject, v_pool])
 
 # Support for collection.
-import gc
 
 class CollectEntry(ExtRegistryEntry):
     _about_ = gc.collect
@@ -139,4 +149,15 @@ class CollectEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         return hop.genop('gc__collect', [], resulttype=hop.r_result)
     
+class SetMaxHeapSizeEntry(ExtRegistryEntry):
+    _about_ = set_max_heap_size
 
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        [v_nbytes] = hop.inputargs(lltype.Signed)
+        return hop.genop('gc_set_max_heap_size', [v_nbytes],
+                         resulttype=lltype.Void)

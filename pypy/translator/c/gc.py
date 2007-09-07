@@ -67,6 +67,9 @@ class BasicGcPolicy(object):
         expr = funcgen.expr(op.args[0])
         return 'Py_XDECREF(%s);' % expr
 
+    def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
+        return ''
+
 
 class RefcountingInfo:
     static_deallocator = None
@@ -222,6 +225,10 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def OP_GC__COLLECT(self, funcgen, op):
         return 'GC_gcollect(); GC_invoke_finalizers();'
+
+    def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
+        nbytes = funcgen.expr(op.args[0])
+        return 'GC_set_max_heap_size(%s);' % (nbytes,)
 
 class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'

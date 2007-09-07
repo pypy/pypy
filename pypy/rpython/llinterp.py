@@ -741,6 +741,9 @@ class LLFrame(object):
     def op_gc_reload_possibly_moved(self, newaddr, ptr):
         raise NotImplementedError("gc_reload_possibly_moved")
 
+    def op_gc_set_max_heap_size(self, maxsize):
+        raise NotImplementedError("gc_set_max_heap_size")
+
     def op_yield_current_frame_to_caller(self):
         raise NotImplementedError("yield_current_frame_to_caller")
 
