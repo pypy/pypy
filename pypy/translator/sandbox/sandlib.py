@@ -205,7 +205,7 @@ class SandboxedProc(object):
                 args   = read_message(child_stdout)
             except EOFError, e:
                 break
-            if self.debug:
+            if self.debug and not self.is_spam(fnname, *args):
                 log.call('%s(%s)' % (fnname,
                                      ', '.join([shortrepr(x) for x in args])))
             try:
@@ -219,13 +219,19 @@ class SandboxedProc(object):
                     else:
                         log.exception('%s' % (e.__class__.__name__,))
             else:
-                if self.debug:
+                if self.debug and not self.is_spam(fnname, *args):
                     log.result(shortrepr(answer))
                 write_message(child_stdin, 0)  # error code - 0 for ok
                 write_message(child_stdin, answer, resulttype)
                 child_stdin.flush()
         returncode = self.wait()
         return returncode
+
+    def is_spam(self, fnname, *args):
+        # To hide the spamming amounts of reads and writes to stdin and stdout
+        # in interactive sessions
+        return (fnname in ('ll_os.ll_os_read', 'll_os.ll_os_write') and
+                args[0] in (0, 1))
 
     def handle_message(self, fnname, *args):
         if '__' in fnname:
