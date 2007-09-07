@@ -122,9 +122,16 @@ class W_Weakref(W_WeakrefBase):
         self.w_hash = self.space.hash(w_obj)
         return self.w_hash
 
+def check(space):
+    if space.config.translation.sandbox:
+        msg = "weakrefs are disabled in a sandbox translation at the moment"
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap(msg))
+
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
     lifeline = w_obj.getweakref()
     if lifeline is None:
+        check(space)
         lifeline = WeakrefLifeline()
         w_obj.setweakref(space, lifeline)
     return lifeline.get_weakref(space, w_subtype, w_obj, w_callable)
@@ -196,6 +203,7 @@ def proxy(space, w_obj, w_callable=None):
 is about to be finalized."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
+        check(space)
         lifeline = WeakrefLifeline()
         w_obj.setweakref(space, lifeline) 
     return lifeline.get_proxy(space, w_obj, w_callable)
