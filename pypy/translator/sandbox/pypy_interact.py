@@ -8,6 +8,9 @@ Usage:
 Options:
     --tmp=DIR     the real directory that corresponds to the virtual /tmp,
                   which is the virtual current dir (always read-only for now)
+    --heapsize=N  limit memory usage to N bytes, or kilo- mega- giga-bytes
+                  with the 'k', 'm' or 'g' suffix respectively.
+                  ATM this only works if the sandboxed executable uses Boehm.
 """
 
 import sys, os
@@ -53,8 +56,10 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:h', ['tmp=', 'help'])
+    options, arguments = getopt(sys.argv[1:], 't:h', 
+                                ['tmp=', 'heapsize=', 'help'])
     tmpdir = None
+    extraoptions = []
 
     def help():
         print >> sys.stderr, __doc__
@@ -66,6 +71,21 @@ if __name__ == '__main__':
             if not os.path.isdir(value):
                 raise OSError("%r is not a directory" % (value,))
             tmpdir = value
+        elif option == '--heapsize':
+            value = value.lower()
+            if value.endswith('k'):
+                bytes = int(value[:-1]) * 1024
+            elif value.endswith('m'):
+                bytes = int(value[:-1]) * 1024 * 1024
+            elif value.endswith('g'):
+                bytes = int(value[:-1]) * 1024 * 1024 * 1024
+            else:
+                bytes = int(value)
+            if bytes <= 0:
+                raise ValueError
+            if bytes > sys.maxint:
+                raise OverflowError("--heapsize maximum is %d" % sys.maxint)
+            extraoptions[:0] = ['--heapsize', str(bytes)]
         elif option in ['-h', '--help']:
             help()
         else:
@@ -74,5 +94,6 @@ if __name__ == '__main__':
     if len(arguments) < 1:
         help()
 
-    sandproc = PyPySandboxedProc(arguments[0], arguments[1:], tmpdir=tmpdir)
+    sandproc = PyPySandboxedProc(arguments[0], extraoptions + arguments[1:],
+                                 tmpdir=tmpdir)
     sandproc.interact()
