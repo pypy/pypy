@@ -30,8 +30,8 @@ public class CustomDict<K,V> implements Map<K,V>
     public CustomDict(final Equals equals, final HashCode hashCode) {
         this.hashCode = hashCode;
         this.equals = equals;
-        System.err.println("Equals: "+equals.getClass());
-        System.err.println("HashCode: "+hashCode.getClass());
+        //System.err.println("Equals: "+equals.getClass());
+        //System.err.println("HashCode: "+hashCode.getClass());
     }
 
     public class Adapter<AK> {

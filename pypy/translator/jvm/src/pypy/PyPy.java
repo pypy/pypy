@@ -571,8 +571,8 @@ public class PyPy {
             return -1;
 
         int res = haystack.indexOf(needle, start);
-        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-                           " end="+end+" res="+res);
+        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+        //                   " end="+end+" res="+res);
         if (res + needle.length() > end) 
             return -1;
         return res;
@@ -580,8 +580,8 @@ public class PyPy {
 
     public static int ll_rfind(String haystack, String needle, int start, int end) {
         int res = haystack.lastIndexOf(needle, end-1);
-        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-                           " end="+end+" res="+res);
+        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+        //                   " end="+end+" res="+res);
         if (res >= start) 
             return res;
         return -1;
@@ -616,8 +616,8 @@ public class PyPy {
 
     public static int ll_rfind_char(String haystack, char needle, int start, int end) {
         int res = haystack.lastIndexOf(needle, end-1);
-        System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
-                           " end="+end+" res="+res);
+        //System.err.println("haystack="+haystack+" needle="+needle+" start="+start+
+        //                   " end="+end+" res="+res);
         if (res >= start) 
             return res;
         return -1;
@@ -802,6 +802,16 @@ public class PyPy {
         return text.length();
     }
 
+    public static ArrayList ll_os_envitems()
+    {
+        return new ArrayList();
+    }
+
+    public static String ll_os_getcwd()
+    {
+        return "/tmp";
+    }
+
     // ----------------------------------------------------------------------
     // Exceptions
     //
@@ -869,7 +879,7 @@ public class PyPy {
     }
 
     public static void _ll_resize_le(ArrayList self, int length) {
-        System.err.println("ll_resize_le: self.size()="+self.size()+" length="+length);
+        //System.err.println("ll_resize_le: self.size()="+self.size()+" length="+length);
         while (self.size() > length) {
             self.remove(self.size()-1);
         }
