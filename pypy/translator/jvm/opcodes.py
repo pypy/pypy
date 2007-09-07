@@ -68,6 +68,7 @@ _opcodes = {
     'cast_ptr_to_weakadr':      [CastPtrToWeakAddress],
     'cast_weakadr_to_ptr':      CastWeakAddressToPtr,
     'gc__collect':              jvmgen.SYSTEMGC,
+    'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,
 
     'debug_assert':              [], # TODO: implement?
