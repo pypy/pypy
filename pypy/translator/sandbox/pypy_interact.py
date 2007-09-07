@@ -102,4 +102,7 @@ if __name__ == '__main__':
                                  tmpdir=tmpdir)
     if timeout is not None:
         sandproc.settimeout(timeout, interrupt_main=True)
-    sandproc.interact()
+    try:
+        sandproc.interact()
+    finally:
+        sandproc.kill()

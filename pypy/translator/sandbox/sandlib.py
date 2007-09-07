@@ -11,6 +11,7 @@ from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
 from pypy.rlib.rarithmetic import r_longlong
 from py.compat import subprocess
+from pypy.tool.killsubprocess import killsubprocess
 
 class MyAnsiLog(AnsiLog):
     KW_TO_COLOR = {
@@ -132,7 +133,6 @@ class SandboxedProc(object):
         amount of time.  Only one timeout can be active at a time.
         """
         import thread
-        from pypy.tool.killsubprocess import killsubprocess
 
         def _waiting_thread():
             while True:
@@ -143,7 +143,7 @@ class SandboxedProc(object):
                 if delay <= 0.0:
                     break   # expired!
                 time.sleep(min(delay*1.001, 1))
-            self.withlock(killsubprocess, self.popen)
+            self.kill()
             if interrupt_main:
                 if hasattr(os, 'kill'):
                     import signal
@@ -176,6 +176,9 @@ class SandboxedProc(object):
         if returncode is not None:
             self.canceltimeout()
         return returncode
+
+    def kill(self):
+        self.withlock(killsubprocess, self.popen)
 
     def handle_forever(self):
         returncode = self.handle_until_return()
