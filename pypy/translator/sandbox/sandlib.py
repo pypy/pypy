@@ -231,7 +231,7 @@ class SandboxedProc(object):
         # To hide the spamming amounts of reads and writes to stdin and stdout
         # in interactive sessions
         return (fnname in ('ll_os.ll_os_read', 'll_os.ll_os_write') and
-                args[0] in (0, 1))
+                args[0] in (0, 1, 2))
 
     def handle_message(self, fnname, *args):
         if '__' in fnname:
