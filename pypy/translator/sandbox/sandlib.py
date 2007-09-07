@@ -19,6 +19,7 @@ class MyAnsiLog(AnsiLog):
         'result': ((34,), False),
         'exception': ((34,), False),
         'vpath': ((35,), False),
+        'timeout': ((1, 31), True),
         }
 
 log = py.log.Producer("sandlib")
@@ -117,6 +118,7 @@ class SandboxedProc(object):
                                       env={})
         self.popenlock = None
         self.currenttimeout = None
+        self.currentlyidlefrom = None
 
     def withlock(self, function, *args, **kwds):
         lock = self.popenlock
@@ -136,6 +138,8 @@ class SandboxedProc(object):
 
         def _waiting_thread():
             while True:
+                while self.currentlyidlefrom is not None:
+                    time.sleep(1)   # can't timeout while idle
                 t = self.currenttimeout
                 if t is None:
                     return  # cancelled
@@ -143,13 +147,14 @@ class SandboxedProc(object):
                 if delay <= 0.0:
                     break   # expired!
                 time.sleep(min(delay*1.001, 1))
+            log.timeout("timeout!")
             self.kill()
-            if interrupt_main:
-                if hasattr(os, 'kill'):
-                    import signal
-                    os.kill(os.getpid(), signal.SIGINT)
-                else:
-                    thread.interrupt_main()
+            #if interrupt_main:
+            #    if hasattr(os, 'kill'):
+            #        import signal
+            #        os.kill(os.getpid(), signal.SIGINT)
+            #    else:
+            #        thread.interrupt_main()
 
         def _settimeout():
             need_new_thread = self.currenttimeout is None
@@ -164,6 +169,20 @@ class SandboxedProc(object):
     def canceltimeout(self):
         """Cancel the current timeout."""
         self.currenttimeout = None
+        self.currentlyidlefrom = None
+
+    def enter_idle(self):
+        self.currentlyidlefrom = time.time()
+
+    def leave_idle(self):
+        def _postpone_timeout():
+            t = self.currentlyidlefrom
+            if t is not None and self.currenttimeout is not None:
+                self.currenttimeout += time.time() - t
+        try:
+            self.withlock(_postpone_timeout)
+        finally:
+            self.currentlyidlefrom = None
 
     def poll(self):
         returncode = self.withlock(self.popen.poll)
@@ -221,9 +240,16 @@ class SandboxedProc(object):
             else:
                 if self.debug and not self.is_spam(fnname, *args):
                     log.result(shortrepr(answer))
-                write_message(child_stdin, 0)  # error code - 0 for ok
-                write_message(child_stdin, answer, resulttype)
-                child_stdin.flush()
+                try:
+                    write_message(child_stdin, 0)  # error code - 0 for ok
+                    write_message(child_stdin, answer, resulttype)
+                    child_stdin.flush()
+                except (IOError, OSError):
+                    # likely cause: subprocess is dead, child_stdin closed
+                    if self.poll() is not None:
+                        break
+                    else:
+                        raise
         returncode = self.wait()
         return returncode
 
@@ -296,7 +322,14 @@ class SimpleIOSandboxedProc(SandboxedProc):
             elif self._input.isatty():
                 # don't wait for all 'size' chars if reading from a tty,
                 # to avoid blocking.  Instead, stop after reading a line.
-                return self._input.readline(size)
+                
+                # For now, waiting at the interactive console is the
+                # only time that counts as idle.
+                self.enter_idle()
+                try:
+                    return self._input.readline(size)
+                finally:
+                    self.leave_idle()
             else:
                 return self._input.read(size)
         raise OSError("trying to read from fd %d" % (fd,))
@@ -312,6 +345,13 @@ class SimpleIOSandboxedProc(SandboxedProc):
 
     # let's allow access to the real time
     def do_ll_time__ll_time_sleep(self, seconds):
+        # regularly check for timeouts that could have killed the
+        # subprocess
+        while seconds > 5.0:
+            time.sleep(5.0)
+            seconds -= 5.0
+            if self.poll() is not None:   # subprocess finished?
+                return
         time.sleep(seconds)
 
     def do_ll_time__ll_time_time(self):
