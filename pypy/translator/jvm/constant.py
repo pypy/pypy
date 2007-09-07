@@ -17,6 +17,8 @@ jPyPyConstantInitMethod = Method.s(jPyPyConstantInit, 'init', [], jVoid)
 
 class JVMConstantGenerator(BaseConstantGenerator):
 
+    MAX_INSTRUCTION_COUNT = 20000
+
     def __init__(self, db):
         BaseConstantGenerator.__init__(self, db)
         self.num_constants = 0
@@ -112,6 +114,13 @@ class JVMConstantGenerator(BaseConstantGenerator):
         # in JVM, this is done first, in gen_constants()
         return
 
+    def _consider_split_current_function(self, gen):
+        if gen.get_instruction_count() >= self.MAX_INSTRUCTION_COUNT:
+            const = self.current_const
+            gen.pop(const.value._TYPE)
+            self._new_step(gen)
+            self._push_constant_during_init(gen, const)
+
     def _declare_step(self, gen, stepnum):
         self.step_classes.append(JvmClassType('pypy.ConstantInit_%d' % stepnum))
         gen.begin_class(self.step_classes[-1], jObject)
@@ -149,7 +158,7 @@ class JVMStaticMethodConst(StaticMethodConst):
         else:
             gen.push_null(jObject)
 
-    def initialize_data(self, ilasm):
+    def initialize_data(self, constgen, gen):
         return
     
 class JVMCustomDictConst(CustomDictConst):
@@ -191,7 +200,7 @@ class JVMWeakRefConst(WeakRefConst):
             push_constant(self.db, self.value._TYPE, self.value, gen)
         gen.finalize_cast_ptr_to_weak_address(TYPE)
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         gen.pop(ootype.ROOT)
         return True
     

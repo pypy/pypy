@@ -294,11 +294,11 @@ class CLIDictMixin(CLIBaseConstMixin):
             return True
         return False
     
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         # special case: dict of void, ignore the values
         if self._check_for_void_dict(gen):
             return 
-        return super(CLIDictMixin, self).initialize_data(gen)    
+        return super(CLIDictMixin, self).initialize_data(constgen, gen)
 
 # ______________________________________________________________________
 # Constant Classes
@@ -390,7 +390,7 @@ class CLIStaticMethodConst(CLIBaseConstMixin, StaticMethodConst):
         gen.ilasm.new('instance void class %s::.ctor(object, native int)' % self.delegate_type)
         self.db.const_count.inc('StaticMethod')
         
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         return
 
         
@@ -403,7 +403,7 @@ class CLIWeakRefConst(CLIBaseConstMixin, WeakRefConst):
     def get_type(self, include_class=True):
         return 'class ' + WEAKREF
     
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         if self.value is not None:
             push_constant(self.db, self.value._TYPE, self.value, gen)
             gen.ilasm.call_method(

@@ -1366,3 +1366,5 @@ class JasminGenerator(JVMGenerator):
             tryendlbl.jasmin_syntax(),
             catchlbl.jasmin_syntax()))
                        
+    def get_instruction_count(self):
+        return self.curfunc.instr_counter

@@ -195,7 +195,14 @@ class Generator(object):
         value.  TYPE will be one of the types enumerated in
         oosupport.constant.PRIMITIVE_TYPES.  value will be its
         corresponding ootype implementation. """
-        raise NotImplementedError        
+        raise NotImplementedError
+
+    def get_instrution_count(self):
+        """
+        Return the number of opcodes in the current function, or -1
+        if the backend doesn't care about it. Default is -1
+        """
+        return -1
 
 class InstructionList(list):
     def render(self, generator, op):

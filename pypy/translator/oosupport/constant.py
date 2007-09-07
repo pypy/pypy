@@ -265,7 +265,8 @@ class BaseConstantGenerator(object):
             self._consider_step(gen)
             gen.add_comment("Constant: %s" % const.name)
             self._push_constant_during_init(gen, const)
-            if not const.initialize_data(gen):
+            self.current_const = const
+            if not const.initialize_data(self, gen):
                 gen.pop(const.OOTYPE())
 
     def _consider_step(self, gen):
@@ -273,10 +274,22 @@ class BaseConstantGenerator(object):
         start a new step every so often to ensure the initialization
         functions don't get too large and upset mono or the JVM or
         what have you. """
-        if (self._all_counter % MAX_CONST_PER_STEP) == 0:
-            self._end_step(gen)
-            self._declare_step(gen, self._step_counter) # open the next step
+        if self._all_counter % MAX_CONST_PER_STEP == 0:
+            self._new_step(gen)
         self._all_counter += 1
+
+    def _consider_split_current_function(self, gen):
+        """
+        Called during constant initialization; if the backend thinks
+        the current function is too large, it can close it and open a
+        new one, pushing again the constant on the stack. The default
+        implementatio does nothing.
+        """
+        pass
+
+    def _new_step(self, gen):
+        self._end_step(gen)
+        self._declare_step(gen, self._step_counter) # open the next step
 
     def _end_step(self, gen):
         """ Ends the current step if one has begun. """
@@ -393,7 +406,7 @@ class AbstractConst(object):
         assert not self.is_null()
         gen.new(self.value._TYPE)
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         """
         Initializes the internal data.  Begins with a pointer to
         the constant on the stack.  Normally returns something
@@ -441,7 +454,7 @@ class RecordConst(AbstractConst):
             value = self.value._items[f_name]            
             self._record_const_if_complex(FIELD_TYPE, value)
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         assert not self.is_null()
         SELFTYPE = self.value._TYPE
         for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
@@ -509,7 +522,7 @@ class InstanceConst(AbstractConst):
 
         return const_list
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         assert not self.is_null()
 
         # Get a list of all the constants we'll need to initialize.
@@ -525,6 +538,7 @@ class InstanceConst(AbstractConst):
 
         # Store each of our fields in the sorted order
         for FIELD_TYPE, INSTANCE, name, value in const_list:
+            constgen._consider_split_current_function(gen)
             gen.dup(SELFTYPE)
             push_constant(self.db, FIELD_TYPE, value, gen)
             gen.set_field(INSTANCE, name)
@@ -550,7 +564,7 @@ class ClassConst(AbstractConst):
         INSTANCE = self.value._INSTANCE
         gen.getclassobject(INSTANCE)
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         pass
 
 # ______________________________________________________________________
@@ -596,7 +610,7 @@ class ListConst(AbstractConst):
         except:
             return False
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         assert not self.is_null()
         SELFTYPE = self.value._TYPE
         ITEMTYPE = self.value._TYPE._ITEMTYPE
@@ -607,6 +621,7 @@ class ListConst(AbstractConst):
 
         # set each item in the list using the OOTYPE methods
         for idx, item in enumerate(self.value._list):
+            constgen._consider_split_current_function(gen)
             gen.dup(SELFTYPE)
             push_constant(self.db, ootype.Signed, idx, gen)
             push_constant(self.db, ITEMTYPE, item, gen)
@@ -631,7 +646,7 @@ class DictConst(AbstractConst):
             self._record_const_if_complex(self.value._TYPE._KEYTYPE, key)
             self._record_const_if_complex(self.value._TYPE._VALUETYPE, value)
 
-    def initialize_data(self, gen):
+    def initialize_data(self, constgen, gen):
         assert not self.is_null()
         SELFTYPE = self.value._TYPE
         KEYTYPE = self.value._TYPE._KEYTYPE
@@ -644,6 +659,7 @@ class DictConst(AbstractConst):
             return
 
         for key, value in self.value._dict.iteritems():
+            constgen._consider_split_current_function(gen)
             gen.dup(SELFTYPE)
             gen.add_comment('  key=%r value=%r' % (key,value))
             push_constant(self.db, KEYTYPE, key, gen)
@@ -669,7 +685,7 @@ class StaticMethodConst(AbstractConst):
         self.db.pending_function(self.value.graph)
         self.delegate_type = self.db.record_delegate(self.value._TYPE)
 
-    def initialize_data(self, ilasm):
+    def initialize_data(self, constgen, gen):
         raise NotImplementedError
 
 # ______________________________________________________________________
