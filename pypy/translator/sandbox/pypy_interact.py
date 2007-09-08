@@ -12,6 +12,7 @@ Options:
                   with the 'k', 'm' or 'g' suffix respectively.
                   ATM this only works with PyPy translated with Boehm.
     --timeout=N   limit execution time to N (real-time) seconds.
+    --log=FILE    log all user input into the FILE
 
 Note that you can get readline-like behavior with a tool like 'ledit',
 provided you use enough -u options:
@@ -64,9 +65,11 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
     options, arguments = getopt(sys.argv[1:], 't:h', 
-                                ['tmp=', 'heapsize=', 'timeout=', 'help'])
+                                ['tmp=', 'heapsize=', 'timeout=', 'log=',
+                                 'help'])
     tmpdir = None
     timeout = None
+    logfile = None
     extraoptions = []
 
     def help():
@@ -96,6 +99,8 @@ if __name__ == '__main__':
             extraoptions[:0] = ['--heapsize', str(bytes)]
         elif option == '--timeout':
             timeout = int(value)
+        elif option == '--log':
+            logfile = value
         elif option in ['-h', '--help']:
             help()
         else:
@@ -108,6 +113,8 @@ if __name__ == '__main__':
                                  tmpdir=tmpdir)
     if timeout is not None:
         sandproc.settimeout(timeout, interrupt_main=True)
+    if logfile is not None:
+        sandproc.setlogfile(logfile)
     try:
         sandproc.interact()
     finally:

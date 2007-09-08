@@ -277,6 +277,7 @@ class SimpleIOSandboxedProc(SandboxedProc):
     _input = None
     _output = None
     _error = None
+    inputlogfile = None
 
     def communicate(self, input=None):
         """Send data to stdin. Read data from stdout and stderr,
@@ -316,6 +317,9 @@ class SimpleIOSandboxedProc(SandboxedProc):
         self._error = None
         return returncode
 
+    def setlogfile(self, filename):
+        self.inputlogfile = open(filename, 'a')
+
     def do_ll_os__ll_os_read(self, fd, size):
         if fd == 0:
             if self._input is None:
@@ -329,11 +333,14 @@ class SimpleIOSandboxedProc(SandboxedProc):
                 # only time that counts as idle.
                 self.enter_idle()
                 try:
-                    return self._input.readline(size)
+                    inputdata = self._input.readline(size)
                 finally:
                     self.leave_idle()
             else:
-                return self._input.read(size)
+                inputdata = self._input.read(size)
+            if self.inputlogfile is not None:
+                self.inputlogfile.write(inputdata)
+            return inputdata
         raise OSError("trying to read from fd %d" % (fd,))
 
     def do_ll_os__ll_os_write(self, fd, data):
