@@ -12,6 +12,11 @@ Options:
                   with the 'k', 'm' or 'g' suffix respectively.
                   ATM this only works with PyPy translated with Boehm.
     --timeout=N   limit execution time to N (real-time) seconds.
+
+Note that you can get readline-like behavior with a tool like 'ledit',
+provided you use enough -u options:
+
+    ledit python -u pypy_interact.py pypy-c-sandbox -u
 """
 
 import sys, os
