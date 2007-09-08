@@ -95,6 +95,13 @@ class RealDir(Dir):
 
 class File(FSObject):
     kind = stat.S_IFREG
+    def __init__(self, data=''):
+        self.data = data
+    def getsize(self):
+        return len(self.data)
+    def open(self):
+        import cStringIO
+        return cStringIO.StringIO(self.data)
 
 class RealFile(File):
     def __init__(self, path):
