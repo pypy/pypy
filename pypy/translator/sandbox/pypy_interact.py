@@ -28,20 +28,25 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     virtual_console_isatty = True
 
     def __init__(self, executable, arguments, tmpdir):
+        self.executable = executable = os.path.abspath(executable)
+        self.tmpdir = tmpdir
+        super(PyPySandboxedProc, self).__init__([self.argv0] + arguments,
+                                                executable=executable)
+
+    def build_virtual_root(self):
         # build a virtual file system:
         # * can access its own executable
         # * can access the pure Python libraries
         # * can access the temporary usession directory as /tmp
-        executable = os.path.abspath(executable)
-        if tmpdir is None:
+        if self.tmpdir is None:
             tmpdirnode = Dir({})
         else:
-            tmpdirnode = RealDir(tmpdir)
+            tmpdirnode = RealDir(self.tmpdir)
         pypydist = os.path.dirname(os.path.abspath(autopath.pypydir))
 
-        virtual_root = Dir({
+        return Dir({
             'bin': Dir({
-                'pypy-c': RealFile(executable),
+                'pypy-c': RealFile(self.executable),
                 'lib-python': RealDir(os.path.join(pypydist, 'lib-python')),
                 'pypy': Dir({
                     'lib': RealDir(os.path.join(pypydist, 'pypy', 'lib')),
@@ -49,10 +54,6 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
                 }),
              'tmp': tmpdirnode,
              })
-
-        super(PyPySandboxedProc, self).__init__(virtual_root,
-                                                [self.argv0] + arguments,
-                                                executable=executable)
 
 
 if __name__ == '__main__':

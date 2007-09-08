@@ -378,10 +378,13 @@ class VirtualizedSandboxedProc(SandboxedProc):
     virtual_console_isatty = False
     virtual_fd_range = range(3, 50)
 
-    def __init__(self, virtual_root, *args, **kwds):
+    def __init__(self, *args, **kwds):
         super(VirtualizedSandboxedProc, self).__init__(*args, **kwds)
-        self.virtual_root = virtual_root
+        self.virtual_root = self.build_virtual_root()
         self.open_fds = {}   # {virtual_fd: real_file_object}
+
+    def build_virtual_root(self):
+        raise NotImplementedError("must be overridden")
 
     def do_ll_os__ll_os_envitems(self):
         return self.virtual_env.items()
