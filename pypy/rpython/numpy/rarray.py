@@ -18,6 +18,7 @@ from pypy.annotation.pairtype import pairtype, pair
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.annotation import listdef
 from pypy.rpython.memory.lltypelayout import sizeof
+from pypy.rlib.objectmodel import debug_assert
 
 def gen_build_from_shape(ndim, zero=False):
     unrolling_dims = unrolling_iterable(reversed(range(ndim)))
@@ -104,8 +105,8 @@ def gen_iter_funcs(ndim):
         # Suffix of ao.shape must match target_ao.shape
         # (suffix starts at the first non-1 entry in ao.shape.)
         # ao.shape must be no longer than target_ao.shape.
-        assert ao.ndim <= ndim
-        assert target_ao.ndim == ndim
+        debug_assert(ao.ndim <= ndim, "ao.ndim <= ndim")
+        debug_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
         # XX check suffix condition here... ?
         broadcast = ao.ndim < ndim
         i = 0
@@ -131,7 +132,7 @@ def gen_iter_funcs(ndim):
 
     def ll_iter_broadcast_to_shape(ITER, ao, target_ao, iter_reset):
         "iterate over <ao> but broadcast to the shape of <target_ao>"
-        assert target_ao.ndim == ndim
+        debug_assert(target_ao.ndim == ndim, "target_ao.ndim == ndim")
         delta = j = ndim - ao.ndim
         shape = target_ao.shape
         for i in range(ao.ndim):
@@ -183,7 +184,7 @@ def ll_binary_op(p0, p1, p2, op=lambda x,y:x+y):
 def ll_array_set(it0, it1, iter_next):
     if it0.size == 0:
         return # empty LHS..
-    assert it0.size == it1.size
+    debug_assert(it0.size == it1.size, "it0.size == it1.size")
     while it0.index < it0.size:
         it0.dataptr[0] = it1.dataptr[0]
         iter_next(it0)
@@ -193,6 +194,15 @@ def ll_array_set1(value, it, iter_next):
     while it.index < it.size:
         it.dataptr[0] = value
         iter_next(it)
+
+def ll_array_add(it0, it1, it2, iter_next):
+    debug_assert(it0.size == it1.size, "it0.size == it1.size")
+    debug_assert(it1.size == it2.size, "it0.size == it1.size")
+    while it0.index < it0.size:
+        it0.dataptr[0] = it1.dataptr[0] + it2.dataptr[0]
+        iter_next(it0)
+        iter_next(it1)
+        iter_next(it2)
 
 def dim_of_ITER(ITER):
     return ITER.TO.coordinates.length
@@ -303,9 +313,36 @@ class __extend__(SomeArray):
 
 class __extend__(pairtype(ArrayRepr, ArrayRepr)):
     def rtype_add((r_array1, r_array2), hop):
-        v_arr1, v_arr2 = hop.inputargs(r_array1, r_array2)
-        cARRAY = hop.inputconst(Void, hop.r_result.ARRAY.TO)
-        return hop.gendirectcall(ll_add, cARRAY, v_arr1, v_arr2)
+        v_array1, v_array2 = hop.inputargs(r_array1, r_array2)
+        r_array0 = hop.r_result
+        cARRAY = hop.inputconst(Void, r_array0.ARRAY.TO)
+        # We build a contiguous "result" array
+        # from the largest of the two args:
+        v_bigarray = hop.gendirectcall(ll_find_largest, cARRAY, v_array1, v_array2)
+        v_array0 = hop.gendirectcall(ll_build_like, cARRAY, v_bigarray)
+        iter_new, iter_reset, iter_broadcast, iter_next = gen_iter_funcs(r_array0.ndim)
+        cITER = hop.inputconst(Void, r_array0.ITER.TO)
+        creset = hop.inputconst(Void, iter_reset)
+        cbroadcast = hop.inputconst(Void, iter_broadcast)
+        cnext = hop.inputconst(Void, iter_next)
+        v_it0 = hop.gendirectcall(iter_new, cITER, v_array0, v_bigarray, creset, cbroadcast)
+        v_it1 = hop.gendirectcall(iter_new, cITER, v_array1, v_bigarray, creset, cbroadcast)
+        v_it2 = hop.gendirectcall(iter_new, cITER, v_array2, v_bigarray, creset, cbroadcast)
+        return hop.gendirectcall(ll_array_add, v_it0, v_it1, v_it2, cnext)
+
+class __extend__(pairtype(ArrayRepr, Repr)):
+    def rtype_add((r_array, r_ob), hop):
+        assert 0
+        v_ob = hop.inputarg(r_ob, 1)
+        if isinstance(r_ob.lowleveltype, Primitive):
+            r_item, v_item = convert_scalar_to_array(r_array, v_ob, hop.llops)
+
+class __extend__(pairtype(Repr, ArrayRepr)):
+    def rtype_add((r_ob, r_array), hop):
+        # XX ach! how to get this to work ??
+        assert 0
+        return pair(r_array, r_ob).rtype_add(hop)
+
 
         
 def gen_getset_item(ndim):
@@ -377,7 +414,7 @@ def gen_get_view(r_array, r_tuple, hop): # XX method on the pair type ?
             array.strides[tgt_i] = ao.strides[src_i]
             tgt_i += 1
             src_i += 1
-        assert tgt_i == ndim
+        debug_assert(tgt_i == ndim, "tgt_i == ndim")
         array.dataptr = dataptr
         array.data = ao.data # keep a ref
         return array
@@ -405,15 +442,17 @@ def convert_list_to_array(r_list, v_list, llops):
     #v_array = llops.gendirectcall(ll_build_alias_to_list, cARRAY, v_list) # nice idea...
     return v_array
 
-def convert_scalar_to_array(ITEM, v_item, llops):
+def convert_scalar_to_array(r_array, v_item, llops):
     # x -> array([x])
+    s_array = r_array.s_array.get_one_dim()
+    r_array = llops.rtyper.getrepr(s_array)
     from pypy.rpython.rmodel import inputconst
-    ARRAY, _ = ArrayRepr.make_types(1, ITEM)
-    cARRAY = inputconst(Void, ARRAY.TO)
-    cITEM = inputconst(Void, ITEM)
-    v_casted = llops.genop("cast_primitive", [v_item], ITEM)
+#    ARRAY, _ = ArrayRepr.make_types(1, ITEM)
+    cARRAY = inputconst(Void, r_array.ARRAY.TO)
+    cITEM = inputconst(Void, r_array.ITEM)
+    v_casted = llops.genop("cast_primitive", [v_item], r_array.ITEM)
     v_array = llops.gendirectcall(ll_build_from_scalar, cARRAY, v_casted)
-    return v_array
+    return r_array, v_array
 
 class __extend__(pairtype(ArrayRepr, Repr)):
     def rtype_getitem((r_array, r_key), hop):
@@ -476,7 +515,7 @@ class __extend__(pairtype(ArrayRepr, Repr)):
                 source_ndim = r_item.ndim
             elif isinstance(r_item.lowleveltype, Primitive):
                 # "broadcast" a scalar
-                v_item = convert_scalar_to_array(r_view.ITEM, v_item, hop.llops)
+                r_item, v_item = convert_scalar_to_array(r_view, v_item, hop.llops)
                 source_ndim = 1
             elif isinstance(r_item, AbstractBaseListRepr):
                 v_item = convert_list_to_array(r_item, v_item, hop.llops)
@@ -486,7 +525,6 @@ class __extend__(pairtype(ArrayRepr, Repr)):
             assert source_ndim <= ndim
             v_it1 = hop.gendirectcall(iter_new, cITER, v_item, v_view, creset, cbroadcast)
             return hop.gendirectcall(ll_array_set, v_it0, v_it1, cnext) 
-
 
 class __extend__(pairtype(ArrayRepr, ArrayRepr)):
     def convert_from_to((r_array0, r_array1), v, llops):
@@ -562,6 +600,29 @@ def ll_build_alias(ARRAY, ao):
         array.shape[i] = ao.shape[i]
         array.strides[i] = ao.strides[i]
     array.dataptr = ao.dataptr
+    return array
+
+def ll_find_largest(ARRAY, array0, array1):
+    sz0 = ll_mul_list(array0.shape, array0.ndim)
+    sz1 = ll_mul_list(array1.shape, array1.ndim)
+    # XXX 
+    if sz0 > sz1:
+        return array0
+    return array1
+
+def ll_build_like(ARRAY, ao):
+    array = ll_allocate(ARRAY, ao.ndim)
+    sz = ll_mul_list(ao.shape)
+    array.data = malloc(ARRAY.data.TO, sz)
+    array.dataptr = array.data
+    itemsize = 1
+    i = ao.ndim - 1
+    while i >= 0:
+        size = ao.shape[i]
+        array.shape[i] = size
+        array.strides[i] = itemsize
+        itemsize *= size
+        i -= 1
     return array
 
 def ll_setitem1(array, index, item):

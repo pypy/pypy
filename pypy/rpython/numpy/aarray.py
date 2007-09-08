@@ -9,6 +9,23 @@ from pypy.annotation import listdef
 
 import numpy
 
+numpy_typedict = {
+    (SomeInteger, rffi.r_signedchar) : 'b', 
+    (SomeInteger, rffi.r_short) : 'h', 
+    (SomeInteger, rffi.r_int) : 'i', 
+    (SomeInteger, rffi.r_long) : 'l', 
+    (SomeInteger, int) : 'l', 
+    (SomeInteger, rffi.r_longlong) : 'q', 
+    (SomeInteger, rffi.r_uchar) : 'B', 
+    (SomeInteger, rffi.r_ushort) : 'H', 
+    (SomeInteger, rffi.r_uint) : 'I', 
+    (SomeInteger, rffi.r_ulong) : 'L', 
+    (SomeInteger, rffi.r_ulonglong) : 'Q', 
+    #(SomeFloat, float) : 'f', 
+    (SomeFloat, float) : 'd', 
+}
+valid_typecodes='bhilqBHILQd'
+
 class SomeArray(SomeObject):
     """Stands for an object from the numpy module."""
     typecode_to_item = {
@@ -25,11 +42,15 @@ class SomeArray(SomeObject):
         #'f' : SomeFloat(), # XX single precision float XX
         'd' : SomeFloat(),
     }
+
     def __init__(self, typecode, ndim=1):
         if not typecode in self.typecode_to_item:
             raise AnnotatorError("bad typecode: %r"%typecode)
         self.typecode = typecode
         self.ndim = ndim
+
+    def get_one_dim(self):
+        return SomeArray(self.typecode)
 
     def can_be_none(self):
         return True
@@ -76,11 +97,34 @@ class __extend__(pairtype(SomeArray, SomeArray)):
                     break
         if typecode is None:
             raise AnnotatorError()
+        ndim = max(s_arr1.ndim, s_arr2.ndim)
         return SomeArray(typecode, s_arr1.ndim)
 
     # union ?
     sub = mul = div = add
 
+class __extend__(pairtype(SomeArray, SomeFloat)):
+    def add((s_arr, s_flt)):
+        item = s_arr.get_item_type()
+        typecode = None
+        if float in (item.knowntype, s_flt.knowntype):
+            typecode = 'd'
+        else:
+            item_knowntype = rarithmetic.compute_restype(item.knowntype, s_flt.knowntype)
+            for typecode, s_item in SomeArray.typecode_to_item.items():
+                if s_item.knowntype == item_knowntype:
+                    break
+        if typecode is None:
+            raise AnnotatorError()
+        return SomeArray(typecode, s_arr.ndim)
+    # union ?
+    sub = mul = div = add
+
+class __extend__(pairtype(SomeFloat, SomeArray)):
+    def add((s_flt, s_arr)):
+        return pair(s_arr, s_flt).add()
+    # union ?
+    sub = mul = div = add
 
 class __extend__(pairtype(SomeArray, SomeTuple)):
     def get_leftover_dim((s_array, s_index)):
@@ -132,23 +176,6 @@ class __extend__(pairtype(SomeArray, SomeInteger)):
     def getitem((s_array, s_index)):
         s_tuple = SomeTuple([s_index])
         return pair(s_array, s_tuple).getitem()
-
-numpy_typedict = {
-    (SomeInteger, rffi.r_signedchar) : 'b', 
-    (SomeInteger, rffi.r_short) : 'h', 
-    (SomeInteger, rffi.r_int) : 'i', 
-    (SomeInteger, rffi.r_long) : 'l', 
-    (SomeInteger, int) : 'l', 
-    (SomeInteger, rffi.r_longlong) : 'q', 
-    (SomeInteger, rffi.r_uchar) : 'B', 
-    (SomeInteger, rffi.r_ushort) : 'H', 
-    (SomeInteger, rffi.r_uint) : 'I', 
-    (SomeInteger, rffi.r_ulong) : 'L', 
-    (SomeInteger, rffi.r_ulonglong) : 'Q', 
-    #(SomeFloat, float) : 'f', 
-    (SomeFloat, float) : 'd', 
-}
-valid_typecodes='bhilqBHILQfd'
 
 class ArrayCallEntry(ExtRegistryEntry):
     _about_ = numpy.array
