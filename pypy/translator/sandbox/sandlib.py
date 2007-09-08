@@ -320,7 +320,8 @@ class SimpleIOSandboxedProc(SandboxedProc):
         if fd == 0:
             if self._input is None:
                 return ""
-            elif self._input.isatty():
+            elif (getattr(self, 'virtual_console_isatty', False) or
+                  self._input.isatty()):
                 # don't wait for all 'size' chars if reading from a tty,
                 # to avoid blocking.  Instead, stop after reading a line.
                 
