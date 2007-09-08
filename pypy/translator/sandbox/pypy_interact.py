@@ -32,7 +32,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     virtual_env = {}
     virtual_console_isatty = True
 
-    def __init__(self, executable, arguments, tmpdir):
+    def __init__(self, executable, arguments, tmpdir=None):
         self.executable = executable = os.path.abspath(executable)
         self.tmpdir = tmpdir
         super(PyPySandboxedProc, self).__init__([self.argv0] + arguments,

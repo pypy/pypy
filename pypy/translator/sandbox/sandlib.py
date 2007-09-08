@@ -314,6 +314,7 @@ class SimpleIOSandboxedProc(SandboxedProc):
         self._input = None
         self._output = None
         self._error = None
+        return returncode
 
     def do_ll_os__ll_os_read(self, fd, size):
         if fd == 0:
