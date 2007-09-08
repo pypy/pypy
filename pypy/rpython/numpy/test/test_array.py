@@ -106,7 +106,6 @@ class Test_annotation:
         assert s.ndim == 2
 
     def test_annotate_array_add(self):
-        py.test.skip("broken ATM")
         def f():
             a1 = numpy.array([1,2])
             a2 = numpy.array([6,9])
@@ -118,7 +117,6 @@ class Test_annotation:
         assert s.typecode == 'i'
 
     def test_annotate_array_add_coerce(self):
-        py.test.skip("broken ATM")
         def f():
             a1 = numpy.array([1,2])
             a2 = numpy.array([6.,9.])
@@ -130,7 +128,6 @@ class Test_annotation:
         assert s.typecode == 'd'
 
     def test_annotate_array_add_2(self):
-        py.test.skip("broken ATM")
         def f():
             a = numpy.array([1,2])
             a = a + 3
@@ -280,25 +277,6 @@ class Test_specialization:
         res = interpret(access_with_variable, [])
         assert res == 45
 
-    def test_specialize_array_add(self):
-        py.test.skip("broken ATM")
-        def f():
-            a1 = numpy.array([1.,2.])
-            a2 = numpy.array([6,9])
-            return a1 + a2
-
-        res = interpret(f, [])
-        assert res.data[0] == 7
-        assert res.data[1] == 11
-
-        def f():
-            a1 = numpy.array([1,2])
-            return a1 + 2
-
-        res = interpret(f, [])
-        assert res.data[0] == 3
-        assert res.data[1] == 4
-
     def test_specialize_array_attr(self):
         def f():
             a = numpy.array([1,2])
@@ -385,6 +363,29 @@ class Test_specialization:
             return a
         res = interpret(f, [])
         data = [3,4,4,2]*3
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_list_coerce(self):
+        py.test.skip('coercion not implemented')
+        def f():
+            a = numpy.zeros((3,4), dtype='i')
+            a[:] = [3.,4.,4.,2.]
+            return a
+        res = interpret(f, [])
+        data = [3,4,4,2]*3
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_rhs_coerce(self):
+        py.test.skip('coercion not implemented')
+        def f():
+            a = numpy.zeros((4,), dtype='i')
+            b = numpy.array([3.,4.,4.,2.])
+            a[:] = b
+            return a
+        res = interpret(f, [])
+        data = [3,4,4,2]
         for i in range(len(data)):
             assert res.dataptr[i] == data[i]
 
@@ -518,7 +519,101 @@ class Test_specialization:
         from pypy.translator.backendopt.test.test_malloc import TestLLTypeMallocRemoval
         TestLLTypeMallocRemoval.check_malloc_removed(graph)
 
+    def test_specialize_array_add_1_0(self):
+        def f():
+            a1 = numpy.array(range(4,10))
+            a2 = numpy.array([3])
+            return a1 + a2
+        data = [i+3 for i in range(4,10)]
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
 
+        def f():
+            a = numpy.array(range(4,10))
+            return a + 3
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+        def f():
+            a = numpy.array(range(4,10))
+            return 3 + a
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_array_sub_1_0(self):
+        def f():
+            a1 = numpy.array(range(4,10))
+            a2 = numpy.array([3])
+            return a1 - a2
+        data = [i-3 for i in range(4,10)]
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+        def f():
+            a = numpy.array(range(4,10))
+            return a - 3
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+        def f():
+            a = numpy.array(range(4,10))
+            return 3 - a
+        data = [3-i for i in range(4,10)]
+        res = interpret(f, [])
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+
+    def test_specialize_array_add_1_1(self):
+        def f():
+            a1 = numpy.array([1,2])
+            a2 = numpy.array([6,9])
+            return a1 + a2
+
+        res = interpret(f, [])
+        assert res.data[0] == 7
+        assert res.data[1] == 11
+
+    def test_specialize_array_add_1_1_coerce(self):
+        py.test.skip('coercion not implemented')
+        def f():
+            a1 = numpy.array([1,2])
+            a2 = numpy.array([6.,9.])
+            return a1 + a2
+
+        res = interpret(f, [])
+        assert res.data[0] == 7.
+        assert res.data[1] == 11.
+
+    def test_specialize_array_add_2_1(self):
+        def f():
+            a1 = numpy.array([1,2,3,4]).reshape((2,2))
+            a2 = numpy.array([5,6])
+            return a1 + a2
+
+        res = interpret(f, [])
+        data = [6,8,8,10]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+        assert res.shape[0] == 2
+        assert res.shape[1] == 2
+        assert res.strides[0] == 2
+        assert res.strides[1] == 1
+
+    def test_specialize_array_mul_0_2(self):
+        def f():
+            a = numpy.array([1,2,3,4]).reshape((2,2))
+            return 5*a
+
+        res = interpret(f, [])
+        data = [1,2,3,4]
+        for i in range(len(data)):
+            assert res.dataptr[i] == 5*data[i]
 
 class Test_compile:
     def setup_class(self):
