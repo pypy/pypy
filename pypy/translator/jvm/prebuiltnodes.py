@@ -32,5 +32,8 @@ def create_interlink_node(db):
         graph = graphof(translator, func)
         helpers[func.func_name] = db.pending_function(graph)
 
+    raise_OSError_graph = translator.rtyper.exceptiondata.fn_raise_OSError.graph
+    helpers["throwOSError"] = db.pending_function(raise_OSError_graph)
+
     db.create_interlink_node(helpers)
 

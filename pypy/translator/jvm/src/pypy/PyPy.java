@@ -1,5 +1,6 @@
 package pypy;
 
+import java.io.File;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,7 +15,7 @@ import java.text.DecimalFormat;
  * I can't switch my mind to camelCase when working so closely with 
  * Python mere minutes before.
  */
-public class PyPy {
+public class PyPy implements Constants {
     
     public static Interlink interlink;
 
@@ -809,7 +810,30 @@ public class PyPy {
 
     public static String ll_os_getcwd()
     {
-        return "/tmp";
+        return System.getProperty("user.dir");
+    }
+
+    public static StatResult ll_os_stat(String path)
+    {
+        if (path.equals(""))
+            throwOSError(ENOENT, "No such file or directory: ''");
+
+        File f = new File(path);
+        
+        if (f.exists()) {
+            StatResult res = new StatResult();
+            if (f.isDirectory())
+                res.setMode(S_IFDIR);
+            else {
+                res.setMode(S_IFREG);
+                res.setSize(f.length());
+                res.setMtime(f.lastModified());
+            }
+            return res;
+        }
+
+        throwOSError(ENOENT, "No such file or directory: '"+path+"'");
+        return null; // never reached
     }
 
     // ----------------------------------------------------------------------
@@ -926,6 +950,10 @@ public class PyPy {
 
     public static void throwValueError() {
         interlink.throwValueError();
+    }
+
+    public static void throwOSError(int errCode, String errText) {
+        interlink.throwOSError(errCode); // errText currently ignored... fix?
     }
     
     // ----------------------------------------------------------------------

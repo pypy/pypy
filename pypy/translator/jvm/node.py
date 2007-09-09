@@ -748,13 +748,21 @@ class InterlinkFunction(Function):
         self.interlink = interlink
         self.name = name
         self.helper = helper
-        self.method_obj = jvmgen.Method.v(interlink, self.name, [], jVoid)
+        self.method_obj = jvmgen.Method.v(interlink,
+                                          self.name,
+                                          self.helper.argument_types,
+                                          jVoid)
 
     def method(self):
         return self.method_obj
 
     def render(self, gen):
-        gen.begin_function(self.name, (), [self.interlink], jVoid)
+        argtypes = [self.interlink] + list(self.helper.argument_types)
+        gen.begin_function(self.name, (), argtypes, jVoid)
+        varindex = 1
+        for argty in self.helper.argument_types:
+            gen.load_jvm_var(argty, varindex)
+            varindex += argty.descriptor.type_width()
         gen.emit(self.helper)
         gen.return_val(jVoid)
         gen.end_function()

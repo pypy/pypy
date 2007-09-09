@@ -173,6 +173,8 @@ class JvmGeneratedSource(object):
                               'FilterSet',
                               'HashCode',
                               'Interlink',
+                              'Constants',
+                              'StatResult',
                               'PyPy',
                               ))
 

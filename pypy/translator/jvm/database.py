@@ -6,6 +6,7 @@ and the mapping between the OOTypeSystem and the Java type system.
 from cStringIO import StringIO
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype, rclass
+from pypy.rpython.ootypesystem.module import ll_os
 from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import node, methods
 from pypy.translator.jvm.option import getoption
@@ -460,8 +461,8 @@ class Database(OODatabase):
         ootype.UniChar:          jvmtype.jChar,
         ootype.Class:            jvmtype.jClass,
         ootype.ROOT:             jvmtype.jObject,  # treat like a scalar
-        WeakGcAddress:           jvmtype.jWeakRef
-        }
+        WeakGcAddress:           jvmtype.jWeakRef,
+    }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we
     # will return a JvmBuiltInType based on the value
@@ -472,6 +473,7 @@ class Database(OODatabase):
         ootype.Dict:             jvmtype.jHashMap,
         ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,
         ootype.CustomDict:       jvmtype.jPyPyCustomDict,
+        ll_os.STAT_RESULT:       jvmtype.jPyPyStatResult,
         }
 
     def lltype_to_cts(self, OOT):

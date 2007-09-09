@@ -1,3 +1,4 @@
+import os, stat
 import py
 from pypy.tool import udir
 from pypy.translator.jvm.test.runtest import JvmTest
@@ -10,9 +11,6 @@ class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
     def test_os_open(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
         
-    def test_os_getcwd(self):
-        py.test.skip("ll_os_getcwd is not currently implemented in the Jvm backed")
-    
     def test_os_write(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
     
@@ -22,12 +20,22 @@ class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
     def test_os_read(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
     
-    def test_os_path_exists(self):
-        py.test.skip("ll_os_stat is not currently implemented in the Jvm backed")
-    
-    def test_os_isdir(self):
-        py.test.skip("ll_os_stat is not currently implemented in the Jvm backed")
-            
+    def test_os_stat(self):
+        def fn(flag):
+            if flag:
+                return os.stat('.')[0]
+            else:
+                return os.stat('.').st_mode
+        mode = self.interpret(fn, [0])
+        assert stat.S_ISDIR(mode)
+        mode = self.interpret(fn, [1])
+        assert stat.S_ISDIR(mode)
+
+    def test_os_stat_oserror(self):
+        def fn():
+            return os.stat('/directory/unlikely/to/exists')[0]
+        self.interpret_raises(OSError, fn, [])
+
     def test_builtin_math_frexp(self):
         py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
         
