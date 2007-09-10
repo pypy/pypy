@@ -129,9 +129,9 @@ def check(space):
                              space.wrap(msg))
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
+    check(space)
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        check(space)
         lifeline = WeakrefLifeline()
         w_obj.setweakref(space, lifeline)
     return lifeline.get_weakref(space, w_subtype, w_obj, w_callable)
@@ -201,9 +201,9 @@ def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
 'callback', if given, is called with the proxy as an argument when 'obj'
 is about to be finalized."""
+    check(space)
     lifeline = w_obj.getweakref()
     if lifeline is None:
-        check(space)
         lifeline = WeakrefLifeline()
         w_obj.setweakref(space, lifeline) 
     return lifeline.get_proxy(space, w_obj, w_callable)
@@ -268,6 +268,7 @@ def basic_weakref(space, w_obj):
     """this is a bit like the app-level weakref.ref(), but with no
     fancy options like supporting subclasses of _weakref.ref and
     callbacks."""
+    check(space)
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline()

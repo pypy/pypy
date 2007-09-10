@@ -403,6 +403,8 @@ class W_TypeObject(W_Object):
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
+        if space.config.translation.sandbox:
+            return    # XXX weakrefs are disabled in a sandbox translation ATM
         from pypy.module._weakref.interp__weakref import basic_weakref
         w_newref = basic_weakref(space, w_subclass)
         
@@ -417,6 +419,8 @@ class W_TypeObject(W_Object):
 
     def remove_subclass(w_self, w_subclass):
         space = w_self.space
+        if space.config.translation.sandbox:
+            return    # XXX weakrefs are disabled in a sandbox translation ATM
 
         for i in range(len(w_self.weak_subclasses_w)):
             w_ref = w_self.weak_subclasses_w[i]
@@ -427,6 +431,11 @@ class W_TypeObject(W_Object):
 
     def get_subclasses(w_self):
         space = w_self.space
+        if space.config.translation.sandbox:
+            msg = ("weakrefs are disabled in a sandbox translation "
+                   "at the moment")
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap(msg))
         subclasses_w = []
         for w_ref in w_self.weak_subclasses_w:
             w_ob = space.call_function(w_ref)
