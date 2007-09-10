@@ -573,6 +573,19 @@ def test_arena_bump_ptr():
     assert s2_ptr.x == 2
     # release(start)
 
+def test_weakref():
+    S = lltype.GcStruct('S', ('x',lltype.Signed))
+    s = lltype.malloc(S)
+    o = lltype.malloc(WeakGcRefOpaque, flavor='raw')
+    weakgcref_init(o, s)
+    assert weakgcref_get(lltype.Ptr(S), o) == s
+    assert weakgcref_get(lltype.Ptr(S), o) == s
+    del s
+    import gc; gc.collect()
+    assert weakgcref_get(lltype.Ptr(S), o) == lltype.nullptr(S)
+    lltype.free(o, flavor='raw')
+    py.test.raises(RuntimeError, weakgcref_get, lltype.Ptr(S), o)
+
 class TestWeakAddressLLinterp(object):
     def test_null(self):
         from pypy.rlib.objectmodel import cast_weakgcaddress_to_object

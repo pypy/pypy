@@ -515,7 +515,7 @@ class fakeweakaddress(object):
             s = 'NULL'
         else:
             s = str(self.ref)
-        return '<fakeweakaddr %s>' % (s,)
+        return '<%s %s>' % (self.__class__.__name__, s)
     def cast_to_int(self):
         # this is not always the behaviour that is really happening
         # but make sure that nobody depends on it
@@ -537,6 +537,26 @@ def cast_weakadr_to_ptr(adr, EXPECTED_TYPE):
 
 fakeweakaddress._TYPE = WeakGcAddress
 WEAKNULL = fakeweakaddress(None)
+
+# ____________________________________________________________
+
+WeakGcRefOpaque = lltype.OpaqueType('WeakGcRef')
+
+def weakgcref_init(wropaque, obj):
+    PTRTYPE = lltype.typeOf(obj)
+    assert isinstance(PTRTYPE, lltype.Ptr)
+    assert PTRTYPE.TO._gckind == 'gc'
+    wropaque._obj.ref = weakref.ref(lltype.normalizeptr(obj))
+
+def weakgcref_get(PTRTYPE, wropaque):
+    assert isinstance(PTRTYPE, lltype.Ptr)
+    assert PTRTYPE.TO._gckind == 'gc'
+    assert lltype.typeOf(wropaque) == lltype.Ptr(WeakGcRefOpaque)
+    p = wropaque._obj.ref()
+    if p is None:
+        return lltype.nullptr(PTRTYPE.TO)
+    else:
+        return lltype.cast_pointer(PTRTYPE, p)
 
 # ____________________________________________________________
 
