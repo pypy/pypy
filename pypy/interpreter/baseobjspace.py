@@ -246,6 +246,7 @@ class ObjSpace(object):
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
         import sys
+        from pypy.interpreter.mixedmodule import SkipModule
 
         fullname = "pypy.module.%s" % importname
 
@@ -257,7 +258,10 @@ class ObjSpace(object):
             name = importname
 
         w_name = self.wrap(name)
-        w_mod = self.wrap(Module(self, w_name))
+        try:
+            w_mod = self.wrap(Module(self, w_name))
+        except SkipModule:
+            return None
         w_modules = self.sys.get('modules')
         self.setitem(w_modules, w_name, w_mod)
         return name

@@ -7,6 +7,9 @@ import os, sys
 
 import inspect
 
+class SkipModule(Exception):
+    """Skip the installation of this built-in module."""
+
 class MixedModule(Module):
 
     NOT_RPYTHON_ATTRIBUTES = ['loaders']

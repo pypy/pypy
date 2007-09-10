@@ -1,4 +1,4 @@
-from pypy.interpreter.mixedmodule import MixedModule
+from pypy.interpreter.mixedmodule import MixedModule, SkipModule
     
 class Module(MixedModule):
     appleveldefs = {
@@ -12,3 +12,9 @@ class Module(MixedModule):
         'CallableProxyType': 'interp__weakref.W_CallableProxy',
         'proxy': 'interp__weakref.proxy'
     }
+
+    def __init__(self, space, *args):
+        if space.config.translation.sandbox:
+            raise SkipModule(
+                "XXX weakrefs are disabled in a sandbox translation ATM")
+        MixedModule.__init__(self, space, *args)
