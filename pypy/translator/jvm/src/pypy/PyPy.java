@@ -827,7 +827,7 @@ public class PyPy implements Constants {
             else {
                 res.setMode(S_IFREG);
                 res.setSize(f.length());
-                res.setMtime(f.lastModified());
+                res.setMtime((int)f.lastModified());
             }
             return res;
         }
