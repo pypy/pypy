@@ -9,11 +9,10 @@ package pypy;
  * <p>The actual stat() function is defined in PyPy.java.
  */
 class StatResult {
-    public int item0;
-    public long item6, item8;
+    public int item0, item3, item4, item5, item7, item8, item9;
+    public long item1, item2, item6;
 
     public void setMode(int value)  { item0 = value; }
     public void setSize(long value)  { item6 = value; }
-    public void setMtime(long value) { item8 = value; }
-
+    public void setMtime(int value) { item8 = value; }
 }
