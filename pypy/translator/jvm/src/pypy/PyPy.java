@@ -805,7 +805,7 @@ public class PyPy implements Constants {
 
     public static ArrayList ll_os_envitems()
     {
-        return new ArrayList();
+        return new ArrayList(); // XXX
     }
 
     public static String ll_os_getcwd()
@@ -834,6 +834,35 @@ public class PyPy implements Constants {
 
         throwOSError(ENOENT, "No such file or directory: '"+path+"'");
         return null; // never reached
+    }
+
+    public static int ll_os_open(String path, int flags, int mode)
+    {
+        throwOSError(ENOENT, "DUMMY: No such file or directory: '"+path+"'"); // XXX
+        return -1; // never reached
+    }
+
+    public static StatResult ll_os_lstat(String path)
+    {
+        return ll_os_stat(path); // XXX
+    }
+
+    public static String ll_os_strerror(int errno)
+    {
+        return "errno: " + errno;
+    }
+
+    public static String ll_join(String a, String b)
+    {
+        return a + "/" + b; // XXX
+    }
+
+    public static String ll_strtod_formatd(String format, double d)
+    {
+        // XXX: this is really a quick hack to make things work.
+        // it should disappear, because this function is not
+        // supported by ootypesystem.
+        return Double.toString(d); // XXX: we are ignoring "format"
     }
 
     // ----------------------------------------------------------------------
