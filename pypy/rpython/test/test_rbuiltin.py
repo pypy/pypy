@@ -248,7 +248,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert count == 1
 
     def test_os_path_exists(self):
-        py.test.skip("cannot call os.stat() on the llinterp yet")
+        self._skip_llinterpreter("os.stat()")
         import os
         def f(fn):
             return os.path.exists(fn)
@@ -258,7 +258,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
             self.string_to_ll("strange_filename_that_looks_improbable.sde")]) == False
 
     def test_os_isdir(self):
-        py.test.skip("cannot call os.stat() on the llinterp yet")
+        self._skip_llinterpreter("os.stat()")
         import os
         def f(fn):
             return os.path.isdir(fn)
@@ -357,7 +357,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         assert self.class_name(res) == 'B'
 
     def test_os_path_join(self):
-        self._skip_oo("os path oofakeimpl")
+        self._skip_llinterpreter("os path oofakeimpl", skipLL=False)
         import os.path
         def fn(a, b):
             return os.path.join(a, b)

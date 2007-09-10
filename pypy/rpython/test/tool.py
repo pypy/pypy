@@ -22,10 +22,11 @@ class BaseRtypingTest(object):
     def is_of_type(self, x, type_):
         return type(x) is type_
 
-    def _skip_oo(self, reason):
-        if self.type_system == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
-    
+    def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
+        if skipLL and self.type_system == 'lltype':
+            py.test.skip("lltypesystem doesn't support %s, yet" % reason)        
+        if skipOO and self.type_system == 'ootype':
+            py.test.skip("ootypesystem doesn't support %s, yet" % reason)    
 
 class LLRtypeMixin(object):
     type_system = 'lltype'

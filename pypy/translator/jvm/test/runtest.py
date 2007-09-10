@@ -104,6 +104,9 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
         if platform.processor() == 'powerpc':
             py.test.skip('PowerPC --> %s' % reason)
 
+    def _skip_llinterpreter(self, reason, skipLL=True, skipOO=True):
+        pass
+
     def interpret(self, fn, args, annotation=None):
         detect_missing_support_programs()
         try:
