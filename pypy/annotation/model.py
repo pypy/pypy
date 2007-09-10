@@ -492,6 +492,17 @@ s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
 
 # ____________________________________________________________
+# weakrefs
+
+class SomeWeakRef(SomeObject):
+    immutable = True
+    def __init__(self, classdef):
+        self.classdef = classdef
+
+    def can_be_none(self):
+        return False
+
+# ____________________________________________________________
 # memory addresses
 
 from pypy.rpython.lltypesystem import llmemory

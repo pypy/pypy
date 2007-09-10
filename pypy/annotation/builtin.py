@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeTuple, SomeSlice, s_Bool
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, SomeWeakGcAddress, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
-from pypy.annotation.model import SomeExternalObject
+from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
@@ -567,6 +567,18 @@ BUILTIN_ANALYZERS[ootype.runtimenew] = runtimenew
 BUILTIN_ANALYZERS[ootype.classof] = classof
 BUILTIN_ANALYZERS[ootype.subclassof] = subclassof
 BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
+
+#________________________________
+# weakrefs
+
+import weakref
+
+def weakref_ref(s_obj):
+    if not isinstance(s_obj, SomeInstance):
+        raise Exception("cannot take a weakref to %r" % (s_obj,))
+    return SomeWeakRef(s_obj.classdef)
+
+BUILTIN_ANALYZERS[weakref.ref] = weakref_ref
 
 #________________________________
 # non-gc objects

@@ -2804,6 +2804,31 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_weakref(self):
+        import weakref
+
+        class A:
+            pass
+        class B(A):
+            pass
+        class C(A):
+            pass
+
+        def f(n):
+            if n:
+                b = B()
+                b.hello = 42
+                r = weakref.ref(b)
+            else:
+                c = C()
+                c.hello = 64
+                r = weakref.ref(c)
+            return r().hello
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert not s.is_constant()
+
 
 def g(n):
     return [0,1,2,n]

@@ -7,7 +7,7 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
-     SomeCTypesObject, s_ImpossibleValue, s_Bool, \
+     SomeCTypesObject, SomeWeakRef, s_ImpossibleValue, s_Bool, \
      unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
      SomeGenericCallable
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -749,6 +749,13 @@ class __extend__(SomeCTypesObject):
         # for variables containing ctypes function pointers
         entry = extregistry.lookup_type(cto.knowntype)
         return entry.compute_result_annotation(*args_s)
+
+#_________________________________________
+# weakrefs
+
+class __extend__(SomeWeakRef):
+    def simple_call(s_wrf):
+        return SomeInstance(s_wrf.classdef, can_be_None=True)
 
 #_________________________________________
 # memory addresses
