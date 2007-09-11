@@ -367,7 +367,6 @@ class Test_specialization:
             assert res.dataptr[i] == data[i]
 
     def test_specialize_list_coerce(self):
-        py.test.skip('coercion not implemented')
         def f():
             a = numpy.zeros((3,4), dtype='i')
             a[:] = [3.,4.,4.,2.]
@@ -378,7 +377,6 @@ class Test_specialization:
             assert res.dataptr[i] == data[i]
 
     def test_specialize_rhs_coerce(self):
-        py.test.skip('coercion not implemented')
         def f():
             a = numpy.zeros((4,), dtype='i')
             b = numpy.array([3.,4.,4.,2.])
@@ -580,7 +578,6 @@ class Test_specialization:
         assert res.data[1] == 11
 
     def test_specialize_array_add_1_1_coerce(self):
-        py.test.skip('coercion not implemented')
         def f():
             a1 = numpy.array([1,2])
             a2 = numpy.array([6.,9.])
@@ -645,7 +642,9 @@ class Test_compile:
             return a[ii, jj]
 
         fn = self.compile(f, [int, int])
-        assert fn(2,3) == 2*3
+        for i in range(4):
+            for j in range(5):
+                assert fn(i, j) == i*j
         
     def test_compile_view(self):
         def f(ii, jj):
