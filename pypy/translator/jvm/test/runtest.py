@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.model import lltype_to_annotation
 from pypy.translator.translator import TranslationContext
+from pypy.translator.oosupport.support import patch_os, unpatch_os
 from pypy.translator.jvm.genjvm import \
      generate_source_for_function, JvmError, detect_missing_support_programs
 from pypy.translator.jvm.option import getoption
@@ -91,7 +92,9 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
         else:
             self._func = fn
             self._ann = ann
+            olddefs = patch_os()
             self._jvm_src = generate_source_for_function(fn, ann)
+            unpatch_os(olddefs)
             if not getoption('noasm'):
                 self._jvm_src.compile()
             return JvmGeneratedSourceWrapper(self._jvm_src)

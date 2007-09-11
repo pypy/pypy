@@ -647,13 +647,13 @@ class TranslationDriver(SimpleTaskEngine):
                              'Generating CLI source')
 
     def task_compile_cli(self):
-        from pypy.translator.cli.support import unpatch
+        from pypy.translator.oosupport.support import unpatch_os
         from pypy.translator.cli.test.runtest import CliFunctionWrapper
         filename = self.gen.build_exe()
         self.c_entryp = CliFunctionWrapper(filename)
         # restore original os values
         if hasattr(self, 'old_cli_defs'):
-            unpatch(*self.old_cli_defs)
+            unpatch_os(self.old_cli_defs)
         
         self.log.info("Compiled %s" % filename)
         if self.standalone and self.exe_name:
@@ -724,8 +724,13 @@ $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's pla
                              'Generating JVM source')
 
     def task_compile_jvm(self):
+        from pypy.translator.oosupport.support import unpatch_os
         self.jvmsource.compile()
         self.c_entryp = lambda *args: eval(self.jvmsource.execute(args))
+        # restore original os values
+        if hasattr(self, 'old_cli_defs'):
+            unpatch_os(self.old_cli_defs)
+
         self.log.info("Compiled JVM source")
     task_compile_jvm = taskdef(task_compile_jvm, ['source_jvm'],
                               'Compiling JVM source')
@@ -760,9 +765,9 @@ $MONO "$(dirname $0)/$(basename $0)-data/%s" "$@" # XXX doesn't work if it's pla
         # patch some attributes of the os module to make sure they
         # have the same value on every platform.
         backend, ts = driver.get_backend_and_type_system()
-        if backend == 'cli':
-            from pypy.translator.cli.support import patch
-            driver.old_cli_defs = patch()
+        if backend in ('cli', 'jvm'):
+            from pypy.translator.oosupport.support import patch_os
+            driver.old_cli_defs = patch_os()
         
         target = targetspec_dic['target']
         spec = target(driver, args)

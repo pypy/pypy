@@ -9,7 +9,7 @@ from pypy.rpython.module.test.test_ll_time import BaseTestTime as llBaseTestTime
 class BaseTestBuiltin(BaseTestRbuiltin):
 
     def test_os_flags(self):
-        from pypy.translator.cli.support import NT_OS
+        from pypy.translator.oosupport.support import NT_OS
         def fn():
             return os.O_CREAT
         assert self.interpret(fn, []) == NT_OS['O_CREAT']

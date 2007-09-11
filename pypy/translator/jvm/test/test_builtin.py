@@ -5,9 +5,6 @@ from pypy.translator.jvm.test.runtest import JvmTest
 
 class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
 
-    def test_os_flags(self):
-        py.test.skip('fixme!')
-
     def test_os_open_write(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
 
