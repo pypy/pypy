@@ -140,6 +140,9 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
     def ll_to_list(self, l):
         return l
 
+    def ll_to_tuple(self, t):
+        return t
+
     def class_name(self, value):
         return value.class_name.split(".")[-1] 
 

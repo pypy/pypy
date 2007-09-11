@@ -1,40 +1,21 @@
-import os, stat
-import py
-from pypy.tool import udir
-from pypy.translator.jvm.test.runtest import JvmTest
-from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
 
-class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
-    def test_os(self):
-        py.test.skip("Jvm os support uncertain")
-    
-    def test_os_open(self):
+import py
+from pypy.translator.oosupport.test_template.builtin import BaseTestBuiltin, BaseTestTime
+from pypy.translator.jvm.test.runtest import JvmTest
+
+class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
+
+    def test_os_flags(self):
+        py.test.skip('fixme!')
+
+    def test_os_open_write(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-        
-    def test_os_write(self):
+
+    def test_os_write_magic(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-    
-    def test_os_write_single_char(self):
-        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-    
+
     def test_os_read(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-    
-    def test_os_stat(self):
-        def fn(flag):
-            if flag:
-                return os.stat('.')[0]
-            else:
-                return os.stat('.').st_mode
-        mode = self.interpret(fn, [0])
-        assert stat.S_ISDIR(mode)
-        mode = self.interpret(fn, [1])
-        assert stat.S_ISDIR(mode)
-
-    def test_os_stat_oserror(self):
-        def fn():
-            return os.stat('/directory/unlikely/to/exists')[0]
-        self.interpret_raises(OSError, fn, [])
 
     def test_builtin_math_frexp(self):
         py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
@@ -44,3 +25,23 @@ class TestJavaBuiltin(JvmTest, BaseTestRbuiltin):
 
     def test_os_dup(self):
         py.test.skip("not implemented")
+
+    def test_environ_items(self):
+        py.test.skip('fixme!')
+
+    def test_environ(self):
+        py.test.skip('fixme!')
+
+    def test_os_listdir(self):
+        py.test.skip('fixme!')
+
+    def test_os_read_binary_crlf(self):
+        py.test.skip('fixme!')
+
+    
+
+class TestJvmTime(JvmTest, BaseTestTime):
+
+    def test_time_sleep(self):
+        py.test.skip('fixme!')
+
