@@ -29,6 +29,12 @@ class W_BaseSetObject(W_Object):
             obj = space.call_function(space.type(w_self),itemiterator)
         return obj
 
+    _lifeline_ = None
+    def getweakref(self):
+        return self._lifeline_
+    def setweakref(self, space, weakreflifeline):
+        self._lifeline_ = weakreflifeline
+
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 

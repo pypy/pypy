@@ -209,7 +209,6 @@ class AppTestWeakref(object):
         assert w_bound() is None
 
     def test_set_weakrefable(self):
-        skip("missing: weakrefs to interp-level sets")
         import _weakref, gc
         s = set([1, 2, 3, 4])
         w = _weakref.ref(s)
