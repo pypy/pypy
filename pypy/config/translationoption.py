@@ -20,7 +20,8 @@ translation_optiondescription = OptionDescription(
                      "ootype": [("translation.backendopt.raisingop2direct_call", False),
                                 ("translation.backendopt.constfold", False),
                                 ("translation.backendopt.heap2stack", False),
-                                ("translation.backendopt.clever_malloc_removal", False)]
+                                ("translation.backendopt.clever_malloc_removal", False),
+                                ("translation.rweakref", False)],  # XXX
                      }),
     ChoiceOption("backend", "Backend to use for code generation",
                  ["c", "llvm", "cli", "jvm", "js", "squeak", "cl"],
@@ -43,7 +44,11 @@ translation_optiondescription = OptionDescription(
                  ["boehm", "ref", "framework", "none", "stacklessgc",
                   "exact_boehm"],
                   "ref", requires={
-                     "stacklessgc": [("translation.stackless", True)]},
+                     "ref": [("translation.rweakref", False)], # XXX
+                     "framework": [("translation.rweakref", False)], # XXX
+                     "none": [("translation.rweakref", False)], # XXX
+                     "stacklessgc": [("translation.stackless", True),
+                                     ("translation.rweakref", False)]}, # XXX
                   cmdline="--gc"),
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread",
@@ -60,6 +65,8 @@ translation_optiondescription = OptionDescription(
                cmdline=None),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox"),
+    BoolOption("rweakref", "The backend supports RPython-level weakrefs",
+               default=True),
 
     # misc
     StrOption("cc", "Specify compiler to use for compiling generated C", cmdline="--cc"),

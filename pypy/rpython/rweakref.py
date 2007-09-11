@@ -1,6 +1,7 @@
 import weakref
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
+from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -31,6 +32,9 @@ class WeakRefRepr(Repr):
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
+        if not rtyper.getconfig().translation.rweakref:
+            raise TyperError("RPython-level weakrefs are not supported by "
+                             "this backend or GC policy")
 
     def rtype_simple_call(self, hop):
         v_wref, = hop.inputargs(self)
