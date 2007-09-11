@@ -1077,7 +1077,10 @@ class JVMGenerator(Generator):
     def push_null(self, OOTYPE):
         self.emit(ACONST_NULL)
 
-    DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1,
+    # we can't assume MALLOC_ZERO_FILLED, because for scalar type the
+    # default item for ArrayList is null, not e.g. Integer(0) or
+    # Char(0).
+    DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':0,
                              '0 /* we are not jitted here */': 0}
                             
     def push_primitive_constant(self, TYPE, value):

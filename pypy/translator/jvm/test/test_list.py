@@ -8,3 +8,11 @@ class TestJvmList(JvmTest, BaseTestRlist):
     
     def test_getitem_exc(self):
         py.test.skip('fixme!')
+
+    def test_zeroed_list(self):
+        def fn():
+            lst = [0] * 16
+            return lst[0]
+        res = self.interpret(fn, [])
+        assert res == 0
+        
