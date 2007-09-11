@@ -9,6 +9,7 @@ abstract class FileWrapper
 {
     public abstract void write(String buffer);
     public abstract String read(int count);
+    public abstract void close();
 }
 
 class PrintStreamWrapper extends FileWrapper
@@ -29,6 +30,11 @@ class PrintStreamWrapper extends FileWrapper
     {
         ll_os.throwOSError(PyPy.EBADF, "Write-only fd");
         return null; // never reached
+    }
+
+    public void close()
+    {
+        ll_os.throwOSError(PyPy.EBADF, "Cannot close stdout or stderr");
     }
 }
 
@@ -57,6 +63,11 @@ class InputStreamWrapper extends FileWrapper
             ll_os.throwOSError(PyPy.EIO, e.getMessage());
             return null; // never reached
         }
+    }
+
+    public void close()
+    {
+        ll_os.throwOSError(PyPy.EBADF, "Cannot close stdin");
     }
 }
 
@@ -94,11 +105,24 @@ class RandomAccessFileWrapper extends FileWrapper
         try {
             byte[] buffer = new byte[count];
             int n = this.file.read(buffer);
-            return new String(buffer, 0, n);
+            if (n == -1)
+                return ""; // XXX: is it right?
+            else
+                return new String(buffer, 0, n);
         }
         catch(IOException e) {
             ll_os.throwOSError(PyPy.EIO, e.getMessage());
             return null; // never reached
+        }
+    }
+
+    public void close()
+    {
+        try {
+            this.file.close();
+        }
+        catch(IOException e) {
+            ll_os.throwOSError(PyPy.EIO, e.getMessage());
         }
     }
 }
@@ -197,6 +221,13 @@ public class ll_os {
         fdcount++;
         FileDescriptors.put(new Integer(fdcount), wrapper);
         return fdcount;
+    }
+
+    public static void ll_os_close(int fd)
+    {
+        FileWrapper wrapper = getfd(fd);
+        wrapper.close();
+        FileDescriptors.remove(new Integer(fd));
     }
 
     public static String ll_os_read(int fd, int count)
