@@ -3,7 +3,7 @@ The Bookkeeper class.
 """
 
 from __future__ import generators
-import sys, types, inspect
+import sys, types, inspect, weakref
 
 from pypy.objspace.flow.model import Constant
 from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
@@ -11,7 +11,8 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, SomeWeakGcAddress, HarmlesslyBlocked
+     SomeList, SomeObject, SomeWeakGcAddress, HarmlesslyBlocked, \
+     SomeWeakRef, SomeDeadWeakRef
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -388,6 +389,14 @@ class Bookkeeper:
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                 result = SomeDict(dictdef)
+        elif tp is weakref.ref:
+            x1 = x()
+            if x1 is None:
+                result = SomeDeadWeakRef()
+            else:
+                s1 = self.immutablevalue(x1)
+                assert isinstance(s1, SomeInstance)
+                result = SomeWeakRef(s1.classdef)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))

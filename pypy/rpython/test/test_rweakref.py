@@ -66,7 +66,6 @@ def test_prebuilt_weakref():
     assert res == 8
 
 def test_prebuilt_dead_weakref():
-    py.test.skip("in-progress")
     class A:
         pass
     a1 = A()

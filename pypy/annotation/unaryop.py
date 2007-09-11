@@ -7,9 +7,9 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
-     SomeCTypesObject, SomeWeakRef, s_ImpossibleValue, s_Bool, \
+     SomeCTypesObject, s_ImpossibleValue, s_Bool, s_None, \
      unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked, \
-     SomeGenericCallable
+     SomeGenericCallable, SomeWeakRef, SomeDeadWeakRef
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
@@ -756,6 +756,10 @@ class __extend__(SomeCTypesObject):
 class __extend__(SomeWeakRef):
     def simple_call(s_wrf):
         return SomeInstance(s_wrf.classdef, can_be_None=True)
+
+class __extend__(SomeDeadWeakRef):
+    def simple_call(s_wrf):
+        return s_None
 
 #_________________________________________
 # memory addresses

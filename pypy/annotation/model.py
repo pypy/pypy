@@ -503,6 +503,13 @@ class SomeWeakRef(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeDeadWeakRef(SomeObject):
+    knowntype = weakref.ref
+    immutable = True
+
+    def can_be_none(self):
+        return False
+
 class SomeLLWeakRef(SomeObject):
     immutable = True
 

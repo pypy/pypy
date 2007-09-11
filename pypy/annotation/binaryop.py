@@ -11,7 +11,8 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
-from pypy.annotation.model import SomeExternalObject, SomeWeakRef
+from pypy.annotation.model import SomeExternalObject
+from pypy.annotation.model import SomeWeakRef, SomeDeadWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeWeakGcAddress
 from pypy.annotation.model import SomeCTypesObject
@@ -875,6 +876,18 @@ class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
         if basedef is None:
             return SomeObject()
         return SomeWeakRef(basedef)
+
+class __extend__(pairtype(SomeWeakRef, SomeDeadWeakRef)):
+    def union((s_wrf1, s_wrf2)):
+        return SomeWeakRef(s_wrf1.classdef)
+
+class __extend__(pairtype(SomeDeadWeakRef, SomeWeakRef)):
+    def union((s_wrf1, s_wrf2)):
+        return SomeWeakRef(s_wrf2.classdef)
+
+class __extend__(pairtype(SomeDeadWeakRef, SomeDeadWeakRef)):
+    def union((s_wrf1, s_wrf2)):
+        return SomeDeadWeakRef()
 
 #_________________________________________
 # memory addresses
