@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress, \
-     GCHeaderOffset, WeakRef
+     GCHeaderOffset, WeakRef, fakeweakref
 from pypy.translator.c.support import cdecl
 
 # ____________________________________________________________
@@ -121,6 +121,14 @@ def name_weakgcaddress(value, db):
         assert ob is not None
         return 'HIDE_POINTER(%s)'%db.get(ob)
 
+def name_weakref(value, db):
+    assert isinstance(value, fakeweakref)
+    target = value.get()
+    if target is None:
+        return 'NULL'
+    else:
+        return db.gcpolicy.name_weakref_to(target)
+
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
 PrimitiveName = {
@@ -135,6 +143,7 @@ PrimitiveName = {
     Void:     name_void,
     Address:  name_address,
     WeakGcAddress:  name_weakgcaddress,
+    WeakRef:  name_weakref,
     }
 
 PrimitiveType = {

@@ -171,3 +171,12 @@ def ll_weakref_deref(wref):
     # abuse of llop.cast_pointer()
     link = llop.cast_pointer(llmemory.Address, wref)
     return link and link.address[0]
+
+def convert_prebuilt_weakref_to(targetptr):
+    # Prebuilt weakrefs don't really need to be weak at all,
+    # but we need to emulate the structure expected by ll_weakref_deref().
+    # This is essentially the same code as in ll_weakref_create(), but I'm
+    # not sure trying to share it is worth the hassle...
+    link = lltype.malloc(WEAKLINK, immortal=True)
+    link[0] = llmemory.cast_ptr_to_adr(targetptr)
+    return link

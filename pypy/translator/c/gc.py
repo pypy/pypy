@@ -175,6 +175,10 @@ class BoehmInfo:
 class BoehmGcPolicy(BasicGcPolicy):
     transformerclass = boehm.BoehmGCTransformer
 
+    def __init__(self, *args, **kwds):
+        BasicGcPolicy.__init__(self, *args, **kwds)
+        self.weakref_llwrapper_cache = {}
+
     def array_setup(self, arraydefnode):
         pass
 
@@ -213,6 +217,16 @@ class BoehmGcPolicy(BasicGcPolicy):
             yield 'GC_all_interior_pointers = 0;'
         yield 'GC_init();'
 
+    def name_weakref_to(self, target):
+        # the cache is essential to ensure that repeated calls to
+        # db.get(weakref) don't return new llwrapper structures all
+        # the time, which defeats the db.complete() logic.
+        try:
+            llwrapper = self.weakref_llwrapper_cache[target._obj]
+        except KeyError:
+            llwrapper = boehm.convert_prebuilt_weakref_to(target)
+            self.weakref_llwrapper_cache[target._obj] = llwrapper
+        return '((GCWeakRef)%s)' % (self.db.get(llwrapper),)
 
     def OP_GC_FETCH_EXCEPTION(self, funcgen, op):
         result = funcgen.expr(op.result)
