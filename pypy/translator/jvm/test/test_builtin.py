@@ -11,9 +11,6 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
     def test_os_write_magic(self):
         py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
 
-    def test_os_read(self):
-        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-
     def test_builtin_math_frexp(self):
         py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")
         

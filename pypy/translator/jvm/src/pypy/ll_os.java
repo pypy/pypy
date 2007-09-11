@@ -60,6 +60,49 @@ class InputStreamWrapper extends FileWrapper
     }
 }
 
+class RandomAccessFileWrapper extends FileWrapper
+{
+    private RandomAccessFile file;
+    private boolean canRead;
+    private boolean canWrite;
+
+    public RandomAccessFileWrapper(RandomAccessFile file, boolean canRead, boolean canWrite)
+    {
+        this.file = file;
+        this.canRead = canRead;
+        this.canWrite = canWrite;
+    }
+
+    public void write(String buffer)
+    {
+        if (!this.canWrite)
+            ll_os.throwOSError(PyPy.EBADF, "Cannot write to this fd");
+
+        try {
+            this.file.writeChars(buffer);
+        }
+        catch(IOException e) {
+            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+        }
+    }
+
+    public String read(int count)
+    {
+        if (!this.canRead)
+            ll_os.throwOSError(PyPy.EBADF, "Cannot read from this fd");
+
+        try {
+            byte[] buffer = new byte[count];
+            int n = this.file.read(buffer);
+            return new String(buffer, 0, n);
+        }
+        catch(IOException e) {
+            ll_os.throwOSError(PyPy.EIO, e.getMessage());
+            return null; // never reached
+        }
+    }
+}
+
 
 public class ll_os {
 
@@ -80,6 +123,7 @@ public class ll_os {
     private static final int S_IFDIR = 16384;
     private static final int S_IFREG = 32768;
 
+    private static int fdcount;
     private static Map<Integer, FileWrapper> FileDescriptors = new HashMap<Integer, FileWrapper>();
     private static Map<Integer, String> ErrorMessages = new HashMap<Integer, String>();
 
@@ -87,6 +131,7 @@ public class ll_os {
         FileDescriptors.put(new Integer(0), new PrintStreamWrapper(System.out));
         FileDescriptors.put(new Integer(1), new InputStreamWrapper(System.in));
         FileDescriptors.put(new Integer(2), new PrintStreamWrapper(System.err));
+        fdcount = 2;
     }
 
     public static void throwOSError(int errno, String errText) {
@@ -94,10 +139,74 @@ public class ll_os {
         PyPy.interlink.throwOSError(errno);
     }
 
+    private static FileWrapper getfd(int fd)
+    {
+        FileWrapper f = FileDescriptors.get(new Integer(fd));
+        if (f == null)
+            throwOSError(PyPy.EBADF, "Invalid file descriptor: " + fd);
+        return f;
+    }
+
+    private static RandomAccessFile open_file(String name, String javaMode, int flags)
+    {
+        RandomAccessFile file;
+
+        try {
+            file = new RandomAccessFile(name, javaMode);
+        }
+        catch(IOException e) {
+            throwOSError(PyPy.ENOENT, e.getMessage());
+            return null;
+        }
+
+        try {
+            if ((flags & O_TRUNC) !=0 )
+                file.setLength(0);
+
+            if ((flags & O_APPEND) !=0 )
+                file.seek(file.length()-1);
+        }
+        catch(IOException e) {
+            throwOSError(PyPy.EPERM, e.getMessage());
+            return null;
+        }
+
+        return file;
+    }
+
     public static int ll_os_open(String name, int flags, int mode)
     {
-        throwOSError(PyPy.ENOENT, "DUMMY ll_os_open");
-        return -1;
+        boolean canRead = false;
+        boolean canWrite = false;
+
+        if ((flags & O_RDWR) != 0) {
+            canRead = true;
+            canWrite = true;
+        }
+        else if ((flags & O_WRONLY) != 0)
+            canWrite = true;
+        else
+            canRead = true;
+
+        String javaMode = canWrite ? "rw" : "r";
+
+        // XXX: we ignore O_CREAT
+        RandomAccessFile file = open_file(name, javaMode, flags);
+        RandomAccessFileWrapper wrapper = new RandomAccessFileWrapper(file, canRead, canWrite);
+
+        fdcount++;
+        FileDescriptors.put(new Integer(fdcount), wrapper);
+        return fdcount;
+    }
+
+    public static String ll_os_read(int fd, int count)
+    {
+        return getfd(fd).read(count);
+    }
+
+    public static String ll_os_read(int fd, long count)
+    {
+        return ll_os_read(fd, (int)count);
     }
 
     public static StatResult ll_os_lstat(String path)
