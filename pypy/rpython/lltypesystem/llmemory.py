@@ -496,7 +496,8 @@ class fakeweakaddress(object):
         if ob is not None:
             if isinstance(ob, lltype._ptr):
                 ob = lltype.normalizeptr(ob)._obj
-            self.ref = weakref.ref(ob)
+            self.obref = weakref.ref(ob)
+            self.ref = self.get     # backward compatibility
             # umpf
             from pypy.rpython.memory import lltypesimulation
             if isinstance(ob, (lltype._ptr,lltypesimulation.simulatorptr)):
@@ -504,11 +505,12 @@ class fakeweakaddress(object):
             else:
                 self.id = id(ob)
         else:
+            self.obref = None
             self.ref = None
     def get(self):
-        if self.ref is None:
+        if self.obref is None:
             return None
-        ob = self.ref()
+        ob = self.obref()
         # xxx stop-gap
         #if ob is None:
         #    raise DanglingPointerError
@@ -516,10 +518,10 @@ class fakeweakaddress(object):
             ob = ob._as_ptr()
         return ob
     def __repr__(self):
-        if self.ref is None:
+        if self.obref is None:
             s = 'NULL'
         else:
-            s = str(self.ref)
+            s = str(self.obref)
         return '<%s %s>' % (self.__class__.__name__, s)
     def cast_to_int(self):
         # this is not always the behaviour that is really happening
