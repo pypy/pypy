@@ -596,7 +596,10 @@ BUILTIN_TYPER[llmemory.offsetof] = rtype_offsetof
 # _________________________________________________________________
 # weakrefs
 
+import weakref
+
 def rtype_weakref_create(hop):
+    # Note: this code also works for the RPython-level calls 'weakref.ref(x)'.
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
     return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRef)
@@ -606,6 +609,7 @@ def rtype_weakref_deref(hop):
     hop.exception_cannot_occur()
     return hop.genop('weakref_deref', [v_wref], resulttype=c_ptrtype.value)
 
+BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
 BUILTIN_TYPER[llmemory.weakref_create] = rtype_weakref_create
 BUILTIN_TYPER[llmemory.weakref_deref ] = rtype_weakref_deref
 
