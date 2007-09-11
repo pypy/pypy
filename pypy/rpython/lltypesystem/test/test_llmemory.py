@@ -169,6 +169,23 @@ def test_weak_casts():
     res = interpret(f, [])
     assert res
 
+def test_weak_casts_lifetime():
+    T = lltype.GcStruct("T", ("x", lltype.Signed))
+    S = lltype.GcStruct("S", ("t", T))
+    Sptr = lltype.Ptr(S)
+    def g():
+        s1 = lltype.malloc(S)
+        adr = cast_ptr_to_weakadr(s1)
+        s2 = cast_weakadr_to_ptr(adr, Sptr)
+        assert s1 == s2
+        return adr, lltype.cast_pointer(lltype.Ptr(T), s2)   # s1, s2 go away
+    def f():
+        adr, t = g()
+        t2 = cast_weakadr_to_ptr(adr, lltype.Ptr(T))
+        return t2 == t
+    res = interpret(f, [])
+    assert res
+
 def test_fakeaccessor():
     S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
     s = lltype.malloc(S)
@@ -574,14 +591,23 @@ def test_arena_bump_ptr():
     # release(start)
 
 def test_weakref():
-    S = lltype.GcStruct('S', ('x',lltype.Signed))
+    S1 = lltype.GcStruct('S1', ('x',lltype.Signed))
+    S = lltype.GcStruct('S', ('s1', S1))
     s = lltype.malloc(S)
+    s1 = lltype.cast_pointer(lltype.Ptr(S1), s)
     w = weakref_create(s)
     assert weakref_deref(lltype.Ptr(S), w) == s
-    assert weakref_deref(lltype.Ptr(S), w) == s
+    assert weakref_deref(lltype.Ptr(S1), w) == s1
+    # check that the weakref stays alive even if there are only
+    # cast_pointer'ed references around
     del s
     import gc; gc.collect()
+    assert weakref_deref(lltype.Ptr(S1), w) == s1
+    # now really kill the structure
+    del s1
+    import gc; gc.collect()
     assert weakref_deref(lltype.Ptr(S), w) == lltype.nullptr(S)
+    assert weakref_deref(lltype.Ptr(S1), w) == lltype.nullptr(S1)
 
 class TestWeakAddressLLinterp(object):
     def test_null(self):

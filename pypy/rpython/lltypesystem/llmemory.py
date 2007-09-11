@@ -491,8 +491,11 @@ def cast_int_to_adr(int):
 # ____________________________________________________________
 
 class fakeweakaddress(object):
+    # XXX convoluted code to support both lltype._ptr and simulatorptr
     def __init__(self, ob):
         if ob is not None:
+            if isinstance(ob, lltype._ptr):
+                ob = lltype.normalizeptr(ob)._obj
             self.ref = weakref.ref(ob)
             # umpf
             from pypy.rpython.memory import lltypesimulation
@@ -509,6 +512,8 @@ class fakeweakaddress(object):
         # xxx stop-gap
         #if ob is None:
         #    raise DanglingPointerError
+        if isinstance(ob, lltype._container):
+            ob = ob._as_ptr()
         return ob
     def __repr__(self):
         if self.ref is None:
@@ -525,7 +530,6 @@ WeakGcAddress = lltype.Primitive("WeakGcAddress",
                                  fakeweakaddress(None))
 
 def cast_ptr_to_weakadr(obj):
-    # XXX this is missing the normalizations done by _ptr._cast_to_adr()
     assert isinstance(lltype.typeOf(obj), lltype.Ptr)
     return fakeweakaddress(obj)
 
@@ -533,7 +537,8 @@ def cast_weakadr_to_ptr(adr, EXPECTED_TYPE):
     result = adr.get()
     if result is None:
         return lltype.nullptr(EXPECTED_TYPE.TO)
-    return result
+    else:
+        return lltype.cast_pointer(EXPECTED_TYPE, result)
 
 fakeweakaddress._TYPE = WeakGcAddress
 WEAKNULL = fakeweakaddress(None)
@@ -549,7 +554,7 @@ def weakref_create(obj):
     PTRTYPE = lltype.typeOf(obj)
     assert isinstance(PTRTYPE, lltype.Ptr)
     assert PTRTYPE.TO._gckind == 'gc'
-    return fakeweakref(lltype.normalizeptr(obj))
+    return fakeweakref(obj)
 
 def weakref_deref(PTRTYPE, wref):
     assert isinstance(PTRTYPE, lltype.Ptr)
