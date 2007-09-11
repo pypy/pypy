@@ -540,23 +540,29 @@ WEAKNULL = fakeweakaddress(None)
 
 # ____________________________________________________________
 
-WeakGcRefOpaque = lltype.OpaqueType('WeakGcRef')
+class fakeweakref(fakeweakaddress):
+    pass        # inheriting only to copy all methods
 
-def weakgcref_init(wropaque, obj):
+WeakRef = lltype.Primitive("WeakRef", fakeweakref(None))
+
+def weakref_create(obj):
     PTRTYPE = lltype.typeOf(obj)
     assert isinstance(PTRTYPE, lltype.Ptr)
     assert PTRTYPE.TO._gckind == 'gc'
-    wropaque._obj.ref = weakref.ref(lltype.normalizeptr(obj))
+    return fakeweakref(lltype.normalizeptr(obj))
 
-def weakgcref_get(PTRTYPE, wropaque):
+def weakref_deref(PTRTYPE, wref):
     assert isinstance(PTRTYPE, lltype.Ptr)
     assert PTRTYPE.TO._gckind == 'gc'
-    assert lltype.typeOf(wropaque) == lltype.Ptr(WeakGcRefOpaque)
-    p = wropaque._obj.ref()
+    assert lltype.typeOf(wref) == WeakRef
+    p = wref.get()
     if p is None:
         return lltype.nullptr(PTRTYPE.TO)
     else:
         return lltype.cast_pointer(PTRTYPE, p)
+
+fakeweakref._TYPE = WeakRef
+WEAKREFNULL = fakeweakref(None)
 
 # ____________________________________________________________
 
