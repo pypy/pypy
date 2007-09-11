@@ -178,6 +178,7 @@ jPyPyDictItemsIterator = JvmClassType('pypy.DictItemsIterator')
 jPyPyInterlink = JvmClassType('pypy.Interlink')
 jPyPyCustomDict = JvmClassType('pypy.CustomDict')
 jPyPyStatResult = JvmClassType('pypy.StatResult')
+jll_os = JvmClassType('pypy.ll_os')
 
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 

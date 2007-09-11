@@ -10,7 +10,7 @@ from pypy.translator.jvm.typesystem import \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
      jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
-     jPyPyHashCode, jMap, jWeakRef, jSystem
+     jPyPyHashCode, jMap, jWeakRef, jSystem, jll_os
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -1020,7 +1020,11 @@ class JVMGenerator(Generator):
     def call_primitive(self, op, module, name):
         callee = op.args[0].value
         argtypes, rettype = self.db.types_for_signature(callee._TYPE.ARGS, callee._TYPE.RESULT)
-        mthd = Method.s(jPyPy, name, argtypes, rettype)
+        if module == 'll_os':
+            jcls = jll_os
+        else:
+            jcls = jPyPy
+        mthd = Method.s(jcls, name, argtypes, rettype)
         self.emit(mthd)
 
     def call_oostring(self, OOTYPE):

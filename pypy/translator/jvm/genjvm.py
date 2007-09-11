@@ -176,6 +176,7 @@ class JvmGeneratedSource(object):
                               'Constants',
                               'StatResult',
                               'PyPy',
+                              'll_os',
                               ))
 
     def _make_str(self, a):

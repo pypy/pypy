@@ -792,65 +792,6 @@ public class PyPy implements Constants {
         return System.currentTimeMillis()/1000.0;
     }
 
-    public static int ll_os_write(int fd, String text) {
-        // TODO: file descriptors, etc
-        if (fd == 1)
-            System.out.print(text);
-        else if (fd == 2)
-            System.err.print(text);
-        else
-            throw new RuntimeException("Invalid FD");
-        return text.length();
-    }
-
-    public static ArrayList ll_os_envitems()
-    {
-        return new ArrayList(); // XXX
-    }
-
-    public static String ll_os_getcwd()
-    {
-        return System.getProperty("user.dir");
-    }
-
-    public static StatResult ll_os_stat(String path)
-    {
-        if (path.equals(""))
-            throwOSError(ENOENT, "No such file or directory: ''");
-
-        File f = new File(path);
-        
-        if (f.exists()) {
-            StatResult res = new StatResult();
-            if (f.isDirectory())
-                res.setMode(S_IFDIR);
-            else {
-                res.setMode(S_IFREG);
-                res.setSize(f.length());
-                res.setMtime((int)f.lastModified());
-            }
-            return res;
-        }
-
-        throwOSError(ENOENT, "No such file or directory: '"+path+"'");
-        return null; // never reached
-    }
-
-    public static int ll_os_open(String path, int flags, int mode)
-    {
-        throwOSError(ENOENT, "DUMMY: No such file or directory: '"+path+"'"); // XXX
-        return -1; // never reached
-    }
-
-    public static StatResult ll_os_lstat(String path)
-    {
-        return ll_os_stat(path); // XXX
-    }
-
-    public static String ll_os_strerror(int errno)
-    {
-        return "errno: " + errno;
-    }
 
     public static String ll_join(String a, String b)
     {
@@ -979,10 +920,6 @@ public class PyPy implements Constants {
 
     public static void throwValueError() {
         interlink.throwValueError();
-    }
-
-    public static void throwOSError(int errCode, String errText) {
-        interlink.throwOSError(errCode); // errText currently ignored... fix?
     }
     
     // ----------------------------------------------------------------------
