@@ -702,6 +702,13 @@ class LLFrame(object):
         return lltype.cast_opaque_ptr(RESTYPE, obj)
     op_cast_opaque_ptr.need_result_type = True
 
+    def op_weakref_create(self, obj):
+        return llmemory.weakref_create(obj)
+
+    def op_weakref_deref(self, PTRTYPE, obj):
+        return llmemory.weakref_deref(PTRTYPE, obj)
+    op_weakref_deref.need_result_type = True
+
     def op_gc__collect(self):
         import gc
         gc.collect()

@@ -366,6 +366,8 @@ LL_OPERATIONS = {
     'cast_weakadr_to_int':  LLOp(canfold=True),
     'cast_adr_to_int':      LLOp(canfold=True),
     'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
+    'weakref_create':       LLOp(sideeffects=False),
+    'weakref_deref':        LLOp(sideeffects=False),
 
     # __________ used by the JIT ________
 

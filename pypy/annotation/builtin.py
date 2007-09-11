@@ -8,7 +8,8 @@ from pypy.annotation.model import SomeString, SomeTuple, SomeSlice, s_Bool
 from pypy.annotation.model import SomeUnicodeCodePoint, SomeAddress
 from pypy.annotation.model import SomeFloat, SomeWeakGcAddress, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
-from pypy.annotation.model import SomeExternalObject, SomeWeakRef
+from pypy.annotation.model import SomeExternalObject
+from pypy.annotation.model import SomeWeakRef, SomeLLWeakRef
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
 from pypy.annotation.model import add_knowntypedata
 from pypy.annotation.model import s_ImpossibleValue
@@ -579,6 +580,28 @@ def weakref_ref(s_obj):
     return SomeWeakRef(s_obj.classdef)
 
 BUILTIN_ANALYZERS[weakref.ref] = weakref_ref
+
+def llweakref_create(s_obj):
+    if (not isinstance(s_obj, SomePtr) or
+        s_obj.ll_ptrtype.TO._gckind != 'gc'):
+        raise Exception("bad type for argument to weakref_create(): %r" % (
+            s_obj,))
+    return SomeLLWeakRef()
+
+def llweakref_deref(s_ptrtype, s_wref):
+    if not (s_ptrtype.is_constant() and
+            isinstance(s_ptrtype.const, lltype.Ptr) and
+            s_ptrtype.const.TO._gckind == 'gc'):
+        raise Exception("weakref_deref() arg 1 must be a constant "
+                        "ptr type, got %s" % (s_ptrtype,))
+    if not isinstance(s_wref, SomeLLWeakRef):
+        raise Exception("weakref_deref() arg 2 must be a llweakref, "
+                        "got %s" % (s_wref,))
+    return SomePtr(s_ptrtype.const)
+
+from pypy.rpython.lltypesystem import llmemory
+BUILTIN_ANALYZERS[llmemory.weakref_create] = llweakref_create
+BUILTIN_ANALYZERS[llmemory.weakref_deref ] = llweakref_deref
 
 #________________________________
 # non-gc objects

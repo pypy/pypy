@@ -33,7 +33,7 @@ import pypy.tool.instancemethod
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
-import inspect
+import inspect, weakref
 from sys import maxint
 from pypy.annotation.description import FunctionDesc
 
@@ -495,9 +495,16 @@ s_ImpossibleValue = SomeImpossibleValue()
 # weakrefs
 
 class SomeWeakRef(SomeObject):
+    knowntype = weakref.ref
     immutable = True
     def __init__(self, classdef):
         self.classdef = classdef
+
+    def can_be_none(self):
+        return False
+
+class SomeLLWeakRef(SomeObject):
+    immutable = True
 
     def can_be_none(self):
         return False
@@ -583,6 +590,7 @@ annotation_to_ll_map = [
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
     (SomeWeakGcAddress(), llmemory.WeakGcAddress),
+    (SomeLLWeakRef(), llmemory.WeakRef),
 ]
 
 def annotation_to_lltype(s_val, info=None):
