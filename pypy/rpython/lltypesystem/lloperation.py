@@ -339,6 +339,7 @@ LL_OPERATIONS = {
     'boehm_malloc':         LLOp(),
     'boehm_malloc_atomic':  LLOp(),
     'boehm_register_finalizer': LLOp(),
+    'boehm_disappearing_link': LLOp(),
     'raw_malloc':           LLOp(),
     'raw_malloc_usage':     LLOp(sideeffects=False),
     'raw_free':             LLOp(),
@@ -366,8 +367,6 @@ LL_OPERATIONS = {
     'cast_weakadr_to_int':  LLOp(canfold=True),
     'cast_adr_to_int':      LLOp(canfold=True),
     'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
-    'weakref_create':       LLOp(sideeffects=False),
-    'weakref_deref':        LLOp(sideeffects=False),
 
     # __________ used by the JIT ________
 
@@ -400,6 +399,13 @@ LL_OPERATIONS = {
 
     # NOTE NOTE NOTE! don't forget *** canunwindgc=True *** for anything that
     # can go through a stack unwind, in particular anything that mallocs!
+
+    # __________ weakrefs __________
+
+    # weakref_create can raise MemoryError in GCs like Boehm, but not
+    # in the framework GC, so it should never cause a stack unwind.
+    'weakref_create':       LLOp(canraise=(MemoryError,), sideeffects=False),
+    'weakref_deref':        LLOp(sideeffects=False),
 
     # __________ stackless operation(s) __________
 

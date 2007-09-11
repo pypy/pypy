@@ -204,7 +204,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         yield '#define USING_BOEHM_GC'
 
     def pre_gc_code(self):
-        return []
+        return ['typedef GC_PTR *GCWeakRef;']
 
     def gc_startup_code(self):
         if sys.platform == 'win32':

@@ -6,7 +6,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, WeakGcAddress, fakeweakaddress, \
-     GCHeaderOffset
+     GCHeaderOffset, WeakRef
 from pypy.translator.c.support import cdecl
 
 # ____________________________________________________________
@@ -149,6 +149,7 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     WeakGcAddress:  'GC_hidden_pointer @',
+    WeakRef:  'GCWeakRef @',
     }
 
 PrimitiveErrorValue = {
@@ -163,6 +164,7 @@ PrimitiveErrorValue = {
     Void:     '/* error */',
     Address:  'NULL',
     WeakGcAddress:  'HIDE_POINTER(NULL)',
+    WeakRef:  'NULL',
     }
 
 def define_c_primitive(ll_type, c_name):

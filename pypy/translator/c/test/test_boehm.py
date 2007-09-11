@@ -284,6 +284,40 @@ class TestUsingBoehm(AbstractGCTestClass):
         res = c_fn()
         assert res == 2
 
+    def test_weakref(self):
+        import weakref
+        from pypy.rlib import rgc
+
+        class A:
+            pass
+
+        def fn(n):
+            keepalive = []
+            weakrefs = []
+            a = None
+            for i in range(n):
+                if i & 1 == 0:
+                    a = A()
+                    a.index = i
+                weakrefs.append(weakref.ref(a))
+                if i % 7 == 6:
+                    keepalive.append(a)
+            rgc.collect()
+            count_free = 0
+            for i in range(n):
+                a = weakrefs[i]()
+                if i % 7 == 6:
+                    assert a is not None
+                if a is not None:
+                    assert a.index == i & ~1
+                else:
+                    count_free += 1
+            return count_free
+        c_fn = self.getcompiled(fn, [int])
+        res = c_fn(7000)
+        # more than half of them should have been freed, ideally up to 6000
+        assert 3500 <= res <= 6000
+
 
 class TestUsingExactBoehm(TestUsingBoehm):
     gcpolicy = "exact_boehm"

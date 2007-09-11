@@ -100,6 +100,9 @@ if GC integration has happened and this junk is still here, please delete it :)
 */
 #define OP_CALL_BOEHM_GC_ALLOC(size, r) OP_BOEHM_ZERO_MALLOC(size, r, void *, 0, 0)
 
+#define OP_BOEHM_DISAPPEARING_LINK(link, obj, r) \
+		GC_GENERAL_REGISTER_DISAPPEARING_LINK(link, obj)
+
 #endif /* USING_BOEHM_GC */
 
 /************************************************************/

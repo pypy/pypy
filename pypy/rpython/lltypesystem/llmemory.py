@@ -489,6 +489,14 @@ def cast_int_to_adr(int):
 
 
 # ____________________________________________________________
+#
+# WeakRef       - like in RPython, they are pointers that don't keep their
+#                 target malloc'ed structure alive.  When the target dies
+#                 all WeakRefs to it are cleared.
+#
+# WeakGcAddress - like WeakRef but not automatically cleared.  There is
+#                 no direct way to know if the target is still alive.
+#                 We should more or less deprecate them in favor of WeakRef.
 
 class fakeweakaddress(object):
     # XXX convoluted code to support both lltype._ptr and simulatorptr

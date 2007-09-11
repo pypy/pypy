@@ -789,6 +789,9 @@ class LLFrame(object):
     def op_boehm_register_finalizer(self, p, finalizer):
         pass
 
+    def op_boehm_disappearing_link(self, link, obj):
+        pass
+
     def op_raw_malloc_usage(self, size):
         assert lltype.typeOf(size) == lltype.Signed
         return self.heap.raw_malloc_usage(size)
