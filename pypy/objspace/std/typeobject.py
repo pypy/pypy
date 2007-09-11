@@ -59,7 +59,7 @@ class W_TypeObject(W_Object):
         w_self.nslots = 0
         w_self.needsdel = False
         w_self.w_bestbase = None
-        w_self.weak_subclasses_w = []
+        w_self.weak_subclasses = []
 
         # make sure there is a __doc__ in dict_w
         if '__doc__' not in dict_w:
@@ -403,43 +403,40 @@ class W_TypeObject(W_Object):
 
     def add_subclass(w_self, w_subclass):
         space = w_self.space
-        if space.config.translation.sandbox:
-            return    # XXX weakrefs are disabled in a sandbox translation ATM
-        from pypy.module._weakref.interp__weakref import basic_weakref
-        w_newref = basic_weakref(space, w_subclass)
-        
-        for i in range(len(w_self.weak_subclasses_w)):
-            w_ref = w_self.weak_subclasses_w[i]
-            ob = space.call_function(w_ref)
-            if space.is_w(ob, space.w_None):
-                w_self.weak_subclasses_w[i] = w_newref
+        if not space.config.translation.rweakref:
+            return    # no weakref support, don't keep track of subclasses
+        import weakref
+        assert isinstance(w_subclass, W_TypeObject)
+        newref = weakref.ref(w_subclass)
+        for i in range(len(w_self.weak_subclasses)):
+            ref = w_self.weak_subclasses[i]
+            if ref() is None:
+                w_self.weak_subclasses[i] = newref
                 return
         else:
-            w_self.weak_subclasses_w.append(w_newref)
+            w_self.weak_subclasses.append(newref)
 
     def remove_subclass(w_self, w_subclass):
         space = w_self.space
-        if space.config.translation.sandbox:
-            return    # XXX weakrefs are disabled in a sandbox translation ATM
-
-        for i in range(len(w_self.weak_subclasses_w)):
-            w_ref = w_self.weak_subclasses_w[i]
-            ob = space.call_function(w_ref)
-            if space.is_w(ob, w_subclass):
-                del w_self.weak_subclasses_w[i]
+        if not space.config.translation.rweakref:
+            return    # no weakref support, don't keep track of subclasses
+        for i in range(len(w_self.weak_subclasses)):
+            ref = w_self.weak_subclasses[i]
+            if ref() is w_subclass:
+                del w_self.weak_subclasses[i]
                 return
 
     def get_subclasses(w_self):
         space = w_self.space
-        if space.config.translation.sandbox:
-            msg = ("weakrefs are disabled in a sandbox translation "
-                   "at the moment")
+        if not space.config.translation.rweakref:
+            msg = ("this feature requires weakrefs, "
+                   "which are not available in this build of PyPy")
             raise OperationError(space.w_RuntimeError,
                                  space.wrap(msg))
         subclasses_w = []
-        for w_ref in w_self.weak_subclasses_w:
-            w_ob = space.call_function(w_ref)
-            if not space.is_w(w_ob, space.w_None):
+        for ref in w_self.weak_subclasses:
+            w_ob = ref()
+            if w_ob is not None:
                 subclasses_w.append(w_ob)
         return subclasses_w
 

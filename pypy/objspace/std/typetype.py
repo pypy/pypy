@@ -92,15 +92,11 @@ def descr_get__bases__(space, w_type):
 
 def mro_subclasses(space, w_type, temp):
     from pypy.objspace.std.typeobject import W_TypeObject
-    if not w_type.weak_subclasses_w:
-        return
-    for w_ref in w_type.weak_subclasses_w:
-        w_sc = space.call_function(w_ref)
-        if not space.is_w(w_sc, space.w_None):
-            assert isinstance(w_sc, W_TypeObject)
-            temp.append((w_sc, w_sc.mro_w))
-            mro_internal(space, w_sc)
-            mro_subclasses(space, w_sc, temp)
+    for w_sc in w_type.get_subclasses():
+        assert isinstance(w_sc, W_TypeObject)
+        temp.append((w_sc, w_sc.mro_w))
+        mro_internal(space, w_sc)
+        mro_subclasses(space, w_sc, temp)
 
 # should be a W_TypeObject method i guess
 def mro_internal(space, w_type):
