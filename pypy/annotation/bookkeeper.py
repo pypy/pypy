@@ -389,7 +389,7 @@ class Bookkeeper:
                     dictdef.generalize_key(self.immutablevalue(ek, False))
                     dictdef.generalize_value(self.immutablevalue(ev, False))
                 result = SomeDict(dictdef)
-        elif tp is weakref.ref:
+        elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:
                 result = SomeDeadWeakRef()

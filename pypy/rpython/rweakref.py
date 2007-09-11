@@ -38,7 +38,7 @@ class WeakRefRepr(Repr):
         return hop.genop('weakref_deref', [v_wref], resulttype=hop.r_result)
 
     def convert_const(self, value):
-        assert isinstance(value, weakref.ref)
+        assert isinstance(value, weakref.ReferenceType)
         instance = value()
         bk = self.rtyper.annotator.bookkeeper
         # obscure!  if the annotator hasn't seen this object before,

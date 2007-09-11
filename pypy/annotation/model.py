@@ -495,7 +495,7 @@ s_ImpossibleValue = SomeImpossibleValue()
 # weakrefs
 
 class SomeWeakRef(SomeObject):
-    knowntype = weakref.ref
+    knowntype = weakref.ReferenceType
     immutable = True
     def __init__(self, classdef):
         self.classdef = classdef
@@ -504,7 +504,7 @@ class SomeWeakRef(SomeObject):
         return False
 
 class SomeDeadWeakRef(SomeObject):
-    knowntype = weakref.ref
+    knowntype = weakref.ReferenceType
     immutable = True
 
     def can_be_none(self):
