@@ -215,6 +215,33 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [])
         assert self.ll_to_string(res) == 'hello world'
 
+    def test_os_lseek(self):
+        self._skip_llinterpreter("os.lseek", skipOO=False)
+        import os
+        tmpfile = str(udir.udir.join("os_lseek_test"))
+        f = file(tmpfile, 'w')
+        f.write('0123456789')
+        f.close()
+        SEEK_SET = 0
+        SEEK_CUR = 1
+        SEEK_END = 2
+        def fn():
+            fd = os.open(tmpfile, os.O_RDONLY, 0777)
+            res = ''
+            os.lseek(fd, 5, SEEK_SET)
+            res += os.read(fd, 1)
+            os.lseek(fd, 2, SEEK_CUR)
+            res += os.read(fd, 1)
+            os.lseek(fd, -2, SEEK_CUR)
+            res += os.read(fd, 1)
+            os.lseek(fd, -1, SEEK_END)
+            res += os.read(fd, 1)
+            os.close(fd)
+            return res
+        res1 = fn()
+        res2 = self.ll_to_string(self.interpret(fn, []))
+        assert res1 == res2
+
     def test_os_dup(self):
         import os
         def fn(fd):
