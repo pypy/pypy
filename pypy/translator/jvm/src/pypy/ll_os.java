@@ -312,6 +312,16 @@ public class ll_os {
         return text.length();
     }
 
+    public static boolean ll_os_isatty(int x)
+    {
+        // XXX: this is not the right behaviour, but it's needed
+        // to have the interactive interpreter working
+        if (x == 0 || x == 1 || x == 2)
+            return true;
+        else
+            return false;
+    }
+    
     public static ArrayList ll_os_envitems()
     {
         return new ArrayList(); // XXX
