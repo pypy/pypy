@@ -10,6 +10,7 @@ abstract class FileWrapper
     public abstract void write(String buffer);
     public abstract String read(int count);
     public abstract void close();
+    public abstract RandomAccessFile getFile();
 }
 
 class PrintStreamWrapper extends FileWrapper
@@ -35,6 +36,11 @@ class PrintStreamWrapper extends FileWrapper
     public void close()
     {
         ll_os.throwOSError(PyPy.EBADF, "Cannot close stdout or stderr");
+    }
+
+    public RandomAccessFile getFile()
+    {
+        return null;
     }
 }
 
@@ -68,6 +74,11 @@ class InputStreamWrapper extends FileWrapper
     public void close()
     {
         ll_os.throwOSError(PyPy.EBADF, "Cannot close stdin");
+    }
+
+    public RandomAccessFile getFile()
+    {
+        return null;
     }
 }
 
@@ -125,6 +136,11 @@ class RandomAccessFileWrapper extends FileWrapper
             ll_os.throwOSError(PyPy.EIO, e.getMessage());
         }
     }
+
+    public RandomAccessFile getFile()
+    {
+        return this.file;
+    }
 }
 
 
@@ -146,6 +162,10 @@ public class ll_os {
     private static final int S_IFMT = 61440;
     private static final int S_IFDIR = 16384;
     private static final int S_IFREG = 32768;
+
+    private static final int SEEK_SET = 0;
+    private static final int SEEK_CUR = 1;
+    private static final int SEEK_END = 2;
 
     private static int fdcount;
     private static Map<Integer, FileWrapper> FileDescriptors = new HashMap<Integer, FileWrapper>();
@@ -238,6 +258,36 @@ public class ll_os {
     public static String ll_os_read(int fd, long count)
     {
         return ll_os_read(fd, (int)count);
+    }
+
+    public static long ll_os_lseek(int fd, long offset, int whence)
+    {
+        FileWrapper wrapper = getfd(fd);
+        RandomAccessFile file = wrapper.getFile();
+        if (file == null)
+            throwOSError(PyPy.ESPIPE, "Illegal seek");
+
+        long pos = 0;
+        try {
+            switch(whence) 
+                {
+                case SEEK_SET:
+                    pos = offset;
+                    break;
+                case SEEK_CUR:
+                    pos = file.getFilePointer() + offset;
+                    break;
+                case SEEK_END:
+                    pos = file.length() + offset;
+                    break;
+                }
+            file.seek(pos);
+        }
+        catch(IOException e) {
+            throwOSError(PyPy.ESPIPE, e.getMessage());
+        }
+        
+        return pos;
     }
 
     public static StatResult ll_os_lstat(String path)
