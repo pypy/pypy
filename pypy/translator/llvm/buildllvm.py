@@ -4,11 +4,65 @@ import sys
 import py
 
 from pypy.translator.llvm.log import log
-from pypy.translator.llvm.pyxwrapper import write_pyx_wrapper 
 from pypy.translator.tool import stdoutcapture
-from pypy.translator.tool.cbuild import make_c_from_pyxfile
 
 import distutils.sysconfig
+
+def write_ctypes_module(genllvm, dllname, targetpath):
+    template = """
+import ctypes
+from os.path import join, dirname, realpath
+_c = ctypes.CDLL(join(dirname(realpath(__file__)), "%(dllname)s"))
+
+_setup = False
+
+class LLVMException(Exception):
+    pass
+
+%(name)s = _c.__entrypoint__%(name)s
+%(name)s.argtypes = %(args)s
+%(name)s.restype = %(returntype)s
+
+%(name)s_raised = _c.__entrypoint__raised_LLVMException
+%(name)s_raised.argtypes = []
+%(name)s_raised.restype = ctypes.c_int
+
+GC_get_heap_size_wrapper = _c.GC_get_heap_size
+GC_get_heap_size_wrapper.argtypes = []
+GC_get_heap_size_wrapper.restype = ctypes.c_int
+
+startup_code = _c.ctypes_RPython_StartupCode
+startup_code.argtypes = []
+startup_code.restype = ctypes.c_int
+
+def %(name)s_wrapper(*args):
+    global _setup
+    if not _setup:
+        if not startup_code():
+            raise LLVMException("Failed to startup")
+        _setup = True
+    result = %(name)s(*args)
+    if %(name)s_raised():
+        raise LLVMException("Exception raised")
+    return result
+"""
+
+    import ctypes
+    from pypy.rpython.lltypesystem import lltype 
+
+    TO_CTYPES = {lltype.Bool: "ctypes.c_int",
+                 lltype.Float: "ctypes.c_double",
+                 lltype.Char: "ctypes.c_char",
+                 lltype.Signed: "ctypes.c_int",
+                 lltype.Unsigned: "ctypes.c_uint"
+                 }
+    name = genllvm.entrynode.ref.strip("%")
+    
+    g = genllvm.entrynode.graph  
+    returntype = TO_CTYPES[g.returnblock.inputargs[0].concretetype]
+    inputargtypes = [TO_CTYPES[a.concretetype] for a in g.startblock.inputargs]
+    args = '[%s]' % ", ".join(inputargtypes)
+    targetpath.write(template % locals())
 
 def llvm_is_on_path():
     if py.path.local.sysfind("llvm-as") is None or \
@@ -45,22 +99,22 @@ def _exe_version2(exe):
 gcc_version = lambda: _exe_version2('gcc')
 llvm_gcc_version = lambda: _exe_version2('llvm-gcc')
 
-def compile_module(module, source_files, object_files, library_files):
+# def compile_module(module, source_files, object_files, library_files):
 
-    open("%s_setup.py" % module, "w").write(str(py.code.Source(
-        '''
-        from distutils.core import setup
-        from distutils.extension import Extension
-        setup(name="%(module)s",
-            ext_modules = [Extension(
-                name = "%(module)s",
-                sources = %(source_files)s,
-                libraries = %(library_files)s,
-                extra_objects = %(object_files)s)])
-        ''' % locals())))
-    cmd ="python %s_setup.py build_ext --inplace --force" % module
-    log.build(cmd)
-    py.process.cmdexec(cmd)
+#     open("%s_setup.py" % module, "w").write(str(py.code.Source(
+#         '''
+#         from distutils.core import setup
+#         from distutils.extension import Extension
+#         setup(name="%(module)s",
+#             ext_modules = [Extension(
+#                 name = "%(module)s",
+#                 sources = %(source_files)s,
+#                 libraries = %(library_files)s,
+#                 extra_objects = %(object_files)s)])
+#         ''' % locals())))
+#     cmd ="python %s_setup.py build_ext --inplace --force" % module
+#     log.build(cmd)
+#     py.process.cmdexec(cmd)
 
 class Builder(object):
 
@@ -131,37 +185,34 @@ class Builder(object):
         library_files = self.genllvm.db.gcpolicy.gc_libraries()
         gc_libs = ' '.join(['-l' + lib for lib in library_files])
 
-        object_files = ["-L/sw/lib"]
         if sys.platform == 'darwin':
             libdir = '/sw/lib'
             gc_libs_path = '-L%s -ldl' % libdir
         else:
             gc_libs_path = '-static'
 
-        use_gcc = True #self.genllvm.config.translation.llvm_via_c
+        dllname = "%s.so" % b
+        
+        use_gcc = False #self.genllvm.config.translation.llvm_via_c
         if not use_gcc:
             self.cmds.append("llc -relocation-model=pic %s.bc -f -o %s.s" % (b, b))
             self.cmds.append("as %s.s -o %s.o" % (b, b))
-            object_files.append("%s.o" % b)
+
         else:
             self.cmds.append("llc %s.bc -march=c -f -o %s.c" % (b, b))
             self.cmds.append("gcc %s.c -c -O2" % b)
-            object_files.append("%s.o" % b)
+
+        self.cmds.append("gcc -O3 %s.o %s %s -lm -bundle -o %s" % (b, gc_libs_path, gc_libs, dllname))
 
         try:
             self.execute_cmds()
 
-            # use pyrex to create module for CPython
-            basename = self.genllvm.filename.purebasename + '_wrapper.pyx'
-            pyxfile = self.genllvm.filename.new(basename = basename)
-            write_pyx_wrapper(self.genllvm, pyxfile)
+            # use ctypes to create module for CPython
+            basename = self.genllvm.filename.purebasename + '_wrapper.py'
+            modfilename = self.genllvm.filename.new(basename = basename)
+            write_ctypes_module(self.genllvm, dllname, modfilename)
 
-            modname = pyxfile.purebasename
-            source_files = ["%s.c" % modname]
-
-            make_c_from_pyxfile(pyxfile)
-
-            compile_module(modname, source_files, object_files, library_files)
+            modname = modfilename.purebasename
 
         finally:
             lastdir.chdir()

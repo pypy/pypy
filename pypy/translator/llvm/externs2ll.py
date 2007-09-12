@@ -48,7 +48,9 @@ def get_ll(ccode, function_names):
     cmd = "llvm-gcc %s %s %s -S %s.c -o %s.ll 2>&1" % (
         include_path, includes, emit_llvm, plain, plain)
 
-    os.system(cmd)
+    if os.system(cmd) != 0:
+        raise Exception("Failed to run '%s'")
+
     llcode = open(plain + '.ll').read()
 
     # strip lines
@@ -78,7 +80,7 @@ def get_ll(ccode, function_names):
            funcname  , s = s.split('(', 1)
            funcnames[funcname] = True
            if line.find("internal") == -1:
-                if funcname not in ["%main", "%Pyrex_RPython_StartupCode"]:
+                if funcname not in ["%main", "%ctypes_RPython_StartupCode"]:
                     internal = 'internal '
                     line = '%s%s %s' % (internal, DEFAULT_CCONV, line,)
         ll_lines.append(line)

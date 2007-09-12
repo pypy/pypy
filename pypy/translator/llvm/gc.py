@@ -24,9 +24,6 @@ class GcPolicy:
     def gc_libraries(self):
         return []
     
-    def pyrex_code(self):
-        return ''    
-
     def get_count(self, inc=False):
         if inc:
             self.n_malloced = self.n_malloced + 1
@@ -112,14 +109,6 @@ class BoehmGcPolicy(GcPolicy):
     
     def gc_libraries(self):
         return ['gc', 'pthread']
-
-    def pyrex_code(self):
-        return '''
-cdef extern int GC_get_heap_size()
-
-def GC_get_heap_size_wrapper():
-    return GC_get_heap_size()
-'''
 
     def _zeromalloc(self, codewriter, targetvar, size=1, atomic=False,
                     exc_flag=False):

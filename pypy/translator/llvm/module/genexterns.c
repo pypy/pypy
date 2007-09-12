@@ -97,10 +97,10 @@ int main(int argc, char *argv[])
 
 #else
 
-int Pyrex_RPython_StartupCode() {
+int ctypes_RPython_StartupCode() {
 
-  char *error = RPython_StartupCode();
-  if (error != NULL) {
+  char *errmsg = RPython_StartupCode();
+  if (errmsg != NULL) {
     return 0;
   }
   
