@@ -15,7 +15,11 @@ class GCHeaderBuilder(object):
         self.size_gc_header = llmemory.GCHeaderOffset(self)
 
     def header_of_object(self, gcptr):
-        return self.obj2header[gcptr._as_obj()]
+        # XXX hackhackhack
+        gcptr = gcptr._as_obj()
+        if isinstance(gcptr, llmemory._gctransformed_wref):
+            return self.obj2header[gcptr._ptr._as_obj()]
+        return self.obj2header[gcptr]
 
     def object_from_header(headerptr):
         return header2obj[headerptr._as_obj()]

@@ -388,6 +388,49 @@ class TestMarkSweepGC(GCTest):
         res = run([5, 42]) #XXX pure lazyness here too
         assert 160 <= res <= 165
 
+    def test_weakref(self):
+        import weakref, gc
+        class A(object):
+            pass
+        def g():
+            a = A()
+            return weakref.ref(a)
+        def f():
+            a = A()
+            ref = weakref.ref(a)
+            result = ref() is a
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            result = result and (ref() is None)
+            # check that a further collection is fine
+            llop.gc__collect(lltype.Void)
+            result = result and (ref() is None)
+            return result
+        run = self.runner(f)
+        res = run([])
+        assert res
+
+    def test_weakref_to_object_with_finalizer(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                a.count += 1
+        def g():
+            b = B()
+            return weakref.ref(b)
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        run = self.runner(f)
+        res = run([])
+        assert res
+
     def test_collect_during_collect(self):
         class B(object):
             pass

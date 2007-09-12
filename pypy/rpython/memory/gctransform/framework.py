@@ -52,6 +52,7 @@ class FrameworkGCTransformer(GCTransformer):
                 ("ofstovar",    lltype.Signed),
                 ("ofstolength", lltype.Signed),
                 ("varofstoptrs",lltype.Ptr(OFFSETS_TO_GC_PTR)),
+                ("weakptrofs",  lltype.Signed),
                 )
             TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
 
@@ -78,6 +79,9 @@ class FrameworkGCTransformer(GCTransformer):
 
         def q_varsize_offsets_to_gcpointers_in_var_part(typeid):
             return gcdata.type_info_table[typeid].varofstoptrs
+
+        def q_weakpointer_offset(typeid):
+            return gcdata.type_info_table[typeid].weakptrofs
 
         gcdata = GCData()
         # set up dummy a table, to be overwritten with the real one in finish()
@@ -117,7 +121,8 @@ class FrameworkGCTransformer(GCTransformer):
                 q_varsize_item_sizes,
                 q_varsize_offset_to_variable_part,
                 q_varsize_offset_to_length,
-                q_varsize_offsets_to_gcpointers_in_var_part)
+                q_varsize_offsets_to_gcpointers_in_var_part,
+                q_weakpointer_offset)
 
         bk = self.translator.annotator.bookkeeper
 
@@ -178,9 +183,9 @@ class FrameworkGCTransformer(GCTransformer):
             self.incr_stack_ptr = None
             self.decr_stack_ptr = None
             self.save_addr_ptr = None
-            
+        self.weakref_deref_ptr = self.inittime_helper(
+            ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
         
-
         classdef = bk.getuniqueclassdef(GCClass)
         s_gc = annmodel.SomeInstance(classdef)
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
@@ -188,13 +193,15 @@ class FrameworkGCTransformer(GCTransformer):
             GCClass.malloc_fixedsize.im_func,
             [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
+             annmodel.SomeBool(), annmodel.SomeBool(),
+             annmodel.SomeBool()], s_gcref,
             inline = False)
         self.malloc_fixedsize_clear_ptr = getfn(
             GCClass.malloc_fixedsize_clear.im_func,
             [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
+             annmodel.SomeBool(), annmodel.SomeBool(),
+             annmodel.SomeBool()], s_gcref,
             inline = False)
 ##         self.malloc_varsize_ptr = getfn(
 ##             GCClass.malloc_varsize.im_func,
@@ -324,6 +331,7 @@ class FrameworkGCTransformer(GCTransformer):
             offsets = offsets_to_gc_pointers(TYPE)
             info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
             info["finalyzer"] = self.finalizer_funcptr_for_type(TYPE)
+            info["weakptrofs"] = weakpointer_offset(TYPE)
             if not TYPE._is_varsize():
                 info["isvarsize"] = False
                 info["fixedsize"] = llmemory.sizeof(TYPE)
@@ -494,6 +502,9 @@ class FrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
         info = self.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
+        c_has_finalizer = rmodel.inputconst(
+            lltype.Bool, bool(self.finalizer_funcptr_for_type(TYPE)))
+
         if not op.opname.endswith('_varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
             zero = flags.get('zero', False)
@@ -501,7 +512,8 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
-            args = [self.c_const_gc, c_type_id, c_size, c_can_collect]
+            args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+                    c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
         else:
             v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info['ofstolength'])
@@ -512,11 +524,8 @@ class FrameworkGCTransformer(GCTransformer):
 ##             else:
 ##                 malloc_ptr = self.malloc_varsize_clear_ptr
             args = [self.c_const_gc, c_type_id, v_length, c_size,
-                    c_varitemsize, c_ofstolength, c_can_collect]
-        c_has_finalizer = rmodel.inputconst(
-            lltype.Bool, bool(self.finalizer_funcptr_for_type(TYPE)))
-        args.append(c_has_finalizer)
-
+                    c_varitemsize, c_ofstolength, c_can_collect,
+                    c_has_finalizer]
         self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
@@ -567,6 +576,42 @@ class FrameworkGCTransformer(GCTransformer):
         v_ob = hop.spaceop.args[0]
         TYPE = v_ob.concretetype.TO
         gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
+
+    def gct_weakref_create(self, hop):
+        op = hop.spaceop
+
+        type_id = self.get_type_id(WEAKREF)
+
+        c_type_id = rmodel.inputconst(lltype.Signed, type_id)
+        info = self.type_info_list[type_id]
+        c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
+        malloc_ptr = self.malloc_fixedsize_ptr
+        c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
+        c_has_weakptr = c_can_collect = rmodel.inputconst(lltype.Bool, True)
+        args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+                c_has_finalizer, c_has_weakptr]
+
+        v_instance, = op.args
+        v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
+                           resulttype=llmemory.Address)
+        self.push_roots(hop)
+        v_result = hop.genop("direct_call", [malloc_ptr] + args,
+                             resulttype=llmemory.GCREF)
+        v_result = hop.genop("cast_opaque_ptr", [v_result],
+                            resulttype=WEAKREFPTR)
+        self.pop_roots(hop)
+        hop.genop("bare_setfield",
+                  [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
+        v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
+                              resulttype=llmemory.WeakRefPtr)
+        hop.cast_result(v_weakref)
+
+    def gct_weakref_deref(self, hop):
+        v_wref, = hop.spaceop.args
+        v_addr = hop.genop("direct_call",
+                           [self.weakref_deref_ptr, v_wref],
+                           resulttype=llmemory.Address)
+        hop.cast_result(v_addr)
 
     def push_alive_nopyobj(self, var, llops):
         pass
@@ -625,6 +670,11 @@ def offsets_to_gc_pointers(TYPE):
         offsets.append(0)
     return offsets
 
+def weakpointer_offset(TYPE):
+    if TYPE == WEAKREF:
+        return llmemory.offsetof(WEAKREF, "weakptr")
+    return -1
+
 def gen_zero_gc_pointers(TYPE, v, llops):
     assert isinstance(TYPE, lltype.Struct)
     for name in TYPE._names:
@@ -656,3 +706,29 @@ def gc_pointers_inside(v, adr):
             for i in range(len(v.items)):
                 for a in gc_pointers_inside(v.items[i], adr + llmemory.itemoffsetof(t, i)):
                     yield a
+
+
+########## weakrefs ##########
+# framework: weakref objects are small structures containing only an address
+
+WEAKREF = lltype.GcStruct("weakref", ("weakptr", llmemory.Address))
+WEAKREFPTR = lltype.Ptr(WEAKREF)
+sizeof_weakref= llmemory.sizeof(WEAKREF)
+empty_weakref = lltype.malloc(WEAKREF, immortal=True)
+empty_weakref.weakptr = llmemory.NULL
+
+def ll_weakref_deref(wref):
+    wref = llmemory.cast_weakrefptr_to_ptr(WEAKREFPTR, wref)
+    if wref:
+        return wref.weakptr
+    return llmemory.NULL
+
+def convert_weakref_to(targetptr):
+    # Prebuilt weakrefs don't really need to be weak at all,
+    # but we need to emulate the structure expected by ll_weakref_deref().
+    if not targetptr:
+        return empty_weaklink
+    else:
+        link = lltype.malloc(WEAKPTR, immortal=True)
+        link.weakptr = llmemory.cast_ptr_to_adr(targetptr)
+        return link

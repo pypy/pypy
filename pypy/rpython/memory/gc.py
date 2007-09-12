@@ -65,7 +65,8 @@ class GCBase(object):
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
                             varsize_offset_to_length,
-                            varsize_offsets_to_gcpointers_in_var_part):
+                            varsize_offsets_to_gcpointers_in_var_part,
+                            weakpointer_offset):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.offsets_to_gc_pointers = offsets_to_gc_pointers
@@ -74,6 +75,7 @@ class GCBase(object):
         self.varsize_offset_to_variable_part = varsize_offset_to_variable_part
         self.varsize_offset_to_length = varsize_offset_to_length
         self.varsize_offsets_to_gcpointers_in_var_part = varsize_offsets_to_gcpointers_in_var_part
+        self.weakpointer_offset = weakpointer_offset
 
     def write_barrier(self, addr, addr_to, addr_struct):
         addr_to.address[0] = addr
@@ -140,6 +142,9 @@ class MarkSweepGC(GCBase):
         self.AddressLinkedList = AddressLinkedList
         self.malloced_objects = lltype.nullptr(self.HDR)
         self.malloced_objects_with_finalizer = lltype.nullptr(self.HDR)
+        # these are usually only the small bits of memory that make a
+        # weakref object
+        self.objects_with_weak_pointers = lltype.nullptr(self.HDR)
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         # pools, for x_swap_pool():
@@ -149,6 +154,9 @@ class MarkSweepGC(GCBase):
         #   The exception is 'curpool' whose linked list of objects is in
         #   'self.malloced_objects' instead of in the header of 'curpool'.
         #   POOL objects are never in the middle of a linked list themselves.
+        # XXX a likely cause for the current problems with pools is:
+        # not all objects live in malloced_objects, some also live in
+        # malloced_objects_with_finalizer and objects_with_weak_pointers
         self.curpool = lltype.nullptr(self.POOL)
         #   'poolnodes' is a linked list of all such linked lists.  Each
         #   linked list will usually start with a POOL object, but it can
@@ -162,18 +170,23 @@ class MarkSweepGC(GCBase):
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
         needs_finalizer =  bool(self.getfinalizer(typeid))
+        contains_weakptr = self.weakpointer_offset(typeid) != -1
+        assert needs_finalizer != contains_weakptr
         if self.is_varsize(typeid):
+            assert not contains_weakptr
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             ref = self.malloc_varsize(typeid, length, size, itemsize,
-                                      offset_to_length, True, needs_finalizer)
+                                      offset_to_length, True, needs_finalizer,
+                                      contains_weakptr)
         else:
             ref = self.malloc_fixedsize(typeid, size, True, needs_finalizer)
         # XXX lots of cast and reverse-cast around, but this malloc()
         # should eventually be killed
         return llmemory.cast_ptr_to_adr(ref)
 
-    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False):
+    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
+                         contains_weakptr=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -192,6 +205,9 @@ class MarkSweepGC(GCBase):
         if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
+        elif contains_weakptr:
+            hdr.next = self.objects_with_weak_pointers
+            self.objects_with_weak_pointers = hdr
         else:
             hdr.next = self.malloced_objects
             self.malloced_objects = hdr
@@ -201,7 +217,8 @@ class MarkSweepGC(GCBase):
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
-    def malloc_fixedsize_clear(self, typeid, size, can_collect, has_finalizer=False):
+    def malloc_fixedsize_clear(self, typeid, size, can_collect,
+                               has_finalizer=False, contains_weakptr=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -221,6 +238,9 @@ class MarkSweepGC(GCBase):
         if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
+        elif contains_weakptr:
+            hdr.next = self.objects_with_weak_pointers
+            self.objects_with_weak_pointers = hdr
         else:
             hdr.next = self.malloced_objects
             self.malloced_objects = hdr
@@ -264,8 +284,9 @@ class MarkSweepGC(GCBase):
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
-    def malloc_varsize_clear(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect, has_finalizer=False):
+    def malloc_varsize_clear(self, typeid, length, size, itemsize,
+                             offset_to_length, can_collect,
+                             has_finalizer=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -372,7 +393,41 @@ class MarkSweepGC(GCBase):
             gc_info = llmemory.cast_ptr_to_adr(self.curpool) - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             hdr.typeid = hdr.typeid | 1
-
+        # go through the list of objects containing weak pointers
+        # and kill the links if they go to dead objects
+        # if the object itself is not marked, free it
+        hdr = self.objects_with_weak_pointers
+        surviving = lltype.nullptr(self.HDR)
+        while hdr:
+            typeid = hdr.typeid >> 1
+            next = hdr.next
+            addr = llmemory.cast_ptr_to_adr(hdr)
+            size = self.fixed_size(typeid)
+            estimate = raw_malloc_usage(size_gc_header + size)
+            if hdr.typeid & 1:
+                typeid = hdr.typeid >> 1
+                offset = self.weakpointer_offset(typeid)
+                hdr.typeid = hdr.typeid & (~1)
+                gc_info = llmemory.cast_ptr_to_adr(hdr)
+                weakref_obj = gc_info + size_gc_header
+                pointing_to = (weakref_obj + offset).address[0]
+                if pointing_to:
+                    gc_info_pointing_to = pointing_to - size_gc_header
+                    hdr_pointing_to = llmemory.cast_adr_to_ptr(
+                        gc_info_pointing_to, self.HDRPTR)
+                    # pointed to object will die
+                    # XXX what to do if the object has a finalizer which resurrects
+                    # the object?
+                    if not hdr_pointing_to.typeid & 1:
+                        (weakref_obj + offset).address[0] = NULL
+                hdr.next = surviving
+                surviving = hdr
+                curr_heap_size += estimate
+            else:
+                freed_size += estimate
+                raw_free(addr)
+            hdr = next
+        self.objects_with_weak_pointers = surviving
         # sweep: delete objects without del if they are not marked
         # unmark objects without del that are marked
         firstpoolnode = lltype.malloc(self.POOLNODE, flavor='raw')

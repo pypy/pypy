@@ -45,10 +45,9 @@ translation_optiondescription = OptionDescription(
                   "exact_boehm"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False)], # XXX
-                     "framework": [("translation.rweakref", False)], # XXX
                      "none": [("translation.rweakref", False)], # XXX
                      "stacklessgc": [("translation.stackless", True),
-                                     ("translation.rweakref", False)]}, # XXX
+                                     ]},
                   cmdline="--gc"),
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread",
