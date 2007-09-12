@@ -4,16 +4,17 @@
 #ifdef _RPyListOfString_New     /*  :-(  */
 #  define HAVE_RPY_LIST_OF_STRING
 #endif
+
 #include "c/src/thread.h"
-#include "c/src/ll_os.h"
+//#include "c/src/ll_os.h"
 #include "c/src/ll_math.h"
 #include "c/src/ll_time.h"
 #include "c/src/ll_strtod.h"
-#include "c/src/ll_thread.h"
+//#include "c/src/ll_thread.h"
 #include "c/src/stack.h"
 
 // setup code for ThreadLock Opaque types
-char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
+/*char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
 				      int initially_locked) {
 
   struct RPyOpaque_ThreadLock tmp = RPyOpaque_INITEXPR_ThreadLock;
@@ -27,6 +28,7 @@ char *RPyOpaque_LLVM_SETUP_ThreadLock(struct RPyOpaque_ThreadLock *lock,
   }
   return NULL;
 }
+*/
 
 // raw malloc code
 char *raw_malloc(long size) {
