@@ -10,11 +10,11 @@ class BaseTestRunTest:
 
     def test_patch_os(self):
         import os
-        from pypy.translator.cli.support import patch, unpatch, NT_OS
+        from pypy.translator.oosupport.support import patch_os, unpatch_os, NT_OS
         original_O_CREAT = os.O_CREAT
-        olddefs = patch()
+        olddefs = patch_os()
         assert os.O_CREAT == NT_OS['O_CREAT']
-        unpatch(*olddefs)
+        unpatch_os(olddefs)
         assert os.O_CREAT == original_O_CREAT
 
     def test_int(self):
