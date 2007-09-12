@@ -117,3 +117,9 @@ if GC integration has happened and this junk is still here, please delete it :)
 	}							\
     }
 #define OP_CPY_FREE(x)   OP_RAW_FREE(x, /*nothing*/)
+
+/************************************************************/
+/* weakref support */
+
+#define OP_CAST_PTR_TO_WEAKREFPTR(x, r)  r = x
+#define OP_CAST_WEAKREFPTR_TO_PTR(x, r)  r = x

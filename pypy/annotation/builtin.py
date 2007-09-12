@@ -591,9 +591,26 @@ def llweakref_deref(s_ptrtype, s_wref):
                         "got %s" % (s_wref,))
     return SomePtr(s_ptrtype.const)
 
+def llcast_ptr_to_weakrefptr(s_ptr):
+    assert isinstance(s_ptr, SomePtr)
+    return SomePtr(llmemory.WeakRefPtr)
+
+def llcast_weakrefptr_to_ptr(s_ptrtype, s_wref):
+    if not (s_ptrtype.is_constant() and
+            isinstance(s_ptrtype.const, lltype.Ptr)):
+        raise Exception("cast_weakrefptr_to_ptr() arg 1 must be a constant "
+                        "ptr type, got %s" % (s_ptrtype,))
+    if not (isinstance(s_wref, SomePtr) and
+            s_wref.ll_ptrtype == llmemory.WeakRefPtr):
+        raise Exception("cast_weakrefptr_to_ptr() arg 2 must be a WeakRefPtr, "
+                        "got %s" % (s_wref,))
+    return SomePtr(s_ptrtype.const)
+
 from pypy.rpython.lltypesystem import llmemory
 BUILTIN_ANALYZERS[llmemory.weakref_create] = llweakref_create
 BUILTIN_ANALYZERS[llmemory.weakref_deref ] = llweakref_deref
+BUILTIN_ANALYZERS[llmemory.cast_ptr_to_weakrefptr] = llcast_ptr_to_weakrefptr
+BUILTIN_ANALYZERS[llmemory.cast_weakrefptr_to_ptr] = llcast_weakrefptr_to_ptr
 
 #________________________________
 # non-gc objects

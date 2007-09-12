@@ -709,6 +709,13 @@ class LLFrame(object):
         return llmemory.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
+    def op_cast_ptr_to_weakrefptr(self, obj):
+        return llmemory.cast_ptr_to_weakrefptr(obj)
+
+    def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
+        return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
+    op_cast_weakrefptr_to_ptr.need_result_type = True
+
     def op_gc__collect(self):
         import gc
         gc.collect()

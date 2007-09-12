@@ -610,9 +610,24 @@ def rtype_weakref_deref(hop):
     hop.exception_cannot_occur()
     return hop.genop('weakref_deref', [v_wref], resulttype=c_ptrtype.value)
 
+def rtype_cast_ptr_to_weakrefptr(hop):
+    vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.genop('cast_ptr_to_weakrefptr', vlist,
+                     resulttype=llmemory.WeakRefPtr)
+
+def rtype_cast_weakrefptr_to_ptr(hop):
+    c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
+    assert v_wref.concretetype == llmemory.WeakRefPtr
+    hop.exception_cannot_occur()
+    return hop.genop('cast_weakrefptr_to_ptr', [v_wref],
+                     resulttype=c_ptrtype.value)
+
 BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
 BUILTIN_TYPER[llmemory.weakref_create] = rtype_weakref_create
 BUILTIN_TYPER[llmemory.weakref_deref ] = rtype_weakref_deref
+BUILTIN_TYPER[llmemory.cast_ptr_to_weakrefptr] = rtype_cast_ptr_to_weakrefptr
+BUILTIN_TYPER[llmemory.cast_weakrefptr_to_ptr] = rtype_cast_weakrefptr_to_ptr
 
 # _________________________________________________________________
 # non-gc objects

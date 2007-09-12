@@ -548,6 +548,38 @@ class _wref(lltype._container):
 # a prebuilt pointer to a dead low-level weakref
 dead_wref = _wref(None)._as_ptr()
 
+# The rest is to support the GC transformers: they can use it to build
+# an explicit weakref object with some structure and then "hide" the
+# result by casting it to a WeakRefPtr, and "reveal" it again.  In other
+# words, weakref_create and weakref_deref are operations that exist only
+# before the GC transformation, whereas the two cast operations below
+# exist only after.  They are implemented here only to allow GC
+# transformers to be tested on top of the llinterpreter.
+def cast_ptr_to_weakrefptr(ptr):
+    if ptr:
+        return _gctransformed_wref(ptr)._as_ptr()
+    else:
+        return lltype.nullptr(WeakRef)
+
+def cast_weakrefptr_to_ptr(PTRTYPE, pwref):
+    assert lltype.typeOf(pwref) == WeakRefPtr
+    if pwref:
+        assert isinstance(pwref._obj, _gctransformed_wref)
+        assert PTRTYPE == lltype.typeOf(pwref._obj._ptr)
+        return pwref._obj._ptr
+    else:
+        return lltype.nullptr(PTRTYPE.TO)
+
+class _gctransformed_wref(lltype._container):
+    _gckind = 'gc'
+    _TYPE = WeakRef
+    def __init__(self, ptr):
+        self._ptr = ptr
+    def __repr__(self):
+        return '<%s>' % (self,)
+    def __str__(self):
+        return 'gctransformed_wref(%s)' % (self._ptr,)
+
 # ____________________________________________________________
 
 def raw_malloc(size):

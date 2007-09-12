@@ -160,13 +160,14 @@ empty_weaklink[0] = llmemory.NULL
 
 def ll_weakref_create(targetaddr):
     link = llop.boehm_malloc_atomic(llmemory.Address, sizeof_weakreflink)
-    link.address[0] = targetaddr
+    plink = llmemory.cast_adr_to_ptr(link, lltype.Ptr(WEAKLINK))
+    plink[0] = targetaddr
     llop.boehm_disappearing_link(lltype.Void, link, targetaddr)
-    return llmemory.cast_adr_to_ptr(link, llmemory.WeakRefPtr)
+    return llmemory.cast_ptr_to_weakrefptr(plink)
 
 def ll_weakref_deref(wref):
-    link = llmemory.cast_ptr_to_adr(wref)
-    return link and link.address[0]
+    plink = llmemory.cast_weakrefptr_to_ptr(lltype.Ptr(WEAKLINK), wref)
+    return plink[0]
 
 def convert_weakref_to(targetptr):
     # Prebuilt weakrefs don't really need to be weak at all,
@@ -176,6 +177,6 @@ def convert_weakref_to(targetptr):
     if not targetptr:
         return empty_weaklink
     else:
-        link = lltype.malloc(WEAKLINK, immortal=True)
-        link[0] = llmemory.cast_ptr_to_adr(targetptr)
-        return link
+        plink = lltype.malloc(WEAKLINK, immortal=True)
+        plink[0] = llmemory.cast_ptr_to_adr(targetptr)
+        return plink

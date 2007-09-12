@@ -406,6 +406,8 @@ LL_OPERATIONS = {
     # in the framework GC, so it should never cause a stack unwind.
     'weakref_create':       LLOp(canraise=(MemoryError,), sideeffects=False),
     'weakref_deref':        LLOp(sideeffects=False),
+    'cast_ptr_to_weakrefptr': LLOp(canfold=True), # no-op, pure type hiding
+    'cast_weakrefptr_to_ptr': LLOp(canfold=True), # no-op, pure type revealing
 
     # __________ stackless operation(s) __________
 
