@@ -602,10 +602,11 @@ def rtype_weakref_create(hop):
     # Note: this code also works for the RPython-level calls 'weakref.ref(x)'.
     vlist = hop.inputargs(hop.args_r[0])
     hop.exception_cannot_occur()
-    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRef)
+    return hop.genop('weakref_create', vlist, resulttype=llmemory.WeakRefPtr)
 
 def rtype_weakref_deref(hop):
-    c_ptrtype, v_wref = hop.inputargs(lltype.Void, llmemory.WeakRef)
+    c_ptrtype, v_wref = hop.inputargs(lltype.Void, hop.args_r[1])
+    assert v_wref.concretetype == llmemory.WeakRefPtr
     hop.exception_cannot_occur()
     return hop.genop('weakref_deref', [v_wref], resulttype=c_ptrtype.value)
 
@@ -661,24 +662,9 @@ def rtype_cast_int_to_adr(hop):
     return hop.genop('cast_int_to_adr', [v_input],
                      resulttype = llmemory.Address)
 
-def rtype_cast_ptr_to_weakadr(hop):
-    vlist = hop.inputargs(hop.args_r[0])
-    assert isinstance(vlist[0].concretetype, lltype.Ptr)
-    hop.exception_cannot_occur()
-    return hop.genop('cast_ptr_to_weakadr', vlist,
-                     resulttype = llmemory.WeakGcAddress)
-
-def rtype_cast_weakadr_to_ptr(hop):
-    assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
-    adr, TYPE = hop.inputargs(hop.args_r[0], lltype.Void)
-    hop.exception_cannot_occur()
-    return hop.genop('cast_weakadr_to_ptr', [adr],
-                     resulttype = TYPE.value)
 
 BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
 BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
-BUILTIN_TYPER[llmemory.cast_ptr_to_weakadr] = rtype_cast_ptr_to_weakadr
-BUILTIN_TYPER[llmemory.cast_weakadr_to_ptr] = rtype_cast_weakadr_to_ptr
 

@@ -271,28 +271,6 @@ class BaseTestObjectModel(BaseRtypingTest):
 
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
-    def test_cast_to_and_from_weakaddress(self):
-        class A(object):
-            pass
-        class B(object):
-            pass
-        def f():
-            a = A()
-            addr = cast_object_to_weakgcaddress(a)
-            return a is cast_weakgcaddress_to_object(addr, A)
-        assert f()
-        res = self.interpret(f, [])
-        assert res
-        a = A()
-        addr = cast_object_to_weakgcaddress(A)
-        py.test.raises(AssertionError, "cast_weakgcaddress_to_object(addr, B)")
-        assert isinstance(cast_weakgcaddress_to_int(addr), int)
-        def g():
-            a = A()
-            addr = cast_object_to_weakgcaddress(a)
-            return cast_weakgcaddress_to_int(addr)
-        assert isinstance(self.interpret(f, []), int)
-
     def test_rtype_keepalive(self):
         from pypy.rlib import objectmodel
         def f():

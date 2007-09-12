@@ -276,19 +276,6 @@ def op_cast_pointer(RESTYPE, obj):
     return lltype.cast_pointer(RESTYPE, obj)
 op_cast_pointer.need_result_type = True
 
-def op_cast_ptr_to_weakadr(ptr):
-    checkptr(ptr)
-    return llmemory.cast_ptr_to_weakadr(ptr)
-
-def op_cast_weakadr_to_ptr(TYPE, wadr):
-    assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
-    return llmemory.cast_weakadr_to_ptr(wadr, TYPE)
-op_cast_weakadr_to_ptr.need_result_type = True
-
-def op_cast_weakadr_to_int(wadr):
-    assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
-    return wadr.cast_to_int()
-
 def op_cast_ptr_to_adr(ptr):
     checkptr(ptr)
     return llmemory.cast_ptr_to_adr(ptr)

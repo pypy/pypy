@@ -18,7 +18,6 @@
 
 #define OP_CAST_ADR_TO_INT(x, r)     r = ((long)x)
 #define OP_CAST_INT_TO_ADR(x, r)     r = ((void *)(x))
-#define OP_CAST_WEAKADR_TO_INT(x, r) r = ((long)x)
 
 #ifndef HIDE_POINTER
 #define HIDE_POINTER(p) (p)

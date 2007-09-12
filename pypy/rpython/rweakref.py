@@ -6,19 +6,9 @@ from pypy.rpython.rmodel import Repr
 from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.lltypesystem import lltype, llmemory
 
-
-class __extend__(annmodel.SomeLLWeakRef):
-    def rtyper_makerepr(self, rtyper):
-        return LLWeakRefRepr()
-    def rtyper_makekey(self):
-        return self.__class__,
-
-class LLWeakRefRepr(Repr):
-    lowleveltype = llmemory.WeakRef
-
 # ____________________________________________________________
 #
-# RPython-level weakrefs
+# RTyping of RPython-level weakrefs
 
 class __extend__(annmodel.SomeWeakRef):
     def rtyper_makerepr(self, rtyper):
@@ -28,7 +18,7 @@ class __extend__(annmodel.SomeWeakRef):
 
 
 class WeakRefRepr(Repr):
-    lowleveltype = llmemory.WeakRef
+    lowleveltype = llmemory.WeakRefPtr
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
@@ -48,7 +38,7 @@ class WeakRefRepr(Repr):
         # obscure!  if the annotator hasn't seen this object before,
         # we don't want to look at it now (confusion tends to result).
         if instance is None or not bk.have_seen(instance):
-            return llmemory.WeakRef._defl()
+            return llmemory.dead_wref
         else:
             repr = self.rtyper.bindingrepr(Constant(instance))
             llinstance = repr.convert_const(instance)

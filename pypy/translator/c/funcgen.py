@@ -11,7 +11,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference, FuncType
-from pypy.rpython.lltypesystem.llmemory import Address, WeakGcAddress
+from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 PyObjPtr = Ptr(PyObject)
@@ -568,18 +568,6 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
-    def OP_CAST_PTR_TO_WEAKADR(self, op):
-        return '%s = HIDE_POINTER(%s);' % (self.expr(op.result),
-                                             self.expr(op.args[0]))
-
-    def OP_CAST_WEAKADR_TO_PTR(self, op):
-        TYPE = self.lltypemap(op.result)
-        assert TYPE != PyObjPtr
-        typename = self.db.gettype(TYPE)
-        return '%s = (%s)REVEAL_POINTER(%s);' % (self.expr(op.result),
-                                                   cdecl(typename, ''),
-                                                   self.expr(op.args[0]))
-
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
@@ -652,7 +640,7 @@ class FunctionCodeGenerator(object):
                 format.append('%d')
             elif T == Float:
                 format.append('%f')
-            elif isinstance(T, Ptr) or T in (Address, WeakGcAddress):
+            elif isinstance(T, Ptr) or T == Address:
                 format.append('%p')
             elif T == Char:
                 if isinstance(arg, Constant):

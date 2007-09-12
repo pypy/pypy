@@ -14,7 +14,6 @@ from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeWeakRef, SomeDeadWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
-from pypy.annotation.model import SomeWeakGcAddress
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import read_can_only_throw
@@ -949,10 +948,6 @@ class __extend__(pairtype(SomeObject, SomeAddress)):
         raise UnionError, "union of address and anything else makes no sense"
 
 
-class __extend__(pairtype(SomeWeakGcAddress, SomeWeakGcAddress)):
-    def union((s_addr1, s_addr2)):
-        return SomeWeakGcAddress()
-    
 
 class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
     def setitem((s_cto, s_index), s_value):

@@ -510,12 +510,6 @@ class SomeDeadWeakRef(SomeObject):
     def can_be_none(self):
         return False
 
-class SomeLLWeakRef(SomeObject):
-    immutable = True
-
-    def can_be_none(self):
-        return False
-
 # ____________________________________________________________
 # memory addresses
 
@@ -528,9 +522,6 @@ class SomeAddress(SomeObject):
 
     def can_be_none(self):
         return False
-
-class SomeWeakGcAddress(SomeObject):
-    immutable = True
 
 # The following class is used to annotate the intermediate value that
 # appears in expressions of the form:
@@ -596,8 +587,6 @@ annotation_to_ll_map = [
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),
-    (SomeWeakGcAddress(), llmemory.WeakGcAddress),
-    (SomeLLWeakRef(), llmemory.WeakRef),
 ]
 
 def annotation_to_lltype(s_val, info=None):

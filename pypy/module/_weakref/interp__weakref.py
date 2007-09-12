@@ -4,7 +4,6 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.rpython.lltypesystem.llmemory import WEAKNULL
 import weakref
 
 

@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FuncType, PyObject, Void, \
      ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.llmemory import Address
+from pypy.rpython.lltypesystem.llmemory import Address, WeakRef, _WeakRefType
 from pypy.rpython.lltypesystem.rffi import CConstant
 from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
@@ -17,6 +17,8 @@ from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
 from pypy.translator.c import gc
 
+class NoCorrespondingNode(Exception):
+    pass
 
 # ____________________________________________________________
 
@@ -84,8 +86,11 @@ class LowLevelDatabase(object):
                 node = ArrayDefNode(self, T, varlength)
             elif isinstance(T, OpaqueType) and hasattr(T, '_exttypeinfo'):
                 node = ExtTypeOpaqueDefNode(self, T)
+            elif T == WeakRef:
+                REALT = self.gcpolicy.get_real_weakref_type()
+                node = self.gettypedefnode(REALT)
             else:
-                raise Exception("don't know about %r" % (T,))
+                raise NoCorrespondingNode("don't know about %r" % (T,))
             self.structdefnodes[key] = node
             self.pendingsetupnodes.append(node)
         return node
@@ -94,14 +99,16 @@ class LowLevelDatabase(object):
         if isinstance(T, Primitive):
             return PrimitiveType[T]
         elif isinstance(T, Ptr):
-            if isinstance(T.TO, FixedSizeArray):
-                # /me blames C
+            try:
                 node = self.gettypedefnode(T.TO)
-                return node.getptrtype()
+            except NoCorrespondingNode:
+                pass
             else:
-                typename = self.gettype(T.TO)   # who_asks not propagated
-                return typename.replace('@', '*@')
-        elif isinstance(T, (Struct, Array)):
+                if hasattr(node, 'getptrtype'):
+                    return node.getptrtype()   # special-casing because of C
+            typename = self.gettype(T.TO)   # who_asks not propagated
+            return typename.replace('@', '*@')
+        elif isinstance(T, (Struct, Array, _WeakRefType)):
             node = self.gettypedefnode(T, varlength=varlength)
             if who_asks is not None:
                 who_asks.dependencies[node] = True

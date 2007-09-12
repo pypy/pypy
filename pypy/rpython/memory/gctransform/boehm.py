@@ -43,10 +43,10 @@ class BoehmGCTransformer(GCTransformer):
             self.malloc_varsize_ptr = self.inittime_helper(
                 ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
             self.weakref_create_ptr = self.inittime_helper(
-                ll_weakref_create, [llmemory.Address], llmemory.WeakRef,
+                ll_weakref_create, [llmemory.Address], llmemory.WeakRefPtr,
                 inline=False)
             self.weakref_deref_ptr = self.inittime_helper(
-                ll_weakref_deref, [llmemory.WeakRef], llmemory.Address)
+                ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
             self.mixlevelannotator.finish()   # for now
             self.mixlevelannotator.backend_optimize()
 
@@ -137,7 +137,7 @@ class BoehmGCTransformer(GCTransformer):
                            resulttype=llmemory.Address)
         v_wref = hop.genop("direct_call",
                            [self.weakref_create_ptr, v_addr],
-                           resulttype=llmemory.WeakRef)
+                           resulttype=llmemory.WeakRefPtr)
         hop.cast_result(v_wref)
 
     def gct_weakref_deref(self, hop):
@@ -149,34 +149,33 @@ class BoehmGCTransformer(GCTransformer):
 
 
 ########## weakrefs ##########
-# Boehm: we implement weakrefs with an extra indirection: GCWeakRef is a
-# pointer to malloced data containing only a Boehm disappearing link.
-# This allows the disappearing link to remain at a fixed address.
-# We also don't have to hide the link's value with HIDE_POINTER(),
-# because we use GC_MALLOC_ATOMIC().
-
-# Declared in gc.py:  typedef GC_PTR *GCWeakRef;
+# Boehm: weakref objects are small structures containing only a Boehm
+# disappearing link.  We don't have to hide the link's value with
+# HIDE_POINTER(), because we explicitly use GC_MALLOC_ATOMIC().
 
 WEAKLINK = lltype.FixedSizeArray(llmemory.Address, 1)
 sizeof_weakreflink = llmemory.sizeof(WEAKLINK)
+empty_weaklink = lltype.malloc(WEAKLINK, immortal=True)
+empty_weaklink[0] = llmemory.NULL
 
 def ll_weakref_create(targetaddr):
     link = llop.boehm_malloc_atomic(llmemory.Address, sizeof_weakreflink)
     link.address[0] = targetaddr
     llop.boehm_disappearing_link(lltype.Void, link, targetaddr)
-    # abuse of llop.cast_pointer()
-    return llop.cast_pointer(llmemory.WeakRef, link)
+    return llmemory.cast_adr_to_ptr(link, llmemory.WeakRefPtr)
 
 def ll_weakref_deref(wref):
-    # abuse of llop.cast_pointer()
-    link = llop.cast_pointer(llmemory.Address, wref)
+    link = llmemory.cast_ptr_to_adr(wref)
     return link and link.address[0]
 
-def convert_prebuilt_weakref_to(targetptr):
+def convert_weakref_to(targetptr):
     # Prebuilt weakrefs don't really need to be weak at all,
     # but we need to emulate the structure expected by ll_weakref_deref().
     # This is essentially the same code as in ll_weakref_create(), but I'm
     # not sure trying to share it is worth the hassle...
-    link = lltype.malloc(WEAKLINK, immortal=True)
-    link[0] = llmemory.cast_ptr_to_adr(targetptr)
-    return link
+    if not targetptr:
+        return empty_weaklink
+    else:
+        link = lltype.malloc(WEAKLINK, immortal=True)
+        link[0] = llmemory.cast_ptr_to_adr(targetptr)
+        return link

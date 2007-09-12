@@ -161,7 +161,10 @@ class ContainerType(LowLevelType):
 
     def _nofield(self, name):
         raise AttributeError("no field %r" % name)
-        
+
+    def _container_example(self):
+        raise NotImplementedError
+
 
 class Struct(ContainerType):
     _gckind = 'raw'

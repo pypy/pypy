@@ -126,20 +126,21 @@ class _NewCustomDict(MicroInstruction):
         generator.emit(jvmgen.CUSTOMDICTMAKE)
 NewCustomDict = _NewCustomDict()
 
-class _CastPtrToWeakAddress(MicroInstruction):
-    def render(self, generator, op):
-        arg = op.args[0]
-        generator.prepare_cast_ptr_to_weak_address()
-        generator.load(arg)
-        generator.finalize_cast_ptr_to_weak_address(arg.concretetype)
-        generator.store(op.result)
-CastPtrToWeakAddress = _CastPtrToWeakAddress()
+#XXX adapt to new way of things
+#class _CastPtrToWeakAddress(MicroInstruction):
+#    def render(self, generator, op):
+#        arg = op.args[0]
+#        generator.prepare_cast_ptr_to_weak_address()
+#        generator.load(arg)
+#        generator.finalize_cast_ptr_to_weak_address(arg.concretetype)
+#        generator.store(op.result)
+#CastPtrToWeakAddress = _CastPtrToWeakAddress()
         
-class _CastWeakAddressToPtr(MicroInstruction):
-    def render(self, generator, op):
-        RESULTTYPE = op.result.concretetype
-        generator.cast_weak_address_to_ptr(RESULTTYPE)
-CastWeakAddressToPtr = _CastWeakAddressToPtr()
+#class _CastWeakAddressToPtr(MicroInstruction):
+#    def render(self, generator, op):
+#        RESULTTYPE = op.result.concretetype
+#        generator.cast_weak_address_to_ptr(RESULTTYPE)
+#CastWeakAddressToPtr = _CastWeakAddressToPtr()
 
 
 CASTS = {

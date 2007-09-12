@@ -120,13 +120,14 @@ class _NewCustomDict(MicroInstruction):
                             '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
                             % dict_type)
 
-class _CastWeakAdrToPtr(MicroInstruction):
-    def render(self, generator, op):
-        RESULTTYPE = op.result.concretetype
-        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
-        generator.load(op.args[0])
-        generator.ilasm.call_method('object class %s::get_Target()' % WEAKREF, True)
-        generator.ilasm.opcode('castclass', resulttype)
+#XXX adapt to new way of things
+#class _CastWeakAdrToPtr(MicroInstruction):
+#    def render(self, generator, op):
+#        RESULTTYPE = op.result.concretetype
+#        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
+#        generator.load(op.args[0])
+#        generator.ilasm.call_method('object class %s::get_Target()' % WEAKREF, True)
+#        generator.ilasm.opcode('castclass', resulttype)
 
 class MapException(MicroInstruction):
     COUNT = 0
@@ -226,7 +227,7 @@ IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
 OOString = _OOString()
 NewCustomDict = _NewCustomDict()
-CastWeakAdrToPtr = _CastWeakAdrToPtr()
+#CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()
 Unbox = _Unbox()
 NewArray = _NewArray()

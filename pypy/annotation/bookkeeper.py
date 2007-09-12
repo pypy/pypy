@@ -11,8 +11,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, SomeWeakGcAddress, HarmlesslyBlocked, \
-     SomeWeakRef, SomeDeadWeakRef
+     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef, SomeDeadWeakRef
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -409,8 +408,6 @@ class Bookkeeper:
             result = SomePtr(lltype.typeOf(x))
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress(is_null=not x)
-        elif isinstance(x, llmemory.fakeweakaddress):
-            result = SomeWeakGcAddress()
         elif isinstance(x, ootype._static_meth):
             result = SomeOOStaticMeth(ootype.typeOf(x))
         elif isinstance(x, ootype._class):

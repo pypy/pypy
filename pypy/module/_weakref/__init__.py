@@ -14,7 +14,6 @@ class Module(MixedModule):
     }
 
     def __init__(self, space, *args):
-        if space.config.translation.sandbox:
-            raise SkipModule(
-                "XXX weakrefs are disabled in a sandbox translation ATM")
+        if not space.config.translation.rweakref:
+            raise SkipModule("no RPython-level weakrefs")
         MixedModule.__init__(self, space, *args)

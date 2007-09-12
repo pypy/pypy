@@ -170,20 +170,3 @@ def test_fakeaddress2():
     fn = compile_function(f, [])
     assert f() == 579
     
-def test_weakaddress():
-    from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
-    from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
-    from pypy.rpython.lltypesystem.lloperation import llop
-    class A(object):
-        pass
-    def func(i):
-        l1 = []
-        l2 = []
-        for i in range(i):
-            a = A()
-            l1.append(a)
-            l2.append(cast_object_to_weakgcaddress(a))
-        return len(l1) == len(l2)
-    fn = compile_function(func, [int])
-    assert fn(10)
-    

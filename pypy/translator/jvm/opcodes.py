@@ -10,7 +10,7 @@ from pypy.translator.oosupport.metavm import \
      SetField, GetField, DownCast, RuntimeNew, OOString, CastTo, PushPrimitive
 from pypy.translator.jvm.metavm import \
      IndirectCall, JvmCallMethod, TranslateException, NewCustomDict, \
-     CastPtrToWeakAddress, CastWeakAddressToPtr, CastPrimitive
+     CastPrimitive
 from pypy.rpython.ootypesystem import ootype
 
 import pypy.translator.jvm.generator as jvmgen
@@ -65,8 +65,6 @@ _opcodes = {
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
 
-    'cast_ptr_to_weakadr':      [CastPtrToWeakAddress],
-    'cast_weakadr_to_ptr':      CastWeakAddressToPtr,
     'gc__collect':              jvmgen.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,

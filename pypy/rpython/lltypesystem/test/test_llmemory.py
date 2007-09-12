@@ -157,35 +157,6 @@ def test_cast_adr_to_int():
     res = interpret(f, [])
     assert res
 
-def test_weak_casts():
-    from pypy.rpython.memory.test.test_llinterpsim import interpret
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    Sptr = lltype.Ptr(S)
-    def f():
-        s1 = lltype.malloc(S)
-        adr = cast_ptr_to_weakadr(s1)
-        s2 = cast_weakadr_to_ptr(adr, Sptr)
-        return s1 == s2
-    res = interpret(f, [])
-    assert res
-
-def test_weak_casts_lifetime():
-    T = lltype.GcStruct("T", ("x", lltype.Signed))
-    S = lltype.GcStruct("S", ("t", T))
-    Sptr = lltype.Ptr(S)
-    def g():
-        s1 = lltype.malloc(S)
-        adr = cast_ptr_to_weakadr(s1)
-        s2 = cast_weakadr_to_ptr(adr, Sptr)
-        assert s1 == s2
-        return adr, lltype.cast_pointer(lltype.Ptr(T), s2)   # s1, s2 go away
-    def f():
-        adr, t = g()
-        t2 = cast_weakadr_to_ptr(adr, lltype.Ptr(T))
-        return t2 == t
-    res = interpret(f, [])
-    assert res
-
 def test_fakeaccessor():
     S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
     s = lltype.malloc(S)
@@ -609,31 +580,3 @@ def test_weakref():
     assert weakref_deref(lltype.Ptr(S), w) == lltype.nullptr(S)
     assert weakref_deref(lltype.Ptr(S1), w) == lltype.nullptr(S1)
 
-class TestWeakAddressLLinterp(object):
-    def test_null(self):
-        from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
-        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
-        class A:
-            pass
-        def f():
-            return cast_weakgcaddress_to_object(WEAKNULL, A) is None
-        assert interpret(f, [])
-    
-    def test_attribute(object):
-        from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
-        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
-        class A:
-            pass
-        class B:
-            pass
-        def f(x):
-            a = A()
-            b = B()
-            if x:
-                a.addr = WEAKNULL
-            else:
-                a.addr = cast_object_to_weakgcaddress(b)
-            return cast_weakgcaddress_to_object(a.addr, B) is b
-        assert not interpret(f, [1])
-        assert interpret(f, [0])
- 

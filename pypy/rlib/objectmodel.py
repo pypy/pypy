@@ -123,69 +123,7 @@ def free_non_gc_object(obj):
     obj.__dict__ = {}
     obj.__class__ = FREED_OBJECT
 
-def cast_object_to_weakgcaddress(obj):
-    from pypy.rpython.lltypesystem.llmemory import fakeweakaddress
-    return fakeweakaddress(obj)
-
-def cast_weakgcaddress_to_object(address, expected_result):
-    if address.ref is None:  # NULL address
-        return None
-    obj = address.get()
-    assert obj is not None
-    assert isinstance(obj, expected_result)
-    return obj
-
 from pypy.rpython.extregistry import ExtRegistryEntry
-
-class Entry(ExtRegistryEntry):
-    _about_ = cast_object_to_weakgcaddress
-
-    def compute_result_annotation(self, s_obj):
-        from pypy.annotation import model as annmodel
-        return annmodel.SomeWeakGcAddress()
-
-    def specialize_call(self, hop):
-        vlist = hop.inputargs(hop.args_r[0])
-        return hop.genop('cast_ptr_to_weakadr', vlist,
-                         resulttype=hop.r_result.lowleveltype)
-
-class Entry(ExtRegistryEntry):
-    _about_ = cast_weakgcaddress_to_object
-
-    def compute_result_annotation(self, s_int, s_clspbc):
-        from pypy.annotation import model as annmodel
-        assert len(s_clspbc.descriptions) == 1
-        desc = s_clspbc.descriptions.keys()[0]
-        cdef = desc.getuniqueclassdef()
-        return annmodel.SomeInstance(cdef, can_be_None=True)
-
-    def specialize_call(self, hop):
-        from pypy.rpython import raddress
-        assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
-        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
-        return hop.genop('cast_weakadr_to_ptr', vlist,
-                         resulttype = hop.r_result.lowleveltype)
-
-
-def cast_weakgcaddress_to_int(address):
-    if address.ref is None:  # NULL address
-        return 0
-    return address.cast_to_int()
-
-
-class Entry(ExtRegistryEntry):
-    _about_ = cast_weakgcaddress_to_int
-
-    def compute_result_annotation(self, s_int):
-        return annmodel.SomeInteger()
-    
-
-    def specialize_call(self, hop):
-        from pypy.rpython import raddress
-        assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
-        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
-        return hop.genop('cast_weakadr_to_int', vlist,
-                         resulttype = hop.r_result.lowleveltype)
 
 # ____________________________________________________________
 

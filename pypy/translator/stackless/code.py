@@ -296,7 +296,6 @@ class StacklessData:
         self.retval_float = 0.0
         self.retval_addr = llmemory.NULL
         self.retval_ref = frame.null_saved_ref
-        self.retval_weak = llmemory.WEAKNULL
         self.exception = None
         self.masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY, 0,
                                          immortal=True)
@@ -339,9 +338,6 @@ def call_function(fn, signature_index):
     elif retval_code == frame.RETVAL_LONGLONG:
         global_state.retval_longlong = (
             call_function_retval_longlong(fn, signature_index))
-    elif retval_code == frame.RETVAL_WEAK:
-        global_state.retval_weak = (
-            call_function_retval_weak(fn, signature_index))
     else:
         assert False
 call_function.stackless_explicit = True
@@ -449,12 +445,3 @@ def fetch_retval_ref():
         global_state.retval_ref = frame.null_saved_ref
         return res
 fetch_retval_ref.stackless_explicit = True
-
-def fetch_retval_weak():
-    e = global_state.exception
-    if e:
-        global_state.exception = None
-        raise e
-    else:
-        return global_state.retval_weak
-fetch_retval_weak.stackless_explicit = True

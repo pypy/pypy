@@ -9,7 +9,7 @@ from pypy.rpython.rtyper import RPythonTyper
 from pypy.rpython.memory.lladdress import _address, NULL
 from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
 from pypy.rpython.memory.lladdress import get_py_object, get_address_of_object
-from pypy.rpython.lltypesystem.llmemory import Address, NullAddressError, WEAKNULL
+from pypy.rpython.lltypesystem.llmemory import Address, NullAddressError
 from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 from pypy.rpython.lltypesystem import lltype

@@ -220,11 +220,8 @@ class Repr:
             raise TyperError('id() of an instance of the non-pointer %r' % (
                 self,))
         vobj, = hop.inputargs(self)
-        # XXX why did this go through weakadr??
-        #v_waddr = hop.genop('cast_ptr_to_weakadr', [vobj],
-        #                    resulttype=llmemory.WeakGcAddress)
-        #return hop.genop('cast_weakadr_to_int', [v_waddr], resulttype=Signed)
-
+        # XXX I am still not sure whether this is the right thing to do,
+        # since the int might keep things alive with boehm
         return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
 
     def rtype_hash(self, hop):

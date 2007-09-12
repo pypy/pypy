@@ -1,6 +1,6 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, OOString, DownCast, NewCustomDict,\
-     CastWeakAdrToPtr, MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
+     MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf, CastPrimitive
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive
@@ -60,7 +60,6 @@ opcodes = {
     'indirect_call':            [IndirectCall],
 
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
-    'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,

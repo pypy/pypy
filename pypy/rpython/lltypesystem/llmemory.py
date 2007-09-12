@@ -487,97 +487,66 @@ def cast_adr_to_int(adr):
 def cast_int_to_adr(int):
     raise NotImplementedError("cast_int_to_adr")
 
-
 # ____________________________________________________________
+# Weakrefs.
 #
-# WeakRef       - like in RPython, they are pointers that don't keep their
-#                 target malloc'ed structure alive.  When the target dies
-#                 all WeakRefs to it are cleared.
+# An object of type WeakRef is a small GC-managed object that contains
+# a weak reference to another GC-managed object, as in regular Python.
 #
-# WeakGcAddress - like WeakRef but not automatically cleared.  There is
-#                 no direct way to know if the target is still alive.
-#                 We should more or less deprecate them in favor of WeakRef.
 
-class fakeweakaddress(object):
-    # XXX convoluted code to support both lltype._ptr and simulatorptr
-    def __init__(self, ob):
-        if ob is not None:
-            if isinstance(ob, lltype._ptr):
-                ob = lltype.normalizeptr(ob)._obj
-            self.obref = weakref.ref(ob)
-            self.ref = self.get     # backward compatibility
-            # umpf
-            from pypy.rpython.memory import lltypesimulation
-            if isinstance(ob, (lltype._ptr,lltypesimulation.simulatorptr)):
-                self.id = ob._cast_to_int()
-            else:
-                self.id = id(ob)
-        else:
-            self.obref = None
-            self.ref = None
-    def get(self):
-        if self.obref is None:
-            return None
-        ob = self.obref()
-        # xxx stop-gap
-        #if ob is None:
-        #    raise DanglingPointerError
-        if isinstance(ob, lltype._container):
-            ob = ob._as_ptr()
-        return ob
-    def __repr__(self):
-        if self.obref is None:
-            s = 'NULL'
-        else:
-            s = str(self.obref)
-        return '<%s %s>' % (self.__class__.__name__, s)
-    def cast_to_int(self):
-        # this is not always the behaviour that is really happening
-        # but make sure that nobody depends on it
-        return self.id ^ ~3
+class _WeakRefType(lltype.ContainerType):
+    _gckind = 'gc'
+    def __str__(self):
+        return "WeakRef"
 
-WeakGcAddress = lltype.Primitive("WeakGcAddress",
-                                 fakeweakaddress(None))
+WeakRef = _WeakRefType()
+WeakRefPtr = lltype.Ptr(WeakRef)
 
-def cast_ptr_to_weakadr(obj):
-    assert isinstance(lltype.typeOf(obj), lltype.Ptr)
-    return fakeweakaddress(obj)
-
-def cast_weakadr_to_ptr(adr, EXPECTED_TYPE):
-    result = adr.get()
-    if result is None:
-        return lltype.nullptr(EXPECTED_TYPE.TO)
-    else:
-        return lltype.cast_pointer(EXPECTED_TYPE, result)
-
-fakeweakaddress._TYPE = WeakGcAddress
-WEAKNULL = fakeweakaddress(None)
-
-# ____________________________________________________________
-
-class fakeweakref(fakeweakaddress):
-    pass        # inheriting only to copy all methods
-
-WeakRef = lltype.Primitive("WeakRef", fakeweakref(None))
-
-def weakref_create(obj):
-    PTRTYPE = lltype.typeOf(obj)
+def weakref_create(ptarget):
+    # ptarget should not be a nullptr
+    PTRTYPE = lltype.typeOf(ptarget)
     assert isinstance(PTRTYPE, lltype.Ptr)
     assert PTRTYPE.TO._gckind == 'gc'
-    return fakeweakref(obj)
+    assert ptarget
+    return _wref(ptarget)._as_ptr()
 
-def weakref_deref(PTRTYPE, wref):
+def weakref_deref(PTRTYPE, pwref):
+    # pwref should not be a nullptr
     assert isinstance(PTRTYPE, lltype.Ptr)
     assert PTRTYPE.TO._gckind == 'gc'
-    assert lltype.typeOf(wref) == WeakRef
-    p = wref.get()
+    assert lltype.typeOf(pwref) == WeakRefPtr
+    p = pwref._obj._dereference()
     if p is None:
         return lltype.nullptr(PTRTYPE.TO)
     else:
         return lltype.cast_pointer(PTRTYPE, p)
 
-fakeweakref._TYPE = WeakRef
-WEAKREFNULL = fakeweakref(None)
+class _wref(lltype._container):
+    _gckind = 'gc'
+    _TYPE = WeakRef
+
+    def __init__(self, ptarget):
+        if ptarget is None:
+            self._obref = lambda: None
+        else:
+            obj = lltype.normalizeptr(ptarget)._obj
+            self._obref = weakref.ref(obj)
+
+    def _dereference(self):
+        obj = self._obref()
+        if obj is None:
+            return None
+        else:
+            return obj._as_ptr()
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return 'wref -> %s' % (self._obref(),)
+
+# a prebuilt pointer to a dead low-level weakref
+dead_wref = _wref(None)._as_ptr()
 
 # ____________________________________________________________
 
