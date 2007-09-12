@@ -172,8 +172,8 @@ public class ll_os {
     private static Map<Integer, String> ErrorMessages = new HashMap<Integer, String>();
 
     static {
-        FileDescriptors.put(new Integer(0), new PrintStreamWrapper(System.out));
-        FileDescriptors.put(new Integer(1), new InputStreamWrapper(System.in));
+        FileDescriptors.put(new Integer(0), new InputStreamWrapper(System.in));
+        FileDescriptors.put(new Integer(1), new PrintStreamWrapper(System.out));
         FileDescriptors.put(new Integer(2), new PrintStreamWrapper(System.err));
         fdcount = 2;
     }
