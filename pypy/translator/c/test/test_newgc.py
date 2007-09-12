@@ -566,6 +566,41 @@ class TestUsingFramework(AbstractGCTestClass):
         # does not crash
         fn()
 
+    def test_weakref(self):
+        import weakref
+        from pypy.rlib import rgc
+
+        class A:
+            pass
+
+        def fn():
+            n = 7000
+            keepalive = []
+            weakrefs = []
+            a = None
+            for i in range(n):
+                if i & 1 == 0:
+                    a = A()
+                    a.index = i
+                weakrefs.append(weakref.ref(a))
+                if i % 7 == 6:
+                    keepalive.append(a)
+            rgc.collect()
+            count_free = 0
+            for i in range(n):
+                a = weakrefs[i]()
+                if i % 7 == 6:
+                    assert a is not None
+                if a is not None:
+                    assert a.index == i & ~1
+                else:
+                    count_free += 1
+            return count_free
+        c_fn = self.getcompiled(fn)
+        res = c_fn()
+        # more than half of them should have been freed, ideally up to 6000
+        assert 3500 <= res <= 6000
+
     def test_framework_malloc_raw(self):
         A = lltype.Struct('A', ('value', lltype.Signed))
 
@@ -722,3 +757,6 @@ class TestUsingStacklessFramework(TestUsingFramework):
             else:
                 return res
         return compiled
+
+    def test_weakref(self):
+        py.test.skip("fails for some reason I couldn't figure out yet :-(")

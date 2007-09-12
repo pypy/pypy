@@ -358,6 +358,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
         yield '%s();' % (self.db.get(fnptr),)
 
+    def get_real_weakref_type(self):
+        return framework.WEAKREF
+
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         # XXX this more or less assumes mark-and-sweep gc
