@@ -601,6 +601,28 @@ class TestUsingFramework(AbstractGCTestClass):
         # more than half of them should have been freed, ideally up to 6000
         assert 3500 <= res <= 6000
 
+    def test_prebuilt_weakref(self):
+        import weakref
+        from pypy.rlib import rgc
+        class A:
+            pass
+        a = A()
+        a.hello = 42
+        refs = [weakref.ref(a), weakref.ref(A())]
+        rgc.collect()
+        def fn():
+            result = 0
+            for i in range(2):
+                a = refs[i]()
+                if a is None:
+                    result += i
+                else:
+                    result += a.hello * i
+            return result
+        c_fn = self.getcompiled(fn)
+        res = c_fn()
+        assert res == fn()
+
     def test_framework_malloc_raw(self):
         A = lltype.Struct('A', ('value', lltype.Signed))
 

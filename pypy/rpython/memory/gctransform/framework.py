@@ -727,8 +727,8 @@ def convert_weakref_to(targetptr):
     # Prebuilt weakrefs don't really need to be weak at all,
     # but we need to emulate the structure expected by ll_weakref_deref().
     if not targetptr:
-        return empty_weaklink
+        return empty_weakref
     else:
-        link = lltype.malloc(WEAKPTR, immortal=True)
+        link = lltype.malloc(WEAKREF, immortal=True)
         link.weakptr = llmemory.cast_ptr_to_adr(targetptr)
         return link
