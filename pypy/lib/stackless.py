@@ -402,8 +402,8 @@ class tasklet(coroutine):
     def insert(self):
         if self.blocked:
             raise RuntimeError, "You cannot run a blocked tasklet"
-	   if not self.alive:
-	       raise RuntimeError, "You cannot run an unbound(dead) tasklet"
+            if not self.alive:
+               raise RuntimeError, "You cannot run an unbound(dead) tasklet"
         _scheduler_append(self)
 
     def remove(self):
@@ -411,7 +411,7 @@ class tasklet(coroutine):
             raise RuntimeError, "You cannot remove a blocked tasklet."
         if self is getcurrent():
             raise RuntimeError, "The current tasklet cannot be removed."
-		    # not sure if I will revive this  " Use t=tasklet().capture()"
+            # not sure if I will revive this  " Use t=tasklet().capture()"
         _scheduler_remove(self)
         
     def __reduce__(self):
