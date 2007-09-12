@@ -3,13 +3,16 @@ import py
 from pypy.translator.oosupport.test_template.builtin import BaseTestBuiltin, BaseTestTime
 from pypy.translator.jvm.test.runtest import JvmTest
 
+def skip_win():
+    import platform
+    if platform.system() == 'Windows':
+        py.test.skip("Doesn't work on Windows, yet")
+
 class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
 
-    def test_os_open_write(self):
-        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
-
     def test_os_write_magic(self):
-        py.test.skip("ll_os_open is not currently implemented in the Jvm backed")
+        skip_win()
+        BaseTestBuiltin.test_os_write_magic(self)
 
     def test_builtin_math_frexp(self):
         py.test.skip("metavm.py needs to be updated to handle this math op; graphless extrernal")

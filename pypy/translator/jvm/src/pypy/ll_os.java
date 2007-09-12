@@ -101,7 +101,7 @@ class RandomAccessFileWrapper extends FileWrapper
             ll_os.throwOSError(PyPy.EBADF, "Cannot write to this fd");
 
         try {
-            this.file.writeChars(buffer);
+            this.file.writeBytes(buffer);
         }
         catch(IOException e) {
             ll_os.throwOSError(PyPy.EIO, e.getMessage());
