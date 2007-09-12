@@ -82,6 +82,12 @@ class SomeArray(SomeObject):
     def method_transpose(self):
         return SomeArray(self.typecode, self.ndim)
 
+    def method_astype(self, s_dtype):
+        if isinstance(s_dtype, SomeChar) and s_dtype.is_constant():
+            typecode = s_dtype.const
+            return SomeArray(typecode, self.ndim)
+        raise AnnotatorError()
+
 class __extend__(pairtype(SomeArray, SomeArray)):
 
     def add((s_arr1, s_arr2)):

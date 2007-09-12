@@ -295,6 +295,23 @@ class ArrayRepr(Repr):
         cARRAY = inputconst(lltype.Void, r_result.lowleveltype.TO) 
         return hop.llops.gendirectcall(ll_build_alias_shape, cARRAY, v_array, v_tuple)
 
+    def rtype_method_astype(r_array, hop):
+        r_result = hop.r_result
+        v_array = hop.inputarg(r_array, 0)
+        cARRAY = inputconst(lltype.Void, r_result.lowleveltype.TO) 
+        v_result = hop.llops.gendirectcall(ll_build_like, cARRAY, v_array)
+
+        iter_new, iter_broadcast = gen_iter_funcs(r_array.ndim)        
+        cbroadcast = hop.inputconst(Void, iter_broadcast)
+        cITER0 = hop.inputconst(Void, r_result.ITER.TO)
+        v_it0 = hop.gendirectcall(iter_new, cITER0, v_result, v_result, cbroadcast)
+        cITER1 = hop.inputconst(Void, r_array.ITER.TO)
+        v_it1 = hop.gendirectcall(iter_new, cITER1, v_array, v_array, cbroadcast)
+        cITEM = hop.inputconst(Void, r_result.ITEM)
+        hop.gendirectcall(ll_array_set, cITEM, v_it0, v_it1)
+        return v_result
+
+
     def get_ndim(self, hop, v_array):
         cname = inputconst(Void, 'ndim')
         return hop.llops.genop('getfield', [v_array, cname], resulttype=Signed)
@@ -339,7 +356,7 @@ def _rtype_binop(r_array0, r_array1, r_array2, v_array1, v_array2, hop, binop):
     cARRAY = hop.inputconst(Void, r_array0.ARRAY.TO)
     # We build a contiguous "result" array
     # from the largest of the two args:
-    v_array0 = hop.gendirectcall(ll_build_like, cARRAY, v_array1, v_array2)
+    v_array0 = hop.gendirectcall(ll_build_like2, cARRAY, v_array1, v_array2)
     iter_new, iter_broadcast = gen_iter_funcs(r_array0.ndim)
     iter_new._annenforceargs_ = [None, None, None, None]
     cITER0 = hop.inputconst(Void, r_array0.ITER.TO)
@@ -641,7 +658,23 @@ def ll_build_alias(ARRAY, ao):
     array.dataptr = ao.dataptr
     return array
 
-def ll_build_like(ARRAY, array0, array1):
+def ll_build_like(ARRAY, array0):
+    ndim = array0.ndim
+    array = ARRAY.ll_allocate(ndim)
+    sz = ll_mul_list(array0.shape, array0.ndim)
+    array.data = malloc(ARRAY.data.TO, sz)
+    array.dataptr = direct_arrayitems(array.data)
+    itemsize = 1
+    i = ndim - 1
+    while i >= 0:
+        size = array0.shape[i]
+        array.shape[i] = size
+        array.strides[i] = itemsize
+        itemsize *= size
+        i -= 1
+    return array
+
+def ll_build_like2(ARRAY, array0, array1):
     # Build with shape from the largest of array0 or array1.
     # Note we cannot take the union of array0 and array1.
     ndim = max(array0.ndim, array1.ndim)

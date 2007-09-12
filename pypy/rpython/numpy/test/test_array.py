@@ -188,6 +188,15 @@ class Test_annotation:
         assert type(s) == SomeArray
         assert s.ndim == 2
 
+        def f_astype():
+            a = numpy.array(range(12))
+            return a.astype('d')
+
+        s = a.build_types(f_astype, [])
+        assert type(s) == SomeArray
+        assert s.ndim == 1
+        assert s.typecode == 'd'
+
     def test_annotate_indexing(self):
         def f():
             a = numpy.empty((4,3), dtype='i')
@@ -329,6 +338,16 @@ class Test_specialization:
         assert res.strides[1] == 1
         assert res.dataptr[5] == 5
         assert res.dataptr[6] == 0
+
+        def f_astype():
+            a = numpy.array(range(12))
+            b = a.astype('d')
+            b = b/2
+            return b
+
+        res = interpret(f_astype, [])
+        assert res.dataptr[0] == 0.
+        assert res.dataptr[1] == 0.5
 
     def test_specialize_view_0(self):
         def f():
@@ -656,4 +675,5 @@ class Test_compile:
         fn = self.compile(f, [int, int])
         assert fn(2,3) == 0
         
+
 
