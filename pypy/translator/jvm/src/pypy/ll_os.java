@@ -63,7 +63,9 @@ class InputStreamWrapper extends FileWrapper
         try {
             byte[] buf = new byte[count];
             int n = stream.read(buf, 0, count);
-            return new String(buf);
+            if (n == -1)
+                return ""; // XXX: is it right?
+            return new String(buf, 0, n);
         }
         catch(IOException e) {
             ll_os.throwOSError(PyPy.EIO, e.getMessage());
