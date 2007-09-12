@@ -1,6 +1,6 @@
 import py
-py.test.skip("llvm is no longer actively maintained")
-from pypy.tool import isolate
+py.test.skip("llvm is not actively maintained")
+
 from pypy.translator.llvm.buildllvm import llvm_is_on_path, llvm_version, gcc_version
 from pypy.translator.llvm.genllvm import GenLLVM
 
@@ -9,14 +9,16 @@ MINIMUM_LLVM_VERSION = 1.9
 
 ext_modules = []
 
-# test options
+# prevents resource leaking
+use_isolate = True
+
+# if test can't be run using isolate, skip the test (useful for buildbots)
 run_isolated_only = True
-do_not_isolate = False
 
 from pypy import conftest
 
 def _cleanup(leave=0):
-    # no test should ever need more than 5 compiled functions
+    from pypy.tool import isolate
     if leave:
         mods = ext_modules[:-leave]
     else:        
@@ -39,13 +41,6 @@ def llvm_test():
     if llvm_ver < MINIMUM_LLVM_VERSION:
         py.test.skip("llvm version not up-to-date (found "
                      "%.1f, should be >= %.1f)" % (llvm_ver, MINIMUM_LLVM_VERSION))
-
-def gcc3_test():
-    gcc_ver = gcc_version()
-    if int(gcc_ver) != 3:
-        py.test.skip("test required gcc version 3 (found version %.1f)" % gcc_ver)
-        return False
-    return True
 
 #______________________________________________________________________________
 
@@ -89,14 +84,15 @@ def genllvm_compile(function,
         driver.translator.view()
     return driver.c_module, driver.c_entryp
 
-def compile_test(function, annotation, isolate=True, **kwds):
+def compile_test(function, annotation, isolate_hint=True, **kwds):
     " returns module and compiled function "    
     llvm_test()
-    if run_isolated_only and not isolate:
-        py.test.skip("skipping not isolated test")
+
+    if run_isolated_only and not isolate_hint:
+        py.test.skip("skipping unrecommended isolated test")
 
     # turn off isolation?
-    isolate = isolate and not do_not_isolate
+    isolate = use_isolate and isolate_hint
 
     # maintain only 3 isolated process (if any)
     _cleanup(leave=3)
@@ -107,7 +103,7 @@ def compile_test(function, annotation, isolate=True, **kwds):
         ext_modules.append(mod)
     return mod, fn
 
-def compile_function(function, annotation, isolate=True, **kwds):
+def compile_function(function, annotation, isolate_hint=True, **kwds):
     " returns compiled function "
-    return compile_test(function, annotation, isolate=isolate, **kwds)[1]
+    return compile_test(function, annotation, isolate_hint=isolate_hint, **kwds)[1]
 

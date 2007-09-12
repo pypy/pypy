@@ -70,7 +70,7 @@ class TestFloat(object):
 class TestString(object):
     def test_f2(self):
         f = compile_function(llvmsnippet.string_f2, [int, int])
-        assert chr(f(1, 0)) == "a"
+        assert f(1, 0) == "a"
 
 
 class TestPBC(object):

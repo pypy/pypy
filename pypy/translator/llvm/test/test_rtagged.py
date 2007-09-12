@@ -1,5 +1,9 @@
+import py
+
 import sys, os
 from pypy.rlib.objectmodel import UnboxedValue
+
+from pypy.translator.llvm.test.runtest import *
 
 class A(object):
     __slots__ = ()
@@ -62,13 +66,11 @@ def entry_point(argv):
 # ____________________________________________________________
 # only with Boehm so far
 
-from pypy.translator.llvm.test import runtest
 from pypy.translator.interactive import Translation
 from pypy import conftest
 
 def test_tagged_boehm():
-    runtest.llvm_test()
-    runtest.gcc3_test()
+    py.test.skip("broken as test need rffi")
     t = Translation(entry_point, standalone=True, gc='boehm')
     try:
         exename = t.compile_llvm()
