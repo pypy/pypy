@@ -160,6 +160,8 @@ empty_weaklink[0] = llmemory.NULL
 
 def ll_weakref_create(targetaddr):
     link = llop.boehm_malloc_atomic(llmemory.Address, sizeof_weakreflink)
+    if not link:
+        raise MemoryError
     plink = llmemory.cast_adr_to_ptr(link, lltype.Ptr(WEAKLINK))
     plink[0] = targetaddr
     llop.boehm_disappearing_link(lltype.Void, link, targetaddr)
