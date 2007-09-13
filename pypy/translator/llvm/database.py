@@ -193,8 +193,8 @@ class Database(object):
                         ct = lltype.typeOf(ptrvalue)
                     else:
                         return                        
-                elif ct is llmemory.WeakGcAddress:
-                    return # XXX sometime soon
+##                elif ct is llmemory.WeakGcAddress:
+##                    return # XXX sometime soon
                 else:
                     return
             else:
@@ -368,7 +368,7 @@ class Primitives(object):
             lltype.UnsignedLongLong: "ulong",
             lltype.SignedLongLong: "long",
             llmemory.Address: "sbyte*",
-            llmemory.WeakGcAddress: "sbyte*",
+            #llmemory.WeakGcAddress: "sbyte*",
             }
 
         # 32 bit platform
@@ -396,7 +396,7 @@ class Primitives(object):
             lltype.Bool : self.repr_bool,
             lltype.Void : self.repr_void,
             llmemory.Address : self.repr_address,
-            llmemory.WeakGcAddress : self.repr_weakgcaddress,
+            #llmemory.WeakGcAddress : self.repr_weakgcaddress,
             }        
 
         try:

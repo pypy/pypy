@@ -7,7 +7,6 @@ import exceptions
 from py.builtin import set
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
@@ -133,7 +132,7 @@ _lltype_to_cts = {
     ootype.Class: types.type,
     ootype.String: types.string,
     ootype.StringBuilder: types.string_builder,
-    WeakGcAddress: types.weakref,
+    #WeakGcAddress: types.weakref,
 
     # maps generic types to their ordinal
     ootype.List.SELFTYPE_T: types.list,

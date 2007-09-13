@@ -17,7 +17,6 @@ from pypy.translator.jvm.typesystem import \
      jStringBuilder, jInt, jVoid, jString, jChar, jObject, \
      jThrowable, JvmNativeClass
 from pypy.translator.jvm.builtin import JvmBuiltInType
-from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 
 from pypy.translator.oosupport.database import Database as OODatabase
 from pypy.rpython.ootypesystem.bltregistry import ExternalType
@@ -461,7 +460,7 @@ class Database(OODatabase):
         ootype.UniChar:          jvmtype.jChar,
         ootype.Class:            jvmtype.jClass,
         ootype.ROOT:             jvmtype.jObject,  # treat like a scalar
-        WeakGcAddress:           jvmtype.jWeakRef,
+        #WeakGcAddress:           jvmtype.jWeakRef,
     }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we
