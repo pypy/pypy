@@ -396,8 +396,7 @@ class CLIStaticMethodConst(CLIBaseConstMixin, StaticMethodConst):
         
 class CLIWeakRefConst(CLIBaseConstMixin, WeakRefConst):
     def create_pointer(self, gen):
-        gen.ilasm.opcode('ldnull')
-        gen.ilasm.new('instance void %s::.ctor(object)' % self.get_type())
+        gen.ilasm.new('instance void %s::.ctor()' % self.get_type())
         self.db.const_count.inc('WeakRef')
 
     def get_type(self, include_class=True):
@@ -406,7 +405,6 @@ class CLIWeakRefConst(CLIBaseConstMixin, WeakRefConst):
     def initialize_data(self, constgen, gen):
         if self.value is not None:
             push_constant(self.db, self.value._TYPE, self.value, gen)
-            gen.ilasm.call_method(
-                'void %s::set_Target(object)' % self.get_type(), True)
+            gen.ilasm.call_method('void %s::ll_set(object)' % self.get_type(), True)
             return True
     

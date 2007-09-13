@@ -552,6 +552,21 @@ namespace pypy.runtime
         public TValue ll_current_value() { return it.Current.Value; }
     }
 
+    public class WeakReference
+    {
+        System.WeakReference wref;
+
+        public void ll_set(object obj)
+        {
+            this.wref = new System.WeakReference(obj);
+        }
+
+        public object ll_deref()
+        {
+            return this.wref.Target;
+        }
+    }
+
     public class Record_Signed_Signed {
         public int item0;
         public int item1;

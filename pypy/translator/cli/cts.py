@@ -104,7 +104,7 @@ class types:
     char =    T('char')
     string =  T('string')
 
-    weakref = CliClassType('mscorlib', 'System.WeakReference')
+    weakref = CliClassType('pypylib', 'pypy.runtime.WeakReference')
     type = CliClassType('mscorlib', 'System.Type')
     object = CliClassType('mscorlib', 'System.Object')
     list = CliGenericType('pypylib', 'pypy.runtime.List', 1)
@@ -132,7 +132,7 @@ _lltype_to_cts = {
     ootype.Class: types.type,
     ootype.String: types.string,
     ootype.StringBuilder: types.string_builder,
-    #WeakGcAddress: types.weakref,
+    ootype.WeakReference: types.weakref,
 
     # maps generic types to their ordinal
     ootype.List.SELFTYPE_T: types.list,
