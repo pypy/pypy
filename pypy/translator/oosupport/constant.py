@@ -25,7 +25,6 @@ BaseConstantGenerator is also needed.  These classes can also be chosen
 by the genoo.py subclass of the backend
 """
 
-from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
 import operator
 
@@ -210,7 +209,7 @@ class BaseConstantGenerator(object):
             return genoo.CustomDictConst(self.db, value, uniq)
         elif isinstance(value, ootype._dict):
             return genoo.DictConst(self.db, value, uniq)
-        elif isinstance(value, llmemory.fakeweakaddress):
+        elif isinstance(value, ootype._weak_reference):
             return genoo.WeakRefConst(self.db, value, uniq)
         elif value is ootype.null(value._TYPE):
             # for NULL values, we can just use "NULL" const.  This is
@@ -692,8 +691,8 @@ class StaticMethodConst(AbstractConst):
 # Weak Reference constants
 
 class WeakRefConst(AbstractConst):
-    def __init__(self, db, fakeaddr, count):
-        AbstractConst.__init__(self, db, fakeaddr.get(), count)
+    def __init__(self, db, wref, count):
+        AbstractConst.__init__(self, db, wref.ll_deref(), count)
         self.name = 'WEAKREF__%d' % count
 
     def OOTYPE(self):
