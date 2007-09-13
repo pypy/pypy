@@ -177,10 +177,10 @@ class MarkSweepGC(GCBase):
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             ref = self.malloc_varsize(typeid, length, size, itemsize,
-                                      offset_to_length, True, needs_finalizer,
-                                      contains_weakptr)
+                                      offset_to_length, True, needs_finalizer)
         else:
-            ref = self.malloc_fixedsize(typeid, size, True, needs_finalizer)
+            ref = self.malloc_fixedsize(typeid, size, True, needs_finalizer,
+                                        contains_weakptr)
         # XXX lots of cast and reverse-cast around, but this malloc()
         # should eventually be killed
         return llmemory.cast_ptr_to_adr(ref)
