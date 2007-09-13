@@ -100,16 +100,16 @@ class LLRefTrackerPage(BaseRefTrackerPage):
             if not o:
                 yield name, 'NULL'
             else:
-                addrof = o.get()
+                addrof = o.ref()
                 T1 = lltype.typeOf(addrof)
                 if (isinstance(T1, lltype.Ptr) and
                     isinstance(T1.TO, lltype.Struct) and
                     addrof._obj in header2obj):
                     yield name + ' @hdr', self.normalize(addrof._obj)
                 else:
-                    yield name + ' @', self.normalize(o.ob._obj)
-                    if o.offset:
-                        yield '... offset', str(o.offset)
+                    yield name + ' @', self.normalize(o.ptr._obj)
+##                     if o.offset:
+##                         yield '... offset', str(o.offset)
         else:
             yield name, str(o)
 
