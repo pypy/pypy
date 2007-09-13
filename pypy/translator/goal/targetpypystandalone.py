@@ -134,6 +134,9 @@ class PyPyTarget(object):
         elif config.objspace.usemodules._stackless:
             config.translation.stackless = True
 
+        if not config.translation.rweakref:
+            config.objspace.usemodules._weakref = False
+
         if self.translateconfig.goal_options.jit:
             config.objspace.usemodules.pypyjit = True
         elif config.objspace.usemodules.pypyjit:
