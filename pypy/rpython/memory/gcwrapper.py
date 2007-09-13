@@ -74,10 +74,13 @@ class QueryTypes(object):
             return _varsize_offset_to_length[typeid]
         def varsize_offsets_to_gcpointers_in_var_part(typeid):
             return _varsize_offsets_to_gcpointers_in_var_part[typeid]
+        def weakpointer_offset(typeid):
+            return -1
         return (is_varsize, getfinalizer, offsets_to_gc_pointers, fixed_size,
                 varsize_item_sizes, varsize_offset_to_variable_part,
                 varsize_offset_to_length,
-                varsize_offsets_to_gcpointers_in_var_part)
+                varsize_offsets_to_gcpointers_in_var_part,
+                weakpointer_offset)
 
     def is_varsize(self, typeid):
         assert typeid >= 0
@@ -126,12 +129,16 @@ class QueryTypes(object):
         else:
             return 0
 
+    def weakpointer_offset(self, typeid):
+        return -1
+
     def get_setup_query_functions(self):
         return (self.is_varsize, self.getfinalizer,
                 self.offsets_to_gc_pointers, self.fixed_size,
                 self.varsize_item_sizes, self.varsize_offset_to_variable_part,
                 self.varsize_offset_to_length,
-                self.varsize_offsets_to_gcpointers_in_var_part)
+                self.varsize_offsets_to_gcpointers_in_var_part,
+                self.weakpointer_offset)
 
     
 def getfunctionptr(annotator, graphfunc):
@@ -246,10 +253,10 @@ class AnnotatingGcWrapper(GcWrapper):
         AddressLinkedList = self.AddressLinkedList
         def instantiate_linked_list():
             return AddressLinkedList()
-        f1, f2, f3, f4, f5, f6, f7, f8 = self.query_types.create_query_functions()
+        f1, f2, f3, f4, f5, f6, f7, f8, f9 = self.query_types.create_query_functions()
         the_gc = gc_class(AddressLinkedList)
         def instantiate_gc():
-            the_gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7, f8)
+            the_gc.set_query_functions(f1, f2, f3, f4, f5, f6, f7, f8, f9)
             the_gc.setup()
             return the_gc
         func, dummy_get_roots1, dummy_get_roots2 = gc.get_dummy_annotate(
