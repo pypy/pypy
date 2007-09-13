@@ -381,6 +381,25 @@ class StringBuilder(BuiltinADTType):
     def _specialize(self, generic_types):
         return self
 
+# WARNING: the name WeakReference is rebound at the end of file
+class WeakReference(BuiltinADTType):
+    def __init__(self):
+        self._null = _null_weak_reference(self)
+        self._GENERIC_METHODS = frozendict({
+            "ll_set": Meth([ROOT], Void),
+            "ll_deref": Meth([], ROOT),
+            })
+        self._setup_methods({})
+
+    def _defl(self):
+        return self._null
+
+    def _get_interp_class(self):
+        return _weak_reference
+
+    def _specialize(self, generic_types):
+        return self
+
 class List(BuiltinADTType):
     # placeholders for types
     # make sure that each derived class has his own SELFTYPE_T
@@ -787,6 +806,9 @@ class _view(object):
     _enforce = _upcast
 
     def _downcast(self, INSTANCE):
+        if not self._inst:
+            assert isSubclass(INSTANCE, self._TYPE) or isSubclass(self._TYPE, INSTANCE)
+            return null(INSTANCE)
         assert isSubclass(INSTANCE, self._TYPE)
         return _view(INSTANCE, self._inst)
 
@@ -1133,6 +1155,37 @@ class _null_string_builder(_null_mixin(_string_builder), _string_builder):
     def __init__(self, STRING_BUILDER):
         self.__dict__["_TYPE"] = STRING_BUILDER
 
+import weakref
+
+class _weak_reference(_builtin_type):
+    def __init__(self, WEAK_REFERENCE):
+        self._TYPE = WEAK_REFERENCE
+        self._ref = None
+
+    def _unwrap_view(self, obj):
+        # we can't store directly the view inside the weakref because
+        # the view can be a temp object that is not referenced
+        # anywhere else.
+        while isinstance(obj, _view):
+            obj = obj._inst
+        return obj
+
+    def ll_set(self, target):
+        assert isinstance(typeOf(target), Instance)
+        target = self._unwrap_view(target)
+        self._ref = weakref.ref(target)
+
+    def ll_deref(self):
+        if self._ref is None:
+            return null(ROOT)
+        result = self._ref()
+        if result is None:
+            return null(ROOT)
+        return _view(ROOT, result)
+
+class _null_weak_reference(_null_mixin(_weak_reference), _weak_reference):
+    def __init__(self, WEAK_REFERENCE):
+        self.__dict__["_TYPE"] = WEAK_REFERENCE
 
 class _list(_builtin_type):
     def __init__(self, LIST):
@@ -1475,6 +1528,13 @@ def setDictFunctions(DICT, ll_eq, ll_hash):
 def hasDictTypes(DICT):
     return DICT._is_initialized()
 
+def ooweakref_create(obj):
+    ref = new(WeakReference)
+    ref.ll_set(obj)
+    return ref
+
+ROOT = Instance('Root', None, _is_root=True)
 String = String()
 StringBuilder = StringBuilder()
-ROOT = Instance('Root', None, _is_root=True)
+WeakReference = WeakReference()
+dead_wref = new(WeakReference)

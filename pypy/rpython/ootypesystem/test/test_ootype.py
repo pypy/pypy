@@ -451,3 +451,27 @@ def test_canraise():
     DT = DictItemsIterator(String, Signed)
     _, meth = DT._lookup('ll_go_next')
     assert meth._can_raise == True
+
+def test_cast_null():
+    A = Instance("A", ROOT)
+    B = Instance("B", ROOT)
+    rootnull = null(ROOT)
+    anull = oodowncast(A, rootnull)
+    assert typeOf(anull) is A
+    assert ooupcast(ROOT, anull) == rootnull
+    py.test.raises(AssertionError, oodowncast, B, anull)
+
+def test_weak_reference():
+    import gc
+    A = Instance("A", ROOT)
+    obj = new(A)
+    ref = new(WeakReference)
+    ref.ll_set(obj)
+    assert oodowncast(A, ref.ll_deref()) == obj
+    del obj
+    gc.collect()
+    assert ref.ll_deref() is null(ROOT)
+
+def test_dead_wref():
+    ref = new(WeakReference)
+    assert ref.ll_deref() is null(ROOT)

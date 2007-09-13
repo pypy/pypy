@@ -101,3 +101,18 @@ BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
+
+
+# _________________________________________________________________
+# weakrefs
+
+import weakref
+from pypy.rpython.lltypesystem import llmemory
+
+def rtype_weakref_create(hop):
+    # Note: this code also works for the RPython-level calls 'weakref.ref(x)'.
+    vlist = hop.inputargs(hop.args_r[0])
+    hop.exception_cannot_occur()
+    return hop.gendirectcall(ootype.ooweakref_create, *vlist)
+
+BUILTIN_TYPER[weakref.ref] = rtype_weakref_create
