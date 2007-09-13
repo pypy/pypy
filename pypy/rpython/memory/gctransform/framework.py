@@ -57,30 +57,39 @@ class FrameworkGCTransformer(GCTransformer):
             TYPE_INFO_TABLE = lltype.Array(TYPE_INFO)
 
         def q_is_varsize(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].isvarsize
 
         def q_finalyzer(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].finalyzer
 
         def q_offsets_to_gc_pointers(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstoptrs
 
         def q_fixed_size(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].fixedsize
 
         def q_varsize_item_sizes(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].varitemsize
 
         def q_varsize_offset_to_variable_part(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstovar
 
         def q_varsize_offset_to_length(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].ofstolength
 
         def q_varsize_offsets_to_gcpointers_in_var_part(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].varofstoptrs
 
         def q_weakpointer_offset(typeid):
+            debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].weakptrofs
 
         gcdata = GCData()
@@ -96,7 +105,9 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_root_start = a_random_address   # patched in finish()
         gcdata.static_root_end = a_random_address     # patched in finish()
         self.gcdata = gcdata
-        self.type_info_list = []
+        dummy = {"weakptrofs": -1,
+                 "ofstolength": -1}
+        self.type_info_list = [dummy]   # don't use typeid 0, helps debugging
         self.id_of_type = {}      # {LLTYPE: type_id}
         self.seen_roots = {}
         self.static_gc_roots = []
@@ -719,9 +730,7 @@ empty_weakref.weakptr = llmemory.NULL
 
 def ll_weakref_deref(wref):
     wref = llmemory.cast_weakrefptr_to_ptr(WEAKREFPTR, wref)
-    if wref:
-        return wref.weakptr
-    return llmemory.NULL
+    return wref.weakptr
 
 def convert_weakref_to(targetptr):
     # Prebuilt weakrefs don't really need to be weak at all,
