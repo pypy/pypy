@@ -146,7 +146,7 @@ class LowLevelDatabase(object):
         else:
             raise Exception("don't know about type %r" % (T,))
 
-    def getcontainernode(self, container, **buildkwds):
+    def getcontainernode(self, container, _cached=True, **buildkwds):
         try:
             node = self.containernodes[container]
         except KeyError:
@@ -156,6 +156,9 @@ class LowLevelDatabase(object):
                     self.gctransformer.consider_constant(T, container)
             nodefactory = ContainerNodeFactory[T.__class__]
             node = nodefactory(self, T, container, **buildkwds)
+            # _cached should only be False for a hack in weakrefnode_factory()
+            if not _cached:
+                return node
             self.containernodes[container] = node
             self.containerlist.append(node)
             kind = getattr(node, 'nodekind', '?')

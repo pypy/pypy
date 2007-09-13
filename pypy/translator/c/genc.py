@@ -110,6 +110,11 @@ class CBuilder(object):
             return gc.name_to_gcpolicy[self.config.translation.gc]
         return self.gcpolicy
 
+    # use generate_source(defines=DEBUG_DEFINES) to force the #definition
+    # of the macros that enable debugging assertions
+    DEBUG_DEFINES = {'RPY_ASSERT': 1,
+                     'RPY_LL_ASSERT': 1}
+
     def generate_source(self, db=None, defines={}):
         assert self.c_source_filename is None
         translator = self.translator

@@ -614,10 +614,11 @@ class TestUsingFramework(AbstractGCTestClass):
             result = 0
             for i in range(2):
                 a = refs[i]()
+                rgc.collect()
                 if a is None:
-                    result += i
+                    result += (i+1)
                 else:
-                    result += a.hello * i
+                    result += a.hello * (i+1)
             return result
         c_fn = self.getcompiled(fn)
         res = c_fn()

@@ -34,7 +34,8 @@ class AbstractGCTestClass:
         t.checkgraphs()
         def compile():
             cbuilder = CExtModuleBuilder(t, func, config=config)
-            c_source_filename = cbuilder.generate_source()
+            c_source_filename = cbuilder.generate_source(
+                defines = cbuilder.DEBUG_DEFINES)
             if conftest.option.view:
                 t.view()
             cbuilder.compile()
@@ -303,6 +304,7 @@ class TestUsingBoehm(AbstractGCTestClass):
             else:
                 r = r2
             a = r()
+            rgc.collect()
             if a is None:
                 return -5
             else:

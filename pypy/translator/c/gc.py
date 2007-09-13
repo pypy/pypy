@@ -362,11 +362,7 @@ class FrameworkGcPolicy(BasicGcPolicy):
         return framework.WEAKREF
 
     def convert_weakref_to(self, ptarget):
-        result = framework.convert_weakref_to(ptarget)
-        # XXX whack
-        gct = self.db.gctransformer
-        gct.gcdata.gc.gcheaderbuilder.new_header(result)
-        return result
+        return framework.convert_weakref_to(ptarget)
 
     def OP_GC_RELOAD_POSSIBLY_MOVED(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
