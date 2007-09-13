@@ -88,48 +88,63 @@ class SomeArray(SomeObject):
             return SomeArray(typecode, self.ndim)
         raise AnnotatorError()
 
-class __extend__(pairtype(SomeArray, SomeArray)):
+def unify_scalar_tp(item1, item2):
+    typecode = None
+    if float in (item1.knowntype, item2.knowntype):
+        typecode = 'd'
+    else:
+        item_knowntype = rarithmetic.compute_restype(item1.knowntype, item2.knowntype)
+        for typecode, s_item in SomeArray.typecode_to_item.items():
+            if s_item.knowntype == item_knowntype:
+                break
+    if typecode is None:
+        raise AnnotatorError()
+    return typecode
 
-    def add((s_arr1, s_arr2)):
-        item1 = s_arr1.get_item_type()
-        item2 = s_arr2.get_item_type()
-        typecode = None
-        if float in (item1.knowntype, item2.knowntype):
-            typecode = 'd'
+class __extend__(pairtype(SomeArray, SomeObject)):
+    def add((s_arr, s_other)):
+        item1 = s_arr.get_item_type()
+        ndim = s_arr.ndim
+        if isinstance(s_other, SomeArray):
+            item2 = s_other.get_item_type()
+            ndim = max(ndim, s_other.ndim)
+        elif isinstance(s_other, SomeList):
+            item2 = s_other.listdef.listitem.s_value
+        elif isinstance(s_other, SomeFloat):
+            item2 = s_other
         else:
-            item_knowntype = rarithmetic.compute_restype(item1.knowntype, item2.knowntype)
-            for typecode, s_item in SomeArray.typecode_to_item.items():
-                if s_item.knowntype == item_knowntype:
-                    break
-        if typecode is None:
-            raise AnnotatorError()
-        ndim = max(s_arr1.ndim, s_arr2.ndim)
-        return SomeArray(typecode, s_arr1.ndim)
-
-    # union ?
+            raise AnnotatorError("cannot operate with %s"%s_other)
+        typecode = unify_scalar_tp(item1, item2)
+        return SomeArray(typecode, ndim)
     sub = mul = div = add
 
-class __extend__(pairtype(SomeArray, SomeFloat)):
-    def add((s_arr, s_flt)):
-        item = s_arr.get_item_type()
-        typecode = None
-        if float in (item.knowntype, s_flt.knowntype):
-            typecode = 'd'
-        else:
-            item_knowntype = rarithmetic.compute_restype(item.knowntype, s_flt.knowntype)
-            for typecode, s_item in SomeArray.typecode_to_item.items():
-                if s_item.knowntype == item_knowntype:
-                    break
-        if typecode is None:
-            raise AnnotatorError()
-        return SomeArray(typecode, s_arr.ndim)
-    # union ?
-    sub = mul = div = add
+    def inplace_add((s_arr, s_other)):
+        if isinstance(s_other, SomeArray):
+            # This can only work if s_other is broadcastable to s_arr
+            if s_other.ndim > s_arr.ndim:
+                raise AnnotatorError("invalid return array shape")
+        elif isinstance(s_other, SomeList):
+            item2 = s_other.listdef.listitem.s_value
+            if not isinstance(item2, SomeFloat):
+                raise AnnotatorError("cannot operate with list of %s"%item2)
+        elif not isinstance(s_other, SomeFloat):
+            raise AnnotatorError("cannot operate with %s"%s_other)
+        return s_arr
+    inplace_sub = inplace_mul = inplace_div = inplace_add
 
 class __extend__(pairtype(SomeFloat, SomeArray)):
     def add((s_flt, s_arr)):
         return pair(s_arr, s_flt).add()
-    # union ?
+    sub = mul = div = add
+
+    def inplace_add((s_flt, s_arr)):
+        # This involves promoting the type of the lhs
+        raise AnnotatorError()
+    inplace_sub = inplace_mul = inplace_div = inplace_add
+
+class __extend__(pairtype(SomeList, SomeArray)):
+    def add((s_lst, s_arr)):
+        return pair(s_arr, s_lst).add()
     sub = mul = div = add
 
 class __extend__(pairtype(SomeArray, SomeTuple)):
@@ -182,6 +197,12 @@ class __extend__(pairtype(SomeArray, SomeInteger)):
     def getitem((s_array, s_index)):
         s_tuple = SomeTuple([s_index])
         return pair(s_array, s_tuple).getitem()
+
+def build_annotation_from_scalar(s_value):
+    key = type(s_value), s_value.knowntype
+    typecode = numpy_typedict[key]
+    ndim = 1
+    return SomeArray(typecode, ndim)
 
 class ArrayCallEntry(ExtRegistryEntry):
     _about_ = numpy.array

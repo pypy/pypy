@@ -311,7 +311,6 @@ class ArrayRepr(Repr):
         hop.gendirectcall(ll_array_set, cITEM, v_it0, v_it1)
         return v_result
 
-
     def get_ndim(self, hop, v_array):
         cname = inputconst(Void, 'ndim')
         return hop.llops.genop('getfield', [v_array, cname], resulttype=Signed)
@@ -343,10 +342,14 @@ class __extend__(SomeArray):
         key = self.__class__, self.typecode, self.ndim
         return key
 
+#______________________________________________________________________________
+
 def ll_array_binop(it0, it1, it2, binop):
     debug_assert(it0.size == it1.size, "it0.size == it1.size")
     debug_assert(it1.size == it2.size, "it0.size == it1.size")
     while it0.index < it0.size:
+        # We don't need a cast here, because it0.dataptr[0] is always
+        # big enough to contain the result.
         it0.dataptr[0] = binop(it1.dataptr[0], it2.dataptr[0])
         it0.ll_next()
         it1.ll_next()
@@ -358,7 +361,6 @@ def _rtype_binop(r_array0, r_array1, r_array2, v_array1, v_array2, hop, binop):
     # from the largest of the two args:
     v_array0 = hop.gendirectcall(ll_build_like2, cARRAY, v_array1, v_array2)
     iter_new, iter_broadcast = gen_iter_funcs(r_array0.ndim)
-    iter_new._annenforceargs_ = [None, None, None, None]
     cITER0 = hop.inputconst(Void, r_array0.ITER.TO)
     cITER1 = hop.inputconst(Void, r_array0.build_ITER_for(r_array1))
     cITER2 = hop.inputconst(Void, r_array0.build_ITER_for(r_array2))
@@ -375,15 +377,18 @@ def rtype_binop((r_array1, r_array2), hop, binop):
     v_array1, v_array2 = hop.inputargs(r_array1, r_array2)
 
     if isinstance(r_array1.lowleveltype, Primitive):
-        r_array1, v_array1 = convert_scalar_to_array(r_array0, v_array1, hop.llops)
+        r_array1, v_array1 = convert_scalar_to_array(r_array1, v_array1, hop.llops)
+    elif isinstance(r_array1, AbstractBaseListRepr):
+        r_array1, v_array1 = convert_list_to_array(r_array1, v_array1, hop.llops)
     elif not isinstance(r_array1, ArrayRepr):
         raise TyperError("can't operate with %s"%r_array1)
 
     if isinstance(r_array2.lowleveltype, Primitive):
-        r_array2, v_array2 = convert_scalar_to_array(r_array0, v_array2, hop.llops)
+        r_array2, v_array2 = convert_scalar_to_array(r_array2, v_array2, hop.llops)
+    elif isinstance(r_array2, AbstractBaseListRepr):
+        r_array2, v_array2 = convert_list_to_array(r_array2, v_array2, hop.llops)
     elif not isinstance(r_array2, ArrayRepr):
         raise TyperError("can't operate with %s"%r_array2)
-    print "rtype_binop", binop, binop(2,3)
     return _rtype_binop(r_array0, r_array1, r_array2, v_array1, v_array2, hop, binop)
 
 for tp in (pairtype(ArrayRepr, ArrayRepr),
@@ -394,6 +399,55 @@ for tp in (pairtype(ArrayRepr, ArrayRepr),
                               (lambda a,b:a*b, "rtype_mul"),
                               (lambda a,b:a/b, "rtype_div")):
         setattr(tp, methname, lambda self, hop, binop=binop : rtype_binop(self, hop, binop))
+
+#______________________________________________________________________________
+
+def ll_array_inplace_binop(ITEM, it0, it1, binop):
+    debug_assert(it0.size == it1.size, "it0.size == it1.size")
+    while it0.index < it0.size:
+        it0.dataptr[0] = cast_primitive(ITEM, binop(it0.dataptr[0], it1.dataptr[0]))
+        it0.ll_next()
+        it1.ll_next()
+
+def _rtype_inplace_binop(r_array0, r_array1, r_array2, v_array1, v_array2, hop, binop):
+    iter_new, iter_broadcast = gen_iter_funcs(r_array1.ndim)
+    cITEM = hop.inputconst(Void, r_array1.ITEM)
+    cITER1 = hop.inputconst(Void, r_array1.ITER.TO)
+    cITER2 = hop.inputconst(Void, r_array1.build_ITER_for(r_array2))
+    cbroadcast = hop.inputconst(Void, iter_broadcast)
+    v_it1 = hop.gendirectcall(iter_new, cITER1, v_array1, v_array1, cbroadcast)
+    v_it2 = hop.gendirectcall(iter_new, cITER2, v_array2, v_array1, cbroadcast)
+    cbinop = hop.inputconst(Void, binop)
+    hop.gendirectcall(ll_array_inplace_binop, cITEM, v_it1, v_it2, cbinop)
+    return v_array1
+
+def rtype_inplace_binop((r_array1, r_array2), hop, binop):
+    r_array0 = hop.r_result
+    v_array1, v_array2 = hop.inputargs(r_array1, r_array2)
+
+    if isinstance(r_array1.lowleveltype, Primitive):
+        raise TyperError("can't operate with %s"%r_array1)
+    elif not isinstance(r_array1, ArrayRepr):
+        raise TyperError("can't operate with %s"%r_array1)
+
+    if isinstance(r_array2.lowleveltype, Primitive):
+        r_array2, v_array2 = convert_scalar_to_array(r_array2, v_array2, hop.llops)
+    elif isinstance(r_array2, AbstractBaseListRepr):
+        r_array2, v_array2 = convert_list_to_array(r_array2, v_array2, hop.llops)
+    elif not isinstance(r_array2, ArrayRepr):
+        raise TyperError("can't operate with %s"%r_array2)
+    return _rtype_inplace_binop(r_array0, r_array1, r_array2, v_array1, v_array2, hop, binop)
+
+for tp in (pairtype(ArrayRepr, ArrayRepr),
+           pairtype(ArrayRepr, Repr),
+           pairtype(Repr, ArrayRepr)):
+    for (binop, methname) in ((lambda a,b:a+b, "rtype_inplace_add"),
+                              (lambda a,b:a-b, "rtype_inplace_sub"),
+                              (lambda a,b:a*b, "rtype_inplace_mul"),
+                              (lambda a,b:a/b, "rtype_inplace_div")):
+        setattr(tp, methname, lambda self, hop, binop=binop : rtype_inplace_binop(self, hop, binop))
+
+#______________________________________________________________________________
 
 def gen_getset_item(ndim):
     unrolling_dims = unrolling_iterable(range(ndim))
@@ -498,9 +552,10 @@ def convert_list_to_array(r_list, v_list, llops):
     #v_array = llops.gendirectcall(ll_build_alias_to_list, cARRAY, v_list) # nice idea...
     return r_array, v_array
 
-def convert_scalar_to_array(r_array, v_item, llops):
+def convert_scalar_to_array(r_item, v_item, llops):
     # x -> array([x])
-    s_array = r_array.s_array.get_one_dim()
+    s_item = lltype_to_annotation(r_item.lowleveltype)
+    s_array = aarray.build_annotation_from_scalar(s_item)
     r_array = llops.rtyper.getrepr(s_array)
     from pypy.rpython.rmodel import inputconst
     cARRAY = inputconst(Void, r_array.ARRAY.TO)
@@ -568,7 +623,7 @@ class __extend__(pairtype(ArrayRepr, Repr)):
                 source_ndim = r_item.ndim
             elif isinstance(r_item.lowleveltype, Primitive):
                 # "broadcast" a scalar
-                r_item, v_item = convert_scalar_to_array(r_view, v_item, hop.llops)
+                r_item, v_item = convert_scalar_to_array(r_item, v_item, hop.llops)
                 source_ndim = 1
             elif isinstance(r_item, AbstractBaseListRepr):
                 r_item, v_item = convert_list_to_array(r_item, v_item, hop.llops)

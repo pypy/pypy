@@ -116,6 +116,17 @@ class Test_annotation:
         s = a.build_types(f, [])
         assert s.typecode == 'i'
 
+    def test_annotate_array_add_list(self):
+        def f():
+            a1 = numpy.array([1,2])
+            a2 = [3., 4.]
+            return a1 + a2
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'd'
+
     def test_annotate_array_add_coerce(self):
         def f():
             a1 = numpy.array([1,2])
@@ -127,7 +138,7 @@ class Test_annotation:
         s = a.build_types(f, [])
         assert s.typecode == 'd'
 
-    def test_annotate_array_add_2(self):
+    def test_annotate_array_add_scalar(self):
         def f():
             a = numpy.array([1,2])
             a = a + 3
@@ -137,6 +148,38 @@ class Test_annotation:
         a = t.buildannotator()
         s = a.build_types(f, [])
         assert s.typecode == 'i'
+
+    def test_annotate_array_add_scalar_coerce(self):
+        def f():
+            a = numpy.array([1,2])
+            return a + 3.
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'd'
+
+    def test_annotate_array_inplace_add_list(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a += [4,3,2,1]
+            return a
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'l'
+
+    def test_annotate_array_inplace_mul_coerce(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a *= 0.5
+            return a
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert s.typecode == 'l'
 
     def test_annotate_array_dtype(self):
         def f():
@@ -599,12 +642,31 @@ class Test_specialization:
     def test_specialize_array_add_1_1_coerce(self):
         def f():
             a1 = numpy.array([1,2])
-            a2 = numpy.array([6.,9.])
+            a2 = numpy.array([6.5,9.5])
             return a1 + a2
 
         res = interpret(f, [])
-        assert res.data[0] == 7.
-        assert res.data[1] == 11.
+        assert res.data[0] == 7.5
+        assert res.data[1] == 11.5
+
+    def test_specialize_array_add_1_1_coerce_from_list(self):
+        def f():
+            a1 = numpy.array([1,2])
+            a2 = [6.5,9.5]
+            return a1 + a2
+
+        res = interpret(f, [])
+        assert res.data[0] == 7.5
+        assert res.data[1] == 11.5
+
+    def test_specialize_array_add_1_1_coerce_from_scalar(self):
+        def f():
+            a = numpy.array([1,2])
+            return a + 1.5
+
+        res = interpret(f, [])
+        assert res.data[0] == 2.5
+        assert res.data[1] == 3.5
 
     def test_specialize_array_add_2_1(self):
         def f():
@@ -630,6 +692,82 @@ class Test_specialization:
         data = [1,2,3,4]
         for i in range(len(data)):
             assert res.dataptr[i] == 5*data[i]
+
+    def test_specialize_array_add_list(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a = a + [4,3,2,1]
+            return a
+
+        res = interpret(f, [])
+        for i in range(4):
+            assert res.dataptr[i] == 5
+
+    def test_specialize_array_radd_list(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a = [4,3,2,1] + a
+            return a
+
+        res = interpret(f, [])
+        for i in range(4):
+            assert res.dataptr[i] == 5
+
+    def test_specialize_array_inplace_add(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a += 1
+            return a
+
+        res = interpret(f, [])
+        data = [1,2,3,4]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i] + 1
+
+    def test_specialize_array_inplace_add_list_broadcast(self):
+        def f():
+            a = numpy.array([1,2,3,4]).reshape((2,2))
+            a += [0,1]
+            return a
+
+        res = interpret(f, [])
+        data = [1,3,3,5]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_array_inplace_mul_coerce(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a *= numpy.array([0.5])
+            return a
+
+        res = interpret(f, [])
+        data = [1,2,3,4]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]//2
+
+    def test_specialize_array_inplace_mul_coerce_from_list(self):
+        def f():
+            a = numpy.array([1,2])
+            a *= [1.5, 2.5]
+            return a
+
+        res = interpret(f, [])
+        data = [1.0, 5.0]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_array_inplace_mul_coerce_from_scalar(self):
+        def f():
+            a = numpy.array([1,2,3,4])
+            a *= 0.5
+            return a
+
+        res = interpret(f, [])
+        data = [1,2,3,4]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]//2
+
 
 class Test_compile:
     def setup_class(self):
