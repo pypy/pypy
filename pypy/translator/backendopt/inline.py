@@ -162,6 +162,14 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
                 return True
         else:
             return True # conservatively
+    for block in from_graph.iterblocks():
+        if block.exitswitch == c_last_exception:
+            consider_ops_to = -1
+        else:
+            consider_ops_to = len(block.operations)
+        for op in block.operations[:consider_ops_to]:
+            if raise_analyzer.can_raise(op):
+                return True
     return False
 
 class BaseInliner(object):

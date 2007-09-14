@@ -65,7 +65,9 @@ class BaseTestInline:
         t.buildrtyper(type_system=self.type_system).specialize()
         return t
 
-    def check_inline(self, func, in_func, sig, entry=None, inline_guarded_calls=False):
+    def check_inline(self, func, in_func, sig, entry=None,
+                     inline_guarded_calls=False,
+                     graph=False):
         if entry is None:
             entry = in_func
         t = self.translate(entry, sig)
@@ -85,6 +87,8 @@ class BaseTestInline:
         interp = LLInterpreter(t.rtyper)
         def eval_func(args):
             return interp.eval_graph(graphof(t, entry), args)
+        if graph:
+            return eval_func, graphof(t, func)
         return eval_func
 
     def check_auto_inlining(self, func, sig, multiplier=None, call_count_check=False,
@@ -279,6 +283,19 @@ class BaseTestInline:
         assert result == 87
         result = eval_func([2])
         assert result == 87
+
+    def test_inline_with_raising_non_call_op(self):
+        class A:
+            pass
+        def f():
+            return A()
+        def g():
+            try:
+                a = f()
+            except MemoryError:
+                return 1
+            return 2
+        py.test.raises(CannotInline, self.check_inline, f, g, [])
 
     def test_inline_var_exception(self):
         def f(x):
