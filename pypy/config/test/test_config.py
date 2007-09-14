@@ -471,6 +471,41 @@ def test_suggests():
     assert c.opt
     assert not c.toplevel
 
+def test_suggests_can_fail():
+    descr = OptionDescription("test", '', [
+        BoolOption("t1", "", default=False),
+        BoolOption("t2", "", default=False,
+                   requires=[("t3", True)]),
+        BoolOption("t3", "", default=False),
+        BoolOption("opt", "", default=False,
+                   suggests=[("t1", True), ("t2", True)])
+    ])
+    c = Config(descr)
+    assert not c.t1
+    assert not c.t2
+    assert not c.t3
+    assert not c.opt
+    c.opt = True
+    assert c.opt
+    assert c.t1
+    assert c.t2
+    assert c.t3
+    # does not crash
+    c.t2 = False
+    assert not c.t2
+
+    c = Config(descr)
+    c.t3 = False
+    assert not c.t3
+    # does not crash
+    c.opt = True
+    assert c.opt
+    assert not c.t3
+    assert not c.t2
+
+
+
+
 def test_delattr():
     descr = OptionDescription("opt", "", [
     OptionDescription("s1", "", [

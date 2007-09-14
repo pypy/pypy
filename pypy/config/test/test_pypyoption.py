@@ -33,7 +33,6 @@ def test_check_documentation():
             assert configdocdir.join(fn).check()
 
 def test_rweakref_required():
-    py.test.skip('fixme!')
     conf = get_pypy_config()
     conf.translation.rweakref = False
     conf.objspace.std.allopts = True

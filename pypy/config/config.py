@@ -267,12 +267,18 @@ class BoolOption(Option):
             for path, reqvalue in self._requires:
                 toplevel = config._cfgimpl_get_toplevel()
                 homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
-                homeconfig.setoption(name, reqvalue, who)
+                homeconfig.setoption(name, reqvalue, "required")
         if value and self._suggests is not None:
             for path, reqvalue in self._suggests:
                 toplevel = config._cfgimpl_get_toplevel()
                 homeconfig, name = toplevel._cfgimpl_get_home_by_path(path)
-                homeconfig.setoption(name, reqvalue, "suggested")
+                try:
+                    homeconfig.setoption(name, reqvalue, "suggested")
+                except ValueError:
+                    # setting didn't work, but that is fine, since it is
+                    # suggested
+                    pass
+
         super(BoolOption, self).setoption(config, value, who)
 
     def add_optparse_option(self, argnames, parser, config):
