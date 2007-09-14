@@ -23,6 +23,7 @@ c_dir = pypydir.join('translator', 'c')
 includes = ['unistd.h', 'src/thread.h']
 
 def setup_thread_so():
+    # XXX this is quiiiiiiiite a hack!
     files = [c_dir.join('src', 'thread.c')]
     modname = '_thread'
     cache_c_module(files, modname, include_dirs=[str(c_dir)])
@@ -43,6 +44,8 @@ c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT)
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
+c_thread_fused_releaseacquirelock = llexternal(
+    'RPyThreadFusedReleaseAcquireLock', [TLOCKP], lltype.Void)
 
 def allocate_lock():
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
@@ -113,17 +116,20 @@ class Lock(object):
         return bool(c_thread_acquirelock(self._lock, int(flag)))
 
     def release(self):
-        try:
-            if self.acquire(False):
-                # XXX the annotator trick to annotate it with non-const
-                # string, probably should be put into bltn-analyzers
-                raise error(NonConstant("bad lock"))
-        finally:
+        # Sanity check: the lock must be locked
+        if self.acquire(False):
+            c_thread_releaselock(self._lock)
+            raise error(NonConstant("bad lock"))
+        else:
             c_thread_releaselock(self._lock)
 
     def fused_release_acquire(self):
-        self.release()
-        self.acquire(True)
+        # Sanity check: the lock must be locked
+        if self.acquire(False):
+            c_thread_releaselock(self._lock)
+            raise error(NonConstant("bad lock"))
+        else:
+            c_thread_fused_releaseacquirelock(self._lock)
 
     def __del__(self):
         lltype.free(self._lock, flavor='raw')

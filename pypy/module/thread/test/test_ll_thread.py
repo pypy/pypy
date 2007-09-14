@@ -24,6 +24,19 @@ def test_thread_error():
     else:
         py.test.fail("Did not raise")
 
+def test_fused():
+    l = allocate_lock()
+    try:
+        l.fused_release_acquire()
+    except error:
+        pass
+    else:
+        py.test.fail("Did not raise")
+    l.acquire(True)
+    l.fused_release_acquire()
+    could_acquire_again = l.acquire(False)
+    assert not could_acquire_again
+
 def test_start_new_thread():
     import time
     

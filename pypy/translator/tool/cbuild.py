@@ -155,8 +155,10 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
 
 def cache_c_module(cfiles, modname, cache_dir=None,
                    include_dirs=None, libraries=[]):
-    """ Same as build c module, but instead caches results and
-    checks timestamps (eventually, not supported yet)
+    """ Same as build c module, but instead caches results.
+    XXX currently there is no way to force a recompile, so this is pretty
+    useless as soon as the sources (or headers they depend on) change :-/
+    XXX for now I'm forcing a recompilation all the time.  Better than not...
     """
     from pypy.tool.autopath import pypydir
     if cache_dir is None:
@@ -165,7 +167,7 @@ def cache_c_module(cfiles, modname, cache_dir=None,
         cache_dir = py.path.local(cache_dir)
     if cache_dir.check(dir=1):
         # XXX check timestamps of all cfiles
-        if not cache_dir.join(modname + '.so').check():
+        if 1:  # not cache_dir.join(modname + '.so').check():
             modname = str(cache_dir.join(modname))
             compile_c_module(cfiles, modname, include_dirs=include_dirs,
                              libraries=libraries)

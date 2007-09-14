@@ -80,10 +80,6 @@ int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
-int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock);
-void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
-int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
-void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
 
 
 /* implementations */

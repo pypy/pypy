@@ -39,4 +39,18 @@
 
 #endif
 
+/* common helper: this is a single external function so that we are
+   sure that nothing occurs between the release and the acquire,
+   e.g. no GC operation. */
+
+void RPyThreadFusedReleaseAcquireLock(struct RPyOpaque_ThreadLock *lock);
+
+#ifndef PYPY_NOT_MAIN_FILE
+void RPyThreadFusedReleaseAcquireLock(struct RPyOpaque_ThreadLock *lock)
+{
+	RPyThreadReleaseLock(lock);
+	RPyThreadAcquireLock(lock, 1);
+}
+#endif
+
 #endif
