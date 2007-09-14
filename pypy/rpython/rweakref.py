@@ -29,6 +29,9 @@ class BaseWeakRefRepr(Repr):
                              "this backend or GC policy")
 
     def convert_const(self, value):
+        if value is None:
+            return self.null_wref
+
         assert isinstance(value, weakref.ReferenceType)
         instance = value()
         bk = self.rtyper.annotator.bookkeeper
@@ -47,6 +50,7 @@ class BaseWeakRefRepr(Repr):
 class LLWeakRefRepr(BaseWeakRefRepr):
     lowleveltype = llmemory.WeakRefPtr
     dead_wref = llmemory.dead_wref
+    null_wref = lltype.nullptr(llmemory.WeakRef)
 
     def rtype_simple_call(self, hop):
         v_wref, = hop.inputargs(self)
@@ -59,6 +63,7 @@ class LLWeakRefRepr(BaseWeakRefRepr):
 class OOWeakRefRepr(BaseWeakRefRepr):
     lowleveltype = ootype.WeakReference
     dead_wref = ootype.dead_wref
+    null_wref = ootype.null(ootype.WeakReference)
     
     def rtype_simple_call(self, hop):
         v_wref, = hop.inputargs(self)

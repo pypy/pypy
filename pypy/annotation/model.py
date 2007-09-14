@@ -500,15 +500,9 @@ class SomeWeakRef(SomeObject):
     def __init__(self, classdef):
         self.classdef = classdef
 
-    def can_be_none(self):
-        return False
-
 class SomeDeadWeakRef(SomeObject):
     knowntype = weakref.ReferenceType
     immutable = True
-
-    def can_be_none(self):
-        return False
 
 # ____________________________________________________________
 # memory addresses

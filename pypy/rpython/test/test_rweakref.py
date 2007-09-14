@@ -72,6 +72,16 @@ class BaseTestRweakref(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == True
 
+    def test_pbc_null_weakref(self):
+        class A:
+            pass
+        a1 = A()
+        mylist = [weakref.ref(a1), None]
+        def fn(i):
+            item = mylist[i]
+            return item is None
+        assert self.interpret(fn, [0]) is False
+        assert self.interpret(fn, [1]) is True
 
 class TestLLtype(BaseTestRweakref, LLRtypeMixin):
     def test_ll_weakref(self):

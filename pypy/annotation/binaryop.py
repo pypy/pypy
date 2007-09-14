@@ -765,6 +765,8 @@ _make_none_union('SomeString',      'can_be_None=True')
 _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeExternalObject', 'obj.knowntype')
+_make_none_union('SomeWeakRef',         'obj.classdef')
+_make_none_union('SomeDeadWeakRef',      '')
 
 # getitem on SomePBCs, in particular None fails
 
