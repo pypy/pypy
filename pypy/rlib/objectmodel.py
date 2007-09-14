@@ -148,6 +148,17 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"
 
+def invoke_around_extcall(before, after):
+    """Call before() before any external function call, and after() after.
+    At the moment only one pair before()/after() can be registered at a time.
+    """
+    if not we_are_translated():
+        raise NotImplementedError("only works after rtyping")
+    from pypy.rpython.lltypesystem import rffi
+    from pypy.rpython.annlowlevel import llhelper
+    rffi._ll_invoke_around_extcall(llhelper(rffi.AroundFnPtr, before),
+                                   llhelper(rffi.AroundFnPtr, after))
+
 
 class UnboxedValue(object):
     """A mixin class to use for classes that have exactly one field which

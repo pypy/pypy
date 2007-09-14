@@ -55,6 +55,7 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     if _nowrapper:
         return funcptr
 
+    invoke_around_handlers = not sandboxsafe
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
         # XXX the next line is a workaround for the annotation bug
@@ -81,7 +82,13 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                     to_free = to_free + (ll_str,)
                 else:
                     to_free = to_free + (None,)
+        if invoke_around_handlers:
+            before = aroundstate.before
+            after = aroundstate.after
+            if before: before()
         result = funcptr(*real_args)
+        if invoke_around_handlers:
+            if after: after()
         if stringpolicy == 'fullauto':
             for i, tp in unrolling_arg_tps:
                 if tp is CCHARP:
@@ -91,6 +98,17 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
     return func_with_new_name(wrapper, name)
+
+AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
+AroundState = lltype.Struct('AroundState',
+                             ('before', AroundFnPtr),
+                             ('after',  AroundFnPtr))
+aroundstate = lltype.malloc(AroundState, immortal=True, zero=True)
+def _ll_invoke_around_extcall(before, after):
+    aroundstate.before = before
+    aroundstate.after = after
+
+# ____________________________________________________________
 
 from pypy.rpython.tool.rfficache import platform
 

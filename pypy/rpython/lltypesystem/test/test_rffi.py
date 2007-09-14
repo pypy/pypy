@@ -359,3 +359,36 @@ def test_stringpolicy3():
 
     assert interpret(f, [], backendopt=True) == 3
     
+def test_around_extcall():
+    import os
+    from pypy.annotation import model as annmodel
+    from pypy.rlib.objectmodel import invoke_around_extcall
+    from pypy.rpython.extfuncregistry import register_external
+    read_fd, write_fd = os.pipe()
+    try:
+        # we need an external function that is not going to get wrapped around
+        # before()/after() calls, in order to call it from before()/after()...
+        def mywrite(s):
+            os.write(write_fd, s)
+        def llimpl(s):
+            s = ''.join(s.chars)
+            os.write(write_fd, s)
+        register_external(mywrite, [str], annmodel.s_None, 'll_mywrite',
+                          llfakeimpl=llimpl, sandboxsafe=True)
+
+        def before():
+            mywrite("B")
+        def after():
+            mywrite("A")
+        def f():
+            os.write(write_fd, "-")
+            invoke_around_extcall(before, after)
+            os.write(write_fd, "E")
+
+        interpret(f, [])
+        data = os.read(read_fd, 99)
+        assert data == "-BEA"
+
+    finally:
+        os.close(write_fd)
+        os.close(read_fd)
