@@ -80,6 +80,8 @@ class SpaceState:
 spacestate = SpaceState()
 
 def before_external_call():
+    # this function must not raise, in such a way that the exception
+    # transformer knows that it cannot raise!
     spacestate.GIL.release()
 
 def after_external_call():

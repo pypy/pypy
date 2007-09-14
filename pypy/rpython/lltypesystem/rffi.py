@@ -86,11 +86,11 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
             before = aroundstate.before
             after = aroundstate.after
             if before: before()
-        try:
-            result = funcptr(*real_args)
-        finally:
-            if invoke_around_handlers:
-                if after: after()
+            # NB. it is essential that no exception checking occurs after
+            # the call to before(), because we don't have the GIL any more!
+        result = funcptr(*real_args)
+        if invoke_around_handlers:
+            if after: after()
         if stringpolicy == 'fullauto':
             for i, tp in unrolling_arg_tps:
                 if tp is CCHARP:
@@ -104,8 +104,8 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 class AroundState:
     def _freeze_(self):
-        self.before = lltype.nullptr(AroundFnPtr.TO)
-        self.after  = lltype.nullptr(AroundFnPtr.TO)
+        self.before = None    # or a regular RPython function
+        self.after = None     # or a regular RPython function
         return False
 aroundstate = AroundState()
 aroundstate._freeze_()

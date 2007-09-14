@@ -155,9 +155,13 @@ def invoke_around_extcall(before, after):
     # NOTE: the hooks are cleared during translation!  To be effective
     # in a compiled program they must be set at run-time.
     from pypy.rpython.lltypesystem import rffi
+    rffi.aroundstate.before = before
+    rffi.aroundstate.after = after
+    # the 'aroundstate' contains regular function and not ll pointers to them,
+    # but let's call llhelper() anyway to force their annotation
     from pypy.rpython.annlowlevel import llhelper
-    rffi.aroundstate.before = llhelper(rffi.AroundFnPtr, before)
-    rffi.aroundstate.after  = llhelper(rffi.AroundFnPtr, after)
+    llhelper(rffi.AroundFnPtr, before)
+    llhelper(rffi.AroundFnPtr, after)
 
 
 class UnboxedValue(object):
