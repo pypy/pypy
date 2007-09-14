@@ -128,7 +128,7 @@ def compile_c_module(cfiles, modname, include_dirs=None, libraries=[]):
                                     libraries=libraries,)
                                 ],
                             'script_name': 'setup.py',
-                            'script_args': ['-q', 'build_ext', '--inplace'],
+                            'script_args': ['-q', 'build_ext', '--inplace', '--force'],
                             }
                         dist = Distribution(attrs)
                         if not dist.parse_command_line():
@@ -165,13 +165,10 @@ def cache_c_module(cfiles, modname, cache_dir=None,
         cache_dir = py.path.local(pypydir).join('_cache')
     else:
         cache_dir = py.path.local(cache_dir)
-    if cache_dir.check(dir=1):
-        # XXX check timestamps of all cfiles
-        if 1:  # not cache_dir.join(modname + '.so').check():
-            modname = str(cache_dir.join(modname))
-            compile_c_module(cfiles, modname, include_dirs=include_dirs,
-                             libraries=libraries)
-            
+    assert cache_dir.check(dir=1)   # XXX
+    modname = str(cache_dir.join(modname))
+    compile_c_module(cfiles, modname, include_dirs=include_dirs,
+                     libraries=libraries)
 
 def make_module_from_c(cfile, include_dirs=None, libraries=[]):
     cfile = py.path.local(cfile)
