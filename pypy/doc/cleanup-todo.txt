@@ -12,7 +12,6 @@ translation toolchain
  - all backends should have more consistent interfaces
  - geninterp is a hack
  - keepalives need to die, finally
- - change weakrefs to work together with the GC
  - delegate finding type stuff like vtables etc to GC, cleaner interface for rtti,
    simplify translator/c/gc.py
  - clean up the tangle of including headers in the C backend
