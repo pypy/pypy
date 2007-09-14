@@ -42,14 +42,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     #    clsdef = getbookkeeper().getuniqueclassdef(pycode.PyCode)
     #    return annmodel.SomeInstance(clsdef)    
 
-    def specialize__yield_thread(pol, funcdesc, args_s):
-        def yield_thread(self):
-            GIL = self.GIL
-            GIL.fused_release_acquire()
-        def builder(translator, func):
-            return translator.buildflowgraph(yield_thread)
-        return funcdesc.cachedgraph(None, builder=builder)
-
     def specialize__wrap(pol,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import Wrappable
         from pypy.annotation.classdef import ClassDef

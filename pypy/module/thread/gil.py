@@ -40,10 +40,10 @@ class GILThreadLocals(OSThreadLocals):
         """Notification that the current thread is between two bytecodes:
         release the GIL for a little while."""
         GIL = self.GIL
-        GIL.release()
-        # Other threads can run here
-        GIL.acquire(True)
-    yield_thread._annspecialcase_ = 'specialize:yield_thread'
+        # Other threads can run between the release() and the acquire().
+        # This is a single external function so that we are sure that nothing
+        # occurs between the release and the acquire, e.g. no GC operation.
+        GIL.fused_release_acquire()
 
     def getGIL(self):
         return self.GIL    # XXX temporary hack!
