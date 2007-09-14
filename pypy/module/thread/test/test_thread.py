@@ -22,9 +22,9 @@ class AppTestThread(GenericTestThread):
                 # wait a bit to allow most threads to finish now
                 time.sleep(0.5)
         except (thread.error, MemoryError):
-            cls.w_can_start_many_threads = space.w_False
+            cls.w_can_start_many_threads = space.wrap(False)
         else:
-            cls.w_can_start_many_threads = space.w_True
+            cls.w_can_start_many_threads = space.wrap(True)
 
     def test_start_new_thread(self):
         import thread
@@ -187,3 +187,48 @@ class AppTestThread(GenericTestThread):
             pass
         else:
             raise Exception("could unexpectedly start 1000 threads")
+
+    def test_parallel_writes_and_reads(self):
+        # this test seems to be very bad:
+        # * when run normally, there is an early deadlock
+        # * when run in plain CPython (py.test -A) the print >> fwrite
+        #   eventually deadlocks - that looks like a CPython bug
+        # * when run as pypy-c py.test -A, I get a Fatal RPython error,
+        #   about an RPython-level thread.error
+        skip("to be looked at more closely")
+
+        import thread, os
+        read_fd, write_fd = os.pipe()
+        fread = os.fdopen(read_fd, 'rb', 200)
+        fwrite = os.fdopen(write_fd, 'wb', 200)
+        run = True
+        readers_done = 0
+
+        def writer():
+            f = 0.1
+            while run:
+                print >> fwrite, f,
+                f = 4*f - 3*f*f
+            print >> fwrite, "X"
+
+        def reader():
+            while True:
+                data = fread.read(1)
+                if data == "X":
+                    break
+            readers_done += 1
+
+        for j in range(3):
+            thread.start_new_thread(reader, ())
+            thread.start_new_thread(writer, ())
+
+        import time
+        t = time.time() + 5
+        print "start of test"
+        while time.time() < t:
+            time.sleep(1)
+        print "end of test"
+
+        assert readers_done == 0
+        run = False    # end the writers
+        self.waitfor(lambda: readers_done == 3)
