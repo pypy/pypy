@@ -242,6 +242,9 @@ class GraphFunction(OOFunction, Function):
         self.jrettype = jrettype
         self._block_labels = {}
 
+    def next_label(self, prefix='label'):
+        return self.generator.unique_label(prefix)
+
     def method(self):
         """ Returns a jvmgen.Method that can invoke this function """
         if not self.is_method:
