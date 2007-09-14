@@ -11,11 +11,8 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rlib.objectmodel import debug_assert
-from pypy.rlib.nonconst import NonConstant
 
-class error(Exception):
-    def __init__(self, msg):
-        self.msg = msg
+error = thread.error
 
 from pypy.tool.autopath import pypydir
 pypydir = py.path.local(pypydir)
@@ -138,7 +135,7 @@ class Lock(object):
         # Sanity check: the lock must be locked
         if self.acquire(False):
             c_thread_releaselock(self._lock)
-            raise error(NonConstant("bad lock"))
+            raise error("bad lock")
         else:
             c_thread_releaselock(self._lock)
 

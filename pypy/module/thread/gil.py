@@ -8,6 +8,7 @@ Global Interpreter Lock.
 # from time to time, using the executioncontext's XXX
 
 from pypy.module.thread import ll_thread as thread
+from pypy.module.thread.error import reraise_thread_error
 from pypy.interpreter.miscutils import Action
 from pypy.module.thread.threadlocals import OSThreadLocals
 from pypy.rlib.objectmodel import invoke_around_extcall
@@ -19,7 +20,10 @@ class GILThreadLocals(OSThreadLocals):
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if self.GIL is None:
-            self.GIL = thread.allocate_lock_NOAUTO()
+            try:
+                self.GIL = thread.allocate_lock_NOAUTO()
+            except thread.error:
+                reraise_thread_error(space, "can't allocate GIL")
             self.enter_thread(space)   # setup the main thread
             # add the GIL-releasing callback as an action on the space
             space.pending_actions.append(GILReleaseAction(self))

@@ -3,6 +3,7 @@ Thread support based on OS-level threads.
 """
 
 from pypy.module.thread import ll_thread as thread
+from pypy.module.thread.error import reraise_thread_error
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, W_Root, Arguments
@@ -81,7 +82,10 @@ printed unless the exception is SystemExit."""
     boot.space      = space
     boot.w_callable = w_callable
     boot.args       = args
-    ident = thread.start_new_thread(Bootstrapper.bootstrap, (boot,))
+    try:
+        ident = thread.start_new_thread(Bootstrapper.bootstrap, (boot,))
+    except thread.error:
+        reraise_thread_error(space, "can't start new thread")
     return space.wrap(ident)
 
 
