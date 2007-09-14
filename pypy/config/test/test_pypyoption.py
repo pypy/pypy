@@ -31,3 +31,13 @@ def test_check_documentation():
         for path in c.getpaths(include_groups=True):
             fn = prefix + "." + path + ".txt"
             assert configdocdir.join(fn).check()
+
+def test_rweakref_required():
+    py.test.skip('fixme!')
+    conf = get_pypy_config()
+    conf.translation.rweakref = False
+    conf.objspace.std.allopts = True
+
+    assert not conf.objspace.std.withtypeversion
+    assert not conf.objspace.std.withmethodcache
+    assert not conf.objspace.std.withshadowtracking
