@@ -149,6 +149,55 @@ class AppTestConcurrency(object):
                                               for j in range(150)]
         f.close()
 
+    def test_parallel_writes_and_reads(self):
+        # this test seems to be very bad:
+        # * when run normally, there is an early deadlock
+        # * when run in plain CPython (py.test -A) the print >> fwrite
+        #   eventually deadlocks - that looks like a CPython bug
+        # * when run as pypy-c py.test -A, I get a Fatal RPython error,
+        #   about an RPython-level thread.error
+        skip("to be looked at more closely")
+
+        import thread, os, _file
+        read_fd, write_fd = os.pipe()
+        fread = _file.file.fdopen(read_fd, 'rb', 200)
+        fwrite = _file.file.fdopen(write_fd, 'wb', 200)
+        run = True
+        readers_done = [0]
+
+        def writer():
+            f = 0.1
+            while run:
+                print >> fwrite, f,
+                f = 4*f - 3*f*f
+            print >> fwrite, "X"
+
+        def reader():
+            while True:
+                data = fread.read(1)
+                if data == "X":
+                    break
+            readers_done[0] += 1
+
+        for j in range(3):
+            thread.start_new_thread(reader, ())
+            thread.start_new_thread(writer, ())
+
+        import time
+        t = time.time() + 5
+        print "start of test"
+        while time.time() < t:
+            time.sleep(1)
+        print "end of test"
+
+        assert readers_done[0] == 0
+        run = False    # end the writers
+        while readers_done[0] != 3:
+            print 'readers_done == %d, still waiting...' % (readers_done[0],)
+            time.sleep(0.4)
+        print 'Passed.'
+
+
 def test_flush_at_exit():
     from pypy import conftest
     from pypy.tool.option import make_config, make_objspace
