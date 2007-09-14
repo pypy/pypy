@@ -692,7 +692,11 @@ class StaticMethodConst(AbstractConst):
 
 class WeakRefConst(AbstractConst):
     def __init__(self, db, wref, count):
-        AbstractConst.__init__(self, db, wref.ll_deref(), count)
+        if wref:
+            value = wref.ll_deref()
+        else:
+            value = None
+        AbstractConst.__init__(self, db, value, count)
         self.name = 'WEAKREF__%d' % count
 
     def OOTYPE(self):
@@ -700,7 +704,7 @@ class WeakRefConst(AbstractConst):
         return None
     
     def is_null(self):
-        return False
+        return self.value is None
 
     def record_dependencies(self):
         if self.value is not None:
