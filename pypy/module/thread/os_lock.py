@@ -39,15 +39,8 @@ the lock, and return None once the lock is acquired.
 With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is not interruptible."""
-        # XXX Usage of threadlocals.GIL in this function is considered hackish.
-        #     Ideally, all GIL knowledge should be in gil.py.
         mylock = self.lock
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None:
-            GIL.release()
         result = mylock.acquire(bool(waitflag))
-        if GIL is not None:
-            GIL.acquire(True)
         return space.newbool(result)
 
     def descr_lock_release(self, space):

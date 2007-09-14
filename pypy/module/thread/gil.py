@@ -10,6 +10,7 @@ Global Interpreter Lock.
 from pypy.module.thread import ll_thread as thread
 from pypy.interpreter.miscutils import Action
 from pypy.module.thread.threadlocals import OSThreadLocals
+from pypy.rlib.objectmodel import invoke_around_extcall
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
@@ -18,13 +19,25 @@ class GILThreadLocals(OSThreadLocals):
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if self.GIL is None:
-            self.GIL = thread.allocate_lock()
+            self.GIL = thread.allocate_lock_NOAUTO()
             self.enter_thread(space)   # setup the main thread
             # add the GIL-releasing callback as an action on the space
             space.pending_actions.append(GILReleaseAction(self))
-            return True
+            result = True
         else:
-            return False      # already set up
+            result = False      # already set up
+
+        # add the GIL-releasing callback around external function calls.
+        #
+        # XXX we assume a single space, but this is not quite true during
+        # testing; for example, if you run the whole of test_lock you get
+        # a deadlock caused by the first test's space being reused by
+        # test_lock_again after the global state was cleared by
+        # test_compile_lock.  As a workaround, we repatch these global
+        # fields systematically.
+        spacestate.GIL = self.GIL
+        invoke_around_extcall(before_external_call, after_external_call)
+        return result
 
     def enter_thread(self, space):
         "Notification that the current thread is just starting: grab the GIL."
@@ -60,3 +73,14 @@ class GILReleaseAction(Action):
 
     def perform(self):
         self.threadlocals.yield_thread()
+
+
+class SpaceState:
+    pass
+spacestate = SpaceState()
+
+def before_external_call():
+    spacestate.GIL.release()
+
+def after_external_call():
+    spacestate.GIL.acquire(True)

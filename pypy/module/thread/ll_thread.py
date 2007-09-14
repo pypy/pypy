@@ -10,7 +10,7 @@ import thread, py
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import typeOf
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import debug_assert
 from pypy.rlib.nonconst import NonConstant
 
 class error(Exception):
@@ -30,9 +30,10 @@ def setup_thread_so():
     return str(pypydir.join('_cache', modname)) + '.so'
 libraries = [setup_thread_so()]
 
-def llexternal(name, args, result):
+def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=libraries, include_dirs=[str(c_dir)])
+                           libraries=libraries, include_dirs=[str(c_dir)],
+                           **kwds)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 c_thread_start = llexternal('RPyThreadStart', [CALLBACK, rffi.VOIDP], rffi.INT)
@@ -44,8 +45,18 @@ c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], lltype.Void)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT)
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
-c_thread_fused_releaseacquirelock = llexternal(
-    'RPyThreadFusedReleaseAcquireLock', [TLOCKP], lltype.Void)
+
+# another set of functions, this time in versions that don't cause the
+# GIL to be released.  To use to handle the GIL lock itself.
+c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
+                                         [TLOCKP, rffi.INT], rffi.INT,
+                                         sandboxsafe=True)
+c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
+                                         [TLOCKP], lltype.Void,
+                                         sandboxsafe=True)
+c_thread_fused_releaseacquirelock_NOAUTO = llexternal(
+     'RPyThreadFusedReleaseAcquireLock', [TLOCKP], lltype.Void,
+                                         sandboxsafe=True)
 
 def allocate_lock():
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
@@ -54,6 +65,14 @@ def allocate_lock():
         lltype.free(ll_lock, flavor='raw')
         raise error("out of resources")
     return Lock(ll_lock)
+
+def allocate_lock_NOAUTO():
+    ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
+    res = c_thread_lock_init(ll_lock)
+    if res == -1:
+        lltype.free(ll_lock, flavor='raw')
+        raise error("out of resources")
+    return Lock_NOAUTO(ll_lock)
 
 def _start_new_thread(x, y):
     return thread.start_new_thread(x, (y,))
@@ -123,14 +142,26 @@ class Lock(object):
         else:
             c_thread_releaselock(self._lock)
 
-    def fused_release_acquire(self):
-        # Sanity check: the lock must be locked
-        if self.acquire(False):
-            c_thread_releaselock(self._lock)
-            raise error(NonConstant("bad lock"))
-        else:
-            c_thread_fused_releaseacquirelock(self._lock)
-
     def __del__(self):
         lltype.free(self._lock, flavor='raw')
 
+class Lock_NOAUTO(object):
+    """A special lock that doesn't cause the GIL to be released when
+    we try to acquire it.  Used for the GIL itself."""
+
+    def __init__(self, ll_lock):
+        self._lock = ll_lock
+
+    def acquire(self, flag):
+        return bool(c_thread_acquirelock_NOAUTO(self._lock, int(flag)))
+
+    def release(self):
+        debug_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
+        c_thread_releaselock_NOAUTO(self._lock)
+
+    def fused_release_acquire(self):
+        debug_assert(not self.acquire(False), "Lock_NOAUTO was not held!")
+        c_thread_fused_releaseacquirelock_NOAUTO(self._lock)
+
+    def __del__(self):
+        lltype.free(self._lock, flavor='raw')

@@ -100,13 +100,13 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     return func_with_new_name(wrapper, name)
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
-AroundState = lltype.Struct('AroundState',
-                             ('before', AroundFnPtr),
-                             ('after',  AroundFnPtr))
-aroundstate = lltype.malloc(AroundState, immortal=True, zero=True)
-def _ll_invoke_around_extcall(before, after):
-    aroundstate.before = before
-    aroundstate.after = after
+class AroundState:
+    def _freeze_(self):
+        self.before = lltype.nullptr(AroundFnPtr.TO)
+        self.after  = lltype.nullptr(AroundFnPtr.TO)
+        return False
+aroundstate = AroundState()
+aroundstate._freeze_()
 
 # ____________________________________________________________
 
