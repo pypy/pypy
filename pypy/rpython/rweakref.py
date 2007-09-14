@@ -55,7 +55,11 @@ class LLWeakRefRepr(BaseWeakRefRepr):
     def rtype_simple_call(self, hop):
         v_wref, = hop.inputargs(self)
         hop.exception_cannot_occur()
-        return hop.genop('weakref_deref', [v_wref], resulttype=hop.r_result)
+        if hop.r_result.lowleveltype is lltype.Void: # known-to-be-dead weakref
+            return hop.inputconst(lltype.Void, None)
+        else:
+            return hop.genop('weakref_deref', [v_wref],
+                             resulttype=hop.r_result)
 
     def _weakref_create(self, llinstance):
         return llmemory.weakref_create(llinstance)
@@ -69,8 +73,12 @@ class OOWeakRefRepr(BaseWeakRefRepr):
         v_wref, = hop.inputargs(self)
         cname = hop.inputconst(ootype.Void, 'll_deref')
         hop.exception_cannot_occur()
-        v_deref = hop.genop('oosend', [cname, v_wref], resulttype=ootype.ROOT)
-        return hop.genop('oodowncast', [v_deref], resulttype=hop.r_result)
+        if hop.r_result.lowleveltype is lltype.Void: # known-to-be-dead weakref
+            return hop.inputconst(lltype.Void, None)
+        else:
+            v_deref = hop.genop('oosend', [cname, v_wref],
+                                resulttype=ootype.ROOT)
+            return hop.genop('oodowncast', [v_deref], resulttype=hop.r_result)
 
     def _weakref_create(self, llinstance):
         return ootype.ooweakref_create(llinstance)

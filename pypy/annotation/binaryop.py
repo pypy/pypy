@@ -11,8 +11,7 @@ from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat, s_None
-from pypy.annotation.model import SomeExternalObject
-from pypy.annotation.model import SomeWeakRef, SomeDeadWeakRef
+from pypy.annotation.model import SomeExternalObject, SomeWeakRef
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
@@ -766,7 +765,6 @@ _make_none_union('SomeList',         'obj.listdef')
 _make_none_union('SomeDict',          'obj.dictdef')
 _make_none_union('SomeExternalObject', 'obj.knowntype')
 _make_none_union('SomeWeakRef',         'obj.classdef')
-_make_none_union('SomeDeadWeakRef',      '')
 
 # getitem on SomePBCs, in particular None fails
 
@@ -873,22 +871,15 @@ class __extend__(pairtype(SomeObject, SomeOOInstance)):
 
 class __extend__(pairtype(SomeWeakRef, SomeWeakRef)):
     def union((s_wrf1, s_wrf2)):
-        basedef = s_wrf1.classdef.commonbase(s_wrf2.classdef)
-        if basedef is None:
-            return SomeObject()
+        if s_wrf1.classdef is None:
+            basedef = s_wrf2.classdef   # s_wrf1 is known to be dead
+        elif s_wrf2.classdef is None:
+            basedef = s_wrf1.classdef   # s_wrf2 is known to be dead
+        else:
+            basedef = s_wrf1.classdef.commonbase(s_wrf2.classdef)
+            if basedef is None:    # no common base class! complain...
+                return SomeObject()
         return SomeWeakRef(basedef)
-
-class __extend__(pairtype(SomeWeakRef, SomeDeadWeakRef)):
-    def union((s_wrf1, s_wrf2)):
-        return SomeWeakRef(s_wrf1.classdef)
-
-class __extend__(pairtype(SomeDeadWeakRef, SomeWeakRef)):
-    def union((s_wrf1, s_wrf2)):
-        return SomeWeakRef(s_wrf2.classdef)
-
-class __extend__(pairtype(SomeDeadWeakRef, SomeDeadWeakRef)):
-    def union((s_wrf1, s_wrf2)):
-        return SomeDeadWeakRef()
 
 #_________________________________________
 # memory addresses

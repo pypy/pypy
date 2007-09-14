@@ -498,11 +498,8 @@ class SomeWeakRef(SomeObject):
     knowntype = weakref.ReferenceType
     immutable = True
     def __init__(self, classdef):
+        # 'classdef' is None for known-to-be-dead weakrefs.
         self.classdef = classdef
-
-class SomeDeadWeakRef(SomeObject):
-    knowntype = weakref.ReferenceType
-    immutable = True
 
 # ____________________________________________________________
 # memory addresses

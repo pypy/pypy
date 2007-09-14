@@ -72,6 +72,46 @@ class BaseTestRweakref(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res == True
 
+    def test_multiple_prebuilt_dead_weakrefs(self):
+        class A:
+            pass
+        a1 = A()
+        w1 = weakref.ref(a1)
+        a2 = A()
+        w2 = weakref.ref(a2)
+        a3 = A()
+        w3 = weakref.ref(a3)
+        a4 = A()
+        w4 = weakref.ref(a4)
+
+        del a1, a3
+        rgc.collect()
+        assert w1() is None
+        assert w3() is None
+
+        def f(n):
+            if n > 0:
+                if n > 5:
+                    r = w1
+                else:
+                    r = w3
+                assert r() is None
+            else:
+                if n < -5:
+                    r = w2
+                else:
+                    r = w4
+                assert r() is not None
+            return r() is not None
+        res = self.interpret(f, [1])
+        assert res == False
+        res = self.interpret(f, [0])
+        assert res == True
+        res = self.interpret(f, [100])
+        assert res == False
+        res = self.interpret(f, [-100])
+        assert res == True
+
     def test_pbc_null_weakref(self):
         class A:
             pass

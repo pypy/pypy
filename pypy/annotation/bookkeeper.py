@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef, SomeDeadWeakRef
+     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -391,7 +391,7 @@ class Bookkeeper:
         elif tp is weakref.ReferenceType:
             x1 = x()
             if x1 is None:
-                result = SomeDeadWeakRef()
+                result = SomeWeakRef(None)    # dead weakref
             else:
                 s1 = self.immutablevalue(x1)
                 assert isinstance(s1, SomeInstance)
