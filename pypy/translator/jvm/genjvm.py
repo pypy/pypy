@@ -9,6 +9,8 @@ from py.compat import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.translator.oosupport.genoo import GenOO
+from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.backendopt.checkvirtual import check_virtual_methods
 
 from pypy.translator.jvm.generator import JasminGenerator
 from pypy.translator.jvm.option import getoption
@@ -202,7 +204,7 @@ class JvmGeneratedSource(object):
         sys.stderr.write(stderr)
         return stdout
         
-def generate_source_for_function(func, annotation):
+def generate_source_for_function(func, annotation, backendopt=False):
     
     """
     Given a Python function and some hints about its argument types,
@@ -216,6 +218,9 @@ def generate_source_for_function(func, annotation):
     ann = t.buildannotator()
     ann.build_types(func, annotation)
     t.buildrtyper(type_system="ootype").specialize()
+    if backendopt:
+        check_virtual_methods(ootype.ROOT)
+        backend_optimizations(t)
     main_graph = t.graphs[0]
     if getoption('view'): t.view()
     if getoption('wd'): tmpdir = py.path.local('.')

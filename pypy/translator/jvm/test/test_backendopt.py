@@ -1,7 +1,8 @@
 import py
-from pypy.translator.cli.test.runtest import compile_function
+from pypy.translator.jvm.test.runtest import JvmTest
 from pypy.translator.oosupport.test_template.backendopt import BaseTestOptimizedSwitch
 
 class TestOptimizedSwitch(BaseTestOptimizedSwitch):
     def getcompiled(self, fn, annotation):
-        return compile_function(fn, annotation, backendopt=True)
+        t = JvmTest()
+        return t._compile(fn, None, annotation, backendopt=True)

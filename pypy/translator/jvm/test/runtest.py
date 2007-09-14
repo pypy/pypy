@@ -84,7 +84,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._jvm_src = None
 
-    def _compile(self, fn, args, ann=None):
+    def _compile(self, fn, args, ann=None, backendopt=False):
         if ann is None:
             ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
@@ -93,7 +93,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
             self._func = fn
             self._ann = ann
             olddefs = patch_os()
-            self._jvm_src = generate_source_for_function(fn, ann)
+            self._jvm_src = generate_source_for_function(fn, ann, backendopt)
             unpatch_os(olddefs)
             if not getoption('noasm'):
                 self._jvm_src.compile()

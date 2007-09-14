@@ -1378,3 +1378,8 @@ class JasminGenerator(JVMGenerator):
                        
     def get_instruction_count(self):
         return self.curfunc.instr_counter
+
+    def emit_tableswitch(self, low, lbls, default):
+        pass
+
+        
