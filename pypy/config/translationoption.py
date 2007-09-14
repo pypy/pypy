@@ -63,7 +63,8 @@ translation_optiondescription = OptionDescription(
     BoolOption("countmallocs", "Count mallocs and frees", default=False,
                cmdline=None),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
-               default=False, cmdline="--sandbox"),
+               default=False, cmdline="--sandbox",
+               requires=[("translation.thread", False)]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
 
