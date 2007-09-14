@@ -34,25 +34,83 @@ def wrap_oserror_as_ioerror(space, e):
 
 
 class W_Stream(Wrappable):
+    slock = None
+    slockowner = None
+    # Locking issues:
+    # * Multiple threads can access the same W_Stream in
+    #   parallel, because many of the streamio calls eventually
+    #   release the GIL in some external function call.
+    # * Parallel accesses have bad (and crashing) effects on the
+    #   internal state of the buffering levels of the stream in
+    #   particular.
+    # * We can't easily have a lock on each W_Stream because we
+    #   can't translate prebuilt lock objects.
+    # We are still protected by the GIL, so the easiest is to create
+    # the lock on-demand.
+
     def __init__(self, space, stream):
+        self.space = space
         self.stream = stream
+
+    def try_acquire_lock(self):
+        # this function runs with the GIL acquired so there is no race
+        # condition in the creation of the lock
+        if self.slock is None:
+            self.slock = self.space.allocate_lock()
+        me = self.space.getexecutioncontext()   # used as thread ident
+        if self.slockowner is me:
+            return False    # already acquired by the current thread
+        self.slock.acquire(True)
+        self.slockowner = me
+        return True
+
+    def release_lock(self):
+        self.slockowner = None
+        self.slock.release()
+
+    def descr_lock(self):
+        if not self.try_acquire_lock():
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("stream lock already held"))
+
+    def descr_unlock(self):
+        me = self.space.getexecutioncontext()   # used as thread ident
+        if self.slockowner is not me:
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("stream lock is not held"))
+        self.release_lock()
+
+    def _freeze_(self):
+        # remove the lock object, which will be created again as need at
+        # run-time.
+        self.slock = None
+        assert self.slockowner is None
+        return False
 
 for name, argtypes in streamio.STREAM_METHODS.iteritems():
     numargs = len(argtypes)
     args = ", ".join(["v%s" % i for i in range(numargs)])
     exec py.code.Source("""
     def %(name)s(self, space, %(args)s):
+        acquired = self.try_acquire_lock()
         try:
-            return space.wrap(self.stream.%(name)s(%(args)s))
-        except streamio.StreamError, e:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap(e.message))
-        except OSError, e:
-            raise wrap_oserror_as_ioerror(space, e)
+            try:
+                result = self.stream.%(name)s(%(args)s)
+            except streamio.StreamError, e:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap(e.message))
+            except OSError, e:
+                raise wrap_oserror_as_ioerror(space, e)
+        finally:
+            if acquired:
+                self.release_lock()
+        return space.wrap(result)
     %(name)s.unwrap_spec = [W_Stream, ObjSpace] + argtypes
     """ % locals()).compile() in globals()
 
 W_Stream.typedef = TypeDef("Stream",
+    lock   = interp2app(W_Stream.descr_lock),
+    unlock = interp2app(W_Stream.descr_unlock),
     **dict([(name, interp2app(globals()[name]))
                 for name, _ in streamio.STREAM_METHODS.iteritems()]))
 

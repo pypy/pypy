@@ -434,6 +434,19 @@ class ObjSpace(object):
         from pypy.interpreter import pyframe
         return pyframe.PyFrame(self, code, w_globals, closure)
 
+    def allocate_lock(self):
+        """Return an interp-level Lock object if threads are enabled,
+        and a dummy object if they are not."""
+        if self.config.objspace.usemodules.thread:
+            from pypy.module.thread.ll_thread import allocate_lock, error
+            try:
+                return allocate_lock()
+            except error:
+                raise OperationError(self.w_RuntimeError,
+                                     self.wrap("out of resources"))
+        else:
+            return dummy_lock
+
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses
     # may also override specific functions for performance.
@@ -858,6 +871,15 @@ class AppExecCache(SpaceCache):
         w_glob = space.newdict()
         space.exec_(source.compile(), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
+
+class DummyLock(object):
+    def acquire(self, flag):
+        return True
+    def release(self):
+        pass
+    def _freeze_(self):
+        return True
+dummy_lock = DummyLock()
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result

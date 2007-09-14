@@ -11,10 +11,8 @@ class AppTestFile(object):
     def test_simple(self):
         import _file
         f = _file.file(self.temppath, "w")
-        try:
-            f.write("foo")
-        finally:
-            f.close()
+        f.write("foo")
+        f.close()
         f = _file.file(self.temppath, "r")
         raises(TypeError, f.read, None)
         try:
@@ -117,6 +115,39 @@ class AppTestFile(object):
         assert type(res) is str
         f.close()
 
+class AppTestConcurrency(object):
+    # these tests only really make sense on top of a translated pypy-c,
+    # because on top of py.py the inner calls to os.write() don't
+    # release our object space's GIL.
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=("_file", "thread"))
+        cls.w_temppath = cls.space.wrap(
+            str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
+
+    def test_concurrent_writes(self):
+        # check that f.write() is atomic
+        import thread, _file, time
+        f = _file.file(self.temppath, "w+b")
+        def writer(i):
+            for j in range(150):
+                f.write('%3d %3d\n' % (i, j))
+            locks[i].release()
+        locks = []
+        for i in range(10):
+            lock = thread.allocate_lock()
+            lock.acquire()
+            locks.append(lock)
+        for i in range(10):
+            thread.start_new_thread(writer, (i,))
+        # wait until all threads are done
+        for i in range(10):
+            locks[i].acquire()
+        f.seek(0)
+        lines = f.readlines()
+        lines.sort()
+        assert lines == ['%3d %3d\n' % (i, j) for i in range(10)
+                                              for j in range(150)]
+        f.close()
 
 def test_flush_at_exit():
     from pypy import conftest

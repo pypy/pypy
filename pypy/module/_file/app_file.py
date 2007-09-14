@@ -102,12 +102,16 @@ may be returned, even if no size parameter was given."""
             return self.stream.readall()
         else:
             result = []
-            while n > 0:
-                data = self.stream.read(n)
-                if not data:
-                    break
-                n -= len(data)
-                result.append(data)
+            self.stream.lock()
+            try:
+                while n > 0:
+                    data = self.stream.read(n)
+                    if not data:
+                        break
+                    n -= len(data)
+                    result.append(data)
+            finally:
+                self.stream.unlock()
             return ''.join(result)
 
     def readline(self, size=-1):
@@ -125,20 +129,24 @@ Return an empty string at EOF."""
         else:
             # very inefficient unless there is a peek()
             result = []
-            while size > 0:
-                # "peeks" on the underlying stream to see how many characters
-                # we can safely read without reading past an end-of-line
-                peeked = self.stream.peek()
-                pn = peeked.find("\n", 0, size)
-                if pn < 0:
-                    pn = min(size-1, len(peeked))
-                c = self.stream.read(pn + 1)
-                if not c:
-                    break
-                result.append(c)
-                if c.endswith('\n'):
-                    break
-                size -= len(c)
+            self.stream.lock()
+            try:
+                while size > 0:
+                    # "peeks" on the underlying stream to see how many chars
+                    # we can safely read without reading past an end-of-line
+                    peeked = self.stream.peek()
+                    pn = peeked.find("\n", 0, size)
+                    if pn < 0:
+                        pn = min(size-1, len(peeked))
+                    c = self.stream.read(pn + 1)
+                    if not c:
+                        break
+                    result.append(c)
+                    if c.endswith('\n'):
+                        break
+                    size -= len(c)
+            finally:
+                self.stream.unlock()
             return ''.join(result)
 
     def readlines(self, size=-1):
@@ -151,17 +159,21 @@ total number of bytes in the lines returned."""
             raise ValueError('I/O operation on closed file')
         if not isinstance(size, (int, long)):
             raise TypeError("an integer is required")
-        if size < 0:
-            return list(iter(self.stream.readline, ""))
-        else:
-            result = []
-            while size > 0:
-                line = self.stream.readline()
-                if not line:
-                    break
-                result.append(line)
-                size -= len(line)
-            return result
+        self.stream.lock()
+        try:
+            if size < 0:
+                result = list(iter(self.stream.readline, ""))
+            else:
+                result = []
+                while size > 0:
+                    line = self.stream.readline()
+                    if not line:
+                        break
+                    result.append(line)
+                    size -= len(line)
+        finally:
+            self.stream.unlock()
+        return result
 
     def write(self, data):
         """write(str) -> None.  Write string str to file.
@@ -226,9 +238,13 @@ the file one by one."""
 Size defaults to the current file position, as returned by tell()."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
-        if size is None:
-            size = self.stream.tell()
-        self.stream.truncate(size)
+        self.stream.lock()
+        try:
+            if size is None:
+                size = self.stream.tell()
+            self.stream.truncate(size)
+        finally:
+            self.stream.unlock()
 
     def flush(self):
         """flush() -> None.  Flush the internal I/O buffer."""
@@ -243,10 +259,17 @@ Sets data attribute .closed to True.  A closed file cannot be used for
 further I/O operations.  close() may be called more than once without
 error.  Some kinds of file objects (for example, opened by popen())
 may return an exit status upon closing."""
+        # use the stream lock to avoid double-closes or
+        # close-while-another-thread-uses-it.
         if not self._closed and hasattr(self, 'stream'):
-            self._closed = True
-            sys.pypy__exithandlers__.pop(self.stream, None)
-            self.stream.close()
+            self.stream.lock()
+            try:
+                if not self._closed:   # could have changed...
+                    self._closed = True
+                    sys.pypy__exithandlers__.pop(self.stream, None)
+                    self.stream.close()
+            finally:
+                self.stream.unlock()
 
     __del__ = close
 

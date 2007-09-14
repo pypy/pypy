@@ -86,9 +86,11 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
             before = aroundstate.before
             after = aroundstate.after
             if before: before()
-        result = funcptr(*real_args)
-        if invoke_around_handlers:
-            if after: after()
+        try:
+            result = funcptr(*real_args)
+        finally:
+            if invoke_around_handlers:
+                if after: after()
         if stringpolicy == 'fullauto':
             for i, tp in unrolling_arg_tps:
                 if tp is CCHARP:

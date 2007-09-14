@@ -30,6 +30,7 @@ class Lock(Wrappable):
     "A wrappable box around an interp-level lock object."
 
     def __init__(self):
+        # XXX catch thread.error!
         self.lock = thread.allocate_lock()
 
     def descr_lock_acquire(self, space, waitflag=1):
