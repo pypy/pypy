@@ -17,7 +17,7 @@ from pypy.rpython.rtuple import AbstractTupleRepr
 from pypy.rpython.lltypesystem import lltype, llmemory, rtuple
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 from pypy.rpython.lltypesystem.lltype import \
-    GcArray, GcStruct, Number, Primitive, Signed, Ptr, Unsigned, Void, FixedSizeArray, Bool,\
+    GcArray, GcStruct, Number, Primitive, Signed, Ptr, Unsigned, Char, Void, FixedSizeArray, Bool,\
     GcForwardReference, malloc, direct_arrayitems, direct_ptradd, nullptr, typeMethod,\
     cast_primitive
 from pypy.rpython.lltypesystem.rffi import cast
@@ -314,6 +314,10 @@ class ArrayRepr(Repr):
     def get_ndim(self, hop, v_array):
         cname = inputconst(Void, 'ndim')
         return hop.llops.genop('getfield', [v_array, cname], resulttype=Signed)
+
+    def get_dtype(self, hop, v_array):
+        cdtype = inputconst(Char, self.s_array.dtype)
+        return cdtype
 
     def get_shape(self, hop, v_array):
         TUPLE = TUPLE_TYPE([Signed]*self.ndim)

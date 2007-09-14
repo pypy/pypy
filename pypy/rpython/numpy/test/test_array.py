@@ -5,7 +5,7 @@ Test the numpy implementation.
 import py
 import pypy.rpython.numpy.implementation
 from pypy.annotation import model as annmodel
-from pypy.annotation.model import SomeObject, SomeTuple
+from pypy.annotation.model import SomeObject, SomeInteger, SomeChar, SomeTuple
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.tool.error import AnnotatorError
 from pypy.translator.translator import TranslationContext, graphof
@@ -77,6 +77,34 @@ class Test_annotation:
         a = t.buildannotator()
         s = a.build_types(access_with_variable, [])
         assert s.knowntype == rffi.r_int
+
+    def test_annotate_attr(self):
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.ndim
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, SomeInteger)
+
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.shape
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, SomeTuple)
+
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.dtype
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, SomeChar)
 
     def test_annotate_empty(self):
         def f():
@@ -240,6 +268,15 @@ class Test_annotation:
         assert s.ndim == 1
         assert s.typecode == 'd'
 
+        def f_copy():
+            a = numpy.array(range(12))
+            return a.copy()
+
+        s = a.build_types(f_copy, [])
+        assert type(s) == SomeArray
+        assert s.ndim == 1
+        assert s.typecode == 'l'
+
     def test_annotate_indexing(self):
         def f():
             a = numpy.empty((4,3), dtype='i')
@@ -316,6 +353,28 @@ class Test_specialization:
             assert res.dataptr[i] == 0
         assert res.ndim == 2
 
+    def test_specialize_array_attr(self):
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.ndim
+        res = interpret(f, [])
+        assert res == 3
+
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.shape
+        res = interpret(f, [])
+        assert res.item0 == 3
+        assert res.item1 == 4
+        assert res.item2 == 5
+
+        def f():
+            a = numpy.empty((3,4,5))
+            return a.dtype
+        res = interpret(f, [])
+        assert res == 'd'
+
+
     def test_specialize_array_access(self):
         def access_with_variable():
             my_array = numpy.array(range(10), dtype='i')
@@ -328,14 +387,6 @@ class Test_specialization:
 
         res = interpret(access_with_variable, [])
         assert res == 45
-
-    def test_specialize_array_attr(self):
-        def f():
-            a = numpy.array([1,2])
-            return a.ndim
-
-        res = interpret(f, [])
-        assert res == 1
 
     def test_specialize_array_attr_shape(self):
         def f():
@@ -391,6 +442,16 @@ class Test_specialization:
         res = interpret(f_astype, [])
         assert res.dataptr[0] == 0.
         assert res.dataptr[1] == 0.5
+
+        def f_copy():
+            a = numpy.array(range(4))
+            b = a.copy()
+            a[:] = 0
+            return b
+
+        res = interpret(f_copy, [])
+        for i in range(4):
+            assert res.dataptr[i] == i
 
     def test_specialize_view_0(self):
         def f():

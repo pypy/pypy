@@ -46,7 +46,7 @@ class SomeArray(SomeObject):
     def __init__(self, typecode, ndim=1):
         if not typecode in self.typecode_to_item:
             raise AnnotatorError("bad typecode: %r"%typecode)
-        self.typecode = typecode
+        self.dtype = self.typecode = typecode
         self.ndim = ndim
 
     def get_one_dim(self):
@@ -66,6 +66,8 @@ class SomeArray(SomeObject):
                 s = SomeTuple([SomeInteger()]*s_array.ndim)
             elif attr == 'ndim':
                 s = SomeInteger()
+            elif attr == 'dtype':
+                s = SomeChar()
         if s is None:
             return SomeObject.getattr(s_array, s_attr)
         return s
@@ -81,6 +83,7 @@ class SomeArray(SomeObject):
 
     def method_transpose(self):
         return SomeArray(self.typecode, self.ndim)
+    method_copy = method_transpose
 
     def method_astype(self, s_dtype):
         if isinstance(s_dtype, SomeChar) and s_dtype.is_constant():
