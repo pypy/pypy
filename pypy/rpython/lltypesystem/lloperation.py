@@ -402,9 +402,8 @@ LL_OPERATIONS = {
 
     # __________ weakrefs __________
 
-    # weakref_create can raise MemoryError in GCs like Boehm, but not
-    # in the framework GC, so it should never cause a stack unwind.
-    'weakref_create':       LLOp(canraise=(MemoryError,), sideeffects=False),
+    'weakref_create':       LLOp(canraise=(MemoryError,), sideeffects=False,
+                                 canunwindgc=True),
     'weakref_deref':        LLOp(sideeffects=False),
     'cast_ptr_to_weakrefptr': LLOp(sideeffects=False), # no-op type hiding
     'cast_weakrefptr_to_ptr': LLOp(sideeffects=False), # no-op type revealing
