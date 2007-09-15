@@ -3,7 +3,7 @@ Python locks, based on true threading locks provided by the OS.
 """
 
 from pypy.module.thread import ll_thread as thread
-from pypy.module.thread.error import reraise_thread_error
+from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.interpreter.typedef import TypeDef
@@ -33,7 +33,7 @@ class Lock(Wrappable):
         try:
             self.lock = thread.allocate_lock()
         except thread.error:
-            reraise_thread_error(space, "out of resources")
+            raise wrap_thread_error(space, "out of resources")
 
     def descr_lock_acquire(self, space, waitflag=1):
         """Lock the lock.  Without argument, this blocks if the lock is already
@@ -53,7 +53,7 @@ but it needn't be locked by the same thread that unlocks it."""
         try:
             self.lock.release()
         except thread.error:
-            reraise_thread_error(space, "release unlocked lock")
+            raise wrap_thread_error(space, "release unlocked lock")
 
     def descr_lock_locked(self, space):
         """Return whether the lock is in the locked state."""
