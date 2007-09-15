@@ -11,6 +11,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.eval import Code
 from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import we_are_translated
 
 NOFILE = 0
 PYFILE = 1
@@ -319,7 +320,12 @@ class ImportRLock:
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            assert not self._ann_seen
+            # sanity-check: imports should not occur after the
+            # ImportRLock has been frozen (and self.lock thrown away)
+            # during annotation.  They can occur either before, or in
+            # the translated code.
+            if not we_are_translated():
+                assert not self._ann_seen
             self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
