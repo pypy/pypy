@@ -28,7 +28,7 @@ def test_compile_threads():
     from pypy.tool.autopath import pypydir
     pypydir = py.path.local(pypydir)
     csourcedir = pypydir.join('translator', 'c', 'src')
-    include_dirs = [str(csourcedir)]
+    include_dirs = [str(csourcedir.dirpath())]
     files = [csourcedir.join('thread.c')]
     cache_c_module(files, '_thread', cache_dir=udir, include_dirs=include_dirs,
                    libraries=['pthread'])
