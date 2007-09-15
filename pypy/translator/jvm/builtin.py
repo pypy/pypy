@@ -108,9 +108,6 @@ built_in_methods = {
     (ootype.String.__class__, "ll_lower"):
     jvmgen.Method.v(jString, "toLowerCase", (), jString),
 
-    (ootype.String.__class__, "ll_contains"):
-    jvmgen.Method.v(jString, "contains", (jCharSequence,), jBool),
-
     (ootype.String.__class__, "ll_replace_chr_chr"):
     jvmgen.Method.v(jString, "replace", (jChar, jChar), jString),
 

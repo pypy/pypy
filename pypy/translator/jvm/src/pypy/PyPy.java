@@ -565,6 +565,10 @@ public class PyPy implements Constants {
         return str1 + str2;
     }
 
+    public static boolean ll_contains(String str, char char1) {
+        return str.indexOf((int) char1) != -1;
+    }
+
     public static int ll_find(String haystack, String needle, int start, int end) {
         // if it is impossible for the needle to occur:
         //   this deals w/ a disparity in how java and python handle when needle=""
