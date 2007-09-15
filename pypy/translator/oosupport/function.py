@@ -227,6 +227,37 @@ class Function(object):
         log.WARNING("The default version of render_numeric_switch is *slow*: please override it in the backend")
         self.render_numeric_switch_naive(block)
 
+    def _collect_switch_cases(self, block):
+        cases = {}
+        for link in block.exits:
+            if link.exitcase == "default":
+                default = link, self.next_label('switch')
+            else:
+                if block.exitswitch.concretetype in (ootype.Char, ootype.UniChar):
+                    value = ord(link.exitcase)
+                else:
+                    value = link.exitcase
+                cases[value] = link, self.next_label('switch')
+
+        values = cases.keys()
+        try:
+            min_case = min(values)
+            max_case = max(values)
+        except ValueError:
+            min_case = max_case = 0
+        return cases, min_case, max_case, default
+
+    def _is_sparse_switch(self, cases, min_case, max_case):
+        if max_case-min_case > 3*len(cases) + 10: # the switch is very sparse, better to use the naive version
+            return True
+        return False
+
+    def render_switch_case(self, link, label):
+        target_label = self._get_block_name(link.target)
+        self.set_label(label)
+        self._setup_link(link)
+        self.generator.branch_unconditionally(target_label)
+
     def render_numeric_switch_naive(self, block):
         for link in block.exits:
             target_label = self._get_block_name(link.target)

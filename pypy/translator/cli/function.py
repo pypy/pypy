@@ -166,28 +166,10 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             self.render_numeric_switch_naive(block)
             return
 
-        cases = {}
-        naive = False
-        for link in block.exits:
-            if link.exitcase == "default":
-                default = link, self.next_label('switch')
-            else:
-                if block.exitswitch.concretetype in (ootype.Char, ootype.UniChar):
-                    value = ord(link.exitcase)
-                else:
-                    value = link.exitcase
-                if value < 0:
-                    naive = True
-                    break
-                cases[value] = link, self.next_label('switch')
+        cases, min_case, max_case, default = self._collect_switch_cases(block)
+        is_sparse = self._is_sparse_switch(cases, min_case, max_case)
 
-        try:
-            max_case = max(cases.keys())
-        except ValueError:
-            max_case = 0
-        if max_case > 3*len(cases) + 10: # the switch is very sparse, better to use the naive version
-            naive = True
-
+        naive = (min_case < 0) or is_sparse
         if naive:
             self.render_numeric_switch_naive(block)
             return
@@ -201,12 +183,6 @@ class Function(OOFunction, Node, CLIBaseGenerator):
         self.render_switch_case(*default)
         for link, lbl in cases.itervalues():
             self.render_switch_case(link, lbl)
-
-    def render_switch_case(self, link, label):
-        target_label = self._get_block_name(link.target)
-        self.set_label(label)
-        self._setup_link(link)
-        self.generator.branch_unconditionally(target_label)
 
     # Those parts of the generator interface that are function
     # specific

@@ -1380,6 +1380,7 @@ class JasminGenerator(JVMGenerator):
         return self.curfunc.instr_counter
 
     def emit_tableswitch(self, low, lbls, default):
-        pass
-
-        
+        self.curclass.out('    tableswitch %d\n' % low)
+        for label in lbls:
+            self.curclass.out('        %s\n' % label.jasmin_syntax())
+        self.curclass.out('        default: %s\n' % default.jasmin_syntax())

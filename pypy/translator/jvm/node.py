@@ -35,6 +35,7 @@ from pypy.translator.oosupport.constant import \
      push_constant
 
 import pypy.translator.jvm.generator as jvmgen
+from pypy.translator.jvm.log import log
 
 class Node(object):
     def set_db(self, db):
@@ -326,6 +327,33 @@ class GraphFunction(OOFunction, Function):
             else:
                 self.ilasm.store(link.last_exc_value)
             self._setup_link(link)
+
+    def render_numeric_switch(self, block):
+        if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):
+            # TODO: it could be faster to check is the values fit in
+            # 32bit, and perform a cast in that case
+            self.render_numeric_switch_naive(block)
+            return
+
+        cases, min_case, max_case, default = self._collect_switch_cases(block)
+        is_sparse = self._is_sparse_switch(cases, min_case, max_case)
+
+        if is_sparse:
+            log.WARNING('TODO: use lookupswitch to render sparse numeric_switches')
+            self.render_numeric_switch_naive(block)
+            return
+
+        targets = []
+        for i in xrange(min_case, max_case+1):
+            link, lbl = cases.get(i, default)
+            targets.append(lbl)
+
+        self.generator.load(block.exitswitch)
+        self.generator.emit_tableswitch(min_case, targets, default[1])
+        
+        self.render_switch_case(*default)
+        for link, lbl in cases.itervalues():
+            self.render_switch_case(link, lbl)
 
     def render_return_block(self, block):
         return_var = block.inputargs[0]

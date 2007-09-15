@@ -104,6 +104,34 @@ class TestTypedOptimizedSwitchTestCase:
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
 
+    def test_int_switch_nonsparse(self):
+        def f(x):
+            if x == 1:
+                return 9
+            elif x == 2:
+                return 27
+            elif x == 3:
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f, [int])
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
+
+    def test_int_switch_nonsparse_neg(self):
+        def f(x):
+            if x == -1:
+                return 9
+            elif x == 2:
+                return 27
+            elif x == 3:
+                return 3
+            return 0
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(f, [int])
+        for x in (0,1,2,3,9,27,48, -9):
+            assert fn(x) == f(x)
+
     def test_uint_switch(self):
         def f(x):
             if x == r_uint(3):
