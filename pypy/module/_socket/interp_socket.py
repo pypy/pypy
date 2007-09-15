@@ -30,7 +30,12 @@ class W_RSocket(Wrappable, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            sock, addr = self.accept(W_RSocket)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                sock, addr = self.accept(W_RSocket)
+            finally:
+                if GIL is not None: GIL.acquire(True)
             return space.newtuple([space.wrap(sock),
                                    addr.as_object(space)])
         except SocketError, e:
@@ -45,7 +50,12 @@ class W_RSocket(Wrappable, RSocket):
         sockets the address is a tuple (ifname, proto [,pkttype [,hatype]])
         """
         try:
-            self.bind(self.addr_from_object(space, w_addr))
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                self.bind(self.addr_from_object(space, w_addr))
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
     bind_w.unwrap_spec = ['self', ObjSpace, W_Root]
@@ -56,7 +66,12 @@ class W_RSocket(Wrappable, RSocket):
         Close the socket.  It cannot be used after this call.
         """
         try:
-            self.close()
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                self.close()
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
     close_w.unwrap_spec = ['self', ObjSpace]
@@ -68,7 +83,12 @@ class W_RSocket(Wrappable, RSocket):
         is a pair (host, port).
         """
         try:
-            self.connect(self.addr_from_object(space, w_addr))
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                self.connect(self.addr_from_object(space, w_addr))
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
         except TypeError, e:
@@ -82,7 +102,12 @@ class W_RSocket(Wrappable, RSocket):
         This is like connect(address), but returns an error code (the errno value)
         instead of raising an exception when an error occurs.
         """
-        error = self.connect_ex(self.addr_from_object(space, w_addr))
+        GIL = space.threadlocals.getGIL()
+        if GIL is not None: GIL.release()
+        try:
+            error = self.connect_ex(self.addr_from_object(space, w_addr))
+        finally:
+            if GIL is not None: GIL.acquire(True)
         return space.wrap(error)
     connect_ex_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
@@ -112,7 +137,12 @@ class W_RSocket(Wrappable, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            addr = self.getpeername()
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                addr = self.getpeername()
+            finally:
+                if GIL is not None: GIL.acquire(True)
             return addr.as_object(space)
         except SocketError, e:
             raise converted_error(space, e)
@@ -125,7 +155,12 @@ class W_RSocket(Wrappable, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            addr = self.getsockname()
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                addr = self.getsockname()
+            finally:
+                if GIL is not None: GIL.acquire(True)
             return addr.as_object(space)
         except SocketError, e:
             raise converted_error(space, e)
@@ -167,7 +202,12 @@ class W_RSocket(Wrappable, RSocket):
         will allow before refusing new connections.
         """
         try:
-            self.listen(backlog)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                self.listen(backlog)
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
     listen_w.unwrap_spec = ['self', ObjSpace, int]
@@ -192,7 +232,13 @@ class W_RSocket(Wrappable, RSocket):
         the remote end is closed and all data is read, return the empty string.
         """
         try:
-            data = self.recv(buffersize, flags)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                data = self.recv(buffersize, flags)
+            finally:
+                if GIL is not None: GIL.acquire(True)
+                
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(data)
@@ -204,7 +250,12 @@ class W_RSocket(Wrappable, RSocket):
         Like recv(buffersize, flags) but also return the sender's address info.
         """
         try:
-            data, addr = self.recvfrom(buffersize, flags)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                data, addr = self.recvfrom(buffersize, flags)
+            finally:
+                if GIL is not None: GIL.acquire(True)
             if addr:
                 w_addr = addr.as_object(space)
             else:
@@ -223,7 +274,12 @@ class W_RSocket(Wrappable, RSocket):
         """
         data = coerce_to_str_w(space, w_data)
         try:
-            count = self.send(data, flags)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                count = self.send(data, flags)
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
@@ -239,7 +295,12 @@ class W_RSocket(Wrappable, RSocket):
         """
         data = coerce_to_str_w(space, w_data)
         try:
-            count = self.sendall(data, flags)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                count = self.sendall(data, flags)
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
     sendall_w.unwrap_spec = ['self', ObjSpace, W_Root, int]
@@ -260,8 +321,13 @@ class W_RSocket(Wrappable, RSocket):
             flags = space.int_w(w_param2)
             w_addr = w_param3
         try:
-            addr = self.addr_from_object(space, w_addr)
-            count = self.sendto(data, flags, addr)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                addr = self.addr_from_object(space, w_addr)
+                count = self.sendto(data, flags, addr)
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
         return space.wrap(count)
@@ -325,7 +391,12 @@ class W_RSocket(Wrappable, RSocket):
         (flag == SHUT_RDWR).
         """
         try:
-            self.shutdown(how)
+            GIL = space.threadlocals.getGIL()
+            if GIL is not None: GIL.release()
+            try:
+                self.shutdown(how)
+            finally:
+                if GIL is not None: GIL.acquire(True)
         except SocketError, e:
             raise converted_error(space, e)
     shutdown_w.unwrap_spec = ['self', ObjSpace, int]
