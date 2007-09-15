@@ -52,11 +52,7 @@ class Bootstrapper(object):
 
 
 def setup_threads(space):
-    if space.threadlocals.setup_threads(space):
-        # the import lock is in imp.py, which registers a custom import
-        # hook with this lock.
-        from pypy.module.__builtin__.importing import importhook
-        importhook(space, 'imp')
+    space.threadlocals.setup_threads(space)
 
 
 def start_new_thread(space, w_callable, w_args, w_kwargs=NoneNotWrapped):

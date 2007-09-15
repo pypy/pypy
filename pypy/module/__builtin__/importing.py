@@ -196,6 +196,16 @@ def importhook(space, modulename, w_globals=None,
 importhook.unwrap_spec = [ObjSpace,str,W_Root,W_Root,W_Root]
 
 def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
+    lock = getimportlock(space)
+    acquired = lock.try_acquire_lock()
+    try:
+        return _absolute_import(space, modulename, baselevel,
+                                w_fromlist, tentative)
+    finally:
+        if acquired:
+            lock.release_lock()
+
+def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     w = space.wrap
     
     w_mod = None
@@ -283,6 +293,45 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         # ImportError
         msg = "No module named %s" % modulename
         raise OperationError(space.w_ImportError, w(msg))
+
+# __________________________________________________________________
+#
+# import lock, to prevent two threads from running module-level code in
+# parallel.  This behavior is more or less part of the language specs,
+# as an attempt to avoid failure of 'from x import y' if module x is
+# still being executed in another thread.
+
+class ImportRLock:
+    def __init__(self, space):
+        self.space = space
+        self.lock = None
+        self.lockowner = None
+
+    def _freeze_(self):
+        # remove the lock object, which will be created again as need at
+        # run-time.
+        self.lock = None
+        assert self.lockowner is None
+        return False
+
+    def try_acquire_lock(self):
+        # this function runs with the GIL acquired so there is no race
+        # condition in the creation of the lock
+        if self.lock is None:
+            self.lock = self.space.allocate_lock()
+        me = self.space.getexecutioncontext()   # used as thread ident
+        if self.lockowner is me:
+            return False    # already acquired by the current thread
+        self.lock.acquire(True)
+        self.lockowner = me
+        return True
+
+    def release_lock(self):
+        self.lockowner = None
+        self.lock.release()
+
+def getimportlock(space):
+    return space.fromcache(ImportRLock)
 
 # __________________________________________________________________
 #

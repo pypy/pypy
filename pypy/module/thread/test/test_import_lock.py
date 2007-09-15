@@ -13,3 +13,7 @@ class AppTestThread(GenericTestThread):
             thread.start_new_thread(f, ())
         self.waitfor(lambda: len(done) == 5)
         assert len(done) == 5
+
+    def test_with_many_dependencies(self):
+        import thread
+        import re      # -> causes nested imports
