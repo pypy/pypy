@@ -196,16 +196,6 @@ def importhook(space, modulename, w_globals=None,
 importhook.unwrap_spec = [ObjSpace,str,W_Root,W_Root,W_Root]
 
 def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
-    lock = getimportlock(space)
-    acquired = lock.try_acquire_lock()
-    try:
-        return _absolute_import(space, modulename, baselevel,
-                                w_fromlist, tentative)
-    finally:
-        if acquired:
-            lock.release_lock()
-
-def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     w = space.wrap
     
     w_mod = None
@@ -258,34 +248,42 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         w_mod = space.sys.getmodule(modulename) 
         if w_mod is not None:
             return w_mod
-        # Examin importhooks (PEP302) before doing the import
-        if w_path is not None:
-            w_loader  = find_module(space, w_modulename, w_path) 
-        else:
-            w_loader  = find_module(space, w_modulename, space.w_None)
-        if not space.is_w(w_loader, space.w_None):
-            w_mod = space.call_method(w_loader, "load_module", w_modulename)
-            #w_mod_ = check_sys_modules(space, w_modulename)
-            if w_mod is not None and w_parent is not None:
-                space.setattr(w_parent, w(partname), w_mod)
 
-            return w_mod
-        
-        
-        if w_path is not None:
-            for path in space.unpackiterable(w_path):
-                dir = os.path.join(space.str_w(path), partname)
-                if os.path.isdir(dir):
-                    fn = os.path.join(dir, '__init__')
+        lock = getimportlock(space)
+        acquired = lock.try_acquire_lock()
+        try:
+            # Examin importhooks (PEP302) before doing the import
+            if w_path is not None:
+                w_loader  = find_module(space, w_modulename, w_path) 
+            else:
+                w_loader  = find_module(space, w_modulename, space.w_None)
+            if not space.is_w(w_loader, space.w_None):
+                w_mod = space.call_method(w_loader, "load_module", w_modulename)
+                #w_mod_ = check_sys_modules(space, w_modulename)
+                if w_mod is not None and w_parent is not None:
+                    space.setattr(w_parent, w(partname), w_mod)
+
+                return w_mod
+            
+            
+            if w_path is not None:
+                for path in space.unpackiterable(w_path):
+                    dir = os.path.join(space.str_w(path), partname)
+                    if os.path.isdir(dir):
+                        fn = os.path.join(dir, '__init__')
+                        w_mod = try_import_mod(space, w_modulename, fn,
+                                               w_parent, w(partname),
+                                               pkgdir=dir)
+                        if w_mod is not None:
+                            return w_mod
+                    fn = os.path.join(space.str_w(path), partname)
                     w_mod = try_import_mod(space, w_modulename, fn, w_parent,
-                                           w(partname), pkgdir=dir)
+                                           w(partname))
                     if w_mod is not None:
                         return w_mod
-                fn = os.path.join(space.str_w(path), partname)
-                w_mod = try_import_mod(space, w_modulename, fn, w_parent,
-                                       w(partname))
-                if w_mod is not None:
-                    return w_mod
+        finally:
+            if acquired:
+                lock.release_lock()
 
     if tentative:
         return None
@@ -302,6 +300,8 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 # still being executed in another thread.
 
 class ImportRLock:
+    _ann_seen = False
+
     def __init__(self, space):
         self.space = space
         self.lock = None
@@ -312,12 +312,14 @@ class ImportRLock:
         # run-time.
         self.lock = None
         assert self.lockowner is None
+        self._ann_seen = True
         return False
 
     def try_acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
+            assert not self._ann_seen
             self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
