@@ -91,6 +91,8 @@ def test_llexternal():
     assert result
 
 def test_instantiate():
+    # instantiate is interesting, because it leads to one of the few cases of
+    # an indirect call without a list of graphs
     from pypy.rlib.objectmodel import instantiate
     class A:
         pass 
