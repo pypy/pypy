@@ -144,7 +144,8 @@ class CBuilder(object):
             cfile, extra, extraincludes = gen_source(db, modulename, targetdir,
                                                 defines = defines,
                                                 exports = self.exports,
-                                                symboltable = self.symboltable)
+                                                symboltable = self.symboltable,
+                                                libraries = self.libraries)
         else:
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
@@ -704,7 +705,7 @@ def gen_source_standalone(database, modulename, targetdir,
 
 
 def gen_source(database, modulename, targetdir, defines={}, exports={},
-               symboltable=None):
+               symboltable=None, libraries=[]):
     assert not database.standalone
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
@@ -881,7 +882,8 @@ setup(name="%(modulename)s",
       ext_modules = [Extension(name = "%(modulename)s",
                             sources = ["%(modulename)s.c"],
                  extra_compile_args = extra_compile_args,
-                       include_dirs = [PYPY_INCLUDE_DIR])])
+                       include_dirs = [PYPY_INCLUDE_DIR],
+                          libraries = %(libraries)r)])
 '''
 
 MAKEFILE = '''
