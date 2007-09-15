@@ -515,7 +515,7 @@ def force_cast(RESTYPE, value):
             cptr = ctypes.cast(cvalue, cresulttype)
             return ctypes2lltype(RESTYPE, cptr)
         # first cast the input pointer to an integer
-        cvalue = ctypes.c_void_p(cvalue).value
+        cvalue = ctypes.cast(cvalue, ctypes.c_void_p).value
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
 

@@ -452,6 +452,11 @@ def gen_cast(llops, TGT, v_value):
                 return llops.genop('cast_pointer', [v_value], resulttype = TGT)
         elif ORIG == llmemory.Address:
             return llops.genop('cast_adr_to_ptr', [v_value], resulttype = TGT)
+        elif isinstance(ORIG, lltype.Primitive) and ORIG in _cast_to_Signed:
+            op = _cast_to_Signed[ORIG]
+            if op:
+                v_value = llops.genop(op, [v_value], resulttype=lltype.Signed)
+            return llops.genop('cast_int_to_ptr', [v_value], resulttype=TGT)
     elif TGT == llmemory.Address and isinstance(ORIG, lltype.Ptr):
         return llops.genop('cast_ptr_to_adr', [v_value], resulttype = TGT)
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))

@@ -5,6 +5,9 @@ from pypy.rpython.rctypes.tool.ctypes_platform import ConstantInteger
 from pypy.rpython.rctypes.tool.ctypes_platform import SimpleType
 
 
+raise NotImplementedError("this needs to be ported from rctypes to rffi")
+
+
 class CConfig:
     _header_ = '#include <Windows.h>'
 
