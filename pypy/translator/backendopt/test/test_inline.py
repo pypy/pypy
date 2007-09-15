@@ -214,11 +214,13 @@ class BaseTestInline:
         assert len(s) > 3
 
     def test_inline_exceptions(self):
+        customError1 = CustomError1()
+        customError2 = CustomError2()
         def f(x):
             if x == 0:
-                raise CustomError1
+                raise customError1
             if x == 1:
-                raise CustomError2
+                raise customError2
         def g(x):
             try:
                 f(x)
@@ -484,8 +486,9 @@ class BaseTestInline:
         assert result == 55
 
     def test_inline_raiseonly(self):
+        c = CustomError1()
         def f2(x):
-            raise CustomError1
+            raise c
         def f(x):
             try:
                 return f2(x)
@@ -541,6 +544,7 @@ class BaseTestInline:
         py.test.raises(CannotInline, self.check_inline, x3, x4, [])
 
     def test_list_iteration(self):
+        self._skip_oo("graphanalyze properly!")
         def f():
             tot = 0
             for item in [1,2,3]:
@@ -619,7 +623,6 @@ class TestInlineOOType(OORtypeMixin, BaseTestInline):
         assert res == 42
 
     def test_float(self):
-        py.test.skip('fixme!')
         ex = ['', '    ']
         def fn(i):
             s = ex[i]
