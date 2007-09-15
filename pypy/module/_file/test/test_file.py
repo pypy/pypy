@@ -1,6 +1,6 @@
 import py
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 class AppTestFile(object):
     def setup_class(cls):
@@ -120,6 +120,8 @@ class AppTestConcurrency(object):
     # because on top of py.py the inner calls to os.write() don't
     # release our object space's GIL.
     def setup_class(cls):
+        if not option.runappdirect:
+            py.test.skip("likely to deadlock when interpreted by py.py")
         cls.space = gettestobjspace(usemodules=("_file", "thread"))
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("fileimpl").join("concurrency.txt")))
@@ -150,15 +152,11 @@ class AppTestConcurrency(object):
         f.close()
 
     def test_parallel_writes_and_reads(self):
-        # this test seems to be very bad:
-        # * when run normally, there is an early deadlock
-        # * when run in plain CPython (py.test -A) the print >> fwrite
-        #   eventually deadlocks - that looks like a CPython bug
-        # * when run as pypy-c py.test -A, I get a Fatal RPython error,
-        #   about an RPython-level thread.error
-        skip("to be looked at more closely")
-
-        import thread, os, _file
+        # Warning: a test like the one below deadlocks CPython
+        # http://bugs.python.org/issue1164
+        # It also deadlocks on py.py because the space GIL is not
+        # released.
+        import thread, sys, os, _file
         read_fd, write_fd = os.pipe()
         fread = _file.file.fdopen(read_fd, 'rb', 200)
         fwrite = _file.file.fdopen(write_fd, 'wb', 200)
@@ -171,16 +169,20 @@ class AppTestConcurrency(object):
                 print >> fwrite, f,
                 f = 4*f - 3*f*f
             print >> fwrite, "X"
+            fwrite.flush()
+            sys.stdout.write('writer ends\n')
 
-        def reader():
+        def reader(j):
             while True:
                 data = fread.read(1)
+                #sys.stdout.write('%d%r ' % (j, data))
                 if data == "X":
                     break
+            sys.stdout.write('reader ends\n')
             readers_done[0] += 1
 
         for j in range(3):
-            thread.start_new_thread(reader, ())
+            thread.start_new_thread(reader, (j,))
             thread.start_new_thread(writer, ())
 
         import time
@@ -192,9 +194,15 @@ class AppTestConcurrency(object):
 
         assert readers_done[0] == 0
         run = False    # end the writers
-        while readers_done[0] != 3:
-            print 'readers_done == %d, still waiting...' % (readers_done[0],)
+        for i in range(600):
             time.sleep(0.4)
+            sys.stdout.flush()
+            x = readers_done[0]
+            if x == 3:
+                break
+            print 'readers_done == %d, still waiting...' % (x,)
+        else:
+            raise Exception("time out")
         print 'Passed.'
 
 
