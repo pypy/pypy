@@ -197,6 +197,15 @@ def importhook(space, modulename, w_globals=None,
 importhook.unwrap_spec = [ObjSpace,str,W_Root,W_Root,W_Root]
 
 def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
+    lock = getimportlock(space)
+    lock.acquire_lock()
+    try:
+        return _absolute_import(space, modulename, baselevel,
+                                w_fromlist, tentative)
+    finally:
+        lock.release_lock()
+
+def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
     w = space.wrap
     
     w_mod = None
@@ -246,45 +255,35 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         if not space.is_w(w_mod, space.w_None):
             return w_mod
     else:
-        w_mod = space.sys.getmodule(modulename) 
-        if w_mod is not None:
+        # Examin importhooks (PEP302) before doing the import
+        if w_path is not None:
+            w_loader  = find_module(space, w_modulename, w_path) 
+        else:
+            w_loader  = find_module(space, w_modulename, space.w_None)
+        if not space.is_w(w_loader, space.w_None):
+            w_mod = space.call_method(w_loader, "load_module", w_modulename)
+            #w_mod_ = check_sys_modules(space, w_modulename)
+            if w_mod is not None and w_parent is not None:
+                space.setattr(w_parent, w(partname), w_mod)
+
             return w_mod
 
-        lock = getimportlock(space)
-        acquired = lock.try_acquire_lock()
-        try:
-            # Examin importhooks (PEP302) before doing the import
-            if w_path is not None:
-                w_loader  = find_module(space, w_modulename, w_path) 
-            else:
-                w_loader  = find_module(space, w_modulename, space.w_None)
-            if not space.is_w(w_loader, space.w_None):
-                w_mod = space.call_method(w_loader, "load_module", w_modulename)
-                #w_mod_ = check_sys_modules(space, w_modulename)
-                if w_mod is not None and w_parent is not None:
-                    space.setattr(w_parent, w(partname), w_mod)
 
-                return w_mod
-            
-            
-            if w_path is not None:
-                for path in space.unpackiterable(w_path):
-                    dir = os.path.join(space.str_w(path), partname)
-                    if os.path.isdir(dir):
-                        fn = os.path.join(dir, '__init__')
-                        w_mod = try_import_mod(space, w_modulename, fn,
-                                               w_parent, w(partname),
-                                               pkgdir=dir)
-                        if w_mod is not None:
-                            return w_mod
-                    fn = os.path.join(space.str_w(path), partname)
-                    w_mod = try_import_mod(space, w_modulename, fn, w_parent,
-                                           w(partname))
+        if w_path is not None:
+            for path in space.unpackiterable(w_path):
+                dir = os.path.join(space.str_w(path), partname)
+                if os.path.isdir(dir):
+                    fn = os.path.join(dir, '__init__')
+                    w_mod = try_import_mod(space, w_modulename, fn,
+                                           w_parent, w(partname),
+                                           pkgdir=dir)
                     if w_mod is not None:
                         return w_mod
-        finally:
-            if acquired:
-                lock.release_lock()
+                fn = os.path.join(space.str_w(path), partname)
+                w_mod = try_import_mod(space, w_modulename, fn, w_parent,
+                                       w(partname))
+                if w_mod is not None:
+                    return w_mod
 
     if tentative:
         return None
@@ -300,43 +299,63 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 # as an attempt to avoid failure of 'from x import y' if module x is
 # still being executed in another thread.
 
+# This logic is tested in pypy.module.thread.test.test_import_lock.
+
 class ImportRLock:
-    _ann_seen = False
 
     def __init__(self, space):
         self.space = space
         self.lock = None
         self.lockowner = None
+        self.lockcounter = 0
 
-    def _freeze_(self):
-        # remove the lock object, which will be created again as need at
-        # run-time.
-        self.lock = None
-        assert self.lockowner is None
-        self._ann_seen = True
-        return False
+    def lock_held(self):
+        me = self.space.getexecutioncontext()   # used as thread ident
+        return self.lockowner is me
 
-    def try_acquire_lock(self):
+    def _can_have_lock(self):
+        # hack: we can't have self.lock != None during translation,
+        # because prebuilt lock objects are not allowed.  In this
+        # special situation we just don't lock at all (translation is
+        # not multithreaded anyway).
+        if we_are_translated():
+            return True     # we need a lock at run-time
+        elif self.space.config.translating:
+            assert self.lock is None
+            return False
+        else:
+            return True     # in py.py
+
+    def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         if self.lock is None:
-            # sanity-check: imports should not occur after the
-            # ImportRLock has been frozen (and self.lock thrown away)
-            # during annotation.  They can occur either before, or in
-            # the translated code.
-            if not we_are_translated():
-                assert not self._ann_seen
+            if not self._can_have_lock():
+                return
             self.lock = self.space.allocate_lock()
         me = self.space.getexecutioncontext()   # used as thread ident
         if self.lockowner is me:
-            return False    # already acquired by the current thread
-        self.lock.acquire(True)
-        self.lockowner = me
-        return True
+            pass    # already acquired by the current thread
+        else:
+            self.lock.acquire(True)
+            assert self.lockowner is None
+            assert self.lockcounter == 0
+            self.lockowner = me
+        self.lockcounter += 1
 
     def release_lock(self):
-        self.lockowner = None
-        self.lock.release()
+        me = self.space.getexecutioncontext()   # used as thread ident
+        if self.lockowner is not me:
+            if not self._can_have_lock():
+                return
+            space = self.space
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("not holding the import lock"))
+        assert self.lockcounter > 0
+        self.lockcounter -= 1
+        if self.lockcounter == 0:
+            self.lockowner = None
+            self.lock.release()
 
 def getimportlock(space):
     return space.fromcache(ImportRLock)

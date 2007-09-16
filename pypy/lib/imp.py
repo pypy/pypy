@@ -140,3 +140,19 @@ def is_builtin(name):
 
 def is_frozen(name):
     return False
+
+# ____________________________________________________________
+
+try:
+    # PyPy-specific interface
+    from thread import _importlock_held    as lock_held
+    from thread import _importlock_acquire as acquire_lock
+    from thread import _importlock_release as release_lock
+except ImportError:
+    def lock_held():
+        """On platforms without threads, return False."""
+        return False
+    def acquire_lock():
+        """On platforms without threads, this function does nothing."""
+    def release_lock():
+        """On platforms without threads, this function does nothing."""

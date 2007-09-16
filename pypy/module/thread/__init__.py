@@ -17,6 +17,11 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.getlocktype(space)',
         '_local':                 'os_local.getlocaltype(space)',
+
+        # custom interface for the 'imp' module
+        '_importlock_held':       'importlock.held',
+        '_importlock_acquire':    'importlock.acquire',
+        '_importlock_release':    'importlock.release',
     }
 
     def __init__(self, space, *args):
