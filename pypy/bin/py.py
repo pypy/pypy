@@ -122,6 +122,10 @@ def main_(argv=None):
 
             # start the interactive console
             if go_interactive or getenv_w(space, 'PYTHONINSPECT'):
+                try:
+                    import readline
+                except:
+                    pass
                 con = interactive.PyPyConsole(
                     space, verbose=interactiveconfig.verbose,
                     completer=interactiveconfig.completer)
@@ -139,10 +143,6 @@ def main_(argv=None):
 
 
 if __name__ == '__main__':
-    try:
-        import readline
-    except:
-        pass
     if hasattr(sys, 'setrecursionlimit'):
         # for running "python -i py.py -Si -- py.py -Si" 
         sys.setrecursionlimit(3000)
