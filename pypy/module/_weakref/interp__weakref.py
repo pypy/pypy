@@ -74,6 +74,7 @@ class W_WeakrefBase(Wrappable):
         # because if this fails before w_self is fully initialized
         # we get a segfault in the __del__
         w_self.space = space
+        assert w_obj is not None
         w_self.w_obj_weak = weakref.ref(w_obj)
         w_self.w_callable = w_callable
 
