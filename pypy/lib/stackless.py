@@ -57,7 +57,7 @@ except ImportError: # we are running from CPython
                arguments *argl, **argd
             """
             if self._frame is None or self._frame.dead:
-                self._frame = frame = MWrap(None)##GWrap()
+                self._frame = frame = GWrap()
                 frame.coro = self
             if hasattr(self._frame, 'run') and self._frame.run:
                 raise ValueError("cannot bind a bound coroutine")
