@@ -315,6 +315,21 @@ class TestUsingBoehm(AbstractGCTestClass):
         res = c_fn(0)
         assert res == -5
 
+    def test_weakref_to_prebuilt(self):
+        import weakref
+        from pypy.rlib import rgc
+        class A:
+            pass
+        a = A()
+        a.hello = 42
+        def fn(n):
+            lst = [weakref.ref(a) for i in range(n)]
+            rgc.collect()
+            for r in lst:
+                assert r() is a
+        c_fn = self.getcompiled(fn, [int])
+        c_fn(100)
+
 
 class TestUsingExactBoehm(TestUsingBoehm):
     gcpolicy = "exact_boehm"
