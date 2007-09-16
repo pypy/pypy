@@ -123,9 +123,13 @@ def format_simple_call(annotator, oper, what, msg):
             r = "function %s <%s, line %s>" % (func.func_name,
                    func.func_code.co_filename, func.func_code.co_firstlineno)
         msg.append("  %s returning" % (r,))
-        graph = desc.getuniquegraph()
-        msg.append("      %s" % annotator.binding(
-            graph.returnblock.inputargs[0], "(no annotation)"))
+        if hasattr(desc, 'getuniquegraph'):
+            graph = desc.getuniquegraph()
+            r = annotator.binding(graph.returnblock.inputargs[0],
+                                  "(no annotation)")
+        else:
+            r = '?'
+        msg.append("      %s" % (r,))
         msg.append("")
 
 def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
