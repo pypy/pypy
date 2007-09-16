@@ -70,11 +70,16 @@ class WeakrefLifeline(object):
 
 class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, w_obj, w_callable):
+        # XXX should use None instead of w_None for w_callable,
+        # because if this fails before w_self is fully initialized
+        # we get a segfault in the __del__
         w_self.space = space
         w_self.w_obj_weak = weakref.ref(w_obj)
         w_self.w_callable = w_callable
 
     def dereference(self):
+        # XXX many callers would be simpler if this just returned None
+        # instead of w_None
         w_obj = self.w_obj_weak()
         if w_obj is None:
             return self.space.w_None
