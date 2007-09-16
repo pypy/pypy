@@ -70,24 +70,19 @@ class WeakrefLifeline(object):
 
 class W_WeakrefBase(Wrappable):
     def __init__(w_self, space, w_obj, w_callable):
-        # XXX should use None instead of w_None for w_callable,
-        # because if this fails before w_self is fully initialized
-        # we get a segfault in the __del__
+        if space.is_w(w_callable, space.w_None):
+            w_callable = None
         w_self.space = space
         assert w_obj is not None
         w_self.w_obj_weak = weakref.ref(w_obj)
         w_self.w_callable = w_callable
 
     def dereference(self):
-        # XXX many callers would be simpler if this just returned None
-        # instead of w_None
         w_obj = self.w_obj_weak()
-        if w_obj is None:
-            return self.space.w_None
         return w_obj
-        
+
     def activate_callback(w_self):
-        if not w_self.space.is_w(w_self.w_callable, w_self.space.w_None):
+        if not w_self.w_callable is None:
             try:
                 w_self.space.call_function(w_self.w_callable, w_self)
             except OperationError, e:
@@ -103,11 +98,18 @@ class W_Weakref(W_WeakrefBase):
         if self.w_hash is not None:
             return self.w_hash
         w_obj = self.dereference()
-        if self.space.is_w(w_obj, self.space.w_None):
+        if w_obj is None:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("weak object has gone away"))
         self.w_hash = self.space.hash(w_obj)
         return self.w_hash
+
+    def descr_call(self):
+        w_obj = self.dereference()
+        if w_obj is None:
+            return self.space.w_None
+        return w_obj
+        
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
     lifeline = w_obj.getweakref()
@@ -119,8 +121,8 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None):
 def descr__eq__(space, ref1, ref2):
     w_obj1 = ref1.dereference()
     w_obj2 = ref2.dereference()
-    if (space.is_w(w_obj1, space.w_None) or
-        space.is_w(w_obj2, space.w_None)):
+    if (w_obj1 is None or
+        w_obj2 is None):
         return space.is_(ref1, ref2)
     return space.eq(w_obj1, w_obj2)
 
@@ -137,7 +139,7 @@ is about to be finalized.""",
     __ne__ = interp2app(descr__ne__,
                         unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
     __hash__ = interp2app(W_Weakref.descr_hash, unwrap_spec=['self']),
-    __call__ = interp2app(W_Weakref.dereference, unwrap_spec=['self'])
+    __call__ = interp2app(W_Weakref.descr_call, unwrap_spec=['self'])
 )
 
 
@@ -204,8 +206,7 @@ def force(space, proxy):
     if not isinstance(proxy, W_Proxy):
         return proxy
     w_obj = proxy.dereference()
-    assert w_obj is not None
-    if space.is_w(w_obj, space.w_None):
+    if w_obj is None:
         raise OperationError(
             space.w_ReferenceError,
             space.wrap("weakly referenced object no longer exists"))
