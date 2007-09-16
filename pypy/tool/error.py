@@ -117,8 +117,12 @@ def format_simple_call(annotator, oper, what, msg):
     descs = annotator.bindings[oper.args[0]].descriptions
     for desc in descs.keys():
         func = desc.pyobj
-        msg.append("  function %s <%s, line %s> returning" % (func.func_name,
-                   func.func_code.co_filename, func.func_code.co_firstlineno))
+        if func is None:
+            r = repr(desc)
+        else:
+            r = "function %s <%s, line %s>" % (func.func_name,
+                   func.func_code.co_filename, func.func_code.co_firstlineno)
+        msg.append("  %s returning" % (r,))
         graph = desc.getuniquegraph()
         msg.append("      %s" % annotator.binding(
             graph.returnblock.inputargs[0], "(no annotation)"))
