@@ -25,8 +25,11 @@ Caches that can freeze when the annotator needs it.
 #     Be sure to call the parent __init__() if you override it.
 #
 
-from threading import RLock
-lock = RLock()     # multithreading protection
+try:
+    from threading import RLock
+    lock = RLock()     # multithreading protection
+except ImportError:
+    lock = None
 
 
 class Cache(object):
@@ -35,7 +38,7 @@ class Cache(object):
         self._building = {}
 
     def getorbuild(self, key):
-        lock.acquire()
+        if lock: lock.acquire()
         try:
             try:
                 return self.content[key]
@@ -52,7 +55,7 @@ class Cache(object):
                 self._ready(result)
                 return result
         finally:
-            lock.release()
+            if lock: lock.release()
     getorbuild._annspecialcase_ = "specialize:memo"
 
     def _ready(self, result):
