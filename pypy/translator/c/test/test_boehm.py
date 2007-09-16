@@ -268,6 +268,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                 if i & 1 == 0:
                     a = A()
                     a.index = i
+                assert a is not None
                 weakrefs.append(weakref.ref(a))
                 if i % 7 == 6:
                     keepalive.append(a)

@@ -568,6 +568,9 @@ import weakref
 def weakref_ref(s_obj):
     if not isinstance(s_obj, SomeInstance):
         raise Exception("cannot take a weakref to %r" % (s_obj,))
+    if s_obj.can_be_None:
+        raise Exception("should assert that the instance we take "
+                        "a weakref to cannot be None")
     return SomeWeakRef(s_obj.classdef)
 
 BUILTIN_ANALYZERS[weakref.ref] = weakref_ref
