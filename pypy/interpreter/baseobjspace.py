@@ -438,14 +438,19 @@ class ObjSpace(object):
         """Return an interp-level Lock object if threads are enabled,
         and a dummy object if they are not."""
         if self.config.objspace.usemodules.thread:
-            from pypy.module.thread.ll_thread import allocate_lock, error
-            try:
-                return allocate_lock()
-            except error:
-                raise OperationError(self.w_RuntimeError,
-                                     self.wrap("out of resources"))
+            # we use a sub-function to avoid putting the 'import' statement
+            # here, where the flow space would see it even if thread=False
+            return self.__allocate_lock()
         else:
             return dummy_lock
+
+    def __allocate_lock(self):
+        from pypy.module.thread.ll_thread import allocate_lock, error
+        try:
+            return allocate_lock()
+        except error:
+            raise OperationError(self.w_RuntimeError,
+                                 self.wrap("out of resources"))
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses
