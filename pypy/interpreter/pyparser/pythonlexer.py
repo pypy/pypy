@@ -371,7 +371,7 @@ class PythonSource(TokenSource):
 
     def get_source_text(self, p0, p1):
         "We get passed two token stack positions."
-        return "XXX this got left behind in a refactoring. Stack positions are %d and %d" % (p1, p2)
+        return "XXX this got left behind in a refactoring. Stack positions are %d and %d" % (p0, p1)
         
     def debug(self):
         """return context for debug information"""
