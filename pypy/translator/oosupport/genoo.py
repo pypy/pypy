@@ -1,6 +1,10 @@
 """ basic oogenerator
 """
+
+from py.builtin import set
 from pypy.translator.oosupport import constant as ooconst
+from pypy.translator.oosupport.treebuilder import build_trees
+from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 class GenOO(object):
     TypeSystem = None
@@ -23,7 +27,7 @@ class GenOO(object):
     DictConst = ooconst.DictConst
     WeakRefConst = ooconst.WeakRefConst
 
-    def __init__(self, tmpdir, translator, entrypoint, config=None):
+    def __init__(self, tmpdir, translator, entrypoint, config=None, exctrans=False):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
@@ -32,6 +36,29 @@ class GenOO(object):
             from pypy.config.pypyoption import get_pypy_config
             config = get_pypy_config(translating=True)
         self.config = config
+
+        # XXX: move this option out of the 'cli' section
+        exctrans = exctrans or translator.config.translation.cli.exception_transformer
+        if exctrans:
+            self.db.exceptiontransformer = translator.getexceptiontransformer()
+
+        self.append_prebuilt_nodes()
+
+        if exctrans:
+            etrafo = self.db.exceptiontransformer
+            for graph in translator.graphs:
+                etrafo.create_exception_handling(graph)
+
+        if translator.config.translation.backendopt.stack_optimization:
+            self.stack_optimization()
+
+    def stack_optimization(self):
+        for graph in self.translator.graphs:
+            SSI_to_SSA(graph)
+            build_trees(graph)
+
+    def append_prebuilt_nodes(self):
+        pass
 
     def generate_source(self):
         self.ilasm = self.create_assembler()

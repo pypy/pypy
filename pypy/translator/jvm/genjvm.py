@@ -262,8 +262,13 @@ class GenJvm(GenOO):
         'entrypoint' --- if supplied, an object with a render method
         """
         GenOO.__init__(self, tmpdir, translator, entrypoint)
-        create_interlink_node(self.db)
         self.jvmsrc = JvmGeneratedSource(tmpdir, getoption('package'))
+
+    def append_prebuilt_nodes(self):
+        create_interlink_node(self.db)
+
+    def stack_optimization(self):
+        pass # TODO: enable stack_optimization
 
     def generate_source(self):
         """ Creates the sources, and returns a JvmGeneratedSource object

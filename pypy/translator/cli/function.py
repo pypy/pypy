@@ -1,13 +1,8 @@
-try:
-    set
-except NameError:
-    from sets import Set as set
-
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.treebuilder import SubOperation
-from pypy.translator.oosupport.function import Function as OOFunction
+from pypy.translator.oosupport.function import Function as OOFunction, render_sub_op
 from pypy.translator.oosupport.constant import push_constant
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.cts import CTS
@@ -142,23 +137,6 @@ class Function(OOFunction, Node, CLIBaseGenerator):
                 self.store(link.last_exc_value)
             self._setup_link(link)
 
-    # XXX: this method should be moved into oosupport, but other
-    # backends are not ready :-(
-    def render_bool_switch(self, block):
-        assert len(block.exits) == 2
-        for link in block.exits:
-            if link.exitcase:
-                link_true = link
-            else:
-                link_false = link
-
-        true_label = self.next_label('link_true')
-        self.generator.load(block.exitswitch)
-        self.generator.branch_conditionally(True, true_label)
-        self._follow_link(link_false) # if here, the exitswitch is false
-        self.set_label(true_label)
-        self._follow_link(link_true)  # if here, the exitswitch is true
-
     def render_numeric_switch(self, block):
         if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):
             # TODO: it could be faster to check is the values fit in
@@ -200,7 +178,7 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             else:
                 self.ilasm.load_local(v)
         elif isinstance(v, SubOperation):
-            self._render_sub_op(v)
+            render_sub_op(v, self.db, self.generator)
         else:
             super(Function, self).load(v)
 

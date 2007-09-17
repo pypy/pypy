@@ -201,6 +201,19 @@ class Function(function.Function, BaseGenerator):
             self.ilasm.catch()
         #self.ilasm.close_branch()
 
+    # XXX: soon or later we should use the smarter version in oosupport
+    def render_bool_switch(self, block):
+        for link in block.exits:
+            self._setup_link(link)
+            target_label = self._get_block_name(link.target)
+            if link is block.exits[-1]:
+                self.generator.branch_unconditionally(target_label)
+            else:
+                assert type(link.exitcase) is bool
+                assert block.exitswitch is not None
+                self.generator.load(block.exitswitch)
+                self.generator.branch_conditionally(link.exitcase, target_label)
+
     def record_ll_meta_exc(self, ll_meta_exc):
         pass
 

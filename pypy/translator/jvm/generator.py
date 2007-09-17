@@ -1,5 +1,7 @@
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
+from pypy.translator.oosupport.treebuilder import SubOperation
+from pypy.translator.oosupport.function import render_sub_op
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.oosupport.constant import push_constant
@@ -941,6 +943,9 @@ class JVMGenerator(Generator):
             jty, idx = self._var_data(value)
             return self.load_jvm_var(jty, idx)
 
+        if isinstance(value, SubOperation):
+            return render_sub_op(value, self.db, self)
+
         if isinstance(value, flowmodel.Constant):
             return push_constant(self.db, value.concretetype, value.value, self)
             
@@ -1365,7 +1370,7 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        #self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 

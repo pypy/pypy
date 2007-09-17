@@ -66,7 +66,10 @@ class JS(GenOO):
         self.use_debug = use_debug
         self.assembly_name = self.translator.graphs[0].name        
         self.tmpfile = udir.join(self.assembly_name + '.js')
-    
+
+    def stack_optimization(self):
+        pass # genjs does not support treebuilder
+
     def gen_pendings(self):
         while self.db._pending_nodes:
             node = self.db._pending_nodes.pop()

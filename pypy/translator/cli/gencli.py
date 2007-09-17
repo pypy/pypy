@@ -5,8 +5,6 @@ import py
 from py.compat import subprocess
 from pypy.config.config import Config
 from pypy.translator.oosupport.genoo import GenOO
-from pypy.translator.oosupport.treebuilder import build_trees
-from pypy.translator.backendopt.ssa import SSI_to_SSA
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function, log
@@ -21,11 +19,6 @@ from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 from pypy.translator.cli import query
 from pypy.translator.cli import constant
-
-try:
-    set
-except NameError:
-    from sets import Set as set
 
 class GenCli(GenOO):
     TypeSystem = CTS
@@ -45,26 +38,14 @@ class GenCli(GenOO):
     WeakRefConst = constant.CLIWeakRefConst
 
     def __init__(self, tmpdir, translator, entrypoint, config=None, exctrans=False):
-        GenOO.__init__(self, tmpdir, translator, entrypoint, config)
-        exctrans = exctrans or translator.config.translation.cli.exception_transformer
-        if exctrans:
-            self.db.exceptiontransformer = translator.getexceptiontransformer()
-
-        for node in get_prebuilt_nodes(translator, self.db):
-            self.db.pending_node(node)
+        GenOO.__init__(self, tmpdir, translator, entrypoint, config, exctrans)
         self.assembly_name = entrypoint.get_name()
         self.tmpfile = tmpdir.join(self.assembly_name + '.il')
         self.const_stat = str(tmpdir.join('const_stat'))
 
-        if exctrans:
-            etrafo = self.db.exceptiontransformer
-            for graph in translator.graphs:
-                etrafo.create_exception_handling(graph)
-
-        if translator.config.translation.backendopt.stack_optimization:
-            for graph in translator.graphs:
-                SSI_to_SSA(graph)
-                build_trees(graph)
+    def append_prebuilt_nodes(self):
+        for node in get_prebuilt_nodes(self.translator, self.db):
+            self.db.pending_node(node)
 
     def generate_source(self):
         GenOO.generate_source(self)

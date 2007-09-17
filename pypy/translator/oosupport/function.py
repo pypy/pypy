@@ -8,7 +8,21 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.treebuilder import SubOperation
 from pypy.translator.oosupport.metavm import InstructionList, StoreResult
 
+def render_sub_op(sub_op, db, generator):
+    op = sub_op.op
+    instr_list = db.genoo.opcodes.get(op.opname, None)
+    assert instr_list is not None, 'Unknown opcode: %s ' % op
+    assert isinstance(instr_list, InstructionList)
+    assert instr_list[-1] is StoreResult, "Cannot inline an operation that doesn't store the result"
 
+    # record that we know about the type of result and args
+    db.cts.lltype_to_cts(op.result.concretetype)
+    for v in op.args:
+        db.cts.lltype_to_cts(v.concretetype)
+
+    instr_list = InstructionList(instr_list[:-1]) # leave the value on the stack if this is a sub-op
+    instr_list.render(generator, op)
+    # now the value is on the stack
 
 class Function(object):
     
@@ -209,19 +223,20 @@ class Function(object):
         else:
             assert False, 'Unknonw exitswitch type: %s' % block.exitswitch.concretetype
 
-    # XXX: soon or later we should use the implementation in
-    # cli/function.py, but at the moment jvm and js fail with it.
     def render_bool_switch(self, block):
+        assert len(block.exits) == 2
         for link in block.exits:
-            self._setup_link(link)
-            target_label = self._get_block_name(link.target)
-            if link is block.exits[-1]:
-                self.generator.branch_unconditionally(target_label)
+            if link.exitcase:
+                link_true = link
             else:
-                assert type(link.exitcase) is bool
-                assert block.exitswitch is not None
-                self.generator.load(block.exitswitch)
-                self.generator.branch_conditionally(link.exitcase, target_label)
+                link_false = link
+
+        true_label = self.next_label('link_true')
+        self.generator.load(block.exitswitch)
+        self.generator.branch_conditionally(True, true_label)
+        self._follow_link(link_false) # if here, the exitswitch is false
+        self.set_label(true_label)
+        self._follow_link(link_true)  # if here, the exitswitch is true
 
     def render_numeric_switch(self, block):
         log.WARNING("The default version of render_numeric_switch is *slow*: please override it in the backend")
@@ -328,22 +343,6 @@ class Function(object):
  
         if self._trace_enabled():
             self._trace_value('Result', op.result)
-
-    def _render_sub_op(self, sub_op):
-        op = sub_op.op
-        instr_list = self.db.genoo.opcodes.get(op.opname, None)
-        assert instr_list is not None, 'Unknown opcode: %s ' % op
-        assert isinstance(instr_list, InstructionList)
-        assert instr_list[-1] is StoreResult, "Cannot inline an operation that doesn't store the result"
-
-        # record that we know about the type of result and args
-        self.cts.lltype_to_cts(op.result.concretetype)
-        for v in op.args:
-            self.cts.lltype_to_cts(v.concretetype)
-
-        instr_list = InstructionList(instr_list[:-1]) # leave the value on the stack if this is a sub-op
-        instr_list.render(self.generator, op)
-        # now the value is on the stack
 
     # ---------------------------------------------------------#
     # These methods are quite backend independent, but not     #
