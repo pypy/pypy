@@ -1,16 +1,20 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 class AppTest_Stackless:
 
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
+        # cannot test the unpickle part on top of py.py
+        cls.w_can_unpickle = space.wrap(bool(option.runappdirect))
 
     def test_pickle(self):
         import new, sys
 
         mod = new.module('mod')
         sys.modules['mod'] = mod
+        mod.can_unpickle = self.can_unpickle
+        mod.skip = skip
         try:
             exec '''
 import pickle, sys
@@ -39,6 +43,8 @@ def demo(depth):
 t = stackless.tasklet(demo)(lev)
 stackless.run()
 assert seen == range(1, lev+1) + range(lev, 0, -1)
+if not can_unpickle:
+    skip("cannot test the unpickling part on top of py.py")
 print "now running the clone"
 tt = pickle.loads(blob)
 tt.insert()
