@@ -267,9 +267,6 @@ class GenJvm(GenOO):
     def append_prebuilt_nodes(self):
         create_interlink_node(self.db)
 
-    def stack_optimization(self):
-        pass # TODO: enable stack_optimization
-
     def generate_source(self):
         """ Creates the sources, and returns a JvmGeneratedSource object
         for manipulating them """

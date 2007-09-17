@@ -515,14 +515,14 @@ class FunctionState(object):
         idx = self.next_offset
         self.next_offset += jtype.descriptor.type_width()
         if jvar:
-            assert jvar not in self.local_vars # never been added before
-            self.local_vars[jvar] = idx
+            assert jvar.name not in self.local_vars # never been added before
+            self.local_vars[jvar.name] = idx
         self.function_arguments.append((jtype, idx))
         return idx
     def var_offset(self, jvar, jtype):
         """ Returns offset for variable 'jvar', of java type 'jtype' """
-        if jvar in self.local_vars:
-            return self.local_vars[jvar]
+        if jvar.name in self.local_vars:
+            return self.local_vars[jvar.name]
         return self.add_var(jvar, jtype)
 
 
@@ -1370,7 +1370,7 @@ class JasminGenerator(JVMGenerator):
             return str(arg)
         strargs = [jasmin_syntax(arg) for arg in args]
         instr_text = '%s %s' % (jvmstr, " ".join(strargs))
-        self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
+        #self.curclass.out('    .line %d\n' % self.curfunc.instr_counter)
         self.curclass.out('    %-60s\n' % (instr_text,))
         self.curfunc.instr_counter+=1
 
