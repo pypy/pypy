@@ -1,6 +1,7 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
@@ -70,7 +71,11 @@ def name_unsignedlonglong(value, db):
     return '%dULL' % value
 
 def name_signedlonglong(value, db):
-    return '%dLL' % value
+    maxlonglong = r_longlong.MASK>>1
+    if value == -maxlonglong-1:    # blame C
+        return '(-%dLL-1LL)' % maxlonglong
+    else:
+        return '%dLL' % value
 
 def isinf(x):
     return x != 0.0 and x / 2 == x
