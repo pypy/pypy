@@ -67,7 +67,7 @@ void RPyAssertFailed(const char* filename, long lineno,
  * it's a "guaranteed" segfault and not one that can be used by
  * attackers.
  */
-#  define RPyCHECK(x)           ((x) || (abort(), 0))
+#  define RPyCHECK(x)           ((x) || RPyAbort())
 #  define RPyField(ptr, name)   ((RPyCHECK(ptr), (ptr))->name)
 #  define RPyItem(array, index)                                             \
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
@@ -77,11 +77,24 @@ void RPyAssertFailed(const char* filename, long lineno,
       (ptr))[index])
 #  define RPyNLenItem(array, index)                                         \
      ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
+#  define RPyBareItem(array, index)                                         \
+     ((RPyCHECK((array) && (index) >= 0), (array)[index])
+
+int RPyAbort(void);
+#ifndef PYPY_NOT_MAIN_FILE
+int RPyAbort(void) {
+  fprintf(stderr, "Invalid RPython operation (NULL ptr or bad array index)\n");
+  abort();
+  return 0;
+}
+#endif
+
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)
 #  define RPyItem(array, index)              ((array)->items[index])
 #  define RPyFxItem(ptr, index, fixedsize)   ((ptr)[index])
 #  define RPyNLenItem(array, index)          ((array)->items[index])
+#  define RPyBareItem(array, index)          ((array)[index])
 #endif
 
 #ifndef PYPY_STANDALONE

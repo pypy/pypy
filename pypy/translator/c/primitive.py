@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
      GCHeaderOffset
-from pypy.translator.c.support import cdecl
+from pypy.translator.c.support import cdecl, barebonearray
 
 # ____________________________________________________________
 #
@@ -21,13 +21,16 @@ def name_signed(value, db):
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
-            if value.TYPE != Void:
-                return '(sizeof(%s) * %s)'%(
-                    cdecl(db.gettype(value.TYPE), ''), value.repeat)
+            if value.TYPE != Void and value.repeat != 0:
+                size = 'sizeof(%s)' % (cdecl(db.gettype(value.TYPE), ''),)
+                if value.repeat != 1:
+                    size = '(%s * %s)' % (size, value.repeat)
+                return size
             else:
                 return '0'
         elif isinstance(value, ArrayItemsOffset):
-            if isinstance(value.TYPE, FixedSizeArray):
+            if (isinstance(value.TYPE, FixedSizeArray) or
+                barebonearray(value.TYPE)):
                 return '0'
             elif value.TYPE.OF != Void:
                 return 'offsetof(%s, items)'%(

@@ -9,7 +9,7 @@ from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
-from pypy.translator.c.support import c_char_array_constant
+from pypy.translator.c.support import c_char_array_constant, barebonearray
 from pypy.translator.c.primitive import PrimitiveType, isinf, isnan
 from pypy.translator.c import extfunc
 
@@ -214,15 +214,26 @@ class ArrayDefNode:
          self.name) = db.namespace.uniquename(basename, with_number=with_number,
                                               bare=True)
         self.dependencies = {}
- 
+        # a non-gc array with no length doesn't need a 'struct' wrapper at
+        # all; rffi kind of expects such arrays to be "bare" C arrays.
+        self.barebone = barebonearray(ARRAY)
+        if self.barebone:
+            self.setup()     # to get self.itemtypename
+            typename = self.itemtypename.replace('@', '(@)[%d]' % (
+                self.varlength,))
+            self.forward_decl = 'typedef %s;' % (cdecl(typename, self.name),)
+            self.typetag = ''
+
     def setup(self):
+        if hasattr(self, 'itemtypename'):
+            return      # setup() was already called, likely by __init__
         db = self.db
         ARRAY = self.ARRAY
-        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
         self.gcinfo    # force it to be computed
         if needs_gcheader(ARRAY):
             for fname, T in db.gcpolicy.array_gcheader_definition(self):
                 self.gcfields.append((fname, db.gettype(T, who_asks=self)))
+        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
     def computegcinfo(self):
         # let the gcpolicy do its own setup
@@ -233,7 +244,13 @@ class ArrayDefNode:
     gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
-        return 'struct %s @' % self.name
+        return '%s %s @' % (self.typetag, self.name)
+
+    def getptrtype(self):
+        if self.barebone:
+            return self.itemtypename.replace('@', '*@')
+        else:
+            return '%s %s *@' % (self.typetag, self.name)
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%d]' % (baseexpr, index)
@@ -243,12 +260,16 @@ class ArrayDefNode:
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
-        if self.ARRAY._hints.get('nolength', False):
+        if self.barebone:
+            return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
+        elif self.ARRAY._hints.get('nolength', False):
             return 'RPyNLenItem(%s, %s)' % (baseexpr, indexexpr)
         else:
             return 'RPyItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
+        if self.barebone:
+            return
         gcpolicy = self.db.gcpolicy
         yield 'struct %s {' % self.name
         for fname, typename in self.gcfields:
@@ -292,7 +313,7 @@ class ArrayDefNode:
             yield 'offsetof(struct %s, length)' % (self.name,)
         else:
             yield '-1'
-        if self.ARRAY.OF is not Void:
+        if self.ARRAY.OF is not Void and not self.barebone:
             yield 'offsetof(struct %s, items[0])' % (self.name,)
             yield 'offsetof(struct %s, items[1])' % (self.name,)
         else:
@@ -504,6 +525,11 @@ class ArrayNode(ContainerNode):
     if USESLOTS:
         __slots__ = ()
 
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+        if barebonearray(T):
+            self.ptrname = self.name
+
     def basename(self):
         return 'array'
 
@@ -514,6 +540,7 @@ class ArrayNode(ContainerNode):
         return len(self.obj.items)
 
     def initializationexpr(self, decoration=''):
+        defnode = self.db.gettypedefnode(self.T)
         yield '{'
         if needs_gcheader(self.T):
             for i, thing in enumerate(self.db.gcpolicy.array_gcheader_initdata(self)):
@@ -536,7 +563,9 @@ class ArrayNode(ContainerNode):
             yield '\t%s%s' % (length, c_char_array_constant(s))
             yield '}'
         else:
-            yield '\t%s{' % length
+            barebone = barebonearray(self.T)
+            if not barebone:
+                yield '\t%s{' % length
             for j in range(len(self.obj.items)):
                 value = self.obj.items[j]
                 lines = generic_initializationexpr(self.db, value,
@@ -544,7 +573,10 @@ class ArrayNode(ContainerNode):
                                                 '%s%d' % (decoration, j))
                 for line in lines:
                     yield '\t' + line
-            yield '} }'
+            if not barebone:
+                yield '} }'
+            else:
+                yield '}'
 
 assert not USESLOTS or '__dict__' not in dir(ArrayNode)
 

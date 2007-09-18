@@ -347,11 +347,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         a1[0] = 30
         a1[1] = 300
         a1[2] = 3000
+        a1dummy = malloc(A, 2, immortal=True)
 
         def f(n):
+            if n & 1:
+                src = a1dummy
+            else:
+                src = a1
             a2 = malloc(A, n, flavor='raw')
             for i in range(n):
-                a2[i] = a1[i % 3] + i
+                a2[i] = src[i % 3] + i
             res = a2[n // 2]
             free(a2, flavor='raw')
             return res
@@ -366,11 +371,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         a1[0] = 30
         a1[1] = 300
         a1[2] = 3000
+        a1dummy = malloc(A, 2, immortal=True)
 
         def f(n):
+            if n & 1:
+                src = a1dummy
+            else:
+                src = a1
             a2 = malloc(A, n)
             for i in range(n):
-                a2[i] = a1[i % 3] + i
+                a2[i] = src[i % 3] + i
             res = a2[n // 2]
             return res
 
