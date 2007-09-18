@@ -531,8 +531,10 @@ class ArrayNode(ContainerNode):
             yield '\t%s' % length.rstrip(', ')
             yield '}'
         elif self.T.OF == Char:
-            yield '\t%s%s' % (length,
-                              c_char_array_constant(''.join(self.obj.items)))
+            s = ''.join(self.obj.items)
+            if self.T._hints.get('isrpystring', False):
+                s += '\x00'
+            yield '\t%s%s' % (length, c_char_array_constant(s))
             yield '}'
         else:
             yield '\t%s{' % length
