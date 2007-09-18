@@ -187,7 +187,7 @@ def register_stat_variant(name):
         ARG1 = rffi.CCHARP
     else:
         ARG1 = rffi.INT
-    os_mystat = rffi.llexternal(name, [ARG1, STRUCT_STAT], rffi.INT,
+    os_mystat = rffi.llexternal(c_func_name, [ARG1, STRUCT_STAT], rffi.INT,
                                 includes=INCLUDES)
 
     def os_mystat_llimpl(arg):
