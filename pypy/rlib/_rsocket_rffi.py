@@ -186,8 +186,8 @@ CConfig.uint32_t = platform.SimpleType('uint32_t', rffi.UINT)
 CConfig.size_t = platform.SimpleType('size_t', rffi.INT)
 CConfig.ssize_t = platform.SimpleType('ssize_t', rffi.INT)
 CConfig.socklen_t = platform.SimpleType('socklen_t', rffi.INT)
-sockaddr_ptr = rffi.CStructPtr('sockaddr')
-addrinfo_ptr = rffi.CStructPtr('addrinfo')
+sockaddr_ptr = lltype.Ptr(lltype.ForwardReference())
+addrinfo_ptr = lltype.Ptr(lltype.ForwardReference())
 
 # struct types
 CConfig.sockaddr = platform.Struct('struct sockaddr',
@@ -288,8 +288,8 @@ class cConfig:
     pass
 cConfig.__dict__.update(platform.configure(CConfig))
 
-sockaddr_ptr = lltype.Ptr(cConfig.sockaddr)
-addrinfo_ptr = lltype.Ptr(cConfig.addrinfo)
+sockaddr_ptr.TO.become(cConfig.sockaddr)
+addrinfo_ptr.TO.become(cConfig.addrinfo)
 
 # HACK HACK HACK
 if _MS_WINDOWS:
