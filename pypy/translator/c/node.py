@@ -523,15 +523,19 @@ class ArrayNode(ContainerNode):
                                                    '%sgcheader%d' % (decoration, i))
                 for line in lines:
                     yield line
+        if self.T._hints.get('nolength', False):
+            length = ''
+        else:
+            length = '%d, ' % len(self.obj.items)
         if self.T.OF is Void or len(self.obj.items) == 0:
-            yield '\t%d' % len(self.obj.items)
+            yield '\t%s' % length.rstrip(', ')
             yield '}'
         elif self.T.OF == Char:
-            yield '\t%d, %s' % (len(self.obj.items),
-                                c_char_array_constant(''.join(self.obj.items)))
+            yield '\t%s%s' % (length,
+                              c_char_array_constant(''.join(self.obj.items)))
             yield '}'
         else:
-            yield '\t%d, {' % len(self.obj.items)
+            yield '\t%s{' % length
             for j in range(len(self.obj.items)):
                 value = self.obj.items[j]
                 lines = generic_initializationexpr(self.db, value,

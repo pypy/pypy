@@ -340,3 +340,40 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(f, [int])
         res = fn(100)
         assert res == 100 + len(list(names))
+
+    def test_array_nolength(self):
+        A = Array(Signed, hints={'nolength': True})
+        a1 = malloc(A, 3, immortal=True)
+        a1[0] = 30
+        a1[1] = 300
+        a1[2] = 3000
+
+        def f(n):
+            a2 = malloc(A, n, flavor='raw')
+            for i in range(n):
+                a2[i] = a1[i % 3] + i
+            res = a2[n // 2]
+            free(a2, flavor='raw')
+            return res
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 3050
+
+    def test_gcarray_nolength(self):
+        A = GcArray(Signed, hints={'nolength': True})
+        a1 = malloc(A, 3, immortal=True)
+        a1[0] = 30
+        a1[1] = 300
+        a1[2] = 3000
+
+        def f(n):
+            a2 = malloc(A, n)
+            for i in range(n):
+                a2[i] = a1[i % 3] + i
+            res = a2[n // 2]
+            return res
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 3050
