@@ -21,6 +21,8 @@ def uaddressof(obj):
 
 
 _ctypes_cache = {}
+_delayed_ptrs = []
+_gettype_recursion = 0
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
@@ -129,31 +131,57 @@ def get_ctypes_type(T):
     try:
         return _ctypes_cache[T]
     except KeyError:
-        if isinstance(T, lltype.Ptr):
-            if isinstance(T.TO, lltype.FuncType):
-                argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS]
-                if T.TO.RESULT is lltype.Void:
-                    restype = None
-                else:
-                    restype = get_ctypes_type(T.TO.RESULT)
-                cls = ctypes.CFUNCTYPE(restype, *argtypes)
+        global _gettype_recursion
+        _gettype_recursion += 1
+        try:
+            cls = build_new_ctypes_type(T)
+            if T not in _ctypes_cache:
+                _ctypes_cache[T] = cls
             else:
-                cls = ctypes.POINTER(get_ctypes_type(T.TO))
-        elif isinstance(T, lltype.Struct):
-            cls = build_ctypes_struct(T)
-        elif isinstance(T, lltype.Array):
-            cls = build_ctypes_array(T)
-        elif isinstance(T, lltype.OpaqueType):
-            if T.hints.get('external', None) != 'C':
-                raise TypeError("%s is not external" % T)
-            cls = ctypes.c_char * T.hints['getsize']()
-        else:
-            _setup_ctypes_cache()
-            if T in _ctypes_cache:
-                return _ctypes_cache[T]
-            raise NotImplementedError(T)
-        _ctypes_cache[T] = cls
+                # check for buggy recursive structure logic
+                assert _ctypes_cache[T] is cls
+
+            if _gettype_recursion == 1:
+                complete_pointer_types()
+        finally:
+            _gettype_recursion -= 1
         return cls
+
+def build_new_ctypes_type(T):
+    if isinstance(T, lltype.Ptr):
+        if isinstance(T.TO, lltype.FuncType):
+            argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS]
+            if T.TO.RESULT is lltype.Void:
+                restype = None
+            else:
+                restype = get_ctypes_type(T.TO.RESULT)
+            return ctypes.CFUNCTYPE(restype, *argtypes)
+        elif isinstance(T.TO, lltype.Struct):
+            # for recursive structures: build a forward pointer first
+            uniquename = 'ctypes_%s_%d' % (T.TO.__name__, len(_ctypes_cache))
+            pcls = ctypes.POINTER(uniquename)
+            _delayed_ptrs.append((pcls, T.TO))
+            return pcls
+        else:
+            return ctypes.POINTER(get_ctypes_type(T.TO))
+    elif isinstance(T, lltype.Struct):
+        return build_ctypes_struct(T)
+    elif isinstance(T, lltype.Array):
+        return build_ctypes_array(T)
+    elif isinstance(T, lltype.OpaqueType):
+        if T.hints.get('external', None) != 'C':
+            raise TypeError("%s is not external" % T)
+        return ctypes.c_char * T.hints['getsize']()
+    else:
+        _setup_ctypes_cache()
+        if T in _ctypes_cache:
+            return _ctypes_cache[T]
+        raise NotImplementedError(T)
+
+def complete_pointer_types():
+    while _delayed_ptrs:
+        pcls, S = _delayed_ptrs.pop()
+        ctypes.SetPointerType(pcls, get_ctypes_type(S))
 
 
 def convert_struct(container, cstruct=None):

@@ -51,6 +51,28 @@ class TestLL2Ctypes(object):
         assert sc.contents.y == 52
         lltype.free(s, flavor='raw')
 
+    def test_struct_ptrs(self):
+        S2 = lltype.Struct('S2', ('y', lltype.Signed))
+        S1 = lltype.Struct('S', ('x', lltype.Signed), ('p', lltype.Ptr(S2)))
+        s1 = lltype.malloc(S1, flavor='raw')
+        s2a = lltype.malloc(S2, flavor='raw')
+        s2b = lltype.malloc(S2, flavor='raw')
+        s2a.y = ord('a')
+        s2b.y = ord('b')
+        sc1 = lltype2ctypes(s1)
+        sc1.contents.x = 50
+        assert s1.x == 50
+        sc1.contents.p = lltype2ctypes(s2a)
+        assert s1.p == s2a
+        s1.p.y -= 32
+        assert sc1.contents.p.contents.y == ord('A')
+        s1.p = s2b
+        sc1.contents.p.contents.y -= 32
+        assert s2b.y == ord('B')
+        lltype.free(s1, flavor='raw')
+        lltype.free(s2a, flavor='raw')
+        lltype.free(s2b, flavor='raw')
+
     def test_simple_array(self):
         A = lltype.Array(lltype.Signed)
         a = lltype.malloc(A, 10, flavor='raw')
@@ -406,9 +428,78 @@ class TestLL2Ctypes(object):
         lltype.free(s, flavor='raw')
 
     def test_recursive_struct(self):
-        py.test.skip("Not implemented")
         SX = lltype.ForwardReference()
-        S1 = lltype.Struct('S1', ('x', lltype.Ptr(SX)))
-        S1.x.TO.become(S1)
-        s = lltype.malloc(S1, flavor='raw')
-        sc = lltype2ctypes(s)
+        S1 = lltype.Struct('S1', ('p', lltype.Ptr(SX)), ('x', lltype.Signed))
+        SX.become(S1)
+        # a chained list
+        s1 = lltype.malloc(S1, flavor='raw')
+        s2 = lltype.malloc(S1, flavor='raw')
+        s3 = lltype.malloc(S1, flavor='raw')
+        s1.x = 111
+        s2.x = 222
+        s3.x = 333
+        s1.p = s2
+        s2.p = s3
+        s3.p = lltype.nullptr(S1)
+        sc1 = lltype2ctypes(s1)
+        sc2 = sc1.contents.p
+        sc3 = sc2.contents.p
+        assert not sc3.contents.p
+        assert sc1.contents.x == 111
+        assert sc2.contents.x == 222
+        assert sc3.contents.x == 333
+        sc3.contents.x += 1
+        assert s3.x == 334
+        s3.x += 2
+        assert sc3.contents.x == 336
+        lltype.free(s1, flavor='raw')
+        lltype.free(s2, flavor='raw')
+        lltype.free(s3, flavor='raw')
+        # a self-cycle
+        s1 = lltype.malloc(S1, flavor='raw')
+        s1.x = 12
+        s1.p = s1
+        sc1 = lltype2ctypes(s1)
+        assert sc1.contents.x == 12
+        assert (ctypes.addressof(sc1.contents.p.contents) ==
+                ctypes.addressof(sc1.contents))
+        s1.x *= 5
+        assert sc1.contents.p.contents.p.contents.p.contents.x == 60
+        lltype.free(s1, flavor='raw')
+        # a longer cycle
+        s1 = lltype.malloc(S1, flavor='raw')
+        s2 = lltype.malloc(S1, flavor='raw')
+        s1.x = 111
+        s1.p = s2
+        s2.x = 222
+        s2.p = s1
+        sc1 = lltype2ctypes(s1)
+        assert sc1.contents.x == 111
+        assert sc1.contents.p.contents.x == 222
+        assert (ctypes.addressof(sc1.contents.p.contents) !=
+                ctypes.addressof(sc1.contents))
+        assert (ctypes.addressof(sc1.contents.p.contents.p.contents) ==
+                ctypes.addressof(sc1.contents))
+        lltype.free(s1, flavor='raw')
+        lltype.free(s2, flavor='raw')
+
+    def test_indirect_recursive_struct(self):
+        S2Forward = lltype.ForwardReference()
+        S1 = lltype.Struct('S1', ('p', lltype.Ptr(S2Forward)))
+        A2 = lltype.Array(lltype.Ptr(S1), hints={'nolength': True})
+        S2 = lltype.Struct('S2', ('a', lltype.Ptr(A2)))
+        S2Forward.become(S2)
+        s1 = lltype.malloc(S1, flavor='raw')
+        a2 = lltype.malloc(A2, 10, flavor='raw')
+        s2 = lltype.malloc(S2, flavor='raw')
+        s2.a = a2
+        a2[5] = s1
+        s1.p = s2
+        ac2 = lltype2ctypes(a2, normalize=False)
+        sc1 = ac2.contents.items[5]
+        sc2 = sc1.contents.p
+        assert (ctypes.addressof(sc2.contents.a.contents) ==
+                ctypes.addressof(ac2.contents))
+        lltype.free(s1, flavor='raw')
+        lltype.free(a2, flavor='raw')
+        lltype.free(s2, flavor='raw')
