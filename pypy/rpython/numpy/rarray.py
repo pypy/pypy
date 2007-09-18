@@ -284,6 +284,23 @@ class ArrayRepr(Repr):
         cARRAY = hop.inputconst(Void, hop.r_result.ARRAY.TO)
         return hop.gendirectcall(ll_transpose, cARRAY, v_self)
 
+    def rtype_method_copy(self, hop):
+        # This is very similar to astype method. Could factor something out perhaps.
+        r_result = hop.r_result
+        [v_self] = hop.inputargs(self)
+        cARRAY = hop.inputconst(Void, hop.r_result.ARRAY.TO)
+        v_result = hop.llops.gendirectcall(ll_build_like, cARRAY, v_self)
+        # XX if we know v_self is contiguous, we should just do a memcopy XX
+        iter_new, iter_broadcast = gen_iter_funcs(self.ndim)
+        cbroadcast = hop.inputconst(Void, iter_broadcast)
+        cITER0 = hop.inputconst(Void, r_result.ITER.TO)
+        v_it0 = hop.gendirectcall(iter_new, cITER0, v_result, v_result, cbroadcast)
+        cITER1 = hop.inputconst(Void, self.ITER.TO)
+        v_it1 = hop.gendirectcall(iter_new, cITER1, v_self, v_self, cbroadcast)
+        cITEM = hop.inputconst(Void, r_result.ITEM)
+        hop.gendirectcall(ll_array_set, cITEM, v_it0, v_it1)
+        return v_result
+
     def rtype_method_reshape(self, hop):
         r_result = hop.r_result
         r_tuple = hop.args_r[1]
@@ -767,5 +784,7 @@ def ll_transpose(ARRAY, ao):
     array.dataptr = ao.dataptr
     return array
     
+
+
 
 
