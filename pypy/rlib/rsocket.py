@@ -10,6 +10,9 @@ a drop-in replacement for the 'socket' module.
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
 #   - methods makefile(),
 #   - SSL
+#
+# It's unclear if makefile() and SSL support belong here or only as
+# app-level code for PyPy.
 
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib import _rsocket_ctypes as _c
