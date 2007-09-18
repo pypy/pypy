@@ -36,7 +36,6 @@ class defaultproperty(object):
 
 class StructDefNode:
     typetag = 'struct'
-    is_external = False
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
         self.STRUCT = STRUCT
@@ -56,7 +55,7 @@ class StructDefNode:
             self.typetag = ''
             assert STRUCT._hints.get('external')
         if self.STRUCT._hints.get('external'):      # XXX hack
-            self.is_external = True
+            self.forward_decl = None
         if STRUCT._hints.get('c_name'):
             self.barename = self.name = STRUCT._hints['c_name']
             self.c_struct_field_name = self.verbatim_field_name

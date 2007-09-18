@@ -444,31 +444,12 @@ class SourceGenerator:
         name = 'structdef.h'
         fi = self.makefile(name)
         print >> f, '#include "%s"' % name
-        print >> fi, '/***********************************************************/'
-        print >> fi, '/***  Structure definitions                              ***/'
-        print >> fi
-        for node in structdeflist:
-            if getattr(node, 'is_external', False):
-                continue
-            print >> fi, '%s %s;' % (node.typetag, node.name)
-        print >> fi
-        for node in structdeflist:
-            for line in node.definition():
-                print >> fi, line
-        print >> fi
-        print >> fi, '/***********************************************************/'
+        gen_structdef(fi, database)
         fi.close()
         name = 'forwarddecl.h'
         fi = self.makefile(name)
         print >> f, '#include "%s"' % name
-        print >> fi, '/***********************************************************/'
-        print >> fi, '/***  Forward declarations                               ***/'
-        print >> fi
-        for node in database.globalcontainers():
-            for line in node.forward_declaration():
-                print >> fi, line
-        print >> fi
-        print >> fi, '/***********************************************************/'
+        gen_forwarddecl(fi, database)
         fi.close()
 
         #
@@ -552,33 +533,43 @@ class SourceGenerator:
         print >> f
 
 
-# this function acts as the fallback for small sources for now.
-# Maybe we drop this completely if source splitting is the way
-# to go. Currently, I'm quite fine with keeping a working fallback.
-
-def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
-    #
-    # All declarations
-    #
+def gen_structdef(f, database):
     structdeflist = database.getstructdeflist()
-    print >> f
     print >> f, '/***********************************************************/'
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
     for node in structdeflist:
-        if node.name and not getattr(node, 'is_external', False):
+        if hasattr(node, 'forward_decl'):
+            if node.forward_decl:
+                print >> f, node.forward_decl
+        else:
             print >> f, '%s %s;' % (node.typetag, node.name)
     print >> f
     for node in structdeflist:
         for line in node.definition():
             print >> f, line
-    print >> f
+
+def gen_forwarddecl(f, database):
     print >> f, '/***********************************************************/'
     print >> f, '/***  Forward declarations                               ***/'
     print >> f
     for node in database.globalcontainers():
         for line in node.forward_declaration():
             print >> f, line
+
+# this function acts as the fallback for small sources for now.
+# Maybe we drop this completely if source splitting is the way
+# to go. Currently, I'm quite fine with keeping a working fallback.
+# XXX but we need to reduce code duplication.
+
+def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
+    #
+    # All declarations
+    #
+    print >> f
+    gen_structdef(f, database)
+    print >> f
+    gen_forwarddecl(f, database)
 
     #
     # Implementation of functions and global structures and arrays
