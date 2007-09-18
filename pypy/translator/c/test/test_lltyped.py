@@ -387,3 +387,131 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(f, [int])
         res = fn(100)
         assert res == 3050
+
+    def test_arithmetic_cornercases(self):
+        import operator, sys
+        from pypy.rlib.unroll import unrolling_iterable
+        from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+
+        class Undefined:
+            def __eq__(self, other):
+                return True
+        undefined = Undefined()
+
+        def getmin(cls):
+            if cls is int:
+                return -sys.maxint-1
+            elif cls.SIGNED:
+                return cls(-(cls.MASK>>1)-1)
+            else:
+                return cls(0)
+        getmin._annspecialcase_ = 'specialize:memo'
+
+        def getmax(cls):
+            if cls is int:
+                return sys.maxint
+            elif cls.SIGNED:
+                return cls(cls.MASK>>1)
+            else:
+                return cls(cls.MASK)
+        getmax._annspecialcase_ = 'specialize:memo'
+        maxlonglong = long(getmax(r_longlong))
+
+        classes = unrolling_iterable([int, r_uint, r_longlong, r_ulonglong])
+        operators = unrolling_iterable([operator.add,
+                                        operator.sub,
+                                        operator.mul,
+                                        operator.floordiv,
+                                        operator.mod,
+                                        operator.lshift,
+                                        operator.rshift])
+        def f(n):
+            result = ()
+            for cls in classes:
+                values = [getmin(cls), getmax(cls)]
+                for OP in operators:
+                    for x in values:
+                        res1 = OP(x, n)
+                        result += (res1,)
+            return result
+
+        def assert_eq(a, b):
+            # for better error messages when it fails
+            assert len(a) == len(b)
+            for i in range(len(a)):
+                assert a[i] == b[i]
+
+        fn = self.getcompiled(f, [int])
+        res = fn(1)
+        print res
+        assert_eq(res, (
+            # int
+            -sys.maxint, undefined,               # add
+            undefined, sys.maxint-1,              # sub
+            -sys.maxint-1, sys.maxint,            # mul
+            -sys.maxint-1, sys.maxint,            # floordiv
+            0, 0,                                 # mod
+            0, -2,                                # lshift
+            (-sys.maxint-1)//2, sys.maxint//2,    # rshift
+            # r_uint
+            1, 0,                                 # add
+            sys.maxint*2+1, sys.maxint*2,         # sub
+            0, sys.maxint*2+1,                    # mul
+            0, sys.maxint*2+1,                    # floordiv
+            0, 0,                                 # mod
+            0, sys.maxint*2,                      # lshift
+            0, sys.maxint,                        # rshift
+            # r_longlong
+            -maxlonglong, undefined,              # add
+            undefined, maxlonglong-1,             # sub
+            -maxlonglong-1, maxlonglong,          # mul
+            -maxlonglong-1, maxlonglong,          # floordiv
+            0, 0,                                 # mod
+            0, -2,                                # lshift
+            (-maxlonglong-1)//2, maxlonglong//2,  # rshift
+            # r_ulonglong
+            1, 0,                                 # add
+            maxlonglong*2+1, maxlonglong*2,       # sub
+            0, maxlonglong*2+1,                   # mul
+            0, maxlonglong*2+1,                   # floordiv
+            0, 0,                                 # mod
+            0, maxlonglong*2,                     # lshift
+            0, maxlonglong,                       # rshift
+            ))
+
+        res = fn(5)
+        print res
+        assert_eq(res, (
+            # int
+            -sys.maxint+4, undefined,             # add
+            undefined, sys.maxint-5,              # sub
+            undefined, undefined,                 # mul
+            (-sys.maxint-1)//5, sys.maxint//5,    # floordiv
+            (-sys.maxint-1)%5, sys.maxint%5,      # mod
+            0, -32,                               # lshift
+            (-sys.maxint-1)//32, sys.maxint//32,  # rshift
+            # r_uint
+            5, 4,                                 # add
+            sys.maxint*2-3, sys.maxint*2-4,       # sub
+            0, sys.maxint*2-3,                    # mul
+            0, (sys.maxint*2+1)//5,               # floordiv
+            0, (sys.maxint*2+1)%5,                # mod
+            0, sys.maxint*2-30,                   # lshift
+            0, sys.maxint>>4,                     # rshift
+            # r_longlong
+            -maxlonglong+4, undefined,            # add
+            undefined, maxlonglong-5,             # sub
+            undefined, undefined,                 # mul
+            (-maxlonglong-1)//5, maxlonglong//5,  # floordiv
+            (-maxlonglong-1)%5, maxlonglong%5,    # mod
+            0, -32,                               # lshift
+            (-maxlonglong-1)//32, maxlonglong//32,# rshift
+            # r_ulonglong
+            5, 4,                                 # add
+            maxlonglong*2-3, maxlonglong*2-4,     # sub
+            0, maxlonglong*2-3,                   # mul
+            0, (maxlonglong*2+1)//5,              # floordiv
+            0, (maxlonglong*2+1)%5,               # mod
+            0, maxlonglong*2-30,                  # lshift
+            0, maxlonglong>>4,                    # rshift
+            ))
