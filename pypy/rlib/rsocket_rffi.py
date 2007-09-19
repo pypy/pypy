@@ -334,6 +334,8 @@ if 'AF_UNIX' in constants:
 
         def __init__(self, path):
             sun = rffi.make(_c.sockaddr_un)
+            baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
+            self.setdata(sun, baseofs + len(path))
             rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
             if _c.linux and path.startswith('\x00'):
                 # Linux abstract namespace extension
@@ -346,8 +348,6 @@ if 'AF_UNIX' in constants:
                 sun.c_sun_path[len(path)] = '\x00'
             for i in range(len(path)):
                 sun.c_sun_path[i] = path[i]
-            baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
-            self.setdata(sun, baseofs + len(path))
 
         def as_sockaddr_un(self):
             if self.addrlen <= offsetof(_c.sockaddr_un, 'c_sun_path'):
@@ -391,23 +391,22 @@ if 'AF_NETLINK' in constants:
         maxlen = sizeof(struct)
 
         def __init__(self, pid, groups):
-            addr = _c.sockaddr_nl(nl_family = AF_NETLINK)
-            addr.nl_pid = pid
-            addr.nl_groups = groups
-            XXX; self._addr_keepalive_netlink = addr
-            self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
-            self.addrlen = sizeof(addr)
+            addr = rffi.make(_c.sockaddr_nl)
+            self.setdata(addr, NETLINKAddress.maxlen)
+            rffi.setintfield(addr, 'c_nl_family', AF_NETLINK)
+            rffi.setintfield(addr, 'c_nl_pid', pid)
+            rffi.setintfield(addr, 'c_nl_groups', groups)
 
         def as_sockaddr_nl(self):
             if self.addrlen != NETLINKAddress.maxlen:
                 raise RSocketError("invalid address")
-            return cast(pointer(self.addr), POINTER(_c.sockaddr_nl)).contents
+            return rffi.cast(lltype.Ptr(_c.sockaddr_nl), self.addr)
 
         def get_pid(self):
-            return self.as_sockaddr_nl().nl_pid
+            return self.as_sockaddr_nl().c_nl_pid
 
         def get_groups(self):
-            return self.as_sockaddr_nl().nl_groups
+            return self.as_sockaddr_nl().c_nl_groups
 
         def __repr__(self):
             return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())

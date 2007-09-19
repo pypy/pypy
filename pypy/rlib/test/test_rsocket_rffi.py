@@ -26,7 +26,6 @@ def test_unix_addr():
     assert a.get_path() == "/tmp/socketname"
 
 def test_netlink_addr():
-    py.test.skip("in-progress")
     if getattr(rsocket, 'AF_NETLINK', None) is None:
         py.test.skip('AF_NETLINK not supported.')
     pid = 1
