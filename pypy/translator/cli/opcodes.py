@@ -164,7 +164,6 @@ opcodes = {
     'float_ne':                 _not('ceq'),
     'float_gt':                 'cgt',
     'float_ge':                 _not('clt'),
-    'float_pow':                [PushAllArgs, 'call float64 [mscorlib]System.Math::Pow(float64, float64)'],
    
     'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'llong_neg':                'neg',

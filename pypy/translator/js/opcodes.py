@@ -104,7 +104,6 @@ opcodes = {'int_mul': '*',
     'int_invert': [PushAllArgs,_Prefix('~')],
     'float_neg': [PushAllArgs,_Prefix('-')],
         
-    'float_pow': [PushAllArgs,_CastFun('Math.pow',2)],
     'int_abs': [PushAllArgs,_CastFun('Math.abs',1)],
     'float_abs': [PushAllArgs,_CastFun('Math.abs',1)],
 

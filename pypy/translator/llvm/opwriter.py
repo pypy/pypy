@@ -180,13 +180,6 @@ class OpWriter(object):
         # XXX could do something about assertions
         pass
 
-    def int_pow(self, opr):
-        self._generic_pow(opr, "1") 
-    uint_pow = int_pow
-    
-    def float_pow(self, opr):
-        self._generic_pow(opr, "1.0") 
-
     def _generic_neg(self, opr, zerostr): 
         self.codewriter.binaryop("sub", opr.retref, opr.argtypes[0],
                                  zerostr, opr.argrefs[0])

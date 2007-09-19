@@ -162,7 +162,6 @@ _opcodes = {
     'float_sub':                jvmgen.DSUB,
     'float_mul':                jvmgen.DMUL,
     'float_truediv':            jvmgen.DDIV,
-    'float_pow':                jvmgen.MATHDPOW,
     'float_lt':                 'dbl_less_than',     
     'float_le':                 'dbl_less_equals',   
     'float_eq':                 'dbl_equals',        
