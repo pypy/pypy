@@ -21,8 +21,6 @@ def uaddressof(obj):
 
 
 _ctypes_cache = {}
-_delayed_ptrs = []
-_gettype_recursion = 0
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
@@ -44,18 +42,22 @@ def _setup_ctypes_cache():
         rffi.SIZE_T:     ctypes.c_size_t,
         })
 
-def build_ctypes_struct(S, max_n=None):
-    fields = []
-    for fieldname in S._names:
-        FIELDTYPE = S._flds[fieldname]
-        if max_n is not None and fieldname == S._arrayfld:
-            cls = build_ctypes_array(FIELDTYPE, max_n)
-        else:
-            cls = get_ctypes_type(FIELDTYPE)
-        fields.append((fieldname, cls))
+def build_ctypes_struct(S, delayed_builders, max_n=None):
+    def builder():
+        # called a bit later to fill in _fields_
+        # (to handle recursive structure pointers)
+        fields = []
+        for fieldname in S._names:
+            FIELDTYPE = S._flds[fieldname]
+            if max_n is not None and fieldname == S._arrayfld:
+                cls = build_ctypes_array(FIELDTYPE, None, max_n)
+            else:
+                cls = get_ctypes_type(FIELDTYPE)
+            fields.append((fieldname, cls))
+        CStruct._fields_ = fields
 
     class CStruct(ctypes.Structure):
-        _fields_ = fields
+        # no _fields_: filled later by builder()
 
         def _malloc(cls, n=None):
             if S._arrayfld is None:
@@ -66,7 +68,7 @@ def build_ctypes_struct(S, max_n=None):
             else:
                 if n is None:
                     raise TypeError("%r is variable-sized" % (S,))
-                biggercls = build_ctypes_struct(S, n)
+                biggercls = build_ctypes_struct(S, None, n)
                 bigstruct = biggercls()
                 array = getattr(bigstruct, S._arrayfld)
                 if hasattr(array, 'length'):
@@ -77,12 +79,15 @@ def build_ctypes_struct(S, max_n=None):
     CStruct.__name__ = 'ctypes_%s' % (S,)
     if max_n is not None:
         CStruct._normalized_ctype = get_ctypes_type(S)
+        builder()    # no need to be lazy here
+    else:
+        delayed_builders.append(builder)
     return CStruct
 
-def build_ctypes_array(A, max_n=0):
+def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
-    ctypes_item = get_ctypes_type(ITEM)
+    ctypes_item = get_ctypes_type(ITEM, delayed_builders)
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -94,7 +99,7 @@ def build_ctypes_array(A, max_n=0):
         def _malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
-            biggercls = build_ctypes_array(A, n)
+            biggercls = build_ctypes_array(A, None, n)
             bigarray = biggercls()
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
@@ -127,27 +132,24 @@ def build_ctypes_array(A, max_n=0):
         CArray._normalized_ctype = get_ctypes_type(A)
     return CArray
 
-def get_ctypes_type(T):
+def get_ctypes_type(T, delayed_builders=None):
     try:
         return _ctypes_cache[T]
     except KeyError:
-        global _gettype_recursion
-        _gettype_recursion += 1
-        try:
-            cls = build_new_ctypes_type(T)
-            if T not in _ctypes_cache:
-                _ctypes_cache[T] = cls
-            else:
-                # check for buggy recursive structure logic
-                assert _ctypes_cache[T] is cls
-
-            if _gettype_recursion == 1:
-                complete_pointer_types()
-        finally:
-            _gettype_recursion -= 1
+        toplevel = delayed_builders is None
+        if toplevel:
+            delayed_builders = []
+        cls = build_new_ctypes_type(T, delayed_builders)
+        if T not in _ctypes_cache:
+            _ctypes_cache[T] = cls
+        else:
+            # check for buggy recursive structure logic
+            assert _ctypes_cache[T] is cls
+        if toplevel:
+            complete_builders(delayed_builders)
         return cls
 
-def build_new_ctypes_type(T):
+def build_new_ctypes_type(T, delayed_builders):
     if isinstance(T, lltype.Ptr):
         if isinstance(T.TO, lltype.FuncType):
             argtypes = [get_ctypes_type(ARG) for ARG in T.TO.ARGS]
@@ -156,18 +158,12 @@ def build_new_ctypes_type(T):
             else:
                 restype = get_ctypes_type(T.TO.RESULT)
             return ctypes.CFUNCTYPE(restype, *argtypes)
-        elif isinstance(T.TO, lltype.Struct):
-            # for recursive structures: build a forward pointer first
-            uniquename = 'ctypes_%s_%d' % (T.TO.__name__, len(_ctypes_cache))
-            pcls = ctypes.POINTER(uniquename)
-            _delayed_ptrs.append((pcls, T.TO))
-            return pcls
         else:
-            return ctypes.POINTER(get_ctypes_type(T.TO))
+            return ctypes.POINTER(get_ctypes_type(T.TO, delayed_builders))
     elif isinstance(T, lltype.Struct):
-        return build_ctypes_struct(T)
+        return build_ctypes_struct(T, delayed_builders)
     elif isinstance(T, lltype.Array):
-        return build_ctypes_array(T)
+        return build_ctypes_array(T, delayed_builders)
     elif isinstance(T, lltype.OpaqueType):
         if T.hints.get('external', None) != 'C':
             raise TypeError("%s is not external" % T)
@@ -178,10 +174,9 @@ def build_new_ctypes_type(T):
             return _ctypes_cache[T]
         raise NotImplementedError(T)
 
-def complete_pointer_types():
-    while _delayed_ptrs:
-        pcls, S = _delayed_ptrs.pop()
-        ctypes.SetPointerType(pcls, get_ctypes_type(S))
+def complete_builders(delayed_builders):
+    while delayed_builders:
+        delayed_builders.pop()()
 
 
 def convert_struct(container, cstruct=None):
