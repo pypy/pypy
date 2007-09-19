@@ -109,6 +109,9 @@ def range_withspecialized_implementation(space, start, step, howmany):
 
 
 def all(space, w_S):
+    """all(iterable) -> bool
+
+Return True if bool(x) is True for all values x in the iterable."""
     w_iter = space.iter(w_S)
     while True:
         try:
@@ -124,6 +127,9 @@ all.unwrap_spec = [ObjSpace, W_Root]
 
 
 def any(space, w_S):
+    """any(iterable) -> bool
+
+Return True if bool(x) is True for any x in the iterable."""
     w_iter = space.iter(w_S)
     while True:
         try:
@@ -136,7 +142,6 @@ def any(space, w_S):
             return space.w_True
     return space.w_False
 any.unwrap_spec = [ObjSpace, W_Root]
-
 
 
 class W_XRange(Wrappable):
