@@ -376,7 +376,9 @@ if MS_WINDOWS:
     fd_set = cConfig.fd_set
 
 #c_int_size = sizeof(rffi.INT)
-external = rffi.llexternal
+def external(*args, **kwds):
+    kwds.setdefault('stringpolicy', 'fullauto')
+    return rffi.llexternal(*args, **kwds)
 
 if _POSIX:
     strerror = external('strerror', [rffi.INT], CCHARP)
@@ -396,7 +398,8 @@ socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rf
 
 if not MS_WINDOWS:
     getaddrinfo = external('getaddrinfo', [CCHARP, CCHARP,
-                            addrinfo_ptr, rffi.CArray(addrinfo_ptr)], rffi.INT)
+                            addrinfo_ptr,
+                            lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
     freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
     getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                            size_t, CCHARP, size_t, rffi.INT], rffi.INT)
