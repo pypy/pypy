@@ -313,6 +313,30 @@ def test_struct_create():
     assert f() == 3
     assert interpret(f, []) == 3
 
+def test_structcopy():
+    X2 = lltype.Struct('X2', ('x', INT))
+    X1 = lltype.Struct('X1', ('a', INT), ('x2', X2), ('p', lltype.Ptr(X2)))
+    def f():
+        p2 = make(X2, x=123)
+        p1 = make(X1, a=5, p=p2)
+        p1.x2.x = 456
+        p1bis = make(X1)
+        p2bis = make(X2)
+        structcopy(p1bis, p1)
+        assert p1bis.a == 5
+        assert p1bis.x2.x == 456
+        assert p1bis.p == p2
+        structcopy(p2bis, p2)
+        res = p2bis.x
+        lltype.free(p2bis, flavor='raw')
+        lltype.free(p1bis, flavor='raw')
+        lltype.free(p2, flavor='raw')
+        lltype.free(p1, flavor='raw')
+        return res
+    assert f() == 123
+    res = interpret(f, [])
+    assert res == 123
+
 def test_implicit_cast():
     z = llexternal('z', [USHORT, ULONG, USHORT, DOUBLE], USHORT)
 

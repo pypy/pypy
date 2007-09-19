@@ -73,7 +73,11 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                 real_args = real_args + (float(args[i]),)
             elif tp is CCHARP and (stringpolicy == 'fullauto' or
                      stringpolicy == 'autocast'):
-                ll_str = str2charp(args[i])
+                s = args[i]
+                if s is None:
+                    ll_str = lltype.nullptr(CCHARP.TO)
+                else:
+                    ll_str = str2charp(s)
                 real_args = real_args + (ll_str,)
             else:
                 real_args = real_args + (args[i],)
@@ -94,7 +98,8 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
         if stringpolicy == 'fullauto':
             for i, tp in unrolling_arg_tps:
                 if tp is CCHARP:
-                    lltype.free(to_free[i], flavor='raw')
+                    if to_free[i]:
+                        lltype.free(to_free[i], flavor='raw')
         return result
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
@@ -186,6 +191,7 @@ def CFixedArray(tp, size):
 
 def CArray(tp):
     return lltype.Array(tp, hints={'nolength': True})
+CArray._annspecialcase_ = 'specialize:memo'
 
 def COpaque(name, hints=None, **kwds):
     if hints is None:
@@ -305,10 +311,13 @@ def size_and_sign(tp):
     return size, unsigned
 
 def sizeof(tp):
+    # XXX see also llmemory.sizeof() for the symbolic size of structures.
+    # we could also extend the code below to return the computed size
+    # of structures as found by rffi_platform.
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
     if isinstance(tp, lltype.Ptr):
-        tp = ULONG
+        tp = ULONG     # XXX!
     if tp is lltype.Char:
         return 1
     if tp is lltype.Float:
@@ -351,3 +360,31 @@ class MakeEntry(ExtRegistryEntry):
             v_name = hop.inputconst(lltype.Void, name)
             hop.genop('setfield', [v_ptr, v_name, v_arg])
         return v_ptr
+
+
+def structcopy(pdst, psrc):
+    """Copy all the fields of the structure given by 'psrc'
+    into the structure given by 'pdst'.
+    """
+    copy_fn = _get_structcopy_fn(lltype.typeOf(pdst), lltype.typeOf(psrc))
+    copy_fn(pdst, psrc)
+structcopy._annspecialcase_ = 'specialize:ll'
+
+def _get_structcopy_fn(PDST, PSRC):
+    assert PDST == PSRC
+    if isinstance(PDST.TO, lltype.Struct):
+        STRUCT = PDST.TO
+        fields = [(name, STRUCT._flds[name]) for name in STRUCT._names]
+        unrollfields = unrolling_iterable(fields)
+
+        def copyfn(pdst, psrc):
+            for name, TYPE in unrollfields:
+                if isinstance(TYPE, lltype.ContainerType):
+                    structcopy(getattr(pdst, name), getattr(psrc, name))
+                else:
+                    setattr(pdst, name, getattr(psrc, name))
+
+        return copyfn
+    else:
+        raise NotImplementedError('structcopy: type %r' % (PDST.TO,))
+_get_structcopy_fn._annspecialcase_ = 'specialize:memo'
