@@ -18,7 +18,7 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.rlib import _rsocket_rffi as _c
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.lltypesystem.llmemory import sizeof
+from pypy.rpython.lltypesystem.rffi import sizeof
 
 
 constants = _c.constants
@@ -49,6 +49,10 @@ class Address(object):
     class __metaclass__(type):
         def __new__(cls, name, bases, dict):
             family = dict.get('family')
+            if family is not None:
+                # lltype is picky about types...
+                family = rffi.cast(_c.sockaddr.c_sa_family, family)
+                dict['family'] = family
             A = type.__new__(cls, name, bases, dict)
             if family is not None:
                 _FAMILIES[family] = A
@@ -69,6 +73,7 @@ class Address(object):
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
         # pointer type than exactly sockaddr_ptr, and we cast it for you.
+        assert not self.addr
         self.addr = rffi.cast(_c.sockaddr_ptr, addr)
         self.addrlen = addrlen
     setdata._annspecialcase_ = 'specialize:ll'
@@ -386,7 +391,7 @@ if 'AF_NETLINK' in constants:
             addr = _c.sockaddr_nl(nl_family = AF_NETLINK)
             addr.nl_pid = pid
             addr.nl_groups = groups
-            self._addr_keepalive_netlink = addr
+            XXX; self._addr_keepalive_netlink = addr
             self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
             self.addrlen = sizeof(addr)
 
@@ -428,10 +433,13 @@ def make_address(addrptr, addrlen, result=None):
         result = instantiate(familyclass(family))
     elif result.family != family:
         raise RSocketError("address family mismatched")
-    ...
-    paddr = result._addr_keepalive0 = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
-    result.addr = cast(paddr, _c.sockaddr_ptr).contents
-    result.addrlen = addrlen
+    # copy into a new buffer the address that 'addrptr' points to
+    addrlen = rffi.cast(lltype.Signed, addrlen)
+    buf = lltype.malloc(rffi.CCHARP.TO, addrlen, flavor='raw')
+    src = rffi.cast(rffi.CCHARP, addrptr)
+    for i in range(addrlen):
+        buf[i] = src[i]
+    result.setdata(buf, addrlen)
     return result
 
 def makeipv4addr(s_addr, result=None):
@@ -439,19 +447,16 @@ def makeipv4addr(s_addr, result=None):
         result = instantiate(INETAddress)
     elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
-    sin.sin_addr.s_addr = s_addr
-    paddr = cast(pointer(sin), _c.sockaddr_ptr)
-    result._addr_keepalive1 = sin
-    result.addr = paddr.contents
-    result.addrlen = sizeof(_c.sockaddr_in)
+    sin = rffi.make(_c.sockaddr_in, c_sin_family = AF_INET)   # PLAT sin_len
+    sin.c_sin_addr.s_addr = s_addr
+    result.setaddr(sin, sizeof(_c.sockaddr_in))
     return result
 
 def make_null_address(family):
     klass = familyclass(family)
     buf = create_string_buffer(klass.maxlen)
     result = instantiate(klass)
-    result._addr_keepalive2 = buf
+    XXX; result._addr_keepalive2 = buf
     result.addr = cast(buf, _c.sockaddr_ptr).contents
     result.addrlen = 0
     return result, len(buf)
@@ -1001,6 +1006,7 @@ def getaddrinfo(host, port_or_service,
                            canonname,
                            addr))
             info = info.c_ai_next
+            address_to_fill = None    # don't fill the same address repeatedly
     finally:
         _c.freeaddrinfo(res)
     return result
@@ -1024,14 +1030,20 @@ def getprotobyname(name):
     return protoent.contents.p_proto
 
 def getnameinfo(addr, flags):
-    host = create_string_buffer(NI_MAXHOST)
-    serv = create_string_buffer(NI_MAXSERV)
-    error =_c.getnameinfo(pointer(addr.addr), addr.addrlen,
-                          host, len(host),
-                          serv, len(serv), flags)
-    if error:
-        raise GAIError(error)
-    return host.value, serv.value
+    host = lltype.malloc(rffi.CCHARP.TO, NI_MAXHOST, flavor='raw')
+    try:
+        serv = lltype.malloc(rffi.CCHARP.TO, NI_MAXSERV, flavor='raw')
+        try:
+            error =_c.getnameinfo(addr.addr, addr.addrlen,
+                                  host, NI_MAXHOST,
+                                  serv, NI_MAXSERV, flags)
+            if error:
+                raise GAIError(error)
+            return rffi.charp2str(host), rffi.charp2str(serv)
+        finally:
+            lltype.free(serv, flavor='raw')
+    finally:
+        lltype.free(host, flavor='raw')
 
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):

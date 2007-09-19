@@ -402,7 +402,8 @@ if not MS_WINDOWS:
                             lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
     freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
     getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
-                           size_t, CCHARP, size_t, rffi.INT], rffi.INT)
+                           size_t, CCHARP, size_t, rffi.INT], rffi.INT,
+                           stringpolicy='noauto')
 
 htonl = external('htonl', [rffi.UINT], rffi.UINT)
 htons = external('htons', [rffi.USHORT], rffi.USHORT)

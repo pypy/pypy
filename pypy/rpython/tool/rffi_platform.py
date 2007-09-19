@@ -421,6 +421,7 @@ integer_class = [rffi.SIGNEDCHAR, rffi.UCHAR, rffi.CHAR,
 float_class = [rffi.DOUBLE]
 
 def _sizeof(tp):
+    # XXX don't use this!  internal purpose only, not really a sane logic
     if isinstance(tp, lltype.Struct):
         return sum([_sizeof(i) for i in tp._flds.values()])
     return rffi.sizeof(tp)

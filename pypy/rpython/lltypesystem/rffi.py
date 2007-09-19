@@ -311,11 +311,14 @@ def size_and_sign(tp):
     return size, unsigned
 
 def sizeof(tp):
-    # XXX see also llmemory.sizeof() for the symbolic size of structures.
-    # we could also extend the code below to return the computed size
-    # of structures as found by rffi_platform.
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
+    if isinstance(tp, lltype.Struct):
+        # the hint is present in structures probed by rffi_platform.
+        size = tp._hints.get('size')
+        if size is None:
+            size = llmemory.sizeof(tp)    # a symbolic result in this case
+        return size
     if isinstance(tp, lltype.Ptr):
         tp = ULONG     # XXX!
     if tp is lltype.Char:
