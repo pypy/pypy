@@ -75,10 +75,10 @@ class TestFlowObjSpace(Base):
     def ifthenelse(i, j):
         if i < 0:
             i = j
-        return g(i) + 1
+        return user_defined_function(i) + 1
     
     def test_ifthenelse(self):
-        x = self.codetest(self.simplebranch)
+        x = self.codetest(self.ifthenelse)
 
     #__________________________________________________________
     def loop(x):
