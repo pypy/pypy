@@ -434,16 +434,12 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
     truediv = div
 
     def pow((flt1, flt2), obj3):
-        return SomeFloat()
-    pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]
+        raise NotImplementedError("float power not supported, use math.pow")
 
     # repeat these in order to copy the 'can_only_throw' attribute
     inplace_div = div
     inplace_truediv = truediv
 
-    def inplace_pow((flt1, flt2)):
-        return SomeFloat()
-    inplace_pow.can_only_throw = [ZeroDivisionError, ValueError, OverflowError]
 
 class __extend__(pairtype(SomeList, SomeList)):
 

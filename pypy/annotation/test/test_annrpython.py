@@ -2829,6 +2829,18 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert not s.is_constant()
 
+    def test_float_pow_unsupported(self):
+        def f(x, y):
+            x **= y
+            return x ** y
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int, int])
+        assert isinstance(s, annmodel.SomeInteger)
+        a = self.RPythonAnnotator()
+        py.test.raises(NotImplementedError, a.build_types, f, [float, float])
+
+
+
 
 def g(n):
     return [0,1,2,n]

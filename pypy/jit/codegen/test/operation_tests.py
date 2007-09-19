@@ -320,13 +320,6 @@ class OperationTests(object):
             assert fp(40.0, 2.0) == fn(40.0, 2.0), op
             assert fp(25.125, 1.5) == fn(25.125, 1.5), op
 
-    def test_float_pow(self): #harder test for llvm
-        for op, fn in [('x ** y', lambda x, y: x ** y),    #not supported in llvm backend
-                       ]:
-            fp = self.rgen(fn, [float, float], float)
-            assert fp(40.0, 2.0) == fn(40.0, 2.0), op
-            assert fp(25.125, 1.5) == fn(25.125, 1.5), op
-
     def test_float_cast(self): #because of different rettype
         for op, fn in [('bool(x)', lambda x: bool(x)),
                        ('bool(2.0 - x)', lambda x: bool(x - 2.0)),

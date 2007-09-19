@@ -236,8 +236,8 @@ LL_OPERATIONS = {
     'float_ne':             LLOp(canfold=True),
     'float_gt':             LLOp(canfold=True),
     'float_ge':             LLOp(canfold=True),
-    'float_pow':            LLOp(canfold=True),
     # don't implement float_mod, use math.fmod instead
+    # don't implement float_pow, use math.pow instead
 
     'llong_is_true':        LLOp(canfold=True),
     'llong_neg':            LLOp(canfold=True),
