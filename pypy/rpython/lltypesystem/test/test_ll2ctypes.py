@@ -426,7 +426,6 @@ class TestLL2Ctypes(object):
         assert s1ac.contents.x == 59
         assert s.s1a.x == 59
 
-        py.test.skip("in-progress")
         t = ctypes2lltype(lltype.Ptr(BIG), sc)
         assert t == s
         assert t.s1a == s.s1a

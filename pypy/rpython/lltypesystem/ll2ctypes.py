@@ -228,6 +228,17 @@ def remove_regular_array_content(container):
     for i in range(container.getlength()):
         container.items[i] = None
 
+def struct_use_ctypes_storage(container, ctypes_storage):
+    STRUCT = container._TYPE
+    assert isinstance(STRUCT, lltype.Struct)
+    add_storage(container, _struct_mixin, ctypes_storage)
+    remove_regular_struct_content(container)
+    for field_name in STRUCT._names:
+        FIELDTYPE = getattr(STRUCT, field_name)
+        if isinstance(FIELDTYPE, lltype.ContainerType):
+            struct_use_ctypes_storage(getattr(container, field_name),
+                                      getattr(ctypes_storage, field_name))
+
 # ____________________________________________________________
 # Ctypes-aware subclasses of the _parentable classes
 
@@ -394,10 +405,10 @@ def ctypes2lltype(T, cobj):
         if not cobj:   # NULL pointer
             return lltype.nullptr(T.TO)
         if isinstance(T.TO, lltype.Struct):
-            # XXX var-sized structs
+            if T.TO._arrayfld is not None:
+                raise NotImplementedError("XXX var-sized structs")
             container = lltype._struct(T.TO)
-            add_storage(container, _struct_mixin, cobj.contents)
-            remove_regular_struct_content(container)
+            struct_use_ctypes_storage(container, cobj.contents)
         elif isinstance(T.TO, lltype.Array):
             if T.TO._hints.get('nolength', False):
                 container = _array_of_unknown_length(T.TO)
