@@ -211,7 +211,7 @@ CConfig.sockaddr_in6 = platform.Struct('struct sockaddr_in6',
 
 CConfig.sockaddr_un = platform.Struct('struct sockaddr_un',
                                              [('sun_family', rffi.INT),
-                                   ('sun_path', rffi.CFixedArray(rffi.UCHAR, 1))],
+                                   ('sun_path', rffi.CFixedArray(rffi.CHAR, 1))],
                                              ifdef='AF_UNIX')
 
 CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',

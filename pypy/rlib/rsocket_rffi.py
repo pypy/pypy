@@ -18,7 +18,7 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.rlib import _rsocket_rffi as _c
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rpython.lltypesystem.rffi import sizeof
+from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
 
 def castto(example, value):
     return rffi.cast(lltype.typeOf(example), value)
@@ -83,7 +83,7 @@ class Address(object):
         # If we don't know the address family, don't raise an
         # exception -- return it as a tuple.
         family = rffi.cast(lltype.Signed, self.addr.c_sa_family)
-        datalen = self.addrlen - llmemory.offsetof(_c.sockaddr, 'c_sa_data')
+        datalen = self.addrlen - offsetof(_c.sockaddr, 'c_sa_data')
         rawdata = ''.join([self.addr.c_sa_data[i] for i in range(datalen)])
         return space.newtuple([space.wrap(family),
                                space.wrap(rawdata)])
@@ -333,26 +333,26 @@ if 'AF_UNIX' in constants:
         maxlen = sizeof(struct)
 
         def __init__(self, path):
-            sun = _c.sockaddr_un(sun_family = AF_UNIX)
+            sun = rffi.make(_c.sockaddr_un)
+            rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
             if _c.linux and path.startswith('\x00'):
                 # Linux abstract namespace extension
-                if len(path) > sizeof(sun.sun_path):
+                if len(path) > sizeof(_c.sockaddr_un.c_sun_path):
                     raise RSocketError("AF_UNIX path too long")
             else:
                 # regular NULL-terminated string
-                if len(path) >= sizeof(sun.sun_path):
+                if len(path) >= sizeof(_c.sockaddr_un.c_sun_path):
                     raise RSocketError("AF_UNIX path too long")
-                sun.sun_path[len(path)] = 0
+                sun.c_sun_path[len(path)] = '\x00'
             for i in range(len(path)):
-                sun.sun_path[i] = ord(path[i])
-            self.sun = sun
-            self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
-            self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
+                sun.c_sun_path[i] = path[i]
+            baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
+            self.setdata(sun, baseofs + len(path))
 
         def as_sockaddr_un(self):
-            if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
+            if self.addrlen <= offsetof(_c.sockaddr_un, 'c_sun_path'):
                 raise RSocketError("invalid address")
-            return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
+            return rffi.cast(lltype.Ptr(_c.sockaddr_un), self.addr)
 
         def __repr__(self):
             try:
@@ -362,15 +362,16 @@ if 'AF_UNIX' in constants:
 
         def get_path(self):
             a = self.as_sockaddr_un()
-            if _c.linux and a.sun_path[0] == 0:
+            maxlength = self.addrlen - offsetof(_c.sockaddr_un, 'c_sun_path')
+            if _c.linux and a.c_sun_path[0] == '\x00':
                 # Linux abstract namespace
-                buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
-                               self.addrlen - offsetof(_c.sockaddr_un,
-                                                       'sun_path'))
-                return buf.raw
+                length = maxlength
             else:
                 # regular NULL-terminated string
-                return cast(pointer(a.sun_path), c_char_p).value
+                length = 0
+                while length < maxlength and a.c_sun_path[length] != '\x00':
+                    length += 1
+            return ''.join([a.c_sun_path[i] for i in range(length)])
 
         def eq(self, other):   # __eq__() is not called by RPython :-/
             return (isinstance(other, UNIXAddress) and
