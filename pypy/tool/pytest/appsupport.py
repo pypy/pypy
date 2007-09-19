@@ -10,7 +10,8 @@ from py.__.test.outcome import ExceptionFailure
 
 class AppCode(object):
     def __init__(self, space, pycode):
-        self.code = space.unwrap(space.getattr(pycode, space.wrap('co_code')))
+        self.code == space.unwrap(space.getattr(pycode, space.wrap('co_code')))
+        self.raw = self.code
         self.w_file = space.getattr(pycode, space.wrap('co_filename'))
         self.name = space.getattr(pycode, space.wrap('co_name'))
         self.firstlineno = space.unwrap(space.getattr(pycode, space.wrap('co_firstlineno')))
