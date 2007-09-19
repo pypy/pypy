@@ -69,6 +69,5 @@ class TestBasic(LLVMTestBasicMixin,
     test_float_arithmetic = skip #XXX llvmjit.execute() returns an int :-(
     test_float_cast = skip       #XXX llvmjit.execute() returns an int :-(
 
-    test_float_pow = skip
     test_unichar_array = skip
     test_char_unichar_fields = skip
