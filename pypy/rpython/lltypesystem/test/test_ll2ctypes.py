@@ -425,6 +425,20 @@ class TestLL2Ctypes(object):
         sc.contents.s1a.x += 3
         assert s1ac.contents.x == 59
         assert s.s1a.x == 59
+
+        py.test.skip("in-progress")
+        t = ctypes2lltype(lltype.Ptr(BIG), sc)
+        assert t == s
+        assert t.s1a == s.s1a
+        assert t.s1a.x == 59
+        s.s1b.x = 8888
+        assert t.s1b == s.s1b
+        assert t.s1b.x == 8888
+        t1 = ctypes2lltype(lltype.Ptr(S1), s1ac)
+        assert t.s1a == t1
+        assert t1.x == 59
+        t1.x += 1
+        assert sc.contents.s1a.x == 60
         lltype.free(s, flavor='raw')
 
     def test_recursive_struct(self):
