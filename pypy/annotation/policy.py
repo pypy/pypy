@@ -89,6 +89,10 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
         from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
         return LowLevelAnnotatorPolicy.default_specialize(*args)
 
+    def specialize__ll_and_arg(pol, *args):
+        from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+        return LowLevelAnnotatorPolicy.specialize__ll_and_arg(*args)
+
     def override__ignore(pol, *args):
         bk = getbookkeeper()
         return bk.immutablevalue(None)

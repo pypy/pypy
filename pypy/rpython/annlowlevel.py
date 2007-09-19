@@ -38,11 +38,14 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     def __init__(pol, rtyper=None):
         pol.rtyper = rtyper
 
-    def default_specialize(funcdesc, args_s):
+    def lowlevelspecialize(funcdesc, args_s, key_for_args):
         key = []
         new_args_s = []
-        for s_obj in args_s:
-            if isinstance(s_obj, annmodel.SomePBC):
+        for i, s_obj in enumerate(args_s):
+            if i in key_for_args:
+                key.append(key_for_args[i])
+                new_args_s.append(s_obj)
+            elif isinstance(s_obj, annmodel.SomePBC):
                 assert s_obj.is_constant(), "ambiguous low-level helper specialization"
                 key.append(KeyComp(s_obj.const))
                 new_args_s.append(s_obj)
@@ -57,6 +60,10 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         flowgraph = funcdesc.cachedgraph(tuple(key))
         args_s[:] = new_args_s
         return flowgraph
+    lowlevelspecialize = staticmethod(lowlevelspecialize)
+
+    def default_specialize(funcdesc, args_s):
+        return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s, {})
     default_specialize = staticmethod(default_specialize)
 
     def override__init_opaque_object(pol, s_opaqueptr, s_value):
@@ -96,6 +103,14 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     specialize__semierased = staticmethod(specialize__semierased)
     
     specialize__ll = default_specialize
+
+    def specialize__ll_and_arg(funcdesc, args_s, *argindices):
+        keys = {}
+        for i in argindices:
+            keys[i] = args_s[i].const
+        return LowLevelAnnotatorPolicy.lowlevelspecialize(funcdesc, args_s,
+                                                          keys)
+    specialize__ll_and_arg = staticmethod(specialize__ll_and_arg)
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
     if policy is None:

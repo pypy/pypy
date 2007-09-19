@@ -1,5 +1,4 @@
 import py, errno, sys
-py.test.skip("in-progress")
 from pypy.rlib import rsocket_rffi as rsocket
 from pypy.rlib.rsocket_rffi import *
 
@@ -21,12 +20,14 @@ def test_ipv4_addr():
     assert res == "<INETAddress 255.255.255.255:47002>"
 
 def test_unix_addr():
+    py.test.skip("in-progress")
     if getattr(rsocket, 'AF_UNIX', None) is None:
         py.test.skip('AF_UNIX not supported.')
     a = UNIXAddress("/tmp/socketname")
     assert a.get_path() == "/tmp/socketname"
 
 def test_netlink_addr():
+    py.test.skip("in-progress")
     if getattr(rsocket, 'AF_NETLINK', None) is None:
         py.test.skip('AF_NETLINK not supported.')
     pid = 1
@@ -36,6 +37,7 @@ def test_netlink_addr():
     assert a.get_groups() == group_mask
     
 def test_gethostname():
+    py.test.skip("in-progress")
     s = gethostname()
     assert isinstance(s, str)
 
@@ -45,6 +47,7 @@ def test_gethostbyname():
     assert a.get_host() == "127.0.0.1"
 
 def test_socketpair():
+    py.test.skip("in-progress")
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
@@ -59,6 +62,7 @@ def test_socketpair():
     s2.close()
 
 def test_simple_tcp():
+    py.test.skip("in-progress")
     import thread
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
@@ -97,6 +101,7 @@ def test_simple_tcp():
     s2.close()
 
 def test_simple_udp():
+    py.test.skip("in-progress")
     s1 = RSocket(AF_INET, SOCK_DGRAM)
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
@@ -128,6 +133,7 @@ def test_simple_udp():
     s2.close()
 
 def test_nonblocking():
+    py.test.skip("in-progress")
     sock = RSocket()
     sock.setblocking(False)
     try_ports = [1023] + range(20000, 30000, 437)
@@ -204,6 +210,7 @@ def test_getaddrinfo_snake():
     assert found, lst
 
 def test_getaddrinfo_no_reverse_lookup():
+    py.test.skip("in-progress")
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
     # Python2.3 on Windows returns the hostname.
     lst = getaddrinfo('134.99.112.214', None, flags=AI_CANONNAME)
@@ -216,6 +223,7 @@ def test_getaddrinfo_no_reverse_lookup():
     assert found, lst
 
 def test_connect_ex():
+    py.test.skip("in-progress")
     s = RSocket()
     err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work
     assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
@@ -251,6 +259,7 @@ def test_getsetsockopt():
     assert reuseptr[0] != 0
 
 def test_dup():
+    py.test.skip("in-progress")
     if sys.platform == "win32":
         skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)
@@ -261,6 +270,7 @@ def test_dup():
     assert s.getsockname().eq(s2.getsockname())
 
 def test_inet_aton():
+    py.test.skip("in-progress")
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
     assert inet_aton('127.0.0.1') == '\x7f\x00\x00\x01'
     tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
@@ -281,6 +291,7 @@ class TestTCP:
     HOST = 'localhost'
 
     def setup_method(self, method):
+        py.test.skip("in-progress")
         self.serv = RSocket(AF_INET, SOCK_STREAM)
         self.serv.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
         self.serv.bind(INETAddress(self.HOST, self.PORT))

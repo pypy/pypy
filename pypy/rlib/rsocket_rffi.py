@@ -20,6 +20,10 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rffi import sizeof
 
+def castto(example, value):
+    return rffi.cast(lltype.typeOf(example), value)
+castto._annspecialcase_ = 'specialize:ll'
+
 
 constants = _c.constants
 locals().update(constants) # Define constants from _c
@@ -49,10 +53,6 @@ class Address(object):
     class __metaclass__(type):
         def __new__(cls, name, bases, dict):
             family = dict.get('family')
-            if family is not None:
-                # lltype is picky about types...
-                family = rffi.cast(_c.sockaddr.c_sa_family, family)
-                dict['family'] = family
             A = type.__new__(cls, name, bases, dict)
             if family is not None:
                 _FAMILIES[family] = A
@@ -82,7 +82,7 @@ class Address(object):
         """Convert the address to an app-level object."""
         # If we don't know the address family, don't raise an
         # exception -- return it as a tuple.
-        family = self.addr.c_sa_family
+        family = rffi.cast(lltype.Signed, self.addr.c_sa_family)
         datalen = self.addrlen - llmemory.offsetof(_c.sockaddr, 'c_sa_data')
         rawdata = ''.join([self.addr.c_sa_data[i] for i in range(datalen)])
         return space.newtuple([space.wrap(family),
@@ -214,9 +214,10 @@ class INETAddress(IPAddress):
         result = instantiate(INETAddress)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = rffi.make(_c.sockaddr_in, c_sin_family = AF_INET)
+        sin = rffi.make(_c.sockaddr_in)
         result.setdata(sin, sizeof(_c.sockaddr_in))
         # PLAT sin_len
+        rffi.setintfield(sin, 'c_sin_family', AF_INET)
         rffi.structcopy(sin.c_sin_addr, in_addr)
         return result
     from_in_addr = staticmethod(from_in_addr)
@@ -312,8 +313,9 @@ class INET6Address(IPAddress):
         result = instantiate(INET6Address)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = rffi.make(_c.sockaddr_in6, c_sin6_family = AF_INET)
+        sin = rffi.make(_c.sockaddr_in6)
         result.setdata(sin, sizeof(_c.sockaddr_in6))
+        rffi.setintfield(sin, 'c_sin6_family', AF_INET)
         rffi.structcopy(sin.c_sin6_addr, in6_addr)
         return result
     from_in6_addr = staticmethod(from_in6_addr)
@@ -447,9 +449,10 @@ def makeipv4addr(s_addr, result=None):
         result = instantiate(INETAddress)
     elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = rffi.make(_c.sockaddr_in, c_sin_family = AF_INET)   # PLAT sin_len
-    sin.c_sin_addr.s_addr = s_addr
-    result.setaddr(sin, sizeof(_c.sockaddr_in))
+    sin = rffi.make(_c.sockaddr_in)
+    result.setdata(sin, sizeof(_c.sockaddr_in))
+    rffi.setintfield(sin, 'c_sin_family', AF_INET)   # PLAT sin_len
+    rffi.setintfield(sin.c_sin_addr, 'c_s_addr', s_addr)
     return result
 
 def make_null_address(family):

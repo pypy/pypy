@@ -391,3 +391,16 @@ def _get_structcopy_fn(PDST, PSRC):
     else:
         raise NotImplementedError('structcopy: type %r' % (PDST.TO,))
 _get_structcopy_fn._annspecialcase_ = 'specialize:memo'
+
+
+def setintfield(pdst, fieldname, value):
+    """Maybe temporary: a helper to set an integer field into a structure,
+    transparently casting between the various integer types.
+    """
+    STRUCT = lltype.typeOf(pdst).TO
+    TSRC = lltype.typeOf(value)
+    TDST = getattr(STRUCT, fieldname)
+    assert isinstance(TSRC, lltype.Number)
+    assert isinstance(TDST, lltype.Number)
+    setattr(pdst, fieldname, cast(TDST, value))
+setintfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
