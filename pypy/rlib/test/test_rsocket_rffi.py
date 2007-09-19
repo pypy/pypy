@@ -20,7 +20,6 @@ def test_ipv4_addr():
     assert res == "<INETAddress 255.255.255.255:47002>"
 
 def test_unix_addr():
-    py.test.skip("in-progress")
     if getattr(rsocket, 'AF_UNIX', None) is None:
         py.test.skip('AF_UNIX not supported.')
     a = UNIXAddress("/tmp/socketname")
