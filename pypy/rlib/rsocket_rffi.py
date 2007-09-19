@@ -914,12 +914,15 @@ def getdefaulttimeout():
     return defaults.timeout
 
 def gethostname():
-    buf = create_string_buffer(1024)
-    res = _c.gethostname(buf, sizeof(buf)-1)
-    if res < 0:
-        raise last_error()
-    buf[sizeof(buf)-1] = '\x00'
-    return buf.value
+    size = 1024
+    buf = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+    try:
+        res = _c.gethostname(buf, size)
+        if res < 0:
+            raise last_error()
+        return rffi.charp2strn(buf, size)
+    finally:
+        lltype.free(buf, flavor='raw')
 
 def gethostbyname(name):
     # this is explicitly not working with IPv6, because the docs say it

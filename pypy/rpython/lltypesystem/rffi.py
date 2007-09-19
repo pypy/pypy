@@ -274,6 +274,15 @@ def charp2str(cp):
         i += 1
     return "".join(l)
 
+# char* -> str, with an upper bound on the length in case there is no \x00
+def charp2strn(cp, maxlen):
+    l = []
+    i = 0
+    while i < maxlen and cp[i] != '\x00':
+        l.append(cp[i])
+        i += 1
+    return "".join(l)
+
 # char**
 CCHARPP = lltype.Ptr(lltype.Array(CCHARP, hints={'nolength': True}))
 

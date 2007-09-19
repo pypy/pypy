@@ -35,7 +35,6 @@ def test_netlink_addr():
     assert a.get_groups() == group_mask
     
 def test_gethostname():
-    py.test.skip("in-progress")
     s = gethostname()
     assert isinstance(s, str)
 

@@ -446,7 +446,8 @@ send = external('send', [socketfd_type, rffi.VOIDP, size_t, rffi.INT],
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t)
 shutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
-gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT)
+gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
+                       stringpolicy='noauto')
 gethostbyname = external('gethostbyname', [rffi.CCHARP],
                                 lltype.Ptr(cConfig.hostent))
 gethostbyaddr = external('gethostbyaddr', [rffi.VOIDP, rffi.INT, rffi.INT], lltype.Ptr(cConfig.hostent))
