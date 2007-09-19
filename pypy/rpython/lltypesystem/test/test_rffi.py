@@ -269,6 +269,23 @@ def test_rffi_sizeof():
     assert not size_and_sign(lltype.Char)[1]
     assert size_and_sign(UINT)[1]
 
+def test_rffi_offsetof():
+    import struct
+    from pypy.rpython.tool import rffi_platform
+    S = rffi_platform.getstruct("struct S",
+                                  """
+           struct S {
+               short a;
+               int b, c;
+           };                     """,
+                                  [("a", INT),
+                                   ("b", INT),
+                                   ("c", INT)])
+    assert sizeof(S) == struct.calcsize("hii")
+    assert offsetof(S, "c_a") == 0
+    assert offsetof(S, "c_b") == struct.calcsize("hi") - struct.calcsize("i")
+    assert offsetof(S, "c_c") == struct.calcsize("hii") - struct.calcsize("i")
+
 def test_prebuild_constant():
     py.test.skip("WIP")
     h_source = py.code.Source("""

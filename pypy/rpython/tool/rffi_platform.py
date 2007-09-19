@@ -240,17 +240,20 @@ class Struct(CConfigEntry):
         # build the lltype Structure
         seen = {}
         fields = []
-        for cell in layout:
+        fieldoffsets = []
+        for offset, cell in enumerate(layout):
             if cell in seen:
                 continue
             fields.append((cell.name, cell.ctype))
+            fieldoffsets.append(offset)
             seen[cell] = True
 
         name = self.name
         if name.startswith('struct '):
             name = name[7:]
         kwds = {'hints':{'align':info['align'],
-                         'size':info['size']}}
+                         'size':info['size'],
+                         'fieldoffsets':tuple(fieldoffsets)}}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):

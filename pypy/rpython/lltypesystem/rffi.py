@@ -311,12 +311,16 @@ def size_and_sign(tp):
     return size, unsigned
 
 def sizeof(tp):
+    """Similar to llmemory.sizeof() but tries hard to return a integer
+    instead of a symbolic value.
+    """
     if isinstance(tp, lltype.FixedSizeArray):
         return sizeof(tp.OF) * tp.length
     if isinstance(tp, lltype.Struct):
         # the hint is present in structures probed by rffi_platform.
         size = tp._hints.get('size')
         if size is None:
+            from pypy.rpython.lltypesystem import llmemory
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr):
@@ -329,6 +333,23 @@ def sizeof(tp):
     if tp is lltype.Signed:
         return ULONG._type.BITS/8
     return tp._type.BITS/8
+_annspecialcase_ = 'specialize:memo'
+
+def offsetof(STRUCT, fieldname):
+    """Similar to llmemory.offsetof() but tries hard to return a integer
+    instead of a symbolic value.
+    """
+    # the hint is present in structures probed by rffi_platform.
+    fieldoffsets = STRUCT._hints.get('fieldoffsets')
+    if fieldoffsets is not None:
+        # a numeric result when known
+        for index, name in enumerate(STRUCT._names):
+            if name == fieldname:
+                return fieldoffsets[index]
+    # a symbolic result as a fallback
+    from pypy.rpython.lltypesystem import llmemory
+    return llmemory.offsetof(STRUCT, fieldname)
+_annspecialcase_ = 'specialize:memo'
 
 # ********************** some helpers *******************
 
