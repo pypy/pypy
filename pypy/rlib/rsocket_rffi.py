@@ -1137,26 +1137,28 @@ def inet_ntoa(packed):
 if hasattr(_c, 'inet_pton'):
     def inet_pton(family, ip):
         "human-readable string -> packed string"
-        XXX
         if family == AF_INET:
             size = sizeof(_c.in_addr)
         elif AF_INET6 is not None and family == AF_INET6:
             size = sizeof(_c.in6_addr)
         else:
             raise RSocketError("unknown address family")
-        buf = create_string_buffer(size)
-        res = _c.inet_pton(family, ip, cast(buf, c_void_p))
-        if res < 0:
-            raise last_error()
-        elif res == 0:
-            raise RSocketError("illegal IP address string passed to inet_pton")
-        else:
-            return buf.raw
+        buf = mallocbuf(size)
+        try:
+            res = _c.inet_pton(family, ip, buf)
+            if res < 0:
+                raise last_error()
+            elif res == 0:
+                raise RSocketError("illegal IP address string passed "
+                                   "to inet_pton")
+            else:
+                return ''.join([buf[i] for i in range(size)])
+        finally:
+            lltype.free(buf, flavor='raw')
 
 if hasattr(_c, 'inet_ntop'):
     def inet_ntop(family, packed):
         "packed string -> human-readable string"
-        XXX
         if family == AF_INET:
             srcsize = sizeof(_c.in_addr)
             dstsize = _c.INET_ADDRSTRLEN
@@ -1167,13 +1169,18 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = create_string_buffer(srcsize)
-        srcbuf.raw = packed
-        dstbuf = create_string_buffer(dstsize)
-        res = _c.inet_ntop(family, cast(srcbuf, c_void_p), dstbuf, dstsize)
-        if res is None:
-            raise last_error()
-        return res
+        srcbuf = rffi.str2charp(packed)
+        try:
+            dstbuf = mallocbuf(dstsize)
+            try:
+                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                if not res:
+                    raise last_error()
+                return rffi.charp2str(res)
+            finally:
+                lltype.free(dstbuf, flavor='raw')
+        finally:
+            lltype.free(srcbuf, flavor='raw')
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:
