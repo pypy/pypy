@@ -795,7 +795,7 @@ class RSocket(object):
             raise SocketTimeout
         elif timeout == 0:
             res = _c.sendto(self.fd, data, len(data), flags,
-                            byref(address.addr), address.addrlen)
+                            address.addr, address.addrlen)
         if res < 0:
             raise self.error_handler()
         return res
@@ -1025,7 +1025,7 @@ def getaddrinfo(host, port_or_service,
             addr = make_address(info.c_ai_addr, info.c_ai_addrlen,
                                 address_to_fill)
             if info.c_ai_canonname:
-                canonname = charp2str(info.c_ai_canonname)
+                canonname = rffi.charp2str(info.c_ai_canonname)
             else:
                 canonname = ""
             result.append((info.c_ai_family,

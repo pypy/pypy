@@ -102,7 +102,6 @@ def test_simple_tcp():
     s2.close()
 
 def test_simple_udp():
-    py.test.skip("in-progress")
     s1 = RSocket(AF_INET, SOCK_DGRAM)
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
@@ -134,7 +133,6 @@ def test_simple_udp():
     s2.close()
 
 def test_nonblocking():
-    py.test.skip("in-progress")
     sock = RSocket()
     sock.setblocking(False)
     try_ports = [1023] + range(20000, 30000, 437)
@@ -176,8 +174,8 @@ def test_nonblocking():
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
-    count = s2.send('x'*500000)
-    assert 1 <= count <= 500000
+    count = s2.send('x'*50000)
+    assert 1 <= count <= 50000
     while count: # Recv may return less than requested
         buf = s1.recv(count + 100)
         assert len(buf) <= count
@@ -211,7 +209,6 @@ def test_getaddrinfo_snake():
     assert found, lst
 
 def test_getaddrinfo_no_reverse_lookup():
-    py.test.skip("in-progress")
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
     # Python2.3 on Windows returns the hostname.
     lst = getaddrinfo('134.99.112.214', None, flags=AI_CANONNAME)
@@ -224,7 +221,6 @@ def test_getaddrinfo_no_reverse_lookup():
     assert found, lst
 
 def test_connect_ex():
-    py.test.skip("in-progress")
     s = RSocket()
     err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work
     assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
