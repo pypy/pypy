@@ -19,6 +19,7 @@ from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from pypy.tool.stdlib_opcode import unrolling_opcode_descs
 from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib import rstack # for resume points
+from pypy.rlib.unroll import unrolling_iterable
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -42,6 +43,23 @@ def binaryoperation(operationname):
     opimpl.binop = operationname
 
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+
+compare_dispatch_table = [
+    "cmp_lt",   # "<"
+    "cmp_le",   # "<="
+    "cmp_eq",   # "=="
+    "cmp_ne",   # "!="
+    "cmp_gt",   # ">"
+    "cmp_ge",   # ">="
+    "cmp_in",
+    "cmp_not_in",
+    "cmp_is",
+    "cmp_is_not",
+    "cmp_exc_match",
+    ]
+
+unrolling_compare_dispatch_table = unrolling_iterable(
+    enumerate(compare_dispatch_table))
 
 
 class __extend__(pyframe.PyFrame):
@@ -679,28 +697,16 @@ class __extend__(pyframe.PyFrame):
     def cmp_exc_match(f, w_1, w_2):
         return f.space.newbool(f.space.exception_match(w_1, w_2))
 
-    compare_dispatch_table = [
-        cmp_lt,   # "<"
-        cmp_le,   # "<="
-        cmp_eq,   # "=="
-        cmp_ne,   # "!="
-        cmp_gt,   # ">"
-        cmp_ge,   # ">="
-        cmp_in,
-        cmp_not_in,
-        cmp_is,
-        cmp_is_not,
-        cmp_exc_match,
-        ]
     def COMPARE_OP(f, testnum, *ignored):
         w_2 = f.popvalue()
         w_1 = f.popvalue()
-        table = hint(f.compare_dispatch_table, deepfreeze=True)
-        try:
-            testfn = table[testnum]
-        except IndexError:
+        w_result = None
+        for i, attr in unrolling_compare_dispatch_table:
+            if i == testnum:
+                w_result = getattr(f, attr)(w_1, w_2)
+                break
+        else:
             raise BytecodeCorruption, "bad COMPARE_OP oparg"
-        w_result = testfn(f, w_1, w_2)
         f.pushvalue(w_result)
 
     def IMPORT_NAME(f, nameindex, *ignored):
