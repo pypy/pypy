@@ -537,3 +537,15 @@ class TestLL2Ctypes(object):
         err = rffi.get_errno()
         import errno
         assert err == errno.EBADF
+
+    def test_call_with_struct_argument(self):
+        # XXX is there such a function in the standard C headers?
+        from pypy.rlib import _rsocket_rffi
+        buf = rffi.make(_rsocket_rffi.in_addr)
+        rffi.cast(rffi.CCHARP, buf)[0] = '\x01'
+        rffi.cast(rffi.CCHARP, buf)[1] = '\x02'
+        rffi.cast(rffi.CCHARP, buf)[2] = '\x03'
+        rffi.cast(rffi.CCHARP, buf)[3] = '\x04'
+        p = _rsocket_rffi.inet_ntoa(buf)
+        assert rffi.charp2str(p) == '1.2.3.4'
+        lltype.free(buf, flavor='raw')

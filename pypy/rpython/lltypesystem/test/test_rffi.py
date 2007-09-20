@@ -124,9 +124,9 @@ def test_struct():
       return (z->one + z->three);
     }
     """
-    TP = CStructPtr('xx', ('one', Signed), ('two', Char), ('three', Signed))
+    TP = CStructPtr('xx', ('one', INT), ('two', Char), ('three', INT))
 
-    z = llexternal('f', [TP], Signed, sources=[c_source],
+    z = llexternal('f', [TP], INT, sources=[c_source],
                    includes=[str(h_file)], include_dirs=[udir])
 
     def f():

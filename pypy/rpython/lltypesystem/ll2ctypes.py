@@ -533,8 +533,14 @@ class LL2CtypesCallable(object):
 
 def get_ctypes_trampoline(FUNCTYPE, cfunc):
     RESULT = FUNCTYPE.RESULT
+    container_arguments = []
+    for i in range(len(FUNCTYPE.ARGS)):
+        if isinstance(FUNCTYPE.ARGS[i], lltype.ContainerType):
+            container_arguments.append(i)
     def invoke_via_ctypes(*argvalues):
         cargs = [lltype2ctypes(value) for value in argvalues]
+        for i in container_arguments:
+            cargs[i] = cargs[i].contents
         _restore_c_errno()
         cres = cfunc(*cargs)
         _save_c_errno()

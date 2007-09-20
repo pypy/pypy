@@ -1130,7 +1130,7 @@ def inet_ntoa(packed):
     try:
         for i in range(sizeof(_c.in_addr)):
             rffi.cast(rffi.CCHARP, buf)[i] = packed[i]
-        return _c.inet_ntoa(buf)
+        return rffi.charp2str(_c.inet_ntoa(buf))
     finally:
         lltype.free(buf, flavor='raw')
 

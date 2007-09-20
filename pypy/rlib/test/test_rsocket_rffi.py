@@ -272,7 +272,10 @@ def test_inet_aton():
             assert inet_aton(ip) == aton
         except SocketError:
             pass
-    
+
+def test_inet_ntoa():
+    assert inet_ntoa('\x01\x02\x03\x04') == '1.2.3.4'
+
 class TestTCP:
     PORT = 50007
     HOST = 'localhost'
