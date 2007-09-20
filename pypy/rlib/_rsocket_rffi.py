@@ -236,7 +236,7 @@ CConfig.hostent = platform.Struct('struct hostent',
                                       ('h_aliases', rffi.CCHARPP),
                                       ('h_addrtype', rffi.INT),
                                       ('h_length', rffi.INT),
-                                      ('h_addr_list', rffi.VOIDP),
+                                      ('h_addr_list', rffi.CCHARPP),
                                       ])
 
 

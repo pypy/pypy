@@ -321,6 +321,16 @@ def free_charpp(ref):
         i += 1
     lltype.free(ref, flavor='raw')
 
+def charpp2liststr(p):
+    """ char** NULL terminated -> list[str].  No freeing is done.
+    """
+    result = []
+    i = 0
+    while p[i]:
+        result.append(charp2str(p[i]))
+        i += 1
+    return result
+
 cast = ll2ctypes.force_cast      # a forced, no-checking cast
 
 

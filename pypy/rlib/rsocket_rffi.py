@@ -981,37 +981,33 @@ def gethostbyname(name):
 def gethost_common(hostname, hostent, addr=None):
     if not hostent:
         raise HSocketError(hostname)
-    family = hostent.contents.h_addrtype
+    family = hostent.c_h_addrtype
     if addr is not None and addr.family != family:
         raise CSocketError(_c.EAFNOSUPPORT)
 
-    aliases = []
-    h_aliases = hostent.contents.h_aliases
+    h_aliases = hostent.c_h_aliases
     if h_aliases:   # h_aliases can be NULL, according to SF #1511317
-        i = 0
-        alias = h_aliases[0]
-        while alias is not None:
-            aliases.append(alias)
-            i += 1
-            alias = h_aliases[i]
+        aliases = rffi.charpp2liststr(h_aliases)
+    else:
+        aliases = []
 
     address_list = []
-    h_addr_list = hostent.contents.h_addr_list
+    h_addr_list = hostent.c_h_addr_list
     i = 0
     paddr = h_addr_list[0]
     while paddr:
         if family == AF_INET:
-            p = cast(paddr, POINTER(_c.in_addr))
-            addr = INETAddress.from_in_addr(p.contents)
+            p = rffi.cast(lltype.Ptr(_c.in_addr), paddr)
+            addr = INETAddress.from_in_addr(p)
         elif AF_INET6 is not None and family == AF_INET6:
-            p = cast(paddr, POINTER(_c.in6_addr))
-            addr = INET6Address.from_in6_addr(p.contents)
+            p = cast(lltype.Ptr(_c.in6_addr), paddr)
+            addr = INET6Address.from_in6_addr(p)
         else:
             raise RSocketError("unknown address family")
         address_list.append(addr)
         i += 1
         paddr = h_addr_list[i]
-    return (hostent.contents.h_name, aliases, address_list)
+    return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
 def gethostbyname_ex(name):
     # XXX use gethostbyname_r() if available, and/or use locks if not
