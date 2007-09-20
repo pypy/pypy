@@ -10,7 +10,8 @@ In the first form, show the graph contained in a .dot file.
 In the second form, the graph was already compiled to a .plain file.
 In the third form, listen for connexion on the given port and display
 the graphs sent by the remote side.  On the remote site, set the
-GRAPHSERVER environment variable to HOST:PORT.
+GRAPHSERVER environment variable to HOST:PORT.  See graphserver.py
+for more instructions.
 """
 
 import sys

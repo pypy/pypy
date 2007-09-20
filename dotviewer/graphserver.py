@@ -1,9 +1,40 @@
 #! /usr/bin/env python
 """
 Usage:
-    graphserver.py  <port number>
+    graphserver.py [interface:]port
+    dotviewer.py --server [interface:]port
 
-Start a server listening for connexions on the given port.
+Start a server listening for connexions on the given port.  The two ways
+to start a server are equivalent.  The server displays the graphs sent
+by a remote process.  On the remote process' side, set the GRAPHSERVER
+environment variable to HOST:PORT.
+
+Here is a step-by-step example on how to use it in combination with ssh
+port forwarding (replace 9999 with a random port number of your choice,
+e.g. between 8000 and 20000):
+
+  - on your local machine, run:
+        graphserver.py localhost:9999
+
+  - connect to a remote machine, allowing the remote side to contact
+    your local dotviewer:
+        ssh -R9999:localhost:9999 machinename
+
+  - set the $GRAPHSERVER env var on the remote machine to point to the
+    redirected port (in bash):
+        export GRAPHSERVER=:9999
+
+  - then any graph-viewing command you execute while $GRAPHSERVER is set
+    will reach your local dotviewer and basically appear to work
+    completely transparently.
+
+  - to automate steps 2 and 3, I've put the following entry in my local
+    .ssh/config:
+                    Host machinename
+                        RemoteForward 9999 127.0.0.1:9999
+
+    and I've added the 'export GRAPHSERVER=:9999' line to my .bashrc on
+    the remote machine.
 """
 
 import sys
@@ -157,9 +188,8 @@ if __name__ == '__main__':
             f = StringIO()
             traceback.print_exc(file=f)
             # try to add some explanations
-            help = (" | if you want to debug on a remote machine, set the\n"
-                    " | GRAPHSERVER env var to a HOSTNAME:PORT pointing\n"
-                    " | back to a locally running graphserver.py.")
+            help = (" | if you want to debug on a remote machine, see\n"
+                    " | instructions in dotviewer/graphserver.py\n")
             try:
                 import pygame
             except ImportError:
