@@ -258,7 +258,6 @@ def test_dup():
     assert s.getsockname().eq(s2.getsockname())
 
 def test_inet_aton():
-    py.test.skip("in-progress")
     assert inet_aton('1.2.3.4') == '\x01\x02\x03\x04'
     assert inet_aton('127.0.0.1') == '\x7f\x00\x00\x01'
     tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",

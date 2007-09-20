@@ -147,6 +147,8 @@ def setup():
         tp = platform.inttype(name.upper(), c_name, signed)
         globals()['r_' + name] = platform.numbertype_to_rclass[tp]
         globals()[name.upper()] = tp
+        tpp = lltype.Ptr(lltype.Array(tp, hints={'nolength': True}))
+        globals()[name.upper()+'P'] = tpp
         result.append(tp)
     return result
 
@@ -259,8 +261,8 @@ VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
-# int *
-INTP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+# int *, unsigned int *, etc.
+#INTP = ...    see setup() above
 
 # double *
 DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))

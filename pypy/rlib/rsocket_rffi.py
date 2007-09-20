@@ -1097,34 +1097,47 @@ def getnameinfo(addr, flags):
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):
         "IPv4 dotted string -> packed 32-bits string"
-        buf = create_string_buffer(sizeof(_c.in_addr))
-        if _c.inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
-            return buf.raw
-        else:
-            raise RSocketError("illegal IP address string passed to inet_aton")
+        size = sizeof(_c.in_addr)
+        buf = mallocbuf(size)
+        try:
+            if _c.inet_aton(ip, rffi.cast(lltype.Ptr(_c.in_addr), buf)):
+                return ''.join([buf[i] for i in range(size)])
+            else:
+                raise RSocketError("illegal IP address string passed to inet_aton")
+        finally:
+            lltype.free(buf, flavor='raw')
 else:
     def inet_aton(ip):
         "IPv4 dotted string -> packed 32-bits string"
         if ip == "255.255.255.255":
             return "\xff\xff\xff\xff"
         packed_addr = _c.inet_addr(ip)
-        if _c.c_long(packed_addr).value == INADDR_NONE:
+        if packed_addr == rffi.cast(rffi.UINT, INADDR_NONE):
             raise RSocketError("illegal IP address string passed to inet_aton")
-        buf = copy_buffer(cast(pointer(c_ulong(packed_addr)),
-                               POINTER(c_char)), 4)
-        return buf.raw
+        size = sizeof(_c.in_addr)
+        buf = mallocbuf(size)
+        try:
+            rffi.cast(rffi.UINTP, buf)[0] = packed_addr
+            return ''.join([buf[i] for i in range(size)])
+        finally:
+            lltype.free(buf, flavor='raw')
 
 def inet_ntoa(packed):
     "packet 32-bits string -> IPv4 dotted string"
     if len(packed) != sizeof(_c.in_addr):
         raise RSocketError("packed IP wrong length for inet_ntoa")
-    buf = create_string_buffer(sizeof(_c.in_addr))
-    buf.raw = packed
-    return _c.inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
+    buf = rffi.make(_c.in_addr)
+    try:
+        for i in range(sizeof(_c.in_addr)):
+            rffi.cast(rffi.CCHARP, buf)[i] = packed[i]
+        return _c.inet_ntoa(buf)
+    finally:
+        lltype.free(buf, flavor='raw')
 
 if hasattr(_c, 'inet_pton'):
     def inet_pton(family, ip):
         "human-readable string -> packed string"
+        XXX
         if family == AF_INET:
             size = sizeof(_c.in_addr)
         elif AF_INET6 is not None and family == AF_INET6:
@@ -1143,6 +1156,7 @@ if hasattr(_c, 'inet_pton'):
 if hasattr(_c, 'inet_ntop'):
     def inet_ntop(family, packed):
         "packed string -> human-readable string"
+        XXX
         if family == AF_INET:
             srcsize = sizeof(_c.in_addr)
             dstsize = _c.INET_ADDRSTRLEN
