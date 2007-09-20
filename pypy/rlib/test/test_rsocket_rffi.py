@@ -44,7 +44,6 @@ def test_gethostbyname():
     assert a.get_host() == "127.0.0.1"
 
 def test_socketpair():
-    py.test.skip("in-progress")
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()

@@ -719,7 +719,8 @@ class RSocket(object):
             try:
                 read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
                 if read_bytes >= 0:
-                    return buf[:read_bytes]
+                    assert read_bytes <= buffersize
+                    return ''.join([buf[i] for i in range(read_bytes)])
             finally:
                 lltype.free(buf, flavor='raw')
         raise self.error_handler()
