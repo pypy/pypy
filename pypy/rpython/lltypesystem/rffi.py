@@ -211,7 +211,7 @@ def COpaque(name, hints=None, **kwds):
 def COpaquePtr(*args, **kwds):
     return lltype.Ptr(COpaque(*args, **kwds))
 
-def CExternVariable(TYPE, name):
+def CExternVariable(TYPE, name, _CConstantClass=CConstant):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -221,7 +221,7 @@ def CExternVariable(TYPE, name):
     # some #include...
     assert not isinstance(TYPE, lltype.ContainerType)
     CTYPE = lltype.FixedSizeArray(TYPE, 1)
-    c_variable_ref = CConstant('(&%s)' % (name,), lltype.Ptr(CTYPE))
+    c_variable_ref = _CConstantClass('(&%s)' % (name,), lltype.Ptr(CTYPE))
     def getter():
         return c_variable_ref[0]
     def setter(newvalue):
@@ -229,7 +229,22 @@ def CExternVariable(TYPE, name):
     return (func_with_new_name(getter, '%s_getter' % (name,)),
             func_with_new_name(setter, '%s_setter' % (name,)))
 
-get_errno, set_errno = CExternVariable(lltype.Signed, 'errno')
+
+class CConstantErrno(CConstant):
+    # these accessors are used when calling get_errno() or set_errno()
+    # on top of CPython
+    def __getitem__(self, index):
+        assert index == 0
+        try:
+            return ll2ctypes.TLS.errno
+        except AttributeError:
+            raise ValueError("no C function call occurred so far, "
+                             "errno is undefined")
+    def __setitem__(self, index, value):
+        assert index == 0
+        ll2ctypes.TLS.errno = value
+
+get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', CConstantErrno)
 
 # char, represented as a Python character
 # (use SIGNEDCHAR or UCHAR for the small integer types)

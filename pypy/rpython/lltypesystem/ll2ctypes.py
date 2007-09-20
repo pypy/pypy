@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import fixid
+from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint
 from pypy.annotation import model as annmodel
 from pypy.rpython.rbuiltin import gen_cast
@@ -534,7 +535,9 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
     RESULT = FUNCTYPE.RESULT
     def invoke_via_ctypes(*argvalues):
         cargs = [lltype2ctypes(value) for value in argvalues]
+        _restore_c_errno()
         cres = cfunc(*cargs)
+        _save_c_errno()
         return ctypes2lltype(RESULT, cres)
     return invoke_via_ctypes
 
@@ -578,3 +581,43 @@ class ForceCastEntry(ExtRegistryEntry):
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         TYPE1 = v_arg.concretetype
         return gen_cast(hop.llops, RESTYPE, v_arg)
+
+# ____________________________________________________________
+# errno
+
+# this saves in a thread-local way the "current" value that errno
+# should have in C.  We have to save it away from one external C function
+# call to the next.  Otherwise a non-zero value left behind will confuse
+# CPython itself a bit later, and/or CPython will stamp on it before we
+# try to inspect it via rffi.get_errno().
+TLS = tlsobject()
+
+# helpers to save/restore the C-level errno -- platform-specific because
+# ctypes doesn't just do the right thing and expose it directly :-(
+def _where_is_errno():
+    raise NotImplementedError("don't know how to get the C-level errno!")
+
+def _save_c_errno():
+    errno_p = _where_is_errno()
+    TLS.errno = errno_p.contents.value
+    errno_p.contents.value = 0
+
+def _restore_c_errno():
+    if hasattr(TLS, 'errno'):
+        _where_is_errno().contents.value = TLS.errno
+
+if ctypes:
+    if sys.platform == 'win32':
+        standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib._errno()
+
+    elif sys.platform in ('linux2', 'freebsd6'):
+        standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib.__errno_location()
+
+    elif sys.platform == 'darwin':
+        standard_c_lib.__errno.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib.__errno()

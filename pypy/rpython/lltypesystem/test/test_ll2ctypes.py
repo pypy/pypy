@@ -516,3 +516,24 @@ class TestLL2Ctypes(object):
         lltype.free(s1, flavor='raw')
         lltype.free(a2, flavor='raw')
         lltype.free(s2, flavor='raw')
+
+    def test_get_errno(self):
+        if sys.platform.startswith('win'):
+            underscore_on_windows = '_'
+        else:
+            underscore_on_windows = ''
+        strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
+                                 includes=['string.h'])
+        os_write = rffi.llexternal(underscore_on_windows+'write',
+                                   [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
+                                   rffi.SIZE_T)
+        buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
+        written = os_write(12312312, buffer, 5)
+        lltype.free(buffer, flavor='raw')
+        assert rffi.cast(lltype.Signed, written) < 0
+        # the next line is a random external function call,
+        # to check that it doesn't reset errno
+        strlen("hi!")
+        err = rffi.get_errno()
+        import errno
+        assert err == errno.EBADF
