@@ -63,8 +63,7 @@ class CConfig:
 
 
 class RegisterOs(BaseLazyRegistering):
-    _stringpolicy_ = 'fullauto'
-    
+
     def __init__(self):
         self.configure(CConfig)
 
@@ -519,7 +518,7 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_getcwd(self):
         os_getcwd = self.llexternal(underscore_on_windows + 'getcwd',
                                     [rffi.CCHARP, rffi.SIZE_T],
-                                    rffi.CCHARP, stringpolicy='noauto')
+                                    rffi.CCHARP)
 
         def os_getcwd_llimpl():
             bufsize = 256
@@ -710,7 +709,7 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_readlink(self):
         os_readlink = self.llexternal('readlink',
                                    [rffi.CCHARP, rffi.CCHARP, rffi.SIZE_T],
-                                   rffi.INT, stringpolicy='noauto')
+                                   rffi.INT)
         # XXX SSIZE_T in POSIX.1-2001
 
         def os_readlink_llimpl(path):

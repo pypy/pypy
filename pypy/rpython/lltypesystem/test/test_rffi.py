@@ -45,8 +45,7 @@ def test_hashdefine():
     assert xf() == 8+3
 
 def test_string():
-    z = llexternal('strlen', [CCHARP], Signed, includes=['string.h'],
-                   stringpolicy='noauto')
+    z = llexternal('strlen', [CCHARP], Signed, includes=['string.h'])
 
     def f():
         s = str2charp("xxx")
@@ -69,8 +68,7 @@ def test_string_reverse():
         return ret;
     }
     """)
-    z = llexternal('f', [CCHARP], CCHARP, sources=[c_source],
-                   stringpolicy='noauto')
+    z = llexternal('f', [CCHARP], CCHARP, sources=[c_source])
 
     def f():
         s = str2charp("xxx")
@@ -376,13 +374,13 @@ def test_implicit_cast():
     
 
 def test_stringpolicy1():
-    strlen = llexternal('strlen', [CCHARP], INT, includes=['string.h'],
-                        stringpolicy='fullauto')
+    strlen = llexternal('strlen', [CCHARP], INT, includes=['string.h'])
     def f():
         return strlen("Xxx")
     assert interpret(f, [], backendopt=True) == 3
 
 def test_stringpolicy2():
+    py.test.skip("stringpolicy='autocast' no longer implemented")
     def f():
         return strlen("Xxx")        
     strlen = llexternal('strlen', [CCHARP], INT,
@@ -390,8 +388,7 @@ def test_stringpolicy2():
     py.test.raises(MallocMismatch, interpret, f, [], backendopt=True)
 
 def test_stringpolicy3():
-    strlen = llexternal('strlen', [CCHARP], INT,
-                        includes=['string.h'], stringpolicy='noauto')
+    strlen = llexternal('strlen', [CCHARP], INT, includes=['string.h'])
     def f():
         ll_str = str2charp("Xxx")
         res = strlen(ll_str)
@@ -399,7 +396,19 @@ def test_stringpolicy3():
         return res
 
     assert interpret(f, [], backendopt=True) == 3
-    
+
+def test_stringpolicy_mixed():
+    strlen = llexternal('strlen', [CCHARP], INT,
+                        includes=['string.h'])
+    def f():
+        res1 = strlen("abcd")
+        ll_str = str2charp("Xxx")
+        res2 = strlen(ll_str)
+        lltype.free(ll_str, flavor='raw')
+        return res1*10 + res2
+
+    assert interpret(f, [], backendopt=True) == 43
+
 def test_around_extcall():
     import os
     from pypy.annotation import model as annmodel

@@ -321,6 +321,24 @@ class TestLowLevelAnnotateTestCase:
         assert s.items[4].knowntype is int
         assert s.items[5].knowntype is int
 
+    def test_str_vs_ptr(self):
+        S = GcStruct('s', ('x', Signed))
+        def ll_stuff(x):
+            if x is None or isinstance(x, str):
+                return 2
+            else:
+                return 3
+        def llf():
+            x = ll_stuff("hello")
+            y = ll_stuff(nullptr(S))
+            return x, y
+        s = self.annotate(llf, [])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[0].is_constant()
+        assert s.items[0].const == 2
+        assert s.items[1].is_constant()
+        assert s.items[1].const == 3
+
     def test_getRuntimeTypeInfo(self):
         S = GcStruct('s', ('x', Signed))
         attachRuntimeTypeInfo(S)

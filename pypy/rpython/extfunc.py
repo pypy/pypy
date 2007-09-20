@@ -116,9 +116,6 @@ class BaseLazyRegistering(object):
                 kwds[item] = getattr(self, '_%s_' % item, [])
             else:
                 kwds[item] += getattr(self, '_%s_' % item, [])
-        stringpolicy = getattr(self, '_stringpolicy_', None)
-        if stringpolicy and 'stringpolicy' not in kwds:
-            kwds['stringpolicy'] = stringpolicy
         return rffi.llexternal(*args, **kwds)
 
     def _freeze_(self):

@@ -376,9 +376,7 @@ if MS_WINDOWS:
     fd_set = cConfig.fd_set
 
 #c_int_size = sizeof(rffi.INT)
-def external(*args, **kwds):
-    kwds.setdefault('stringpolicy', 'fullauto')
-    return rffi.llexternal(*args, **kwds)
+external = rffi.llexternal
 
 if _POSIX:
     strerror = external('strerror', [rffi.INT], CCHARP)
@@ -402,8 +400,7 @@ if not MS_WINDOWS:
                             lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
     freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
     getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
-                           size_t, CCHARP, size_t, rffi.INT], rffi.INT,
-                           stringpolicy='noauto')
+                           size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
 htonl = external('htonl', [rffi.UINT], rffi.UINT)
 htons = external('htons', [rffi.USHORT], rffi.USHORT)
@@ -441,13 +438,12 @@ socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
                                       rffi.INT], ssize_t)
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT)
-send = external('send', [socketfd_type, rffi.VOIDP, size_t, rffi.INT],
+send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
                        ssize_t)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t)
 shutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
-gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
-                       stringpolicy='noauto')
+gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT)
 gethostbyname = external('gethostbyname', [rffi.CCHARP],
                                 lltype.Ptr(cConfig.hostent))
 gethostbyaddr = external('gethostbyaddr', [rffi.VOIDP, rffi.INT, rffi.INT], lltype.Ptr(cConfig.hostent))

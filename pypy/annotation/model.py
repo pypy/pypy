@@ -528,7 +528,11 @@ class SomeTypedAddressAccess(SomeObject):
 #____________________________________________________________
 # annotation of low-level types
 
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
+
 class SomePtr(SomeObject):
+    knowntype = lltype._ptr
     immutable = True
     def __init__(self, ll_ptrtype):
         assert isinstance(ll_ptrtype, lltype.Ptr)
@@ -566,9 +570,6 @@ class SomeOOStaticMeth(SomeObject):
     def __init__(self, method):
         self.method = method
         
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.ootypesystem import ootype
-
 NUMBER = object()
 annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()

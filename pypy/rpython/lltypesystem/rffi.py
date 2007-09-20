@@ -28,14 +28,15 @@ class CConstant(Symbolic):
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                libraries=[], include_dirs=[], sandboxsafe=False,
-               canraise=False, stringpolicy='noauto', _nowrapper=False):
-    """ String policies:
-    autocast - automatically cast to ll_string, but don't delete it
-    fullauto - automatically cast + delete is afterwards
-    noauto - don't do anything
+               canraise=False, _nowrapper=False):
+    """Build an external function that will invoke the C function 'name'
+    with the given 'args' types and 'result' type.
 
-    WARNING: It's likely that in future we'll decide to use fullauto by
-             default
+    You get by default a wrapper that casts between number types as needed
+    to match the arguments.  You can also pass an RPython string when a
+    CCHARP argument is expected, and the C function receives a 'const char*'
+    pointing to a read-only null-terminated character of arrays, as usual
+    for C.
     """
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
@@ -63,29 +64,29 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
         # when the test is fixed...
         assert isinstance(lltype.Signed, lltype.Number)
         real_args = ()
-        if stringpolicy == 'fullauto':
-            to_free = ()
-        for i, tp in unrolling_arg_tps:
-            ll_str = None
-            if isinstance(tp, lltype.Number):
-                real_args = real_args + (cast(tp, args[i]),)
-            elif tp is lltype.Float:
-                real_args = real_args + (float(args[i]),)
-            elif tp is CCHARP and (stringpolicy == 'fullauto' or
-                     stringpolicy == 'autocast'):
-                s = args[i]
-                if s is None:
-                    ll_str = lltype.nullptr(CCHARP.TO)
-                else:
-                    ll_str = str2charp(s)
-                real_args = real_args + (ll_str,)
+        to_free = ()
+        for i, TARGET in unrolling_arg_tps:
+            arg = args[i]
+            freeme = None
+            if TARGET == CCHARP:
+                if arg is None:
+                    arg = lltype.nullptr(CCHARP.TO)   # None => (char*)NULL
+                    freeme = arg
+                elif isinstance(arg, str):
+                    arg = str2charp(arg)
+                    # XXX leaks if a str2charp() fails with MemoryError
+                    # and was not the first in this function
+                    freeme = arg
             else:
-                real_args = real_args + (args[i],)
-            if stringpolicy == 'fullauto':
-                if tp is CCHARP:
-                    to_free = to_free + (ll_str,)
-                else:
-                    to_free = to_free + (None,)
+                SOURCE = lltype.typeOf(arg)
+                if SOURCE != TARGET:
+                    if TARGET is lltype.Float:
+                        arg = float(arg)
+                    elif (isinstance(SOURCE, lltype.Number) and
+                          isinstance(TARGET, lltype.Number)):
+                        arg = cast(TARGET, arg)
+            real_args = real_args + (arg,)
+            to_free = to_free + (freeme,)
         if invoke_around_handlers:
             before = aroundstate.before
             after = aroundstate.after
@@ -95,12 +96,11 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
         result = funcptr(*real_args)
         if invoke_around_handlers:
             if after: after()
-        if stringpolicy == 'fullauto':
-            for i, tp in unrolling_arg_tps:
-                if tp is CCHARP:
-                    if to_free[i]:
-                        lltype.free(to_free[i], flavor='raw')
+        for i, TARGET in unrolling_arg_tps:
+            if to_free[i]:
+                lltype.free(to_free[i], flavor='raw')
         return result
+    wrapper._annspecialcase_ = 'specialize:ll'
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr

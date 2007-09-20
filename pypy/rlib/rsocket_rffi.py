@@ -20,9 +20,8 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
 
-def castto(example, value):
-    return rffi.cast(lltype.typeOf(example), value)
-castto._annspecialcase_ = 'specialize:ll'
+def mallocbuf(buffersize):
+    return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
 
 
 constants = _c.constants
@@ -712,16 +711,18 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        read_bytes = -1
         timeout = self._select(False)
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = create_string_buffer(buffersize)
-            read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
-        if read_bytes < 0:
-            raise self.error_handler()
-        return buf[:read_bytes]
+            buf = mallocbuf(buffersize)
+            try:
+                read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+                if read_bytes >= 0:
+                    return buf[:read_bytes]
+            finally:
+                lltype.free(buf, flavor='raw')
+        raise self.error_handler()
 
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
@@ -895,12 +896,15 @@ if hasattr(_c, 'socketpair'):
         The arguments are the same as for socket() except the default family is
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
-        result = _c.socketpair_t()
-        res = _c.socketpair(family, type, proto, byref(result))
+        result = lltype.malloc(_c.socketpair_t, flavor='raw')
+        res = _c.socketpair(family, type, proto, result)
         if res < 0:
             raise last_error()
-        return (make_socket(result[0], family, type, proto, SocketClass),
-                make_socket(result[1], family, type, proto, SocketClass))
+        fd0 = result[0]
+        fd1 = result[1]
+        lltype.free(result, flavor='raw')
+        return (make_socket(fd0, family, type, proto, SocketClass),
+                make_socket(fd1, family, type, proto, SocketClass))
 
 if hasattr(_c, 'dup'):
     def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
