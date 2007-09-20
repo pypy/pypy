@@ -6,6 +6,9 @@ from pypy.conftest import option
 
 class BaseTestCanRaise(object):
     type_system = None
+    def _skip_oo(self, reason):
+        if self.type_system == 'ootype':
+            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
 
     def translate(self, func, sig):
         t = TranslationContext()
@@ -69,6 +72,28 @@ class BaseTestCanRaise(object):
         hgraph = graphof(t, h)
         result = ra.can_raise(hgraph.startblock.operations[0])
         assert result
+
+    def test_method(self):
+        self._skip_oo("oosend analysis")
+        class A(object):
+            def f(x):
+                return 1
+        class B(A):
+            def f(x):
+                return 2
+        def f(a):
+            return a.f()
+        def h(x):
+            if x:
+                a = A()
+            else:
+                a = B()
+            return f(a)
+        t, ra = self.translate(h, [int])
+        hgraph = graphof(t, h)
+        # fiiiish :-(
+        result = ra.can_raise(hgraph.startblock.exits[0].target.exits[0].target.operations[0])
+        assert not result
 
     def test_instantiate(self):
         # instantiate is interesting, because it leads to one of the few cases of
