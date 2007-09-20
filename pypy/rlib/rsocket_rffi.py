@@ -509,14 +509,17 @@ class RSocket(object):
             if self.timeout <= 0.0 or self.fd < 0:
                 # blocking I/O or no socket.
                 return 0
-            pollfd = _c.pollfd()
-            pollfd.fd = self.fd
-            if for_writing:
-                pollfd.events = _c.POLLOUT
-            else:
-                pollfd.events = _c.POLLIN
-            timeout = int(self.timeout * 1000.0 + 0.5)
-            n = _c.poll(byref(pollfd), 1, timeout)
+            pollfd = rffi.make(_c.pollfd)
+            try:
+                rffi.setintfield(pollfd, 'c_fd', self.fd)
+                if for_writing:
+                    rffi.setintfield(pollfd, 'c_events', _c.POLLOUT)
+                else:
+                    rffi.setintfield(pollfd, 'c_events', _c.POLLIN)
+                timeout = int(self.timeout * 1000.0 + 0.5)
+                n = _c.poll(pollfd, 1, timeout)
+            finally:
+                lltype.free(pollfd, flavor='raw')
             if n < 0:
                 return -1
             if n == 0:
@@ -527,6 +530,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
+            XXX
             if self.timeout <= 0.0 or self.fd < 0:
                 # blocking I/O or no socket.
                 return 0

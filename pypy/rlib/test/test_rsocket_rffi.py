@@ -288,7 +288,6 @@ class TestTCP:
     HOST = 'localhost'
 
     def setup_method(self, method):
-        py.test.skip("in-progress")
         self.serv = RSocket(AF_INET, SOCK_STREAM)
         self.serv.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
         self.serv.bind(INETAddress(self.HOST, self.PORT))
