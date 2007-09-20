@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import Block, Link, Variable, SpaceOperation
 from pypy.objspace.flow.model import Constant, checkgraph
 from pypy.annotation import model as annmodel
 
-def default_specialize(funcdesc, args_s):
+def flatten_star_args(funcdesc, args_s):
     argnames, vararg, kwarg = funcdesc.signature
     assert not kwarg, "functions with ** arguments are not supported"
     if vararg:
@@ -49,26 +49,29 @@ def default_specialize(funcdesc, args_s):
             checkgraph(graph)
             return graph
 
-        key, name_suffix = access_direct_key(nb_extra_args, flattened_s)
-        return funcdesc.cachedgraph(key,
-                                    alt_name='%s_star%d%s' % (funcdesc.name,
-                                                              nb_extra_args,
-                                                              name_suffix),
-                                    builder=builder)
-    else:
-        key, name_suffix = access_direct_key(None, args_s)
-        if name_suffix:
-            alt_name = '%s%s' % (funcdesc.name, name_suffix)
-        else:
-            alt_name = None
-        return funcdesc.cachedgraph(key, alt_name=alt_name)
+        key = nb_extra_args
+        name_suffix = '_star%d' % (nb_extra_args,)
+        return flattened_s, key, name_suffix, builder
 
-def access_direct_key(key, args_s):
+    else:
+        return args_s, None, '', None
+
+def default_specialize(funcdesc, args_s):
+    # first flatten the *args
+    args_s, key, name_suffix, builder = flatten_star_args(funcdesc, args_s)
+    # two versions: a regular one and one for instances with 'access_directly'
     for s_obj in args_s:
         if (isinstance(s_obj, annmodel.SomeInstance) and
             'access_directly' in s_obj.flags):
-            return (AccessDirect, key), '_AccessDirect'
-    return key, ''
+            key = (AccessDirect, key)
+            name_suffix += '_AccessDirect'
+            break
+    # done
+    if name_suffix:
+        alt_name = '%s%s' % (funcdesc.name, name_suffix)
+    else:
+        alt_name = None
+    return funcdesc.cachedgraph(key, alt_name=alt_name, builder=builder)
 
 class AccessDirect(object):
     """marker for specialization: set when any arguments is a SomeInstance

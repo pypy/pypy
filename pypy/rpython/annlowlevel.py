@@ -6,6 +6,7 @@ import types
 from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy, Sig
+from pypy.annotation.specialize import flatten_star_args
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable, extregistry
 from pypy.objspace.flow.model import Constant
@@ -39,7 +40,8 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         pol.rtyper = rtyper
 
     def lowlevelspecialize(funcdesc, args_s, key_for_args):
-        key = []
+        args_s, key, ignored, builder = flatten_star_args(funcdesc, args_s)
+        key = [key]
         new_args_s = []
         for i, s_obj in enumerate(args_s):
             if i in key_for_args:
@@ -57,7 +59,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                     # passing non-low-level types to a ll_* function is allowed
                     # for module/ll_*
                     key.append(s_obj.__class__)
-        flowgraph = funcdesc.cachedgraph(tuple(key))
+        flowgraph = funcdesc.cachedgraph(tuple(key), builder=builder)
         args_s[:] = new_args_s
         return flowgraph
     lowlevelspecialize = staticmethod(lowlevelspecialize)

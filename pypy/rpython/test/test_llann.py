@@ -10,6 +10,7 @@ from pypy.rpython.annlowlevel import base_ptr_lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.objspace.flow import FlowObjSpace 
+from pypy.conftest import option
 
 # helpers
 
@@ -34,6 +35,8 @@ class TestLowLevelAnnotateTestCase:
     def annotate(self, ll_function, argtypes):
         self.a = self.RPythonAnnotator()
         graph = annotate_lowlevel_helper(self.a, ll_function, argtypes)
+        if option.view:
+            self.a.translator.view()
         return self.a.binding(graph.getreturnvar())
 
     def test_simple(self):
@@ -285,6 +288,38 @@ class TestLowLevelAnnotateTestCase:
         assert len(seen) == 5
 
         return a, vTs # reused by a test in test_rtyper
+
+    def test_ll_stararg(self):
+        A = GcArray(Float)
+        B = GcArray(Signed)
+        def ll_sum(*args):
+            result = 0
+            if len(args) > 0:
+                result += args[0]
+            if len(args) > 1:
+                result += args[1]
+            if len(args) > 2:
+                result += args[2]
+            if len(args) > 3:
+                result += args[3]
+            return result
+        def llf():
+            a = ll_sum()
+            b = ll_sum(4, 5)
+            c = ll_sum(2.5)
+            d = ll_sum(4, 5.25)
+            e = ll_sum(1000, 200, 30, 4)
+            f = ll_sum(1000, 200, 30, 5)
+            return a, b, c, d, e, f
+        s = self.annotate(llf, [])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert s.items[0].knowntype is int
+        assert s.items[0].const == 0
+        assert s.items[1].knowntype is int
+        assert s.items[2].knowntype is float
+        assert s.items[3].knowntype is float
+        assert s.items[4].knowntype is int
+        assert s.items[5].knowntype is int
 
     def test_getRuntimeTypeInfo(self):
         S = GcStruct('s', ('x', Signed))
