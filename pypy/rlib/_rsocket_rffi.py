@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.tool import rffi_platform as platform
 from pypy.rpython.lltypesystem.rffi import CCHARP
+from pypy.rpython.lltypesystem.rffi import get_errno as geterrno
 
 from pypy.rlib.rarithmetic import intmask, r_uint
 import os
@@ -379,7 +380,6 @@ if MS_WINDOWS:
 external = rffi.llexternal
 
 if _POSIX:
-    strerror = external('strerror', [rffi.INT], CCHARP)
     gai_strerror = external('gai_strerror', [rffi.INT], CCHARP)
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
@@ -421,10 +421,11 @@ if _POSIX:
                                               socklen_t], CCHARP)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
-socklen_t_ptr = rffi.CArray(socklen_t)
+socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
                               socklen_t_ptr], rffi.INT)
-bind = external('bind', [rffi.INT, socketfd_type, socklen_t], rffi.INT)
+socketbind = external('bind', [socketfd_type, sockaddr_ptr, socklen_t],
+                              rffi.INT)
 socketlisten = external('listen', [socketfd_type, rffi.INT], rffi.INT)
 socketgetpeername = external('getpeername', [socketfd_type,
                                     sockaddr_ptr, socklen_t_ptr], rffi.INT)
@@ -582,5 +583,4 @@ if MS_WINDOWS:
     def socket_strerror(errno):
         return WIN32_ERROR_MESSAGES.get(errno, "winsock error %d" % errno)
 else:
-    def socket_strerror(errno):
-        return strerror(errno)
+    socket_strerror = os.strerror

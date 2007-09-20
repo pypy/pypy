@@ -58,7 +58,6 @@ def test_socketpair():
     s2.close()
 
 def test_simple_tcp():
-    py.test.skip("in-progress")
     import thread
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
@@ -78,21 +77,27 @@ def test_simple_tcp():
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
     thread.start_new_thread(s2.connect, (addr,))
+    print 'waiting for connexion'
     s1, addr2 = sock.accept()
+    print 'connexion accepted'
     assert addr.eq(s2.getpeername())
     assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())
 
     s1.send('?')
+    print 'sent one character'
     buf = s2.recv(100)
     assert buf == '?'
-    thread.start_new_thread(s2.sendall, ('x'*500000,))
+    print 'received ok'
+    thread.start_new_thread(s2.sendall, ('x'*50000,))
     buf = ''
-    while len(buf) < 500000:
-        data = s1.recv(500100)
+    while len(buf) < 50000:
+        data = s1.recv(50100)
+        print 'recv returned %d bytes' % (len(data,))
         assert data
         buf += data
-    assert buf == 'x'*500000
+    assert buf == 'x'*50000
+    print 'data received ok'
     s1.close()
     s2.close()
 

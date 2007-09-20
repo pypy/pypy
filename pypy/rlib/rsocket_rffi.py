@@ -456,12 +456,10 @@ def makeipv4addr(s_addr, result=None):
 
 def make_null_address(family):
     klass = familyclass(family)
-    buf = create_string_buffer(klass.maxlen)
     result = instantiate(klass)
-    XXX; result._addr_keepalive2 = buf
-    result.addr = cast(buf, _c.sockaddr_ptr).contents
-    result.addrlen = 0
-    return result, len(buf)
+    buf = mallocbuf(klass.maxlen)
+    result.setdata(buf, 0)
+    return result, klass.maxlen
 
 def ipaddr_from_object(space, w_sockaddr):
     host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
@@ -562,7 +560,9 @@ class RSocket(object):
 
     def _addrbuf(self):
         addr, maxlen = make_null_address(self.family)
-        return addr, _c.socklen_t(maxlen)
+        addrlen_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+        addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
+        return addr, addrlen_p
 
     def accept(self, SocketClass=None):
         """Wait for an incoming connection.
@@ -571,18 +571,22 @@ class RSocket(object):
             SocketClass = RSocket
         if self._select(False) == 1:
             raise SocketTimeout
-        address, addrlen = self._addrbuf()
-        newfd = _c.socketaccept(self.fd, byref(address.addr), byref(addrlen))
+        address, addrlen_p = self._addrbuf()
+        try:
+            newfd = _c.socketaccept(self.fd, address.addr, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
         if _c.invalid_socket(newfd):
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         sock = make_socket(newfd, self.family, self.type, self.proto,
                            SocketClass)
         return (sock, address)
 
     def bind(self, address):
         """Bind the socket to a local address."""
-        res = _c.socketbind(self.fd, byref(address.addr), address.addrlen)
+        res = _c.socketbind(self.fd, address.addr, address.addrlen)
         if res < 0:
             raise self.error_handler()
 
@@ -597,13 +601,13 @@ class RSocket(object):
 
     def connect(self, address):
         """Connect the socket to a remote address."""
-        res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        res = _c.socketconnect(self.fd, address.addr, address.addrlen)
         if self.timeout > 0.0:
             errno = _c.geterrno()
             if res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
                 if timeout == 0:
-                    res = _c.socketconnect(self.fd, byref(address.addr),
+                    res = _c.socketconnect(self.fd, address.addr,
                                            address.addrlen)
                 elif timeout == -1:
                     raise self.error_handler()
@@ -616,13 +620,13 @@ class RSocket(object):
     def connect_ex(self, address):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
-        res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        res = _c.socketconnect(self.fd, address.addr, address.addrlen)
         if self.timeout > 0.0:
             errno = _c.geterrno()
             if res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
                 if timeout == 0:
-                    res = _c.socketconnect(self.fd, byref(address.addr),
+                    res = _c.socketconnect(self.fd, address.addr,
                                            address.addrlen)
                 elif timeout == -1:
                     return _c.geterrno()
@@ -651,22 +655,28 @@ class RSocket(object):
 
     def getpeername(self):
         """Return the address of the remote endpoint."""
-        address, addrlen = self._addrbuf()
-        res = _c.socketgetpeername(self.fd, byref(address.addr),
-                                            byref(addrlen))
+        address, addrlen_p = self._addrbuf()
+        try:
+            res = _c.socketgetpeername(self.fd, address.addr, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         return address
 
     def getsockname(self):
         """Return the address of the local endpoint."""
-        address, addrlen = self._addrbuf()
-        res = _c.socketgetsockname(self.fd, byref(address.addr),
-                                            byref(addrlen))
+        address, addrlen_p = self._addrbuf()
+        try:
+            res = _c.socketgetsockname(self.fd, address.addr, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         return address
 
     def getsockopt(self, level, option, maxlen):
@@ -733,18 +743,25 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = create_string_buffer(buffersize)
-            address, addrlen = self._addrbuf()
-            read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
-                                     byref(address.addr), byref(addrlen))
-        if read_bytes < 0:
-            raise self.error_handler()
-        result_addrlen = addrlen.value
-        if result_addrlen:
-            address.addrlen = result_addrlen
-        else:
-            address = None
-        return (buf[:read_bytes], address)
+            buf = mallocbuf(buffersize)
+            try:
+                address, addrlen_p = self._addrbuf()
+                try:
+                    read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                                             address.addr, addrlen_p)
+                    addrlen = addrlen_p[0]
+                finally:
+                    lltype.free(addrlen_p, flavor='raw')
+                if read_bytes >= 0:
+                    if addrlen:
+                        address.addrlen = addrlen
+                    else:
+                        address = None
+                    data = ''.join([buf[i] for i in range(read_bytes)])
+                    return (data, address)
+            finally:
+                lltype.free(buf, flavor='raw')
+        raise self.error_handler()
 
     def send(self, data, flags=0):
         """Send a data string to the socket.  For the optional flags
