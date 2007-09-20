@@ -680,25 +680,41 @@ class RSocket(object):
         return address
 
     def getsockopt(self, level, option, maxlen):
-        buf = _c.create_string_buffer(maxlen)
-        bufsize = _c.socklen_t()
-        bufsize.value = maxlen
-        res = _c.socketgetsockopt(self.fd, level, option, cast(buf, POINTER(c_char)), byref(bufsize))
-        if res < 0:
-            raise self.error_handler()
-        size = bufsize.value
-        assert size > 0       # socklen_t is signed on Windows
-        return buf.raw[:size]
+        buf = mallocbuf(maxlen)
+        try:
+            bufsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+            try:
+                bufsize_p[0] = rffi.cast(_c.socklen_t, maxlen)
+                res = _c.socketgetsockopt(self.fd, level, option,
+                                          buf, bufsize_p)
+                if res < 0:
+                    raise self.error_handler()
+                size = bufsize_p[0]
+                assert size >= 0       # socklen_t is signed on Windows
+                result = ''.join([buf[i] for i in range(size)])
+            finally:
+                lltype.free(bufsize_p, flavor='raw')
+        finally:
+            lltype.free(buf, flavor='raw')
+        return result
 
     def getsockopt_int(self, level, option):
-        flag = _c.c_int()
-        flagsize = _c.socklen_t()
-        flagsize.value = sizeof(flag)
-        res = _c.socketgetsockopt(self.fd, level, option,
-                            byref(flag), byref(flagsize))
-        if res < 0:
-            raise self.error_handler()
-        return flag.value
+        flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            flagsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+            try:
+                flagsize_p[0] = rffi.cast(_c.socklen_t, rffi.sizeof(rffi.INT))
+                res = _c.socketgetsockopt(self.fd, level, option,
+                                          rffi.cast(rffi.VOIDP, flag_p),
+                                          flagsize_p)
+                if res < 0:
+                    raise self.error_handler()
+                result = flag_p[0]
+            finally:
+                lltype.free(flagsize_p, flavor='raw')
+        finally:
+            lltype.free(flag_p, flavor='raw')
+        return result
 
     def gettimeout(self):
         """Return the timeout of the socket. A timeout < 0 means that
@@ -808,14 +824,19 @@ class RSocket(object):
         self.settimeout(timeout)
 
     def setsockopt(self, level, option, value):
-        res = _c.socketsetsockopt(self.fd, level, option, c_char_p(value), len(value))
+        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
         if res < 0:
             raise self.error_handler()
 
     def setsockopt_int(self, level, option, value):
-        flag = _c.c_int(value)
-        res = _c.socketsetsockopt(self.fd, level, option,
-                            byref(flag), sizeof(flag))
+        flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            flag_p[0] = rffi.cast(rffi.INT, value)
+            res = _c.socketsetsockopt(self.fd, level, option,
+                                      rffi.cast(rffi.VOIDP, flag_p),
+                                      rffi.sizeof(rffi.INT))
+        finally:
+            lltype.free(flag_p, flavor='raw')
         if res < 0:
             raise self.error_handler()
 
