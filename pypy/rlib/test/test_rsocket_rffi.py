@@ -248,7 +248,6 @@ def test_getsetsockopt():
     assert value != 0
 
 def test_dup():
-    py.test.skip("in-progress")
     if sys.platform == "win32":
         skip("dup does not work on Windows")
     s = RSocket(AF_INET, SOCK_STREAM)

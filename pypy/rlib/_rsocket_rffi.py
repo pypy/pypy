@@ -380,6 +380,7 @@ if MS_WINDOWS:
 external = rffi.llexternal
 
 if _POSIX:
+    dup = external('dup', [socketfd_type], socketfd_type)
     gai_strerror = external('gai_strerror', [rffi.INT], CCHARP)
 
 #h_errno = c_int.in_dll(socketdll, 'h_errno')
