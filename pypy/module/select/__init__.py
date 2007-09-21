@@ -17,7 +17,7 @@ class Module(MixedModule):
             POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
             POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG'''.split()
 
-        from pypy.rlib._rsocket_ctypes import constants
+        from _rsocket_ctypes import constants
         for name in constantnames:
             if name in constants:
                 value = constants[name]
