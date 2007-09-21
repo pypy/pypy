@@ -78,7 +78,7 @@ void RPyAssertFailed(const char* filename, long lineno,
 #  define RPyNLenItem(array, index)                                         \
      ((RPyCHECK((array) && (index) >= 0), (array))->items[index])
 #  define RPyBareItem(array, index)                                         \
-     ((RPyCHECK((array) && (index) >= 0), (array)[index])
+     ((RPyCHECK((array) && (index) >= 0), (array))[index])
 
 int RPyAbort(void);
 #ifndef PYPY_NOT_MAIN_FILE
