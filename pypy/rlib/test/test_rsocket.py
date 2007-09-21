@@ -250,7 +250,7 @@ def test_getaddrinfo_snake():
 def test_getaddrinfo_no_reverse_lookup():
     # It seems that getaddrinfo never runs a reverse lookup on Linux.
     # Python2.3 on Windows returns the hostname.
-    lst = getaddrinfo('134.99.112.214', None, flags=AI_CANONNAME)
+    lst = getaddrinfo('134.99.112.214', None, flags=AI_NUMERICHOST)
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
