@@ -1,5 +1,5 @@
 """
-An RPython implementation of sockets based on ctypes.
+An RPython implementation of sockets based on rffi.
 Note that the interface has to be slightly different - this is not
 a drop-in replacement for the 'socket' module.
 """
@@ -14,12 +14,14 @@ a drop-in replacement for the 'socket' module.
 # It's unclear if makefile() and SSL support belong here or only as
 # app-level code for PyPy.
 
-from pypy.rlib.objectmodel import instantiate
-from pypy.rlib import _rsocket_ctypes as _c
-from ctypes import c_char, c_ulong, c_char_p, c_void_p
-from ctypes import POINTER, pointer, byref, create_string_buffer, sizeof, cast
-from pypy.rpython.rctypes.astruct import offsetof
+from pypy.rlib.objectmodel import instantiate, keepalive_until_here
+from pypy.rlib import _rsocket_rffi as _c
 from pypy.rlib.rarithmetic import intmask
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
+
+def mallocbuf(buffersize):
+    return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')
 
 
 constants = _c.constants
@@ -35,16 +37,23 @@ else:
         pass
  
  
-ntohs = _c.ntohs
-ntohl = _c.ntohl
-htons = _c.htons
-htonl = _c.htonl
+def ntohs(x):
+    return rffi.cast(lltype.Signed, _c.ntohs(x))
+
+def ntohl(x):
+    return rffi.cast(lltype.Signed, _c.ntohl(x))
+
+def htons(x):
+    return rffi.cast(lltype.Signed, _c.htons(x))
+
+def htonl(x):
+    return rffi.cast(lltype.Signed, _c.htonl(x))
 
 
 _FAMILIES = {}
 class Address(object):
     """The base class for RPython-level objects representing addresses.
-    Fields:  addr    - a _c.sockaddr structure
+    Fields:  addr    - a _c.sockaddr_ptr (memory owned by the Address instance)
              addrlen - size used within 'addr'
     """
     class __metaclass__(type):
@@ -55,19 +64,61 @@ class Address(object):
                 _FAMILIES[family] = A
             return A
 
+    # default uninitialized value: NULL ptr
+    addr_p = lltype.nullptr(_c.sockaddr_ptr.TO)
+
     def __init__(self, addr, addrlen):
-        self.addr = addr
+        self.addr_p = addr
         self.addrlen = addrlen
+
+    def __del__(self):
+        addr = self.addr_p
+        if addr:
+            lltype.free(addr, flavor='raw')
+
+    def setdata(self, addr, addrlen):
+        # initialize self.addr and self.addrlen.  'addr' can be a different
+        # pointer type than exactly sockaddr_ptr, and we cast it for you.
+        assert not self.addr_p
+        self.addr_p = rffi.cast(_c.sockaddr_ptr, addr)
+        self.addrlen = addrlen
+    setdata._annspecialcase_ = 'specialize:ll'
+
+    # the following slightly strange interface is needed to manipulate
+    # what self.addr_p points to in a safe way.  The problem is that
+    # after inlining we might end up with operations that looks like:
+    #    addr = self.addr_p
+    #    <self is freed here, and its __del__ calls lltype.free()>
+    #    read from addr
+    # To prevent this we have to insert a keepalive after the last
+    # use of 'addr'.  The interface to do that is called lock()/unlock()
+    # because it strongly reminds callers not to forget unlock().
+    #
+    def lock(self, TYPE=_c.sockaddr):
+        """Return self.addr_p, cast as a pointer to TYPE.  Must call unlock()!
+        """
+        if not (self.minlen <= self.addrlen <= self.maxlen):
+            raise RSocketError("invalid address")
+        return rffi.cast(lltype.Ptr(TYPE), self.addr_p)
+    lock._annspecialcase_ = 'specialize:ll'
+
+    def unlock(self):
+        """To call after we're done with the pointer returned by lock().
+        Note that locking and unlocking costs nothing at run-time.
+        """
+        keepalive_until_here(self)
 
     def as_object(self, space):
         """Convert the address to an app-level object."""
         # If we don't know the address family, don't raise an
         # exception -- return it as a tuple.
-        family = self.addr.sa_family
-        buf = copy_buffer(cast(pointer(self.addr.sa_data), POINTER(c_char)),
-                          self.addrlen - offsetof(_c.sockaddr, 'sa_data'))
+        addr = self.lock()
+        family = rffi.cast(lltype.Signed, addr.c_sa_family)
+        datalen = self.addrlen - offsetof(_c.sockaddr, 'c_sa_data')
+        rawdata = ''.join([addr.c_sa_data[i] for i in range(datalen)])
+        self.unlock()
         return space.newtuple([space.wrap(family),
-                               space.wrap(buf.raw)])
+                               space.wrap(rawdata)])
 
     def from_object(space, w_address):
         """Convert an app-level object to an Address."""
@@ -142,17 +193,13 @@ class IPAddress(Address):
 class INETAddress(IPAddress):
     family = AF_INET
     struct = _c.sockaddr_in
-    maxlen = sizeof(struct)
+    maxlen = minlen = sizeof(struct)
 
     def __init__(self, host, port):
         makeipaddr(host, self)
-        a = self.as_sockaddr_in()
-        a.sin_port = htons(port)
-
-    def as_sockaddr_in(self):
-        if self.addrlen != INETAddress.maxlen:
-            raise RSocketError("invalid address")
-        return cast(pointer(self.addr), POINTER(_c.sockaddr_in)).contents
+        a = self.lock(_c.sockaddr_in)
+        rffi.setintfield(a, 'c_sin_port', htons(port))
+        self.unlock()
 
     def __repr__(self):
         try:
@@ -161,8 +208,10 @@ class INETAddress(IPAddress):
             return '<INETAddress ?>'
 
     def get_port(self):
-        a = self.as_sockaddr_in()
-        return ntohs(a.sin_port)
+        a = self.lock(_c.sockaddr_in)
+        port = ntohs(a.c_sin_port)
+        self.unlock()
+        return port
 
     def eq(self, other):   # __eq__() is not called by RPython :-/
         return (isinstance(other, INETAddress) and
@@ -188,21 +237,25 @@ class INETAddress(IPAddress):
         # XXX a bit of code duplication
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
-        a = self.as_sockaddr_in()
-        a.sin_port = htons(port)
+        a = self.lock(_c.sockaddr_in)
+        rffi.setintfield(a, 'c_sin_port', htons(port))
+        self.unlock()
 
     def from_in_addr(in_addr):
-        sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
-        sin.sin_addr = in_addr
-        paddr = cast(pointer(sin), _c.sockaddr_ptr)
         result = instantiate(INETAddress)
-        result.addr = paddr.contents
-        result.addrlen = sizeof(_c.sockaddr_in)
+        # store the malloc'ed data into 'result' as soon as possible
+        # to avoid leaks if an exception occurs inbetween
+        sin = rffi.make(_c.sockaddr_in)
+        result.setdata(sin, sizeof(_c.sockaddr_in))
+        # PLAT sin_len
+        rffi.setintfield(sin, 'c_sin_family', AF_INET)
+        rffi.structcopy(sin.c_sin_addr, in_addr)
         return result
     from_in_addr = staticmethod(from_in_addr)
 
-    def extract_in_addr(self):
-        p = cast(pointer(self.as_sockaddr_in().sin_addr), c_void_p)
+    def lock_in_addr(self):
+        a = self.lock(_c.sockaddr_in)
+        p = rffi.cast(rffi.VOIDP, a.c_sin_addr)
         return p, sizeof(_c.in_addr)
 
 # ____________________________________________________________
@@ -210,19 +263,15 @@ class INETAddress(IPAddress):
 class INET6Address(IPAddress):
     family = AF_INET6
     struct = _c.sockaddr_in6
-    maxlen = sizeof(struct)
+    maxlen = minlen = sizeof(struct)
 
     def __init__(self, host, port, flowinfo=0, scope_id=0):
         makeipaddr(host, self)
-        a = self.as_sockaddr_in6()
-        a.sin6_port = htons(port)
-        a.sin6_flowinfo = flowinfo
-        a.sin6_scope_id = scope_id
-
-    def as_sockaddr_in6(self):
-        if self.addrlen != INET6Address.maxlen:
-            raise RSocketError("invalid address")
-        return cast(pointer(self.addr), POINTER(_c.sockaddr_in6)).contents
+        a = self.lock(_c.sockaddr_in6)
+        rffi.setintfield(a, 'c_sin6_port', htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
+        self.unlock()
 
     def __repr__(self):
         try:
@@ -234,16 +283,22 @@ class INET6Address(IPAddress):
             return '<INET6Address ?>'
 
     def get_port(self):
-        a = self.as_sockaddr_in6()
-        return ntohs(a.sin6_port)
+        a = self.lock(_c.sockaddr_in6)
+        port = ntohs(a.c_sin6_port)
+        self.unlock()
+        return port
 
     def get_flowinfo(self):
-        a = self.as_sockaddr_in6()
-        return a.sin6_flowinfo
+        a = self.lock(_c.sockaddr_in6)
+        flowinfo = a.c_sin6_flowinfo
+        self.unlock()
+        return rffi.cast(lltype.Unsigned, flowinfo)
 
     def get_scope_id(self):
-        a = self.as_sockaddr_in6()
-        return a.sin6_scope_id
+        a = self.lock(_c.sockaddr_in6)
+        scope_id = a.c_sin6_scope_id
+        self.unlock()
+        return rffi.cast(lltype.Unsigned, scope_id)
 
     def eq(self, other):   # __eq__() is not called by RPython :-/
         return (isinstance(other, INET6Address) and
@@ -265,9 +320,9 @@ class INET6Address(IPAddress):
                                "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
@@ -279,27 +334,30 @@ class INET6Address(IPAddress):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
-        a = self.as_sockaddr_in6()
-        a.sin6_port = htons(port)
-        a.sin6_flowinfo = flowinfo
-        a.sin6_scope_id = scope_id
+        a = self.lock(_c.sockaddr_in6)
+        rffi.setintfield(a, 'c_sin6_port', htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
+        self.unlock()
 
     def from_in6_addr(in6_addr):
-        sin = _c.sockaddr_in6(sin6_family = AF_INET)   # PLAT sin_len
-        sin.sin6_addr = in6_addr
-        paddr = cast(pointer(sin), _c.sockaddr_ptr)
         result = instantiate(INET6Address)
-        result.addr = paddr.contents
-        result.addrlen = sizeof(_c.sockaddr_in6)
+        # store the malloc'ed data into 'result' as soon as possible
+        # to avoid leaks if an exception occurs inbetween
+        sin = rffi.make(_c.sockaddr_in6)
+        result.setdata(sin, sizeof(_c.sockaddr_in6))
+        rffi.setintfield(sin, 'c_sin6_family', AF_INET)
+        rffi.structcopy(sin.c_sin6_addr, in6_addr)
         return result
     from_in6_addr = staticmethod(from_in6_addr)
 
-    def extract_in_addr(self):
-        p = cast(pointer(self.as_sockaddr_in6().sin6_addr), c_void_p)
+    def lock_in_addr(self):
+        a = self.lock(_c.sockaddr_in6)
+        p = rffi.cast(rffi.VOIDP, a.c_sin6_addr)
         return p, sizeof(_c.in6_addr)
 
 # ____________________________________________________________
@@ -308,29 +366,25 @@ if 'AF_UNIX' in constants:
     class UNIXAddress(Address):
         family = AF_UNIX
         struct = _c.sockaddr_un
+        minlen = offsetof(_c.sockaddr_un, 'c_sun_path') + 1
         maxlen = sizeof(struct)
 
         def __init__(self, path):
-            sun = _c.sockaddr_un(sun_family = AF_UNIX)
+            sun = rffi.make(_c.sockaddr_un)
+            baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
+            self.setdata(sun, baseofs + len(path))
+            rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
             if _c.linux and path.startswith('\x00'):
                 # Linux abstract namespace extension
-                if len(path) > sizeof(sun.sun_path):
+                if len(path) > sizeof(_c.sockaddr_un.c_sun_path):
                     raise RSocketError("AF_UNIX path too long")
             else:
                 # regular NULL-terminated string
-                if len(path) >= sizeof(sun.sun_path):
+                if len(path) >= sizeof(_c.sockaddr_un.c_sun_path):
                     raise RSocketError("AF_UNIX path too long")
-                sun.sun_path[len(path)] = 0
+                sun.c_sun_path[len(path)] = '\x00'
             for i in range(len(path)):
-                sun.sun_path[i] = ord(path[i])
-            self.sun = sun
-            self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
-            self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
-
-        def as_sockaddr_un(self):
-            if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
-                raise RSocketError("invalid address")
-            return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
+                sun.c_sun_path[i] = path[i]
 
         def __repr__(self):
             try:
@@ -339,16 +393,19 @@ if 'AF_UNIX' in constants:
                 return '<UNIXAddress ?>'
 
         def get_path(self):
-            a = self.as_sockaddr_un()
-            if _c.linux and a.sun_path[0] == 0:
+            a = self.lock(_c.sockaddr_un)
+            maxlength = self.addrlen - offsetof(_c.sockaddr_un, 'c_sun_path')
+            if _c.linux and a.c_sun_path[0] == '\x00':
                 # Linux abstract namespace
-                buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
-                               self.addrlen - offsetof(_c.sockaddr_un,
-                                                       'sun_path'))
-                return buf.raw
+                length = maxlength
             else:
                 # regular NULL-terminated string
-                return cast(pointer(a.sun_path), c_char_p).value
+                length = 0
+                while length < maxlength and a.c_sun_path[length] != '\x00':
+                    length += 1
+            result = ''.join([a.c_sun_path[i] for i in range(length)])
+            self.unlock()
+            return result
 
         def eq(self, other):   # __eq__() is not called by RPython :-/
             return (isinstance(other, UNIXAddress) and
@@ -365,26 +422,26 @@ if 'AF_NETLINK' in constants:
     class NETLINKAddress(Address):
         family = AF_NETLINK
         struct = _c.sockaddr_nl
-        maxlen = sizeof(struct)
+        maxlen = minlen = sizeof(struct)
 
         def __init__(self, pid, groups):
-            addr = _c.sockaddr_nl(nl_family = AF_NETLINK)
-            addr.nl_pid = pid
-            addr.nl_groups = groups
-            self._addr_keepalive_netlink = addr
-            self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
-            self.addrlen = sizeof(addr)
-
-        def as_sockaddr_nl(self):
-            if self.addrlen != NETLINKAddress.maxlen:
-                raise RSocketError("invalid address")
-            return cast(pointer(self.addr), POINTER(_c.sockaddr_nl)).contents
+            addr = rffi.make(_c.sockaddr_nl)
+            self.setdata(addr, NETLINKAddress.maxlen)
+            rffi.setintfield(addr, 'c_nl_family', AF_NETLINK)
+            rffi.setintfield(addr, 'c_nl_pid', pid)
+            rffi.setintfield(addr, 'c_nl_groups', groups)
 
         def get_pid(self):
-            return self.as_sockaddr_nl().nl_pid
+            a = self.lock(_c.sockaddr_nl)
+            pid = a.c_nl_pid
+            self.unlock()
+            return rffi.cast(lltype.Unsigned, pid)
 
         def get_groups(self):
-            return self.as_sockaddr_nl().nl_groups
+            a = self.lock(_c.sockaddr_nl)
+            groups = a.c_nl_groups
+            self.unlock()
+            return rffi.cast(lltype.Unsigned, groups)
 
         def __repr__(self):
             return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
@@ -398,7 +455,7 @@ if 'AF_NETLINK' in constants:
                 w_pid, w_groups = space.unpackiterable(w_address, 2)
             except ValueError:
                 raise TypeError("AF_NETLINK address must be a tuple of length 2")
-            return NETLINKAddress(space.int_w(w_pid), space.int_w(w_groups))
+            return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
         from_object = staticmethod(from_object)
 
 # ____________________________________________________________
@@ -408,14 +465,18 @@ def familyclass(family):
 af_get = familyclass
 
 def make_address(addrptr, addrlen, result=None):
-    family = addrptr.contents.sa_family
+    family = rffi.cast(lltype.Signed, addrptr.c_sa_family)
     if result is None:
         result = instantiate(familyclass(family))
     elif result.family != family:
         raise RSocketError("address family mismatched")
-    paddr = result._addr_keepalive0 = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
-    result.addr = cast(paddr, _c.sockaddr_ptr).contents
-    result.addrlen = addrlen
+    # copy into a new buffer the address that 'addrptr' points to
+    addrlen = rffi.cast(lltype.Signed, addrlen)
+    buf = lltype.malloc(rffi.CCHARP.TO, addrlen, flavor='raw')
+    src = rffi.cast(rffi.CCHARP, addrptr)
+    for i in range(addrlen):
+        buf[i] = src[i]
+    result.setdata(buf, addrlen)
     return result
 
 def makeipv4addr(s_addr, result=None):
@@ -423,28 +484,18 @@ def makeipv4addr(s_addr, result=None):
         result = instantiate(INETAddress)
     elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
-    sin.sin_addr.s_addr = s_addr
-    paddr = cast(pointer(sin), _c.sockaddr_ptr)
-    result._addr_keepalive1 = sin
-    result.addr = paddr.contents
-    result.addrlen = sizeof(_c.sockaddr_in)
+    sin = rffi.make(_c.sockaddr_in)
+    result.setdata(sin, sizeof(_c.sockaddr_in))
+    rffi.setintfield(sin, 'c_sin_family', AF_INET)   # PLAT sin_len
+    rffi.setintfield(sin.c_sin_addr, 'c_s_addr', s_addr)
     return result
 
 def make_null_address(family):
     klass = familyclass(family)
-    buf = create_string_buffer(klass.maxlen)
     result = instantiate(klass)
-    result._addr_keepalive2 = buf
-    result.addr = cast(buf, _c.sockaddr_ptr).contents
-    result.addrlen = 0
-    return result, len(buf)
-
-def copy_buffer(ptr, size):
-    buf = create_string_buffer(size)
-    for i in range(size):
-        buf[i] = ptr[i]
-    return buf
+    buf = mallocbuf(klass.maxlen)
+    result.setdata(buf, 0)
+    return result, klass.maxlen
 
 def ipaddr_from_object(space, w_sockaddr):
     host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
@@ -494,14 +545,17 @@ class RSocket(object):
             if self.timeout <= 0.0 or self.fd < 0:
                 # blocking I/O or no socket.
                 return 0
-            pollfd = _c.pollfd()
-            pollfd.fd = self.fd
-            if for_writing:
-                pollfd.events = _c.POLLOUT
-            else:
-                pollfd.events = _c.POLLIN
-            timeout = int(self.timeout * 1000.0 + 0.5)
-            n = _c.poll(byref(pollfd), 1, timeout)
+            pollfd = rffi.make(_c.pollfd)
+            try:
+                rffi.setintfield(pollfd, 'c_fd', self.fd)
+                if for_writing:
+                    rffi.setintfield(pollfd, 'c_events', _c.POLLOUT)
+                else:
+                    rffi.setintfield(pollfd, 'c_events', _c.POLLIN)
+                timeout = int(self.timeout * 1000.0 + 0.5)
+                n = _c.poll(pollfd, 1, timeout)
+            finally:
+                lltype.free(pollfd, flavor='raw')
             if n < 0:
                 return -1
             if n == 0:
@@ -512,6 +566,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
+            XXX
             if self.timeout <= 0.0 or self.fd < 0:
                 # blocking I/O or no socket.
                 return 0
@@ -543,9 +598,14 @@ class RSocket(object):
     def addr_from_object(self, space, w_address):
         return af_get(self.family).from_object(space, w_address)
 
+    # build a null address object, ready to be used as output argument to
+    # C functions that return an address.  It must be unlock()ed after you
+    # are done using addr_p.
     def _addrbuf(self):
         addr, maxlen = make_null_address(self.family)
-        return addr, _c.socklen_t(maxlen)
+        addrlen_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+        addrlen_p[0] = rffi.cast(_c.socklen_t, maxlen)
+        return addr, addr.addr_p, addrlen_p
 
     def accept(self, SocketClass=None):
         """Wait for an incoming connection.
@@ -554,18 +614,25 @@ class RSocket(object):
             SocketClass = RSocket
         if self._select(False) == 1:
             raise SocketTimeout
-        address, addrlen = self._addrbuf()
-        newfd = _c.socketaccept(self.fd, byref(address.addr), byref(addrlen))
+        address, addr_p, addrlen_p = self._addrbuf()
+        try:
+            newfd = _c.socketaccept(self.fd, addr_p, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
         if _c.invalid_socket(newfd):
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         sock = make_socket(newfd, self.family, self.type, self.proto,
                            SocketClass)
         return (sock, address)
 
     def bind(self, address):
         """Bind the socket to a local address."""
-        res = _c.socketbind(self.fd, byref(address.addr), address.addrlen)
+        addr = address.lock()
+        res = _c.socketbind(self.fd, addr, address.addrlen)
+        address.unlock()
         if res < 0:
             raise self.error_handler()
 
@@ -580,14 +647,17 @@ class RSocket(object):
 
     def connect(self, address):
         """Connect the socket to a remote address."""
-        res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        addr = address.lock()
+        res = _c.socketconnect(self.fd, addr, address.addrlen)
+        address.unlock()
         if self.timeout > 0.0:
             errno = _c.geterrno()
             if res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
                 if timeout == 0:
-                    res = _c.socketconnect(self.fd, byref(address.addr),
-                                           address.addrlen)
+                    addr = address.lock()
+                    res = _c.socketconnect(self.fd, addr, address.addrlen)
+                    address.unlock()
                 elif timeout == -1:
                     raise self.error_handler()
                 else:
@@ -599,14 +669,17 @@ class RSocket(object):
     def connect_ex(self, address):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
-        res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        addr = address.lock()
+        res = _c.socketconnect(self.fd, addr, address.addrlen)
+        address.unlock()
         if self.timeout > 0.0:
             errno = _c.geterrno()
             if res < 0 and errno == _c.EINPROGRESS:
                 timeout = self._select(True)
                 if timeout == 0:
-                    res = _c.socketconnect(self.fd, byref(address.addr),
-                                           address.addrlen)
+                    addr = address.lock()
+                    res = _c.socketconnect(self.fd, addr, address.addrlen)
+                    address.unlock()
                 elif timeout == -1:
                     return _c.geterrno()
                 else:
@@ -634,44 +707,68 @@ class RSocket(object):
 
     def getpeername(self):
         """Return the address of the remote endpoint."""
-        address, addrlen = self._addrbuf()
-        res = _c.socketgetpeername(self.fd, byref(address.addr),
-                                            byref(addrlen))
+        address, addr_p, addrlen_p = self._addrbuf()
+        try:
+            res = _c.socketgetpeername(self.fd, addr_p, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         return address
 
     def getsockname(self):
         """Return the address of the local endpoint."""
-        address, addrlen = self._addrbuf()
-        res = _c.socketgetsockname(self.fd, byref(address.addr),
-                                            byref(addrlen))
+        address, addr_p, addrlen_p = self._addrbuf()
+        try:
+            res = _c.socketgetsockname(self.fd, addr_p, addrlen_p)
+            addrlen = addrlen_p[0]
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        address.addrlen = addrlen
         return address
 
     def getsockopt(self, level, option, maxlen):
-        buf = _c.create_string_buffer(maxlen)
-        bufsize = _c.socklen_t()
-        bufsize.value = maxlen
-        res = _c.socketgetsockopt(self.fd, level, option, cast(buf, POINTER(c_char)), byref(bufsize))
-        if res < 0:
-            raise self.error_handler()
-        size = bufsize.value
-        assert size > 0       # socklen_t is signed on Windows
-        return buf.raw[:size]
+        buf = mallocbuf(maxlen)
+        try:
+            bufsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+            try:
+                bufsize_p[0] = rffi.cast(_c.socklen_t, maxlen)
+                res = _c.socketgetsockopt(self.fd, level, option,
+                                          buf, bufsize_p)
+                if res < 0:
+                    raise self.error_handler()
+                size = bufsize_p[0]
+                assert size >= 0       # socklen_t is signed on Windows
+                result = ''.join([buf[i] for i in range(size)])
+            finally:
+                lltype.free(bufsize_p, flavor='raw')
+        finally:
+            lltype.free(buf, flavor='raw')
+        return result
 
     def getsockopt_int(self, level, option):
-        flag = _c.c_int()
-        flagsize = _c.socklen_t()
-        flagsize.value = _c.sizeof(flag)
-        res = _c.socketgetsockopt(self.fd, level, option,
-                            byref(flag), byref(flagsize))
-        if res < 0:
-            raise self.error_handler()
-        return flag.value
+        flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            flagsize_p = lltype.malloc(_c.socklen_t_ptr.TO, flavor='raw')
+            try:
+                flagsize_p[0] = rffi.cast(_c.socklen_t, rffi.sizeof(rffi.INT))
+                res = _c.socketgetsockopt(self.fd, level, option,
+                                          rffi.cast(rffi.VOIDP, flag_p),
+                                          flagsize_p)
+                if res < 0:
+                    raise self.error_handler()
+                result = flag_p[0]
+            finally:
+                lltype.free(flagsize_p, flavor='raw')
+        finally:
+            lltype.free(flag_p, flavor='raw')
+        return result
 
     def gettimeout(self):
         """Return the timeout of the socket. A timeout < 0 means that
@@ -694,16 +791,19 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        read_bytes = -1
         timeout = self._select(False)
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = create_string_buffer(buffersize)
-            read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
-        if read_bytes < 0:
-            raise self.error_handler()
-        return buf[:read_bytes]
+            buf = mallocbuf(buffersize)
+            try:
+                read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+                if read_bytes >= 0:
+                    assert read_bytes <= buffersize
+                    return ''.join([buf[i] for i in range(read_bytes)])
+            finally:
+                lltype.free(buf, flavor='raw')
+        raise self.error_handler()
 
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
@@ -713,18 +813,26 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            buf = create_string_buffer(buffersize)
-            address, addrlen = self._addrbuf()
-            read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
-                                     byref(address.addr), byref(addrlen))
-        if read_bytes < 0:
-            raise self.error_handler()
-        result_addrlen = addrlen.value
-        if result_addrlen:
-            address.addrlen = result_addrlen
-        else:
-            address = None
-        return (buf[:read_bytes], address)
+            buf = mallocbuf(buffersize)
+            try:
+                address, addr_p, addrlen_p = self._addrbuf()
+                try:
+                    read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                                             addr_p, addrlen_p)
+                    addrlen = addrlen_p[0]
+                finally:
+                    lltype.free(addrlen_p, flavor='raw')
+                    address.unlock()
+                if read_bytes >= 0:
+                    if addrlen:
+                        address.addrlen = addrlen
+                    else:
+                        address = None
+                    data = ''.join([buf[i] for i in range(read_bytes)])
+                    return (data, address)
+            finally:
+                lltype.free(buf, flavor='raw')
+        raise self.error_handler()
 
     def send(self, data, flags=0):
         """Send a data string to the socket.  For the optional flags
@@ -757,8 +865,10 @@ class RSocket(object):
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
+            addr = address.lock()
             res = _c.sendto(self.fd, data, len(data), flags,
-                            byref(address.addr), address.addrlen)
+                            addr, address.addrlen)
+            address.unlock()
         if res < 0:
             raise self.error_handler()
         return res
@@ -771,14 +881,19 @@ class RSocket(object):
         self.settimeout(timeout)
 
     def setsockopt(self, level, option, value):
-        res = _c.socketsetsockopt(self.fd, level, option, c_char_p(value), len(value))
+        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
         if res < 0:
             raise self.error_handler()
 
     def setsockopt_int(self, level, option, value):
-        flag = _c.c_int(value)
-        res = _c.socketsetsockopt(self.fd, level, option,
-                            byref(flag), _c.sizeof(flag))
+        flag_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        try:
+            flag_p[0] = rffi.cast(rffi.INT, value)
+            res = _c.socketsetsockopt(self.fd, level, option,
+                                      rffi.cast(rffi.VOIDP, flag_p),
+                                      rffi.sizeof(rffi.INT))
+        finally:
+            lltype.free(flag_p, flavor='raw')
         if res < 0:
             raise self.error_handler()
 
@@ -832,7 +947,7 @@ class RSocketError(SocketError):
 
 class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
-        return _c.socket_strerror(self.errno)
+        return _c.socket_strerror_str(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -840,7 +955,7 @@ def last_error():
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
     def get_msg(self):
-        return _c.gai_strerror(self.errno)
+        return rffi.charp2str(_c.gai_strerror(self.errno))
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'
@@ -877,12 +992,15 @@ if hasattr(_c, 'socketpair'):
         The arguments are the same as for socket() except the default family is
         AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
         """
-        result = _c.socketpair_t()
-        res = _c.socketpair(family, type, proto, byref(result))
+        result = lltype.malloc(_c.socketpair_t, flavor='raw')
+        res = _c.socketpair(family, type, proto, result)
         if res < 0:
             raise last_error()
-        return (make_socket(result[0], family, type, proto, SocketClass),
-                make_socket(result[1], family, type, proto, SocketClass))
+        fd0 = result[0]
+        fd1 = result[1]
+        lltype.free(result, flavor='raw')
+        return (make_socket(fd0, family, type, proto, SocketClass),
+                make_socket(fd1, family, type, proto, SocketClass))
 
 if hasattr(_c, 'dup'):
     def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
@@ -896,12 +1014,15 @@ def getdefaulttimeout():
     return defaults.timeout
 
 def gethostname():
-    buf = create_string_buffer(1024)
-    res = _c.gethostname(buf, sizeof(buf)-1)
-    if res < 0:
-        raise last_error()
-    buf[sizeof(buf)-1] = '\x00'
-    return buf.value
+    size = 1024
+    buf = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+    try:
+        res = _c.gethostname(buf, size)
+        if res < 0:
+            raise last_error()
+        return rffi.charp2strn(buf, size)
+    finally:
+        lltype.free(buf, flavor='raw')
 
 def gethostbyname(name):
     # this is explicitly not working with IPv6, because the docs say it
@@ -913,37 +1034,33 @@ def gethostbyname(name):
 def gethost_common(hostname, hostent, addr=None):
     if not hostent:
         raise HSocketError(hostname)
-    family = hostent.contents.h_addrtype
+    family = hostent.c_h_addrtype
     if addr is not None and addr.family != family:
         raise CSocketError(_c.EAFNOSUPPORT)
 
-    aliases = []
-    h_aliases = hostent.contents.h_aliases
+    h_aliases = hostent.c_h_aliases
     if h_aliases:   # h_aliases can be NULL, according to SF #1511317
-        i = 0
-        alias = h_aliases[0]
-        while alias is not None:
-            aliases.append(alias)
-            i += 1
-            alias = h_aliases[i]
+        aliases = rffi.charpp2liststr(h_aliases)
+    else:
+        aliases = []
 
     address_list = []
-    h_addr_list = hostent.contents.h_addr_list
+    h_addr_list = hostent.c_h_addr_list
     i = 0
     paddr = h_addr_list[0]
     while paddr:
         if family == AF_INET:
-            p = cast(paddr, POINTER(_c.in_addr))
-            addr = INETAddress.from_in_addr(p.contents)
+            p = rffi.cast(lltype.Ptr(_c.in_addr), paddr)
+            addr = INETAddress.from_in_addr(p)
         elif AF_INET6 is not None and family == AF_INET6:
-            p = cast(paddr, POINTER(_c.in6_addr))
-            addr = INET6Address.from_in6_addr(p.contents)
+            p = rffi.cast(lltype.Ptr(_c.in6_addr), paddr)
+            addr = INET6Address.from_in6_addr(p)
         else:
             raise RSocketError("unknown address family")
         address_list.append(addr)
         i += 1
         paddr = h_addr_list[i]
-    return (hostent.contents.h_name, aliases, address_list)
+    return (rffi.charp2str(hostent.c_h_name), aliases, address_list)
 
 def gethostbyname_ex(name):
     # XXX use gethostbyname_r() if available, and/or use locks if not
@@ -954,8 +1071,11 @@ def gethostbyname_ex(name):
 def gethostbyaddr(ip):
     # XXX use gethostbyaddr_r() if available, and/or use locks if not
     addr = makeipaddr(ip)
-    p, size = addr.extract_in_addr()
-    hostent =_c.gethostbyaddr(p, size, addr.family)
+    p, size = addr.lock_in_addr()
+    try:
+        hostent = _c.gethostbyaddr(p, size, addr.family)
+    finally:
+        addr.unlock()
     return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
@@ -963,30 +1083,35 @@ def getaddrinfo(host, port_or_service,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
-    hints = _c.addrinfo(ai_family   = family,
-                        ai_socktype = socktype,
-                        ai_protocol = proto,
-                        ai_flags    = flags)
+    hints = rffi.make(_c.addrinfo, c_ai_family   = family,
+                                   c_ai_socktype = socktype,
+                                   c_ai_protocol = proto,
+                                   c_ai_flags    = flags)
     # XXX need to lock around getaddrinfo() calls?
-    res = _c.addrinfo_ptr()
-    error = _c.getaddrinfo(host, port_or_service, byref(hints), byref(res))
+    p_res = lltype.malloc(rffi.CArray(_c.addrinfo_ptr), 1, flavor='raw')
+    error = _c.getaddrinfo(host, port_or_service, hints, p_res)
+    res = p_res[0]
+    lltype.free(p_res, flavor='raw')
+    lltype.free(hints, flavor='raw')
     if error:
         raise GAIError(error)
     try:
         result = []
-        p = res
-        while p:
-            info = p.contents
-            addr = make_address(info.ai_addr, info.ai_addrlen, address_to_fill)
-            canonname = info.ai_canonname
-            if canonname is None:
+        info = res
+        while info:
+            addr = make_address(info.c_ai_addr, info.c_ai_addrlen,
+                                address_to_fill)
+            if info.c_ai_canonname:
+                canonname = rffi.charp2str(info.c_ai_canonname)
+            else:
                 canonname = ""
-            result.append((info.ai_family,
-                           info.ai_socktype,
-                           info.ai_protocol,
+            result.append((rffi.cast(lltype.Signed, info.c_ai_family),
+                           rffi.cast(lltype.Signed, info.c_ai_socktype),
+                           rffi.cast(lltype.Signed, info.c_ai_protocol),
                            canonname,
                            addr))
-            p = info.ai_next
+            info = info.c_ai_next
+            address_to_fill = None    # don't fill the same address repeatedly
     finally:
         _c.freeaddrinfo(res)
     return result
@@ -995,57 +1120,78 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    return _c.ntohs(servent.contents.s_port)
+    return ntohs(servent.c_s_port)
 
 def getservbyport(port, proto=None):
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
-    return servent.contents.s_name
+    return rffi.charp2str(servent.c_s_name)
 
 def getprotobyname(name):
     protoent = _c.getprotobyname(name)
     if not protoent:
         raise RSocketError("protocol not found")
-    return protoent.contents.p_proto
+    proto = protoent.c_p_proto
+    return rffi.cast(lltype.Signed, proto)
 
-def getnameinfo(addr, flags):
-    host = create_string_buffer(NI_MAXHOST)
-    serv = create_string_buffer(NI_MAXSERV)
-    error =_c.getnameinfo(pointer(addr.addr), addr.addrlen,
-                          host, len(host),
-                          serv, len(serv), flags)
-    if error:
-        raise GAIError(error)
-    return host.value, serv.value
+def getnameinfo(address, flags):
+    host = lltype.malloc(rffi.CCHARP.TO, NI_MAXHOST, flavor='raw')
+    try:
+        serv = lltype.malloc(rffi.CCHARP.TO, NI_MAXSERV, flavor='raw')
+        try:
+            addr = address.lock()
+            error =_c.getnameinfo(addr, address.addrlen,
+                                  host, NI_MAXHOST,
+                                  serv, NI_MAXSERV, flags)
+            address.unlock()
+            if error:
+                raise GAIError(error)
+            return rffi.charp2str(host), rffi.charp2str(serv)
+        finally:
+            lltype.free(serv, flavor='raw')
+    finally:
+        lltype.free(host, flavor='raw')
 
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):
         "IPv4 dotted string -> packed 32-bits string"
-        buf = create_string_buffer(sizeof(_c.in_addr))
-        if _c.inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
-            return buf.raw
-        else:
-            raise RSocketError("illegal IP address string passed to inet_aton")
+        size = sizeof(_c.in_addr)
+        buf = mallocbuf(size)
+        try:
+            if _c.inet_aton(ip, rffi.cast(lltype.Ptr(_c.in_addr), buf)):
+                return ''.join([buf[i] for i in range(size)])
+            else:
+                raise RSocketError("illegal IP address string passed to inet_aton")
+        finally:
+            lltype.free(buf, flavor='raw')
 else:
     def inet_aton(ip):
         "IPv4 dotted string -> packed 32-bits string"
         if ip == "255.255.255.255":
             return "\xff\xff\xff\xff"
         packed_addr = _c.inet_addr(ip)
-        if _c.c_long(packed_addr).value == INADDR_NONE:
+        if packed_addr == rffi.cast(rffi.UINT, INADDR_NONE):
             raise RSocketError("illegal IP address string passed to inet_aton")
-        buf = copy_buffer(cast(pointer(c_ulong(packed_addr)),
-                               POINTER(c_char)), 4)
-        return buf.raw
+        size = sizeof(_c.in_addr)
+        buf = mallocbuf(size)
+        try:
+            rffi.cast(rffi.UINTP, buf)[0] = packed_addr
+            return ''.join([buf[i] for i in range(size)])
+        finally:
+            lltype.free(buf, flavor='raw')
 
 def inet_ntoa(packed):
     "packet 32-bits string -> IPv4 dotted string"
     if len(packed) != sizeof(_c.in_addr):
         raise RSocketError("packed IP wrong length for inet_ntoa")
-    buf = create_string_buffer(sizeof(_c.in_addr))
-    buf.raw = packed
-    return _c.inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
+    buf = rffi.make(_c.in_addr)
+    try:
+        for i in range(sizeof(_c.in_addr)):
+            rffi.cast(rffi.CCHARP, buf)[i] = packed[i]
+        return rffi.charp2str(_c.inet_ntoa(buf))
+    finally:
+        lltype.free(buf, flavor='raw')
 
 if hasattr(_c, 'inet_pton'):
     def inet_pton(family, ip):
@@ -1056,14 +1202,18 @@ if hasattr(_c, 'inet_pton'):
             size = sizeof(_c.in6_addr)
         else:
             raise RSocketError("unknown address family")
-        buf = create_string_buffer(size)
-        res = _c.inet_pton(family, ip, cast(buf, c_void_p))
-        if res < 0:
-            raise last_error()
-        elif res == 0:
-            raise RSocketError("illegal IP address string passed to inet_pton")
-        else:
-            return buf.raw
+        buf = mallocbuf(size)
+        try:
+            res = _c.inet_pton(family, ip, buf)
+            if res < 0:
+                raise last_error()
+            elif res == 0:
+                raise RSocketError("illegal IP address string passed "
+                                   "to inet_pton")
+            else:
+                return ''.join([buf[i] for i in range(size)])
+        finally:
+            lltype.free(buf, flavor='raw')
 
 if hasattr(_c, 'inet_ntop'):
     def inet_ntop(family, packed):
@@ -1078,13 +1228,18 @@ if hasattr(_c, 'inet_ntop'):
             raise RSocketError("unknown address family")
         if len(packed) != srcsize:
             raise ValueError("packed IP wrong length for inet_ntop")
-        srcbuf = create_string_buffer(srcsize)
-        srcbuf.raw = packed
-        dstbuf = create_string_buffer(dstsize)
-        res = _c.inet_ntop(family, cast(srcbuf, c_void_p), dstbuf, dstsize)
-        if res is None:
-            raise last_error()
-        return res
+        srcbuf = rffi.str2charp(packed)
+        try:
+            dstbuf = mallocbuf(dstsize)
+            try:
+                res = _c.inet_ntop(family, srcbuf, dstbuf, dstsize)
+                if not res:
+                    raise last_error()
+                return rffi.charp2str(res)
+            finally:
+                lltype.free(dstbuf, flavor='raw')
+        finally:
+            lltype.free(srcbuf, flavor='raw')
 
 def setdefaulttimeout(timeout):
     if timeout < 0.0:
@@ -1097,10 +1252,12 @@ def setdefaulttimeout(timeout):
 #
 
 if not getattr(_c, 'getaddrinfo', None):
+    XXX
     from pypy.rlib.getaddrinfo import getaddrinfo
     from pypy.rlib.getaddrinfo import GAIError_getmsg
     GAIError.get_msg = GAIError_getmsg
 
 if not getattr(_c, 'getnameinfo', None):
+    XXX
     from pypy.rlib.getnameinfo import getnameinfo
     from pypy.rlib.getnameinfo import NI_NUMERICHOST, NI_NUMERICSERV

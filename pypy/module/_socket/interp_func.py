@@ -10,12 +10,7 @@ def gethostname(space):
     Return the current host name.
     """
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            res = rsocket.gethostname()
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        res = rsocket.gethostname()
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(res)
@@ -27,12 +22,7 @@ def gethostbyname(space, hostname):
     Return the IP address (a string of the form '255.255.255.255') for a host.
     """
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            addr = rsocket.gethostbyname(hostname)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        addr = rsocket.gethostbyname(hostname)
         ip = addr.get_host()
     except SocketError, e:
         raise converted_error(space, e)
@@ -53,12 +43,7 @@ def gethostbyname_ex(space, host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            res = rsocket.gethostbyname_ex(host)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        res = rsocket.gethostbyname_ex(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -71,12 +56,7 @@ def gethostbyaddr(space, host):
     for a host.  The host argument is a string giving a host name or IP number.
     """
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            res = rsocket.gethostbyaddr(host)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        res = rsocket.gethostbyaddr(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -94,12 +74,7 @@ def getservbyname(space, name, w_proto=None):
     else:
         proto = space.str_w(w_proto)
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            port = rsocket.getservbyname(name, proto)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        port = rsocket.getservbyname(name, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(port)
@@ -117,12 +92,7 @@ def getservbyport(space, port, w_proto=None):
     else:
         proto = space.str_w(w_proto)
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            service = rsocket.getservbyport(port, proto)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        service = rsocket.getservbyport(port, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(service)
@@ -134,12 +104,7 @@ def getprotobyname(space, name):
     Return the protocol number for the named protocol.  (Rarely used.)
     """
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            proto = rsocket.getprotobyname(name)
-        finally:
-            if GIL is not None: GIL.acquire(True)
+        proto = rsocket.getprotobyname(name)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(proto)
@@ -150,14 +115,8 @@ def getnameinfo(space, w_sockaddr, flags):
 
     Get host and port for a sockaddr."""
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            addr = rsocket.ipaddr_from_object(space, w_sockaddr)
-            host, servport = rsocket.getnameinfo(addr, flags)
-        finally:
-            if GIL is not None: GIL.acquire(True)
-            
+        addr = rsocket.ipaddr_from_object(space, w_sockaddr)
+        host, servport = rsocket.getnameinfo(addr, flags)
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([space.wrap(host), space.wrap(servport)])
@@ -327,14 +286,8 @@ def getaddrinfo(space, w_host, w_port,
         raise OperationError(space.w_TypeError,
                              space.wrap("Int or String expected"))
     try:
-        GIL = space.threadlocals.getGIL()
-        if GIL is not None: GIL.release()
-        try:
-            lst = rsocket.getaddrinfo(host, port, family, socktype,
-                                      proto, flags)
-        finally:
-            if GIL is not None: GIL.acquire(True)
-            
+        lst = rsocket.getaddrinfo(host, port, family, socktype,
+                                  proto, flags)
     except SocketError, e:
         raise converted_error(space, e)
     lst1 = [space.newtuple([space.wrap(family),

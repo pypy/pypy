@@ -43,6 +43,44 @@ def test_gethostbyname():
     assert isinstance(a, INETAddress)
     assert a.get_host() == "127.0.0.1"
 
+def test_gethostbyname_ex():
+    name, aliases, address_list = gethostbyname_ex('localhost')
+    allnames = [name] + aliases
+    for n in allnames:
+        assert isinstance(n, str)
+    assert 'localhost' in allnames
+    for a in address_list:
+        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
+            break  # ok
+    else:
+        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
+                     % (address_list,))
+
+def test_gethostbyaddr():
+    name, aliases, address_list = gethostbyaddr('127.0.0.1')
+    allnames = [name] + aliases
+    for n in allnames:
+        assert isinstance(n, str)
+    assert 'localhost' in allnames
+    for a in address_list:
+        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
+            break  # ok
+    else:
+        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
+                     % (address_list,))
+
+def test_getservbyname():
+    assert getservbyname('http') == 80
+    assert getservbyname('http', 'tcp') == 80
+
+def test_getservbyport():
+    assert getservbyport(80) == 'http'
+    assert getservbyport(80, 'tcp') == 'http'
+
+def test_getprotobyname():
+    assert getprotobyname('tcp') == IPPROTO_TCP
+    assert getprotobyname('udp') == IPPROTO_UDP
+
 def test_socketpair():
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
@@ -77,21 +115,28 @@ def test_simple_tcp():
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
     thread.start_new_thread(s2.connect, (addr,))
+    print 'waiting for connexion'
     s1, addr2 = sock.accept()
+    print 'connexion accepted'
     assert addr.eq(s2.getpeername())
     assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())
 
     s1.send('?')
+    print 'sent one character'
     buf = s2.recv(100)
     assert buf == '?'
-    thread.start_new_thread(s2.sendall, ('x'*500000,))
+    print 'received ok'
+    thread.start_new_thread(s2.sendall, ('x'*50000,))
     buf = ''
-    while len(buf) < 500000:
-        data = s1.recv(500100)
+    while len(buf) < 50000:
+        data = s1.recv(50100)
+        print 'recv returned %d bytes' % (len(data,))
         assert data
         buf += data
-    assert buf == 'x'*500000
+    assert buf == 'x'*50000
+    print 'data received ok'
+    s1.shutdown(SHUT_RDWR)
     s1.close()
     s2.close()
 
@@ -168,8 +213,8 @@ def test_nonblocking():
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
-    count = s2.send('x'*500000)
-    assert 1 <= count <= 500000
+    count = s2.send('x'*50000)
+    assert 1 <= count <= 50000
     while count: # Recv may return less than requested
         buf = s1.recv(count + 100)
         assert len(buf) <= count
@@ -221,7 +266,8 @@ def test_connect_ex():
 
 
 def test_getsetsockopt():
-    from ctypes import c_int, c_char, c_char_p, POINTER, cast, pointer, sizeof
+    import struct
+    assert struct.calcsize("i") == rffi.sizeof(rffi.INT)
     # A socket sould start with reuse == 0
     s = RSocket(AF_INET, SOCK_STREAM)
     reuse = s.getsockopt_int(SOL_SOCKET, SO_REUSEADDR)
@@ -231,22 +277,14 @@ def test_getsetsockopt():
     assert reuse != 0
     # Test string case
     s = RSocket(AF_INET, SOCK_STREAM)
-    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    # XXX: This strange creation fo reuse_c_char instead of plain
-    # c_char_p(reusestr) is to work around a bug in the cast function
-    # of ctypes version 1.0.0
-    reuse_c_chars = (c_char*len(reusestr))(*[c for c in reusestr])
-    reuseptr = cast(reuse_c_chars, POINTER(c_int))
-    assert reuseptr[0] == 0
-    optval = c_int(1)
-    optvalp = cast(pointer(optval), POINTER(c_char))
-    optstr = optvalp[:sizeof(c_int)]
+    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, rffi.sizeof(rffi.INT))
+    value, = struct.unpack("i", reusestr)
+    assert value == 0
+    optstr = struct.pack("i", 1)
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, optstr)
-    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    # XXX: See above.
-    reuse_c_chars = (c_char*len(reusestr))(*[c for c in reusestr])
-    reuseptr = cast(reuse_c_chars, POINTER(c_int))
-    assert reuseptr[0] != 0
+    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, rffi.sizeof(rffi.INT))
+    value, = struct.unpack("i", reusestr)
+    assert value != 0
 
 def test_dup():
     if sys.platform == "win32":
@@ -273,7 +311,17 @@ def test_inet_aton():
             assert inet_aton(ip) == aton
         except SocketError:
             pass
-    
+
+def test_inet_ntoa():
+    assert inet_ntoa('\x01\x02\x03\x04') == '1.2.3.4'
+
+def test_inet_pton():
+    assert inet_pton(AF_INET, '1.2.3.5') == '\x01\x02\x03\x05'
+    py.test.raises(SocketError, inet_pton, AF_INET, '127.0.0.256')
+
+def test_inet_ntop():
+    assert inet_ntop(AF_INET, '\x01\x02\x03\x05') == '1.2.3.5'
+
 class TestTCP:
     PORT = 50007
     HOST = 'localhost'
