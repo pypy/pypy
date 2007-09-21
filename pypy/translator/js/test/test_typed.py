@@ -222,7 +222,7 @@ def test_float_operations():
     def func(x, y): 
         z = x + y / 2.1 * x 
         z = math.fmod(z, 60.0)
-        z = pow(z, 2)
+        z = math.pow(z, 2)
         z = -z
         return int(z)
 

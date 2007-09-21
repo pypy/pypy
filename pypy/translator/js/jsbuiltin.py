@@ -29,6 +29,7 @@ class _Builtins(object):
             'll_time_time' : CallBuiltin('time'),
             'll_time_clock' : CallBuiltin('clock'),
             'll_os_write' : CallBuiltin('print'),
+            'll_math.ll_math_pow' : CallBuiltin('Math.pow'),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {
