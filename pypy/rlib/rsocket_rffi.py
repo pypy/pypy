@@ -1113,19 +1113,19 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    return _c.ntohs(servent.contents.s_port)
+    return _c.ntohs(servent.c_s_port)
 
 def getservbyport(port, proto=None):
     servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
-    return servent.contents.s_name
+    return rffi.charp2str(servent.c_s_name)
 
 def getprotobyname(name):
     protoent = _c.getprotobyname(name)
     if not protoent:
         raise RSocketError("protocol not found")
-    return protoent.contents.p_proto
+    return protoent.c_p_proto
 
 def getnameinfo(address, flags):
     host = lltype.malloc(rffi.CCHARP.TO, NI_MAXHOST, flavor='raw')

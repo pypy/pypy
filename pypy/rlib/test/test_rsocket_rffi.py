@@ -69,6 +69,18 @@ def test_gethostbyaddr():
         py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
                      % (address_list,))
 
+def test_getservbyname():
+    assert getservbyname('http') == 80
+    assert getservbyname('http', 'tcp') == 80
+
+def test_getservbyport():
+    assert getservbyport(80) == 'http'
+    assert getservbyport(80, 'tcp') == 'http'
+
+def test_getprotobyname():
+    assert getprotobyname('tcp') == IPPROTO_TCP
+    assert getprotobyname('udp') == IPPROTO_UDP
+
 def test_socketpair():
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
