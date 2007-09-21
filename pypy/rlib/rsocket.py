@@ -245,7 +245,7 @@ class INETAddress(IPAddress):
         result = instantiate(INETAddress)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = rffi.make(_c.sockaddr_in)
+        sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True)
         result.setdata(sin, sizeof(_c.sockaddr_in))
         # PLAT sin_len
         rffi.setintfield(sin, 'c_sin_family', AF_INET)
@@ -348,7 +348,7 @@ class INET6Address(IPAddress):
         result = instantiate(INET6Address)
         # store the malloc'ed data into 'result' as soon as possible
         # to avoid leaks if an exception occurs inbetween
-        sin = rffi.make(_c.sockaddr_in6)
+        sin = lltype.malloc(_c.sockaddr_in6, flavor='raw', zero=True)
         result.setdata(sin, sizeof(_c.sockaddr_in6))
         rffi.setintfield(sin, 'c_sin6_family', AF_INET)
         rffi.structcopy(sin.c_sin6_addr, in6_addr)
@@ -370,7 +370,7 @@ if 'AF_UNIX' in constants:
         maxlen = sizeof(struct)
 
         def __init__(self, path):
-            sun = rffi.make(_c.sockaddr_un)
+            sun = lltype.malloc(_c.sockaddr_un, flavor='raw', zero=True)
             baseofs = offsetof(_c.sockaddr_un, 'c_sun_path')
             self.setdata(sun, baseofs + len(path))
             rffi.setintfield(sun, 'c_sun_family', AF_UNIX)
@@ -425,7 +425,7 @@ if 'AF_NETLINK' in constants:
         maxlen = minlen = sizeof(struct)
 
         def __init__(self, pid, groups):
-            addr = rffi.make(_c.sockaddr_nl)
+            addr = lltype.malloc(_c.sockaddr_nl, flavor='raw', zero=True)
             self.setdata(addr, NETLINKAddress.maxlen)
             rffi.setintfield(addr, 'c_nl_family', AF_NETLINK)
             rffi.setintfield(addr, 'c_nl_pid', pid)
@@ -484,7 +484,7 @@ def makeipv4addr(s_addr, result=None):
         result = instantiate(INETAddress)
     elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = rffi.make(_c.sockaddr_in)
+    sin = lltype.malloc(_c.sockaddr_in, flavor='raw', zero=True)
     result.setdata(sin, sizeof(_c.sockaddr_in))
     rffi.setintfield(sin, 'c_sin_family', AF_INET)   # PLAT sin_len
     rffi.setintfield(sin.c_sin_addr, 'c_s_addr', s_addr)
@@ -493,7 +493,7 @@ def makeipv4addr(s_addr, result=None):
 def make_null_address(family):
     klass = familyclass(family)
     result = instantiate(klass)
-    buf = mallocbuf(klass.maxlen)
+    buf = lltype.malloc(rffi.CCHARP.TO, klass.maxlen, flavor='raw', zero=True)
     result.setdata(buf, 0)
     return result, klass.maxlen
 
