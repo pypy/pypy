@@ -4,7 +4,7 @@ from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.memory.lladdress import NULL
@@ -25,6 +25,10 @@ PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Bool: True,
                        llmemory.Address: NULL,
                        lltype.Void: None}
+
+for TYPE in rffi.NUMBER_TYPES:
+    PrimitiveErrorValue[TYPE] = rffi.cast(TYPE, -1)
+del TYPE
 
 def error_value(T):
     if isinstance(T, lltype.Primitive):
