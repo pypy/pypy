@@ -369,7 +369,7 @@ def sizeof(tp):
     if tp is lltype.Signed:
         return ULONG._type.BITS/8
     return tp._type.BITS/8
-_annspecialcase_ = 'specialize:memo'
+sizeof._annspecialcase_ = 'specialize:memo'
 
 def offsetof(STRUCT, fieldname):
     """Similar to llmemory.offsetof() but tries hard to return a integer
@@ -385,7 +385,7 @@ def offsetof(STRUCT, fieldname):
     # a symbolic result as a fallback
     from pypy.rpython.lltypesystem import llmemory
     return llmemory.offsetof(STRUCT, fieldname)
-_annspecialcase_ = 'specialize:memo'
+offsetof._annspecialcase_ = 'specialize:memo'
 
 # ********************** some helpers *******************
 

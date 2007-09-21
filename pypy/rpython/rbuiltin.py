@@ -363,6 +363,7 @@ def rtype_free(hop, i_flavor):
     hop.genop('free', vlist)
 
 def rtype_const_result(hop):
+    hop.exception_cannot_occur()
     return hop.inputconst(hop.r_result.lowleveltype, hop.s_result.const)
 
 def rtype_cast_pointer(hop):

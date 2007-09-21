@@ -231,7 +231,7 @@ class INETAddress(IPAddress):
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
         a = self.lock(_c.sockaddr_in)
-        a.c_sin_port = htons(port)
+        rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
     def from_in_addr(in_addr):
@@ -313,9 +313,9 @@ class INET6Address(IPAddress):
                                "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
@@ -327,14 +327,14 @@ class INET6Address(IPAddress):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
                                "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
-        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        if len(pieces_w) > 2: flowinfo = space.uint_w(pieces_w[2])
         else:                 flowinfo = 0
-        if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
+        if len(pieces_w) > 3: scope_id = space.uint_w(pieces_w[3])
         else:                 scope_id = 0
         a = self.lock(_c.sockaddr_in6)
-        a.c_sin6_port = htons(port)
-        a.c_sin6_flowinfo = flowinfo
-        a.c_sin6_scope_id = scope_id
+        rffi.setintfield(a, 'c_sin6_port', htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
     def from_in6_addr(in6_addr):
@@ -458,7 +458,7 @@ def familyclass(family):
 af_get = familyclass
 
 def make_address(addrptr, addrlen, result=None):
-    family = addrptr.c_sa_family
+    family = rffi.cast(lltype.Signed, addrptr.c_sa_family)
     if result is None:
         result = instantiate(familyclass(family))
     elif result.family != family:
@@ -940,7 +940,7 @@ class RSocketError(SocketError):
 
 class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
-        return _c.socket_strerror(self.errno)
+        return _c.socket_strerror_str(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -948,7 +948,7 @@ def last_error():
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
     def get_msg(self):
-        return _c.gai_strerror(self.errno)
+        return rffi.charp2str(_c.gai_strerror(self.errno))
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'
@@ -1046,7 +1046,7 @@ def gethost_common(hostname, hostent, addr=None):
             p = rffi.cast(lltype.Ptr(_c.in_addr), paddr)
             addr = INETAddress.from_in_addr(p)
         elif AF_INET6 is not None and family == AF_INET6:
-            p = cast(lltype.Ptr(_c.in6_addr), paddr)
+            p = rffi.cast(lltype.Ptr(_c.in6_addr), paddr)
             addr = INET6Address.from_in6_addr(p)
         else:
             raise RSocketError("unknown address family")
@@ -1098,9 +1098,9 @@ def getaddrinfo(host, port_or_service,
                 canonname = rffi.charp2str(info.c_ai_canonname)
             else:
                 canonname = ""
-            result.append((info.c_ai_family,
-                           info.c_ai_socktype,
-                           info.c_ai_protocol,
+            result.append((rffi.cast(lltype.Signed, info.c_ai_family),
+                           rffi.cast(lltype.Signed, info.c_ai_socktype),
+                           rffi.cast(lltype.Signed, info.c_ai_protocol),
                            canonname,
                            addr))
             info = info.c_ai_next

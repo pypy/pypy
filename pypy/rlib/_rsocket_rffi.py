@@ -581,7 +581,7 @@ if MS_WINDOWS:
 
     assert len(WIN32_ERROR_MESSAGES) == 53 # detect duplicates
 
-    def socket_strerror(errno):
+    def socket_strerror_str(errno):
         return WIN32_ERROR_MESSAGES.get(errno, "winsock error %d" % errno)
 else:
-    socket_strerror = os.strerror
+    socket_strerror_str = os.strerror
