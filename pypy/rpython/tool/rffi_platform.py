@@ -231,10 +231,13 @@ class Struct(CConfigEntry):
                 layout_addfield(layout, offset, fieldtype, fieldname)
 
         n = 0
+        padfields = []
         for i, cell in enumerate(layout):
             if cell is not None:
                 continue
-            layout_addfield(layout, i, rffi.UCHAR, '_pad%d' % (n,))
+            name = '_pad%d' % (n,)
+            layout_addfield(layout, i, rffi.UCHAR, name)
+            padfields.append('c_' + name)
             n += 1
 
         # build the lltype Structure
@@ -253,7 +256,8 @@ class Struct(CConfigEntry):
             name = name[7:]
         kwds = {'hints':{'align':info['align'],
                          'size':info['size'],
-                         'fieldoffsets':tuple(fieldoffsets)}}
+                         'fieldoffsets':tuple(fieldoffsets),
+                         'padding':tuple(padfields)}}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):

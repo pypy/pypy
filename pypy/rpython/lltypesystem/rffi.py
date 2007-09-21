@@ -434,7 +434,9 @@ def _get_structcopy_fn(PDST, PSRC):
     assert PDST == PSRC
     if isinstance(PDST.TO, lltype.Struct):
         STRUCT = PDST.TO
-        fields = [(name, STRUCT._flds[name]) for name in STRUCT._names]
+        padding = STRUCT._hints.get('padding', ())
+        fields = [(name, STRUCT._flds[name]) for name in STRUCT._names
+                                             if name not in padding]
         unrollfields = unrolling_iterable(fields)
 
         def copyfn(pdst, psrc):
