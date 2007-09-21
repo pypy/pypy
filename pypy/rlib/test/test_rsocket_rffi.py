@@ -56,6 +56,19 @@ def test_gethostbyname_ex():
         py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
                      % (address_list,))
 
+def test_gethostbyaddr():
+    name, aliases, address_list = gethostbyaddr('127.0.0.1')
+    allnames = [name] + aliases
+    for n in allnames:
+        assert isinstance(n, str)
+    assert 'localhost' in allnames
+    for a in address_list:
+        if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
+            break  # ok
+    else:
+        py.test.fail("could not find the 127.0.0.1 IPv4 address in %r"
+                     % (address_list,))
+
 def test_socketpair():
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
