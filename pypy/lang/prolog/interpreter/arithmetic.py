@@ -109,7 +109,7 @@ simple_functions = [
     ("-",                     ["expr", "expr"], "v0 - v1", True, True),
     ("*",                     ["expr", "expr"], "v0 * v1", True, True),
     ("//",                    ["int",  "int"],  "v0 / v1", True, False),
-    ("**",                    ["expr", "expr"], "float(v0) ** float(v1)", True, False),
+    ("**",                    ["expr", "expr"], "math.pow(float(v0), float(v1))", True, False),
     (">>",                    ["int", "int"],   "v0 >> v1", False, False),
     ("<<",                    ["int", "int"],   "intmask(v0 << v1)", False,
                                                                      False),
