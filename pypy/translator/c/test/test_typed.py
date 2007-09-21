@@ -1,5 +1,6 @@
 import autopath
 import sys
+import math
 import py
 
 from py.test import raises
@@ -179,7 +180,7 @@ class TestTypedTestCase(CompilationTestCase):
 
     def test_float_ops(self):
         def f(x):
-            return abs((-x) ** 3 + 1)
+            return abs(math.pow(-x, 3) + 1)
         fn = self.getcompiled(f, [float])
         assert fn(-4.5) == 92.125
         assert fn(4.5) == 90.125
@@ -507,7 +508,7 @@ class TestTypedTestCase(CompilationTestCase):
         def func(x, y):
             z = x + y / 2.1 * x
             z = math.fmod(z, 60.0)
-            z = pow(z, 2)
+            z = math.pow(z, 2)
             z = -z
             return int(z)
 
