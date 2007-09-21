@@ -130,7 +130,10 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 
     def test_direct_arrayitems(self):
         for a in [malloc(GcArray(Signed), 5),
-                  malloc(FixedSizeArray(Signed, 5), immortal=True)]:
+                  malloc(FixedSizeArray(Signed, 5), immortal=True),
+                  malloc(Array(Signed, hints={'nolength': True}), 5,
+                         immortal=True),
+                  ]:
             a[0] = 0
             a[1] = 10
             a[2] = 20
@@ -382,6 +385,31 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             for i in range(n):
                 a2[i] = src[i % 3] + i
             res = a2[n // 2]
+            return res
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 3050
+
+    def test_structarray_nolength(self):
+        S = Struct('S', ('x', Signed))
+        A = Array(S, hints={'nolength': True})
+        a1 = malloc(A, 3, immortal=True)
+        a1[0].x = 30
+        a1[1].x = 300
+        a1[2].x = 3000
+        a1dummy = malloc(A, 2, immortal=True)
+
+        def f(n):
+            if n & 1:
+                src = a1dummy
+            else:
+                src = a1
+            a2 = malloc(A, n, flavor='raw')
+            for i in range(n):
+                a2[i].x = src[i % 3].x + i
+            res = a2[n // 2].x
+            free(a2, flavor='raw')
             return res
 
         fn = self.getcompiled(f, [int])

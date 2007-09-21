@@ -253,7 +253,10 @@ class ArrayDefNode:
             return '%s %s *@' % (self.typetag, self.name)
 
     def access_expr(self, baseexpr, index):
-        return '%s.items[%d]' % (baseexpr, index)
+        if self.barebone:
+            return '%s[%d]' % (baseexpr, index)
+        else:
+            return '%s.items[%d]' % (baseexpr, index)
 
     def ptr_access_expr(self, baseexpr, index):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)

@@ -2,7 +2,7 @@ from __future__ import generators
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from pypy.translator.c.support import cdecl, ErrorValue
 from pypy.translator.c.support import llvalue_from_constant, gen_assignments
-from pypy.translator.c.support import c_string_constant
+from pypy.translator.c.support import c_string_constant, barebonearray
 from pypy.objspace.flow.model import Variable, Constant, Block
 from pypy.objspace.flow.model import c_last_exception, copygraph
 from pypy.rpython.lltypesystem.lltype import Ptr, PyObject, Void, Bool, Signed
@@ -546,7 +546,7 @@ class FunctionCodeGenerator(object):
     def OP_DIRECT_ARRAYITEMS(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
         items = self.expr(op.args[0])
-        if not isinstance(ARRAY, FixedSizeArray):
+        if not isinstance(ARRAY, FixedSizeArray) and not barebonearray(ARRAY):
             items += '->items'
         return '%s = %s;' % (self.expr(op.result), items)
 
