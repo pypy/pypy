@@ -37,10 +37,17 @@ else:
         pass
  
  
-ntohs = _c.ntohs
-ntohl = _c.ntohl
-htons = _c.htons
-htonl = _c.htonl
+def ntohs(x):
+    return rffi.cast(lltype.Signed, _c.ntohs(x))
+
+def ntohl(x):
+    return rffi.cast(lltype.Signed, _c.ntohl(x))
+
+def htons(x):
+    return rffi.cast(lltype.Signed, _c.htons(x))
+
+def htonl(x):
+    return rffi.cast(lltype.Signed, _c.htonl(x))
 
 
 _FAMILIES = {}
@@ -191,7 +198,7 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        a.c_sin_port = htons(port)
+        rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 
     def __repr__(self):
@@ -261,9 +268,9 @@ class INET6Address(IPAddress):
     def __init__(self, host, port, flowinfo=0, scope_id=0):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in6)
-        a.c_sin6_port = htons(port)
-        a.c_sin6_flowinfo = flowinfo
-        a.c_sin6_scope_id = scope_id
+        rffi.setintfield(a, 'c_sin6_port', htons(port))
+        rffi.setintfield(a, 'c_sin6_flowinfo', flowinfo)
+        rffi.setintfield(a, 'c_sin6_scope_id', scope_id)
         self.unlock()
 
     def __repr__(self):
@@ -285,13 +292,13 @@ class INET6Address(IPAddress):
         a = self.lock(_c.sockaddr_in6)
         flowinfo = a.c_sin6_flowinfo
         self.unlock()
-        return flowinfo
+        return rffi.cast(lltype.Unsigned, flowinfo)
 
     def get_scope_id(self):
         a = self.lock(_c.sockaddr_in6)
         scope_id = a.c_sin6_scope_id
         self.unlock()
-        return scope_id
+        return rffi.cast(lltype.Unsigned, scope_id)
 
     def eq(self, other):   # __eq__() is not called by RPython :-/
         return (isinstance(other, INET6Address) and
@@ -428,13 +435,13 @@ if 'AF_NETLINK' in constants:
             a = self.lock(_c.sockaddr_nl)
             pid = a.c_nl_pid
             self.unlock()
-            return pid
+            return rffi.cast(lltype.Unsigned, pid)
 
         def get_groups(self):
             a = self.lock(_c.sockaddr_nl)
             groups = a.c_nl_groups
             self.unlock()
-            return groups
+            return rffi.cast(lltype.Unsigned, groups)
 
         def __repr__(self):
             return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
@@ -448,7 +455,7 @@ if 'AF_NETLINK' in constants:
                 w_pid, w_groups = space.unpackiterable(w_address, 2)
             except ValueError:
                 raise TypeError("AF_NETLINK address must be a tuple of length 2")
-            return NETLINKAddress(space.int_w(w_pid), space.int_w(w_groups))
+            return NETLINKAddress(space.uint_w(w_pid), space.uint_w(w_groups))
         from_object = staticmethod(from_object)
 
 # ____________________________________________________________
@@ -1113,7 +1120,7 @@ def getservbyname(name, proto=None):
     servent = _c.getservbyname(name, proto)
     if not servent:
         raise RSocketError("service/proto not found")
-    return _c.ntohs(servent.c_s_port)
+    return ntohs(servent.c_s_port)
 
 def getservbyport(port, proto=None):
     servent = _c.getservbyport(htons(port), proto)
@@ -1125,7 +1132,8 @@ def getprotobyname(name):
     protoent = _c.getprotobyname(name)
     if not protoent:
         raise RSocketError("protocol not found")
-    return protoent.c_p_proto
+    proto = protoent.c_p_proto
+    return rffi.cast(lltype.Signed, proto)
 
 def getnameinfo(address, flags):
     host = lltype.malloc(rffi.CCHARP.TO, NI_MAXHOST, flavor='raw')
