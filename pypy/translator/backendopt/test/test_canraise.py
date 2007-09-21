@@ -1,4 +1,5 @@
 from pypy.translator.translator import TranslationContext, graphof
+from pypy.translator.simplify import get_funcobj
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython.test.tool import LLRtypeMixin, OORtypeMixin
@@ -6,9 +7,6 @@ from pypy.conftest import option
 
 class BaseTestCanRaise(object):
     type_system = None
-    def _skip_oo(self, reason):
-        if self.type_system == 'ootype':
-            py.test.skip("ootypesystem doesn't support %s, yet" % reason)
 
     def translate(self, func, sig):
         t = TranslationContext()
@@ -74,26 +72,44 @@ class BaseTestCanRaise(object):
         assert result
 
     def test_method(self):
-        self._skip_oo("oosend analysis")
         class A(object):
-            def f(x):
+            def f(self):
                 return 1
+            def m(self):
+                raise ValueError
         class B(A):
-            def f(x):
+            def f(self):
                 return 2
+            def m(self):
+                return 3
         def f(a):
             return a.f()
-        def h(x):
-            if x:
-                a = A()
+        def m(a):
+            return a.m()
+        def h(flag):
+            if flag:
+                obj = A()
             else:
-                a = B()
-            return f(a)
+                obj = B()
+            f(obj)
+            m(obj)
+        
         t, ra = self.translate(h, [int])
         hgraph = graphof(t, h)
         # fiiiish :-(
-        result = ra.can_raise(hgraph.startblock.exits[0].target.exits[0].target.operations[0])
-        assert not result
+        block = hgraph.startblock.exits[0].target.exits[0].target
+        op_call_f = block.operations[0]
+        op_call_m = block.operations[1]
+
+        # check that we fished the expected ops
+        def check_call(op, fname):
+            assert op.opname == "direct_call"
+            assert get_funcobj(op.args[0].value)._name == fname
+        check_call(op_call_f, "f")
+        check_call(op_call_m, "m")
+
+        assert not ra.can_raise(op_call_f)
+        assert ra.can_raise(op_call_m)
 
     def test_instantiate(self):
         # instantiate is interesting, because it leads to one of the few cases of

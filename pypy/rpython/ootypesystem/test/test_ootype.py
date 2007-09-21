@@ -475,3 +475,37 @@ def test_weak_reference():
 def test_dead_wref():
     ref = new(WeakReference)
     assert ref.ll_deref() is null(ROOT)
+
+
+# we use the translator for this test because it's much easier to get
+# a class hierarchy with methods and graphs by using it than
+# constructing it by hand
+def test_lookup_graphs():
+    from pypy.translator.translator import TranslationContext, graphof
+    class A:
+        def foo(self):
+            pass
+        def bar(self):
+            pass
+
+    class B(A):
+        def foo(self):
+            pass
+
+    def fn(flag):
+        obj = flag and A() or B()
+        obj.foo()
+        obj.bar()
+        return obj
+
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, [int])
+    t.buildrtyper(type_system='ootype').specialize()
+    graph = graphof(t, fn)
+    TYPE_A = graph.getreturnvar().concretetype
+    TYPE_B = TYPE_A._subclasses[0]
+    assert len(TYPE_A._lookup_graphs('ofoo')) == 2
+    assert len(TYPE_B._lookup_graphs('ofoo')) == 1
+    assert len(TYPE_A._lookup_graphs('obar')) == 1
+    assert len(TYPE_B._lookup_graphs('obar')) == 1
+        

@@ -16,11 +16,14 @@ class RaiseAnalyzer(graphanalyze.GraphAnalyzer):
             log.WARNING("Unknown operation: %s" % op.opname)
             return True
 
-
     def analyze_external_call(self, op):
         deref = self.translator.rtyper.type_system_deref
         fnobj = deref(op.args[0].value)
         return getattr(fnobj, 'canraise', True)
+
+    def analyze_external_method(self, op, TYPE, meth):
+        assert op.opname == 'oosend'
+        return getattr(meth, '_can_raise', True)
 
     def analyze_exceptblock(self, block, seen=None):
         return True

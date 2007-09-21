@@ -544,7 +544,6 @@ class BaseTestInline:
         py.test.raises(CannotInline, self.check_inline, x3, x4, [])
 
     def test_list_iteration(self):
-        self._skip_oo("graphanalyze properly!")
         def f():
             tot = 0
             for item in [1,2,3]:

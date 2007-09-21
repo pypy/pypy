@@ -1,4 +1,5 @@
 import py
+from py.builtin import set
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
@@ -194,6 +195,15 @@ class Instance(OOType):
         all.update(self._fields)
         return all
 
+    def _lookup_graphs(self, meth_name):
+        _, meth = self._lookup(meth_name)
+        graphs = set()
+        graphs.add(meth.graph) # we assume there is always a graph
+        for SUBTYPE in self._subclasses:
+            graphs.update(SUBTYPE._lookup_graphs(meth_name))
+        return graphs
+
+
 class SpecializableType(OOType):
     def _specialize_type(self, TYPE, generic_types):
         if isinstance(TYPE, SpecializableType):
@@ -307,6 +317,9 @@ class BuiltinADTType(BuiltinType):
             meth = _meth(METH, _name=meth_name, _callable=getattr(cls, meth_name), _can_raise=can_raise)
             meth._virtual = False
         return self, meth
+
+    def _lookup_graphs(self, meth_name):
+        return set()
 
 
 # WARNING: the name 'String' is rebound at the end of file
