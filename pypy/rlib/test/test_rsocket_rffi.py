@@ -136,6 +136,7 @@ def test_simple_tcp():
         buf += data
     assert buf == 'x'*50000
     print 'data received ok'
+    s1.shutdown(SHUT_RDWR)
     s1.close()
     s2.close()
 

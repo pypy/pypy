@@ -452,7 +452,7 @@ send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
                        ssize_t)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t)
-shutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
+socketshutdown = external('shutdown', [socketfd_type, rffi.INT], rffi.INT)
 gethostname = external('gethostname', [rffi.CCHARP, rffi.INT], rffi.INT)
 gethostbyname = external('gethostbyname', [rffi.CCHARP],
                                 lltype.Ptr(cConfig.hostent))
@@ -472,8 +472,6 @@ if _MS_WINDOWS:
     ioctlsocket = socketdll.ioctlsocket
     ioctlsocket.argtypes = [socketfd_type, rffi.LONG, POINTER(c_ulong)]
     ioctlsocket.restype = c_int
-    
-shutdown = external('shutdown', [rffi.INT, rffi.INT], rffi.INT)
 
 if _POSIX:
     poll = external('poll', [lltype.Ptr(pollfd), nfds_t, rffi.INT], rffi.INT)
