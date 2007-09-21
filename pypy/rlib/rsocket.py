@@ -1083,10 +1083,11 @@ def getaddrinfo(host, port_or_service,
                 address_to_fill=None):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
-    hints = rffi.make(_c.addrinfo, c_ai_family   = family,
-                                   c_ai_socktype = socktype,
-                                   c_ai_protocol = proto,
-                                   c_ai_flags    = flags)
+    hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
+    rffi.setintfield(hints, 'c_ai_family',   family)
+    rffi.setintfield(hints, 'c_ai_socktype', socktype)
+    rffi.setintfield(hints, 'c_ai_protocol', proto)
+    rffi.setintfield(hints, 'c_ai_flags'   , flags)
     # XXX need to lock around getaddrinfo() calls?
     p_res = lltype.malloc(rffi.CArray(_c.addrinfo_ptr), 1, flavor='raw')
     error = _c.getaddrinfo(host, port_or_service, hints, p_res)
