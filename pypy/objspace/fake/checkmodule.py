@@ -1,3 +1,4 @@
+import re
 from copy import copy
 from pypy.tool.error import debug
 from pypy.interpreter.argument import AbstractArguments
@@ -12,19 +13,24 @@ def my_import(name):
     return mod
 
 def find_gateways(modname, basepath, module):
+    identifier = r'[a-zA-Z0-9][a-zA-Z0-9_]*'
+    r_simplename = re.compile(r'(%s)[.](%s)$' % (identifier, identifier))
     res = []
     for name in module.interpleveldefs.values():
-        submod_name, obj_name = name.split('.')
-        submod_name = '%s.%s.%s' % (basepath, modname, submod_name)
-        submod = my_import(submod_name)
-        obj = getattr(submod, obj_name)
-        res += find_gw_in_obj(obj)
+        match = r_simplename.match(name)
+        if match:
+            submod_name, obj_name = match.groups()
+            submod_name = '%s.%s.%s' % (basepath, modname, submod_name)
+            submod = my_import(submod_name)
+            obj = getattr(submod, obj_name)
+            res += find_gw_in_obj(obj)
     return res
 
 def find_gw_in_obj(obj):
     if hasattr(obj, 'typedef'):
         typedef = obj.typedef
-        return typedef.rawdict.values() # XXX: check they are interp2app
+        return [gw for gw in typedef.rawdict.values()
+                if isinstance(gw, interp2app)]
     elif hasattr(obj, 'func_code'):
         return [interp2app(obj)]
     else:
