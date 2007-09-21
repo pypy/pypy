@@ -33,6 +33,7 @@ if _POSIX:
     COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
                           for cond_include in cond_includes])
 if _MS_WINDOWS:
+    includes = ('WinSock2.h', 'WS2tcpip.h')
     HEADER = '\n'.join([
         '#include <WinSock2.h>',
         '#include <WS2tcpip.h>',
@@ -376,8 +377,15 @@ timeval = cConfig.timeval
 if MS_WINDOWS:
     fd_set = cConfig.fd_set
 
-#c_int_size = sizeof(rffi.INT)
-external = rffi.llexternal
+
+if _POSIX:
+    includes = list(includes)
+    for _name, _header in cond_includes:
+        if getattr(cConfig, _name) is not None:
+            includes.append(_header)
+
+def external(name, args, result):
+    return rffi.llexternal(name, args, result, includes=includes)
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type)
