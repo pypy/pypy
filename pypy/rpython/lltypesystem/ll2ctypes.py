@@ -624,6 +624,6 @@ if ctypes:
             return standard_c_lib.__errno_location()
 
     elif sys.platform == 'darwin':
-        standard_c_lib.__errno.restype = ctypes.POINTER(ctypes.c_int)
+        standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
         def _where_is_errno():
-            return standard_c_lib.__errno()
+            return standard_c_lib.__error()
