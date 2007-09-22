@@ -545,7 +545,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
-            if self.timeout <= 0.0 or self.fd < 0:
+            if self.timeout <= 0.0 or self.fd == _c.INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             pollfd = rffi.make(_c.pollfd)
@@ -569,7 +569,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
-            if self.timeout <= 0.0 or self.fd < 0:
+            if self.timeout <= 0.0 or self.fd == _c.INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             tv = rffi.make(_c.timeval)
