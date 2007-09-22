@@ -517,6 +517,31 @@ class TestLL2Ctypes(object):
         lltype.free(a2, flavor='raw')
         lltype.free(s2, flavor='raw')
 
+    def test_arrayofstruct(self):
+        S1 = lltype.Struct('S1', ('x', lltype.Signed))
+        A = lltype.Array(S1, hints={'nolength': True})
+        a = lltype.malloc(A, 5, flavor='raw')
+        a[0].x = 100
+        a[1].x = 101
+        a[2].x = 102
+        a[3].x = 103
+        a[4].x = 104
+        ac = lltype2ctypes(a, normalize=False)
+        assert ac.contents.items[0].x == 100
+        assert ac.contents.items[2].x == 102
+        ac.contents.items[3].x += 500
+        assert a[3].x == 603
+        a[4].x += 600
+        assert ac.contents.items[4].x == 704
+        a1 = ctypes2lltype(lltype.Ptr(A), ac)
+        assert a1 == a
+        assert a1[2].x == 102
+        aitem1 = ctypes2lltype(lltype.Ptr(S1),
+                               ctypes.pointer(ac.contents.items[1]))
+        assert aitem1.x == 101
+        assert aitem1 == a1[1]
+        lltype.free(a, flavor='raw')
+
     def test_get_errno(self):
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'

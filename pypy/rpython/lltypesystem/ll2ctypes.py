@@ -118,7 +118,10 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             else:
                 items = self._indexable(index)
             cobj = items[index]
-            return ctypes2lltype(ITEM, cobj)
+            if isinstance(ITEM, lltype.ContainerType):
+                return ctypes2lltype(lltype.Ptr(ITEM), ctypes.pointer(cobj))
+            else:
+                return ctypes2lltype(ITEM, cobj)
 
         def _setitem(self, index, value, boundscheck=True):
             if boundscheck:
@@ -220,10 +223,16 @@ def convert_array(container):
     cls = get_ctypes_type(ARRAY)
     carray = cls._malloc(container.getlength())
     add_storage(container, _array_mixin, carray)
-    for i in range(container.getlength()):
-        item_value = container.items[i]    # fish fish
-        carray.items[i] = lltype2ctypes(item_value)
-    remove_regular_array_content(container)
+    if not isinstance(ARRAY.OF, lltype.ContainerType):
+        for i in range(container.getlength()):
+            item_value = container.items[i]    # fish fish
+            carray.items[i] = lltype2ctypes(item_value)
+        remove_regular_array_content(container)
+    else:
+        assert isinstance(ARRAY.OF, lltype.Struct)
+        for i in range(container.getlength()):
+            item_ptr = container.items[i]    # fish fish
+            convert_struct(item_ptr, carray.items[i])
 
 def remove_regular_array_content(container):
     for i in range(container.getlength()):
