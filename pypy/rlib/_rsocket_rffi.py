@@ -490,28 +490,28 @@ elif MS_WINDOWS:
                       [rffi.INT, lltype.Ptr(fd_set), lltype.Ptr(fd_set),
                        lltype.Ptr(fd_set), lltype.Ptr(timeval)],
                       rffi.INT)
+    #
+    # The following is for pypy.rlib.rpoll
+    #
+    WSAEVENT_ARRAY = rffi.CArray(WSAEVENT)
 
-    ##WSACreateEvent = socketdll.WSACreateEvent
-    ##WSACreateEvent.argtypes = []
-    ##WSACreateEvent.restype = WSAEVENT
+    WSACreateEvent = external('WSACreateEvent', [], WSAEVENT)
 
-    ##WSACloseEvent = socketdll.WSACloseEvent
-    ##WSACloseEvent.argtypes = [WSAEVENT]
-    ##WSACloseEvent.restype = c_int
+    WSACloseEvent = external('WSACloseEvent', [WSAEVENT], rffi.INT)
 
-    ##WSAEventSelect = socketdll.WSAEventSelect
-    ##WSAEventSelect.argtypes = [socketfd_type, WSAEVENT, rffi.LONG]
-    ##WSAEventSelect.restype = c_int
+    WSAEventSelect = external('WSAEventSelect',
+                              [socketfd_type, WSAEVENT, rffi.LONG],
+                              rffi.INT)
 
-    ##WSAWaitForMultipleEvents = socketdll.WSAWaitForMultipleEvents
-    ##WSAWaitForMultipleEvents.argtypes = [rffi.LONG, POINTER(WSAEVENT),
-    ##                                     c_int, rffi.LONG, c_int]
-    ##WSAWaitForMultipleEvents.restype = c_long
+    WSAWaitForMultipleEvents = external('WSAWaitForMultipleEvents',
+                                        [rffi.LONG, lltype.Ptr(WSAEVENT_ARRAY),
+                                         rffi.INT, rffi.LONG, rffi.INT],
+                                        rffi.ULONG)
 
-    ##WSAEnumNetworkEvents = socketdll.WSAEnumNetworkEvents
-    ##WSAEnumNetworkEvents.argtypes = [socketfd_type, WSAEVENT,
-    ##                                 POINTER(WSANETWORKEVENTS)]
-    ##WSAEnumNetworkEvents.restype = c_int
+    WSAEnumNetworkEvents = external('WSAEnumNetworkEvents',
+                                    [socketfd_type, WSAEVENT,
+                                     lltype.Ptr(WSANETWORKEVENTS)],
+                                    rffi.INT)
 
 if MS_WINDOWS:
     WSAData = cConfig.WSAData

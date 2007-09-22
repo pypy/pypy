@@ -82,8 +82,10 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                 if SOURCE != TARGET:
                     if TARGET is lltype.Float:
                         arg = float(arg)
-                    elif (isinstance(SOURCE, lltype.Number) and
-                          isinstance(TARGET, lltype.Number)):
+                    elif ((isinstance(SOURCE, lltype.Number)
+                           or SOURCE is lltype.Bool)
+                      and (isinstance(TARGET, lltype.Number)
+                           or TARGET is lltype.Bool)):
                         arg = cast(TARGET, arg)
             real_args = real_args + (arg,)
             to_free = to_free + (freeme,)

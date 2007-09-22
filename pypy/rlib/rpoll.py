@@ -21,41 +21,139 @@ eventnames = [name for name in eventnames
 for name in eventnames:
     globals()[name] = getattr(_c.cConfig, name)
 
-# ____________________________________________________________
-# poll()
-#
 class PollError(Exception):
     def __init__(self, errno):
         self.errno = errno
     def get_msg(self):
-        return os.strerror(self.errno)
+        return _c.socket_strerror_str(self.errno)
 
-def poll(fddict, timeout=-1):
-    """'fddict' maps file descriptors to interesting events.
-    'timeout' is an integer in milliseconds, and NOT a float
-    number of seconds, but it's the same in CPython.  Use -1 for infinite.
-    Returns a list [(fd, events)].
-    """
-    numfd = len(fddict)
-    pollfds = lltype.malloc(_c.pollfdarray, numfd, flavor='raw')
-    try:
-        i = 0
-        for fd, events in fddict.iteritems():
-            rffi.setintfield(pollfds[i], 'c_fd', fd)
-            rffi.setintfield(pollfds[i], 'c_events', events)
-            i += 1
-        assert i == numfd
+# ____________________________________________________________
+# poll() for POSIX systems
+#
+if hasattr(_c, 'poll'):
 
-        ret = _c.poll(pollfds, numfd, timeout)
+    def poll(fddict, timeout=-1):
+        """'fddict' maps file descriptors to interesting events.
+        'timeout' is an integer in milliseconds, and NOT a float
+        number of seconds, but it's the same in CPython.  Use -1 for infinite.
+        Returns a list [(fd, events)].
+        """
+        numfd = len(fddict)
+        pollfds = lltype.malloc(_c.pollfdarray, numfd, flavor='raw')
+        try:
+            i = 0
+            for fd, events in fddict.iteritems():
+                rffi.setintfield(pollfds[i], 'c_fd', fd)
+                rffi.setintfield(pollfds[i], 'c_events', events)
+                i += 1
+            assert i == numfd
 
-        if ret < 0:
-            raise PollError(_c.geterrno())
+            ret = _c.poll(pollfds, numfd, timeout)
 
-        retval = []
-        for i in range(numfd):
-            pollfd = pollfds[i]
-            if pollfd.c_revents:
-                retval.append((pollfd.c_fd, pollfd.c_revents))
-    finally:
-        lltype.free(pollfds, flavor='raw')
-    return retval
+            if ret < 0:
+                raise PollError(_c.geterrno())
+
+            retval = []
+            for i in range(numfd):
+                pollfd = pollfds[i]
+                if pollfd.c_revents:
+                    retval.append((pollfd.c_fd, pollfd.c_revents))
+        finally:
+            lltype.free(pollfds, flavor='raw')
+        return retval
+
+# ____________________________________________________________
+# poll() for Win32
+#
+if hasattr(_c, 'WSAEventSelect'):
+
+    def poll(fddict, timeout=-1):
+        """'fddict' maps file descriptors to interesting events.
+        'timeout' is an integer in milliseconds, and NOT a float
+        number of seconds, but it's the same in CPython.  Use -1 for infinite.
+        Returns a list [(fd, events)].
+        """
+        numfd = len(fddict)
+        numevents = 0
+        socketevents = lltype.malloc(_c.WSAEVENT_ARRAY, numfd, flavor='raw')
+        try:
+            eventdict = {}
+
+            for fd, events in fddict.iteritems():
+                # select desired events
+                wsaEvents = 0
+                if events & _c.POLLIN:
+                    wsaEvents |= _c.FD_READ | _c.FD_ACCEPT | _c.FD_CLOSE
+                if events & _c.POLLOUT:
+                    wsaEvents |= _c.FD_WRITE | _c.FD_CONNECT | _c.FD_CLOSE
+
+                # if no events then ignore socket
+                if wsaEvents == 0:
+                    continue
+
+                # select socket for desired events
+                event = _c.WSACreateEvent()
+                _c.WSAEventSelect(fd, event, wsaEvents)
+
+                eventdict[fd] = event
+                socketevents[numevents] = event
+                numevents += 1
+
+            assert numevents <= numfd
+
+            # if no sockets then return immediately
+            # XXX commented out by arigo - we just want to sleep for
+            #     'timeout' milliseconds in this case, which is what
+            #     I hope WSAWaitForMultipleEvents will do, no?
+            #if numevents == 0:
+            #    return []
+
+            # prepare timeout
+            if timeout < 0:
+                timeout = _c.INFINITE
+
+            ret = _c.WSAWaitForMultipleEvents(numevents, socketevents,
+                                              False, timeout, False)
+
+            if ret == _c.WSA_WAIT_TIMEOUT:
+                return []
+
+            if ret == _c.WSA_WAIT_FAILED:
+                raise PollError(_c.geterrno())
+
+            retval = []
+            info = rffi.make(_c.WSANETWORKEVENTS)
+            for fd, event in eventdict.iteritems():
+                if _c.WSAEnumNetworkEvents(fd, event, info) < 0:
+                    continue
+                revents = 0
+                if info.c_lNetworkEvents & _c.FD_READ:
+                    revents |= _c.POLLIN
+                if info.c_lNetworkEvents & _c.FD_ACCEPT:
+                    revents |= _c.POLLIN
+                if info.c_lNetworkEvents & _c.FD_WRITE:
+                    revents |= _c.POLLOUT
+                if info.c_lNetworkEvents & _c.FD_CONNECT:
+                    if info.c_iErrorCode[_c.FD_CONNECT_BIT]:
+                        revents |= _c.POLLERR
+                    else:
+                        revents |= _c.POLLOUT
+                if info.c_lNetworkEvents & _c.FD_CLOSE:
+                    if info.c_iErrorCode[_c.FD_CLOSE_BIT]:
+                        revents |= _c.POLLERR
+                    else:
+                        if fddict[fd] & _c.POLLIN:
+                            revents |= _c.POLLIN
+                        if fddict[fd] & _c.POLLOUT:
+                            revents |= _c.POLLOUT
+                if revents:
+                    retval.append((fd, revents))
+
+            lltype.free(info, flavor='raw')
+
+        finally:
+            for i in range(numevents):
+                _c.WSACloseEvent(socketevents[i])
+            lltype.free(socketevents, flavor='raw')
+
+        return retval
