@@ -22,6 +22,8 @@ if __name__ == '__main__':
         t.insert()
     else:
         t = stackless.tasklet(demo)(14)
+    print 'before run'
     stackless.run()
+    print 'after run'
 
 # remark: think of fixing cells etc. on the sprint

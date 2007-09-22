@@ -129,6 +129,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(AppCoroutine._get_state(space).current)
     w_getcurrent = staticmethod(w_getcurrent)
 
+    def w_getmain(space):
+        return space.wrap(AppCoroutine._get_state(space).main)
+    w_getmain = staticmethod(w_getmain)
+
     # pickling interface
     def descr__reduce__(self, space):
         # this is trying to be simplistic at the moment.
@@ -175,7 +179,9 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         except UnpackValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.msg))
         self.flags = space.int_w(w_flags)
-        self.parent = space.interp_w(AppCoroutine, w_parent, can_be_None=True)
+        if space.is_w(w_parent, space.w_None):
+            w_parent = self.w_getmain(space)
+        self.parent = space.interp_w(AppCoroutine, w_parent)
         ec = self.space.getexecutioncontext()
         self.subctx.setstate(self.space, w_state)
         self.reconstruct_framechain()
@@ -290,6 +296,7 @@ def makeStaticMethod(module, classname, funcname):
 
 def post_install(module):
     makeStaticMethod(module, 'coroutine', 'getcurrent')
+    makeStaticMethod(module, 'coroutine', 'getmain')
     space = module.space
     AppCoroutine._get_state(space).post_install()
 
@@ -311,6 +318,7 @@ AppCoroutine.typedef = TypeDef("coroutine",
       # but lib/stackless.py uses it
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
+    getmain = interp2app(AppCoroutine.w_getmain),
     __reduce__   = interp2app(AppCoroutine.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(AppCoroutine.descr__setstate__,
