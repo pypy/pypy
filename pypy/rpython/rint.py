@@ -344,17 +344,17 @@ class __extend__(IntegerRepr):
         self = self.as_int
         vlist = hop.inputargs(self)
         if hop.s_result.unsigned:
+            # implement '-r_uint(x)' with unsigned subtraction '0 - x'
             zero = self.lowleveltype._defl()
             vlist.insert(0, hop.inputconst(self.lowleveltype, zero))
-            return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
+            return hop.genop(self.opprefix + 'sub', vlist, resulttype=self)
         else:
             return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
 
     def rtype_neg_ovf(self, hop):
         self = self.as_int
         if hop.s_result.unsigned:
-            # this is supported (and turns into just uint_neg) for
-            # rbigint.py
+            # this is supported (and turns into just 0-x) for rbigint.py
             hop.exception_cannot_occur()
             return self.rtype_neg(hop)
         else:
