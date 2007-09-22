@@ -2,6 +2,9 @@ import thread
 from pypy.rlib.rsocket import *
 from pypy.rlib.rpoll import *
 
+def setup_module(mod):
+    rsocket_startup()
+
 def test_simple():
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))
