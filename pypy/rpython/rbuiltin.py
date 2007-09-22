@@ -335,7 +335,7 @@ def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
     if v_flavor is not None:
         flags['flavor'] = v_flavor.value
     if i_zero is not None:
-        assert i_extra_args is i_flavor is None
+        assert i_extra_args is None
         flags['zero'] = v_zero.value
     vlist.append(hop.inputconst(lltype.Void, flags))
         

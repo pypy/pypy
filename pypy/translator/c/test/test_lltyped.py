@@ -416,6 +416,22 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         res = fn(100)
         assert res == 3050
 
+    def test_zero_raw_malloc(self):
+        S = Struct('S', ('x', Signed), ('y', Signed))
+        def f(n):
+            for i in range(n):
+                p = malloc(S, flavor='raw', zero=True)
+                if p.x != 0 or p.y != 0:
+                    return -1
+                p.x = i
+                p.y = i
+                free(p, flavor='raw')
+            return 42
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 42
+
     def test_arithmetic_cornercases(self):
         import operator, sys
         from pypy.rlib.unroll import unrolling_iterable

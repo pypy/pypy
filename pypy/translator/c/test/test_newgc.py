@@ -758,6 +758,22 @@ class TestUsingFramework(AbstractGCTestClass):
         # the point is just not to segfault
         res = fn()
 
+    def test_zero_raw_malloc(self):
+        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        def f():
+            for i in range(100):
+                p = lltype.malloc(S, flavor='raw', zero=True)
+                if p.x != 0 or p.y != 0:
+                    return -1
+                p.x = i
+                p.y = i
+                lltype.free(p, flavor='raw')
+            return 42
+
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 42
+
 class TestUsingStacklessFramework(TestUsingFramework):
     gcpolicy = "stacklessgc"
 

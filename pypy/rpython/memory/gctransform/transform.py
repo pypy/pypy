@@ -343,12 +343,14 @@ class MinimalGCTransformer(BaseGCTransformer):
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
         assert flavor == 'raw'
+        assert not flags.get('zero')
         return self.parenttransformer.gct_malloc(hop)
 
     def gct_malloc_varsize(self, hop):
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
         assert flavor == 'raw'
+        assert not flags.get('zero')
         return self.parenttransformer.gct_malloc_varsize(hop)
     
     def gct_free(self, hop):
@@ -435,17 +437,22 @@ class GCTransformer(BaseGCTransformer):
     def gct_fv_raw_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.raw_malloc_fixedsize_ptr, c_size],
                           resulttype=llmemory.Address)
+        if flags.get('zero'):
+            hop.genop("raw_memclear", [v_raw, c_size])
         return v_raw
 
     def gct_fv_stack_malloc(self, hop, flags, TYPE, c_size):
         v_raw = hop.genop("direct_call", [self.stack_malloc_fixedsize_ptr, c_size],
                           resulttype=llmemory.Address)
+        if flags.get('zero'):
+            hop.genop("raw_memclear", [v_raw, c_size])
         return v_raw        
 
     def gct_fv_cpy_malloc(self, hop, flags, TYPE, c_size): # xxx
         op = hop.spaceop
         args = op.args[:]
         del args[1]
+        assert not flags.get('zero')
         return hop.genop('cpy_malloc', args, resulttype=op.result.concretetype)
 
     def gct_malloc_varsize(self, hop):
@@ -497,6 +504,8 @@ class GCTransformer(BaseGCTransformer):
                                [self.raw_malloc_varsize_ptr, v_length,
                                 c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
+        if flags.get('zero'):
+            raise NotImplementedError("raw zero varsize malloc")
         return v_raw
 
     def gct_free(self, hop):
