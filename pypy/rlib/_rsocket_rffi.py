@@ -29,11 +29,15 @@ if _POSIX:
                 'errno.h',
                 )
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
+    libraries = ()
+    calling_conv = 'c'
     HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
     COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
                           for cond_include in cond_includes])
 if _MS_WINDOWS:
     includes = ('WinSock2.h', 'WS2tcpip.h')
+    libraries = ('ws2_32',)
+    calling_conv = 'win'
     HEADER = '\n'.join([
         '#include <WinSock2.h>',
         '#include <WS2tcpip.h>',
@@ -295,14 +299,14 @@ addrinfo_ptr.TO.become(cConfig.addrinfo)
 
 # HACK HACK HACK
 if _MS_WINDOWS:
-    XXX
-    from ctypes import Structure
-    for struct in cConfig.__dict__.values():
-        if isinstance(struct, type) and issubclass(struct, Structure):
-            if struct.__name__ == 'in6_addr':
-                struct.__name__ = '_in6_addr'
-            else:
-                struct._external_ = True       # hack to avoid redeclaration of the struct in C
+    pass #XXX
+    #from ctypes import Structure
+    #for struct in cConfig.__dict__.values():
+    #    if isinstance(struct, type) and issubclass(struct, Structure):
+    #        if struct.__name__ == 'in6_addr':
+    #            struct.__name__ = '_in6_addr'
+    #        else:
+    #            struct._external_ = True       # hack to avoid redeclaration of the struct in C
 
 # fill in missing constants with reasonable defaults
 cConfig.NI_MAXHOST = cConfig.NI_MAXHOST or 1025
@@ -385,7 +389,9 @@ if _POSIX:
             includes.append(_header)
 
 def external(name, args, result):
-    return rffi.llexternal(name, args, result, includes=includes)
+    return rffi.llexternal(name, args, result,
+                           includes=includes, libraries=libraries,
+                           calling_conv=calling_conv)
 
 if _POSIX:
     dup = external('dup', [socketfd_type], socketfd_type)
@@ -399,7 +405,10 @@ if _POSIX:
 
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
-socketclose = external('close', [socketfd_type], rffi.INT)
+if MS_WINDOWS:
+    socketclose = external('closesocket', [socketfd_type], rffi.INT)
+else:
+    socketclose = external('close', [socketfd_type], rffi.INT)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
@@ -468,53 +477,46 @@ if _POSIX:
                           lltype.Ptr(socketpair_t)], rffi.INT)
 
 if _MS_WINDOWS:
-    XXX
-    ioctlsocket = socketdll.ioctlsocket
-    ioctlsocket.argtypes = [socketfd_type, rffi.LONG, POINTER(c_ulong)]
-    ioctlsocket.restype = c_int
+    ioctlsocket = external('ioctlsocket',
+                           [socketfd_type, rffi.LONG, rffi.ULONGP],
+                           rffi.INT)
 
 if _POSIX:
     poll = external('poll', [lltype.Ptr(pollfd), nfds_t, rffi.INT], rffi.INT)
 elif MS_WINDOWS:
-    XXX
-    select = socketdll.select
-    select.argtypes = [c_int,
-                       POINTER(fd_set), POINTER(fd_set), POINTER(fd_set),
-                       POINTER(timeval)]
-    select.restype = c_int
+    select = external('select',
+                      [rffi.INT, lltype.Ptr(fd_set), lltype.Ptr(fd_set),
+                       lltype.Ptr(fd_set), lltype.Ptr(timeval)],
+                      rffi.INT)
 
-    WSACreateEvent = socketdll.WSACreateEvent
-    WSACreateEvent.argtypes = []
-    WSACreateEvent.restype = WSAEVENT
+    ##WSACreateEvent = socketdll.WSACreateEvent
+    ##WSACreateEvent.argtypes = []
+    ##WSACreateEvent.restype = WSAEVENT
 
-    WSACloseEvent = socketdll.WSACloseEvent
-    WSACloseEvent.argtypes = [WSAEVENT]
-    WSACloseEvent.restype = c_int
+    ##WSACloseEvent = socketdll.WSACloseEvent
+    ##WSACloseEvent.argtypes = [WSAEVENT]
+    ##WSACloseEvent.restype = c_int
 
-    WSAEventSelect = socketdll.WSAEventSelect
-    WSAEventSelect.argtypes = [socketfd_type, WSAEVENT, rffi.LONG]
-    WSAEventSelect.restype = c_int
+    ##WSAEventSelect = socketdll.WSAEventSelect
+    ##WSAEventSelect.argtypes = [socketfd_type, WSAEVENT, rffi.LONG]
+    ##WSAEventSelect.restype = c_int
 
-    WSAWaitForMultipleEvents = socketdll.WSAWaitForMultipleEvents
-    WSAWaitForMultipleEvents.argtypes = [rffi.LONG, POINTER(WSAEVENT),
-                                         c_int, rffi.LONG, c_int]
-    WSAWaitForMultipleEvents.restype = c_long
+    ##WSAWaitForMultipleEvents = socketdll.WSAWaitForMultipleEvents
+    ##WSAWaitForMultipleEvents.argtypes = [rffi.LONG, POINTER(WSAEVENT),
+    ##                                     c_int, rffi.LONG, c_int]
+    ##WSAWaitForMultipleEvents.restype = c_long
 
-    WSAEnumNetworkEvents = socketdll.WSAEnumNetworkEvents
-    WSAEnumNetworkEvents.argtypes = [socketfd_type, WSAEVENT,
-                                     POINTER(WSANETWORKEVENTS)]
-    WSAEnumNetworkEvents.restype = c_int
+    ##WSAEnumNetworkEvents = socketdll.WSAEnumNetworkEvents
+    ##WSAEnumNetworkEvents.argtypes = [socketfd_type, WSAEVENT,
+    ##                                 POINTER(WSANETWORKEVENTS)]
+    ##WSAEnumNetworkEvents.restype = c_int
 
 if MS_WINDOWS:
     WSAData = cConfig.WSAData
-    WSAStartup = socketdll.WSAStartup
-    WSAStartup.argtypes = [c_int, POINTER(WSAData)]
-    WSAStartup.restype = c_int
-    WSAStartup.libraries = ('ws2_32',)
+    WSAStartup = external('WSAStartup', [rffi.INT, lltype.Ptr(WSAData)],
+                          rffi.INT)
 
-    WSAGetLastError = socketdll.WSAGetLastError
-    WSAGetLastError.argtypes = []
-    WSAGetLastError.restype = c_int
+    WSAGetLastError = external('WSAGetLastError', [], rffi.INT)
     geterrno = WSAGetLastError
     
     import errno

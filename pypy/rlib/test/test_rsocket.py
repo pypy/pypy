@@ -48,7 +48,8 @@ def test_gethostbyname_ex():
     allnames = [name] + aliases
     for n in allnames:
         assert isinstance(n, str)
-    assert 'localhost' in allnames
+    if sys.platform != 'win32':
+        assert 'localhost' in allnames
     for a in address_list:
         if isinstance(a, INETAddress) and a.get_host() == "127.0.0.1":
             break  # ok
@@ -114,10 +115,17 @@ def test_simple_tcp():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
-    thread.start_new_thread(s2.connect, (addr,))
+    def connecting():
+        s2.connect(addr)
+        lock.release()
+    lock = thread.allocate_lock()
+    lock.acquire()
+    thread.start_new_thread(connecting, ())
     print 'waiting for connexion'
     s1, addr2 = sock.accept()
     print 'connexion accepted'
+    lock.acquire()
+    print 'connecting side knows that the connexion was accepted too'
     assert addr.eq(s2.getpeername())
     assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())

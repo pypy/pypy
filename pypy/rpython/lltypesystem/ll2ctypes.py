@@ -471,7 +471,7 @@ if ctypes:
 
 # ____________________________________________
 
-def get_ctypes_callable(funcptr):
+def get_ctypes_callable(funcptr, calling_conv):
     if getattr(funcptr._obj, 'sources', None):
         # give up - for tests with an inlined bit of C code
         raise NotImplementedError("cannot call a C function defined in "
@@ -491,7 +491,8 @@ def get_ctypes_callable(funcptr):
             if not libpath and os.path.isabs(libname):
                 libpath = libname
             if libpath:
-                clib = ctypes.cdll.LoadLibrary(libpath)
+                dllclass = getattr(ctypes, calling_conv + 'dll')
+                clib = dllclass.LoadLibrary(libpath)
                 cfunc = getattr(clib, funcname, None)
                 if cfunc is not None:
                     break
@@ -518,15 +519,16 @@ def get_ctypes_callable(funcptr):
 class LL2CtypesCallable(object):
     # a special '_callable' object that invokes ctypes
 
-    def __init__(self, FUNCTYPE):
+    def __init__(self, FUNCTYPE, calling_conv):
         self.FUNCTYPE = FUNCTYPE
+        self.calling_conv = calling_conv
         self.trampoline = None
         #self.funcptr = ...  set later
 
     def __call__(self, *argvalues):
         if self.trampoline is None:
             # lazily build the corresponding ctypes function object
-            cfunc = get_ctypes_callable(self.funcptr)
+            cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
             self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
         # perform the call
         return self.trampoline(*argvalues)

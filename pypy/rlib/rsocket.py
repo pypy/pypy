@@ -29,8 +29,9 @@ locals().update(constants) # Define constants from _c
 
 if _c.MS_WINDOWS:
     def rsocket_startup():
-        wsadata = _c.WSAData()
-        res = _c.WSAStartup(1, byref(wsadata))
+        wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
+        res = _c.WSAStartup(1, wsadata)
+        lltype.free(wsadata, flavor='raw')
         assert res == 0
 else:
     def rsocket_startup():
@@ -535,8 +536,10 @@ class RSocket(object):
             _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
     elif hasattr(_c, 'ioctlsocket'):
         def _setblocking(self, block):
-            flag = c_ulong(not block)
-            _c.ioctlsocket(self.fd, _c.FIONBIO, byref(flag))
+            flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
+            flag[0] = rffi.cast(rffi.ULONG, not block)
+            _c.ioctlsocket(self.fd, _c.FIONBIO, flag)
+            lltype.free(flag, flavor='raw')
 
     if hasattr(_c, 'poll'):
         def _select(self, for_writing):
@@ -566,19 +569,23 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
-            XXX
             if self.timeout <= 0.0 or self.fd < 0:
                 # blocking I/O or no socket.
                 return 0
-            tv = _c.timeval(tv_sec=int(self.timeout),
-                            tv_usec=int((self.timeout-int(self.timeout))
-                                        * 1000000))
-            fds = _c.fd_set(fd_count=1)
-            fds.fd_array[0] = self.fd
+            tv = rffi.make(_c.timeval)
+            rffi.setintfield(tv, 'tv_sec', int(self.timeout))
+            rffi.setintfield(tv, 'tv_usec', int((self.timeout-int(self.timeout))
+                                                * 1000000))
+            fds = rffi.make(_c.fd_set)
+            rffi.setintfield(fds, 'fd_count', 1)
+            fds.fd_array[0] = rffi.cast(socketfd_type, self.fd)
+            null = lltype.nullptr(fd_set)
             if for_writing:
-                n = _c.select(self.fd + 1, None, byref(fds), None, byref(tv))
+                n = _c.select(self.fd + 1, null, fds, null, tv)
             else:
-                n = _c.select(self.fd + 1, byref(fds), None, None, byref(tv))
+                n = _c.select(self.fd + 1, fds, null, null, tv)
+            lltype.free(fds, flavor='raw')
+            lltype.free(tv, flavor='raw')
             if n < 0:
                 return -1
             if n == 0:
@@ -955,6 +962,7 @@ def last_error():
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
     def get_msg(self):
+        # this method may be patched below
         return rffi.charp2str(_c.gai_strerror(self.errno))
 
 class HSocketError(SocketError):
@@ -1253,12 +1261,10 @@ def setdefaulttimeout(timeout):
 #
 
 if not getattr(_c, 'getaddrinfo', None):
-    XXX
     from pypy.rlib.getaddrinfo import getaddrinfo
     from pypy.rlib.getaddrinfo import GAIError_getmsg
     GAIError.get_msg = GAIError_getmsg
 
 if not getattr(_c, 'getnameinfo', None):
-    XXX
     from pypy.rlib.getnameinfo import getnameinfo
     from pypy.rlib.getnameinfo import NI_NUMERICHOST, NI_NUMERICSERV

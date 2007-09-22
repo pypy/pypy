@@ -28,7 +28,7 @@ class CConstant(Symbolic):
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                libraries=[], include_dirs=[], sandboxsafe=False,
-               canraise=False, _nowrapper=False):
+               canraise=False, _nowrapper=False, calling_conv='c'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -40,7 +40,7 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     """
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
-        _callable = ll2ctypes.LL2CtypesCallable(ext_type)
+        _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  sources=tuple(sources),
                                  includes=tuple(includes),
