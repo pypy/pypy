@@ -2839,7 +2839,14 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(NotImplementedError, a.build_types, f, [float, float])
 
-
+    def test_intcmp_bug(self):
+        def g(x, y):
+            return x <= y
+        def f(x, y):
+            if g(x, y):
+                g(x, r_uint(y))
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int, int])
 
 
 def g(n):

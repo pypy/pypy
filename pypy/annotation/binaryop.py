@@ -299,9 +299,22 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         r = SomeBool()
         if int1.is_immutable_constant() and int2.is_immutable_constant():
             r.const = operation(int1.const, int2.const)
+        #
+        # The rest of the code propagates nonneg information between
+        # the two arguments.
+        #
+        # Doing the right thing when int1 or int2 change from signed
+        # to unsigned (r_uint) is almost impossible.  See test_intcmp_bug.
+        # Instead, we only deduce constrains on the operands in the
+        # case where they are both signed.  In other words, if y is
+        # nonneg then "assert x>=y" will let the annotator know that
+        # x is nonneg too, but it will not work if y is unsigned.
+        #
+        if not (rarithmetic.signedtype(int1.knowntype) and
+                rarithmetic.signedtype(int2.knowntype)):
+            return r
         knowntypedata = {}
         # XXX HACK HACK HACK
-        # propagate nonneg information between the two arguments
         fn, block, i = getbookkeeper().position_key
         op = block.operations[i]
         assert op.opname == opname
