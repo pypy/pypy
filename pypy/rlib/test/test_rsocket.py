@@ -334,10 +334,14 @@ def test_inet_ntoa():
     assert inet_ntoa('\x01\x02\x03\x04') == '1.2.3.4'
 
 def test_inet_pton():
+    if not hasattr(rsocket, 'inet_pton'):
+        py.test.skip("no inet_pton()")
     assert inet_pton(AF_INET, '1.2.3.5') == '\x01\x02\x03\x05'
     py.test.raises(SocketError, inet_pton, AF_INET, '127.0.0.256')
 
 def test_inet_ntop():
+    if not hasattr(rsocket, 'inet_ntop'):
+        py.test.skip("no inet_ntop()")
     assert inet_ntop(AF_INET, '\x01\x02\x03\x05') == '1.2.3.5'
 
 class TestTCP:
