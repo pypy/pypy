@@ -62,7 +62,7 @@ class Poll(Wrappable):
             w_errortype = space.getattr(w_module, space.wrap('error'))
             message = e.get_msg()
             raise OperationError(w_errortype,
-                                 space.newtuple([space.wrap(errno),
+                                 space.newtuple([space.wrap(e.errno),
                                                  space.wrap(message)]))
 
         retval_w = []
