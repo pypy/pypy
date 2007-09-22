@@ -51,7 +51,8 @@ def getnameinfo(address, flags):
         serv = _getservicename(sin_port, flags)
 
         if not (flags & NI_NUMERICHOST):
-            hostent = _c.gethostbyaddr(sin_addr, sizeof(_c.in_addr),
+            p = rffi.cast(rffi.VOIDP, sin_addr)
+            hostent = _c.gethostbyaddr(p, rffi.sizeof(_c.in_addr),
                                        sockaddr.c_sin_family)
         else:
             hostent = None
