@@ -14,13 +14,30 @@ nonsense, isn't it?  `more...`_
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
-PyPy Sprint at EuroPython, Vilnius: 12-14th July 2007
+
+PyPy/Squeak Sprint in Bern: 22nd-26th October 2007
 ==================================================================
 
-The next EuroPython_ conference will be held in Vilnius from the 9th to
-the 11th of July, 2007.  It now became a tradition to have several PyPy
-talks during the conference, followed by a sprint.  For more information
-on the latter, see the `Vilnius sprint announcement`_.
+We are proud to announce the first Squeak-PyPy-collaboration-sprint.  The plan
+is to bring people from the Squeak/Smalltalk and the PyPy/Python communities
+together to learn about each others projects and to think about collaboration
+possibilies.  The sprint will be hosted by the Software Composition Group of
+the University of Bern from the 22nd to the 26th of October 2007. For more
+information see the `Bern sprint announcement`_ or a list of the `people that
+are known to come`_.
+
+.. _`Bern sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/announce.html
+.. _`people that are known to come`: http://codespeak.net/pypy/extradoc/sprintinfo/bern2007/people.html
+
+
+
+PyPy Sprint at EuroPython, Vilnius is finished
+==================================================================
+
+The sprint at the last EuroPython_ conference in Vilnius from the 9th to
+the 11th of July, 2007 is finished. For more information
+see the `Vilnius sprint announcement`_.
+
 
 .. _EuroPython: http://europython.org
 .. _`Vilnius sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2007/announcement.html
@@ -76,7 +93,7 @@ how to `get started`_. *(March 27th, 2007)*
 
 
 
-PyPy Trillke Sprints (25-28th Feb and 1-5th March 2007) finished, 
+PyPy Trillke Sprints (25-28th Feb and 1-5th March 2007) finished
 ==================================================================
 
 Both of the sprints that mark the end of the EU period are over. There were very
