@@ -375,13 +375,18 @@ def mallocHelpers():
             raise MemoryError()
         return result
     mh._ll_malloc_fixedsize = _ll_malloc_fixedsize
-    
-    def _ll_malloc_varsize_no_length(length, size, itemsize):
+
+    def _ll_compute_size(length, size, itemsize):
         try:
             varsize = ovfcheck(itemsize * length)
             tot_size = ovfcheck(size + varsize)
         except OverflowError:
             raise MemoryError()
+        return tot_size
+    _ll_compute_size._inline_ = True
+
+    def _ll_malloc_varsize_no_length(length, size, itemsize):
+        tot_size = _ll_compute_size(length, size, itemsize)
         result = mh.allocate(tot_size)
         if not result:
             raise MemoryError()
@@ -395,6 +400,15 @@ def mallocHelpers():
         return result
     mh.ll_malloc_varsize = ll_malloc_varsize
 
+    def _ll_malloc_varsize_no_length_zero(length, size, itemsize):
+        tot_size = _ll_compute_size(length, size, itemsize)
+        result = mh.allocate(tot_size)
+        if not result:
+            raise MemoryError()
+        lladdress.raw_memclear(result, tot_size)
+        return result
+    mh.ll_malloc_varsize_no_length_zero = _ll_malloc_varsize_no_length_zero
+
     return mh
 
 class GCTransformer(BaseGCTransformer):
@@ -407,6 +421,7 @@ class GCTransformer(BaseGCTransformer):
         ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
         ll_raw_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_raw_malloc_varsize = mh.ll_malloc_varsize
+        ll_raw_malloc_varsize_no_length_zero  = mh.ll_malloc_varsize_no_length_zero
 
         stack_mh = mallocHelpers()
         stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.Address, size)
@@ -419,6 +434,8 @@ class GCTransformer(BaseGCTransformer):
                 ll_raw_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address, inline=False)
             self.raw_malloc_varsize_ptr = self.inittime_helper(
                 ll_raw_malloc_varsize, [lltype.Signed]*4, llmemory.Address, inline=False)
+            self.raw_malloc_varsize_no_length_zero_ptr = self.inittime_helper(
+                ll_raw_malloc_varsize_no_length_zero, [lltype.Signed]*3, llmemory.Address, inline=False)
 
             self.stack_malloc_fixedsize_ptr = self.inittime_helper(
                 ll_stack_malloc_fixedsize, [lltype.Signed], llmemory.Address)
@@ -495,17 +512,20 @@ class GCTransformer(BaseGCTransformer):
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):
         if c_offset_to_length is None:
+            if flags.get('zero'):
+                fnptr = self.raw_malloc_varsize_no_length_zero_ptr
+            else:
+                fnptr = self.raw_malloc_varsize_no_length_ptr
             v_raw = hop.genop("direct_call",
-                               [self.raw_malloc_varsize_no_length_ptr, v_length,
-                                c_const_size, c_item_size],
+                               [fnptr, v_length, c_const_size, c_item_size],
                                resulttype=llmemory.Address)
         else:
+            if flags.get('zero'):
+                raise NotImplementedError("raw zero varsize malloc with length field")
             v_raw = hop.genop("direct_call",
                                [self.raw_malloc_varsize_ptr, v_length,
                                 c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
-        if flags.get('zero'):
-            raise NotImplementedError("raw zero varsize malloc")
         return v_raw
 
     def gct_free(self, hop):

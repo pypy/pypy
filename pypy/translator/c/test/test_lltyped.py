@@ -432,6 +432,27 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         res = fn(100)
         assert res == 42
 
+    def test_zero_raw_malloc_varsize(self):
+        # we don't support at the moment raw+zero mallocs with a length
+        # field to initialize
+        S = Struct('S', ('x', Signed), ('y', Array(Signed, hints={'nolength': True})))
+        def f(n):
+            for length in range(n-1, -1, -1):
+                p = malloc(S, length, flavor='raw', zero=True)
+                if p.x != 0:
+                    return -1
+                p.x = n
+                for j in range(length):
+                    if p.y[j] != 0:
+                        return -3
+                    p.y[j] = n^j
+                free(p, flavor='raw')
+            return 42
+
+        fn = self.getcompiled(f, [int])
+        res = fn(100)
+        assert res == 42
+
     def test_arithmetic_cornercases(self):
         import operator, sys
         from pypy.rlib.unroll import unrolling_iterable
