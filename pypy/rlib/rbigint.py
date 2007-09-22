@@ -610,11 +610,10 @@ def digits_for_most_neg_long(l):
 digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
 def args_from_rarith_int(x):
-    if x >= 0:
-        if x == 0:
-            return [0], 0
-        else:
-            return digits_from_nonneg_long(x), 1
+    if x > 0:
+        return digits_from_nonneg_long(x), 1
+    elif x == 0:
+        return [0], 0
     else:
         try:
             y = ovfcheck(-x)
