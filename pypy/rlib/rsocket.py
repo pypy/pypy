@@ -556,7 +556,8 @@ class RSocket(object):
                 else:
                     rffi.setintfield(pollfd, 'c_events', _c.POLLIN)
                 timeout = int(self.timeout * 1000.0 + 0.5)
-                n = _c.poll(pollfd, 1, timeout)
+                n = _c.poll(rffi.cast(lltype.Ptr(_c.pollfdarray), pollfd),
+                            1, timeout)
             finally:
                 lltype.free(pollfd, flavor='raw')
             if n < 0:

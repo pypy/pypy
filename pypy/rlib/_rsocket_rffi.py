@@ -482,7 +482,9 @@ if _MS_WINDOWS:
                            rffi.INT)
 
 if _POSIX:
-    poll = external('poll', [lltype.Ptr(pollfd), nfds_t, rffi.INT], rffi.INT)
+    pollfdarray = rffi.CArray(pollfd)
+    poll = external('poll', [lltype.Ptr(pollfdarray), nfds_t, rffi.INT],
+                    rffi.INT)
 elif MS_WINDOWS:
     select = external('select',
                       [rffi.INT, lltype.Ptr(fd_set), lltype.Ptr(fd_set),
