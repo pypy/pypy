@@ -441,7 +441,7 @@ if _POSIX:
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
 socketaccept = external('accept', [socketfd_type, sockaddr_ptr,
-                              socklen_t_ptr], rffi.INT)
+                              socklen_t_ptr], socketfd_type)
 socketbind = external('bind', [socketfd_type, sockaddr_ptr, socklen_t],
                               rffi.INT)
 socketlisten = external('listen', [socketfd_type, rffi.INT], rffi.INT)

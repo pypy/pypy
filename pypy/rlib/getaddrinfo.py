@@ -172,7 +172,7 @@ def getaddrinfo(hostname, servname,
                 rffi.setintfield(sin, 'c_sin_port', port)
                 rffi.setintfield(sin.c_sin_addr, 'c_s_addr', packedaddr)
                 addr = make_address(rffi.cast(_c.sockaddr_ptr, sin),
-                                    sizeof(_c.sockaddr_in),
+                                    rffi.sizeof(_c.sockaddr_in),
                                     address_to_fill)
             finally:
                 lltype.free(sin, flavor='raw')

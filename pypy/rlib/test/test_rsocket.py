@@ -2,6 +2,11 @@ import py, errno, sys
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import *
 
+# cannot test error codes in Win32 because ll2ctypes doesn't save
+# the errors that WSAGetLastError() should return, making it likely
+# that other operations stamped on it inbetween.
+errcodesok = sys.platform != 'win32'
+
 def setup_module(mod):
     rsocket_startup()
 
@@ -198,12 +203,14 @@ def test_nonblocking():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     err = py.test.raises(CSocketError, sock.accept)
-    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+    if errcodesok:
+        assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
 
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.setblocking(False)
     err = py.test.raises(CSocketError, s2.connect, addr)
-    assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+    if errcodesok:
+        assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
     s1, addr2 = sock.accept()
     s1.setblocking(False)
@@ -212,7 +219,8 @@ def test_nonblocking():
     assert addr2.eq(s1.getpeername())
 
     err = s2.connect_ex(addr)   # should now work
-    assert err in (0, errno.EISCONN)
+    if errcodesok:
+        assert err in (0, errno.EISCONN)
 
     s1.send('?')
     import time
@@ -220,7 +228,8 @@ def test_nonblocking():
     buf = s2.recv(100)
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
-    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+    if errcodesok:
+        assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
     count = s2.send('x'*50000)
     assert 1 <= count <= 50000
     while count: # Recv may return less than requested
@@ -270,7 +279,8 @@ def test_getaddrinfo_no_reverse_lookup():
 def test_connect_ex():
     s = RSocket()
     err = s.connect_ex(INETAddress('0.0.0.0', 0))   # should not work
-    assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
+    if errcodesok:
+        assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
 
 
 def test_getsetsockopt():
