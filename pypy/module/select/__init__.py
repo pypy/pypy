@@ -13,15 +13,10 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        constantnames = '''
-            POLLIN POLLPRI POLLOUT POLLERR POLLHUP POLLNVAL
-            POLLRDNORM POLLRDBAND POLLWRNORM POLLWEBAND POLLMSG'''.split()
-
-        from _rsocket_ctypes import constants
-        for name in constantnames:
-            if name in constants:
-                value = constants[name]
-                Module.interpleveldefs[name] = "space.wrap(%r)" % value
+        from pypy.rlib import rpoll
+        for name in rpoll.eventnames:
+            value = getattr(rpoll, name)
+            Module.interpleveldefs[name] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
 
