@@ -234,16 +234,15 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                                         instr+3, ec)
             instr += 1
             oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
-            if (oparg >> 8) & 0xff == 0:
+            nargs = oparg & 0xff
+            if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
+                chain = resume_state_create(chain, 'CALL_METHOD', frame,
+                                            nargs)
+            elif opcode == map['CALL_FUNCTION'] and (oparg >> 8) & 0xff == 0:
                 # Only positional arguments
-                nargs = oparg & 0xff
                 # case1: ("CALL_FUNCTION", f, nargs, returns=w_result)
-                if space.config.objspace.opcodes.CALL_METHOD and opcode == map['CALL_METHOD']:
-                    chain = resume_state_create(chain, 'CALL_METHOD', frame,
-                                                nargs)
-                else:
-                    chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
-                                                nargs)
+                chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
+                                            nargs)
             else:
                 # case2: ("call_function", f, returns=w_result)
                 chain = resume_state_create(chain, 'call_function', frame)
