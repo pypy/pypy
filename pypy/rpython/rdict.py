@@ -89,9 +89,6 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
         citerptr = hop.inputconst(lltype.Void, self.lowleveltype)
         return hop.gendirectcall(self.ll_dictiter, citerptr, v_dict)
 
-    def _next_implicit_exceptions(self, hop):
-        hop.has_implicit_exception(StopIteration)
-
     def rtype_next(self, hop):
         variant = self.variant
         v_iter, = hop.inputargs(self)
@@ -100,7 +97,9 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             c1 = hop.inputconst(lltype.Void, None)
         else:
             c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype)
-        self._next_implicit_exceptions(hop) # record that we know about it
+        # record that we know about these two possible exceptions
+        hop.has_implicit_exception(StopIteration)
+        hop.has_implicit_exception(RuntimeError)
         hop.exception_is_here()
         v = hop.gendirectcall(self.ll_dictnext, v_iter, v_func, c1)
         if variant == 'keys':

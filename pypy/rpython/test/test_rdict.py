@@ -686,6 +686,21 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
 
+    def test_resize_during_iteration(self):
+        def func():
+            d = {5: 1, 6: 2, 7: 3}
+            try:
+                for key, value in d.iteritems():
+                    d[key^16] = value*2
+            except RuntimeError:
+                pass
+            total = 0
+            for key in d:
+                total += key
+            return total
+        res = self.interpret(func, [])
+        assert 5 + 6 + 7 <= res <= 5 + 6 + 7 + (5^16) + (6^16) + (7^16)
+
     # ____________________________________________________________
 
 
