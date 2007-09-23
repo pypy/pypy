@@ -56,8 +56,10 @@ if hasattr(_c, 'poll'):
             retval = []
             for i in range(numfd):
                 pollfd = pollfds[i]
-                if pollfd.c_revents:
-                    retval.append((pollfd.c_fd, pollfd.c_revents))
+                fd      = rffi.cast(lltype.Signed, pollfd.c_fd)
+                revents = rffi.cast(lltype.Signed, pollfd.c_revents)
+                if revents:
+                    retval.append((fd, revents))
         finally:
             lltype.free(pollfds, flavor='raw')
         return retval
