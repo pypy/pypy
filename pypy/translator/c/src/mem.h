@@ -113,15 +113,12 @@ if GC integration has happened and this junk is still here, please delete it :)
 /************************************************************/
 /* rcpy support */
 
-#define OP_CPY_MALLOC(cpytype, r, restype)  {			\
-	/* XXX add tp_itemsize later */				\
-	OP_RAW_MALLOC(((PyTypeObject *)cpytype)->tp_basicsize, r, restype); \
-	if (r) {						\
-	    OP_RAW_MEMCLEAR(r, ((PyTypeObject *)cpytype)->tp_basicsize, /* */); \
-	    PyObject_Init((PyObject *)r, (PyTypeObject *)cpytype); \
-	}							\
+#define OP_CPY_MALLOC(cpytype, r, restype)  {				\
+	/* XXX add tp_itemsize later */					\
+	r = ((PyTypeObject *)cpytype)->tp_alloc((PyTypeObject *)cpytype, 0); \
+	if (!r) RPyConvertExceptionFromCPython();			\
     }
-#define OP_CPY_FREE(x)   OP_RAW_FREE(x, /*nothing*/)
+#define OP_CPY_FREE(x)   XXX "this shouldn't be used any more"
 
 /************************************************************/
 /* weakref support */

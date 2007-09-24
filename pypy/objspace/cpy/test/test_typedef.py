@@ -48,7 +48,7 @@ def test_get_blackbox():
     fn = compile(make_mytype, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
 
 
@@ -70,9 +70,9 @@ def test_get_blackboxes():
     fn = compile(make_mytype, [int],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res2 = fn(1, expected_extra_mallocs=1)
+    res2 = fn(1)
     assert type(res2).__name__ == 'MyType2'
-    res = fn(0, expected_extra_mallocs=2)
+    res = fn(0)
     assert type(res).__name__ == 'MyType'
 
 
@@ -99,19 +99,19 @@ def test_blackbox():
     fn = compile(fn, [object],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res, abc = fn(None, expected_extra_mallocs=1)
+    res, abc = fn(None)
     assert abc == 2
     assert type(res).__name__ == 'MyType'
 
-    res2, abc = fn(res, expected_extra_mallocs=1)
+    res2, abc = fn(res)
     assert abc == 4
     assert res2 is res
 
-    res2, abc = fn(res, expected_extra_mallocs=1)
+    res2, abc = fn(res)
     assert abc == 8
     assert res2 is res
 
-    res2, abc = fn(res, expected_extra_mallocs=1)
+    res2, abc = fn(res)
     assert abc == 16
     assert res2 is res
 
@@ -126,7 +126,7 @@ def test_class_attr():
     fn = compile(make_mytype, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res.hello == 7
     assert type(res).hello == 7
@@ -143,7 +143,7 @@ def test_method():
     fn = compile(make_mytype, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res.multiply(3) == 369
 
@@ -158,7 +158,7 @@ def test_special_method():
     fn = compile(make_mytype, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res * 3 == 369
 
@@ -187,12 +187,12 @@ def test_interp_attrproperty():
     fn = compile(fn, [object],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res, x = fn(None, expected_extra_mallocs=1)
+    res, x = fn(None)
     assert type(res).__name__ == 'MyType'
     assert x == 2
     assert res.x == 2
 
-    res2, x = fn(res, expected_extra_mallocs=1)
+    res2, x = fn(res)
     assert res2 is res
     assert x == 4
     assert res.x == 4
@@ -223,14 +223,14 @@ def test_getset():
     fn = compile(fn, [object],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res, x = fn(None, expected_extra_mallocs=1)
+    res, x = fn(None)
     assert type(res).__name__ == 'MyType'
     assert x == 2
     assert res.x == 2
     res.x += 100
     assert res.x == 102
 
-    res2, x = fn(res, expected_extra_mallocs=1)
+    res2, x = fn(res)
     assert res2 is res
     assert x == 204
     assert res.x == 204
@@ -288,7 +288,7 @@ def test_with_new():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res.x == 42
 
@@ -315,7 +315,7 @@ def test_with_new_with_allocate_instance():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res.x == 42
 
@@ -338,7 +338,7 @@ def test_with_new_with_allocate_instance_subclass():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
     assert res.x == 42
 
@@ -372,7 +372,7 @@ def test_prebuilt_type():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=1)
+    res = fn()
     assert type(res).__name__ == 'MyType'
 
 def test_prebuilt_instance():
@@ -394,7 +394,7 @@ def test_prebuilt_instance():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=0)
+    res = fn()
     assert type(res).__name__ == 'MyType'
 
 def test_prebuilt_instance_inside_pyobj():
@@ -415,7 +415,7 @@ def test_prebuilt_instance_inside_pyobj():
 
     fn = compile(build, [],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(expected_extra_mallocs=0)
+    res = fn()
     assert type(res) is dict
     assert res.keys() == ['hello']
     assert type(res['hello']).__name__ == 'MyType'
@@ -432,5 +432,5 @@ def test_interp_dict():
 
     fn = compile(entry_point, [int],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
-    res = fn(42, expected_extra_mallocs=1)
+    res = fn(42)
     assert res.hello == 7
