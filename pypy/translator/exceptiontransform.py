@@ -27,7 +27,7 @@ PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Void: None}
 
 for TYPE in rffi.NUMBER_TYPES:
-    PrimitiveErrorValue[TYPE] = rffi.cast(TYPE, -1)
+    PrimitiveErrorValue[TYPE] = lltype.cast_primitive(TYPE, -1)
 del TYPE
 
 def error_value(T):
