@@ -113,3 +113,19 @@ class AppTestZlib(object):
         bytes = decompressor.decompress(self.compressed)
         bytes += decompressor.flush()
         assert bytes == self.expanded
+
+
+    def test_compress(self):
+        """
+        Test the zlib.compress() function.
+        """
+        bytes = self.zlib.compress(self.expanded)
+        assert bytes == self.compressed
+
+
+    def test_decompress(self):
+        """
+        Test the zlib.decompress() function.
+        """
+        bytes = self.zlib.decompress(self.compressed)
+        assert bytes == self.expanded

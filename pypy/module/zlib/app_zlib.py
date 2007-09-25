@@ -11,44 +11,27 @@ class error(Exception):
     """
 
 
-def compressobj(level=None):
-    """
-    compressobj([level]) -- Return a compressor object.
+# XXX the following should be moved to interp-level to avoid various overheads
 
-    Optional arg level is the compression level, in 1-9.
-    """
-    import zlib
-    return zlib.Compress(level)
-
-
-
-def decompressobj(wbits=None):
-    """
-    decompressobj([wbits]) -- Return a decompressor object.
-
-    Optional arg wbits is the window buffer size.
-    """
-    import zlib
-    return zlib.Decompress(wbits)
-
-
-def compress(string, level=None):
+def compress(string, *args):
     """
     compress(string[, level]) -- Returned compressed string.
 
     Optional arg level is the compression level, in 1-9.
     """
-    compressor = compressobj(level)
+    import zlib
+    compressor = zlib.compressobj(*args)
     return compressor.compress(string) + compressor.flush()
 
 
-def decompress(string, wbits=None, bufsize=None):
+def decompress(string, *args):
     """
     decompress(string[, wbits[, bufsize]]) -- Return decompressed string.
 
     Optional arg wbits is the window buffer size.  Optional arg bufsize is
     the initial output buffer size.
     """
-    # XXX bufsize is ignored because it's basically useless.
-    decompressor = decompressobj(wbits)
+    # XXX bufsize is not accepted by this version but it's basically useless.
+    import zlib
+    decompressor = zlib.decompressobj(*args)
     return decompressor.decompress(string) + decompressor.flush()
