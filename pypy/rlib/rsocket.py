@@ -843,28 +843,43 @@ class RSocket(object):
                 lltype.free(buf, flavor='raw')
         raise self.error_handler()
 
-    def send(self, data, flags=0):
-        """Send a data string to the socket.  For the optional flags
-        argument, see the Unix manual.  Return the number of bytes
-        sent; this may be less than len(data) if the network is busy."""
+    def send_raw(self, dataptr, length, flags=0):
+        """Send data from a CCHARP buffer."""
         res = -1
         timeout = self._select(False)
         if timeout == 1:
             raise SocketTimeout
         elif timeout == 0:
-            res = _c.send(self.fd, data, len(data), flags)
+            res = _c.send(self.fd, dataptr, length, flags)
         if res < 0:
             raise self.error_handler()
         return res
+
+    def send(self, data, flags=0):
+        """Send a data string to the socket.  For the optional flags
+        argument, see the Unix manual.  Return the number of bytes
+        sent; this may be less than len(data) if the network is busy."""
+        dataptr = rffi.str2charp(data)
+        try:
+            return self.send_raw(dataptr, len(data), flags)
+        finally:
+            rffi.free_charp(dataptr)
 
     def sendall(self, data, flags=0):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  This calls send() repeatedly
         until all data is sent.  If an error occurs, it's impossible
         to tell how much data has been sent."""
-        while data:
-            res = self.send(data, flags)
-            data = data[res:]
+        dataptr = rffi.str2charp(data)
+        try:
+            remaining = len(data)
+            p = dataptr
+            while remaining > 0:
+                res = self.send_raw(p, remaining, flags)
+                p = rffi.ptradd(p, res)
+                remaining -= res
+        finally:
+            rffi.free_charp(dataptr)
 
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination

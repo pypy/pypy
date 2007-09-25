@@ -91,7 +91,7 @@ def test_socketpair():
     if sys.platform == "win32":
         py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
-    s1.send('?')
+    s1.sendall('?')
     buf = s2.recv(100)
     assert buf == '?'
     count = s2.send('x'*99)
