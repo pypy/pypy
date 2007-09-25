@@ -1,4 +1,4 @@
-from pypy.module._stackless import interp_coroutine
+from pypy.rlib import rcoroutine
 from pypy.rlib import rstack
 from pypy.rlib.rstack import resume_state_create
 from pypy.translator.stackless.test.test_transform import llinterp_stackless_function
@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import lltype
 class TestCoroutineReconstruction:
 
     def setup_meth(self):
-        interp_coroutine.syncstate.reset()
+        rcoroutine.syncstate.reset()
 
     def test_simple_ish(self):
 
@@ -22,7 +22,7 @@ class TestCoroutineReconstruction:
             rstack.resume_point("f_1", coro, n, x)
             output.append(x)
 
-        class T(interp_coroutine.AbstractThunk):
+        class T(rcoroutine.AbstractThunk):
             def __init__(self, arg_coro, arg_n, arg_x):
                 self.arg_coro = arg_coro
                 self.arg_n = arg_n
@@ -31,17 +31,17 @@ class TestCoroutineReconstruction:
                 f(self.arg_coro, self.arg_n, self.arg_x)
 
         def example():
-            main_coro = interp_coroutine.Coroutine.getcurrent()
-            sub_coro = interp_coroutine.Coroutine()
+            main_coro = rcoroutine.Coroutine.getcurrent()
+            sub_coro = rcoroutine.Coroutine()
             thunk_f = T(main_coro, 5, 1)
             sub_coro.bind(thunk_f)
             sub_coro.switch()
 
-            new_coro = interp_coroutine.Coroutine()
+            new_coro = rcoroutine.Coroutine()
             new_thunk_f = T(main_coro, 5, 1)
             new_coro.bind(new_thunk_f)
 
-            costate = interp_coroutine.Coroutine._get_default_costate()
+            costate = rcoroutine.Coroutine._get_default_costate()
             bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
             _bind_frame = resume_state_create(bottom, "coroutine__bind", costate)
             f_frame_1 = resume_state_create(_bind_frame, "f_1", main_coro, 5, 1)

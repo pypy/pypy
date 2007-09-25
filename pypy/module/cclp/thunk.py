@@ -1,5 +1,5 @@
-from pypy.module._stackless.coroutine import _AppThunk, AppCoroutine
-from pypy.module._stackless.interp_coroutine import AbstractThunk
+from pypy.module._stackless.interp_coroutine import _AppThunk, AppCoroutine
+from pypy.rlib.rcoroutine import AbstractThunk
 
 from pypy.module.cclp.misc import w, get_current_cspace
 from pypy.module.cclp.global_state import sched

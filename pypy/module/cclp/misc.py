@@ -2,7 +2,7 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import we_are_translated
 
 # commonly imported there, used from types, variable, thread
-from pypy.module._stackless.coroutine import AppCoroutine
+from pypy.module._stackless.interp_coroutine import AppCoroutine
 
 import os
 
