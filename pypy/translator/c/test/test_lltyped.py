@@ -580,3 +580,21 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             0, maxlonglong*2-30,                  # lshift
             0, maxlonglong>>4,                    # rshift
             ))
+
+    def test_direct_ptradd_barebone(self):
+        from pypy.rpython.lltypesystem import rffi
+        ARRAY_OF_CHAR = Array(Char, hints={'nolength': True})
+
+        def llf():
+            data = "hello, world!"
+            a = malloc(ARRAY_OF_CHAR, len(data), flavor='raw')
+            for i in xrange(len(data)):
+                a[i] = data[i]
+            a2 = rffi.ptradd(a, 2)
+            assert typeOf(a2) == typeOf(a) == Ptr(ARRAY_OF_CHAR)
+            for i in xrange(len(data) - 2):
+                assert a2[i] == a[i + 2]
+            free(a, flavor='raw')
+
+        fn = self.getcompiled(llf)
+        fn()

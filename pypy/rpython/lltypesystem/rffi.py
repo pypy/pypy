@@ -335,6 +335,8 @@ def charpp2liststr(p):
 
 cast = ll2ctypes.force_cast      # a forced, no-checking cast
 
+ptradd = ll2ctypes.force_ptradd  # equivalent of "ptr + n" in C.
+                                 # the ptr must point to an array.
 
 def size_and_sign(tp):
     size = sizeof(tp)

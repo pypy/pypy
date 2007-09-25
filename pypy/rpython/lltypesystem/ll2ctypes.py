@@ -622,6 +622,43 @@ class ForceCastEntry(ExtRegistryEntry):
         TYPE1 = v_arg.concretetype
         return gen_cast(hop.llops, RESTYPE, v_arg)
 
+def typecheck_ptradd(T):
+    # --- ptradd() is only for pointers to non-GC, no-length arrays.
+    assert isinstance(T, lltype.Ptr)
+    assert isinstance(T.TO, lltype.Array)
+    assert T.TO._hints.get('nolength')
+
+def force_ptradd(ptr, n):
+    """'ptr' must be a pointer to an array.  Equivalent of 'ptr + n' in
+    C, i.e. gives a pointer to the n'th item of the array.  The type of
+    the result is again a pointer to an array, the same as the type of
+    'ptr'.
+    """
+    T = lltype.typeOf(ptr)
+    typecheck_ptradd(T)
+    ctypes_item_type = get_ctypes_type(T.TO.OF)
+    ctypes_arrayptr_type = get_ctypes_type(T)
+    cptr = lltype2ctypes(ptr)
+    baseaddr = ctypes.addressof(cptr.contents.items)
+    addr = baseaddr + n * ctypes.sizeof(ctypes_item_type)
+    cptr = ctypes.cast(ctypes.c_void_p(addr), ctypes_arrayptr_type)
+    return ctypes2lltype(T, cptr)
+
+class ForceCastEntry(ExtRegistryEntry):
+    _about_ = force_ptradd
+
+    def compute_result_annotation(self, s_ptr, s_n):
+        assert isinstance(s_n, annmodel.SomeInteger)
+        assert isinstance(s_ptr, annmodel.SomePtr)
+        typecheck_ptradd(s_ptr.ll_ptrtype)
+        return annmodel.lltype_to_annotation(s_ptr.ll_ptrtype)
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        v_ptr, v_n = hop.inputargs(hop.args_r[0], lltype.Signed)
+        return hop.genop('direct_ptradd', [v_ptr, v_n],
+                         resulttype = v_ptr.concretetype)
+
 # ____________________________________________________________
 # errno
 

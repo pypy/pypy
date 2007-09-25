@@ -831,12 +831,15 @@ def direct_arrayitems(arrayptr):
 
 def direct_ptradd(ptr, n):
     """Shift a pointer forward or backward by n items.  The pointer must
-    have been built by direct_arrayitems().
+    have been built by direct_arrayitems(), or it must be directly a
+    pointer to a raw array with no length (handled by emulation with ctypes).
     """
     if not ptr:
         raise RuntimeError("direct_ptradd: NULL argument")
     if not isinstance(ptr._obj, _subarray):
-        raise TypeError("direct_ptradd: only for direct_arrayitems() ptrs")
+        # special case: delegate barebone C-like array cases to rffi.ptradd()
+        from pypy.rpython.lltypesystem import rffi
+        return rffi.ptradd(ptr, n)
     parent, base = parentlink(ptr._obj)
     return _subarray._makeptr(parent, base + n, ptr._solid)
 
