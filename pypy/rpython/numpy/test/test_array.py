@@ -829,6 +829,37 @@ class Test_specialization:
         for i in range(len(data)):
             assert res.dataptr[i] == data[i]//2
 
+    def test_specialize_array_setitem_alias(self):
+        py.test.skip('not implemented')
+        def f():
+            a = numpy.array([1,2,3,4])
+            a[1:] = a[:3]
+            return a
+
+        res = interpret(f, [])
+        data = [1,1,2,3]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+    def test_specialize_array_inplace_add_alias(self):
+        py.test.skip('not implemented')
+        def f():
+            a = numpy.array([1,2,3,4])
+            a[1:] += a[:3]
+            return a
+
+        res = interpret(f, [])
+        data = [1,3,5,7]
+        for i in range(len(data)):
+            assert res.dataptr[i] == data[i]
+
+"""
+TODO (maybe):
+* indexing with ellipses
+* indexing with newaxis
+* unary plus operator (does a copy)
+* advanced selection: indexing with bool/int arrays (or lists)
+"""
 
 class Test_compile:
     def setup_class(self):

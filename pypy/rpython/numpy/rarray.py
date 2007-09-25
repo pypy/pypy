@@ -20,7 +20,6 @@ from pypy.rpython.lltypesystem.lltype import \
     GcArray, GcStruct, Number, Primitive, Signed, Ptr, Unsigned, Char, Void, FixedSizeArray, Bool,\
     GcForwardReference, malloc, direct_arrayitems, direct_ptradd, nullptr, typeMethod,\
     cast_primitive
-from pypy.rpython.lltypesystem.rffi import cast
 from pypy.rpython.lltypesystem.rtuple import TupleRepr
 
 def gen_build_from_shape(ndim, zero=False):
@@ -647,6 +646,7 @@ class __extend__(pairtype(ArrayRepr, Repr)):
                 r_item, v_item = convert_scalar_to_array(r_item, v_item, hop.llops)
                 source_ndim = 1
             elif isinstance(r_item, AbstractBaseListRepr):
+                # Note this does a copy:
                 r_item, v_item = convert_list_to_array(r_item, v_item, hop.llops)
                 source_ndim = 1
             else:
