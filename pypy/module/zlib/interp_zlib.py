@@ -44,12 +44,49 @@ def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
 adler32.unwrap_spec = [ObjSpace, str, int]
 
 
-def error_from_zlib(space, status):
-    if status == Z_STREAM_ERROR:
-        return OperationError(
-            space.w_ValueError,
-            space.wrap("Invalid initialization option"))
-    assert False, "unhandled status %s" % (status,)
+def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
+    """
+    compress(string[, level]) -- Returned compressed string.
+
+    Optional arg level is the compression level, in 1-9.
+    """
+    try:
+        try:
+            stream = rzlib.deflateInit(level)
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Invalid initialization option"))
+        try:
+            result = rzlib.compress(stream, string, rzlib.Z_FINISH)
+        finally:
+            rzlib.deflateEnd(stream)
+    except rzlib.RZlibError, e:
+        raise zlib_error(self.space, e.msg)
+    return space.wrap(result)
+compress.unwrap_spec = [ObjSpace, str, int]
+
+
+def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
+    """
+    decompress(string[, wbits[, bufsize]]) -- Return decompressed string.
+
+    Optional arg wbits is the window buffer size.  Optional arg bufsize is
+    the initial output buffer size.
+    """
+    try:
+        try:
+            stream = rzlib.inflateInit(wbits)
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Invalid initialization option"))
+        try:
+            result = rzlib.decompress(stream, string, rzlib.Z_FINISH)
+        finally:
+            rzlib.inflateEnd(stream)
+    except rzlib.RZlibError, e:
+        raise zlib_error(self.space, e.msg)
+    return space.wrap(result)
+decompress.unwrap_spec = [ObjSpace, str, int, int]
 
 
 class Compress(Wrappable):
@@ -155,6 +192,9 @@ class Decompress(Wrappable):
             self.stream = rzlib.inflateInit(wbits)
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
+        except ValueError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Invalid initialization option"))
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
