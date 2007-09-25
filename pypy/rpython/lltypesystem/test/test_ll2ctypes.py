@@ -5,10 +5,14 @@ from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.ll2ctypes import lltype2ctypes, ctypes2lltype
 from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
+from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.annlowlevel import llhelper
 
 
 class TestLL2Ctypes(object):
+
+    def setup_method(self, meth):
+        ALLOCATED.clear()
 
     def test_primitive(self):
         assert lltype2ctypes(5) == 5
@@ -35,6 +39,7 @@ class TestLL2Ctypes(object):
         py.test.raises(ValueError, 'cptr.contents')   # NULL pointer access
         res = ctypes2lltype(lltype.Ptr(S), cptr)
         assert res == p
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_simple_struct(self):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
@@ -50,6 +55,7 @@ class TestLL2Ctypes(object):
         s.y = 52
         assert sc.contents.y == 52
         lltype.free(s, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_struct_ptrs(self):
         S2 = lltype.Struct('S2', ('y', lltype.Signed))
@@ -72,6 +78,7 @@ class TestLL2Ctypes(object):
         lltype.free(s1, flavor='raw')
         lltype.free(s2a, flavor='raw')
         lltype.free(s2b, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_simple_array(self):
         A = lltype.Array(lltype.Signed)
@@ -88,6 +95,7 @@ class TestLL2Ctypes(object):
         a[3] = 789
         assert ac.contents.items[3] == 789
         lltype.free(a, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_array_nolength(self):
         A = lltype.Array(lltype.Signed, hints={'nolength': True})
@@ -104,6 +112,7 @@ class TestLL2Ctypes(object):
         assert ac.contents.items[3] == 789
         assert ctypes.sizeof(ac.contents) == 10 * ctypes.sizeof(ctypes.c_long)
         lltype.free(a, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_charp(self):
         s = rffi.str2charp("hello")
@@ -119,6 +128,8 @@ class TestLL2Ctypes(object):
         assert s[1] == 'E'
         s[0] = 'H'
         assert sc.contents.items[0] == ord('H')
+        rffi.free_charp(s)
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_strlen(self):
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
@@ -131,6 +142,7 @@ class TestLL2Ctypes(object):
         res = strlen(s)
         rffi.free_charp(s)
         assert res == 0     # actually r_size_t(0)
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_func_not_in_clib(self):
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed)
@@ -147,6 +159,7 @@ class TestLL2Ctypes(object):
         foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
                                  libraries=['I_really_dont_exist_either'])
         py.test.raises(NotImplementedError, foobar)
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_cstruct_to_ll(self):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
@@ -175,6 +188,7 @@ class TestLL2Ctypes(object):
         assert t.x == 125
         lltype.free(s, flavor='raw')
         lltype.free(s2, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_carray_to_ll(self):
         A = lltype.Array(lltype.Signed, hints={'nolength': True})
@@ -205,6 +219,7 @@ class TestLL2Ctypes(object):
         assert b[2] == 660
         lltype.free(a, flavor='raw')
         lltype.free(a2, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_strchr(self):
         strchr = rffi.llexternal('strchr', [rffi.CCHARP, rffi.INT],
@@ -218,6 +233,7 @@ class TestLL2Ctypes(object):
         assert res[3] == '\x00'
         # XXX maybe we should also allow res[-1], res[-2]...
         rffi.free_charp(s)
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_frexp(self):
         A = lltype.FixedSizeArray(rffi.INT, 1)
@@ -230,6 +246,7 @@ class TestLL2Ctypes(object):
         assert res == 0.625
         assert p[0] == 2
         lltype.free(p, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_rand(self):
         rand = rffi.llexternal('rand', [], rffi.INT,
@@ -247,6 +264,7 @@ class TestLL2Ctypes(object):
         assert res1 == res1b
         assert res2 == res2b
         assert res3 == res3b
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_opaque_obj(self):
         includes = ['sys/time.h', 'time.h']
@@ -258,6 +276,9 @@ class TestLL2Ctypes(object):
         ll_timezonep = lltype.malloc(TIMEZONEP.TO, flavor='raw')
         res = gettimeofday(ll_timevalp, ll_timezonep)
         assert res != -1
+        lltype.free(ll_timezonep, flavor='raw')
+        lltype.free(ll_timevalp, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_simple_cast(self):
         assert rffi.cast(rffi.SIGNEDCHAR, 0x123456) == 0x56
@@ -265,6 +286,7 @@ class TestLL2Ctypes(object):
         assert rffi.cast(rffi.CHAR, 0x123456) == '\x56'
         assert rffi.cast(rffi.CHAR, 0x123481) == '\x81'
         assert rffi.cast(rffi.UCHAR, 0x123481) == 0x81
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_forced_ptr_cast(self):
         import array
@@ -295,6 +317,7 @@ class TestLL2Ctypes(object):
             assert e[i] == i*i
 
         lltype.free(a, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr1(self):
         def dummy(n):
@@ -310,6 +333,7 @@ class TestLL2Ctypes(object):
         assert lltype.typeOf(lldummy) == lltype.Ptr(FUNCTYPE)
         res = lldummy(41)
         assert res == 42
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr2(self):
         FUNCTYPE = lltype.FuncType([rffi.CCHARP], lltype.Signed)
@@ -325,6 +349,7 @@ class TestLL2Ctypes(object):
         res = cstrlen2(cp)
         assert res == 8
         rffi.free_charp(p)
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_qsort(self):
         CMPFUNC = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], rffi.INT)
@@ -360,6 +385,7 @@ class TestLL2Ctypes(object):
         for i in range(10):
             assert a[i] == lst[i]
         lltype.free(a, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     # def test_signal(self):...
 
@@ -391,6 +417,8 @@ class TestLL2Ctypes(object):
         sc = lltype2ctypes(s)
         checkval(sc.contents.x, 'l')
         checkval(sc.contents.y, 'l')
+        lltype.free(s, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_substructures(self):
         S1  = lltype.Struct('S1', ('x', lltype.Signed))
@@ -439,6 +467,7 @@ class TestLL2Ctypes(object):
         t1.x += 1
         assert sc.contents.s1a.x == 60
         lltype.free(s, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_recursive_struct(self):
         SX = lltype.ForwardReference()
@@ -495,6 +524,7 @@ class TestLL2Ctypes(object):
                 ctypes.addressof(sc1.contents))
         lltype.free(s1, flavor='raw')
         lltype.free(s2, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_indirect_recursive_struct(self):
         S2Forward = lltype.ForwardReference()
@@ -516,6 +546,7 @@ class TestLL2Ctypes(object):
         lltype.free(s1, flavor='raw')
         lltype.free(a2, flavor='raw')
         lltype.free(s2, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_arrayofstruct(self):
         S1 = lltype.Struct('S1', ('x', lltype.Signed))
@@ -541,6 +572,7 @@ class TestLL2Ctypes(object):
         assert aitem1.x == 101
         assert aitem1 == a1[1]
         lltype.free(a, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
         if sys.platform.startswith('win'):
@@ -562,6 +594,7 @@ class TestLL2Ctypes(object):
         err = rffi.get_errno()
         import errno
         assert err == errno.EBADF
+        assert not ALLOCATED     # detects memory leaks in the test
 
     def test_call_with_struct_argument(self):
         # XXX is there such a function in the standard C headers?
@@ -574,3 +607,21 @@ class TestLL2Ctypes(object):
         p = _rsocket_rffi.inet_ntoa(buf)
         assert rffi.charp2str(p) == '1.2.3.4'
         lltype.free(buf, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_storage_stays_around(self):
+        data = "hello, world!" * 100
+        A = lltype.Array(rffi.CHAR, hints={'nolength': True})
+        S = lltype.Struct('S', ('a', lltype.Ptr(A)))
+        s = lltype.malloc(S, flavor='raw')
+        lltype2ctypes(s)     # force it to escape
+        s.a = lltype.malloc(A, len(data), flavor='raw')
+        # the storage for the array should not be freed by lltype even
+        # though the _ptr object appears to go away here
+        for i in xrange(len(data)):
+            s.a[i] = data[i]
+        for i in xrange(len(data)):
+            assert s.a[i] == data[i]
+        lltype.free(s.a, flavor='raw')
+        lltype.free(s, flavor='raw')
+        assert not ALLOCATED     # detects memory leaks in the test

@@ -252,6 +252,8 @@ def struct_use_ctypes_storage(container, ctypes_storage):
 # ____________________________________________________________
 # Ctypes-aware subclasses of the _parentable classes
 
+ALLOCATED = {}     # mapping {address: _container}
+
 def get_common_subclass(cls1, cls2, cache={}):
     """Return a unique subclass with (cls1, cls2) as bases."""
     try:
@@ -260,7 +262,6 @@ def get_common_subclass(cls1, cls2, cache={}):
         subcls = type('_ctypes_%s' % (cls1.__name__,),
                       (cls1, cls2),
                       {'__slots__': ()})
-        assert '__dict__' not in dir(subcls)   # use __slots__ everywhere
         cache[cls1, cls2] = subcls
         return subcls
 
@@ -278,6 +279,24 @@ class _parentable_mixin(object):
     a subclass of both its original class and of this mixin class.)
     """
     __slots__ = ()
+
+    def _ctypes_storage_was_allocated(self):
+        addr = ctypes.addressof(self._storage)
+        if addr in ALLOCATED:
+            raise Exception("internal ll2ctypes error - "
+                            "double conversion from lltype to ctypes?")
+        ALLOCATED[addr] = self
+
+    def _free(self):
+        self._check()   # no double-frees
+        # allow the ctypes object to go away now
+        addr = ctypes.addressof(self._storage)
+        try:
+            del ALLOCATED[addr]
+        except KeyError:
+            raise Exception("invalid free() - data already freed or "
+                            "not allocated from RPython at all")
+        self._storage = None
 
     def __eq__(self, other):
         if not isinstance(other, lltype._parentable):
@@ -377,6 +396,9 @@ def lltype2ctypes(llobj, normalize=True):
                         return lltype2ctypes(llres)
                 return ctypes_func_type(callback)
 
+        if T.TO._gckind != 'raw':
+            raise Exception("can only pass 'raw' data structures to C, not %r"
+                            % (T.TO._gckind,))
         if container._storage is None:
             raise RuntimeError("attempting to pass a freed structure to C")
         if container._storage is True:
@@ -386,10 +408,11 @@ def lltype2ctypes(llobj, normalize=True):
             elif isinstance(T.TO, lltype.Array):
                 convert_array(container)
             elif isinstance(T.TO, lltype.OpaqueType):
-                container._storage = ctypes.create_string_buffer(
-                    T.TO.hints['getsize']())
+                cbuf = ctypes.create_string_buffer(T.TO.hints['getsize']())
+                add_storage(container, _parentable_mixin, cbuf)
             else:
                 raise NotImplementedError(T)
+            container._ctypes_storage_was_allocated()
         storage = container._storage
         p = ctypes.pointer(storage)
         if normalize and hasattr(storage, '_normalized_ctype'):
