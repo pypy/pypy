@@ -1,59 +1,78 @@
-from pypy.module._stackless.interp_coroutine import AbstractThunk, Coroutine
-from pypy.rlib.rgc import gc_swap_pool, gc_clone
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.module._stackless.coroutine import AppCoroutine, AppCoState
+from pypy.module._stackless.coroutine import makeStaticMethod
+from pypy.module._stackless.interp_coroutine import AbstractThunk
+from pypy.module._stackless.rclonable import InterpClonableMixin
 
 
-class InterpClonableMixin:
-    local_pool = None
-    _mixin_ = True
+class AppClonableCoroutine(AppCoroutine, InterpClonableMixin):
 
-    def hello_local_pool(self):
-        if we_are_translated():
-            self.saved_pool = gc_swap_pool(self.local_pool)
-
-    def goodbye_local_pool(self):
-        if we_are_translated():
-            self.local_pool = gc_swap_pool(self.saved_pool)
-            self.saved_pool = None
-
-    def clone_into(self, copy, extradata=None):
-        if not we_are_translated():
-            raise NotImplementedError
-        # cannot gc_clone() directly self, because it is not in its own
-        # local_pool.  Moreover, it has a __del__, which cloning doesn't
-        # support properly at the moment.
-        copy.parent = self.parent
-        # the hello/goodbye pair has two purposes: it forces
-        # self.local_pool to be computed even if it was None up to now,
-        # and it puts the 'data' tuple in the correct pool to be cloned.
+    def newsubctx(self):
         self.hello_local_pool()
-        data = (self.frame, extradata)
+        AppCoroutine.newsubctx(self)
         self.goodbye_local_pool()
-        # clone!
-        data, copy.local_pool = gc_clone(data, self.local_pool)
-        copy.frame, extradata = data
-        copy.thunk = self.thunk # in case we haven't switched to self yet
-        return extradata
-
-
-class InterpClonableCoroutine(Coroutine, InterpClonableMixin):
 
     def hello(self):
         self.hello_local_pool()
+        AppCoroutine.hello(self)
 
     def goodbye(self):
+        AppCoroutine.goodbye(self)
         self.goodbye_local_pool()
 
-    def clone(self):
-        # hack, this is overridden in AppClonableCoroutine
-        if self.getcurrent() is self:
-            raise RuntimeError("clone() cannot clone the current coroutine; "
-                               "use fork() instead")
-        copy = InterpClonableCoroutine(self.costate)
-        self.clone_into(copy)
-        return copy
+    def descr_method__new__(space, w_subtype):
+        co = space.allocate_instance(AppClonableCoroutine, w_subtype)
+        costate = AppClonableCoroutine._get_state(space)
+        AppClonableCoroutine.__init__(co, space, state=costate)
+        return space.wrap(co)
 
+    def _get_state(space):
+        return space.fromcache(AppClonableCoState)
+    _get_state = staticmethod(_get_state)
+
+    def w_getcurrent(space):
+        return space.wrap(AppClonableCoroutine._get_state(space).current)
+    w_getcurrent = staticmethod(w_getcurrent)
+
+    def w_clone(self):
+        space = self.space
+        costate = self.costate
+        if costate.current is self:
+            raise OperationError(space.w_RuntimeError,
+                                 space.wrap("clone() cannot clone the "
+                                            "current coroutine"
+                                            "; use fork() instead"))
+        copy = AppClonableCoroutine(space, state=costate)
+        copy.subctx = self.clone_into(copy, self.subctx)
+        return space.wrap(copy)
+
+    def descr__reduce__(self, space):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("_stackless.clonable instances are "
+                                        "not picklable"))
+
+
+AppClonableCoroutine.typedef = TypeDef("clonable", AppCoroutine.typedef,
+    __new__    = interp2app(AppClonableCoroutine.descr_method__new__.im_func),
+    getcurrent = interp2app(AppClonableCoroutine.w_getcurrent),
+    clone      = interp2app(AppClonableCoroutine.w_clone),
+    __reduce__ = interp2app(AppClonableCoroutine.descr__reduce__,
+                            unwrap_spec=['self', ObjSpace]),
+)
+
+class AppClonableCoState(AppCoState):
+    def post_install(self):
+        self.current = self.main = AppClonableCoroutine(self.space, state=self)
+        self.main.subctx.framestack = None      # wack
+
+def post_install(module):
+    makeStaticMethod(module, 'clonable', 'getcurrent')
+    space = module.space
+    AppClonableCoroutine._get_state(space).post_install()
+
+# ____________________________________________________________
 
 class ForkThunk(AbstractThunk):
     def __init__(self, coroutine):
@@ -62,27 +81,28 @@ class ForkThunk(AbstractThunk):
     def call(self):
         oldcoro = self.coroutine
         self.coroutine = None
-        newcoro = oldcoro.clone()
+        newcoro = AppClonableCoroutine(oldcoro.space, state=oldcoro.costate)
+        newcoro.subctx = oldcoro.clone_into(newcoro, oldcoro.subctx)
         newcoro.parent = oldcoro
         self.newcoroutine = newcoro
 
-def fork():
+def fork(space):
     """Fork, as in the Unix fork(): the call returns twice, and the return
     value of the call is either the new 'child' coroutine object (if returning
     into the parent), or None (if returning into the child).  This returns
     into the parent first, which can switch to the child later.
     """
-    current = InterpClonableCoroutine.getcurrent()
-    if not isinstance(current, InterpClonableCoroutine):
-        raise RuntimeError("fork() in a non-clonable coroutine")
+    costate = AppClonableCoroutine._get_state(space)
+    current = costate.current
+    if current is costate.main:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("cannot fork() in the main "
+                                        "clonable coroutine"))
     thunk = ForkThunk(current)
-    coro_fork = InterpClonableCoroutine() 
+    coro_fork = AppClonableCoroutine(space, state=costate)
     coro_fork.bind(thunk)
     coro_fork.switch()
     # we resume here twice.  The following would need explanations about
     # why it returns the correct thing in both the parent and the child...
-    return thunk.newcoroutine
-
-##    from pypy.rpython.lltypesystem import lltype, lloperation
-##    lloperation.llop.debug_view(lltype.Void, current, thunk,
-##        lloperation.llop.gc_x_size_header(lltype.Signed))
+    return space.wrap(thunk.newcoroutine)
+fork.unwrap_spec = [ObjSpace]

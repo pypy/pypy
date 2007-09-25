@@ -28,7 +28,7 @@ class Module(MixedModule):
         post_install_greenlet(self)
 
         if self.space.config.translation.gc in ('framework', 'stacklessgc'):
-            from pypy.module._stackless.clonable import post_install as post_install_clonable
-            self.extra_interpdef('clonable', 'clonable.AppClonableCoroutine')
-            self.extra_interpdef('fork',     'clonable.fork')
+            from pypy.module._stackless.interp_clonable import post_install as post_install_clonable
+            self.extra_interpdef('clonable', 'interp_clonable.AppClonableCoroutine')
+            self.extra_interpdef('fork',     'interp_clonable.fork')
             post_install_clonable(self)
