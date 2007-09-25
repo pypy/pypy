@@ -93,6 +93,19 @@ def test_compression():
     assert bytes == compressed
 
 
+def test_compression_lots_of_data():
+    """
+    Test compression of more data that fits in a single internal output buffer.
+    """
+    expanded = repr(range(20000))
+    compressed = zlib.compress(expanded)
+    print len(expanded), '=>', len(compressed)
+    stream = rzlib.deflateInit()
+    bytes = rzlib.compress(stream, expanded, rzlib.Z_FINISH)
+    rzlib.deflateEnd(stream)
+    assert bytes == compressed
+
+
 ##def test_decompression(self):
 ##    """
 ##    zlib.decompressobj should return an object which can be used to
