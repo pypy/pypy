@@ -13,16 +13,16 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'tasklet'    : 'interp_stackless.tasklet',
-        'coroutine'  : 'coroutine.AppCoroutine',
+        'coroutine'  : 'interp_coroutine.AppCoroutine',
         'greenlet'   : 'interp_greenlet.AppGreenlet',
-        'usercostate': 'composable_coroutine.W_UserCoState',
-        '_return_main' : 'coroutine.return_main',
+        'usercostate': 'interp_composable_coroutine.W_UserCoState',
+        '_return_main' : 'interp_coroutine.return_main',
     }
 
     def setup_after_space_initialization(self):
         # post-installing classmethods/staticmethods which
         # are not yet directly supported
-        from pypy.module._stackless.coroutine import post_install as post_install_coro
+        from pypy.module._stackless.interp_coroutine import post_install as post_install_coro
         post_install_coro(self)
         from pypy.module._stackless.interp_greenlet import post_install as post_install_greenlet
         post_install_greenlet(self)

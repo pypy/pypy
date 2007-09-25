@@ -4,9 +4,9 @@ from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.error import OperationError
 
-from pypy.module._stackless.interp_coroutine import Coroutine, BaseCoState
-from pypy.module._stackless.interp_coroutine import AbstractThunk, syncstate
-from pypy.module._stackless.coroutine import makeStaticMethod
+from pypy.rlib.rcoroutine import Coroutine, BaseCoState
+from pypy.rlib.rcoroutine import AbstractThunk, syncstate
+from pypy.module._stackless.interp_coroutine import makeStaticMethod
 
 
 class GreenletThunk(AbstractThunk):

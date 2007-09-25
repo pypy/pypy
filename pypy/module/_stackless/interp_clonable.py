@@ -1,9 +1,9 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
-from pypy.module._stackless.coroutine import AppCoroutine, AppCoState
-from pypy.module._stackless.coroutine import makeStaticMethod
-from pypy.module._stackless.interp_coroutine import AbstractThunk
+from pypy.module._stackless.interp_coroutine import AppCoroutine, AppCoState
+from pypy.module._stackless.interp_coroutine import makeStaticMethod
+from pypy.rlib.rcoroutine import AbstractThunk
 from pypy.module._stackless.rclonable import InterpClonableMixin
 
 

@@ -4,7 +4,7 @@ testing coroutines at interprepter level
 
 import os
 from pypy import conftest; conftest.translation_test_so_skip_if_appdirect()
-from pypy.module._stackless.interp_coroutine import syncstate, Coroutine, AbstractThunk
+from pypy.rlib.rcoroutine import syncstate, Coroutine, AbstractThunk
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
 
