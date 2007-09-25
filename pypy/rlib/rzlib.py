@@ -7,8 +7,10 @@ libraries = ['z']
 constantnames = '''
     Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END
     Z_DEFLATED  Z_DEFAULT_STRATEGY  Z_DEFAULT_COMPRESSION
-    Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH
+    Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH  Z_FULL_FLUSH
     MAX_WBITS  MAX_MEM_LEVEL
+    Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
+    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY
     '''.split()
 
 class SimpleCConfig:
@@ -43,6 +45,7 @@ for _name in constantnames:
 
 # The following parameter is copied from zutil.h, version 0.95,
 # according to CPython's zlibmodule.c
+DEFLATED = Z_DEFLATED
 if MAX_MEM_LEVEL >= 8:
     DEF_MEM_LEVEL = 8
 else:
