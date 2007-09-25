@@ -7,7 +7,7 @@ libraries = ['z']
 constantnames = '''
     Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END
     Z_DEFLATED  Z_DEFAULT_STRATEGY  Z_DEFAULT_COMPRESSION
-    Z_NO_FLUSH  Z_FINISH
+    Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH
     MAX_WBITS  MAX_MEM_LEVEL
     '''.split()
 
@@ -117,6 +117,23 @@ def _deflateInit2(stream, level, method, wbits, memlevel, strategy):
         stream, level, method, wbits, memlevel, strategy, ZLIB_VERSION, size)
     return result
 
+# XXX I also want to call inflateInit2 instead of inflateInit2_
+_inflateInit2_ = zlib_external(
+    'inflateInit2_',
+    [z_stream_p, # stream
+     rffi.INT, # window bits
+     rffi.CCHARP, # version
+     rffi.INT], # stream size
+    rffi.INT)
+_inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
+
+_inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT)
+
+def _inflateInit2(stream, wbits):
+    size = rffi.sizeof(z_stream)
+    result = _inflateInit2_(stream, wbits, ZLIB_VERSION, size)
+    return result
+
 # ____________________________________________________________
 
 CRC32_DEFAULT_START = 0
@@ -209,6 +226,40 @@ def deflateEnd(stream):
         lltype.free(stream, flavor='raw')
 
 
+def inflateInit(wbits=MAX_WBITS):
+    """
+    Allocate and return an opaque 'stream' object that can be used to
+    decompress data.
+    """
+    stream = lltype.malloc(z_stream, flavor='raw', zero=True)
+    err = _inflateInit2(stream, wbits)
+    if err == Z_OK:
+        return stream
+    else:
+        try:
+            if err == Z_STREAM_ERROR:
+                raise ValueError("Invalid initialization option")
+            else:
+                raise RZlibError.fromstream(stream, err,
+                    "while creating decompression object")
+        finally:
+            lltype.free(stream, flavor='raw')
+
+
+def inflateEnd(stream):
+    """
+    Free the resources associated with the inflate stream.
+    Note that this may raise RZlibError.
+    """
+    try:
+        err = _inflateEnd(stream)
+        if err != Z_OK:
+            raise RZlibError.fromstream(stream, err,
+                "while finishing decompression")
+    finally:
+        lltype.free(stream, flavor='raw')
+
+
 def compress(stream, data, flush=Z_NO_FLUSH):
     """
     Feed more data into a deflate stream.  Returns a string containing
@@ -218,7 +269,30 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     """
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
+    return _operate(stream, data, flush, _deflate, "while compressing")
 
+
+def decompress(stream, data, flush=Z_NO_FLUSH):
+    """
+    Feed more data into an inflate stream.  Returns a string containing
+    (a part of) the decompressed data.  If flush != Z_NO_FLUSH, this also
+    flushes the output data; see zlib.h or the documentation of the
+    zlib module for the possible values of 'flush'.
+    """
+    # Warning, reentrant calls to the zlib with a given stream can cause it
+    # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
+
+    # _operate() does not support the Z_FINISH method of decompressing,
+    # which is for one-shot decompression where a single output buffer is
+    # large enough.  We can just map Z_FINISH to Z_SYNC_FLUSH.
+    if flush == Z_FINISH:
+        flush = Z_SYNC_FLUSH
+    return _operate(stream, data, flush, _inflate, "while decompressing")
+
+
+def _operate(stream, data, flush, cfunc, while_doing):
+    """Common code for compress() and decompress().
+    """
     # Prepare the input buffer for the stream
     inbuf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
     try:
@@ -241,7 +315,7 @@ def compress(stream, data, flush=Z_NO_FLUSH):
             while True:
                 stream.c_next_out = rffi.cast(Bytefp, outbuf)
                 rffi.setintfield(stream, 'c_avail_out', OUTPUT_BUFFER_SIZE)
-                err = _deflate(stream, flush)
+                err = cfunc(stream, flush)
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
@@ -255,20 +329,24 @@ def compress(stream, data, flush=Z_NO_FLUSH):
                     # only occur when flush == Z_FINISH).
                     if err == Z_STREAM_END:
                         break
+                    else:
+                        continue
                 elif err == Z_BUF_ERROR:
-                    # We will only get Z_BUF_ERROR if the output buffer
-                    # was full but there wasn't more output when we
-                    # tried again, so it is not an error condition.
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
-                    assert avail_out == OUTPUT_BUFFER_SIZE
-                    break
-                else:
-                    raise RZlibError.fromstream(stream, err,
-                        "while compressing")
+                    # When compressing, we will only get Z_BUF_ERROR if
+                    # the output buffer was full but there wasn't more
+                    # output when we tried again, so it is not an error
+                    # condition.
+                    if avail_out == OUTPUT_BUFFER_SIZE:
+                        break
+
+                # fallback case: report this error
+                raise RZlibError.fromstream(stream, err, while_doing)
+
         finally:
             lltype.free(outbuf, flavor='raw')
     finally:
         lltype.free(inbuf, flavor='raw')
 
-    assert not stream.c_avail_in, "not all input consumed by deflate()"
+    assert not stream.c_avail_in, "not all input consumed by deflate/inflate"
     return ''.join(result)

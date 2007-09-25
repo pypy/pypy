@@ -73,7 +73,7 @@ def test_invalidLevel():
     raises(ValueError, rzlib.deflateInit, 10)
 
 
-def test_init_end():
+def test_deflate_init_end():
     """
     deflateInit() followed by deflateEnd() should work and do nothing.
     """
@@ -83,7 +83,7 @@ def test_init_end():
 
 def test_compression():
     """
-    Once we have got a deflate stream, rzlib.compress() and rzlib.flush()
+    Once we have got a deflate stream, rzlib.compress() 
     should allow us to compress bytes.
     """
     stream = rzlib.deflateInit()
@@ -106,12 +106,34 @@ def test_compression_lots_of_data():
     assert bytes == compressed
 
 
-##def test_decompression(self):
-##    """
-##    zlib.decompressobj should return an object which can be used to
-##    decompress bytes.
-##    """
-##    decompressor = self.zlib.decompressobj()
-##    bytes = decompressor.decompress(self.compressed)
-##    bytes += decompressor.flush()
-##    assert bytes == self.expanded
+def test_inflate_init_end():
+    """
+    inflateInit() followed by inflateEnd() should work and do nothing.
+    """
+    stream = rzlib.inflateInit()
+    rzlib.inflateEnd(stream)
+
+
+def test_decompression():
+    """
+    Once we have got a inflate stream, rzlib.decompress()
+    should allow us to decompress bytes.
+    """
+    stream = rzlib.inflateInit()
+    bytes = rzlib.decompress(stream, compressed)
+    bytes += rzlib.decompress(stream, "", rzlib.Z_FINISH)
+    rzlib.inflateEnd(stream)
+    assert bytes == expanded
+
+
+def test_decompression_lots_of_data():
+    """
+    Test compression of more data that fits in a single internal output buffer.
+    """
+    expanded = repr(range(20000))
+    compressed = zlib.compress(expanded)
+    print len(compressed), '=>', len(expanded)
+    stream = rzlib.inflateInit()
+    bytes = rzlib.decompress(stream, compressed, rzlib.Z_FINISH)
+    rzlib.inflateEnd(stream)
+    assert bytes == expanded
