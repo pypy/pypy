@@ -3,6 +3,7 @@
 Tests for the rzlib module.
 """
 
+import py
 from pypy.rlib import rzlib
 from pypy.rlib.rarithmetic import r_uint
 import zlib
@@ -137,3 +138,22 @@ def test_decompression_lots_of_data():
     bytes = rzlib.decompress(stream, compressed, rzlib.Z_FINISH)
     rzlib.inflateEnd(stream)
     assert bytes == expanded
+
+
+def test_decompression_truncated_input():
+    """
+    Test that we can accept incomplete input when inflating, but also
+    detect this situation when using Z_FINISH.
+    """
+    expanded = repr(range(20000))
+    compressed = zlib.compress(expanded)
+    print len(compressed), '=>', len(expanded)
+    stream = rzlib.inflateInit()
+    data = rzlib.decompress(stream, compressed[:1000])
+    assert expanded.startswith(data)
+    data += rzlib.decompress(stream, compressed[1000:2000])
+    assert expanded.startswith(data)
+    py.test.raises(rzlib.RZlibError,
+                   rzlib.decompress, stream, compressed[2000:-500],
+                   rzlib.Z_FINISH)
+    rzlib.inflateEnd(stream)

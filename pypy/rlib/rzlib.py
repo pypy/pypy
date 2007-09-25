@@ -189,6 +189,8 @@ class RZlibError(Exception):
         return RZlibError(msg)
     fromstream = staticmethod(fromstream)
 
+null_stream = lltype.nullptr(z_stream)
+
 
 def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
                 wbits=MAX_WBITS, memLevel=DEF_MEM_LEVEL,
@@ -215,15 +217,9 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
 def deflateEnd(stream):
     """
     Free the resources associated with the deflate stream.
-    Note that this may raise RZlibError.
     """
-    try:
-        err = _deflateEnd(stream)
-        if err != Z_OK:
-            raise RZlibError.fromstream(stream, err,
-                "while finishing compression")
-    finally:
-        lltype.free(stream, flavor='raw')
+    _deflateEnd(stream)
+    lltype.free(stream, flavor='raw')
 
 
 def inflateInit(wbits=MAX_WBITS):
@@ -251,13 +247,8 @@ def inflateEnd(stream):
     Free the resources associated with the inflate stream.
     Note that this may raise RZlibError.
     """
-    try:
-        err = _inflateEnd(stream)
-        if err != Z_OK:
-            raise RZlibError.fromstream(stream, err,
-                "while finishing decompression")
-    finally:
-        lltype.free(stream, flavor='raw')
+    _inflateEnd(stream)
+    lltype.free(stream, flavor='raw')
 
 
 def compress(stream, data, flush=Z_NO_FLUSH):
@@ -269,10 +260,10 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     """
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
-    return _operate(stream, data, flush, _deflate, "while compressing")
+    return _operate(stream, data, flush, False, _deflate, "while compressing")
 
 
-def decompress(stream, data, flush=Z_NO_FLUSH):
+def decompress(stream, data, flush=Z_SYNC_FLUSH):
     """
     Feed more data into an inflate stream.  Returns a string containing
     (a part of) the decompressed data.  If flush != Z_NO_FLUSH, this also
@@ -282,15 +273,19 @@ def decompress(stream, data, flush=Z_NO_FLUSH):
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
 
-    # _operate() does not support the Z_FINISH method of decompressing,
-    # which is for one-shot decompression where a single output buffer is
-    # large enough.  We can just map Z_FINISH to Z_SYNC_FLUSH.
+    # _operate() does not support the Z_FINISH method of decompressing.
+    # We can use Z_SYNC_FLUSH instead and manually check that we got to
+    # the end of the data.
     if flush == Z_FINISH:
         flush = Z_SYNC_FLUSH
-    return _operate(stream, data, flush, _inflate, "while decompressing")
+        should_finish = True
+    else:
+        should_finish = False
+    return _operate(stream, data, flush, should_finish, _inflate,
+                    "while decompressing")
 
 
-def _operate(stream, data, flush, cfunc, while_doing):
+def _operate(stream, data, flush, should_finish, cfunc, while_doing):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
@@ -347,6 +342,12 @@ def _operate(stream, data, flush, cfunc, while_doing):
             lltype.free(outbuf, flavor='raw')
     finally:
         lltype.free(inbuf, flavor='raw')
+
+    # When decompressing, if the compressed stream of data was truncated,
+    # then the zlib simply returns Z_OK and waits for more.  Let's detect
+    # this situation and complain.
+    if should_finish and err != Z_STREAM_END:
+        raise RZlibError("the input compressed stream of data is not complete")
 
     assert not stream.c_avail_in, "not all input consumed by deflate/inflate"
     return ''.join(result)
