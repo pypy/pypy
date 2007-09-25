@@ -252,12 +252,15 @@ class Struct(CConfigEntry):
             seen[cell] = True
 
         name = self.name
+        hints = {'align': info['align'],
+                 'size': info['size'],
+                 'fieldoffsets': tuple(fieldoffsets),
+                 'padding': tuple(padfields)}
         if name.startswith('struct '):
             name = name[7:]
-        kwds = {'hints':{'align':info['align'],
-                         'size':info['size'],
-                         'fieldoffsets':tuple(fieldoffsets),
-                         'padding':tuple(padfields)}}
+        else:
+            hints['typedef'] = True
+        kwds = {'hints': hints}
         return rffi.CStruct(name, *fields, **kwds)
 
 class SimpleType(CConfigEntry):
