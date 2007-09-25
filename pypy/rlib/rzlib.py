@@ -4,6 +4,13 @@ from pypy.rpython.tool import rffi_platform
 includes = ['zlib.h']
 libraries = ['z']
 
+constantnames = '''
+    Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END
+    Z_DEFLATED  Z_DEFAULT_STRATEGY  Z_DEFAULT_COMPRESSION
+    Z_NO_FLUSH  Z_FINISH
+    MAX_WBITS  MAX_MEM_LEVEL
+    '''.split()
+
 class SimpleCConfig:
     """
     Definitions for basic types defined by zlib.
@@ -17,20 +24,10 @@ class SimpleCConfig:
     Bytef = rffi_platform.SimpleType('Bytef', rffi.UCHAR)
     voidpf = rffi_platform.SimpleType('voidpf', rffi.VOIDP)
 
-    Z_OK = rffi_platform.ConstantInteger('Z_OK')
-    Z_STREAM_ERROR = rffi_platform.ConstantInteger('Z_STREAM_ERROR')
-
     ZLIB_VERSION = rffi_platform.DefinedConstantString('ZLIB_VERSION')
 
-    Z_DEFLATED = rffi_platform.ConstantInteger('Z_DEFLATED')
-    Z_DEFAULT_STRATEGY = rffi_platform.ConstantInteger('Z_DEFAULT_STRATEGY')
-    Z_DEFAULT_COMPRESSION = rffi_platform.ConstantInteger(
-        'Z_DEFAULT_COMPRESSION')
-    Z_NO_FLUSH = rffi_platform.ConstantInteger(
-        'Z_NO_FLUSH')
-
-    MAX_WBITS = rffi_platform.ConstantInteger('MAX_WBITS')
-    MAX_MEM_LEVEL = rffi_platform.ConstantInteger('MAX_MEM_LEVEL')
+for _name in constantnames:
+    setattr(SimpleCConfig, _name, rffi_platform.ConstantInteger(_name))
 
 config = rffi_platform.configure(SimpleCConfig)
 voidpf = config['voidpf']
@@ -39,18 +36,10 @@ uLong = config['uLong']
 Bytef = config['Bytef']
 Bytefp = lltype.Ptr(lltype.Array(Bytef, hints={'nolength': True}))
 
-Z_OK = config['Z_OK']
-Z_STREAM_ERROR = config['Z_STREAM_ERROR']
-
 ZLIB_VERSION = config['ZLIB_VERSION']
 
-Z_DEFAULT_COMPRESSION = config['Z_DEFAULT_COMPRESSION']
-Z_DEFAULT_STRATEGY = config['Z_DEFAULT_STRATEGY']
-Z_NO_FLUSH = config['Z_DEFAULT_COMPRESSION']
-Z_DEFLATED = config['Z_DEFLATED']
-
-MAX_WBITS = config['MAX_WBITS']
-MAX_MEM_LEVEL = config['MAX_MEM_LEVEL']
+for _name in constantnames:
+    globals()[_name] = config[_name]
 
 # The following parameter is copied from zutil.h, version 0.95,
 # according to CPython's zlibmodule.c
@@ -58,6 +47,8 @@ if MAX_MEM_LEVEL >= 8:
     DEF_MEM_LEVEL = 8
 else:
     DEF_MEM_LEVEL = MAX_MEM_LEVEL
+
+OUTPUT_BUFFER_SIZE = 32*1024
 
 
 class ComplexCConfig:
@@ -153,16 +144,15 @@ def adler32(string, start=ADLER32_DEFAULT_START):
     rffi.free_charp(bytes)
     return checksum
 
-
-def _make_stream():
-    """Helper to build a stream."""
-    return lltype.malloc(z_stream, flavor='raw', zero=True)
-
+# ____________________________________________________________
 
 class RZlibError(Exception):
     """Exception raised by failing operations in pypy.rlib.rzlib."""
     def __init__(self, msg):
         self.msg = msg
+
+    def __str__(self):
+        return self.msg
 
     def fromstream(stream, err, while_doing):
         """Return a RZlibError with a message formatted from a zlib error
@@ -190,7 +180,7 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
     Allocate and return an opaque 'stream' object that can be used to
     compress data.
     """
-    stream = _make_stream()
+    stream = lltype.malloc(z_stream, flavor='raw', zero=True)
     err = _deflateInit2(stream, level, method, wbits, memLevel, strategy)
     if err == Z_OK:
         return stream
@@ -219,180 +209,66 @@ def deflateEnd(stream):
         lltype.free(stream, flavor='raw')
 
 
-##class _StreamBase(Wrappable):
-##    """
-##    Base for classes which want to have a z_stream allocated when they are
-##    initialized and de-allocated when they are freed.
-##    """
-##    def __init__(self, space):
-##        self.space = space
-##        self.stream = lltype.malloc(z_stream, flavor='raw')
-##        self.stream.c_zalloc = lltype.nullptr(z_stream.c_zalloc.TO)
-##        self.stream.c_zfree = lltype.nullptr(z_stream.c_zfree.TO)
-##        self.stream.c_avail_in = rffi.cast(lltype.Unsigned, 0)
-##        self.stream.c_next_in = lltype.nullptr(z_stream.c_next_in.TO)
+def compress(stream, data, flush=Z_NO_FLUSH):
+    """
+    Feed more data into a deflate stream.  Returns a string containing
+    (a part of) the compressed data.  If flush != Z_NO_FLUSH, this also
+    flushes the output data; see zlib.h or the documentation of the
+    zlib module for the possible values of 'flush'.
+    """
+    # Warning, reentrant calls to the zlib with a given stream can cause it
+    # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
 
+    # Prepare the input buffer for the stream
+    inbuf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
+    try:
+        for i in xrange(len(data)):
+            inbuf[i] = data[i]
+        stream.c_next_in = rffi.cast(Bytefp, inbuf)
+        rffi.setintfield(stream, 'c_avail_in', len(data))
 
-##    def __del__(self):
-##        lltype.free(self.stream, flavor='raw')
+        # Prepare the output buffer
+        outbuf = lltype.malloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE,
+                               flavor='raw')
+        try:
+            # Strategy: we call deflate() to get as much output data as
+            # fits in the buffer, then accumulate all output into a list
+            # of characters 'result'.  We don't need to gradually
+            # increase the output buffer size because there is no
+            # quadratic factor.
+            result = []
 
+            while True:
+                stream.c_next_out = rffi.cast(Bytefp, outbuf)
+                rffi.setintfield(stream, 'c_avail_out', OUTPUT_BUFFER_SIZE)
+                err = _deflate(stream, flush)
+                if err == Z_OK or err == Z_STREAM_END:
+                    # accumulate data into 'result'
+                    avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
+                    for i in xrange(OUTPUT_BUFFER_SIZE - avail_out):
+                        result.append(outbuf[i])
+                    # if the output buffer is full, there might be more data
+                    # so we need to try again.  Otherwise, we're done.
+                    if avail_out > 0:
+                        break
+                    # We're also done if we got a Z_STREAM_END (which should
+                    # only occur when flush == Z_FINISH).
+                    if err == Z_STREAM_END:
+                        break
+                elif err == Z_BUF_ERROR:
+                    # We will only get Z_BUF_ERROR if the output buffer
+                    # was full but there wasn't more output when we
+                    # tried again, so it is not an error condition.
+                    avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
+                    assert avail_out == OUTPUT_BUFFER_SIZE
+                    break
+                else:
+                    raise RZlibError.fromstream(stream, err,
+                        "while compressing")
+        finally:
+            lltype.free(outbuf, flavor='raw')
+    finally:
+        lltype.free(inbuf, flavor='raw')
 
-
-##def error_from_zlib(space, status):
-##    if status == Z_STREAM_ERROR:
-##        return OperationError(
-##            space.w_ValueError,
-##            space.wrap("Invalid initialization option"))
-##    assert False, "unhandled status %s" % (status,)
-
-
-##class Compress(_StreamBase):
-##    """
-##    Wrapper around zlib's z_stream structure which provides convenient
-##    compression functionality.
-##    """
-##    def __init__(self, space, w_level):
-##        # XXX CPython actually exposes 4 more undocumented parameters beyond
-##        # level.
-##        if space.is_w(w_level, space.w_None):
-##            level = Z_DEFAULT_COMPRESSION
-##        else:
-##            level = space.int_w(w_level)
-
-##        _StreamBase.__init__(self, space)
-
-##        method = Z_DEFLATED
-##        windowBits = 15
-##        memLevel = 8
-##        strategy = Z_DEFAULT_STRATEGY
-
-##        result = _deflateInit2(
-##            self.stream, level, method, windowBits, memLevel, strategy)
-
-##        if result != Z_OK:
-##            raise error_from_zlib(self.space, result)
-
-
-##    def compress(self, data, length=16384):
-##        """
-##        compress(data) -- Return a string containing data compressed.
-
-##        After calling this function, some of the input data may still be stored
-##        in internal buffers for later processing.
-
-##        Call the flush() method to clear these buffers.
-##        """
-##        self.stream.c_avail_in = rffi.cast(lltype.Unsigned, len(data))
-##        self.stream.c_next_in = lltype.malloc(
-##            Bytefp.TO, len(data), flavor='raw')
-##        for i in xrange(len(data)):
-##            self.stream.c_next_in[i] = rffi.cast(Bytef, data[i])
-##        self.stream.c_avail_out = rffi.cast(lltype.Unsigned, length)
-##        self.stream.c_next_out = lltype.malloc(
-##            Bytefp.TO, length, flavor='raw')
-##        result = _deflate(self.stream, Z_NO_FLUSH)
-##        if result != Z_OK:
-##            raise error_from_zlib(self.space, result)
-##        return rffi.charp2str(self.stream.c_next_out)
-##    compress.unwrap_spec = ['self', str, int]
-
-
-##    def flush(self, mode=0): # XXX =Z_FINISH
-##        """
-##        flush( [mode] ) -- Return a string containing any remaining compressed
-##        data.
-
-##        mode can be one of the constants Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH;
-##        the default value used when mode is not specified is Z_FINISH.
-
-##        If mode == Z_FINISH, the compressor object can no longer be used after
-##        calling the flush() method.  Otherwise, more data can still be
-##        compressed.
-##        """
-##        return self.space.wrap('')
-##    flush.unwrap_spec = ['self', int]
-
-
-##def Compress___new__(space, w_subtype, w_level=None):
-##    """
-##    Create a new z_stream and call its initializer.
-##    """
-##    stream = space.allocate_instance(Compress, w_subtype)
-##    stream = space.interp_w(Compress, stream)
-##    Compress.__init__(stream, space, w_level)
-##    return space.wrap(stream)
-##Compress___new__.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
-
-##Compress.typedef = TypeDef(
-##    'Compress',
-##    __new__ = interp2app(Compress___new__),
-##    compress = interp2app(Compress.compress),
-##    flush = interp2app(Compress.flush))
-
-
-
-##class Decompress(_StreamBase):
-##    """
-##    Wrapper around zlib's z_stream structure which provides convenient
-##    decompression functionality.
-##    """
-##    def __init__(self, space, wbits):
-##        """
-##        Initialize a new decompression object.
-
-##        wbits is an integer between 8 and MAX_WBITS or -8 and -MAX_WBITS
-##        (inclusive) giving the number of "window bits" to use for compression
-##        and decompression.  See the documentation for deflateInit2 and
-##        inflateInit2.
-##        """
-##        _StreamBase.__init__(self, space)
-##        self.wbits = wbits
-
-
-##    def decompress(self, data, max_length=0): # XXX =None
-##        """
-##        decompress(data[, max_length]) -- Return a string containing the
-##        decompressed version of the data.
-
-##        After calling this function, some of the input data may still be stored
-##        in internal buffers for later processing.
-
-##        Call the flush() method to clear these buffers.
-
-##        If the max_length parameter is specified then the return value will be
-##        no longer than max_length.  Unconsumed input data will be stored in the
-##        unconsumed_tail attribute.
-##        """
-##        return self.space.wrap('')
-##    decompress.unwrap_spec = ['self', str, int]
-
-
-##    def flush(self, length=0):
-##        """
-##        flush( [length] ) -- Return a string containing any remaining
-##        decompressed data. length, if given, is the initial size of the output
-##        buffer.
-
-##        The decompressor object can no longer be used after this call.
-##        """
-##        return self.space.wrap('')
-##    flush.unwrap_spec = ['self', int]
-
-
-##def Decompress___new__(space, w_subtype, w_anything=None):
-##    """
-##    Create a new Decompress and call its initializer.
-##    """
-##    stream = space.allocate_instance(Decompress, w_subtype)
-##    stream = space.interp_w(Decompress, stream)
-##    Decompress.__init__(stream, space, w_anything)
-##    return space.wrap(stream)
-##Decompress___new__.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
-
-##Decompress.typedef = TypeDef(
-##    'Decompress',
-##    __new__ = interp2app(Decompress___new__),
-##    decompress = interp2app(Decompress.decompress),
-##    flush = interp2app(Decompress.flush))
+    assert not stream.c_avail_in, "not all input consumed by deflate()"
+    return ''.join(result)

@@ -81,15 +81,16 @@ def test_init_end():
     rzlib.deflateEnd(stream)
 
 
-##def test_compression(self):
-##    """
-##    zlib.compressobj should return an object which can be used to compress
-##    bytes.
-##    """
-##    compressor = rzlib.compressobj()
-##    bytes = compressor.compress(self.expanded)
-##    bytes += compressor.flush()
-##    assert bytes == self.compressed
+def test_compression():
+    """
+    Once we have got a deflate stream, rzlib.compress() and rzlib.flush()
+    should allow us to compress bytes.
+    """
+    stream = rzlib.deflateInit()
+    bytes = rzlib.compress(stream, expanded)
+    bytes += rzlib.compress(stream, "", rzlib.Z_FINISH)
+    rzlib.deflateEnd(stream)
+    assert bytes == compressed
 
 
 ##def test_decompression(self):
