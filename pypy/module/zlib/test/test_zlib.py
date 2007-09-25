@@ -129,3 +129,8 @@ class AppTestZlib(object):
         """
         bytes = self.zlib.decompress(self.compressed)
         assert bytes == self.expanded
+
+
+    def test_decompress_invalid_input(self):
+        raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
+        raises(self.zlib.error, self.zlib.decompress, 'foobar')

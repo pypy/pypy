@@ -44,6 +44,12 @@ def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
 adler32.unwrap_spec = [ObjSpace, str, int]
 
 
+def zlib_error(space, msg):
+    w_module = space.getbuiltinmodule('zlib')
+    w_error = space.getattr(w_module, space.wrap('error'))
+    return OperationError(w_error, space.wrap(msg))
+
+
 def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
     """
     compress(string[, level]) -- Returned compressed string.
@@ -61,7 +67,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
         finally:
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError, e:
-        raise zlib_error(self.space, e.msg)
+        raise zlib_error(space, e.msg)
     return space.wrap(result)
 compress.unwrap_spec = [ObjSpace, str, int]
 
@@ -84,7 +90,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
         finally:
             rzlib.inflateEnd(stream)
     except rzlib.RZlibError, e:
-        raise zlib_error(self.space, e.msg)
+        raise zlib_error(space, e.msg)
     return space.wrap(result)
 decompress.unwrap_spec = [ObjSpace, str, int, int]
 
@@ -167,8 +173,11 @@ Compress.typedef = TypeDef(
     'Compress',
     __new__ = interp2app(Compress___new__),
     compress = interp2app(Compress.compress),
-    flush = interp2app(Compress.flush))
+    flush = interp2app(Compress.flush),
+    __doc__ = """compressobj([level]) -- Return a compressor object.
 
+Optional arg level is the compression level, in 1-9.
+""")
 
 
 class Decompress(Wrappable):
@@ -259,4 +268,8 @@ Decompress.typedef = TypeDef(
     'Decompress',
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
-    flush = interp2app(Decompress.flush))
+    flush = interp2app(Decompress.flush),
+    __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
+
+Optional arg wbits is the window buffer size.
+""")
