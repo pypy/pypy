@@ -2,6 +2,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError
+from pypy.rlib.rarithmetic import intmask
 
 from pypy.rlib import rzlib
 
@@ -19,7 +20,7 @@ def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     # CPython exposes it as a signed value, though. -exarkun
     # The value *is* unsigned on 64-bit platforms in CPython... bah.
     # For now let's do the same as CPython and boldly cast to a C long. -arigo
-    checksum = int(checksum)
+    checksum = intmask(checksum)
 
     return space.wrap(checksum)
 crc32.unwrap_spec = [ObjSpace, str, int]
@@ -38,7 +39,7 @@ def adler32(space, string, start = rzlib.ADLER32_DEFAULT_START):
     # CPython exposes it as a signed value, though. -exarkun
     # The value *is* unsigned on 64-bit platforms in CPython... bah.
     # For now let's do the same as CPython and boldly cast to a C long. -arigo
-    checksum = int(checksum)
+    checksum = intmask(checksum)
 
     return space.wrap(checksum)
 adler32.unwrap_spec = [ObjSpace, str, int]
@@ -118,7 +119,7 @@ class Compress(Wrappable):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.deflateEnd(self.stream)
-            self.stream = null_stream
+            self.stream = rzlib.null_stream
 
 
     def compress(self, data):
@@ -209,7 +210,7 @@ class Decompress(Wrappable):
         """Automatically free the resources used by the stream."""
         if self.stream:
             rzlib.inflateEnd(self.stream)
-            self.stream = null_stream
+            self.stream = rzlib.null_stream
 
 
     def decompress(self, data, max_length=0):
