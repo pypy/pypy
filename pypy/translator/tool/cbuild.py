@@ -10,20 +10,6 @@ py.log.setconsumer("cbuild", ansi_log)
 
 debug = 0
 
-def make_module_from_pyxstring(name, dirpath, string):
-    dirpath = py.path.local(dirpath)
-    pyxfile = dirpath.join('%s.pyx' % name) 
-    i = 0
-    while pyxfile.check():
-        pyxfile = pyxfile.new(basename='%s%d.pyx' % (name, i))
-        i+=1
-    pyxfile.write(string)
-    if debug: print "made pyxfile", pyxfile
-    cfile = make_c_from_pyxfile(pyxfile)
-    module = make_module_from_c(cfile)
-    #print "made module", module
-    return module
-
 def compiler_command():
     # e.g. for tcc, you might set this to
     #    "tcc -shared -o %s.so %s.c"
@@ -184,89 +170,6 @@ def import_module_from_directory(dir, modname):
         if file:
             file.close()
     return mod
-
-def make_c_from_pyxfile(pyxfile):
-    from pypy.translator.pyrex import genpyrex
-    pyrexdir = os.path.dirname(genpyrex.__file__)
-    if pyrexdir not in sys.path:
-        sys.path.insert(0, pyrexdir)
-    from Pyrex.Compiler.Main import CompilationOptions, Context, PyrexError
-    try:
-        options = CompilationOptions(show_version = 0, 
-                                     use_listing_file = 0, 
-                                     c_only = 1,
-                                     output_file = None)
-        context = Context(options.include_path)
-        result = context.compile(str(pyxfile), options)
-        if result.num_errors > 0:
-            raise ValueError, "failure %s" % result
-    except PyrexError, e:
-        print >>sys.stderr, e
-    cfile = pyxfile.new(ext='.c')
-    return cfile
-
-def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
-    """ return a pyrex-generated cfunction from the given func. 
-
-    simplify is true -> perform simplifications on the flowgraph.
-    dot is true      -> generate a dot-configuration file and postscript.
-    inputargtypes is a list (allowed to be empty) ->
-                        then annotation will be performed before generating 
-                        dot/pyrex/c code. 
-
-    """
-    try: func = func.im_func
-    except AttributeError: pass
-
-    # build the flow graph
-    from pypy.objspace.flow import Space
-    from pypy.tool.udir import udir
-    space = Space()
-    name = func.func_name
-    funcgraph = space.build_flow(func)
-
-    if not inputargtypes: 
-        source = inspect.getsource(func)
-        base = udir.join(name).new(ext='.py').write(source) 
-
-    if dot:
-        from pypy.translator.tool.make_dot import FlowGraphDotGen
-        dotgen = FlowGraphDotGen(name)
-        dotgen.emit_subgraph(name, funcgraph)
-
-    # apply transformations 
-    if simplify:
-        from pypy.translator.simplify import simplify_graph
-        simplify_graph(funcgraph)
-        name += '_s'
-
-    # get the pyrex generator
-    from pypy.translator.pyrex.genpyrex import GenPyrex
-    genpyrex = GenPyrex(funcgraph)
-
-    # generate pyrex (without type inference)
-
-    # apply type inference 
-    if inputargtypes is not None:
-        genpyrex.annotate(inputargtypes)
-        name += '_t'
-        #a = Annotator(self.functiongraph)
-        #a.build_types(input_arg_types)
-        #a.simplify()
-
-        pyxstring = genpyrex.emitcode()
-        #funcgraph.source = inspect.getsource(func)
-    else:
-        pyxstring = genpyrex.emitcode()
-
-    pyxheader = genpyrex.globaldeclarations()
-    mod = make_module_from_pyxstring(name, udir, pyxheader + '\n' + pyxstring)
-
-    if dot:
-        if name != func.func_name:  # if some transformations have been done
-            dotgen.emit_subgraph(name, funcgraph)
-        dotgen.generate()
-    return getattr(mod, func.func_name)
 
 
 def log_spawned_cmd(spawn):
