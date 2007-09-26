@@ -60,6 +60,14 @@ class AppTestStruct(object):
         assert pack("<i", 0x41424344) == 'DCBA'
 
 
+    def test_unpack_standard_little(self):
+        """
+        Check unpacking with the '<' format specifier.
+        """
+        unpack = self.struct.unpack
+        assert unpack("<i", 'DCBA') == (0x41424344,)
+
+
     def test_calcsize_native(self):
         """
         Check that the size of the various format characters is reasonable.

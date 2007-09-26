@@ -48,6 +48,7 @@ The variable struct.error is an exception raised on errors."""
     interpleveldefs = {
         'calcsize': 'interp_struct.calcsize',
         'pack': 'interp_struct.pack',
+        'unpack': 'interp_struct.unpack',
         }
 
     appleveldefs = {

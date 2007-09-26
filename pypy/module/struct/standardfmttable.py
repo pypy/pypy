@@ -60,7 +60,7 @@ def make_int_packer(size, signed):
         plural = ""
     errormsg = "argument out of range for %d-byte%s integer format" % (size,
                                                                        plural)
-    unroll_range_size = unrolling_iterable(range(size))
+    unroll_revrange_size = unrolling_iterable(range(size-1, -1, -1))
 
     def pack_int(fmtiter):
         method = getattr(fmtiter, accept_method)
@@ -68,11 +68,11 @@ def make_int_packer(size, signed):
         if value < min or value > max:
             raise StructError(errormsg)
         if fmtiter.bigendian:
-            for i in unroll_range_size:
+            for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
                 fmtiter.result.append(chr(x))
         else:
-            for i in unroll_range_size:
+            for i in unroll_revrange_size:
                 fmtiter.result.append(chr(value & 0xff))
                 value >>= 8
 
@@ -98,7 +98,36 @@ def unpack_float(fmtiter):
 # ____________________________________________________________
 
 def make_int_unpacker(size, signed):
-    return lambda fmtiter: xxx
+    if signed:
+        if size <= native_int_size:
+            inttype = int
+        else:
+            inttype = r_longlong
+    else:
+        if size < native_int_size:
+            inttype = int
+        elif size == native_int_size:
+            inttype = r_uint
+        else:
+            inttype = r_ulonglong
+    unroll_range_size = unrolling_iterable(range(size))
+
+    def unpack_int(fmtiter):
+        intvalue = inttype(0)
+        s = fmtiter.read(size)
+        idx = 0
+        if fmtiter.bigendian:
+            for i in unroll_range_size:
+                intvalue <<= 8
+                intvalue |= ord(s[idx])
+                idx += 1
+        else:
+            for i in unroll_range_size:
+                intvalue |= inttype(ord(s[idx])) << (8*i)
+                idx += 1
+        fmtiter.append(intvalue)
+
+    return unpack_int
 
 # ____________________________________________________________
 

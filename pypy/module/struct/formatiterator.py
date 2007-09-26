@@ -91,10 +91,38 @@ class PackFormatIterator(FormatIterator):
         # XXX 's', 'p'
         for i in range(repetitions):
             fmtop.pack(self)
+    operate._annspecialcase_ = 'specialize:argvalue(1)'
 
     def accept_int_arg(self):
         w_obj = self.args_iterator.next()   # XXX catch StopIteration
         return self.space.int_w(w_obj)
+
+
+class UnpackFormatIterator(FormatIterator):
+
+    def __init__(self, space, input):
+        self.space = space
+        self.input = input
+        self.inputpos = 0
+        self.result_w = []     # list of wrapped objects
+
+    def operate(self, fmtop, repetitions):
+        # XXX 's', 'p'
+        for i in range(repetitions):
+            fmtop.unpack(self)
+    operate._annspecialcase_ = 'specialize:argvalue(1)'
+
+    def read(self, count):
+        end = self.inputpos + count
+        if end > len(self.input):
+            raise StructError("unpack str size is too short for the format")
+        s = self.input[self.inputpos : end]
+        self.inputpos = end
+        return s
+
+    def append(self, value):
+        self.result_w.append(self.space.wrap(value))
+    append._annspecialcase_ = 'specialize:argtype(1)'
 
 
 class FmtOp(object):
