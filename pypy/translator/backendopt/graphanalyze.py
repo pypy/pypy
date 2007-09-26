@@ -48,7 +48,7 @@ class GraphAnalyzer(object):
             graph = getattr(meth, 'graph', None)
             if graph is None:
                 return self.analyze_external_method(op, TYPE, meth)
-            return self.analyze_oosend(TYPE, name, seen=None)
+            return self.analyze_oosend(TYPE, name, seen)
         if self.operation_is_true(op):
             return True
 

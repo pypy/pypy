@@ -111,6 +111,26 @@ class BaseTestCanRaise(object):
         assert not ra.can_raise(op_call_f)
         assert ra.can_raise(op_call_m)
 
+    def test_method_recursive(self):
+        class A:
+            def m(self, x):
+                if x > 0:
+                    return self.m(x-1)
+                else:
+                    return 42
+        def m(a):
+            return a.m(2)
+        def h():
+            obj = A()
+            m(obj)
+        t, ra = self.translate(h, [])
+        hgraph = graphof(t, h)
+        # fiiiish :-(
+        block = hgraph.startblock
+        op_call_m = block.operations[-1]
+        assert op_call_m.opname == "direct_call"
+        assert not ra.can_raise(op_call_m)
+
     def test_instantiate(self):
         # instantiate is interesting, because it leads to one of the few cases of
         # an indirect call without a list of graphs
