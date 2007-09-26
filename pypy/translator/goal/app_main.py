@@ -3,15 +3,16 @@
 # See test/test_app_main.
 """
 options:
-  -i           inspect interactively after running script
-  -O           dummy optimization flag for compatibility with C Python
-  -c CMD       program passed in as CMD (terminates option list)
-  -S           do not 'import site' on initialization
-  -u           unbuffered binary stdout and stderr
-  -h, --help   show this help message and exit
-  -m           library module to be run as a script (terminates option list)
-  --version    print the PyPy version
-  --info       print translation information about this PyPy executable
+  -i             inspect interactively after running script
+  -O             dummy optimization flag for compatibility with C Python
+  -c CMD         program passed in as CMD (terminates option list)
+  -S             do not 'import site' on initialization
+  -u             unbuffered binary stdout and stderr
+  -h, --help     show this help message and exit
+  -m             library module to be run as a script (terminates option list)
+  -k, --oldstyle use old-style classes instead of newstyle classes everywhere
+  --version      print the PyPy version
+  --info         print translation information about this PyPy executable
 """
 
 import sys, os
@@ -179,6 +180,7 @@ def entry_point(executable, argv):
     i = 0
     run_module = False
     run_stdin = False
+    oldstyle_classes = False
     while i < len(argv):
         arg = argv[i]
         if not arg.startswith('-'):
@@ -216,6 +218,8 @@ def entry_point(executable, argv):
                 return 2
             run_module = True
             break
+        elif arg in ('-k', '--oldstyle'):
+            oldstyle_classes = True
         elif arg == '--':
             i += 1
             break     # terminates option list
@@ -234,6 +238,10 @@ def entry_point(executable, argv):
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
+
+    if oldstyle_classes:
+        import __builtin__
+        __builtin__.__metaclass__ = __builtin__._classobj
 
     if import_site:
         try:

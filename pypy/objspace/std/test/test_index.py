@@ -3,7 +3,9 @@ from pypy.conftest import gettestobjspace
 
 class AppTest_IndexProtocol:
     def setup_class(self):
-        self.space = gettestobjspace(oldstyle=True)
+        self.space = gettestobjspace()
+        self.space.force_old_style_classes()
+
         w_oldstyle = self.space.appexec([], """():
             class oldstyle:
                 def __index__(self):

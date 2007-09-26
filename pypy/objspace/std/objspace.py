@@ -48,10 +48,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
-    def setoptions(self, **kwds):
-        if "oldstyle" in kwds:
-            self.config.objspace.std.oldstyle = kwds["oldstyle"]
-
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
         self._typecache = Cache()
@@ -253,11 +249,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """)
         self.w_dict.__flags__ = old_flags
 
-        if self.config.objspace.std.oldstyle:
-            self.enable_old_style_classes_as_default_metaclass()
-
         # final setup
         self.setup_builtin_modules()
+
         # Adding transparent proxy call
         if self.config.objspace.std.withtproxy:
             w___pypy__ = self.getbuiltinmodule("__pypy__")
@@ -268,16 +262,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             self.setattr(w___pypy__, self.wrap('get_tproxy_controller'),
                           self.wrap(app_proxy_controller))
 
-    def enable_old_style_classes_as_default_metaclass(self):
-        self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 
-    def enable_new_style_classes_as_default_metaclass(self):
-        space = self
-        try: 
-            self.delitem(self.builtin.w_dict, self.wrap('__metaclass__')) 
-        except OperationError, e: 
-            if not e.match(space, space.w_KeyError): 
-                raise 
 
     def setup_old_style_classes(self):
         """NOT_RPYTHON"""
@@ -291,6 +276,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
         self.w_classobj = w_classobj
         self.w_instance = w_instance
+
+    def force_old_style_classes(self):
+        self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 
     def create_builtin_module(self, pyname, publicname):
         """NOT_RPYTHON
