@@ -6,7 +6,7 @@ import autopath
 import os
 
 ROOT = autopath.pypydir
-EXCLUDE = {'/translator/pyrex/Pyrex': True}
+EXCLUDE = {}
 
 
 def test_no_tabs():
