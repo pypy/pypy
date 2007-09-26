@@ -17,7 +17,7 @@ from pypy.module.cclp.scheduler import W_ThreadGroupScheduler
 from pypy.module._cslib import fd
 from pypy.rlib.cslib import rdistributor as rd
 
-from pypy.module._stackless.coroutine import AppCoroutine
+from pypy.module._stackless.interp_coroutine import AppCoroutine
 
 import pypy.rlib.rgc as rgc
 

@@ -1,6 +1,6 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 from pypy.interpreter.error import OperationError
-from pypy.module._stackless.clonable import AppClonableCoroutine
+from pypy.module._stackless.interp_clonable import AppClonableCoroutine
 
 from pypy.module.cclp.misc import w, AppCoroutine, get_current_cspace
 from pypy.module.cclp.global_state import sched
