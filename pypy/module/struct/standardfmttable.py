@@ -33,8 +33,8 @@ native_int_size = struct.calcsize("l")
 
 def make_int_packer(size, signed):
     if signed:
-        min = -(2 ** (size-1))
-        max = (2 ** (size-1)) - 1
+        min = -(2 ** (8*size-1))
+        max = (2 ** (8*size-1)) - 1
         if size <= native_int_size:
             accept_method = 'accept_int_arg'
         else:
@@ -43,7 +43,7 @@ def make_int_packer(size, signed):
             max = r_longlong(max)
     else:
         min = 0
-        max = (2 ** size) - 1
+        max = (2 ** (8*size)) - 1
         if size < native_int_size:
             accept_method = 'accept_int_arg'
         elif size == native_int_size:

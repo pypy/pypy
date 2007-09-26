@@ -52,6 +52,14 @@ class AppTestStruct(object):
         assert calcsize('=bQ3i') == 1 + 8 + 3*4
 
 
+    def test_pack_standard_little(self):
+        """
+        Check packing with the '<' format specifier.
+        """
+        pack = self.struct.pack
+        assert pack("<i", 0x41424344) == 'DCBA'
+
+
     def test_calcsize_native(self):
         """
         Check that the size of the various format characters is reasonable.

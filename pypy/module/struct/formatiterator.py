@@ -16,7 +16,7 @@ class FormatIterator(object):
     """
     _mixin_ = True
 
-    def __init__(self, fmt):
+    def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
         native = True
         bigendian = native_is_bigendian
@@ -38,8 +38,7 @@ class FormatIterator(object):
                 index = 0
         self.native = native
         self.bigendian = bigendian
-
-        # immediately interpret the format string,
+        # interpret the format string,
         # calling self.operate() for each format unit
         while index < len(fmt):
             c = fmt[index]
@@ -79,6 +78,23 @@ class CalcSizeFormatIterator(FormatIterator):
             size = ovfcheck(fmtop.size * repetitions)
         self.totalsize = ovfcheck(self.totalsize + size)
     operate._annspecialcase_ = 'specialize:argvalue(1)'
+
+
+class PackFormatIterator(FormatIterator):
+
+    def __init__(self, space, args_w):
+        self.space = space
+        self.args_iterator = iter(args_w)
+        self.result = []      # list of characters
+
+    def operate(self, fmtop, repetitions):
+        # XXX 's', 'p'
+        for i in range(repetitions):
+            fmtop.pack(self)
+
+    def accept_int_arg(self):
+        w_obj = self.args_iterator.next()   # XXX catch StopIteration
+        return self.space.int_w(w_obj)
 
 
 class FmtOp(object):
