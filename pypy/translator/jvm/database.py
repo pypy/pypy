@@ -460,7 +460,6 @@ class Database(OODatabase):
         ootype.UniChar:          jvmtype.jChar,
         ootype.Class:            jvmtype.jClass,
         ootype.ROOT:             jvmtype.jObject,  # treat like a scalar
-        #WeakGcAddress:           jvmtype.jWeakRef,
     }
 
     # Dictionary for non-scalar types; in this case, if we see the key, we
@@ -472,6 +471,7 @@ class Database(OODatabase):
         ootype.Dict:             jvmtype.jHashMap,
         ootype.DictItemsIterator:jvmtype.jPyPyDictItemsIterator,
         ootype.CustomDict:       jvmtype.jPyPyCustomDict,
+        ootype.WeakReference:    jvmtype.jPyPyWeakRef,
         ll_os.STAT_RESULT:       jvmtype.jPyPyStatResult,
         }
 

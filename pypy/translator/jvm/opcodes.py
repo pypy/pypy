@@ -65,6 +65,7 @@ _opcodes = {
     'direct_call':              [Call, StoreResult],
     'indirect_call':            [PushAllArgs, IndirectCall, StoreResult],
 
+    #'cast_ptr_to_weakadr':      CastPtrToWeakAddress
     'gc__collect':              jvmgen.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
     'resume_point':             Ignore,

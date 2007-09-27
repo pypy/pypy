@@ -12,7 +12,7 @@ from pypy.translator.jvm.typesystem import \
      jObject, jByteArray, jPyPyExcWrap, jIntegerClass, jLongClass, \
      jDoubleClass, jCharClass, jStringBuilder, JvmScalarType, jArrayList, \
      jObjectArray, jPyPyInterlink, jPyPyCustomDict, jPyPyEquals, \
-     jPyPyHashCode, jMap, jWeakRef, jSystem, jll_os
+     jPyPyHashCode, jMap, jPyPyWeakRef, jSystem, jll_os
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -429,6 +429,8 @@ OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
 CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
 CUSTOMDICTMAKE =        Method.s(jPyPyCustomDict, 'make',
                                  (jPyPyEquals, jPyPyHashCode), jPyPyCustomDict)
+PYPYWEAKREFCREATE =     Method.s(jPyPyWeakRef, 'create', (jObject,), jPyPyWeakRef)
+PYPYWEAKREFGET =        Method.v(jPyPyWeakRef, 'll_get', (), jObject)
 
 # ___________________________________________________________________________
 # Fields
@@ -1137,17 +1139,8 @@ class JVMGenerator(Generator):
         else:
             # Big hack to avoid exponential notation:
             self.emit(LDC2, "%22.22f" % value)
-
-    def prepare_cast_ptr_to_weak_address(self):
-        """
-        To cast a pointer to a weak ref is a 2-step process.
-        First, invoke this routine.  Then, invoke what is needed
-        to push the value, then invoke finalize_cast_ptr_to_weak_address 
-        """
-        self.emit(NEW, jWeakRef)
-        self.emit(DUP)
         
-    def finalize_cast_ptr_to_weak_address(self, OOTYPE):
+    def create_weakref(self, OOTYPE):
         """
         After prepare_cast_ptr_to_weak_address has been called, and the
         ptr to cast has been pushed, you can invoke this routine.
@@ -1155,17 +1148,15 @@ class JVMGenerator(Generator):
         The result will be that at the top of the stack is a weak reference.
         """
         self.prepare_generic_argument(OOTYPE) 
-        ctor = Method.c(jWeakRef, (jObject,))
-        self.emit(ctor)
-
-    def cast_weak_address_to_ptr(self, OOTYPE):
+        self.emit(PYPYWEAKREFCREATE)
+    
+    def deref_weakref(self, OOTYPE):
         """
         If a weak ref is at the top of the stack, yields the object
         that this weak ref is a pointer to.  OOTYPE is the kind of object
         you had a weak reference to.
         """
-        get_mthd = Method.v(jWeakRef, 'get', (), jObject)
-        self.emit(get_mthd)
+        self.emit(PYPYWEAKREFGET)
         self.prepare_generic_result(OOTYPE)
 
     # __________________________________________________________________

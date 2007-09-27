@@ -7,7 +7,7 @@ from pypy.translator.oosupport.constant import \
      StaticMethodConst, CustomDictConst, WeakRefConst, push_constant, \
      MAX_CONST_PER_STEP
 from pypy.translator.jvm.typesystem import \
-     jObject, jVoid, jWeakRef, JvmClassType
+     jObject, jVoid, jPyPyWeakRef, JvmClassType
 
 jPyPyConstantInit = JvmClassType('pypy.ConstantInit')
 jPyPyConstantInitMethod = Method.s(jPyPyConstantInit, 'init', [], jVoid)
@@ -188,17 +188,16 @@ class JVMWeakRefConst(WeakRefConst):
     PRIORITY = 200
 
     def jtype(self):
-        return jWeakRef
+        return jPyPyWeakRef
 
-    def create_pointer(self, gen):
-        gen.prepare_cast_ptr_to_weak_address()
+    def create_pointer(self, gen):        
         if not self.value:
             TYPE = ootype.ROOT
             gen.push_null(TYPE)
         else:
             TYPE = self.value._TYPE
             push_constant(self.db, self.value._TYPE, self.value, gen)
-        gen.finalize_cast_ptr_to_weak_address(TYPE)
+        gen.create_weakref(TYPE)
 
     def initialize_data(self, constgen, gen):
         gen.pop(ootype.ROOT)

@@ -20,8 +20,8 @@ for example.
 
 Python Unicode strings, on the other hand, map directly to Java Strings.
 
-WeakRefs can hopefully map to Java Weak References in a straight
-forward fashion.
+WeakRefs are mapped to a thin wrapper class, PyPyWeakRef, to allow for
+mutation of the object being referenced (the ll_set method).
 
 Collections can hopefully map to Java collections instances.  Note
 that JVM does not have an idea of generic typing at its lowest level
@@ -170,7 +170,6 @@ jPrintStream = JvmClassType('java.io.PrintStream')
 jMath = JvmClassType('java.lang.Math')
 jList = JvmInterfaceType('java.util.List')
 jArrayList = JvmClassType('java.util.ArrayList')
-jWeakRef = JvmClassType('java.lang.ref.WeakReference')
 jPyPy = JvmClassType('pypy.PyPy')
 jPyPyExcWrap = JvmClassType('pypy.ExceptionWrapper')
 jPyPyMain = JvmClassType('pypy.Main')
@@ -178,6 +177,7 @@ jPyPyDictItemsIterator = JvmClassType('pypy.DictItemsIterator')
 jPyPyInterlink = JvmClassType('pypy.Interlink')
 jPyPyCustomDict = JvmClassType('pypy.CustomDict')
 jPyPyStatResult = JvmClassType('pypy.StatResult')
+jPyPyWeakRef = JvmClassType('pypy.PyPyWeakRef')
 jll_os = JvmClassType('pypy.ll_os')
 
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)

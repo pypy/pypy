@@ -52,7 +52,7 @@ class JvmBuiltInType(jvmtype.JvmClassType):
         ARGS, RESULT = self.gen.erased_types(methodnm)
         jargtypes = [self.db.lltype_to_cts(P) for P in ARGS]
         jrettype = self.db.lltype_to_cts(RESULT)
-
+        
         if self.OOTYPE.__class__ in bridged_objects:
             # Bridged objects are ones where we have written a java class
             # that has methods with the correct names and types already
@@ -71,6 +71,7 @@ class JvmBuiltInType(jvmtype.JvmClassType):
 
 bridged_objects = (
     ootype.DictItemsIterator,
+    ootype.WeakReference.__class__
     )
 
 built_in_methods = {
