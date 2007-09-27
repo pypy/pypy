@@ -870,6 +870,10 @@ class ObjSpace(object):
         except OverflowError:
             raise OperationError(self.w_OverflowError,
                                  self.wrap('integer too large'))
+        except ValueError:
+            raise OperationError(self.w_ValueError,
+                                 self.wrap('cannot convert negative integer '
+                                           'to unsigned int'))
 
 
 class AppExecCache(SpaceCache):

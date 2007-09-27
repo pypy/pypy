@@ -2,7 +2,7 @@ from py.test import raises
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 import sys
 
 # this test isn't so much to test that the objspace interface *works*
@@ -179,6 +179,23 @@ class TestObjSpace:
         space.raises_w(space.w_TypeError, space.r_longlong_w, w_obj)
         w_obj = space.wrap(-12.34)
         space.raises_w(space.w_TypeError, space.r_longlong_w, w_obj)
+
+    def test_r_ulonglong_w(self):
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.r_ulonglong_w(w_value)
+        assert res == 12
+        assert type(res) is r_ulonglong
+        w_value = space.wrap(r_ulonglong(sys.maxint * 42))
+        res = space.r_ulonglong_w(w_value)
+        assert res == sys.maxint * 42
+        assert type(res) is r_ulonglong
+        w_obj = space.wrap("hello world")
+        space.raises_w(space.w_TypeError, space.r_ulonglong_w, w_obj)
+        w_obj = space.wrap(-12.34)
+        space.raises_w(space.w_TypeError, space.r_ulonglong_w, w_obj)
+        w_obj = space.wrap(-12)
+        space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
 
 
 class TestModuleMinimal: 
