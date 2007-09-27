@@ -4,6 +4,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module.struct.error import StructError
 from pypy.module.struct.standardfmttable import standard_fmttable
+from pypy.module.struct.nativefmttable import native_fmttable
 from pypy.module.struct.nativefmttable import native_is_bigendian
 
 
@@ -18,8 +19,8 @@ class FormatIterator(object):
 
     def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
-        native = True
-        bigendian = native_is_bigendian
+        table = unroll_native_fmtdescs
+        self.bigendian = native_is_bigendian
         index = 0
         if len(fmt) > 0:
             c = fmt[0]
@@ -27,17 +28,16 @@ class FormatIterator(object):
             if c == '@':
                 pass
             elif c == '=':
-                native = False
+                table = unroll_standard_fmtdescs
             elif c == '<':
-                native = False
-                bigendian = False
+                table = unroll_standard_fmtdescs
+                self.bigendian = False
             elif c == '>' or c == '!':
-                native = False
-                bigendian = True
+                table = unroll_standard_fmtdescs
+                self.bigendian = True
             else:
                 index = 0
-        self.native = native
-        self.bigendian = bigendian
+
         # interpret the format string,
         # calling self.operate() for each format unit
         while index < len(fmt):
@@ -60,9 +60,11 @@ class FormatIterator(object):
             else:
                 repetitions = 1
 
-            for fmtop in unroll_fmtops:
-                if c == fmtop.fmtchar:
-                    self.operate(fmtop, repetitions)
+            for fmtdesc in table:
+                if c == fmtdesc.fmtchar:
+                    if fmtdesc.alignment > 1:
+                        self.align(fmtdesc.mask)
+                    self.operate(fmtdesc, repetitions)
                     break
             else:
                 raise StructError("bad char in struct format")
@@ -71,13 +73,17 @@ class FormatIterator(object):
 class CalcSizeFormatIterator(FormatIterator):
     totalsize = 0
 
-    def operate(self, fmtop, repetitions):
-        if fmtop.size == 1:
+    def operate(self, fmtdesc, repetitions):
+        if fmtdesc.size == 1:
             size = repetitions  # skip the overflow-checked multiplication by 1
         else:
-            size = ovfcheck(fmtop.size * repetitions)
+            size = ovfcheck(fmtdesc.size * repetitions)
         self.totalsize = ovfcheck(self.totalsize + size)
     operate._annspecialcase_ = 'specialize:argvalue(1)'
+
+    def align(self, mask):
+        pad = (-self.totalsize) & mask
+        self.totalsize = ovfcheck(self.totalsize + pad)
 
 
 class PackFormatIterator(FormatIterator):
@@ -87,15 +93,26 @@ class PackFormatIterator(FormatIterator):
         self.args_iterator = iter(args_w)
         self.result = []      # list of characters
 
-    def operate(self, fmtop, repetitions):
-        # XXX 's', 'p'
-        for i in range(repetitions):
-            fmtop.pack(self)
+    def operate(self, fmtdesc, repetitions):
+        if fmtdesc.needcount:
+            fmtdesc.pack(self, repetitions)
+        else:
+            for i in range(repetitions):
+                fmtdesc.pack(self)
     operate._annspecialcase_ = 'specialize:argvalue(1)'
+
+    def align(self, mask):
+        pad = (-len(self.result)) & mask
+        for i in range(pad):
+            self.result.append('\x00')
 
     def accept_int_arg(self):
         w_obj = self.args_iterator.next()   # XXX catch StopIteration
         return self.space.int_w(w_obj)
+
+    def accept_str_arg(self):
+        w_obj = self.args_iterator.next()   # XXX catch StopIteration
+        return self.space.str_w(w_obj)
 
 
 class UnpackFormatIterator(FormatIterator):
@@ -106,11 +123,16 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = 0
         self.result_w = []     # list of wrapped objects
 
-    def operate(self, fmtop, repetitions):
-        # XXX 's', 'p'
-        for i in range(repetitions):
-            fmtop.unpack(self)
+    def operate(self, fmtdesc, repetitions):
+        if fmtdesc.needcount:
+            fmtdesc.unpack(self, repetitions)
+        else:
+            for i in range(repetitions):
+                fmtdesc.unpack(self)
     operate._annspecialcase_ = 'specialize:argvalue(1)'
+
+    def align(self, mask):
+        self.inputpos = (self.inputpos + mask) & ~mask
 
     def read(self, count):
         end = self.inputpos + count
@@ -120,19 +142,28 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = end
         return s
 
-    def append(self, value):
+    def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
-    append._annspecialcase_ = 'specialize:argtype(1)'
+    appendobj._annspecialcase_ = 'specialize:argtype(1)'
 
 
-class FmtOp(object):
+class FmtDesc(object):
     def __init__(self, fmtchar, attrs):
         self.fmtchar = fmtchar
+        self.alignment = 1      # by default
+        self.needcount = False  # by default
         self.__dict__.update(attrs)
+        self.mask = self.alignment - 1
+        assert self.alignment & self.mask == 0, (
+            "this module assumes that all alignments are powers of two")
     def _freeze_(self):
         return True
 
-_items = standard_fmttable.items()
-_items.sort()
-unroll_fmtops = unrolling_iterable([FmtOp(_key, _attrs)
-                                    for _key, _attrs in _items])
+def table2desclist(table):
+    items = table.items()
+    items.sort()
+    lst = [FmtDesc(key, attrs) for key, attrs in items]
+    return unrolling_iterable(lst)
+
+unroll_standard_fmtdescs = table2desclist(standard_fmttable)
+unroll_native_fmtdescs   = table2desclist(native_fmttable)

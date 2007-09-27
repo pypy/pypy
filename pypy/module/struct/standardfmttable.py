@@ -12,17 +12,41 @@ from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 
 # ____________________________________________________________
 
-def pack_pad(fmtiter):
-    fmtiter.result.append('\x00')
+def pack_pad(fmtiter, count):
+    for i in range(count):
+        fmtiter.result.append('\x00')
 
 def pack_char(fmtiter):
-    xxx
+    string = fmtiter.accept_str_arg()
+    if len(string) != 1:
+        raise StructError("expected a string of length 1")
+    c = string[0]   # string->char conversion for the annotator
+    fmtiter.result.append(c)
 
-def pack_string(fmtiter):
-    xxx
+def pack_string(fmtiter, count):
+    string = fmtiter.accept_str_arg()
+    if len(string) < count:
+        fmtiter.result += string
+        for i in range(len(string), count):
+            fmtiter.result.append('\x00')
+    else:
+        fmtiter.result += string[:count]
 
-def pack_pascal(fmtiter):
-    xxx
+def pack_pascal(fmtiter, count):
+    string = fmtiter.accept_str_arg()
+    prefix = len(string)
+    if prefix >= count:
+        prefix = count - 1
+        if prefix < 0:
+            raise StructError("bad '0p' in struct format")
+    if prefix > 255:
+        prefixchar = '\xff'
+    else:
+        prefixchar = chr(prefix)
+    fmtiter.result.append(prefixchar)
+    fmtiter.result += string[:prefix]
+    for i in range(1 + prefix, count):
+        fmtiter.result.append('\x00')
 
 def pack_float(fmtiter):
     xxx
@@ -31,7 +55,11 @@ def pack_float(fmtiter):
 
 native_int_size = struct.calcsize("l")
 
-def make_int_packer(size, signed):
+def make_int_packer(size, signed, _memo={}):
+    try:
+        return _memo[size, signed]
+    except KeyError:
+        pass
     if signed:
         min = -(2 ** (8*size-1))
         max = (2 ** (8*size-1)) - 1
@@ -76,34 +104,47 @@ def make_int_packer(size, signed):
                 fmtiter.result.append(chr(value & 0xff))
                 value >>= 8
 
+    _memo[size, signed] = pack_int
     return pack_int
 
 # ____________________________________________________________
 
-def unpack_pad(fmtiter):
-    xxx
+def unpack_pad(fmtiter, count):
+    fmtiter.read(count)
 
 def unpack_char(fmtiter):
-    xxx
+    fmtiter.appendobj(fmtiter.read(1))
 
-def unpack_string(fmtiter):
-    xxx
+def unpack_string(fmtiter, count):
+    fmtiter.appendobj(fmtiter.read(count))
 
-def unpack_pascal(fmtiter):
-    xxx
+def unpack_pascal(fmtiter, count):
+    if count == 0:
+        raise StructError("bad '0p' in struct format")
+    data = fmtiter.read(count)
+    end = 1 + ord(data[0])
+    if end > count:
+        end = count
+    fmtiter.appendobj(data[1:end])
 
 def unpack_float(fmtiter):
     xxx
 
 # ____________________________________________________________
 
-def make_int_unpacker(size, signed):
+def make_int_unpacker(size, signed, _memo={}):
+    try:
+        return _memo[size, signed]
+    except KeyError:
+        pass
     if signed:
+        max = (2 ** (8*size-1)) - 1
         if size <= native_int_size:
             inttype = int
         else:
             inttype = r_longlong
     else:
+        max = None
         if size < native_int_size:
             inttype = int
         elif size == native_int_size:
@@ -125,30 +166,33 @@ def make_int_unpacker(size, signed):
             for i in unroll_range_size:
                 intvalue |= inttype(ord(s[idx])) << (8*i)
                 idx += 1
-        fmtiter.append(intvalue)
+        if max is not None and intvalue > max:
+            intvalue -= max
+            intvalue -= max
+            intvalue -= 2
+        fmtiter.appendobj(intvalue)
 
+    _memo[size, signed] = unpack_int
     return unpack_int
 
 # ____________________________________________________________
 
 standard_fmttable = {
-    'x':{ 'size' : 1, 'alignment' : 0, 'pack' : pack_pad, 'unpack' : unpack_pad},
-    'c':{ 'size' : 1, 'alignment' : 0, 'pack' : pack_char, 'unpack' : unpack_char},
-    's':{ 'size' : 1, 'alignment' : 0, 'pack' : pack_string, 'unpack' : unpack_string},
-    'p':{ 'size' : 1, 'alignment' : 0, 'pack' : pack_pascal, 'unpack' : unpack_pascal},
-    'f':{ 'size' : 4, 'alignment' : 0, 'pack' : pack_float, 'unpack' : unpack_float},
-    'd':{ 'size' : 8, 'alignment' : 0, 'pack' : pack_float, 'unpack' : unpack_float},
+    'x':{ 'size' : 1, 'pack' : pack_pad, 'unpack' : unpack_pad,
+          'needcount' : True },
+    'c':{ 'size' : 1, 'pack' : pack_char, 'unpack' : unpack_char},
+    's':{ 'size' : 1, 'pack' : pack_string, 'unpack' : unpack_string,
+          'needcount' : True },
+    'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
+          'needcount' : True },
+    'f':{ 'size' : 4, 'pack' : pack_float, 'unpack' : unpack_float},
+    'd':{ 'size' : 8, 'pack' : pack_float, 'unpack' : unpack_float},
     }    
 
-for c, size in [('b', 1), ('h', 2), ('i', 4), ('q', 8)]:    # 'l' see below
+for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
-                            'alignment': 0,
                             'pack': make_int_packer(size, True),
                             'unpack': make_int_unpacker(size, True)}
     standard_fmttable[c.upper()] = {'size': size,
-                                    'alignment': 0,
                                     'pack': make_int_packer(size, False),
                                     'unpack': make_int_unpacker(size, False)}
-
-standard_fmttable['l'] = standard_fmttable['i']
-standard_fmttable['L'] = standard_fmttable['I']
