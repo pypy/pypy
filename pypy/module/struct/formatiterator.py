@@ -54,8 +54,13 @@ class FormatIterator(object):
                     index += 1
                     if not c.isdigit():
                         break
-                    repetitions = ovfcheck(repetitions * 10)
-                    repetitions = ovfcheck(repetitions + (ord(c) - ord('0')))
+                    try:
+                        repetitions = ovfcheck(repetitions * 10)
+                        repetitions = ovfcheck(repetitions + (ord(c) -
+                                                              ord('0')))
+                    except OverflowError:
+                        raise StructError("overflow in item count")
+                assert repetitions >= 0
             else:
                 repetitions = 1
 
@@ -77,16 +82,23 @@ class CalcSizeFormatIterator(FormatIterator):
     totalsize = 0
 
     def operate(self, fmtdesc, repetitions):
-        if fmtdesc.size == 1:
-            size = repetitions  # skip the overflow-checked multiplication by 1
-        else:
-            size = ovfcheck(fmtdesc.size * repetitions)
-        self.totalsize = ovfcheck(self.totalsize + size)
+        try:
+            if fmtdesc.size == 1:
+                # skip the overflow-checked multiplication by 1
+                size = repetitions
+            else:
+                size = ovfcheck(fmtdesc.size * repetitions)
+            self.totalsize = ovfcheck(self.totalsize + size)
+        except OverflowError:
+            raise StructError("total struct size too long")
     operate._annspecialcase_ = 'specialize:arg(1)'
 
     def align(self, mask):
         pad = (-self.totalsize) & mask
-        self.totalsize = ovfcheck(self.totalsize + pad)
+        try:
+            self.totalsize = ovfcheck(self.totalsize + pad)
+        except OverflowError:
+            raise StructError("total struct size too long")
 
 
 class PackFormatIterator(FormatIterator):
