@@ -31,8 +31,6 @@ def pack(space, format, args_w):
         raise e.at_applevel(space)
     except OverflowError:
         raise overflow(space)
-    # XXX check that all arguments have been consumed
-    "too many arguments for struct format"
     result = ''.join(fmtiter.result)
     return space.wrap(result)
 pack.unwrap_spec = [ObjSpace, str, 'args_w']
@@ -46,7 +44,5 @@ def unpack(space, format, input):
         raise e.at_applevel(space)
     except OverflowError:
         raise overflow(space)
-    # XXX check that the input string has been fully consumed
-    "unpack str size too long for format"
     return space.newtuple(fmtiter.result_w)
 unpack.unwrap_spec = [ObjSpace, str, str]
