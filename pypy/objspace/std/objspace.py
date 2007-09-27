@@ -643,6 +643,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
         unichars_w = StdObjSpaceMultiMethod('unichars_w', 1, [])    # returns an unwrapped list of unicode characters
         bigint_w = StdObjSpaceMultiMethod('bigint_w', 1, []) # returns an unwrapped rbigint
+        # NOTE: when adding more sometype_w() methods, you need to write a
+        # stub in default.py to raise a space.w_TypeError
         marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
         log     = StdObjSpaceMultiMethod('log', 1, [], extra_args=['base'])
 

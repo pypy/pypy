@@ -14,6 +14,10 @@ class TestW_LongObject:
         assert isinstance(space.bigint_w(fromlong(42)), rbigint)
         assert space.bigint_w(fromlong(42)).eq(rbigint.fromint(42))
         assert space.bigint_w(fromlong(-1)).eq(rbigint.fromint(-1))
+        w_obj = space.wrap("hello world")
+        space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
+        w_obj = space.wrap(123.456)
+        space.raises_w(space.w_TypeError, space.bigint_w, w_obj)
 
 class AppTestLong:
     def test_add(self):

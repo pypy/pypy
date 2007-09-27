@@ -166,14 +166,19 @@ class TestObjSpace:
             assert 0, "should have raised"
 
     def test_r_longlong_w(self):
-        w_value = self.space.wrap(12)
-        res = self.space.r_longlong_w(w_value)
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.r_longlong_w(w_value)
         assert res == 12
         assert type(res) is r_longlong
-        w_value = self.space.wrap(r_longlong(-sys.maxint * 42))
-        res = self.space.r_longlong_w(w_value)
+        w_value = space.wrap(r_longlong(-sys.maxint * 42))
+        res = space.r_longlong_w(w_value)
         assert res == -sys.maxint * 42
         assert type(res) is r_longlong
+        w_obj = space.wrap("hello world")
+        space.raises_w(space.w_TypeError, space.r_longlong_w, w_obj)
+        w_obj = space.wrap(-12.34)
+        space.raises_w(space.w_TypeError, space.r_longlong_w, w_obj)
 
 
 class TestModuleMinimal: 
