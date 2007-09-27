@@ -69,6 +69,8 @@ def make_int_packer(size, signed, _memo={}):
         max = (2 ** (8*size-1)) - 1
         if size <= native_int_size:
             accept_method = 'accept_int_arg'
+            min = int(min)
+            max = int(max)
         else:
             accept_method = 'accept_longlong_arg'
             min = r_longlong(min)
