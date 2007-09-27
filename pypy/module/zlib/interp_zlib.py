@@ -243,7 +243,7 @@ class Decompress(Wrappable):
         # which would complain if the input stream so far is not complete;
         # however CPython's zlib module does not behave like that.
         # I could not figure out a case in which flush() in CPython
-        # simply returns an empty string without complaining.
+        # doesn't simply return an empty string without complaining.
         return self.space.wrap("")
     flush.unwrap_spec = ['self', int]
 
