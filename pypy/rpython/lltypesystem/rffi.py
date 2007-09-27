@@ -260,6 +260,7 @@ DOUBLE = lltype.Float
 # float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
 #         operation except rffi.cast() between FLOAT and DOUBLE
 FLOAT = lltype.SingleFloat
+r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
@@ -272,6 +273,9 @@ CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
 # double *
 DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
+
+# float *
+FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 
 # various type mapping
 # str -> char*

@@ -23,6 +23,12 @@ class TestLL2Ctypes(object):
         assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'
         assert lltype2ctypes(5.25) == 5.25
         assert ctypes2lltype(lltype.Float, 5.25) == 5.25
+        res = lltype2ctypes(rffi.r_singlefloat(-3.5))
+        assert isinstance(res, ctypes.c_float)
+        assert res.value == -3.5
+        res = ctypes2lltype(lltype.SingleFloat, ctypes.c_float(-3.5))
+        assert isinstance(res, rffi.r_singlefloat)
+        assert float(res) == -3.5
         assert lltype2ctypes(rffi.r_uint(-1)) == sys.maxint * 2 + 1
         res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
         assert (res, type(res)) == (rffi.r_uint(-1), rffi.r_uint)

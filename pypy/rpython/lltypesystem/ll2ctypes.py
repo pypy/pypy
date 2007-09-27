@@ -12,7 +12,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import fixid
 from pypy.tool.tls import tlsobject
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat
 from pypy.annotation import model as annmodel
 from pypy.rpython.rbuiltin import gen_cast
 
@@ -30,6 +30,7 @@ def _setup_ctypes_cache():
         lltype.Unsigned: ctypes.c_ulong,
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
+        rffi.FLOAT:      ctypes.c_float,
         rffi.SIGNEDCHAR: ctypes.c_byte,
         rffi.UCHAR:      ctypes.c_ubyte,
         rffi.SHORT:      ctypes.c_short,
@@ -428,6 +429,9 @@ def lltype2ctypes(llobj, normalize=True):
     if T is lltype.Char:
         return ord(llobj)
 
+    if T is lltype.SingleFloat:
+        return ctypes.c_float(float(llobj))
+
     return llobj
 
 def ctypes2lltype(T, cobj):
@@ -459,7 +463,11 @@ def ctypes2lltype(T, cobj):
         llobj = lltype._ptr(T, container, solid=True)
     elif T is lltype.Char:
         llobj = chr(cobj)
-    elif T is not lltype.Signed:
+    elif T is lltype.Signed:
+        llobj = cobj
+    elif T is lltype.SingleFloat:
+        llobj = r_singlefloat(cobj.value)
+    else:
         from pypy.rpython.lltypesystem import rffi
         try:
             inttype = rffi.platform.numbertype_to_rclass[T]
@@ -467,8 +475,6 @@ def ctypes2lltype(T, cobj):
             llobj = cobj
         else:
             llobj = inttype(cobj)
-    else:
-        llobj = cobj
 
     assert lltype.typeOf(llobj) == T
     return llobj
