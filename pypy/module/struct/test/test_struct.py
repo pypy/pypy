@@ -242,14 +242,16 @@ class AppTestStruct(object):
         """
         Check the 'd' and 'f' format characters on standard packing.
         """
-        skip("in-progress")
         pack = self.struct.pack
         unpack = self.struct.unpack
         assert pack("!d", 12.5) == '@)\x00\x00\x00\x00\x00\x00'
-        assert pack("<d", 12.5) == '\x00\x00\x00\x00\x00\x00)@'
-        assert unpack("!d", '@)\x00\x00\x00\x00\x00\x00') == (12.5,)
+        assert pack("<d", -12.5) == '\x00\x00\x00\x00\x00\x00)\xc0'
+        assert unpack("!d", '\xc0)\x00\x00\x00\x00\x00\x00') == (-12.5,)
         assert unpack("<d", '\x00\x00\x00\x00\x00\x00)@') == (12.5,)
-        XXX # "f"
+        assert pack("!f", -12.5) == '\xc1H\x00\x00'
+        assert pack("<f", 12.5) == '\x00\x00HA'
+        assert unpack("!f", 'AH\x00\x00') == (12.5,)
+        assert unpack("<f", '\x00\x00H\xc1') == (-12.5,)
 
 
     def test_struct_error(self):

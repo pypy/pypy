@@ -7,6 +7,7 @@ The format table for standard sizes and alignments.
 
 import struct
 from pypy.module.struct.error import StructError
+from pypy.module.struct import ieee
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 
@@ -48,8 +49,11 @@ def pack_pascal(fmtiter, count):
     for i in range(1 + prefix, count):
         fmtiter.result.append('\x00')
 
-def pack_float(fmtiter):
-    xxx
+def make_float_packer(size):
+    return lambda fmtiter: ieee.pack_float(fmtiter.result,
+                                           fmtiter.accept_float_arg(),
+                                           size,
+                                           fmtiter.bigendian)
 
 # ____________________________________________________________
 
@@ -127,8 +131,10 @@ def unpack_pascal(fmtiter, count):
         end = count
     fmtiter.appendobj(data[1:end])
 
-def unpack_float(fmtiter):
-    xxx
+def make_float_unpacker(size):
+    return lambda fmtiter: fmtiter.appendobj(ieee.unpack_float(
+        fmtiter.read(size),
+        fmtiter.bigendian))
 
 # ____________________________________________________________
 
@@ -185,8 +191,10 @@ standard_fmttable = {
           'needcount' : True },
     'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
           'needcount' : True },
-    'f':{ 'size' : 4, 'pack' : pack_float, 'unpack' : unpack_float},
-    'd':{ 'size' : 8, 'pack' : pack_float, 'unpack' : unpack_float},
+    'f':{ 'size' : 4, 'pack' : make_float_packer(4),
+                    'unpack' : make_float_unpacker(4)},
+    'd':{ 'size' : 8, 'pack' : make_float_packer(8),
+                    'unpack' : make_float_unpacker(8)},
     }    
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
