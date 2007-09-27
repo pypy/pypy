@@ -466,7 +466,9 @@ def ctypes2lltype(T, cobj):
     elif T is lltype.Signed:
         llobj = cobj
     elif T is lltype.SingleFloat:
-        llobj = r_singlefloat(cobj.value)
+        if isinstance(cobj, ctypes.c_float):
+            cobj = cobj.value
+        llobj = r_singlefloat(cobj)
     else:
         from pypy.rpython.lltypesystem import rffi
         try:

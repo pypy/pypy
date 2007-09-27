@@ -631,3 +631,20 @@ class TestLL2Ctypes(object):
         lltype.free(s.a, flavor='raw')
         lltype.free(s, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_arrayoffloat(self):
+        a = lltype.malloc(rffi.FLOATP.TO, 3, flavor='raw')
+        a[0] = rffi.r_singlefloat(0.0)
+        a[1] = rffi.r_singlefloat(1.1)
+        a[2] = rffi.r_singlefloat(2.2)
+        ac = lltype2ctypes(a, normalize=False)
+        assert ac.contents.items[0] == 0.0
+        assert abs(ac.contents.items[1] - 1.1) < 1E-6
+        assert abs(ac.contents.items[2] - 2.2) < 1E-6
+        b = ctypes2lltype(rffi.FLOATP, ac)
+        assert isinstance(b[0], rffi.r_singlefloat)
+        assert float(b[0]) == 0.0
+        assert isinstance(b[1], rffi.r_singlefloat)
+        assert abs(float(b[1]) - 1.1) < 1E-6
+        assert isinstance(b[2], rffi.r_singlefloat)
+        assert abs(float(b[2]) - 2.2) < 1E-6
