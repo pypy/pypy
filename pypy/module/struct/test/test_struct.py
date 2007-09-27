@@ -221,6 +221,37 @@ class AppTestStruct(object):
         assert unpack("5x", "hello") == ()
 
 
+    def test_native_floats(self):
+        """
+        Check the 'd' and 'f' format characters on native packing.
+        """
+        calcsize = self.struct.calcsize
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        data = pack("d", 12.34)
+        assert len(data) == calcsize("d")
+        assert unpack("d", data) == (12.34,)     # no precision lost
+        data = pack("f", 12.34)
+        assert len(data) == calcsize("f")
+        res, = unpack("f", data)
+        assert res != 12.34                      # precision lost
+        assert abs(res - 12.34) < 1E-6
+
+
+    def test_standard_floats(self):
+        """
+        Check the 'd' and 'f' format characters on standard packing.
+        """
+        skip("in-progress")
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        assert pack("!d", 12.5) == '@)\x00\x00\x00\x00\x00\x00'
+        assert pack("<d", 12.5) == '\x00\x00\x00\x00\x00\x00)@'
+        assert unpack("!d", '@)\x00\x00\x00\x00\x00\x00') == (12.5,)
+        assert unpack("<d", '\x00\x00\x00\x00\x00\x00)@') == (12.5,)
+        XXX # "f"
+
+
     def test_struct_error(self):
         """
         Check the various ways to get a struct.error.  Note that CPython

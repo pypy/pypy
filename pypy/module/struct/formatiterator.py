@@ -142,6 +142,10 @@ class PackFormatIterator(FormatIterator):
         w_obj = self.accept_obj_arg()
         return self.space.str_w(w_obj)
 
+    def accept_float_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.float_w(w_obj)
+
 
 class UnpackFormatIterator(FormatIterator):
 
