@@ -100,9 +100,10 @@ class BaseTestRint(BaseRtypingTest):
         assert res == '-' + oct(sys.maxint+1).replace('L', '').replace('l', '')
 
     def test_unsigned(self):
+        bigvalue = sys.maxint + 17
         def dummy(i):
             i = r_uint(i)
-            j = r_uint(12)
+            j = r_uint(bigvalue)
             return i < j
 
         res = self.interpret(dummy,[0])
