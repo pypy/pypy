@@ -524,6 +524,7 @@ class Arguments(AbstractArguments):
             if self.w_stararg is None:   # common case
                 args_left = co_argcount - blindargs
                 if args_left < 0:  # check required by rpython
+                    assert extravarargs is not None
                     starargs_w = extravarargs
                     if len(args_w):
                         starargs_w.extend(args_w)
