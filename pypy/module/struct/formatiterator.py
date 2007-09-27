@@ -82,7 +82,7 @@ class CalcSizeFormatIterator(FormatIterator):
         else:
             size = ovfcheck(fmtdesc.size * repetitions)
         self.totalsize = ovfcheck(self.totalsize + size)
-    operate._annspecialcase_ = 'specialize:argvalue(1)'
+    operate._annspecialcase_ = 'specialize:arg(1)'
 
     def align(self, mask):
         pad = (-self.totalsize) & mask
@@ -103,7 +103,7 @@ class PackFormatIterator(FormatIterator):
         else:
             for i in range(repetitions):
                 fmtdesc.pack(self)
-    operate._annspecialcase_ = 'specialize:argvalue(1)'
+    operate._annspecialcase_ = 'specialize:arg(1)'
 
     def align(self, mask):
         pad = (-len(self.result)) & mask
@@ -161,7 +161,7 @@ class UnpackFormatIterator(FormatIterator):
         else:
             for i in range(repetitions):
                 fmtdesc.unpack(self)
-    operate._annspecialcase_ = 'specialize:argvalue(1)'
+    operate._annspecialcase_ = 'specialize:arg(1)'
 
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask
