@@ -309,6 +309,7 @@ class RMD5(object):
         self.count += leninBuf
         index = len(self.input)
         partLen = 64 - index
+        assert partLen > 0
 
         if leninBuf >= partLen:
             self.input = self.input + inBuf[:partLen]
