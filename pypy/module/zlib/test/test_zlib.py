@@ -16,9 +16,10 @@ class AppTestZlib(object):
         against.
         """
         cls.space = gettestobjspace(usemodules=['zlib'])
-        cls.w_zlib = cls.space.call_function(
-            cls.space.builtin.get('__import__'),
-            cls.space.wrap('zlib'))
+        cls.w_zlib = cls.space.appexec([], """():
+            import zlib
+            return zlib
+        """)
         expanded = 'some bytes which will be compressed'
         cls.w_expanded = cls.space.wrap(expanded)
         cls.w_compressed = cls.space.wrap(zlib.compress(expanded))
