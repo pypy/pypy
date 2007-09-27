@@ -126,6 +126,18 @@ class PackFormatIterator(FormatIterator):
         w_obj = self.accept_obj_arg()
         return self.space.int_w(w_obj)
 
+    def accept_uint_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.uint_w(w_obj)
+
+    def accept_longlong_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.r_longlong_w(w_obj)
+
+    def accept_ulonglong_arg(self):
+        w_obj = self.accept_obj_arg()
+        return self.space.r_ulonglong_w(w_obj)
+
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()
         return self.space.str_w(w_obj)

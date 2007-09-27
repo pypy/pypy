@@ -63,6 +63,9 @@ class AppTestStruct(object):
         assert pack("<i", 0x41424344) == 'DCBA'
         assert pack("<i", -3) == '\xfd\xff\xff\xff'
         assert pack("<i", -2147483648) == '\x00\x00\x00\x80'
+        assert pack("<I", 0x81424344) == 'DCB\x81'
+        assert pack("<q", 0x4142434445464748) == 'HGFEDCBA'
+        assert pack("<Q", 0x8142434445464748) == 'HGFEDCB\x81'
 
 
     def test_unpack_standard_little(self):
@@ -73,6 +76,35 @@ class AppTestStruct(object):
         assert unpack("<i", 'DCBA') == (0x41424344,)
         assert unpack("<i", '\xfd\xff\xff\xff') == (-3,)
         assert unpack("<i", '\x00\x00\x00\x80') == (-2147483648,)
+        assert unpack("<I", 'DCB\x81') == (0x81424344,)
+        assert unpack("<q", 'HGFEDCBA') == (0x4142434445464748,)
+        assert unpack("<Q", 'HGFEDCB\x81') == (0x8142434445464748,)
+
+
+    def test_pack_standard_big(self):
+        """
+        Check packing with the '>' format specifier.
+        """
+        pack = self.struct.pack
+        assert pack(">i", 0x41424344) == 'ABCD'
+        assert pack(">i", -3) == '\xff\xff\xff\xfd'
+        assert pack(">i", -2147483648) == '\x80\x00\x00\x00'
+        assert pack(">I", 0x81424344) == '\x81BCD'
+        assert pack(">q", 0x4142434445464748) == 'ABCDEFGH'
+        assert pack(">Q", 0x8142434445464748) == '\x81BCDEFGH'
+
+
+    def test_unpack_standard_big(self):
+        """
+        Check unpacking with the '>' format specifier.
+        """
+        unpack = self.struct.unpack
+        assert unpack(">i", 'ABCD') == (0x41424344,)
+        assert unpack(">i", '\xff\xff\xff\xfd') == (-3,)
+        assert unpack(">i", '\x80\x00\x00\x00') == (-2147483648,)
+        assert unpack(">I", '\x81BCD') == (0x81424344,)
+        assert unpack(">q", 'ABCDEFGH') == (0x4142434445464748,)
+        assert unpack(">Q", '\x81BCDEFGH') == (0x8142434445464748,)
 
 
     def test_calcsize_native(self):
