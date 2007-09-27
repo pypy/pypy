@@ -438,3 +438,77 @@ def _hash_string(s):
         if x == 0:
             x = -1
     return intmask(x)
+
+# the 'float' C type
+
+class r_singlefloat(object):
+    """A value of the C type 'float'.
+
+    This is a single-precision floating-point number.
+    Regular 'float' values in Python and RPython are double-precision.
+    Note that we consider this as a black box for now - the only thing
+    you can do with it is cast it back to a regular float."""
+
+    def __init__(self, floatval):
+        import struct
+        # simulates the loss of precision
+        self._bytes = struct.pack("f", floatval)
+
+    def __float__(self):
+        import struct
+        return struct.unpack("f", self._bytes)[0]
+
+    def __nonzero__(self):
+        raise TypeError("not supported on r_singlefloat instances")
+
+    def __cmp__(self, other):
+        raise TypeError("not supported on r_singlefloat instances")
+
+
+class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
+    _type_ = r_singlefloat
+
+    def compute_annotation(self):
+        return _somesinglefloat()
+
+class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
+    _about_ = r_singlefloat
+
+    def compute_result_annotation(self, *args_s, **kwds_s):
+        return _somesinglefloat()
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        v, = hop.inputargs(lltype.Float)
+        hop.exception_cannot_occur()
+        # we use cast_primitive to go between Float and SingleFloat.
+        return hop.genop('cast_primitive', [v],
+                         resulttype = lltype.SingleFloat)
+
+def _somesinglefloat():
+    """Returns SomeSingleFloat(), but also lazily register the rtyping support
+    for SomeSingleFloat.
+    """
+    from pypy.annotation import model as annmodel
+
+    if 'rtyper_makerepr' not in annmodel.SomeSingleFloat.__dict__:
+        from pypy.rpython.lltypesystem import lltype
+        from pypy.rpython.rmodel import Repr
+
+        class SingleFloatRepr(Repr):
+            lowleveltype = lltype.SingleFloat
+
+            def rtype_float(self, hop):
+                v, = hop.inputargs(lltype.SingleFloat)
+                hop.exception_cannot_occur()
+                # we use cast_primitive to go between Float and SingleFloat.
+                return hop.genop('cast_primitive', [v],
+                                 resulttype = lltype.Float)
+
+        class __extend__(annmodel.SomeSingleFloat):
+            def rtyper_makerepr(self, rtyper):
+                return SingleFloatRepr()
+            def rtyper_makekey(self):
+                return self.__class__,
+
+    return annmodel.SomeSingleFloat()

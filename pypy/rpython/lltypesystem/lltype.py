@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.rarithmetic import r_int, r_uint, intmask
+from pypy.rlib.rarithmetic import r_int, r_uint, intmask, r_singlefloat
 from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, base_int
 from pypy.rlib.rarithmetic import normalizedinttype
 from pypy.rlib.objectmodel import Symbolic
@@ -584,7 +584,10 @@ Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
 
-Float    = Primitive("Float", 0.0)
+Float       = Primitive("Float",       0.0)                  # C type 'double'
+SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # C type 'float'
+r_singlefloat._TYPE = SingleFloat
+
 Char     = Primitive("Char", '\x00')
 Bool     = Primitive("Bool", False)
 Void     = Primitive("Void", None)
@@ -680,12 +683,16 @@ def cast_primitive(TGT, value):
     if ORIG == Char or ORIG == UniChar:
         value = ord(value)
     elif ORIG == Float:
+        if TGT == SingleFloat:
+            return r_singlefloat(value)
         value = long(value)
     cast = _to_primitive.get(TGT)
     if cast is not None:
         return cast(value)
     if isinstance(TGT, Number):
         return TGT._cast(value)
+    if ORIG == SingleFloat and TGT == Float:
+        return float(value)
     raise TypeError, "unsupported cast"
 
 def _cast_whatever(TGT, value):

@@ -295,6 +295,13 @@ def test_break_up_float():
 
     py.test.raises(ValueError, break_up_float, 'e')
 
+def test_r_singlefloat():
+    x = r_singlefloat(2.5)       # exact number
+    assert float(x) == 2.5
+    x = r_singlefloat(2.1)       # approximate number, bits are lost
+    assert float(x) != 2.1
+    assert abs(float(x) - 2.1) < 1E-6
+
 class BaseTestRarithmetic(BaseRtypingTest):
     def test_formatd(self):
         from pypy.rlib.rarithmetic import formatd

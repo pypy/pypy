@@ -549,6 +549,7 @@ def test_adt_typemethod():
 def test_cast_primitive():
     cases = [
         (Float, 1, 1.0),
+        (Float, r_singlefloat(2.1), float(r_singlefloat(2.1))),
         (Signed, 1.0, 1),
         (Unsigned, 1.0, 1),
         (Signed, r_uint(-1), -1),
@@ -562,6 +563,9 @@ def test_cast_primitive():
          res = cast_primitive(TGT, orig_val)
          assert typeOf(res) == TGT
          assert res == expect
+    res = cast_primitive(SingleFloat, 2.1)
+    assert isinstance(res, r_singlefloat)
+    assert float(res) == float(r_singlefloat(2.1))
 
 def test_cast_identical_array_ptr_types():
     A = GcArray(Signed)

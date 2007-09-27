@@ -254,8 +254,12 @@ get_errno, set_errno = CExternVariable(lltype.Signed, 'errno', CConstantErrno)
 # (use SIGNEDCHAR or UCHAR for the small integer types)
 CHAR = lltype.Char
 
-# double  - XXX there is no support for the C type 'float' in the C backend yet
+# double
 DOUBLE = lltype.Float
+
+# float - corresponds to pypy.rlib.rarithmetic.r_float, and supports no
+#         operation except rffi.cast() between FLOAT and DOUBLE
+FLOAT = lltype.SingleFloat
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))

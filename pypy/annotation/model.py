@@ -33,6 +33,7 @@ import pypy.tool.instancemethod
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
+from pypy.rlib.rarithmetic import r_singlefloat
 import inspect, weakref
 from sys import maxint
 from pypy.annotation.description import FunctionDesc
@@ -149,6 +150,15 @@ class SomeFloat(SomeObject):
     "Stands for a float or an integer."
     knowntype = float   # if we don't know if it's a float or an int,
                         # pretend it's a float.
+    immutable = True
+
+    def can_be_none(self):
+        return False
+
+class SomeSingleFloat(SomeObject):
+    "Stands for an r_singlefloat."
+    # No operation supported, not even union with a regular float
+    knowntype = r_singlefloat
     immutable = True
 
     def can_be_none(self):
@@ -576,6 +586,7 @@ annotation_to_ll_map = [
     (s_Bool, lltype.Bool),
     (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
+    (SomeSingleFloat(), lltype.SingleFloat),
     (SomeChar(), lltype.Char),
     (SomeUnicodeCodePoint(), lltype.UniChar),
     (SomeAddress(), llmemory.Address),

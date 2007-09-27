@@ -2,7 +2,7 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rlib.rarithmetic import r_uint, r_longlong
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_singlefloat
 
 class TestSnippet(object):
 
@@ -93,6 +93,15 @@ class BaseTestRfloat(BaseRtypingTest):
         assert self.float_eq(res, 20.5)
         res = self.interpret(fn, [-9])
         assert self.float_eq(res, 0.5 * ((sys.maxint+1)*2 - 9))
+
+    def test_r_singlefloat(self):
+        def fn(x):
+            y = r_singlefloat(x)
+            return float(y)
+
+        res = self.interpret(fn, [2.1])
+        assert res != 2.1     # precision lost
+        assert abs(res - 2.1) < 1E-6
 
     def test_float_constant_conversions(self):
         DIV = r_longlong(10 ** 10)
