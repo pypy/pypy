@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 RPython implementation of MD5 checksums.
 
