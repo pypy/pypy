@@ -14,6 +14,7 @@ from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.rlib import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 
@@ -2847,6 +2848,17 @@ class TestAnnotateTestCase:
                 g(x, r_uint(y))
         a = self.RPythonAnnotator()
         a.build_types(f, [int, int])
+
+    def test_r_singlefloat(self):
+        z = r_singlefloat(0.4)
+        def g(n):
+            if n > 0:
+                return r_singlefloat(n * 0.1)
+            else:
+                return z
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [int])
+        assert isinstance(s, annmodel.SomeSingleFloat)
 
 
 def g(n):
