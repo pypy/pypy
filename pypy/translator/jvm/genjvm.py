@@ -107,8 +107,8 @@ class JvmGeneratedSource(object):
             raise JvmSubprogramError(res, args, stdout, stderr)
         return stdout, stderr
 
-    def _compile_helper(self, clsnms):
-        # HACK: compile the Java helper class.  Should eventually
+    def _compile_helper(self):
+        # HACK: compile the Java helper classes.  Should eventually
         # use rte.py
         thisdir = py.magic.autopath().dirpath()
         rootdir = thisdir.join('src')
@@ -117,7 +117,7 @@ class JvmGeneratedSource(object):
         classfiles = srcdir.listdir('*.class')
 
         recompile = True
-        if classfiles:
+        if len(classfiles) == len(javafiles):
            last_modified_java = max([java.mtime() for java in javafiles])
            last_modified_class = max([cls.mtime() for cls in classfiles])
            if last_modified_java < last_modified_class:
@@ -125,7 +125,7 @@ class JvmGeneratedSource(object):
 
         if recompile:
            log.red('Compiling java classes')               
-           javasrcs = [str(srcdir.join(clsnm + '.java')) for clsnm in clsnms]
+           javasrcs = [str(jf) for jf in javafiles]
            self._invoke([getoption('javac'), '-nowarn', '-d', str(rootdir)] + javasrcs, True)
 
         # copy .class files to classdir
@@ -166,20 +166,7 @@ class JvmGeneratedSource(object):
             print "... completed!"
                            
         self.compiled = True
-        self._compile_helper(('Callback',
-                              'CustomDict',
-                              'DictItemsIterator',
-                              'Equals',
-                              'Filter',
-                              'FilterIterator',
-                              'FilterSet',
-                              'HashCode',
-                              'Interlink',
-                              'Constants',
-                              'StatResult',
-                              'PyPy',
-                              'll_os',
-                              ))
+        self._compile_helper()
 
     def _make_str(self, a):
         if isinstance(a, ootype._string):
