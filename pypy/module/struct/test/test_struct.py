@@ -187,3 +187,53 @@ class AppTestStruct(object):
         assert pack("5x") == "\x00" * 5
         assert unpack("x", "?") == ()
         assert unpack("5x", "hello") == ()
+
+
+    def test_struct_error(self):
+        """
+        Check the various ways to get a struct.error.  Note that CPython
+        and PyPy might disagree on the specific exception raised in a
+        specific situation, e.g. struct.error/TypeError/OverflowError.
+        """
+        calcsize = self.struct.calcsize
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        error = self.struct.error
+        try:
+            calcsize("12")              # incomplete struct format
+        except error:                   # (but ignored on CPython)
+            pass
+        raises(error, calcsize, "[")    # bad char in struct format
+        raises(error, calcsize, "!P")   # bad char in struct format
+        raises(error, pack, "ii", 15)   # struct format requires more arguments
+        raises(error, pack, "i", 3, 4)  # too many arguments for struct format
+        raises(error, unpack, "ii", "?")# unpack str size too short for format
+        raises(error, unpack, "b", "??")# unpack str size too long for format
+        raises(error, pack, "c", "foo") # expected a string of length 1
+        try:
+            pack("0p")                  # bad '0p' in struct format
+        except error:                   # (but ignored on CPython)
+            pass
+        try:
+            unpack("0p", "")            # bad '0p' in struct format
+        except error:                   # (but ignored on CPython)
+            pass
+        raises(error, pack, "b", 150)   # argument out of range
+        # XXX the accepted ranges still differs between PyPy and CPython
+
+
+    def test_overflow_error(self):
+        """
+        Check OverflowError cases.
+        """
+        import sys
+        calcsize = self.struct.calcsize
+        pack = self.struct.pack
+        unpack = self.struct.unpack
+        someerror = (OverflowError, self.struct.error)
+        raises(someerror, calcsize, "%dc" % (sys.maxint+1,))
+        raises(someerror, calcsize, "999999999999999999999999999c")
+        raises(someerror, calcsize, "%di" % (sys.maxint,))
+        raises(someerror, calcsize, "%dcc" % (sys.maxint,))
+        raises(someerror, calcsize, "c%dc" % (sys.maxint,))
+        raises(someerror, calcsize, "%dci" % (sys.maxint,))

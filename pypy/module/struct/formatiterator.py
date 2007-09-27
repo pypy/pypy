@@ -56,7 +56,6 @@ class FormatIterator(object):
                         break
                     repetitions = ovfcheck(repetitions * 10)
                     repetitions = ovfcheck(repetitions + (ord(c) - ord('0')))
-                    # XXX catch OverflowError somewhere
             else:
                 repetitions = 1
 
@@ -68,6 +67,10 @@ class FormatIterator(object):
                     break
             else:
                 raise StructError("bad char in struct format")
+        self.finished()
+
+    def finished(self):
+        pass
 
 
 class CalcSizeFormatIterator(FormatIterator):
@@ -90,7 +93,8 @@ class PackFormatIterator(FormatIterator):
 
     def __init__(self, space, args_w):
         self.space = space
-        self.args_iterator = iter(args_w)
+        self.args_w = args_w
+        self.args_index = 0
         self.result = []      # list of characters
 
     def operate(self, fmtdesc, repetitions):
@@ -106,12 +110,24 @@ class PackFormatIterator(FormatIterator):
         for i in range(pad):
             self.result.append('\x00')
 
+    def finished(self):
+        if self.args_index != len(self.args_w):
+            raise StructError("too many arguments for struct format")
+
+    def accept_obj_arg(self):
+        try:
+            w_obj = self.args_w[self.args_index]
+        except IndexError:
+            raise StructError("struct format requires more arguments")
+        self.args_index += 1
+        return w_obj
+
     def accept_int_arg(self):
-        w_obj = self.args_iterator.next()   # XXX catch StopIteration
+        w_obj = self.accept_obj_arg()
         return self.space.int_w(w_obj)
 
     def accept_str_arg(self):
-        w_obj = self.args_iterator.next()   # XXX catch StopIteration
+        w_obj = self.accept_obj_arg()
         return self.space.str_w(w_obj)
 
 
@@ -134,10 +150,14 @@ class UnpackFormatIterator(FormatIterator):
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask
 
+    def finished(self):
+        if self.inputpos != len(self.input):
+            raise StructError("unpack str size too long for format")
+
     def read(self, count):
         end = self.inputpos + count
         if end > len(self.input):
-            raise StructError("unpack str size is too short for the format")
+            raise StructError("unpack str size too short for format")
         s = self.input[self.inputpos : end]
         self.inputpos = end
         return s

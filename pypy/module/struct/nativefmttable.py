@@ -1,5 +1,4 @@
 import struct
-from pypy.module.struct.error import StructError
 from pypy.module.struct import standardfmttable as std
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
