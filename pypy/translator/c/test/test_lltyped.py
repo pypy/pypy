@@ -598,3 +598,24 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 
         fn = self.getcompiled(llf)
         fn()
+
+    def test_r_singlefloat(self):
+
+        z = r_singlefloat(0.4)
+
+        def g(n):
+            if n > 0:
+                return r_singlefloat(n * 0.1)
+            else:
+                return z
+
+        def llf(n):
+            return float(g(n))
+
+        fn = self.getcompiled(llf, [int])
+        res = fn(21)
+        assert res != 2.1     # precision lost
+        assert abs(res - 2.1) < 1E-6
+        res = fn(-5)
+        assert res != 0.4     # precision lost
+        assert abs(res - 0.4) < 1E-6

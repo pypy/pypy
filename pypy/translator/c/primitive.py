@@ -97,6 +97,19 @@ def name_float(value, db):
     else:
         return repr(value)
 
+def name_singlefloat(value, db):
+    value = float(value)
+    if isinf(value):
+        if value > 0:
+            return '((float)Py_HUGE_VAL)'
+        else:
+            return '((float)-Py_HUGE_VAL)'
+    elif isnan(value):
+        # XXX are these expressions ok?
+        return '((float)(Py_HUGE_VAL/Py_HUGE_VAL))'
+    else:
+        return repr(value) + 'f'
+
 def name_char(value, db):
     assert type(value) is str and len(value) == 1
     if ' ' <= value < '\x7f':
@@ -128,6 +141,7 @@ PrimitiveName = {
     UnsignedLongLong: name_unsignedlonglong,
     Unsigned: name_unsigned,
     Float:    name_float,
+    SingleFloat: name_singlefloat,
     Char:     name_char,
     UniChar:  name_unichar,
     Bool:     name_bool,
@@ -141,6 +155,7 @@ PrimitiveType = {
     UnsignedLongLong: 'unsigned long long @',
     Unsigned: 'unsigned long @',
     Float:    'double @',
+    SingleFloat: 'float @',
     Char:     'char @',
     UniChar:  'unsigned int @',
     Bool:     'bool_t @',
@@ -154,6 +169,7 @@ PrimitiveErrorValue = {
     UnsignedLongLong: '((unsigned long long) -1)',
     Unsigned: '((unsigned) -1)',
     Float:    '-1.0',
+    SingleFloat: '-1.0f',
     Char:     '((char) -1)',
     UniChar:  '((unsigned) -1)',
     Bool:     '0 /* error */',

@@ -12,6 +12,7 @@ from pypy.rpython import rtyper
 from pypy.rpython import rclass
 from pypy.rpython.rmodel import inputconst
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_singlefloat
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 
@@ -20,6 +21,7 @@ PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.SignedLongLong: r_longlong(-1),
                        lltype.UnsignedLongLong: r_ulonglong(-1),
                        lltype.Float: -1.0,
+                       lltype.SingleFloat: r_singlefloat(-1.0),
                        lltype.Char: chr(255),
                        lltype.UniChar: unichr(0xFFFF), # XXX is this always right?
                        lltype.Bool: True,
