@@ -1,3 +1,10 @@
+#
+# This module is a pure Python version of pypy.module.struct.
+# It is only imported if the vastly faster pypy.module.struct is not
+# compiled in.  For now we keep this version for reference and
+# because pypy.module.struct is not ootype-backend-friendly yet.
+#
+
 """Functions to convert between Python values and C structs.
 Python strings are used to hold the data representing the C struct
 and also as format strings to describe the layout of data in the C struct.
