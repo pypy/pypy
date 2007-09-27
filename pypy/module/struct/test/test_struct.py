@@ -99,6 +99,10 @@ class AppTestStruct(object):
         assert calcsize('bi') == calcsize('ii') == 2 * calcsize('i')
         assert calcsize('bbi') == calcsize('ii') == 2 * calcsize('i')
         assert calcsize('hi') == calcsize('ii') == 2 * calcsize('i')
+        # CPython adds no padding at the end, unlike a C compiler
+        assert calcsize('ib') == calcsize('i') + calcsize('b')
+        assert calcsize('ibb') == calcsize('i') + 2 * calcsize('b')
+        assert calcsize('ih') == calcsize('i') + calcsize('h')
 
 
     def test_pack_native(self):
