@@ -65,10 +65,10 @@ def _state2hexstring(a, b, c, d):
         hx[(d>>20)&0xF], hx[(d>>16)&0xF], hx[(d>>28)&0xF], hx[(d>>24)&0xF],
         ])
 
-def _string2uintlist(s):
+def _string2uintlist(s, start=0, count=16):
     result = []
-    for i in range(len(s) // 4):
-        p = i * 4
+    for i in range(count):
+        p = start + i * 4
         x = r_uint(ord(s[p]))
         x |= r_uint(ord(s[p+1])) << 8
         x |= r_uint(ord(s[p+2])) << 16
@@ -260,7 +260,7 @@ class RMD5(object):
 
         # Append length (before padding).
         assert len(self.input) == 56
-        bits = _string2uintlist(self.input)
+        bits = _string2uintlist(self.input, 0, 56 // 4)
         length_in_bits = count << 3
         bits.append(r_uint(length_in_bits))
         bits.append(r_uint(length_in_bits >> 32))
