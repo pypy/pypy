@@ -218,11 +218,6 @@ class Decompress(Wrappable):
         decompress(data[, max_length]) -- Return a string containing the
         decompressed version of the data.
 
-        After calling this function, some of the input data may still be stored
-        in internal buffers for later processing.
-
-        Call the flush() method to clear these buffers.
-
         If the max_length parameter is specified then the return value will be
         no longer than max_length.  Unconsumed input data will be stored in the
         unconsumed_tail attribute.
@@ -240,17 +235,16 @@ class Decompress(Wrappable):
 
     def flush(self, length=0):
         """
-        flush( [length] ) -- Return a string containing any remaining
-        decompressed data. length, if given, is the initial size of the output
-        buffer.
-
-        The decompressor object can no longer be used after this call.
+        flush( [length] ) -- This is kept for backward compatibility,
+        because each call to decompress() immediately returns as much
+        data as possible.
         """
-        try:
-            result = rzlib.decompress(self.stream, '', rzlib.Z_FINISH)
-        except rzlib.RZlibError, e:
-            raise zlib_error(self.space, e.msg)
-        return self.space.wrap(result)
+        # We could call rzlib.decompress(self.stream, '', rzlib.Z_FINISH)
+        # which would complain if the input stream so far is not complete;
+        # however CPython's zlib module does not behave like that.
+        # I could not figure out a case in which flush() in CPython
+        # simply returns an empty string without complaining.
+        return self.space.wrap("")
     flush.unwrap_spec = ['self', int]
 
 
