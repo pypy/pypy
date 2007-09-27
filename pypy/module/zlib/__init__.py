@@ -8,6 +8,21 @@ from pypy.rlib import rzlib
 
 
 class Module(MixedModule):
+    """\
+The functions in this module allow compression and decompression using the
+zlib library, which is based on GNU zip.
+
+adler32(string[, start]) -- Compute an Adler-32 checksum.
+compress(string[, level]) -- Compress string, with compression level in 1-9.
+compressobj([level]) -- Return a compressor object.
+crc32(string[, start]) -- Compute a CRC-32 checksum.
+decompress(string,[wbits],[bufsize]) -- Decompresses a compressed string.
+decompressobj([wbits]) -- Return a decompressor object.
+
+'wbits' is window buffer size.
+Compressor objects support compress() and flush() methods; decompressor
+objects support decompress() and flush()."""
+
     interpleveldefs = {
         'crc32': 'interp_zlib.crc32',
         'adler32': 'interp_zlib.adler32',
