@@ -65,6 +65,7 @@ class AppTestStruct(object):
         assert pack("<i", -2147483648) == '\x00\x00\x00\x80'
         assert pack("<I", 0x81424344) == 'DCB\x81'
         assert pack("<q", 0x4142434445464748) == 'HGFEDCBA'
+        assert pack("<q", -0x41B2B3B4B5B6B7B8) == 'HHIJKLM\xbe'
         assert pack("<Q", 0x8142434445464748) == 'HGFEDCB\x81'
 
 
@@ -78,6 +79,7 @@ class AppTestStruct(object):
         assert unpack("<i", '\x00\x00\x00\x80') == (-2147483648,)
         assert unpack("<I", 'DCB\x81') == (0x81424344,)
         assert unpack("<q", 'HGFEDCBA') == (0x4142434445464748,)
+        assert unpack("<q", 'HHIJKLM\xbe') == (-0x41B2B3B4B5B6B7B8,)
         assert unpack("<Q", 'HGFEDCB\x81') == (0x8142434445464748,)
 
 
@@ -91,6 +93,7 @@ class AppTestStruct(object):
         assert pack(">i", -2147483648) == '\x80\x00\x00\x00'
         assert pack(">I", 0x81424344) == '\x81BCD'
         assert pack(">q", 0x4142434445464748) == 'ABCDEFGH'
+        assert pack(">q", -0x41B2B3B4B5B6B7B8) == '\xbeMLKJIHH'
         assert pack(">Q", 0x8142434445464748) == '\x81BCDEFGH'
 
 
@@ -104,6 +107,7 @@ class AppTestStruct(object):
         assert unpack(">i", '\x80\x00\x00\x00') == (-2147483648,)
         assert unpack(">I", '\x81BCD') == (0x81424344,)
         assert unpack(">q", 'ABCDEFGH') == (0x4142434445464748,)
+        assert unpack(">q", '\xbeMLKJIHH') == (-0x41B2B3B4B5B6B7B8,)
         assert unpack(">Q", '\x81BCDEFGH') == (0x8142434445464748,)
 
 
@@ -141,8 +145,9 @@ class AppTestStruct(object):
         """
         Check packing with the native format.
         """
+        calcsize = self.struct.calcsize
         pack = self.struct.pack
-        sizeofi = self.struct.calcsize("i")
+        sizeofi = calcsize("i")
         res = pack("bi", -2, 5)
         assert len(res) == 2 * sizeofi
         assert res[0] == '\xfe'
@@ -151,15 +156,18 @@ class AppTestStruct(object):
             assert res[sizeofi:] == '\x00' * (sizeofi-1) + '\x05'
         else:
             assert res[sizeofi:] == '\x05' + '\x00' * (sizeofi-1)
+        assert pack("q", -1) == '\xff' * calcsize("q")
 
 
     def test_unpack_native(self):
         """
         Check unpacking with the native format.
         """
+        calcsize = self.struct.calcsize
         pack = self.struct.pack
         unpack = self.struct.unpack
         assert unpack("bi", pack("bi", -2, 5)) == (-2, 5)
+        assert unpack("q", '\xff' * calcsize("q")) == (-1,)
 
 
     def test_string_format(self):

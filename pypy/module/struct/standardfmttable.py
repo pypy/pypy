@@ -144,13 +144,11 @@ def make_int_unpacker(size, signed, _memo={}):
     except KeyError:
         pass
     if signed:
-        max = (2 ** (8*size-1)) - 1
         if size <= native_int_size:
             inttype = int
         else:
             inttype = r_longlong
     else:
-        max = None
         if size < native_int_size:
             inttype = int
         elif size == native_int_size:
@@ -165,17 +163,19 @@ def make_int_unpacker(size, signed, _memo={}):
         idx = 0
         if fmtiter.bigendian:
             for i in unroll_range_size:
+                x = ord(s[idx])
+                if signed and i == 0 and x >= 128:
+                    x -= 256
                 intvalue <<= 8
-                intvalue |= ord(s[idx])
+                intvalue |= x
                 idx += 1
         else:
             for i in unroll_range_size:
-                intvalue |= inttype(ord(s[idx])) << (8*i)
+                x = ord(s[idx])
+                if signed and i == size - 1 and x >= 128:
+                    x -= 256
+                intvalue |= inttype(x) << (8*i)
                 idx += 1
-        if max is not None and intvalue > max:
-            intvalue -= max
-            intvalue -= max
-            intvalue -= 2
         fmtiter.appendobj(intvalue)
 
     _memo[size, signed] = unpack_int
