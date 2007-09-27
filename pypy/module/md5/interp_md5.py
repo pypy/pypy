@@ -9,10 +9,9 @@ class W_MD5(Wrappable, rmd5.RMD5):
     A subclass of RMD5 that can be exposed to app-level.
     """
 
-    def __init__(self, space, initialdata=''):
+    def __init__(self, space):
         self.space = space
         self._init()
-        self.update(initialdata)
 
     def update_w(self, string):
         self.update(string)
@@ -24,7 +23,9 @@ class W_MD5(Wrappable, rmd5.RMD5):
         return self.space.wrap(self.hexdigest())
 
     def copy_w(self):
-        return self.space.wrap(self.copy())
+        clone = W_MD5(self.space)
+        clone._copyfrom(self)
+        return self.space.wrap(clone)
 
 
 def W_MD5___new__(space, w_subtype, initialdata=''):
@@ -33,7 +34,8 @@ def W_MD5___new__(space, w_subtype, initialdata=''):
     """
     w_md5 = space.allocate_instance(W_MD5, w_subtype)
     md5 = space.interp_w(W_MD5, w_md5)
-    W_MD5.__init__(md5, space, initialdata)
+    W_MD5.__init__(md5, space)
+    md5.update(initialdata)
     return w_md5
 
 

@@ -352,14 +352,18 @@ class RMD5(object):
         a common initial substring.
         """
         clone = RMD5()
-        clone.count  = self.count
-        clone.input  = self.input
-        clone.A = self.A
-        clone.B = self.B
-        clone.C = self.C
-        clone.D = self.D
+        clone._copyfrom(self)
         return clone
 
+    def _copyfrom(self, other):
+        """Copy all state from 'other' into 'self'.
+        """
+        self.count = other.count
+        self.input = other.input
+        self.A = other.A
+        self.B = other.B
+        self.C = other.C
+        self.D = other.D
 
 # synonyms to build new RMD5 objects, for compatibility with the
 # CPython md5 module interface.
