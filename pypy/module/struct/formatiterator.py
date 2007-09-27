@@ -16,6 +16,7 @@ class FormatIterator(object):
     just computing the size.
     """
     _mixin_ = True
+    _operate_is_specialized_ = False
 
     def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
@@ -66,12 +67,17 @@ class FormatIterator(object):
 
             for fmtdesc in table:
                 if c == fmtdesc.fmtchar:
-                    if fmtdesc.alignment > 1:
-                        self.align(fmtdesc.mask)
-                    self.operate(fmtdesc, repetitions)
+                    if self._operate_is_specialized_:
+                        if fmtdesc.alignment > 1:
+                            self.align(fmtdesc.mask)
+                        self.operate(fmtdesc, repetitions)
                     break
             else:
                 raise StructError("bad char in struct format")
+            if not self._operate_is_specialized_:
+                if fmtdesc.alignment > 1:
+                    self.align(fmtdesc.mask)
+                self.operate(fmtdesc, repetitions)
         self.finished()
 
     def finished(self):
@@ -83,15 +89,10 @@ class CalcSizeFormatIterator(FormatIterator):
 
     def operate(self, fmtdesc, repetitions):
         try:
-            if fmtdesc.size == 1:
-                # skip the overflow-checked multiplication by 1
-                size = repetitions
-            else:
-                size = ovfcheck(fmtdesc.size * repetitions)
+            size = ovfcheck(fmtdesc.size * repetitions)
             self.totalsize = ovfcheck(self.totalsize + size)
         except OverflowError:
             raise StructError("total struct size too long")
-    operate._annspecialcase_ = 'specialize:arg(1)'
 
     def align(self, mask):
         pad = (-self.totalsize) & mask
@@ -116,6 +117,7 @@ class PackFormatIterator(FormatIterator):
             for i in range(repetitions):
                 fmtdesc.pack(self)
     operate._annspecialcase_ = 'specialize:arg(1)'
+    _operate_is_specialized_ = True
 
     def align(self, mask):
         pad = (-len(self.result)) & mask
@@ -174,6 +176,7 @@ class UnpackFormatIterator(FormatIterator):
             for i in range(repetitions):
                 fmtdesc.unpack(self)
     operate._annspecialcase_ = 'specialize:arg(1)'
+    _operate_is_specialized_ = True
 
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask
