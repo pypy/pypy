@@ -124,6 +124,13 @@ class RMD5(object):
     _mixin_ = True        # for interp_md5.py
 
     def __init__(self, initialdata=''):
+        self._init()
+        self.update(initialdata)
+
+
+    def _init(self):
+        """Set this object to an initial empty state.
+        """
         self.count = r_ulonglong(0)   # total number of bytes
         self.input = ""   # pending unprocessed data, < 64 bytes
 
@@ -132,8 +139,6 @@ class RMD5(object):
         self.B = r_uint(0xefcdab89L)
         self.C = r_uint(0x98badcfeL)
         self.D = r_uint(0x10325476L)
-
-        self.update(initialdata)
 
 
     def _transform(self, inp):
