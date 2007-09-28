@@ -5,7 +5,7 @@ from pypy.translator.oosupport.test_template.backendopt import BaseTestOptimized
 class TestOptimizedSwitch(BaseTestOptimizedSwitch):
     def getcompiled(self, fn, annotation):
         t = JvmTest()
-        return t._compile(fn, None, annotation, backendopt=True)
+        return t.compile(fn, None, annotation, backendopt=True)
 
     def test_longlong_switch(self):
         py.test.skip('fixme!')
