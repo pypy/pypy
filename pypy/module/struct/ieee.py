@@ -87,10 +87,12 @@ def unpack_float(input, bigendian):
         bias = 1023
         exp = 11
         prec = 52
+    mantissa_scale_factor = 0.5 ** prec   # this is constant-folded if it's
+                                          # right after the 'if'
     mantissa = r_longlong(bytes[size-2] & ((1<<(15-exp))-1))
     for i in range(size-3, -1, -1):
         mantissa = mantissa << 8 | bytes[i]
-    mantissa = 1 + float(mantissa) / (1<<prec)
+    mantissa = 1 + mantissa * mantissa_scale_factor
     mantissa *= 0.5
     e = (bytes[-1] & 0x7f) << (exp - 7)
     e += (bytes[size-2] >> (15 - exp)) & ((1<<(exp - 7)) -1)

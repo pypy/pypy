@@ -15,16 +15,26 @@ testcases = [
 
 def test_pack():
     for number, size, bigendian, expected in testcases:
+        print 'test_pack:', number, size, bigendian
         res = []
         pack_float(res, number, size, bigendian)
-        assert res == list(expected)
+        assert ''.join(res) == expected
 
 
 def test_unpack():
     for expected, size, bigendian, input in testcases:
+        print 'test_unpack:', expected, size, bigendian
         assert len(input) == size
         res = unpack_float(input, bigendian)
         if size == 8:
             assert res == expected    # exact result expected
         else:
             assert abs(res - expected) < 1E-6
+
+
+def test_llinterpreted():
+    from pypy.rpython.test.test_llinterp import interpret
+    def f():
+        test_pack()
+        test_unpack()
+    interpret(f, [])
