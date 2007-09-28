@@ -67,6 +67,9 @@ def _state2hexstring(a, b, c, d):
         ])
 
 def _string2uintlist(s, start=0, count=16):
+    """Build a list of count r_uint's by unpacking the string
+    s[start:start+4*count] in little-endian order.
+    """
     result = []
     for i in range(count):
         p = start + i * 4
