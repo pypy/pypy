@@ -310,3 +310,15 @@ class AppTestStruct(object):
         raises(someerror, calcsize, "%dcc" % (sys.maxint,))
         raises(someerror, calcsize, "c%dc" % (sys.maxint,))
         raises(someerror, calcsize, "%dci" % (sys.maxint,))
+
+
+    def test_broken_input(self):
+        """
+        For compatibility: check that we also accept inputs that are
+        wrongly accepted by CPython 2.4.
+        """
+        pack = self.struct.pack
+        assert pack("!b", 0xa0) == '\xa0'
+        assert pack("!B", -1.1) == '\xff'
+        assert pack("!h", 0xa000) == '\xa0\x00'
+        assert pack("!H", -2.2) == '\xff\xfe'

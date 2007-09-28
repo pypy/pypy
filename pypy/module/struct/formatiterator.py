@@ -1,9 +1,11 @@
 
+from pypy.interpreter.error import OperationError
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import ovfcheck
 
 from pypy.module.struct.error import StructError
 from pypy.module.struct.standardfmttable import standard_fmttable
+from pypy.module.struct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
 from pypy.module.struct.nativefmttable import native_fmttable
 from pypy.module.struct.nativefmttable import native_is_bigendian
 
@@ -136,21 +138,63 @@ class PackFormatIterator(FormatIterator):
         self.args_index += 1
         return w_obj
 
-    def accept_int_arg(self):
-        w_obj = self.accept_obj_arg()
-        return self.space.int_w(w_obj)
+    if PACK_ACCEPTS_BROKEN_INPUT:
+        # permissive version - accepts float arguments too
 
-    def accept_uint_arg(self):
-        w_obj = self.accept_obj_arg()
-        return self.space.uint_w(w_obj)
+        def accept_int_arg(self):
+            w_obj = self.accept_obj_arg()
+            try:
+                return self.space.int_w(w_obj)
+            except OperationError, e:
+                return self.space.int_w(self._maybe_float(e, w_obj))
 
-    def accept_longlong_arg(self):
-        w_obj = self.accept_obj_arg()
-        return self.space.r_longlong_w(w_obj)
+        def accept_uint_arg(self):
+            w_obj = self.accept_obj_arg()
+            try:
+                return self.space.uint_w(w_obj)
+            except OperationError, e:
+                return self.space.uint_w(self._maybe_float(e, w_obj))
 
-    def accept_ulonglong_arg(self):
-        w_obj = self.accept_obj_arg()
-        return self.space.r_ulonglong_w(w_obj)
+        def accept_longlong_arg(self):
+            w_obj = self.accept_obj_arg()
+            try:
+                return self.space.r_longlong_w(w_obj)
+            except OperationError, e:
+                return self.space.r_longlong_w(self._maybe_float(e, w_obj))
+
+        def accept_ulonglong_arg(self):
+            w_obj = self.accept_obj_arg()
+            try:
+                return self.space.r_ulonglong_w(w_obj)
+            except OperationError, e:
+                return self.space.r_ulonglong_w(self._maybe_float(e, w_obj))
+
+        def _maybe_float(self, e, w_obj):
+            space = self.space
+            if not e.match(space, space.w_TypeError):
+                raise e
+            if not space.is_true(space.isinstance(w_obj, space.w_float)):
+                raise e
+            return space.int(w_obj)   # wrapped float -> wrapped int or long
+
+    else:
+        # strict version
+
+        def accept_int_arg(self):
+            w_obj = self.accept_obj_arg()
+            return self.space.int_w(w_obj)
+
+        def accept_uint_arg(self):
+            w_obj = self.accept_obj_arg()
+            return self.space.uint_w(w_obj)
+
+        def accept_longlong_arg(self):
+            w_obj = self.accept_obj_arg()
+            return self.space.r_longlong_w(w_obj)
+
+        def accept_ulonglong_arg(self):
+            w_obj = self.accept_obj_arg()
+            return self.space.r_ulonglong_w(w_obj)
 
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()

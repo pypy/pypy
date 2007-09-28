@@ -11,6 +11,12 @@ from pypy.module.struct import ieee
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 
+# In the CPython struct module, pack() unconsistently accepts inputs
+# that are out-of-range or floats instead of ints.  Should we emulate
+# this?  Let's use a flag for now:
+
+PACK_ACCEPTS_BROKEN_INPUT = True
+
 # ____________________________________________________________
 
 def pack_pad(fmtiter, count):
@@ -59,11 +65,17 @@ def make_float_packer(size):
 
 native_int_size = struct.calcsize("l")
 
-def make_int_packer(size, signed, _memo={}):
+def make_int_packer(size, signed, cpython_checks_range, _memo={}):
+    if cpython_checks_range:
+        check_range = True
+    else:
+        check_range = not PACK_ACCEPTS_BROKEN_INPUT
+    key = (size, signed, check_range)
     try:
-        return _memo[size, signed]
+        return _memo[key]
     except KeyError:
         pass
+
     if signed:
         min = -(2 ** (8*size-1))
         max = (2 ** (8*size-1)) - 1
@@ -99,8 +111,9 @@ def make_int_packer(size, signed, _memo={}):
     def pack_int(fmtiter):
         method = getattr(fmtiter, accept_method)
         value = method()
-        if value < min or value > max:
-            raise StructError(errormsg)
+        if check_range:
+            if value < min or value > max:
+                raise StructError(errormsg)
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff
@@ -110,7 +123,7 @@ def make_int_packer(size, signed, _memo={}):
                 fmtiter.result.append(chr(value & 0xff))
                 value >>= 8
 
-    _memo[size, signed] = pack_int
+    _memo[key] = pack_int
     return pack_int
 
 # ____________________________________________________________
@@ -201,8 +214,9 @@ standard_fmttable = {
 
 for c, size in [('b', 1), ('h', 2), ('i', 4), ('l', 4), ('q', 8)]:
     standard_fmttable[c] = {'size': size,
-                            'pack': make_int_packer(size, True),
+                            'pack': make_int_packer(size, True, False),
                             'unpack': make_int_unpacker(size, True)}
     standard_fmttable[c.upper()] = {'size': size,
-                                    'pack': make_int_packer(size, False),
+                                    'pack': make_int_packer(size, False,
+                                                            False),
                                     'unpack': make_int_unpacker(size, False)}
