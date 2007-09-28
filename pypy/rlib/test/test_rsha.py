@@ -26,3 +26,14 @@ class TestSHA:
     def disabled_too_slow_test_case_3(self):
         self.check("a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
+
+    def test_random(self):
+        import random, sha
+        for i in range(20):
+            input = ''.join([chr(random.randrange(256))
+                             for i in range(random.randrange(1000))])
+            m1 = rsha.RSHA()
+            m1.update(input)
+            m2 = sha.new()
+            m2.update(input)
+            assert m2.hexdigest() == m1.hexdigest()
