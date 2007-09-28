@@ -679,7 +679,7 @@ testmap = [
     RegrTest('test_strptime.py', enabled=False),
         #rev 10840: 1 of 42 test fails: seems to be some regex problem
 
-    RegrTest('test_struct.py', enabled=False, dumbtest=1),
+    RegrTest('test_struct.py', enabled=True, dumbtest=1, usemodules='struct'),
     RegrTest('test_structseq.py', enabled=False, dumbtest=1),
     RegrTest('test_subprocess.py', enabled=False),
     RegrTest('test_sunaudiodev.py', enabled=False, dumbtest=1),
@@ -759,12 +759,8 @@ testmap = [
     RegrTest('test_xpickle.py', enabled=False),
     RegrTest('test_xrange.py', enabled=True, core=True),
     RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_zipimport.py', enabled=True),
-        # considered non-core because it depends on 'import zlib'
-        # which we don't have
-
-    RegrTest('test_zlib.py', enabled=False),
-        #10840: ImportError: zlib
+    RegrTest('test_zipimport.py', enabled=True, usemodules='zlib'),
+    RegrTest('test_zlib.py', enabled=True, usemodules='zlib'),
 ]
 
 class RegrDirectory(py.test.collect.Directory): 

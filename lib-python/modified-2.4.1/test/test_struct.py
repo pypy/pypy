@@ -30,7 +30,7 @@ def simple_err(func, *args):
 def any_err(func, *args):
     try:
         func(*args)
-    except (struct.error, OverflowError, TypeError):
+    except (struct.error, OverflowError, TypeError, ValueError):
         pass
     else:
         raise TestFailed, "%s%s did not raise error" % (
@@ -53,9 +53,9 @@ if sz * 3 != sz3:
 
 simple_err(struct.pack, 'iii', 3)
 simple_err(struct.pack, 'i', 3, 3, 3)
-simple_err(struct.pack, 'i', 'foo')
-simple_err(struct.pack, 'P', 'foo')
-simple_err(struct.unpack, 'd', 'flap')
+any_err(struct.pack, 'i', 'foo')
+any_err(struct.pack, 'P', 'foo')
+any_err(struct.unpack, 'd', 'flap')
 s = struct.pack('ii', 1, 2)
 simple_err(struct.unpack, 'iii', s)
 simple_err(struct.unpack, 'i', s)
@@ -150,8 +150,8 @@ if verbose:
     print "Platform has native q/Q?", has_native_qQ and "Yes." or "No."
 
 any_err(struct.pack, "Q", -1)   # can't pack -1 as unsigned regardless
-simple_err(struct.pack, "q", "a")  # can't pack string as 'q' regardless
-simple_err(struct.pack, "Q", "a")  # ditto, but 'Q'
+any_err(struct.pack, "q", "a")  # can't pack string as 'q' regardless
+any_err(struct.pack, "Q", "a")  # ditto, but 'Q'
 
 def test_native_qQ():
     bytes = struct.calcsize('q')
