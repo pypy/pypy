@@ -76,6 +76,8 @@ class JvmGeneratedSourceWrapper(object):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
         elif isinstance(res, list):
             res = OOList(res)
+        elif isinstance(res, ExceptionWrapper):
+            raise res            
         return res
 
 class JvmTest(BaseRtypingTest, OORtypeMixin):
@@ -84,7 +86,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._jvm_src = None
 
-    def _compile(self, fn, args, ann=None, backendopt=False):
+    def compile(self, fn, args, ann=None, backendopt=False):
         if ann is None:
             ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
@@ -113,10 +115,8 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args, annotation=None):
         detect_missing_support_programs()
         try:
-            src = self._compile(fn, args, annotation)
+            src = self.compile(fn, args, annotation)
             res = src(*args)
-            if isinstance(res, ExceptionWrapper):
-                raise res
             return res
         except JvmError, e:
             e.pretty_print()

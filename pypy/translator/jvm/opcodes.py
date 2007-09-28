@@ -139,8 +139,8 @@ _opcodes = {
     'uint_add':                 jvmgen.IADD,
     'uint_sub':                 jvmgen.ISUB,
     'uint_mul':                 jvmgen.PYPYUINTMUL,
-#    'uint_div':                 jvmgen.IDIV,  # valid?
-#    'uint_truediv':             None,    # TODO
+    'uint_div':                 jvmgen.PYPYUINTDIV,
+    'uint_truediv':             None,    # TODO
     'uint_floordiv':            jvmgen.PYPYUINTDIV,
     'uint_mod':                 jvmgen.PYPYUINTMOD,
     'uint_lt':                  'u_less_than',
@@ -211,14 +211,15 @@ _opcodes = {
     'ullong_truediv':           None, # TODO
     'ullong_floordiv':          jvmgen.LDIV, # valid?
     'ullong_mod':               jvmgen.PYPYULONGMOD,
-    'ullong_mod_zer':           _check_zer(jvmgen.PYPYULONGMOD),
-    'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
     'ullong_lt':                'ulong_less_than',     
     'ullong_le':                'ulong_less_equals',   
     'ullong_eq':                'ulong_equals',        
     'ullong_ne':                'ulong_not_equals',    
     'ullong_gt':                'ulong_greater_than',  
     'ullong_ge':                'ulong_greater_equals',
+    'ullong_lshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LSHL, StoreResult],
+    'ullong_rshift':            [PushAllArgs, jvmgen.L2I, jvmgen.LUSHR, StoreResult],
+    'ullong_mod_zer':           _check_zer(jvmgen.PYPYULONGMOD),
 
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
@@ -226,8 +227,7 @@ _opcodes = {
     # trick. #THIS COMMENT NEEDS TO BE VALIDATED AND UPDATED
     'cast_bool_to_int':         DoNothing,
     'cast_bool_to_uint':        DoNothing,
-    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL, This should be replaced with JASMIN code later for spee, This should be replaced with JASMIN code later for speedd
-    
+    'cast_bool_to_float':       jvmgen.PYPYBOOLTODOUBLE, #PAUL, inefficient    
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      DoNothing,
     'cast_int_to_char':         DoNothing,

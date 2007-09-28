@@ -69,9 +69,10 @@ public class PyPy implements Constants {
     }
 
     public static int uint_mod(int x, int y) {
-        double dx = uint_to_double(x);
-        double modulo = Math.IEEEremainder(dx, y);
-        return (int)modulo;
+        long lx = uint_to_long(x);
+        long ly = uint_to_long(y);
+        long lr = lx % ly;
+        return long_to_uint(lr);
     }
 
     public static int uint_mul(int x, int y)
@@ -86,6 +87,11 @@ public class PyPy implements Constants {
         long xx = uint_to_long(x);
         long yy = uint_to_long(y);
         return long_to_uint(xx / yy);
+    }
+    
+    public static long ulong_shl(long x, long y) {
+        int yi = (int)y;
+        return x << yi;
     }
 
     public static long ulong_mod(long x, long y) {
@@ -131,7 +137,6 @@ public class PyPy implements Constants {
         return (double)uint_to_long(value);
     }
 
-    
     // XXX: broken if the value is too large
     public static double ulong_to_double(long value) {
         if (value >= 0)
@@ -140,7 +145,7 @@ public class PyPy implements Constants {
             return ULONG_MAX + value;
         }
     }
-
+    
     public static int double_to_uint(double value) {
         if (value <= Integer.MAX_VALUE)
             return (int)value;
