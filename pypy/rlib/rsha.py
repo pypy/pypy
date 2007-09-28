@@ -262,7 +262,7 @@ class RSHA(object):
         to efficiently compute the digests of strings that share
         a common initial substring.
         """
-        clone = RMD5()
+        clone = RSHA()
         clone._copyfrom(self)
         return clone
 

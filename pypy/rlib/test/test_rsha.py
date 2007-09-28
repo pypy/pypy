@@ -27,6 +27,16 @@ class TestSHA:
         self.check("a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
 
+    def test_copy(self):
+        import sha
+        for repeat in [1, 10, 100]:
+            d1 = rsha.sha("abc" * repeat)
+            d2 = d1.copy()
+            d1.update("def" * repeat)
+            d2.update("gh" * repeat)
+            assert d1.digest() == sha.sha("abc"*repeat+"def"*repeat).digest()
+            assert d2.digest() == sha.sha("abc"*repeat+"gh"*repeat).digest()
+
     def test_random(self):
         import random, sha
         for i in range(20):
