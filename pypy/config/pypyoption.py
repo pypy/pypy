@@ -238,7 +238,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
         BoolOption("oldstyle",
                    "specify whether the default metaclass should be classobj",
-                   default=False, cmdline="--oldstyle"),
+                   default=False, cmdline="-k --oldstyle"),
 
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
