@@ -15,6 +15,24 @@ nonsense, isn't it?  `more...`_
 .. _eventhistory: eventhistory.html
 
 
+
+PyPy Sprint in Gothenburg: 19nd-25th November 2007
+==================================================================
+
+
+The next post-EU-project PyPy sprint will be in Gothenburg, Sweden. It will
+focus on cleaning up the PyPy codebase and making it ready for the next round
+of improvements. It is a "public" sprint but it will probably be more suitable
+for people already somewhat acquainted with PyPy.  For more information see the
+`Gothenburg sprint announcement`_ or a list of the `people that are known to
+come to Gothenburg`_.
+
+.. _`Gothenburg sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2007/announce.html
+.. _`people that are known to come to Gothenburg`: http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2007/people.html
+
+
+
+
 PyPy/Squeak Sprint in Bern: 22nd-26th October 2007
 ==================================================================
 
