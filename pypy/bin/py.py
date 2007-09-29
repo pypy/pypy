@@ -73,11 +73,8 @@ def main_(argv=None):
     space = option.make_objspace(config)
 
     space._starttime = starttime
-    #assert 'pypy.tool.udir' not in sys.modules, (
-    #    "running py.py should not import pypy.tool.udir, which is\n"
-    #    "only for testing or translating purposes.")
-    # ^^^ _socket and other rctypes-based modules need udir
-    space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))
+    space.setitem(space.sys.w_dict, space.wrap('executable'),
+                  space.wrap(argv[0]))
 
     # store the command-line arguments into sys.argv
     go_interactive = interactiveconfig.interactive
