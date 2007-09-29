@@ -1,0 +1,2 @@
+With this option you can enable the use of old-style classes by default.
+Normally, all PyPy classes are new-style.

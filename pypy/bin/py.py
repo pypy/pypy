@@ -37,9 +37,6 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of py.py", [
     StrOption("runcommand",
               "program passed in as CMD (terminates option list)",
               default=None, cmdline="-c"),
-    BoolOption("oldstyle_classes",
-              "Use old-style classes by default.",
-              default=False, cmdline="-k --oldstyle"),
     ])
 
 pypy_init = gateway.applevel('''
@@ -76,9 +73,11 @@ def main_(argv=None):
     space = option.make_objspace(config)
 
     space._starttime = starttime
-    space.setitem(space.sys.w_dict, space.wrap('executable'), space.wrap(argv[0]))
-    if interactiveconfig.oldstyle_classes:
-        space.setitem(space.builtin.w_dict, space.wrap('__metaclass__'), space.w_classobj)
+    #assert 'pypy.tool.udir' not in sys.modules, (
+    #    "running py.py should not import pypy.tool.udir, which is\n"
+    #    "only for testing or translating purposes.")
+    # ^^^ _socket and other rctypes-based modules need udir
+    space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))
 
     # store the command-line arguments into sys.argv
     go_interactive = interactiveconfig.interactive

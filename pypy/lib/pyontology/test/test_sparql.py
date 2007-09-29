@@ -500,4 +500,4 @@ def check_have_oldstyle():
 if check_have_oldstyle():
     TestXMLRPC = _TestXMLRPC
 else:
-    py.test.skip('Please run PyPy with --oldstyle, needed by xmlrpclib')
+    py.test.skip('Please build PyPy with --oldstyle, needed by xmlrpclib')

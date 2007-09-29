@@ -236,6 +236,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "special case the 'list[integer]' expressions",
                    default=False),
 
+        BoolOption("oldstyle",
+                   "specify whether the default metaclass should be classobj",
+                   default=False, cmdline="--oldstyle"),
+
         BoolOption("logspaceoptypes",
                    "a instrumentation option: before exit, print the types seen by "
                    "certain simpler bytecodes",

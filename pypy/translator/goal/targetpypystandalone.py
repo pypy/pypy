@@ -170,6 +170,10 @@ class PyPyTarget(object):
     def get_entry_point(self, config):
         space = make_objspace(config)
 
+        if not config.objspace.std.oldstyle:
+            # disable translation of the whole of classobjinterp.py
+            StdObjSpace.setup_old_style_classes = lambda self: None
+
         # manually imports app_main.py
         filename = os.path.join(this_dir, 'app_main.py')
         w_dict = space.newdict()
