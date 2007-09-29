@@ -264,7 +264,7 @@ def build_pytypeobject(r_inst):
         p[len(name)] = '\x00'
         pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
         pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
-        if cpytype.subclassable and False: # XXX deallocation of subclass object segfaults!
+        if cpytype.subclassable:
             pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
                 Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE)''')
         else:
@@ -301,13 +301,6 @@ def build_pytypeobject(r_inst):
 
         cache[r_inst.classdef] = result
         return result
-
-# To make this a Py_TPFLAGS_BASETYPE, we need to have a tp_new that does
-# something different for subclasses: it needs to allocate a bit more
-# for CPython's GC (see PyObject_GC_Malloc); it needs to Py_INCREF the
-# type if it's a heap type; and it needs to PyObject_GC_Track() the object.
-# Also, tp_dealloc needs to untrack the object.
-
 
 # ____________________________________________________________
 # Emulation support, to have user-defined classes and instances

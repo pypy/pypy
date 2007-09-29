@@ -115,10 +115,11 @@ if GC integration has happened and this junk is still here, please delete it :)
 
 #define OP_CPY_MALLOC(cpytype, r, restype)  {				\
 	/* XXX add tp_itemsize later */					\
-	r = ((PyTypeObject *)cpytype)->tp_alloc((PyTypeObject *)cpytype, 0); \
+	r = (restype)((PyTypeObject *)cpytype)->tp_alloc(		\
+		(PyTypeObject *)cpytype, 0);				\
 	if (!r) RPyConvertExceptionFromCPython();			\
     }
-#define OP_CPY_FREE(x)   XXX "this shouldn't be used any more"
+#define OP_CPY_FREE(x)   ((PyObject *)x)->ob_type->tp_free((PyObject *)x)
 
 /************************************************************/
 /* weakref support */

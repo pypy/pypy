@@ -69,6 +69,8 @@ class RefcountingGCTransformer(GCTransformer):
                     gcheader.refcount = refcount
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
+        def ll_no_pointer_cpydealloc(adr):
+            llop.cpy_free(lltype.Void, adr)
 
         mh = mallocHelpers()
         mh.allocate = lladdress.raw_malloc
@@ -102,6 +104,8 @@ class RefcountingGCTransformer(GCTransformer):
                 ll_decref_simple, [llmemory.Address], lltype.Void)
             self.no_pointer_dealloc_ptr = self.inittime_helper(
                 ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
+            self.no_pointer_cpydealloc_ptr = self.inittime_helper(
+                ll_no_pointer_cpydealloc, [llmemory.Address], lltype.Void)
             self.malloc_fixedsize_ptr = self.inittime_helper(
                 ll_malloc_fixedsize, [lltype.Signed], llmemory.Address)
             self.malloc_varsize_no_length_ptr = self.inittime_helper(
@@ -195,7 +199,10 @@ class RefcountingGCTransformer(GCTransformer):
 
         if destrptr is None and not find_gc_ptrs_in_type(TYPE):
             #print repr(TYPE)[:80], 'is dealloc easy'
-            p = self.no_pointer_dealloc_ptr.value
+            if TYPE._gckind == 'cpy':
+                p = self.no_pointer_cpydealloc_ptr.value
+            else:
+                p = self.no_pointer_dealloc_ptr.value
             self.static_deallocator_funcptrs[TYPE] = p
             return p
 
@@ -215,19 +222,19 @@ def ll_deallocator(addr):
         gcheader.refcount = refcount
         if refcount == 0:
 %s
-            llop.gc_free(lltype.Void, addr)
+            llop.%s_free(lltype.Void, addr)
     except:
         pass
     llop.gc_restore_exception(lltype.Void, exc_instance)
     pop_alive(exc_instance)
     # XXX layering of exceptiontransform versus gcpolicy
 
-""" % (body, )
+""" % (body, TYPE._gckind)
         else:
             call_del = None
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def ll_deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
-                   body + '\n    llop.gc_free(lltype.Void, addr)\n')
+                   body + '\n    llop.%s_free(lltype.Void, addr)\n' % (TYPE._gckind,))
         d = {'pop_alive': LLTransformerOp(self.pop_alive),
              'llop': llop,
              'lltype': lltype,

@@ -538,7 +538,7 @@ class FunctionCodeGenerator(object):
         return "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
 
     def OP_CPY_FREE(self, op):
-        return "OP_CPY_FREE(%s)" % (self.expr(op.args[1]),)
+        return "OP_CPY_FREE(%s);" % (self.expr(op.args[0]),)
 
     def OP_DIRECT_FIELDPTR(self, op):
         return self.OP_GETFIELD(op, ampersand='&')

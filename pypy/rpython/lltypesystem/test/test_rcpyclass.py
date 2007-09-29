@@ -14,7 +14,7 @@ class W_MyTest(object):
         return self.x * 2
 
 
-mytest = CPyTypeInterface('mytest', {})
+mytest = CPyTypeInterface('mytest', {}, subclassable=True)
 
 def test_cpy_export():
     def f():
@@ -22,7 +22,8 @@ def test_cpy_export():
         return cpy_export(mytest, w)
 
     fn = compile(f, [])
-    res = fn(expected_extra_mallocs=1)
+    res = fn()            # the W_MyTest is allocated with the CPython logic,
+                          # so it doesn't count in expected_extra_mallocs
     assert type(res).__name__ == 'mytest'
 
 
@@ -76,17 +77,17 @@ def test_manipulate_more():
         return cpy_export(mytest, w), total
 
     fn = compile(f, [object])
-    obj, total = fn(None, expected_extra_mallocs=2) # 1 W_MyTest (with 1 tuple)
+    obj, total = fn(None, expected_extra_mallocs=1) # 1 tuple in w.stuff
     assert total == 1
-    obj, total = fn(obj, expected_extra_mallocs=4)  # 2 W_MyTests alive
-    assert total == 3
-    obj, total = fn(obj, expected_extra_mallocs=4)  # 2 W_MyTests alive
+    obj, total = fn(obj, expected_extra_mallocs=2)  # 2 tuples: old obj.stuff
+    assert total == 3                               #         + new obj.stuff
+    obj, total = fn(obj, expected_extra_mallocs=2)
     assert total == 6
-    obj, total = fn(obj, expected_extra_mallocs=4)  # etc
+    obj, total = fn(obj, expected_extra_mallocs=2)  # idem
     assert total == 10
-    obj, total = fn(obj, expected_extra_mallocs=4)
+    obj, total = fn(obj, expected_extra_mallocs=2)
     assert total == 15
-    obj, total = fn(obj, expected_extra_mallocs=4)
+    obj, total = fn(obj, expected_extra_mallocs=2)
     assert total == 21
 
 
@@ -100,32 +101,32 @@ def test_instantiate_from_cpython():
         return cpy_export(mytest, w), w.x
 
     fn = compile(f, [object])
-    obj, x = fn(None, expected_extra_mallocs=1) # 1 W_MyTest
+    obj, x = fn(None)
     assert x == 22
 
     obj2 = type(obj)()
     del obj
-    obj, x = fn(obj2, expected_extra_mallocs=1) # 1 W_MyTest (obj2)
+    obj, x = fn(obj2)
     assert obj is obj2
     assert x == 601     # 600 is the class default of W_MyTest.x
 
 
 def test_subclass_from_cpython():
-    import py; py.test.skip("not implemented (see comments in rcpy.py)")
-
     def f(input):
         current = total = 10
         if input:
             w = cpy_import(W_MyTest, input)
-            current, total = w.stuff
+            current = w.current    # or 0 if left uninitialized, as by U()
+            total = w.total        # or 0 if left uninitialized, as by U()
         w = W_MyTest(21)
         current += 1
         total += current
-        w.stuff = current, total
+        w.current = current
+        w.total = total
         return cpy_export(mytest, w), total
 
     fn = compile(f, [object])
-    obj, total = fn(None, expected_extra_mallocs=2) # 1 W_MyTest (with 1 tuple)
+    obj, total = fn(None)
     assert total == 21
     T = type(obj)
     class U(T):
@@ -136,11 +137,11 @@ def test_subclass_from_cpython():
     del obj
 
     objlist = [U() for i in range(100)]
-    obj, total = fn(obj2, expected_extra_mallocs=204) # 102 W_MyTests alive
+    obj, total = fn(obj2)
     assert total == 1
 
     del objlist
-    obj, total = fn(obj, expected_extra_mallocs=6) # 3 W_MyTests alive
+    obj, total = fn(obj)
     assert total == 3
 
 
@@ -151,7 +152,7 @@ def test_export_constant():
         return cpy_export(mytest2, w)
 
     fn = compile(f, [])
-    obj = fn(expected_extra_mallocs=1)
+    obj = fn()
     assert obj.hi == 123
     assert type(obj).hi == 123
 
@@ -164,7 +165,7 @@ def test_export_two_constants():
         return cpy_export(mytest2, w)
 
     fn = compile(f, [])
-    obj = fn(expected_extra_mallocs=1)
+    obj = fn()
     assert obj.hi == 123
     assert type(obj).hi == 123
     assert obj.there == "foo"
