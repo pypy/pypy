@@ -35,13 +35,13 @@ interpreter
  - rewrite the following rctypes modules using rffi:
   - bz2
   - crypt
+  - _demo
   - _ssl
   - errno
   - fcntl
   - mmap
   - rctime
   - readline
-  - select
   - signal
 
  - rewrite or kill the extcompiler
