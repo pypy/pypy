@@ -37,11 +37,12 @@ interpreter
   - crypt
   - _demo
   - _ssl
-  - errno
   - fcntl
   - mmap
   - rctime
   - readline
   - signal
+  - rsdl
+  - rcairo
 
  - rewrite or kill the extcompiler
