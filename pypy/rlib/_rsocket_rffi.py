@@ -297,17 +297,6 @@ cConfig.__dict__.update(platform.configure(CConfig))
 sockaddr_ptr.TO.become(cConfig.sockaddr)
 addrinfo_ptr.TO.become(cConfig.addrinfo)
 
-# HACK HACK HACK
-if _MS_WINDOWS:
-    pass #XXX
-    #from ctypes import Structure
-    #for struct in cConfig.__dict__.values():
-    #    if isinstance(struct, type) and issubclass(struct, Structure):
-    #        if struct.__name__ == 'in6_addr':
-    #            struct.__name__ = '_in6_addr'
-    #        else:
-    #            struct._external_ = True       # hack to avoid redeclaration of the struct in C
-
 # fill in missing constants with reasonable defaults
 cConfig.NI_MAXHOST = cConfig.NI_MAXHOST or 1025
 cConfig.NI_MAXSERV = cConfig.NI_MAXSERV or 32
