@@ -28,7 +28,8 @@ class CConstant(Symbolic):
 
 def llexternal(name, args, result, _callable=None, sources=[], includes=[],
                libraries=[], include_dirs=[], sandboxsafe=False,
-               canraise=False, _nowrapper=False, calling_conv='c'):
+               canraise=False, _nowrapper=False, calling_conv='c',
+               threadsafe='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -37,6 +38,12 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     CCHARP argument is expected, and the C function receives a 'const char*'
     pointing to a read-only null-terminated character of arrays, as usual
     for C.
+
+    threadsafe: whether it's ok to release the GIL around the call.
+                Default is yes, unless sandboxsafe is set, in which case
+                we consider that the function is really short-running and
+                don't bother releasing the GIL.  An explicit True or False
+                overrides this logic.
     """
     ext_type = lltype.FuncType(args, result)
     if _callable is None:
@@ -56,7 +63,16 @@ def llexternal(name, args, result, _callable=None, sources=[], includes=[],
     if _nowrapper:
         return funcptr
 
-    invoke_around_handlers = not sandboxsafe
+    if threadsafe in (False, True):
+        # invoke the around-handlers, which release the GIL, if and only if
+        # the C function is thread-safe.
+        invoke_around_handlers = threadsafe
+    else:
+        # default case:
+        # invoke the around-handlers only for "not too small" external calls;
+        # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
+        invoke_around_handlers = not sandboxsafe
+
     unrolling_arg_tps = unrolling_iterable(enumerate(args))
     def wrapper(*args):
         # XXX the next line is a workaround for the annotation bug

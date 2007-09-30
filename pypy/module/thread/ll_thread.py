@@ -47,13 +47,13 @@ c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void)
 # GIL to be released.  To use to handle the GIL lock itself.
 c_thread_acquirelock_NOAUTO = llexternal('RPyThreadAcquireLock',
                                          [TLOCKP, rffi.INT], rffi.INT,
-                                         sandboxsafe=True)
+                                         threadsafe=False)
 c_thread_releaselock_NOAUTO = llexternal('RPyThreadReleaseLock',
                                          [TLOCKP], lltype.Void,
-                                         sandboxsafe=True)
+                                         threadsafe=False)
 c_thread_fused_releaseacquirelock_NOAUTO = llexternal(
      'RPyThreadFusedReleaseAcquireLock', [TLOCKP], lltype.Void,
-                                         sandboxsafe=True)
+                                         threadsafe=False)
 
 def allocate_lock():
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw')
