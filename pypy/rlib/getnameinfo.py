@@ -1,5 +1,5 @@
 """
-An RPython implementation of getnameinfo() based on ctypes.
+An RPython implementation of getnameinfo().
 This is a rewrite of the CPython source: Modules/getaddrinfo.c
 """
 from pypy.rlib import _rsocket_rffi as _c

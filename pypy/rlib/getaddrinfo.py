@@ -1,5 +1,5 @@
 """
-An RPython implementation of getaddrinfo() based on ctypes.
+An RPython implementation of getaddrinfo().
 This is a rewrite of the CPython source: Modules/getaddrinfo.c
 """
 
