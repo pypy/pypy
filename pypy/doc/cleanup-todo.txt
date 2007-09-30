@@ -32,4 +32,15 @@ interpreter
  - review the things implemented at applevel whether they are performance-
    critical
 
- - review threading (especially GIL). It's segfaulting quite often now.
+ - rewrite the following rctypes modules using rffi:
+  - bz2
+  - crypt
+  - _ssl
+  - errno
+  - fcntl
+  - select
+  - mmap
+  - rctime
+  - readlione
+  - select
+  - signal
