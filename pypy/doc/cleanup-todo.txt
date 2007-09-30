@@ -38,9 +38,8 @@ interpreter
   - _ssl
   - errno
   - fcntl
-  - select
   - mmap
   - rctime
-  - readlione
+  - readline
   - select
   - signal
