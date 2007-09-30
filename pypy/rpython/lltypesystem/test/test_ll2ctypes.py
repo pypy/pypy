@@ -239,6 +239,7 @@ class TestLL2Ctypes(object):
         assert res[3] == '\x00'
         # XXX maybe we should also allow res[-1], res[-2]...
         rffi.free_charp(s)
+        lltype.free(res, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_frexp(self):
@@ -613,6 +614,7 @@ class TestLL2Ctypes(object):
         p = _rsocket_rffi.inet_ntoa(buf)
         assert rffi.charp2str(p) == '1.2.3.4'
         lltype.free(buf, flavor='raw')
+        lltype.free(p, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_storage_stays_around(self):
@@ -650,7 +652,6 @@ class TestLL2Ctypes(object):
         assert abs(float(b[2]) - 2.2) < 1E-6
 
     def test_cfunc_returning_newly_allocated(self):
-        py.test.skip("complains about a double free")
         from crypt import crypt as pycrypt
         crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP],
                                 rffi.CCHARP,
