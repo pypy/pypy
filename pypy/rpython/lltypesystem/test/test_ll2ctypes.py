@@ -648,3 +648,20 @@ class TestLL2Ctypes(object):
         assert abs(float(b[1]) - 1.1) < 1E-6
         assert isinstance(b[2], rffi.r_singlefloat)
         assert abs(float(b[2]) - 2.2) < 1E-6
+
+    def test_cfunc_returning_newly_allocated(self):
+        py.test.skip("complains about a double free")
+        from crypt import crypt as pycrypt
+        crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP],
+                                rffi.CCHARP,
+                                libraries=['crypt'])
+
+        s1 = rffi.str2charp("pass")
+        s2 = rffi.str2charp("ab")
+        r = crypt(s1, s2)
+        rffi.free_charp(s1)
+        rffi.free_charp(s2)
+        res = rffi.charp2str(r)
+        assert res == pycrypt("pass", "ab")
+        rffi.free_charp(r)
+        assert not ALLOCATED
