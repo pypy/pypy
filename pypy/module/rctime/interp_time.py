@@ -75,18 +75,6 @@ c_asctime = external('asctime', [TM_P], rffi.CCHARP)
 c_localtime = external('localtime', [TIME_TP], TM_P)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
-elif _WIN:
-    XXX
-    #c_QueryPerformanceCounter = external(
-    #QueryPerformanceCounter = windll.kernel32.QueryPerformanceCounter
-    #QueryPerformanceCounter.argtypes = [POINTER(LARGE_INTEGER)]
-    #QueryPerformanceCounter.restype = BOOL
-    #QueryPerformanceFrequency = windll.kernel32.QueryPerformanceFrequency
-    #QueryPerformanceFrequency.argtypes = [POINTER(LARGE_INTEGER)]
-    #QueryPerformanceFrequency.restype = BOOL
-    #Sleep = windll.kernel32.Sleep
-    #Sleep.argtypes = [DWORD]
-    #Sleep.restype = None
 c_strftime = external('strftime', [rffi.CCHARP, size_t, rffi.CCHARP, TM_P],
                       size_t)
 
