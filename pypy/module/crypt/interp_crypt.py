@@ -1,26 +1,19 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.util import find_library, load_library 
+from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.rctypes.tool.util import find_library
+from pypy.rpython.lltypesystem import rffi, lltype
 
 import sys
-from ctypes import *
 
-class CConfig:
-    _includes_ = ('unistd.h',)
-    if sys.platform != 'darwin':
-        cryptlib = ctypes_platform.Library('crypt')
+#if sys.platform == 'darwin':
+#    dllname = find_library('c')
+#    assert dllname is not None
+#    cryptlib = cdll.LoadLibrary(dllname)
 
-globals().update(ctypes_platform.configure(CConfig))
-
-if sys.platform == 'darwin':
-    dllname = find_library('c')
-    assert dllname is not None
-    cryptlib = cdll.LoadLibrary(dllname)
-
-c_crypt = cryptlib.crypt 
-c_crypt.argtypes = [c_char_p, c_char_p]
-c_crypt.restype = c_char_p 
+c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
+                          libraries=["crypt"])
 
 def crypt(space, word, salt):
     """word will usually be a user's password. salt is a 2-character string
@@ -29,6 +22,9 @@ def crypt(space, word, salt):
     the hashed password as a string, which will be composed of characters from
     the same alphabet as the salt."""
     res = c_crypt(word, salt)
-    return space.wrap(res) 
+    if not res:
+        return space.w_None
+    str_res = rffi.charp2str(res)
+    return space.wrap(str_res) 
 
 crypt.unwrap_spec = [ObjSpace, str, str]
