@@ -34,7 +34,6 @@ interpreter
 
  - rewrite the following rctypes modules using rffi:
   - bz2
-  - crypt
   - _demo
   - _ssl
   - fcntl
