@@ -119,31 +119,31 @@ def _init_timezone():
         t_ref[0] = t
         p = c_localtime(t_ref)
         janzone = -p.c_tm_gmtoff
-        janname = ["   ", p.c_tm_zone][bool(p.c_tm_zone)]
+        tm_zone = rffi.charp2str(p.c_tm_zone)
+        janname = ["   ", tm_zone][bool(tm_zone)]
         tt = t + YEAR / 2
         t_ref[0] = tt
         p = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
         julyzone = -p.c_tm_gmtoff
-        julyname = ["   ", p.c_tm_zone][bool(p.c_tm_zone)]
+        julyname = ["   ", tm_zone][bool(tm_zone)]
 
         if janzone < julyzone:
             # DST is reversed in the southern hemisphere
             timezone = julyzone
             altzone = janzone
             daylight = int(janzone != julyzone)
-            tzname = (julyname, janname)
+            tzname = [julyname, janname]
         else:
             timezone = janzone
             altzone = julyzone
             daylight = int(janzone != julyzone)
-            tzname = (janname, julyname)
-        start, end = tzname
+            tzname = [janname, julyname]
 
-    return timezone, daylight, [rffi.charp2str(start), rffi.charp2str(end)], altzone
+    return timezone, daylight, tzname, altzone
 
 def _get_error_msg():
-    errno = rff.get_errno()
+    errno = rffi.get_errno()
     return os.strerror(errno)
 
 def sleep(secs):
