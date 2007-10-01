@@ -70,15 +70,22 @@ class ExportedMethods(server.ExportedMethods):
     _spriteManagers = {}
 
     host = 'localhost'
-    try:
-        port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
-        port = int(port[7:-1])
-    except IOError:
-        log("ERROR: Can't connect to BnB server on %s:8000" % host)
-#        sys.exit()
-    except IndexError:
-        log("ERROR: Connected to BnB server but unable to detect a running game")
-#        sys.exit()
+
+    def getport(self):
+        if hasattr(self, '_port'):
+            return self._port
+        try:
+            port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+            port = int(port[7:-1])
+        except IOError:
+            log("ERROR: Can't connect to BnB server on %s:8000" % host)
+            raise IOError
+        except IndexError:
+            log("ERROR: Connected to BnB server but unable to detect a running game")
+            raise IOError
+        self._port = port
+        return port
+    port = property(getport)
 
     #def _close(self, sessionid):
     #    if sessionid in self._serverMessage:
