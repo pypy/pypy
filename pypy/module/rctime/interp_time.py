@@ -1,53 +1,54 @@
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.libc import libc
-import pypy.rpython.rctypes.implementation # this defines rctypes magic
-from pypy.rpython.rctypes.aerrno import geterrno
+from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.lltypesystem import rffi
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
-from ctypes import *
 import math
 import os
 import sys
+import time as pytime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
 
-_include = "#include <time.h>"
+_includes = ["time.h"]
 if _POSIX:
-    _include = """%s
-    #include <sys/time.h>""" % _include
-    
+    _includes.append('sys/time.h')
+
 class CConfig:
-    _header_ = _include
-    CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
-    clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
-    time_t = ctypes_platform.SimpleType("time_t", c_long)
-    size_t = ctypes_platform.SimpleType("size_t", c_long)
+    _includes_ = _includes
+    CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
+    clock_t = platform.SimpleType("clock_t", rffi.ULONG)
+    time_t = platform.SimpleType("time_t", rffi.LONG)
+    size_t = platform.SimpleType("size_t", rffi.LONG)
+    has_gettimeofday = platform.Has('gettimeofday')
     
 if _POSIX:
-    CConfig.timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int),
-                                                                ("tv_usec", c_int)])
-    CConfig.tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
-        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
-        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
-        ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
-        ("tm_zone", c_char_p)])
+    calling_conv = 'c'
+    CConfig.timeval = platform.Struct("struct timeval",
+                                      [("tv_sec", rffi.INT),
+                                       ("tv_usec", rffi.INT)])
+    CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
+        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
+        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
+        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
+        ("tm_zone", rffi.CCHARP)])
 elif _WIN:
-    from ctypes import wintypes
-    CConfig.tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
-        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
-        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
-        ("tm_yday", c_int), ("tm_isdst", c_int)])
-    
-    LARGE_INTEGER = wintypes.LARGE_INTEGER
-    BOOL = wintypes.BOOL
-    DWORD = wintypes.DWORD
+    calling_conf = 'win'
+    CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
+        ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
+        ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
+        ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
 class cConfig:
     pass
-cConfig.__dict__.update(ctypes_platform.configure(CConfig))
+cConfig.__dict__.update(platform.configure(CConfig))
 cConfig.tm.__name__ = "_tm"
+
+def external(name, args, result):
+    return rffi.llexternal(name, args, result,
+                           includes=_includes, calling_conv=calling_conv)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"
@@ -58,40 +59,35 @@ clock_t = cConfig.clock_t
 time_t = cConfig.time_t
 size_t = cConfig.size_t
 tm = cConfig.tm
+glob_buf = lltype.malloc(tm, flavor='raw')
 
-has_gettimeofday = False
-if hasattr(libc, "gettimeofday"):
-    libc.gettimeofday.argtypes = [c_void_p, c_void_p]
-    libc.gettimeofday.restype = c_int
-    has_gettimeofday = True
-libc.clock.restype = clock_t
-libc.time.argtypes = [POINTER(time_t)]
-libc.time.restype = time_t
-libc.ctime.argtypes = [POINTER(time_t)]
-libc.ctime.restype = c_char_p
-libc.gmtime.argtypes = [POINTER(time_t)]
-libc.gmtime.restype = POINTER(tm)
-libc.localtime.argtypes = [POINTER(time_t)]
-libc.localtime.restype = POINTER(tm)
-libc.mktime.argtypes = [POINTER(tm)]
-libc.mktime.restype = time_t
-libc.asctime.argtypes = [POINTER(tm)]
-libc.asctime.restype = c_char_p
+if cConfig.has_gettimeofday:
+    c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
+TIME_TP = lltype.Ptr(rffi.CFixedArray(time_t, 1))
+TM_P = lltype.Ptr(tm)
+c_clock = external('clock', [TIME_TP], clock_t)
+c_time = external('time', [TIME_TP], time_t)
+c_ctime = external('ctime', [TIME_TP], rffi.CCHARP)
+c_gmtime = external('gmtime', [TIME_TP], TM_P)
+c_mktime = external('mktime', [TM_P], time_t)
+c_asctime = external('asctime', [TM_P], rffi.CCHARP)
+c_localtime = external('localtime', [TIME_TP], TM_P)
 if _POSIX:
-    libc.tzset.restype = None # tzset() returns void
+    c_tzset = external('tzset', [], lltype.Void)
 elif _WIN:
-    QueryPerformanceCounter = windll.kernel32.QueryPerformanceCounter
-    QueryPerformanceCounter.argtypes = [POINTER(LARGE_INTEGER)]
-    QueryPerformanceCounter.restype = BOOL
-    QueryPerformanceFrequency = windll.kernel32.QueryPerformanceFrequency
-    QueryPerformanceFrequency.argtypes = [POINTER(LARGE_INTEGER)]
-    QueryPerformanceFrequency.restype = BOOL
-    Sleep = windll.kernel32.Sleep
-    Sleep.argtypes = [DWORD]
-    Sleep.restype = None
-libc.strftime.argtypes = [c_char_p, size_t, c_char_p, POINTER(tm)]
-libc.strftime.restype = size_t
-
+    XXX
+    #c_QueryPerformanceCounter = external(
+    #QueryPerformanceCounter = windll.kernel32.QueryPerformanceCounter
+    #QueryPerformanceCounter.argtypes = [POINTER(LARGE_INTEGER)]
+    #QueryPerformanceCounter.restype = BOOL
+    #QueryPerformanceFrequency = windll.kernel32.QueryPerformanceFrequency
+    #QueryPerformanceFrequency.argtypes = [POINTER(LARGE_INTEGER)]
+    #QueryPerformanceFrequency.restype = BOOL
+    #Sleep = windll.kernel32.Sleep
+    #Sleep.argtypes = [DWORD]
+    #Sleep.restype = None
+c_strftime = external('strftime', [rffi.CCHARP, size_t, rffi.CCHARP, TM_P],
+                      size_t)
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -117,81 +113,42 @@ def _init_timezone():
     if _POSIX:
         YEAR = (365 * 24 + 6) * 3600
 
-        t = (((libc.time(byref(time_t(0)))) / YEAR) * YEAR)
-        tt = time_t(t)
-        p = libc.localtime(byref(tt)).contents
-        janzone = -p.tm_gmtoff
-        janname = ["   ", p.tm_zone][bool(p.tm_zone)]
-        tt = time_t(tt.value + YEAR / 2)
-        p = libc.localtime(byref(tt)).contents
-        julyzone = -p.tm_gmtoff
-        julyname = ["   ", p.tm_zone][bool(p.tm_zone)]
+        t = (((c_time(lltype.nullptr(TIME_TP.TO))) / YEAR) * YEAR)
+        # we cannot have reference to stack variable, put it on the heap
+        t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+        t_ref[0] = t
+        p = c_localtime(t_ref)
+        janzone = -p.c_tm_gmtoff
+        janname = ["   ", p.c_tm_zone][bool(p.c_tm_zone)]
+        tt = t + YEAR / 2
+        t_ref[0] = tt
+        p = c_localtime(t_ref)
+        lltype.free(t_ref, flavor='raw')
+        julyzone = -p.c_tm_gmtoff
+        julyname = ["   ", p.c_tm_zone][bool(p.c_tm_zone)]
 
         if janzone < julyzone:
             # DST is reversed in the southern hemisphere
             timezone = julyzone
             altzone = janzone
             daylight = int(janzone != julyzone)
-            tzname = [julyname, janname]
+            tzname = (julyname, janname)
         else:
             timezone = janzone
             altzone = julyzone
             daylight = int(janzone != julyzone)
-            tzname = [janname, julyname]
-    
-    return timezone, daylight, tzname, altzone
+            tzname = (janname, julyname)
+        start, end = tzname
+
+    return timezone, daylight, [rffi.charp2str(start), rffi.charp2str(end)], altzone
 
 def _get_error_msg():
-    errno = geterrno()
+    errno = rff.get_errno()
     return os.strerror(errno)
-    
-def _floattime():
-    """ _floattime() -> computes time since the Epoch for various platforms.
 
-    Since on some system gettimeofday may fail we fall back on ftime
-    or time.
-
-    gettimeofday() has a resolution in microseconds
-    ftime() has a resolution in milliseconds and it never fails
-    time() has a resolution in seconds
-    """
-
-    if has_gettimeofday:
-        t = timeval()
-        if libc.gettimeofday(byref(t), c_void_p(None)) == 0:
-            return float(t.tv_sec) + t.tv_usec * 0.000001
-
-    return float(libc.time(None))
-
-    # elif hasattr(_libc, "ftime"):
-    #     t = _timeb()
-    #     _libc.ftime.argtypes = [c_void_p]
-    #     _libc.ftime(byref(t))
-    #     return float(t.time) + float(t.millitm) * 0.001
-    # elif hasattr(_libc, "time"):
-    #     t = c_long()
-    #     _libc.time.argtypes = [c_void_p]
-    #     _libc.time(byref(t))
-    #     return t.value
-
-if _WIN:
-    def sleep(space, w_secs):
-        """sleep(seconds)
-    
-        Delay execution for a given number of seconds.  The argument may be
-        a floating point number for subsecond precision."""
-        
-        secs = space.float_w(w_secs)
-        if secs < 0.0:
-            secs = 0.0
-        msecs = secs * 1000.0
-        try:
-            msecs = ovfcheck_float_to_int(msecs)
-        except OverflowError:
-            raise OperationError(space.w_OverflowError, 
-                                 space.wrap("sleep length is too large"))
-        ul_millis = c_ulong(msecs)
-        Sleep(ul_millis)
+def sleep(secs):
+    pytime.sleep(secs)
+sleep.unwrap_spec = [float]
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
@@ -206,7 +163,7 @@ def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
     # in the callers, so we never get a real None here).
     if space.is_w(w_seconds, space.w_None):
-        seconds = _floattime()
+        seconds = pytime.time()
     else:
         seconds = space.float_w(w_seconds)
     try:
@@ -218,15 +175,15 @@ def _get_inttime(space, w_seconds):
 def _tm_to_tuple(space, t):
     time_tuple = []
 
-    time_tuple.append(space.wrap(t.tm_year + 1900))
-    time_tuple.append(space.wrap(t.tm_mon + 1)) # want january == 1
-    time_tuple.append(space.wrap(t.tm_mday))
-    time_tuple.append(space.wrap(t.tm_hour))
-    time_tuple.append(space.wrap(t.tm_min))
-    time_tuple.append(space.wrap(t.tm_sec))
-    time_tuple.append(space.wrap((t.tm_wday + 6) % 7)) # want monday == 0
-    time_tuple.append(space.wrap(t.tm_yday + 1)) # want january, 1 == 1
-    time_tuple.append(space.wrap(t.tm_isdst))
+    time_tuple.append(space.wrap(t.c_tm_year + 1900))
+    time_tuple.append(space.wrap(t.c_tm_mon + 1)) # want january == 1
+    time_tuple.append(space.wrap(t.c_tm_mday))
+    time_tuple.append(space.wrap(t.c_tm_hour))
+    time_tuple.append(space.wrap(t.c_tm_min))
+    time_tuple.append(space.wrap(t.c_tm_sec))
+    time_tuple.append(space.wrap((t.c_tm_wday + 6) % 7)) # want monday == 0
+    time_tuple.append(space.wrap(t.c_tm_yday + 1)) # want january, 1 == 1
+    time_tuple.append(space.wrap(t.c_tm_isdst))
     
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
@@ -235,12 +192,15 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if allowNone and space.is_w(w_tup, space.w_None):
         # default to the current local time
-        tt = time_t(int(_floattime())) 
-        pbuf = libc.localtime(byref(tt))
+        tt = int(pytime.time())
+        t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+        t_ref[0] = tt
+        pbuf = c_localtime(t_ref)
+        lltype.free(t_ref, flavor='raw')
         if not pbuf:
             raise OperationError(space.w_ValueError,
                 space.wrap(_get_error_msg()))
-        return pbuf.contents
+        return pbuf
 
     tup_w = space.unpackiterable(w_tup)
     if len(tup_w) != 9:
@@ -248,16 +208,16 @@ def _gettmarg(space, w_tup, allowNone=True):
                              space.wrap("argument must be sequence of "
                                         "length 9, not %d" % len(tup_w)))
 
-    buf = tm()
     y = space.int_w(tup_w[0])
-    buf.tm_mon = space.int_w(tup_w[1])
-    buf.tm_mday = space.int_w(tup_w[2])
-    buf.tm_hour = space.int_w(tup_w[3])
-    buf.tm_min = space.int_w(tup_w[4])
-    buf.tm_sec = space.int_w(tup_w[5])
-    buf.tm_wday = space.int_w(tup_w[6])
-    buf.tm_yday = space.int_w(tup_w[7])
-    buf.tm_isdst = space.int_w(tup_w[8])
+    glob_buf.c_tm_mon = space.int_w(tup_w[1])
+    glob_buf.c_tm_mday = space.int_w(tup_w[2])
+    glob_buf.c_tm_hour = space.int_w(tup_w[3])
+    glob_buf.c_tm_min = space.int_w(tup_w[4])
+    glob_buf.c_tm_sec = space.int_w(tup_w[5])
+    glob_buf.c_tm_wday = space.int_w(tup_w[6])
+    glob_buf.c_tm_yday = space.int_w(tup_w[7])
+    glob_buf.c_tm_isdst = space.int_w(tup_w[8])
+    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
 
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
@@ -275,16 +235,16 @@ def _gettmarg(space, w_tup, allowNone=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("year out of range"))
 
-    if buf.tm_wday < 0:
+    if glob_buf.c_tm_wday < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("day of week out of range"))
 
-    buf.tm_year = y - 1900
-    buf.tm_mon = buf.tm_mon - 1
-    buf.tm_wday = (buf.tm_wday + 1) % 7
-    buf.tm_yday = buf.tm_yday - 1
+    glob_buf.c_tm_year = y - 1900
+    glob_buf.c_tm_mon = glob_buf.c_tm_mon - 1
+    glob_buf.c_tm_wday = (glob_buf.c_tm_wday + 1) % 7
+    glob_buf.c_tm_yday = glob_buf.c_tm_yday - 1
 
-    return buf
+    return glob_buf
 
 def time(space):
     """time() -> floating point number
@@ -292,7 +252,7 @@ def time(space):
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
     
-    secs = _floattime()
+    secs = pytime.time()
     return space.wrap(secs)
 
 if _WIN:
@@ -300,7 +260,7 @@ if _WIN:
         pass
     pccache = PCCache()
     pccache.divisor = 0.0
-    pccache.ctrStart = LARGE_INTEGER()
+    pccache.ctrStart = 0
 
 def clock(space):
     """clock() -> floating point number
@@ -309,22 +269,7 @@ def clock(space):
     the first call to clock().  This has as much precision as the system
     records."""
 
-    if _POSIX:
-        res = float(libc.clock()) / CLOCKS_PER_SEC
-        return space.wrap(res)
-    elif _WIN:
-        if pccache.divisor == 0.0:
-            freq = LARGE_INTEGER()
-            res = QueryPerformanceFrequency(byref(freq))
-            if not res or not freq:
-                return space.wrap(float(libc.clock()) / CLOCKS_PER_SEC)
-            pccache.divisor = float(freq.value)
-            QueryPerformanceCounter(byref(pccache.ctrStart))
-
-        now = LARGE_INTEGER()
-        QueryPerformanceCounter(byref(now))
-        diff = float(now.value - pccache.ctrStart.value)
-        return space.wrap(diff / pccache.divisor)
+    return space.wrap(pytime.clock())
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -334,14 +279,16 @@ def ctime(space, w_seconds=None):
     not present, current time as returned by localtime() is used."""
 
     seconds = _get_inttime(space, w_seconds)
-    tt = time_t(seconds)
-
-    p = libc.ctime(byref(tt))
+    
+    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref[0] = seconds
+    p = c_ctime(t_ref)
+    lltype.free(t_ref, flavor='raw')
     if not p:
         raise OperationError(space.w_ValueError,
             space.wrap("unconvertible time"))
 
-    return space.wrap(p[:-1]) # get rid of new line
+    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
 
 # by now w_tup is an optional argument (and not *args)
@@ -353,12 +300,12 @@ def asctime(space, w_tup=None):
     When the time tuple is not present, current time as returned by localtime()
     is used."""
     buf_value = _gettmarg(space, w_tup)
-    p = libc.asctime(byref(buf_value))
+    p = c_asctime(buf_value)
     if not p:
         raise OperationError(space.w_ValueError,
             space.wrap("unconvertible time"))
     
-    return space.wrap(p[:-1]) # get rid of new line
+    return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
 asctime.unwrap_spec = [ObjSpace, W_Root]
 
 def gmtime(space, w_seconds=None):
@@ -372,12 +319,14 @@ def gmtime(space, w_seconds=None):
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_inttime(space, w_seconds)
-    whent = time_t(seconds)
-    p = libc.gmtime(byref(whent))
+    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref[0] = seconds
+    p = c_gmtime(t_ref)
+    lltype.free(t_ref, flavor='raw')
     
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
-    return _tm_to_tuple(space, p.contents)
+    return _tm_to_tuple(space, p)
 gmtime.unwrap_spec = [ObjSpace, W_Root]
 
 def localtime(space, w_seconds=None):
@@ -388,12 +337,14 @@ def localtime(space, w_seconds=None):
     When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_inttime(space, w_seconds)
-    whent = time_t(seconds)
-    p = libc.localtime(byref(whent))
+    t_ref = lltype.malloc(TIME_TP.TO, flavor='raw')
+    t_ref[0] = seconds
+    p = c_localtime(t_ref)
+    lltype.free(t_ref, flavor='raw')
     
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
-    return _tm_to_tuple(space, p.contents)
+    return _tm_to_tuple(space, p)
 localtime.unwrap_spec = [ObjSpace, W_Root]
 
 def mktime(space, w_tup):
@@ -402,7 +353,7 @@ def mktime(space, w_tup):
     Convert a time tuple in local time to seconds since the Epoch."""
 
     buf = _gettmarg(space, w_tup, allowNone=False)
-    tt = libc.mktime(byref(buf))
+    tt = c_mktime(buf)
     if tt == -1:
         raise OperationError(space.w_OverflowError,
             space.wrap("mktime argument out of range"))
@@ -424,7 +375,7 @@ if _POSIX:
         the local timezone used by methods such as localtime, but this behaviour
         should not be relied on"""
 
-        libc.tzset()
+        c_tzset()
         
         # reset timezone, altzone, daylight and tzname
         timezone, daylight, tzname, altzone = _init_timezone()
@@ -441,40 +392,39 @@ def strftime(space, format, w_tup=None):
     Convert a time tuple to a string according to a format specification.
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
-
     buf_value = _gettmarg(space, w_tup)
-
+    
     # Checks added to make sure strftime() does not crash Python by
     # indexing blindly into some array for a textual representation
     # by some bad index (fixes bug #897625).
     # No check for year since handled in gettmarg().
-    if buf_value.tm_mon < 0 or buf_value.tm_mon > 11:
+    if buf_value.c_tm_mon < 0 or buf_value.c_tm_mon > 11:
         raise OperationError(space.w_ValueError,
-            space.wrap("month out of range"))
-    if buf_value.tm_mday < 1 or buf_value.tm_mday > 31:
+                             space.wrap("month out of range"))
+    if buf_value.c_tm_mday < 1 or buf_value.c_tm_mday > 31:
         raise OperationError(space.w_ValueError,
-            space.wrap("day of month out of range"))
-    if buf_value.tm_hour < 0 or buf_value.tm_hour > 23:
+                             space.wrap("day of month out of range"))
+    if buf_value.c_tm_hour < 0 or buf_value.c_tm_hour > 23:
         raise OperationError(space.w_ValueError,
-            space.wrap("hour out of range"))
-    if buf_value.tm_min < 0 or buf_value.tm_min > 59:
+                             space.wrap("hour out of range"))
+    if buf_value.c_tm_min < 0 or buf_value.c_tm_min > 59:
         raise OperationError(space.w_ValueError,
-            space.wrap("minute out of range"))
-    if buf_value.tm_sec < 0 or buf_value.tm_sec > 61:
+                             space.wrap("minute out of range"))
+    if buf_value.c_tm_sec < 0 or buf_value.c_tm_sec > 61:
         raise OperationError(space.w_ValueError,
-            space.wrap("seconds out of range"))
-    if buf_value.tm_yday < 0 or buf_value.tm_yday > 365:
+                             space.wrap("seconds out of range"))
+    if buf_value.c_tm_yday < 0 or buf_value.c_tm_yday > 365:
         raise OperationError(space.w_ValueError,
-            space.wrap("day of year out of range"))
-    if buf_value.tm_isdst < -1 or buf_value.tm_isdst > 1:
+                             space.wrap("day of year out of range"))
+    if buf_value.c_tm_isdst < -1 or buf_value.c_tm_isdst > 1:
         raise OperationError(space.w_ValueError,
-            space.wrap("daylight savings flag out of range"))
+                             space.wrap("daylight savings flag out of range"))
 
     i = 1024
     while True:
-        outbuf = create_string_buffer(i)
-        buflen = libc.strftime(outbuf, i, format, byref(buf_value))
-
+        outbuf = lltype.malloc(rffi.CCHARP.TO, i + 1, flavor='raw')
+        buflen = c_strftime(outbuf, i, format, buf_value)
+        
         if buflen > 0 or i >= 256 * len(format):
             # if the buffer is 256 times as long as the format,
             # it's probably not failing for lack of room!
@@ -482,7 +432,10 @@ def strftime(space, format, w_tup=None):
             # e.g. an empty format, or %Z when the timezone
             # is unknown.
             if buflen < 0: buflen = 0    # should not occur
-            return space.wrap(outbuf.value[:buflen])
+            outbuf[buflen] = '\x00'
+            result = rffi.charp2str(outbuf)
+            lltype.free(outbuf, flavor='raw')
+            return space.wrap(result)
 
         i += i
 strftime.unwrap_spec = [ObjSpace, str, W_Root]

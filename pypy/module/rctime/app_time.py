@@ -19,20 +19,6 @@ class struct_time:
     tm_yday   = structseqfield(7)
     tm_isdst  = structseqfield(8)
 
-
-if _POSIX:
-    from select import select
-
-    def sleep(secs):
-        """sleep(seconds)
-    
-        Delay execution for a given number of seconds.  The argument may be
-        a floating point number for subsecond precision."""
-        if secs is None:
-            raise TypeError('a float is required')
-        select([], [], [], secs)
-
-
 def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     """strptime(string, format) -> struct_time
 

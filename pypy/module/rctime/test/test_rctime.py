@@ -198,7 +198,7 @@ class AppTestRCTime:
             elif os.environ.has_key('TZ'):
                 del os.environ['TZ']
             rctime.tzset()
-            
+
     def test_strftime(self):
         import time as rctime
         

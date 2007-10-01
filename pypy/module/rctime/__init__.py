@@ -18,6 +18,7 @@ class Module(MixedModule):
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
         'strftime': 'interp_time.strftime',
+        'sleep' : 'interp_time.sleep',
     }
 
     def buildloaders(cls):
@@ -25,10 +26,7 @@ class Module(MixedModule):
         import os
         
         if os.name == "posix":
-            Module.appleveldefs['sleep'] = 'app_time.sleep'
             Module.interpleveldefs['tzset'] = 'interp_time.tzset'
-        elif os.name == "nt":
-            Module.interpleveldefs['sleep'] = 'interp_time.sleep'
 
         # this machinery is needed to expose constants
         # that have to be initialized one time only
