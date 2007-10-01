@@ -114,6 +114,7 @@ def _init_timezone():
         t_ref[0] = tt
         p = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
+        tm_zone = rffi.charp2str(p.c_tm_zone)
         julyzone = -p.c_tm_gmtoff
         julyname = ["   ", tm_zone][bool(tm_zone)]
 
