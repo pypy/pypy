@@ -13,7 +13,7 @@ import sys
 #    cryptlib = cdll.LoadLibrary(dllname)
 
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
-                          libraries=["crypt"])
+                          libraries=["crypt"], threadsafe=False)
 
 def crypt(space, word, salt):
     """word will usually be a user's password. salt is a 2-character string
