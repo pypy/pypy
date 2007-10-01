@@ -56,11 +56,11 @@ class RegisterTime(BaseLazyRegistering):
             if self.GETTIMEOFDAY_NO_TZ:
                 c_gettimeofday = self.llexternal('gettimeofday',
                                  [self.TIMEVALP], rffi.INT,
-                                                 _nowrapper=True)
+                                  _nowrapper=True, threadsafe=False)
             else:
                 c_gettimeofday = self.llexternal('gettimeofday',
                                  [self.TIMEVALP, rffi.VOIDP], rffi.INT,
-                                                 _nowrapper=True)
+                                  _nowrapper=True, threadsafe=False)
         else:
             c_gettimeofday = None
 
@@ -68,12 +68,12 @@ class RegisterTime(BaseLazyRegistering):
             self.configure(CConfigForFTime)
             c_ftime = self.llexternal('ftime', [lltype.Ptr(self.TIMEB)],
                                       lltype.Void,
-                                      _nowrapper=True)
+                                      _nowrapper=True, threadsafe=False)
         else:
             c_ftime = None    # to not confuse the flow space
 
         c_time = self.llexternal('time', [rffi.VOIDP], self.TIME_T,
-                                 _nowrapper=True)
+                                 _nowrapper=True, threadsafe=False)
 
         def time_time_llimpl():
             void = lltype.nullptr(rffi.VOIDP.TO)
@@ -105,14 +105,17 @@ class RegisterTime(BaseLazyRegistering):
 
     @registering(time.clock)
     def register_time_clock(self):
-        c_clock = self.llexternal('clock', [], self.CLOCK_T)
+        c_clock = self.llexternal('clock', [], self.CLOCK_T,
+                                  threadsafe=False)
         if sys.platform == 'win32':
             # hacking to avoid LARGE_INTEGER which is a union...
             A = lltype.FixedSizeArray(lltype.SignedLongLong, 1)
             QueryPerformanceCounter = self.llexternal(
-                'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void)
+                'QueryPerformanceCounter', [lltype.Ptr(A)], lltype.Void,
+                threadsafe=False)
             QueryPerformanceFrequency = self.llexternal(
-                'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT)
+                'QueryPerformanceFrequency', [lltype.Ptr(A)], rffi.INT,
+                threadsafe=False)
             class State(object):
                 pass
             state = State()
