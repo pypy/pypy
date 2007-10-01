@@ -48,7 +48,8 @@ cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result,
-                           includes=_includes, calling_conv=calling_conv)
+                           includes=_includes, calling_conv=calling_conv,
+                           threadsafe=False)
 
 if _POSIX:
     cConfig.timeval.__name__ = "_timeval"
