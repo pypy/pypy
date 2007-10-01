@@ -218,7 +218,10 @@ def _gettmarg(space, w_tup, allowNone=True):
     glob_buf.c_tm_wday = space.int_w(tup_w[6])
     glob_buf.c_tm_yday = space.int_w(tup_w[7])
     glob_buf.c_tm_isdst = space.int_w(tup_w[8])
-    glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+    if _POSIX:
+        # actually never happens, but makes annotator happy
+        glob_buf.c_tm_zone = lltype.nullptr(rffi.CCHARP.TO)
+        glob_buf.c_tm_gmtoff = 0
 
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
