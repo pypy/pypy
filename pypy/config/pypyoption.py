@@ -115,7 +115,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",
-                   default=False),
+                   default=True),
 
         BoolOption("withsmallint", "use tagged integers",
                    default=False,
