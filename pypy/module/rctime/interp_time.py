@@ -35,7 +35,7 @@ if _POSIX:
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT), ("tm_gmtoff", rffi.LONG),
         ("tm_zone", rffi.CCHARP)])
 elif _WIN:
-    calling_conf = 'win'
+    calling_conv = 'win'
     CConfig.tm = platform.Struct("struct tm", [("tm_sec", rffi.INT),
         ("tm_min", rffi.INT), ("tm_hour", rffi.INT), ("tm_mday", rffi.INT),
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
