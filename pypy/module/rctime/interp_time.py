@@ -60,7 +60,7 @@ clock_t = cConfig.clock_t
 time_t = cConfig.time_t
 size_t = cConfig.size_t
 tm = cConfig.tm
-glob_buf = lltype.malloc(tm, flavor='raw')
+glob_buf = lltype.malloc(tm, flavor='raw', zero=True)
 
 if cConfig.has_gettimeofday:
     c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
