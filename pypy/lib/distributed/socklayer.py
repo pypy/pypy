@@ -64,9 +64,9 @@ def socket_connecter(address, socket=socket):
     return SenderWrapper(s).send, ReceiverWrapper(s).receive
 
 def connect(address, socket=socket):
-    from distributed.support import get_remote_view
+    from distributed.support import RemoteView
     from distributed import RemoteProtocol
-    return get_remote_view(RemoteProtocol(*socket_connecter(address, socket)))
+    return RemoteView(RemoteProtocol(*socket_connecter(address, socket)))
 
 def spawn_remote_side(code, gw):
     """ A very simple wrapper around greenexecnet to allow
