@@ -9,10 +9,10 @@ from pypy.tool.sourcetools import valid_identifier
 from pypy.translator.c.primitive import PrimitiveName, PrimitiveType
 from pypy.translator.c.primitive import PrimitiveErrorValue
 from pypy.translator.c.node import StructDefNode, ArrayDefNode
-from pypy.translator.c.node import FixedSizeArrayDefNode
+from pypy.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
-from pypy.translator.c.support import log
+from pypy.translator.c.support import log, barebonearray
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
 from pypy.translator.c import gc
@@ -83,7 +83,10 @@ class LowLevelDatabase(object):
                 else:
                     node = StructDefNode(self, T, varlength)
             elif isinstance(T, Array):
-                node = ArrayDefNode(self, T, varlength)
+                if barebonearray(T):
+                    node = BareBoneArrayDefNode(self, T, varlength)
+                else:
+                    node = ArrayDefNode(self, T, varlength)
             elif isinstance(T, OpaqueType) and hasattr(T, '_exttypeinfo'):
                 node = ExtTypeOpaqueDefNode(self, T)
             elif T == WeakRef:

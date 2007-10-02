@@ -214,15 +214,6 @@ class ArrayDefNode:
          self.name) = db.namespace.uniquename(basename, with_number=with_number,
                                               bare=True)
         self.dependencies = {}
-        # a non-gc array with no length doesn't need a 'struct' wrapper at
-        # all; rffi kind of expects such arrays to be "bare" C arrays.
-        self.barebone = barebonearray(ARRAY)
-        if self.barebone:
-            self.setup()     # to get self.itemtypename
-            typename = self.itemtypename.replace('@', '(@)[%d]' % (
-                self.varlength,))
-            self.forward_decl = 'typedef %s;' % (cdecl(typename, self.name),)
-            self.typetag = ''
 
     def setup(self):
         if hasattr(self, 'itemtypename'):
@@ -247,32 +238,22 @@ class ArrayDefNode:
         return '%s %s @' % (self.typetag, self.name)
 
     def getptrtype(self):
-        if self.barebone:
-            return self.itemtypename.replace('@', '*@')
-        else:
-            return '%s %s *@' % (self.typetag, self.name)
+        return '%s %s *@' % (self.typetag, self.name)
 
     def access_expr(self, baseexpr, index):
-        if self.barebone:
-            return '%s[%d]' % (baseexpr, index)
-        else:
-            return '%s.items[%d]' % (baseexpr, index)
+        return '%s.items[%d]' % (baseexpr, index)
 
     def ptr_access_expr(self, baseexpr, index):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
-        if self.barebone:
-            return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
-        elif self.ARRAY._hints.get('nolength', False):
+        if self.ARRAY._hints.get('nolength', False):
             return 'RPyNLenItem(%s, %s)' % (baseexpr, indexexpr)
         else:
             return 'RPyItem(%s, %s)' % (baseexpr, indexexpr)
 
     def definition(self):
-        if self.barebone:
-            return
         gcpolicy = self.db.gcpolicy
         yield 'struct %s {' % self.name
         for fname, typename in self.gcfields:
@@ -316,12 +297,62 @@ class ArrayDefNode:
             yield 'offsetof(struct %s, length)' % (self.name,)
         else:
             yield '-1'
-        if self.ARRAY.OF is not Void and not self.barebone:
+        if self.ARRAY.OF is not Void:
             yield 'offsetof(struct %s, items[0])' % (self.name,)
             yield 'offsetof(struct %s, items[1])' % (self.name,)
         else:
             yield '-1'
             yield '-1'
+
+
+class BareBoneArrayDefNode:
+    """For 'simple' array types which don't need a length nor GC headers.
+    Implemented directly as a C array instead of a struct with an items field.
+    rffi kind of expects such arrays to be 'bare' C arrays.
+    """
+    gcinfo = None
+    name = None
+    forward_decl = None
+
+    def __init__(self, db, ARRAY, varlength=1):
+        self.db = db
+        self.ARRAY = ARRAY
+        self.LLTYPE = ARRAY
+        self.varlength = varlength
+        self.dependencies = {}
+        self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
+
+    def setup(self):
+        """Array loops are forbidden by ForwardReference.become() because
+        there is no way to declare them in C."""
+
+    def gettype(self):
+        return self.itemtypename.replace('@', '(@)[%d]' % (self.varlength,))
+
+    def getptrtype(self):
+        return self.itemtypename.replace('@', '*@')
+
+    def access_expr(self, baseexpr, index):
+        return '%s[%d]' % (baseexpr, index)
+
+    def ptr_access_expr(self, baseexpr, index):
+        assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
+        return self.itemindex_access_expr(baseexpr, index)
+
+    def itemindex_access_expr(self, baseexpr, indexexpr):
+        return 'RPyBareItem(%s, %s)' % (baseexpr, indexexpr)
+
+    def definition(self):
+        return []    # no declaration is needed
+
+    def visitor_lines(self, prefix, on_item):
+        raise Exception("cannot visit C arrays - don't know the length")
+
+    def debug_offsets(self):
+        # generate three offsets for debugging inspection,
+        yield '-1'     # no length
+        yield '0'      # first element is immediately at the start of the array
+        yield 'sizeof(%s)' % (cdecl(self.itemtypename, ''),)
 
 
 class FixedSizeArrayDefNode:
