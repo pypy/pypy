@@ -1,16 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.tool import rffi_platform as platform
-from pypy.rpython.rctypes.tool.util import find_library
 from pypy.rpython.lltypesystem import rffi, lltype
 
-import sys
-
-#if sys.platform == 'darwin':
-#    dllname = find_library('c')
-#    assert dllname is not None
-#    cryptlib = cdll.LoadLibrary(dllname)
 
 c_crypt = rffi.llexternal('crypt', [rffi.CCHARP, rffi.CCHARP], rffi.CCHARP,
                           libraries=["crypt"], threadsafe=False)
