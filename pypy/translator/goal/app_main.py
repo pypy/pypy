@@ -321,7 +321,7 @@ def entry_point(executable, argv):
             except ImportError:
                 success = run_toplevel(interactive_console, mainmodule)
             else:
-                main(print_banner=False)
+                main(print_banner=False, clear_main=False)
                 success = True
     except SystemExit, e:
         return e.code
