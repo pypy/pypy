@@ -1,4 +1,6 @@
-""" This is sample demo about how flexible pypy distribution is.
+""" This is a sample demo showcasing file server, done by the pypy
+distriobution library.
+
 Not counting __doc__ and initialization this is 2 line,
 fully operational file server,
 sample client which is in fileclient.py is included as well.
