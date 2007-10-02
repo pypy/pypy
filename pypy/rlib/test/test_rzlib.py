@@ -121,10 +121,14 @@ def test_decompression():
     should allow us to decompress bytes.
     """
     stream = rzlib.inflateInit()
-    bytes = rzlib.decompress(stream, compressed)
-    bytes += rzlib.decompress(stream, "", rzlib.Z_FINISH)
+    bytes1, finished1, unused1 = rzlib.decompress(stream, compressed)
+    bytes2, finished2, unused2 = rzlib.decompress(stream, "", rzlib.Z_FINISH)
     rzlib.inflateEnd(stream)
-    assert bytes == expanded
+    assert bytes1 + bytes2 == expanded
+    assert finished1 is True
+    assert finished2 is True
+    assert unused1 == 0
+    assert unused2 == 0
 
 
 def test_decompression_lots_of_data():
@@ -135,9 +139,12 @@ def test_decompression_lots_of_data():
     compressed = zlib.compress(expanded)
     print len(compressed), '=>', len(expanded)
     stream = rzlib.inflateInit()
-    bytes = rzlib.decompress(stream, compressed, rzlib.Z_FINISH)
+    bytes, finished, unused = rzlib.decompress(stream, compressed,
+                                               rzlib.Z_FINISH)
     rzlib.inflateEnd(stream)
     assert bytes == expanded
+    assert finished is True
+    assert unused == 0
 
 
 def test_decompression_truncated_input():
@@ -149,11 +156,75 @@ def test_decompression_truncated_input():
     compressed = zlib.compress(expanded)
     print len(compressed), '=>', len(expanded)
     stream = rzlib.inflateInit()
-    data = rzlib.decompress(stream, compressed[:1000])
+    data, finished1, unused1 = rzlib.decompress(stream, compressed[:1000])
     assert expanded.startswith(data)
-    data += rzlib.decompress(stream, compressed[1000:2000])
+    assert finished1 is False
+    assert unused1 == 0
+    data2, finished2, unused2 = rzlib.decompress(stream, compressed[1000:2000])
+    data += data2
+    assert finished2 is False
+    assert unused2 == 0
     assert expanded.startswith(data)
     py.test.raises(rzlib.RZlibError,
                    rzlib.decompress, stream, compressed[2000:-500],
                    rzlib.Z_FINISH)
     rzlib.inflateEnd(stream)
+
+
+def test_decompression_too_much_input():
+    """
+    Check the case where we feed extra data to decompress().
+    """
+    stream = rzlib.inflateInit()
+    data1, finished1, unused1 = rzlib.decompress(stream, compressed[:-5])
+    assert finished1 is False
+    assert unused1 == 0
+    data2, finished2, unused2 = rzlib.decompress(stream,
+                                                 compressed[-5:] + 'garbage')
+    assert finished2 is True
+    assert unused2 == len('garbage')
+    assert data1 + data2 == expanded
+    data3, finished3, unused3 = rzlib.decompress(stream, 'more_garbage')
+    assert finished3 is True
+    assert unused3 == len('more_garbage')
+    assert data3 == ''
+
+
+def test_decompress_max_length():
+    """
+    Test the max_length argument of decompress().
+    """
+    stream = rzlib.inflateInit()
+    data1, finished1, unused1 = rzlib.decompress(stream, compressed,
+                                                 max_length = 17)
+    assert data1 == expanded[:17]
+    assert finished1 is False
+    assert unused1 > 0
+    data2, finished2, unused2 = rzlib.decompress(stream, compressed[-unused1:])
+    assert data2 == expanded[17:]
+    assert finished2 is True
+    assert unused2 == 0
+
+
+def test_cornercases():
+    """
+    Test degenerate arguments.
+    """
+    stream = rzlib.deflateInit()
+    bytes = rzlib.compress(stream, "")
+    bytes += rzlib.compress(stream, "")
+    bytes += rzlib.compress(stream, "", rzlib.Z_FINISH)
+    assert zlib.decompress(bytes) == ""
+
+    stream = rzlib.inflateInit()
+    data, finished, unused = rzlib.decompress(stream, "")
+    assert data == ""
+    assert finished is False
+    assert unused == 0
+    buf = compressed
+    for i in range(10):
+        data, finished, unused = rzlib.decompress(stream, buf, max_length=0)
+        assert data == ""
+        assert finished is False
+        assert unused > 0
+        buf = buf[-unused:]

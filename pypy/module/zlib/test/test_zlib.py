@@ -133,5 +133,45 @@ class AppTestZlib(object):
 
 
     def test_decompress_invalid_input(self):
+        """
+        Try to feed garbage to zlib.decompress().
+        """
         raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
         raises(self.zlib.error, self.zlib.decompress, 'foobar')
+
+
+    def test_unused_data(self):
+        """
+        Try to feed too much data to zlib.decompress().
+        It should show up in the unused_data attribute.
+        """
+        d = self.zlib.decompressobj()
+        s = d.decompress(self.compressed + 'extrastuff')
+        assert s == self.expanded
+        assert d.unused_data == 'extrastuff'
+        # try again with several decompression steps
+        d = self.zlib.decompressobj()
+        s1 = d.decompress(self.compressed[:10])
+        assert d.unused_data == ''
+        s2 = d.decompress(self.compressed[10:-3])
+        assert d.unused_data == ''
+        s3 = d.decompress(self.compressed[-3:] + 'spam' * 100)
+        assert d.unused_data == 'spam' * 100
+        assert s1 + s2 + s3 == self.expanded
+        s4 = d.decompress('egg' * 50)
+        assert d.unused_data == 'egg' * 50
+        assert s4 == ''
+
+
+    def test_max_length(self):
+        """
+        Test the max_length argument of the decompress() method
+        and the corresponding unconsumed_tail attribute.
+        """
+        d = self.zlib.decompressobj()
+        data = self.compressed
+        for i in range(0, 100, 10):
+            s1 = d.decompress(data, 10)
+            assert s1 == self.expanded[i:i+10]
+            data = d.unconsumed_tail
+        assert not data

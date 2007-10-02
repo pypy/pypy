@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 
@@ -263,15 +264,24 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     """
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
-    return _operate(stream, data, flush, False, _deflate, "while compressing")
+    data, _, avail_in = _operate(stream, data, flush, sys.maxint, _deflate,
+                                 "while compressing")
+    assert not avail_in, "not all input consumed by deflate"
+    return data
 
 
-def decompress(stream, data, flush=Z_SYNC_FLUSH):
+def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint):
     """
-    Feed more data into an inflate stream.  Returns a string containing
-    (a part of) the decompressed data.  If flush != Z_NO_FLUSH, this also
-    flushes the output data; see zlib.h or the documentation of the
-    zlib module for the possible values of 'flush'.
+    Feed more data into an inflate stream.  Returns a tuple (string,
+    finished, unused_data_length).  The string contains (a part of) the
+    decompressed data.  If flush != Z_NO_FLUSH, this also flushes the
+    output data; see zlib.h or the documentation of the zlib module for
+    the possible values of 'flush'.
+
+    The 'string' is never longer than 'max_length'.  The
+    'unused_data_length' is the number of unprocessed input characters,
+    either because they are after the end of the compressed stream or
+    because processing it would cause the 'max_length' to be exceeded.
     """
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of pypy.rlib.rzlib should use locks if needed.
@@ -284,11 +294,18 @@ def decompress(stream, data, flush=Z_SYNC_FLUSH):
         should_finish = True
     else:
         should_finish = False
-    return _operate(stream, data, flush, should_finish, _inflate,
-                    "while decompressing")
+    result = _operate(stream, data, flush, max_length, _inflate,
+                      "while decompressing")
+    if should_finish:
+        # detect incomplete input in the Z_FINISHED case
+        finished = result[1]
+        if not finished:
+            raise RZlibError("the input compressed stream of data is "
+                             "incomplete")
+    return result
 
 
-def _operate(stream, data, flush, should_finish, cfunc, while_doing):
+def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
@@ -312,12 +329,19 @@ def _operate(stream, data, flush, should_finish, cfunc, while_doing):
 
             while True:
                 stream.c_next_out = rffi.cast(Bytefp, outbuf)
-                rffi.setintfield(stream, 'c_avail_out', OUTPUT_BUFFER_SIZE)
+                bufsize = OUTPUT_BUFFER_SIZE
+                if max_length < bufsize:
+                    if max_length <= 0:
+                        err = Z_OK
+                        break
+                    bufsize = max_length
+                max_length -= bufsize
+                rffi.setintfield(stream, 'c_avail_out', bufsize)
                 err = cfunc(stream, flush)
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
-                    for i in xrange(OUTPUT_BUFFER_SIZE - avail_out):
+                    for i in xrange(bufsize - avail_out):
                         result.append(outbuf[i])
                     # if the output buffer is full, there might be more data
                     # so we need to try again.  Otherwise, we're done.
@@ -335,7 +359,7 @@ def _operate(stream, data, flush, should_finish, cfunc, while_doing):
                     # the output buffer was full but there wasn't more
                     # output when we tried again, so it is not an error
                     # condition.
-                    if avail_out == OUTPUT_BUFFER_SIZE:
+                    if avail_out == bufsize:
                         break
 
                 # fallback case: report this error
@@ -347,10 +371,8 @@ def _operate(stream, data, flush, should_finish, cfunc, while_doing):
         lltype.free(inbuf, flavor='raw')
 
     # When decompressing, if the compressed stream of data was truncated,
-    # then the zlib simply returns Z_OK and waits for more.  Let's detect
-    # this situation and complain.
-    if should_finish and err != Z_STREAM_END:
-        raise RZlibError("the input compressed stream of data is not complete")
-
-    assert not stream.c_avail_in, "not all input consumed by deflate/inflate"
-    return ''.join(result)
+    # then the zlib simply returns Z_OK and waits for more.  If it is
+    # complete it returns Z_STREAM_END.
+    return (''.join(result),
+            err == Z_STREAM_END,
+            rffi.cast(lltype.Signed, stream.c_avail_in))

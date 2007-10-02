@@ -1,6 +1,7 @@
+import sys
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 
@@ -61,8 +62,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
         try:
             stream = rzlib.deflateInit(level)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise zlib_error(space, "Bad compression level")
         try:
             result = rzlib.compress(stream, string, rzlib.Z_FINISH)
         finally:
@@ -78,16 +78,15 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
     decompress(string[, wbits[, bufsize]]) -- Return decompressed string.
 
     Optional arg wbits is the window buffer size.  Optional arg bufsize is
-    the initial output buffer size.
+    only for compatibility with CPython and is ignored.
     """
     try:
         try:
             stream = rzlib.inflateInit(wbits)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("Invalid initialization option"))
+            raise zlib_error(space, "Bad window buffer size")
         try:
-            result = rzlib.decompress(stream, string, rzlib.Z_FINISH)
+            result, _, _ = rzlib.decompress(stream, string, rzlib.Z_FINISH)
         finally:
             rzlib.inflateEnd(stream)
     except rzlib.RZlibError, e:
@@ -114,6 +113,7 @@ class Compress(Wrappable):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
+        self.lock = space.allocate_lock()
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -132,7 +132,12 @@ class Compress(Wrappable):
         Call the flush() method to clear these buffers.
         """
         try:
-            result = rzlib.compress(self.stream, data)
+            lock = self.lock
+            lock.acquire(True)
+            try:
+                result = rzlib.compress(self.stream, data)
+            finally:
+                lock.release()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
@@ -152,7 +157,12 @@ class Compress(Wrappable):
         compressed.
         """
         try:
-            result = rzlib.compress(self.stream, '', mode)
+            lock = self.lock
+            lock.acquire(True)
+            try:
+                result = rzlib.compress(self.stream, '', mode)
+            finally:
+                lock.release()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         return self.space.wrap(result)
@@ -198,6 +208,8 @@ class Decompress(Wrappable):
         inflateInit2.
         """
         self.space = space
+        self.unused_data = ''
+        self.unconsumed_tail = ''
         try:
             self.stream = rzlib.inflateInit(wbits)
         except rzlib.RZlibError, e:
@@ -205,6 +217,7 @@ class Decompress(Wrappable):
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid initialization option"))
+        self.lock = space.allocate_lock()
 
     def __del__(self):
         """Automatically free the resources used by the stream."""
@@ -222,14 +235,33 @@ class Decompress(Wrappable):
         no longer than max_length.  Unconsumed input data will be stored in the
         unconsumed_tail attribute.
         """
-        if max_length != 0:      # XXX
-            raise OperationError(self.space.w_NotImplementedError,
-                                 self.space.wrap("max_length != 0"))
+        if max_length == 0:
+            max_length = sys.maxint
+        elif max_length < 0:
+            raise OperationError(self.space.w_ValueError,
+                                 self.space.wrap("max_length must be "
+                                                 "greater than zero"))
         try:
-            result = rzlib.decompress(self.stream, data)
+            lock = self.lock
+            lock.acquire(True)
+            try:
+                result = rzlib.decompress(self.stream, data,
+                                          max_length = max_length)
+            finally:
+                lock.release()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
-        return self.space.wrap(result)
+
+        string, finished, unused_len = result
+        unused_start = len(data) - unused_len
+        assert unused_start >= 0
+        tail = data[unused_start:]
+        if finished:
+            self.unconsumed_tail = ''
+            self.unused_data = tail
+        else:
+            self.unconsumed_tail = tail
+        return self.space.wrap(string)
     decompress.unwrap_spec = ['self', str, int]
 
 
@@ -264,6 +296,8 @@ Decompress.typedef = TypeDef(
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
+    unused_data = interp_attrproperty('unused_data', Decompress),
+    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.
