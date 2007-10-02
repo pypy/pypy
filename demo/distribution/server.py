@@ -27,6 +27,9 @@ class X:
 # object
 x = X()
 
+# module
+import sys
+
 # constants
 HOST = '127.0.0.1'
 PORT = 12222
