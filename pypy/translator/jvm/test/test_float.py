@@ -19,3 +19,6 @@ class TestJvmFloat(JvmTest, BaseTestRfloat):
             expected = fn(i)
             res = self.interpret(fn, [i])
             assert res == expected
+
+    def test_r_singlefloat(self):
+        py.test.skip("not implemented: single-precision floats")

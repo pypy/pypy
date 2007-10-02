@@ -22,3 +22,6 @@ class TestJsFloat(JsTest, BaseTestRfloat):
         assert x != big
         y = fn(x)
         assert fn(x) == 9223372026854775808
+
+    def test_r_singlefloat(self):
+        py.test.skip("not implemented: single-precision floats")
