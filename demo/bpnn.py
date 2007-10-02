@@ -131,7 +131,8 @@ class NN:
         # calculate error
         error = 0.0
         for k in range(len(targets)):
-            error = error + 0.5*(targets[k]-self.ao[k])**2
+            delta = targets[k]-self.ao[k]
+            error = error + 0.5*delta*delta
         return error
 
 
