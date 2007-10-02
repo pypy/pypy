@@ -263,6 +263,7 @@ class AppTestRCTime:
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
+            print format
             rctime.strptime(rctime.strftime(format, tt), format)
 
     def test_pickle(self):
