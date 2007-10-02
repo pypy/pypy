@@ -3,8 +3,11 @@ Not counting __doc__ and initialization this is 2 line,
 fully operational file server,
 sample client which is in fileclient.py is included as well.
 
-Note that you must run it with pypy-c compiled with transparent proxy
-and allworkingmodules (or at least socket and select)
+run by:
+pypy-c fileserver.py
+
+pypy-c needs to be compiled with --allworkingmodules in order to have socket
+working.
 """
 
 HOST = '127.0.0.1' # defaults to localhost, not to export your files
