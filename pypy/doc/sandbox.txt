@@ -29,20 +29,20 @@ overflows.
 Overview
 --------
 
-One of PyPy's translation aspect is a sandboxing feature. It's "sandboxing" as
+One of PyPy's translation aspects is a sandboxing feature. It's "sandboxing" as
 in "full virtualization", but done in normal C with no OS support at all.  It's
 a two-processes model: we can translate PyPy to a special "pypy-c-sandbox"
-executable, which is safe in the sense that it doesn't do any library or system
-call - instead, whenever it would like to perform such an operation, it
+executable, which is safe in the sense that it doesn't do any library or 
+system calls - instead, whenever it would like to perform such an operation, it
 marshals the operation name and the arguments to its stdout and it waits for
 the marshalled result on its stdin.  This pypy-c-sandbox process is meant to be
-run by an outer "controller" program that answers to these operation requests.
+run by an outer "controller" program that answers these operation requests.
 
 The pypy-c-sandbox program is obtained by adding a transformation during
 translation, which turns all RPython-level external function calls into
 stubs that do the marshalling/waiting/unmarshalling.  An attacker that
 tries to escape the sandbox is stuck within a C program that contains no
-external function call at all except to write to stdout and read from
+external function calls at all except for writing to stdout and reading from
 stdin.  (It's still attackable in theory, e.g. by exploiting segfault-like
 situations, but as explained in the introduction we think that PyPy is
 rather safe against such attacks.)
@@ -88,7 +88,7 @@ To run it, use the tools in the pypy/translator/sandbox directory::
 
    ./pypy_interact.py /some/path/pypy-c-sandbox [args...]
 
-Just like pypy-c, if you pass no argument you get the interactive
+Just like with pypy-c, if you pass no argument you get the interactive
 prompt.  In theory it's impossible to do anything bad or read a random
 file on the machine from this prompt. To pass a script as an argument you need
 to put it in a directory along with all its dependencies, and ask
