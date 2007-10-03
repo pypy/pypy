@@ -39,7 +39,6 @@ interpreter
   - _ssl
   - fcntl
   - mmap
-  - rctime
   - readline
   - signal
   - rsdl
