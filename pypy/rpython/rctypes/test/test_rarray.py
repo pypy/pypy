@@ -16,9 +16,6 @@ from ctypes import ARRAY, POINTER, Structure
 
 c_int_10 = ARRAY(c_int,10)
 
-test_c_compile = True
-test_llvm_compile = False
-
 def maketest():
     A1 = c_int * 10
     A2 = POINTER(c_int) * 10
@@ -346,9 +343,6 @@ class Test_specialization:
 
 class Test_compilation:
     def setup_class(self):
-        if not test_c_compile:
-            py.test.skip("c compilation disabled")
-
         from pypy.translator.c.test.test_genc import compile
         self.compile = lambda s, x, y : compile(x, y)
 
@@ -408,10 +402,3 @@ class Test_compilation:
         fn = self.compile(func, [int])
         res = fn(N)
         assert res == 12345678
-
-class Test_compilation_llvm(Test_compilation):
-    def setup_class(self):
-        if not test_llvm_compile:
-            py.test.skip("llvm tests disabled")
-        from pypy.translator.llvm.test.runtest import compile_function
-        self.compile = lambda s, x, y : compile_function(x, y)
