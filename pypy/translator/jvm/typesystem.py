@@ -179,6 +179,7 @@ jPyPyCustomDict = JvmClassType('pypy.CustomDict')
 jPyPyStatResult = JvmClassType('pypy.StatResult')
 jPyPyWeakRef = JvmClassType('pypy.PyPyWeakRef')
 jll_os = JvmClassType('pypy.ll_os')
+jPyPyRecordStringString = JvmClassType('pypy.RecordStringString')
 
 jArithmeticException = JvmClassType('java.lang.ArithmeticException', throwable=True)
 

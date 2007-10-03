@@ -23,14 +23,8 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
     def test_os_dup(self):
         py.test.skip("not implemented")
 
-    def test_environ_items(self):
-        py.test.skip('fixme!')
-
     def test_environ(self):
-        py.test.skip('fixme!')
-
-    def test_os_listdir(self):
-        py.test.skip('fixme!')
+        py.test.skip('fixme! how to set environment variables in Java?') 
 
     def test_os_read_binary_crlf(self):
         py.test.skip('fixme!')
@@ -39,6 +33,5 @@ class TestJavaBuiltin(JvmTest, BaseTestBuiltin):
 
 class TestJvmTime(JvmTest, BaseTestTime):
 
-    def test_time_sleep(self):
-        py.test.skip('fixme!')
+    pass
 

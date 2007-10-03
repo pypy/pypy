@@ -4,6 +4,9 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
+import java.util.Iterator;
+import java.util.Arrays;
 
 abstract class FileWrapper
 {
@@ -323,10 +326,52 @@ public class ll_os {
         else
             return false;
     }
+
+    public static String ll_os_getenv(String key)
+    {
+        return System.getenv(key);
+    }
+    
+    public static void ll_os_putenv(String key, String value)
+    {
+        //System.setenv(key, value);
+        // it appears that there is no such method??!!
+    }    
+    
+    public static ArrayList ll_os_envkeys()
+    {
+        Map variables = System.getenv();
+        Set variableNames = variables.keySet();
+        return new ArrayList(variableNames);
+    }
     
     public static ArrayList ll_os_envitems()
     {
-        return new ArrayList(); // XXX
+        Map variables = System.getenv();
+        Set variableNames = variables.keySet();
+        Iterator nameIterator = variableNames.iterator();
+        ArrayList result = new ArrayList();
+
+        for (int index = 0; index < variableNames.size(); index++)
+        {
+             String name = (String) nameIterator.next();
+             String value = (String) variables.get(name);
+             result.add(new RecordStringString(name, value));
+        }
+        
+        return result;
+    }
+    
+    public static ArrayList<String> ll_os_listdir(String path)
+    {
+        if (path == "")
+            throwOSError(PyPy.ENOENT, "No such file or directory: ''");
+            
+        File f = new File(path);
+        if (!f.exists() || !f.isDirectory())
+            throwOSError(PyPy.ENOENT, "No such file or directory: '"+path+"'");
+
+        return new ArrayList(Arrays.asList(f.list()));
     }
 
     public static String ll_os_getcwd()

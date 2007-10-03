@@ -269,7 +269,11 @@ public class PyPy implements Constants {
         return result;
     }
 
-    // Used in testing:
+    // Used in testing the JVM backend:
+    //
+    //    A series of methods which serve a similar purpose to repr() in Python:
+    //    they create strings that can be exec'd() to rebuild data structures.
+    //    Also methods for writing to System.out.
 
     public static void dump(String text) {
         System.out.println(text);
@@ -343,6 +347,17 @@ public class PyPy implements Constants {
     public static String serializeObject(Object o) {
         if (o == null)
             return "None";
+        if (o instanceof ArrayList) {
+            StringBuffer sb = new StringBuffer();
+            sb.append("[");
+            for (Object obj : (ArrayList)o) 
+                sb.append(serializeObject(obj)).append(",");
+            sb.append("]");
+            return sb.toString();
+        }
+        else if (o instanceof String) {
+            return escaped_string((String)o);
+        }
         return o.toString();
     }
 
@@ -800,8 +815,20 @@ public class PyPy implements Constants {
     public static double ll_time_time() {
         return System.currentTimeMillis()/1000.0;
     }
-
-
+    
+    public static void ll_time_sleep(double seconds)
+    {
+        double startTime = ll_time_time();
+        double endTime = startTime + seconds;
+        do {
+            try {
+                Thread.sleep((int)((endTime-startTime)*1000));
+                return;
+            } catch (InterruptedException exc) {}
+            startTime = ll_time_time();
+        } while (startTime < endTime);
+    }
+    
     public static String ll_join(String a, String b)
     {
         return a + "/" + b; // XXX
