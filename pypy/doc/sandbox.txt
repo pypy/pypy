@@ -59,12 +59,8 @@ Howto
 
 In pypy/translator/goal::
 
-   ./translate.py --sandbox --source targetpypystandalone.py --withoutmod-gc
-                  --withoutmod-_weakref
+   ./translate.py --sandbox targetpypystandalone.py
 
-   (the gc and _weakref modules are disabled because they are a bit
-   too unsafe, in the sense that they could allow bogus memory
-   accesses)
 
 To run it, use the tools in the pypy/translator/sandbox directory::
 
@@ -72,8 +68,7 @@ To run it, use the tools in the pypy/translator/sandbox directory::
 
 Just like pypy-c, if you pass no argument you get the interactive
 prompt.  In theory it's impossible to do anything bad or read a random
-file on the machine from this prompt.  (There is no protection against
-using all the RAM or CPU yet.)  To pass a script as an argument you need
+file on the machine from this prompt. To pass a script as an argument you need
 to put it in a directory along with all its dependencies, and ask
 pypy_interact to export this directory (read-only) to the subprocess'
 virtual /tmp directory with the --tmp=DIR option.
