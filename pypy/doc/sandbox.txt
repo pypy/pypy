@@ -43,12 +43,9 @@ translation, which turns all RPython-level external function calls into
 stubs that do the marshalling/waiting/unmarshalling.  An attacker that
 tries to escape the sandbox is stuck within a C program that contains no
 external function call at all except to write to stdout and read from
-stdin.  (It's still attackable, e.g. by exploiting segfault-like
-situations, but as far as I can tell - unlike CPython - any RPython
-program is really robust against this kind of attack, at least if we
-enable the extra checks that all RPython list and string indexing are in
-range.  Alternatively, on Linux there is a lightweight OS-level
-sandboxing technique available by default - google for 'seccomp'.)
+stdin.  (It's still attackable in theory, e.g. by exploiting segfault-like
+situations, but as explained in the introduction we think that PyPy is
+rather safe against such attacks.)
 
 The outer controller is a plain Python program that can run in CPython
 or a regular PyPy.  It can perform any virtualization it likes, by
