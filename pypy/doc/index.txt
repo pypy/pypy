@@ -24,6 +24,7 @@ Translation Framework:
   * `What PyPy can do for your objects`_
   * `Stackless and coroutines`_
   * `JIT Generation in PyPy`_ 
+  * `Sandboxing Python code`_
 
 `extension compiler`_ describes the (in-progress) tool that can be used
 to write modules in PyPy's style and compile them into regular CPython
@@ -177,6 +178,7 @@ from our Python interpreter.
 .. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
 .. _`directory reference`: 
 .. _`rlib`: rlib.html
+.. _`Sandboxing Python code`: sandbox.html
 
 PyPy directory cross-reference 
 ------------------------------
