@@ -73,9 +73,10 @@ the PyPy universe.
 Status
 ===================================
 
-PyPy can be used to run Python programs on Linux, OS/X, Windows, and
-on top of .NET.  It is recommended to try out the current Subversion
-HEAD, which contains `major improvements`__ since the last release.
+PyPy can be used to run Python programs on Linux, OS/X,
+Windows, on top of .NET, and (recently) on top of Java.
+It is recommended to try out the current Subversion HEAD,
+which contains `major improvements`__ since the last release.
 
 .. __: http://codespeak.net/pipermail/pypy-dev/2007q4/004103.html
 
