@@ -195,7 +195,7 @@ def register_stat_variant(name):
         try:
             if arg_is_path:
                 arg = rffi.str2charp(arg)
-            error = os_mystat(arg, stresult)
+            error = rffi.cast(rffi.LONG, os_mystat(arg, stresult))
             if arg_is_path:
                 rffi.free_charp(arg)
             if error != 0:
