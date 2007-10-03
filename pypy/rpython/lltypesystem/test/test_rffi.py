@@ -131,12 +131,12 @@ def test_struct():
 
     def f():
         struct = lltype.malloc(TP.TO, flavor='raw')
-        struct.c_one = 3
+        struct.c_one = cast(INT, 3)
         struct.c_two = '\x33'
-        struct.c_three = 5
+        struct.c_three = cast(INT, 5)
         result = z(struct)
         lltype.free(struct, flavor='raw')
-        return result
+        return cast(LONG, result)
 
     fn = compile(f, [], backendopt=False)
     assert fn() == 8
@@ -321,16 +321,16 @@ def test_prebuild_constant():
 def test_struct_create():
     X = CStruct('xx', ('one', INT))
     def f():
-        p = make(X, c_one=3)
+        p = make(X, c_one=cast(INT, 3))
         res = p.c_one
         lltype.free(p, flavor='raw')
-        return res
+        return cast(LONG, res)
     assert f() == 3
     assert interpret(f, []) == 3
 
 def test_structcopy():
-    X2 = lltype.Struct('X2', ('x', INT))
-    X1 = lltype.Struct('X1', ('a', INT), ('x2', X2), ('p', lltype.Ptr(X2)))
+    X2 = lltype.Struct('X2', ('x', LONG))
+    X1 = lltype.Struct('X1', ('a', LONG), ('x2', X2), ('p', lltype.Ptr(X2)))
     def f():
         p2 = make(X2, x=123)
         p1 = make(X1, a=5, p=p2)
@@ -374,9 +374,9 @@ def test_implicit_cast():
     
 
 def test_stringpolicy1():
-    strlen = llexternal('strlen', [CCHARP], INT, includes=['string.h'])
+    strlen = llexternal('strlen', [CCHARP], SIZE_T, includes=['string.h'])
     def f():
-        return strlen("Xxx")
+        return cast(LONG, strlen("Xxx"))
     assert interpret(f, [], backendopt=True) == 3
 
 def test_stringpolicy2():
@@ -398,14 +398,14 @@ def test_stringpolicy3():
     assert interpret(f, [], backendopt=True) == 3
 
 def test_stringpolicy_mixed():
-    strlen = llexternal('strlen', [CCHARP], INT,
+    strlen = llexternal('strlen', [CCHARP], SIZE_T,
                         includes=['string.h'])
     def f():
         res1 = strlen("abcd")
         ll_str = str2charp("Xxx")
         res2 = strlen(ll_str)
         lltype.free(ll_str, flavor='raw')
-        return res1*10 + res2
+        return cast(LONG, res1*10 + res2)
 
     assert interpret(f, [], backendopt=True) == 43
 
