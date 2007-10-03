@@ -41,7 +41,10 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
 
     def lowlevelspecialize(funcdesc, args_s, key_for_args):
         args_s, key, ignored, builder = flatten_star_args(funcdesc, args_s)
-        key = [key]
+        if key is not None:
+            key = [key]
+        else:
+            key = []
         new_args_s = []
         for i, s_obj in enumerate(args_s):
             if i in key_for_args:
