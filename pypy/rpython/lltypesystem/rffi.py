@@ -188,6 +188,10 @@ platform.numbertype_to_rclass[lltype.Signed] = int     # avoid "r_long" for comm
 #        ULONGLONG      r_ulonglong
 #        SIZE_T         r_size_t
 # --------------------------------------------------------------------
+# Note that rffi.r_int is not necessarily the same as
+# rarithmetic.r_int, etc!  rffi.INT/r_int correspond to the C-level
+# 'int' type, whereas rarithmetic.r_int corresponds to the
+# Python-level int type (which is a C long).  Fun.
 
 def CStruct(name, *fields, **kwds):
     """ A small helper to create external C structure, not the

@@ -29,9 +29,9 @@ class TestLL2Ctypes(object):
         res = ctypes2lltype(lltype.SingleFloat, ctypes.c_float(-3.5))
         assert isinstance(res, rffi.r_singlefloat)
         assert float(res) == -3.5
-        assert lltype2ctypes(rffi.r_uint(-1)) == sys.maxint * 2 + 1
+        assert lltype2ctypes(rffi.r_ulong(-1)) == sys.maxint * 2 + 1
         res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
-        assert (res, type(res)) == (rffi.r_uint(-1), rffi.r_uint)
+        assert (res, type(res)) == (rffi.r_ulong(-1), rffi.r_ulong)
 
         res = lltype2ctypes(llmemory.sizeof(lltype.Signed))
         assert res == struct.calcsize("l")
@@ -377,7 +377,7 @@ class TestLL2Ctypes(object):
             p1 = rffi.cast(SIGNEDPTR, p1)
             p2 = rffi.cast(SIGNEDPTR, p2)
             print 'my_compar:', p1[0], p2[0]
-            return cmp(p1[0], p2[0])
+            return rffi.cast(rffi.INT, cmp(p1[0], p2[0]))
 
         qsort(rffi.cast(rffi.VOIDP, a),
               rffi.cast(rffi.SIZE_T, 10),
