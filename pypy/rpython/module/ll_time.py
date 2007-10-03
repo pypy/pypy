@@ -82,11 +82,11 @@ class RegisterTime(BaseLazyRegistering):
                 t = lltype.malloc(self.TIMEVAL, flavor='raw')
 
                 if self.GETTIMEOFDAY_NO_TZ:
-                    if c_gettimeofday(t) == 0:
+                    if rffi.cast(rffi.LONG, c_gettimeofday(t)) == 0:
                         result = float(t.c_tv_sec) + \
                                  float(t.c_tv_usec) * 0.000001
                 else:
-                    if c_gettimeofday(t, void) == 0:
+                    if rffi.cast(rffi.LONG, c_gettimeofday(t, void)) == 0:
                         result = float(t.c_tv_sec) + \
                                  float(t.c_tv_usec) * 0.000001
                 lltype.free(t, flavor='raw')
@@ -162,7 +162,7 @@ class RegisterTime(BaseLazyRegistering):
                     frac = math.fmod(secs, 1.0)
                     t.c_tv_sec = int(secs)
                     t.c_tv_usec = int(frac*1000000.0)
-                    if c_select(0, void, void, void, t) != 0:
+                    if rffi.cast(rffi.LONG, c_select(0, void, void, void, t)) != 0:
                         errno = rffi.get_errno()
                         if errno != EINTR:
                             raise OSError(rffi.get_errno(), "Select failed")

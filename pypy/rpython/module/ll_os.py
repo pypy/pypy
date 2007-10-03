@@ -71,7 +71,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_returning_int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
-            res = c_func()
+            res = rffi.cast(rffi.LONG, c_func())
             if res == -1:
                 raise OSError(rffi.get_errno(), "%s failed" % name)
             return res
@@ -355,7 +355,7 @@ class RegisterOs(BaseLazyRegistering):
                                   rffi.INT)
 
         def os_open_llimpl(path, flags, mode):
-            result = os_open(path, flags, mode)
+            result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
             if result == -1:
                 raise OSError(rffi.get_errno(), "os_open failed")
             return result
@@ -488,8 +488,9 @@ class RegisterOs(BaseLazyRegistering):
                                        [rffi.INT, rffi.LONGLONG], rffi.INT)
 
         def ftruncate_llimpl(fd, length):
-            res = os_ftruncate(rffi.cast(rffi.INT, fd),
-                               rffi.cast(rffi.LONGLONG, length))
+            res = rffi.cast(rffi.LONG,
+                            os_ftruncate(rffi.cast(rffi.INT, fd),
+                                         rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
                 raise OSError(rffi.get_errno(), "os_lseek failed")
 
@@ -781,7 +782,7 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            res = os_isatty(rffi.cast(rffi.INT, fd))
+            res = rffi.cast(rffi.LONG, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
         return extdef([int], bool, llimpl=isatty_llimpl,
