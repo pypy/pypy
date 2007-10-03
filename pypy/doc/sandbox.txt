@@ -73,6 +73,10 @@ to put it in a directory along with all its dependencies, and ask
 pypy_interact to export this directory (read-only) to the subprocess'
 virtual /tmp directory with the --tmp=DIR option.
 
+To limit the used heapsize, use the ``--heapsize=N`` option to
+pypy_interact.py. You can also give a limit to the CPU time (real time) by
+using the ``--timeout=N`` option.
+
 Not all operations are supported; e.g. if you type os.readlink('...'),
 the controller crashes with an exception and the subprocess is killed.
 Other operations make the subprocess die directly with a "Fatal RPython
