@@ -33,6 +33,19 @@ class SimplerExternalFuncNode(ConstantLLVMNode):
         self.value = value
         self.ref = "%" + value._name
 
+    def external_c_source(self):
+        # return a list of unique includes and sources in C
+        c_includes = []
+        c_sources = []
+
+        if hasattr(self.value, 'includes'):
+            c_includes = list(self.value.includes)
+
+        if hasattr(self.value, 'sources'):
+            c_sources = list(self.value.sources)
+
+        return c_includes, c_sources
+
     def writeglobalconstants(self, codewriter):
         pass
 

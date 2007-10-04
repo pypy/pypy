@@ -5,9 +5,28 @@ import py
 from pypy.tool.udir import udir
 from pypy.rlib.rarithmetic import r_uint
 
-py.test.skip("Extfunc support in llvm needs refactoring (!!??!)")
+from pypy.rpython.lltypesystem.rffi import *
+from pypy.rpython.lltypesystem.lltype import Signed, Ptr, Char, malloc
+from pypy.rpython.lltypesystem import lltype
 
 from pypy.translator.llvm.test.runtest import *
+
+def test_basic():
+    c_source = py.code.Source("""
+    int z(int x)
+    {
+        return (x + 3);
+    }
+    """)
+    z = llexternal('z', [Signed], Signed, sources=[c_source])
+
+    def f():
+        return z(8)
+
+    xf = compile_function(f, [])
+    assert xf() == 8+3
+
+#py.test.skip("Extfunc support in llvm needs refactoring (!!??!)"
 
 def test_external_function_ll_os_dup():
     def fn():

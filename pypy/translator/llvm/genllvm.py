@@ -175,10 +175,22 @@ class GenLLVM(object):
         return c.value._obj 
 
     def generate_ll_externs(self):
+        c_includes = {}
+        c_sources = {}
+
+        for node in self.db.getnodes():
+            includes, sources = node.external_c_source()            
+            for include in includes:
+                c_includes[include] = True
+            for source in sources:
+                c_sources[source] = True
+
         self.llexterns_header, self.llexterns_functions = \
                                generate_llfile(self.db,
                                                self.extern_decls,
                                                self.entrynode,
+                                               c_includes,
+                                               c_sources,
                                                self.standalone)
 
     def create_codewriter(self):

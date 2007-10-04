@@ -25,6 +25,12 @@ class LLVMNode(object):
     def setup(self):
         pass
 
+    # ______________________________________________________________________
+
+    def external_c_source(self):
+        # return a list of unique includes and sources in C
+        return [], []
+
     # __________________ before "implementation" ____________________
 
 
