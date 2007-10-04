@@ -23,6 +23,7 @@ translation toolchain
    timeshifter)
  - unicode strings in RPython
  - finish rctypes removal
+   - move genrffi to not use rctypes stuff any more
  - think about approaches to id, especially concerning boehm, where the id will
    keep the object alive and concerning a moving GC
 
@@ -41,7 +42,5 @@ interpreter
   - mmap
   - readline
   - signal
-  - rsdl
-  - rcairo
 
  - rewrite or kill the extcompiler
