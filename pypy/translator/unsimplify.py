@@ -144,7 +144,7 @@ def remove_double_links(annotator, graph):
                 insert_empty_block(annotator, link)
     traverse(visit, graph)
 
-def no_links_to_startblack(graph):
+def no_links_to_startblock(graph):
     """Ensure no links to start block."""    
     links_to_start_block = False
     for block in graph.iterblocks():

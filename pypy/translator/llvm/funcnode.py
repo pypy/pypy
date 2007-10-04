@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
-from pypy.translator.unsimplify import remove_double_links, no_links_to_startblack
+from pypy.translator.unsimplify import remove_double_links, no_links_to_startblock
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
@@ -65,7 +65,7 @@ class FuncNode(ConstantLLVMNode):
 
     def post_setup_transform(self):
         remove_double_links(self.db.translator.annotator, self.graph)
-        no_links_to_startblack(self.graph)
+        no_links_to_startblock(self.graph)
 
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
