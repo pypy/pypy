@@ -1,34 +1,39 @@
-from pypy.rpython.rctypes.tool import ctypes_platform
-import pypy.rpython.rctypes.implementation # this defines rctypes magic
+from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
 from pypy.rlib.streamio import Stream
-from ctypes import *
-import ctypes.util
 import sys
 
-from bzlib import bz_stream, BZFILE, FILE
-
-#libbz2 = cdll.LoadLibrary(ctypes.util.find_library("bz2"))
-
-c_void = None
-
 class CConfig:
-    _header_ = """
-    #include <stdio.h>
-    #include <sys/types.h>
-    #include <bzlib.h>
-    """
+    _includes_ = ['stdio.h', 'sys/types.h', 'bzlib.h']
+    _libraries_ = ['bz2']
+    calling_conv = 'c'
 
-    _includes_ = ["bzlib.h"]
-    libbz2 = ctypes_platform.Library('bz2')
-    off_t = ctypes_platform.SimpleType("off_t", c_longlong)
-    size_t = ctypes_platform.SimpleType("size_t", c_ulong)
-    BUFSIZ = ctypes_platform.ConstantInteger("BUFSIZ")
-    SEEK_SET = ctypes_platform.ConstantInteger("SEEK_SET")
+    off_t = platform.SimpleType("off_t", rffi.LONGLONG)
+    size_t = platform.SimpleType("size_t", rffi.ULONG)
+    BUFSIZ = platform.ConstantInteger("BUFSIZ")
+    _alloc_type = lltype.FuncType([rffi.VOIDP, rffi.INT, rffi.INT], rffi.VOIDP)
+    _free_type = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], lltype.Void)
+    SEEK_SET = platform.ConstantInteger("SEEK_SET")
+    bz_stream = platform.Struct('bz_stream',
+                                [('next_in', rffi.CCHARP),
+                                 ('avail_in', rffi.UINT),
+                                 ('total_in_lo32', rffi.UINT),
+                                 ('total_in_hi32', rffi.UINT),
+                                 ('next_out', rffi.CCHARP),
+                                 ('avail_out', rffi.UINT),
+                                 ('total_out_lo32', rffi.UINT),
+                                 ('total_out_hi32', rffi.UINT),
+                                 ('state', rffi.VOIDP),
+                                 ('bzalloc', lltype.Ptr(_alloc_type)),
+                                 ('bzfree', lltype.Ptr(_free_type)),
+                                 ('opaque', rffi.VOIDP),
+                                 ])
 
 constants = {}
 constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
@@ -37,11 +42,11 @@ constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
     'BZ_DATA_ERROR_MAGIC', 'BZ_IO_ERROR', 'BZ_UNEXPECTED_EOF',
     'BZ_OUTBUFF_FULL', 'BZ_CONFIG_ERROR']
 for name in constant_names:
-    setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
+    setattr(CConfig, name, platform.DefinedConstantInteger(name))
     
 class cConfig:
     pass
-cConfig.__dict__.update(ctypes_platform.configure(CConfig))
+cConfig.__dict__.update(platform.configure(CConfig))
 
 for name in constant_names:
     value = getattr(cConfig, name)
@@ -49,8 +54,8 @@ for name in constant_names:
         constants[name] = value
 locals().update(constants)
 
-libbz2 = cConfig.libbz2
 off_t = cConfig.off_t
+bz_stream = lltype.Ptr(cConfig.bz_stream)
 BUFSIZ = cConfig.BUFSIZ
 SEEK_SET = cConfig.SEEK_SET
 BZ_OK = cConfig.BZ_OK
@@ -69,56 +74,53 @@ if BUFSIZ < 8192:
 else:
     SMALLCHUNK = BUFSIZ
     
-if sizeof(c_int) > 4:
+if rffi.sizeof(rffi.INT) > 4:
     BIGCHUNK = 512 * 32
 else:
     BIGCHUNK = 512 * 1024
-    
+
 MAXINT = sys.maxint
 
 if BZ_CONFIG_ERROR:
-    if sizeof(c_long) >= 8 or sizeof(c_longlong) >= 8:
+    if rffi.sizeof(rffi.LONG) >= 8 or rffi.sizeof(rffi.LONGLONG) >= 8:
         def _bzs_total_out(bzs):
-            return (bzs.total_out_hi32 << 32) + bzs.total_out_lo32
+            return (bzs.c_total_out_hi32 << 32) + bzs.c_total_out_lo32
     else:
         def _bzs_total_out(bzs):
-            return bzs.total_out_lo32
+            return bzs.c_total_out_lo32
 else:
     def _bzs_total_out(bzs):
         return bzs.total_out
 
-# the least but one parameter should be c_void_p but it's not used
+def external(name, args, result):
+    return rffi.llexternal(name, args, result, includes=CConfig._includes_,
+                           libraries=['bz2'])
+
+FILE = rffi.COpaquePtr('FILE')
+BZFILE = rffi.COpaquePtr('BZFILE')
+
+# the least but one parameter should be rffi.VOIDP but it's not used
 # so I trick the compiler to not complain about constanst pointer passed
 # to void* arg
-libbz2.BZ2_bzReadOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
-    c_int, POINTER(c_int), c_int]
-libbz2.BZ2_bzReadOpen.restype = POINTER(BZFILE)
-libbz2.BZ2_bzWriteOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
-    c_int, c_int]
-libbz2.BZ2_bzWriteOpen.restype = POINTER(BZFILE)
-libbz2.BZ2_bzReadClose.argtypes = [POINTER(c_int), POINTER(BZFILE)]
-libbz2.BZ2_bzReadClose.restype = c_void
-libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
-    c_int, POINTER(c_uint), POINTER(c_uint)]
-libbz2.BZ2_bzWriteClose.restype = c_void
-libbz2.BZ2_bzRead.argtypes = [POINTER(c_int), POINTER(BZFILE), POINTER(c_char), c_int]
-libbz2.BZ2_bzRead.restype = c_int
-libbz2.BZ2_bzWrite.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
-libbz2.BZ2_bzWrite.restype = c_void
-
-libbz2.BZ2_bzCompressInit.argtypes = [POINTER(bz_stream), c_int, c_int, c_int]
-libbz2.BZ2_bzCompressInit.restype = c_int
-libbz2.BZ2_bzCompressEnd.argtypes = [POINTER(bz_stream)]
-libbz2.BZ2_bzCompressEnd.restype = c_int
-libbz2.BZ2_bzCompress.argtypes = [POINTER(bz_stream), c_int]
-libbz2.BZ2_bzCompress.restype = c_int
-
-libbz2.BZ2_bzDecompressInit.argtypes = [POINTER(bz_stream), c_int, c_int]
-libbz2.BZ2_bzDecompressInit.restype = c_int
-libbz2.BZ2_bzDecompressEnd.argtypes = [POINTER(bz_stream)]
-libbz2.BZ2_bzDecompressEnd.restype = c_int
-libbz2.BZ2_bzDecompress.argtypes = [POINTER(bz_stream)]
-libbz2.BZ2_bzDecompress.restype = c_int
+BZ2_bzReadOpen = external('BZ2_bzReadOpen', [rffi.INTP, FILE, rffi.INT,
+    rffi.INT, rffi.INTP, rffi.INT], BZFILE)
+BZ2_bzWriteOpen = external('BZ2_bzWriteOpen', [rffi.INTP, FILE, rffi.INT,
+    rffi.INT, rffi.INT], BZFILE)
+BZ2_bzReadClose = external('BZ2_bzReadClose', [rffi.INTP, BZFILE], lltype.Void)
+BZ2_bzWriteClose = external('BZ2_bzWriteClose', [rffi.INTP, BZFILE,
+    rffi.INT, rffi.UINTP, rffi.UINTP], lltype.Void)
+BZ2_bzRead = external('BZ2_bzRead', [rffi.INTP, BZFILE, rffi.CCHARP, rffi.INT],
+                      rffi.INT)
+BZ2_bzWrite = external('BZ2_bzWrite', [rffi.INTP, BZFILE, rffi.CCHARP,
+                                       rffi.INT], lltype.Void)
+BZ2_bzCompressInit = external('BZ2_bzCompressInit', [bz_stream, rffi.INT,
+                              rffi.INT, rffi.INT], rffi.INT)
+BZ2_bzCompressEnd = external('BZ2_bzCompressEnd', [bz_stream], rffi.INT)
+BZ2_bzCompress = external('BZ2_bzCompress', [bz_stream, rffi.INT], rffi.INT)
+BZ2_bzDecompressInit = external('BZ2_bzDecompressInit', [bz_stream, rffi.INT,
+                                                         rffi.INT], rffi.INT)
+BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT)
+BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
@@ -258,7 +260,6 @@ class ReadBZ2Filter(Stream):
         raise OperationError(self.space.w_IOError,
                              self.space.wrap("file is not ready for writing"))
 
-
 class WriteBZ2Filter(Stream):
     """Standard I/O stream filter that compresses the stream with bz2."""
 
@@ -294,7 +295,6 @@ class WriteBZ2Filter(Stream):
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()
 
-
 def descr_compressor__new__(space, w_subtype, compresslevel=9):
     x = space.allocate_instance(W_BZ2Compressor, w_subtype)
     x = space.interp_w(W_BZ2Compressor, x)
@@ -311,7 +311,7 @@ class W_BZ2Compressor(Wrappable):
     must be a number between 1 and 9."""
     def __init__(self, space, compresslevel):
         self.space = space
-        self.bzs = bz_stream()
+        self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         self.running = False
         self._init_bz2comp(compresslevel)
     __init__.unwrap_spec = ['self', ObjSpace, int]
@@ -320,15 +320,16 @@ class W_BZ2Compressor(Wrappable):
         if compresslevel < 1 or compresslevel > 9:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("compresslevel must be between 1 and 9"))
-                
-        bzerror = libbz2.BZ2_bzCompressInit(byref(self.bzs), compresslevel, 0, 0)
+
+        bzerror = BZ2_bzCompressInit(self.bzs, compresslevel, 0, 0)
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
         
         self.running = True
         
     def __del__(self):
-        libbz2.BZ2_bzCompressEnd(byref(self.bzs))
+        BZ2_bzCompressEnd(self.bzs)
+        lltype.free(self.bzs, flavor='raw')
     
     def compress(self, data):
         """compress(data) -> string
@@ -348,44 +349,54 @@ class W_BZ2Compressor(Wrappable):
                 self.space.wrap("this object was already flushed"))
         
         out_bufsize = SMALLCHUNK
-        out_buf = create_string_buffer(out_bufsize)
+        out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw',
+                                zero=True)
         
         in_bufsize = datasize
-        in_buf = create_string_buffer(in_bufsize)
-        in_buf.value = data
-        
-        self.bzs.next_in = cast(in_buf, POINTER(c_char))
-        self.bzs.avail_in = in_bufsize
-        self.bzs.next_out = cast(out_buf, POINTER(c_char))
-        self.bzs.avail_out = out_bufsize
-        
-        temp = []
-        while True:
-            bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_RUN)
-            if bzerror != BZ_RUN_OK:
-                _catch_bz2_error(self.space, bzerror)
+        in_buf = lltype.malloc(rffi.CCHARP.TO, in_bufsize, flavor='raw')
+        for i in range(datasize):
+            in_buf[i] = data[i]
 
-            if self.bzs.avail_in == 0:
-                break
-            elif self.bzs.avail_out == 0:
-                total_out = _bzs_total_out(self.bzs)
-                data = "".join([out_buf[i] for i in range(total_out)])
-                temp.append(data)
+        try:
+        
+            self.bzs.c_next_in = in_buf
+            self.bzs.c_avail_in = rffi.cast(rffi.UINT, in_bufsize)
+            self.bzs.c_next_out = out_buf
+            self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+        
+            temp = []
+            while True:
+                bzerror = BZ2_bzCompress(self.bzs, BZ_RUN)
+                if bzerror != BZ_RUN_OK:
+                    _catch_bz2_error(self.space, bzerror)
+
+                if self.bzs.c_avail_in == 0:
+                    break
+                elif self.bzs.c_avail_out == 0:
+                    total_out = _bzs_total_out(self.bzs)
+                    data = "".join([out_buf[i] for i in range(total_out)])
+                    temp.append(data)
                 
-                out_bufsize = _new_buffer_size(out_bufsize)
-                out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = cast(out_buf, POINTER(c_char))
-                self.bzs.avail_out = out_bufsize
+                    out_bufsize = _new_buffer_size(out_bufsize)
+                    lltype.free(out_buf, flavor='raw')
+                    out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize,
+                                            flavor='raw', zero=True)
+                    self.bzs.c_next_out = out_buf
+                    self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
 
-        if temp:
+            if temp:
+                total_out = _bzs_total_out(self.bzs)
+                data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+                temp.append(data)
+                return self.space.wrap("".join(temp))
+
             total_out = _bzs_total_out(self.bzs)
-            data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
-            temp.append(data)
-            return self.space.wrap("".join(temp))
+            res = "".join([out_buf[i] for i in range(total_out)])
+            return self.space.wrap(res)
+        finally:
+            lltype.free(in_buf, flavor='raw')
+            lltype.free(out_buf, flavor='raw')
 
-        total_out = _bzs_total_out(self.bzs)
-        res = "".join([out_buf[i] for i in range(total_out)])
-        return self.space.wrap(res)
     compress.unwrap_spec = ['self', str]
     
     def flush(self):
@@ -395,41 +406,47 @@ class W_BZ2Compressor(Wrappable):
         self.running = False
         
         out_bufsize = SMALLCHUNK
-        out_buf = create_string_buffer(out_bufsize)
+        out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw',
+                                zero=True)
+
+        try:
     
-        self.bzs.next_out = cast(out_buf, POINTER(c_char))
-        self.bzs.avail_out = out_bufsize
+            self.bzs.c_next_out = out_buf
+            self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
         
-        total_out = _bzs_total_out(self.bzs)
-        
-        temp = []
-        while True:
-            bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_FINISH)
-            if bzerror == BZ_STREAM_END:
-                break
-            elif bzerror != BZ_FINISH_OK:
-                _catch_bz2_error(self.space, bzerror)
-                
-            if self.bzs.avail_out == 0:
-                data = "".join([out_buf[i] for i in range(_bzs_total_out(self.bzs))])
-                temp.append(data)
-                
-                out_bufsize = _new_buffer_size(out_bufsize)
-                out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = cast(out_buf, POINTER(c_char))
-                self.bzs.avail_out = out_bufsize
-        
-        if temp:
-            return self.space.wrap("".join(temp))
+            total_out = _bzs_total_out(self.bzs)
             
-        if self.bzs.avail_out:
-            size = _bzs_total_out(self.bzs) - total_out
-            res = "".join([out_buf[i] for i in range(size)])
-            return self.space.wrap(res)
+            temp = []
+            while True:
+                bzerror = BZ2_bzCompress(self.bzs, BZ_FINISH)
+                if bzerror == BZ_STREAM_END:
+                    break
+                elif bzerror != BZ_FINISH_OK:
+                    _catch_bz2_error(self.space, bzerror)
+                
+                if self.bzs.c_avail_out == 0:
+                    data = "".join([out_buf[i] for i in range(_bzs_total_out(self.bzs))])
+                    temp.append(data)
+                    
+                    out_bufsize = _new_buffer_size(out_bufsize)
+                    out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize,
+                                            flavor='raw', zero=True)
+                    self.bzs.c_next_out = out_buf
+                    self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+        
+            if temp:
+                return self.space.wrap("".join(temp))
+            
+            if self.bzs.c_avail_out:
+                size = _bzs_total_out(self.bzs) - total_out
+                res = "".join([out_buf[i] for i in range(size)])
+                return self.space.wrap(res)
     
-        total_out = _bzs_total_out(self.bzs)
-        res = "".join([out_buf[i] for i in range(total_out)])
-        return self.space.wrap(res)
+            total_out = _bzs_total_out(self.bzs)
+            res = "".join([out_buf[i] for i in range(total_out)])
+            return self.space.wrap(res)
+        finally:
+            lltype.free(out_buf, flavor='raw')
     flush.unwrap_spec = ['self']
 
 W_BZ2Compressor.typedef = TypeDef("BZ2Compressor",
@@ -456,25 +473,26 @@ class W_BZ2Decompressor(Wrappable):
     
     def __init__(self, space):
         self.space = space
-        
-        self.bzs = bz_stream()
+
+        self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         self.running = False
         self.unused_data = ""
         
         self._init_bz2decomp()
     
     def _init_bz2decomp(self):
-        bzerror = libbz2.BZ2_bzDecompressInit(byref(self.bzs), 0, 0)
+        bzerror = BZ2_bzDecompressInit(self.bzs, 0, 0)
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
         
         self.running = True
     
     def __del__(self):
-        libbz2.BZ2_bzDecompressEnd(byref(self.bzs))
+        BZ2_bzDecompressEnd(self.bzs)
+        lltype.free(self.bzs, flavor='raw')
     
     def decompress(self, data):
-        """"decompress(data) -> string
+        """decompress(data) -> string
 
         Provide more data to the decompressor object. It will return chunks
         of decompressed data whenever possible. If you try to decompress data
@@ -487,50 +505,59 @@ class W_BZ2Decompressor(Wrappable):
                 self.space.wrap("end of stream was already found"))
         
         in_bufsize = len(data)
-        in_buf = create_string_buffer(in_bufsize)
-        in_buf.value = data
+        in_buf = lltype.malloc(rffi.CCHARP.TO, in_bufsize, flavor='raw')
+        for i in range(in_bufsize):
+            in_buf[i] = data[i]
 
         out_bufsize = SMALLCHUNK
-        out_buf = create_string_buffer(out_bufsize)
-        
-        self.bzs.next_in = cast(in_buf, POINTER(c_char))
-        self.bzs.avail_in = in_bufsize
-        self.bzs.next_out = cast(out_buf, POINTER(c_char))
-        self.bzs.avail_out = out_bufsize
-        
-        temp = []
-        while True:
-            bzerror = libbz2.BZ2_bzDecompress(byref(self.bzs))
-            if bzerror == BZ_STREAM_END:
-                if self.bzs.avail_in != 0:
-                    unused = [self.bzs.next_in[i] for i in range(self.bzs.avail_in)]
-                    self.unused_data = "".join(unused)
-                self.running = False
-                break
-            if bzerror != BZ_OK:
-                _catch_bz2_error(self.space, bzerror)
-            
-            if self.bzs.avail_in == 0:
-                break
-            elif self.bzs.avail_out == 0:
-                total_out = _bzs_total_out(self.bzs)
-                data = "".join([out_buf[i] for i in range(total_out)])
-                temp.append(data)
-                
-                out_bufsize = _new_buffer_size(out_bufsize)
-                out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = cast(out_buf, POINTER(c_char))
-                self.bzs.avail_out = out_bufsize
-                
-        if temp:
-            total_out = _bzs_total_out(self.bzs)
-            data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
-            temp.append(data)
-            return self.space.wrap("".join(temp))
+        out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw',
+                                zero=True)
 
-        total_out = _bzs_total_out(self.bzs)
-        res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
-        return self.space.wrap(res)
+        try:
+        
+            self.bzs.c_next_in = in_buf
+            self.bzs.c_avail_in = rffi.cast(rffi.UINT, in_bufsize)
+            self.bzs.c_next_out = out_buf
+            self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+        
+            temp = []
+            while True:
+                bzerror = BZ2_bzDecompress(self.bzs)
+                if bzerror == BZ_STREAM_END:
+                    if self.bzs.c_avail_in != 0:
+                        unused = [self.bzs.c_next_in[i] for i in range(self.bzs.c_avail_in)]
+                        self.unused_data = "".join(unused)
+                    self.running = False
+                    break
+                if bzerror != BZ_OK:
+                    _catch_bz2_error(self.space, bzerror)
+            
+                if self.bzs.c_avail_in == 0:
+                    break
+                elif self.bzs.c_avail_out == 0:
+                    total_out = _bzs_total_out(self.bzs)
+                    data = "".join([out_buf[i] for i in range(total_out)])
+                    temp.append(data)
+
+                    lltype.free(out_buf, flavor='raw')
+                    out_bufsize = _new_buffer_size(out_bufsize)
+                    out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw')
+                    self.bzs.c_next_out = out_buf
+                    self.bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+                
+            if temp:
+                total_out = _bzs_total_out(self.bzs)
+                data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+                temp.append(data)
+                return self.space.wrap("".join(temp))
+
+            total_out = _bzs_total_out(self.bzs)
+            res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
+            return self.space.wrap(res)
+        finally:
+            lltype.free(in_buf, flavor='raw')
+            lltype.free(out_buf, flavor='raw')
+
     decompress.unwrap_spec = ['self', str]
 
 
@@ -553,57 +580,65 @@ def compress(space, data, compresslevel=9):
         raise OperationError(space.w_ValueError,
             space.wrap("compresslevel must be between 1 and 9"))
             
-    bzs = bz_stream()
-    
+    bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
     in_bufsize = len(data)
     # conforming to bz2 manual, this is large enough to fit compressed
-        # data in one shot. We will check it later anyway.
+    # data in one shot. We will check it later anyway.
     out_bufsize = in_bufsize + (in_bufsize / 100 + 1) + 600
     
-    out_buf = create_string_buffer(out_bufsize)
-    in_buf = create_string_buffer(in_bufsize)
-    in_buf.value = data
-    
-    bzs.next_in = cast(in_buf, POINTER(c_char))
-    bzs.avail_in = in_bufsize
-    bzs.next_out = cast(out_buf, POINTER(c_char))
-    bzs.avail_out = out_bufsize
+    out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw',
+                            zero=True)
+    in_buf = lltype.malloc(rffi.CCHARP.TO, in_bufsize, flavor='raw')
+    for i in range(in_bufsize):
+        in_buf[i] = data[i]
 
-    bzerror = libbz2.BZ2_bzCompressInit(byref(bzs), compresslevel, 0, 0)
-    if bzerror != BZ_OK:
-        _catch_bz2_error(space, bzerror)
-    
-    total_out = _bzs_total_out(bzs)
-    temp = []
-    while True:
-        bzerror = libbz2.BZ2_bzCompress(byref(bzs), BZ_FINISH)
-        if bzerror == BZ_STREAM_END:
-            break
-        elif bzerror != BZ_FINISH_OK:
-            libbz2.BZ2_bzCompressEnd(byref(bzs))
+    try:
+        bzs.c_next_in = in_buf
+        bzs.c_avail_in = rffi.cast(rffi.UINT, in_bufsize)
+        bzs.c_next_out = out_buf
+        bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+
+        bzerror = BZ2_bzCompressInit(bzs, compresslevel, 0, 0)
+        if bzerror != BZ_OK:
             _catch_bz2_error(space, bzerror)
-            
-        if bzs.avail_out == 0:
-            data = "".join([out_buf[i] for i in range(_bzs_total_out(bzs))])
-            temp.append(data)
-            
-            out_bufsize = _new_buffer_size(out_bufsize)
-            out_buf = create_string_buffer(out_bufsize)
-            bzs.next_out = cast(out_buf, POINTER(c_char))
-            bzs.avail_out = out_bufsize
     
-    if temp:
-        res = "".join(temp)
-        
-    if bzs.avail_out:
-        size = _bzs_total_out(bzs) - total_out
-        res = "".join([out_buf[i] for i in range(size)])
-    else:
         total_out = _bzs_total_out(bzs)
-        res = "".join([out_buf[i] for i in range(total_out)])
+        temp = []
+        while True:
+            bzerror = BZ2_bzCompress(bzs, BZ_FINISH)
+            if bzerror == BZ_STREAM_END:
+                break
+            elif bzerror != BZ_FINISH_OK:
+                BZ2_bzCompressEnd(bzs)
+                _catch_bz2_error(space, bzerror)
+            
+            if bzs.c_avail_out == 0:
+                data = "".join([out_buf[i] for i in range(_bzs_total_out(bzs))])
+                temp.append(data)
+
+                lltype.free(out_buf, flavor='raw')
+                out_bufsize = _new_buffer_size(out_bufsize)
+                out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize,
+                                        flavor='raw', zero=True)
+                bzs.c_next_out = out_buf
+                bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
     
-    libbz2.BZ2_bzCompressEnd(byref(bzs))
-    return space.wrap(res)
+        if temp:
+            res = "".join(temp)
+        
+        if bzs.c_avail_out:
+            size = _bzs_total_out(bzs) - total_out
+            res = "".join([out_buf[i] for i in range(size)])
+        else:
+            total_out = _bzs_total_out(bzs)
+            res = "".join([out_buf[i] for i in range(total_out)])
+    
+        BZ2_bzCompressEnd(bzs)
+        return space.wrap(res)
+    finally:
+        lltype.free(bzs, flavor='raw')
+        lltype.free(in_buf, flavor='raw')
+        lltype.free(out_buf, flavor='raw')
 compress.unwrap_spec = [ObjSpace, str, int]
 
 def decompress(space, data):
@@ -615,55 +650,64 @@ def decompress(space, data):
     in_bufsize = len(data)
     if in_bufsize == 0:
         return space.wrap("")
-    
-    bzs = bz_stream()
-    
-    in_buf = create_string_buffer(in_bufsize)
-    in_buf.value = data
+
+    bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
+    in_buf = lltype.malloc(rffi.CCHARP.TO, in_bufsize, flavor='raw')
+    for i in range(in_bufsize):
+        in_buf[i] = data[i]
 
     out_bufsize = SMALLCHUNK
-    out_buf = create_string_buffer(out_bufsize)
+    out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize, flavor='raw',
+                            zero=True)
+    try:
     
-    bzs.next_in = cast(in_buf, POINTER(c_char))
-    bzs.avail_in = in_bufsize
-    bzs.next_out = cast(out_buf, POINTER(c_char))
-    bzs.avail_out = out_bufsize
     
-    bzerror = libbz2.BZ2_bzDecompressInit(byref(bzs), 0, 0)
-    if bzerror != BZ_OK:
-        _catch_bz2_error(space, bzerror)
-        
-    temp = []
-    while True:
-        bzerror = libbz2.BZ2_bzDecompress(byref(bzs))
-        if bzerror == BZ_STREAM_END:
-            break
+        bzs.c_next_in = in_buf
+        bzs.c_avail_in = rffi.cast(rffi.UINT, in_bufsize)
+        bzs.c_next_out = out_buf
+        bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+    
+        bzerror = BZ2_bzDecompressInit(bzs, 0, 0)
         if bzerror != BZ_OK:
-            libbz2.BZ2_bzDecompressEnd(byref(bzs))
             _catch_bz2_error(space, bzerror)
         
-        if bzs.avail_in == 0:
-            libbz2.BZ2_bzDecompressEnd(byref(bzs))
-            raise OperationError(space.w_ValueError,
-                space.wrap("couldn't find end of stream"))
-        elif bzs.avail_out == 0:
-            total_out = _bzs_total_out(bzs)
-            data = "".join([out_buf[i] for i in range(total_out)])
+        temp = []
+        while True:
+            bzerror = BZ2_bzDecompress(bzs)
+            if bzerror == BZ_STREAM_END:
+                break
+            if bzerror != BZ_OK:
+                BZ2_bzDecompressEnd(bzs)
+                _catch_bz2_error(space, bzerror)
+        
+            if bzs.c_avail_in == 0:
+                BZ2_bzDecompressEnd(bzs)
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("couldn't find end of stream"))
+            elif bzs.c_avail_out == 0:
+                total_out = _bzs_total_out(bzs)
+                data = "".join([out_buf[i] for i in range(total_out)])
+                temp.append(data)
+
+                lltype.free(out_buf, flavor='raw')
+                out_bufsize = _new_buffer_size(out_bufsize)
+                out_buf = lltype.malloc(rffi.CCHARP.TO, out_bufsize,
+                                        flavor='raw', zero=True)
+                bzs.c_next_out = out_buf
+                bzs.c_avail_out = rffi.cast(rffi.UINT, out_bufsize)
+    
+        total_out = _bzs_total_out(bzs)
+        if temp:
+            data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
             temp.append(data)
-            
-            out_bufsize = _new_buffer_size(out_bufsize)
-            out_buf = create_string_buffer(out_bufsize)
-            bzs.next_out = cast(out_buf, POINTER(c_char))
-            bzs.avail_out = out_bufsize
+            res = "".join(temp)
+        else:
+            res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
     
-    total_out = _bzs_total_out(bzs)
-    if temp:
-        data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
-        temp.append(data)
-        res = "".join(temp)
-    else:
-        res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
-    
-    libbz2.BZ2_bzDecompressEnd(byref(bzs))
-    return space.wrap(res)
+        BZ2_bzDecompressEnd(bzs)
+        return space.wrap(res)
+    finally:
+        lltype.free(bzs, flavor='raw')
+        lltype.free(out_buf, flavor='raw')
+        lltype.free(in_buf, flavor='raw')
 decompress.unwrap_spec = [ObjSpace, str]

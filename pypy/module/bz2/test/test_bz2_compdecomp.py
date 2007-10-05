@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+from pypy.module.bz2.test.support import CheckAllocation
 import os
 
 if os.name == "nt":
@@ -28,8 +29,7 @@ def teardown_module(mod):
     if os.path.exists("foo"):
         os.unlink("foo")
 
-
-class AppTestBZ2Compressor:
+class AppTestBZ2Compressor(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
@@ -46,7 +46,7 @@ class AppTestBZ2Compressor:
         BZ2Compressor(9)
         
     def test_compress(self):
-        from bz2 import BZ2Compressor            
+        from bz2 import BZ2Compressor
         
         bz2c = BZ2Compressor()
         raises(TypeError, bz2c.compress)
@@ -79,7 +79,7 @@ class AppTestBZ2Compressor:
         data = "%s%s" % (data, bz2c.flush())
         assert self.decompress(data) == self.TEXT
 
-class AppTestBZ2Decompressor:
+class AppTestBZ2Decompressor(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
@@ -139,7 +139,7 @@ class AppTestBZ2Decompressor:
         bz2d.decompress(self.DATA)
         raises(EOFError, bz2d.decompress, "foo")
 
-class AppTestBZ2ModuleFunctions:
+class AppTestBZ2ModuleFunctions(CheckAllocation):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space

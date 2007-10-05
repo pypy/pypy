@@ -1,5 +1,6 @@
 import py
 from pypy.conftest import gettestobjspace
+from pypy.module.bz2.test.support import CheckAllocation
 import os
 
 if os.name == "nt":
@@ -34,7 +35,9 @@ def setup_module(mod):
     mod.create_temp_file = create_temp_file
     mod.decompress = decompress
 
-class AppTestBZ2File:
+class AppTestBZ2File: #(CheckAllocation):
+    # XXX for unknown reasons, we cannot do allocation checks, as sth is
+    # keeping those objects alive (BZ2File objects)
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
@@ -92,6 +95,7 @@ class AppTestBZ2File:
         
         bz2f = BZ2File(self.temppath, mode='w')
         pos = bz2f.tell()
+        bz2f.close()
         assert pos == 0
     
     def test_seek(self):
