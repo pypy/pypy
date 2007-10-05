@@ -1,22 +1,16 @@
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.libc import libc
-import pypy.rpython.rctypes.implementation # this defines rctypes magic
-from pypy.rpython.rctypes.aerrno import geterrno
+from pypy.rpython.tool import rffi_platform as platform
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from ctypes import *
 import sys
 
 class CConfig:
-    _header_ = """
-    #include <fcntl.h>
-    #include <sys/file.h>
-    #include <sys/ioctl.h>
-    """
-    flock = ctypes_platform.Struct("struct flock",
-        [('l_start', c_longlong), ('l_len', c_longlong),
-        ('l_pid', c_long), ('l_type', c_short),
-        ('l_whence', c_short)])
+    _includes_ = ['fcntl.h', 'sys/file.h', 'sys/ioctl.h']
+    flock = platform.Struct("struct flock",
+        [('l_start', rffi.LONGLONG), ('l_len', rffi.LONGLONG),
+        ('l_pid', rffi.LONG), ('l_type', rffi.SHORT),
+        ('l_whence', rffi.SHORT)])
+    has_flock = platform.Has('flock')
     
 # constants, look in fcntl.h and platform docs for the meaning
 # some constants are linux only so they will be correctly exposed outside 
@@ -35,12 +29,12 @@ constant_names = ['LOCK_SH', 'LOCK_EX', 'LOCK_NB', 'LOCK_UN', 'F_DUPFD',
     'I_PUNLINK', 'I_FLUSHBAND', 'I_CKBAND', 'I_GETBAND', 'I_ATMARK',
     'I_SETCLTIME', 'I_GETCLTIME', 'I_CANPUT']
 for name in constant_names:
-    setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
+    setattr(CConfig, name, platform.DefinedConstantInteger(name))
 
 class cConfig:
     pass
 
-cConfig.__dict__.update(ctypes_platform.configure(CConfig))
+cConfig.__dict__.update(platform.configure(CConfig))
 cConfig.flock.__name__ = "_flock"
 
 if "linux" in sys.platform:
@@ -56,40 +50,24 @@ for name in constant_names:
         constants[name] = value
 locals().update(constants)
 
-_flock = cConfig.flock
-libc.strerror.restype = c_char_p
-libc.strerror.argtypes = [c_int]
+def external(name, args, result):
+    return rffi.llexternal(name, args, result, includes=CConfig._includes_)
 
-fcntl_int = libc['fcntl']
-fcntl_int.argtypes = [c_int, c_int, c_int]
-fcntl_int.restype = c_int
+_flock = lltype.Ptr(cConfig.flock)
+strerror = external('strerror', [rffi.INT], rffi.CCHARP)
+fcntl_int = external('fcntl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+fcntl_str = external('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
+fcntl_flock = external('fcntl', [rffi.INT, rffi.INT, _flock], rffi.INT)
+ioctl_int = external('ioctl', [rffi.INT, rffi.INT, rffi.INT], rffi.INT)
+ioctl_str = external('ioctl', [rffi.INT, rffi.INT, rffi.CCHARP], rffi.INT)
 
-fcntl_str = libc['fcntl']
-fcntl_str.argtypes = [c_int, c_int, c_char_p]
-fcntl_str.restype = c_int
-
-fcntl_flock = libc['fcntl']
-fcntl_flock.argtypes = [c_int, c_int, POINTER(_flock)]
-fcntl_flock.restype = c_int
-
-ioctl_int = libc['ioctl']
-ioctl_int.argtypes = [c_int, c_int, c_int]
-ioctl_int.restype = c_int
-
-ioctl_str = libc['ioctl']
-ioctl_str.argtypes = [c_int, c_int, c_char_p]
-ioctl_str.restype = c_int
-
-
-has_flock = False
-if hasattr(libc, "flock"):
-    libc.flock.argtypes = [c_int, c_int]
-    libc.flock.restype = c_int
-    has_flock = True
+has_flock = cConfig.has_flock
+if has_flock:
+    c_flock = external('flock', [rffi.INT, rffi.INT], rffi.INT)
 
 def _get_error_msg():
-    errno = geterrno()
-    return libc.strerror(errno)
+    errno = rffi.get_errno()
+    return rffi.charp2str(strerror(errno))
 
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('fcntl')
@@ -102,17 +80,18 @@ def _conv_descriptor(space, w_f):
     return space.int_w(w_fd)
 
 def _check_flock_op(space, op):
-    l = _flock()
 
     if op == LOCK_UN:
-        l.l_type = F_UNLCK
+        l_type = F_UNLCK
     elif op & LOCK_SH:
-        l.l_type = F_RDLCK
+        l_type = F_RDLCK
     elif op & LOCK_EX:
-        l.l_type = F_WRLCK
+        l_type = F_WRLCK
     else:
         raise OperationError(space.w_ValueError,
             space.wrap("unrecognized flock argument"))
+    l = lltype.malloc(_flock.TO, flavor='raw')
+    l.c_l_type = rffi.cast(rffi.SHORT, l_type)
     return l
 
 def fcntl(space, w_fd, op, w_arg=0):
@@ -161,15 +140,16 @@ def flock(space, w_fd, op):
     fd = _conv_descriptor(space, w_fd)
 
     if has_flock:
-        rv = libc.flock(fd, op)
+        rv = c_flock(fd, op)
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
     else:
         l = _check_flock_op(space, op)
-        l.l_whence = l.l_start = l.l_len = 0
+        l.c_l_whence = l.c_l_start = l.c_l_len = 0
         op = [F_SETLKW, F_SETLK][op & LOCK_NB]
-        fcntl_flock(fd, op, byref(l))
+        fcntl_flock(fd, op, l)
+        lltype.free(l, flavor='raw')
 flock.unwrap_spec = [ObjSpace, W_Root, int]
 
 def lockf(space, w_fd, op, length=0, start=0, whence=0):
@@ -200,20 +180,23 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     fd = _conv_descriptor(space, w_fd)
 
     l = _check_flock_op(space, op)
-    l.l_start = l.l_len = 0
+    l.c_l_start = l.c_l_len = 0
 
     if start:
-        l.l_start = int(start)
+        l.c_l_start = int(start)
     if len:
-        l.l_len = int(length)
-    l.l_whence = whence
+        l.c_l_len = int(length)
+    l.c_l_whence = rffi.cast(rffi.SHORT, whence)
 
     try:
-        op = [F_SETLKW, F_SETLK][op & LOCK_NB]
-    except IndexError:
-        raise OperationError(space.w_ValueError,
-            space.wrap("invalid value for operation"))
-    fcntl_flock(fd, op, byref(l))
+        try:
+            op = [F_SETLKW, F_SETLK][op & LOCK_NB]
+        except IndexError:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("invalid value for operation"))
+        fcntl_flock(fd, op, l)
+    finally:
+        lltype.free(l, flavor='raw')
 lockf.unwrap_spec = [ObjSpace, W_Root, int, int, int, int]
 
 def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
@@ -248,7 +231,7 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
     C code."""
     fd = _conv_descriptor(space, w_fd)
     # Python turns number > sys.maxint into long, we need the signed C value
-    op = c_int(op).value
+    op = rffi.cast(rffi.INT, op)
 
     IOCTL_BUFSZ = 1024
     
@@ -265,13 +248,11 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
             raise OperationError(space.w_ValueError,
                 space.wrap("ioctl string arg too long"))
     
-        buf = create_string_buffer(len(arg))
-    
-        rv = ioctl_str(fd, op, buf)
+        rv = ioctl_str(fd, op, arg)
         if rv < 0:
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
-        return space.wrap(buf.raw)
+        return space.wrap(arg)
     else:
         raise OperationError(space.w_TypeError,
                 space.wrap("an integer or a buffer required"))
