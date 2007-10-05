@@ -341,6 +341,24 @@ class Test_specialization:
         res = interpret(func, [10])
         assert res == 50
 
+    def test_specialize_array_of_struct(self):
+        py.test.skip("known to fail, sorry :-(")
+        class T(Structure):
+            _fields_ = [('x', c_int)]
+        class S(Structure):
+            _fields_ = [('p', POINTER(T))]
+        A = S * 10
+        def func():
+            a = A()
+            for i in range(10):
+                t = T()
+                t.x = i*i
+                a[i].p = pointer(t)
+            for i in range(10):
+                assert a[i].p.contents.x == i*i
+        func()
+        interpret(func, [])
+
 class Test_compilation:
     def setup_class(self):
         from pypy.translator.c.test.test_genc import compile
