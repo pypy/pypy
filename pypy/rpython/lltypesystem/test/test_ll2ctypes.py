@@ -665,3 +665,13 @@ class TestLL2Ctypes(object):
         assert res == pycrypt("pass", "ab")
         rffi.free_charp(r)
         assert not ALLOCATED
+
+    def test_different_signatures(self):
+        fcntl_int = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.INT],
+                                    rffi.INT)
+        fcntl_str = rffi.llexternal('fcntl', [rffi.INT, rffi.INT, rffi.CCHARP],
+                                    rffi.INT)
+        fcntl_int(12345, 1, 0)
+        fcntl_str(12345, 3, "xxx")
+        fcntl_int(12345, 1, 0)
+

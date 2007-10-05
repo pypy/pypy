@@ -512,6 +512,14 @@ if ctypes:
 # ____________________________________________
 
 def get_ctypes_callable(funcptr, calling_conv):
+    def get_on_lib(lib, elem):
+        """ Wrapper to always use lib[func] instead of lib.func
+        """
+        try:
+            return lib[elem]
+        except AttributeError:
+            pass
+    
     if getattr(funcptr._obj, 'sources', None):
         # give up - for tests with an inlined bit of C code
         raise NotImplementedError("cannot call a C function defined in "
@@ -520,10 +528,10 @@ def get_ctypes_callable(funcptr, calling_conv):
     funcname = funcptr._obj._name
     libraries = getattr(funcptr._obj, 'libraries', None)
     if not libraries:
-        cfunc = getattr(standard_c_lib, funcname, None)
+        cfunc = get_on_lib(standard_c_lib, funcname)
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
-            cfunc = getattr(ctypes.windll.kernel32, funcname, None)
+            cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
     else:
         cfunc = None
         for libname in libraries:
@@ -533,7 +541,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             if libpath:
                 dllclass = getattr(ctypes, calling_conv + 'dll')
                 clib = dllclass.LoadLibrary(libpath)
-                cfunc = getattr(clib, funcname, None)
+                cfunc = get_on_lib(clib, funcname)
                 if cfunc is not None:
                     break
 
