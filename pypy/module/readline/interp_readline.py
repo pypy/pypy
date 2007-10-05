@@ -3,13 +3,14 @@
 
 from pypy.interpreter.baseobjspace import ObjSpace
 
-from pypy.module.readline import c_readline 
+from pypy.module.readline import c_readline
+from pypy.rpython.lltypesystem import rffi
 
 #------------------------------------------------------------
 # exported API  (see interpleveldefs in __init__.py) 
 #
 def readline(space, prompt):
-    return space.wrap(c_readline.c_readline(prompt))
+    return space.wrap(rffi.charp2str(c_readline.c_readline(prompt)))
 readline.unwrap_spec = [ObjSpace, str]
 
 def setcompleter(space, w_callback):
