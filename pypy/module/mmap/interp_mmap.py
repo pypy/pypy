@@ -68,7 +68,7 @@ _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 def external(name, args, result):
     return rffi.llexternal(name, args, result, includes=CConfig._includes_)
 
-PTR = rffi.VOIDP # XXX?
+PTR = rffi.CCHARP
 
 has_mremap = cConfig['has_mremap']
 
@@ -400,14 +400,7 @@ class W_MMap(Wrappable):
     write_byte.unwrap_spec = ['self', str]
 
     def getptr(self, offset):
-        if offset > 0:
-            # XXX 64-bit support for pointer arithmetic!
-            # is this still valid?
-            dataptr = lltype.cast_int_to_ptr(PTR, lltype.cast_ptr_to_int(
-                self.data) + offset)
-            return dataptr
-        else:
-            return self.data
+        return rffi.ptradd(self.data, offset)
 
     def flush(self, offset=0, size=0):
         self.check_valid()
@@ -666,7 +659,7 @@ if _POSIX:
                                      space.wrap(os.strerror(e.errno)))
 
         res = c_mmap(NULL, map_size, prot, flags, fd, 0)
-        if lltype.cast_ptr_to_int(res) == -1:
+        if res == rffi.cast(PTR, -1):
             raise OperationError(space.w_EnvironmentError,
                 space.wrap(_get_error_msg()))
         
