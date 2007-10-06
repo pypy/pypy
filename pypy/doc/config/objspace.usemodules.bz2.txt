@@ -1,3 +1,2 @@
 Use the 'bz2' module. 
-This module is working "sometimes". It fails to build on 64 bit machines and
-can have issues on 32 bit machines.
+This module is expected to be working and is included by default.
