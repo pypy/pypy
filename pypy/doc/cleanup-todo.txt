@@ -37,7 +37,6 @@ interpreter
 
   - _demo
   - _ssl
-  - mmap
 
  - move the following from using old-style C-api
 
