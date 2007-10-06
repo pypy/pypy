@@ -1,12 +1,9 @@
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.libc import libc
-import pypy.rpython.rctypes.implementation # this defines rctypes magic
-from pypy.rpython.rctypes.aerrno import geterrno
+from pypy.rpython.tool import rffi_platform
+from pypy.rpython.lltypesystem import rffi, lltype, llmemory
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from ctypes import *
 import sys
 import os
 import platform
@@ -17,11 +14,11 @@ _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
 
-
 class CConfig:
-    _includes_ = ("sys/types.h",)
-    size_t = ctypes_platform.SimpleType("size_t", c_long)
-    off_t = ctypes_platform.SimpleType("off_t", c_long)
+    _includes_ = ("sys/types.h",'unistd.h')
+    _header_ = '#define _GNU_SOURCE\n'
+    size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
+    off_t = rffi_platform.SimpleType("off_t", rffi.LONG)
 
 constants = {}
 if _POSIX:
@@ -36,14 +33,14 @@ if _POSIX:
                           'PROT_EXEC',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
     for name in constant_names:
-        setattr(CConfig, name, ctypes_platform.ConstantInteger(name))
+        setattr(CConfig, name, rffi_platform.ConstantInteger(name))
     for name in opt_constant_names:
-        setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
 
-    has_mremap = hasattr(libc, "mremap")
-    if has_mremap:
-        CConfig.MREMAP_MAYMOVE = (
-            ctypes_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
+    CConfig.MREMAP_MAYMOVE = (
+        rffi_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
+    CConfig.has_mremap = rffi_platform.Has('mremap()') # a dirty hack, this
+    # is probably a macro
 
 elif _MS_WINDOWS:
     CConfig._includes_ += ("windows.h",)
@@ -51,10 +48,11 @@ elif _MS_WINDOWS:
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
                       'DUPLICATE_SAME_ACCESS']
     for name in constant_names:
-        setattr(CConfig, name, ctypes_platform.ConstantInteger(name))
+        setattr(CConfig, name, rffi_platform.ConstantInteger(name))
 
 # export the constants inside and outside. see __init__.py
-constants.update(ctypes_platform.configure(CConfig))
+cConfig = rffi_platform.configure(CConfig)
+constants.update(cConfig)
 
 if _POSIX:
     # MAP_ANONYMOUS is not always present but it's always available at CPython level
@@ -64,38 +62,33 @@ if _POSIX:
     constants["MAP_ANON"] = constants["MAP_ANONYMOUS"]
 
 locals().update(constants)
-    
 
 _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
-PTR = POINTER(c_char)    # cannot use c_void_p as return value of functions :-(
+def external(name, args, result):
+    return rffi.llexternal(name, args, result, includes=CConfig._includes_)
 
-memmove_ = libc.memmove
-memmove_.argtypes = [PTR, PTR, size_t]
+PTR = rffi.VOIDP # XXX?
+
+has_mremap = cConfig['has_mremap']
+
+c_memmove = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
-    libc.mmap.argtypes = [PTR, size_t, c_int, c_int, c_int, off_t]
-    libc.mmap.restype = PTR
-    libc.mmap.includes = ("sys/mman.h",)
-    libc.munmap.argtypes = [PTR, size_t]
-    libc.munmap.restype = c_int
-    libc.munmap.includes = ("sys/mman.h",)
-    libc.msync.argtypes = [PTR, size_t, c_int]
-    libc.msync.restype = c_int
-    libc.msync.includes = ("sys/mman.h",)
-    
+    c_mmap = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
+                               rffi.INT, off_t], PTR)
+    c_munmap = external('munmap', [PTR, size_t], rffi.INT)
+    c_msync = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
     if has_mremap:
-        libc.mremap.argtypes = [PTR, size_t, size_t, c_ulong]
-        libc.mremap.restype = PTR
-        libc.mremap.includes = ("sys/mman.h",)
+        c_mremap = external('mremap', [PTR, size_t, size_t, rffi.ULONG], PTR)
 
-    def _get_page_size():
-        return libc.getpagesize()
+    _get_page_size = external('getpagesize', [], rffi.INT)
 
     def _get_error_msg():
-        errno = geterrno()
+        errno = rffi.get_errno()
         return os.strerror(errno)   
 elif _MS_WINDOWS:
+    XXX
     from ctypes import wintypes
     
     WORD = wintypes.WORD
@@ -105,7 +98,7 @@ elif _MS_WINDOWS:
     LPVOID = PTR
     LPCVOID = LPVOID
     DWORD_PTR = DWORD
-    c_int = wintypes.c_int
+    rffi.INT = wintypes.rffi.INT
     INVALID_c_int_VALUE = c_int(-1).value
     
     class SYSINFO_STRUCT(Structure):
@@ -130,39 +123,39 @@ elif _MS_WINDOWS:
     
     windll.kernel32.GetSystemInfo.argtypes = [POINTER(SYSTEM_INFO)]
     GetFileSize = windll.kernel32.GetFileSize
-    GetFileSize.argtypes = [c_int, POINTER(c_int)]
-    GetFileSize.restype = c_int
+    GetFileSize.argtypes = [rffi.INT, POINTER(rffi.INT)]
+    GetFileSize.restype = rffi.INT
     GetCurrentProcess = windll.kernel32.GetCurrentProcess
-    GetCurrentProcess.restype = c_int
+    GetCurrentProcess.restype = rffi.INT
     DuplicateHandle = windll.kernel32.DuplicateHandle
-    DuplicateHandle.argtypes = [c_int, c_int, c_int, POINTER(c_int), DWORD,
+    DuplicateHandle.argtypes = [rffi.INT, rffi.INT, rffi.INT, POINTER(rffi.INT), DWORD,
                                 BOOL, DWORD]
     DuplicateHandle.restype = BOOL
     CreateFileMapping = windll.kernel32.CreateFileMappingA
-    CreateFileMapping.argtypes = [c_int, PTR, c_int, c_int, c_int,
+    CreateFileMapping.argtypes = [rffi.INT, PTR, rffi.INT, rffi.INT, rffi.INT,
                                   c_char_p]
-    CreateFileMapping.restype = c_int
+    CreateFileMapping.restype = rffi.INT
     MapViewOfFile = windll.kernel32.MapViewOfFile
-    MapViewOfFile.argtypes = [c_int, DWORD,  DWORD, DWORD, DWORD]
+    MapViewOfFile.argtypes = [rffi.INT, DWORD,  DWORD, DWORD, DWORD]
     MapViewOfFile.restype = PTR
     CloseHandle = windll.kernel32.CloseHandle
-    CloseHandle.argtypes = [c_int]
+    CloseHandle.argtypes = [rffi.INT]
     CloseHandle.restype = BOOL
     UnmapViewOfFile = windll.kernel32.UnmapViewOfFile
     UnmapViewOfFile.argtypes = [LPCVOID]
     UnmapViewOfFile.restype = BOOL
     FlushViewOfFile = windll.kernel32.FlushViewOfFile
-    FlushViewOfFile.argtypes = [LPCVOID, c_int]
+    FlushViewOfFile.argtypes = [LPCVOID, rffi.INT]
     FlushViewOfFile.restype = BOOL
     SetFilePointer = windll.kernel32.SetFilePointer
-    SetFilePointer.argtypes = [c_int, c_int, POINTER(c_int), c_int]
+    SetFilePointer.argtypes = [rffi.INT, rffi.INT, POINTER(rffi.INT), rffi.INT]
     SetEndOfFile = windll.kernel32.SetEndOfFile
-    SetEndOfFile.argtypes = [c_int]
+    SetEndOfFile.argtypes = [rffi.INT]
     msvcr71 = cdll.LoadLibrary("msvcr71.dll")
-    msvcr71._get_osfhandle.argtypes = [c_int]
-    msvcr71._get_osfhandle.restype = c_int
-    # libc._lseek.argtypes = [c_int, c_int, c_int]
-    # libc._lseek.restype = c_int
+    msvcr71._get_osfhandle.argtypes = [rffi.INT]
+    msvcr71._get_osfhandle.restype = rffi.INT
+    # libc._lseek.argtypes = [rffi.INT, rffi.INT, rffi.INT]
+    # libc._lseek.restype = rffi.INT
     
     
     def _get_page_size():
@@ -172,8 +165,8 @@ elif _MS_WINDOWS:
     
     def _get_file_size(space, handle):
         # XXX use native Windows types like WORD
-        high = c_int(0)
-        low = c_int(windll.kernel32.GetFileSize(c_int(handle.value), byref(high)))
+        high = rffi.INT(0)
+        low = rffi.INT(windll.kernel32.GetFileSize(rffi.INT(handle.value), byref(high)))
         # low might just happen to have the value INVALID_FILE_SIZE
         # so we need to check the last error also
         INVALID_FILE_SIZE = -1
@@ -189,9 +182,9 @@ elif _MS_WINDOWS:
         return os.strerror(errno)
 
 PAGESIZE = _get_page_size()
-NULL = PTR()
-EMPTY_DATA = (c_char * 0)()
-NODATA = cast(pointer(EMPTY_DATA), PTR)
+NULL = lltype.nullptr(PTR.TO)
+NODATA = lltype.nullptr(PTR.TO)
+INVALID_INT_VALUE = -1
 
 # ____________________________________________________________
 
@@ -205,8 +198,8 @@ class W_MMap(Wrappable):
         self.access = access
 
         if _MS_WINDOWS:
-            self.map_handle = wintypes.c_int()
-            self.file_handle = wintypes.c_int()
+            self.map_handle = 0
+            self.file_handle = 0
             self.tagname = ""
         elif _POSIX:
             self.fd = -1
@@ -214,7 +207,7 @@ class W_MMap(Wrappable):
     
     def check_valid(self):
         if _MS_WINDOWS:
-            to_close = self.map_handle.value == INVALID_c_int_VALUE
+            to_close = self.map_handle.value == INVALID_INT_VALUE
         elif _POSIX:
             to_close = self.closed
 
@@ -236,8 +229,7 @@ class W_MMap(Wrappable):
     def setdata(self, data, size):
         """Set the internal data and map size from a PTR."""
         assert size >= 0
-        arraytype = c_char * size
-        self.data = cast(data, POINTER(arraytype)).contents
+        self.data = data
         self.size = size
     
     def close(self):
@@ -245,19 +237,19 @@ class W_MMap(Wrappable):
             if self.size > 0:
                 self.unmapview()
                 self.setdata(NODATA, 0)
-            if self.map_handle.value != INVALID_c_int_VALUE:
+            if self.map_handle.value != INVALID_rffi.INT_VALUE:
                 CloseHandle(self.map_handle)
-                self.map_handle.value = INVALID_c_int_VALUE
-            if self.file_handle.value != INVALID_c_int_VALUE:
+                self.map_handle.value = INVALID_rffi.INT_VALUE
+            if self.file_handle.value != INVALID_rffi.INT_VALUE:
                 CloseHandle(self.file_handle)
-                self.file_handle.value = INVALID_c_int_VALUE
+                self.file_handle.value = INVALID_rffi.INT_VALUE
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:
-                libc.munmap(self.getptr(0), self.size)
+                c_munmap(self.getptr(0), self.size)
                 self.setdata(NODATA, 0)
     close.unwrap_spec = ['self']
     
@@ -287,7 +279,7 @@ class W_MMap(Wrappable):
         else: # no '\n' found
             eol = self.size
 
-        res = data[self.pos:eol]
+        res = "".join([data[i] for i in range(self.pos, eol)])
         self.pos += len(res)
         return self.space.wrap(res)
     readline.unwrap_spec = ['self']
@@ -304,7 +296,8 @@ class W_MMap(Wrappable):
             if eol > self.size:
                 eol = self.size
 
-        res = self.data[self.pos:eol]
+        res = [self.data[i] for i in range(self.pos, eol)]
+        res = "".join(res)
         self.pos += len(res)
         return self.space.wrap(res)
     read.unwrap_spec = ['self', int]
@@ -363,11 +356,11 @@ class W_MMap(Wrappable):
         
         size = self.size
         if _MS_WINDOWS:
-            if self.file_handle.value != INVALID_c_int_VALUE:
+            if self.file_handle.value != INVALID_rffi.INT_VALUE:
                 low, high = _get_file_size(self.space, self.file_handle)
                 if not high and low <= sys.maxint:
                     return self.space.wrap(low)
-                size = c_int((high << 32) + low).value
+                size = rffi.INT((high << 32) + low).value
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
@@ -409,11 +402,12 @@ class W_MMap(Wrappable):
     def getptr(self, offset):
         if offset > 0:
             # XXX 64-bit support for pointer arithmetic!
-            dataptr = cast(pointer(self.data), c_void_p)
-            dataptr = c_void_p(dataptr.value + offset)
-            return cast(dataptr, PTR)
+            # is this still valid?
+            dataptr = lltype.cast_int_to_ptr(PTR, lltype.cast_ptr_to_int(
+                self.data) + offset)
+            return dataptr
         else:
-            return cast(pointer(self.data), PTR)
+            return self.data
 
     def flush(self, offset=0, size=0):
         self.check_valid()
@@ -439,7 +433,7 @@ class W_MMap(Wrappable):
 ##                    # the size should be increased too. otherwise the final
 ##                    # part is not "msynced"
 ##                    new_size = size + value & (PAGESIZE - 1)
-                res = libc.msync(start, size, MS_SYNC)
+                res = c_msync(start, size, MS_SYNC)
                 if res == -1:
                     raise OperationError(self.space.w_EnvironmentError,
                         self.space.wrap(_get_error_msg()))
@@ -460,7 +454,7 @@ class W_MMap(Wrappable):
 
         datasrc = self.getptr(src)
         datadest = self.getptr(dest)
-        memmove_(datadest, datasrc, count)
+        c_memmove(datadest, datasrc, count)
     move.unwrap_spec = ['self', int, int, int]
     
     def resize(self, newsize):
@@ -482,8 +476,8 @@ class W_MMap(Wrappable):
                     self.space.wrap(os.strerror(e.errno)))
                 
             # now resize the mmap
-            newdata = libc.mremap(self.getptr(0), self.size, newsize,
-                                  MREMAP_MAYMOVE or 0)
+            newdata = c_mremap(self.getptr(0), self.size, newsize,
+                               MREMAP_MAYMOVE or 0)
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
             # disconnect the mapping
@@ -495,10 +489,10 @@ class W_MMap(Wrappable):
                 newsize_high = DWORD(newsize >> 32)
                 newsize_low = DWORD(newsize & 0xFFFFFFFF)
             else:
-                newsize_high = c_int(0)
-                newsize_low = c_int(newsize)
+                newsize_high = rffi.INT(0)
+                newsize_low = rffi.INT(newsize)
 
-            FILE_BEGIN = c_int(0)
+            FILE_BEGIN = rffi.INT(0)
             SetFilePointer(self.file_handle, newsize_low, byref(newsize_high),
                            FILE_BEGIN)
             # resize the file
@@ -506,7 +500,7 @@ class W_MMap(Wrappable):
             # create another mapping object and remap the file view
             res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
                                  newsize_high, newsize_low, self.tagname)
-            self.map_handle = c_int(res)
+            self.map_handle = rffi.INT(res)
 
             dwErrCode = DWORD(0)
             if self.map_handle:
@@ -539,7 +533,7 @@ class W_MMap(Wrappable):
             return space.wrap(self.data[start])
         elif step == 1:
             if 0 <= start <= stop:
-                res = self.data[start:stop]
+                res = "".join([self.data[i] for i in range(start, stop)])
             else:
                 res = ''
             return space.wrap(res)
@@ -601,7 +595,7 @@ def _check_map_size(space, size):
     if size < 0:
         raise OperationError(space.w_TypeError,
             space.wrap("memory mapped size must be positive"))
-    if size_t(size).value != size:
+    if rffi.cast(size_t, size) != size:
         raise OperationError(space.w_OverflowError,
             space.wrap("memory mapped size is too large (limited by C int)"))
 
@@ -671,8 +665,8 @@ if _POSIX:
                 raise OperationError(space.w_EnvironmentError,
                                      space.wrap(os.strerror(e.errno)))
 
-        res = libc.mmap(NULL, map_size, prot, flags, fd, 0)
-        if cast(res, c_void_p).value == -1:
+        res = c_mmap(NULL, map_size, prot, flags, fd, 0)
+        if lltype.cast_ptr_to_int(res) == -1:
             raise OperationError(space.w_EnvironmentError,
                 space.wrap(_get_error_msg()))
         
@@ -716,8 +710,8 @@ elif _MS_WINDOWS:
         
         m = W_MMap(space, access)
         # XXX the following two attributes should be plain RPython ints
-        m.file_handle = c_int(INVALID_c_int_VALUE)
-        m.map_handle = c_int(INVALID_c_int_VALUE)
+        m.file_handle = rffi.INT(INVALID_rffi.INT_VALUE)
+        m.map_handle = rffi.INT(INVALID_rffi.INT_VALUE)
         
         if fh:
             # it is necessary to duplicate the handle, so the
@@ -734,9 +728,9 @@ elif _MS_WINDOWS:
                                      space.wrap(_get_error_msg()))
         
             if not map_size:
-                low, high = _get_file_size(space, c_int(fh))
+                low, high = _get_file_size(space, rffi.INT(fh))
                 if _64BIT:
-                    map_size = c_int((low << 32) + 1).value
+                    map_size = rffi.INT((low << 32) + 1).value
                 else:
                     if high:
                         # file is too large to map completely
@@ -752,10 +746,10 @@ elif _MS_WINDOWS:
             size_hi = DWORD(map_size >> 32)
             size_lo = DWORD(map_size & 0xFFFFFFFF)
         else:
-            size_hi = c_int(0)
-            size_lo = c_int(map_size)
+            size_hi = rffi.INT(0)
+            size_lo = rffi.INT(map_size)
 
-        m.map_handle = c_int(CreateFileMapping(m.file_handle, NULL, flProtect,
+        m.map_handle = rffi.INT(CreateFileMapping(m.file_handle, NULL, flProtect,
                                                size_hi, size_lo, m.tagname))
 
         if m.map_handle:
