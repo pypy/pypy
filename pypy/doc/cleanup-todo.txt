@@ -35,7 +35,6 @@ interpreter
 
  - rewrite the following rctypes modules using rffi:
 
-  - _demo
   - _ssl
 
  - move the following from using old-style C-api
@@ -44,3 +43,5 @@ interpreter
   - strtod (RPyton level)
 
  - rewrite or kill the extcompiler
+
+ - review CPython regression test suite, enable running tests, fix bugs
