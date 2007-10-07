@@ -1,4 +1,5 @@
 import py
+from pypy.conftest import gettestobjspace
 
 def splitcases(s):
     lines = [line.rstrip() for line in s.split('\n')]
@@ -258,14 +259,8 @@ def checkinvalid(space, s):
 
 class Py25AppTest:
     def setup_class(self):
-        space = self.space
-        w_not_25 = space.appexec([], """():
-            import sys
-            return sys.version_info < (2,5)
-        """)
-        not_25 = space.is_true(w_not_25)
-        if not_25:
-            py.test.skip('Needs python 2.5 grammar')
+        self.space = gettestobjspace(pyversion='2.5a')
+        return
 
 class AppTestCondExpr(Py25AppTest):
     def test_condexpr(self):
