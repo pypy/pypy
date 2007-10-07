@@ -1,5 +1,5 @@
 """ This is a sample demo showcasing file server, done by the pypy
-distriobution library.
+distribution library.
 
 Not counting __doc__ and initialization this is 2 line,
 fully operational file server,
