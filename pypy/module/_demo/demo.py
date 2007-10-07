@@ -2,16 +2,13 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.libc import libc
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.tool import rffi_platform
 import sys, math
-from ctypes import *
 
-time_t = ctypes_platform.getsimpletype('time_t', '#include <time.h>', c_long)
+time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
 
-time = libc.time
-time.argtypes = [POINTER(time_t)]
-time.restype = time_t
+time = rffi.llexternal('time', [rffi.VOIDP], time_t, includes=['time.h'])
 
 def get(space, name):
     w_module = space.getbuiltinmodule('_demo')
