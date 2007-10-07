@@ -270,6 +270,9 @@ class AppTestCondExpr(Py25AppTest):
             assert x == expected
 
 class AppTestWith(Py25AppTest):
+    def test_with_as_identifier(self):
+        exec "with = 9"
+
     def test_with_simple(self):
 
         s = """from __future__ import with_statement
@@ -474,9 +477,6 @@ if 1:
 
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
-
-    def test_with_as_identifier(self):
-        exec "with = 9"
 
     def test_with_as_keyword(self):
         try:
