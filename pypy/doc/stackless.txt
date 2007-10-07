@@ -130,7 +130,7 @@ Here is a classical producer/consumer example: an algorithm computes a
 sequence of values, while another consumes them.  For our purposes we
 assume that the producer can generate several values at once, and the
 consumer can process up to 3 values in a batch - it can also process
-batches with less than 3 values without waiting for the producer (which
+batches with fewer than 3 values without waiting for the producer (which
 would be messy to express with a classical Python generator). ::
 
     def producer(lst):
@@ -187,7 +187,7 @@ Bird's eye view of tasklets and channels
 Tasklets are a bit like threads: they encapsulate a function in such a way that
 they can be suspended/restarted any time. Unlike threads, they won't
 run concurrently, but must be cooperative. When using stackless
-features, it is vitaly important that no action is performed that blocks
+features, it is vitally important that no action is performed that blocks
 everything else.  In particular, blocking input/output should be centralized
 to a single tasklet.
 
