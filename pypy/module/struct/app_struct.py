@@ -1,6 +1,6 @@
 
 """
-Application-level definitions for the zlib module.
+Application-level definitions for the struct module.
 
 NOT_RPYTHON
 """
