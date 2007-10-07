@@ -79,9 +79,9 @@ class _CWriter(object):
         CConfig = self.config
         print >> f, C_HEADER
         print >> f
+        print >> f, getattr(CConfig, '_header_', '')      # optional
         for path in getattr(CConfig, '_includes_', ()):   # optional
             print >> f, '#include <%s>' % (path,)
-        print >> f, getattr(CConfig, '_header_', '')      # optional
         print >> f
 
     def write_entry(self, key, entry):
