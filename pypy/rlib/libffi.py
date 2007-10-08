@@ -12,6 +12,7 @@ FFI_TYPE_PP = rffi.CArrayPtr(FFI_TYPE_P)
 
 class CConfig:
     _includes_ = includes
+    _libraries_ = ['ffi']
 
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
     RTLD_NOW = rffi_platform.DefinedConstantInteger('RTLD_NOW')
@@ -26,7 +27,27 @@ class CConfig:
                                                  ('alignment', rffi.USHORT),
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
-    # XXX elements goes here, for structures
+
+def add_simple_type(type_name):
+    for name in ['size', 'alignment', 'type']:
+        setattr(CConfig, type_name + '_' + name,
+            rffi_platform.ConstantInteger(type_name + '.' + name))
+
+def configure_simple_type(type_name):
+    l = lltype.malloc(FFI_TYPE_P.TO, flavor='raw', immortal=True)
+    for tp, name in [(size_t, 'size'),
+                     (rffi.USHORT, 'alignment'),
+                     (rffi.USHORT, 'type')]:
+        value = getattr(cConfig, '%s_%s' % (type_name, name))
+        setattr(l, 'c_' + name, rffi.cast(tp, value))
+    l.c_elements = lltype.nullptr(FFI_TYPE_PP.TO)
+    return l
+
+base_names = ['double', 'uchar', 'schar', 'sshort', 'ushort', 'uint', 'sint',
+              'ulong', 'slong', 'float', 'pointer', 'void']
+type_names = ['ffi_type_%s' % name for name in base_names]
+for i in type_names:
+    add_simple_type(i)
 
 class cConfig:
     pass
@@ -35,6 +56,9 @@ cConfig.__dict__.update(rffi_platform.configure(CConfig))
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
+
+for name in type_names:
+    locals()[name] = configure_simple_type(name)
 
 def external(name, args, result):
     return rffi.llexternal(name, args, result, includes=includes,
@@ -49,21 +73,13 @@ RTLD_LOCAL = cConfig.RTLD_LOCAL
 RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
-FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
+FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', includes=includes)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, rffi.USHORT, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
                                    rffi.CArrayPtr(rffi.VOIDP)], lltype.Void)
-
-# XXX hardcode this values by now, we need some new logic/thinking for that
-
-ffi_type_sint = lltype.malloc(FFI_TYPE_P.TO, flavor='raw', immortal=True)
-ffi_type_sint.c_size = rffi.cast(size_t, 4)
-ffi_type_sint.c_alignment = rffi.cast(rffi.USHORT, 4)
-ffi_type_sint.c_type = rffi.cast(rffi.USHORT, 10)
-ffi_type_sint.c_elements = lltype.nullptr(FFI_TYPE_PP.TO)
 
 def dlerror():
     # XXX this would never work on top of ll2ctypes, because
@@ -102,8 +118,9 @@ class FuncPtr:
             raise OSError("NULL func_sym")
         self.func_sym = func_sym
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
-        res = c_ffi_prep_cif(self.ll_cif, rffi.cast(rffi.USHORT, FFI_DEFAULT_ABI),
-                             rffi.cast(rffi.UINT, 0), ffi_type_sint, lltype.nullptr(FFI_TYPE_PP.TO))
+        res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
+                             rffi.cast(rffi.UINT, 0),
+                             ffi_type_sint, lltype.nullptr(FFI_TYPE_PP.TO))
         if not res == FFI_OK:
             raise OSError("Wrong typedef")
 
