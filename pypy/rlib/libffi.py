@@ -4,6 +4,7 @@
 
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.unroll import unrolling_iterable
 
 includes = ['dlfcn.h', 'ffi.h']
 
@@ -73,9 +74,6 @@ TYPE_MAP = {
     rffi.LONG   : ffi_type_slong,
     lltype.Void : ffi_type_void,
     # some shortcuts
-    None        : ffi_type_void,
-    float       : ffi_type_double,
-    int         : ffi_type_sint,
     }
 
 def external(name, args, result):
@@ -137,7 +135,8 @@ class FuncPtr:
         TP = rffi.CFixedArray(FFI_TYPE_P, argnum)
         self.ll_argtypes = lltype.malloc(TP, flavor='raw')
         self.argtypes = argtypes
-        for i, argtype in enumerate(argtypes):
+        for i in unrolling_iterable(range(len(argtypes))):
+            argtype = argtypes[i]
             self.ll_argtypes[i] = TYPE_MAP[argtype]
         TP = rffi.CFixedArray(rffi.VOIDP, argnum)
         self.ll_args = lltype.malloc(TP, flavor='raw')
@@ -191,3 +190,4 @@ class CDLL:
 
     def getpointer(self, name, argtypes, restype):
         return FuncPtr(dlsym(self.lib, name), argtypes, restype)
+    getpointer._annspecialcase_ = 'specialize:arg(2, 3)'

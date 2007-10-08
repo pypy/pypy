@@ -5,7 +5,7 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.libffi import CDLL, dlopen
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, lltype
 import os, sys
 import py
 
@@ -34,8 +34,8 @@ class TestDLOperations:
 
     def test_library_get_func(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('time', [], None)
-        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], None)
+        ptr = lib.getpointer('time', [], lltype.Void)
+        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], lltype.Void)
         del lib
 
     def test_library_func_call(self):
@@ -54,3 +54,12 @@ class TestDLOperations:
         pow = libm.getpointer('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
         assert pow.call((2.0, 2.0)) == 4.0
         assert pow.call((3.0, 3.0)) == 27.0
+
+    def test_compile(self):
+        py.test.skip("in-progress")
+        def f(x, y):
+            libm = CDLL('libm.so')
+            c_pow = libm.getpointer('pow', (rffi.DOUBLE, rffi.DOUBLE), rffi.DOUBLE)
+            return c_pow.call((x, y))
+
+        interpret(f, [2.0, 4.0])
