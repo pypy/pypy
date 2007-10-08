@@ -20,32 +20,6 @@ X_CLONE_PTR = lltype.Ptr(X_CLONE)
 class GCError(Exception):
     pass
 
-def get_dummy_annotate(gc, AddressLinkedList):
-    def dummy_annotate():
-        gc.setup()
-        gc.get_roots = dummy_get_roots1 #prevent the get_roots attribute to 
-        gc.get_roots = dummy_get_roots2 #be constants
-        a = gc.malloc(1, 2)
-        b = gc.malloc(2, 3)
-        gc.write_barrier(raw_malloc(1), raw_malloc(2), raw_malloc(1))
-        gc.collect()
-        return a - b
-
-    def dummy_get_roots1():
-        ll = AddressLinkedList()
-        ll.append(NULL)
-        ll.append(raw_malloc(10))
-        ll.pop() #make the annotator see pop
-        return ll
-
-    def dummy_get_roots2():
-        ll = AddressLinkedList()
-        ll.append(raw_malloc(10))
-        ll.append(NULL)
-        ll.pop() #make the annotator see pop
-        return ll
-    return dummy_annotate, dummy_get_roots1, dummy_get_roots2
-
 
 gc_interface = {
     "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), llmemory.Address),
