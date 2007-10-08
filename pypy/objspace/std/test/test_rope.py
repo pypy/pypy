@@ -1,3 +1,4 @@
+import py
 import random
 from pypy.objspace.std.rope import *
 
@@ -154,6 +155,14 @@ def test_iteration():
         assert c2 == c
     py.test.raises(StopIteration, iter.next)
 
+def test_reverse_iteration():
+    rope, real_st = make_random_string(200)
+    iter = ReverseCharIterator(rope)
+    for c in py.builtin.reversed(real_st):
+        c2 = iter.next()
+        assert c2 == c
+    py.test.raises(StopIteration, iter.next)
+
 def test_multiply():
     strs = [(LiteralStringNode("a"), "a"), (LiteralStringNode("abc"), "abc"),
             make_random_string(500)]
@@ -217,6 +226,51 @@ def test_seekbackward():
     c2 = iter.next()
     assert c2 == "i"
     py.test.raises(StopIteration, iter.next)
+
+def test_fringe_iterator():
+    ABC = LiteralStringNode("abc")
+    DEF = LiteralStringNode("def")
+    GHI = LiteralStringNode("ghi")
+    rope = BinaryConcatNode(BinaryConcatNode(ABC, DEF), GHI)
+    iter = FringeIterator(rope)
+    n = iter.next()
+    assert n is ABC
+    n = iter.next()
+    assert n is DEF
+    n = iter.next()
+    assert n is GHI
+    py.test.raises(StopIteration, iter.next)
+
+def test_seekable_fringe_iterator():
+    ABC = LiteralStringNode("abc")
+    DEF = LiteralStringNode("def")
+    GHI = LiteralStringNode("ghi")
+    rope = BinaryConcatNode(BinaryConcatNode(ABC, DEF), GHI)
+    iter = SeekableFringeIterator(rope)
+    n = iter.next()
+    assert n is ABC
+    n = iter.seekback()
+    assert n is ABC
+    n = iter.next()
+    assert n is ABC
+    n = iter.next()
+    assert n is DEF
+    n = iter.next()
+    assert n is GHI
+    n = iter.seekback()
+    assert n is GHI
+    n = iter.seekback()
+    assert n is DEF
+    n = iter.seekback()
+    assert n is ABC
+    n = iter.next()
+    assert n is ABC
+    n = iter.next()
+    assert n is DEF
+    n = iter.next()
+    assert n is GHI
+    py.test.raises(StopIteration, iter.next)
+
 
 def test_seekforward():
     rope = BinaryConcatNode(BinaryConcatNode(LiteralStringNode("abc"),

@@ -134,6 +134,9 @@ class LiteralStringNode(StringNode):
         yield ('"%s" [shape=box,label="length: %s\\n%s"];' % (
             id(self), len(self.s),
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
+LiteralStringNode.EMPTY = LiteralStringNode("")
+LiteralStringNode.PREBUILT = [LiteralStringNode(chr(i)) for i in range(256)]
+del i
 
 
 class BinaryConcatNode(StringNode):
@@ -395,7 +398,7 @@ def getslice_primitive(node, start, stop):
 
 def multiply(node, times):
     if times <= 0:
-        return LiteralStringNode("")
+        return LiteralStringNode.EMPTY
     if times == 1:
         return node
     end_length = node.length() * times
@@ -443,7 +446,7 @@ def rebalance(nodelist, sizehint=-1):
         for node in nodelist:
             sizehint += node.length()
     if sizehint == 0:
-        return LiteralStringNode("")
+        return LiteralStringNode.EMPTY
 
     # this code is based on the Fibonacci identity:
     #   sum(fib(i) for i in range(n+1)) == fib(n+2)
@@ -563,18 +566,17 @@ def find_char(node, c, start=0, stop=-1):
 def find(node, subnode, start=0, stop=-1):
 
     len1 = node.length()
+    len2 = subnode.length()
     if stop > len1 or stop == -1:
         stop = len1
-    substring = subnode.flatten() # XXX stressful to do it as a node
-    len2 = len(substring)
     if len2 == 1:
-        return find_char(node, substring[0], start, stop)
+        return find_char(node, subnode.getitem(0), start, stop)
     if len2 == 0:
         if (stop - start) < 0:
             return -1
         return start
-    restart = construct_restart_positions(substring)
-    return _find(node, substring, start, stop, restart)
+    restart = construct_restart_positions_node(subnode)
+    return _find_node(node, subnode, start, stop, restart)
 
 def _find(node, substring, start, stop, restart):
     len2 = len(substring)
@@ -605,6 +607,43 @@ def _find(node, substring, start, stop, restart):
                     iter.seekback(m + i - new_m)
                     c = iter.next()
                 m = new_m
+                i = e
+    return -1
+
+def _find_node(node, subnode, start, stop, restart):
+    len2 = subnode.length()
+    m = start
+    iter = SeekableCharIterator(node)
+    iter.seekforward(start)
+    c = iter.next()
+    i = 0
+    subiter = SeekableCharIterator(subnode)
+    d = subiter.next()
+    while m + i < stop:
+        if c == d:
+            i += 1
+            if i == len2:
+                return m
+            d = subiter.next()
+            if m + i < stop:
+                c = iter.next()
+        else:
+            # mismatch, go back to the last possible starting pos
+            if i == 0:
+                m += 1
+                if m + i < stop:
+                    c = iter.next()
+            else:
+                e = restart[i - 1]
+                new_m = m + i - e
+                assert new_m <= m + i
+                seek = m + i - new_m
+                if seek:
+                    iter.seekback(m + i - new_m)
+                    c = iter.next()
+                m = new_m
+                subiter.seekback(i - e + 1)
+                d = subiter.next()
                 i = e
     return -1
 
@@ -710,28 +749,35 @@ def fringe(node):
         except StopIteration:
             return result
 
-class SeekableFringeIterator(object):
-    # XXX allow to seek in bigger character steps
+
+class ReverseFringeIterator(object):
     def __init__(self, node):
         self.stack = [node]
+
+    def next(self):
+        while self.stack:
+            curr = self.stack.pop()
+            while 1:
+                if isinstance(curr, BinaryConcatNode):
+                    self.stack.append(curr.left)
+                    curr = curr.right
+                else:
+                    return curr
+        raise StopIteration
+
+class SeekableFringeIterator(FringeIterator):
+    def __init__(self, node):
+        FringeIterator.__init__(self, node)
         self.fringestack = []
         self.fringe = []
 
     def next(self):
         if self.fringestack:
             result = self.fringestack.pop()
-            self.fringe.append(result)
-            return result
-        while self.stack:
-            curr = self.stack.pop()
-            while 1:
-                if isinstance(curr, BinaryConcatNode):
-                    self.stack.append(curr.right)
-                    curr = curr.left
-                else:
-                    self.fringe.append(curr)
-                    return curr
-        raise StopIteration
+        else:
+            result = FringeIterator.next(self)
+        self.fringe.append(result)
+        return result
 
     def seekback(self):
         result = self.fringe.pop()
@@ -756,12 +802,35 @@ class CharIterator(object):
                     break
             self.index = 0
         index = self.index
-        result = self.node.getitem(index)
-        if self.index == self.nodelength - 1:
+        result = node.getitem(index)
+        if index == self.nodelength - 1:
             self.node = None
         else:
             self.index = index + 1
         return result
+
+class ReverseCharIterator(object):
+    def __init__(self, node):
+        self.iter = ReverseFringeIterator(node)
+        self.node = None
+        self.index = 0
+
+    def next(self):
+        node = self.node
+        index = self.index
+        if node is None:
+            while 1:
+                node = self.node = self.iter.next()
+                index = self.index = node.length() - 1
+                if index != -1:
+                    break
+        result = node.getitem(index)
+        if index == 0:
+            self.node = None
+        else:
+            self.index = index - 1
+        return result
+
 
 class SeekableCharIterator(object):
     def __init__(self, node):
@@ -904,10 +973,7 @@ def compare(node1, node2):
     if not len2:
         return 1
 
-    if len1 < len2:
-        cmplen = len1
-    else:
-        cmplen = len2
+    cmplen = min(len1, len2)
     i = 0
     iter1 = CharIterator(node1)
     iter2 = CharIterator(node2)

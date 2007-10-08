@@ -31,8 +31,8 @@ class W_RopeObject(W_Object):
             return w_self
         return W_RopeObject(w_self._node)
 
-W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode(""))
-W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode(chr(i)))
+W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
+W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])
                              for i in range(256)]
 del i
 
@@ -393,8 +393,10 @@ def str_rjust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     d = u_arg - selfnode.length()
     if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
-        resultnode = rope.concatenate(rope.LiteralStringNode(d * fillchar),
-                                      selfnode)
+        resultnode = rope.concatenate(
+                rope.multiply(rope.LiteralStringNode.PREBUILT[ord(fillchar)],
+                              d),
+                selfnode)
         return W_RopeObject(resultnode)
     else:
         return W_RopeObject(selfnode)
@@ -410,8 +412,10 @@ def str_ljust__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     d = u_arg - selfnode.length()
     if d > 0:
         fillchar = fillchar[0]    # annotator hint: it's a single character
-        resultnode = rope.concatenate(selfnode,
-                                     rope.LiteralStringNode(d * fillchar))
+        resultnode = rope.concatenate(
+                selfnode,
+                rope.multiply(rope.LiteralStringNode.PREBUILT[ord(fillchar)],
+                              d))
         return W_RopeObject(resultnode)
     else:
         return W_RopeObject(selfnode)
@@ -525,7 +529,7 @@ def str_replace__Rope_Rope_Rope_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
         substrings = [by]
         iter = rope.CharIterator(node)
         for i in range(upper):
-            substrings.append(rope.LiteralStringNode(iter.next()))
+            substrings.append(rope.LiteralStringNode.PREBUILT[ord(iter.next())])
             substrings.append(by)
         substrings.append(rope.getslice_one(node, upper, length))
         try:
@@ -571,8 +575,8 @@ def _strip(space, w_self, w_chars, left, right):
            lpos += 1
        
     if right:
-        # XXX improve this
-        while rpos > lpos and node.getitem(rpos - 1) in u_chars:
+        iter = rope.ReverseCharIterator(node)
+        while rpos > lpos and iter.next() in u_chars:
            rpos -= 1
        
     return W_RopeObject(rope.getslice_one(node, lpos, rpos))
@@ -592,8 +596,8 @@ def _strip_none(space, w_self, left, right):
            lpos += 1
        
     if right:
-        # XXX fix this
-        while rpos > lpos and node.getitem(rpos - 1).isspace():
+        iter = rope.ReverseCharIterator(node)
+        while rpos > lpos and iter.next().isspace():
            rpos -= 1
        
     assert rpos >= lpos    # annotator hint, don't remove
@@ -632,7 +636,7 @@ def str_center__Rope_ANY_ANY(space, w_self, w_arg, w_fillchar):
     d = arg - length
     if d>0:
         offset = d//2
-        fillcharnode = rope.LiteralStringNode(fillchar)
+        fillcharnode = rope.LiteralStringNode.PREBUILT[ord(fillchar)]
         pre = rope.multiply(fillcharnode, offset)
         post = rope.multiply(fillcharnode, (d - offset))
         centered = rope.rebalance([pre, node, post])
@@ -724,23 +728,22 @@ def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end
 
 def _tabindent(node, tabsize):
     "calculates distance after the token to the next tabstop"
-    # XXX implement reverse char iterator
     length = node.length()
     distance = tabsize
     if length:
         distance = 0
-        offset = length
+        iter = rope.ReverseCharIterator(node)
 
         while 1:
             # no sophisticated linebreak support now
             # '\r' just for passing adapted CPython test
-            char = node.getitem(offset - 1)
+            try:
+                char = iter.next()
+            except StopIteration:
+                break
             if char == "\n" or char == "\r":
                 break
             distance += 1
-            offset -= 1
-            if offset == 0:
-                break
                 
         #the same like distance = len(u_token) - (offset + 1)
         distance = (tabsize - distance) % tabsize
@@ -758,7 +761,7 @@ def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):
     tabsize  = space.int_w(w_tabsize)
     
     expanded = []
-    iter = rope.FindIterator(node, rope.LiteralStringNode("\t"))
+    iter = rope.FindIterator(node, rope.LiteralStringNode.PREBUILT[ord("\t")])
     #split = u_self.split("\t")
     #u_expanded = oldtoken = split.pop(0)
 
@@ -774,7 +777,7 @@ def str_expandtabs__Rope_ANY(space, w_self, w_tabsize):
         return w_self.create_if_subclassed()
     expanded.append(last)
     while 1:
-        expanded.append(rope.multiply(rope.LiteralStringNode(" "),
+        expanded.append(rope.multiply(rope.LiteralStringNode.PREBUILT[ord(" ")],
                                       _tabindent(last, tabsize)))
         try:
             next = iter.next()
@@ -845,7 +848,7 @@ def str_zfill__Rope_ANY(space, w_self, w_width):
 
     if length >= width:
         return w_self.create_if_subclassed()
-    zero = rope.LiteralStringNode("0")
+    zero = rope.LiteralStringNode.PREBUILT[ord("0")]
     if length == 0:
         return W_RopeObject(rope.multiply(zero, width))
 
@@ -853,7 +856,7 @@ def str_zfill__Rope_ANY(space, w_self, w_width):
     firstchar = node.getitem(0)
     if length > 0 and (firstchar == '+' or firstchar == '-'):
         return W_RopeObject(rope.rebalance(
-            [rope.LiteralStringNode(firstchar),
+            [rope.LiteralStringNode.PREBUILT[ord(firstchar)],
              rope.multiply(zero, middle),
              rope.getslice_one(node, 1, length)]))
     else:
