@@ -110,12 +110,16 @@ class BaseROTests:
         stop = 0
         samplelines = self.expected_lines()
         while stop < 5:
-            morelines = self.file.readlines(random.randrange(0, 300))
+            morelines = self.file.readlines(random.randrange(1, 300))
             for inputline in morelines:
                 assert inputline == samplelines[0]
                 samplelines.pop(0)
             if not samplelines:
                 stop += 1
+            else:
+                assert len(morelines) >= 1    # otherwise, this test (and
+                                              # real programs) would be prone
+                                              # to endless loops
 
     def test_seek(self):
         for i in range(100):
