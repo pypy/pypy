@@ -368,6 +368,7 @@ def _strip(space, w_self, w_chars, left, right):
         while rpos > lpos and u_self[rpos - 1] in u_chars:
            rpos -= 1
            
+    assert rpos >= 0
     result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
 
@@ -386,6 +387,7 @@ def _strip_none(space, w_self, left, right):
         while rpos > lpos and _isspace(u_self[rpos - 1]):
            rpos -= 1
        
+    assert rpos >= 0
     result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
 
