@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype, bltregistry
 from pypy.rpython.rmodel import Repr
 from pypy.annotation.signature import annotation
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 
     
 class ExternalInstanceRepr(Repr):

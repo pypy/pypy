@@ -4,7 +4,7 @@ Var-sized arrays, i.e. arrays whose size is not known at annotation-time.
 
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation.model import SomeBuiltin, SomeInteger, SomeString
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 

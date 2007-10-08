@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Constant
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.error import TyperError

@@ -8,7 +8,7 @@ from pypy.rpython.module.support import init_opaque_object
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython import extregistry
 from pypy.annotation.signature import annotation
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 
 # ExternalObjects
 

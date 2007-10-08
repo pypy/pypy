@@ -1,5 +1,5 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeObject, SomeInteger, SomeFloat, SomeString, SomeChar, SomeTuple, SomeSlice
 from pypy.tool.error import AnnotatorError

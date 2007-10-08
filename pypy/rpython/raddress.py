@@ -1,5 +1,5 @@
 # rtyping of memory address operations
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.llmemory import NULL, Address, \
      cast_adr_to_int, fakeaddress

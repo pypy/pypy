@@ -4,7 +4,7 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
 from pypy.tool.sourcetools import valid_identifier
-from pypy.annotation.pairtype import extendabletype
+from pypy.tool.pairtype import extendabletype
 
 class CallFamily:
     """A family of Desc objects that could be called from common call sites.

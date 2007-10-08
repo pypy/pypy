@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import mangle as pbcmangle
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr
 from pypy.rpython.ootypesystem import ootype
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.tool.sourcetools import func_with_new_name
 
 CLASSTYPE = ootype.Instance("Object_meta", ootype.ROOT,

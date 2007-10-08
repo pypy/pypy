@@ -1,6 +1,6 @@
 import types
 
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString, SomePBC
 from pypy.annotation.binaryop import _make_none_union

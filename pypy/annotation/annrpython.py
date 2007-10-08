@@ -3,7 +3,7 @@ from __future__ import generators
 from types import ClassType, FunctionType
 from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
 from pypy.annotation import model as annmodel
-from pypy.annotation.pairtype import pair
+from pypy.tool.pairtype import pair
 from pypy.annotation.bookkeeper import Bookkeeper, getbookkeeper
 from pypy.annotation import signature
 from pypy.objspace.flow.model import Variable, Constant

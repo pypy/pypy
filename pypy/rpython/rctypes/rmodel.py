@@ -2,7 +2,7 @@ from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.annotation.model import SomeCTypesObject
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 
 
 class CTypesRepr(Repr):

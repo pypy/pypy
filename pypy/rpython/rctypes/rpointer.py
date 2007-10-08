@@ -1,7 +1,7 @@
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, genreccopy
 from pypy.annotation.model import SomeCTypesObject
 from pypy.objspace.flow.model import Constant

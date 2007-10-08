@@ -6,7 +6,7 @@ from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 
 from ctypes import c_char, c_char_p, cast
 

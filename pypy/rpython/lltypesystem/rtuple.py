@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr

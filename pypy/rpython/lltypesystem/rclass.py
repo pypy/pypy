@@ -1,6 +1,6 @@
 import sys
 import types
-from pypy.annotation.pairtype import pairtype, pair
+from pypy.tool.pairtype import pairtype, pair
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, warning, mangle

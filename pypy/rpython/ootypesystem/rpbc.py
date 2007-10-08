@@ -11,7 +11,7 @@ from pypy.rpython.ootypesystem.rclass import ClassRepr, InstanceRepr
 from pypy.rpython.ootypesystem.rclass import mangle
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.objspace.flow.model import Constant, Variable
 import types
 

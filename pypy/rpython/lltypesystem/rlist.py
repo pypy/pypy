@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype, pair
+from pypy.tool.pairtype import pairtype, pair
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst

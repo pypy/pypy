@@ -1,5 +1,5 @@
 from pypy.annotation import model as annmodel
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.annlowlevel import cachedtype

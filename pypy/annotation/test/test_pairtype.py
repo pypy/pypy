@@ -1,5 +1,5 @@
 
-from pypy.annotation.pairtype import pairtype, pair, extendabletype
+from pypy.tool.pairtype import pairtype, pair, extendabletype
 
 def test_binop(): 
     ### Binary operation example

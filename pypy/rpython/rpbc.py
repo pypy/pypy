@@ -1,6 +1,6 @@
 import types
 import sys
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant

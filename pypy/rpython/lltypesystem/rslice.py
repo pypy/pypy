@@ -1,7 +1,7 @@
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import \
      GcStruct, Signed, Ptr, Void, malloc, PyObject, nullptr
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, PyObjPtr, IntegerRepr
 

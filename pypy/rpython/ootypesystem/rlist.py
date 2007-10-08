@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractListIteratorRepr, rtype_newlist, rtype_alloc_and_set
 from pypy.rpython.rmodel import Repr, IntegerRepr

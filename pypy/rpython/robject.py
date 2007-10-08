@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import \
      PyObject, Ptr, Void, pyobjectptr, nullptr, Bool

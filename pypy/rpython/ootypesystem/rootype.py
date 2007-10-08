@@ -2,7 +2,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import Void, Class
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 
 class __extend__(annmodel.SomeOOClass):
     def rtyper_makerepr(self, rtyper):

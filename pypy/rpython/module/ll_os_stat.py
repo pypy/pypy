@@ -4,7 +4,7 @@ indexed like a tuple but also exposes the st_xxx attributes.
 """
 import os, sys
 from pypy.annotation import model as annmodel
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython import extregistry
 from pypy.rpython.extfunc import register_external

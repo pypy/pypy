@@ -6,7 +6,7 @@ from pypy.translator.unsimplify import varoftype
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance

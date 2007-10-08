@@ -1,4 +1,4 @@
-from pypy.annotation.pairtype import pairtype, extendabletype, pair
+from pypy.tool.pairtype import pairtype, extendabletype, pair
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant

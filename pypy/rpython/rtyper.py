@@ -14,7 +14,7 @@ computation part.
 from __future__ import generators
 import os
 import py
-from pypy.annotation.pairtype import pair
+from pypy.tool.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception

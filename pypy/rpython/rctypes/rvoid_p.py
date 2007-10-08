@@ -1,7 +1,7 @@
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
 from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.rstr import AbstractStringRepr
 from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rctypes.rchar_p import CCharPRepr

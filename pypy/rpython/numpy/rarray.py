@@ -2,7 +2,7 @@ from pypy.rpython.error import TyperError
 from pypy.annotation.model import lltype_to_annotation, SomeObject, SomeInteger
 from pypy.rpython.numpy import aarray
 from pypy.rpython.numpy.aarray import SomeArray
-from pypy.annotation.pairtype import pairtype, pair
+from pypy.tool.pairtype import pairtype, pair
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.annotation import listdef
 from pypy.rlib.objectmodel import debug_assert

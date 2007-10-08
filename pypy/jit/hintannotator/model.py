@@ -1,5 +1,5 @@
 from pypy.annotation import model as annmodel
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.tool.pairtype import pair, pairtype
 from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype, lloperation
 

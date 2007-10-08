@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem.rstr import string_repr, emptystr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem import lltype
-from pypy.annotation.pairtype import pairtype
+from pypy.tool.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy_arrayitem, reccopy, C_ZERO
 from pypy.rpython.rctypes.rmodel import unsafe_getfield
