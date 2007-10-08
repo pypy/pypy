@@ -17,17 +17,6 @@ X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
 X_CLONE_PTR = lltype.Ptr(X_CLONE)
 
 
-class GCError(Exception):
-    pass
-
-
-gc_interface = {
-    "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), llmemory.Address),
-    "collect": lltype.FuncType((), lltype.Void),
-    "write_barrier": lltype.FuncType((llmemory.Address, ) * 3, lltype.Void),
-    }
-    
-
 class GCBase(object):
     _alloc_flavor_ = "raw"
 
@@ -102,31 +91,6 @@ class GCBase(object):
     def x_become(self, target_addr, source_addr):
         raise RuntimeError("no support for x_become in the GC")
 
-class DummyGC(GCBase):
-    _alloc_flavor_ = "raw"
-
-    def __init__(self, AddressLinkedList, dummy=None, get_roots=None):
-        self.get_roots = get_roots
-        #self.set_query_functions(None, None, None, None, None, None, None)
-   
-    def malloc(self, typeid, length=0, zero=False):
-        size = self.fixed_size(typeid)
-        if self.is_varsize(typeid):
-            size += length * self.varsize_item_sizes(typeid)
-        result = raw_malloc(size)
-        if not result:
-            raise memoryError
-        if zero:
-            raw_memclear(result, size)
-        # XXX set the length field?
-        return result
-         
-    def collect(self):
-        self.get_roots() #this is there so that the annotator thinks get_roots is a function
-
-    def init_gc_object(self, addr, typeid):
-        return
-    init_gc_object_immortal = init_gc_object
 
 DEBUG_PRINT = False
 memoryError = MemoryError()
