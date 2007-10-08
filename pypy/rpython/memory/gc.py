@@ -40,11 +40,6 @@ class GCBase(object):
     def write_barrier(self, addr, addr_to, addr_struct):
         addr_to.address[0] = addr
 
-    def free_memory(self):
-        #this will never be called at runtime, just during setup
-        "NOT_RPYTHON"
-        pass
-
     def setup(self):
         pass
 
@@ -971,13 +966,6 @@ class SemiSpaceGC(GCBase):
         debug_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
 
-    def free_memory(self):
-        "NOT_RPYTHON"
-        llarena.arena_free(self.tospace)
-        self.tospace = NULL
-        llarena.arena_free(self.fromspace)
-        self.fromspace = NULL
-    
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
         if has_finalizer:
