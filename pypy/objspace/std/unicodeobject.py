@@ -90,16 +90,7 @@ def getnewargs__Unicode(space, w_uni):
     return space.newtuple([W_UnicodeObject(w_uni._value)])
 
 def add__Unicode_Unicode(space, w_left, w_right):
-    left = w_left._value
-    right = w_right._value
-    leftlen = len(left)
-    rightlen = len(right)
-    result = [u'\0'] * (leftlen + rightlen)
-    for i in range(leftlen):
-        result[i] = left[i]
-    for i in range(rightlen):
-        result[i + leftlen] = right[i]
-    return W_UnicodeObject(result)
+    return W_UnicodeObject(w_left._value + w_right._value)
 
 def add__String_Unicode(space, w_left, w_right):
     return space.add(space.call_function(space.w_unicode, w_left) , w_right)
@@ -265,13 +256,9 @@ def mul__Unicode_ANY(space, w_uni, w_times):
 
     try:
         result_size = ovfcheck(charlen * times)
-        result = [u'\0'] * result_size
+        result = chars * times
     except (OverflowError, MemoryError):
         raise OperationError(space.w_OverflowError, space.wrap('repeated string is too long'))
-    for i in range(times):
-        offset = i * charlen
-        for j in range(charlen):
-            result[offset + j] = chars[j]
     return W_UnicodeObject(result)
 
 def mul__ANY_Unicode(space, w_times, w_uni):
@@ -381,9 +368,7 @@ def _strip(space, w_self, w_chars, left, right):
         while rpos > lpos and u_self[rpos - 1] in u_chars:
            rpos -= 1
            
-    result = [u'\0'] * (rpos - lpos)
-    for i in range(rpos - lpos):
-        result[i] = u_self[lpos + i]
+    result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
 
 def _strip_none(space, w_self, left, right):
@@ -401,9 +386,7 @@ def _strip_none(space, w_self, left, right):
         while rpos > lpos and _isspace(u_self[rpos - 1]):
            rpos -= 1
        
-    result = [u'\0'] * (rpos - lpos)
-    for i in range(rpos - lpos):
-        result[i] = u_self[lpos + i]
+    result = u_self[lpos: rpos]
     return W_UnicodeObject(result)
 
 def unicode_strip__Unicode_None(space, w_self, w_chars):
@@ -928,7 +911,7 @@ def repr__Unicode(space, w_unicode):
         quote = '"'
     else:
         quote = '\''
-    result = ['\0'] * (2 + size*6 + 1)
+    result = ['\0'] * (3 + size*6)
     result[0] = 'u'
     result[1] = quote
     i = 2
@@ -1040,8 +1023,9 @@ def mod__Unicode_ANY(space, w_format, w_values):
 import unicodetype
 register_all(vars(), unicodetype)
 
-# str.strip(unicode) needs to convert self to unicode and call unicode.strip
-# we use the following magic to register strip_string_unicode as a String multimethod.
+# str.strip(unicode) needs to convert self to unicode and call unicode.strip we
+# use the following magic to register strip_string_unicode as a String
+# multimethod.
 class str_methods:
     import stringtype
     W_UnicodeObject = W_UnicodeObject
