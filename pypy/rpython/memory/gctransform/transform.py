@@ -18,7 +18,6 @@ from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rlib.rarithmetic import ovfcheck
 import sets, os, sys
-from pypy.rpython.memory import lladdress
 from pypy.rpython.lltypesystem.lloperation import llop
 
 def var_ispyobj(var):
@@ -51,7 +50,8 @@ class GcHighLevelOp(object):
             gct.livevars.append(v_result)
             if var_ispyobj(v_result):
                 if opname in ('getfield', 'getarrayitem', 'same_as',
-                                 'cast_pointer', 'getsubstruct'):
+                                 'cast_pointer', 'getsubstruct',
+                                 'getinteriorfield'):
                     # XXX more operations?
                     gct.push_alive(v_result)
             elif opname not in ('direct_call', 'indirect_call'):
@@ -320,9 +320,7 @@ class BaseGCTransformer(object):
         else:
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
-
-    #def gct_safe_call(self, hop):
-    #    hop.rename("direct_call")
+    gct_setinteriorfield = gct_setfield
 
     def gct_zero_gc_pointers_inside(self, hop):
         pass
@@ -405,7 +403,7 @@ def mallocHelpers():
         result = mh.allocate(tot_size)
         if not result:
             raise MemoryError()
-        lladdress.raw_memclear(result, tot_size)
+        llmemory.raw_memclear(result, tot_size)
         return result
     mh.ll_malloc_varsize_no_length_zero = _ll_malloc_varsize_no_length_zero
 
@@ -417,7 +415,7 @@ class GCTransformer(BaseGCTransformer):
         super(GCTransformer, self).__init__(translator, inline=inline)
 
         mh = mallocHelpers()
-        mh.allocate = lladdress.raw_malloc
+        mh.allocate = llmemory.raw_malloc
         ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
         ll_raw_malloc_varsize_no_length = mh.ll_malloc_varsize_no_length
         ll_raw_malloc_varsize = mh.ll_malloc_varsize

@@ -108,39 +108,3 @@ def convert_offset_to_int(offset):
         return 0
     else:
         raise Exception("unknown offset type %r"%offset)
-        
-# _____________________________________________________________________________
-# the following functions are used to find contained pointers
-
-
-def offsets_to_gc_pointers(TYPE):
-    if isinstance(TYPE, lltype.Struct):
-        offsets = []
-        for name in TYPE._names:
-            FIELD = getattr(TYPE, name)
-            if isinstance(FIELD, lltype.Ptr) and FIELD.TO._gckind == 'gc':
-                offsets.append(llmemory.offsetof(TYPE, name))
-            elif isinstance(FIELD, lltype.Struct):
-                suboffsets = offsets_to_gc_pointers(FIELD)
-                offsets += [s + llmemory.offsetof(TYPE, name) for s in suboffsets]
-        return offsets
-    return []
-
-def varsize_offset_to_length(TYPE):
-    if isinstance(TYPE, lltype.Array):
-        return 0
-    elif isinstance(TYPE, lltype.Struct):
-        layout = get_layout(TYPE)
-        return layout[TYPE._arrayfld]
-
-def varsize_offsets_to_gcpointers_in_var_part(TYPE):
-    if isinstance(TYPE, lltype.Array):
-        if isinstance(TYPE.OF, lltype.Ptr):
-            return [0]
-        elif isinstance(TYPE.OF, lltype.Struct):
-            return offsets_to_gc_pointers(TYPE.OF)
-        return []
-    elif isinstance(TYPE, lltype.Struct):
-        return varsize_offsets_to_gcpointers_in_var_part(getattr(TYPE,
-                                                                 TYPE._arrayfld)) 
-    

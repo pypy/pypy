@@ -241,7 +241,8 @@ class ArrayDefNode:
         return '%s %s *@' % (self.typetag, self.name)
 
     def access_expr(self, baseexpr, index):
-        return '%s.items[%d]' % (baseexpr, index)
+        return '%s.items[%s]' % (baseexpr, index)
+    access_expr_varindex = access_expr
 
     def ptr_access_expr(self, baseexpr, index):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
@@ -334,6 +335,7 @@ class BareBoneArrayDefNode:
 
     def access_expr(self, baseexpr, index):
         return '%s[%d]' % (baseexpr, index)
+    access_expr_varindex = access_expr
 
     def ptr_access_expr(self, baseexpr, index):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
@@ -388,6 +390,9 @@ class FixedSizeArrayDefNode:
         return '%s[%d]' % (baseexpr, index)
 
     ptr_access_expr = access_expr
+
+    def access_expr_varindex(self, baseexpr, index):
+        return '%s[%s]' % (baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
         return 'RPyFxItem(%s, %s, %d)' % (baseexpr, indexexpr,

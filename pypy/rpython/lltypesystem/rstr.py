@@ -87,10 +87,7 @@ class __extend__(pairtype(PyObjRepr, AbstractStringRepr)):
         cflags = inputconst(Void, {'flavor': 'gc'})
         v_result = llops.genop('malloc_varsize', [cstr, cflags, v_len],
                                resulttype=Ptr(STR))
-        cchars = inputconst(Void, "chars")
-        v_chars = llops.genop('getsubstruct', [v_result, cchars],
-                              resulttype=Ptr(STR.chars))
-        llops.gencapicall('PyString_ToLLCharArray', [v, v_chars])
+        llops.gencapicall('PyString_ToRPyString', [v, v_result])
         string_repr = llops.rtyper.type_system.rstr.string_repr
         v_result = llops.convertvar(v_result, string_repr, r_to)
         return v_result
@@ -101,15 +98,11 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
         string_repr = llops.rtyper.type_system.rstr.string_repr
         v = llops.convertvar(v, r_from, string_repr)
         cchars = inputconst(Void, "chars")
-        v_chars = llops.genop('getsubstruct', [v, cchars],
-                              resulttype=Ptr(STR.chars))
-        v_size = llops.genop('getarraysize', [v_chars],
-                             resulttype=Signed)
         # xxx put in table        
-        return llops.gencapicall('PyString_FromLLCharArrayAndSize',
-                                 [v_chars, v_size],
+        return llops.gencapicall('PyString_FromRPyString',
+                                 [v],
                                  resulttype=pyobj_repr,
-                                 _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
+                                 _callable= lambda v: pyobjectptr(''.join(v.chars)))
 
 def mallocstr(length):
     debug_assert(length >= 0, "negative string length")

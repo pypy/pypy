@@ -107,7 +107,10 @@ class CBuilder(object):
 
     def get_gcpolicyclass(self):
         if self.gcpolicy is None:
-            return gc.name_to_gcpolicy[self.config.translation.gc]
+            name = self.config.translation.gc
+            if self.config.translation.stacklessgc:
+                name = "%s+stacklessgc" % (name,)
+            return gc.name_to_gcpolicy[name]
         return self.gcpolicy
 
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition

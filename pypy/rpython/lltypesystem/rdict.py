@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rlib import objectmodel
@@ -158,9 +158,9 @@ class DictRepr(AbstractDictRepr):
                 entrymeths['fasthashfn'] = fasthashfn
 
             # Build the lltype data structures
-            self.DICTENTRY = lltype.Struct("dictentry", adtmeths=entrymeths,
-                                           *entryfields)
-            self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY)
+            self.DICTENTRY = lltype.Struct("dictentry", *entryfields)
+            self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY,
+                                                 adtmeths=entrymeths)
             fields =          [ ("num_items", lltype.Signed),
                                 ("num_pristine_entries", lltype.Signed), 
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY)) ]
@@ -350,47 +350,47 @@ class __extend__(pairtype(DictRepr, DictRepr)):
 #  be direct_call'ed from rtyped flow graphs, which means that they will
 #  get flowed and annotated, mostly with SomePtr.
 
-def ll_everused_from_flag(entry):
-    return entry.f_everused
+def ll_everused_from_flag(entries, i):
+    return entries[i].f_everused
 
-def ll_everused_from_key(entry):
-    return bool(entry.key)
+def ll_everused_from_key(entries, i):
+    return bool(entries[i].key)
 
-def ll_everused_from_value(entry):
-    return bool(entry.value)
+def ll_everused_from_value(entries, i):
+    return bool(entries[i].value)
 
-def ll_valid_from_flag(entry):
-    return entry.f_valid
+def ll_valid_from_flag(entries, i):
+    return entries[i].f_valid
 
-def ll_mark_deleted_in_flag(entry):
-    entry.f_valid = False
+def ll_mark_deleted_in_flag(entries, i):
+    entries[i].f_valid = False
 
-def ll_valid_from_key(entry):
-    ENTRY = lltype.typeOf(entry).TO
-    dummy = ENTRY.dummy_obj.ll_dummy_value
-    return entry.everused() and entry.key != dummy
+def ll_valid_from_key(entries, i):
+    ENTRIES = lltype.typeOf(entries).TO
+    dummy = ENTRIES.dummy_obj.ll_dummy_value
+    return entries.everused(i) and entries[i].key != dummy
 
-def ll_mark_deleted_in_key(entry):
-    ENTRY = lltype.typeOf(entry).TO
-    dummy = ENTRY.dummy_obj.ll_dummy_value
-    entry.key = dummy
+def ll_mark_deleted_in_key(entries, i):
+    ENTRIES = lltype.typeOf(entries).TO
+    dummy = ENTRIES.dummy_obj.ll_dummy_value
+    entries[i].key = dummy
 
-def ll_valid_from_value(entry):
-    ENTRY = lltype.typeOf(entry).TO
-    dummy = ENTRY.dummy_obj.ll_dummy_value
-    return entry.everused() and entry.value != dummy
+def ll_valid_from_value(entries, i):
+    ENTRIES = lltype.typeOf(entries).TO
+    dummy = ENTRIES.dummy_obj.ll_dummy_value
+    return entries.everused(i) and entries[i].value != dummy
 
-def ll_mark_deleted_in_value(entry):
-    ENTRY = lltype.typeOf(entry).TO
-    dummy = ENTRY.dummy_obj.ll_dummy_value
-    entry.value = dummy
+def ll_mark_deleted_in_value(entries, i):
+    ENTRIES = lltype.typeOf(entries).TO
+    dummy = ENTRIES.dummy_obj.ll_dummy_value
+    entries[i].value = dummy
 
-def ll_hash_from_cache(entry):
-    return entry.f_hash
+def ll_hash_from_cache(entries, i):
+    return entries[i].f_hash
 
-def ll_hash_recomputed(entry):
-    ENTRY = lltype.typeOf(entry).TO
-    return ENTRY.fasthashfn(entry.key)
+def ll_hash_recomputed(entries, i):
+    ENTRIES = lltype.typeOf(entries).TO
+    return ENTRIES.fasthashfn(entries[i].key)
 
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
@@ -408,9 +408,10 @@ def ll_dict_is_true(d):
     return bool(d) and d.num_items != 0
 
 def ll_dict_getitem(d, key):
-    entry = ll_dict_lookup(d, key, d.keyhash(key))
-    if entry.valid():
-        return entry.value 
+    i = ll_dict_lookup(d, key, d.keyhash(key))
+    entries = d.entries
+    if entries.valid(i):
+        return entries[i].value 
     else: 
         raise KeyError 
 ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
@@ -418,11 +419,12 @@ ll_dict_getitem.oopargcheck = lambda d, key: bool(d)
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
-    entry = ll_dict_lookup(d, key, hash)
-    everused = entry.everused()
-    valid    = entry.valid()
+    i = ll_dict_lookup(d, key, hash)
+    everused = d.entries.everused(i)
+    valid    = d.entries.valid(i)
     # set up the new entry
-    ENTRY = lltype.typeOf(entry).TO
+    ENTRY = lltype.typeOf(d.entries).TO.OF
+    entry = d.entries[i]
     entry.value = value
     if valid:
         return
@@ -443,8 +445,9 @@ def ll_dict_insertclean(d, key, value, hash):
     # the dict contains no deleted entries.  This routine has the advantage
     # of never calling d.keyhash() and d.keyeq(), so it cannot call back
     # to user code.  ll_dict_insertclean() doesn't resize the dict, either.
-    entry = ll_dict_lookup_clean(d, hash)
-    ENTRY = lltype.typeOf(entry).TO
+    i = ll_dict_lookup_clean(d, hash)
+    ENTRY = lltype.typeOf(d.entries).TO.OF
+    entry = d.entries[i]
     entry.value = value
     entry.key = key
     if hasattr(ENTRY, 'f_hash'):     entry.f_hash = hash
@@ -454,19 +457,21 @@ def ll_dict_insertclean(d, key, value, hash):
     d.num_pristine_entries -= 1
 
 def ll_dict_delitem(d, key):
-    entry = ll_dict_lookup(d, key, d.keyhash(key))
-    if not entry.valid():
+    i = ll_dict_lookup(d, key, d.keyhash(key))
+    if not d.entries.valid(i):
         raise KeyError
-    entry.mark_deleted()
+    d.entries.mark_deleted(i)
     d.num_items -= 1
     # clear the key and the value if they are GC pointers
-    ENTRY = lltype.typeOf(entry).TO
-    if ENTRY.must_clear_key:
+    ENTRIES = lltype.typeOf(d.entries).TO
+    ENTRY = ENTRIES.OF
+    entry = d.entries[i]
+    if ENTRIES.must_clear_key:
         key = entry.key   # careful about destructor side effects:
                           # keep key alive until entry.value has also
                           # been zeroed (if it must be)
         entry.key = lltype.nullptr(ENTRY.key.TO)
-    if ENTRY.must_clear_value:
+    if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
     num_entries = len(d.entries)
     if num_entries > DICT_INITSIZE and d.num_items < num_entries / 4:
@@ -485,9 +490,10 @@ def ll_dict_resize(d):
     d.num_pristine_entries = new_size
     i = 0
     while i < old_size:
-        entry = old_entries[i]
-        if entry.valid():
-            ll_dict_insertclean(d, entry.key, entry.value, entry.hash())
+        if old_entries.valid(i):
+            hash = old_entries.hash(i)
+            entry = old_entries[i]
+            ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
@@ -497,56 +503,61 @@ def ll_dict_lookup(d, key, hash):
     DICT = lltype.typeOf(d).TO
     entries = d.entries
     mask = len(entries) - 1
-    i = r_uint(hash & mask) 
+    i = hash & mask
     # do the first try before any looping 
-    entry = entries[i]
-    if entry.valid():
-        checkingkey = entry.key
+    if entries.valid(i):
+        checkingkey = entries[i].key
         if checkingkey == key:
-            return entry   # found the entry
-        if d.keyeq is not None and entry.hash() == hash:
+            return i   # found the entry
+        if d.keyeq is not None and entries.hash(i) == hash:
             # correct hash, maybe the key is e.g. a different pointer to
             # an equal object
             found = d.keyeq(checkingkey, key)
             if DICT.paranoia:
                 if (entries != d.entries or
-                    not entry.valid() or entry.key != checkingkey):
+                    not entries.valid(i) or entries[i].key != checkingkey):
                     # the compare did major nasty stuff to the dict: start over
                     return ll_dict_lookup(d, key, hash)
             if found:
-                return entry   # found the entry
-        freeslot = lltype.nullptr(lltype.typeOf(entry).TO)
-    elif entry.everused():
-        freeslot = entry
+                return i   # found the entry
+        freeslot = -1
+    elif entries.everused(i):
+        freeslot = i
     else:
-        return entry    # pristine entry -- lookup failed
+        return i    # pristine entry -- lookup failed
 
     # In the loop, a deleted entry (everused and not valid) is by far
     # (factor of 100s) the least likely outcome, so test for that last.
     perturb = r_uint(hash) 
     while 1: 
-        i = ((i << 2) + i + perturb + 1) & mask
-        entry = entries[i]
-        if not entry.everused():
-            return freeslot or entry 
-        elif entry.valid():
-            checkingkey = entry.key
+        # compute the next index using unsigned arithmetic
+        i = r_uint(i)
+        i = (i << 2) + i + perturb + 1
+        i = intmask(i) & mask
+        # keep 'i' as a signed number here, to consistently pass signed
+        # arguments to the small helper methods.
+        if not entries.everused(i):
+            if freeslot == -1:
+                freeslot = i
+            return freeslot
+        elif entries.valid(i):
+            checkingkey = entries[i].key
             if checkingkey == key:
-                return entry
-            if d.keyeq is not None and entry.hash() == hash:
+                return i
+            if d.keyeq is not None and entries.hash(i) == hash:
                 # correct hash, maybe the key is e.g. a different pointer to
                 # an equal object
                 found = d.keyeq(checkingkey, key)
                 if DICT.paranoia:
                     if (entries != d.entries or
-                        not entry.valid() or entry.key != checkingkey):
+                        not entries.valid(i) or entries[i].key != checkingkey):
                         # the compare did major nasty stuff to the dict:
                         # start over
                         return ll_dict_lookup(d, key, hash)
                 if found:
-                    return entry   # found the entry
-        elif not freeslot:
-            freeslot = entry 
+                    return i   # found the entry
+        elif freeslot == -1:
+            freeslot = i 
         perturb >>= PERTURB_SHIFT
 
 def ll_dict_lookup_clean(d, hash):
@@ -555,14 +566,14 @@ def ll_dict_lookup_clean(d, hash):
     # It only find the next free slot for the given hash.
     entries = d.entries
     mask = len(entries) - 1
-    i = r_uint(hash & mask) 
-    entry = entries[i]
+    i = hash & mask
     perturb = r_uint(hash) 
-    while entry.everused():
-        i = ((i << 2) + i + perturb + 1) & mask
-        entry = entries[i]
+    while entries.everused(i):
+        i = r_uint(i)
+        i = (i << 2) + i + perturb + 1
+        i = intmask(i) & mask
         perturb >>= PERTURB_SHIFT
-    return entry
+    return i
 
 # ____________________________________________________________
 #
@@ -638,8 +649,9 @@ def ll_dictnext(iter, func, RETURNTYPE):
         entries_len = len(entries)
         while index < entries_len:
             entry = entries[index]
+            is_valid = entries.valid(index)
             index = index + 1
-            if entry.valid():
+            if is_valid:
                 iter.index = index
                 if RETURNTYPE is lltype.Void:
                     return None
@@ -660,16 +672,18 @@ def ll_dictnext(iter, func, RETURNTYPE):
 # methods
 
 def ll_get(dict, key, default):
-    entry = ll_dict_lookup(dict, key, dict.keyhash(key))
-    if entry.valid():
-        return entry.value
+    i = ll_dict_lookup(dict, key, dict.keyhash(key))
+    entries = dict.entries
+    if entries.valid(i):
+        return entries[i].value
     else: 
         return default
 
 def ll_setdefault(dict, key, default):
-    entry = ll_dict_lookup(dict, key, dict.keyhash(key))
-    if entry.valid():
-        return entry.value
+    i = ll_dict_lookup(dict, key, dict.keyhash(key))
+    entries = dict.entries
+    if entries.valid(i):
+        return entries[i].value
     else:
         ll_dict_setitem(dict, key, default)
         return default
@@ -687,7 +701,7 @@ def ll_copy(dict):
     while i < dictsize:
         d_entry = d.entries[i]
         entry = dict.entries[i]
-        ENTRY = lltype.typeOf(entry).TO
+        ENTRY = lltype.typeOf(d.entries).TO.OF
         d_entry.key = entry.key
         if hasattr(ENTRY, 'f_valid'):    d_entry.f_valid    = entry.f_valid
         if hasattr(ENTRY, 'f_everused'): d_entry.f_everused = entry.f_everused
@@ -709,8 +723,8 @@ def ll_update(dic1, dic2):
     d2len = len(entries)
     i = 0
     while i < d2len:
-        entry = entries[i]
-        if entry.valid():
+        if entries.valid(i):
+            entry = entries[i]
             ll_dict_setitem(dic1, entry.key, entry.value)
         i += 1
 
@@ -733,10 +747,10 @@ def ll_kvi(dic, LIST, func):
     i = 0
     p = 0
     while i < dlen:
-        entry = entries[i]
-        if entry.valid():
+        if entries.valid(i):
             ELEM = lltype.typeOf(items).TO.OF
             if ELEM is not lltype.Void:
+                entry = entries[i]
                 if func is dum_items:
                     r = lltype.malloc(ELEM.TO)
                     r.item0 = recast(ELEM.TO.item0, entry.key)
@@ -751,7 +765,7 @@ def ll_kvi(dic, LIST, func):
     return res
 
 def ll_contains(d, key):
-    entry = ll_dict_lookup(d, key, d.keyhash(key))
-    return entry.valid()
+    i = ll_dict_lookup(d, key, d.keyhash(key))
+    return d.entries.valid(i)
 ll_contains.oopspec = 'dict.contains(d, key)'
 ll_contains.oopargcheck = lambda d, key: bool(d)

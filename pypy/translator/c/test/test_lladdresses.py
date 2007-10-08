@@ -1,4 +1,4 @@
-from pypy.rpython.memory.lladdress import *
+from pypy.rpython.lltypesystem.llmemory import *
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.objectmodel import free_non_gc_object

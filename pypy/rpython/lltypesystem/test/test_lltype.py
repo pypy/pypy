@@ -1,7 +1,11 @@
 from pypy.rpython.lltypesystem.lltype import *
 
 def isweak(p, T):
-    return p._weak and typeOf(p).TO == T
+    try:
+        typeOf(p)
+    except TypeError:
+        return True
+    return False
 
 def test_basics():
     S0 = GcStruct("s0", ('a', Signed), ('b', Signed))
@@ -202,6 +206,7 @@ def test_cast_pointer():
     py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p3)")
 
 def test_best_effort_gced_parent_detection():
+    py.test.skip("test not relevant any more")
     S2 = Struct("s2", ('a', Signed))
     S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2), ('tail', Array(('e', Signed))))
     p1 = malloc(S1, 1)
@@ -216,6 +221,7 @@ def test_best_effort_gced_parent_detection():
     py.test.raises(RuntimeError, "p3[0]")
 
 def test_best_effort_gced_parent_for_arrays():
+    py.test.skip("test not relevant any more")
     A1 = GcArray(('v', Signed))
     p1 = malloc(A1, 10)
     p1[5].v=3
@@ -422,6 +428,8 @@ def test_runtime_type_info():
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
     
 def test_flavor_malloc():
+    def isweak(p, T):
+        return p._weak and typeOf(p).TO == T
     S = Struct('s', ('x', Signed))
     py.test.raises(TypeError, malloc, S)
     p = malloc(S, flavor="raw")

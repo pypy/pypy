@@ -548,7 +548,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
 
         res = self.interpret(func2, [ord(x), ord(y)])
         for i in range(len(res.entries)): 
-            assert not (res.entries[i].everused() and not res.entries[i].valid())
+            assert not (res.entries.everused(i) and not res.entries.valid(i))
 
         def func3(c0, c1, c2, c3, c4, c5, c6, c7):
             d = {}
@@ -568,7 +568,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
                                    for i in range(rdict.DICT_INITSIZE)])
         count_frees = 0
         for i in range(len(res.entries)):
-            if not res.entries[i].everused():
+            if not res.entries.everused(i):
                 count_frees += 1
         assert count_frees >= 3
 

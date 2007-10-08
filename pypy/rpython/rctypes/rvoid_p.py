@@ -1,4 +1,5 @@
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
+from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rstr import AbstractStringRepr
@@ -54,7 +55,7 @@ class __extend__(pairtype(AbstractStringRepr, CVoidPRepr)):
 
 def ll_string2addr(s):
     if s:
-        ptr = lltype.direct_arrayitems(s.chars)
+        ptr = lltype.direct_arrayitems(unsafe_getfield(s, 'chars'))
         return llmemory.cast_ptr_to_adr(ptr)
     else:
         return llmemory.NULL

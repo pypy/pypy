@@ -234,3 +234,82 @@ def test_ptr_str():
     res = interpret(f, [])
     assert res.chars[0] == '0'
     assert res.chars[1] == 'x'
+
+
+def test_first_subfield_access_is_cast_pointer():
+    B = GcStruct("B", ('x', Signed))
+    C = GcStruct("C", ('super', B), ('y', Signed))
+    def f():
+        c = malloc(C)
+        c.super.x = 1
+        c.y = 2
+        return c.super.x + c.y
+    s, t = ll_rtype(f, [])
+    from pypy.translator.translator import graphof
+    from pypy.objspace.flow.model import summary
+    graph = graphof(t, f)
+    graphsum = summary(graph)
+    assert 'getsubstruct' not in graphsum
+    assert 'cast_pointer' in graphsum
+    
+        
+
+def test_interior_ptr():
+    S = Struct("S", ('x', Signed))
+    T = GcStruct("T", ('s', S))
+    def f():
+        t = malloc(T)
+        t.s.x = 1
+        return t.s.x
+    res = interpret(f, [])
+    assert res == 1
+
+def test_interior_ptr_with_index():
+    S = Struct("S", ('x', Signed))
+    T = GcArray(S)
+    def f():
+        t = malloc(T, 1)
+        t[0].x = 1
+        return t[0].x
+    res = interpret(f, [])
+    assert res == 1
+
+def test_interior_ptr_with_field_and_index():
+    S = Struct("S", ('x', Signed))
+    T = GcStruct("T", ('items', Array(S)))
+    def f():
+        t = malloc(T, 1)
+        t.items[0].x = 1
+        return t.items[0].x
+    res = interpret(f, [])
+    assert res == 1
+
+def test_interior_ptr_with_index_and_field():
+    S = Struct("S", ('x', Signed))
+    T = Struct("T", ('s', S))
+    U = GcArray(T)
+    def f():
+        u = malloc(U, 1)
+        u[0].s.x = 1
+        return u[0].s.x
+    res = interpret(f, [])
+    assert res == 1
+
+def test_interior_ptr_len():
+    S = Struct("S", ('x', Signed))
+    T = GcStruct("T", ('items', Array(S)))
+    def f():
+        t = malloc(T, 1)
+        return len(t.items)
+    res = interpret(f, [])
+    assert res == 1
+
+def test_interior_ptr_with_setitem():
+    T = GcStruct("T", ('s', Array(Signed)))
+    def f():
+        t = malloc(T, 1)
+        t.s[0] = 1
+        return t.s[0]
+    res = interpret(f, [])
+    assert res == 1
+ 

@@ -28,16 +28,19 @@ class GCHeaderBuilder(object):
     def get_header(self, gcptr):
         return self.obj2header.get(gcptr._as_obj(), None)
 
-    def new_header(self, gcptr):
+    def attach_header(self, gcptr, headerptr):
         gcobj = gcptr._as_obj()
         assert gcobj not in self.obj2header
         # sanity checks
         assert gcobj._TYPE._gckind == 'gc'
         assert not isinstance(gcobj._TYPE, lltype.GcOpaqueType)
         assert not gcobj._parentstructure()
-        headerptr = lltype.malloc(self.HDR, immortal=True)
         self.obj2header[gcobj] = headerptr
         header2obj[headerptr._obj] = gcptr._as_ptr()
+
+    def new_header(self, gcptr):
+        headerptr = lltype.malloc(self.HDR, immortal=True)
+        self.attach_header(gcptr, headerptr)
         return headerptr
 
     def _freeze_(self):

@@ -5,6 +5,7 @@ Test external function calls.
 import py
 import sys
 import pypy.rpython.rctypes.implementation
+from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext, graphof
@@ -109,7 +110,7 @@ def test_ll_atoi():
     def str2subarray(string):
         llstring = string_repr.convert_const(string)
         keepalive.append(llstring)
-        return lltype.direct_arrayitems(llstring.chars)
+        return lltype.direct_arrayitems(unsafe_getfield(llstring, 'chars'))
     assert ll_atoi(str2subarray("")) == 0
     assert ll_atoi(str2subarray("42z7")) == 42
     assert ll_atoi(str2subarray("blah")) == 0

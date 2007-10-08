@@ -1,9 +1,8 @@
 # rtyping of memory address operations
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
-from pypy.rpython.memory.lladdress import _address
 from pypy.rpython.lltypesystem.llmemory import NULL, Address, \
-     cast_adr_to_int
+     cast_adr_to_int, fakeaddress
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
@@ -27,7 +26,9 @@ class AddressRepr(Repr):
     lowleveltype = Address
 
     def convert_const(self, value):
-        assert not isinstance(value, _address)
+        # note that llarena.fakearenaaddress is not supported as a constant
+        # in graphs
+        assert type(value) is fakeaddress
         return value
 
     def ll_str(self, a):

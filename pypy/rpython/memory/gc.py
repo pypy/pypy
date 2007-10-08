@@ -1,17 +1,14 @@
-from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy, raw_memclear
-from pypy.rpython.memory.lladdress import NULL, _address, raw_malloc_usage
+from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
+from pypy.rpython.lltypesystem.llmemory import raw_memcopy, raw_memclear
+from pypy.rpython.lltypesystem.llmemory import NULL, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
-from pypy.rpython.memory import lltypesimulation
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 
 import sys, os
-
-int_size = lltypesimulation.sizeof(lltype.Signed)
-gc_header_two_ints = 2*int_size
 
 X_POOL = lltype.GcOpaqueType('gc.pool')
 X_POOL_PTR = lltype.Ptr(X_POOL)
@@ -88,6 +85,49 @@ class GCBase(object):
     def setup(self):
         pass
 
+    def statistics(self, index):
+        return -1
+
+    def size_gc_header(self, typeid=0):
+        return self.gcheaderbuilder.size_gc_header
+
+    def malloc(self, typeid, length=0, zero=False):
+        """For testing.  The interface used by the gctransformer is
+        the four malloc_[fixed,var]size[_clear]() functions.
+        """
+        size = self.fixed_size(typeid)
+        needs_finalizer = bool(self.getfinalizer(typeid))
+        contains_weakptr = self.weakpointer_offset(typeid) != -1
+        assert not (needs_finalizer and contains_weakptr)
+        if self.is_varsize(typeid):
+            assert not contains_weakptr
+            itemsize = self.varsize_item_sizes(typeid)
+            offset_to_length = self.varsize_offset_to_length(typeid)
+            if zero:
+                malloc_varsize = self.malloc_varsize_clear
+            else:
+                malloc_varsize = self.malloc_varsize
+            ref = malloc_varsize(typeid, length, size, itemsize,
+                                 offset_to_length, True, needs_finalizer)
+        else:
+            if zero:
+                malloc_fixedsize = self.malloc_fixedsize_clear
+            else:
+                malloc_fixedsize = self.malloc_fixedsize
+            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
+                                   contains_weakptr)
+        # lots of cast and reverse-cast around...
+        return llmemory.cast_ptr_to_adr(ref)
+
+    def x_swap_pool(self, newpool):
+        return newpool
+
+    def x_clone(self, clonedata):
+        raise RuntimeError("no support for x_clone in the GC")
+
+    def x_become(self, target_addr, source_addr):
+        raise RuntimeError("no support for x_become in the GC")
+
 class DummyGC(GCBase):
     _alloc_flavor_ = "raw"
 
@@ -95,20 +135,20 @@ class DummyGC(GCBase):
         self.get_roots = get_roots
         #self.set_query_functions(None, None, None, None, None, None, None)
    
-    def malloc(self, typeid, length=0):
+    def malloc(self, typeid, length=0, zero=False):
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             size += length * self.varsize_item_sizes(typeid)
         result = raw_malloc(size)
         if not result:
             raise memoryError
+        if zero:
+            raw_memclear(result, size)
+        # XXX set the length field?
         return result
          
     def collect(self):
         self.get_roots() #this is there so that the annotator thinks get_roots is a function
-
-    def size_gc_header(self, typeid=0):
-        return 0
 
     def init_gc_object(self, addr, typeid):
         return
@@ -166,24 +206,6 @@ class MarkSweepGC(GCBase):
         self.poolnodes = lltype.nullptr(self.POOLNODE)
         self.collect_in_progress = False
         self.prev_collect_end_time = 0.0
-
-    def malloc(self, typeid, length=0):
-        size = self.fixed_size(typeid)
-        needs_finalizer =  bool(self.getfinalizer(typeid))
-        contains_weakptr = self.weakpointer_offset(typeid) != -1
-        assert needs_finalizer != contains_weakptr
-        if self.is_varsize(typeid):
-            assert not contains_weakptr
-            itemsize = self.varsize_item_sizes(typeid)
-            offset_to_length = self.varsize_offset_to_length(typeid)
-            ref = self.malloc_varsize(typeid, length, size, itemsize,
-                                      offset_to_length, True, needs_finalizer)
-        else:
-            ref = self.malloc_fixedsize(typeid, size, True, needs_finalizer,
-                                        contains_weakptr)
-        # XXX lots of cast and reverse-cast around, but this malloc()
-        # should eventually be killed
-        return llmemory.cast_ptr_to_adr(ref)
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
@@ -609,9 +631,6 @@ class MarkSweepGC(GCBase):
             return self.bytes_malloced
         return -1
 
-    def size_gc_header(self, typeid=0):
-        return self.gcheaderbuilder.size_gc_header
-
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid = typeid << 1
@@ -992,10 +1011,10 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
 
-    HDR = lltype.Struct('header', ('forw', lltype.Signed),
+    HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('typeid', lltype.Signed))
 
-    def __init__(self, AddressLinkedList, space_size=1024*int_size,
+    def __init__(self, AddressLinkedList, space_size=4096,
                  get_roots=None):
         self.bytes_malloced = 0
         self.space_size = space_size
@@ -1007,68 +1026,71 @@ class SemiSpaceGC(GCBase):
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
 
     def setup(self):
-        self.tospace = raw_malloc(self.space_size)
+        self.tospace = llarena.arena_malloc(self.space_size, True)
         debug_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
-        self.fromspace = raw_malloc(self.space_size)
+        self.fromspace = llarena.arena_malloc(self.space_size, True)
         debug_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
 
     def free_memory(self):
         "NOT_RPYTHON"
-        raw_free(self.tospace)
+        llarena.arena_free(self.tospace)
         self.tospace = NULL
-        raw_free(self.fromspace)
+        llarena.arena_free(self.fromspace)
         self.fromspace = NULL
-
-    def malloc(self, typeid, length=0):
-        size = self.fixed_size(typeid)
-        if self.is_varsize(typeid):
-            itemsize = self.varsize_item_sizes(typeid)
-            offset_to_length = self.varsize_offset_to_length(typeid)
-            ref = self.malloc_varsize(typeid, length, size, itemsize,
-                                      offset_to_length, True)
-        else:
-            ref = self.malloc_fixedsize(typeid, size, True)
-        # XXX lots of cast and reverse-cast around, but this malloc()
-        # should eventually be killed
-        return llmemory.cast_ptr_to_adr(ref)
     
-    def malloc_fixedsize(self, typeid, size, can_collect):
+    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
+                         contains_weakptr=False):
+        if has_finalizer:
+            raise NotImplementedError("finalizers in SemiSpaceGC")
+        if contains_weakptr:
+            raise NotImplementedError("weakptr in SemiSpaceGC")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
-        if can_collect and self.free + totalsize > self.top_of_space:
+        if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
+            if not can_collect:
+                raise memoryError
             self.collect()
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
-            if self.free + totalsize > self.top_of_space:
+            if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
                 raise memoryError
         result = self.free
+        llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         self.free += totalsize
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect):
+                       can_collect, has_finalizer=False):
+        if has_finalizer:
+            raise NotImplementedError("finalizers in SemiSpaceGC")
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        nonvarsize = size_gc_header + size
         try:
             varsize = ovfcheck(itemsize * length)
+            totalsize = ovfcheck(nonvarsize + varsize)
         except OverflowError:
             raise memoryError
-        # XXX also check for overflow on the various '+' below!
-        size += varsize
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        totalsize = size_gc_header + size
-        if can_collect and self.free + totalsize > self.top_of_space:
+        if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
+            if not can_collect:
+                raise memoryError
             self.collect()
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
-            if self.free + totalsize > self.top_of_space:
+            if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
                 raise memoryError
         result = self.free
+        llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.free += totalsize
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
+
+    # for now, the spaces are filled with zeroes in advance
+    malloc_fixedsize_clear = malloc_fixedsize
+    malloc_varsize_clear   = malloc_varsize
 
     def collect(self):
 ##         print "collecting"
@@ -1090,6 +1112,7 @@ class SemiSpaceGC(GCBase):
             curr = scan + self.size_gc_header()
             self.trace_and_copy(curr)
             scan += self.get_size(curr) + self.size_gc_header()
+        llarena.arena_reset(fromspace, self.space_size, True)
 
     def copy(self, obj):
         if not self.fromspace <= obj < self.fromspace + self.space_size:
@@ -1100,7 +1123,8 @@ class SemiSpaceGC(GCBase):
             return self.get_forwarding_address(obj)
         else:
             newaddr = self.free
-            totalsize = self.get_size(obj) + self.size_gc_header()
+            totalsize = self.size_gc_header() + self.get_size(obj)
+            llarena.arena_reserve(newaddr, totalsize)
             raw_memcopy(obj - self.size_gc_header(), newaddr, totalsize)
             self.free += totalsize
             newobj = newaddr + self.size_gc_header()
@@ -1115,8 +1139,8 @@ class SemiSpaceGC(GCBase):
         return obj
 
     def trace_and_copy(self, obj):
-        gc_info = obj - self.size_gc_header()
-        typeid = gc_info.signed[1]
+        gc_info = self.header(obj)
+        typeid = gc_info.typeid
 ##         print "scanning", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
@@ -1143,18 +1167,17 @@ class SemiSpaceGC(GCBase):
                 i += 1
 
     def is_forwarded(self, obj):
-        return (obj - self.size_gc_header()).signed[1] < 0
+        return self.header(obj).forw != NULL
 
     def get_forwarding_address(self, obj):
-        return (obj - self.size_gc_header()).address[0]
+        return self.header(obj).forw
 
     def set_forwarding_address(self, obj, newobj):
-        gc_info = obj - self.size_gc_header()
-        gc_info.signed[1] = -gc_info.signed[1] - 1
-        gc_info.address[0] = newobj
+        gc_info = self.header(obj)
+        gc_info.forw = newobj
 
     def get_size(self, obj):
-        typeid = (obj - self.size_gc_header()).signed[1]
+        typeid = self.header(obj).typeid
         size = self.fixed_size(typeid)
         if self.is_varsize(typeid):
             lenaddr = obj + self.varsize_offset_to_length(typeid)
@@ -1162,13 +1185,19 @@ class SemiSpaceGC(GCBase):
             size += length * self.varsize_item_sizes(typeid)
         return size
 
-    def size_gc_header(self, typeid=0):
-        return self.gcheaderbuilder.size_gc_header
+    def header(self, addr):
+        addr -= self.gcheaderbuilder.size_gc_header
+        return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
 
     def init_gc_object(self, addr, typeid):
-        addr.signed[0] = 0
-        addr.signed[1] = typeid
-    init_gc_object_immortal = init_gc_object
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        #hdr.forw = NULL   -- unneeded, the space is initially filled with zero
+        hdr.typeid = typeid
+
+    def init_gc_object_immortal(self, addr, typeid):
+        hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
+        hdr.forw = NULL
+        hdr.typeid = typeid
 
 class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
@@ -1296,5 +1325,5 @@ class DeferredRefcountingGC(GCBase):
         addr.signed[1] = typeid
 
     def size_gc_header(self, typeid=0):
-        return gc_header_two_ints
+        XXX
 

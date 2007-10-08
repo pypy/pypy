@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeFloat, \
      SomeInteger, SomeExternalObject, SomeOOInstance, TLS, SomeAddress, \
      SomeUnicodeCodePoint, SomeOOStaticMeth, s_None, s_ImpossibleValue, \
      SomeLLADTMeth, SomeBool, SomeTuple, SomeOOClass, SomeImpossibleValue, \
-     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef
+     SomeList, SomeObject, HarmlesslyBlocked, SomeWeakRef, lltype_to_annotation
 from pypy.annotation.classdef import ClassDef, InstanceSource
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
@@ -24,7 +24,6 @@ from pypy.rlib.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.memory import lladdress
 from pypy.rpython import extregistry
 
 class Stats:
@@ -239,7 +238,7 @@ class Bookkeeper:
         if isinstance(s_callable, SomeLLADTMeth):
             adtmeth = s_callable
             s_callable = self.immutablevalue(adtmeth.func)
-            args_s = [SomePtr(adtmeth.ll_ptrtype)] + args_s
+            args_s = [lltype_to_annotation(adtmeth.ll_ptrtype)] + args_s
         if isinstance(s_callable, SomePBC):
             s_result = binding(call_op.result, s_ImpossibleValue)
             self.consider_call_site_for_pbc(s_callable,

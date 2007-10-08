@@ -1,7 +1,6 @@
 from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
-from pypy.rpython.memory import lladdress
 from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 def getcompiled(f, args):
@@ -83,11 +82,11 @@ def test_sizeof_constsize_struct():
     sizeofs = llmemory.sizeof(STRUCT)
     offsety = llmemory.offsetof(STRUCT, 'y')
     def f():
-        adr = lladdress.raw_malloc(sizeofs)
+        adr = llmemory.raw_malloc(sizeofs)
         s = llmemory.cast_adr_to_ptr(adr, STRUCTPTR)
         s.y = 5 # does not crash
         result = (adr + offsety).signed[0] * 10 + int(offsety < sizeofs)
-        lladdress.raw_free(adr)
+        llmemory.raw_free(adr)
         return result
     fn, t = getcompiled(f, [])
     res = fn()

@@ -1,0 +1,8 @@
+Use stackless to find roots in a framework GC.
+
+Only for framework GCs.  This uses a different method to find the
+garbage collection roots on the stack, by unwinding it, using stackless:
+:config:`translation.stackless`.
+
+When stacklessgc is not enabled, the default method - which turns out to
+be faster for now - is to maintain a custom root stack.

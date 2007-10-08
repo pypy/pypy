@@ -93,21 +93,15 @@ class CTypesRepr(Repr):
             else:
                 # we must return a non-memory-owning box that keeps the
                 # memory-owning box alive
+                pdata = unsafe_getfield(p, 'c_data')
                 result = lltype.malloc(self.lowleveltype.TO, zero=True)
-                result.c_data = p.c_data    # initialize c_data pointer
+                result.c_data = pdata    # initialize c_data pointer
                 result.c_data_owner_keepalive = p
             self.const_cache[key] = result, keepalive
             return result
 
     def get_c_data(self, llops, v_box):
-        if self.ownsmemory:
-            inputargs = [v_box, inputconst(lltype.Void, "c_data")]
-            return llops.genop('getsubstruct', inputargs,
-                        lltype.Ptr(self.c_data_type) )
-        else:
-            inputargs = [v_box, inputconst(lltype.Void, "c_data")]
-            return llops.genop('getfield', inputargs,
-                        lltype.Ptr(self.c_data_type) )
+        return gen_unsafe_getfield(llops, v_box, 'c_data')
 
     def get_c_data_owner(self, llops, v_box):
         if self.ownsmemory:
@@ -162,19 +156,10 @@ class CTypesRepr(Repr):
         return self.allocate_instance_ref(llops, v_c_data)
 
     def getkeepalive(self, llops, v_box):
-        try:
-            TYPE = self.lowleveltype.TO.keepalive
-        except AttributeError:
-            return None
+        if hasattr(self.lowleveltype.TO, 'keepalive'):
+            return gen_unsafe_getfield(llops, v_box, 'keepalive')
         else:
-            if isinstance(TYPE, lltype.ContainerType):
-                TYPE = lltype.Ptr(TYPE)
-                opname = 'getsubstruct'
-            else:
-                opname = 'getfield'
-            c_name = inputconst(lltype.Void, 'keepalive')
-            return llops.genop(opname, [v_box, c_name],
-                               resulttype = TYPE)
+            return None
 
 
 class __extend__(pairtype(CTypesRepr, CTypesRepr)):
@@ -263,6 +248,39 @@ def ll_is_true(x):
 
 C_ZERO = inputconst(lltype.Signed, 0)
 
+def unsafe_getfield(ptr, name):
+    """Equivalent of getattr(ptr, name), but if the 'name' belongs to an
+    inlined substructure of a GC pointer, it returns a raw pointer to it.
+    This is dangerous!  You *have* to keep the 'ptr' alive as long as you
+    use the result - put a call to keepalive_until_here()."""
+    STRUCT = lltype.typeOf(ptr).TO
+    FIELD = getattr(STRUCT, name)
+    if isinstance(FIELD, lltype.ContainerType):
+        addr = llmemory.cast_ptr_to_adr(ptr)
+        addr += llmemory.offsetof(STRUCT, name)
+        return llmemory.cast_adr_to_ptr(addr, lltype.Ptr(FIELD))
+    else:
+        return getattr(ptr, name)
+unsafe_getfield._annspecialcase_ = 'specialize:ll_and_arg(1)'
+
+def gen_unsafe_getfield(llops, v_ptr, name):
+    """Generate lloperations equivalent to 'unsafe_getfield(ptr, name)'."""
+    STRUCT = v_ptr.concretetype.TO
+    assert isinstance(STRUCT, lltype.Struct)
+    FIELD = getattr(STRUCT, name)
+    if isinstance(FIELD, lltype.ContainerType):
+        v_addr = llops.genop('cast_ptr_to_adr', [v_ptr],
+                             resulttype = llmemory.Address)
+        c_ofs = inputconst(lltype.Signed, llmemory.offsetof(STRUCT, name))
+        v_addr = llops.genop('adr_add', [v_addr, c_ofs],
+                             resulttype = llmemory.Address)
+        return llops.genop('cast_adr_to_ptr', [v_addr],
+                           resulttype = lltype.Ptr(FIELD))
+    else:
+        c_name = inputconst(lltype.Void, name)
+        return llops.genop('getfield', [v_ptr, c_name],
+                           resulttype = FIELD)
+
 def reccopy(source, dest):
     # copy recursively a structure or array onto another.
     T = lltype.typeOf(source).TO
@@ -272,8 +290,8 @@ def reccopy(source, dest):
         ITEMTYPE = T.OF
         for i in range(source._obj.getlength()):
             if isinstance(ITEMTYPE, lltype.ContainerType):
-                subsrc = source[i]
-                subdst = dest[i]
+                subsrc = source._obj.getitem(i)._as_ptr()
+                subdst = dest._obj.getitem(i)._as_ptr()
                 reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
@@ -283,8 +301,8 @@ def reccopy(source, dest):
         for name in T._names:
             FIELDTYPE = getattr(T, name)
             if isinstance(FIELDTYPE, lltype.ContainerType):
-                subsrc = getattr(source, name)
-                subdst = getattr(dest,   name)
+                subsrc = source._obj._getattr(name)._as_ptr()
+                subdst = dest._obj._getattr(name)._as_ptr()
                 reccopy(subsrc, subdst)
             else:
                 # this is a hack XXX de-hack this
@@ -356,11 +374,10 @@ def genreccopy_arrayitem(llops, v_source, v_destarray, v_destindex):
         llops.genop('setarrayitem', [v_destarray, v_destindex, v_source])
 
 def genreccopy_structfield(llops, v_source, v_deststruct, fieldname):
-    c_name = inputconst(lltype.Void, fieldname)
     FIELDTYPE = getattr(v_deststruct.concretetype.TO, fieldname)
     if isinstance(FIELDTYPE, lltype.ContainerType):
-        v_dest = llops.genop('getsubstruct', [v_deststruct, c_name],
-                             resulttype = lltype.Ptr(FIELDTYPE))
+        v_dest = gen_unsafe_getfield(llops, v_deststruct, fieldname)
         genreccopy(llops, v_source, v_dest)
     else:
+        c_name = inputconst(lltype.Void, fieldname)
         llops.genop('setfield', [v_deststruct, c_name, v_source])

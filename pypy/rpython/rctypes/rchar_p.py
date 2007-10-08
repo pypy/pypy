@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rstr import AbstractStringRepr
 from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr, C_ZERO
+from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.rpython.rctypes.rarray import ArrayRepr
 from pypy.rpython.rctypes.rstringbuf import StringBufRepr
 from pypy.annotation.pairtype import pairtype
@@ -116,7 +117,7 @@ def ll_strnlen(p, maxlen):
     return i
 
 def ll_str2charp(s):
-    return lltype.direct_arrayitems(s.chars)
+    return lltype.direct_arrayitems(unsafe_getfield(s, 'chars'))
 
 def ll_charp2str(p):
     if not p:

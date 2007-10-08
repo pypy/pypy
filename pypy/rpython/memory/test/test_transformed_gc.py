@@ -1,176 +1,24 @@
 import py
 import sys
-
-## from pypy.annotation import model as annmodel
-## from pypy.annotation.annrpython import RPythonAnnotator
-## from pypy.rpython.rtyper import RPythonTyper
-## from pypy.rpython.memory.gc import GCError, MarkSweepGC, SemiSpaceGC
-## from pypy.rpython.memory.gc import DeferredRefcountingGC, DummyGC
-## from pypy.rpython.memory import support
-## from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
-## from pypy.rpython.memory.simulator import MemorySimulatorError
-## from pypy.rpython.memory import gclltype
-## from pypy.rpython.memory.test.test_llinterpsim import interpret
-## from pypy.rpython.memory.lladdress import simulator
-## from pypy.rlib.objectmodel import free_non_gc_object
-
-## def setup_module(mod):
-##     def stdout_ignore_ll_functions(msg):
-##         strmsg = str(msg)
-##         if "evaluating" in strmsg and "ll_" in strmsg:
-##             return
-##         print >>sys.stdout, strmsg
-##     mod.logstate = py.log._getstate()
-##     py.log.setconsumer("llinterp", py.log.STDOUT)
-##     py.log.setconsumer("llinterp frame", stdout_ignore_ll_functions)
-##     py.log.setconsumer("llinterp operation", None)
-##     gclltype.prepare_graphs_and_create_gc = gclltype.create_gc
-
-## def teardown_module(mod):
-##     gclltype.prepare_graphs_and_create_gc = gclltype.create_no_gc
-
-## class TestMarkSweepGC(object):
-##     def setup_class(cls):
-##         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-##         cls.old = gclltype.use_gc
-##         gclltype.use_gc = MarkSweepGC
-
-##     def teardown_class(cls):
-##         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
-##         gclltype.use_gc = cls.old
-
-##     def test_llinterp_lists(self):
-##         curr = simulator.current_size
-##         def malloc_a_lot():
-##             i = 0
-##             while i < 10:
-##                 i += 1
-##                 a = [1] * 10
-##                 j = 0
-##                 while j < 20:
-##                     j += 1
-##                     a.append(j)
-##         res = interpret(malloc_a_lot, [])
-##         assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-##         print "size before: %s, size after %s" % (curr, simulator.current_size)
-
-##     def test_llinterp_tuples(self):
-##         curr = simulator.current_size
-##         def malloc_a_lot():
-##             i = 0
-##             while i < 10:
-##                 i += 1
-##                 a = (1, 2, i)
-##                 b = [a] * 10
-##                 j = 0
-##                 while j < 20:
-##                     j += 1
-##                     b.append((1, j, i))
-##         res = interpret(malloc_a_lot, [])
-##         assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-##         print "size before: %s, size after %s" % (curr, simulator.current_size)
-
-##     def test_global_list(self):
-##         lst = []
-##         def append_to_list(i, j):
-##             lst.append([i] * 50)
-##             return lst[j][0]
-##         res = interpret(append_to_list, [0, 0])
-##         assert res == 0
-##         for i in range(1, 15):
-##             res = interpret(append_to_list, [i, i - 1])
-##             assert res == i - 1 # crashes if constants are not considered roots
-            
-##     def test_string_concatenation(self):
-##         curr = simulator.current_size
-##         def concat(j):
-##             lst = []
-##             for i in range(j):
-##                 lst.append(str(i))
-##             return len("".join(lst))
-##         res = interpret(concat, [100])
-##         assert res == concat(100)
-##         assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-
-## class TestMarkSweepGCRunningOnLLinterp(TestMarkSweepGC):
-##     def setup_class(cls):
-##         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-##         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
-##     def teardown_class(cls):
-##         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
-
-## class TestSemiSpaceGC(TestMarkSweepGC):
-##     def setup_class(cls):
-##         gclltype.use_gc = SemiSpaceGC
-##         cls.old = gclltype.use_gc
-##     def teardown_class(cls):
-##         gclltype.use_gc = cls.old
-
-## class TestSemiSpaceGCRunningOnLLinterp(TestMarkSweepGC):
-##     def setup_class(cls):
-##         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-##         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
-##         gclltype.use_gc = SemiSpaceGC
-##         cls.old = gclltype.use_gc
-
-##     def teardown_class(cls):
-##         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
-##         gclltype.use_gc = cls.old
-
-## class TestDeferredRefcountingGC(TestMarkSweepGC):
-##     def setup_class(cls):
-##         gclltype.use_gc = DeferredRefcountingGC
-##         cls.old = gclltype.use_gc
-##     def teardown_class(cls):
-##         gclltype.use_gc = cls.old
-
-
-## class TestDeferredRefcountingGCRunningOnLLinterp(TestMarkSweepGC):
-##     def setup_class(cls):
-##         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-##         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
-##         gclltype.use_gc = DeferredRefcountingGC
-##         cls.old = gclltype.use_gc
-
-##     def teardown_class(cls):
-##         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
-##         gclltype.use_gc = cls.old
-
-## class TestDummyGC(TestMarkSweepGC):
-##     def setup_class(cls):
-##         gclltype.use_gc = DummyGC
-##         cls.old = gclltype.use_gc
-##     def teardown_class(cls):
-##         gclltype.use_gc = cls.old
-
-## class TestDummyGCRunningOnLLinterp(TestMarkSweepGC):
-##     def setup_class(cls):
-##         cls.prep_old = gclltype.prepare_graphs_and_create_gc
-##         gclltype.prepare_graphs_and_create_gc = gclltype.create_gc_run_on_llinterp
-##         gclltype.use_gc = DummyGC
-##         cls.old = gclltype.use_gc
-
-##     def teardown_class(cls):
-##         gclltype.prepare_graphs_and_create_gc = cls.prep_old.im_func
-##         gclltype.use_gc = cls.old
-
+import struct
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.memory.support import INT_SIZE
 from pypy.rpython.memory.gc import X_CLONE, X_POOL, X_POOL_PTR
 from pypy import conftest
 
+INT_SIZE = struct.calcsize("i")   # only for estimates
 
-def rtype(func, inputtypes, specialize=True, gcname='ref'):
+
+def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False):
     from pypy.translator.translator import TranslationContext
     t = TranslationContext()
     # XXX XXX XXX mess
     t.config.translation.gc = gcname
+    t.config.translation.stacklessgc = stacklessgc
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize()
@@ -180,6 +28,7 @@ def rtype(func, inputtypes, specialize=True, gcname='ref'):
 
 class GCTest(object):
     gcpolicy = None
+    stacklessgc = False
 
     def runner(self, f, nbargs=0, statistics=False):
         if nbargs == 2:
@@ -199,14 +48,15 @@ class GCTest(object):
 
         ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
-        t = rtype(entrypoint, [s_args], gcname=self.gcname)
+        t = rtype(entrypoint, [s_args], gcname=self.gcname,
+                                        stacklessgc=self.stacklessgc)
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
                                     gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
         if conftest.option.view:
-            t.view()
+            t.viewcg()
 
         llinterp = LLInterpreter(t.rtyper)
 
@@ -681,10 +531,68 @@ class TestMarkSweepGC(GCTest):
         res = run([3, 0])
         assert res == 1
 
+    def test_interior_ptrs(self):
+        from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, GcArray
+        from pypy.rpython.lltypesystem.lltype import Array, Signed, malloc
+
+        S1 = Struct("S1", ('x', Signed))
+        T1 = GcStruct("T1", ('s', S1))
+        def f1():
+            t = malloc(T1)
+            t.s.x = 1
+            return t.s.x
+
+        S2 = Struct("S2", ('x', Signed))
+        T2 = GcArray(S2)
+        def f2():
+            t = malloc(T2, 1)
+            t[0].x = 1
+            return t[0].x
+
+        S3 = Struct("S3", ('x', Signed))
+        T3 = GcStruct("T3", ('items', Array(S3)))
+        def f3():
+            t = malloc(T3, 1)
+            t.items[0].x = 1
+            return t.items[0].x
+
+        S4 = Struct("S4", ('x', Signed))
+        T4 = Struct("T4", ('s', S4))
+        U4 = GcArray(T4)
+        def f4():
+            u = malloc(U4, 1)
+            u[0].s.x = 1
+            return u[0].s.x
+
+        S5 = Struct("S5", ('x', Signed))
+        T5 = GcStruct("T5", ('items', Array(S5)))
+        def f5():
+            t = malloc(T5, 1)
+            return len(t.items)
+
+        T6 = GcStruct("T6", ('s', Array(Signed)))
+        def f6():
+            t = malloc(T6, 1)
+            t.s[0] = 1
+            return t.s[0]
+
+        def func():
+            return (f1() * 100000 +
+                    f2() * 10000 +
+                    f3() * 1000 +
+                    f4() * 100 +
+                    f5() * 10 +
+                    f6())
+
+        assert func() == 111111
+        run = self.runner(func)
+        res = run([])
+        assert res == 111111
+
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
-    gcname = "stacklessgc"
+    stacklessgc = True
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
@@ -713,12 +621,11 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 
-    gcname = "semispace"
     def setup_class(cls):
         py.test.skip("in-progress")
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
-            GC_PARAMS = {'space_size': 4096 }
+            GC_PARAMS = {'space_size': llmemory.arena(lltype.Signed, 512)}
             root_stack_depth = 200

@@ -691,7 +691,7 @@ class __extend__(SomeLLADTMeth):
     def call(adtmeth, args):
         bookkeeper = getbookkeeper()
         s_func = bookkeeper.immutablevalue(adtmeth.func)
-        return s_func.call(args.prepend(SomePtr(adtmeth.ll_ptrtype)))
+        return s_func.call(args.prepend(lltype_to_annotation(adtmeth.ll_ptrtype)))
 
 from pypy.rpython.ootypesystem import ootype
 class __extend__(SomeOOInstance):
@@ -763,15 +763,15 @@ class __extend__(SomeWeakRef):
 #_________________________________________
 # memory addresses
 
-from pypy.rpython.memory import lladdress
+from pypy.rpython.lltypesystem import llmemory
 
 class __extend__(SomeAddress):
     def getattr(s_addr, s_attr):
         assert s_attr.is_constant()
         assert isinstance(s_attr, SomeString)
-        assert s_attr.const in lladdress.supported_access_types
+        assert s_attr.const in llmemory.supported_access_types
         return SomeTypedAddressAccess(
-            lladdress.supported_access_types[s_attr.const])
+            llmemory.supported_access_types[s_attr.const])
     getattr.can_only_throw = []
 
     def is_true(s_addr):

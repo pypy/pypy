@@ -330,6 +330,45 @@ class TestLLTypeMallocRemoval(BaseMallocRemovalTest):
         [link] = entrymap[graph.returnblock]
         assert link.prevblock.operations[-1].opname == 'keepalive'
 
+    def test_interior_ptr(self):
+        py.test.skip("fails")
+        S = lltype.Struct("S", ('x', lltype.Signed))
+        T = lltype.GcStruct("T", ('s', S))
+        def f(x):
+            t = lltype.malloc(T)
+            t.s.x = x
+            return t.s.x
+        graph = self.check(f, [int], [42], 42)
+
+    def test_interior_ptr_with_index(self):
+        S = lltype.Struct("S", ('x', lltype.Signed))
+        T = lltype.GcArray(S)
+        def f(x):
+            t = lltype.malloc(T, 1)
+            t[0].x = x
+            return t[0].x
+        graph = self.check(f, [int], [42], 42)
+
+    def test_interior_ptr_with_field_and_index(self):
+        S = lltype.Struct("S", ('x', lltype.Signed))
+        T = lltype.GcStruct("T", ('items', lltype.Array(S)))
+        def f(x):
+            t = lltype.malloc(T, 1)
+            t.items[0].x = x
+            return t.items[0].x
+        graph = self.check(f, [int], [42], 42)
+
+    def test_interior_ptr_with_index_and_field(self):
+        S = lltype.Struct("S", ('x', lltype.Signed))
+        T = lltype.Struct("T", ('s', S))
+        U = lltype.GcArray(T)
+        def f(x):
+            u = lltype.malloc(U, 1)
+            u[0].s.x = x
+            return u[0].s.x
+        graph = self.check(f, [int], [42], 42)
+
+
 class TestOOTypeMallocRemoval(BaseMallocRemovalTest):
     type_system = 'ootype'
     MallocRemover = OOTypeMallocRemover

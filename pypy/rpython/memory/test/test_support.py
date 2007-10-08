@@ -3,55 +3,60 @@ from pypy.rpython.memory.support import get_address_linked_list
 
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free, NULL
 
 class TestAddressLinkedList(object):
     def test_simple_access(self):
-        from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL
         AddressLinkedList = get_address_linked_list()
-        addr = raw_malloc(100)
+        addr0 = raw_malloc(llmemory.sizeof(lltype.Signed))
+        addr1 = raw_malloc(llmemory.sizeof(lltype.Signed))
+        addr2 = raw_malloc(llmemory.sizeof(lltype.Signed))
         ll = AddressLinkedList()
-        ll.append(addr)
-        ll.append(addr + 1)
-        ll.append(addr + 2)
+        ll.append(addr0)
+        ll.append(addr1)
+        ll.append(addr2)
         assert ll.non_empty()
         a = ll.pop()
-        assert a - addr == 2
+        assert a == addr2
         assert ll.non_empty()
         a = ll.pop()
-        assert a - addr == 1
+        assert a == addr1
         assert ll.non_empty()
         a = ll.pop()
-        assert a == addr
+        assert a == addr0
         assert not ll.non_empty()
-        ll.append(addr)
+        ll.append(addr0)
         ll.delete()
         ll = AddressLinkedList()
-        ll.append(addr)
-        ll.append(addr + 1)
-        ll.append(addr + 2)
+        ll.append(addr0)
+        ll.append(addr1)
+        ll.append(addr2)
         ll.delete()
-        raw_free(addr)
+        raw_free(addr2)
+        raw_free(addr1)
+        raw_free(addr0)
 
     def test_big_access(self):
-        from pypy.rpython.memory.lladdress import raw_malloc, raw_free, NULL        
         AddressLinkedList = get_address_linked_list()
-        addr = raw_malloc(1)
+        addrs = [raw_malloc(llmemory.sizeof(lltype.Signed))
+                 for i in range(3000)]
         ll = AddressLinkedList()
         for i in range(3000):
             print i
-            ll.append(addr + i)
+            ll.append(addrs[i])
         for i in range(3000)[::-1]:
             a = ll.pop()
-            assert a - addr == i
+            assert a == addrs[i]
         for i in range(3000):
             print i
-            ll.append(addr + i)
+            ll.append(addrs[i])
         for i in range(3000)[::-1]:
             a = ll.pop()
-            assert a - addr == i
+            assert a == addrs[i]
         ll.delete()
-        raw_free(addr)
-        
+        for addr in addrs:
+            raw_free(addr)
+
 def test_linked_list_annotate():
     AddressLinkedList = get_address_linked_list(60)
     INT_SIZE = llmemory.sizeof(lltype.Signed)
@@ -89,10 +94,7 @@ def test_linked_list_annotate():
         raw_free(addr)
         return res
 
-    NULL = llmemory.NULL
-    raw_malloc, raw_free = llmemory.raw_malloc, llmemory.raw_free
     assert f()
-    from pypy.rpython.memory.lladdress import raw_malloc, raw_free
     AddressLinkedList = get_address_linked_list()
     res = interpret(f, [], malloc_check=False)
     assert res

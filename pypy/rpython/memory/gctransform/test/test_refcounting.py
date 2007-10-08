@@ -169,8 +169,9 @@ def test_deallocator_array():
     dgraph, t = make_deallocator(S)
     ops = getops(dgraph)
     assert len(ops['direct_call']) == 4
-    assert len(ops['getfield']) == 4
-    assert len(ops['getarraysubstruct']) == 1
+    assert len(ops['getfield']) == 2
+    assert len(ops['getinteriorfield']) == 2
+    assert len(ops['getinteriorarraysize']) == 1
     assert len(ops['gc_free']) == 1
 
 def test_deallocator_with_destructor():

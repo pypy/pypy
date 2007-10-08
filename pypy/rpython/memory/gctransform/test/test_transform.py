@@ -22,6 +22,11 @@ class LLInterpedTranformerTests:
         cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         graph = cbuild.getentrypointptr()._obj.graph
+        # arguments cannot be GC objects because nobody would put a
+        # proper header on them
+        for v in graph.getargs():
+            if isinstance(v.concretetype, lltype.Ptr):
+                assert v.concretetype.TO._gckind != 'gc', "fix the test!"
         llinterp = LLInterpreter(t.rtyper)
         if conftest.option.view:
             t.view()
@@ -71,21 +76,22 @@ class LLInterpedTranformerTests:
         assert res == f(10)
 
     def test_str(self):
-        from pypy.annotation.model import SomeString
-        from pypy.rpython.lltypesystem.rstr import string_repr
+        from pypy.annotation.model import SomeBool
 
-        def f(x):
+        def f(flag):
+            if flag:
+                x = 'a'
+            else:
+                x = 'brrrrrrr'
             return len(x + 'a')
 
 
-        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeString()])
+        llinterp, graph = self.llinterpreter_for_transformed_graph(f, [SomeBool()])
 
-        cc = string_repr.convert_const
-
-        res = llinterp.eval_graph(graph, [cc('a')])
-        assert res == f('a')
-        res = llinterp.eval_graph(graph, [cc('brrrrrr')])
-        assert res == f('brrrrrr')
+        res = llinterp.eval_graph(graph, [True])
+        assert res == f(True)
+        res = llinterp.eval_graph(graph, [False])
+        assert res == f(False)
 
 class _TestGCTransformer(BaseGCTransformer):
 

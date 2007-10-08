@@ -11,7 +11,8 @@ from pypy.module._stackless.rclonable import AbstractThunk, fork
 
 class TestClonableCoroutine(test_transformed_gc.GCTest):
 
-    gcname = "stacklessgc"
+    gcname = "framework"
+    stacklessgc = True
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }

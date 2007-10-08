@@ -1,7 +1,7 @@
 import py
 import os
 
-from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.lltypesystem.llmemory import NULL
 from pypy.rlib.rstack import yield_current_frame_to_caller
 
 # ____________________________________________________________

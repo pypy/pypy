@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lloperation
-from pypy.rpython.memory.lladdress import NULL
+from pypy.rpython.lltypesystem.llmemory import NULL
 from pypy.rpython import rtyper
 from pypy.rpython import rclass
 from pypy.rpython.rmodel import inputconst

@@ -54,9 +54,9 @@ class TestLowLevelType(test_typed.CompilationTestCase):
     def test_recursivearray(self):
         A = ForwardReference()
         A.become(FixedSizeArray(Struct("S", ('a', Ptr(A))), 5))
-        TREE = GcStruct("TREE", ("root", A), ("other", A))
+        TREE = Struct("TREE", ("root", A), ("other", A))
+        tree = malloc(TREE, immortal=True)
         def llf():
-            tree = malloc(TREE)
             tree.root[0].a = tree.root
             tree.root[1].a = tree.other
             assert tree.root[0].a[0].a[0].a[0].a[0].a[1].a == tree.other
@@ -96,8 +96,8 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 
     def test_more_prebuilt_arrays(self):
         A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
-        S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
-        s = malloc(S, zero=True)
+        S = Struct('s', ('a1', Ptr(A)), ('a2', A))
+        s = malloc(S, zero=True, immortal=True)
         s.a1 = malloc(A, immortal=True)
         s.a1[2].x = 50
         s.a2[2].x = 60
@@ -169,11 +169,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         PS = Ptr(S)
         size = llmemory.sizeof(S)
         A = GcArray(S)
+        itemoffset = llmemory.itemoffsetof(A, 0)
         def llf(n):
             a = malloc(A, 5)
+            a[0].x = 1
+            a[1].x = 2
+            a[2].x = 3
             a[3].x = 42
-            adr_s = llmemory.cast_ptr_to_adr(a[0])
-            adr_s += size * n
+            a[4].x = 4
+            adr_s = llmemory.cast_ptr_to_adr(a)
+            adr_s += itemoffset + size * n
             s = llmemory.cast_adr_to_ptr(adr_s, PS)
             return s.x
         fn = self.getcompiled(llf, [int])
@@ -619,3 +624,55 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         res = fn(-5)
         assert res != 0.4     # precision lost
         assert abs(res - 0.4) < 1E-6
+
+
+    def test_array_of_array(self):
+        C = FixedSizeArray(Signed, 7)
+        B = Array(C)
+        A = FixedSizeArray(C, 6)
+        b = malloc(B, 5, immortal=True)
+        b[3][4] = 999
+        a = malloc(A, immortal=True)
+        a[2][5] = 888000
+        def llf():
+            return b[3][4] + a[2][5]
+        fn = self.getcompiled(llf)
+        assert fn() == 888999
+
+    def test_prebuilt_nolength_array(self):
+        A = Array(Signed, hints={'nolength': True})
+        a = malloc(A, 5, immortal=True)
+        a[0] = 8
+        a[1] = 5
+        a[2] = 12
+        a[3] = 12
+        a[4] = 15
+        def llf():
+            s = ''
+            for i in range(5):
+                s += chr(64+a[i])
+            assert s == "HELLO"
+        fn = self.getcompiled(llf)
+        fn()
+
+    def test_prebuilt_nolength_char_array(self):
+        py.test.skip("fails on the trunk too")
+        for lastchar in ('\x00', 'X'):
+            A = Array(Char, hints={'nolength': True})
+            a = malloc(A, 5, immortal=True)
+            a[0] = '8'
+            a[1] = '5'
+            a[2] = '?'
+            a[3] = '!'
+            a[4] = lastchar
+            def llf():
+                s = ''
+                for i in range(5):
+                    print i
+                    print s
+                    s += a[i]
+                print s
+                assert s == "85?!" + lastchar
+            fn = self.getcompiled(llf)
+            fn()
+

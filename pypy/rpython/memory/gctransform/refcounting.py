@@ -6,7 +6,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.rpython import rmodel
-from pypy.rpython.memory import lladdress
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.rbuiltin import gen_cast
@@ -73,11 +72,11 @@ class RefcountingGCTransformer(GCTransformer):
             llop.cpy_free(lltype.Void, adr)
 
         mh = mallocHelpers()
-        mh.allocate = lladdress.raw_malloc
+        mh.allocate = llmemory.raw_malloc
         def ll_malloc_fixedsize(size):
             size = gc_header_offset + size
             result = mh._ll_malloc_fixedsize(size)
-            lladdress.raw_memclear(result, size)
+            llmemory.raw_memclear(result, size)
             result += gc_header_offset
             return result
         def ll_malloc_varsize_no_length(length, size, itemsize):
@@ -88,7 +87,7 @@ class RefcountingGCTransformer(GCTransformer):
             except OverflowError:
                 raise MemoryError()
             result = mh._ll_malloc_fixedsize(tot_size)
-            lladdress.raw_memclear(result, tot_size)
+            llmemory.raw_memclear(result, tot_size)
             result += gc_header_offset
             return result
         mh.ll_malloc_varsize_no_length = ll_malloc_varsize_no_length
@@ -119,6 +118,19 @@ class RefcountingGCTransformer(GCTransformer):
         self.static_deallocator_funcptrs = {}
         self.dynamic_deallocator_funcptrs = {}
         self.queryptr2dynamic_deallocator_funcptr = {}
+
+    def finish_helpers(self):
+        GCTransformer.finish_helpers(self)
+        from pypy.translator.backendopt.malloc import remove_mallocs
+        seen = {}
+        graphs = []
+        for fptr in self.static_deallocator_funcptrs.itervalues():
+            graph = fptr._obj.graph
+            if graph in seen:
+                continue
+            seen[graph] = True
+            graphs.append(graph)
+        remove_mallocs(self.translator, graphs)
 
     def var_needs_set_transform(self, var):
         return var_needsgc(var)

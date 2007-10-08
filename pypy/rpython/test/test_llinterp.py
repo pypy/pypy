@@ -441,8 +441,9 @@ def test_invalid_stack_access():
         return globala.next.i
     interp, graph = get_interpreter(h, [])
     fgraph = graph.startblock.operations[0].args[0].value._obj.graph
+    assert fgraph.startblock.operations[0].opname == 'malloc'
     fgraph.startblock.operations[0].args[1] = inputconst(Void, {'flavor': "stack"})
-    py.test.raises(AttributeError, "interp.eval_graph(graph, [])")
+    py.test.raises(RuntimeError, "interp.eval_graph(graph, [])")
 
 #__________________________________________________________________
 # example functions for testing the LLInterpreter

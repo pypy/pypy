@@ -389,7 +389,7 @@ name_to_gcpolicy = {
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
-    'stacklessgc': StacklessFrameworkGcPolicy,
+    'framework+stacklessgc': StacklessFrameworkGcPolicy,
 }
 
 

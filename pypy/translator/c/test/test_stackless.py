@@ -11,8 +11,8 @@ import os
 
 class StacklessTest(object):
     backendopt = False
-    stacklessmode = True
     gcpolicy = "boehm"
+    stacklessgc = False
 
     def setup_class(cls):
         import py
@@ -22,7 +22,7 @@ class StacklessTest(object):
             # rpython/extfunctable.  Doing so breaks translator/stackless/.
             import py
             py.test.skip("stackless + refcounting doesn't work any more for now")
-        elif cls.gcpolicy is "boehm":
+        elif cls.gcpolicy == "boehm":
             from pypy.translator.tool.cbuild import check_boehm_presence
             if not check_boehm_presence():
                 py.test.skip("Boehm GC not present")
@@ -36,6 +36,7 @@ class StacklessTest(object):
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
         config.translation.stackless = True
+        config.translation.stacklessgc = self.stacklessgc
         t = TranslationContext(config=config)
         self.t = t
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
@@ -47,7 +48,7 @@ class StacklessTest(object):
         insert_ll_stackcheck(t)
 
         cbuilder = CStandaloneBuilder(t, entry_point, config=config)
-        cbuilder.stackless = self.stacklessmode
+        cbuilder.stackless = True
         cbuilder.generate_source()
         cbuilder.compile()
         res = cbuilder.cmdexec('')

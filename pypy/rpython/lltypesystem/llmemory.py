@@ -25,7 +25,7 @@ class AddressOffset(Symbolic):
     def _raw_malloc(self, rest, zero):
         raise NotImplementedError("_raw_malloc(%r, %r)" % (self, rest))
 
-    def raw_memcopy(self, srcadr, dstsrc):
+    def raw_memcopy(self, srcadr, dstadr):
         raise NotImplementedError("raw_memcopy(%r)" % (self,))
 
 
@@ -114,7 +114,8 @@ class FieldOffset(AddressOffset):
             struct = lltype.cast_pointer(lltype.Ptr(self.TYPE), struct)
         FIELD = getattr(self.TYPE, self.fldname)
         if isinstance(FIELD, lltype.ContainerType):
-            return getattr(struct, self.fldname)
+            substruct = struct._obj._getattr(self.fldname)
+            return substruct._as_ptr()
         else:
             return lltype.direct_fieldptr(struct, self.fldname)
 
@@ -194,7 +195,9 @@ class ArrayItemsOffset(AddressOffset):
     def ref(self, arrayptr):
         assert lltype.typeOf(arrayptr).TO == self.TYPE
         if isinstance(self.TYPE.OF, lltype.ContainerType):
-            return arrayptr[0]
+            # XXX this doesn't support empty arrays
+            o = arrayptr._obj.getitem(0)
+            return o._as_ptr()
         else:
             return lltype.direct_arrayitems(arrayptr)
 
@@ -294,6 +297,7 @@ def sizeof(TYPE, n=None):
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
     return FieldOffset(TYPE, fldname)
+offsetof._annspecialcase_ = 'specialize:memo'
 
 def itemoffsetof(TYPE, n=0):
     return ArrayItemsOffset(TYPE) + ItemOffset(TYPE.OF) * n
@@ -346,6 +350,15 @@ class fakeaddress(object):
             return not (self == other)
         else:
             return NotImplemented
+
+    def __lt__(self, other):
+        raise TypeError("cannot compare fakeaddresses with '<'")
+    def __le__(self, other):
+        return self == other or self < other
+    def __gt__(self, other):
+        return not (self == other or self < other)
+    def __ge__(self, other):
+        return not (self < other)
 
     def ref(self):
         if not self:
@@ -466,6 +479,11 @@ class _address_fakeaccessor(_fakeaccessor):
             raise TypeError(TARGETTYPE)
         ptr[0] = value
 
+supported_access_types = {"signed":    lltype.Signed,
+                          "unsigned":  lltype.Unsigned,
+                          "char":      lltype.Char,
+                          "address":   Address,
+                          }
 
 fakeaddress.signed = property(_signed_fakeaccessor)
 fakeaddress.char = property(_char_fakeaccessor)

@@ -631,6 +631,34 @@ class Ptr(LowLevelType):
         o = self.TO._container_example()
         return _ptr(self, o, solid=True)
 
+    def _interior_ptr_type_with_index(self, TO):
+        assert self.TO._gckind == 'gc'
+        if isinstance(TO, Struct):
+            R = GcStruct("Interior", ('ptr', self), ('index', Signed),
+                         hints={'interior_ptr_type':True},
+                         adtmeths=TO._adtmeths)
+        else:
+            R = GcStruct("Interior", ('ptr', self), ('index', Signed),
+                         hints={'interior_ptr_type':True})            
+        return R
+
+class InteriorPtr(LowLevelType):
+    def __init__(self, PARENTTYPE, TO, offsets):
+        self.PARENTTYPE = PARENTTYPE
+        self.TO = TO
+        self.offsets = tuple(offsets)
+    def __str__(self):
+        return '%s (%s).%s'%(self.__class__.__name__,
+                             self.PARENTTYPE._short_name(),
+                             '.'.join(map(str, self.offsets)))
+    def _example(self):
+        ob = Ptr(self.PARENTTYPE)._example()
+        for o in self.offsets:
+            if isinstance(o, str):
+                ob = getattr(ob, o)
+            else:
+                ob = ob[0]
+        return ob
 
 # ____________________________________________________________
 
@@ -665,6 +693,9 @@ def typeOf(val):
             return UniChar
         if issubclass(tp, Symbolic):
             return val.lltype()
+        # if you get a TypeError: typeOf('_interior_ptr' object)
+        # here, it is very likely that you are accessing an interior pointer
+        # in an illegal way!
         raise TypeError("typeOf(%r object)" % (tp.__name__,))
 
 _to_primitive = {
@@ -850,13 +881,6 @@ def direct_ptradd(ptr, n):
     parent, base = parentlink(ptr._obj)
     return _subarray._makeptr(parent, base + n, ptr._solid)
 
-def _expose(val, solid=False):
-    """XXX A nice docstring here"""
-    T = typeOf(val)
-    if isinstance(T, ContainerType):
-        val = _ptr(Ptr(T), val, solid=solid)
-    return val
-
 def parentlink(container):
     parent = container._parentstructure()
     if parent is not None:
@@ -903,25 +927,13 @@ class DelayedPointer(Exception):
 class UninitializedMemoryAccess(Exception):
     pass
 
-class _ptr(object):
-    __slots__ = ('_TYPE', '_T', 
-                 '_weak', '_solid',
-                 '_obj0', '__weakref__')
+class _abstract_ptr(object):
+    __slots__ = ('_T',)
 
-    def _set_TYPE(self, TYPE):
-        _ptr._TYPE.__set__(self, TYPE)
+    # assumes one can access _TYPE, _expose and _obj
 
     def _set_T(self, T):
         _ptr._T.__set__(self, T)
-
-    def _set_weak(self, weak):
-        _ptr._weak.__set__(self, weak)
-
-    def _set_solid(self, solid):
-        _ptr._solid.__set__(self, solid)
-
-    def _set_obj0(self, obj):
-        _ptr._obj0.__set__(self, obj)
 
     def _togckind(self):
         return self._T._gckind
@@ -930,19 +942,8 @@ class _ptr(object):
         # XXX deprecated interface
         return self._TYPE._needsgc() # xxx other rules?
 
-    def __init__(self, TYPE, pointing_to, solid=False):
-        self._set_TYPE(TYPE)
-        self._set_T(TYPE.TO)
-        self._set_weak(False)
-        self._setobj(pointing_to, solid)
-
-    def _become(self, other):
-        assert self._TYPE == other._TYPE
-        assert not self._weak
-        self._setobj(other._obj, other._solid)
-
     def __eq__(self, other):
-        if not isinstance(other, _ptr):
+        if type(self) is not type(other):
             raise TypeError("comparing pointer with %r object" % (
                 type(other).__name__,))
         if self._TYPE != other._TYPE:
@@ -997,7 +998,7 @@ class _ptr(object):
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
                 o = self._obj._getattr(field_name)
-                return _expose(o, self._solid)
+                return self._expose(field_name, o)
         if isinstance(self._T, ContainerType):
             try:
                 adtmeth = self._T._adtmeths[field_name]
@@ -1012,20 +1013,6 @@ class _ptr(object):
                     return getter(self)
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
-
-    #def _setfirst(self, p):
-    #    if isinstance(self._T, Struct) and self._T._names:
-    #        if not isinstance(p, _ptr) or not isinstance(p._obj, _struct):
-    #            raise InvalidCast(typeOf(p), typeOf(self))
-    #        field_name = self._T._names[0]
-    #        T1 = self._T._flds[field_name]
-    #        T2 = typeOf(p._obj)
-    #        if T1 != T2:
-    #            raise InvalidCast(typeOf(p), typeOf(self))
-    #        setattr(self._obj, field_name, p._obj)
-    #        p._obj._setparentstructure(self._obj, 0)
-    #        return
-    #    raise TypeError("%r instance has no first field" % (self._T,))
 
     def __setattr__(self, field_name, val):
         if isinstance(self._T, Struct):
@@ -1050,7 +1037,7 @@ class _ptr(object):
                     raise TypeError("array slicing not supported")
                 raise IndexError("array index out of bounds")
             o = self._obj.getitem(i)
-            return _expose(o, self._solid)
+            return self._expose(i, o)
         raise TypeError("%r instance is not an array" % (self._T,))
 
     def __setitem__(self, i, val):
@@ -1124,6 +1111,34 @@ class _ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
+class _ptr(_abstract_ptr):
+    __slots__ = ('_TYPE', 
+                 '_weak', '_solid',
+                 '_obj0', '__weakref__')
+
+    def _set_TYPE(self, TYPE):
+        _ptr._TYPE.__set__(self, TYPE)
+
+    def _set_weak(self, weak):
+        _ptr._weak.__set__(self, weak)
+
+    def _set_solid(self, solid):
+        _ptr._solid.__set__(self, solid)
+
+    def _set_obj0(self, obj):
+        _ptr._obj0.__set__(self, obj)
+
+    def __init__(self, TYPE, pointing_to, solid=False):
+        self._set_TYPE(TYPE)
+        self._set_T(TYPE.TO)
+        self._set_weak(False)
+        self._setobj(pointing_to, solid)
+
+    def _become(self, other):
+        assert self._TYPE == other._TYPE
+        assert not self._weak
+        self._setobj(other._obj, other._solid)
+
     def _cast_to(self, PTRTYPE):
         CURTYPE = self._TYPE
         down_or_up = castable(PTRTYPE, CURTYPE)
@@ -1188,7 +1203,66 @@ class _ptr(object):
     def _as_obj(self):
         return self._obj
 
+    def _expose(self, offset, val):
+        """XXX A nice docstring here"""
+        T = typeOf(val)
+        if isinstance(T, ContainerType):
+            if self._T._gckind == 'gc' and T._gckind == 'raw' and not isinstance(T, OpaqueType):
+                val = _interior_ptr(T, self._obj, [offset])
+            else:
+                val = _ptr(Ptr(T), val, solid=self._solid)
+        return val
+
 assert not '__dict__' in dir(_ptr)
+
+class _interior_ptr(_abstract_ptr):
+    __slots__ = ('_parent', '_offsets')
+    def _set_parent(self, _parent):
+        _interior_ptr._parent.__set__(self, _parent)
+    def _set_offsets(self, _offsets):
+        _interior_ptr._offsets.__set__(self, _offsets)
+
+    def __init__(self, _T, _parent, _offsets):
+        self._set_T(_T)
+        #self._set_parent(weakref.ref(_parent))
+        self._set_parent(_parent)
+        self._set_offsets(_offsets)
+
+    def __nonzero__(self):
+        raise RuntimeError, "do not test an interior pointer for nullity"
+
+    def _get_obj(self):
+        ob = self._parent
+        if ob is None:
+            raise RuntimeError
+        if isinstance(ob, _container):
+            ob._check()
+        for o in self._offsets:
+            if isinstance(o, str):
+                ob = ob._getattr(o)
+            else:
+                ob = ob.getitem(o)
+        return ob
+    _obj = property(_get_obj)
+
+    def _get_TYPE(self):
+        ob = self._parent
+        if ob is None:
+            raise RuntimeError
+        return InteriorPtr(typeOf(ob), self._T, self._offsets)
+##     _TYPE = property(_get_TYPE)
+
+    def _expose(self, offset, val):
+        """XXX A nice docstring here"""
+        T = typeOf(val)
+        if isinstance(T, ContainerType):
+            assert T._gckind == 'raw'
+            val = _interior_ptr(T, self._parent, self._offsets + [offset])
+        return val
+    
+    
+        
+assert not '__dict__' in dir(_interior_ptr)
 
 class _container(object):
     __slots__ = ()
@@ -1261,7 +1335,8 @@ class _parentable(_container):
             if parent is None:
                 break
             T = typeOf(parent)
-            if not isinstance(T, Struct) or T._first_struct()[0] != index:
+            if (not isinstance(T, Struct) or T._first_struct()[0] != index
+                or isinstance(T, FixedSizeArray)):
                 break
             container = parent
         return container
@@ -1679,7 +1754,8 @@ def malloc(T, n=None, flavor='gc', immortal=False, extra_args=(), zero=False):
     elif isinstance(T, Array):
         o = _array(T, n, initialization=initialization)
     elif isinstance(T, OpaqueType):
-        o = _opaque(T, n, initialization=initialization)
+        assert n is None
+        o = _opaque(T, initialization=initialization)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):

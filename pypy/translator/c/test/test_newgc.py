@@ -775,14 +775,13 @@ class TestUsingFramework(AbstractGCTestClass):
         assert res == 42
 
 class TestUsingStacklessFramework(TestUsingFramework):
-    gcpolicy = "stacklessgc"
 
     def getcompiled(self, f):
         # XXX quick hack
         from pypy.translator.c.test.test_stackless import StacklessTest
         runner = StacklessTest()
         runner.gcpolicy = self.gcpolicy
-        runner.stacklessmode = True
+        runner.stacklessgc = True
         try:
             res = runner.wrap_stackless_function(f)
         except py.process.cmdexec.Error, e:

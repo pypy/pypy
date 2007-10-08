@@ -3,7 +3,7 @@ from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, ll_call_destructor, type_contains_pyobjs
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rmodel
-from pypy.rpython.memory import gc, lladdress
+from pypy.rpython.memory import gc, gctypelayout
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import debug_assert
@@ -11,6 +11,8 @@ from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
+from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
+from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
 import sys
 
 
@@ -27,7 +29,6 @@ ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
     extra_static_slots = 0
-    finished_tables = False
     root_stack_depth = 163840
 
     from pypy.rpython.memory.gc import MarkSweepGC as GCClass
@@ -38,7 +39,6 @@ class FrameworkGCTransformer(GCTransformer):
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
         GCClass = self.GCClass
-        self.finalizer_funcptrs = {}
         self.FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
         class GCData(object):
             # types of the GC information tables
@@ -92,6 +92,9 @@ class FrameworkGCTransformer(GCTransformer):
             debug_assert(typeid > 0, "invalid type_id")
             return gcdata.type_info_table[typeid].weakptrofs
 
+        self.layoutbuilder = TransformerLayoutBuilder(self)
+        self.get_type_id = self.layoutbuilder.get_type_id
+
         gcdata = GCData()
         # set up dummy a table, to be overwritten with the real one in finish()
         gcdata.type_info_table = lltype.malloc(GCData.TYPE_INFO_TABLE, 0,
@@ -105,14 +108,6 @@ class FrameworkGCTransformer(GCTransformer):
         gcdata.static_root_start = a_random_address   # patched in finish()
         gcdata.static_root_end = a_random_address     # patched in finish()
         self.gcdata = gcdata
-        dummy = {"weakptrofs": -1,
-                 "ofstolength": -1}
-        self.type_info_list = [dummy]   # don't use typeid 0, helps debugging
-        self.id_of_type = {}      # {LLTYPE: type_id}
-        self.seen_roots = {}
-        self.static_gc_roots = []
-        self.addresses_of_static_ptrs_in_nongc = []
-        self.offsettable_cache = {}
         self.malloc_fnptr_cache = {}
 
         sizeofaddr = llmemory.sizeof(llmemory.Address)
@@ -272,9 +267,9 @@ class FrameworkGCTransformer(GCTransformer):
         class StackRootIterator:
             _alloc_flavor_ = 'raw'
             def setup_root_stack():
-                stackbase = lladdress.raw_malloc(rootstacksize)
+                stackbase = llmemory.raw_malloc(rootstacksize)
                 debug_assert(bool(stackbase), "could not allocate root stack")
-                lladdress.raw_memclear(stackbase, rootstacksize)
+                llmemory.raw_memclear(stackbase, rootstacksize)
                 gcdata.root_stack_top  = stackbase
                 gcdata.root_stack_base = stackbase
                 i = 0
@@ -327,101 +322,15 @@ class FrameworkGCTransformer(GCTransformer):
 
         return StackRootIterator
 
-    def get_type_id(self, TYPE):
-        try:
-            return self.id_of_type[TYPE]
-        except KeyError:
-            assert not self.finished_tables
-            assert isinstance(TYPE, (lltype.GcStruct, lltype.GcArray))
-            # Record the new type_id description as a small dict for now.
-            # It will be turned into a Struct("type_info") in finish()
-            type_id = len(self.type_info_list)
-            info = {}
-            self.type_info_list.append(info)
-            self.id_of_type[TYPE] = type_id
-            offsets = offsets_to_gc_pointers(TYPE)
-            info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
-            info["finalyzer"] = self.finalizer_funcptr_for_type(TYPE)
-            info["weakptrofs"] = weakpointer_offset(TYPE)
-            if not TYPE._is_varsize():
-                info["isvarsize"] = False
-                info["fixedsize"] = llmemory.sizeof(TYPE)
-                info["ofstolength"] = -1
-            else:
-                info["isvarsize"] = True
-                info["fixedsize"] = llmemory.sizeof(TYPE, 0)
-                if isinstance(TYPE, lltype.Struct):
-                    ARRAY = TYPE._flds[TYPE._arrayfld]
-                    ofs1 = llmemory.offsetof(TYPE, TYPE._arrayfld)
-                    info["ofstolength"] = ofs1 + llmemory.ArrayLengthOffset(ARRAY)
-                    if ARRAY.OF != lltype.Void:
-                        info["ofstovar"] = ofs1 + llmemory.itemoffsetof(ARRAY, 0)
-                    else:
-                        info["fixedsize"] = ofs1 + llmemory.sizeof(lltype.Signed)
-                    if ARRAY._hints.get('isrpystring'):
-                        info["fixedsize"] = llmemory.sizeof(TYPE, 1)
-                else:
-                    ARRAY = TYPE
-                    info["ofstolength"] = llmemory.ArrayLengthOffset(ARRAY)
-                    if ARRAY.OF != lltype.Void:
-                        info["ofstovar"] = llmemory.itemoffsetof(TYPE, 0)
-                    else:
-                        info["fixedsize"] = llmemory.ArrayLengthOffset(ARRAY) + llmemory.sizeof(lltype.Signed)
-                assert isinstance(ARRAY, lltype.Array)
-                if ARRAY.OF != lltype.Void:
-                    offsets = offsets_to_gc_pointers(ARRAY.OF)
-                    info["varofstoptrs"] = self.offsets2table(offsets, ARRAY.OF)
-                    info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
-                else:
-                    info["varofstoptrs"] = self.offsets2table((), lltype.Void)
-                    info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
-            return type_id
+    def consider_constant(self, TYPE, value):
+        self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
+
+    #def get_type_id(self, TYPE):
+    #    this method is attached to the instance and redirects to
+    #    layoutbuilder.get_type_id().
 
     def finalizer_funcptr_for_type(self, TYPE):
-        if TYPE in self.finalizer_funcptrs:
-            return self.finalizer_funcptrs[TYPE]
-
-        rtti = get_rtti(TYPE)
-        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
-            destrptr = rtti._obj.destructor_funcptr
-            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
-        else:
-            destrptr = None
-            DESTR_ARG = None
-
-        assert not type_contains_pyobjs(TYPE), "not implemented"
-        if destrptr:
-            def ll_finalizer(addr):
-                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                ll_call_destructor(destrptr, v)
-            fptr = self.annotate_helper(ll_finalizer, [llmemory.Address], lltype.Void)
-        else:
-            fptr = lltype.nullptr(ADDRESS_VOID_FUNC)
-
-        self.finalizer_funcptrs[TYPE] = fptr
-        return fptr
-
-    def consider_constant(self, TYPE, value):
-        if value is not lltype.top_container(value):
-            return
-        if id(value) in self.seen_roots:
-            return
-        self.seen_roots[id(value)] = True
-
-        if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
-            typeid = self.get_type_id(TYPE)
-            hdrbuilder = self.gcdata.gc.gcheaderbuilder
-            hdr = hdrbuilder.new_header(value)
-            adr = llmemory.cast_ptr_to_adr(hdr)
-            self.gcdata.gc.init_gc_object(adr, typeid)
-
-        if find_gc_ptrs_in_type(TYPE):
-            adr = llmemory.cast_ptr_to_adr(value._as_ptr())
-            if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
-                self.static_gc_roots.append(adr)
-            else:
-                for a in gc_pointers_inside(value, adr):
-                    self.addresses_of_static_ptrs_in_nongc.append(a)
+        return self.layoutbuilder.finalizer_funcptr_for_type(TYPE)
 
     def gc_fields(self):
         return self._gc_fields
@@ -431,25 +340,8 @@ class FrameworkGCTransformer(GCTransformer):
         HDR = self._gc_HDR
         return [getattr(hdr, fldname) for fldname in HDR._names]
 
-    def offsets2table(self, offsets, TYPE):
-        try:
-            return self.offsettable_cache[TYPE]
-        except KeyError:
-            cachedarray = lltype.malloc(self.gcdata.OFFSETS_TO_GC_PTR,
-                                        len(offsets), immortal=True)
-            for i, value in enumerate(offsets):
-                cachedarray[i] = value
-            self.offsettable_cache[TYPE] = cachedarray
-            return cachedarray
-
     def finish_tables(self):
-        self.finished_tables = True
-        table = lltype.malloc(self.gcdata.TYPE_INFO_TABLE,
-                              len(self.type_info_list), immortal=True)
-        for tableentry, newcontent in zip(table, self.type_info_list):
-            for key, value in newcontent.items():
-                setattr(tableentry, key, value)
-        self.offsettable_cache = None
+        table = self.layoutbuilder.flatten_table()
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
@@ -468,20 +360,23 @@ class FrameworkGCTransformer(GCTransformer):
         ll_instance.inst_type_info_table = table
         #self.gcdata.type_info_table = table
 
+        static_gc_roots = self.layoutbuilder.static_gc_roots
         ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
-                                        len(self.static_gc_roots) +
+                                        len(static_gc_roots) +
                                             self.extra_static_slots,
                                         immortal=True)
-        for i in range(len(self.static_gc_roots)):
-            adr = self.static_gc_roots[i]
+        for i in range(len(static_gc_roots)):
+            adr = static_gc_roots[i]
             ll_static_roots[i] = adr
         ll_instance.inst_static_roots = ll_static_roots
 
+        addresses_of_static_ptrs_in_nongc = \
+            self.layoutbuilder.addresses_of_static_ptrs_in_nongc
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
-                                               len(self.addresses_of_static_ptrs_in_nongc),
+                                               len(addresses_of_static_ptrs_in_nongc),
                                                immortal=True)
-        for i in range(len(self.addresses_of_static_ptrs_in_nongc)):
-            ll_static_roots_inside[i] = self.addresses_of_static_ptrs_in_nongc[i]
+        for i in range(len(addresses_of_static_ptrs_in_nongc)):
+            ll_static_roots_inside[i] = addresses_of_static_ptrs_in_nongc[i]
         ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
 
@@ -511,10 +406,10 @@ class FrameworkGCTransformer(GCTransformer):
         type_id = self.get_type_id(TYPE)
 
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
-        info = self.type_info_list[type_id]
+        info = self.layoutbuilder.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
-        c_has_finalizer = rmodel.inputconst(
-            lltype.Bool, bool(self.finalizer_funcptr_for_type(TYPE)))
+        has_finalizer = bool(self.finalizer_funcptr_for_type(TYPE))
+        c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
 
         if not op.opname.endswith('_varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
@@ -594,7 +489,7 @@ class FrameworkGCTransformer(GCTransformer):
         type_id = self.get_type_id(WEAKREF)
 
         c_type_id = rmodel.inputconst(lltype.Signed, type_id)
-        info = self.type_info_list[type_id]
+        info = self.layoutbuilder.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
         malloc_ptr = self.malloc_fixedsize_ptr
         c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
@@ -653,91 +548,71 @@ class FrameworkGCTransformer(GCTransformer):
 ##             hop.genop("direct_call", [self.pop_root_ptr])
 ##             #hop.genop("gc_reload_possibly_moved", [var])
 
-# XXX copied and modified from lltypelayout.py
-def offsets_to_gc_pointers(TYPE):
-    offsets = []
-    if isinstance(TYPE, lltype.Struct):
-        for name in TYPE._names:
-            FIELD = getattr(TYPE, name)
-            if isinstance(FIELD, lltype.Array):
-                continue    # skip inlined array
-            baseofs = llmemory.offsetof(TYPE, name)
-            suboffsets = offsets_to_gc_pointers(FIELD)
-            for s in suboffsets:
-                try:
-                    knownzero = s == 0
-                except TypeError:
-                    knownzero = False
-                if knownzero:
-                    offsets.append(baseofs)
-                else:
-                    offsets.append(baseofs + s)
-        # sanity check
-        #ex = lltype.Ptr(TYPE)._example()
-        #adr = llmemory.cast_ptr_to_adr(ex)
-        #for off in offsets:
-        #    (adr + off)
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
-        offsets.append(0)
-    return offsets
 
-def weakpointer_offset(TYPE):
-    if TYPE == WEAKREF:
-        return llmemory.offsetof(WEAKREF, "weakptr")
-    return -1
+class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
-def gen_zero_gc_pointers(TYPE, v, llops):
+    def __init__(self, transformer):
+        super(TransformerLayoutBuilder, self).__init__()
+        self.transformer = transformer
+        self.offsettable_cache = {}
+
+    def make_finalizer_funcptr_for_type(self, TYPE):
+        rtti = get_rtti(TYPE)
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
+        else:
+            destrptr = None
+            DESTR_ARG = None
+
+        assert not type_contains_pyobjs(TYPE), "not implemented"
+        if destrptr:
+            def ll_finalizer(addr):
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                ll_call_destructor(destrptr, v)
+            fptr = self.transformer.annotate_helper(ll_finalizer,
+                                                    [llmemory.Address],
+                                                    lltype.Void)
+        else:
+            fptr = lltype.nullptr(ADDRESS_VOID_FUNC)
+        return fptr
+
+    def offsets2table(self, offsets, TYPE):
+        try:
+            return self.offsettable_cache[TYPE]
+        except KeyError:
+            gcdata = self.transformer.gcdata
+            cachedarray = lltype.malloc(gcdata.OFFSETS_TO_GC_PTR,
+                                        len(offsets), immortal=True)
+            for i, value in enumerate(offsets):
+                cachedarray[i] = value
+            self.offsettable_cache[TYPE] = cachedarray
+            return cachedarray
+
+    def flatten_table(self):
+        self.can_add_new_types = False
+        table = lltype.malloc(self.transformer.gcdata.TYPE_INFO_TABLE,
+                              len(self.type_info_list), immortal=True)
+        for tableentry, newcontent in zip(table, self.type_info_list):
+            for key, value in newcontent.items():
+                setattr(tableentry, key, value)
+        self.offsettable_cache = None
+        return table
+
+
+def gen_zero_gc_pointers(TYPE, v, llops, previous_steps=None):
+    if previous_steps is None:
+        previous_steps = []
     assert isinstance(TYPE, lltype.Struct)
     for name in TYPE._names:
+        c_name = rmodel.inputconst(lltype.Void, name)
         FIELD = getattr(TYPE, name)
         if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-            c_name = rmodel.inputconst(lltype.Void, name)
             c_null = rmodel.inputconst(FIELD, lltype.nullptr(FIELD.TO))
-            llops.genop('bare_setfield', [v, c_name, c_null])
+            if not previous_steps:
+                llops.genop('bare_setfield', [v, c_name, c_null])
+            else:
+                llops.genop('bare_setinteriorfield',
+                            [v] + previous_steps + [c_name, c_null])
         elif isinstance(FIELD, lltype.Struct):
-            c_name = rmodel.inputconst(lltype.Void, name)
-            v1 = llops.genop('getsubstruct', [v, c_name],
-                             resulttype = lltype.Ptr(FIELD))
-            gen_zero_gc_pointers(FIELD, v1, llops)
-
-def gc_pointers_inside(v, adr):
-    t = lltype.typeOf(v)
-    if isinstance(t, lltype.Struct):
-        for n, t2 in t._flds.iteritems():
-            if isinstance(t2, lltype.Ptr) and t2.TO._gckind == 'gc':
-                yield adr + llmemory.offsetof(t, n)
-            elif isinstance(t2, (lltype.Array, lltype.Struct)):
-                for a in gc_pointers_inside(getattr(v, n), adr + llmemory.offsetof(t, n)):
-                    yield a
-    elif isinstance(t, lltype.Array):
-        if isinstance(t.OF, lltype.Ptr) and t2._needsgc():
-            for i in range(len(v.items)):
-                yield adr + llmemory.itemoffsetof(t, i)
-        elif isinstance(t.OF, lltype.Struct):
-            for i in range(len(v.items)):
-                for a in gc_pointers_inside(v.items[i], adr + llmemory.itemoffsetof(t, i)):
-                    yield a
-
-
-########## weakrefs ##########
-# framework: weakref objects are small structures containing only an address
-
-WEAKREF = lltype.GcStruct("weakref", ("weakptr", llmemory.Address))
-WEAKREFPTR = lltype.Ptr(WEAKREF)
-sizeof_weakref= llmemory.sizeof(WEAKREF)
-empty_weakref = lltype.malloc(WEAKREF, immortal=True)
-empty_weakref.weakptr = llmemory.NULL
-
-def ll_weakref_deref(wref):
-    wref = llmemory.cast_weakrefptr_to_ptr(WEAKREFPTR, wref)
-    return wref.weakptr
-
-def convert_weakref_to(targetptr):
-    # Prebuilt weakrefs don't really need to be weak at all,
-    # but we need to emulate the structure expected by ll_weakref_deref().
-    if not targetptr:
-        return empty_weakref
-    else:
-        link = lltype.malloc(WEAKREF, immortal=True)
-        link.weakptr = llmemory.cast_ptr_to_adr(targetptr)
-        return link
+            gen_zero_gc_pointers(FIELD, v, llops, previous_steps + [c_name])

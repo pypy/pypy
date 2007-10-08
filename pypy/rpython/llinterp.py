@@ -42,23 +42,18 @@ def type_name(etype):
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
 
-    def __init__(self, typer, heap=llheap, tracing=True, exc_data_ptr=None,
+    def __init__(self, typer, tracing=True, exc_data_ptr=None,
                  malloc_check=True):
         self.bindings = {}
         self.typer = typer
-        self.heap = heap  #module that provides malloc, etc for lltypes
+        # 'heap' is module or object that provides malloc, etc for lltype ops
+        self.heap = llheap
         self.exc_data_ptr = exc_data_ptr
         self.active_frame = None
-        # XXX hack: set gc to None because
-        # prepare_graphs_and_create_gc might already use the llinterpreter!
-        self.gc = None
         self.tracer = None
         self.malloc_check = malloc_check
         self.frame_class = LLFrame
         self.mallocs = {}
-        if hasattr(heap, "prepare_graphs_and_create_gc"):
-            flowgraphs = typer.annotator.translator.graphs
-            self.gc = heap.prepare_graphs_and_create_gc(self, flowgraphs)
         if tracing:
             self.tracer = Tracer()
 
@@ -128,6 +123,7 @@ class LLInterpreter(object):
             log.traceback(line)
 
     def find_roots(self):
+        """Return a list of the addresses of the roots."""
         #log.findroots("starting")
         frame = self.active_frame
         roots = []
@@ -273,8 +269,7 @@ class LLFrame(object):
                 if nextblock is None:
                     self.llinterpreter.active_frame = self.f_back
                     for obj in self.alloca_objects:
-                        #XXX slighly unclean
-                        obj._setobj(None)
+                        obj._obj._free()
                     return args
         finally:
             if tracer:
@@ -461,14 +456,17 @@ class LLFrame(object):
 
     def find_roots(self, roots):
         #log.findroots(self.curr_block.inputargs)
-        PyObjPtr = lltype.Ptr(lltype.PyObject)
-        for arg in self.curr_block.inputargs:
-            if (isinstance(arg, Variable) and
-                isinstance(getattr(arg, 'concretetype', PyObjPtr), lltype.Ptr)):
-                roots.append(self.getval(arg))
+        vars = []
+        for v in self.curr_block.inputargs:
+            if isinstance(v, Variable):
+                vars.append(v)
         for op in self.curr_block.operations[:self.curr_operation_index]:
-            if isinstance(getattr(op.result, 'concretetype', PyObjPtr), lltype.Ptr):
-                roots.append(self.getval(op.result))
+            vars.append(op.result)
+
+        for v in vars:
+            TYPE = getattr(v, 'concretetype', None)
+            if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
+                roots.append(_address_of_local_var(self, v))
 
     # __________________________________________________________
     # misc LL operation implementations
@@ -548,15 +546,47 @@ class LLFrame(object):
     def op_setfield(self, obj, fieldname, fieldvalue):
         # obj should be pointer
         FIELDTYPE = getattr(lltype.typeOf(obj).TO, fieldname)
-        if FIELDTYPE != lltype.Void:
-            gc = self.llinterpreter.gc
-            if gc is None or not gc.needs_write_barrier(FIELDTYPE):
-                setattr(obj, fieldname, fieldvalue)
+        if FIELDTYPE is not lltype.Void:
+            self.heap.setfield(obj, fieldname, fieldvalue)
+
+    def op_bare_setfield(self, obj, fieldname, fieldvalue):
+        # obj should be pointer
+        FIELDTYPE = getattr(lltype.typeOf(obj).TO, fieldname)
+        if FIELDTYPE is not lltype.Void:
+            setattr(obj, fieldname, fieldvalue)
+
+    def op_getinteriorfield(self, obj, *offsets):
+        checkptr(obj)
+        ob = obj
+        for o in offsets:
+            if isinstance(o, str):
+                ob = getattr(ob, o)
             else:
-                args = gc.get_arg_write_barrier(obj, fieldname, fieldvalue)
-                write_barrier = gc.get_funcptr_write_barrier()
-                result = self.op_direct_call(write_barrier, *args)
-    op_bare_setfield = op_setfield
+                ob = ob[o]
+        assert not isinstance(ob, lltype._interior_ptr)
+        return ob
+
+    def setinterior(self, heap, obj, *fieldnamesval):
+        prefields, finalfield, fieldvalue = (
+            fieldnamesval[:-2], fieldnamesval[-2], fieldnamesval[-1])
+        for o in prefields:
+            if isinstance(o, str):
+                obj = getattr(obj, o)
+            else:
+                obj = obj[o]
+        T = obj._T
+        if isinstance(finalfield, str):
+            if getattr(T, finalfield) is not lltype.Void:
+                heap.setfield(obj, finalfield, fieldvalue)
+        else:
+            if T.OF is not lltype.Void:
+                heap.setarrayitem(obj, finalfield, fieldvalue)
+
+    def op_setinteriorfield(self, obj, *fieldnamesval):
+        self.setinterior(self.heap, obj, *fieldnamesval)
+
+    def op_bare_setinteriorfield(self, obj, *fieldnamesval):
+        self.setinterior(llheap, obj, *fieldnamesval)
 
     def op_getarrayitem(self, array, index):
         return array[index]
@@ -564,15 +594,14 @@ class LLFrame(object):
     def op_setarrayitem(self, array, index, item):
         # array should be a pointer
         ITEMTYPE = lltype.typeOf(array).TO.OF
-        if ITEMTYPE != lltype.Void:
-            gc = self.llinterpreter.gc
-            if gc is None or not gc.needs_write_barrier(ITEMTYPE):
-                array[index] = item
-            else:
-                args = gc.get_arg_write_barrier(array, index, item)
-                write_barrier = gc.get_funcptr_write_barrier()
-                self.op_direct_call(write_barrier, *args)
-    op_bare_setarrayitem = op_setarrayitem
+        if ITEMTYPE is not lltype.Void:
+            self.heap.setarrayitem(array, index, item)
+
+    def op_bare_setarrayitem(self, array, index, item):
+        # array should be a pointer
+        ITEMTYPE = lltype.typeOf(array).TO.OF
+        if ITEMTYPE is not lltype.Void:
+            array[index] = item
 
 
     def perform_call(self, f, ARGS, args):
@@ -629,20 +658,10 @@ class LLFrame(object):
     def op_malloc(self, obj, flags):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
-        if self.llinterpreter.gc is not None and flavor == 'gc':
-            assert not zero
-            args = self.llinterpreter.gc.get_arg_malloc(obj)
-            malloc = self.llinterpreter.gc.get_funcptr_malloc()
-            result = self.op_direct_call(malloc, *args)
-            return self.llinterpreter.gc.adjust_result_malloc(result, obj)
-        elif flavor == "stack":
-            if isinstance(obj, lltype.Struct) and obj._arrayfld is None:
-                result = self.heap.malloc(obj)
-                self.alloca_objects.append(result)
-                return result
-            else:
-                raise ValueError("cannot allocate variable-sized things on the stack")
-
+        if flavor == "stack":
+            result = self.heap.malloc(obj, zero=zero, flavor='raw')
+            self.alloca_objects.append(result)
+            return result
         ptr = self.heap.malloc(obj, zero=zero, flavor=flavor)
         if flavor == 'raw' and self.llinterpreter.malloc_check:
             self.llinterpreter.remember_malloc(ptr, self)
@@ -658,12 +677,6 @@ class LLFrame(object):
     def op_malloc_varsize(self, obj, flags, size):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
-        if self.llinterpreter.gc is not None and flavor == 'gc':
-            assert not zero
-            args = self.llinterpreter.gc.get_arg_malloc(obj, size)
-            malloc = self.llinterpreter.gc.get_funcptr_malloc()
-            result = self.op_direct_call(malloc, *args)
-            return self.llinterpreter.gc.adjust_result_malloc(result, obj, size)
         assert flavor in ('gc', 'raw')
         try:
             ptr = self.heap.malloc(obj, size, zero=zero, flavor=flavor)
@@ -717,8 +730,7 @@ class LLFrame(object):
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
     def op_gc__collect(self):
-        import gc
-        gc.collect()
+        self.heap.collect()
 
     def op_gc_free(self, addr):
         # what can you do?
@@ -1005,7 +1017,7 @@ class LLFrame(object):
         checkinst(inst)
         assert isinstance(name, str)
         FIELDTYPE = lltype.typeOf(inst)._field_type(name)
-        if FIELDTYPE != lltype.Void:
+        if FIELDTYPE is not lltype.Void:
             setattr(inst, name, value)
 
     def op_oogetfield(self, inst, name):
@@ -1200,6 +1212,30 @@ def enumerate_exceptions_top_down():
     for cls in exceptions.__dict__.values():
         addcls(cls)
     return result
+
+class _address_of_local_var(object):
+    _TYPE = llmemory.Address
+    def __init__(self, frame, v):
+        self._frame = frame
+        self._v = v
+    def _getaddress(self):
+        return _address_of_local_var_accessor(self._frame, self._v)
+    address = property(_getaddress)
+
+class _address_of_local_var_accessor(object):
+    def __init__(self, frame, v):
+        self.frame = frame
+        self.v = v
+    def __getitem__(self, index):
+        if index != 0:
+            raise IndexError("address of local vars only support [0] indexing")
+        p = self.frame.getval(self.v)
+        return llmemory.cast_ptr_to_adr(p)
+    def __setitem__(self, index, newvalue):
+        if index != 0:
+            raise IndexError("address of local vars only support [0] indexing")
+        p = llmemory.cast_adr_to_ptr(newvalue, self.v.concretetype)
+        self.frame.setvar(self.v, p)
 
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help

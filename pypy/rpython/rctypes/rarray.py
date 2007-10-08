@@ -7,11 +7,13 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy_arrayitem, reccopy, C_ZERO
+from pypy.rpython.rctypes.rmodel import unsafe_getfield
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 from pypy.rpython.rctypes.rpointer import PointerRepr
 from pypy.rpython.rctypes.aarray import VarSizedArrayType
 from pypy.annotation.model import SomeCTypesObject
 from pypy.objspace.flow.model import Constant
+from pypy.rlib.objectmodel import keepalive_until_here
 
 ArrayType = type(ARRAY(c_int, 10))
 
@@ -171,12 +173,13 @@ class __extend__(pairtype(ArrayRepr, PointerRepr)):
 
 def ll_chararrayvalue(box):
     from pypy.rpython.rctypes import rchar_p
-    p = box.c_data
+    p = unsafe_getfield(box, 'c_data')
     length = rchar_p.ll_strnlen(lltype.direct_arrayitems(p), len(p))
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
     newstr.hash = 0
     for i in range(length):
         newstr.chars[i] = p[i]
+    keepalive_until_here(box)
     return newstr
 
 def ll_chararrayslice(box, slice):

@@ -325,6 +325,8 @@ def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
 
 def llmemory_cast_ptr_to_adr(s):
+    from pypy.annotation.model import SomeInteriorPtr
+    assert not isinstance(s, SomeInteriorPtr)
     return SomeAddress()
 
 def llmemory_cast_adr_to_ptr(s, s_type):
@@ -627,9 +629,6 @@ BUILTIN_ANALYZERS[pypy.rlib.objectmodel.free_non_gc_object] = (
 #_________________________________
 # memory address
 
-from pypy.rpython.memory import lladdress
-from pypy.rpython.lltypesystem import llmemory
-
 def raw_malloc(s_size):
     assert isinstance(s_size, SomeInteger) #XXX add noneg...?
     return SomeAddress()
@@ -654,12 +653,6 @@ def raw_memcopy(s_addr1, s_addr2, s_int):
     assert not s_addr2.is_null
     assert isinstance(s_int, SomeInteger) #XXX add noneg...?
 
-BUILTIN_ANALYZERS[lladdress.raw_malloc] = raw_malloc
-BUILTIN_ANALYZERS[lladdress.raw_malloc_usage] = raw_malloc_usage
-BUILTIN_ANALYZERS[lladdress.raw_free] = raw_free
-BUILTIN_ANALYZERS[lladdress.raw_memclear] = raw_memclear
-BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
-
 BUILTIN_ANALYZERS[llmemory.raw_malloc] = raw_malloc
 BUILTIN_ANALYZERS[llmemory.raw_malloc_usage] = raw_malloc_usage
 BUILTIN_ANALYZERS[llmemory.raw_free] = raw_free
@@ -669,7 +662,6 @@ BUILTIN_ANALYZERS[llmemory.raw_memcopy] = raw_memcopy
 #_________________________________
 # offsetof/sizeof
 
-from pypy.rpython.lltypesystem import llmemory 
 
 def offsetof(TYPE, fldname):
     return SomeInteger()

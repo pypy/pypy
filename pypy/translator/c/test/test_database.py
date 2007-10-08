@@ -72,10 +72,10 @@ def test_complete():
 def test_codegen():
     db = LowLevelDatabase()
     U = Struct('inlined', ('z', Signed))
-    T = GcStruct('subtest', ('y', Signed))
-    S = GcStruct('test', ('x', Ptr(T)), ('u', U), ('p', Ptr(U)))
-    s = malloc(S)
-    s.x = malloc(T)
+    T = Struct('subtest', ('y', Signed))
+    S = Struct('test', ('x', Ptr(T)), ('u', U), ('p', Ptr(U)))
+    s = malloc(S, immortal=True)
+    s.x = malloc(T, immortal=True)
     s.x.y = 42
     s.u.z = -100
     s.p = s.u
@@ -99,16 +99,16 @@ def test_codegen_2():
 
 def test_codegen_3():
     db = LowLevelDatabase()
-    A = GcStruct('varsizedstuff', ('x', Signed), ('y', Array(('i', Signed))))
-    S = GcStruct('test', ('aptr', Ptr(A)),
-                         ('anitem', Ptr(A.y.OF)),
-                         ('anarray', Ptr(A.y)))
-    a = malloc(A, 3)
+    A = Struct('varsizedstuff', ('x', Signed), ('y', Array(('i', Signed))))
+    S = Struct('test', ('aptr', Ptr(A)),
+                       ('anitem', Ptr(A.y.OF)),
+                       ('anarray', Ptr(A.y)))
+    a = malloc(A, 3, immortal=True)
     a.x = 99
     a.y[0].i = 100
     a.y[1].i = 101
     a.y[2].i = 102
-    s = malloc(S)
+    s = malloc(S, immortal=True)
     s.aptr = a
     s.anitem =  a.y[1]
     s.anarray = a.y

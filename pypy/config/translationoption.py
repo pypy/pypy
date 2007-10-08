@@ -41,14 +41,22 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--llvm-via-c",
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "framework", "none", "stacklessgc",
-                  "exact_boehm"],
+                 ["boehm", "ref", "framework", "none", "exact_boehm"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False)], # XXX
                      "none": [("translation.rweakref", False)], # XXX
-                     "stacklessgc": [("translation.stackless", True),
-                                     ]},
+                     },
                   cmdline="--gc"),
+    BoolOption("stacklessgc", "Use stackless to find roots in a framework GC",
+               default=False, cmdline="--stacklessgc",
+               requires=[("translation.gc", "framework"),
+                         ("translation.stackless", True)]),
+    ChoiceOption("frameworkgc", "Select one of our custom GCs",
+                 ["marksweep", "semispace"],
+                 "marksweep", requires={
+                    "marksweep": [("translation.gc", "framework")],
+                    "semispace": [("translation.gc", "framework")],
+                 }),
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread",
                requires=[("translation.gc", "boehm")]),

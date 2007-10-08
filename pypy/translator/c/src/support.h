@@ -18,12 +18,12 @@
 #define FAIL_ZER(msg) FAIL_EXCEPTION(PyExc_ZeroDivisionError, msg)
 #define CFAIL()       RPyConvertExceptionFromCPython()
 
-#define PyString_FromLLCharArrayAndSize(itemsarray, size) \
-		PyString_FromStringAndSize(itemsarray->items, size)
+#define PyString_FromRPyString(rpystr) \
+	PyString_FromStringAndSize(RPyString_AsString(rpystr), RPyString_Size(rpystr))
 
-#define PyString_ToLLCharArray(s, itemsarray)                           \
-		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
-                       itemsarray->length)
+#define PyString_ToRPyString(s, rpystr)                           \
+	memcpy(RPyString_AsString(rpystr), PyString_AS_STRING(s), \
+               RPyString_Size(rpystr))
 
 /* Extra checks can be enabled with the RPY_ASSERT or RPY_LL_ASSERT
  * macros.  They differ in the level at which the tests are made.

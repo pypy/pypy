@@ -18,9 +18,17 @@ def test_required():
 
 def test_stacklessgc_required():
     conf = get_pypy_config()
-    conf.translation.gc = "stacklessgc"
+    conf.translation.stacklessgc = True
     assert conf.translation.stackless
     assert conf.translation.type_system == "lltype"
+    assert conf.translation.gc == "framework"
+
+def test_frameworkgc():
+    for name in ["marksweep", "semispace"]:
+        conf = get_pypy_config()
+        assert conf.translation.gc != "framework"
+        conf.translation.frameworkgc = name
+        assert conf.translation.gc == "framework"
 
 def test_check_documentation():
     from pypy.doc.config.confrest import all_optiondescrs

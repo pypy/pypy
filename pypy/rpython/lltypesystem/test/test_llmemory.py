@@ -57,22 +57,6 @@ def test_sizeof():
     sizeof(array, 1)
     sizeof(varstruct, 2)
 
-def test_cast_ptr_to_adr():
-    from pypy.rpython.memory.test.test_llinterpsim import interpret
-    class A(object):
-        pass
-    def f(x):
-        if x:
-            a = A()
-        else:
-            a = None
-        adr_a = cast_ptr_to_adr(a)
-        return bool(adr_a)
-    res = interpret(f, [1])
-    assert res
-    res = interpret(f, [0])
-    assert not res
-
 def test_confusion_with_fixedarray_item_0():
     A = lltype.FixedSizeArray(lltype.Signed, 5)
     B = lltype.FixedSizeArray(A, 3)
@@ -98,22 +82,11 @@ def test_structarray_add():
     for a in [lltype.malloc(lltype.GcArray(S), 5),
               lltype.malloc(lltype.FixedSizeArray(S, 5), immortal=True)]:
         a[3].x = 42
-        adr_s = cast_ptr_to_adr(a[0])
+        adr_s = cast_ptr_to_adr(a)
+        adr_s += itemoffsetof(lltype.typeOf(a).TO, 0)
         adr_s += sizeof(S) * 3
         s = cast_adr_to_ptr(adr_s, lltype.Ptr(S))
         assert s.x == 42
-
-def test_cast_adr_to_ptr():
-    from pypy.rpython.memory.test.test_llinterpsim import interpret
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    Sptr = lltype.Ptr(S)
-    def f():
-        s1 = lltype.malloc(S)
-        adr = cast_ptr_to_adr(s1)
-        s2 = cast_adr_to_ptr(adr, Sptr)
-        return s1 == s2
-    res = interpret(f, [])
-    assert res
 
 def test_fakeaddress_equality():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -142,20 +115,6 @@ def test_more_fakeaddress_equality():
 
     a_t, a_s = map(cast_ptr_to_adr, [s, t])
     assert a_t == a_s
-
-def test_cast_adr_to_int():
-    from pypy.rpython.memory.test.test_llinterpsim import interpret
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    Sptr = lltype.Ptr(S)
-    def f():
-        s1 = lltype.malloc(S)
-        adr = cast_ptr_to_adr(s1)
-        i = cast_adr_to_int(adr)
-        i2 = lltype.cast_ptr_to_int(s1)
-        return i == i2
-    assert f()
-    res = interpret(f, [])
-    assert res
 
 def test_fakeaccessor():
     S = lltype.GcStruct("S", ("x", lltype.Signed), ("y", lltype.Signed))
@@ -284,18 +243,16 @@ def test_llinterp_raw_malloc_struct():
     T = lltype.GcStruct('T', ('z', lltype.Signed))
     S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Ptr(T)))
 
-    from pypy.rpython.memory import lladdress # GRUMBLE!
-
     size = sizeof(S)
 
     def test_read_uninit():
-        adr = lladdress.raw_malloc(size)
+        adr = raw_malloc(size)
         s = cast_adr_to_ptr(adr, lltype.Ptr(S))
         return s.x
     py.test.raises(lltype.UninitializedMemoryAccess, "interpret(test_read_uninit, [])")
     def test_read_init():
-        adr = lladdress.raw_malloc(size)
-        lladdress.raw_memclear(adr, size)
+        adr = raw_malloc(size)
+        raw_memclear(adr, size)
         s = cast_adr_to_ptr(adr, lltype.Ptr(S))
         return s.x
     res = interpret(test_read_init, [])
