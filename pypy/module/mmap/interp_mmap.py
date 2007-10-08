@@ -39,8 +39,8 @@ if _POSIX:
 
     CConfig.MREMAP_MAYMOVE = (
         rffi_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
-    CConfig.has_mremap = rffi_platform.Has('mremap()') # a dirty hack, this
-    # is probably a macro
+    CConfig.has_mremap = rffi_platform.Has('mremap(NULL, 0, 0, 0)')
+    # a dirty hack, this is probably a macro
 
 elif _MS_WINDOWS:
     CConfig._includes_ += ("windows.h",)
