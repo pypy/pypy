@@ -102,12 +102,15 @@ class Compress(Wrappable):
     """
     stream = rzlib.null_stream
 
-    def __init__(self, space, level=rzlib.Z_DEFAULT_COMPRESSION):
-        # XXX CPython actually exposes 4 more undocumented parameters beyond
-        # level.
+    def __init__(self, space, level=rzlib.Z_DEFAULT_COMPRESSION,
+                 method=rzlib.Z_DEFLATED,             # \
+                 wbits=rzlib.MAX_WBITS,               #  \   undocumented
+                 memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
+                 strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
         self.space = space
         try:
-            self.stream = rzlib.deflateInit(level)
+            self.stream = rzlib.deflateInit(level, method, wbits,
+                                            memLevel, strategy)
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
         except ValueError:
@@ -135,6 +138,9 @@ class Compress(Wrappable):
             lock = self.lock
             lock.acquire(True)
             try:
+                if not self.stream:
+                    raise zlib_error(self.space,
+                                     "compressor object already flushed")
                 result = rzlib.compress(self.stream, data)
             finally:
                 lock.release()
@@ -160,24 +166,35 @@ class Compress(Wrappable):
             lock = self.lock
             lock.acquire(True)
             try:
+                if not self.stream:
+                    raise zlib_error(self.space,
+                                     "compressor object already flushed")
                 result = rzlib.compress(self.stream, '', mode)
             finally:
                 lock.release()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
+        if mode == rzlib.Z_FINISH:       # release the data structures now
+            rzlib.deflateEnd(self.stream)
+            self.stream = rzlib.null_stream
         return self.space.wrap(result)
     flush.unwrap_spec = ['self', int]
 
 
-def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION):
+def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
+                     method=rzlib.Z_DEFLATED,             # \
+                     wbits=rzlib.MAX_WBITS,               #  \   undocumented
+                     memLevel=rzlib.DEF_MEM_LEVEL,        #  /    parameters
+                     strategy=rzlib.Z_DEFAULT_STRATEGY):  # /
     """
     Create a new z_stream and call its initializer.
     """
     stream = space.allocate_instance(Compress, w_subtype)
     stream = space.interp_w(Compress, stream)
-    Compress.__init__(stream, space, level)
+    Compress.__init__(stream, space, level,
+                      method, wbits, memLevel, strategy)
     return space.wrap(stream)
-Compress___new__.unwrap_spec = [ObjSpace, W_Root, int]
+Compress___new__.unwrap_spec = [ObjSpace, W_Root, int, int, int, int, int]
 
 
 Compress.typedef = TypeDef(
