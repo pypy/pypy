@@ -1,7 +1,9 @@
 import os, random, sys
-from pypy.tool.udir import udir
+import pypy.tool.udir
 import py
 from pypy.interpreter.mixedmodule import testmodule
+
+udir = pypy.tool.udir.udir.ensure('test_file_extra', dir=1)
 
 
 SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(12487)])
