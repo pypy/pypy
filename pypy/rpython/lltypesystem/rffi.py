@@ -212,10 +212,14 @@ def CStructPtr(*args, **kwds):
 
 def CFixedArray(tp, size):
     return lltype.FixedSizeArray(tp, size)
+CFixedArray._annspecialcase_ = 'specialize:memo'
 
 def CArray(tp):
     return lltype.Array(tp, hints={'nolength': True})
 CArray._annspecialcase_ = 'specialize:memo'
+
+def CArrayPtr(tp):
+    return lltype.Ptr(CArray(tp))
 
 def COpaque(name, hints=None, **kwds):
     if hints is None:
