@@ -149,7 +149,7 @@ Return an empty string at EOF."""
                 self.stream.unlock()
             return ''.join(result)
 
-    def readlines(self, size=-1):
+    def readlines(self, size=0):
         """readlines([size]) -> list of strings, each a line from the file.
 
 Call readline() repeatedly and return a list of the lines so read.
@@ -161,7 +161,9 @@ total number of bytes in the lines returned."""
             raise TypeError("an integer is required")
         self.stream.lock()
         try:
-            if size < 0:
+            # NB. this implementation is very inefficient for unbuffered
+            # streams, but ok if self.stream.readline() is efficient.
+            if size <= 0:
                 result = list(iter(self.stream.readline, ""))
             else:
                 result = []
