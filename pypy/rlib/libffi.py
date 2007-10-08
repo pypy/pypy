@@ -117,7 +117,7 @@ def dlopen(name):
         mode = RTLD_NOW
     res = c_dlopen(name, mode)
     if not res:
-        raise OSError(dlerror())
+        raise OSError(-1, dlerror())
     return res
 
 def dlsym(libhandle, name):
@@ -129,57 +129,60 @@ def dlsym(libhandle, name):
     # XXX rffi.cast here...
     return res
 
-class FuncPtr:
-    def __init__(self, func_sym, argtypes, restype):
-        argnum = len(argtypes)
-        TP = rffi.CFixedArray(FFI_TYPE_P, argnum)
-        self.ll_argtypes = lltype.malloc(TP, flavor='raw')
-        self.argtypes = argtypes
-        for i in unrolling_iterable(range(len(argtypes))):
-            argtype = argtypes[i]
-            self.ll_argtypes[i] = TYPE_MAP[argtype]
-        TP = rffi.CFixedArray(rffi.VOIDP, argnum)
-        self.ll_args = lltype.malloc(TP, flavor='raw')
-        for i in range(argnum):
-            # XXX
-            TP = rffi.CFixedArray(argtypes[i], 1)
-            self.ll_args[i] = rffi.cast(rffi.VOIDP,
-                                        lltype.malloc(TP, flavor='raw'))
-        self.restype = restype
-        if restype is not None:
-            TP = rffi.CFixedArray(restype, 1)
-            self.ll_res = lltype.malloc(TP, flavor='raw')
-        if not func_sym:
-            raise OSError("NULL func_sym")
-        self.func_sym = func_sym
-        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
-        res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
-                             rffi.cast(rffi.UINT, argnum),
-                             TYPE_MAP[restype],
-                             rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
-        if not res == FFI_OK:
-            raise OSError("Wrong typedef")
-    __init__._annspecialcase_ = 'specialize:arg(2, 3)'
+def new_funcptr(argtypes, restype):
+    argnum = len(argtypes)
 
-    def call(self, args):
-        # allocated result should be padded and stuff
-        PTR_T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
-        for i in range(len(args)):
-            TP = lltype.Ptr(rffi.CFixedArray(self.argtypes[i], 1))
-            addr = rffi.cast(TP, self.ll_args[i])
-            addr[0] = args[i]
-        c_ffi_call(self.ll_cif, self.func_sym,
-                   rffi.cast(rffi.VOIDP, self.ll_res),
-                   rffi.cast(VOIDPP, self.ll_args))
-        return self.ll_res[0]
-    call._annspecialcase_ = 'specialize:argtype(1)'
+    argtypes_iterable = unrolling_iterable(enumerate(argtypes))
 
-    def __del__(self):
-        lltype.free(self.ll_argtypes, flavor='raw')
-        lltype.free(self.ll_args, flavor='raw')
-        lltype.free(self.ll_cif, flavor='raw')
-        if self.restype is not None:
-            lltype.free(self.ll_res, flavor='raw')
+    class FuncPtr:
+        def __init__(self, func_sym):
+            TP = rffi.CFixedArray(FFI_TYPE_P, argnum)
+            self.ll_argtypes = lltype.malloc(TP, flavor='raw')
+            self.argtypes = argtypes
+            for i, argtype in argtypes_iterable:
+                self.ll_argtypes[i] = TYPE_MAP[argtype]
+            TP = rffi.CFixedArray(rffi.VOIDP, argnum)
+            self.ll_args = lltype.malloc(TP, flavor='raw')
+            for i, argtype in argtypes_iterable:
+                # XXX
+                TP = rffi.CFixedArray(argtypes[i], 1)
+                self.ll_args[i] = rffi.cast(rffi.VOIDP,
+                                            lltype.malloc(TP, flavor='raw'))
+            self.restype = restype
+            if restype is not None:
+                TP = rffi.CFixedArray(restype, 1)
+                self.ll_res = lltype.malloc(TP, flavor='raw')
+            if not func_sym:
+                raise OSError(-1, "NULL func_sym")
+            self.func_sym = func_sym
+            self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
+            res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
+                                 rffi.cast(rffi.UINT, argnum),
+                                 TYPE_MAP[restype],
+                                 rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
+            if not res == FFI_OK:
+                raise OSError(-1, "Wrong typedef")
+
+        def call(self, args):
+            # allocated result should be padded and stuff
+            PTR_T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
+            for i, argtype in argtypes_iterable:
+                TP = lltype.Ptr(rffi.CFixedArray(argtype, 1))
+                addr = rffi.cast(TP, self.ll_args[i])
+                addr[0] = args[i]
+            c_ffi_call(self.ll_cif, self.func_sym,
+                       rffi.cast(rffi.VOIDP, self.ll_res),
+                       rffi.cast(VOIDPP, self.ll_args))
+            return self.ll_res[0]
+
+        def __del__(self):
+            lltype.free(self.ll_argtypes, flavor='raw')
+            lltype.free(self.ll_args, flavor='raw')
+            lltype.free(self.ll_cif, flavor='raw')
+            if self.restype is not None:
+                lltype.free(self.ll_res, flavor='raw')
+    return FuncPtr
+new_funcptr._annspecialcase_ = 'specialize:memo'
 
 class CDLL:
     def __init__(self, libname):
@@ -189,5 +192,6 @@ class CDLL:
         c_dlclose(self.lib)
 
     def getpointer(self, name, argtypes, restype):
-        return FuncPtr(dlsym(self.lib, name), argtypes, restype)
+        funcptr = new_funcptr(argtypes, restype)
+        return funcptr(dlsym(self.lib, name))
     getpointer._annspecialcase_ = 'specialize:arg(2, 3)'
