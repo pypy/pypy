@@ -60,6 +60,24 @@ size_t = cConfig.size_t
 for name in type_names:
     locals()[name] = configure_simple_type(name)
 
+TYPE_MAP = {
+    rffi.DOUBLE : ffi_type_double,
+    rffi.FLOAT  : ffi_type_float,
+    rffi.UCHAR  : ffi_type_uchar,
+    rffi.CHAR   : ffi_type_schar,
+    rffi.SHORT  : ffi_type_sshort,
+    rffi.USHORT : ffi_type_ushort,
+    rffi.UINT   : ffi_type_uint,
+    rffi.INT    : ffi_type_sint,
+    rffi.ULONG  : ffi_type_ulong,
+    rffi.LONG   : ffi_type_slong,
+    lltype.Void : ffi_type_void,
+    # some shortcuts
+    None        : ffi_type_void,
+    float       : ffi_type_double,
+    int         : ffi_type_sint,
+    }
+
 def external(name, args, result):
     return rffi.llexternal(name, args, result, includes=includes,
                            libraries=['dl', 'ffi'])
@@ -76,10 +94,12 @@ FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', includes=includes)
 
+VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
+
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, rffi.USHORT, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
-                                   rffi.CArrayPtr(rffi.VOIDP)], lltype.Void)
+                                   VOIDPP], lltype.Void)
 
 def dlerror():
     # XXX this would never work on top of ll2ctypes, because
@@ -112,30 +132,55 @@ def dlsym(libhandle, name):
     return res
 
 class FuncPtr:
-    def __init__(self, func_sym):
-        # xxx args here
+    def __init__(self, func_sym, argtypes, restype):
+        argnum = len(argtypes)
+        TP = rffi.CFixedArray(FFI_TYPE_P, argnum)
+        self.ll_argtypes = lltype.malloc(TP, flavor='raw')
+        self.argtypes = argtypes
+        for i, argtype in enumerate(argtypes):
+            self.ll_argtypes[i] = TYPE_MAP[argtype]
+        TP = rffi.CFixedArray(rffi.VOIDP, argnum)
+        self.ll_args = lltype.malloc(TP, flavor='raw')
+        for i in range(argnum):
+            # XXX
+            TP = rffi.CFixedArray(argtypes[i], 1)
+            self.ll_args[i] = rffi.cast(rffi.VOIDP,
+                                        lltype.malloc(TP, flavor='raw'))
+        self.restype = restype
+        if restype is not None:
+            TP = rffi.CFixedArray(restype, 1)
+            self.ll_res = lltype.malloc(TP, flavor='raw')
         if not func_sym:
             raise OSError("NULL func_sym")
         self.func_sym = func_sym
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
         res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
-                             rffi.cast(rffi.UINT, 0),
-                             ffi_type_sint, lltype.nullptr(FFI_TYPE_PP.TO))
+                             rffi.cast(rffi.UINT, argnum),
+                             TYPE_MAP[restype],
+                             rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
         if not res == FFI_OK:
             raise OSError("Wrong typedef")
+    __init__._annspecialcase_ = 'specialize:arg(2, 3)'
 
     def call(self, args):
         # allocated result should be padded and stuff
         PTR_T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
-        result = lltype.malloc(PTR_T.TO, flavor='raw')
-        c_ffi_call(self.ll_cif, self.func_sym, rffi.cast(rffi.VOIDP, result),
-                   lltype.nullptr(rffi.CCHARPP.TO))
-        res = result[0]
-        lltype.free(result, flavor='raw')
-        return res
+        for i in range(len(args)):
+            TP = lltype.Ptr(rffi.CFixedArray(self.argtypes[i], 1))
+            addr = rffi.cast(TP, self.ll_args[i])
+            addr[0] = args[i]
+        c_ffi_call(self.ll_cif, self.func_sym,
+                   rffi.cast(rffi.VOIDP, self.ll_res),
+                   rffi.cast(VOIDPP, self.ll_args))
+        return self.ll_res[0]
+    call._annspecialcase_ = 'specialize:argtype(1)'
 
     def __del__(self):
+        lltype.free(self.ll_argtypes, flavor='raw')
+        lltype.free(self.ll_args, flavor='raw')
         lltype.free(self.ll_cif, flavor='raw')
+        if self.restype is not None:
+            lltype.free(self.ll_res, flavor='raw')
 
 class CDLL:
     def __init__(self, libname):
@@ -144,5 +189,5 @@ class CDLL:
     def __del__(self):
         c_dlclose(self.lib)
 
-    def getpointer(self, name):
-        return FuncPtr(dlsym(self.lib, name))
+    def getpointer(self, name, argtypes, restype):
+        return FuncPtr(dlsym(self.lib, name), argtypes, restype)

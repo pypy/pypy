@@ -5,6 +5,7 @@
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib.libffi import CDLL, dlopen
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
+from pypy.rpython.lltypesystem import rffi
 import os, sys
 import py
 
@@ -33,13 +34,13 @@ class TestDLOperations:
 
     def test_library_get_func(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('time')
-        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx')
+        ptr = lib.getpointer('time', [], None)
+        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], None)
         del lib
 
     def test_library_func_call(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('rand')
+        ptr = lib.getpointer('rand', [], rffi.INT)
         zeroes = 0
         for i in range(100):
             res = ptr.call([])
@@ -47,3 +48,9 @@ class TestDLOperations:
                 zeroes += 1
         assert not zeroes
         # not very hard check, but something :]
+
+    def test_call_args(self):
+        libm = CDLL('libm.so')
+        pow = libm.getpointer('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
+        assert pow.call((2.0, 2.0)) == 4.0
+        assert pow.call((3.0, 3.0)) == 27.0
