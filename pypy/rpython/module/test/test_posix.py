@@ -24,7 +24,6 @@ class BaseTestPosix(BaseRtypingTest):
         assert type(func) == int
 
     def test_fstat(self):
-        import py; py.test.skip("XXX cannot run os.stat() on the llinterp yet")
         def fo(fi):
             g = posix.fstat(fi)
             return g
@@ -32,8 +31,7 @@ class BaseTestPosix(BaseRtypingTest):
         func = self.interpret(fo,[fi])
         stat = os.fstat(fi)
         for i in range(len(stat)):
-            stat0 = getattr(func, 'item%d' % i)
-            assert stat0 == stat[i]
+            assert getattr(func, 'item%d' % i) == stat[i]
 
 
     def test_times(self):
@@ -134,5 +132,6 @@ class TestLLtype(BaseTestPosix, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestPosix, OORtypeMixin):
-    pass
+    def test_fstat(self):
+        py.test.skip("not working")
 

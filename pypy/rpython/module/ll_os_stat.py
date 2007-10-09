@@ -9,6 +9,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython import extregistry
 from pypy.rpython.extfunc import register_external
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 
 # XXX on Windows, stat() is flawed; see CPython's posixmodule.c for
 # an implementation based on the Win32 API
@@ -204,6 +205,28 @@ def register_stat_variant(name):
         finally:
             lltype.free(stresult, flavor='raw')
 
+    def fakeimpl(arg):
+        st = getattr(os, name)(arg)
+        tup = [st[i] for i in range(len(st))]
+        extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
+        tup = tup + list(extra_zeroes)
+        fields = []
+        for i in range(len(tup)):
+            if i in [1, 2, 6]:
+                fields.append(rffi.LONGLONG)
+            else:
+                fields.append(lltype.Signed)
+        TP = TUPLE_TYPE(fields)
+        ll_tup = lltype.malloc(TP.TO)
+        for i in range(len(tup)):
+            # XXX ARGH!
+            if i in [1, 6, 2]:
+                val = rffi.cast(rffi.LONGLONG, tup[i])
+            else:
+                val = tup[i]
+            setattr(ll_tup, 'item%d' % i, val)
+        return ll_tup
+
     if arg_is_path:
         s_arg = str
     else:
@@ -211,10 +234,11 @@ def register_stat_variant(name):
     register_external(getattr(os, name), [s_arg], s_StatResult,
                       "ll_os.ll_os_%s" % (name,),
                       llimpl=func_with_new_name(os_mystat_llimpl,
-                                                'os_%s_llimpl' % (name,)))
+                                                'os_%s_llimpl' % (name,)),
+                      llfakeimpl=func_with_new_name(fakeimpl,
+                                                    'os_%s_fake' % (name,)))
 
 # ____________________________________________________________
-
 if 0:
     XXX - """
         disabled for now:
