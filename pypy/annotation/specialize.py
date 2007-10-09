@@ -222,6 +222,7 @@ class MemoTable:
 
         entrypoint = make_subhelper(args_so_far = ())
         self.graph = annotator.translator.buildflowgraph(entrypoint)
+        self.graph.defaults = self.funcdesc.defaults
 
         # schedule this new graph for being annotated
         args_s = []

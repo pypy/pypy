@@ -249,4 +249,27 @@ class TestNormalizeAfterTheFact(TestNormalize):
         assert sub2_graph.getreturnvar().concretetype == lltype.Signed
         assert sub3_graph.getreturnvar().concretetype == lltype.Signed
         assert dummyfn_graph.getreturnvar().concretetype == lltype.Signed
- 
+
+    def test_call_memoized_function_with_defaults(self):
+        class Freezing:
+            def _freeze_(self):
+                return True
+        fr1 = Freezing(); fr1.x = 1
+        fr2 = Freezing(); fr2.x = 2
+        def getorbuild(key1, key2=fr2, flag3=True):
+            return key1.x * 100 + key2.x * 10 + flag3
+        getorbuild._annspecialcase_ = "specialize:memo"
+
+        def f1(i):
+            if i > 0:
+                fr = fr1
+            else:
+                fr = fr2
+            if i % 2:
+                return getorbuild(fr)
+            else:
+                return getorbuild(fr, fr2, False)
+
+        for i in [-7, -2, 100, 5]:
+            res = interpret(f1, [i])
+            assert res == f1(i)

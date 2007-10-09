@@ -293,7 +293,8 @@ def sizeof(TYPE, n=None):
                    itemoffsetof(TYPE._flds[TYPE._arrayfld], n)
         else:
             raise Exception("don't know how to take the size of a %r"%TYPE)
-                   
+sizeof._annspecialcase_ = 'specialize:memo'   # only for n == None
+
 def offsetof(TYPE, fldname):
     assert fldname in TYPE._flds
     return FieldOffset(TYPE, fldname)
