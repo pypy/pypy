@@ -611,3 +611,4 @@ class AppTestMMap:
         assert m.read(10) == "ABCDEABCDE"
         m.close()
         f.close()
+
