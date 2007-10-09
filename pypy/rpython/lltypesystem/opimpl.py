@@ -386,6 +386,10 @@ def op_getarrayitem(p, index):
         raise TypeError("cannot fold getfield on mutable array")
     return p[index]
 
+def op_debug_print(*args):
+    for arg in args:
+        print arg
+
 # ____________________________________________________________
 
 def get_op_impl(opname):

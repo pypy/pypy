@@ -1044,7 +1044,8 @@ class SemiSpaceGC(GCBase):
         free_non_gc_object(roots)
         scan = self.scan_copied(scan)
         # walk over list of objects that contain weakrefs
-        # if the object it references survives and invalidate it otherwise
+        # if the object it references survives then update the weakref
+        # otherwise invalidate the weakref
         new_with_weakref = self.AddressLinkedList()
         while self.objects_with_weakrefs.non_empty():
             obj = self.objects_with_weakrefs.pop()
@@ -1059,9 +1060,20 @@ class SemiSpaceGC(GCBase):
                         pointing_to)
                 else:
                     (obj + offset).address[0] = NULL
+            # XXX the next line can be indented? only do after weakref
+            # tests pass
             new_with_weakref.append(obj)
         self.objects_with_weakrefs.delete()
         self.objects_with_weakrefs = new_with_weakref
+        if self.run_finalizers.non_empty():
+            # we are in an inner collection, caused by a finalizer
+            # the run_finalizers objects need to be copied
+            new_run_finalizer = self.AddressLinkedList()
+            while self.run_finalizers.non_empty():
+                obj = self.run_finalizers.pop()
+                new_run_finalizer.append(self.copy(obj))
+            self.run_finalizers.delete()
+            self.run_finalizers = new_run_finalizer
         # walk over list of objects with finalizers
         # if it is not copied, add it to the list of to-be-called finalizers
         # and copy it, to me make the finalizer runnable

@@ -436,7 +436,7 @@ LL_OPERATIONS = {
 
     # __________ debugging __________
     'debug_view':           LLOp(),
-    'debug_print':          LLOp(),
+    'debug_print':          LLOp(canrun=True),
     'debug_pdb':            LLOp(),
     'debug_assert':         LLOp(tryfold=True),
     'debug_fatalerror':     LLOp(),
