@@ -630,9 +630,6 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
 class TestSemiSpaceGC(GenericGCTests):
 
-    def setup_class(cls):
-        py.test.skip("in-progress")
-
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
