@@ -1022,7 +1022,7 @@ class SemiSpaceGC(GCBase):
     def obtain_free_space(self, needed):
         # XXX for bonus points do big objects differently
         needed = raw_malloc_usage(needed)
-        self.collect()
+        self.semispace_collect()
         missing = needed - (self.top_of_space - self.free)
         if missing <= 0:
             return True      # success
@@ -1056,7 +1056,7 @@ class SemiSpaceGC(GCBase):
         # now self.tospace contains the existing objects and
         # self.fromspace is the freshly allocated bigger space
 
-        self.collect(size_changing=True)
+        self.semispace_collect(size_changing=True)
         self.top_of_space = self.tospace + newsize
         # now self.tospace is the freshly allocated bigger space,
         # and self.fromspace is the old smaller space, now empty
@@ -1080,7 +1080,12 @@ class SemiSpaceGC(GCBase):
         self.space_size = newsize
         return True    # success
 
-    def collect(self, size_changing=False):
+    def collect(self):
+        self.semispace_collect()
+        # the indirection is required by the fact that collect() is referred
+        # to by the gc transformer, and the default argument would crash
+
+    def semispace_collect(self, size_changing=False):
 ##         print "collecting"
         tospace = self.fromspace
         fromspace = self.tospace
