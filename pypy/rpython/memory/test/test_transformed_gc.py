@@ -79,13 +79,7 @@ class GCTest(object):
         else:
             return run
         
-class TestMarkSweepGC(GCTest):
-
-    class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(framework.FrameworkGCTransformer):
-            GC_PARAMS = {'start_heap_size': 4096 }
-            root_stack_depth = 200
-    gcname = "framework"
+class GenericGCTests(GCTest):
 
     def heap_usage(self, statistics):
         try:
@@ -323,6 +317,72 @@ class TestMarkSweepGC(GCTest):
         res = run([4, 42]) #XXX pure lazyness here too
         assert res == 12
 
+    def test_interior_ptrs(self):
+        from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, GcArray
+        from pypy.rpython.lltypesystem.lltype import Array, Signed, malloc
+
+        S1 = Struct("S1", ('x', Signed))
+        T1 = GcStruct("T1", ('s', S1))
+        def f1():
+            t = malloc(T1)
+            t.s.x = 1
+            return t.s.x
+
+        S2 = Struct("S2", ('x', Signed))
+        T2 = GcArray(S2)
+        def f2():
+            t = malloc(T2, 1)
+            t[0].x = 1
+            return t[0].x
+
+        S3 = Struct("S3", ('x', Signed))
+        T3 = GcStruct("T3", ('items', Array(S3)))
+        def f3():
+            t = malloc(T3, 1)
+            t.items[0].x = 1
+            return t.items[0].x
+
+        S4 = Struct("S4", ('x', Signed))
+        T4 = Struct("T4", ('s', S4))
+        U4 = GcArray(T4)
+        def f4():
+            u = malloc(U4, 1)
+            u[0].s.x = 1
+            return u[0].s.x
+
+        S5 = Struct("S5", ('x', Signed))
+        T5 = GcStruct("T5", ('items', Array(S5)))
+        def f5():
+            t = malloc(T5, 1)
+            return len(t.items)
+
+        T6 = GcStruct("T6", ('s', Array(Signed)))
+        def f6():
+            t = malloc(T6, 1)
+            t.s[0] = 1
+            return t.s[0]
+
+        def func():
+            return (f1() * 100000 +
+                    f2() * 10000 +
+                    f3() * 1000 +
+                    f4() * 100 +
+                    f5() * 10 +
+                    f6())
+
+        assert func() == 111111
+        run = self.runner(func)
+        res = run([])
+        assert res == 111111
+
+class TestMarkSweepGC(GenericGCTests):
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            GC_PARAMS = {'start_heap_size': 4096 }
+            root_stack_depth = 200
+    gcname = "framework"
+
+
     def test_cloning(self):
         B = lltype.GcStruct('B', ('x', lltype.Signed))
         A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
@@ -537,63 +597,6 @@ class TestMarkSweepGC(GCTest):
         res = run([3, 0])
         assert res == 1
 
-    def test_interior_ptrs(self):
-        from pypy.rpython.lltypesystem.lltype import Struct, GcStruct, GcArray
-        from pypy.rpython.lltypesystem.lltype import Array, Signed, malloc
-
-        S1 = Struct("S1", ('x', Signed))
-        T1 = GcStruct("T1", ('s', S1))
-        def f1():
-            t = malloc(T1)
-            t.s.x = 1
-            return t.s.x
-
-        S2 = Struct("S2", ('x', Signed))
-        T2 = GcArray(S2)
-        def f2():
-            t = malloc(T2, 1)
-            t[0].x = 1
-            return t[0].x
-
-        S3 = Struct("S3", ('x', Signed))
-        T3 = GcStruct("T3", ('items', Array(S3)))
-        def f3():
-            t = malloc(T3, 1)
-            t.items[0].x = 1
-            return t.items[0].x
-
-        S4 = Struct("S4", ('x', Signed))
-        T4 = Struct("T4", ('s', S4))
-        U4 = GcArray(T4)
-        def f4():
-            u = malloc(U4, 1)
-            u[0].s.x = 1
-            return u[0].s.x
-
-        S5 = Struct("S5", ('x', Signed))
-        T5 = GcStruct("T5", ('items', Array(S5)))
-        def f5():
-            t = malloc(T5, 1)
-            return len(t.items)
-
-        T6 = GcStruct("T6", ('s', Array(Signed)))
-        def f6():
-            t = malloc(T6, 1)
-            t.s[0] = 1
-            return t.s[0]
-
-        def func():
-            return (f1() * 100000 +
-                    f2() * 10000 +
-                    f3() * 1000 +
-                    f4() * 100 +
-                    f5() * 10 +
-                    f6())
-
-        assert func() == 111111
-        run = self.runner(func)
-        res = run([])
-        assert res == 111111
 
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
@@ -625,7 +628,7 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
         assert res == 20
 
 
-class TestSemiSpaceGC(TestMarkSweepGC):
+class TestSemiSpaceGC(GenericGCTests):
 
     def setup_class(cls):
         py.test.skip("in-progress")
