@@ -101,6 +101,29 @@ class GCTest(object):
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
 
+    def test_finalizer(self):
+        class B(object):
+            pass
+        b = B()
+        b.nextid = 0
+        b.num_deleted = 0
+        class A(object):
+            def __init__(self):
+                self.id = b.nextid
+                b.nextid += 1
+            def __del__(self):
+                b.num_deleted += 1
+        def f(x):
+            a = A()
+            i = 0
+            while i < x:
+                i += 1
+                a = A()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return b.num_deleted
+        res = self.interpret(f, [5])
+        assert res == 6
 
 
 class TestMarkSweepGC(GCTest):
@@ -108,6 +131,8 @@ class TestMarkSweepGC(GCTest):
 
 class TestSemiSpaceGC(GCTest):
     from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
+    def test_finalizer(self):
+        py.test.skip("implement me")
 
 class TestDeferredRefcountingGC(GCTest):
     from pypy.rpython.memory.gc import DeferredRefcountingGC as GCClass

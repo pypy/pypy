@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython import llinterp
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import gctypelayout
 from pypy.objspace.flow.model import Constant
@@ -16,7 +17,7 @@ class GCManagedHeap(object):
         self.gc.setup()
 
     def prepare_graphs(self, flowgraphs):
-        layoutbuilder = DirectRunLayoutBuilder()
+        layoutbuilder = DirectRunLayoutBuilder(self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
         self.gc.set_query_functions(*layoutbuilder.get_query_functions())
 
@@ -71,8 +72,29 @@ class GCManagedHeap(object):
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
+    def __init__(self, llinterp):
+        self.llinterp = llinterp
+        super(DirectRunLayoutBuilder, self).__init__()
+
     def make_finalizer_funcptr_for_type(self, TYPE):
-        return None     # XXX
+        from pypy.rpython.memory.gctransform.support import get_rtti, \
+                type_contains_pyobjs
+        rtti = get_rtti(TYPE)
+        if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+            destrptr = rtti._obj.destructor_funcptr
+            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
+            destrgraph = destrptr._obj.graph
+        else:
+            return None
+
+        assert not type_contains_pyobjs(TYPE), "not implemented"
+        def ll_finalizer(addr):
+            try:
+                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                self.llinterp.eval_graph(destrgraph, [v])
+            except llinterp.LLException:
+                print "a destructor raised an exception, ignoring it"
+        return ll_finalizer
 
 
 def collect_constants(graphs):
