@@ -3,7 +3,7 @@
 """
 
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rlib.libffi import CDLL, dlopen
+from pypy.rlib.libffi import *
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.lltypesystem import rffi, lltype
 import os, sys
@@ -34,13 +34,13 @@ class TestDLOperations:
 
     def test_library_get_func(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('time', [], lltype.Void)
-        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], lltype.Void)
+        ptr = lib.getpointer('time', [], ffi_type_void)
+        py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], ffi_type_void)
         del lib
 
     def test_library_func_call(self):
         lib = self.get_libc()
-        ptr = lib.getpointer('rand', [], rffi.INT)
+        ptr = lib.getpointer('rand', [], ffi_type_sint)
         zeroes = 0
         for i in range(100):
             res = ptr.call([])
@@ -51,15 +51,20 @@ class TestDLOperations:
 
     def test_call_args(self):
         libm = CDLL('libm.so')
-        pow = libm.getpointer('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-        assert pow.call((2.0, 2.0)) == 4.0
-        assert pow.call((3.0, 3.0)) == 27.0
+        pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double],
+                              ffi_type_double)
+        pow.push_arg(0, rffi.DOUBLE, 2.0)
+        pow.push_arg(1, rffi.DOUBLE, 2.0)
+        assert pow.call() == 4.0
+        pow.push_arg(0, rffi.DOUBLE, 3.0)
+        pow.push_arg(1, rffi.DOUBLE, 3.0)
+        assert pow.call() == 27.0
 
     def test_compile(self):
         py.test.skip("in-progress")
         def f(x, y):
             libm = CDLL('libm.so')
-            c_pow = libm.getpointer('pow', (rffi.DOUBLE, rffi.DOUBLE), rffi.DOUBLE)
+            c_pow = libm.getpointer('pow', (ffi_type_double, ffi_type_double), ffi_type_double)
             return c_pow.call((x, y))
 
         interpret(f, [2.0, 4.0])

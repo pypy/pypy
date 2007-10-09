@@ -73,7 +73,6 @@ TYPE_MAP = {
     rffi.ULONG  : ffi_type_ulong,
     rffi.LONG   : ffi_type_slong,
     lltype.Void : ffi_type_void,
-    # some shortcuts
     }
 
 def external(name, args, result):
@@ -129,60 +128,77 @@ def dlsym(libhandle, name):
     # XXX rffi.cast here...
     return res
 
-def new_funcptr(argtypes, restype):
-    argnum = len(argtypes)
+def cast_type_to_ffitype(tp):
+    """ This function returns ffi representation of rpython type tp
+    """
+    return TYPE_MAP[tp]
+cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
-    argtypes_iterable = unrolling_iterable(enumerate(argtypes))
+def push_arg_as_ffiptr(ffitp, TP, arg, ll_buf):
+    # this is for primitive types. For structures and arrays
+    # would be something different (more dynamic)
+    TP_P = rffi.CArray(TP)
+    rffi.cast(TP_P, ll_buf)[0] = arg
+push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
-    class FuncPtr:
-        def __init__(self, func_sym):
-            TP = rffi.CFixedArray(FFI_TYPE_P, argnum)
-            self.ll_argtypes = lltype.malloc(TP, flavor='raw')
-            self.argtypes = argtypes
-            for i, argtype in argtypes_iterable:
-                self.ll_argtypes[i] = TYPE_MAP[argtype]
-            TP = rffi.CFixedArray(rffi.VOIDP, argnum)
-            self.ll_args = lltype.malloc(TP, flavor='raw')
-            for i, argtype in argtypes_iterable:
-                # XXX
-                TP = rffi.CFixedArray(argtypes[i], 1)
-                self.ll_args[i] = rffi.cast(rffi.VOIDP,
-                                            lltype.malloc(TP, flavor='raw'))
-            self.restype = restype
-            if restype is not None:
-                TP = rffi.CFixedArray(restype, 1)
-                self.ll_res = lltype.malloc(TP, flavor='raw')
-            if not func_sym:
-                raise OSError(-1, "NULL func_sym")
-            self.func_sym = func_sym
-            self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
-            res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
-                                 rffi.cast(rffi.UINT, argnum),
-                                 TYPE_MAP[restype],
-                                 rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
-            if not res == FFI_OK:
-                raise OSError(-1, "Wrong typedef")
+class FuncPtr(object):
+    def __init__(self, name, argtypes, restype, funcsym):
+        self.name = name
+        self.argtypes = argtypes
+        self.restype = restype
+        self.funcsym = funcsym
+        argnum = len(argtypes)
+        self.ready_args = [0] * argnum
+        TP = rffi.CArray(rffi.VOIDP)
+        self.ll_args = lltype.malloc(TP, argnum, flavor='raw')
+        self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
+        self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
+        for i in range(argnum):
+            self.ll_argtypes[i] = argtypes[i]
+        res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
+                             rffi.cast(rffi.UINT, argnum), restype,
+                             self.ll_argtypes)
+        if not res == FFI_OK:
+            raise OSError(-1, "Wrong typedef")
+        for i in range(argnum):
+            # space for each argument
+            self.ll_args[i] = lltype.malloc(rffi.VOIDP.TO, argtypes[i].c_size,
+                                            flavor='raw')
+        self.ll_result = lltype.malloc(rffi.VOIDP.TO, restype.c_size,
+                                       flavor='raw')
 
-        def call(self, args):
-            # allocated result should be padded and stuff
-            PTR_T = lltype.Ptr(rffi.CFixedArray(rffi.INT, 1))
-            for i, argtype in argtypes_iterable:
-                TP = lltype.Ptr(rffi.CFixedArray(argtype, 1))
-                addr = rffi.cast(TP, self.ll_args[i])
-                addr[0] = args[i]
-            c_ffi_call(self.ll_cif, self.func_sym,
-                       rffi.cast(rffi.VOIDP, self.ll_res),
-                       rffi.cast(VOIDPP, self.ll_args))
-            return self.ll_res[0]
+    def push_arg(self, num, TP, value):
+        push_arg_as_ffiptr(self.argtypes[i], TP, value, self.ll_args[i])
+        self.ready_args[num] = 1
 
-        def __del__(self):
-            lltype.free(self.ll_argtypes, flavor='raw')
-            lltype.free(self.ll_args, flavor='raw')
-            lltype.free(self.ll_cif, flavor='raw')
-            if self.restype is not None:
-                lltype.free(self.ll_res, flavor='raw')
-    return FuncPtr
-new_funcptr._annspecialcase_ = 'specialize:memo'
+    def _check_args(self):
+        for num in range(len(self.ready_args)):
+            if not self.ready_args[num]:
+                raise TypeError("Did not specify arg nr %d" % num)        
+
+    def _clean_args(self):
+        for num in range(len(self.ready_args)):
+            self.ready_args[num] = 0
+
+    def call(self, RES_TP):
+        self._check_args()
+        c_ffi_call(self.ll_cif, self.func_sym,
+                   rffi.cast(rffi.VOIDP, self.restype),
+                   rffi.cast(VOIDPP, self.ll_args))
+        if self.restype != ffi_type_void:
+            res = rffi.cast(lltype.Ptr(CArray(RES_TP)), self.ll_result)[0]
+        self._clean_args()
+        return res
+    call._annspecialcase_ = 'specialize:argtype(1)'
+
+    def __del__(self):
+        argnum = len(self.argtypes)
+        for i in range(argnum):
+            lltype.free(self.ll_args[i], flavor='raw')
+        lltype.free(self.ll_args, flavor='raw')
+        lltype.free(self.ll_result, flavor='raw')
+        lltype.free(self.ll_cif, flavor='raw')
+        lltype.free(self.ll_argtypes, flavor='raw')
 
 class CDLL:
     def __init__(self, libname):
@@ -192,6 +208,7 @@ class CDLL:
         c_dlclose(self.lib)
 
     def getpointer(self, name, argtypes, restype):
-        funcptr = new_funcptr(argtypes, restype)
-        return funcptr(dlsym(self.lib, name))
-    getpointer._annspecialcase_ = 'specialize:arg(2, 3)'
+        # these arguments are already casted to proper ffi
+        # structures!
+        return FuncPtr(name, argtypes, restype, dlsym(self.lib, name))
+
