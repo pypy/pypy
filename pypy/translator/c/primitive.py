@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
-     GCHeaderOffset, ArenaRange
+     GCHeaderOffset
 from pypy.translator.c.support import cdecl, barebonearray
 
 # ____________________________________________________________
@@ -48,8 +48,6 @@ def name_signed(value, db):
             return '0'
         elif type(value) == GCHeaderOffset:
             return '0'
-        elif isinstance(value, ArenaRange):
-            return '(%d * %d)' % (value.n, name_signed(value.unitsize, db))
         elif isinstance(value, CDefinedIntSymbolic):
             return str(value.expr)
         elif isinstance(value, ComputedIntSymbolic):

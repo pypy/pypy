@@ -498,26 +498,6 @@ def test_inlined_substruct():
         assert (adr + offsetof(S, 't')
                     + offsetof(T, 'x')).signed[0] == 3
 
-def test_arena_bump_ptr():
-    S = lltype.Struct('S', ('x',lltype.Signed))
-    SPTR = lltype.Ptr(S)
-    badr = start = raw_malloc(arena(S, 4))
-    s_adr = badr
-    badr = bump(badr, sizeof(S))
-    s_ptr = cast_adr_to_ptr(s_adr, SPTR)
-    s_ptr.x = 1
-    s2_adr = badr
-    badr = bump(badr, sizeof(S))
-    s2_ptr = cast_adr_to_ptr(s2_adr, SPTR)
-    s2_ptr.x = 2
-    badr = start
-    s_ptr = cast_adr_to_ptr(badr, SPTR)
-    assert s_ptr.x == 1
-    badr = bump(badr, sizeof(S))
-    s2_ptr = cast_adr_to_ptr(badr, SPTR)
-    assert s2_ptr.x == 2
-    # release(start)
-
 def test_weakref():
     S1 = lltype.GcStruct('S1', ('x',lltype.Signed))
     S = lltype.GcStruct('S', ('s1', S1))
