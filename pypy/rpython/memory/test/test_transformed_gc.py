@@ -83,6 +83,7 @@ class TestMarkSweepGC(GCTest):
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             GC_PARAMS = {'start_heap_size': 4096 }
             root_stack_depth = 200
     gcname = "framework"
