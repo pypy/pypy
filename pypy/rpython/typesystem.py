@@ -69,7 +69,10 @@ class TypeSystem(object):
                 name = fnobjattrs.pop('_name', name)
             else:
                 fnobjattrs = {}
-            return constr(FT, name, graph = graph, _callable = graph.func,
+            # _callable is normally graph.func, but can be overridden:
+            # see fakeimpl in extfunc.py
+            _callable = fnobjattrs.pop('_callable', graph.func)
+            return constr(FT, name, graph = graph, _callable = _callable,
                           **fnobjattrs)
         else:
             return constr(FT, name, graph = graph)

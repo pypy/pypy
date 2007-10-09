@@ -818,9 +818,6 @@ def select_function_code_generators(fnobj, db, functionname):
             return sandbox_stub(fnobj, db)
         db.externalfuncs[fnobj._callable] = fnobj
         return []
-    elif getattr(fnobj._callable, 'suggested_primitive', False):
-        raise ValueError, "trying to compile suggested primitive %r" % (
-            fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         if sandbox and sandbox != "if_external":
             # apply the sandbox transformation

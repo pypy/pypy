@@ -439,12 +439,8 @@ class LLFrame(object):
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
         obj = self.llinterpreter.typer.type_system.deref(fptr)
-        if hasattr(obj, '_fakeimpl'):
-            f = obj._fakeimpl
-        else:
-            f = obj._callable
         try:
-            return f(*args)
+            return obj._callable(*args)
         except LLException, e:
             raise
         except Exception, e:
@@ -610,8 +606,6 @@ class LLFrame(object):
 
     def perform_call(self, f, ARGS, args):
         fobj = self.llinterpreter.typer.type_system.deref(f)
-        if hasattr(fobj, '_fakeimpl'):
-            return self.invoke_callable_with_pyexceptions(f, *args)
         has_callable = getattr(fobj, '_callable', None) is not None
         if has_callable and getattr(fobj._callable, 'suggested_primitive', False):
                 return self.invoke_callable_with_pyexceptions(f, *args)

@@ -192,7 +192,11 @@ class ExtFuncEntry(ExtRegistryEntry):
                 '_safe_not_sandboxed': self.safe_not_sandboxed,
                 }
             if hasattr(self, fake_method_name):
-                impl._llfnobjattrs_['_fakeimpl'] = fakeimpl
+                # we use the suggested_primitive flag to ask the llinterp
+                # to call the fakeimpl directly.  It also disables inlining
+                # and other optimizations that would remove the call.
+                impl._llfnobjattrs_['_callable'] = fakeimpl
+                fakeimpl.suggested_primitive = True
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
         else:
