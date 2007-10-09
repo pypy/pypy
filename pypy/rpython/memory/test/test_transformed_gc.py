@@ -80,6 +80,7 @@ class GCTest(object):
             return run
         
 class GenericGCTests(GCTest):
+    gcname = "framework"
 
     def heap_usage(self, statistics):
         try:
@@ -380,7 +381,6 @@ class TestMarkSweepGC(GenericGCTests):
         class transformerclass(framework.FrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
             root_stack_depth = 200
-    gcname = "framework"
 
 
     def test_cloning(self):
