@@ -716,17 +716,17 @@ class LLFrame(object):
     op_cast_opaque_ptr.need_result_type = True
 
     def op_weakref_create(self, obj):
-        return llmemory.weakref_create(obj)
+        return self.heap.weakref_create(obj)
 
     def op_weakref_deref(self, PTRTYPE, obj):
-        return llmemory.weakref_deref(PTRTYPE, obj)
+        return self.heap.weakref_deref(PTRTYPE, obj)
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
-        return llmemory.cast_ptr_to_weakrefptr(obj)
+        return self.heap.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
-        return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
+        return self.heap.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
     def op_gc__collect(self):
