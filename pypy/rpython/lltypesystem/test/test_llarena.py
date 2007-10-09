@@ -22,7 +22,9 @@ def test_arena():
     assert s1_ptr2.x == 1
     assert s1_ptr1 == s1_ptr2
 
-    arena_reserve(a + ssize + 1, llmemory.sizeof(S))
+    py.test.raises(ArenaError, arena_reserve, a + ssize + 1,  # misaligned
+                   llmemory.sizeof(S))
+    arena_reserve(a + ssize + 1, llmemory.sizeof(S), check_alignment=False)
     s2_ptr1 = cast_adr_to_ptr(a + ssize + 1, SPTR)
     py.test.raises(lltype.UninitializedMemoryAccess, 's2_ptr1.x')
     s2_ptr1.x = 2
@@ -40,10 +42,14 @@ def test_arena():
     py.test.raises(ArenaError, cast_adr_to_ptr, a+ssize, SPTR)
     py.test.raises(ArenaError, cast_adr_to_ptr, a+2*ssize, SPTR)
     py.test.raises(ArenaError, cast_adr_to_ptr, a+2*ssize+1, SPTR)
-    py.test.raises(ArenaError, arena_reserve, a+1, llmemory.sizeof(S))
-    py.test.raises(ArenaError, arena_reserve, a+ssize, llmemory.sizeof(S))
-    py.test.raises(ArenaError, arena_reserve, a+2*ssize, llmemory.sizeof(S))
-    py.test.raises(ArenaError, arena_reserve, a+2*ssize+1, llmemory.sizeof(S))
+    py.test.raises(ArenaError, arena_reserve, a+1, llmemory.sizeof(S),
+                   False)
+    py.test.raises(ArenaError, arena_reserve, a+ssize, llmemory.sizeof(S),
+                   False)
+    py.test.raises(ArenaError, arena_reserve, a+2*ssize, llmemory.sizeof(S),
+                   False)
+    py.test.raises(ArenaError, arena_reserve, a+2*ssize+1, llmemory.sizeof(S),
+                   False)
 
     arena_reset(a, myarenasize, True)
     py.test.raises(ArenaError, cast_adr_to_ptr, a, SPTR)
@@ -52,7 +58,7 @@ def test_arena():
     assert s1_ptr1.x == 0
     s1_ptr1.x = 5
 
-    arena_reserve(a + ssize, llmemory.sizeof(S2))
+    arena_reserve(a + ssize, llmemory.sizeof(S2), check_alignment=False)
     s2_ptr1 = cast_adr_to_ptr(a + ssize, S2PTR)
     assert s2_ptr1.y == '\x00'
     s2_ptr1.y = 'X'
@@ -114,7 +120,7 @@ def test_look_inside_object():
     SPTR = lltype.Ptr(SX)
     myarenasize = 50
     a = arena_malloc(myarenasize, False)
-    b = a + 4
+    b = a + round_up_for_allocation(llmemory.sizeof(lltype.Char))
     arena_reserve(b, precomputed_size)
     (b + llmemory.offsetof(SX, 'x')).signed[0] = 123
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 123

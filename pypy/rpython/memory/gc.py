@@ -1012,7 +1012,7 @@ class SemiSpaceGC(GCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
-        self.free += totalsize
+        self.free += llarena.round_up_for_allocation(totalsize)
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -1129,6 +1129,7 @@ class SemiSpaceGC(GCBase):
             lenaddr = obj + self.varsize_offset_to_length(typeid)
             length = lenaddr.signed[0]
             size += length * self.varsize_item_sizes(typeid)
+            size = llarena.round_up_for_allocation(size)
         return size
 
     def header(self, addr):

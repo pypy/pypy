@@ -83,15 +83,17 @@ class TestMarkSweepGC(GCTest):
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
             GC_PARAMS = {'start_heap_size': 4096 }
             root_stack_depth = 200
     gcname = "framework"
 
     def heap_usage(self, statistics):
-        if hasattr(self.gcpolicy.transformerclass.GCClass, 'STAT_HEAP_USAGE'):
-            return statistics(
-                self.gcpolicy.transformerclass.GCClass.STAT_HEAP_USAGE)
+        try:
+            GCClass = self.gcpolicy.transformerclass.GCClass
+        except AttributeError:
+            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
+        if hasattr(GCClass, 'STAT_HEAP_USAGE'):
+            return statistics(GCClass.STAT_HEAP_USAGE)
         else:
             return -1     # xxx
 

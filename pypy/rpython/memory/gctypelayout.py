@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type
 
 
@@ -33,8 +33,13 @@ class TypeLayoutBuilder(object):
             info["weakptrofs"] = weakpointer_offset(TYPE)
             if not TYPE._is_varsize():
                 info["isvarsize"] = False
-                info["fixedsize"] = llmemory.sizeof(TYPE)
+                info["fixedsize"] = llarena.round_up_for_allocation(
+                    llmemory.sizeof(TYPE))
                 info["ofstolength"] = -1
+                # note about round_up_for_allocation(): in the 'info' table
+                # we put a rounded-up size only for fixed-size objects.  For
+                # varsize ones, the GC must anyway compute the size at run-time
+                # and round up that result.
             else:
                 info["isvarsize"] = True
                 info["fixedsize"] = llmemory.sizeof(TYPE, 0)

@@ -2,6 +2,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 
 import struct
 
+memory_alignment = 4
+
 primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Unsigned:        "L",
                     lltype.Char:            "c",
@@ -108,6 +110,7 @@ def convert_offset_to_int(offset):
         return 0
     elif isinstance(offset, llarena.RoundedUpForAllocation):
         basesize = convert_offset_to_int(offset.basesize)
-        return (basesize + 7) & ~ 7
+        mask = memory_alignment - 1
+        return (basesize + mask) & ~ mask
     else:
         raise Exception("unknown offset type %r"%offset)

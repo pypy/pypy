@@ -216,12 +216,16 @@ def arena_reset(arena_addr, myarenasize, zero):
     assert myarenasize == arena_addr.arena.nbytes
     arena_addr.arena.reset(zero)
 
-def arena_reserve(addr, size):
+def arena_reserve(addr, size, check_alignment=True):
     """Mark some bytes in an arena as reserved, and returns addr.
     For debugging this can check that reserved ranges of bytes don't
     overlap.  The size must be symbolic; in non-translated version
     this is used to know what type of lltype object to allocate."""
+    from pypy.rpython.memory.lltypelayout import memory_alignment
     assert isinstance(addr, fakearenaaddress)
+    if check_alignment and (addr.offset & (memory_alignment-1)) != 0:
+        raise ArenaError("object at offset %d would not be correctly aligned"
+                         % (addr.offset,))
     addr.arena.allocate_object(addr.offset, size)
 
 def round_up_for_allocation(size):

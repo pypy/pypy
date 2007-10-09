@@ -278,6 +278,7 @@ from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 
 class TestUsingFramework(AbstractGCTestClass):
     gcpolicy = "framework"
+    frameworkgc = "marksweep"
 
     def test_empty_collect(self):
         def f():
@@ -774,6 +775,27 @@ class TestUsingFramework(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
+    def test_object_alignment(self):
+        # all objects returned by the GC should be aligned on a 8-bytes
+        # boundary, or whatever sizeof(double) is on this platform
+        mylist = ['a', 'bc', '84139871', 'ajkdh', '876']
+        def f():
+            result = 0
+            buffer = ""
+            for j in range(100):
+                for s in mylist:
+                    buffer += s
+                    result |= id(buffer)
+            return result
+
+        fn = self.getcompiled(f)
+        res = fn()
+        import struct
+        expected_alignment = struct.calcsize("d")
+        assert (expected_alignment & (expected_alignment-1)) == 0, (
+            "sizeof(double) not a power of two")
+        assert (res & (expected_alignment-1)) == 0
+
 class TestUsingStacklessFramework(TestUsingFramework):
 
     def getcompiled(self, f):
@@ -799,3 +821,9 @@ class TestUsingStacklessFramework(TestUsingFramework):
 
     def test_weakref(self):
         py.test.skip("fails for some reason I couldn't figure out yet :-(")
+
+class TestSemiSpaceGC(TestUsingFramework):
+    frameworkgc = "semispace"
+
+    def setup_class(cls):
+        py.test.skip("in-progress")
