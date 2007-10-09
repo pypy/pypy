@@ -26,7 +26,7 @@ remote_handle.sys._getframe(2).f_locals['x'] # remote frame access
 # XXX next one does not work, while it should. Too much mangling with remote
 # traceback frames probably
 try:
-  x.meth() # wrong argument numbers
+  x.meth(1, 2) # non-callable argument, AssertionError
 except:
   import sys
   e, c, tb = sys.exc_info()
