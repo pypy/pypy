@@ -7,9 +7,9 @@ from pypy.objspace.flow.model import Constant
 
 class GCManagedHeap(object):
 
-    def __init__(self, llinterp, flowgraphs, gc_class):
+    def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
         self.AddressLinkedList = get_address_linked_list(10, hackishpop=True)
-        self.gc = gc_class(self.AddressLinkedList)
+        self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
         self.gc.get_roots = self.get_roots_from_llinterp
         self.llinterp = llinterp
         self.constantroots = []
@@ -102,11 +102,12 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         def ll_finalizer(addr):
             old_active_frame = self.llinterp.active_frame
             try:
-                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                self.llinterp.eval_graph(destrgraph, [v])
-            except llinterp.LLException:
-                raise RuntimeError(
-                    "a finalizer raised an exception, shouldn't happen")
+                try:
+                    v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+                    self.llinterp.eval_graph(destrgraph, [v])
+                except llinterp.LLException:
+                    raise RuntimeError(
+                        "a finalizer raised an exception, shouldn't happen")
             finally:
                 self.llinterp.active_frame = old_active_frame
         return ll_finalizer
@@ -145,6 +146,6 @@ def reccollect(constants, llvalue):
         if parent is not None:
             reccollect(constants, parent._as_ptr())
 
-def prepare_graphs_and_create_gc(llinterp, GCClass):
+def prepare_graphs_and_create_gc(llinterp, GCClass, GC_PARAMS={}):
     flowgraphs = llinterp.typer.annotator.translator.graphs[:]
-    llinterp.heap = GCManagedHeap(llinterp, flowgraphs, GCClass)
+    llinterp.heap = GCManagedHeap(llinterp, flowgraphs, GCClass, GC_PARAMS)

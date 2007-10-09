@@ -17,6 +17,7 @@ def stdout_ignore_ll_functions(msg):
 
 
 class GCTest(object):
+    GC_PARAMS = {}
 
     def setup_class(cls):
         cls._saved_logstate = py.log._getstate()
@@ -29,7 +30,8 @@ class GCTest(object):
 
     def interpret(self, func, values, **kwds):
         interp, graph = get_interpreter(func, values, **kwds)
-        gcwrapper.prepare_graphs_and_create_gc(interp, self.GCClass)
+        gcwrapper.prepare_graphs_and_create_gc(interp, self.GCClass,
+                                               self.GC_PARAMS)
         return interp.eval_graph(graph, values)
 
     def test_llinterp_lists(self):
@@ -255,6 +257,9 @@ class TestMarkSweepGC(GCTest):
 
 class TestSemiSpaceGC(GCTest):
     from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
+
+class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
+    GC_PARAMS = {'space_size': 64}
 
 class TestDeferredRefcountingGC(GCTest):
     from pypy.rpython.memory.gc import DeferredRefcountingGC as GCClass

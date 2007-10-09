@@ -957,14 +957,15 @@ class SemiSpaceGC(GCBase):
                                   ('typeid', lltype.Signed))
 
     def __init__(self, AddressLinkedList, space_size=4096,
+                 max_space_size=sys.maxint//2+1,
                  get_roots=None):
         self.space_size = space_size
+        self.max_space_size = max_space_size
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressLinkedList = AddressLinkedList
 
     def setup(self):
-        self.bytes_malloced = 0
         self.tospace = llarena.arena_malloc(self.space_size, True)
         debug_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
@@ -973,6 +974,7 @@ class SemiSpaceGC(GCBase):
         self.free = self.tospace
         self.objects_with_finalizers = self.AddressLinkedList()
         self.run_finalizers = self.AddressLinkedList()
+        self.executing_finalizers = False
         self.objects_with_weakrefs = self.AddressLinkedList()
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
@@ -980,12 +982,7 @@ class SemiSpaceGC(GCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
-            if not can_collect:
-                raise memoryError
-            self.collect()
-            #XXX need to increase the space size if the object is too big
-            #for bonus points do big objects differently
-            if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
+            if not can_collect or not self.obtain_free_space(totalsize):
                 raise memoryError
         result = self.free
         llarena.arena_reserve(result, totalsize)
@@ -1007,12 +1004,7 @@ class SemiSpaceGC(GCBase):
         except OverflowError:
             raise memoryError
         if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
-            if not can_collect:
-                raise memoryError
-            self.collect()
-            #XXX need to increase the space size if the object is too big
-            #for bonus points do big objects differently
-            if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
+            if not can_collect or not self.obtain_free_space(totalsize):
                 raise memoryError
         result = self.free
         llarena.arena_reserve(result, totalsize)
@@ -1027,7 +1019,68 @@ class SemiSpaceGC(GCBase):
     malloc_fixedsize_clear = malloc_fixedsize
     malloc_varsize_clear   = malloc_varsize
 
-    def collect(self):
+    def obtain_free_space(self, needed):
+        # XXX for bonus points do big objects differently
+        needed = raw_malloc_usage(needed)
+        self.collect()
+        missing = needed - (self.top_of_space - self.free)
+        if missing <= 0:
+            return True      # success
+        else:
+            # first check if the object could possibly fit
+            proposed_size = self.space_size
+            while missing > 0:
+                if proposed_size >= self.max_space_size:
+                    return False    # no way
+                missing -= proposed_size
+                proposed_size *= 2
+            # For address space fragmentation reasons, we double the space
+            # size possibly several times, moving the objects at each step,
+            # instead of going directly for the final size.  We assume that
+            # it's a rare case anyway.
+            while self.space_size < proposed_size:
+                if not self.double_space_size():
+                    return False
+            debug_assert(needed <= self.top_of_space - self.free,
+                         "double_space_size() failed to do its job")
+            return True
+
+    def double_space_size(self):
+        old_fromspace = self.fromspace
+        newsize = self.space_size * 2
+        newspace = llarena.arena_malloc(newsize, True)
+        if not newspace:
+            return False    # out of memory
+        llarena.arena_free(old_fromspace)
+        self.fromspace = newspace
+        # now self.tospace contains the existing objects and
+        # self.fromspace is the freshly allocated bigger space
+
+        self.collect(size_changing=True)
+        self.top_of_space = self.tospace + newsize
+        # now self.tospace is the freshly allocated bigger space,
+        # and self.fromspace is the old smaller space, now empty
+        llarena.arena_free(self.fromspace)
+
+        newspace = llarena.arena_malloc(newsize, True)
+        if not newspace:
+            # Complex failure case: we have in self.tospace a big chunk
+            # of memory, and the two smaller original spaces are already gone.
+            # Unsure if it's worth these efforts, but we can artificially
+            # split self.tospace in two again...
+            self.max_space_size = self.space_size    # don't try to grow again,
+            #              because doing arena_free(self.fromspace) would crash
+            self.fromspace = self.tospace + self.space_size
+            self.top_of_space = self.fromspace
+            debug_assert(self.free <= self.top_of_space,
+                         "unexpected growth of GC space usage during collect")
+            return False     # out of memory
+
+        self.fromspace = newspace
+        self.space_size = newsize
+        return True    # success
+
+    def collect(self, size_changing=False):
 ##         print "collecting"
         tospace = self.fromspace
         fromspace = self.tospace
@@ -1087,8 +1140,9 @@ class SemiSpaceGC(GCBase):
         scan = self.scan_copied(scan)
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizer
-        llarena.arena_reset(fromspace, self.space_size, True)
-        self.execute_finalizers()
+        if not size_changing:
+            llarena.arena_reset(fromspace, self.space_size, True)
+            self.execute_finalizers()
 
     def scan_copied(self, scan):
         while scan < self.free:
@@ -1184,11 +1238,17 @@ class SemiSpaceGC(GCBase):
         hdr.typeid = typeid
 
     def execute_finalizers(self):
-        while self.run_finalizers.non_empty():
-            obj = self.run_finalizers.pop()
-            hdr = self.header(obj)
-            finalizer = self.getfinalizer(hdr.typeid)
-            finalizer(obj)
+        if self.executing_finalizers:
+            return    # the outer invocation of execute_finalizers() will do it
+        self.executing_finalizers = True
+        try:
+            while self.run_finalizers.non_empty():
+                obj = self.run_finalizers.pop()
+                hdr = self.header(obj)
+                finalizer = self.getfinalizer(hdr.typeid)
+                finalizer(obj)
+        finally:
+            self.executing_finalizers = False
 
     STATISTICS_NUMBERS = 0
 
@@ -1331,7 +1391,7 @@ def choose_gc_from_config(config):
         GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
         return MarkSweepGC, GC_PARAMS
     elif config.translation.frameworkgc == "semispace":
-        GC_PARAMS = {'space_size': 32*1024*1024} # XXX fixed at 32MB
+        GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
         return SemiSpaceGC, GC_PARAMS
     else:
         raise ValueError("unknown value for frameworkgc: %r" % (

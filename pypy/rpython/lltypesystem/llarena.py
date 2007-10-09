@@ -279,7 +279,7 @@ else:
 
 def llimpl_arena_malloc(nbytes, zero):
     addr = llmemory.raw_malloc(nbytes)
-    if zero:
+    if zero and bool(addr):
         clear_large_memory_chunk(addr, nbytes)
     return addr
 register_external(arena_malloc, [int, bool], llmemory.Address,
