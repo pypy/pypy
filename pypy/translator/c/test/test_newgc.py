@@ -3,6 +3,7 @@ import sys
 import py
 from py.test import raises
 
+from pypy.objspace.flow.model import summary
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
@@ -279,6 +280,7 @@ from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 class TestUsingFramework(AbstractGCTestClass):
     gcpolicy = "framework"
     frameworkgc = "marksweep"
+    should_be_moving = False
 
     def test_empty_collect(self):
         def f():
@@ -305,8 +307,8 @@ class TestUsingFramework(AbstractGCTestClass):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 2
-        operations = self.t.graphs[0].startblock.exits[False].target.operations
-        assert len([op for op in operations if op.opname == "gc_reload_possibly_moved"]) == 0
+        insns = summary(self.t.graphs[0])
+        assert ('gc_reload_possibly_moved' in insns) == self.should_be_moving
 
     def test_framework_safe_pushpop(self):
         class A(object):
@@ -335,10 +337,10 @@ class TestUsingFramework(AbstractGCTestClass):
             llop.gc__collect(lltype.Void)
             return global_a.b.a.b.c
         fn = self.getcompiled(f)
-        startblock = self.t.graphs[0].startblock
         res = fn()
         assert res == 42
-        assert len([op for op in startblock.operations if op.opname == "gc_reload_possibly_moved"]) == 0
+        insns = summary(self.t.graphs[0])
+        assert 'gc_reload_possibly_moved' not in insns
 
     def test_framework_protect_getfield(self):
         class A(object):
@@ -824,6 +826,10 @@ class TestUsingStacklessFramework(TestUsingFramework):
 
 class TestSemiSpaceGC(TestUsingFramework):
     frameworkgc = "semispace"
+    should_be_moving = True
 
-    def setup_class(cls):
+    def test_weakref(self):
+        py.test.skip("in-progress")
+
+    def test_prebuilt_weakref(self):
         py.test.skip("in-progress")
