@@ -67,6 +67,17 @@ class GCManagedHeap(object):
     def collect(self):
         self.gc.collect()
 
+    def weakref_create(self, obj):
+        type_id = self.get_type_id(gctypelayout.WEAKREF)
+        addr = self.gc.malloc(type_id, None, zero=False)
+        result = llmemory.cast_adr_to_ptr(addr, gctypelayout.WEAKREFPTR)
+        result.weakptr = llmemory.cast_ptr_to_adr(obj)
+        return llmemory.cast_ptr_to_weakrefptr(result)
+    
+    def weakref_deref(self, PTRTYPE, obj):
+        addr = gctypelayout.ll_weakref_deref(obj)
+        return llmemory.cast_adr_to_ptr(addr, PTRTYPE)
+
     # ____________________________________________________________
 
 
@@ -89,11 +100,15 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
         def ll_finalizer(addr):
+            old_active_frame = self.llinterp.active_frame
             try:
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 self.llinterp.eval_graph(destrgraph, [v])
             except llinterp.LLException:
-                print "a destructor raised an exception, ignoring it"
+                raise RuntimeError(
+                    "a finalizer raised an exception, shouldn't happen")
+            finally:
+                self.llinterp.active_frame = old_active_frame
         return ll_finalizer
 
 

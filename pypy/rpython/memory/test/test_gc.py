@@ -183,6 +183,46 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert 160 <= res <= 165
 
+    def test_weakref(self):
+        import weakref, gc
+        class A(object):
+            pass
+        def g():
+            a = A()
+            return weakref.ref(a)
+        def f():
+            a = A()
+            ref = weakref.ref(a)
+            result = ref() is a
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            result = result and (ref() is None)
+            # check that a further collection is fine
+            llop.gc__collect(lltype.Void)
+            result = result and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
+
+    def test_weakref_to_object_with_finalizer(self):
+        import weakref, gc
+        class A(object):
+            count = 0
+        a = A()
+        class B(object):
+            def __del__(self):
+                a.count += 1
+        def g():
+            b = B()
+            return weakref.ref(b)
+        def f():
+            ref = g()
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            result = a.count == 1 and (ref() is None)
+            return result
+        res = self.interpret(f, [])
+        assert res
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc import MarkSweepGC as GCClass

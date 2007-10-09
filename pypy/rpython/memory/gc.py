@@ -56,7 +56,14 @@ class GCBase(object):
         """
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
-        contains_weakptr = self.weakpointer_offset(typeid) != -1
+        weakptr_offset = self.weakpointer_offset(typeid)
+        #XXX cannot compare weakptr_offset with -1
+        #contains_weakptr = weakpointer_offset. != -1
+        if isinstance(weakptr_offset, int):
+            assert weakptr_offset == -1
+            contains_weakptr = False
+        else:
+            contains_weakptr = True
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
             assert not contains_weakptr
@@ -966,11 +973,10 @@ class SemiSpaceGC(GCBase):
         self.free = self.tospace
         self.objects_with_finalizers = self.AddressLinkedList()
         self.run_finalizers = self.AddressLinkedList()
+        self.objects_with_weakrefs = self.AddressLinkedList()
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
-        if contains_weakptr:
-            raise NotImplementedError("weakptr in SemiSpaceGC")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
@@ -987,12 +993,12 @@ class SemiSpaceGC(GCBase):
         self.free += totalsize
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
+        if contains_weakptr:
+            self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect, has_finalizer=False):
-        if has_finalizer:
-            raise NotImplementedError("finalizers in SemiSpaceGC")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         try:
@@ -1037,6 +1043,25 @@ class SemiSpaceGC(GCBase):
             root.address[0] = self.copy(root.address[0])
         free_non_gc_object(roots)
         scan = self.scan_copied(scan)
+        # walk over list of objects that contain weakrefs
+        # if the object it references survives and invalidate it otherwise
+        new_with_weakref = self.AddressLinkedList()
+        while self.objects_with_weakrefs.non_empty():
+            obj = self.objects_with_weakrefs.pop()
+            if not self.is_forwarded(obj):
+                continue # weakref itself dies
+            obj = self.get_forwarding_address(obj)
+            offset = self.weakpointer_offset(self.header(obj).typeid)
+            pointing_to = (obj + offset).address[0]
+            if pointing_to:
+                if self.is_forwarded(pointing_to):
+                    (obj + offset).address[0] = self.get_forwarding_address(
+                        pointing_to)
+                else:
+                    (obj + offset).address[0] = NULL
+            new_with_weakref.append(obj)
+        self.objects_with_weakrefs.delete()
+        self.objects_with_weakrefs = new_with_weakref
         # walk over list of objects with finalizers
         # if it is not copied, add it to the list of to-be-called finalizers
         # and copy it, to me make the finalizer runnable

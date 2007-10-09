@@ -723,10 +723,10 @@ class LLFrame(object):
     op_weakref_deref.need_result_type = True
 
     def op_cast_ptr_to_weakrefptr(self, obj):
-        return self.heap.cast_ptr_to_weakrefptr(obj)
+        return llmemory.cast_ptr_to_weakrefptr(obj)
 
     def op_cast_weakrefptr_to_ptr(self, PTRTYPE, obj):
-        return self.heap.cast_weakrefptr_to_ptr(PTRTYPE, obj)
+        return llmemory.cast_weakrefptr_to_ptr(PTRTYPE, obj)
     op_cast_weakrefptr_to_ptr.need_result_type = True
 
     def op_gc__collect(self):
@@ -1236,12 +1236,26 @@ class _address_of_local_var_accessor(object):
         if index != 0:
             raise IndexError("address of local vars only support [0] indexing")
         p = self.frame.getval(self.v)
-        return llmemory.cast_ptr_to_adr(p)
+        result = llmemory.cast_ptr_to_adr(p)
+        # the GC should never see instances of _gctransformed_wref
+        result = self.unwrap_possible_weakref(result)
+        return result
     def __setitem__(self, index, newvalue):
         if index != 0:
             raise IndexError("address of local vars only support [0] indexing")
-        p = llmemory.cast_adr_to_ptr(newvalue, self.v.concretetype)
+        if self.v.concretetype == llmemory.WeakRefPtr:
+            # fish some more
+            assert isinstance(newvalue, llmemory.fakeaddress)
+            p = llmemory.cast_ptr_to_weakrefptr(newvalue.ptr)
+        else:
+            p = llmemory.cast_adr_to_ptr(newvalue, self.v.concretetype)
         self.frame.setvar(self.v, p)
+    def unwrap_possible_weakref(self, addr):
+        # fish fish fish
+        if isinstance(addr.ptr._obj, llmemory._gctransformed_wref):
+            return llmemory.fakeaddress(addr.ptr._obj._ptr)
+        return addr
+
 
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
