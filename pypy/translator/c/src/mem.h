@@ -2,6 +2,13 @@
 /************************************************************/
  /***  C header subsection: operations on LowLevelTypes    ***/
 
+/* alignment for arena-based garbage collectors: the following line
+   enforces an alignment of sizeof(double). */
+#define MEMORY_ALIGNMENT		sizeof(double)
+#define ROUND_UP_FOR_ALLOCATION(x)	\
+		(((x) + (MEMORY_ALIGNMENT-1)) & ~(MEMORY_ALIGNMENT-1))
+
+
 #define RAW_MALLOC_ZERO_FILLED 0
 
 #if RAW_MALLOC_ZERO_FILLED

@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.llmemory import Address, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
      CompositeOffset, ArrayLengthOffset, \
      GCHeaderOffset
+from pypy.rpython.lltypesystem.llarena import RoundedUpForAllocation
 from pypy.translator.c.support import cdecl, barebonearray
 
 # ____________________________________________________________
@@ -48,6 +49,9 @@ def name_signed(value, db):
             return '0'
         elif type(value) == GCHeaderOffset:
             return '0'
+        elif type(value) == RoundedUpForAllocation:
+            return 'ROUND_UP_FOR_ALLOCATION(%s)' % (
+                name_signed(value.basesize, db))
         elif isinstance(value, CDefinedIntSymbolic):
             return str(value.expr)
         elif isinstance(value, ComputedIntSymbolic):

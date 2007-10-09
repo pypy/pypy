@@ -73,6 +73,8 @@ class Arena(object):
         Arena.object_arena_location[addr2.ptr._obj] = self, offset
         # common case: 'size' starts with a GCHeaderOffset.  In this case
         # we can also remember that the real object starts after the header.
+        while isinstance(size, RoundedUpForAllocation):
+            size = size.basesize
         if (isinstance(size, llmemory.CompositeOffset) and
             isinstance(size.offsets[0], llmemory.GCHeaderOffset)):
             objaddr = addr2 + size.offsets[0]
@@ -167,6 +169,27 @@ class fakearenaaddress(llmemory.fakeaddress):
     def _cast_to_int(self):
         return self.arena._getid() + self.offset
 
+
+class RoundedUpForAllocation(llmemory.AddressOffset):
+    """A size that is rounded up in order to preserve alignment of objects
+    following it.  For arenas containing heterogenous objects.
+    """
+    def __init__(self, basesize):
+        assert isinstance(basesize, llmemory.AddressOffset)
+        self.basesize = basesize
+
+    def __repr__(self):
+        return '< RoundedUpForAllocation %r >' % (self.basesize,)
+
+    def ref(self, ptr):
+        return self.basesize.ref(ptr)
+
+    def _raw_malloc(self, rest, zero):
+        return self.basesize._raw_malloc(rest, zero=zero)
+
+    def raw_memcopy(self, srcadr, dstadr):
+        self.basesize.raw_memcopy(srcadr, dstadr)
+
 # ____________________________________________________________
 #
 # Public interface: arena_malloc(), arena_free(), arena_reset()
@@ -201,6 +224,11 @@ def arena_reserve(addr, size):
     assert isinstance(addr, fakearenaaddress)
     addr.arena.allocate_object(addr.offset, size)
 
+def round_up_for_allocation(size):
+    """Round up the size in order to preserve alignment of objects
+    following an object.  For arenas containing heterogenous objects."""
+    return RoundedUpForAllocation(size)
+
 # ____________________________________________________________
 #
 # Translation support: the functions above turn into the code below.
@@ -210,12 +238,14 @@ def arena_reserve(addr, size):
 import os, sys
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.extfunc import register_external
+from pypy.rlib.objectmodel import debug_assert, CDefinedIntSymbolic
 
 if os.name == 'posix':
     READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises
     os_read = rffi.llexternal('read',
                               [rffi.INT, llmemory.Address, rffi.SIZE_T],
-                              rffi.SIZE_T)
+                              rffi.SIZE_T,
+                              sandboxsafe=True)
 
     def clear_large_memory_chunk(baseaddr, size):
         # on Linux at least, reading from /dev/zero is the fastest way
@@ -276,4 +306,13 @@ register_external(arena_reserve, [llmemory.Address, int], None,
                   'll_arena.arena_reserve',
                   llimpl=llimpl_arena_reserve,
                   llfakeimpl=arena_reserve,
+                  sandboxsafe=True)
+
+llimpl_round_up_for_allocation = rffi.llexternal('ROUND_UP_FOR_ALLOCATION',
+                                                 [rffi.INT], rffi.INT,
+                                                 sandboxsafe=True)
+register_external(round_up_for_allocation, [int], int,
+                  'll_arena.round_up_for_allocation',
+                  llimpl=llimpl_round_up_for_allocation,
+                  llfakeimpl=round_up_for_allocation,
                   sandboxsafe=True)

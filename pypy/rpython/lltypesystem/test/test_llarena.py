@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr
 from pypy.rpython.lltypesystem.llarena import arena_malloc, arena_reset
 from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
+from pypy.rpython.lltypesystem.llarena import round_up_for_allocation
 from pypy.rpython.lltypesystem.llarena import ArenaError
 
 def test_arena():
@@ -107,19 +108,20 @@ def test_address_order():
 
 
 SX = lltype.Struct('S', ('x',lltype.Signed))
+precomputed_size = round_up_for_allocation(llmemory.sizeof(SX))
 
 def test_look_inside_object():
     SPTR = lltype.Ptr(SX)
     myarenasize = 50
     a = arena_malloc(myarenasize, False)
     b = a + 4
-    arena_reserve(b, llmemory.sizeof(SX))
+    arena_reserve(b, precomputed_size)
     (b + llmemory.offsetof(SX, 'x')).signed[0] = 123
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 123
     llmemory.cast_adr_to_ptr(b, SPTR).x += 1
     assert (b + llmemory.offsetof(SX, 'x')).signed[0] == 124
     arena_reset(a, myarenasize, True)
-    arena_reserve(b, llmemory.sizeof(SX))
+    arena_reserve(b, round_up_for_allocation(llmemory.sizeof(SX)))
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
     arena_free(a)
     return 42

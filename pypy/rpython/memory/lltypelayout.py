@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 
 import struct
 
@@ -106,5 +106,8 @@ def convert_offset_to_int(offset):
         return sizeof(offset.gcheaderbuilder.HDR)
     elif isinstance(offset, llmemory.ArrayLengthOffset):
         return 0
+    elif isinstance(offset, llarena.RoundedUpForAllocation):
+        basesize = convert_offset_to_int(offset.basesize)
+        return (basesize + 7) & ~ 7
     else:
         raise Exception("unknown offset type %r"%offset)
