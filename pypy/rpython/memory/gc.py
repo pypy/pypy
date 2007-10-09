@@ -1282,3 +1282,18 @@ class DeferredRefcountingGC(GCBase):
     def size_gc_header(self, typeid=0):
         XXX
 
+# ____________________________________________________________
+
+def choose_gc_from_config(config):
+    """Return a (GCClass, GC_PARAMS) from the given config object.
+    """
+    config.translation.gc = "framework"
+    if config.translation.frameworkgc == "marksweep":
+        GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
+        return MarkSweepGC, GC_PARAMS
+    elif config.translation.frameworkgc == "semispace":
+        GC_PARAMS = {'space_size': 32*1024*1024} # XXX fixed at 32MB
+        return SemiSpaceGC, GC_PARAMS
+    else:
+        raise ValueError("unknown value for frameworkgc: %r" % (
+            config.translation.frameworkgc,))

@@ -31,14 +31,12 @@ class FrameworkGCTransformer(GCTransformer):
     extra_static_slots = 0
     root_stack_depth = 163840
 
-    from pypy.rpython.memory.gc import MarkSweepGC as GCClass
-    GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
-
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
+        from pypy.rpython.memory.gc import choose_gc_from_config
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
-        GCClass = self.GCClass
+        GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
         self.FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
         class GCData(object):
             # types of the GC information tables
@@ -113,7 +111,7 @@ class FrameworkGCTransformer(GCTransformer):
         sizeofaddr = llmemory.sizeof(llmemory.Address)
 
         StackRootIterator = self.build_stack_root_iterator()
-        gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **self.GC_PARAMS)
+        gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **GC_PARAMS)
 
         def frameworkgc_setup():
             # run-time initialization code

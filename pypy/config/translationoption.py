@@ -53,7 +53,7 @@ translation_optiondescription = OptionDescription(
                          ("translation.stackless", True)]),
     ChoiceOption("frameworkgc", "Select one of our custom GCs",
                  ["marksweep", "semispace"],
-                 "marksweep", requires={
+                 "marksweep", cmdline="--frameworkgc", requires={
                     "marksweep": [("translation.gc", "framework")],
                     "semispace": [("translation.gc", "framework")],
                  }),
