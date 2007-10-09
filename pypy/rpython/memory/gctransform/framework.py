@@ -36,7 +36,15 @@ class FrameworkGCTransformer(GCTransformer):
         from pypy.rpython.memory.gc import choose_gc_from_config
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
-        GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
+        if hasattr(self, 'GC_PARAMS'):
+            # for tests: the GC choice can be specified as class attributes
+            from pypy.rpython.memory.gc import MarkSweepGC
+            GCClass = getattr(self, 'GCClass', MarkSweepGC)
+            GC_PARAMS = self.GC_PARAMS
+        else:
+            # for regular translation: pick the GC from the config
+            GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
+
         self.FINALIZERTYPE = lltype.Ptr(ADDRESS_VOID_FUNC)
         class GCData(object):
             # types of the GC information tables
