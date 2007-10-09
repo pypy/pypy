@@ -949,25 +949,21 @@ class SemiSpaceGC(GCBase):
 
     def __init__(self, AddressLinkedList, space_size=4096,
                  get_roots=None):
-        self.bytes_malloced = 0
         self.space_size = space_size
-        self.tospace = NULL
-        self.top_of_space = NULL
-        self.fromspace = NULL
-        self.free = NULL
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
         self.AddressLinkedList = AddressLinkedList
-        self.objects_with_finalizers = AddressLinkedList()
-        self.run_finalizers = AddressLinkedList()
 
     def setup(self):
+        self.bytes_malloced = 0
         self.tospace = llarena.arena_malloc(self.space_size, True)
         debug_assert(bool(self.tospace), "couldn't allocate tospace")
         self.top_of_space = self.tospace + self.space_size
         self.fromspace = llarena.arena_malloc(self.space_size, True)
         debug_assert(bool(self.fromspace), "couldn't allocate fromspace")
         self.free = self.tospace
+        self.objects_with_finalizers = self.AddressLinkedList()
+        self.run_finalizers = self.AddressLinkedList()
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
