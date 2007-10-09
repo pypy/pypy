@@ -131,8 +131,6 @@ class TestMarkSweepGC(GCTest):
 
 class TestSemiSpaceGC(GCTest):
     from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
-    def test_finalizer(self):
-        py.test.skip("implement me")
 
 class TestDeferredRefcountingGC(GCTest):
     from pypy.rpython.memory.gc import DeferredRefcountingGC as GCClass

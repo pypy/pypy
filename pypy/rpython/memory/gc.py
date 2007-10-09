@@ -957,6 +957,9 @@ class SemiSpaceGC(GCBase):
         self.free = NULL
         self.get_roots = get_roots
         self.gcheaderbuilder = GCHeaderBuilder(self.HDR)
+        self.AddressLinkedList = AddressLinkedList
+        self.objects_with_finalizers = AddressLinkedList()
+        self.run_finalizers = AddressLinkedList()
 
     def setup(self):
         self.tospace = llarena.arena_malloc(self.space_size, True)
@@ -968,8 +971,6 @@ class SemiSpaceGC(GCBase):
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
-        if has_finalizer:
-            raise NotImplementedError("finalizers in SemiSpaceGC")
         if contains_weakptr:
             raise NotImplementedError("weakptr in SemiSpaceGC")
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -986,6 +987,8 @@ class SemiSpaceGC(GCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         self.free += totalsize
+        if has_finalizer:
+            self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
@@ -1012,6 +1015,8 @@ class SemiSpaceGC(GCBase):
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
         self.free += totalsize
+        if has_finalizer:
+            self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     # for now, the spaces are filled with zeroes in advance
@@ -1031,14 +1036,31 @@ class SemiSpaceGC(GCBase):
             root = roots.pop()
             if root == NULL:
                 break
-##             print "root", root, root.address[0]
             root.address[0] = self.copy(root.address[0])
         free_non_gc_object(roots)
+        scan = self.scan_copied(scan)
+        # walk over list of objects with finalizers
+        # if it is not copied, add it to the list of to-be-called finalizers
+        # and copy it, to me make the finalizer runnable
+        new_with_finalizer = self.AddressLinkedList()
+        while self.objects_with_finalizers.non_empty():
+            obj = self.objects_with_finalizers.pop()
+            if self.is_forwarded(obj):
+                new_with_finalizer.append(self.get_forwarding_address(obj))
+            else:
+                self.run_finalizers.append(self.copy(obj))
+        scan = self.scan_copied(scan)
+        self.objects_with_finalizers.delete()
+        self.objects_with_finalizers = new_with_finalizer
+        llarena.arena_reset(fromspace, self.space_size, True)
+        self.execute_finalizers()
+
+    def scan_copied(self, scan):
         while scan < self.free:
             curr = scan + self.size_gc_header()
             self.trace_and_copy(curr)
             scan += self.get_size(curr) + self.size_gc_header()
-        llarena.arena_reset(fromspace, self.space_size, True)
+        return scan
 
     def copy(self, obj):
         if not self.fromspace <= obj < self.fromspace + self.space_size:
@@ -1124,6 +1146,13 @@ class SemiSpaceGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.forw = NULL
         hdr.typeid = typeid
+
+    def execute_finalizers(self):
+        while self.run_finalizers.non_empty():
+            obj = self.run_finalizers.pop()
+            hdr = self.header(obj)
+            finalizer = self.getfinalizer(hdr.typeid)
+            finalizer(obj)
 
 class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
