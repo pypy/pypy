@@ -4,6 +4,9 @@ import sys
 #from pypy.rpython.memory.support import INT_SIZE
 from pypy.rpython.memory import gcwrapper
 from pypy.rpython.test.test_llinterp import get_interpreter
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rlib.objectmodel import we_are_translated
 
 
 def stdout_ignore_ll_functions(msg):
@@ -81,6 +84,24 @@ class GCTest(object):
         res = self.interpret(concat, [100])
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
+
+
+    def test_collect(self):
+        #curr = simulator.current_size
+        def concat(j):
+            lst = []
+            for i in range(j):
+                lst.append(str(i))
+            result = len("".join(lst))
+            if we_are_translated():
+                # can't call llop.gc__collect directly
+                llop.gc__collect(lltype.Void)
+            return result
+        res = self.interpret(concat, [100])
+        assert res == concat(100)
+        #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
+
+
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc import MarkSweepGC as GCClass

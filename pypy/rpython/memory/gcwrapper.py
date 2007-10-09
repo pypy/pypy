@@ -61,6 +61,11 @@ class GCManagedHeap(object):
         # XXX use write_barrier - but we need the address of the GcStruct
         array[index] = newitem
 
+    # XXX do we need a barrier for setinteriorfield too?
+
+    def collect(self):
+        self.gc.collect()
+
     # ____________________________________________________________
 
 
