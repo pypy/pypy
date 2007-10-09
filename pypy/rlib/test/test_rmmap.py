@@ -2,6 +2,7 @@ from pypy.tool.udir import udir
 import os
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib import rmmap as mmap
+from pypy.rlib.rmmap import RTypeError, RValueError, REnvironmentError
 import sys
 
 class TestMMap:
@@ -30,23 +31,6 @@ class TestMMap:
                 assert isinstance(mmap.PROT_WRITE, int)
 
         interpret(f, [])
-            
-    def test_args(self):
-        from pypy.rlib import rmmap
-        mmap = rmmap.mmap
-        if os.name == "posix":
-            raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
-            raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
-            raises(TypeError, mmap, 0, 1, foo="foo")
-            raises(TypeError, mmap, 0, -1)
-            raises(OverflowError, mmap, 0, sys.maxint ** 3)
-            raises(ValueError, mmap, 0, 1, flags=2, access=3)
-            raises(ValueError, mmap, 0, 1, access=123)
-        elif os.name == "nt":
-            raises(TypeError, mmap, 0, 1, 2, 3, 4)
-            raises(TypeError, mmap, 0, 1, tagname=123)
-            raises(TypeError, mmap, 0, 1, access="foo")
-            raises(ValueError, mmap, 0, 1, access=-1)
 
     def test_file_size(self):
         def func(no):
@@ -55,7 +39,7 @@ class TestMMap:
 
             try:
                 mmap.mmap(no, 123)
-            except ValueError:
+            except RValueError:
                 pass
             else:
                 raise Exception("didn't raise")
@@ -93,7 +77,7 @@ class TestMMap:
             m.close()
             try:
                 m.read(1)
-            except ValueError:
+            except RValueError:
                 pass
             else:
                 raise Exception("Did not raise")
@@ -110,7 +94,7 @@ class TestMMap:
             assert m.read_byte() == "c"
             try:
                 m.read_byte()
-            except ValueError:
+            except RValueError:
                 pass
             else:
                 raise Exception("Did not raise")
@@ -182,13 +166,13 @@ class TestMMap:
             m = mmap.mmap(no, 6, access=mmap.ACCESS_READ)
             try:
                 m.write('x')
-            except TypeError:
+            except RTypeError:
                 pass
             else:
                 assert False
             try:
                 m.resize(7)
-            except TypeError:
+            except RTypeError:
                 pass
             else:
                 assert False

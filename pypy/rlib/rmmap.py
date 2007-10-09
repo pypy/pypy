@@ -12,6 +12,17 @@ _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
 
+class RValueError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+class REnvironmentError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+class RTypeError(Exception):
+    def __init__(self, message):
+        self.message = message    
 
 class CConfig:
     _includes_ = ("sys/types.h",'unistd.h')
@@ -172,7 +183,7 @@ elif _MS_WINDOWS:
         NO_ERROR = 0
         dwErr = GetLastError()
         if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
-            raise EnvironmentError(os.strerror(dwErr))
+            raise REnvironmentError(os.strerror(dwErr))
         return low.value, high.value
 
     def _get_error_msg():
@@ -205,15 +216,15 @@ class MMap(object):
             to_close = self.closed
 
         if to_close:
-            raise ValueError("map closed or invalid")
+            raise RValueError("map closed or invalid")
     
     def check_writeable(self):
         if not (self.access != ACCESS_READ):
-            raise TypeError("mmap can't modify a readonly memory map.")
+            raise RTypeError("mmap can't modify a readonly memory map.")
     
     def check_resizeable(self):
         if not (self.access == ACCESS_WRITE or self.access == _ACCESS_DEFAULT):
-            raise TypeError("mmap can't resize a readonly or copy-on-write memory map.")
+            raise RTypeError("mmap can't resize a readonly or copy-on-write memory map.")
 
     def setdata(self, data, size):
         """Set the internal data and map size from a PTR."""
@@ -252,7 +263,7 @@ class MMap(object):
             self.pos += 1
             return value
         else:
-            raise ValueError("read byte out of range")
+            raise RValueError("read byte out of range")
     
     def readline(self):
         self.check_valid()
@@ -318,10 +329,10 @@ class MMap(object):
         elif how == 2: # relative to the end
             where = self.size + dist
         else:
-            raise ValueError("unknown seek type")
+            raise RValueError("unknown seek type")
 
         if not (0 <= where <= self.size):
-            raise ValueError("seek out of range")
+            raise RValueError("seek out of range")
         
         self.pos = where
     
@@ -354,7 +365,7 @@ class MMap(object):
         
         data_len = len(data)
         if self.pos + data_len > self.size:
-            raise ValueError("data out of range")
+            raise RValueError("data out of range")
 
         internaldata = self.data
         start = self.pos
@@ -366,7 +377,7 @@ class MMap(object):
         self.check_valid()
         
         if len(byte) != 1:
-            raise TypeError("write_byte() argument must be char")
+            raise RTypeError("write_byte() argument must be char")
         
         self.check_writeable()
         self.data[self.pos] = byte[0]
@@ -381,7 +392,7 @@ class MMap(object):
         if size == 0:
             size = self.size
         if offset < 0 or size < 0 or offset + size > self.size:
-            raise ValueError("flush values out of range")
+            raise RValueError("flush values out of range")
         else:
             start = self.getptr(offset)
             if _MS_WINDOWS:
@@ -400,7 +411,7 @@ class MMap(object):
 ##                    new_size = size + value & (PAGESIZE - 1)
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
-                    raise EnvironmentError(_get_error_msg())
+                    raise REnvironmentError(_get_error_msg())
         
         return 0
     
@@ -412,7 +423,7 @@ class MMap(object):
         # check boundings
         if (src < 0 or dest < 0 or count < 0 or
             src + count > self.size or dest + count > self.size):
-            raise ValueError("source or destination out of range")
+            raise RValueError("source or destination out of range")
 
         datasrc = self.getptr(src)
         datadest = self.getptr(dest)
@@ -426,13 +437,13 @@ class MMap(object):
         if _POSIX:
             if not has_mremap:
                 msg = "mmap: resizing not available -- no mremap()"
-                raise EnvironmentError(msg)
+                raise REnvironmentError(msg)
             
             # resize the underlying file first
             try:
                 os.ftruncate(self.fd, newsize)
             except OSError, e:
-                raise EnvironmentError(os.strerror(e.errno))
+                raise REnvironmentError(os.strerror(e.errno))
                 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,
@@ -473,7 +484,7 @@ class MMap(object):
             else:
                 dwErrCode = GetLastError()
 
-            raise EnvironmentError(os.strerror(dwErrCode))
+            raise REnvironmentError(os.strerror(dwErrCode))
     
     def len(self):
         self.check_valid()
@@ -492,7 +503,7 @@ class MMap(object):
         self.check_writeable()
 
         if len(value) != 1:
-            raise ValueError("mmap assignment must be "
+            raise RValueError("mmap assignment must be "
                              "single-character string")
         if index < 0:
             index += self.size
@@ -500,7 +511,7 @@ class MMap(object):
 
 def _check_map_size(size):
     if size < 0:
-        raise TypeError("memory mapped size must be positive")
+        raise RTypeError("memory mapped size must be positive")
     if rffi.cast(size_t, size) != size:
         raise OverflowError("memory mapped size is too large (limited by C int)")
 
@@ -517,7 +528,7 @@ if _POSIX:
         # check access is not there when flags and prot are there
         if access != _ACCESS_DEFAULT and ((flags != MAP_SHARED) or\
                                           (prot != (PROT_WRITE | PROT_READ))):
-            raise ValueError("mmap can't specify both access and flags, prot.")
+            raise RValueError("mmap can't specify both access and flags, prot.")
 
         if access == ACCESS_READ:
             flags = MAP_SHARED
@@ -531,7 +542,7 @@ if _POSIX:
         elif access == _ACCESS_DEFAULT:
             pass
         else:
-            raise ValueError("mmap invalid access parameter.")
+            raise RValueError("mmap invalid access parameter.")
 
         # check file size
         try:
@@ -549,7 +560,7 @@ if _POSIX:
                 if map_size == 0:
                     map_size = size
                 elif map_size > size:
-                    raise ValueError("mmap length is greater than file size")
+                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access)
         if fd == -1:
@@ -564,11 +575,11 @@ if _POSIX:
             try:
                 m.fd = os.dup(fd)
             except OSError, e:
-                raise EnvironmentError(os.strerror(e.errno))
+                raise REnvironmentError(os.strerror(e.errno))
 
         res = c_mmap(NULL, map_size, prot, flags, fd, 0)
         if res == rffi.cast(PTR, -1):
-            raise EnvironmentError(_get_error_msg())
+            raise REnvironmentError(_get_error_msg())
         
         m.setdata(res, map_size)
         return m
@@ -592,14 +603,14 @@ elif _MS_WINDOWS:
             flProtect = PAGE_WRITECOPY
             dwDesiredAccess = FILE_MAP_COPY
         else:
-            raise ValueError("mmap invalid access parameter.")
+            raise RValueError("mmap invalid access parameter.")
         
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
             fh = msvcr71._get_osfhandle(fileno)
             if fh == -1:
-                raise EnvironmentError(_get_error_msg())
+                raise REnvironmentError(_get_error_msg())
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
@@ -620,7 +631,7 @@ elif _MS_WINDOWS:
                                   False, # inherited by child procs?
                                   DUPLICATE_SAME_ACCESS) # options
             if not res:
-                raise EnvironmentError(_get_error_msg())
+                raise REnvironmentError(_get_error_msg())
         
             if not map_size:
                 low, high = _get_file_size(rffi.INT(fh))
@@ -658,7 +669,7 @@ elif _MS_WINDOWS:
         else:
             dwErr = GetLastError()
 
-        raise EnvironmentError(os.strerror(dwErr))
+        raise REnvironmentError(os.strerror(dwErr))
 
         
 # register_external here?
