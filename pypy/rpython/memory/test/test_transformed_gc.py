@@ -89,8 +89,11 @@ class TestMarkSweepGC(GCTest):
     gcname = "framework"
 
     def heap_usage(self, statistics):
-        return statistics(
-            self.gcpolicy.transformerclass.GCClass.STAT_HEAP_USAGE)
+        if hasattr(self.gcpolicy.transformerclass.GCClass, 'STAT_HEAP_USAGE'):
+            return statistics(
+                self.gcpolicy.transformerclass.GCClass.STAT_HEAP_USAGE)
+        else:
+            return -1     # xxx
 
     def test_llinterp_lists(self):
         def malloc_a_lot():

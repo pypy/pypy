@@ -1152,6 +1152,9 @@ class SemiSpaceGC(GCBase):
             finalizer = self.getfinalizer(hdr.typeid)
             finalizer(obj)
 
+    STATISTICS_NUMBERS = 0
+
+
 class DeferredRefcountingGC(GCBase):
     _alloc_flavor_ = "raw"
 
