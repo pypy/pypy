@@ -191,6 +191,8 @@ class ExtFuncEntry(ExtRegistryEntry):
                 '_name': self.name,
                 '_safe_not_sandboxed': self.safe_not_sandboxed,
                 }
+            if hasattr(self, fake_method_name):
+                impl._llfnobjattrs_['_fakeimpl'] = fakeimpl
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
         else:

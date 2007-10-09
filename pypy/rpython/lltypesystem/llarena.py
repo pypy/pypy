@@ -169,11 +169,10 @@ class fakearenaaddress(llmemory.fakeaddress):
 
 # ____________________________________________________________
 #
-# Public interface: arena_malloc(), arena_free() and arena_reset()
-# which directly correspond to lloperations.  Although the operations
-# are similar to raw_malloc(), raw_free() and raw_memclear(), the
-# backend can choose a different implementation for arenas, one that
-# is more suited to very large chunks of memory.
+# Public interface: arena_malloc(), arena_free(), arena_reset()
+# are similar to raw_malloc(), raw_free() and raw_memclear(), but
+# work with fakearenaaddresses on which arbitrary arithmetic is
+# possible even on top of the llinterpreter.
 
 def arena_malloc(nbytes, zero):
     """Allocate and return a new arena, optionally zero-initialized."""
@@ -201,3 +200,80 @@ def arena_reserve(addr, size):
     this is used to know what type of lltype object to allocate."""
     assert isinstance(addr, fakearenaaddress)
     addr.arena.allocate_object(addr.offset, size)
+
+# ____________________________________________________________
+#
+# Translation support: the functions above turn into the code below.
+# We can tweak these implementations to be more suited to very large
+# chunks of memory.
+
+import os, sys
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.extfunc import register_external
+
+if os.name == 'posix':
+    READ_MAX = (sys.maxint//4) + 1    # upper bound on reads to avoid surprises
+    os_read = rffi.llexternal('read',
+                              [rffi.INT, llmemory.Address, rffi.SIZE_T],
+                              rffi.SIZE_T)
+
+    def clear_large_memory_chunk(baseaddr, size):
+        # on Linux at least, reading from /dev/zero is the fastest way
+        # to clear arenas, because the kernel knows that it doesn't
+        # need to even allocate the pages before they are used
+        try:
+            fd = os.open('/dev/zero', os.O_RDONLY, 0644)
+        except OSError:
+            pass
+        else:
+            while size > 0:
+                count = os_read(fd, baseaddr, min(READ_MAX, size))
+                count = rffi.cast(lltype.Signed, count)
+                if count < 0:
+                    break
+                size -= count
+                baseaddr += count
+            os.close(fd)
+
+        if size > 0:     # reading from /dev/zero failed, fallback
+            llmemory.raw_memclear(baseaddr, size)
+
+else:
+    # XXX any better implementation on Windows?
+    clear_large_memory_chunk = llmemory.raw_memclear
+
+
+def llimpl_arena_malloc(nbytes, zero):
+    addr = llmemory.raw_malloc(nbytes)
+    if zero:
+        clear_large_memory_chunk(addr, nbytes)
+    return addr
+register_external(arena_malloc, [int, bool], llmemory.Address,
+                  'll_arena.arena_malloc',
+                  llimpl=llimpl_arena_malloc,
+                  llfakeimpl=arena_malloc,
+                  sandboxsafe=True)
+
+def llimpl_arena_free(arena_addr):
+    llmemory.raw_free(arena_addr)
+register_external(arena_free, [llmemory.Address], None, 'll_arena.arena_free',
+                  llimpl=llimpl_arena_free,
+                  llfakeimpl=arena_free,
+                  sandboxsafe=True)
+
+def llimpl_arena_reset(arena_addr, myarenasize, zero):
+    if zero:
+        clear_large_memory_chunk(arena_addr, myarenasize)
+register_external(arena_reset, [llmemory.Address, int, bool], None,
+                  'll_arena.arena_reset',
+                  llimpl=llimpl_arena_reset,
+                  llfakeimpl=arena_reset,
+                  sandboxsafe=True)
+
+def llimpl_arena_reserve(addr, size):
+    pass
+register_external(arena_reserve, [llmemory.Address, int], None,
+                  'll_arena.arena_reserve',
+                  llimpl=llimpl_arena_reserve,
+                  llfakeimpl=arena_reserve,
+                  sandboxsafe=True)

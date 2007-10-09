@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.llmemory import cast_adr_to_ptr
 from pypy.rpython.lltypesystem.llarena import arena_malloc, arena_reset
-from pypy.rpython.lltypesystem.llarena import arena_reserve
+from pypy.rpython.lltypesystem.llarena import arena_reserve, arena_free
 from pypy.rpython.lltypesystem.llarena import ArenaError
 
 def test_arena():
@@ -106,13 +106,32 @@ def test_address_order():
     assert lt(a, b+19)
 
 
+SX = lltype.Struct('S', ('x',lltype.Signed))
+
 def test_look_inside_object():
-    S = lltype.Struct('S', ('x',lltype.Signed))
-    SPTR = lltype.Ptr(S)
-    a = arena_malloc(50, False)
+    SPTR = lltype.Ptr(SX)
+    myarenasize = 50
+    a = arena_malloc(myarenasize, False)
     b = a + 4
-    arena_reserve(b, llmemory.sizeof(S))
-    (b + llmemory.offsetof(S, 'x')).signed[0] = 123
+    arena_reserve(b, llmemory.sizeof(SX))
+    (b + llmemory.offsetof(SX, 'x')).signed[0] = 123
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 123
     llmemory.cast_adr_to_ptr(b, SPTR).x += 1
-    assert (b + llmemory.offsetof(S, 'x')).signed[0] == 124
+    assert (b + llmemory.offsetof(SX, 'x')).signed[0] == 124
+    arena_reset(a, myarenasize, True)
+    arena_reserve(b, llmemory.sizeof(SX))
+    assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
+    arena_free(a)
+    return 42
+
+
+def test_llinterpreted():
+    from pypy.rpython.test.test_llinterp import interpret
+    res = interpret(test_look_inside_object, [])
+    assert res == 42
+
+def test_compiled():
+    from pypy.translator.c.test.test_genc import compile
+    fn = compile(test_look_inside_object, [])
+    res = fn()
+    assert res == 42
