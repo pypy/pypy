@@ -19,6 +19,7 @@ X_CLONE_PTR = lltype.Ptr(X_CLONE)
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
+    moving_gc = False
 
     def set_query_functions(self, is_varsize, getfinalizer,
                             offsets_to_gc_pointers,
@@ -943,6 +944,7 @@ class MarkSweepGC(GCBase):
 
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
+    moving_gc = True
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('typeid', lltype.Signed))

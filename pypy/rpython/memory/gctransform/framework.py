@@ -168,33 +168,26 @@ class FrameworkGCTransformer(GCTransformer):
         self.frameworkgc_setup_ptr = getfn(frameworkgc_setup, [],
                                            annmodel.s_None)
         if StackRootIterator.need_root_stack:
-            self.pop_root_ptr = getfn(StackRootIterator.pop_root, [],
-                                      annmodel.s_None,
-                                      inline = True)
-            self.push_root_ptr = getfn(StackRootIterator.push_root,
-                                       [annmodel.SomeAddress()],
-                                       annmodel.s_None,
-                                       inline = True)
+            #self.pop_root_ptr = getfn(StackRootIterator.pop_root, [],
+            #                          annmodel.SomeAddress(),
+            #                          inline = True)
+            #self.push_root_ptr = getfn(StackRootIterator.push_root,
+            #                           [annmodel.SomeAddress()],
+            #                           annmodel.s_None,
+            #                           inline = True)
             self.incr_stack_ptr = getfn(StackRootIterator.incr_stack,
                                        [annmodel.SomeInteger()],
                                        annmodel.SomeAddress(),
                                        inline = True)
             self.decr_stack_ptr = getfn(StackRootIterator.decr_stack,
                                        [annmodel.SomeInteger()],
-                                       annmodel.s_None,
-                                       inline = True)
-            self.save_addr_ptr = getfn(StackRootIterator.save_addr,
-                                       [annmodel.SomeAddress(),
-                                        annmodel.SomeInteger(),
-                                        annmodel.SomeAddress()],
-                                       annmodel.s_None,
+                                       annmodel.SomeAddress(),
                                        inline = True)
         else:
-            self.push_root_ptr = None
-            self.pop_root_ptr = None
+            #self.push_root_ptr = None
+            #self.pop_root_ptr = None
             self.incr_stack_ptr = None
             self.decr_stack_ptr = None
-            self.save_addr_ptr = None
         self.weakref_deref_ptr = self.inittime_helper(
             ll_weakref_deref, [llmemory.WeakRefPtr], llmemory.Address)
         
@@ -292,12 +285,10 @@ class FrameworkGCTransformer(GCTransformer):
                 return top
             incr_stack = staticmethod(incr_stack)
             
-            def save_addr(top, k, addr):
-                top.address[k] = addr
-            save_addr = staticmethod(save_addr)
-            
             def decr_stack(n):
-                gcdata.root_stack_top -= n*sizeofaddr
+                top = gcdata.root_stack_top - n*sizeofaddr
+                gcdata.root_stack_top = top
+                return top
             decr_stack = staticmethod(decr_stack)
                 
             def push_root(addr):
@@ -307,7 +298,9 @@ class FrameworkGCTransformer(GCTransformer):
             push_root = staticmethod(push_root)
 
             def pop_root():
-                gcdata.root_stack_top -= sizeofaddr
+                top = gcdata.root_stack_top - sizeofaddr
+                gcdata.root_stack_top = top
+                return top.address[0]
             pop_root = staticmethod(pop_root)
 
             def __init__(self):
@@ -532,27 +525,43 @@ class FrameworkGCTransformer(GCTransformer):
         pass
 
     def push_roots(self, hop):
-        if self.push_root_ptr is None:
+        if self.incr_stack_ptr is None:
             return
         livevars = [var for var in self.livevars if not var_ispyobj(var)]
+        if not livevars:
+            return
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
         base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
                               resulttype=llmemory.Address)
+        c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
         for k,var in enumerate(livevars):
             c_k = rmodel.inputconst(lltype.Signed, k)
             v_adr = gen_cast(hop.llops, llmemory.Address, var)
-            hop.genop("direct_call", [self.save_addr_ptr, base_addr, c_k, v_adr])
+            hop.genop("raw_store", [base_addr, c_type, c_k, v_adr])
 
     def pop_roots(self, hop):
-        if self.pop_root_ptr is None:
+        if self.decr_stack_ptr is None:
             return
         livevars = [var for var in self.livevars if not var_ispyobj(var)]
+        if not livevars:
+            return
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
-        hop.genop("direct_call", [self.decr_stack_ptr, c_len ] )        
-##         for var in livevars[::-1]:
-##             # XXX specific to non-moving collectors
-##             hop.genop("direct_call", [self.pop_root_ptr])
-##             #hop.genop("gc_reload_possibly_moved", [var])
+        base_addr = hop.genop("direct_call", [self.decr_stack_ptr, c_len ],
+                              resulttype=llmemory.Address)
+        if self.gcdata.gc.moving_gc:
+            # for moving collectors, reload the roots into the local variables
+            c_type = rmodel.inputconst(lltype.Void, llmemory.Address)
+            for k,var in enumerate(livevars):
+                c_k = rmodel.inputconst(lltype.Signed, k)
+                v_newaddr = hop.genop("raw_load", [base_addr, c_type, c_k],
+                                      resulttype=llmemory.Address)
+                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
+
+    def compute_borrowed_vars(self, graph):
+        # XXX temporary workaround, should be done more correctly
+        if self.gcdata.gc.moving_gc:
+            return lambda v: False
+        return super(FrameworkGCTransformer, self).compute_borrowed_vars(graph)
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):

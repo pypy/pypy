@@ -764,8 +764,14 @@ class LLFrame(object):
     def op_gc_unprotect(self, obj):
         raise NotImplementedError("gc_unprotect")
 
-    def op_gc_reload_possibly_moved(self, newaddr, ptr):
-        raise NotImplementedError("gc_reload_possibly_moved")
+    def op_gc_reload_possibly_moved(self, v_newaddr, v_ptr):
+        assert v_newaddr.concretetype is llmemory.Address
+        assert isinstance(v_ptr.concretetype, lltype.Ptr)
+        assert v_ptr.concretetype.TO._gckind == 'gc'
+        newaddr = self.getval(v_newaddr)
+        p = llmemory.cast_adr_to_ptr(newaddr, v_ptr.concretetype)
+        self.setvar(v_ptr, p)
+    op_gc_reload_possibly_moved.specialform = True
 
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
