@@ -627,5 +627,5 @@ class TestSemiSpaceGC(TestMarkSweepGC):
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
-            GC_PARAMS = {'space_size': llmemory.arena(lltype.Signed, 512)}
+            GC_PARAMS = {'space_size': 2048}
             root_stack_depth = 200
