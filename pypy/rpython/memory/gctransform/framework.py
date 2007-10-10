@@ -28,7 +28,6 @@ ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
 class FrameworkGCTransformer(GCTransformer):
     use_stackless = False
-    extra_static_slots = 0
     root_stack_depth = 163840
 
     def __init__(self, translator):
@@ -105,8 +104,6 @@ class FrameworkGCTransformer(GCTransformer):
         # set up dummy a table, to be overwritten with the real one in finish()
         gcdata.type_info_table = lltype.malloc(GCData.TYPE_INFO_TABLE, 0,
                                                immortal=True)
-        gcdata.static_roots = lltype.malloc(lltype.Array(llmemory.Address), 0,
-                                            immortal=True)
         # initialize the following two fields with a random non-NULL address,
         # to make the annotator happy.  The fields are patched in finish()
         # to point to a real array (not 'static_roots', another one).
@@ -271,10 +268,6 @@ class FrameworkGCTransformer(GCTransformer):
                 llmemory.raw_memclear(stackbase, rootstacksize)
                 gcdata.root_stack_top  = stackbase
                 gcdata.root_stack_base = stackbase
-                i = 0
-                while i < len(gcdata.static_roots):
-                    StackRootIterator.push_root(gcdata.static_roots[i])
-                    i += 1
             setup_root_stack = staticmethod(setup_root_stack)
 
             need_root_stack = True
@@ -359,29 +352,17 @@ class FrameworkGCTransformer(GCTransformer):
         ll_instance.inst_type_info_table = table
         #self.gcdata.type_info_table = table
 
-        static_gc_roots = self.layoutbuilder.static_gc_roots
-        ll_static_roots = lltype.malloc(lltype.Array(llmemory.Address),
-                                        len(static_gc_roots) +
-                                            self.extra_static_slots,
-                                        immortal=True)
-        for i in range(len(static_gc_roots)):
-            adr = static_gc_roots[i]
-            ll_static_roots[i] = adr
-        ll_instance.inst_static_roots = ll_static_roots
-
-        addresses_of_static_ptrs_in_nongc = \
-            self.layoutbuilder.addresses_of_static_ptrs_in_nongc
+        addresses_of_static_ptrs = self.layoutbuilder.addresses_of_static_ptrs
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
-                                               len(addresses_of_static_ptrs_in_nongc),
+                                               len(addresses_of_static_ptrs),
                                                immortal=True)
-        for i in range(len(addresses_of_static_ptrs_in_nongc)):
-            ll_static_roots_inside[i] = addresses_of_static_ptrs_in_nongc[i]
+        for i in range(len(addresses_of_static_ptrs)):
+            ll_static_roots_inside[i] = addresses_of_static_ptrs[i]
         ll_instance.inst_static_root_start = llmemory.cast_ptr_to_adr(ll_static_roots_inside) + llmemory.ArrayItemsOffset(lltype.Array(llmemory.Address))
         ll_instance.inst_static_root_end = ll_instance.inst_static_root_start + llmemory.sizeof(llmemory.Address) * len(ll_static_roots_inside)
 
         newgcdependencies = []
         newgcdependencies.append(table)
-        newgcdependencies.append(ll_static_roots)
         newgcdependencies.append(ll_static_roots_inside)
         return newgcdependencies
 

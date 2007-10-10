@@ -5,7 +5,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
     use_stackless = True
-    extra_static_slots = 1     # for the stack_capture()'d frame
 
     def __init__(self, translator):
         FrameworkGCTransformer.__init__(self, translator)
@@ -41,6 +40,8 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
         from pypy.rlib.rstack import stack_capture
         sizeofaddr = llmemory.sizeof(llmemory.Address)
         gcdata = self.gcdata
+        captured_frame_holder = llmemory.raw_malloc(sizeofaddr)
+        captured_frame_holder.address[0] = llmemory.NULL
 
         class StackRootIterator:
             _alloc_flavor_ = 'raw'
@@ -52,11 +53,12 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
             need_root_stack = False
 
             def __init__(self):
+                # XXX what should be done with the stack_capture()d frames
+                # when we are finished?  what about moving GCs?
                 frame = llmemory.cast_ptr_to_adr(stack_capture())
                 self.static_current = gcdata.static_root_start
-                index = len(gcdata.static_roots)
-                self.static_roots_index = index
-                gcdata.static_roots[index-1] = frame
+                captured_frame_holder.address[0] = frame
+                self.finished = False
 
             def pop(self):
                 while self.static_current != gcdata.static_root_end:
@@ -64,13 +66,9 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
                     self.static_current += sizeofaddr
                     if result.address[0].address[0] != llmemory.NULL:
                         return result.address[0]
-                i = self.static_roots_index
-                if i > 0:
-                    i -= 1
-                    self.static_roots_index = i
-                    p = lltype.direct_arrayitems(gcdata.static_roots)
-                    p = lltype.direct_ptradd(p, i)
-                    return llmemory.cast_ptr_to_adr(p)
+                if not self.finished:
+                    self.finished = True
+                    return captured_frame_holder
                 return llmemory.NULL
 
         return StackRootIterator

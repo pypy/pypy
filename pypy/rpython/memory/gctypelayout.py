@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type
 
 
 class TypeLayoutBuilder(object):
@@ -11,8 +10,12 @@ class TypeLayoutBuilder(object):
         self.type_info_list = [dummy]   # don't use typeid 0, helps debugging
         self.id_of_type = {}      # {LLTYPE: type_id}
         self.seen_roots = {}
-        self.static_gc_roots = []
-        self.addresses_of_static_ptrs_in_nongc = []
+        # the following is a list of addresses of gc pointers living inside
+        # the prebuilt structures (independently on whether the prebuilt
+        # structures are themselves GcStruct or plain Struct).  It should
+        # list all the locations that could possibly point to a GC heap
+        # object.
+        self.addresses_of_static_ptrs = []
         self.finalizer_funcptrs = {}
 
     def get_type_id(self, TYPE):
@@ -143,13 +146,11 @@ class TypeLayoutBuilder(object):
             adr = llmemory.cast_ptr_to_adr(hdr)
             gc.init_gc_object_immortal(adr, typeid)
 
-        if find_gc_ptrs_in_type(TYPE):
-            adr = llmemory.cast_ptr_to_adr(value._as_ptr())
-            if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
-                self.static_gc_roots.append(adr)
-            else:
-                for a in gc_pointers_inside(value, adr):
-                    self.addresses_of_static_ptrs_in_nongc.append(a)
+        # XXX should skip the gc pointers inside immutable structures, because
+        # they cannot be dynamically modified to point to GC heap objects
+        adr = llmemory.cast_ptr_to_adr(value._as_ptr())
+        for a in gc_pointers_inside(value, adr):
+            self.addresses_of_static_ptrs.append(a)
 
 # ____________________________________________________________
 #
@@ -197,7 +198,7 @@ def gc_pointers_inside(v, adr):
                 for a in gc_pointers_inside(getattr(v, n), adr + llmemory.offsetof(t, n)):
                     yield a
     elif isinstance(t, lltype.Array):
-        if isinstance(t.OF, lltype.Ptr) and t2._needsgc():
+        if isinstance(t.OF, lltype.Ptr) and t.OF.TO._gckind == 'gc':
             for i in range(len(v.items)):
                 yield adr + llmemory.itemoffsetof(t, i)
         elif isinstance(t.OF, lltype.Struct):

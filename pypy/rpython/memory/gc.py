@@ -308,11 +308,6 @@ class MarkSweepGC(GCBase):
                 break
             # roots is a list of addresses to addresses:
             objects.append(curr.address[0])
-            # the last sweep did not clear the mark bit of static roots, 
-            # since they are not in the malloced_objects list
-            gc_info = curr.address[0] - size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-            hdr.typeid = hdr.typeid & (~1)
         free_non_gc_object(roots)
         # from this point onwards, no more mallocs should be possible
         old_malloced = self.bytes_malloced
@@ -575,7 +570,11 @@ class MarkSweepGC(GCBase):
     def init_gc_object(self, addr, typeid):
         hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
         hdr.typeid = typeid << 1
-    init_gc_object_immortal = init_gc_object
+
+    def init_gc_object_immortal(self, addr, typeid):
+        # prebuilt gc structures always have the mark bit set
+        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+        hdr.typeid = (typeid << 1) | 1
 
     # experimental support for thread cloning
     def x_swap_pool(self, newpool):
@@ -1086,7 +1085,7 @@ class SemiSpaceGC(GCBase):
         # to by the gc transformer, and the default argument would crash
 
     def semispace_collect(self, size_changing=False):
-##         print "collecting"
+        #llop.debug_print(lltype.Void, 'semispace_collect', int(size_changing))
         tospace = self.fromspace
         fromspace = self.tospace
         self.fromspace = fromspace
@@ -1153,12 +1152,13 @@ class SemiSpaceGC(GCBase):
         while scan < self.free:
             curr = scan + self.size_gc_header()
             self.trace_and_copy(curr)
-            scan += self.get_size(curr) + self.size_gc_header()
+            scan += self.size_gc_header() + self.get_size(curr)
         return scan
 
     def copy(self, obj):
-        if not self.fromspace <= obj < self.fromspace + self.space_size:
-            return self.copy_non_managed_obj(obj)
+        # Objects not living the GC heap have all been initialized by
+        # setting their 'forw' address so that it points to themselves.
+        # The logic below will thus simply return 'obj' if 'obj' is prebuilt.
 ##         print "copying regularly", obj,
         if self.is_forwarded(obj):
 ##             print "already copied to", self.get_forwarding_address(obj)
@@ -1173,12 +1173,6 @@ class SemiSpaceGC(GCBase):
 ##             print "to", newobj
             self.set_forwarding_address(obj, newobj)
             return newobj
-
-    def copy_non_managed_obj(self, obj): #umph, PBCs, not really copy
-##         print "copying nonmanaged", obj
-        #we have to do the tracing here because PBCs are not moved to tospace
-        self.trace_and_copy(obj)
-        return obj
 
     def trace_and_copy(self, obj):
         gc_info = self.header(obj)
@@ -1238,8 +1232,9 @@ class SemiSpaceGC(GCBase):
         hdr.typeid = typeid
 
     def init_gc_object_immortal(self, addr, typeid):
+        # immortal objects always have forward to themselves
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
-        hdr.forw = NULL
+        hdr.forw = addr + self.gcheaderbuilder.size_gc_header
         hdr.typeid = typeid
 
     def execute_finalizers(self):

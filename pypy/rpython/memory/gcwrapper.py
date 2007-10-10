@@ -8,11 +8,11 @@ from pypy.objspace.flow.model import Constant
 class GCManagedHeap(object):
 
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
-        self.AddressLinkedList = get_address_linked_list(10, hackishpop=True)
+        self.RootLinkedList = get_address_linked_list(10, hackishpop=True)
+        self.AddressLinkedList = get_address_linked_list(10)
         self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
         self.gc.get_roots = self.get_roots_from_llinterp
         self.llinterp = llinterp
-        self.constantroots = []
         self.prepare_graphs(flowgraphs)
         self.gc.setup()
 
@@ -26,20 +26,17 @@ class GCManagedHeap(object):
             TYPE = lltype.typeOf(obj)
             layoutbuilder.consider_constant(TYPE, obj, self.gc)
 
-        sizeofaddr = llmemory.sizeof(llmemory.Address)
-        for addr in layoutbuilder.static_gc_roots:
-            addrofaddr = llmemory.raw_malloc(sizeofaddr)
-            addrofaddr.address[0] = addr
-            self.constantroots.append(addrofaddr)
-        self.constantroots += layoutbuilder.addresses_of_static_ptrs_in_nongc
+        self.constantroots = layoutbuilder.addresses_of_static_ptrs
 
     def get_roots_from_llinterp(self):
         sizeofaddr = llmemory.sizeof(llmemory.Address)
-        ll = self.AddressLinkedList()
+        ll = self.RootLinkedList()
         for addrofaddr in self.constantroots:
-            ll.append(addrofaddr)
+            if addrofaddr.address[0]:
+                ll.append(addrofaddr)
         for addrofaddr in self.llinterp.find_roots():
-            ll.append(addrofaddr)
+            if addrofaddr.address[0]:
+                ll.append(addrofaddr)
         return ll
 
     # ____________________________________________________________
