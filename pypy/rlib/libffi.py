@@ -57,7 +57,7 @@ class cConfig:
 try:
     cConfig.__dict__.update(rffi_platform.configure(CConfig))
 except:
-    includes[1] = ['ffi/ffi.h']
+    includes[1] = 'ffi/ffi.h'
     cConfig.__dict__.update(rffi_platform.configure(CConfig))
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
