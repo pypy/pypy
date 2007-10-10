@@ -54,7 +54,11 @@ for i in type_names:
 class cConfig:
     pass
 
-cConfig.__dict__.update(rffi_platform.configure(CConfig))
+try:
+    cConfig.__dict__.update(rffi_platform.configure(CConfig))
+except:
+    includes[1] = ['ffi/ffi.h']
+    cConfig.__dict__.update(rffi_platform.configure(CConfig))
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 size_t = cConfig.size_t
