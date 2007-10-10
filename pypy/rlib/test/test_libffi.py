@@ -43,7 +43,8 @@ class TestDLOperations:
         ptr = lib.getpointer('rand', [], ffi_type_sint)
         zeroes = 0
         for i in range(100):
-            res = ptr.call([])
+            res = ptr.call(rffi.INT)
+            print res
             if not res:
                 zeroes += 1
         assert not zeroes
@@ -53,18 +54,22 @@ class TestDLOperations:
         libm = CDLL('libm.so')
         pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double],
                               ffi_type_double)
-        pow.push_arg(0, rffi.DOUBLE, 2.0)
-        pow.push_arg(1, rffi.DOUBLE, 2.0)
-        assert pow.call() == 4.0
-        pow.push_arg(0, rffi.DOUBLE, 3.0)
-        pow.push_arg(1, rffi.DOUBLE, 3.0)
-        assert pow.call() == 27.0
+        pow.push_arg(0, 2.0)
+        pow.push_arg(1, 2.0)
+        res = pow.call(rffi.DOUBLE)
+        assert res == 4.0
+        pow.push_arg(0, 3.0)
+        pow.push_arg(1, 3.0)
+        res = pow.call(rffi.DOUBLE)
+        assert res == 27.0
 
     def test_compile(self):
-        py.test.skip("in-progress")
         def f(x, y):
             libm = CDLL('libm.so')
-            c_pow = libm.getpointer('pow', (ffi_type_double, ffi_type_double), ffi_type_double)
-            return c_pow.call((x, y))
+            c_pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double], ffi_type_double)
+            c_pow.push_arg(0, x)
+            c_pow.push_arg(1, y)
+            return c_pow.call(rffi.DOUBLE)
 
         interpret(f, [2.0, 4.0])
+        

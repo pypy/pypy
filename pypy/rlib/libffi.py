@@ -5,6 +5,7 @@
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.rarithmetic import intmask
 
 includes = ['dlfcn.h', 'ffi.h']
 
@@ -137,7 +138,7 @@ cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 def push_arg_as_ffiptr(ffitp, TP, arg, ll_buf):
     # this is for primitive types. For structures and arrays
     # would be something different (more dynamic)
-    TP_P = rffi.CArray(TP)
+    TP_P = rffi.CArrayPtr(TP)
     rffi.cast(TP_P, ll_buf)[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
@@ -155,20 +156,24 @@ class FuncPtr(object):
         self.ll_argtypes = lltype.malloc(FFI_TYPE_PP.TO, argnum, flavor='raw')
         for i in range(argnum):
             self.ll_argtypes[i] = argtypes[i]
+        # XXX why cast to FFI_TYPE_PP is needed? ll2ctypes bug?
         res = c_ffi_prep_cif(self.ll_cif, FFI_DEFAULT_ABI,
                              rffi.cast(rffi.UINT, argnum), restype,
-                             self.ll_argtypes)
+                             rffi.cast(FFI_TYPE_PP, self.ll_argtypes))
         if not res == FFI_OK:
             raise OSError(-1, "Wrong typedef")
         for i in range(argnum):
             # space for each argument
-            self.ll_args[i] = lltype.malloc(rffi.VOIDP.TO, argtypes[i].c_size,
+            self.ll_args[i] = lltype.malloc(rffi.VOIDP.TO,
+                                            intmask(argtypes[i].c_size),
                                             flavor='raw')
-        self.ll_result = lltype.malloc(rffi.VOIDP.TO, restype.c_size,
+        self.ll_result = lltype.malloc(rffi.VOIDP.TO, intmask(restype.c_size),
                                        flavor='raw')
 
-    def push_arg(self, num, TP, value):
-        push_arg_as_ffiptr(self.argtypes[i], TP, value, self.ll_args[i])
+    # XXX some rpython trick to get rid of TP here?
+    def push_arg(self, num, value):
+        TP = lltype.typeOf(value)
+        push_arg_as_ffiptr(self.argtypes[num], TP, value, self.ll_args[num])
         self.ready_args[num] = 1
 
     def _check_args(self):
@@ -182,11 +187,14 @@ class FuncPtr(object):
 
     def call(self, RES_TP):
         self._check_args()
-        c_ffi_call(self.ll_cif, self.func_sym,
-                   rffi.cast(rffi.VOIDP, self.restype),
+        c_ffi_call(self.ll_cif, self.funcsym,
+                   rffi.cast(rffi.VOIDP, self.ll_result),
                    rffi.cast(VOIDPP, self.ll_args))
         if self.restype != ffi_type_void:
-            res = rffi.cast(lltype.Ptr(CArray(RES_TP)), self.ll_result)[0]
+            TP = rffi.CArrayPtr(RES_TP)
+            res = rffi.cast(TP, self.ll_result)[0]
+        else:
+            res = None
         self._clean_args()
         return res
     call._annspecialcase_ = 'specialize:argtype(1)'
