@@ -113,7 +113,9 @@ class _CWriter(object):
         self.f.write(question + "\n")
         self.close()
         include_dirs = getattr(self.config, '_include_dirs_', [])
-        build_executable([self.path], include_dirs=include_dirs)
+        libraries = getattr(self.config, '_libraries_', [])
+        build_executable([self.path], include_dirs=include_dirs,
+                         libraries=libraries)
         
 def configure(CConfig):
     """Examine the local system by running the C compiler.
@@ -140,7 +142,9 @@ def configure(CConfig):
         writer.close()
 
         include_dirs = getattr(CConfig, '_include_dirs_', [])
-        infolist = list(run_example_code(writer.path, include_dirs))
+        libraries = getattr(CConfig, '_libraries_', [])
+        infolist = list(run_example_code(writer.path, include_dirs,
+                                         libraries))
         assert len(infolist) == len(entries)
 
         resultinfo = {}
@@ -347,7 +351,6 @@ class DefinedConstantInteger(CConfigEntry):
             return info['value']
         return None
 
-
 class DefinedConstantString(CConfigEntry):
     """
     """
@@ -478,8 +481,9 @@ void dump(char* key, int value) {
 }
 """
 
-def run_example_code(filepath, include_dirs=[]):
-    executable = build_executable([filepath], include_dirs=include_dirs)
+def run_example_code(filepath, include_dirs=[], libraries=[]):
+    executable = build_executable([filepath], include_dirs=include_dirs,
+                                  libraries=libraries)
     output = py.process.cmdexec(executable)
     section = None
     for line in output.splitlines():
