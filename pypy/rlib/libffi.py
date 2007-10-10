@@ -149,7 +149,8 @@ class FuncPtr(object):
         self.restype = restype
         self.funcsym = funcsym
         argnum = len(argtypes)
-        self.ready_args = [0] * argnum
+        self.argnum = argnum
+        self.pushed_args = 0
         TP = rffi.CArray(rffi.VOIDP)
         self.ll_args = lltype.malloc(TP, argnum, flavor='raw')
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw')
@@ -171,19 +172,21 @@ class FuncPtr(object):
                                        flavor='raw')
 
     # XXX some rpython trick to get rid of TP here?
-    def push_arg(self, num, value):
+    def push_arg(self, value):
+        if self.pushed_args == self.argnum:
+            raise TypeError("Too much arguments, eats %d, pushed %d" %
+                            (self.argnum, self.argnum + 1))
         TP = lltype.typeOf(value)
-        push_arg_as_ffiptr(self.argtypes[num], TP, value, self.ll_args[num])
-        self.ready_args[num] = 1
+        push_arg_as_ffiptr(self.argtypes[self.pushed_args], TP, value,
+                           self.ll_args[self.pushed_args])
+        self.pushed_args += 1
 
     def _check_args(self):
-        for num in range(len(self.ready_args)):
-            if not self.ready_args[num]:
-                raise TypeError("Did not specify arg nr %d" % num)        
+        if self.pushed_args < self.argnum:
+            raise TypeError("Did not specify arg nr %d" % (self.pushed_args + 1))
 
     def _clean_args(self):
-        for num in range(len(self.ready_args)):
-            self.ready_args[num] = 0
+        self.pushed_args = 0
 
     def call(self, RES_TP):
         self._check_args()
