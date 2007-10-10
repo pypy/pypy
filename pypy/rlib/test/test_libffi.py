@@ -3,6 +3,7 @@
 """
 
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.translator.c.test.test_genc import compile
 from pypy.rlib.libffi import *
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -22,8 +23,8 @@ class TestDLOperations:
         #assert not ALLOCATED, not yet
 
     def test_dlopen(self):
-        py.test.raises(OSError, "dlopen('xxxxxxxxxxxx')")
-        assert dlopen('/lib/libc.so.6')
+        py.test.raises(OSError, "dlopen(rffi.str2charp('xxxxxxxxxxxx'))")
+        assert dlopen(rffi.str2charp('/lib/libc.so.6'))
         
     def get_libc(self):
         return CDLL('/lib/libc.so.6')
@@ -64,7 +65,9 @@ class TestDLOperations:
         assert res == 27.0
 
     def test_compile(self):
-        py.test.skip("Broken")
+        # XXX cannot run it on top of llinterp, some problems
+        # with pointer casts
+
         def f(x, y):
             libm = CDLL('libm.so')
             c_pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double], ffi_type_double)
@@ -72,5 +75,8 @@ class TestDLOperations:
             c_pow.push_arg(y)
             return c_pow.call(rffi.DOUBLE)
 
-        interpret(f, [2.0, 4.0])
+        fn = compile(f, [float, float])
+        res = fn(2.0, 4.0)
+        assert res == 16.0
+
         

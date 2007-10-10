@@ -78,11 +78,12 @@ TYPE_MAP = {
     lltype.Void : ffi_type_void,
     }
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, includes=includes,
-                           libraries=['dl', 'ffi'])
+                           libraries=['dl', 'ffi'], **kwds)
 
-c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP)
+c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP,
+                    _nowrapper=True)
 c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
 c_dlerror = external('dlerror', [], rffi.CCHARP)
 c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
@@ -141,7 +142,8 @@ def push_arg_as_ffiptr(ffitp, TP, arg, ll_buf):
     # this is for primitive types. For structures and arrays
     # would be something different (more dynamic)
     TP_P = rffi.CArrayPtr(TP)
-    rffi.cast(TP_P, ll_buf)[0] = arg
+    buf = rffi.cast(TP_P, ll_buf)
+    buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
 class FuncPtr(object):
@@ -215,10 +217,12 @@ class FuncPtr(object):
 
 class CDLL:
     def __init__(self, libname):
-        self.lib = dlopen(libname)
+        self.ll_libname = rffi.str2charp(libname)
+        self.lib = dlopen(self.ll_libname)
 
     def __del__(self):
         c_dlclose(self.lib)
+        lltype.free(self.ll_libname, flavor='raw')
 
     def getpointer(self, name, argtypes, restype):
         # these arguments are already casted to proper ffi
