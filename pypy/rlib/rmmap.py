@@ -25,7 +25,9 @@ class RTypeError(Exception):
         self.message = message    
 
 class CConfig:
-    _includes_ = ("sys/types.h",'unistd.h')
+    _includes_ = ["sys/types.h"]
+    if _POSIX:
+        _includes_.append('unistd.h')
     _header_ = '#define _GNU_SOURCE\n'
     size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
     off_t = rffi_platform.SimpleType("off_t", rffi.LONG)
@@ -80,11 +82,10 @@ def external(name, args, result):
 
 PTR = rffi.CCHARP
 
-has_mremap = cConfig['has_mremap']
-
 c_memmove = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
+    has_mremap = cConfig['has_mremap']
     c_mmap = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
     c_munmap = external('munmap', [PTR, size_t], rffi.INT)
@@ -98,18 +99,20 @@ if _POSIX:
         errno = rffi.get_errno()
         return os.strerror(errno)   
 elif _MS_WINDOWS:
-    XXX
-    from ctypes import wintypes
+    from ctypes import wintypes, Union, Structure
     
     WORD = wintypes.WORD
     DWORD = wintypes.DWORD
     BOOL = wintypes.BOOL
     LONG = wintypes.LONG
-    LPVOID = PTR
+    # LPVOID = PTR    does not work with ctypes
+    LPVOID = wintypes.c_void_p
     LPCVOID = LPVOID
-    DWORD_PTR = DWORD
-    rffi.INT = wintypes.rffi.INT
-    INVALID_c_int_VALUE = c_int(-1).value
+    DWORD_PTR = DWORD  # ???
+    INT = wintypes.c_int # there is no wintypes.INT
+    POINTER = wintypes.POINTER
+    INVALID_c_int_VALUE = wintypes.c_int(-1).value
+    windll = wintypes.windll
     
     class SYSINFO_STRUCT(Structure):
         _fields_ = [("wProcessorArchitecture", WORD),
