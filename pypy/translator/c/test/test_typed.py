@@ -771,3 +771,17 @@ class TestTypedTestCase(CompilationTestCase):
             res = fn(i)
             assert res == expected
 
+    def test_swap(self):
+        py.test.skip("Failing test. ")
+        def func_swap():
+            a = []
+            b = range(10)
+            while b:
+                item = b.pop()
+                a.extend(b)
+                tmp = a
+                a = b
+                b = tmp
+                del a[:]
+    
+        f = self.getcompiled(func_swap, [])
