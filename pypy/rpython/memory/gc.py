@@ -1091,57 +1091,16 @@ class SemiSpaceGC(GCBase):
         self.fromspace = fromspace
         self.tospace = tospace
         self.top_of_space = tospace + self.space_size
-        roots = self.get_roots()
         scan = self.free = tospace
-        while 1:
-            root = roots.pop()
-            if root == NULL:
-                break
-            root.address[0] = self.copy(root.address[0])
-        free_non_gc_object(roots)
+        self.collect_roots()
         scan = self.scan_copied(scan)
-        # walk over list of objects that contain weakrefs
-        # if the object it references survives then update the weakref
-        # otherwise invalidate the weakref
-        new_with_weakref = self.AddressLinkedList()
-        while self.objects_with_weakrefs.non_empty():
-            obj = self.objects_with_weakrefs.pop()
-            if not self.is_forwarded(obj):
-                continue # weakref itself dies
-            obj = self.get_forwarding_address(obj)
-            offset = self.weakpointer_offset(self.header(obj).typeid)
-            pointing_to = (obj + offset).address[0]
-            if pointing_to:
-                if self.is_forwarded(pointing_to):
-                    (obj + offset).address[0] = self.get_forwarding_address(
-                        pointing_to)
-                    new_with_weakref.append(obj)
-                else:
-                    (obj + offset).address[0] = NULL
-        self.objects_with_weakrefs.delete()
-        self.objects_with_weakrefs = new_with_weakref
+        if self.objects_with_weakrefs.non_empty():
+            self.invalidate_weakrefs()
         if self.run_finalizers.non_empty():
-            # we are in an inner collection, caused by a finalizer
-            # the run_finalizers objects need to be copied
-            new_run_finalizer = self.AddressLinkedList()
-            while self.run_finalizers.non_empty():
-                obj = self.run_finalizers.pop()
-                new_run_finalizer.append(self.copy(obj))
-            self.run_finalizers.delete()
-            self.run_finalizers = new_run_finalizer
-        # walk over list of objects with finalizers
-        # if it is not copied, add it to the list of to-be-called finalizers
-        # and copy it, to me make the finalizer runnable
-        new_with_finalizer = self.AddressLinkedList()
-        while self.objects_with_finalizers.non_empty():
-            obj = self.objects_with_finalizers.pop()
-            if self.is_forwarded(obj):
-                new_with_finalizer.append(self.get_forwarding_address(obj))
-            else:
-                self.run_finalizers.append(self.copy(obj))
+            self.update_run_finalizers()
+        if self.objects_with_finalizers.non_empty():
+            self.deal_with_objects_with_finalizers()
         scan = self.scan_copied(scan)
-        self.objects_with_finalizers.delete()
-        self.objects_with_finalizers = new_with_finalizer
         if not size_changing:
             llarena.arena_reset(fromspace, self.space_size, True)
             self.execute_finalizers()
@@ -1152,6 +1111,15 @@ class SemiSpaceGC(GCBase):
             self.trace_and_copy(curr)
             scan += self.size_gc_header() + self.get_size(curr)
         return scan
+
+    def collect_roots(self):
+        roots = self.get_roots()
+        while 1:
+            root = roots.pop()
+            if root == NULL:
+                break
+            root.address[0] = self.copy(root.address[0])
+        free_non_gc_object(roots)
 
     def copy(self, obj):
         # Objects not living the GC heap have all been initialized by
@@ -1233,6 +1201,52 @@ class SemiSpaceGC(GCBase):
         hdr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(self.HDR))
         hdr.forw = addr + self.gcheaderbuilder.size_gc_header
         hdr.typeid = typeid
+
+    def deal_with_objects_with_finalizers(self):
+        # walk over list of objects with finalizers
+        # if it is not copied, add it to the list of to-be-called finalizers
+        # and copy it, to me make the finalizer runnable
+        new_with_finalizer = self.AddressLinkedList()
+        while self.objects_with_finalizers.non_empty():
+            obj = self.objects_with_finalizers.pop()
+            if self.is_forwarded(obj):
+                new_with_finalizer.append(self.get_forwarding_address(obj))
+            else:
+                self.run_finalizers.append(self.copy(obj))
+        self.objects_with_finalizers.delete()
+        self.objects_with_finalizers = new_with_finalizer
+
+    def invalidate_weakrefs(self):
+        # walk over list of objects that contain weakrefs
+        # if the object it references survives then update the weakref
+        # otherwise invalidate the weakref
+        new_with_weakref = self.AddressLinkedList()
+        while self.objects_with_weakrefs.non_empty():
+            obj = self.objects_with_weakrefs.pop()
+            if not self.is_forwarded(obj):
+                continue # weakref itself dies
+            obj = self.get_forwarding_address(obj)
+            offset = self.weakpointer_offset(self.header(obj).typeid)
+            pointing_to = (obj + offset).address[0]
+            if pointing_to:
+                if self.is_forwarded(pointing_to):
+                    (obj + offset).address[0] = self.get_forwarding_address(
+                        pointing_to)
+                    new_with_weakref.append(obj)
+                else:
+                    (obj + offset).address[0] = NULL
+        self.objects_with_weakrefs.delete()
+        self.objects_with_weakrefs = new_with_weakref
+
+    def update_run_finalizers(self):
+        # we are in an inner collection, caused by a finalizer
+        # the run_finalizers objects need to be copied
+        new_run_finalizer = self.AddressLinkedList()
+        while self.run_finalizers.non_empty():
+            obj = self.run_finalizers.pop()
+            new_run_finalizer.append(self.copy(obj))
+        self.run_finalizers.delete()
+        self.run_finalizers = new_run_finalizer
 
     def execute_finalizers(self):
         if self.executing_finalizers:
