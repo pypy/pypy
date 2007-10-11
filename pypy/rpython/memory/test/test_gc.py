@@ -260,8 +260,3 @@ class TestSemiSpaceGC(GCTest):
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}
-
-class TestDeferredRefcountingGC(GCTest):
-    from pypy.rpython.memory.gc import DeferredRefcountingGC as GCClass
-    def setup_class(cls):
-        py.test.skip("DeferredRefcounting is unmaintained")
