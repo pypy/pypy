@@ -11,7 +11,6 @@ translation toolchain
  - low level backends should share more code
  - all backends should have more consistent interfaces
  - geninterp is a hack
- - keepalives need to die, finally
  - delegate finding type stuff like vtables etc to GC, cleaner interface for rtti,
    simplify translator/c/gc.py
  - clean up the tangle of including headers in the C backend
@@ -23,7 +22,6 @@ translation toolchain
    timeshifter)
  - unicode strings in RPython
  - finish rctypes removal
-   - move genrffi to not use rctypes stuff any more
  - think about approaches to id, especially concerning boehm, where the id will
    keep the object alive and concerning a moving GC
 
