@@ -19,6 +19,7 @@ class CConfig:
     _include_dirs_ = include_dirs
 
     RTLD_LOCAL = rffi_platform.DefinedConstantInteger('RTLD_LOCAL')
+    RTLD_GLOBAL = rffi_platform.DefinedConstantInteger('RTLD_GLOBAL')
     RTLD_NOW = rffi_platform.DefinedConstantInteger('RTLD_NOW')
 
     FFI_OK = rffi_platform.ConstantInteger('FFI_OK')
@@ -80,6 +81,7 @@ TYPE_MAP = {
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, includes=includes,
+                           include_dirs=include_dirs,
                            libraries=['dl', 'ffi'], **kwds)
 
 c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP,
@@ -89,6 +91,7 @@ c_dlerror = external('dlerror', [], rffi.CCHARP)
 c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
 
 RTLD_LOCAL = cConfig.RTLD_LOCAL
+RTLD_GLOBAL = cConfig.RTLD_GLOBAL
 RTLD_NOW = cConfig.RTLD_NOW
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
