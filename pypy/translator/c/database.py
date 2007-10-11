@@ -149,7 +149,7 @@ class LowLevelDatabase(object):
         else:
             raise Exception("don't know about type %r" % (T,))
 
-    def getcontainernode(self, container, _cached=True, **buildkwds):
+    def getcontainernode(self, container, _dont_write_c_code=True, **buildkwds):
         try:
             node = self.containernodes[container]
         except KeyError:
@@ -159,13 +159,14 @@ class LowLevelDatabase(object):
                     self.gctransformer.consider_constant(T, container)
             nodefactory = ContainerNodeFactory[T.__class__]
             node = nodefactory(self, T, container, **buildkwds)
-            # _cached should only be False for a hack in weakrefnode_factory()
-            if not _cached:
-                return node
             self.containernodes[container] = node
-            self.containerlist.append(node)
+            # _dont_write_c_code should only be False for a hack in
+            # weakrefnode_factory()
+            if not _dont_write_c_code:
+                return node
             kind = getattr(node, 'nodekind', '?')
             self.containerstats[kind] = self.containerstats.get(kind, 0) + 1
+            self.containerlist.append(node)
             if self.completed:
                 assert not node.globalcontainer
                 # non-global containers are found very late, e.g. _subarrays

@@ -938,7 +938,7 @@ def weakrefnode_factory(db, T, obj):
     ptarget = obj._dereference()
     wrapper = db.gcpolicy.convert_weakref_to(ptarget)
     container = wrapper._obj
-    return db.getcontainernode(container, _cached=False)
+    return db.getcontainernode(container, _dont_write_c_code=False)
 
 
 ContainerNodeFactory = {

@@ -827,9 +827,3 @@ class TestUsingStacklessFramework(TestUsingFramework):
 class TestSemiSpaceGC(TestUsingFramework):
     frameworkgc = "semispace"
     should_be_moving = True
-
-    def test_weakref(self):
-        py.test.skip("in-progress")
-
-    def test_prebuilt_weakref(self):
-        py.test.skip("in-progress")
