@@ -1115,11 +1115,9 @@ class SemiSpaceGC(GCBase):
                 if self.is_forwarded(pointing_to):
                     (obj + offset).address[0] = self.get_forwarding_address(
                         pointing_to)
+                    new_with_weakref.append(obj)
                 else:
                     (obj + offset).address[0] = NULL
-            # XXX the next line can be indented? only do after weakref
-            # tests pass
-            new_with_weakref.append(obj)
         self.objects_with_weakrefs.delete()
         self.objects_with_weakrefs = new_with_weakref
         if self.run_finalizers.non_empty():
@@ -1177,7 +1175,6 @@ class SemiSpaceGC(GCBase):
     def trace_and_copy(self, obj):
         gc_info = self.header(obj)
         typeid = gc_info.typeid
-##         print "scanning", obj, typeid
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
