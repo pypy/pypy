@@ -182,6 +182,19 @@ class ExtFuncEntry(ExtRegistryEntry):
         impl = getattr(self, method_name, None)
         fakeimpl = getattr(self, fake_method_name, self.instance)
         if impl:
+            if hasattr(self, fake_method_name):
+                # If we have both an {ll,oo}impl and a {ll,oo}fakeimpl,
+                # we need a wrapper that selects the proper one and calls it
+                from pypy.rlib.objectmodel import running_on_llinterp
+                from pypy.rlib.objectmodel import debug_llinterpcall
+                from pypy.tool.sourcetools import func_with_new_name
+                original_impl = impl
+                def ll_wrapper(*args):
+                    if running_on_llinterp:
+                        return debug_llinterpcall(ll_result, fakeimpl, *args)
+                    else:
+                        return original_impl(*args)
+                impl = func_with_new_name(ll_wrapper, name + '_wrapper')
             if rtyper.annotator.translator.config.translation.sandbox:
                 impl.dont_inline = True
             # store some attributes to the 'impl' function, where
@@ -191,12 +204,6 @@ class ExtFuncEntry(ExtRegistryEntry):
                 '_name': self.name,
                 '_safe_not_sandboxed': self.safe_not_sandboxed,
                 }
-            if hasattr(self, fake_method_name):
-                # we use the suggested_primitive flag to ask the llinterp
-                # to call the fakeimpl directly.  It also disables inlining
-                # and other optimizations that would remove the call.
-                impl._llfnobjattrs_['_callable'] = fakeimpl
-                fakeimpl.suggested_primitive = True
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
         else:
