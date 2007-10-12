@@ -51,6 +51,10 @@ class BaseTestRunTest:
     def test_ullong(self):
         assert self.interpret(ident, [r_ulonglong(sys.maxint+1)]) == sys.maxint+1
 
+    def test_big_ullong(self):
+        bigval = 9223372036854775807L
+        assert self.interpret(ident, [r_ulonglong(bigval)]) == bigval
+
     def test_exception(self):
         def fn():
             raise ValueError

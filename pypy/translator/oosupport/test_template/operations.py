@@ -205,3 +205,15 @@ class BaseTestOperations(object):
         x = sys.maxint+1
         assert self.interpret(f, [r_ulonglong(x)]) == x >> 1
         
+    def test_compare_big_ulongs(self):
+        bigval = r_ulonglong(9223372036854775808L)
+        def fn(x):
+            if x > bigval: return 1
+            if x == bigval: return 0
+            if x < bigval: return -1
+            return -2
+        
+        for val in (bigval-1, bigval, bigval+1):
+            expected = fn(val)
+            res = self.interpret(fn, [val])
+            assert res == expected
