@@ -772,7 +772,6 @@ class TestTypedTestCase(CompilationTestCase):
             assert res == expected
 
     def test_swap(self):
-        py.test.skip("Failing test. ")
         def func_swap():
             a = []
             b = range(10)

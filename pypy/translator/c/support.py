@@ -205,7 +205,7 @@ def gen_assignments(assignments):
                 startingpoint = dst
                 tmpdecl = cdecl(typename, 'tmp')
                 code = ['{ %s = %s;' % (tmpdecl, dst)]
-                while src is not startingpoint:
+                while src != startingpoint:
                     code.append('%s = %s;' % (dst, src))
                     dst = src
                     src, typename = dest2src.pop(dst)
