@@ -536,8 +536,11 @@ class StructNode(ContainerNode):
         for name in self.T._names:
             data.append((name, getattr(self.obj, name)))
         
-        # You can only initialise the first field of a union in c
-        # XXX what if later fields have some initialisation?
+        # Reasonably, you should only initialise one of the fields of a union
+        # in C.  This is possible with the syntax '.fieldname value' or
+        # '.fieldname = value'.  But here we don't know which of the
+        # fields need initialization, so XXX we pick the first one
+        # arbitrarily.
         if hasattr(self.T, "_hints") and self.T._hints.get('union'):
             data = data[0:1]
 
