@@ -13,6 +13,7 @@ from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
 from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
+from pypy.tool.sourcetools import func_with_new_name
 import sys
 
 
@@ -216,6 +217,26 @@ class FrameworkGCTransformer(GCTransformer):
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
 
+        # in some GCs we can inline the common case of
+        # malloc_fixedsize(typeid, size, True, False, False)
+        if getattr(GCClass, 'inline_simple_malloc', False):
+            # make a copy of this function so that it gets annotated
+            # independently and the constants are folded inside
+            malloc_fast = func_with_new_name(
+                GCClass.malloc_fixedsize.im_func,
+                "malloc_fast")
+            s_False = annmodel.SomeBool(); s_False.const = False
+            s_True  = annmodel.SomeBool(); s_True .const = True
+            self.malloc_fast_ptr = getfn(
+                malloc_fast,
+                [s_gc, annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeInteger(nonneg=True),
+                 s_True, s_False,
+                 s_False], s_gcref,
+                inline = True)
+        else:
+            self.malloc_fast_ptr = self.malloc_fixedsize_ptr
+
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
@@ -396,6 +417,8 @@ class FrameworkGCTransformer(GCTransformer):
             zero = flags.get('zero', False)
             if zero:
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
+            elif c_can_collect.value and not c_has_finalizer.value:
+                malloc_ptr = self.malloc_fast_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size, c_can_collect,

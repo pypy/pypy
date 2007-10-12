@@ -951,6 +951,7 @@ class MarkSweepGC(GCBase):
 class SemiSpaceGC(GCBase):
     _alloc_flavor_ = "raw"
     moving_gc = True
+    inline_simple_malloc = True
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
                                   ('typeid', lltype.Signed))
@@ -980,13 +981,14 @@ class SemiSpaceGC(GCBase):
                          contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
-        if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
-            if not can_collect or not self.obtain_free_space(totalsize):
-                raise memoryError
         result = self.free
+        if raw_malloc_usage(totalsize) > self.top_of_space - result:
+            if not can_collect:
+                raise memoryError
+            result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
-        self.free += totalsize
+        self.free = result + totalsize
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
         if contains_weakptr:
@@ -1002,14 +1004,15 @@ class SemiSpaceGC(GCBase):
             totalsize = ovfcheck(nonvarsize + varsize)
         except OverflowError:
             raise memoryError
-        if raw_malloc_usage(totalsize) > self.top_of_space - self.free:
-            if not can_collect or not self.obtain_free_space(totalsize):
-                raise memoryError
         result = self.free
+        if raw_malloc_usage(totalsize) > self.top_of_space - result:
+            if not can_collect:
+                raise memoryError
+            result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
-        self.free += llarena.round_up_for_allocation(totalsize)
+        self.free = result + llarena.round_up_for_allocation(totalsize)
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -1019,6 +1022,14 @@ class SemiSpaceGC(GCBase):
     malloc_varsize_clear   = malloc_varsize
 
     def obtain_free_space(self, needed):
+        # a bit of tweaking to maximize the performance and minimize the
+        # amount of code in an inlined version of malloc_fixedsize()
+        if not self.try_obtain_free_space(needed):
+            raise memoryError
+        return self.free
+    obtain_free_space.dont_inline = True
+
+    def try_obtain_free_space(self, needed):
         # XXX for bonus points do big objects differently
         needed = raw_malloc_usage(needed)
         self.semispace_collect()
