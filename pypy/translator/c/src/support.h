@@ -9,6 +9,8 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
+#define RUNNING_ON_LLINTERP	0
+
 #define FAIL_EXCEPTION(exc, msg) \
 	{ \
 		RPyRaiseSimpleException(exc, msg); \

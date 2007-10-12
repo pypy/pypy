@@ -440,6 +440,8 @@ LL_OPERATIONS = {
     'debug_pdb':            LLOp(),
     'debug_assert':         LLOp(tryfold=True),
     'debug_fatalerror':     LLOp(),
+    'debug_llinterpcall':   LLOp(), # Python func call 'res=arg[0](*arg[1:])'
+                                    # in backends, abort() or whatever is fine
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),

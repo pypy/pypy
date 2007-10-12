@@ -712,6 +712,9 @@ class FunctionCodeGenerator(object):
 
         return 'fprintf(stderr, "%%s\\n", %s); abort();' % msg
 
+    def OP_DEBUG_LLINTERPCALL(self, op):
+        return 'abort();  /* debug_llinterpcall should be unreachable */'
+
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,

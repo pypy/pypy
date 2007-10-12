@@ -1,6 +1,7 @@
 from pypy.translator.translator import graphof
 from pypy.rpython.test import test_llinterp
 from pypy.rlib.objectmodel import instantiate, we_are_translated
+from pypy.rlib.objectmodel import running_on_llinterp, debug_llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
 from pypy.rlib.rarithmetic import r_uint, intmask
@@ -400,6 +401,26 @@ class BaseTestRbuiltin(BaseRtypingTest):
                 return a
         res = self.interpret(fn, [3.25])
         assert res == 7.25
+
+    def test_debug_llinterpcall(self):
+        S = lltype.Struct('S', ('m', lltype.Signed))
+        SPTR = lltype.Ptr(S)
+        def foo(n):
+            "NOT_RPYTHON"
+            s = lltype.malloc(S, immortal=True)
+            s.m = eval("n*6", locals())
+            return s
+        def fn(n):
+            if running_on_llinterp:
+                return debug_llinterpcall(SPTR, foo, n).m
+            else:
+                return 321
+        res = self.interpret(fn, [7])
+        assert res == 42
+        from pypy.translator.c.test.test_genc import compile
+        f = compile(fn, [int])
+        res = f(7)
+        assert res == 321
 
 class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
 

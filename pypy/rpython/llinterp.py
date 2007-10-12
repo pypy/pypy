@@ -507,6 +507,9 @@ class LLFrame(object):
             ll_exc_type = lltype.cast_pointer(rclass.OBJECTPTR, ll_exc).typeptr
             raise LLFatalError(msg, LLException(ll_exc_type, ll_exc))
 
+    def op_debug_llinterpcall(self, pythonfunction, *args_ll):
+        return pythonfunction(*args_ll)
+
     def op_instrument_count(self, ll_tag, ll_label):
         pass # xxx for now
 

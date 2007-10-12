@@ -92,6 +92,8 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
     
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
+running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
+# running_on_llinterp is meant to have the value 0 in all backends
 
 # ____________________________________________________________
 
@@ -143,6 +145,35 @@ class Entry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         vlist = hop.inputargs(lltype.Bool, lltype.Void)
         hop.genop('debug_assert', vlist)
+
+
+def debug_llinterpcall(RESTYPE, pythonfunction, *args):
+    """When running on the llinterp, this causes the llinterp to call to
+    the provided Python function with the run-time value of the given args.
+    The Python function should return a low-level object of type RESTYPE.
+    This should never be called after translation: use this only if
+    running_on_llinterp is true.
+    """
+    raise NotImplementedError
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_llinterpcall
+
+    def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
+        from pypy.annotation import model as annmodel
+        assert s_RESTYPE.is_constant()
+        assert s_pythonfunction.is_constant()
+        return annmodel.lltype_to_annotation(s_RESTYPE.const)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        RESTYPE= hop.args_s[0].const
+        pythonfunction = hop.args_s[1].const
+        c_pythonfunction = hop.inputconst(lltype.Void, pythonfunction)
+        args_v = [hop.inputarg(hop.args_r[i], arg=i)
+                  for i in range(2, hop.nb_args)]
+        return hop.genop('debug_llinterpcall', [c_pythonfunction] + args_v,
+                         resulttype=RESTYPE)
 
 
 def hlinvoke(repr, llcallable, *args):
