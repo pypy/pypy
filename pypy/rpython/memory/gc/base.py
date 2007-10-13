@@ -121,6 +121,10 @@ def choose_gc_from_config(config):
         GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.marksweep import MarkSweepGC
         return MarkSweepGC, GC_PARAMS
+    if config.translation.frameworkgc == "statistics":
+        GC_PARAMS = {'start_heap_size': 8*1024*1024} # XXX adjust
+        from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC
+        return PrintingMarkSweepGC, GC_PARAMS
     elif config.translation.frameworkgc == "semispace":
         GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
         from pypy.rpython.memory.gc.semispace import SemiSpaceGC

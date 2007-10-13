@@ -648,6 +648,14 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
         assert res == 20
 
 
+class TestPrintingGC(GenericGCTests):
+
+    class gcpolicy(gc.FrameworkGcPolicy):
+        class transformerclass(framework.FrameworkGCTransformer):
+            from pypy.rpython.memory.gc.marksweep import PrintingMarkSweepGC as GCClass
+            GC_PARAMS = {'start_heap_size': 4096 }
+            root_stack_depth = 200
+
 class TestSemiSpaceGC(GenericGCTests):
 
     class gcpolicy(gc.FrameworkGcPolicy):
