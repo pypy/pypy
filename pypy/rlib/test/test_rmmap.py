@@ -34,8 +34,8 @@ class TestMMap:
 
     def test_file_size(self):
         def func(no):
-            if os.name == "nt":
-                skip("Only Unix checks file size")
+ ##           if os.name == "nt":
+   ##             skip("Only Unix checks file size")
 
             try:
                 mmap.mmap(no, 123)

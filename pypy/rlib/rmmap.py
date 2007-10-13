@@ -80,6 +80,9 @@ _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 def external(name, args, result):
     return rffi.llexternal(name, args, result, includes=CConfig._includes_)
 
+def winexternal(name, args, result):
+    return rffi.llexternal(name, args, result, includes=CConfig._includes_, calling_conv='win')
+
 PTR = rffi.CCHARP
 
 c_memmove = external('memmove', [PTR, PTR, size_t], lltype.Void)
@@ -97,100 +100,84 @@ if _POSIX:
 
     def _get_error_msg():
         errno = rffi.get_errno()
-        return os.strerror(errno)   
+        return os.strerror(errno)
+
 elif _MS_WINDOWS:
-    from ctypes import wintypes, Union, Structure
-    
-    WORD = wintypes.WORD
-    DWORD = wintypes.DWORD
-    BOOL = wintypes.BOOL
-    LONG = wintypes.LONG
-    # LPVOID = PTR    does not work with ctypes
-    LPVOID = wintypes.c_void_p
+    WORD = rffi.UINT
+    DWORD = rffi.ULONG
+    BOOL = rffi.LONG
+    LONG = rffi.LONG
+    LPVOID = PTR
     LPCVOID = LPVOID
-    DWORD_PTR = DWORD  # ???
-    INT = wintypes.c_int # there is no wintypes.INT
-    POINTER = wintypes.POINTER
-    INVALID_c_int_VALUE = wintypes.c_int(-1).value
-    windll = wintypes.windll
-    
-    class SYSINFO_STRUCT(Structure):
-        _fields_ = [("wProcessorArchitecture", WORD),
-                    ("wReserved", WORD)]
+    DWORD_PTR = DWORD
+    INT = rffi.INT
+    INT_P = rffi.INTP
+    LPCTSTR = rffi.CCHARP
 
-    class SYSINFO_UNION(Union):
-        _fields_ = [("dwOemId", DWORD),
-                    ("struct", SYSINFO_STRUCT)]
 
-    class SYSTEM_INFO(Structure):
-        _fields_ = [("union", SYSINFO_UNION),
-                    ("dwPageSize", DWORD),
-                    ("lpMinimumApplicationAddress", LPVOID),
-                    ("lpMaximumApplicationAddress", LPVOID),
-                    ("dwActiveProcessorMask", DWORD_PTR),
-                    ("dwNumberOfProcessors", DWORD),
-                    ("dwProcessorType", DWORD),
-                    ("dwAllocationGranularity", DWORD),
-                    ("wProcessorLevel", WORD),
-                    ("wProcessorRevision", WORD)]
-    
-    windll.kernel32.GetSystemInfo.argtypes = [POINTER(SYSTEM_INFO)]
-    GetFileSize = windll.kernel32.GetFileSize
-    GetFileSize.argtypes = [rffi.INT, POINTER(rffi.INT)]
-    GetFileSize.restype = rffi.INT
-    GetCurrentProcess = windll.kernel32.GetCurrentProcess
-    GetCurrentProcess.restype = rffi.INT
-    DuplicateHandle = windll.kernel32.DuplicateHandle
-    DuplicateHandle.argtypes = [rffi.INT, rffi.INT, rffi.INT, POINTER(rffi.INT), DWORD,
-                                BOOL, DWORD]
-    DuplicateHandle.restype = BOOL
-    CreateFileMapping = windll.kernel32.CreateFileMappingA
-    CreateFileMapping.argtypes = [rffi.INT, PTR, rffi.INT, rffi.INT, rffi.INT,
-                                  c_char_p]
-    CreateFileMapping.restype = rffi.INT
-    MapViewOfFile = windll.kernel32.MapViewOfFile
-    MapViewOfFile.argtypes = [rffi.INT, DWORD,  DWORD, DWORD, DWORD]
-    MapViewOfFile.restype = PTR
-    CloseHandle = windll.kernel32.CloseHandle
-    CloseHandle.argtypes = [rffi.INT]
-    CloseHandle.restype = BOOL
-    UnmapViewOfFile = windll.kernel32.UnmapViewOfFile
-    UnmapViewOfFile.argtypes = [LPCVOID]
-    UnmapViewOfFile.restype = BOOL
-    FlushViewOfFile = windll.kernel32.FlushViewOfFile
-    FlushViewOfFile.argtypes = [LPCVOID, rffi.INT]
-    FlushViewOfFile.restype = BOOL
-    SetFilePointer = windll.kernel32.SetFilePointer
-    SetFilePointer.argtypes = [rffi.INT, rffi.INT, POINTER(rffi.INT), rffi.INT]
-    SetEndOfFile = windll.kernel32.SetEndOfFile
-    SetEndOfFile.argtypes = [rffi.INT]
-    msvcr71 = cdll.LoadLibrary("msvcr71.dll")
-    msvcr71._get_osfhandle.argtypes = [rffi.INT]
-    msvcr71._get_osfhandle.restype = rffi.INT
-    # libc._lseek.argtypes = [rffi.INT, rffi.INT, rffi.INT]
-    # libc._lseek.restype = rffi.INT
+    class ComplexCConfig:
+        _includes_ = CConfig._includes_
+        sysinfo_struct = rffi_platform.Struct(
+            'SYSTEM_INFO', [
+                #("union_ignored", DWORD),  # I'll do this later
+                ("dwPageSize", DWORD),
+                ("lpMinimumApplicationAddress", LPVOID),
+                ("lpMaximumApplicationAddress", LPVOID),
+                ("dwActiveProcessorMask", DWORD_PTR),
+                ("dwNumberOfProcessors", DWORD),
+                ("dwProcessorType", DWORD),
+                ("dwAllocationGranularity", DWORD),
+                ("wProcessorLevel", WORD),
+                ("wProcessorRevision", WORD),
+            ])
+
+    config = rffi_platform.configure(ComplexCConfig)
+    sysinfo_struct = config['sysinfo_struct']
+    sysinfo_struct_p = lltype.Ptr(sysinfo_struct)
+
+    GetSystemInfo = winexternal('GetSystemInfo', [sysinfo_struct_p], lltype.Void)
+    GetFileSize = winexternal('GetFileSize', [INT, INT_P],  INT)
+    GetCurrentProcess = winexternal('getCurrentProcess', [], INT)
+    DuplicateHandle = winexternal('DuplicateHandle', [INT, INT, INT, INT_P, DWORD, BOOL, DWORD], BOOL)
+    CreateFileMapping = winexternal('CreateFileMappingA', [INT, PTR, INT, INT, INT, LPCTSTR], INT)
+    MapViewOfFile = winexternal('MapViewOfFile', [INT, DWORD, DWORD, DWORD, DWORD], PTR)
+    CloseHandle = winexternal('CloseHandle', [INT], BOOL)
+    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL)
+    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, INT], BOOL)
+    SetFilePointer = winexternal('SetFilePointer', [INT, INT, INT_P, INT], DWORD)
+    SetEndOfFile = winexternal('SetEndOfFile', [INT], INT)
+    _get_osfhandle = winexternal('_get_osfhandle', [INT], INT)
+    GetLastError = winexternal('GetLastError', [], DWORD)
     
     
     def _get_page_size():
-        si = SYSTEM_INFO()
-        windll.kernel32.GetSystemInfo(byref(si))
-        return int(si.dwPageSize)
+        try:
+            si = rffi.make(sysinfo_struct)
+            GetSystemInfo(si)
+            return int(si.c_dwPageSize)
+        finally:
+            lltype.free(si, flavor="raw")
     
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
-        high = rffi.INT(0)
-        low = rffi.INT(windll.kernel32.GetFileSize(rffi.INT(handle.value), byref(high)))
-        # low might just happen to have the value INVALID_FILE_SIZE
-        # so we need to check the last error also
-        INVALID_FILE_SIZE = -1
-        NO_ERROR = 0
-        dwErr = GetLastError()
-        if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
-            raise REnvironmentError(os.strerror(dwErr))
-        return low.value, high.value
+        high_ref = rffi.CFixedArray(INT, 1)
+        try:
+            low = GetFileSize(rffi.cast(INT, handle), high_ref)
+            high = high_ref[0]
+            # low might just happen to have the value INVALID_FILE_SIZE
+            # so we need to check the last error also
+            INVALID_FILE_SIZE = -1
+            NO_ERROR = 0
+            dwErr = GetLastError()
+            err = dwErr.value
+            if low.value == INVALID_FILE_SIZE and err != NO_ERROR:
+                raise REnvironmentError(os.strerror(err))
+            return low.value, high.value
+        finally:
+            lltype.free(high_ref, flavor='raw')
 
     def _get_error_msg():
-        errno = GetLastError()
+        errno = GetLastError().value
         return os.strerror(errno)
 
 PAGESIZE = _get_page_size()
@@ -214,7 +201,7 @@ class MMap(object):
     
     def check_valid(self):
         if _MS_WINDOWS:
-            to_close = self.map_handle.value == INVALID_INT_VALUE
+            to_close = self.map_handle == INVALID_INT_VALUE
         elif _POSIX:
             to_close = self.closed
 
@@ -240,12 +227,14 @@ class MMap(object):
             if self.size > 0:
                 self.unmapview()
                 self.setdata(NODATA, 0)
-            if self.map_handle.value != INVALID_rffi.INT_VALUE:
-                CloseHandle(self.map_handle)
-                self.map_handle.value = INVALID_rffi.INT_VALUE
-            if self.file_handle.value != INVALID_rffi.INT_VALUE:
-                CloseHandle(self.file_handle)
-                self.file_handle.value = INVALID_rffi.INT_VALUE
+            if self.map_handle != INVALID_INT_VALUE:
+                CloseHandle(rffi.cast(INT, self.map_handle))
+                ##self.map_handle.value = INVALID_INT_VALUE
+                self.map_handle = INVALID_INT_VALUE
+            if self.file_handle != INVALID_INT_VALUE:
+                CloseHandle(rffi.cast(INT, self.file_handle))
+                ##self.file_handle.value = INVALID_INT_VALUE
+                self.file_handle = INVALID_INT_VALUE
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
@@ -348,11 +337,11 @@ class MMap(object):
         
         size = self.size
         if _MS_WINDOWS:
-            if self.file_handle.value != INVALID_rffi.INT_VALUE:
+            if self.file_handle != INVALID_INT_VALUE:
                 low, high = _get_file_size(self.file_handle)
                 if not high and low <= sys.maxint:
                     return low
-                size = rffi.INT((high << 32) + low).value
+                size = (high << 32) + low
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
@@ -459,23 +448,28 @@ class MMap(object):
 
             # move to the desired EOF position
             if _64BIT:
-                newsize_high = DWORD(newsize >> 32)
-                newsize_low = DWORD(newsize & 0xFFFFFFFF)
+                newsize_high = rffi.cast(DWORD, newsize >> 32)
+                newsize_low = rffi.cast(DWORD, newsize & 0xFFFFFFFF)
             else:
-                newsize_high = rffi.INT(0)
-                newsize_low = rffi.INT(newsize)
+                newsize_high = rffi.cast(INT, 0)
+                newsize_low = rffi.cast(INT, newsize)
 
-            FILE_BEGIN = rffi.INT(0)
-            SetFilePointer(self.file_handle, newsize_low, byref(newsize_high),
-                           FILE_BEGIN)
+            FILE_BEGIN = rffi.cast(INT, 0)
+            high_ref = rffi.CFixedArray(INT, 1)
+            try:
+                high_ref[0] = newsize_high
+                SetFilePointer(self.file_handle, newsize_low, high_ref,
+                               FILE_BEGIN)
+            finally:
+                lltype.free(high_ref, flavor='raw')
             # resize the file
             SetEndOfFile(self.file_handle)
             # create another mapping object and remap the file view
             res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
                                  newsize_high, newsize_low, self.tagname)
-            self.map_handle = rffi.INT(res)
+            self.map_handle = res.value
 
-            dwErrCode = DWORD(0)
+            dwErrCode = rffi.cast(DWORD, 0)
             if self.map_handle:
                 data = MapViewOfFile(self.map_handle, FILE_MAP_WRITE,
                     0, 0, 0)
@@ -487,7 +481,7 @@ class MMap(object):
             else:
                 dwErrCode = GetLastError()
 
-            raise REnvironmentError(os.strerror(dwErrCode))
+            raise REnvironmentError(os.strerror(dwErrCode.value))
     
     def len(self):
         self.check_valid()
@@ -611,7 +605,7 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = msvcr71._get_osfhandle(fileno)
+            fh = _get_osfhandle(rffi.cast(INT, fileno)).value
             if fh == -1:
                 raise REnvironmentError(_get_error_msg())
             # Win9x appears to need us seeked to zero
@@ -619,27 +613,31 @@ elif _MS_WINDOWS:
             # libc._lseek(fileno, 0, SEEK_SET)
         
         m = MMap(access)
-        # XXX the following two attributes should be plain RPython ints
-        m.file_handle = rffi.INT(INVALID_rffi.INT_VALUE)
-        m.map_handle = rffi.INT(INVALID_rffi.INT_VALUE)
-        
+        m.file_handle = INVALID_INT_VALUE
+        m.map_handle = INVALID_INT_VALUE
         if fh:
             # it is necessary to duplicate the handle, so the
-            # Python code can close it on us        
-            res = DuplicateHandle(GetCurrentProcess(), # source process handle
-                                  fh, # handle to be duplicated
-                                  GetCurrentProcess(), # target process handle
-                                  byref(m.file_handle), # result
-                                  0, # access - ignored due to options value
-                                  False, # inherited by child procs?
-                                  DUPLICATE_SAME_ACCESS) # options
-            if not res:
-                raise REnvironmentError(_get_error_msg())
-        
+            # Python code can close it on us
+            handle_ref = rffi.CFixedArray(INT, 1)
+            handle_ref[0].value = m.file_handle
+            try:
+                res = DuplicateHandle(GetCurrentProcess(), # source process handle
+                                      rffi.cast(INT, fh), # handle to be duplicated
+                                      GetCurrentProcess(), # target process handle
+                                      handle_ref, # result  
+                                      0, # access - ignored due to options value
+                                      False, # inherited by child procs?
+                                      DUPLICATE_SAME_ACCESS).value # options
+                if not res:
+                    raise REnvironmentError(_get_error_msg())
+                m.file_handle = handle_ref[0].value
+            finally:
+                lltype.free(handle_ref, flavor='raw')
+            
             if not map_size:
-                low, high = _get_file_size(rffi.INT(fh))
+                low, high = _get_file_size(fh)
                 if _64BIT:
-                    map_size = rffi.INT((low << 32) + 1).value
+                    map_size = (low << 32) + 1
                 else:
                     if high:
                         # file is too large to map completely
@@ -652,18 +650,18 @@ elif _MS_WINDOWS:
         
         # DWORD is a 4-byte int. If int > 4-byte it must be divided
         if _64BIT:
-            size_hi = DWORD(map_size >> 32)
-            size_lo = DWORD(map_size & 0xFFFFFFFF)
+            size_hi = rffi.cast(DWORD, map_size >> 32)
+            size_lo = rffi.cast(DWORD, map_size & 0xFFFFFFFF)
         else:
-            size_hi = rffi.INT(0)
-            size_lo = rffi.INT(map_size)
+            size_hi = rffi.cast(INT, 0)
+            size_lo = rffi.cast(INT, map_size)
 
-        m.map_handle = rffi.INT(CreateFileMapping(m.file_handle, NULL, flProtect,
-                                               size_hi, size_lo, m.tagname))
+        m.map_handle = CreateFileMapping(rffi.cast(INT, m.file_handle), NULL, flProtect,
+                                         size_hi, size_lo, m.tagname).value
 
         if m.map_handle:
-            res = MapViewOfFile(m.map_handle, dwDesiredAccess,
-                                0, 0, 0)
+            res = MapViewOfFile(rffi.cast(INT, m.map_handle), dwDesiredAccess,
+                                0, 0, 0).value
             if res:
                 m.setdata(res, map_size)
                 return m
@@ -672,7 +670,7 @@ elif _MS_WINDOWS:
         else:
             dwErr = GetLastError()
 
-        raise REnvironmentError(os.strerror(dwErr))
+        raise REnvironmentError(os.strerror(dwErr.value))
 
         
 # register_external here?
