@@ -199,7 +199,6 @@ class BoehmGcPolicy(BasicGcPolicy):
         if sys.platform != "win32":
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             yield "#define GC_REDIRECT_TO_LOCAL 1"
-        yield "#define GC_I_HIDE_POINTERS 1"
         yield '#include <gc/gc.h>'
         yield '#define USING_BOEHM_GC'
 

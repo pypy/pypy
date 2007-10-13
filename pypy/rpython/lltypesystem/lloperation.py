@@ -389,6 +389,7 @@ LL_OPERATIONS = {
     'gc_protect':           LLOp(),
     'gc_unprotect':         LLOp(),    
     'gc_reload_possibly_moved': LLOp(),
+    'gc_id':                LLOp(canraise=(MemoryError,), sideeffects=False),
     'gc_set_max_heap_size': LLOp(),
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC

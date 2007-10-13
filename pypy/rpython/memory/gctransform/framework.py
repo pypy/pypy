@@ -238,6 +238,14 @@ class FrameworkGCTransformer(GCTransformer):
         else:
             self.malloc_fast_ptr = self.malloc_fixedsize_ptr
 
+        if GCClass.moving_gc:
+            self.id_ptr = getfn(GCClass.id.im_func,
+                                [s_gc, s_gcref], annmodel.SomeInteger(),
+                                inline = False,
+                                minimal_transform = False)
+        else:
+            self.id_ptr = None
+
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
@@ -522,6 +530,18 @@ class FrameworkGCTransformer(GCTransformer):
                            [self.weakref_deref_ptr, v_wref],
                            resulttype=llmemory.Address)
         hop.cast_result(v_addr)
+
+    def gct_gc_id(self, hop):
+        if self.id_ptr is not None:
+            self.push_roots(hop)
+            [v_ptr] = hop.spaceop.args
+            v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
+                              resulttype=llmemory.GCREF)
+            hop.genop("direct_call", [self.id_ptr, self.c_const_gc, v_ptr],
+                      resultvar=hop.spaceop.result)
+            self.pop_roots(hop)
+        else:
+            hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
 
     def push_alive_nopyobj(self, var, llops):
         pass

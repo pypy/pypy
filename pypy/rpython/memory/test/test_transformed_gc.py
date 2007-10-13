@@ -376,6 +376,26 @@ class GenericGCTests(GCTest):
         res = run([])
         assert res == 111111
 
+    def test_id(self):
+        class A(object):
+            pass
+        a1 = A()
+        def func():
+            a2 = A()
+            a3 = A()
+            id1 = id(a1)
+            id2 = id(a2)
+            id3 = id(a3)
+            llop.gc__collect(lltype.Void)
+            error = 0
+            if id1 != id(a1): error += 1
+            if id2 != id(a2): error += 2
+            if id3 != id(a3): error += 4
+            return error
+        run = self.runner(func)
+        res = run([])
+        assert res == 0
+
 class TestMarkSweepGC(GenericGCTests):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):

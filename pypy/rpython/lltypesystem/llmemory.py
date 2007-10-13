@@ -366,44 +366,11 @@ class fakeaddress(object):
             raise NullAddressError
         return self.ptr
 
-##    def get(self):
-##        return self.ref().get()
-
-##    def set(self, value):
-##        self.ref().set(value)
-
     def _cast_to_ptr(self, EXPECTED_TYPE):
         if self:
-            PTRTYPE = lltype.typeOf(self.ptr)
-            if (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
-                isinstance(PTRTYPE.TO, lltype.OpaqueType)):
-                return lltype.cast_opaque_ptr(EXPECTED_TYPE, self.ptr)
-            else:
-                # regular case
-                return lltype.cast_pointer(EXPECTED_TYPE, self.ptr)
+            return cast_any_ptr(EXPECTED_TYPE, self.ptr)
         else:
             return lltype.nullptr(EXPECTED_TYPE.TO)
-
-##        if (isinstance(ref, _arrayitemref) and
-##            isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-##            ref.type() == EXPECTED_TYPE.TO.OF):
-##            # special case that requires direct_arrayitems
-##            p_items = lltype.direct_arrayitems(ref.array)
-##            return lltype.direct_ptradd(p_items, ref.index)
-##        elif (isinstance(ref, _structfieldref) and
-##              isinstance(EXPECTED_TYPE.TO, lltype.FixedSizeArray) and
-##              ref.type() == EXPECTED_TYPE.TO.OF):
-##            # special case that requires direct_fieldptr
-##            return lltype.direct_fieldptr(ref.struct,
-##                                          ref.fieldname)
-##        else:
-##            result = ref.get()
-##            if (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
-##                isinstance(lltype.typeOf(result).TO, lltype.OpaqueType)):
-##                return lltype.cast_opaque_ptr(EXPECTED_TYPE, result)
-##            else:
-##                # regular case
-##                return lltype.cast_pointer(EXPECTED_TYPE, result)
 
     def _cast_to_int(self):
         if self:
@@ -538,7 +505,7 @@ def weakref_deref(PTRTYPE, pwref):
     if p is None:
         return lltype.nullptr(PTRTYPE.TO)
     else:
-        return lltype.cast_pointer(PTRTYPE, p)
+        return cast_any_ptr(PTRTYPE, p)
 
 class _wref(lltype._container):
     _gckind = 'gc'
@@ -553,7 +520,9 @@ class _wref(lltype._container):
 
     def _dereference(self):
         obj = self._obref()
-        if obj is None:
+        # in combination with a GC like the SemiSpace, the 'obj' can be
+        # still alive in the CPython sense but freed by the arena logic.
+        if obj is None or obj._was_freed():
             return None
         else:
             return obj._as_ptr()
@@ -584,7 +553,8 @@ def cast_weakrefptr_to_ptr(PTRTYPE, pwref):
     assert lltype.typeOf(pwref) == WeakRefPtr
     if pwref:
         assert isinstance(pwref._obj, _gctransformed_wref)
-        assert PTRTYPE == lltype.typeOf(pwref._obj._ptr)
+        if PTRTYPE is not None:
+            assert PTRTYPE == lltype.typeOf(pwref._obj._ptr)
         return pwref._obj._ptr
     else:
         return lltype.nullptr(PTRTYPE.TO)
@@ -636,3 +606,20 @@ def raw_memcopy(source, dest, size):
     assert lltype.typeOf(source) == Address
     assert lltype.typeOf(dest)   == Address
     size.raw_memcopy(source, dest)
+
+def cast_any_ptr(EXPECTED_TYPE, ptr):
+    # this is a generalization of the various cast_xxx_ptr() functions.
+    PTRTYPE = lltype.typeOf(ptr)
+    if PTRTYPE == EXPECTED_TYPE:
+        return ptr
+    elif EXPECTED_TYPE == WeakRefPtr:
+        return cast_ptr_to_weakrefptr(ptr)
+    elif PTRTYPE == WeakRefPtr:
+        ptr = cast_weakrefptr_to_ptr(None, ptr)
+        return cast_any_ptr(EXPECTED_TYPE, ptr)
+    elif (isinstance(EXPECTED_TYPE.TO, lltype.OpaqueType) or
+        isinstance(PTRTYPE.TO, lltype.OpaqueType)):
+        return lltype.cast_opaque_ptr(EXPECTED_TYPE, ptr)
+    else:
+        # regular case
+        return lltype.cast_pointer(EXPECTED_TYPE, ptr)

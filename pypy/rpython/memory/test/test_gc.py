@@ -251,6 +251,25 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res
 
+    def test_id(self):
+        class A(object):
+            pass
+        a1 = A()
+        def f():
+            a2 = A()
+            a3 = A()
+            id1 = id(a1)
+            id2 = id(a2)
+            id3 = id(a3)
+            llop.gc__collect(lltype.Void)
+            error = 0
+            if id1 != id(a1): error += 1
+            if id2 != id(a2): error += 2
+            if id3 != id(a3): error += 4
+            return error
+        res = self.interpret(f, [])
+        assert res == 0
+
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass

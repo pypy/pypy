@@ -85,6 +85,10 @@ class GCManagedHeap(object):
         addr = gctypelayout.ll_weakref_deref(obj)
         return llmemory.cast_adr_to_ptr(addr, PTRTYPE)
 
+    def gc_id(self, ptr):
+        ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        return self.gc.id(ptr)
+
     # ____________________________________________________________
 
 class RootLinkedList(object):

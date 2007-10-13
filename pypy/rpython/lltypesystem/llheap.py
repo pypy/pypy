@@ -14,3 +14,5 @@ def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue):
     assert typeOf(newvalue) == INNERTYPE
     # xxx access the address object's ref() directly for performance
     inneraddr.ref()[0] = newvalue
+
+from pypy.rpython.lltypesystem.lltype import cast_ptr_to_int as gc_id

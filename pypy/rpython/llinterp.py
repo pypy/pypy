@@ -778,6 +778,9 @@ class LLFrame(object):
         self.setvar(v_ptr, p)
     op_gc_reload_possibly_moved.specialform = True
 
+    def op_gc_id(self, v_ptr):
+        return self.heap.gc_id(v_ptr)
+
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
 

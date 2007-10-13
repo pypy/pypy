@@ -147,6 +147,12 @@ class BoehmGCTransformer(GCTransformer):
                            resulttype=llmemory.Address)
         hop.cast_result(v_addr)
 
+    def gct_gc_id(self, hop):
+        # this is the logic from the HIDE_POINTER macro in <gc/gc.h>
+        v_int = hop.genop('cast_ptr_to_int', [hop.spaceop.args[0]],
+                          resulttype = lltype.Signed)
+        hop.genop('int_invert', [v_int], resultvar=hop.spaceop.result)
+
 
 ########## weakrefs ##########
 # Boehm: weakref objects are small structures containing only a Boehm

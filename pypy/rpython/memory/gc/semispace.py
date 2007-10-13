@@ -7,16 +7,15 @@ from pypy.rpython.lltypesystem import lltype, llmemory, llarena
 from pypy.rlib.objectmodel import free_non_gc_object, debug_assert
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.memory.gc.base import GCBase
+from pypy.rpython.memory.gc.base import MovingGCBase
 
 
 import sys, os
 
 memoryError = MemoryError()
 
-class SemiSpaceGC(GCBase):
+class SemiSpaceGC(MovingGCBase):
     _alloc_flavor_ = "raw"
-    moving_gc = True
     inline_simple_malloc = True
 
     HDR = lltype.Struct('header', ('forw', llmemory.Address),
@@ -25,6 +24,7 @@ class SemiSpaceGC(GCBase):
     def __init__(self, AddressLinkedList, space_size=4096,
                  max_space_size=sys.maxint//2+1,
                  get_roots=None):
+        MovingGCBase.__init__(self)
         self.space_size = space_size
         self.max_space_size = max_space_size
         self.get_roots = get_roots

@@ -18,11 +18,3 @@
 
 #define OP_CAST_ADR_TO_INT(x, r)     r = ((long)x)
 #define OP_CAST_INT_TO_ADR(x, r)     r = ((void *)(x))
-
-#ifndef HIDE_POINTER
-#define HIDE_POINTER(p) (p)
-#ifdef REVEAL_POINTER
-#error HIDE_POINTER but not REVEAL_POINTER?
-#endif
-#define REVEAL_POINTER(p) (p)
-#endif

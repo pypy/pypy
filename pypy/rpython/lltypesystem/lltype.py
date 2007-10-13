@@ -1278,6 +1278,8 @@ class _container(object):
         return self
     def _getid(self):
         return id(self)
+    def _was_freed(self):
+        return False
 
 class _parentable(_container):
     _kind = "?"
@@ -1299,6 +1301,9 @@ class _parentable(_container):
     def _free(self):
         self._check()   # no double-frees
         self._storage = None
+
+    def _was_freed(self):
+        return self._storage is None
 
     def _setparentstructure(self, parent, parentindex):
         self._wrparent = weakref.ref(parent)

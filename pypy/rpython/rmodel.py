@@ -220,9 +220,7 @@ class Repr:
             raise TyperError('id() of an instance of the non-pointer %r' % (
                 self,))
         vobj, = hop.inputargs(self)
-        # XXX I am still not sure whether this is the right thing to do,
-        # since the int might keep things alive with boehm
-        return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
+        return hop.genop('gc_id', [vobj], resulttype=Signed)
 
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()

@@ -68,6 +68,9 @@ class GCBase(object):
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
 
+    def id(self, ptr):
+        return lltype.cast_ptr_to_int(ptr)
+
     def x_swap_pool(self, newpool):
         return newpool
 
@@ -76,6 +79,38 @@ class GCBase(object):
 
     def x_become(self, target_addr, source_addr):
         raise RuntimeError("no support for x_become in the GC")
+
+
+class MovingGCBase(GCBase):
+    moving_gc = True
+
+    def __init__(self):
+        self.wr_to_objects_with_id = []
+
+    def id(self, ptr):
+        # XXX linear search! this is probably too slow to be reasonable :-(
+        # On the other hand, it punishes you for using 'id', so that's good :-)
+        # XXX this may explode if --no-translation-rweakref is specified
+        lst = self.wr_to_objects_with_id
+        i = len(lst)
+        freeentry = -1
+        while i > 0:
+            i -= 1
+            target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
+            if not target:
+                freeentry = i
+            elif target == ptr:
+                break               # found
+        else:
+            # not found
+            wr = llmemory.weakref_create(ptr)
+            if freeentry == -1:
+                i = len(lst)
+                lst.append(wr)
+            else:
+                i = freeentry       # reuse the id() of a dead object
+                lst[i] = wr
+        return i + 1       # this produces id() values 1, 2, 3, 4...
 
 
 def choose_gc_from_config(config):
@@ -88,7 +123,7 @@ def choose_gc_from_config(config):
         return MarkSweepGC, GC_PARAMS
     elif config.translation.frameworkgc == "semispace":
         GC_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
-        from pypy.rpython.memory.gc.marksweep import SemiSpaceGC
+        from pypy.rpython.memory.gc.semispace import SemiSpaceGC
         return SemiSpaceGC, GC_PARAMS
     else:
         raise ValueError("unknown value for frameworkgc: %r" % (

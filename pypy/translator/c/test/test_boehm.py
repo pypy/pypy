@@ -102,7 +102,6 @@ class TestUsingBoehm(AbstractGCTestClass):
 
     def test_id_is_weak(self):
         # test that id(obj) does not keep obj alive
-        py.test.skip("fails")
         from pypy.rpython.lltypesystem.lloperation import llop
         class State:
             pass
