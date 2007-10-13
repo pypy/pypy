@@ -3,7 +3,7 @@ from pypy.rlib.objectmodel import free_non_gc_object
 
 DEFAULT_CHUNK_SIZE = 1019
 
-def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE, hackishpop=False):
+def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE):
 
     CHUNK = lltype.ForwardReference()
     CHUNK.become(lltype.Struct('AddressLinkedListChunk',
@@ -71,8 +71,6 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE, hackishpop=False):
             return chunk.length != 0 or bool(chunk.previous)
 
         def pop(self):
-            if hackishpop and not self.non_empty():
-                return llmemory.NULL
             chunk = self.chunk
             if chunk.length == 0:
                 chunk = self.shrink()

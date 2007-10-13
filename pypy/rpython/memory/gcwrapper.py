@@ -8,7 +8,6 @@ from pypy.objspace.flow.model import Constant
 class GCManagedHeap(object):
 
     def __init__(self, llinterp, flowgraphs, gc_class, GC_PARAMS={}):
-        self.RootLinkedList = get_address_linked_list(10, hackishpop=True)
         self.AddressLinkedList = get_address_linked_list(10)
         self.gc = gc_class(self.AddressLinkedList, **GC_PARAMS)
         self.gc.get_roots = self.get_roots_from_llinterp
@@ -30,14 +29,14 @@ class GCManagedHeap(object):
 
     def get_roots_from_llinterp(self):
         sizeofaddr = llmemory.sizeof(llmemory.Address)
-        ll = self.RootLinkedList()
+        ll = [llmemory.NULL]     # end marker
         for addrofaddr in self.constantroots:
             if addrofaddr.address[0]:
                 ll.append(addrofaddr)
         for addrofaddr in self.llinterp.find_roots():
             if addrofaddr.address[0]:
                 ll.append(addrofaddr)
-        return ll
+        return RootLinkedList(ll)
 
     # ____________________________________________________________
     #
@@ -87,6 +86,13 @@ class GCManagedHeap(object):
         return llmemory.cast_adr_to_ptr(addr, PTRTYPE)
 
     # ____________________________________________________________
+
+class RootLinkedList(object):
+    _alloc_flavor_ = 'raw'
+
+    def __init__(self, lst):
+        self._lst = lst
+        self.pop = lst.pop
 
 
 class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
