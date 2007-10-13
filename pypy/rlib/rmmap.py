@@ -134,6 +134,10 @@ elif _MS_WINDOWS:
         SYSTEM_INFO = rffi_platform.Struct(
             'SYSTEM_INFO', [
                 ## ("_union_", SYSINFO_UNION),
+                ## instead, we put the smaller fields, here
+                ("wProcessorArchitecture", WORD),
+                ("wReserved", WORD),
+                ## should be a union. dwOemId is obsolete, anyway
                 ("dwPageSize", DWORD),
                 ("lpMinimumApplicationAddress", LPVOID),
                 ("lpMaximumApplicationAddress", LPVOID),
