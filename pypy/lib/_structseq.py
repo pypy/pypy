@@ -60,6 +60,7 @@ class structseqtype(type):
         dict['_extra_fields'] = tuple(extra_fields)
         dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
+        dict['__setattr__'] = structseq_setattr
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
@@ -91,7 +92,7 @@ def structseq_new(cls, sequence, dict={}):
             dict[name] = value
         sequence = sequence[:N]
     result = tuple.__new__(cls, sequence)
-    result.__dict__ = dict
+    object.__setattr__(result, '__dict__', dict)
     for field in cls._extra_fields:
         name = field.__name__
         if name not in dict:
@@ -100,3 +101,7 @@ def structseq_new(cls, sequence, dict={}):
 
 def structseq_reduce(self):
     return type(self), (tuple(self), self.__dict__)
+
+def structseq_setattr(self, attr, value):
+    raise AttributeError("%r object has no attribute %r" % (
+        self.__class__.__name__, attr))

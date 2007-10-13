@@ -76,5 +76,4 @@ def test_readonly():
 
 def test_no_extra_assignments():
     x = mydata(range(100, 113))
-    py.test.skip("not working yet")
     py.test.raises((TypeError, AttributeError), "x.some_random_attribute = 1")
