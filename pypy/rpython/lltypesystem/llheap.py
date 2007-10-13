@@ -1,6 +1,6 @@
 # only for the LLInterpreter.  Don't use directly.
 
-from pypy.rpython.lltypesystem.lltype import pyobjectptr, malloc, free
+from pypy.rpython.lltypesystem.lltype import pyobjectptr, malloc, free, typeOf
 from pypy.rpython.lltypesystem.llmemory import raw_malloc, raw_free
 from pypy.rpython.lltypesystem.llmemory import raw_memclear, raw_memcopy
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, \
@@ -9,3 +9,8 @@ from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage, \
 setfield = setattr
 from operator import setitem as setarrayitem
 from gc import collect
+
+def setinterior(toplevelcontainer, inneraddr, INNERTYPE, newvalue):
+    assert typeOf(newvalue) == INNERTYPE
+    # xxx access the address object's ref() directly for performance
+    inneraddr.ref()[0] = newvalue

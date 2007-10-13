@@ -569,27 +569,29 @@ class LLFrame(object):
         assert not isinstance(ob, lltype._interior_ptr)
         return ob
 
-    def setinterior(self, heap, obj, *fieldnamesval):
-        prefields, finalfield, fieldvalue = (
-            fieldnamesval[:-2], fieldnamesval[-2], fieldnamesval[-1])
-        for o in prefields:
+    def getinneraddr(self, obj, *offsets):
+        TYPE = lltype.typeOf(obj).TO
+        addr = llmemory.cast_ptr_to_adr(obj)
+        for o in offsets:
             if isinstance(o, str):
-                obj = getattr(obj, o)
+                addr += llmemory.offsetof(TYPE, o)
+                TYPE = getattr(TYPE, o)
             else:
-                obj = obj[o]
-        T = obj._T
-        if isinstance(finalfield, str):
-            if getattr(T, finalfield) is not lltype.Void:
-                heap.setfield(obj, finalfield, fieldvalue)
-        else:
-            if T.OF is not lltype.Void:
-                heap.setarrayitem(obj, finalfield, fieldvalue)
+                addr += llmemory.itemoffsetof(TYPE, o)
+                TYPE = TYPE.OF
+        return addr, TYPE
 
     def op_setinteriorfield(self, obj, *fieldnamesval):
-        self.setinterior(self.heap, obj, *fieldnamesval)
+        offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]
+        inneraddr, FIELD = self.getinneraddr(obj, *offsets)
+        if FIELD is not lltype.Void:
+            self.heap.setinterior(obj, inneraddr, FIELD, fieldvalue)
 
     def op_bare_setinteriorfield(self, obj, *fieldnamesval):
-        self.setinterior(llheap, obj, *fieldnamesval)
+        offsets, fieldvalue = fieldnamesval[:-1], fieldnamesval[-1]
+        inneraddr, FIELD = self.getinneraddr(obj, *offsets)
+        if FIELD is not lltype.Void:
+            llheap.setinterior(obj, inneraddr, FIELD, fieldvalue)
 
     def op_getarrayitem(self, array, index):
         return array[index]

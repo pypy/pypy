@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, llheap
 from pypy.rpython import llinterp
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory import gctypelayout
@@ -52,14 +52,25 @@ class GCManagedHeap(object):
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero)
 
     def setfield(self, obj, fieldname, fieldvalue):
-        # XXX use write_barrier - but we need the address of the GcStruct
-        setattr(obj, fieldname, fieldvalue)
+        STRUCT = lltype.typeOf(obj).TO
+        addr = llmemory.cast_ptr_to_adr(obj)
+        addr += llmemory.offsetof(STRUCT, fieldname)
+        self.setinterior(obj, addr, getattr(STRUCT, fieldname), fieldvalue)
 
     def setarrayitem(self, array, index, newitem):
-        # XXX use write_barrier - but we need the address of the GcStruct
-        array[index] = newitem
+        ARRAY = lltype.typeOf(array).TO
+        addr = llmemory.cast_ptr_to_adr(array)
+        addr += llmemory.itemoffsetof(ARRAY, index)
+        self.setinterior(array, addr, ARRAY.OF, newitem)
 
-    # XXX do we need a barrier for setinteriorfield too?
+    def setinterior(self, toplevelcontainer, inneraddr, INNERTYPE, newvalue):
+        if isinstance(INNERTYPE, lltype.Ptr) and INNERTYPE.TO._gckind == 'gc':
+            self.gc.write_barrier(llmemory.cast_ptr_to_adr(newvalue),
+                                  inneraddr,
+                                  llmemory.cast_ptr_to_adr(toplevelcontainer))
+        else:
+            llheap.setinterior(toplevelcontainer, inneraddr,
+                               INNERTYPE, newvalue)
 
     def collect(self):
         self.gc.collect()
