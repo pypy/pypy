@@ -253,10 +253,10 @@ class GCTest(object):
 
 
 class TestMarkSweepGC(GCTest):
-    from pypy.rpython.memory.gc import MarkSweepGC as GCClass
+    from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
 
 class TestSemiSpaceGC(GCTest):
-    from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
+    from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
 
 class TestGrowingSemiSpaceGC(TestSemiSpaceGC):
     GC_PARAMS = {'space_size': 64}

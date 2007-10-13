@@ -3,7 +3,8 @@ from pypy.rpython.memory.gctransform.support import find_gc_ptrs_in_type, \
      get_rtti, ll_call_destructor, type_contains_pyobjs
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rmodel
-from pypy.rpython.memory import gc, gctypelayout
+from pypy.rpython.memory import gctypelayout
+from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import debug_assert
@@ -33,12 +34,12 @@ class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
-        from pypy.rpython.memory.gc import choose_gc_from_config
+        from pypy.rpython.memory.gc.base import choose_gc_from_config
         super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
         if hasattr(self, 'GC_PARAMS'):
             # for tests: the GC choice can be specified as class attributes
-            from pypy.rpython.memory.gc import MarkSweepGC
+            from pypy.rpython.memory.gc.marksweep import MarkSweepGC
             GCClass = getattr(self, 'GCClass', MarkSweepGC)
             GC_PARAMS = self.GC_PARAMS
         else:
@@ -242,8 +243,8 @@ class FrameworkGCTransformer(GCTransformer):
                                     annmodel.SomeInteger())
 
         # experimental gc_x_* operations
-        s_x_pool  = annmodel.SomePtr(gc.X_POOL_PTR)
-        s_x_clone = annmodel.SomePtr(gc.X_CLONE_PTR)
+        s_x_pool  = annmodel.SomePtr(marksweep.X_POOL_PTR)
+        s_x_clone = annmodel.SomePtr(marksweep.X_CLONE_PTR)
         # the x_*() methods use some regular mallocs that must be
         # transformed in the normal way
         self.x_swap_pool_ptr = getfn(GCClass.x_swap_pool.im_func,

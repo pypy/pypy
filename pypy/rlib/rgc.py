@@ -47,7 +47,7 @@ class GcPoolEntry(ExtRegistryEntry):
             return rtyper.getrepr(s_None)
         else:
             from pypy.rpython.rmodel import SimplePointerRepr
-            from pypy.rpython.memory.gc import X_POOL_PTR
+            from pypy.rpython.memory.gc.marksweep import X_POOL_PTR
             return SimplePointerRepr(X_POOL_PTR)
 
 
@@ -92,7 +92,7 @@ class CloneFnEntry(ExtRegistryEntry):
         from pypy.rpython.error import TyperError
         from pypy.rpython.lltypesystem import lltype, llmemory, rtuple
         from pypy.annotation import model as annmodel
-        from pypy.rpython.memory.gc import X_CLONE, X_CLONE_PTR
+        from pypy.rpython.memory.gc.marksweep import X_CLONE, X_CLONE_PTR
 
         config = hop.rtyper.getconfig()
         if config.translation.gc != 'framework':

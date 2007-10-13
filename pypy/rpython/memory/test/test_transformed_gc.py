@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.memory.gc import X_CLONE, X_POOL, X_POOL_PTR
+from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
 from pypy import conftest
 
 INT_SIZE = struct.calcsize("i")   # only for estimates
@@ -86,7 +86,7 @@ class GenericGCTests(GCTest):
         try:
             GCClass = self.gcpolicy.transformerclass.GCClass
         except AttributeError:
-            from pypy.rpython.memory.gc import MarkSweepGC as GCClass
+            from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass
         if hasattr(GCClass, 'STAT_HEAP_USAGE'):
             return statistics(GCClass.STAT_HEAP_USAGE)
         else:
@@ -632,6 +632,6 @@ class TestSemiSpaceGC(GenericGCTests):
 
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
-            from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
+            from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
             GC_PARAMS = {'space_size': 2048}
             root_stack_depth = 200
