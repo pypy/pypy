@@ -207,24 +207,12 @@ def register_stat_variant(name):
 
     def fakeimpl(arg):
         st = getattr(os, name)(arg)
-        tup = [st[i] for i in range(len(st))]
-        extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS))
-        tup = tup + list(extra_zeroes)
-        fields = []
-        for i in range(len(tup)):
-            if i in [1, 2, 6]:
-                fields.append(rffi.LONGLONG)
-            else:
-                fields.append(lltype.Signed)
+        fields = [TYPE for fieldname, TYPE in LL_STAT_FIELDS]
         TP = TUPLE_TYPE(fields)
         ll_tup = lltype.malloc(TP.TO)
-        for i in range(len(tup)):
-            # XXX ARGH!
-            if i in [1, 6, 2]:
-                val = rffi.cast(rffi.LONGLONG, tup[i])
-            else:
-                val = tup[i]
-            setattr(ll_tup, 'item%d' % i, val)
+        for i, (fieldname, TYPE) in enumerate(LL_STAT_FIELDS):
+            val = getattr(st, fieldname)
+            rffi.setintfield(ll_tup, 'item%d' % i, val)
         return ll_tup
 
     if arg_is_path:
