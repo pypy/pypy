@@ -131,10 +131,12 @@ class AppTestStringObject:
         raises(ValueError, '%('.__mod__, ({},))
 
     def test_format_char(self):
+        import sys
         assert '%c' % 65 == 'A'
         assert '%c' % 'e' == 'e'
         raises(OverflowError, '%c'.__mod__, (256,))
         raises(OverflowError, '%c'.__mod__, (-1,))
+        raises(OverflowError, u'%c'.__mod__, (sys.maxunicode+1,))
         raises(TypeError, '%c'.__mod__, ("bla",))
         raises(TypeError, '%c'.__mod__, ("",))
         raises(TypeError, '%c'.__mod__, (['c'],))

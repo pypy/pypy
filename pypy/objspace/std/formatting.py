@@ -394,9 +394,11 @@ def make_formatter_subclass(do_unicode):
             else:
                 n = space.int_w(w_value)
                 if do_unicode:
-                    c = unichr(n)
-                    # XXX no range checking, but our unichr() builtin needs
-                    # to be fixed too
+                    try:
+                        c = unichr(n)
+                    except ValueError:
+                        raise OperationError(space.w_OverflowError,
+                            space.wrap("unicode character code out of range"))
                     self.std_wp([c])
                 else:
                     try:
