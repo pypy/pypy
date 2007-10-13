@@ -112,6 +112,7 @@ elif _MS_WINDOWS:
     DWORD_PTR = DWORD
     INT = rffi.INT
     INT_P = rffi.INTP
+    DWORD_P = rffi.DINTP
     LPCTSTR = rffi.CCHARP
 
 
@@ -137,7 +138,7 @@ elif _MS_WINDOWS:
 
     GetSystemInfo = winexternal('GetSystemInfo', [sysinfo_struct_p], lltype.Void)
     GetFileSize = winexternal('GetFileSize', [INT, INT_P],  INT)
-    GetCurrentProcess = winexternal('getCurrentProcess', [], INT)
+    GetCurrentProcess = winexternal('GetCurrentProcess', [], INT)
     DuplicateHandle = winexternal('DuplicateHandle', [INT, INT, INT, INT_P, DWORD, BOOL, DWORD], BOOL)
     CreateFileMapping = winexternal('CreateFileMappingA', [INT, PTR, INT, INT, INT, LPCTSTR], INT)
     MapViewOfFile = winexternal('MapViewOfFile', [INT, DWORD, DWORD, DWORD, DWORD], PTR)
@@ -160,7 +161,7 @@ elif _MS_WINDOWS:
     
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
-        high_ref = rffi.CFixedArray(INT, 1)
+        high_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
         try:
             low = GetFileSize(rffi.cast(INT, handle), high_ref)
             high = high_ref[0]
@@ -169,15 +170,15 @@ elif _MS_WINDOWS:
             INVALID_FILE_SIZE = -1
             NO_ERROR = 0
             dwErr = GetLastError()
-            err = dwErr.value
-            if low.value == INVALID_FILE_SIZE and err != NO_ERROR:
+            err = rffi.cast(lltype.Signed, dwErr)
+            if rffi.cast(lltype.Signed, low) == INVALID_FILE_SIZE and err != NO_ERROR:
                 raise REnvironmentError(os.strerror(err))
-            return low.value, high.value
+            return low, high
         finally:
             lltype.free(high_ref, flavor='raw')
 
     def _get_error_msg():
-        errno = GetLastError().value
+        errno = rffi.cast(lltype.Signed, GetLastError())
         return os.strerror(errno)
 
 PAGESIZE = _get_page_size()
@@ -229,11 +230,9 @@ class MMap(object):
                 self.setdata(NODATA, 0)
             if self.map_handle != INVALID_INT_VALUE:
                 CloseHandle(rffi.cast(INT, self.map_handle))
-                ##self.map_handle.value = INVALID_INT_VALUE
                 self.map_handle = INVALID_INT_VALUE
             if self.file_handle != INVALID_INT_VALUE:
                 CloseHandle(rffi.cast(INT, self.file_handle))
-                ##self.file_handle.value = INVALID_INT_VALUE
                 self.file_handle = INVALID_INT_VALUE
         elif _POSIX:
             self.closed = True
@@ -450,12 +449,13 @@ class MMap(object):
             if _64BIT:
                 newsize_high = rffi.cast(DWORD, newsize >> 32)
                 newsize_low = rffi.cast(DWORD, newsize & 0xFFFFFFFF)
+                high_ref = lltype.malloc(DWORD_P.TO, 1, flavor='raw')
             else:
                 newsize_high = rffi.cast(INT, 0)
                 newsize_low = rffi.cast(INT, newsize)
+                high_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
 
             FILE_BEGIN = rffi.cast(INT, 0)
-            high_ref = rffi.CFixedArray(INT, 1)
             try:
                 high_ref[0] = newsize_high
                 SetFilePointer(self.file_handle, newsize_low, high_ref,
@@ -467,7 +467,7 @@ class MMap(object):
             # create another mapping object and remap the file view
             res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
                                  newsize_high, newsize_low, self.tagname)
-            self.map_handle = res.value
+            self.map_handle = res
 
             dwErrCode = rffi.cast(DWORD, 0)
             if self.map_handle:
@@ -480,8 +480,8 @@ class MMap(object):
                     dwErrCode = GetLastError()
             else:
                 dwErrCode = GetLastError()
-
-            raise REnvironmentError(os.strerror(dwErrCode.value))
+            err = rffi.cast(lltype.Signed, dwErrCode)
+            raise REnvironmentError(os.strerror(err))
     
     def len(self):
         self.check_valid()
@@ -605,7 +605,7 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = _get_osfhandle(rffi.cast(INT, fileno)).value
+            fh = _get_osfhandle(rffi.cast(INT, fileno))
             if fh == -1:
                 raise REnvironmentError(_get_error_msg())
             # Win9x appears to need us seeked to zero
@@ -618,8 +618,8 @@ elif _MS_WINDOWS:
         if fh:
             # it is necessary to duplicate the handle, so the
             # Python code can close it on us
-            handle_ref = rffi.CFixedArray(INT, 1)
-            handle_ref[0].value = m.file_handle
+            handle_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
+            handle_ref[0] = rffi.cast(INT, m.file_handle)
             try:
                 res = DuplicateHandle(GetCurrentProcess(), # source process handle
                                       rffi.cast(INT, fh), # handle to be duplicated
@@ -627,10 +627,10 @@ elif _MS_WINDOWS:
                                       handle_ref, # result  
                                       0, # access - ignored due to options value
                                       False, # inherited by child procs?
-                                      DUPLICATE_SAME_ACCESS).value # options
+                                      DUPLICATE_SAME_ACCESS) # options
                 if not res:
                     raise REnvironmentError(_get_error_msg())
-                m.file_handle = handle_ref[0].value
+                m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
             
@@ -657,11 +657,11 @@ elif _MS_WINDOWS:
             size_lo = rffi.cast(INT, map_size)
 
         m.map_handle = CreateFileMapping(rffi.cast(INT, m.file_handle), NULL, flProtect,
-                                         size_hi, size_lo, m.tagname).value
+                                         size_hi, size_lo, m.tagname)
 
         if m.map_handle:
             res = MapViewOfFile(rffi.cast(INT, m.map_handle), dwDesiredAccess,
-                                0, 0, 0).value
+                                0, 0, 0)
             if res:
                 m.setdata(res, map_size)
                 return m
@@ -669,8 +669,8 @@ elif _MS_WINDOWS:
                 dwErr = GetLastError()
         else:
             dwErr = GetLastError()
-
-        raise REnvironmentError(os.strerror(dwErr.value))
+        err = rffi.cast(lltype.Signed, dwErr)
+        raise REnvironmentError(os.strerror(err))
 
         
 # register_external here?
