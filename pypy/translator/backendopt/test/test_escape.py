@@ -3,6 +3,7 @@ from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, mallo
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import instantiate
+from pypy import conftest
 
 import py
 
@@ -10,6 +11,8 @@ def build_adi(function, types):
     t = TranslationContext()
     t.buildannotator().build_types(function, types)
     t.buildrtyper().specialize()
+    if conftest.option.view:
+        t.view()
     adi = AbstractDataFlowInterpreter(t)
     graph = graphof(t, function)
     adi.schedule_function(graph)
