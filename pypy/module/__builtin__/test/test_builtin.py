@@ -28,6 +28,17 @@ class AppTestBuiltinApp:
         raises(ValueError, chr, -1)
         raises(TypeError, chr, 'a')
 
+    def test_unichr(self):
+        import sys
+        assert unichr(65) == u'A'
+        assert type(unicode(65)) is unicode
+        assert unichr(0x9876) == u'\u9876'
+        assert ord(unichr(sys.maxunicode)) == sys.maxunicode
+        if sys.maxunicode > 0x10000:
+            assert unichr(0x10000) == u'\U00010000'
+        raises(ValueError, unichr, -1)
+        raises(ValueError, unichr, sys.maxunicode+1)
+
     def test_intern(self):
         raises(TypeError, intern)
         raises(TypeError, intern, 1)
