@@ -174,7 +174,8 @@ class ExtFuncEntry(ExtRegistryEntry):
         signature_args = self.normalize_args(*hop.args_s)
         args_r = [rtyper.getrepr(s_arg) for s_arg in signature_args]
         args_ll = [r_arg.lowleveltype for r_arg in args_r]
-        r_result = rtyper.getrepr(hop.s_result)
+        s_result = hop.s_result
+        r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
         method_name = rtyper.type_system.name[:2] + 'typeimpl'
@@ -191,7 +192,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                 original_impl = impl
                 def ll_wrapper(*args):
                     if running_on_llinterp:
-                        return debug_llinterpcall(ll_result, fakeimpl, *args)
+                        return debug_llinterpcall(s_result, fakeimpl, *args)
                     else:
                         return original_impl(*args)
                 impl = func_with_new_name(ll_wrapper, name + '_wrapper')

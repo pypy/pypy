@@ -161,13 +161,23 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_RESTYPE, s_pythonfunction, *args_s):
         from pypy.annotation import model as annmodel
+        from pypy.rpython.lltypesystem import lltype
         assert s_RESTYPE.is_constant()
         assert s_pythonfunction.is_constant()
-        return annmodel.lltype_to_annotation(s_RESTYPE.const)
+        s_result = s_RESTYPE.const
+        if isinstance(s_result, lltype.LowLevelType):
+            s_result = annmodel.lltype_to_annotation(s_result)
+        assert isinstance(s_result, annmodel.SomeObject)
+        return s_result
 
     def specialize_call(self, hop):
+        from pypy.annotation import model as annmodel
         from pypy.rpython.lltypesystem import lltype
-        RESTYPE= hop.args_s[0].const
+        RESTYPE = hop.args_s[0].const
+        if not isinstance(RESTYPE, lltype.LowLevelType):
+            assert isinstance(RESTYPE, annmodel.SomeObject)
+            r_result = hop.rtyper.getrepr(RESTYPE)
+            RESTYPE = r_result.lowleveltype
         pythonfunction = hop.args_s[1].const
         c_pythonfunction = hop.inputconst(lltype.Void, pythonfunction)
         args_v = [hop.inputarg(hop.args_r[i], arg=i)
