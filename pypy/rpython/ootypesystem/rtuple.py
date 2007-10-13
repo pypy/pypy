@@ -33,10 +33,6 @@ class TupleRepr(AbstractTupleRepr):
         cname = inputconst(ootype.Void, name)
         return  llops.genop("oogetfield", [v_tuple, cname], resulttype=llresult)
 
-    def rtype_id(self, hop):
-        vinst, = hop.inputargs(self)
-        return hop.genop('ooidentityhash', [vinst], resulttype=ootype.Signed)
-
     def rtype_bltn_list(self, hop):
         from pypy.rpython.ootypesystem import rlist
         v_tup = hop.inputarg(self, 0)
