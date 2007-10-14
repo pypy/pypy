@@ -270,6 +270,26 @@ class GCTest(object):
         res = self.interpret(f, [])
         assert res == 0
 
+    def test_many_ids(self):
+        class A(object):
+            pass
+        def f():
+            from pypy.rpython.lltypesystem import lltype, rffi
+            alist = [A() for i in range(500)]
+            idarray = lltype.malloc(rffi.INTP.TO, len(alist), flavor='raw')
+            # Compute the id of all elements of the list.  The goal is
+            # to not allocate memory, so that if the GC needs memory to
+            # remember the ids, it will trigger some collections itself
+            for i in range(len(alist)):
+                idarray[i] = id(alist[i])
+            for j in range(2):
+                if j == 1:     # allocate some stuff between the two iterations
+                    [A() for i in range(200)]
+                for i in range(len(alist)):
+                    assert idarray[i] == id(alist[i])
+            lltype.free(idarray, flavor='raw')
+        self.interpret(f, [])
+
 
 class TestMarkSweepGC(GCTest):
     from pypy.rpython.memory.gc.marksweep import MarkSweepGC as GCClass

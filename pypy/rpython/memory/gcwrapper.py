@@ -50,6 +50,10 @@ class GCManagedHeap(object):
         else:
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero)
 
+    def free(self, TYPE, flavor='gc'):
+        assert flavor != 'gc'
+        return lltype.free(TYPE, flavor=flavor)
+
     def setfield(self, obj, fieldname, fieldvalue):
         STRUCT = lltype.typeOf(obj).TO
         addr = llmemory.cast_ptr_to_adr(obj)
