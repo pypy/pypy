@@ -32,7 +32,7 @@ class TypeLayoutBuilder(object):
             self.id_of_type[TYPE] = type_id
             offsets = offsets_to_gc_pointers(TYPE)
             info["ofstoptrs"] = self.offsets2table(offsets, TYPE)
-            info["finalyzer"] = self.make_finalizer_funcptr_for_type(TYPE)
+            info["finalizer"] = self.make_finalizer_funcptr_for_type(TYPE)
             info["weakptrofs"] = weakpointer_offset(TYPE)
             if not TYPE._is_varsize():
                 info["isvarsize"] = False
@@ -90,9 +90,9 @@ class TypeLayoutBuilder(object):
         assert typeid > 0
         return self.type_info_list[typeid]["isvarsize"]
 
-    def q_finalyzer(self, typeid):
+    def q_finalizer(self, typeid):
         assert typeid > 0
-        return self.type_info_list[typeid]["finalyzer"]
+        return self.type_info_list[typeid]["finalizer"]
 
     def q_offsets_to_gc_pointers(self, typeid):
         assert typeid > 0
@@ -124,7 +124,7 @@ class TypeLayoutBuilder(object):
 
     def get_query_functions(self):
         return (self.q_is_varsize,
-                self.q_finalyzer,
+                self.q_finalizer,
                 self.q_offsets_to_gc_pointers,
                 self.q_fixed_size,
                 self.q_varsize_item_sizes,
