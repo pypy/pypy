@@ -394,8 +394,19 @@ class FrameworkGCTransformer(GCTransformer):
         newgcdependencies = []
         newgcdependencies.append(table)
         newgcdependencies.append(ll_static_roots_inside)
+        self.write_typeid_list()
         return newgcdependencies
 
+    def write_typeid_list(self):
+        """write out the list of type ids together with some info"""
+        from pypy.tool.udir import udir
+        # XXX not ideal since it is not per compilation, but per run
+        f = udir.join("typeids.txt").open("w")
+        all = [(typeid, TYPE)
+               for TYPE, typeid in self.layoutbuilder.id_of_type.iteritems()]
+        all.sort()
+        for typeid, TYPE in all:
+            f.write("%s %s\n" % (typeid, TYPE))
 
     def gct_direct_call(self, hop):
         if self.collect_analyzer.analyze(hop.spaceop):
