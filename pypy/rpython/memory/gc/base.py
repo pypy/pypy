@@ -106,12 +106,15 @@ class MovingGCBase(GCBase):
         # searches in this list.
         # ----------------------------------------------------------------
         # Invariant: if object_id_dict_ends_at >= 0, then object_id_dict
-        # contains (at least) all pairs {address: id}, for the addresses
+        # contains all pairs {address: id}, for the addresses
         # of all objects that are the targets of the weakrefs of the
         # following slice: wr_to_objects_with_id[:object_id_dict_ends_at].
         # ----------------------------------------------------------------
         # Essential: as long as notify_objects_just_moved() is not called,
-        # we assume that the objects' addresses did not change.
+        # we assume that the objects' addresses did not change.  We also
+        # assume that the address of a live object cannot be reused for
+        # another object without an intervening notify_objects_just_moved()
+        # call, but this could be fixed easily if needed.
         # ----------------------------------------------------------------
         # First check the dictionary
         i = self.object_id_dict_ends_at
