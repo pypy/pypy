@@ -1,8 +1,14 @@
+from pypy.objspace.flow.model import Constant, SpaceOperation
+from pypy.annotation.model import SomeInteger
+from pypy.rpython.memory.gc.base import GCBase
 from pypy.rpython.memory.gctransform.test.test_transform import rtype
+from pypy.rpython.memory.gctransform.transform import GcHighLevelOp
 from pypy.rpython.memory.gctransform.framework import FrameworkGCTransformer, CollectAnalyzer
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rtyper import LowLevelOpList
 from pypy.translator.c.gc import FrameworkGcPolicy
 from pypy.translator.translator import TranslationContext, graphof
+from pypy.translator.unsimplify import varoftype
 from pypy import conftest
 
 import py
@@ -53,3 +59,31 @@ def test_cancollect():
     t = rtype(g, [])
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
+
+
+class WriteBarrierTransformer(FrameworkGCTransformer):
+    GC_PARAMS = {}
+    class GC_CLASS(GCBase):
+        def write_barrier(self, addr, addr_to, addr_struct):
+            addr_to.address[0] = addr
+
+def test_write_barrier_support():
+    py.test.skip("no write barrier support yet!")
+    t = TranslationContext()
+    t.buildannotator().build_types(lambda x:x, [SomeInteger()])
+    t.buildrtyper().specialize()
+    llops = LowLevelOpList()
+    PTR_TYPE = lltype.Ptr(lltype.GcStruct('S', ('x', lltype.Signed)))
+    spaceop = SpaceOperation(
+        "setfield",
+        [varoftype(PTR_TYPE), Constant('x', lltype.Void)],
+        varoftype(lltype.Void))
+    transformer = WriteBarrierTransformer(t)
+    hop = GcHighLevelOp(transformer, spaceop, llops)
+    hop.dispatch()
+    found = False
+    for op in llops:
+        if op.opname == 'direct_call':
+            found = True
+            break
+    assert found
