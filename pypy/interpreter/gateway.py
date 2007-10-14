@@ -20,7 +20,7 @@ from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
 from pypy.rlib.jit import hint
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, r_int
 
 # internal non-translatable parts: 
 import py
@@ -212,8 +212,12 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit__object(self, typ):
         if typ not in (int, str, float, r_longlong):
             assert False, "unsupported basic type in uwnrap_spec"
+        if typ is r_int is r_longlong:
+            name = 'r_longlong'
+        else:
+            name = typ.__name__
         self.run_args.append("space.%s_w(%s)" %
-                             (typ.__name__, self.scopenext()))
+                             (name, self.scopenext()))
 
     def visit_index(self, typ):
         self.run_args.append("space.getindex_w(%s, space.w_OverflowError)"
