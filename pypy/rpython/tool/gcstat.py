@@ -7,6 +7,7 @@ class LifeTime(object):
         self.size = size
         self.birth = birth
         self.death = death
+        self.varsize = varsize
 
 def parse_file(f, callback):
     unknown_lifetime = {}
@@ -35,7 +36,6 @@ def parse_file(f, callback):
     for unknown in unknown_lifetime.itervalues():
         unknown.death = current
         callback(unknown)
-    return all
 
 def collect_all(f):
     all = []
