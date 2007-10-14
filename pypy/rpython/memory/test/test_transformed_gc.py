@@ -663,3 +663,31 @@ class TestSemiSpaceGC(GenericGCTests):
             from pypy.rpython.memory.gc.semispace import SemiSpaceGC as GCClass
             GC_PARAMS = {'space_size': 2048}
             root_stack_depth = 200
+
+    def test_many_ids(self):
+        py.test.skip("fails for bad reasons in lltype.py :-(")
+        class A(object):
+            pass
+        def f():
+            from pypy.rpython.lltypesystem import lltype, rffi
+            alist = [A() for i in range(50)]
+            idarray = lltype.malloc(rffi.INTP.TO, len(alist), flavor='raw')
+            # Compute the id of all the elements of the list.  The goal is
+            # to not allocate memory, so that if the GC needs memory to
+            # remember the ids, it will trigger some collections itself
+            i = 0
+            while i < len(alist):
+                idarray[i] = id(alist[i])
+                i += 1
+            j = 0
+            while j < 2:
+                if j == 1:     # allocate some stuff between the two iterations
+                    [A() for i in range(20)]
+                i = 0
+                while i < len(alist):
+                    assert idarray[i] == id(alist[i])
+                    i += 1
+                j += 1
+            lltype.free(idarray, flavor='raw')
+        run = self.runner(f)
+        run([])

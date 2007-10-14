@@ -827,3 +827,33 @@ class TestUsingStacklessFramework(TestUsingFramework):
 class TestSemiSpaceGC(TestUsingFramework):
     frameworkgc = "semispace"
     should_be_moving = True
+
+    def test_many_ids(self):
+        class A(object):
+            pass
+        def f():
+            from pypy.rpython.lltypesystem import lltype, rffi
+            alist = [A() for i in range(50000)]
+            idarray = lltype.malloc(rffi.INTP.TO, len(alist), flavor='raw')
+            # Compute the id of all elements of the list.  The goal is
+            # to not allocate memory, so that if the GC needs memory to
+            # remember the ids, it will trigger some collections itself
+            i = 0
+            while i < len(alist):
+                idarray[i] = id(alist[i])
+                i += 1
+            j = 0
+            while j < 2:
+                if j == 1:     # allocate some stuff between the two iterations
+                    [A() for i in range(20000)]
+                i = 0
+                while i < len(alist):
+                    if idarray[i] != id(alist[i]):
+                        return j * 1000000 + i
+                    i += 1
+                j += 1
+            lltype.free(idarray, flavor='raw')
+            return -2
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == -2

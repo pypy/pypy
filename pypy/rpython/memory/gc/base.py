@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rlib.objectmodel import debug_assert
 
 class GCBase(object):
     _alloc_flavor_ = "raw"
@@ -86,31 +87,86 @@ class MovingGCBase(GCBase):
 
     def __init__(self):
         self.wr_to_objects_with_id = []
+        self.object_id_dict = {}
+        self.object_id_dict_ends_at = 0
 
     def id(self, ptr):
-        # XXX linear search! this is probably too slow to be reasonable :-(
-        # On the other hand, it punishes you for using 'id', so that's good :-)
+        self.disable_finalizers()
+        try:
+            return self._compute_id(ptr)
+        finally:
+            self.enable_finalizers()
+
+    def _compute_id(self, ptr):
         # XXX this may explode if --no-translation-rweakref is specified
+        # ----------------------------------------------------------------
+        # Basic logic: the list item wr_to_objects_with_id[i] contains a
+        # weakref to the object whose id is i + 1.  The object_id_dict is
+        # an optimization that tries to reduce the number of linear
+        # searches in this list.
+        # ----------------------------------------------------------------
+        # Invariant: if object_id_dict_ends_at >= 0, then object_id_dict
+        # contains (at least) all pairs {address: id}, for the addresses
+        # of all objects that are the targets of the weakrefs of the
+        # following slice: wr_to_objects_with_id[:object_id_dict_ends_at].
+        # ----------------------------------------------------------------
+        # Essential: as long as notify_objects_just_moved() is not called,
+        # we assume that the objects' addresses did not change.
+        # ----------------------------------------------------------------
+        # First check the dictionary
+        i = self.object_id_dict_ends_at
+        if i < 0:
+            self.object_id_dict.clear()      # dictionary invalid
+            self.object_id_dict_ends_at = 0
+            i = 0
+        else:
+            adr = llmemory.cast_ptr_to_adr(ptr)
+            try:
+                i = self.object_id_dict[adr]
+            except KeyError:
+                pass
+            else:
+                # double-check that the answer we got is correct
+                lst = self.wr_to_objects_with_id
+                target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
+                debug_assert(target == ptr, "bogus object_id_dict")
+                return i + 1     # found via the dict
+        # Walk the tail of the list, where entries are not also in the dict
         lst = self.wr_to_objects_with_id
-        i = len(lst)
+        end = len(lst)
         freeentry = -1
-        while i > 0:
-            i -= 1
+        while i < end:
             target = llmemory.weakref_deref(llmemory.GCREF, lst[i])
             if not target:
                 freeentry = i
-            elif target == ptr:
-                break               # found
+            else:
+                # record this entry in the dict
+                adr = llmemory.cast_ptr_to_adr(target)
+                self.object_id_dict[adr] = i
+                if target == ptr:
+                    break               # found
+            i += 1
         else:
             # not found
             wr = llmemory.weakref_create(ptr)
-            if freeentry == -1:
-                i = len(lst)
+            if freeentry < 0:
+                debug_assert(end == len(lst), "unexpected lst growth in gc_id")
+                i = end
                 lst.append(wr)
             else:
                 i = freeentry       # reuse the id() of a dead object
                 lst[i] = wr
+            adr = llmemory.cast_ptr_to_adr(ptr)
+            self.object_id_dict[adr] = i
+        # all entries up to and including index 'i' are now valid in the dict
+        # unless a collection occurred while we were working, in which case
+        # the object_id_dict is bogus anyway
+        if self.object_id_dict_ends_at >= 0:
+            self.object_id_dict_ends_at = i + 1
         return i + 1       # this produces id() values 1, 2, 3, 4...
+
+    def notify_objects_just_moved(self):
+        self.object_id_dict_ends_at = -1
 
 
 def choose_gc_from_config(config):

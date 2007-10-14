@@ -114,10 +114,10 @@ def test_address_order():
 
 
 SX = lltype.Struct('S', ('x',lltype.Signed))
+SPTR = lltype.Ptr(SX)
 precomputed_size = round_up_for_allocation(llmemory.sizeof(SX))
 
 def test_look_inside_object():
-    SPTR = lltype.Ptr(SX)
     myarenasize = 50
     a = arena_malloc(myarenasize, False)
     b = a + round_up_for_allocation(llmemory.sizeof(lltype.Char))
@@ -131,6 +131,19 @@ def test_look_inside_object():
     assert llmemory.cast_adr_to_ptr(b, SPTR).x == 0
     arena_free(a)
     return 42
+
+def test_address_eq_as_int():
+    a = arena_malloc(50, False)
+    arena_reserve(a, precomputed_size)
+    p = llmemory.cast_adr_to_ptr(a, SPTR)
+    a1 = llmemory.cast_ptr_to_adr(p)
+    assert a == a1
+    assert not (a != a1)
+    assert (a+1) != a1
+    assert not ((a+1) == a1)
+    py.test.skip("cast_adr_to_int() is hard to get consistent")
+    assert llmemory.cast_adr_to_int(a) == llmemory.cast_adr_to_int(a1)
+    assert llmemory.cast_adr_to_int(a+1) == llmemory.cast_adr_to_int(a1) + 1
 
 
 def test_llinterpreted():

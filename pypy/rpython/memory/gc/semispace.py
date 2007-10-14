@@ -40,8 +40,16 @@ class SemiSpaceGC(MovingGCBase):
         self.free = self.tospace
         self.objects_with_finalizers = self.AddressLinkedList()
         self.run_finalizers = self.AddressLinkedList()
-        self.executing_finalizers = False
         self.objects_with_weakrefs = self.AddressLinkedList()
+        self.finalizer_lock_count = 0
+
+    def disable_finalizers(self):
+        self.finalizer_lock_count += 1
+
+    def enable_finalizers(self):
+        self.finalizer_lock_count -= 1
+        if self.run_finalizers.non_empty():
+            self.execute_finalizers()
 
     def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False,
                          contains_weakptr=False):
@@ -171,13 +179,14 @@ class SemiSpaceGC(MovingGCBase):
         scan = self.free = tospace
         self.collect_roots()
         scan = self.scan_copied(scan)
-        if self.objects_with_weakrefs.non_empty():
-            self.invalidate_weakrefs()
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
         if self.objects_with_finalizers.non_empty():
             self.deal_with_objects_with_finalizers()
         scan = self.scan_copied(scan)
+        if self.objects_with_weakrefs.non_empty():
+            self.invalidate_weakrefs()
+        self.notify_objects_just_moved()
         if not size_changing:
             llarena.arena_reset(fromspace, self.space_size, True)
             self.execute_finalizers()
@@ -326,9 +335,9 @@ class SemiSpaceGC(MovingGCBase):
         self.run_finalizers = new_run_finalizer
 
     def execute_finalizers(self):
-        if self.executing_finalizers:
+        if self.finalizer_lock_count > 0:
             return    # the outer invocation of execute_finalizers() will do it
-        self.executing_finalizers = True
+        self.finalizer_lock_count = 1
         try:
             while self.run_finalizers.non_empty():
                 obj = self.run_finalizers.pop()
@@ -336,7 +345,7 @@ class SemiSpaceGC(MovingGCBase):
                 finalizer = self.getfinalizer(hdr.typeid)
                 finalizer(obj)
         finally:
-            self.executing_finalizers = False
+            self.finalizer_lock_count = 0
 
     STATISTICS_NUMBERS = 0
 

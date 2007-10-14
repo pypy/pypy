@@ -252,6 +252,10 @@ class GCTest(object):
         assert res
 
     def test_id(self):
+        py.test.skip("the MovingGCBase.id() logic can't be directly run")
+        # XXX ^^^ the problem is that the MovingGCBase instance holds
+        # references to GC objects - a list of weakrefs and a dict - and
+        # there is no way we can return these from get_roots_from_llinterp().
         class A(object):
             pass
         a1 = A()
@@ -269,26 +273,6 @@ class GCTest(object):
             return error
         res = self.interpret(f, [])
         assert res == 0
-
-    def test_many_ids(self):
-        class A(object):
-            pass
-        def f():
-            from pypy.rpython.lltypesystem import lltype, rffi
-            alist = [A() for i in range(500)]
-            idarray = lltype.malloc(rffi.INTP.TO, len(alist), flavor='raw')
-            # Compute the id of all elements of the list.  The goal is
-            # to not allocate memory, so that if the GC needs memory to
-            # remember the ids, it will trigger some collections itself
-            for i in range(len(alist)):
-                idarray[i] = id(alist[i])
-            for j in range(2):
-                if j == 1:     # allocate some stuff between the two iterations
-                    [A() for i in range(200)]
-                for i in range(len(alist)):
-                    assert idarray[i] == id(alist[i])
-            lltype.free(idarray, flavor='raw')
-        self.interpret(f, [])
 
 
 class TestMarkSweepGC(GCTest):
