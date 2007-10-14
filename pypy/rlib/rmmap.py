@@ -31,6 +31,22 @@ class CConfig:
     _header_ = '#define _GNU_SOURCE\n'
     size_t = rffi_platform.SimpleType("size_t", rffi.LONG)
     off_t = rffi_platform.SimpleType("off_t", rffi.LONG)
+    if _MS_WINDOWS:
+        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
+        WORD = rffi_platform.SimpleType("WORD", rffi.UINT)
+        DWORD = rffi_platform.SimpleType("DWORD", rffi.ULONG)
+        BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
+        LONG = rffi_platform.SimpleType("LONG", rffi.LONG)
+        LPVOID = rffi_platform.SimpleType("LPVOID", rffi.INTP)
+        LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.CCHARP)
+        INT = rffi_platform.SimpleType("int", rffi.INT)
+        INT_P = rffi_platform.SimpleType("int *", rffi.INTP)
+        # HANDLE = rffi_platform.SimpleType("HANDLE", rffi.UINTP)
+        # XXX change correct usage of handle throughout all the source
+        # and make all interfaces conformant. For now, we just cheat.
+        HANDLE = rffi_platform.SimpleType("int", rffi.LONG)
+        LPCTSTR = rffi_platform.SimpleType("LPCTSTR", rffi.CCHARP)
+        LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
 
 constants = {}
 if _POSIX:
@@ -103,17 +119,6 @@ if _POSIX:
         return os.strerror(errno)
 
 elif _MS_WINDOWS:
-    WORD = rffi.UINT
-    DWORD = rffi.ULONG
-    BOOL = rffi.LONG
-    LONG = rffi.LONG
-    LPVOID = PTR
-    LPCVOID = LPVOID
-    DWORD_PTR = DWORD
-    INT = rffi.INT
-    INT_P = rffi.INTP
-    DWORD_P = rffi.DINTP
-    LPCTSTR = rffi.CCHARP
 
     class ComplexCConfig:
         _includes_ = CConfig._includes_
@@ -154,7 +159,7 @@ elif _MS_WINDOWS:
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
     GetSystemInfo = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
-    GetFileSize = winexternal('GetFileSize', [INT, INT_P],  INT)
+    GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
     GetCurrentProcess = winexternal('GetCurrentProcess', [], INT)
     DuplicateHandle = winexternal('DuplicateHandle', [INT, INT, INT, INT_P, DWORD, BOOL, DWORD], BOOL)
     CreateFileMapping = winexternal('CreateFileMappingA', [INT, PTR, INT, INT, INT, LPCTSTR], INT)
@@ -178,9 +183,12 @@ elif _MS_WINDOWS:
     
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
-        high_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
+        high_ref = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
         try:
             low = GetFileSize(handle, high_ref)
+            low = rffi.cast(lltype.Signed, low)
+            # XXX should be propagate the real type, allowing
+            # for 2*sys.maxint?
             high = high_ref[0]
             # low might just happen to have the value INVALID_FILE_SIZE
             # so we need to check the last error also
@@ -188,7 +196,7 @@ elif _MS_WINDOWS:
             NO_ERROR = 0
             dwErr = GetLastError()
             err = rffi.cast(lltype.Signed, dwErr)
-            if rffi.cast(lltype.Signed, low) == INVALID_FILE_SIZE and err != NO_ERROR:
+            if low == INVALID_FILE_SIZE and err != NO_ERROR:
                 raise REnvironmentError(os.strerror(err))
             return low, high
         finally:
@@ -466,7 +474,7 @@ class MMap(object):
             if _64BIT:
                 newsize_high = newsize >> 32
                 newsize_low = newsize & 0xFFFFFFFF
-                high_ref = lltype.malloc(DWORD_P.TO, 1, flavor='raw')
+                high_ref = lltype.malloc(DWORD_PTR.TO, 1, flavor='raw')
             else:
                 newsize_high = 0
                 newsize_low = newsize
