@@ -292,17 +292,8 @@ VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 # char *
 CCHARP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
-# int *
-INTP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
-
-# unsigned int *
-UINTP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
-
-# signed long long *
-DINTP = lltype.Ptr(lltype.Array(lltype.SignedLongLong, hints={'nolength': True}))
-
-# unsigned long long *
-UDINTP = lltype.Ptr(lltype.Array(lltype.UnsignedLongLong, hints={'nolength': True}))
+# int *, unsigned int *, etc.
+#INTP = ...    see setup() above
 
 # double *
 DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
