@@ -205,6 +205,7 @@ def _check_map_size(space, size):
             space.wrap("memory mapped size is too large (limited by C int)"))
 
 if rmmap._POSIX:
+    
     def mmap(space, fileno, length, flags=rmmap.MAP_SHARED,
         prot=rmmap.PROT_WRITE | rmmap.PROT_READ, access=rmmap._ACCESS_DEFAULT):
 
@@ -218,9 +219,19 @@ if rmmap._POSIX:
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
     mmap.unwrap_spec = [ObjSpace, int, 'index', int, int, int]
+
 elif rmmap._MS_WINDOWS:
-    def mmap(space, fileno, length, tagname="", access=_ACCESS_DEFAULT):
-        XXX
+
+    def mmap(space, fileno, length, tagname="", access=rmmap._ACCESS_DEFAULT):
+        try:
+            return space.wrap(W_MMap(space, rmmap.mmap(fileno, length,
+                                                       tagname, access)))
+        except REnvironmentError, e:
+            raise OperationError(space.w_EnvironmentError, space.wrap(e.message))
+        except RValueError, e:
+            raise OperationError(space.w_ValueError, space.wrap(e.message))
+        except RTypeError, e:
+            raise OperationError(space.w_TypeError, space.wrap(e.message))
     mmap.unwrap_spec = [ObjSpace, int, 'index', str, int]
 
 constants = rmmap.constants
