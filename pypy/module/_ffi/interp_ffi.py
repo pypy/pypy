@@ -122,7 +122,7 @@ def pack_pointer(space, w_arg, ptr):
     ptr.push_arg(ll_str)
     return ll_str
 
-def push_arg(space, ptr, argnum, argtype, w_arg, to_free, to_reconsider):
+def push_arg(space, ptr, argnum, argtype, w_arg, to_free):
     w = space.wrap
     # XXX how to handle LONGLONG here?
     # they're probably long, so we'll not get them through int_w
@@ -142,11 +142,8 @@ def push_arg(space, ptr, argnum, argtype, w_arg, to_free, to_reconsider):
             mod = space.getbuiltinmodule('_ffi')
             w_StructureInstance = space.getattr(mod, w('StructureInstance'))
             if space.is_true(space.isinstance(w_arg, w_StructureInstance)):
-                w_pack = space.getattr(w_arg, w('pack'))
-                w_res = space.call(w_pack, space.newtuple([]))
-                size = space.int_w(space.len(w_res))
-                ll_ptr = pack_pointer(space, w_res, ptr)
-                to_reconsider.append((argnum, ll_ptr, size))
+                #ptr.push_arg(lltype.cast_int_to_ptr(rffi.VOIDP, space.int_w(space.getattr(w_arg, w('buffer')))))
+                ptr.push_arg(w_arg.ll_buffer)
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
@@ -158,11 +155,20 @@ def push_arg(space, ptr, argnum, argtype, w_arg, to_free, to_reconsider):
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
-def repack_struct(space, w_struct, value, size):
-    w_unpack = space.getattr(w_struct, space.wrap('unpack'))
-    # ARGH! too much copying!
-    x = "".join([value[i] for i in range(size)])
-    space.call(w_unpack, space.newtuple([space.wrap(x)]))
+def wrap_result(space, restype, func):
+    for c, ll_type in ll_typemap_iter:
+        if restype == c:
+            if c == 's' or c == 'p':
+                return space.wrap(rffi.charp2str(func(rffi.CCHARP)))
+            elif c == 'P':
+                res = func(rffi.VOIDP)
+                return space.wrap(lltype.cast_ptr_to_int(res))
+            elif c == 'q' or c == 'Q' or c == 'L':
+                return space.newlong(func(ll_type))
+            else:
+                return space.wrap(func(ll_type))
+    return space.w_None
+wrap_result._annspecialcase_ = 'specialize:arg(2)'
 
 class W_FuncPtr(Wrappable):
     def __init__(self, ptr, argtypes, restype):
@@ -177,29 +183,15 @@ class W_FuncPtr(Wrappable):
             raise OperationError(space.w_TypeError, space.wrap(
                 "Provided keyword arguments for C function call"))
         to_free = []
-        to_reconsider = []
         i = 0
         for argtype, w_arg in zip(self.argtypes, args_w):
-            push_arg(space, self.ptr, i, argtype, w_arg, to_free, to_reconsider)
+            push_arg(space, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
-            for c, ll_type in ll_typemap_iter:
-                if self.restype == c:
-                    if c == 's' or c == 'p':
-                        return space.wrap(rffi.charp2str(self.ptr.call(rffi.CCHARP)))
-                    elif c == 'P':
-                        res = self.ptr.call(rffi.VOIDP)
-                        return space.wrap(lltype.cast_ptr_to_int(res))
-                    elif c == 'q' or c == 'Q' or c == 'L':
-                        return space.newlong(self.ptr.call(ll_type))
-                    else:
-                        return space.wrap(self.ptr.call(ll_type))
+            return wrap_result(space, self.restype, self.ptr.call)
         finally:
             for elem in to_free:
                 lltype.free(elem, flavor='raw')
-            for num, value, size in to_reconsider:
-                repack_struct(space, args_w[num], value, size)
-                lltype.free(value, flavor='raw')
     call.unwrap_spec = ['self', ObjSpace, Arguments]
 
 W_FuncPtr.typedef = TypeDef(

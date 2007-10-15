@@ -73,4 +73,7 @@ class AppTestCTypes:
         struct2 = struct_type()
         assert gettimeofday(struct2, None) == 0
         assert structure.tv_usec != struct2.tv_usec
-        assert structure.tv_sec == struct2.tv_sec or structure.tv_sec == struct2.tv_sec - 1
+        assert (structure.tv_sec == struct2.tv_sec) or (structure.tv_sec == struct2.tv_sec - 1)
+        raises(AttributeError, "structure.xxx")
+
+    

@@ -10,11 +10,11 @@ class Module(MixedModule):
     applevelname = '_ffi'
 
     interpleveldefs = {
-        'CDLL'      : 'interp_ffi.W_CDLL',
-        'FuncPtr'   : 'interp_ffi.W_FuncPtr',
+        'CDLL'              : 'interp_ffi.W_CDLL',
+        'FuncPtr'           : 'interp_ffi.W_FuncPtr',
+        'StructureInstance' : 'structure.W_StructureInstance',
     }
 
     appleveldefs = {
         'Structure'         : 'app_ffi.Structure',
-        'StructureInstance' : 'app_ffi.StructureInstance',
     }
