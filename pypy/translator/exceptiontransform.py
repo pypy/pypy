@@ -1,6 +1,6 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.unsimplify import copyvar, varoftype
-from pypy.translator.unsimplify import insert_empty_block
+from pypy.translator.unsimplify import insert_empty_block, split_block
 from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
@@ -179,7 +179,7 @@ class BaseExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            splitlink = support.split_block_with_keepalive(block, i+1, False)
+            splitlink = split_block(None, block, i+1)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
