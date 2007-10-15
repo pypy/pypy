@@ -14,6 +14,7 @@ from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF
 from pypy.rpython.memory.gctypelayout import convert_weakref_to, WEAKREFPTR
+from pypy.rpython.memory.gctransform.log import log
 from pypy.tool.sourcetools import func_with_new_name
 import sys
 
@@ -119,6 +120,7 @@ class FrameworkGCTransformer(GCTransformer):
 
         StackRootIterator = self.build_stack_root_iterator()
         gcdata.gc = GCClass(AddressLinkedList, get_roots=StackRootIterator, **GC_PARAMS)
+        self.num_pushs = 0
 
         def frameworkgc_setup():
             # run-time initialization code
@@ -364,6 +366,9 @@ class FrameworkGCTransformer(GCTransformer):
 
     def finish_tables(self):
         table = self.layoutbuilder.flatten_table()
+        log.info("assigned %s typeids" % (len(table), ))
+        log.info("added %s push/pop stack root instructions" % (
+                     self.num_pushs, ))
 
         # replace the type_info_table pointer in gcdata -- at this point,
         # the database is in principle complete, so it has already seen
@@ -383,6 +388,7 @@ class FrameworkGCTransformer(GCTransformer):
         #self.gcdata.type_info_table = table
 
         addresses_of_static_ptrs = self.layoutbuilder.addresses_of_static_ptrs
+        log.info("found %s static roots" % (len(addresses_of_static_ptrs), ))
         ll_static_roots_inside = lltype.malloc(lltype.Array(llmemory.Address),
                                                len(addresses_of_static_ptrs),
                                                immortal=True)
@@ -565,6 +571,7 @@ class FrameworkGCTransformer(GCTransformer):
         if self.incr_stack_ptr is None:
             return
         livevars = [var for var in self.livevars if not var_ispyobj(var)]
+        self.num_pushs += len(livevars)
         if not livevars:
             return
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
