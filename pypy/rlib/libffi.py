@@ -49,7 +49,10 @@ def configure_simple_type(type_name):
     return l
 
 base_names = ['double', 'uchar', 'schar', 'sshort', 'ushort', 'uint', 'sint',
-              'ulong', 'slong', 'float', 'pointer', 'void']
+              'ulong', 'slong', 'float', 'pointer', 'void',
+              # by size
+              'sint8', 'uint8', 'sint16', 'uint16', 'sint32', 'uint32',
+              'sint64', 'uint64']
 type_names = ['ffi_type_%s' % name for name in base_names]
 for i in type_names:
     add_simple_type(i)
@@ -149,6 +152,9 @@ def push_arg_as_ffiptr(ffitp, TP, arg, ll_buf):
     buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
 
+def check_pointer_type(TP):
+    pass
+
 class FuncPtr(object):
     def __init__(self, name, argtypes, restype, funcsym):
         self.name = name
@@ -175,15 +181,24 @@ class FuncPtr(object):
             self.ll_args[i] = lltype.malloc(rffi.VOIDP.TO,
                                             intmask(argtypes[i].c_size),
                                             flavor='raw')
-        self.ll_result = lltype.malloc(rffi.VOIDP.TO, intmask(restype.c_size),
-                                       flavor='raw')
+        if restype != ffi_type_void:
+            self.ll_result = lltype.malloc(rffi.VOIDP.TO,
+                                           intmask(restype.c_size),
+                                           flavor='raw')
 
-    # XXX some rpython trick to get rid of TP here?
     def push_arg(self, value):
         if self.pushed_args == self.argnum:
             raise TypeError("Too much arguments, eats %d, pushed %d" %
                             (self.argnum, self.argnum + 1))
         TP = lltype.typeOf(value)
+        if isinstance(TP, lltype.Ptr):
+            if TP.TO._gckind != 'raw':
+                raise ValueError("Can only push raw values to C, not 'gc'")
+            # XXX probably we should recursively check for struct fields
+            # here, lets just ignore that for now
+            if isinstance(TP.TO, lltype.Array) and not \
+                   TP.TO._hints.get('nolength', None):
+                raise ValueError("Can only push to C arrays without length info")
         push_arg_as_ffiptr(self.argtypes[self.pushed_args], TP, value,
                            self.ll_args[self.pushed_args])
         self.pushed_args += 1
@@ -214,7 +229,8 @@ class FuncPtr(object):
         for i in range(argnum):
             lltype.free(self.ll_args[i], flavor='raw')
         lltype.free(self.ll_args, flavor='raw')
-        lltype.free(self.ll_result, flavor='raw')
+        if self.restype != ffi_type_void:
+            lltype.free(self.ll_result, flavor='raw')
         lltype.free(self.ll_cif, flavor='raw')
         lltype.free(self.ll_argtypes, flavor='raw')
 
