@@ -5,5 +5,4 @@ from pypy.translator.oosupport.test_template.operations import BaseTestOperation
 # ====> ../../oosupport/test_template/operations.py
 
 class TestOperations(JvmTest, BaseTestOperations):
-    def test_compare_big_ullongs(self):
-        py.test.skip('fixme!')
+    pass

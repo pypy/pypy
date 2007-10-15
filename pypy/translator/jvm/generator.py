@@ -23,29 +23,6 @@ def _isnan(v):
 def _isinf(v):
     return v!=0 and (v == v*2)
 
-def _unsigned_to_signed_32(val):
-    """ In the JVM, we store unsigned integers in a signed integer slot
-    (since JVM has no signed integers).  This function converts an
-    unsigned value Python integer (possibly a long) into its corresponding
-    Python signed integer. """
-    if val <= 0x7FFFFFFF:
-        return int(val)
-    return int(_two_comp_32(val))
-
-def _unsigned_to_signed_64(val):
-    """ Same as _unsigned_to_signed_32, but for longs. """
-    if val <= 0x7FFFFFFFFFFFFFFF:
-        return val
-    return _two_comp_64(val)
-
-def _two_comp_32(val):
-    """ Returns the 32 bit two's complement. """
-    return -((val ^ 0xFFFFFFFF)+1)
-
-def _two_comp_64(val):
-    """ Returns the 64 bit two's complement. """
-    return -((val ^ 0xFFFFFFFFFFFFFFFF)+1)
-
 # ___________________________________________________________________________
 # JVM Opcodes:
 #
@@ -1094,6 +1071,7 @@ class JVMGenerator(Generator):
                              '0 /* we are not jitted here */': 0}
                             
     def push_primitive_constant(self, TYPE, value):
+
         if TYPE is ootype.Void:
             return
         elif isinstance(value, CDefinedIntSymbolic):
@@ -1101,15 +1079,19 @@ class JVMGenerator(Generator):
         elif TYPE in (ootype.Bool, ootype.Signed):
             self.emit(ICONST, int(value))
         elif TYPE is ootype.Unsigned:
-            # Converts the unsigned int into its corresponding signed value
-            # and emits it using ICONST.
-            self.emit(ICONST, _unsigned_to_signed_32(value))
+            # Converts the unsigned int into its corresponding signed value:
+            if value > 0x7FFFFFFF:
+                value = -((int(val) ^ 0xFFFFFFFF)+1)
+            self.emit(ICONST, value)
         elif TYPE is ootype.Char or TYPE is ootype.UniChar:
             self.emit(ICONST, ord(value))
         elif TYPE is ootype.SignedLongLong:
             self._push_long_constant(long(value))
         elif TYPE is ootype.UnsignedLongLong:
-            self._push_long_constant(_unsigned_to_signed_64(value))
+            # Converts the unsigned long into its corresponding signed value:
+            if value > 0x7FFFFFFFFFFFFFFF:
+                value = -((long(value) ^ 0xFFFFFFFFFFFFFFFF)+1)
+            self._push_long_constant(value)
         elif TYPE is ootype.Float:
             self._push_double_constant(float(value))
         elif TYPE is ootype.String:
