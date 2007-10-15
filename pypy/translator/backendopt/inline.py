@@ -14,6 +14,7 @@ from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
+from pypy.translator.unsimplify import split_block
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
 
@@ -440,7 +441,7 @@ class BaseInliner(object):
         copiedexceptblock.operations += self.generate_keepalive(linkargs)
 
     def do_inline(self, block, index_operation):
-        splitlink = split_block_with_keepalive(block, index_operation)
+        splitlink = split_block(None, block, index_operation)
         afterblock = splitlink.target
         # these variables have to be passed along all the links in the inlined
         # graph because the original function needs them in the blocks after
