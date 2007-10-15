@@ -36,17 +36,17 @@ class CConfig:
         WORD = rffi_platform.SimpleType("WORD", rffi.UINT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.ULONG)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
+        INT = rffi_platform.SimpleType("INT", rffi.INT)
         LONG = rffi_platform.SimpleType("LONG", rffi.LONG)
+        PLONG = rffi_platform.SimpleType("PLONG", rffi.LONGP)
         LPVOID = rffi_platform.SimpleType("LPVOID", rffi.INTP)
-        LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.CCHARP)
-        INT = rffi_platform.SimpleType("int", rffi.INT)
-        INT_P = rffi_platform.SimpleType("int *", rffi.INTP)
-        # HANDLE = rffi_platform.SimpleType("HANDLE", rffi.UINTP)
-        # XXX change correct usage of handle throughout all the source
-        # and make all interfaces conformant. For now, we just cheat.
-        HANDLE = rffi_platform.SimpleType("int", rffi.LONG)
+        LPCVOID = rffi_platform.SimpleType("LPCVOID", rffi.VOIDP)
+        HANDLE = rffi_platform.SimpleType("HANDLE", rffi.VOIDP)
+        LPHANDLE = rffi_platform.SimpleType("LPHANDLE", rffi.CCHARPP)
         LPCTSTR = rffi_platform.SimpleType("LPCTSTR", rffi.CCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.INTP)
+        LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType("LPSECURITY_ATTRIBUTES", rffi.CCHARP)
+        SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
 
 constants = {}
 if _POSIX:
@@ -154,22 +154,32 @@ elif _MS_WINDOWS:
                 ("wProcessorRevision", WORD),
             ])
 
+        SECURITY_ATTRIBUTES = rffi_platform.Struct(
+            'SECURITY_ATTRIBUTES', [
+                ("nLength", DWORD),
+                ("lpSecurityDescriptor", LPVOID),
+                ("bInheritHandle", BOOL),
+            ])
+
     config = rffi_platform.configure(ComplexCConfig)
     SYSTEM_INFO = config['SYSTEM_INFO']
     SYSTEM_INFO_P = lltype.Ptr(SYSTEM_INFO)
 
     GetSystemInfo = winexternal('GetSystemInfo', [SYSTEM_INFO_P], lltype.Void)
     GetFileSize = winexternal('GetFileSize', [HANDLE, LPDWORD], DWORD)
-    GetCurrentProcess = winexternal('GetCurrentProcess', [], INT)
-    DuplicateHandle = winexternal('DuplicateHandle', [INT, INT, INT, INT_P, DWORD, BOOL, DWORD], BOOL)
-    CreateFileMapping = winexternal('CreateFileMappingA', [INT, PTR, INT, INT, INT, LPCTSTR], INT)
-    MapViewOfFile = winexternal('MapViewOfFile', [INT, DWORD, DWORD, DWORD, DWORD], PTR)
-    CloseHandle = winexternal('CloseHandle', [INT], BOOL)
+    GetCurrentProcess = winexternal('GetCurrentProcess', [], HANDLE)
+    DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
+    CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCTSTR], HANDLE)
+    MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCTSTR)##!!LPVOID)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
     UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL)
-    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, INT], BOOL)
-    SetFilePointer = winexternal('SetFilePointer', [INT, INT, INT_P, INT], DWORD)
-    SetEndOfFile = winexternal('SetEndOfFile', [INT], INT)
-    _get_osfhandle = winexternal('_get_osfhandle', [INT], INT)
+    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, SIZE_T], BOOL)
+    SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
+    SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
+    ##_get_osfhandle = winexternal('_get_osfhandle', [INT], LONG)
+    # casting from int to handle did not work, so I changed this
+    # but it should not be so!
+    _get_osfhandle = winexternal('_get_osfhandle', [INT], HANDLE)
     GetLastError = winexternal('GetLastError', [], DWORD)
     
     
@@ -209,7 +219,8 @@ elif _MS_WINDOWS:
 PAGESIZE = _get_page_size()
 NULL = lltype.nullptr(PTR.TO)
 NODATA = lltype.nullptr(PTR.TO)
-INVALID_INT_VALUE = -1
+NULL_HANDLE = rffi.cast(HANDLE, 0)
+INVALID_HANDLE = rffi.cast(HANDLE, -1)
 
 class MMap(object):
     def __init__(self, access):
@@ -218,8 +229,8 @@ class MMap(object):
         self.access = access
 
         if _MS_WINDOWS:
-            self.map_handle = 0
-            self.file_handle = 0
+            self.map_handle = NULL_HANDLE
+            self.file_handle = NULL_HANDLE
             self.tagname = ""
         elif _POSIX:
             self.fd = -1
@@ -227,7 +238,7 @@ class MMap(object):
     
     def check_valid(self):
         if _MS_WINDOWS:
-            to_close = self.map_handle == INVALID_INT_VALUE
+            to_close = self.map_handle == INVALID_HANDLE
         elif _POSIX:
             to_close = self.closed
 
@@ -253,12 +264,12 @@ class MMap(object):
             if self.size > 0:
                 self.unmapview()
                 self.setdata(NODATA, 0)
-            if self.map_handle != INVALID_INT_VALUE:
+            if self.map_handle != INVALID_HANDLE:
                 CloseHandle(self.map_handle)
-                self.map_handle = INVALID_INT_VALUE
-            if self.file_handle != INVALID_INT_VALUE:
+                self.map_handle = INVALID_HANDLE
+            if self.file_handle != INVALID_HANDLE:
                 CloseHandle(self.file_handle)
-                self.file_handle = INVALID_INT_VALUE
+                self.file_handle = INVALID_HANDLE
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
@@ -361,7 +372,7 @@ class MMap(object):
         
         size = self.size
         if _MS_WINDOWS:
-            if self.file_handle != INVALID_INT_VALUE:
+            if self.file_handle != INVALID_HANDLE:
                 low, high = _get_file_size(self.file_handle)
                 if not high and low <= sys.maxint:
                     return low
@@ -474,13 +485,12 @@ class MMap(object):
             if _64BIT:
                 newsize_high = newsize >> 32
                 newsize_low = newsize & 0xFFFFFFFF
-                high_ref = lltype.malloc(DWORD_PTR.TO, 1, flavor='raw')
             else:
                 newsize_high = 0
                 newsize_low = newsize
-                high_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
 
             FILE_BEGIN = 0
+            high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
             try:
                 high_ref[0] = newsize_high
                 SetFilePointer(self.file_handle, newsize_low, high_ref,
@@ -499,7 +509,9 @@ class MMap(object):
                 data = MapViewOfFile(self.map_handle, FILE_MAP_WRITE,
                                      0, 0, 0)
                 if data:
-                    self.setdata(data, newsize)
+                    # XXX we should have a real LPVOID which must always be casted
+                    charp = rffi.cast(LPCTSTR, data)
+                    self.setdata(charp, newsize)
                     return
                 else:
                     dwErrCode = GetLastError()
@@ -613,7 +625,7 @@ elif _MS_WINDOWS:
         
         flProtect = 0
         dwDesiredAccess = 0
-        fh = 0
+        fh = NULL_HANDLE
         
         if access == ACCESS_READ:
             flProtect = PAGE_READONLY
@@ -631,19 +643,21 @@ elif _MS_WINDOWS:
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
             fh = _get_osfhandle(fileno)
-            if fh == -1:
+            # parts of the C library use HANDLE, others just ints
+            # XXX hack - made _get_osfhandle compatible
+            if fh == INVALID_HANDLE:
                 raise REnvironmentError(_get_error_msg())
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
         
         m = MMap(access)
-        m.file_handle = INVALID_INT_VALUE
-        m.map_handle = INVALID_INT_VALUE
+        m.file_handle = INVALID_HANDLE
+        m.map_handle = INVALID_HANDLE
         if fh:
             # it is necessary to duplicate the handle, so the
             # Python code can close it on us
-            handle_ref = lltype.malloc(INT_P.TO, 1, flavor='raw')
+            handle_ref = lltype.malloc(LPHANDLE.TO, 1, flavor='raw')
             handle_ref[0] = m.file_handle
             try:
                 res = DuplicateHandle(GetCurrentProcess(), # source process handle
@@ -688,7 +702,9 @@ elif _MS_WINDOWS:
             res = MapViewOfFile(m.map_handle, dwDesiredAccess,
                                 0, 0, 0)
             if res:
-                m.setdata(res, map_size)
+                # XXX we should have a real LPVOID which must always be casted
+                charp = rffi.cast(LPCTSTR, res)
+                m.setdata(charp, map_size)
                 return m
             else:
                 dwErr = GetLastError()
