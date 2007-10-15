@@ -212,7 +212,7 @@ def register_stat_variant(name):
         ll_tup = lltype.malloc(TP.TO)
         for i, (fieldname, TYPE) in enumerate(LL_STAT_FIELDS):
             val = getattr(st, fieldname)
-            rffi.setintfield(ll_tup, 'item%d' % i, val)
+            rffi.setintfield(ll_tup, 'item%d' % i, int(val))
         return ll_tup
 
     if arg_is_path:
