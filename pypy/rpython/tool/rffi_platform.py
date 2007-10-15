@@ -412,7 +412,8 @@ class Has(CConfigSingleEntry):
         try:
             ask_gcc(self.name + ';')
             return True
-        except distutils.errors.CompileError:
+        except (distutils.errors.CompileError,
+                distutils.errors.LinkError):
             return False
 
 # ____________________________________________________________

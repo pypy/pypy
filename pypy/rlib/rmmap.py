@@ -216,11 +216,12 @@ elif _MS_WINDOWS:
         errno = rffi.cast(lltype.Signed, GetLastError())
         return os.strerror(errno)
 
+    NULL_HANDLE = rffi.cast(HANDLE, 0)
+    INVALID_HANDLE = rffi.cast(HANDLE, -1)
+
 PAGESIZE = _get_page_size()
 NULL = lltype.nullptr(PTR.TO)
 NODATA = lltype.nullptr(PTR.TO)
-NULL_HANDLE = rffi.cast(HANDLE, 0)
-INVALID_HANDLE = rffi.cast(HANDLE, -1)
 
 class MMap(object):
     def __init__(self, access):
