@@ -1081,7 +1081,7 @@ class JVMGenerator(Generator):
         elif TYPE is ootype.Unsigned:
             # Converts the unsigned int into its corresponding signed value:
             if value > 0x7FFFFFFF:
-                value = -((int(val) ^ 0xFFFFFFFF)+1)
+                value = -((int(value) ^ 0xFFFFFFFF)+1)
             self.emit(ICONST, value)
         elif TYPE is ootype.Char or TYPE is ootype.UniChar:
             self.emit(ICONST, ord(value))
