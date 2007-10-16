@@ -27,6 +27,10 @@ def main(argv):
             if modname in ('-h', '--help'):
                 print >> sys.stderr, __doc__
                 sys.exit(0)
+            if modname.startswith('-'):
+                print >> sys.stderr, "Bad command line"
+                print >> sys.stderr, __doc__
+                sys.exit(1)
         else:
             _, b, backend, modname = argv
             assert b == '-b'
