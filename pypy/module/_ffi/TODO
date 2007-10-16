@@ -4,8 +4,5 @@
 
 * add arrays
 
-* setattr on structures (finish)
-
 * keyword arguments for structure creation
 
-* make it all rpython
