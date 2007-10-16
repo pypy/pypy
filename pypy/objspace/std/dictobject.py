@@ -7,6 +7,7 @@ from pypy.rlib.objectmodel import r_dict
 class W_DictObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
+    _immutable_ = True
     def __init__(w_self, space, w_otherdict=None):
         if w_otherdict is None:
             w_self.content = r_dict(space.eq_w, space.hash_w)
