@@ -157,20 +157,24 @@ unwrap_arg._annspecialcase_ = 'specialize:arg(1)'
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
-def wrap_result(space, restype, func):
+def wrap_result(space, restype, arg, func):
     for c, ll_type in ll_typemap_iter:
         if restype == c:
             if c == 's':
-                return space.wrap(rffi.charp2str(func(rffi.CCHARP)))
+                return space.wrap(rffi.charp2str(func(arg, rffi.CCHARP)))
             elif c == 'P':
-                res = func(rffi.VOIDP)
+                res = func(arg, rffi.VOIDP)
                 return space.wrap(rffi.cast(rffi.INT, res))
             elif c == 'q' or c == 'Q' or c == 'L':
-                return space.newlong(func(ll_type))
+                return space.newlong(func(arg, ll_type))
             else:
-                return space.wrap(func(ll_type))
+                return space.wrap(func(arg, ll_type))
     return space.w_None
-wrap_result._annspecialcase_ = 'specialize:arg(2)'
+wrap_result._annspecialcase_ = 'specialize:arg(3)'
+
+def ptr_call(ptr, ll_type):
+    return ptr.call(ll_type)
+ptr_call._annspecialcase_ = 'specialize:arg(1)'
 
 class W_FuncPtr(Wrappable):
     def __init__(self, ptr, argtypes, restype):
@@ -194,7 +198,7 @@ class W_FuncPtr(Wrappable):
             unwrap_arg(space, self.push, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
-            return wrap_result(space, self.restype, self.ptr.call)
+            return wrap_result(space, self.restype, self.ptr, ptr_call)
         finally:
             for elem in to_free:
                 lltype.free(elem, flavor='raw')
