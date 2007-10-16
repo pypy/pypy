@@ -401,6 +401,7 @@ def test_extfunc_onheaparg():
     assert state.does_change()
     
 def test_extfunc_resultonheap():
+    py.test.skip("not a valid test anymore")
     import os
     def f(i):
         s = str(i)
