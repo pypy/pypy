@@ -43,6 +43,13 @@ def size_and_pos(fields):
         size += field_desc['size']
     return size, pos
 
+def push_field(self, num, value):
+    ptr = rffi.ptradd(self.ll_buffer, self.ll_positions[num])
+    TP = lltype.typeOf(value)
+    T = rffi.CArrayPtr(TP)
+    rffi.cast(T, ptr)[0] = value
+push_field._annspecialcase_ = 'specialize:argtype(2)'
+    
 class W_StructureInstance(Wrappable):
     def __init__(self, space, w_shape, w_address, w_fieldinits):
         if space.is_true(w_fieldinits):
@@ -82,18 +89,11 @@ class W_StructureInstance(Wrappable):
             "C Structure has no attribute %s" % attr))
     getattr.unwrap_spec = ['self', ObjSpace, str]
 
-    def push_field(self, num, value):
-        ptr = rffi.ptradd(self.ll_buffer, self.ll_positions[num])
-        TP = lltype.typeOf(value)
-        T = rffi.CArrayPtr(TP)
-        rffi.cast(T, ptr)[0] = value
-    push_field._annspecialcase_ = 'specialize:argtype(2)'
-
     def setattr(self, space, attr, w_value):
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
-                unwrap_arg(space, self.push_field, i, c, w_value, None)
+                unwrap_arg(space, push_field, self, i, c, w_value, None)
                 return
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
