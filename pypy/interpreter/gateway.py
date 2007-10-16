@@ -367,6 +367,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
+    _immutable_ = True
     hidden_applevel = True
     descrmismatch_op = None
     descr_reqcls = None
