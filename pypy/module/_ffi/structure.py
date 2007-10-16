@@ -46,14 +46,14 @@ def size_and_pos(fields):
 def push_field(self, num, value):
     ptr = rffi.ptradd(self.ll_buffer, self.ll_positions[num])
     TP = lltype.typeOf(value)
-    T = rffi.CArrayPtr(TP)
+    T = lltype.Ptr(rffi.CArray(TP))
     rffi.cast(T, ptr)[0] = value
 push_field._annspecialcase_ = 'specialize:argtype(2)'
     
 def cast_pos(self, ll_t):
     i = self.next_pos
     pos = rffi.ptradd(self.ll_buffer, self.ll_positions[i])
-    TP = rffi.CArrayPtr(ll_t)
+    TP = lltype.Ptr(rffi.CArray(ll_t))
     return rffi.cast(TP, pos)[0]
 cast_pos._annspecialcase_ = 'specialize:arg(1)'
 
@@ -101,6 +101,9 @@ class W_StructureInstance(Wrappable):
         if self.free_afterwards:
             lltype.free(self.ll_buffer, flavor='raw')
 
+    def getbuffer(space, self):
+        return space.wrap(rffi.cast(rffi.INT, self.ll_buffer))
+
 def descr_new_structure_instance(space, w_type, w_shape, w_adr, w_fieldinits):
     return W_StructureInstance(space, w_shape, w_adr, w_fieldinits)
 
@@ -109,4 +112,5 @@ W_StructureInstance.typedef = TypeDef(
     __new__     = interp2app(descr_new_structure_instance),
     __getattr__ = interp2app(W_StructureInstance.getattr),
     __setattr__ = interp2app(W_StructureInstance.setattr),
+    buffer      = GetSetProperty(W_StructureInstance.getbuffer),
 )

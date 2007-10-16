@@ -142,13 +142,18 @@ def unwrap_arg(space, push_func, add_arg, argdesc, argtype, w_arg, to_free):
             mod = space.getbuiltinmodule('_ffi')
             w_StructureInstance = space.getattr(mod, w('StructureInstance'))
             if space.is_true(space.isinstance(w_arg, w_StructureInstance)):
-                #ptr.push_arg(lltype.cast_int_to_ptr(rffi.VOIDP, space.int_w(space.getattr(w_arg, w('buffer')))))
-                push_func(add_arg, argdesc, w_arg.ll_buffer)
+                ptr = rffi.cast(rffi.VOIDP, space.int_w(space.getattr(w_arg, w('buffer'))))
+                push_func(add_arg, argdesc, ptr)
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
     elif argtype == "c" or argtype == "b" or argtype == "B":
-        push_func(add_arg, argdesc, space.str_w(w_arg))
+        s = space.str_w(w_arg)
+        if len(s) != 1:
+            raise OperationError(space.w_ValueError, w(
+                "Expected string of length one as character"))
+        s = s[0]
+        push_func(add_arg, argdesc, s)
     else:
         assert argtype in "iIhHlLqQ"
         push_func(add_arg, argdesc, space.int_w(w_arg))
