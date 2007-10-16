@@ -11,11 +11,11 @@ from pypy.rlib.unroll import unrolling_iterable
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
-    #'c' : ffi_type_uchar,
-    #'b' : ffi_type_schar,
-    #'B' : ffi_type_uchar,
-    #'h' : ffi_type_sshort,
-    #'H' : ffi_type_ushort,
+    'c' : ffi_type_uchar,
+    'b' : ffi_type_schar,
+    'B' : ffi_type_uchar,
+    'h' : ffi_type_sshort,
+    'H' : ffi_type_ushort,
     'i' : ffi_type_sint,
     'I' : ffi_type_uint,
     'l' : ffi_type_slong,
@@ -30,11 +30,11 @@ TYPEMAP = {
 }
 
 LL_TYPEMAP = {
-    #'c' : rffi.CHAR,
-    #'b' : rffi.UCHAR,
-    #'B' : rffi.CHAR,
-    #'h' : rffi.SHORT,
-    #'H' : rffi.USHORT,
+    'c' : rffi.CHAR,
+    'b' : rffi.UCHAR,
+    'B' : rffi.CHAR,
+    'h' : rffi.SHORT,
+    'H' : rffi.USHORT,
     'i' : rffi.INT,
     'I' : rffi.UINT,
     'l' : rffi.LONG,
@@ -166,7 +166,10 @@ def wrap_result(space, restype, arg, func):
     for c, ll_type in ll_typemap_iter:
         if restype == c:
             if c == 's':
-                return space.wrap(rffi.charp2str(func(arg, rffi.CCHARP)))
+                ptr = func(arg, rffi.CCHARP)
+                if not ptr:
+                    return space.w_None
+                return space.wrap(rffi.charp2str(ptr))
             elif c == 'P':
                 res = func(arg, rffi.VOIDP)
                 return space.wrap(rffi.cast(rffi.INT, res))

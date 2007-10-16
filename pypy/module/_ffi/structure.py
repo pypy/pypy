@@ -59,15 +59,12 @@ cast_pos._annspecialcase_ = 'specialize:arg(1)'
 
 class W_StructureInstance(Wrappable):
     def __init__(self, space, w_shape, w_address, w_fieldinits):
-        if space.is_true(w_fieldinits):
-            raise OperationError(space.w_ValueError, space.wrap(
-                "Fields should be not initialized with values by now"))
+        self.free_afterwards = False
         w_fields = space.getattr(w_shape, space.wrap('fields'))
         fields = unpack_fields(space, w_fields)
         size, pos = size_and_pos(fields)
         self.fields = fields
         if space.is_true(w_address):
-            self.free_afterwards = False
             self.ll_buffer = rffi.cast(rffi.VOIDP, space.int_w(w_address))
         else:
             self.free_afterwards = True
@@ -75,6 +72,10 @@ class W_StructureInstance(Wrappable):
                                            zero=True)
         self.ll_positions = pos
         self.next_pos = 0
+        if space.is_true(w_fieldinits):
+            for w_field in space.unpackiterable(w_fieldinits):
+                w_value = space.getitem(w_fieldinits, w_field)
+                self.setattr(space, space.str_w(w_field), w_value)
 
     def getattr(self, space, attr):
         if attr.startswith('tm'):

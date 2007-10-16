@@ -1,6 +1,7 @@
 
 
 from pypy.conftest import gettestobjspace
+from pypy.translator.tool.cbuild import compile_c_module
 
 import os, sys, py
 
@@ -11,18 +12,62 @@ def setup_module(mod):
 class AppTestCTypes:
     def prepare_c_example():
         from pypy.tool.udir import udir
-        udir.join("xlib.c").write(py.code.Source("""
-        typedef struct x {
-           char x1;
-           long x2;
-           struct x *x3;
+        c_file = udir.join("xlib.c")
+        c_file.write(py.code.Source('''
+        #include <stdlib.h>
+        #include <stdio.h>
+
+        struct x
+        {
+           int x1;
+           short x2;
+           char x3;
+           struct x* next;
+        };
+
+        char inner_struct_elem(struct x *x1)
+        {
+           return x1->next->x3;
         }
-        """))
+
+        struct x* create_double_struct()
+        {
+           struct x* x1, *x2;
+
+           x1 = (struct x*)malloc(sizeof(struct x));
+           x2 = (struct x*)malloc(sizeof(struct x));
+           x1->next = x2;
+           x2->x2 = 3;
+           return x1;
+        }
+        
+        const char *static_str = "xxxxxx";
+        
+        unsigned short add_shorts(short one, short two)
+        {
+           return one + two;
+        }
+
+        char get_char(char* s, unsigned short num)
+        {
+           return s[num];
+        }
+
+        char *char_check(char x, char y)
+        {
+           if (y == static_str[0])
+              return static_str;
+           return NULL;
+        }
+        '''))
+        compile_c_module([c_file], 'x')
+        return str(udir.join('x.so'))
     prepare_c_example = staticmethod(prepare_c_example)
     
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=('_ffi','struct'))
-        cls.prepare_c_example()
+        space = gettestobjspace(usemodules=('_ffi','struct'))
+        cls.space = space
+        cls.w_lib_name = space.wrap(cls.prepare_c_example())
 
     def test_libload(self):
         import _ffi
@@ -36,6 +81,28 @@ class AppTestCTypes:
         assert libc.ptr('rand', [], 'l') is not func
         assert isinstance(func, _ffi.FuncPtr)
         raises(AttributeError, "libc.xxxxxxxxxxxxxx")
+
+    def test_getchar(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        get_char = lib.ptr('get_char', ['s', 'H'], 'c')
+        assert get_char('dupa', 2) == 'p'
+        assert get_char('dupa', 1) == 'u'
+        skip("this module does not do overflow checking by now")
+        raises(OverflowError, "get_char('xxx', 2 ** 17)")
+
+    def test_returning_str(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        char_check = lib.ptr('char_check', ['c', 'c'], 's')
+        assert char_check('y', 'x') == 'xxxxxx'
+        assert char_check('x', 'y') is None
+
+    def test_short_addition(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        short_add = lib.ptr('add_shorts', ['h', 'h'], 'H')
+        assert short_add(1, 2) == 3
 
     def test_rand(self):
         import _ffi
@@ -107,8 +174,20 @@ class AppTestCTypes:
         t = Tm(gmtime(x))
         assert t.tm_year == 70
         assert t.tm_sec == 1
-        assert t.tm_min == 2
-        
+        assert t.tm_min == 2        
 
-    #def test_nested_structures(self):
-    #    
+    def test_nested_structures(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        inner = lib.ptr("inner_struct_elem", ['P'], 'c')
+        X = _ffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
+        x = X(next=X(next=None, x3='x'), x1=1, x2=2, x3='x')
+        assert X(x.next).x3 == 'x'
+        assert inner(x) == 'x'
+        create_double_struct = lib.ptr("create_double_struct", [], 'P')
+        x = create_double_struct()
+        assert X(X(x).next).x2 == 3
+
+    def test_longs_ulongs(self):
+        skip("Not implemented yet")
+
