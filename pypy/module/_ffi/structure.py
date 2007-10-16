@@ -12,8 +12,13 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 # XXX we've got the very same info in two places - one is native_fmttable
 # the other one is in rlib/libffi, we should refactor it to reuse the same
 # logic, I'll not touch it by now, and refactor it later
-from pypy.module.struct.nativefmttable import native_fmttable
-from pypy.module._ffi.interp_ffi import wrap_result
+from pypy.module.struct.nativefmttable import native_fmttable as struct_native_fmttable
+from pypy.module._ffi.interp_ffi import wrap_result, unwrap_arg
+
+native_fmttable = {}
+for key, value in struct_native_fmttable.items():
+    native_fmttable[key] = {'size': value['size'],
+                            'alignment': value.get('alignment', value['size'])}
 
 def unpack_fields(space, w_fields):
     fields_w = space.unpackiterable(w_fields)
@@ -77,16 +82,20 @@ class W_StructureInstance(Wrappable):
             "C Structure has no attribute %s" % name))
     getattr.unwrap_spec = ['self', ObjSpace, str]
 
-    def setattr(self, space, attr, value):
-        # XXX value is now always int, needs fixing
+    def push_field(self, num, value):
+        ptr = rffi.ptradd(self.ll_buffer, self.ll_positions[num])
+        TP = lltype.typeOf(value)
+        T = rffi.CArrayPtr(TP)
+        rffi.cast(T, ptr)[0] = value
+    push_field._annspecialcase_ = 'specialize:argtype(2)'
+
+    def setattr(self, space, attr, w_value):
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
-                pos = rffi.ptradd(self.ll_buffer, self.ll_positions[i])
-                TP = rffi.CArrayPtr(rffi.INT)
-                rffi.cast(TP, pos)[0] = value
+                unwrap_arg(space, self.push_field, i, c, w_value, None)
                 return
-    setattr.unwrap_spec = ['self', ObjSpace, str, int]
+    setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
     def __del__(self):
         if self.free_afterwards:

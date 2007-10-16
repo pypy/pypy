@@ -112,44 +112,48 @@ except that s has trailing \x00 added, while p is considered a raw buffer.
 """
 )
 
-def pack_pointer(space, w_arg, ptr):
+def pack_pointer(space, argdesc, w_arg, push_func):
     arg = space.str_w(w_arg)
     ll_str = lltype.malloc(rffi.CCHARP.TO, len(arg), flavor='raw')
     for i in range(len(arg)):
         ll_str[i] = arg[i]
-    ptr.push_arg(ll_str)
+    push_func(argdesc, ll_str)
     return ll_str
 
-def push_arg(space, ptr, argnum, argtype, w_arg, to_free):
+def unwrap_arg(space, push_func, argdesc, argtype, w_arg, to_free):
     w = space.wrap
     # XXX how to handle LONGLONG here?
     # they're probably long, so we'll not get them through int_w
     if argtype == "d" or argtype == "f":
-        ptr.push_arg(space.float_w(w_arg))
+        push_func(argdesc, space.float_w(w_arg))
     elif argtype == "s":
         ll_str = rffi.str2charp(space.str_w(w_arg))
-        ptr.push_arg(ll_str)
-        to_free.append(ll_str)
+        if to_free is not None:
+            to_free.append(ll_str)
+        push_func(argdesc, ll_str)
     elif argtype == "P":
         # check for NULL ptr
         if space.is_w(w_arg, space.w_None):
-            ptr.push_arg(lltype.nullptr(rffi.VOIDP.TO))
+            push_func(argdesc, lltype.nullptr(rffi.VOIDP.TO))
         elif space.is_true(space.isinstance(w_arg, space.w_basestring)):
-            to_free.append(pack_pointer(space, w_arg, ptr))
+            if to_free is not None:
+                to_free.append(pack_pointer(space, argdesc, w_arg, push_func))
         else:
             mod = space.getbuiltinmodule('_ffi')
             w_StructureInstance = space.getattr(mod, w('StructureInstance'))
             if space.is_true(space.isinstance(w_arg, w_StructureInstance)):
                 #ptr.push_arg(lltype.cast_int_to_ptr(rffi.VOIDP, space.int_w(space.getattr(w_arg, w('buffer')))))
-                ptr.push_arg(w_arg.ll_buffer)
+                push_func(argdesc, w_arg.ll_buffer)
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
     elif argtype == "c" or argtype == "b" or argtype == "B":
-        ptr.push_arg(space.str_w(w_arg))
+        push_func(argdesc, space.str_w(w_arg))
     else:
-        assert argtype in ["iIhHlLqQ"]
-        ptr.push_arg(space.int_w(w_arg))
+        assert argtype in "iIhHlLqQ"
+        push_func(argdesc, space.int_w(w_arg))
+unwrap_arg._annspecialcase_ = 'specialize:arg(1)'
+# we should have also here specialize:argtype(5) :-/
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
@@ -174,6 +178,9 @@ class W_FuncPtr(Wrappable):
         self.restype = restype
         self.argtypes = argtypes
 
+    def push(self, argdesc, value):
+        self.ptr.push_arg(value)
+
     def call(self, space, arguments):
         args_w, kwds_w = arguments.unpack()
         # C has no keyword arguments
@@ -183,7 +190,7 @@ class W_FuncPtr(Wrappable):
         to_free = []
         i = 0
         for argtype, w_arg in zip(self.argtypes, args_w):
-            push_arg(space, self.ptr, i, argtype, w_arg, to_free)
+            unwrap_arg(space, self.push, i, argtype, w_arg, to_free)
             i += 1
         try:
             return wrap_result(space, self.restype, self.ptr.call)
