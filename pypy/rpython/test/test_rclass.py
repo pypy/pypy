@@ -673,18 +673,20 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
                 self.v = v
         
         class J(I):
+            _immutable_ = True
             def __init__(self, v, w):
                 self.w = w
                 I.__init__(self, v)
 
         j = J(3, 4)
         def f():
+            j.v = j.v * 1 # make the annotator think it is mutated
+            j.w = j.w * 1 # make the annotator think it is mutated
             return j.v + j.w
 
         t, typer, graph = self.gengraph(f, [], backendopt=True)
-        assert summary(graph) == {}
+        assert summary(graph) == {"setfield": 2}
         
-
     def test_instance_repr(self):
         class FooBar(object):
             pass
