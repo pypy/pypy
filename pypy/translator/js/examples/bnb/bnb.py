@@ -75,10 +75,10 @@ class ExportedMethods(server.ExportedMethods):
         if hasattr(self, '_port'):
             return self._port
         try:
-            port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+            port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % self.host).read())[0]
             port = int(port[7:-1])
         except IOError:
-            log("ERROR: Can't connect to BnB server on %s:8000" % host)
+            log("ERROR: Can't connect to BnB server on %s:8000" % self.host)
             raise IOError
         except IndexError:
             log("ERROR: Connected to BnB server but unable to detect a running game")
