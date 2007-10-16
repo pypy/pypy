@@ -1,0 +1,11 @@
+
+* long support with all messy corners (when to create long integer and
+  such)
+
+* add arrays
+
+* setattr on structures (finish)
+
+* keyword arguments for structure creation
+
+* make it all rpython
