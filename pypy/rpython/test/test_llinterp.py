@@ -55,6 +55,8 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
         timelog("checking graphs", t.checkgraphs)
+        if viewbefore:
+            t.view()
     desc = t.annotator.bookkeeper.getdesc(func)
     graph = desc.specialize(argtypes)
     return t, typer, graph
