@@ -41,7 +41,7 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--llvm-via-c",
                requires=[("translation.backend", "llvm")]),
     ChoiceOption("gc", "Garbage Collection Strategy",
-                 ["boehm", "ref", "framework", "none", "exact_boehm"],
+                 ["boehm", "ref", "framework", "none"],
                   "ref", requires={
                      "ref": [("translation.rweakref", False)], # XXX
                      "none": [("translation.rweakref", False)], # XXX

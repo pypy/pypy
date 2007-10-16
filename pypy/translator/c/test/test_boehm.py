@@ -335,7 +335,3 @@ class TestUsingBoehm(AbstractGCTestClass):
         c_fn(100)
 
 
-class TestUsingExactBoehm(TestUsingBoehm):
-    gcpolicy = "exact_boehm"
-
-

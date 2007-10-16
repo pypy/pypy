@@ -169,8 +169,6 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
 class BoehmInfo:
     finalizer = None
 
-    # for MoreExactBoehmGcPolicy
-    malloc_exact = False
 
 class BoehmGcPolicy(BasicGcPolicy):
     transformerclass = boehm.BoehmGCTransformer
@@ -260,59 +258,6 @@ class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
     nodekind = 'framework rtti'
 
 
-class MoreExactBoehmGcPolicy(BoehmGcPolicy):
-    """ policy to experiment with giving some layout information to boehm. Use
-    new class to prevent breakage. """
-
-    def __init__(self, db, thread_enabled=False):
-        super(MoreExactBoehmGcPolicy, self).__init__(db, thread_enabled)
-        self.exactly_typed_structs = {}
-
-    def get_descr_name(self, defnode):
-        # XXX somewhat illegal way of introducing a name
-        return '%s__gc_descr__' % (defnode.name, )
-
-    def pre_pre_gc_code(self):
-        for line in super(MoreExactBoehmGcPolicy, self).pre_pre_gc_code():
-            yield line
-        yield "#include <gc/gc_typed.h>"
-
-    def struct_setup(self, structdefnode, rtti):
-        T = structdefnode.STRUCT
-        if T._is_atomic():
-            malloc_exact = False
-        else:
-            if T._is_varsize():
-                malloc_exact = T._flds[T._arrayfld]._is_atomic()
-            else:
-                malloc_exact = True
-        if malloc_exact:
-            if structdefnode.gcinfo is None:
-                structdefnode.gcinfo = BoehmInfo()
-            structdefnode.gcinfo.malloc_exact = True
-            self.exactly_typed_structs[structdefnode.STRUCT] = structdefnode
-
-    def struct_after_definition(self, defnode):
-        if defnode.gcinfo and defnode.gcinfo.malloc_exact:
-            yield 'GC_descr %s;' % (self.get_descr_name(defnode), )
-
-    def gc_startup_code(self):
-        for line in super(MoreExactBoehmGcPolicy, self).gc_startup_code():
-            yield line
-        for TYPE, defnode in self.exactly_typed_structs.iteritems():
-            T = defnode.gettype().replace("@", "")
-            yield "{"
-            yield "GC_word T_bitmap[GC_BITMAP_SIZE(%s)] = {0};" % (T, )
-            for field in TYPE._flds:
-                if getattr(TYPE, field) == lltype.Void:
-                    continue
-                yield "GC_set_bit(T_bitmap, GC_WORD_OFFSET(%s, %s));" % (
-                    T, defnode.c_struct_field_name(field))
-            yield "%s = GC_make_descriptor(T_bitmap, GC_WORD_LEN(%s));" % (
-                self.get_descr_name(defnode), T)
-            yield "}"
-
-
 # to get an idea how it looks like with no refcount/gc at all
 
 class NoneGcPolicy(BoehmGcPolicy):
@@ -381,7 +326,6 @@ class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
-    'exact_boehm': MoreExactBoehmGcPolicy,
     'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework': FrameworkGcPolicy,
