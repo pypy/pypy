@@ -79,7 +79,7 @@ class W_StructureInstance(Wrappable):
                 self.next_pos = i
                 return wrap_result(space, c, self.cast_pos)
         raise OperationError(space.w_AttributeError, space.wrap(
-            "C Structure has no attribute %s" % name))
+            "C Structure has no attribute %s" % attr))
     getattr.unwrap_spec = ['self', ObjSpace, str]
 
     def push_field(self, num, value):
