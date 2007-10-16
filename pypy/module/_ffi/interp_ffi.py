@@ -178,7 +178,9 @@ def wrap_result(space, restype, arg, func):
             elif c == 'f' or c == 'd':
                 return space.wrap(float(func(arg, ll_type)))
             elif c == 'c' or c == 'b' or c == 'B':
-                return space.wrap(func(arg, ll_type))
+                return space.wrap(chr(rffi.cast(rffi.INT, func(arg, ll_type))))
+            elif c == 'h' or c == 'H':
+                return space.wrap(rffi.cast(rffi.INT, func(arg, ll_type)))
             else:
                 return space.wrap(intmask(func(arg, ll_type)))
     return space.w_None

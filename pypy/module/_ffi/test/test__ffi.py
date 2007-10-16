@@ -188,6 +188,20 @@ class AppTestCTypes:
         x = create_double_struct()
         assert X(X(x).next).x2 == 3
 
+    def test_implicit_structure(self):
+        skip("Does not work yet")
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        X = _ffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'self')])
+        inner = lib.ptr("inner_struct_elem", [X], 'c')
+        x = X(next=X(next=None, x3='x'), x1=1, x2=2, x3='x')
+        assert x.next.x3 == 'x'
+        assert inner(x) == 'x'
+        create_double_struct = lib.ptr("create_double_struct", [], X)
+        x = create_double_struct()
+        assert x.next.x2 == 3
+        
+
     def test_longs_ulongs(self):
         skip("Not implemented yet")
 

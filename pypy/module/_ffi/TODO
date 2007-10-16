@@ -1,8 +1,7 @@
 
 * long support with all messy corners (when to create long integer and
-  such)
+  such), also short overflowing
 
 * add arrays
 
-* keyword arguments for structure creation
 
