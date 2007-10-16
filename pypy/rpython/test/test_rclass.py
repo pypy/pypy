@@ -667,6 +667,24 @@ class TestLltype(BaseTestRclass, LLRtypeMixin):
         t, typer, graph = self.gengraph(f, [], backendopt=True)
         assert summary(graph) == {}
 
+    def test_immutable_inheritance(self):
+        class I(object):
+            def __init__(self, v):
+                self.v = v
+        
+        class J(I):
+            def __init__(self, v, w):
+                self.w = w
+                I.__init__(self, v)
+
+        j = J(3, 4)
+        def f():
+            return j.v + j.w
+
+        t, typer, graph = self.gengraph(f, [], backendopt=True)
+        assert summary(graph) == {}
+        
+
     def test_instance_repr(self):
         class FooBar(object):
             pass
