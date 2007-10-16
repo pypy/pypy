@@ -1,5 +1,7 @@
 
-from pypy.module._ffi.structure import sizeof
+from pypy.module._ffi.structure import size_and_pos
+
+sizeof = lambda x : size_and_pos(x)[0]
 
 def unpack(desc):
     return [('x', i) for i in desc]

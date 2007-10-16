@@ -26,7 +26,6 @@ TYPEMAP = {
     'f' : ffi_type_float,
     'd' : ffi_type_double,
     's' : ffi_type_pointer,
-    'p' : ffi_type_pointer,
     'P' : ffi_type_pointer,
 }
 
@@ -45,7 +44,6 @@ LL_TYPEMAP = {
     'f' : rffi.FLOAT,
     'd' : rffi.DOUBLE,
     's' : rffi.CCHARP,
-    'p' : rffi.CCHARP,
     'P' : rffi.VOIDP,    
 }
 
@@ -132,7 +130,7 @@ def push_arg(space, ptr, argnum, argtype, w_arg, to_free):
         ll_str = rffi.str2charp(space.str_w(w_arg))
         ptr.push_arg(ll_str)
         to_free.append(ll_str)
-    elif argtype == "p":
+    elif argtype == "P":
         # check for NULL ptr
         if space.is_w(w_arg, space.w_None):
             ptr.push_arg(lltype.nullptr(rffi.VOIDP.TO))
@@ -158,11 +156,11 @@ ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 def wrap_result(space, restype, func):
     for c, ll_type in ll_typemap_iter:
         if restype == c:
-            if c == 's' or c == 'p':
+            if c == 's':
                 return space.wrap(rffi.charp2str(func(rffi.CCHARP)))
             elif c == 'P':
                 res = func(rffi.VOIDP)
-                return space.wrap(lltype.cast_ptr_to_int(res))
+                return space.wrap(rffi.cast(rffi.INT, res))
             elif c == 'q' or c == 'Q' or c == 'L':
                 return space.newlong(func(ll_type))
             else:

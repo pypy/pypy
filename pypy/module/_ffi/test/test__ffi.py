@@ -9,8 +9,20 @@ def setup_module(mod):
         py.test.skip("Linux only tests by now")
 
 class AppTestCTypes:
+    def prepare_c_example():
+        from pypy.tool.udir import udir
+        udir.join("xlib.c").write(py.code.Source("""
+        typedef struct x {
+           char x1;
+           long x2;
+           struct x *x3;
+        }
+        """))
+    prepare_c_example = staticmethod(prepare_c_example)
+    
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('_ffi','struct'))
+        cls.prepare_c_example()
 
     def test_libload(self):
         import _ffi
@@ -52,7 +64,7 @@ class AppTestCTypes:
         strlen = libc.ptr('strlen', ['s'], 'i')
         assert strlen("dupa") == 4
         assert strlen("zupa") == 4
-        strlen = libc.ptr('strlen', ['p'], 'i')
+        strlen = libc.ptr('strlen', ['P'], 'i')
         assert strlen("ddd\x00") == 3
         strdup = libc.ptr('strdup', ['s'], 's')
         assert strdup("xxx") == "xxx"
@@ -60,7 +72,7 @@ class AppTestCTypes:
     def test_time(self):
         import _ffi
         libc = _ffi.CDLL('libc.so.6')
-        time = libc.ptr('time', ['p'], 'l')
+        time = libc.ptr('time', ['P'], 'l')
         assert time(None) != 0
 
     def test_gettimeofday(self):
@@ -68,7 +80,7 @@ class AppTestCTypes:
         struct_type = _ffi.Structure([('tv_sec', 'l'), ('tv_usec', 'l')])
         structure = struct_type()
         libc = _ffi.CDLL('libc.so.6')
-        gettimeofday = libc.ptr('gettimeofday', ['p', 'p'], 'i')
+        gettimeofday = libc.ptr('gettimeofday', ['P', 'P'], 'i')
         assert gettimeofday(structure, None) == 0
         struct2 = struct_type()
         assert gettimeofday(struct2, None) == 0
@@ -76,4 +88,27 @@ class AppTestCTypes:
         assert (structure.tv_sec == struct2.tv_sec) or (structure.tv_sec == struct2.tv_sec - 1)
         raises(AttributeError, "structure.xxx")
 
-    
+    def test_structreturn(self):
+        import _ffi
+        X = _ffi.Structure([('x', 'l')])
+        x = X()
+        x.x = 121
+        Tm = _ffi.Structure([('tm_sec', 'i'),
+                             ('tm_min', 'i'),
+                             ('tm_hour', 'i'),
+                             ("tm_mday", 'i'),
+                             ("tm_mon", 'i'),
+                             ("tm_year", 'i'),
+                             ("tm_wday", 'i'),
+                             ("tm_yday", 'i'),
+                             ("tm_isdst", 'i')])
+        libc = _ffi.CDLL('libc.so.6')
+        gmtime = libc.ptr('gmtime', ['P'], 'P')
+        t = Tm(gmtime(x))
+        assert t.tm_year == 70
+        assert t.tm_sec == 1
+        assert t.tm_min == 2
+        
+
+    #def test_nested_structures(self):
+    #    

@@ -39,7 +39,7 @@ def size_and_pos(fields):
     return size, pos
 
 class W_StructureInstance(Wrappable):
-    def __init__(self, space, w_shape, w_fieldinits):
+    def __init__(self, space, w_shape, w_address, w_fieldinits):
         if space.is_true(w_fieldinits):
             raise OperationError(space.w_ValueError, space.wrap(
                 "Fields should be not initialized with values by now"))
@@ -47,8 +47,13 @@ class W_StructureInstance(Wrappable):
         fields = unpack_fields(space, w_fields)
         size, pos = size_and_pos(fields)
         self.fields = fields
-        self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
-                                       zero=True)
+        if space.is_true(w_address):
+            self.free_afterwards = False
+            self.ll_buffer = rffi.cast(rffi.VOIDP, space.int_w(w_address))
+        else:
+            self.free_afterwards = True
+            self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
+                                           zero=True)
         self.ll_positions = pos
         self.next_pos = 0
 
@@ -60,6 +65,8 @@ class W_StructureInstance(Wrappable):
     cast_pos._annspecialcase_ = 'specialize:arg(1)'
 
     def getattr(self, space, attr):
+        if attr.startswith('tm'):
+            pass
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
@@ -70,14 +77,27 @@ class W_StructureInstance(Wrappable):
             "C Structure has no attribute %s" % name))
     getattr.unwrap_spec = ['self', ObjSpace, str]
 
-    def __del__(self):
-        lltype.free(self.ll_buffer, flavor='raw')
+    def setattr(self, space, attr, value):
+        # XXX value is now always int, needs fixing
+        for i in range(len(self.fields)):
+            name, c = self.fields[i]
+            if name == attr:
+                pos = rffi.ptradd(self.ll_buffer, self.ll_positions[i])
+                TP = rffi.CArrayPtr(rffi.INT)
+                rffi.cast(TP, pos)[0] = value
+                return
+    setattr.unwrap_spec = ['self', ObjSpace, str, int]
 
-def descr_new_structure_instance(space, w_type, w_shape, w_fieldinits):
-    return W_StructureInstance(space, w_shape, w_fieldinits)
+    def __del__(self):
+        if self.free_afterwards:
+            lltype.free(self.ll_buffer, flavor='raw')
+
+def descr_new_structure_instance(space, w_type, w_shape, w_adr, w_fieldinits):
+    return W_StructureInstance(space, w_shape, w_adr, w_fieldinits)
 
 W_StructureInstance.typedef = TypeDef(
     'StructureInstance',
     __new__     = interp2app(descr_new_structure_instance),
     __getattr__ = interp2app(W_StructureInstance.getattr),
+    __setattr__ = interp2app(W_StructureInstance.setattr),
 )
