@@ -576,9 +576,9 @@ class TestUsingFramework(AbstractGCTestClass):
         class A:
             pass
 
+        keepalive = []
         def fn():
             n = 7000
-            keepalive = []
             weakrefs = []
             a = None
             for i in range(n):
