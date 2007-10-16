@@ -416,9 +416,9 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_direct_call(self, hop):
         if self.collect_analyzer.analyze(hop.spaceop):
-            self.push_roots(hop)
+            livevars = self.push_roots(hop)
             self.default(hop)
-            self.pop_roots(hop)
+            self.pop_roots(hop, livevars)
         else:
             self.default(hop)
 
@@ -462,20 +462,20 @@ class FrameworkGCTransformer(GCTransformer):
             args = [self.c_const_gc, c_type_id, v_length, c_size,
                     c_varitemsize, c_ofstolength, c_can_collect,
                     c_has_finalizer]
-        self.push_roots(hop)
+        livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
-        self.pop_roots(hop)
+        self.pop_roots(hop, livevars)
         return v_result
 
     gct_fv_gc_malloc_varsize = gct_fv_gc_malloc
 
     def gct_gc__collect(self, hop):
         op = hop.spaceop
-        self.push_roots(hop)
+        livevars = self.push_roots(hop)
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc],
                   resultvar=op.result)
-        self.pop_roots(hop)
+        self.pop_roots(hop, livevars)
 
     def gct_gc_x_swap_pool(self, hop):
         op = hop.spaceop
@@ -502,11 +502,11 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_x_become(self, hop):
         op = hop.spaceop
         [v_target, v_source] = op.args
-        self.push_roots(hop)
+        livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.x_become_ptr, self.c_const_gc, v_target, v_source],
                   resultvar=op.result)
-        self.pop_roots(hop)
+        self.pop_roots(hop, livevars)
 
     def gct_zero_gc_pointers_inside(self, hop):
         v_ob = hop.spaceop.args[0]
@@ -530,12 +530,12 @@ class FrameworkGCTransformer(GCTransformer):
         v_instance, = op.args
         v_addr = hop.genop("cast_ptr_to_adr", [v_instance],
                            resulttype=llmemory.Address)
-        self.push_roots(hop)
+        livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         v_result = hop.genop("cast_opaque_ptr", [v_result],
                             resulttype=WEAKREFPTR)
-        self.pop_roots(hop)
+        self.pop_roots(hop, livevars)
         hop.genop("bare_setfield",
                   [v_result, rmodel.inputconst(lltype.Void, "weakptr"), v_addr])
         v_weakref = hop.genop("cast_ptr_to_weakrefptr", [v_result],
@@ -551,13 +551,13 @@ class FrameworkGCTransformer(GCTransformer):
 
     def gct_gc_id(self, hop):
         if self.id_ptr is not None:
-            self.push_roots(hop)
+            livevars = self.push_roots(hop)
             [v_ptr] = hop.spaceop.args
             v_ptr = hop.genop("cast_opaque_ptr", [v_ptr],
                               resulttype=llmemory.GCREF)
             hop.genop("direct_call", [self.id_ptr, self.c_const_gc, v_ptr],
                       resultvar=hop.spaceop.result)
-            self.pop_roots(hop)
+            self.pop_roots(hop, livevars)
         else:
             hop.rename('cast_ptr_to_int')     # works nicely for non-moving GCs
 
@@ -570,10 +570,17 @@ class FrameworkGCTransformer(GCTransformer):
     def push_roots(self, hop):
         if self.incr_stack_ptr is None:
             return
-        livevars = [var for var in self.livevars if not var_ispyobj(var)]
+        if self.gcdata.gc.moving_gc:
+            # moving GCs don't borrow, so the caller does not need to keep
+            # the arguments alive
+            livevars = [var for var in self.livevars_after_op
+                            if not var_ispyobj(var)]
+        else:
+            livevars = self.livevars_after_op + self.current_op_keeps_alive
+            livevars = [var for var in livevars if not var_ispyobj(var)]
         self.num_pushs += len(livevars)
         if not livevars:
-            return
+            return []
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )
         base_addr = hop.genop("direct_call", [self.incr_stack_ptr, c_len ],
                               resulttype=llmemory.Address)
@@ -588,11 +595,11 @@ class FrameworkGCTransformer(GCTransformer):
                                       resulttype=WEAKREFPTR)
             v_adr = gen_cast(hop.llops, llmemory.Address, var)
             hop.genop("raw_store", [base_addr, c_type, c_k, v_adr])
+        return livevars
 
-    def pop_roots(self, hop):
+    def pop_roots(self, hop, livevars):
         if self.decr_stack_ptr is None:
             return
-        livevars = [var for var in self.livevars if not var_ispyobj(var)]
         if not livevars:
             return
         c_len = rmodel.inputconst(lltype.Signed, len(livevars) )

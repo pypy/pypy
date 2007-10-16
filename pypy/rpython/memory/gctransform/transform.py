@@ -33,10 +33,17 @@ def var_ispyobj(var):
 PyObjPtr = lltype.Ptr(lltype.PyObject)
 
 class GcHighLevelOp(object):
-    def __init__(self, gctransformer, op, llops):
-        self.gctransformer = gctransformer
+    def __init__(self, gct, op, index, llops):
+        self.gctransformer = gct
         self.spaceop = op
+        self.index = index
         self.llops = llops
+        gct.livevars_after_op = [
+            var for var in gct.livevars
+                if gct.var_last_needed_in[var] > self.index]
+        gct.current_op_keeps_alive = [
+            var for var in self.spaceop.args
+                if gct.var_last_needed_in.get(var) == self.index]
 
     def dispatch(self):
         gct = self.gctransformer
@@ -56,6 +63,8 @@ class GcHighLevelOp(object):
                     gct.push_alive(v_result)
             elif opname not in ('direct_call', 'indirect_call'):
                 gct.push_alive(v_result)
+        
+
 
     def rename(self, newopname):
         self.llops.append(
@@ -152,8 +161,21 @@ class BaseGCTransformer(object):
         #self.curr_block = block
         self.livevars = [var for var in block.inputargs
                     if var_needsgc(var) and not is_borrowed(var)]
-        for op in block.operations:
-            hop = GcHighLevelOp(self, op, self.llops)
+        allvars = [var for var in block.getvariables() if var_needsgc(var)]
+        self.var_last_needed_in = dict.fromkeys(allvars, 0)
+        for i, op in enumerate(block.operations):
+            for var in op.args:
+                if not var_needsgc(var):
+                    continue
+                self.var_last_needed_in[var] = i
+        for link in block.exits:
+            for var in link.args:
+                if not var_needsgc(var):
+                    continue
+                self.var_last_needed_in[var] = len(block.operations) + 1
+        
+        for i, op in enumerate(block.operations):
+            hop = GcHighLevelOp(self, op, i, self.llops)
             hop.dispatch()
 
         if len(block.exits) != 0: # i.e not the return block
@@ -182,6 +204,7 @@ class BaseGCTransformer(object):
             block.operations[:] = self.llops
         self.llops = None
         self.livevars = None
+        self.var_last_needed_in = None
 
     def transform_graph(self, graph):
         if graph in self.minimal_transform:

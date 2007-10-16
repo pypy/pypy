@@ -79,7 +79,7 @@ def test_write_barrier_support():
         [varoftype(PTR_TYPE), Constant('x', lltype.Void)],
         varoftype(lltype.Void))
     transformer = WriteBarrierTransformer(t)
-    hop = GcHighLevelOp(transformer, spaceop, llops)
+    hop = GcHighLevelOp(transformer, spaceop, 0, llops)
     hop.dispatch()
     found = False
     for op in llops:
