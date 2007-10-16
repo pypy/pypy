@@ -112,7 +112,8 @@ class TestDLOperations:
             c_pow = libm.getpointer('pow', [ffi_type_double, ffi_type_double], ffi_type_double)
             c_pow.push_arg(x)
             c_pow.push_arg(y)
-            return c_pow.call(rffi.DOUBLE)
+            res = c_pow.call(rffi.DOUBLE)
+            return res
 
         fn = compile(f, [float, float])
         res = fn(2.0, 4.0)

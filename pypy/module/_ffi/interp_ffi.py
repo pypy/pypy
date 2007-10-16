@@ -11,11 +11,11 @@ from pypy.rlib.unroll import unrolling_iterable
 
 TYPEMAP = {
     # XXX A mess with unsigned/signed/normal chars :-/
-    'c' : ffi_type_uchar,
-    'b' : ffi_type_schar,
-    'B' : ffi_type_uchar,
-    'h' : ffi_type_sshort,
-    'H' : ffi_type_ushort,
+    #'c' : ffi_type_uchar,
+    #'b' : ffi_type_schar,
+    #'B' : ffi_type_uchar,
+    #'h' : ffi_type_sshort,
+    #'H' : ffi_type_ushort,
     'i' : ffi_type_sint,
     'I' : ffi_type_uint,
     'l' : ffi_type_slong,
@@ -30,11 +30,11 @@ TYPEMAP = {
 }
 
 LL_TYPEMAP = {
-    'c' : rffi.CHAR,
-    'b' : rffi.UCHAR,
-    'B' : rffi.CHAR,
-    'h' : rffi.SHORT,
-    'H' : rffi.USHORT,
+    #'c' : rffi.CHAR,
+    #'b' : rffi.UCHAR,
+    #'B' : rffi.CHAR,
+    #'h' : rffi.SHORT,
+    #'H' : rffi.USHORT,
     'i' : rffi.INT,
     'I' : rffi.UINT,
     'l' : rffi.LONG,
@@ -155,7 +155,7 @@ def unwrap_arg(space, push_func, add_arg, argdesc, argtype, w_arg, to_free):
         s = s[0]
         push_func(add_arg, argdesc, s)
     else:
-        assert argtype in "iIhHlLqQ"
+        #assert argtype  "iIhHlLqQ"
         push_func(add_arg, argdesc, space.int_w(w_arg))
 unwrap_arg._annspecialcase_ = 'specialize:arg(1)'
 # we should have also here specialize:argtype(5) :-/
@@ -170,10 +170,14 @@ def wrap_result(space, restype, arg, func):
             elif c == 'P':
                 res = func(arg, rffi.VOIDP)
                 return space.wrap(rffi.cast(rffi.INT, res))
-            elif c == 'q' or c == 'Q' or c == 'L':
-                return space.newlong(func(arg, ll_type))
-            else:
+            #elif c == 'q' or c == 'Q' or c == 'L':
+            #    return space.newlong(func(arg, ll_type))
+            elif c == 'f' or c == 'd':
+                return space.wrap(float(func(arg, ll_type)))
+            elif c == 'c' or c == 'b' or c == 'B':
                 return space.wrap(func(arg, ll_type))
+            else:
+                return space.wrap(intmask(func(arg, ll_type)))
     return space.w_None
 wrap_result._annspecialcase_ = 'specialize:arg(3)'
 
@@ -181,15 +185,15 @@ def ptr_call(ptr, ll_type):
     return ptr.call(ll_type)
 ptr_call._annspecialcase_ = 'specialize:arg(1)'
 
+def push(ptr, argdesc, value):
+    ptr.push_arg(value)
+push._annspecialcase_ = 'specialize:argtype(2)'
+
 class W_FuncPtr(Wrappable):
     def __init__(self, ptr, argtypes, restype):
         self.ptr = ptr
         self.restype = restype
         self.argtypes = argtypes
-
-    def push(ptr, argdesc, value):
-        ptr.push_arg(value)
-    push = staticmethod(push)
 
     def call(self, space, arguments):
         args_w, kwds_w = arguments.unpack()
@@ -199,8 +203,10 @@ class W_FuncPtr(Wrappable):
                 "Provided keyword arguments for C function call"))
         to_free = []
         i = 0
-        for argtype, w_arg in zip(self.argtypes, args_w):
-            unwrap_arg(space, self.push, self.ptr, i, argtype, w_arg, to_free)
+        for i in range(len(self.argtypes)):
+            argtype = self.argtypes[i]
+            w_arg = args_w[i]
+            unwrap_arg(space, push, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
             return wrap_result(space, self.restype, self.ptr, ptr_call)

@@ -6,6 +6,7 @@ from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import we_are_translated
 
 includes = ['dlfcn.h', 'ffi.h']
 include_dirs = ['/usr/include/libffi']
@@ -144,10 +145,11 @@ def cast_type_to_ffitype(tp):
     return TYPE_MAP[tp]
 cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
-def push_arg_as_ffiptr(ffitp, TP, arg, ll_buf):
+def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     # this is for primitive types. For structures and arrays
     # would be something different (more dynamic)
-    TP_P = rffi.CArrayPtr(TP)
+    TP = lltype.typeOf(arg)
+    TP_P = lltype.Ptr(rffi.CArray(TP))
     buf = rffi.cast(TP_P, ll_buf)
     buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
@@ -190,18 +192,22 @@ class FuncPtr(object):
         if self.pushed_args == self.argnum:
             raise TypeError("Too much arguments, eats %d, pushed %d" %
                             (self.argnum, self.argnum + 1))
-        TP = lltype.typeOf(value)
-        if isinstance(TP, lltype.Ptr):
-            if TP.TO._gckind != 'raw':
-                raise ValueError("Can only push raw values to C, not 'gc'")
-            # XXX probably we should recursively check for struct fields
-            # here, lets just ignore that for now
-            if isinstance(TP.TO, lltype.Array) and not \
-                   TP.TO._hints.get('nolength', None):
-                raise ValueError("Can only push to C arrays without length info")
-        push_arg_as_ffiptr(self.argtypes[self.pushed_args], TP, value,
+        if not we_are_translated():
+            TP = lltype.typeOf(value)
+            if isinstance(TP, lltype.Ptr):
+                if TP.TO._gckind != 'raw':
+                    raise ValueError("Can only push raw values to C, not 'gc'")
+                # XXX probably we should recursively check for struct fields
+                # here, lets just ignore that for now
+                if isinstance(TP.TO, lltype.Array):
+                    try:
+                        TP.TO._hints['nolength']
+                    except KeyError:
+                        raise ValueError("Can only push to C arrays without length info")
+        push_arg_as_ffiptr(self.argtypes[self.pushed_args], value,
                            self.ll_args[self.pushed_args])
         self.pushed_args += 1
+    push_arg._annspecialcase_ = 'specialize:argtype(1)'
 
     def _check_args(self):
         if self.pushed_args < self.argnum:
@@ -215,14 +221,14 @@ class FuncPtr(object):
         c_ffi_call(self.ll_cif, self.funcsym,
                    rffi.cast(rffi.VOIDP, self.ll_result),
                    rffi.cast(VOIDPP, self.ll_args))
-        if self.restype != ffi_type_void:
-            TP = rffi.CArrayPtr(RES_TP)
+        if RES_TP is not lltype.Void:
+            TP = lltype.Ptr(rffi.CArray(RES_TP))
             res = rffi.cast(TP, self.ll_result)[0]
         else:
             res = None
         self._clean_args()
         return res
-    call._annspecialcase_ = 'specialize:argtype(1)'
+    call._annspecialcase_ = 'specialize:arg(1)'
 
     def __del__(self):
         argnum = len(self.argtypes)
