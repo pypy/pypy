@@ -4,7 +4,7 @@ import os, py, sys
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem import llmemory
-from pypy.translator.tool.cbuild import build_executable
+from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.tool.udir import udir
 import distutils
 
@@ -114,8 +114,8 @@ class _CWriter(object):
         self.close()
         include_dirs = getattr(self.config, '_include_dirs_', [])
         libraries = getattr(self.config, '_libraries_', [])
-        build_executable([self.path], include_dirs=include_dirs,
-                         libraries=libraries)
+        return try_compile_cache([self.path], include_dirs=include_dirs,
+                                 libraries=libraries)
         
 def configure(CConfig):
     """Examine the local system by running the C compiler.
@@ -409,12 +409,7 @@ class Has(CConfigSingleEntry):
         self.name = name
     
     def question(self, ask_gcc):
-        try:
-            ask_gcc(self.name + ';')
-            return True
-        except (distutils.errors.CompileError,
-                distutils.errors.LinkError):
-            return False
+        return ask_gcc(self.name + ';')
 
 # ____________________________________________________________
 #
@@ -483,9 +478,8 @@ void dump(char* key, int value) {
 """
 
 def run_example_code(filepath, include_dirs=[], libraries=[]):
-    executable = build_executable([filepath], include_dirs=include_dirs,
-                                  libraries=libraries)
-    output = py.process.cmdexec(executable)
+    output = build_executable_cache([filepath], include_dirs=include_dirs,
+                                        libraries=libraries)
     section = None
     for line in output.splitlines():
         line = line.strip()
