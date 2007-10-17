@@ -190,7 +190,7 @@ def wrap_result(space, restype, arg, argdesc, func):
             else:
                 return space.wrap(intmask(func(arg, argdesc, ll_type)))
     return space.w_None
-wrap_result._annspecialcase_ = 'specialize:arg(3)'
+wrap_result._annspecialcase_ = 'specialize:arg(4)'
 
 def ptr_call(ptr, some_arg, ll_type):
     return ptr.call(ll_type)
