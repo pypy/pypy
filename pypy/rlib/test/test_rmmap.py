@@ -2,7 +2,7 @@ from pypy.tool.udir import udir
 import os
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rlib import rmmap as mmap
-from pypy.rlib.rmmap import RTypeError, RValueError, REnvironmentError
+from pypy.rlib.rmmap import RTypeError, RValueError
 import sys
 
 class TestMMap:
@@ -355,6 +355,19 @@ class TestMMap:
             data = m.read(6)
             assert data == "yoobar" # yxxbar with slice's stuff
             m.close()
+
+        interpret(func, [f.fileno()])
+        f.close()
+
+    def test_double_close(self):
+        f = open(self.tmpname + "s", "w+")
+        f.write("foobar")
+        f.flush()
+
+        def func(no):
+            m = mmap.mmap(no, 6, access=mmap.ACCESS_WRITE)
+            m.close()
+            m.close() # didn't explode
 
         interpret(func, [f.fileno()])
         f.close()

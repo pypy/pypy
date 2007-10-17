@@ -16,10 +16,6 @@ class RValueError(Exception):
     def __init__(self, message):
         self.message = message
 
-class REnvironmentError(Exception):
-    def __init__(self, message):
-        self.message = message
-
 class RTypeError(Exception):
     def __init__(self, message):
         self.message = message    
@@ -114,9 +110,8 @@ if _POSIX:
 
     _get_page_size = external('getpagesize', [], rffi.INT)
 
-    def _get_error_msg():
-        errno = rffi.get_errno()
-        return os.strerror(errno)
+    def _get_error_no():
+        return rffi.get_errno()
 
 elif _MS_WINDOWS:
 
@@ -207,14 +202,14 @@ elif _MS_WINDOWS:
             dwErr = GetLastError()
             err = rffi.cast(lltype.Signed, dwErr)
             if low == INVALID_FILE_SIZE and err != NO_ERROR:
-                raise REnvironmentError(os.strerror(err))
+                msg = os.strerror(err)
+                raise OSError(err, msg)
             return low, high
         finally:
             lltype.free(high_ref, flavor='raw')
 
-    def _get_error_msg():
-        errno = rffi.cast(lltype.Signed, GetLastError())
-        return os.strerror(errno)
+    def _get_error_no():
+        return rffi.cast(lltype.Signed, GetLastError())
 
     NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE = rffi.cast(HANDLE, -1)
@@ -279,6 +274,8 @@ class MMap(object):
             if self.size > 0:
                 c_munmap(self.getptr(0), self.size)
                 self.setdata(NODATA, 0)
+
+    __del__ = close
 
     def unmapview(self):
         UnmapViewOfFile(self.getptr(0))
@@ -439,7 +436,8 @@ class MMap(object):
 ##                    new_size = size + value & (PAGESIZE - 1)
                 res = c_msync(start, size, MS_SYNC)
                 if res == -1:
-                    raise REnvironmentError(_get_error_msg())
+                    errno = _get_error_no()
+                    raise OSError(errno, os.strerror(errno))
         
         return 0
     
@@ -464,14 +462,10 @@ class MMap(object):
         
         if _POSIX:
             if not has_mremap:
-                msg = "mmap: resizing not available -- no mremap()"
-                raise REnvironmentError(msg)
+                raise OSError(-11111, "No mremap available")
             
             # resize the underlying file first
-            try:
-                os.ftruncate(self.fd, newsize)
-            except OSError, e:
-                raise REnvironmentError(os.strerror(e.errno))
+            os.ftruncate(self.fd, newsize)
                 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,
@@ -519,7 +513,7 @@ class MMap(object):
             else:
                 dwErrCode = GetLastError()
             err = rffi.cast(lltype.Signed, dwErrCode)
-            raise REnvironmentError(os.strerror(err))
+            raise OSError(err, os.strerror(err))
     
     def len(self):
         self.check_valid()
@@ -607,14 +601,12 @@ if _POSIX:
             flags |= MAP_ANONYMOUS
 
         else:
-            try:
-                m.fd = os.dup(fd)
-            except OSError, e:
-                raise REnvironmentError(os.strerror(e.errno))
+            m.fd = os.dup(fd)
 
         res = c_mmap(NULL, map_size, prot, flags, fd, 0)
         if res == rffi.cast(PTR, -1):
-            raise REnvironmentError(_get_error_msg())
+            errno = _get_error_no()
+            raise OSError(errno, os.strerror(errno))
         
         m.setdata(res, map_size)
         return m
@@ -647,7 +639,8 @@ elif _MS_WINDOWS:
             # parts of the C library use HANDLE, others just ints
             # XXX hack - made _get_osfhandle compatible
             if fh == INVALID_HANDLE:
-                raise REnvironmentError(_get_error_msg())
+                errno = _get_error_no()
+                raise OSError(errno, os.strerror(errno))
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)
@@ -669,7 +662,8 @@ elif _MS_WINDOWS:
                                       False, # inherited by child procs?
                                       DUPLICATE_SAME_ACCESS) # options
                 if not res:
-                    raise REnvironmentError(_get_error_msg())
+                    errno = _get_error_no()
+                    raise OSError(errno, os.strerror(errno))
                 m.file_handle = handle_ref[0]
             finally:
                 lltype.free(handle_ref, flavor='raw')
@@ -712,7 +706,7 @@ elif _MS_WINDOWS:
         else:
             dwErr = GetLastError()
         err = rffi.cast(lltype.Signed, dwErr)
-        raise REnvironmentError(os.strerror(err))
+        raise OSError(err, os.strerror(err))
 
         
 # register_external here?

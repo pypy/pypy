@@ -1,11 +1,11 @@
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import rffi, lltype, llmemory
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError, REnvironmentError
+from pypy.rlib.rmmap import RValueError, RTypeError
 import sys
 import os
 import platform
@@ -212,8 +212,8 @@ if rmmap._POSIX:
         try:
             return space.wrap(W_MMap(space, rmmap.mmap(fileno, length,
                                                        flags, prot, access)))
-        except REnvironmentError, e:
-            raise OperationError(space.w_EnvironmentError, space.wrap(e.message))
+        except OSError, e:
+            raise wrap_oserror(space, e, 'w_EnvironmentError')
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
@@ -226,8 +226,8 @@ elif rmmap._MS_WINDOWS:
         try:
             return space.wrap(W_MMap(space, rmmap.mmap(fileno, length,
                                                        tagname, access)))
-        except REnvironmentError, e:
-            raise OperationError(space.w_EnvironmentError, space.wrap(e.message))
+        except OSError, e:
+            raise wrap_oserror(space, e, 'w_EnvironmentError')
         except RValueError, e:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
