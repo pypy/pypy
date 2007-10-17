@@ -43,7 +43,9 @@ elif _WIN:
 
 class cConfig:
     pass
-cConfig.__dict__.update(platform.configure(CConfig))
+
+for k, v in platform.configure(CConfig).items():
+    setattr(cConfig, k, v)
 cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result):

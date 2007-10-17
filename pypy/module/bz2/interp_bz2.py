@@ -44,9 +44,10 @@ constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
     
-class cConfig:
+class cConfig(object):
     pass
-cConfig.__dict__.update(platform.configure(CConfig))
+for k, v in platform.configure(CConfig).items():
+    setattr(cConfig, k, v)
 
 for name in constant_names:
     value = getattr(cConfig, name)

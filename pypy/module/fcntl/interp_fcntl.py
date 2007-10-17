@@ -31,10 +31,11 @@ constant_names = ['LOCK_SH', 'LOCK_EX', 'LOCK_NB', 'LOCK_UN', 'F_DUPFD',
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
 
-class cConfig:
+class cConfig(object):
     pass
 
-cConfig.__dict__.update(platform.configure(CConfig))
+for k, v in platform.configure(CConfig).items():
+    setattr(cConfig, k, v)
 cConfig.flock.__name__ = "_flock"
 
 if "linux" in sys.platform:
