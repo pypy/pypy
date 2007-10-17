@@ -120,18 +120,18 @@ def pack_pointer(space, add_arg, argdesc, w_arg, push_func):
     push_func(add_arg, argdesc, ll_str)
     return ll_str
 
-def unwrap_arg(space, push_func, add_arg, argdesc, argtype, w_arg, to_free):
+def unwrap_value(space, push_func, add_arg, argdesc, tp, w_arg, to_free):
     w = space.wrap
     # XXX how to handle LONGLONG here?
     # they're probably long, so we'll not get them through int_w
-    if argtype == "d" or argtype == "f":
+    if tp == "d" or tp == "f":
         push_func(add_arg, argdesc, space.float_w(w_arg))
-    elif argtype == "s":
+    elif tp == "s":
         ll_str = rffi.str2charp(space.str_w(w_arg))
         if to_free is not None:
             to_free.append(ll_str)
         push_func(add_arg, argdesc, ll_str)
-    elif argtype == "P":
+    elif tp == "P":
         # check for NULL ptr
         if space.is_w(w_arg, space.w_None):
             push_func(add_arg, argdesc, lltype.nullptr(rffi.VOIDP.TO))
@@ -149,7 +149,7 @@ def unwrap_arg(space, push_func, add_arg, argdesc, argtype, w_arg, to_free):
             else:
                 raise OperationError(space.w_TypeError, w(
                     "Expected structure, array or simple type"))
-    elif argtype == "c" or argtype == "b" or argtype == "B":
+    elif tp == "c" or tp == "b" or tp == "B":
         s = space.str_w(w_arg)
         if len(s) != 1:
             raise OperationError(space.w_ValueError, w(
@@ -157,40 +157,39 @@ def unwrap_arg(space, push_func, add_arg, argdesc, argtype, w_arg, to_free):
         s = s[0]
         push_func(add_arg, argdesc, s)
     else:
-        #assert argtype  "iIhHlLqQ"
+        #assert tp  "iIhHlLqQ"
         push_func(add_arg, argdesc, space.int_w(w_arg))
-unwrap_arg._annspecialcase_ = 'specialize:arg(1)'
-# we should have also here specialize:argtype(5) :-/
+unwrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 ll_typemap_iter = unrolling_iterable(LL_TYPEMAP.items())
 
-def wrap_result(space, restype, arg, argdesc, func):
+def wrap_value(space, func, add_arg, argdesc, tp):
     for c, ll_type in ll_typemap_iter:
-        if restype == c:
+        if tp == c:
             if c == 's':
-                ptr = func(arg, argdesc, rffi.CCHARP)
+                ptr = func(add_arg, argdesc, rffi.CCHARP)
                 if not ptr:
                     return space.w_None
                 return space.wrap(rffi.charp2str(ptr))
             elif c == 'P':
-                res = func(arg, argdesc, rffi.VOIDP)
+                res = func(add_arg, argdesc, rffi.VOIDP)
                 if not res:
                     return space.w_None
                 return space.wrap(rffi.cast(rffi.INT, res))
             #elif c == 'q' or c == 'Q' or c == 'L':
             #    return space.newlong(func(arg, ll_type))
             elif c == 'f' or c == 'd':
-                return space.wrap(float(func(arg, argdesc, ll_type)))
+                return space.wrap(float(func(add_arg, argdesc, ll_type)))
             elif c == 'c' or c == 'b' or c == 'B':
-                return space.wrap(chr(rffi.cast(rffi.INT, func(arg, argdesc,
+                return space.wrap(chr(rffi.cast(rffi.INT, func(add_arg, argdesc,
                                                                ll_type))))
             elif c == 'h' or c == 'H':
-                return space.wrap(rffi.cast(rffi.INT, func(arg, argdesc,
+                return space.wrap(rffi.cast(rffi.INT, func(add_arg, argdesc,
                                                            ll_type)))
             else:
-                return space.wrap(intmask(func(arg, argdesc, ll_type)))
+                return space.wrap(intmask(func(add_arg, argdesc, ll_type)))
     return space.w_None
-wrap_result._annspecialcase_ = 'specialize:arg(4)'
+wrap_value._annspecialcase_ = 'specialize:arg(1)'
 
 def ptr_call(ptr, some_arg, ll_type):
     return ptr.call(ll_type)
@@ -217,10 +216,10 @@ class W_FuncPtr(Wrappable):
         for i in range(len(self.argtypes)):
             argtype = self.argtypes[i]
             w_arg = args_w[i]
-            unwrap_arg(space, push, self.ptr, i, argtype, w_arg, to_free)
+            unwrap_value(space, push, self.ptr, i, argtype, w_arg, to_free)
             i += 1
         try:
-            return wrap_result(space, self.restype, self.ptr, None, ptr_call)
+            return wrap_value(space, ptr_call, self.ptr, None, self.restype)
         finally:
             for elem in to_free:
                 lltype.free(elem, flavor='raw')

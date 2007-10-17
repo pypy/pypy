@@ -13,7 +13,7 @@ from pypy.interpreter.error import OperationError, wrap_oserror
 # the other one is in rlib/libffi, we should refactor it to reuse the same
 # logic, I'll not touch it by now, and refactor it later
 from pypy.module.struct.nativefmttable import native_fmttable as struct_native_fmttable
-from pypy.module._ffi.interp_ffi import wrap_result, unwrap_arg
+from pypy.module._ffi.interp_ffi import wrap_value, unwrap_value
 
 native_fmttable = {}
 for key, value in struct_native_fmttable.items():
@@ -81,7 +81,7 @@ class W_StructureInstance(Wrappable):
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
-                return wrap_result(space, c, self, i, cast_pos)
+                return wrap_value(space, cast_pos, self, i, c)
         raise OperationError(space.w_AttributeError, space.wrap(
             "C Structure has no attribute %s" % attr))
     getattr.unwrap_spec = ['self', ObjSpace, str]
@@ -90,7 +90,7 @@ class W_StructureInstance(Wrappable):
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
-                unwrap_arg(space, push_field, self, i, c, w_value, None)
+                unwrap_value(space, push_field, self, i, c, w_value, None)
                 return
     setattr.unwrap_spec = ['self', ObjSpace, str, W_Root]
 
