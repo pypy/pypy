@@ -13,3 +13,11 @@ class Structure(object):
                 raise TypeError("Keyword arguments not allowed when passing address argument")
             return StructureInstance(self, args[0], None)
         return StructureInstance(self, None, kwds)
+
+class Array(object):
+    def __init__(self, of):
+        self.of = of
+
+    def __call__(self, size):
+        from _ffi import ArrayInstance
+        return ArrayInstance(self.of, size)

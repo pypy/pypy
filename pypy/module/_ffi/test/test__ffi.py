@@ -59,6 +59,16 @@ class AppTestCTypes:
               return static_str;
            return NULL;
         }
+
+        int get_array_elem(int* stuff, int num)
+        {
+           return stuff[num];
+        }
+
+        struct x* get_array_elem_s(struct x** array, int num)
+        {
+           return array[num];
+        }
         '''))
         compile_c_module([c_file], 'x')
         return str(udir.join('x.so'))
@@ -187,6 +197,34 @@ class AppTestCTypes:
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
         x = create_double_struct()
         assert X(X(x).next).x2 == 3
+
+    def test_array(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        A = _ffi.Array('i')
+        get_array_elem = lib.ptr('get_array_elem', ['P', 'i'], 'i')
+        a = A(10)
+        a[8] = 3
+        a[7] = 1
+        a[6] = 2
+        assert get_array_elem(a, 9) == 0
+        assert get_array_elem(a, 8) == 3
+        assert get_array_elem(a, 7) == 1
+        assert get_array_elem(a, 6) == 2
+        assert a[3] == 0
+
+    def test_array_of_structure(self):
+        import _ffi
+        lib = _ffi.CDLL(self.lib_name)
+        A = _ffi.Array('P')
+        X = _ffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
+        x = X(x2=3)
+        a = A(3)
+        a[1] = x
+        get_array_elem_s = lib.ptr('get_array_elem_s', ['P', 'i'], 'P')
+        ptr1 = get_array_elem_s(a, 0)
+        assert ptr1 is None
+        assert X(get_array_elem_s(a, 1)).x2 == 3
 
     def test_implicit_structure(self):
         skip("Does not work yet")

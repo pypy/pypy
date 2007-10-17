@@ -2,6 +2,6 @@
 * long support with all messy corners (when to create long integer and
   such), also short overflowing
 
-* add arrays
-
+* add faulty parameters checking (they end up with fatal rpython error KeyErro
+  or sth like that by now)
 

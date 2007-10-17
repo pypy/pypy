@@ -50,12 +50,11 @@ def push_field(self, num, value):
     rffi.cast(T, ptr)[0] = value
 push_field._annspecialcase_ = 'specialize:argtype(2)'
     
-def cast_pos(self, ll_t):
-    i = self.next_pos
+def cast_pos(self, i, ll_t):
     pos = rffi.ptradd(self.ll_buffer, self.ll_positions[i])
     TP = lltype.Ptr(rffi.CArray(ll_t))
     return rffi.cast(TP, pos)[0]
-cast_pos._annspecialcase_ = 'specialize:arg(1)'
+cast_pos._annspecialcase_ = 'specialize:arg(2)'
 
 class W_StructureInstance(Wrappable):
     def __init__(self, space, w_shape, w_address, w_fieldinits):
@@ -71,7 +70,6 @@ class W_StructureInstance(Wrappable):
             self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
                                            zero=True)
         self.ll_positions = pos
-        self.next_pos = 0
         if space.is_true(w_fieldinits):
             for w_field in space.unpackiterable(w_fieldinits):
                 w_value = space.getitem(w_fieldinits, w_field)
@@ -83,9 +81,7 @@ class W_StructureInstance(Wrappable):
         for i in range(len(self.fields)):
             name, c = self.fields[i]
             if name == attr:
-                # XXX RPython-trick for passing lambda around
-                self.next_pos = i
-                return wrap_result(space, c, self, cast_pos)
+                return wrap_result(space, c, self, i, cast_pos)
         raise OperationError(space.w_AttributeError, space.wrap(
             "C Structure has no attribute %s" % attr))
     getattr.unwrap_spec = ['self', ObjSpace, str]
